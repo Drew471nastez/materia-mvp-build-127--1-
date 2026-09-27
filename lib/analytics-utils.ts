@@ -1,6 +1,7 @@
 import { hasConsent } from "@/lib/consent/client"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer } from "@/lib/analytics/sources"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
+import { send, skipReason } from "@/lib/analytics/page-tracker"
 // lib/analytics-utils.ts
 // Utility functions for analytics tracking
 
@@ -160,18 +161,17 @@ export function trackFunnelStep(
   const key = `${eventType}|${creatorId}|${productId || ""}`
   if (sentSteps.has(key)) return Promise.resolve()
   sentSteps.add(key)
-  return fetch("/api/track-event", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    keepalive: true,
-    body: JSON.stringify({
-      eventType,
-      creatorId,
-      productId: productId || undefined,
-      /* Without analytics consent these are empty, and not sent at all. */
-      sessionId: getOrCreateSessionId() || undefined,
-      visitorId: getOrCreateVisitorId() || undefined,
-    }),
+  /* A browser driven by a script is not a buyer (lib/analytics/page-tracker). */
+  if (skipReason(window) === "automated") return Promise.resolve()
+  return send(window, "/api/track-event", {
+    eventType,
+    creatorId,
+    productId: productId || undefined,
+    /* The page it happened on, which the server places on a property (lib/analytics/property). */
+    href: window.location.href,
+    /* Without analytics consent these are empty, and not sent at all. */
+    sessionId: getOrCreateSessionId() || undefined,
+    visitorId: getOrCreateVisitorId() || undefined,
   })
     .then(() => undefined)
     .catch(() => undefined)
@@ -188,20 +188,13 @@ export function getOrCreateVisitorId(): string {
   return vid
 }
 
-export function hasViewBeenTracked(pageKey: string): boolean {
-  if (typeof sessionStorage === "undefined") return false
-  const tracked = sessionStorage.getItem(`materia_tracked_${pageKey}`)
-  return tracked === "true"
-}
+/*
+  Which pages this tab has already counted is kept by lib/analytics/page-tracker
+  (pageKeyOf, recentlySent): by host and path, for 30 minutes. It was one key
+  per creator here, so every page of a website after the first was dropped as
+  a repeat, and a website counted one view a visit whatever was read.
+*/
 
-export function markViewAsTracked(pageKey: string): void {
-  if (typeof sessionStorage === "undefined") return
-  sessionStorage.setItem(`materia_tracked_${pageKey}`, "true")
-}
-
-export function getPageKey(type: string, creatorId: string, productId?: string | null): string {
-  return productId ? `${type}_${creatorId}_${productId}` : `${type}_${creatorId}`
-}
 /**
  * ===========================================================================
  *  DEVICE, BROWSER AND SYSTEM, BY THE SAME RULES THE SERVER READS
@@ -232,11 +225,6 @@ export function getBrowser(): string {
 
 export function getOS(): string {
   return agent().os ?? "Other"
-}
-
-/** A browser driven by a script says so; a person's never does. */
-export function isAutomatedBrowser(): boolean {
-  return typeof navigator !== "undefined" && (navigator as Navigator & { webdriver?: boolean }).webdriver === true
 }
 
 // Get screen dimensions

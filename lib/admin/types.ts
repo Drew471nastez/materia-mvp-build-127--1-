@@ -280,7 +280,8 @@ export type SchemaCheck = { table: string; present: boolean | null; missingColum
 
 export type SystemPayload = Base & {
   crons: CronCheck[]
-  env: { name: string; set: boolean; group: string }[]
+  /** `optional`: not set is normal (an extra switched off), shown as Off, never as a problem. */
+  env: { name: string; set: boolean; group: string; optional?: boolean }[]
   rateLimit: { rows: Figure; oldest: string | null }
   schema: SchemaCheck[]
 }

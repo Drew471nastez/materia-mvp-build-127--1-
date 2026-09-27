@@ -1,0 +1,9 @@
+-- What the reports read beyond schema.sql, as the repository's SQL made it: the order columns the
+-- Orders page and Analytics count money from (parts 01, 03, 32), the subscribers table (part 46), and the
+-- OnePage's own tables with the columns app/api/onepage/track writes. Run after schema.sql and parts 04, 25, 32.
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS source_detail jsonb, ADD COLUMN IF NOT EXISTS buyer_country_code text, ADD COLUMN IF NOT EXISTS buyer_country text, ADD COLUMN IF NOT EXISTS buyer_email text;
+CREATE TABLE IF NOT EXISTS public.subscribers ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, email text NOT NULL, name text, source text, source_id uuid, source_detail jsonb, status text DEFAULT 'subscribed', is_active boolean DEFAULT true, consent_text text, consent_timestamp timestamptz DEFAULT now(), unsubscribe_token uuid DEFAULT gen_random_uuid(), tags text[] DEFAULT '{}', metadata jsonb DEFAULT '{}'::jsonb, subscribed_at timestamptz DEFAULT now(), unsubscribed_at timestamptz, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now() );
+CREATE INDEX IF NOT EXISTS subscribers_creator_subscribed_at ON public.subscribers (creator_id, subscribed_at DESC);
+ALTER TABLE public.store_theme_installs ADD COLUMN IF NOT EXISTS name text, ADD COLUMN IF NOT EXISTS published_at timestamptz;
+ALTER TABLE public.onepage_views ADD COLUMN IF NOT EXISTS referrer text, ADD COLUMN IF NOT EXISTS user_agent text, ADD COLUMN IF NOT EXISTS ip_hash text, ADD COLUMN IF NOT EXISTS country_code text, ADD COLUMN IF NOT EXISTS country_name text;
+ALTER TABLE public.onepage_clicks ADD COLUMN IF NOT EXISTS url text, ADD COLUMN IF NOT EXISTS visitor_id text, ADD COLUMN IF NOT EXISTS country_code text, ADD COLUMN IF NOT EXISTS user_agent text;

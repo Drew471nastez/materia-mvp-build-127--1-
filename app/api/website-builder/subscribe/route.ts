@@ -28,6 +28,7 @@ import { triggerEmailFlows } from "@/lib/email"
 import { randomUUID } from "node:crypto"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { contactSourceFrom, recordContactSource, type ContactForm } from "@/lib/contacts/contact-source"
+import { recordSignupAttribution } from "@/lib/attribution/server"
 
 /** Deliberately plain. A clever pattern refuses addresses that work. */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
@@ -144,6 +145,8 @@ export async function POST(req: NextRequest) {
   const placement: ContactForm = typeof body.placement === "string" && body.placement in CONSENT ? (body.placement as ContactForm) : "newsletter"
   const source = contactSourceFrom({ request: req, surface: "website", form: placement, sent: body.origin })
   await recordContactSource(db, creatorId, email, source)
+  /* And onto the same contact, this website and the visit's touches (lib/attribution). */
+  await recordSignupAttribution(db, { creatorId, email, source, sent: body.origin })
 
   /**
    * The creator's own welcome automation, the same one every other capture

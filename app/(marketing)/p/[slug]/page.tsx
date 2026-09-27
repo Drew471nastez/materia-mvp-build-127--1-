@@ -38,6 +38,7 @@ import { DiscoverBackBreadcrumb } from "@/components/product/discover-back-bread
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DownloadButton } from "@/components/download-button"
 import { TrackView } from "@/components/analytics/track-view"
+import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { SectionRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import { ProductAboutSection } from "@/components/store-builder/unified-section-renderer"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
@@ -1748,6 +1749,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           avatarUrl={creatorAvatarUrl}
           faviconUrl={productPageConfig?.headerSettings?.faviconUrl}
         />
+        {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
+        <CaptureTouch creatorId={product.creator_id} property="creator_page" />
 
         {/* Creator Bar - sticky on scroll, offset below header in Capacitor apps */}
         <DiscoverStickyWrapper>
@@ -1921,6 +1924,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         <link rel="preload" as="image" href={creatorAvatarPreload} fetchPriority="high" />
       )}
       <DynamicFavicon avatarUrl={creatorAvatarUrl} />
+      <CaptureTouch creatorId={product.creator_id} property="creator_page" />
 
       {/* Creator Bar - sticky on scroll, offset below header in Capacitor apps */}
       <DiscoverStickyWrapper>

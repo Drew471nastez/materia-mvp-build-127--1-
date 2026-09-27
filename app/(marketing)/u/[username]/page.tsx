@@ -13,6 +13,7 @@ import { keptPhoto } from "@/lib/account/identity"
 import { isReservedWord } from "@/lib/reserved-words"
 import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
+import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
@@ -1143,6 +1144,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             ...(chrome.tokens as React.CSSProperties),
           }}
         >
+          {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
+          <CaptureTouch creatorId={creator.id} property="creator_page" />
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
           {/* In the workspace's canvas, a product link has to stay framable. */}
           {embedded && <EmbeddedNavigation />}
@@ -1498,6 +1501,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         className="min-h-screen overflow-x-hidden"
         style={{ background: STOREFRONT_PAGE_BACKGROUND }}
       >
+        <CaptureTouch creatorId={creator.id} property="creator_page" />
         <DynamicFavicon avatarUrl={profile.avatar_url} />
         <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />

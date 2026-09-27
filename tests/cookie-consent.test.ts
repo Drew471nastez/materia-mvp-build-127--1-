@@ -73,12 +73,14 @@ function main() {
     /export function getOrCreateSessionId\(\): string \{\s*if \(typeof document === "undefined" \|\| !analyticsAllowed\(\)\) return ""/.test(utils)
       && /export function getOrCreateVisitorId\(\): string \{\s*if \(typeof document === "undefined" \|\| !analyticsAllowed\(\)\) return ""/.test(utils))
   check("and no attribution kept", /if \(!sessionId \|\| !analyticsAllowed\(\)\) return/.test(utils))
-  const view = read("app/api/track-view/route.ts")
+  /* The view tracker is lib/analytics/collect now; the cookie is written by lib/analytics/collect-route. */
+  const view = read("lib/analytics/collect.ts")
+  const door = read("lib/analytics/collect-route.ts")
   check("the server reads the visitor's own record, not what the page says",
-    /allows\(parse\(cookieStore\.get\(CONSENT_COOKIE\)\?\.value, Date\.now\(\)\), "analytics"\)/.test(view))
+    /allows\(parse\(req\.cookie\(CONSENT_COOKIE\), now\), "analytics"\)/.test(view))
   check("without it: a throwaway id, no city or region, and no cookie set",
-    /consented \? "v" : "anon"/.test(view) && /const city = consented \?/.test(view) && /if \(!consented\) \{[\s\S]{0,160}return res/.test(view))
-  check("and a cookie left from before is deleted", /res\.cookies\.set\("visitor_id", "", \{ maxAge: 0/.test(view))
+    /consented \? "v" : "anon"/.test(view) && /city: consented \?/.test(view) && /if \(!consented\) return req\.cookie\("visitor_id"\) \? \{ clear: true \} : null/.test(view))
+  check("and a cookie left from before is deleted", /res\.cookies\.set\("visitor_id", "", \{ maxAge: 0/.test(door))
   const client = read("lib/consent/client.ts")
   check("saying no takes back what yes had stored", /for \(const name of OPTIONAL_COOKIES\[category\]\) expire\(name\)/.test(client) && /materia_attr_/.test(client))
   check("the layout choices are remembered only with Preferences on",

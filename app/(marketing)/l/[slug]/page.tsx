@@ -2,6 +2,8 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { CaptureTouch } from "@/components/attribution/capture-touch"
+import { TrackView } from "@/components/analytics/track-view"
 import { headers } from "next/headers"
 import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
 import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
@@ -12,7 +14,7 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { findPublishedOnePage, onePageOwner, publishedOnePageSeo, publishedShape, resolveOnePage } from "@/lib/onepage/published-page"
 import { creatorPageUrl } from "@/lib/onepage/resolve-address"
-import { onePageMetadataFrom } from "@/lib/onepage/seo"
+import { onePageMetadataFrom, resolveOnePageSeo } from "@/lib/onepage/seo"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import crypto from "crypto"
 
@@ -69,7 +71,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // The owner's live profile, with the handle and the indexing answer beside it.
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
-  const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug)
+  /* The description names the page's products as the body draws them, read live (liveProducts). */
+  const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug, { liveProducts: true })
 
   /* The sitemap's rule, so a page it does not list does not ask to be listed.
      Not listed means not indexed, and not followed: the links are the whole
@@ -268,7 +271,18 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
             url: owner.canonical,
             name: transformedOnepage.title || owner.handle || "Creator",
             image: transformedOnepage.avatar_url,
-            description: transformedOnepage.bio,
+            /* The same words the metadata gives (lib/onepage/seo), from the blocks drawn below with their products read live. */
+            description: resolveOnePageSeo({
+              name: transformedOnepage.title,
+              bio: transformedOnepage.bio,
+              blocks: transformedOnepage.blocks,
+              socialLinks: transformedOnepage.social_links,
+              handle: onepage.slug || slug,
+              avatarUrl: transformedOnepage.avatar_url,
+              theme: transformedOnepage.theme,
+              settings: onepage.settings,
+              pageUrl: owner.canonical ?? "",
+            }).description.value,
             sameAs: onePageSameAs(transformedOnepage.social_links),
           }),
         )
@@ -278,6 +292,13 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
     <>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
       <PublicOnePage onepage={transformedOnepage} />
+      {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
+      <CaptureTouch creatorId={resolvedCreatorId} property="onepage" />
+      {/* The OnePage in Analytics, as one property among the creator's, by the
+          same rules as every other page (lib/analytics/collect). The count
+          above, in onepage_views, is the OnePage editor's and is unchanged.
+          Its links report their own clicks, with the block they came from. */}
+      {resolvedCreatorId && <TrackView creatorId={resolvedCreatorId} links={false} />}
     </>
   )
 }

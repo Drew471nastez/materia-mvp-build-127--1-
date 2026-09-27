@@ -14,6 +14,7 @@
  */
 
 import { cleanOrigin, type OrderOrigin, type OrderSource } from "./order-source"
+import { midnightOf, todayIn } from "../date-range/range"
 
 export interface OrderRow {
   id: string
@@ -47,6 +48,9 @@ export interface OrderRow {
   source?: string | null
   /** Where the checkout began (lib/orders/order-source), as the row holds it. */
   source_detail?: unknown
+  /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
+  property_type?: string | null
+  property_id?: string | null
   product?: {
     id: string
     title: string
@@ -229,8 +233,17 @@ function sinceMidnight(ms: number, timeZone: string): number {
   return ((get("hour") % 24) * 3600 + get("minute") * 60 + get("second")) * 1000 + (ms % 1000)
 }
 
+/**
+ * The instant the day `ms` falls on began, on that zone's clock. Not `ms`
+ * less the clock's time since midnight: on the two days a year the clocks
+ * change, the clock is an hour off the time that has passed, and each chart
+ * cut its day an hour wrong (Los Angeles' 1 November began at 1 am, its
+ * first hour counted on 31 October). lib/date-range/range midnightOf is
+ * right on those days.
+ */
 export function startOfDay(ms: number, timeZone: string): number {
-  return ms - sinceMidnight(ms, timeZone)
+  const midnight = midnightOf(todayIn(timeZone, ms), timeZone)
+  return Number.isFinite(midnight) && midnight <= ms ? midnight : ms - sinceMidnight(ms, timeZone)
 }
 
 /* ─── The list: views, search, filters, pages ─────────────────────────── */

@@ -9,8 +9,8 @@
  *
  * The first bytes are read back from storage and scanned when an upload
  * completes (a renamed executable, a script behind a document's name, and
- * the EICAR antivirus test file), and the file stays "pending_scan" for the
- * engine (lib/storage/antivirus, lib/storage/scan-gate) before a buyer can
+ * the EICAR antivirus test file), by the central check (lib/security/uploads),
+ * and is final at once: nothing waits for an engine (lib/storage/scan-gate) before a buyer can
  * download it.
  */
 import { readFileSync } from "node:fs"
@@ -41,9 +41,9 @@ function main() {
   check("a file over it is refused before the upload", preUploadCheck("pack.zip", 10 * GB + 1, "application/zip").sizeOk === false && preUploadCheck("pack.zip", 10 * GB, "application/zip").sizeOk === true)
   const complete = read("app/api/v2/upload/complete/route.ts")
   check("and again on the size that actually arrived, which is removed if it is over",
-    /if \(realSize > MAX_DIGITAL_PRODUCT_FILE_SIZE\) \{\s*return discard\("That file is over 10 GB, the most one file can be\.", 413\)/.test(complete)
-      && complete.indexOf("realSize > MAX_DIGITAL_PRODUCT_FILE_SIZE") < complete.indexOf("checkUploadAllowed(admin, creator.id, extra)"))
-  check("the editor says 10 GB and checks it", /Up to 10 GB each/.test(read("app/app/products/new/file-uploads.tsx")) && /const MAX_FILE_SIZE = 10 \* 1024 \* 1024 \* 1024/.test(read("app/app/products/new/product-editor.tsx")))
+    /if \(realSize > MAX_UPLOAD_BYTES\.product_file\) \{\s*return discard\(userMessage\("too_large", "product_file"\), 413\)/.test(complete)
+      && complete.indexOf("realSize > MAX_UPLOAD_BYTES.product_file") < complete.indexOf("checkUploadAllowed(admin, creator.id, extra)"))
+  check("the editor says 10 GB and checks it with the central rule", /Up to 10 GB each/.test(read("app/app/products/new/file-uploads.tsx")) && /precheckUpload\(\{ fileName: file\.name, size: file\.size, declaredMime: file\.type, context: "product_file" \}\)/.test(read("app/app/products/new/product-editor.tsx")))
 
   console.log("\nLooked at before it is sold")
   const eicar = new TextEncoder().encode("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*\r\n")
@@ -52,10 +52,10 @@ function main() {
   const mz = new Uint8Array(64); mz[0] = 0x4d; mz[1] = 0x5a
   check("a program renamed to a PDF is refused by its first bytes", scanFile("guide.pdf", "application/pdf", mz).safe === false)
   check("an executable's name is refused outright", scanFile("setup.exe", "application/octet-stream", null).safe === false && scanFile("invoice.pdf.exe", "application/octet-stream", null).safe === false)
-  check("the upload's first bytes are read back from storage and scanned before it counts as complete",
-    /const head = await readStoredHead\(admin, bucket, pending\.file_path\)/.test(complete) && /scanFile\(pending\.file_name/.test(complete) && /scan_status: (verdictKept \? "clean" : )?"pending_scan"/.test(complete))
+  check("the upload is checked from storage before it counts as complete, and is final at once (no pending state)",
+    complete.indexOf("inspectStoredObject(") > 0 && complete.indexOf("inspectStoredObject(") < complete.indexOf('upload_status: "completed"') && /scan_status: "clean",\s*scan_result: kept \? before : builtinResult\(verdict\)/.test(complete) && !/"pending_scan"/.test(complete))
   const gate = read("lib/storage/scan-gate.ts")
-  check("downloads wait for the scan, and an engine is switched on by one setting", /gateDownload/.test(gate) && /CLAMAV_REST_URL \|\| process\.env\.CLOUDMERSIVE_API_KEY \|\| process\.env\.VIRUSTOTAL_API_KEY/.test(read("lib/storage/antivirus.ts")))
+  check("downloads never wait for an engine, and an engine is switched on by one explicit setting", /gateDownload/.test(gate) && !/status: 409/.test(gate) && /SECURITY_MALWARE_PROVIDER/.test(read("lib/security/uploads/provider-config.ts")) && !/process\.env\.(CLAMAV_REST_URL|CLOUDMERSIVE_API_KEY|VIRUSTOTAL_API_KEY)/.test(read("lib/storage/antivirus.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

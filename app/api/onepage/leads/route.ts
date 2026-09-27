@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { recordSignupAttribution } from "@/lib/attribution/server"
 import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 
@@ -181,6 +182,7 @@ export async function POST(request: Request) {
         // Trigger new_subscriber email flows if insert was successful
         if (!subscriberInsertError) {
           await recordContactSource(adminSupabase, creatorId, subscriberEmail, leadSource)
+          await recordSignupAttribution(adminSupabase, { creatorId, email: subscriberEmail, source: leadSource, sent: body.origin })
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",
@@ -214,6 +216,7 @@ export async function POST(request: Request) {
         /* Joining again is joining, so the welcome goes, as it does above. */
         if (!resubError) {
           await recordContactSource(adminSupabase, creatorId, subscriberEmail, leadSource)
+          await recordSignupAttribution(adminSupabase, { creatorId, email: subscriberEmail, source: leadSource, sent: body.origin })
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",

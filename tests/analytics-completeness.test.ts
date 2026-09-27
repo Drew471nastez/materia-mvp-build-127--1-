@@ -8,8 +8,7 @@
  *   taps (components/app/dashboard-client.tsx) in single reads, and a read
  *   stops at 1,000 rows. A busy store's figures stopped counting without a
  *   word. Home now draws the Analytics answer (app/api/analytics/reports),
- *   counted on the server from every row, and reads its link taps a page at
- *   a time (lib/analytics/keyset).
+ *   counted on the server from every row, link clicks included.
  *
  *   Analytics read orders with `.in("product_id", <current products>)`, so a
  *   product the creator deleted took its sales with it, and a big catalog
@@ -22,8 +21,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { KEYSET_PAGE, keysetFrom, readByKeyset } from "../lib/analytics/keyset"
-import { clicksByBucket, homeAllTime, homeFigures, homeFromReports, homeQuestion, homeSpans } from "../lib/analytics/home-figures"
-import { buildReports, REMOVED_PRODUCT, type ViewRow } from "../lib/analytics/reports"
+import { homeAllTime, homeFigures, homeFromReports, homeQuestion, homeSpans } from "../lib/analytics/home-figures"
+import { buildReports, REMOVED_PRODUCT, type StepRow, type ViewRow } from "../lib/analytics/reports"
 import { reportKey } from "../lib/analytics/report-cache"
 import { byCreator, creatorSalesTotals, ownRows, scopedOrders } from "../lib/analytics/creator-orders"
 import { factsFromRows } from "../lib/home/progress"
@@ -77,7 +76,7 @@ async function main() {
       end: Math.max(span.end, span.start + 1),
       compare: compareBounds(period, { mode: "previous_period" }, TZ, NOW),
       product: "all",
-      mode: "store",
+      property: "all",
       timeZone: TZ,
     })
     check("the same key the Analytics page's prefetch asks with, so one answer serves both", key === warmKey, { key, warmKey })
@@ -87,14 +86,15 @@ async function main() {
 
     const views: ViewRow[] = Array.from({ length: 1500 }, (_, i) => ({ id: `v${i}`, session_id: `s${i % 600}`, created_at: new Date(window.start + (i % 144) * HOUR).toISOString() }))
     const orders: OrderRow[] = Array.from({ length: 1200 }, (_, i) => ({ id: `o${i}`, product_id: "p1", amount_cents: 1000, status: "completed", created_at: new Date(window.start + (i % 140) * HOUR + 1).toISOString() }))
-    const clicks = [window.start + 5, window.start + 2 * 24 * HOUR, previous!.start + 1]
-    const r = buildReports({ views, steps: [], orders, window, previous, timeZone: TZ, mainDomain: "", productTitles: {} })
-    const fromAnswer = homeFromReports(r, clicksByBucket(clicks, window, previous, TZ))
-    const fromRows = homeFigures({ orders, views, clicks, window, previous, timeZone: TZ })
+    const clicks: StepRow[] = [window.start + 5, window.start + 2 * 24 * HOUR, previous!.start + 1].map((t, i) => ({ id: `c${i}`, event_type: "link_click", session_id: `s${i}`, link_id: "b1", created_at: new Date(t).toISOString() }))
+    const r = buildReports({ views, steps: clicks, orders, window, previous, timeZone: TZ, mainDomain: "", productTitles: {} })
+    const fromAnswer = homeFromReports(r)
+    const fromRows = homeFigures({ orders, views, steps: clicks, window, previous, timeZone: TZ })
     check("the answer and the rows give Home the very same figures and series", JSON.stringify(fromAnswer) === JSON.stringify(fromRows))
-    check("  and past a thousand of each: 1,500 views, 1,200 orders", fromAnswer.periodViews === 1500 && fromAnswer.periodOrders === 1200, { v: fromAnswer.periodViews, o: fromAnswer.periodOrders })
-    check("  the link taps in the period only, in the chart's buckets", fromAnswer.series.views.reduce((n, p) => n + (p.secondaryValue ?? 0), 0) === 2)
-    check("all time under each figure is the route's line", JSON.stringify(homeAllTime({ views: 9, orders: 3, salesCents: 4500 })) === JSON.stringify({ totalViews: 9, totalOrders: 3, totalRevenue: 4500 }) && homeAllTime(null).totalOrders === 0)
+    check("  and past a thousand of each: 1,500 page views, 1,200 orders", fromAnswer.periodPageViews === 1500 && fromAnswer.periodOrders === 1200, { v: fromAnswer.periodPageViews, o: fromAnswer.periodOrders })
+    check("  visitors are people, not page views: 600 visits with no visitor id are 600 visitors", fromAnswer.periodVisitors === 600, fromAnswer.periodVisitors)
+    check("  the link clicks in the period only, in the chart's buckets", fromAnswer.series.views.reduce((n, p) => n + (p.secondaryValue ?? 0), 0) === 2)
+    check("all time under each figure is the route's line", JSON.stringify(homeAllTime({ orders: 3, salesCents: 4500 })) === JSON.stringify({ totalOrders: 3, totalRevenue: 4500 }) && homeAllTime(null).totalOrders === 0)
   }
 
   console.log("\nA deleted product's sales are kept, as Removed product")
@@ -109,10 +109,10 @@ async function main() {
       { id: "c", product_id: "gone", amount_cents: 500, status: "completed", created_at: at },
     ] as unknown as OrderRow[]
     const r = buildReports({ views: [], steps: [], orders, window, previous: null, timeZone: "UTC", mainDomain: "", productTitles: { p1: "Presets" } })
-    const removed = r.salesByProduct.filter((row) => row.label === "Removed product")
-    check("their sales stay in Total sales and Orders", r.sales.value === 3500 && r.orders.value === 3, { sales: r.sales.value, orders: r.orders.value })
-    check("  as one Removed product row with all of their money", removed.length === 1 && removed[0].key === REMOVED_PRODUCT && removed[0].value === 2500 && removed[0].extra?.orders === 2, removed)
-    check("  and Sales by product adds up to Total sales", r.salesByProduct.reduce((n, row) => n + row.value, 0) === r.sales.value)
+    const removed = r.topProducts.filter((row) => row.label === "Removed product")
+    check("their sales stay in Revenue and Orders", r.sales.value === 3500 && r.orders.value === 3, { sales: r.sales.value, orders: r.orders.value })
+    check("  as one Removed product row with all of their money", removed.length === 1 && removed[0].key === REMOVED_PRODUCT && removed[0].salesCents === 2500 && removed[0].orders === 2, removed)
+    check("  and Top products adds up to Revenue", r.topProducts.reduce((n, row) => n + row.salesCents, 0) === r.sales.value)
   }
 
   console.log("\nOrders read by their creator, never by a list of product ids")
@@ -138,9 +138,10 @@ async function main() {
     check("the embedded product is taken off the rows", JSON.stringify(ownRows([{ id: "o", products: { creator_id: "c" } }, { id: "p" }])) === JSON.stringify([{ id: "o" }, { id: "p" }]))
 
     const route = code("app/api/analytics/reports/route.ts")
-    check("the reports route lists no product ids for orders", !/\.in\("product_id"/.test(route) && !/productIds/.test(route))
+    const reads = code("lib/analytics/report-read.ts")
+    check("the reports route lists no product ids for orders", !/\.in\("product_id"/.test(route + reads) && !/productIds/.test(route + reads))
     check("  and reads the period's orders and the all time orders through byCreator",
-      /return byCreator\(\(scope\) =>\s*withColumns\(ORDER_COLUMNS/.test(route) && /const everyOrder = byCreator\(/.test(route) && /readOrders\(admin, spans, q\.creatorId, q\.product\)/.test(route) && /allTimeOf\(admin, q\.creatorId, q\.product\)/.test(route))
+      /return byCreator\(\(scope\) =>\s*withColumns\(ORDER_COLUMNS/.test(reads) && /const rows = await byCreator\(/.test(route) && /readOrders\(admin, spans, q\.creatorId, q\.product\)/.test(route) && /allTimeOf\(admin, q\.creatorId\)/.test(route))
   }
 
   console.log("\nHome's sales count and revenue: every order, not the first 1,000 rows")

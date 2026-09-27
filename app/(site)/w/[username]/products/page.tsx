@@ -8,6 +8,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { shopSections } from "@/lib/website-builder/shop-page"
 import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { TrackView } from "@/components/analytics/track-view"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -73,6 +74,8 @@ export default async function SiteShopPage({ params }: PageProps) {
         storefront={{ creatorId: site.creatorId, installId: site.installId }}
         emptyDetail="Nothing in the shop yet."
       />
+      {/* A page of the website like any other: one view, with its own path. */}
+      <TrackView creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )

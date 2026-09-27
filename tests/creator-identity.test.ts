@@ -240,7 +240,7 @@ async function main() {
     check("and reads the live display name", onepage.includes("display_name") && onepage.includes("owner.displayName"))
     check("it no longer starts the title from the published copy alone", !/const displayName = profile\?\.title \|\| onepage\.title \|\| "Creator"/.test(onepage))
     check("it no longer starts the icon from the published copy alone", !/faviconUrl = profile\?\.avatar_url \|\| onepage\.avatar_url/.test(onepage))
-    check("a Meta title that is only the name again does not win", seoLib.includes("overrideOf(settings.seo_title, autoT, SEO_TITLE_MAX, [name, plainName])"))
+    check("a Meta title that is only the name again does not win", seoLib.includes("overrideOf(settings.seo_title, autoT, SEO_TITLE_MAX, [name, plainName"))
     check("the share card takes the same face", onepage.includes("avatarUrl: drawn.avatar_url") && seoLib.includes("shareCardModel({ name, avatarUrl: input.avatarUrl"))
 
     const shape = readCode("lib/onepage/public-shape.ts")

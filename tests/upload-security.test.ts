@@ -258,12 +258,12 @@ async function main() {
   const prepare = code("app/api/v2/upload/prepare/route.ts")
   check("prepare checks quota, open uploads and the product's file limit", /checkUploadAllowed\(admin, creator\.id, fileSize\)/.test(prepare) && /tooManyPendingUploads\(admin, user\.id\)/.test(prepare) && /productFileLimit\(admin, productId/.test(prepare))
   check("prepare refuses a private file with no product", /isDigital && !productId/.test(prepare))
-  check("prepare takes only pictures for the public bucket", /declaresPublicImage\(contentType\)/.test(prepare))
+  check("prepare takes only pictures for the public bucket, by the central precheck", /validateFile\(fileName, contentType, fileSize, null, isDigital \? "product_file" : "public_image"\)/.test(prepare))
   check("complete checks the size storage recorded against the quota", /storedObjectSize\(admin, bucket, pending\.file_path\)/.test(complete) && /checkUploadAllowed\(admin, creator\.id, extra\)/.test(complete))
-  check("and reads the first bytes back and scans them", /readStoredHead\(admin, bucket, pending\.file_path\)/.test(complete) && /scanFile\(/.test(complete))
+  check("and runs the central check on what storage holds, by Range", /inspectStoredObject\(\s*admin,\s*\{ bucket, path: pending\.file_path \}/.test(complete))
   check("a picture that went up by signed URL is checked and stripped at complete", /cleanStoredPublicImage\(admin, PUBLIC_BUCKET, path\)/.test(complete))
-  check("a link page's file is not mistaken for a picture and removed, but a page or program is", /path\.startsWith\(`\$\{creator\.id\}\/digital-products\/`\)/.test(complete) && /kind\?\.family === "markup" \|\| kind\?\.family === "executable"/.test(complete))
-  check("the server upload checks bytes, quota and file limit", /scanFile\(fileName, contentType, readBufferHeader\(buffer\)\)/.test(code("app/api/v2/upload/server-upload/route.ts")) && /preparePublicImage\(buffer\)/.test(code("app/api/v2/upload/server-upload/route.ts")))
+  check("a link page's file is not mistaken for a picture and removed, but a page or program is", /path\.startsWith\(`\$\{creator\.id\}\/digital-products\/`\)/.test(complete) && /context: "link_page_file"/.test(complete))
+  check("the server upload checks bytes, quota and file limit", /inspectUpload\(\{\s*fileName,/.test(code("app/api/v2/upload/server-upload/route.ts")) && /preparePublicImage\(buffer\)/.test(code("app/api/v2/upload/server-upload/route.ts")))
 
   const guard = code("lib/storage/upload-guard.ts")
   check("uploads are counted per user in Postgres, per minute and per plan hour", /bucket: "upload"/.test(guard) && /subjects: \[`user:\$\{userId\}`\]/.test(guard) && /getPlanLimits\(planId\)\.rateLimit\.uploadsPerHour/.test(guard))
@@ -302,7 +302,14 @@ async function main() {
   const a = await generateSignedDownloadUrl(fakeAdmin, "c/digital-products/f.pdf", 86400 * 365, "messages", "Guide.pdf")
   check("a year-long expiry is cut to an hour", signed.every((s) => s.expiry <= 3600), JSON.stringify(signed.map((s) => s.expiry)))
   check("a row naming another private bucket is ignored", !signed.some((s) => s.bucket === "messages") && a?.bucket === "digital-products")
-  check("the URL is made as a download with the file's name", signed.every((s) => (s.options as { download?: unknown }).download === "Guide.pdf"))
+  check("the URL is made as a download with the file's name", new URL(a!.url).searchParams.get("download") === "Guide.pdf" && a!.url.startsWith("https://s/digital-products/"))
+  {
+    /* storage-js pasted the name in unencoded, so & and # cut it short; it is encoded here now. */
+    const odd = await generateSignedDownloadUrl(fakeAdmin, "c/f.zip", 300, undefined, "Drums & Bass #2 + café.zip")
+    check("a name with & # + and accents reaches storage whole", new URL(odd!.url).searchParams.get("download") === "Drums & Bass #2 + café.zip" && new URL(odd!.url).searchParams.get("token") === "x" && !new URL(odd!.url).hash)
+    const bare = await generateSignedDownloadUrl(fakeAdmin, "c/f.zip", 300, undefined, null)
+    check("with no name it is still an attachment, under the stored name", new URL(bare!.url).searchParams.get("download") === "")
+  }
   signed.length = 0
   check("a path that climbs out is never signed", (await generateSignedDownloadUrl(fakeAdmin, "c/../other/f.pdf")) === null && signed.length === 0)
 
@@ -319,7 +326,7 @@ async function main() {
   check("it never sends a storage path in place of a link", !/signed\?\.url \|\| asset\.file_path/.test(tokenDoor) && !/\|\| asset\.file_path/.test(v2))
   check("the download count cannot be raced past its limit", /\.eq\("download_count", record\.download_count\)/.test(tokenDoor))
   const gate = code("lib/storage/scan-gate.ts")
-  check("flagged files never go out; unscanned ones are scanned on the spot", /BLOCKED\.has\(status\)/.test(gate) && /headerVerdict\(admin, asset\)/.test(gate))
+  check("refused files never go out; older unchecked ones are checked once on the spot and served", /BLOCKED_STATUSES\.has\(status\)/.test(gate) && /resolveAsset\(admin, asset, \{ archive: false/.test(gate) && !/status: 409/.test(gate))
 
   /* ================================================================ */
   console.log("\nThe migration\n")

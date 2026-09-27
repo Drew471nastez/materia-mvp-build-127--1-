@@ -69,10 +69,11 @@ export async function readWebsitePerformance(input: {
   const from = new Date(previous ? Math.min(previous.start, span.start) : span.start).toISOString()
   const to = new Date(span.end).toISOString()
 
-  const viewsRead = orNull("visits", () => readAll<ViewRow>((a, b) =>
+  type Row = ViewRow & { property_type?: string | null }
+  const readViews = (columns: string) => readAll<Row>((a, b) =>
     admin
       .from("analytics_events")
-      .select("id, session_id, visitor_id, created_at, page_url")
+      .select(columns)
       .eq("creator_id", creatorId)
       .eq("event_type", "view")
       .gte("created_at", from)
@@ -83,7 +84,19 @@ export async function readWebsitePerformance(input: {
       .not("page_url", "ilike", `%//www.${main}/%`)
       .order("created_at", { ascending: true })
       .range(a, b),
-  ))
+  )
+  const viewsRead = orNull("visits", async () => {
+    let read: { rows: Row[]; truncated: boolean }
+    try {
+      read = await readViews("id, session_id, visitor_id, created_at, page_url, property_type")
+    } catch (e) {
+      /* A database before part 61 has no property_type, and no OnePage views to leave out. */
+      if (!/column|PGRST204/i.test((e as Error).message)) throw e
+      read = await readViews("id, session_id, visitor_id, created_at, page_url")
+    }
+    /* A OnePage on a connected domain is not the website: it is counted in the OnePage's own view. */
+    return { rows: read.rows.filter((r) => r.property_type !== "onepage"), truncated: read.truncated }
+  })
 
   const ordersRead = orNull("orders", async () => {
     const { data: products, error } = await admin.from("products").select("id").eq("creator_id", creatorId)

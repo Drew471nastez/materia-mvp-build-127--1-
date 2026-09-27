@@ -27,6 +27,7 @@
  */
 
 import * as React from "react"
+import { AnalyticsSummaryFact } from "@/components/app/analytics-summary-line"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -1209,6 +1210,8 @@ export function WebsiteBuilderClient({
                         <dt className="text-[#6b7280]">Last edited</dt>
                         <dd className="text-right font-medium text-[#1a1a2e]">{since(live.saved_at)}</dd>
                       </div>
+                      {/* Its visitors and orders in the last 30 days, opening Analytics filtered to this website (components/app/analytics-summary-line). */}
+                      <AnalyticsSummaryFact property={`website:${live.id}`} />
                       {live.theme && live.theme.name !== live.name && (
                         <div className="flex items-center justify-between gap-4 py-2.5">
                           <dt className="text-[#6b7280]">Theme</dt>

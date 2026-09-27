@@ -14,7 +14,10 @@ import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
-import { screenPublicBytes } from "@/lib/storage/upload-guard"
+import { screenInBackground } from "@/lib/storage/upload-guard"
+import { inspectHead, inspectUpload } from "@/lib/security/uploads/inspect"
+import { logUploadVerdict } from "@/lib/security/uploads/audit"
+import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { IMPORT_BUCKET, IMPORT_MAX_BYTES, IMPORT_NOT_A_PACKAGE, IMPORT_TOO_LARGE, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
 import JSZip from "jszip"
 import {
@@ -40,6 +43,16 @@ import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.gen
 
 const BUCKET = "store-builder-images"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * A file inside a package, checked by the central check before it gets a
+ * public URL: a picture must be a picture, a video a video, and nothing may
+ * be a program, a script or a web page, whatever its extension says.
+ */
+function packageFileAllowed(name: string, bytes: Uint8Array, kind: MediaKind): boolean {
+  const context = kind === "image" ? "public_image" : kind === "video" ? "video" : "link_page_file"
+  return inspectHead({ fileName: name, size: bytes.byteLength || 1, head: bytes.subarray(0, 8192), context }).ok
+}
 
 function rewriteUrls(node: unknown, urlMap: Record<string, string>): unknown {
   if (typeof node === "string") return urlMap[node] ?? node
@@ -140,16 +153,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: IMPORT_NOT_A_PACKAGE }, { status: 400 })
   }
 
-  /* The whole package through the malware scan when it is on (ClamAV looks
-     inside zips), before a file of it is unpacked or published. */
-  const screened = await screenPublicBytes(admin, buf, {
-    source: "theme_import",
-    bucket: IMPORT_BUCKET,
-    path: typeof stored === "string" ? stored : `${user.id}/form-upload.zip`,
+  /* The central check on the whole package before a file of it is unpacked:
+     a ZIP, and a table of contents with no traversal, no bomb and nothing
+     runnable (lib/security/uploads). An engine, when one is on, looks after. */
+  const packageBytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+  const verdict = await inspectUpload({
+    fileName: "package.zip",
+    size: packageBytes.byteLength,
+    head: packageBytes.subarray(0, 8192),
+    tail: { bytes: packageBytes.subarray(Math.max(0, packageBytes.byteLength - 70_000)), start: Math.max(0, packageBytes.byteLength - 70_000) },
+    readRange: async (a, b) => packageBytes.subarray(a, b + 1),
+    context: "theme_package",
   })
-  if (screened.blocked) {
-    return NextResponse.json({ error: "That theme package was flagged by the virus scan and was not imported." }, { status: 400 })
+  if (!verdict.ok) {
+    runAfterResponse(() => logUploadVerdict(admin, verdict, { context: "theme_package", userId: user.id, creatorId: creator.id, bucket: IMPORT_BUCKET, bytes: packageBytes.byteLength }))
+    return NextResponse.json({ error: verdict.code === "not_a_zip" ? IMPORT_NOT_A_PACKAGE : verdict.userMessage }, { status: 400 })
   }
+  screenInBackground(admin, { bytes: packageBytes, bucket: IMPORT_BUCKET, path: typeof stored === "string" ? stored : `${user.id}/form-upload.zip`, context: "theme_package", userId: user.id })
 
   // Load the zip
   let zip: JSZip
@@ -215,6 +235,7 @@ export async function POST(req: Request) {
         const type = MEDIA_TYPES[ext]
         if (!type) continue
         if (asset.bytes.byteLength > MAX_BYTES[type.kind]) continue
+        if (!packageFileAllowed(asset.filename, asset.bytes, type.kind)) continue
         const path = `${user.id}/imported/${hash.slice(0, 32)}.${ext}`
         const { error: upErr } = await admin.storage.from(BUCKET).upload(path, Buffer.from(asset.bytes), {
           contentType: type.mime,
@@ -361,6 +382,7 @@ export async function POST(req: Request) {
         if (!type) continue
         const data = await entry.file.async("nodebuffer")
         if (data.byteLength > MAX_BYTES[type.kind]) continue
+        if (!packageFileAllowed(entry.name, new Uint8Array(data.buffer, data.byteOffset, data.byteLength), type.kind)) continue
         const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`
         const path = `${user.id}/imported/${safeName}`
         const { error: upErr } = await admin.storage.from(BUCKET).upload(path, data, {

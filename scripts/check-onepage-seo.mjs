@@ -13,7 +13,10 @@
  *                  chosen one, moving on transform and opacity only
  *   FOLLOWING      Settings, SEO: the Google and shared link previews read
  *                  the page's name and bio; a rename in Basic info and a new
- *                  bio in Links change them; a typed title stops following
+ *                  bio in Links change them; with the bio cleared the
+ *                  description is made from the page (its one live link,
+ *                  not the one scheduled for 2030) and the line under the
+ *                  field says so; a typed title stops following
  *                  a rename; "Use page name" makes it follow again
  *   THE SAME       after Save, the row the editor sent is handed to the
  *                  public page's real generateMetadata
@@ -131,11 +134,13 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const base = `http://127.0.0.1:${server.address().port}`
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 
-async function open(vp, hash = "links") {
+async function open(vp, hash = "links", blocks = null) {
   const p = await browser.newPage()
   await p.setViewport(vp)
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e)))
+  /* A page of its own for the fixture (scripts/render-onepage-editor.tsx reads PROBE_BLOCKS as it loads). */
+  if (blocks) await p.evaluateOnNewDocument((b) => { window.PROBE_BLOCKS = b }, blocks)
   await p.goto(`${base}/app/onepage#${hash}`)
   await p.waitForSelector("[data-scroll-container]")
   await sleep(1000)
@@ -159,6 +164,9 @@ const read = (p) => p.evaluate(() => {
     imageUrl: document.querySelector("[data-og-card]")?.getAttribute("data-og-image-url") ?? null,
     cardText: document.querySelector("[data-og-generated]")?.textContent?.trim() ?? null,
     titleFollows: document.querySelector('[data-seo-field="seo-title"]')?.hasAttribute("data-follows") ?? null,
+    /* The line under a field that follows the page, saying where its words come from. */
+    titleSource: t('[data-seo-source="seo-title"]'),
+    descriptionSource: t('[data-seo-source="seo-description"]'),
   }
 })
 async function typeInto(p, selector, text) {
@@ -253,11 +261,12 @@ for (const [label, vp] of [
   await openSettings(p, phone)
   await section(p, "SEO")
   let s = await read(p)
-  expect(s.searchTitle === "Satori Studio | Storelib" && s.shareTitle === "Satori Studio", "the titles start from the page's name", { search: s.searchTitle, share: s.shareTitle })
+  expect(s.searchTitle === "Satori Studio (@satori) | Storelib" && s.shareTitle === "Satori Studio", "the titles start from the page's name, the search title with its handle", { search: s.searchTitle, share: s.shareTitle })
   expect(s.searchDescription === "Prints, posters and a newsletter" && s.shareDescription === s.searchDescription, "the descriptions from its bio", s.searchDescription)
   expect(s.shareDomain === "storelib.me" && s.searchUrl === "https://storelib.me › satori", "the host and the address (OnePages live at storelib.me/{username})", { d: s.shareDomain, u: s.searchUrl })
   expect(s.cardText === "SSstorelib.com/satori/links" || /Satori Studio/.test(s.cardText || ""), "the share picture draws the name", s.cardText)
   expect(s.titleFollows === true, "the title box says it follows the page")
+  expect(s.titleSource === "From your page name and address" && s.descriptionSource === "From your bio", "and under each field, where its words come from", { title: s.titleSource, description: s.descriptionSource })
   await p.screenshot({ path: join(shots, `seo-${label}-start.png`), fullPage: false })
 
   /* A rename in Basic info. */
@@ -265,7 +274,7 @@ for (const [label, vp] of [
   await typeInto(p, "[data-settings-name]", "Satori Prints")
   await section(p, "SEO")
   s = await read(p)
-  expect(s.searchTitle === "Satori Prints | Storelib" && s.shareTitle === "Satori Prints" && /Satori Prints/.test(s.cardText || ""), "a rename reaches both previews and the picture at once", { search: s.searchTitle, share: s.shareTitle, card: s.cardText })
+  expect(s.searchTitle === "Satori Prints (@satori) | Storelib" && s.shareTitle === "Satori Prints" && /Satori Prints/.test(s.cardText || ""), "a rename reaches both previews and the picture at once", { search: s.searchTitle, share: s.shareTitle, card: s.cardText })
   const imageAfterRename = s.imageUrl
 
   /* A new bio, typed where it is written: the Links tab's profile sheet. */
@@ -281,6 +290,29 @@ for (const [label, vp] of [
   s = await read(p)
   expect(s.searchDescription === "Riso prints, zines and a Friday letter" && s.shareDescription === s.searchDescription, "a new bio reaches both descriptions", s.searchDescription)
   expect(s.imageUrl === imageAfterRename, "and leaves the picture's address alone: the picture does not draw the bio", { before: imageAfterRename, after: s.imageUrl })
+
+  /*
+    NO BIO: the description is made from what the page shows. The fixture
+    has one link, one link scheduled for 2030 and a heading; the Instagram
+    in its profile links is in no social row, so it is not on the page.
+  */
+  await p.click(phone ? '[data-onepage-tabbar] [data-tab="links"]' : '[data-tab-row="desktop"] [data-tab="links"]')
+  await sleep(600)
+  await p.evaluate(() => [...document.querySelectorAll("[data-tab-panel=links] button")].find((b) => /Riso prints, zines and a Friday letter/.test(b.textContent) && b.getClientRects().length)?.click())
+  await sleep(600)
+  await typeInto(p, '[role=dialog] textarea', "")
+  await p.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.textContent.trim() === "Save")?.click())
+  await sleep(500)
+  await openSettings(p, phone)
+  await section(p, "SEO")
+  s = await read(p)
+  expect(s.searchDescription === "Links from Satori Prints: Shop the prints." && s.shareDescription === s.searchDescription, "no bio: the description names what is on the page, and the shared one follows it", s.searchDescription)
+  expect(!/Late night mix|Instagram/.test(s.searchDescription || ""), "a link scheduled for later, and a profile link the page does not draw, are not named", s.searchDescription)
+  expect(s.descriptionSource === "From your page: 1 link", "and the line under it says what it was made from", s.descriptionSource)
+  await p.evaluate(() => document.querySelector('[data-seo-source="seo-description"]')?.scrollIntoView({ block: "center" }))
+  await sleep(200)
+  await p.screenshot({ path: join(shots, `seo-${label}-from-page.png`), fullPage: false })
+  await p.evaluate(() => document.querySelector("[data-onepage-seo]")?.scrollIntoView({ block: "start" }))
 
   /* A title of their own, typed. */
   await p.evaluate(() => { window.__long = [] })
@@ -304,7 +336,7 @@ for (const [label, vp] of [
   if (reset) await reset.click()
   await sleep(200)
   s = await read(p)
-  expect(s.searchTitle === "Kyoto Riso | Storelib" && s.shareTitle === "Kyoto Riso" && s.titleFollows === true, "Use page name: it follows the page again", { search: s.searchTitle, share: s.shareTitle })
+  expect(s.searchTitle === "Kyoto Riso (@satori) | Storelib" && s.shareTitle === "Kyoto Riso" && s.titleFollows === true, "Use page name: it follows the page again", { search: s.searchTitle, share: s.shareTitle })
 
   /* A shared description of its own, then Save, then the public page's metadata. */
   if (!(await p.$("#social-description"))) await p.click("[data-seo-social-open]")
@@ -349,6 +381,44 @@ for (const [label, vp] of [
     await sleep(250)
     await p.screenshot({ path: join(shots, `settings-${label}-${file}.png`), fullPage: false })
   }
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
+/*
+  ─────────── A page with products and socials and its bio hidden ───────────
+  The description is made from what the page shows: three products by name,
+  the platform its social row draws and the YouTube its link goes to. The
+  row holds what the social links hold (lib/onepage/editor-state
+  syncedSocialPlatforms): the fixture links Instagram only, so the TikTok
+  and the email typed into the row are not drawn and not named. A
+  product switched off is not named. The line under the field counts them.
+*/
+const SHOP_PAGE = [
+  { id: "h", type: "header", enabled: true, sort_order: 0, data: { show_avatar: true, show_name: true, show_bio: false } },
+  { id: "p1", type: "product", enabled: true, sort_order: 1, data: { product_id: "p1", product_title: "Riso Pack", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 1800 } },
+  { id: "p2", type: "product", enabled: true, sort_order: 2, data: { product_id: "p2", product_title: "Zine No. 4", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 900 } },
+  { id: "p3", type: "product", enabled: true, sort_order: 3, data: { product_id: "p3", product_title: "Tote", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 2400 } },
+  { id: "p4", type: "product", enabled: false, sort_order: 4, data: { product_id: "p4", product_title: "Switched Off Poster", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 500 } },
+  { id: "s1", type: "social_row", enabled: true, sort_order: 5, data: { style: "icons", platforms: [{ platform: "instagram", url: "@satori" }, { platform: "tiktok", url: "@satori" }, { platform: "email", url: "hello@satori.example" }] } },
+  { id: "l1", type: "link_button", enabled: true, sort_order: 6, data: { label: "Studio videos", url: "https://youtube.com/@satori" } },
+]
+for (const [label, vp] of [
+  ["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+  ["desktop-1440", { width: 1440, height: 900 }],
+]) {
+  const phone = vp.width < 768
+  console.log(`\n── a page described from its products and socials, ${label} ──`)
+  const { p, errors } = await open(vp, "links", SHOP_PAGE)
+  await openSettings(p, phone)
+  await section(p, "SEO")
+  const s = await read(p)
+  expect(s.searchDescription === "Shop Riso Pack, Zine No. 4 and Tote from Satori Studio. Also on Instagram and YouTube." && s.shareDescription === s.searchDescription, "the description names the products and the platforms on the page", s.searchDescription)
+  expect(!/Switched Off|hello@|Email/.test(s.searchDescription || ""), "not a product switched off, not the email icon", s.searchDescription)
+  expect(s.descriptionSource === "From your page: 3 products, 2 socials", "the line under it counts what it was made from", s.descriptionSource)
+  await p.evaluate(() => document.querySelector('[data-seo-source="seo-description"]')?.scrollIntoView({ block: "center" }))
+  await sleep(200)
+  await p.screenshot({ path: join(shots, `seo-${label}-shop-page.png`), fullPage: false })
   expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
   await p.close()
 }

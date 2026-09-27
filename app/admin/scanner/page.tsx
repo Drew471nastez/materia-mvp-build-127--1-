@@ -1,28 +1,18 @@
-import type { Metadata, Viewport } from "next"
+import { permanentRedirect } from "next/navigation"
 
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 
 import { AdminLogin } from "../_console/login"
-import { ScannerAdmin } from "./scanner-admin"
 
 /**
- * `storelib.com/admin/scanner`: the malware scanner, for the owner to test.
- * Whether it is set up, ClamAV's version and signature date, a test with the
- * EICAR string, a file of your own, or a file already in storage, and the
- * latest scans. The admin cookie is checked here and again by
- * /api/admin/scanner for every read and test. Never indexed, and linked only
- * from inside the admin console.
+ * `storelib.com/admin/scanner` was the ClamAV scanner's page. The upload
+ * checks, and the optional malware engine with them, live on
+ * /admin/security now; an old bookmark lands there, after the admin session
+ * is checked like every other admin page.
  */
-export const metadata: Metadata = {
-  title: "Malware scanner | Storelib admin",
-  robots: { index: false, follow: false, nocache: true },
-}
-
-export const viewport: Viewport = { themeColor: "#0b0b0f", colorScheme: "dark" }
-
 export const dynamic = "force-dynamic"
 
 export default async function AdminScannerPage() {
   if (!(await isAdminAuthenticated())) return <AdminLogin />
-  return <ScannerAdmin />
+  permanentRedirect("/admin/security")
 }

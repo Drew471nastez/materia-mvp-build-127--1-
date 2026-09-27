@@ -9,8 +9,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
  *
  * Removes files nothing refers to any more (lib/storage/cleanup.ts): abandoned
  * theme packages, unfinished uploads, description pictures and product photos
- * that were taken out, stale download ZIPs. Then scans digital files still
- * waiting for their virus scan.
+ * that were taken out, stale download ZIPs. Then gives older product files
+ * their first check and a SHA-256, a few a run, and trims the security log.
  *
  * Query, for a person running it by hand with the secret:
  *   ?dry=1        say what would go, remove nothing

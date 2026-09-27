@@ -22,7 +22,7 @@
  *                 long cache only for the current fingerprint.
  */
 import { register } from "node:module"
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -39,6 +39,17 @@ import {
   shareCardModel,
   textLength,
 } from "@/lib/onepage/seo"
+import {
+  SEO_AUTO_DESCRIPTION_MAX,
+  cutAtWord,
+  descriptionSourceNote,
+  pageSentence,
+  platformLabel,
+  platformOfUrl,
+  summarizePage,
+  tidyBio,
+} from "@/lib/onepage/seo-description"
+import { resolveProductBlocks } from "@/lib/onepage/live-products"
 import { buttonStyleOf, checkPageSlug, checkSettingsPatch } from "@/lib/onepage/settings-rules"
 import { publicOnePageFromDraft } from "@/lib/onepage/public-shape"
 import { imageInfo } from "@/lib/onepage/share-image"
@@ -66,7 +77,7 @@ const base = (over: Record<string, unknown> = {}, settings: Record<string, unkno
 function resolution() {
   console.log("\nFollowing the page")
   const d = base()
-  check("the title is the name and the brand", d.title.value === "Satori Studio | Storelib" && d.title.auto)
+  check("the title is the name, the handle and the brand", d.title.value === "Satori Studio (@satori) | Storelib" && d.title.auto)
   check("the description is the bio", d.description.value === "Prints, posters and a newsletter" && d.description.auto)
   check("the shared title is the name alone: the app prints the site beside it", d.socialTitle.value === "Satori Studio" && d.socialTitle.auto)
   check("the shared description is the description", d.socialDescription.value === d.description.value && d.socialDescription.auto)
@@ -79,7 +90,7 @@ function resolution() {
   check("the host and Google's grey line", d.domain === "storelib.me" && d.breadcrumb === "storelib.me › satori")
 
   const renamed = base({ name: "Satori Prints" })
-  check("a rename moves the title, the shared title and the card", renamed.title.value === "Satori Prints | Storelib" && renamed.socialTitle.value === "Satori Prints" && cardOf({ name: "Satori Prints" }).image.url !== dc.image.url)
+  check("a rename moves the title, the shared title and the card", renamed.title.value === "Satori Prints (@satori) | Storelib" && renamed.socialTitle.value === "Satori Prints" && cardOf({ name: "Satori Prints" }).image.url !== dc.image.url)
   check("a new bio moves the description and not the picture", base({ bio: "Posters only" }).description.value === "Posters only" && base({ bio: "Posters only" }).image.url === d.image.url)
   check("a new photo moves the picture", base({ avatarUrl: "https://x.supabase.co/b.jpg" }).image.url !== d.image.url)
   check("a new theme colour moves the card", cardOf({ theme: { ...THEME, background_color: "#000000" } }).image.url !== dc.image.url)
@@ -87,8 +98,8 @@ function resolution() {
   console.log("\nAn empty page")
   const empty = base({ bio: "", name: "" })
   check("no name: the handle", empty.name === "@satori" && empty.title.value === "@satori | Storelib")
-  check("no bio: a plain line naming the page", empty.description.value === "Links and products from @satori.")
-  check("only spaces and markup in the bio count as none", base({ bio: "  <p> </p> " }).description.value === "Links and products from Satori Studio.")
+  check("no bio and nothing on the page: a plain line naming it", empty.description.value === "@satori on Storelib." && empty.derived.description.kind === "name")
+  check("only spaces and markup in the bio count as none", base({ bio: "  <p> </p> " }).description.value === "Satori Studio on Storelib.")
 
   console.log("\nSomebody types their own")
   const own = base({}, { seo_title: "Risograph prints from Kyoto", seo_description: "Hand pulled prints, shipped worldwide." })
@@ -100,12 +111,12 @@ function resolution() {
   check("a typed title no longer follows a rename", ownRenamed.title.value === "Risograph prints from Kyoto")
   check("but the fields nobody typed still do", ownRenamed.socialDescription.value === "Prints, posters and a newsletter" && ownRenamed.image.card.name === "Somebody Else")
   const social = base({}, { social_title: "Come say hi", social_description: "New prints every Friday" })
-  check("a shared title of its own leaves the search title alone", social.socialTitle.value === "Come say hi" && !social.socialTitle.auto && social.title.value === "Satori Studio | Storelib")
+  check("a shared title of its own leaves the search title alone", social.socialTitle.value === "Come say hi" && !social.socialTitle.auto && social.title.value === "Satori Studio (@satori) | Storelib")
   check("a shared description of its own", social.socialDescription.value === "New prints every Friday" && !social.socialDescription.auto)
 
   console.log("\nGoing back to following")
   check("a cleared field follows again", base({}, { seo_title: null }).title.auto && base({}, { seo_title: "" }).title.auto && base({}, { seo_title: "   " }).title.auto)
-  check("the page's own name typed back is not an override", base({}, { seo_title: "Satori Studio" }).title.auto && base({}, { seo_title: "satori studio | storelib" }).title.auto)
+  check("the page's own name typed back is not an override, nor either title it was ever given", base({}, { seo_title: "Satori Studio" }).title.auto && base({}, { seo_title: "satori studio | storelib" }).title.auto && base({}, { seo_title: "Satori Studio (@satori) | Storelib" }).title.auto)
   check("the bio typed back is not an override", base({}, { seo_description: "Prints, posters and a newsletter" }).description.auto)
 
   console.log("\nLong values, markup")
@@ -113,11 +124,11 @@ function resolution() {
   const long = base({ name: longName, bio: "word ".repeat(80) })
   check("a long name drops the brand and is cut to 60 at a word, with an ellipsis", textLength(long.title.value) <= SEO_TITLE_MAX && long.title.value.endsWith("…") && !/Storelib/.test(long.title.value), long.title.value)
   check("the shared title too", textLength(long.socialTitle.value) <= SEO_TITLE_MAX)
-  check("a long bio is cut to 160", textLength(long.description.value) <= SEO_DESCRIPTION_MAX && long.description.value.endsWith("…"))
+  check("a long bio is cut to 155 at a word", textLength(long.description.value) <= SEO_AUTO_DESCRIPTION_MAX && long.description.value.endsWith("word…"), long.description.value)
   const typedLong = base({}, { seo_title: "x".repeat(90), seo_description: "y".repeat(400) })
   check("a typed title and description are held to 60 and 160", textLength(typedLong.title.value) === 60 && textLength(typedLong.description.value) === 160)
   const marked = base({ name: "<b>Satori</b> &amp; Co", bio: "<script>alert(1)</script>Prints &lt;3\n\nand   posters" })
-  check("markup is taken out and entities read", marked.name === "Satori & Co" && !/[<>]/.test(marked.description.value) && /Prints 3 and posters|Prints and posters|alert\(1\) Prints 3 and posters/.test(marked.description.value), marked.description.value)
+  check("markup is taken out and entities read", marked.name === "Satori & Co" && !/[<>]/.test(marked.description.value) && marked.description.value === "alert(1) Prints 3. and posters", marked.description.value)
   check("no tag survives in any field", ![marked.title.value, marked.description.value, marked.socialTitle.value].some((v) => /<|>/.test(v)))
   check("an emoji is never cut in half", !/\uD83C$|\uD83D$/.test(clipText("😀".repeat(100), 10)) && textLength(clipText("😀".repeat(100), 10)) <= 10)
   check("plain text of nothing is nothing", plainText(null) === "" && plainText(42) === "")
@@ -140,13 +151,140 @@ function resolution() {
 
   console.log("\nThe metadata it makes")
   const m = onePageMetadataFrom(d, { handle: "satori", indexable: true, icon: "https://x.supabase.co/a.jpg" }) as any
-  check("the title whole, so the layout adds no second brand", m.title.absolute === "Satori Studio | Storelib")
+  check("the title whole, so the layout adds no second brand", m.title.absolute === "Satori Studio (@satori) | Storelib")
   check("one address for canonical and og:url", m.alternates.canonical === PAGE_URL && m.openGraph.url === PAGE_URL)
   /* Changed on purpose: the photo is a square summary card, the drawn card a large one. */
   check("the photo is a summary card, 600 square", m.twitter.card === "summary" && m.openGraph.images[0].width === 600 && m.openGraph.images[0].height === 600)
   const mc = onePageMetadataFrom(dc, { handle: "satori", indexable: true }) as any
   check("the card a large one, with its size", mc.twitter.card === "summary_large_image" && mc.openGraph.images[0].width === 1200 && mc.openGraph.images[0].height === 630)
   check("not listed means not indexed", (onePageMetadataFrom(d, { indexable: false }) as any).robots.index === false)
+}
+
+/* ─── A page with no description of its own is described from what is on it ─── */
+
+const NOW = Date.parse("2026-09-27T12:00:00Z")
+const product = (id: string, title: string | null, over: Record<string, unknown> = {}) => ({ id: `b-${id}`, type: "product", enabled: true, sort_order: 0, data: { product_id: id, product_title: title }, ...over })
+const link = (label: string, url: string, over: Record<string, unknown> = {}) => ({ id: `l-${label}`, type: "link_button", enabled: true, sort_order: 0, data: { label, url }, ...over })
+const socialRow = (platforms: Array<[string, string]>, over: Record<string, unknown> = {}) => ({ id: "s", type: "social_row", enabled: true, sort_order: 0, data: { style: "icons", platforms: platforms.map(([platform, url]) => ({ platform, url })) }, ...over })
+const header = (showBio = true, over: Record<string, unknown> = {}) => ({ id: "h", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: showBio }, ...over })
+const described = (blocks: unknown[], over: Record<string, unknown> = {}, settings: Record<string, unknown> = {}) =>
+  base({ name: "Mara Lee", handle: "mara", bio: "", blocks, socialLinks: {}, now: NOW, ...over }, settings)
+/* A pronoun about the creator: the sentence names them instead. */
+const PRONOUN = /\b(?:he|she|him|her|his|hers|they|them|their|theirs)\b/i
+/* Words nobody who sells a zine says about it. */
+const HYPE = /\b(?:unlock|elevate|seamless|powerful|effortless(?:ly)?|supercharge|transform|amazing|ultimate|discover)\b/i
+
+function describedFromThePage() {
+  console.log("\nThe description chain: typed, bio, page, name")
+  const page = [header(), product("p1", "Riso Pack"), product("p2", "Zine No. 4", { sort_order: 1 }), product("p3", "Tote", { sort_order: 2 }), socialRow([["instagram", "@mara"], ["tiktok", "@mara"]], { sort_order: 3 }), link("YouTube", "https://www.youtube.com/@mara", { sort_order: 4 })]
+  const typed = described(page, { bio: "Riso prints from Leeds" }, { seo_description: "Prints by hand, posted on Fridays." })
+  check("1. a description they typed wins over the bio and the page", typed.description.value === "Prints by hand, posted on Fridays." && !typed.description.auto)
+  const fromBio = described(page, { bio: "Riso prints from Leeds" })
+  check("2. then the bio", fromBio.description.value === "Riso prints from Leeds" && fromBio.derived.description.kind === "bio")
+  const fromPage = described(page)
+  check(
+    "3. then the page: its products by name, then where else to find them",
+    fromPage.description.value === "Shop Riso Pack, Zine No. 4 and Tote from Mara Lee. Also on Instagram, TikTok and YouTube." && fromPage.description.auto,
+    fromPage.description.value,
+  )
+  check("   and what it was made from, for the note under the field", JSON.stringify(fromPage.derived.description) === JSON.stringify({ kind: "page", products: 3, socials: 3, links: 0 }) && descriptionSourceNote(fromPage.derived.description) === "From your page: 3 products, 3 socials")
+  const empty = described([header()])
+  check("4. only an empty page gets the plain line", empty.description.value === "Mara Lee on Storelib." && descriptionSourceNote(empty.derived.description).startsWith("From your page name"))
+  check("the bio note", descriptionSourceNote(fromBio.derived.description) === "From your bio")
+
+  console.log("\nThe sentence, every way it is said")
+  const s = (blocks: unknown[], socialLinks: Record<string, unknown> = {}) => described(blocks, { socialLinks }).description.value
+  check("one product", s([product("p1", "Riso Pack")]) === "Shop Riso Pack from Mara Lee.")
+  check("more than three: a count and the first three", s(["a", "b", "c", "d", "e"].map((id, i) => product(id, `Print ${id.toUpperCase()}`, { sort_order: i }))) === "Shop 5 products from Mara Lee, including Print A, Print B and Print C.")
+  check("a product with no title is counted, not named", s([product("p1", null), product("p2", "Tote", { sort_order: 1 })]) === "Shop 2 products from Mara Lee, including Tote.")
+  check("a title too long to name is counted, not cut", s([product("p1", "The Complete Guide to Risograph Printing at Home for Beginners")]) === "Shop 1 product from Mara Lee.")
+  check("socials alone", s([socialRow([["instagram", "@m"], ["twitter", "@m"], ["youtube", "@m"], ["twitch", "m"]])]) === "Find Mara Lee on Instagram, X, YouTube and 1 more.")
+  check("a social row with none of its own draws the profile's links, and so is read from them", s([socialRow([])], { youtube: "https://youtube.com/@m", instagram: "@m" }) === "Find Mara Lee on Instagram and YouTube.")
+  check("links, when there are no socials", s([link("Podcast", "https://pod.example"), link("Newsletter", "https://news.example", { sort_order: 1 })]) === "Links from Mara Lee: Podcast and Newsletter.")
+  check("more links than it names", s(["Podcast", "Newsletter", "Portfolio", "Blog", "Shop"].map((l, i) => link(l, `https://${i}.example`, { sort_order: i }))) === "Links from Mara Lee: Podcast, Newsletter, Portfolio and 2 more links.")
+  check("products and links", s([product("p1", "Riso Pack"), link("Podcast", "https://pod.example", { sort_order: 1 })]) === "Shop Riso Pack from Mara Lee. Links to Podcast.")
+  check("socials win over link titles", s([link("Podcast", "https://pod.example"), link("Me on TikTok", "https://tiktok.com/@m", { sort_order: 1 })]) === "Find Mara Lee on TikTok.")
+  check("a link to a platform counts as that platform", platformOfUrl("https://m.youtube.com/@x") === "youtube" && platformOfUrl("instagram.com/x") === "instagram" && platformOfUrl("https://x.com/m") === "twitter" && platformOfUrl("https://mara.substack.com") === "substack" && platformOfUrl("https://example.com/instagram.com") === null)
+  /* The editor's list of platforms (components/onepage/brand-icons ONEPAGE_SOCIAL_PLATFORMS), read from its source so the icons' React is not loaded here. */
+  const offered = [...readFileSync(join(process.cwd(), "components/onepage/brand-icons.tsx"), "utf8").matchAll(/\{ key: "([a-z]+)", label: "([^"]+)" \}/g)].map((m) => [m[1], m[2]] as const)
+  const misnamed = offered.filter(([key, label]) => platformLabel(key) !== label)
+  check("each platform named as the editor and its icon name it", offered.length >= 20 && misnamed.length === 0, JSON.stringify(misnamed))
+  check("in the page's order, whatever order the array is in", s([product("p2", "Second", { sort_order: 2 }), product("p1", "First", { sort_order: 1 })]) === "Shop First and Second from Mara Lee.")
+  const again = [product("p1", "A"), product("p2", "B", { sort_order: 1 }), socialRow([["tiktok", "@m"], ["instagram", "@m"]], { sort_order: 2 })]
+  check("the same page says the same thing every time: nothing to flicker", s(again) === s(JSON.parse(JSON.stringify(again))) && s(again) === "Shop A and B from Mara Lee. Also on TikTok and Instagram.")
+  check("a product twice on the page is one product", s([product("p1", "Tote"), product("p1", "Tote", { id: "again", sort_order: 1 })]) === "Shop Tote from Mara Lee.")
+  const groupPage = [{ id: "g", type: "group", enabled: true, sort_order: 0, data: { layout: "stack", children: [product("p1", "Inside"), { ...product("p2", "Switched off"), enabled: false }] } }]
+  check("a group's products count, the ones it draws only", s(groupPage) === "Shop Inside from Mara Lee.")
+  const carousel = [{ id: "g", type: "group", enabled: true, sort_order: 0, data: { layout: "carousel", children: [{ ...product("p1", "Shown"), enabled: true }, { ...product("p2", "Unset"), enabled: undefined }] } }]
+  check("a carousel draws only the children switched on", s(carousel) === "Shop Shown from Mara Lee.")
+  const long = s([...["Risograph Print Number One", "Risograph Print Number Two", "Risograph Print Number Three", "Risograph Print Four"].map((t, i) => product(`p${i}`, t, { sort_order: i })), socialRow([["instagram", "@m"], ["tiktok", "@m"], ["youtube", "@m"], ["threads", "@m"], ["pinterest", "@m"]], { sort_order: 9 })])
+  check("held to 155, by naming fewer rather than cutting", textLength(long) <= SEO_AUTO_DESCRIPTION_MAX && !long.includes("…") && long.startsWith("Shop 4 products from Mara Lee"), long)
+  const every = [
+    s([product("p1", "A")]),
+    s([socialRow([["instagram", "@m"]])]),
+    s([link("Podcast", "https://pod.example")]),
+    s([product("p1", "A"), socialRow([["instagram", "@m"]], { sort_order: 1 })]),
+    s([product("p1", "A"), link("Podcast", "https://pod.example", { sort_order: 1 })]),
+    described([]).description.value,
+  ]
+  check("no pronoun, no hype word, no dash in any of them", every.every((t) => !PRONOUN.test(t) && !HYPE.test(t) && !/[–—]/.test(t)), every.join(" / "))
+
+  console.log("\nOnly what a visitor sees, and nothing private")
+  const hidden = s([
+    product("p1", "Switched off", { enabled: false }),
+    product("p2", "Next year", { schedule: { start_at: "2027-01-01T00:00:00Z" } }),
+    product("p3", "Ended", { schedule: { end_at: "2026-01-01T00:00:00Z" } }),
+    link("Draft link", "https://"),
+    link("Hidden link", "https://h.example", { enabled: false }),
+    socialRow([["instagram", "@m"]], { enabled: false }),
+  ])
+  check("a block that is off, scheduled for later, ended, or empty is not named", hidden === "Mara Lee on Storelib.", hidden)
+  check("a product that is archived or unpublished is not named (read live, as the page reads it)", s(resolveProductBlocks([product("p1", "Live"), product("p2", "Archived", { sort_order: 1 })], new Map([["p1", { id: "p1", title: "Live" }], ["p2", null]]))) === "Shop Live from Mara Lee.")
+  check("an email link or an email icon is never named", s([link("Email me", "mailto:mara@example.com"), socialRow([["email", "mara@example.com"], ["whatsapp", "+44 7700 900123"]], { sort_order: 1 })]) === "Mara Lee on Storelib.")
+  const leaky = s([link("Write to mara@example.com", "https://contact.example"), product("p1", "Zine <b>No. 4</b> &amp; tote", { sort_order: 1 })])
+  check("an address in a title is taken out; markup and entities too", !/@example|mara@|<|&amp;/.test(leaky) && leaky.includes("Zine No. 4 & tote"), leaky)
+  const bioHidden = described([header(false), product("p1", "Tote")], { bio: "Riso prints from Leeds" })
+  check("a bio the header hides is not used", bioHidden.description.value === "Shop Tote from Mara Lee." && bioHidden.derived.page.bioShown === false)
+  check("a page with no header block keeps its bio, as before", described([product("p1", "Tote")], { bio: "Riso prints" }).description.value === "Riso prints")
+  const huge = Array.from({ length: 5000 }, (_, i) => link(`Link ${i}`, `https://${i}.example`, { sort_order: i }))
+  const t0 = performance.now()
+  const big = summarizePage({ blocks: huge, now: NOW })
+  check("bounded: 5000 blocks read as the first 200, in well under 50ms", big.linkCount === 200 && performance.now() - t0 < 50, `${big.linkCount} in ${Math.round(performance.now() - t0)}ms`)
+
+  console.log("\nThe bio, tidied and cut")
+  check("lines become sentences, decorations and addresses go", tidyBio("Photographer\n• London\n\nBookings: mara@example.com\nPrints &amp; zines") === "Photographer. London. Bookings. Prints & zines", tidyBio("Photographer\n• London\n\nBookings: mara@example.com\nPrints &amp; zines"))
+  check("markup lines too", tidyBio("<p>Prints</p><p>Zines</p>") === "Prints. Zines")
+  const ls = String.fromCharCode(0x2028), zw = String.fromCharCode(0x200b), bell = String.fromCharCode(7)
+  check("invisible and control characters go", tidyBio(`Pri${zw}nts${bell} and${ls}zines`) === "Pri nts and. zines")
+  const early = cutAtWord("I print risographs in Leeds. Every print is pulled by hand on recycled paper, signed and numbered, and posted on Fridays to anywhere in the world with a note.", 155)
+  check("a sentence that ends early is not where it stops: too little would be left", early.endsWith("…") && early.length > 100, early)
+  const cut = cutAtWord("Prints, posters and a newsletter for people who like paper, ink, and the smell of a studio in the morning; also zines, totes and the occasional shirt (and more", 155)
+  check("otherwise at a word, with nothing hanging and an ellipsis", textLength(cut) <= 155 && cut.endsWith("…") && !/[\s,;:(]…$/.test(cut) && !/ (?:and|or|the|a)…$/.test(cut), cut)
+  const sentences = cutAtWord("Prints by hand. " + "Posted on Fridays to anywhere in the world, signed and numbered, on recycled paper. ".repeat(3), 155)
+  check("a sentence end late enough is where it stops", sentences.endsWith(".") && !sentences.endsWith("…") && textLength(sentences) <= 155, sentences)
+  check("text that fits is left alone", cutAtWord("Short bio.", 155) === "Short bio.")
+
+  console.log("\nThe title")
+  check("the name and the handle", described([]).title.value === "Mara Lee (@mara) | Storelib")
+  check("the handle is not repeated when it is the name", described([], { name: "Mara", handle: "mara" }).title.value === "Mara | Storelib" && described([], { name: "Mara Lee", handle: "mara.lee" }).title.value === "Mara Lee | Storelib")
+  const longish = described([], { name: "Satori Risograph Print Studio of Leeds", handle: "satoristudioleeds" }).title.value
+  check("the brand goes before the handle, the handle before the name is cut", longish === "Satori Risograph Print Studio of Leeds (@satoristudioleeds)" && textLength(longish) <= 60, longish)
+  const longer = described([], { name: "Satori Risograph Print Studio of Leeds and Co", handle: "satoristudioleeds" }).title.value
+  const longest = described([], { name: "Satori Risograph Print Studio of Leeds, Bradford and York", handle: "satoristudioleeds" }).title.value
+  check("then the name with the brand, then the name alone", longer === "Satori Risograph Print Studio of Leeds and Co | Storelib" && longest === "Satori Risograph Print Studio of Leeds, Bradford and York", JSON.stringify([longer, longest]))
+  check("the title note says where it comes from", described([]).derived.title === "name-and-handle" && described([], { name: "Mara", handle: "mara" }).derived.title === "name")
+
+  console.log("\nOverrides and the way back")
+  const own = described(page, {}, { seo_title: "Riso prints", seo_description: "By hand." })
+  check("typed title and description stop following, the shared ones follow them", own.title.value === "Riso prints" && own.socialTitle.value === "Riso prints" && own.socialDescription.value === "By hand." && own.socialDescription.auto)
+  const socialOwn = described(page, {}, { social_description: "Fridays only" })
+  check("a shared description of its own leaves the made one on search", socialOwn.socialDescription.value === "Fridays only" && socialOwn.description.value === fromPage.description.value)
+  check("reset (an empty value) follows the page again", described(page, {}, { seo_description: null }).description.value === fromPage.description.value && described(page, {}, { seo_description: "" }).description.auto)
+  check("the made sentence typed back is not an override", described(page, {}, { seo_description: fromPage.description.value }).description.auto)
+  check("nor the one line every page used to get", described(page, {}, { seo_description: "Links and products from Mara Lee." }).description.auto)
+  const followed = described(page.concat([product("p9", "Poster", { sort_order: 9 })]))
+  check("an edit to the page moves the made description", followed.description.value !== fromPage.description.value && /4 products/.test(followed.description.value), followed.description.value)
+  check("the sentence alone, for a page with nothing: null", pageSentence("M", summarizePage({ blocks: [] })) === null)
 }
 
 function pngHeader(w: number, h: number) {
@@ -194,8 +332,9 @@ const stubs: Record<string, string> = {
   ),
   "@/lib/custom-domains/store": stub("domains", `export const primaryHostFor = async () => null\n`),
   "@/lib/website-builder/site-seo-data": stub("site-seo", `export const activeDomainOf = async () => null\n`),
-  "@/lib/onepage/live-products": stub("live", `export const withLiveProducts = async (_db, _id, blocks) => blocks\n`),
   "@/components/onepage/public-onepage": stub("public", `export const PublicOnePage = () => null\n`),
+  "@/components/analytics/track-view": stub("track", `export const TrackView = () => null\n`),
+  "@/components/attribution/capture-touch": stub("touch", `export const CaptureTouch = () => null\n`),
   "@/lib/onepage/ensure-onepage": stub("ensure", `export const ensureOnePage = async () => null\n`),
   "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\n`),
   "next/og": stub(
@@ -258,9 +397,23 @@ function world(row: Record<string, any>, plan = "free") {
       { id: OWNER, username: "satori", display_name: "Satori Studio", avatar_url: null },
       { id: OTHER, username: "takenname", display_name: "Somebody", avatar_url: null },
     ],
-    products: [{ id: "p1", creator_id: CREATOR, status: "published" }],
+    /* The catalogue the page's product blocks are read against (lib/onepage/live-products, the real one). */
+    products: [
+      { id: "p1", creator_id: CREATOR, status: "published", title: "Riso Pack", slug: "riso-pack", price_cents: 1200, thumbnail_url: null },
+      { id: "p2", creator_id: CREATOR, status: "draft", title: "Unpublished Zine", slug: "zine", price_cents: 800, thumbnail_url: null },
+      { id: "p3", creator_id: CREATOR, status: "published", archived: true, title: "Archived Tote", slug: "tote", price_cents: 900, thumbnail_url: null },
+      { id: "p4", creator_id: CREATOR, status: "published", title: "Poster Renamed", slug: "poster", price_cents: 500, thumbnail_url: null },
+    ],
   })
 }
+
+/* What the catalogue answers about the same products, as the editor's panel asks it (components/onepage/seo-panel useProductAnswers). */
+const CATALOGUE = new Map<string, { id: string; title: string } | null>([
+  ["p1", { id: "p1", title: "Riso Pack" }],
+  ["p2", null],
+  ["p3", null],
+  ["p4", { id: "p4", title: "Poster Renamed" }],
+])
 
 const DRAFT = {
   id: PAGE,
@@ -277,9 +430,24 @@ const DRAFT = {
   draft_blocks: [],
 }
 
+/* A page with things on it: a live product, an unpublished one, an archived one, one renamed since it was added, socials and links. */
+const PAGE_BLOCKS = [
+  { id: "h", type: "header", enabled: true, sort_order: 0, data: { show_avatar: true, show_name: true, show_bio: true } },
+  { id: "b1", type: "product", enabled: true, sort_order: 1, data: { product_id: "p1", product_title: "Riso Pack" } },
+  { id: "b2", type: "product", enabled: true, sort_order: 2, data: { product_id: "p2", product_title: "Unpublished Zine" } },
+  { id: "b3", type: "product", enabled: true, sort_order: 3, data: { product_id: "p3", product_title: "Archived Tote" } },
+  { id: "b4", type: "product", enabled: true, sort_order: 4, data: { product_id: "p4", product_title: "Poster" } },
+  { id: "b5", type: "social_row", enabled: true, sort_order: 5, data: { style: "icons", platforms: [{ platform: "instagram", url: "@satori" }, { platform: "email", url: "hello@satori.example" }] } },
+  { id: "b6", type: "link_button", enabled: true, sort_order: 6, data: { label: "My videos", url: "https://youtube.com/@satori" } },
+  { id: "b7", type: "link_button", enabled: false, sort_order: 7, data: { label: "Secret link", url: "https://secret.example" } },
+]
+const FROM_THE_PAGE = "Shop Riso Pack and Poster Renamed from Satori Studio. Also on Instagram and YouTube."
+
 function previewOf(draft: Record<string, any>) {
   const drawn = publicOnePageFromDraft(draft as any, { displayName: "Satori Studio", liveAvatarUrl: null })
-  return resolveOnePageSeo({ name: drawn.title, bio: drawn.bio, handle: draft.slug, avatarUrl: drawn.avatar_url, theme: drawn.theme, settings: draft.settings, shareImageMode: draft.share_image_mode, pageUrl: PAGE_URL })
+  /* As the panel does it: the draft's blocks with each product as the catalogue answers, and its social links. */
+  const blocks = resolveProductBlocks(drawn.blocks, CATALOGUE)
+  return resolveOnePageSeo({ name: drawn.title, bio: drawn.bio, blocks, socialLinks: drawn.social_links, handle: draft.slug, avatarUrl: drawn.avatar_url, theme: drawn.theme, settings: draft.settings, shareImageMode: draft.share_image_mode, pageUrl: PAGE_URL })
 }
 
 async function metadataAndRoutes() {
@@ -293,6 +461,8 @@ async function metadataAndRoutes() {
     ["a typed title and a shared description", { ...DRAFT, settings: { ...DRAFT.settings, seo_title: "Risograph prints from Kyoto", social_description: "New prints every Friday" } }],
     ["an empty bio and an uploaded picture", { ...DRAFT, bio: "", share_image_mode: "custom", settings: { ...DRAFT.settings, social_image_url: "https://x.supabase.co/storage/v1/object/public/onepage-assets/u/og.jpg", social_image_position_x: 20, social_image_position_y: 80 } }],
     ["the card chosen", { ...DRAFT, share_image_mode: "card" }],
+    ["no bio: described from the page's blocks", { ...DRAFT, bio: "", draft_blocks: PAGE_BLOCKS, social_links: { youtube: "https://youtube.com/@satori" } }],
+    ["a bio the header hides", { ...DRAFT, draft_blocks: [{ ...PAGE_BLOCKS[0], data: { show_avatar: true, show_name: true, show_bio: false } }, ...PAGE_BLOCKS.slice(1)] }],
   ]
   for (const [label, draft] of cases) {
     S.admin = world(savedRow(draft))
@@ -312,6 +482,26 @@ async function metadataAndRoutes() {
       meta.twitter?.card === seen.image.twitterCard &&
       meta.openGraph?.images?.[0]?.type === seen.image.type
     check(`${label}: title, description, share card and address are the preview's`, same, JSON.stringify({ meta: { t: meta.title, d: meta.description, og: meta.openGraph }, seen: { t: seen.title, d: seen.description, st: seen.socialTitle, img: seen.image.url } }))
+  }
+
+  console.log("\nThe public description is made from the published copy, with its products read live")
+  {
+    const noBio = { ...DRAFT, bio: "", draft_blocks: PAGE_BLOCKS }
+    S.admin = world(savedRow(noBio))
+    const meta = await page.generateMetadata({ params: Promise.resolve({ slug: "satori" }) })
+    check("it names the live products under their names now, and where else to find them", meta.description === FROM_THE_PAGE && meta.openGraph?.description === FROM_THE_PAGE, meta.description)
+    check("an unpublished or archived product, an email, a switched off link: none of it is in the metadata", !/Unpublished|Archived|hello@|Secret/.test(JSON.stringify(meta)))
+    /* A draft edit that is not published yet: the live page keeps saying what was published. */
+    const draftBlocks = [...PAGE_BLOCKS, { id: "b9", type: "product", enabled: true, sort_order: 0.5, data: { product_id: "p1x", product_title: "Not Published Yet" } }]
+    const draftAhead = { ...savedRow(noBio), draft_blocks: draftBlocks }
+    S.admin = world(draftAhead)
+    const still = await page.generateMetadata({ params: Promise.resolve({ slug: "satori" }) })
+    check("a block added to the draft and not published yet is not in the live metadata", still.description === FROM_THE_PAGE && !/Not Published Yet/.test(JSON.stringify(still)), still.description)
+    check("the editor's preview, from that draft, already shows it", /Not Published Yet/.test(previewOf({ ...noBio, draft_blocks: draftBlocks }).description.value))
+    const bioAhead = { ...savedRow({ ...DRAFT, draft_blocks: PAGE_BLOCKS }), bio: "A draft bio" }
+    S.admin = world(bioAhead)
+    const bioStill = await page.generateMetadata({ params: Promise.resolve({ slug: "satori" }) })
+    check("a bio typed into the draft over a published one waits for publish", bioStill.description === DRAFT.bio, bioStill.description)
   }
   S.admin = world(savedRow(DRAFT))
   const missing = await page.generateMetadata({ params: Promise.resolve({ slug: "nobody-here" }) })
@@ -377,6 +567,7 @@ async function metadataAndRoutes() {
 
 async function main() {
   resolution()
+  describedFromThePage()
   rules()
   await metadataAndRoutes()
   console.log(`\n${passed} passed, ${failed} failed`)

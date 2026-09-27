@@ -93,7 +93,8 @@ async function main() {
     console.log("\nThe reports count that visitor once per visit")
     const window = { start: MORNING - 3_600_000, end: MORNING + 3 * 3_600_000 }
     const r = buildReports({
-      views: rows.map((x, i) => ({ id: `e${i}`, visitor_id: x.visitor_id, session_id: x.session_id, created_at: x.created_at })),
+      /* Every page view the tracker writes now says which place it was on (part 61); a visit is counted per place. */
+      views: rows.map((x, i) => ({ id: `e${i}`, visitor_id: x.visitor_id, session_id: x.session_id, created_at: x.created_at, property_type: "creator_page", property_id: null })),
       steps: [],
       orders: [],
       window,
@@ -107,16 +108,17 @@ async function main() {
 
   console.log("\nThe trackers")
   {
-    const view = read("app/api/track-view/route.ts")
-    const event = read("app/api/track-event/route.ts")
+    /* Changed on purpose: views, links and funnel steps are one pipeline now, lib/analytics/collect. */
+    const view = read("lib/analytics/collect.ts")
+    const door = read("lib/analytics/collect-route.ts")
     check("the view tracker gives a declining visitor the daily hash and its visit",
-      /anonVisitorId\(\{ ip: clientIp\(req\.headers\), userAgent: ua, creatorId: payload\.creatorId/.test(view) && /await anonSession\(supabase, anonVisitor, payload\.creatorId/.test(view))
+      /anonVisitorId\(\{ ip: clientIp\(req\.headers\), userAgent: ua, creatorId, now \}\)/.test(view) && /await anonSession\(db, anonVisitor, creatorId, now\)/.test(view))
     check("  still reads no cookie and sets none without consent",
-      /consented \? cookieStore\.get\("visitor_id"\)/.test(view) && /if \(!consented\) \{[\s\S]{0,160}return res/.test(view))
-    check("  and hands the hash back to nobody", /visitorId: consented \? visitorId : undefined/.test(view) && !/NextResponse\.json\(\{ ok: true, duplicate: true, visitorId, /.test(view))
-    const written = view.slice(view.indexOf("const fullEvent"), view.indexOf("const { error: fullInsertError }"))
-    check("  the IP address is never written to the event", written.length > 100 && !/clientIp|forwarded|\bip\b/i.test(written))
-    check("the funnel steps join the same visit", /anonVisitorId\(\{ ip: clientIp\(req\.headers\)/.test(event) && /await anonSession\(supabase, anonVisitor, payload\.creatorId/.test(event))
+      /consented \? browserId\(req\.cookie\("visitor_id"\)\)/.test(view) && /if \(!consented\) return req\.cookie\("visitor_id"\) \? \{ clear: true \} : null/.test(view))
+    check("  and hands the hash back to nobody: every answer is an empty 204", /new NextResponse\(null, \{ status: 204 \}\)/.test(door) && !/NextResponse\.json/.test(door) && !/visitorId/.test(door))
+    const written = view.slice(view.indexOf("/* 11. The row. */"), view.indexOf("const insert = async"))
+    check("  the IP address is never written to the event", written.length > 100 && !/clientIp|forwarded|\bip\b/i.test(written.replace(/x-vercel-ip-(country|city|country-region)/g, "")))
+    check("the funnel steps join the same visit", /visitorId = consented \? browserId\(body\.visitorId\) : anonVisitor/.test(view) && /sessionId = consented \? sessionFromBody : anonVisitor \? await anonSession\(db, anonVisitor, creatorId, now\)/.test(view))
     check("the privacy policy says what is kept", /changes every day and cannot be turned back into either/.test(read("app/privacy/page.tsx")))
   }
 

@@ -17,7 +17,7 @@ export async function system(r: Reader): Promise<Omit<SystemPayload, "problems" 
 
   return {
     crons,
-    env: ENV_CHECKS.map((e) => ({ name: e.name, group: e.group, set: typeof process.env[e.name] === "string" && process.env[e.name]!.length > 0 })),
+    env: ENV_CHECKS.map((e) => ({ name: e.name, group: e.group, set: typeof process.env[e.name] === "string" && process.env[e.name]!.length > 0, ...(e.optional ? { optional: true } : {}) })),
     rateLimit: { rows: rateRows, oldest: rateOldest?.[0]?.created_at ?? null },
     schema,
   }

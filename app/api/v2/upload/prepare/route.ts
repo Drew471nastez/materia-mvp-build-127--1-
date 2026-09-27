@@ -15,8 +15,8 @@ import {
   tooManyPendingUploads,
   uploadRateLimit,
 } from "@/lib/storage/upload-guard"
-import { PUBLIC_IMAGE_MAX_BYTES } from "@/lib/storage/public-image"
-import { declaresPublicImage } from "@/lib/storage/file-signature"
+import { logSecurityEvent } from "@/lib/security/uploads/audit"
+import { sanitizeDisplayName } from "@/lib/security/uploads/filename"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -143,24 +143,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate file (extension blocklist, double extensions, dangerous MIME)
-    const validation = validateFile(fileName, contentType, fileSize)
+    /* The central check on what can be known before a byte is sent: size,
+       name, declared type (lib/security/uploads). The public bucket takes
+       pictures only. The bytes are checked again at /complete. */
+    const validation = validateFile(fileName, contentType, fileSize, null, isDigital ? "product_file" : "public_image")
     if (!validation.valid) {
-      return NextResponse.json({ error: validation.reason }, { status: 400, headers: UPLOAD_HEADERS })
-    }
-
-    /* The public bucket takes pictures, and nothing a browser would run.
-       The bytes are checked again at /complete; this refuses early. */
-    if (!isDigital) {
-      if (!declaresPublicImage(contentType)) {
-        return NextResponse.json(
-          { error: "That file is not a picture. Use a JPEG, PNG, WebP, GIF or AVIF." },
-          { status: 415, headers: UPLOAD_HEADERS },
-        )
+      if (validation.code !== "too_large" && validation.code !== "empty") {
+        void logSecurityEvent(admin, { event: "upload", outcome: "refused", context: isDigital ? "product_file" : "public_image", code: validation.code, userId: user.id, creatorId: creator.id, fileName: sanitizeDisplayName(fileName), bytes: fileSize, detail: { at: "prepare", declared: contentType.slice(0, 100) } })
       }
-      if (fileSize > PUBLIC_IMAGE_MAX_BYTES) {
-        return NextResponse.json({ error: "That picture is over 25 MB. Choose a smaller one." }, { status: 413, headers: UPLOAD_HEADERS })
-      }
+      const status = validation.code === "too_large" ? 413 : validation.code === "empty" ? 400 : 415
+      return NextResponse.json({ error: validation.reason }, { status, headers: UPLOAD_HEADERS })
     }
 
     // Check plan limits and quota
@@ -207,7 +199,7 @@ export async function POST(request: NextRequest) {
         .from("digital_assets")
         .insert({
           product_id: productId,
-          file_name: fileName,
+          file_name: sanitizeDisplayName(fileName),
           file_path: filePath,
           file_size: fileSize,
           mime_type: validation.resolvedMimeType,

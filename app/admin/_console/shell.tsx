@@ -53,7 +53,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
     items: [
       { id: "system", label: "Health" },
       { href: "/admin/notifications", label: "Notifications" },
-      { href: "/admin/scanner", label: "Malware scanner" },
+      { href: "/admin/security", label: "File security" },
       { id: "audit", label: "Audit log" },
     ],
   },

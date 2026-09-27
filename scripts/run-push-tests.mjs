@@ -43,6 +43,10 @@ const SUITES = [
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
   "tests/analytics-reports.test.ts",
+  "tests/analytics-collection.test.ts",
+  "tests/analytics-rollup-sql.test.ts",
+  "tests/analytics-report-sql.test.ts",
+  "tests/analytics-review.test.ts",
   "tests/dispute-orders.test.ts",
   "tests/anon-visit.test.ts",
   "tests/analytics-completeness.test.ts",
@@ -151,6 +155,7 @@ const SUITES = [
   "tests/receipt-download.test.ts",
   "tests/receipt-actions.test.ts",
   "tests/contact-seller.test.ts",
+  "tests/email-inbox-image.test.ts",
   "tests/onepage-search-share.test.ts",
   "tests/onepage-share-image.test.ts",
   "tests/onepage-host.test.ts",
@@ -216,6 +221,7 @@ const SUITES = [
   "tests/automation-templates.test.ts",
   "tests/checkout-contacts.test.ts",
   "tests/checkout-welcome.test.ts",
+  "tests/attribution.test.ts",
   "tests/section-sandbox.test.ts",
   "tests/agent-connection.test.ts",
   "tests/github-sync.test.ts",
@@ -273,6 +279,7 @@ const SUITES = [
   "tests/notify-webhook.test.ts",
   "tests/rich-text.test.ts",
   "tests/upload-security.test.ts",
+  "tests/owner-download.test.ts",
   "tests/direct-uploader.test.ts",
   "tests/settings-account-fixes.test.ts",
   "tests/settings-country.test.ts",
@@ -313,6 +320,8 @@ const SUITES = [
   "tests/sale-email.test.ts",
   "tests/wallet-domains.test.ts",
   "tests/file-scanner.test.ts",
+  "tests/upload-inspector.test.ts",
+  "tests/file-security-words.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

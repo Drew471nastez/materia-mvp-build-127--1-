@@ -4,7 +4,7 @@
  * ===========================================================================
  * One file, from the page straight to storage, never through a function:
  *
- *   1. computing_checksum  SHA-256 of the file (a fingerprint past 100 MB)
+ *   1. (no browser checksum: the server hashes the stored file afterwards)
  *   2. preparing           /api/v2/upload/prepare: the server builds the path,
  *                          checks quota, rate and file limits, and makes a
  *                          pending record. A second prepare for the same file
@@ -19,7 +19,8 @@
  *                          that lets a person write the one path reserved for
  *                          them), the whole file goes by signed URL instead.
  *   4. completing          /api/v2/upload/complete: the server reads the size
- *                          and first bytes back from storage and scans them.
+ *                          and a few small ranges back from storage and runs
+ *                          the file check (lib/security/uploads).
  *   5. complete
  *
  * PAUSE AND RESUME. pause() stops the request in flight. A stopped request is
@@ -69,11 +70,7 @@ export interface UploadResult {
   fileName: string
   fileSize: number
   mimeType: string
-  /**
-   * The malware scan's state when the upload finished, as /complete said:
-   * "pending_scan" when Storelib's scanner will give the verdict next
-   * (the editor asks /api/v2/upload/scan), otherwise the header check's.
-   */
+  /** The file check's verdict, as /complete said: "clean" for every file it accepted. */
   scanStatus?: string | null
 }
 
@@ -327,13 +324,9 @@ export class DirectUploader {
 
   private async execute(): Promise<UploadResult> {
     try {
-      if (!this.checksum) {
-        this.setStatus("computing_checksum")
-        this.checksum = await computeSHA256(this.file, (pct) => {
-          // Report checksum progress as 0-5% of total
-          this.onProgress?.(Math.round(pct * 0.05), 0, this.file.size)
-        })
-      }
+      /* No fingerprint in the browser first: reading a large file twice
+         delayed every upload, and the server takes the real SHA-256 from
+         storage after the upload (lib/security/uploads/pipeline.ts). */
       await this.checkpoint()
 
       if (!this.uploadPath) {
@@ -803,7 +796,6 @@ export class DirectUploader {
       path: this.uploadPath,
       bucket: this.uploadBucket,
       fileSize: this.file.size,
-      checksum: this.checksum,
     }
 
     let res: Response

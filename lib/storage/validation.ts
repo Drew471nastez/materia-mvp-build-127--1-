@@ -1,12 +1,13 @@
 /**
- * File validation utilities for uploads.
- * Validates file extensions, MIME types, and delegates to security scanner.
+ * File validation utilities for uploads: the declared type resolved, the
+ * category, and a path built by the server. Whether a file may be uploaded at
+ * all is the central check's (lib/security/uploads/inspect.ts
+ * precheckUpload), so this answers with it and keeps no list of its own.
  *
- * Policy: Allow ANY file type EXCEPT known dangerous executables/scripts.
- * The security module (security.ts) handles deep threat detection.
+ * Policy: allow any product file type except the ones that run when opened.
  */
 
-import { BLOCKED_EXTENSIONS, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "./security"
+import { precheckUpload, storageSafeName, type UploadContext } from "@/lib/security/uploads"
 
 /** Map common extensions to MIME types for validation when Content-Type is missing/wrong. */
 const EXT_TO_MIME: Record<string, string> = {
@@ -78,6 +79,8 @@ const EXT_TO_MIME: Record<string, string> = {
 export interface ValidationResult {
   valid: boolean
   reason?: string
+  /** The central check's code, for the security log. */
+  code?: string
   resolvedMimeType: string
   fileCategory: string
 }
@@ -91,56 +94,24 @@ export function validateFile(
   fileName: string,
   contentType: string,
   fileSize: number,
-  fileHeader?: ArrayBuffer | Uint8Array | null,
+  _fileHeader?: ArrayBuffer | Uint8Array | null,
+  context: UploadContext = "product_file",
 ): ValidationResult {
   const ext = fileName.split(".").pop()?.toLowerCase() || ""
-
-  // Security scan (extension blocklist + deep checks if header provided)
-  const securityResult = scanFile(fileName, contentType, fileHeader)
-  if (!securityResult.safe) {
-    return {
-      valid: false,
-      reason: securityResult.reason || `File type .${ext} is not allowed for security reasons.`,
-      resolvedMimeType: contentType,
-      fileCategory: "blocked",
-    }
-  }
 
   // Resolve MIME type from extension if missing or generic
   let resolvedMime = contentType
   if (!contentType || contentType === "application/octet-stream") {
     resolvedMime = EXT_TO_MIME[ext] || "application/octet-stream"
   }
-
-  // Determine category
   const fileCategory = getFileCategory(resolvedMime)
 
-  // Basic file size sanity check (must be > 0)
-  if (fileSize <= 0) {
-    return {
-      valid: false,
-      reason: "File is empty.",
-      resolvedMimeType: resolvedMime,
-      fileCategory,
-    }
+  /* Size, name and declared type, by the one rule every upload path uses. */
+  const verdict = precheckUpload({ fileName, size: fileSize, declaredMime: contentType, context })
+  if (!verdict.ok) {
+    return { valid: false, reason: verdict.userMessage, resolvedMimeType: resolvedMime, fileCategory: verdict.code === "too_large" || verdict.code === "empty" ? fileCategory : "blocked", code: verdict.code }
   }
-
-  // Enforce plan-based max file size for digital products
-  if (fileSize > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
-    const limitGB = MAX_DIGITAL_PRODUCT_FILE_SIZE / (1024 * 1024 * 1024)
-    return {
-      valid: false,
-      reason: `File size exceeds the ${limitGB} GB limit for digital product uploads.`,
-      resolvedMimeType: resolvedMime,
-      fileCategory,
-    }
-  }
-
-  return {
-    valid: true,
-    resolvedMimeType: resolvedMime,
-    fileCategory,
-  }
+  return { valid: true, resolvedMimeType: resolvedMime, fileCategory }
 }
 
 /**
@@ -166,13 +137,10 @@ export function getFileCategory(mimeType: string): string {
 }
 
 /**
- * Sanitize a filename for storage (remove unsafe characters).
+ * Sanitize a filename for storage (lib/security/uploads/filename.ts).
  */
 export function sanitizeFileName(fileName: string): string {
-  return fileName
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, 200)
+  return storageSafeName(fileName, 200)
 }
 
 /**

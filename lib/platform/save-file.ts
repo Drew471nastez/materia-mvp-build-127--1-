@@ -118,11 +118,28 @@ export function downloadBlob(blob: Blob, name: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 4000)
 }
 
-async function openInBrowser(url: string): Promise<void> {
-  const { Browser } = await import("@capacitor/browser")
-  await Browser.open({ url, toolbarColor: "#ffffff" })
+/**
+ * The system browser, from inside the app.
+ *
+ * @capacitor/browser first: a Custom Tab on Android, SFSafariViewController
+ * on iOS. But the Browser plugin has to be built into each app, and the iOS
+ * project's Podfile (ios/App/Podfile) lists Capacitor, Cordova,
+ * PushNotifications, Camera and Haptics and not Browser, so on an iPhone the
+ * call can answer "not implemented". Then the page goes to the address
+ * itself: Capacitor opens any address outside the app (server.url and
+ * allowNavigation in capacitor.config.ts) in the system browser rather than
+ * in its web view, Safari on iOS and the default browser on Android. No
+ * plugin and no app release, and not a pop-up a gesture rule can block.
+ */
+export async function openInSystemBrowser(url: string): Promise<void> {
+  try {
+    const { Browser } = await import("@capacitor/browser")
+    await Browser.open({ url, toolbarColor: "#ffffff" })
+  } catch {
+    window.location.assign(url)
+  }
 }
 
 export function browserDeps(): SaveDeps {
-  return { platform: savePlatform(), download: downloadBlob, openInBrowser }
+  return { platform: savePlatform(), download: downloadBlob, openInBrowser: openInSystemBrowser }
 }

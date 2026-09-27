@@ -92,7 +92,8 @@ const MEASURE = `(() => {
 })()`
 
 /* What the corner should be at a drawn size (lib/brand/logo.ts storelibLogoRadius). */
-const expectRadius = (w) => (w >= 18 ? 7 : Math.round(((w * 7) / 32) * 10) / 10)
+const expectRadius = (w, where = "") => (w >= 18 && !/^seller-footer/.test(where) ? 7 : Math.round(((w * 7) / 32) * 10) / 10)
+/* The creator page footer's mark keeps the logo's proportion at every size: the owner found 7px on its 18px mark read as a circle. */
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--allow-file-access-from-files"] })
 let broken = 0
@@ -122,7 +123,7 @@ try {
         const tag = `${l.where} ${l.w}x${l.h}`
         if (Math.abs(l.w - l.h) > 0.5) fail(`${tag}: not square`)
         if (l.probeSize && Math.abs(l.w - l.probeSize) > 0.5) fail(`${tag}: asked for ${l.probeSize}`)
-        const want = expectRadius(l.w)
+        const want = expectRadius(l.w, l.where)
         const got = l.radii.map((r) => parseFloat(r))
         if (got.some((r) => Math.abs(r - want) > 0.15)) fail(`${tag}: corners ${l.radii.join(" ")}, want ${want}px`)
         if (!/rgba\(15, 23, 42, 0\.06\) 0px 0px 0px 0\.5px, rgba\(15, 23, 42, 0\.05\) 0px 1px 1\.5px 0px/.test(l.shadow)) fail(`${tag}: shadow is ${l.shadow}`)

@@ -40,6 +40,7 @@ import { unpackItems, packedTotalCents, apportionFee, lineTotalCents, type Packe
 import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
 import { recordCouponUse } from "./coupons"
 import { orderOriginFrom } from "@/lib/orders/order-source"
+import { attributionFromMetadata } from "@/lib/attribution/server"
 import { paymentFacts, recordSale } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
 import { businessFromStripe, type BusinessDetails } from "./business"
@@ -129,6 +130,8 @@ export async function fulfilCartSession(
     cardLast4: facts?.cardLast4 ?? null,
     device,
     origin: orderOriginFrom(metadata),
+    /* What the cart route checked and put on the session (lib/attribution). */
+    attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
   }
 
   const written = await writeBasket(admin, ctx, items, {
@@ -227,6 +230,7 @@ export async function fulfilFreeCart(
     buyerFirstName: string
     buyerLastName: string | null
     origin: FulfilContext["origin"]
+    attribution?: FulfilContext["attribution"]
     couponId: string
     couponHolder: string | null
     baseUrl: string
@@ -264,6 +268,7 @@ export async function fulfilFreeCart(
     cardLast4: null,
     device,
     origin: b.origin,
+    attribution: b.attribution ?? null,
   }
   const written = await writeBasket(admin, ctx, b.items, {
     paidTotal: 0,

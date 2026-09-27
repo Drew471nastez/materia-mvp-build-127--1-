@@ -18,6 +18,8 @@
  * Pure: no storage, no network, so tests can run it on real files.
  */
 import { imageSizeProblem, readImageSize, stripImageMetadata, type ImageSize } from "@/lib/images/metadata"
+import { inspectHead } from "@/lib/security/uploads/inspect"
+import { userMessage } from "@/lib/security/uploads/policy"
 import { isPublicImage } from "./file-signature"
 
 /** The largest picture a public bucket takes through the server. */
@@ -29,13 +31,15 @@ export type PublicImageResult =
 
 export function preparePublicImage(input: Uint8Array | ArrayBuffer, maxBytes = PUBLIC_IMAGE_MAX_BYTES): PublicImageResult {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
-  if (bytes.length === 0) return { ok: false, error: "That file is empty.", status: 400 }
+  if (bytes.length === 0) return { ok: false, error: userMessage("empty", "public_image"), status: 400 }
   if (bytes.length > maxBytes) {
-    return { ok: false, error: `That picture is over ${Math.round(maxBytes / (1024 * 1024))} MB. Choose a smaller one.`, status: 413 }
+    return { ok: false, error: userMessage("too_large", "public_image", maxBytes), status: 413 }
   }
+  /* The central check (lib/security/uploads/inspect.ts): a picture by its bytes, nothing that runs. */
+  const verdict = inspectHead({ fileName: "picture", size: bytes.length, head: bytes.subarray(0, 8192), context: "public_image", maxBytes })
   const kind = isPublicImage(bytes)
-  if (!kind || !kind.mime || !kind.ext) {
-    return { ok: false, error: "That file is not a picture. Use a JPEG, PNG, WebP, GIF or AVIF.", status: 415 }
+  if (!verdict.ok || !kind || !kind.mime || !kind.ext) {
+    return { ok: false, error: verdict.ok ? userMessage("not_an_image", "public_image") : verdict.userMessage, status: 415 }
   }
   const size = readImageSize(bytes)
   const tooBig = imageSizeProblem(size)
