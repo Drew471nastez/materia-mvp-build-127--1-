@@ -186,6 +186,8 @@ const stubs: Record<string, string> = {
   "@/lib/website-builder/site-seo-data": stub("site-seo", `export const activeDomainOf = async () => null\n`),
   "@/lib/onepage/live-products": stub("live", `export const withLiveProducts = async (_db, _id, blocks) => blocks\n`),
   "@/components/onepage/public-onepage": stub("public", `export const PublicOnePage = () => null\n`),
+  "@/components/analytics/track-view": stub("track", `export const TrackView = () => null\n`),
+  "@/components/attribution/capture-touch": stub("touch", `export const CaptureTouch = () => null\n`),
   "@/lib/onepage/ensure-onepage": stub("ensure", `export const ensureOnePage = async () => null\n`),
   "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\n`),
   "next/og": stub(
