@@ -58,6 +58,7 @@ const SUITES = [
   "tests/editor-navigation.test.ts",
   "tests/library-and-pages.test.ts",
   "tests/creator-page-products.test.ts",
+  "tests/deleted-product-gone.test.ts",
   "tests/native-scroll-guard.test.ts",
   "tests/app-mobile-nav.test.ts",
   "tests/header-elements.test.ts",

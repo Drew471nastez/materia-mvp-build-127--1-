@@ -12,6 +12,7 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import { publicOnePage } from "@/lib/onepage/public-shape"
+import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -460,6 +461,26 @@ export default async function PublicOnePageRoute({ params }: Props) {
     customDomain: await primaryHostFor(resolvedCreatorId, "creator_page"),
     sellerId: resolvedCreatorId,
   })
+
+  /*
+    AND ITS PRODUCTS, READ FROM THE PRODUCTS AND NOT FROM THE COPY IN THE
+    BLOCK. A product block stores the title, price, picture and address the
+    product had when it was added, and publishing freezes that copy a second
+    time into `published_blocks`. Deleting the product left the row on the
+    page with its picture and a button to a 404; archiving or unpublishing it
+    did the same, and a price change was not shown at all.
+
+    So every block that names a product is resolved against the row here, on
+    each render: gone, archived or unpublished takes the block off the page,
+    and a live one is drawn from the product. This route is force-dynamic, so
+    it happens the moment the creator presses delete, with nothing to purge
+    and nothing to run. lib/onepage/live-products.ts.
+  */
+  transformedOnepage.blocks = await withLiveProducts(
+    adminSupabase as unknown as ProductsDb,
+    resolvedCreatorId ?? "",
+    transformedOnepage.blocks,
+  )
 
   /*
     WHO THIS PAGE IS ABOUT, for a search engine, and only on a page it may
