@@ -889,5 +889,33 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_
 /* One review per buyer per product, kept by the database. The review route already refuses a second review (a 409, "You already reviewed this product."), but it checks and then writes, so two presses at the same moment could both pass the check and leave two reviews; with this unique index the second write fails and the route answers the same 409. Makes the index only when no buyer already has two reviews of one product; otherwise it skips itself with a warning that names the query to see them, and changes nothing. Deletes no row, changes no row. Nothing where there is no reviews table. Needs nothing else. Until it runs, reviews work as before. */
 DO $$ BEGIN IF to_regclass('public.reviews') IS NULL THEN RAISE NOTICE 'part 48: there is no reviews table, nothing to do.'; ELSIF EXISTS (SELECT 1 FROM public.reviews GROUP BY buyer_id, product_id HAVING count(*) > 1) THEN RAISE WARNING 'part 48 skipped: a buyer has two reviews of one product, so the one review per buyer index was not made. See them with: select buyer_id, product_id, count(*) from public.reviews group by 1, 2 having count(*) > 1;'; ELSE CREATE UNIQUE INDEX IF NOT EXISTS reviews_one_per_buyer_product ON public.reviews (buyer_id, product_id); END IF; END $$;
 
+-- part 49_payouts_table.sql
+/* Payouts: the table every payout the creator is paid is written to. The Stripe webhook's payout events, Cash out and Withdraw all upsert into public.payouts (on stripe_payout_id), and the order timeline, the notifications and the admin console read it; production has no such table, so every one of those writes has been failing quietly (the upsert returns an error the code does not throw) and the admin console logs PGRST205. The table was written on 19 February (supabase/migrations/20260219_payouts_table.sql) and never ran. Same columns as that file, which match the upserts. Creators read their own rows; only the server writes. Adds one table, two indexes, a read policy and an updated_at trigger; changes no rows. Needs creators. */
+CREATE TABLE IF NOT EXISTS public.payouts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, stripe_payout_id text NOT NULL UNIQUE, amount_cents integer NOT NULL, currency text NOT NULL DEFAULT 'usd', status text NOT NULL DEFAULT 'pending', arrival_date timestamptz, description text, destination text, method text, failure_code text, failure_message text, stripe_created timestamptz, webhook_received_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS payouts_creator_id_idx ON public.payouts (creator_id);
+CREATE INDEX IF NOT EXISTS payouts_creator_created_idx ON public.payouts (creator_id, created_at DESC);
+ALTER TABLE public.payouts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "creators can view own payouts" ON public.payouts;
+CREATE POLICY "creators can view own payouts" ON public.payouts FOR SELECT USING (creator_id IN (SELECT c.id FROM public.creators c WHERE c.user_id = (SELECT auth.uid())));
+REVOKE INSERT, UPDATE, DELETE ON public.payouts FROM anon, authenticated;
+CREATE OR REPLACE FUNCTION public.update_payouts_updated_at() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
+DROP TRIGGER IF EXISTS set_payouts_updated_at ON public.payouts;
+CREATE TRIGGER set_payouts_updated_at BEFORE UPDATE ON public.payouts FOR EACH ROW EXECUTE FUNCTION public.update_payouts_updated_at();
+
+-- part 50_signup_abuse.sql
+/* Sign up protection: the scores the sign up guard writes and the admin console reads. app/api/auth/signup-guard and the before-user-created hook record each attempt in public.signup_attempts and mark suspect accounts on profiles.spam_score and profiles.spam_state; the admin console's accounts and creator views select spam_state, and production has no such column (the console logs 42703 "column profiles.spam_state does not exist"). Written on 15 August (supabase/migrations/20260815_signup_abuse.sql) and never ran. Adds one server only table and its prune function, two nullable columns on profiles with a check on the state's three values and a partial index, and the storefront_indexability view where products and creators exist. Changes no rows. */
+CREATE TABLE IF NOT EXISTS public.signup_attempts (id bigserial PRIMARY KEY, ip_hash text NOT NULL, email_domain text, handle text, score integer NOT NULL DEFAULT 0, verdict text NOT NULL DEFAULT 'allowed', reasons text[], created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS signup_attempts_ip_recent_idx ON public.signup_attempts (ip_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS signup_attempts_created_idx ON public.signup_attempts (created_at DESC);
+ALTER TABLE public.signup_attempts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.signup_attempts FROM anon, authenticated;
+CREATE OR REPLACE FUNCTION public.prune_signup_attempts() RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$ DELETE FROM public.signup_attempts WHERE created_at < now() - interval '30 days'; $$;
+REVOKE EXECUTE ON FUNCTION public.prune_signup_attempts() FROM PUBLIC, anon, authenticated;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS spam_score integer;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS spam_state text;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_spam_state_check') THEN ALTER TABLE public.profiles ADD CONSTRAINT profiles_spam_state_check CHECK (spam_state IS NULL OR spam_state IN ('clear', 'suspect', 'confirmed')); END IF; END $$;
+CREATE INDEX IF NOT EXISTS profiles_spam_state_idx ON public.profiles (spam_state) WHERE spam_state IS NOT NULL;
+DO $$ BEGIN IF to_regclass('public.products') IS NULL OR to_regclass('public.creators') IS NULL THEN RAISE NOTICE 'storefront_indexability skipped: public.products or public.creators is missing'; RETURN; END IF; EXECUTE 'CREATE OR REPLACE VIEW public.storefront_indexability AS SELECT p.id, p.username, p.created_at, p.spam_score, p.spam_state, coalesce(pub.published_count, 0) AS published_products, (coalesce(pub.published_count, 0) > 0 AND coalesce(p.spam_state, '''') <> ''confirmed'') AS indexable FROM public.profiles p LEFT JOIN LATERAL (SELECT count(*) AS published_count FROM public.products pr JOIN public.creators c ON c.id = pr.creator_id WHERE c.user_id = p.id AND pr.status = ''published'') pub ON true WHERE p.username IS NOT NULL'; END $$;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

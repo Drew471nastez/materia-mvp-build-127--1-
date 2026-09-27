@@ -64,3 +64,30 @@ for folder in ('all-last-three-days','all-last-14-days'):
         if f.endswith('.sql'): shutil.copyfile(OUT+f,DAYS+f)
 for f in sorted(os.listdir(OUT)):
     if f.endswith('.sql'): print(f, os.path.getsize(OUT+f), sum(1 for l in open(OUT+f) if l.strip() and not l.startswith('--')))
+# THE SAME SQL IN THREE FILES (supabase/sql/all-in-three/), which the owner
+# asked for: parts 01 to 19 in one, everything from 20 in the next, and the
+# storage policies and the check last. Built from the same parts, text
+# unchanged, so it cannot drift from the four.
+THREE=ROOT+'supabase/sql/all-in-three/'
+os.makedirs(THREE,exist_ok=True)
+GROUPS3=[
+ ('1_of_3_core_library_checkout.sql','1 of 3','Rate limits, newsletter, agent connections and GitHub, refunds recorded once, event and email types, order source, site speed, website addresses, coupons and the admin console, email automations, agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',sorted(p for p in parts if '01'<=p<='19')),
+ ('2_of_3_latest.sql','2 of 3',GROUPS[2][2],sorted(p for p in parts if '20'<=p<='89')),
+]
+for name,label,what,ps in GROUPS3:
+    out=[f"-- STORELIB DATABASE, FILE {label}", f"-- {what}", HOW.replace('Run the four files','Run the three files'), "", "set local statement_timeout = 0;", ""]
+    for q in ps:
+        head,rest=body(q)
+        out.append(f"-- part {parts[q]}")
+        out.append(head)
+        out+=rest
+        out.append("")
+    out.append("notify pgrst, 'reload schema';")
+    out.append(f"select 'Storelib file {label} ran. Next file.' as done;")
+    open(THREE+name,'w').write("\n".join(out)+"\n")
+f4=open(OUT+'4_of_4_storage_policies_and_check.sql').read()
+f4=f4.replace('-- STORELIB DATABASE, FILE 4 of 4','-- STORELIB DATABASE, FILE 3 of 3',1).replace('Run the four files','Run the three files')
+open(THREE+'3_of_3_storage_policies_and_check.sql','w').write(f4)
+for f in sorted(os.listdir(THREE)):
+    if f.endswith('.sql'): print('three:', f, os.path.getsize(THREE+f))
+
