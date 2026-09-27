@@ -36,6 +36,7 @@ import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1066,33 +1067,21 @@ function ShareButton({
 }
 
 // Dynamic Favicon Component for OnePage
-// Priority: 1. avatar_url, 2. video frame, 3. store builder profile image
+/*
+  THE ICON IS THE PICTURE THE PAGE DRAWS. The page's photo, or with only a
+  video a frame of it. It used to go on, for a page with no photo, to the
+  creator page header's photo (/api/onepage/seller-avatar), so the tab and an
+  iPhone's app switcher could show a face the page itself did not: an old
+  one, left in the header. The server's icon comes from the same photo
+  (app/(marketing)/l/[slug], publishedShape).
+*/
 interface OnePageDynamicFaviconProps {
   avatarUrl?: string | null
   videoUrl?: string | null
-  sellerId?: string | null
 }
 
-function OnePageDynamicFavicon({ avatarUrl, videoUrl, sellerId }: OnePageDynamicFaviconProps) {
-  const [storeAvatarUrl, setStoreAvatarUrl] = useState<string | null>(null)
+function OnePageDynamicFavicon({ avatarUrl, videoUrl }: OnePageDynamicFaviconProps) {
   const [videoFrameUrl, setVideoFrameUrl] = useState<string | null>(null)
-
-  // Fetch store builder profile image if needed
-  useEffect(() => {
-    if (!avatarUrl && !videoUrl && sellerId) {
-      // Fetch the seller's store builder profile image
-      fetch(`/api/onepage/seller-avatar?seller_id=${sellerId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.avatar_url) {
-            setStoreAvatarUrl(data.avatar_url)
-          }
-        })
-        .catch(() => {
-          // Ignore errors
-        })
-    }
-  }, [avatarUrl, videoUrl, sellerId])
 
   // Extract frame from video if no avatar
   useEffect(() => {
@@ -1138,7 +1127,7 @@ function OnePageDynamicFavicon({ avatarUrl, videoUrl, sellerId }: OnePageDynamic
   }, [avatarUrl, videoUrl])
 
   // Determine which URL to use for favicon
-  const faviconUrl = avatarUrl || videoFrameUrl || storeAvatarUrl
+  const faviconUrl = avatarUrl || videoFrameUrl
 
   // Apply favicon
   useEffect(() => {
@@ -1739,7 +1728,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         paddingLeft: isDesktop ? "28px" : "20px",
         paddingRight: isDesktop ? "28px" : "20px",
         // More top padding on mobile to push avatar/content down
-        paddingTop: isDesktop ? "0" : ((safeTheme as any).header_layout === "hero" ? "0" : "50px"),
+        /* No top padding only above a hero that is really drawn: without a
+           picture the header is the classic one and needs the same 50px it
+           always has (lib/onepage/page-frame heroHeaderShown). */
+        paddingTop: isDesktop ? "0" : heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) ? "0" : "50px",
         paddingBottom: "20px",
         minHeight: isDesktop ? "100%" : "100vh",
       }}
@@ -2199,8 +2191,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <QuickCheckoutModalContext.Provider value={quickCheckoutModalContextValue}>
     <PDFModalContext.Provider value={pdfModalContextValue}>
-      {/* Dynamic Favicon - uses avatar, video frame, or store builder avatar */}
-      <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} sellerId={seller_id} />
+      {/* The icon is the page's own picture, or a frame of its video */}
+      <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} />
+      {/* The document's canvas in the page's own colour: no white under the footer, in the home indicator's band or past the end of a pull (lib/onepage/page-frame) */}
+      <style dangerouslySetInnerHTML={{ __html: canvasRule(safeTheme) }} />
       {/* Asks before a link marked sensitive opens (data-sensitive-label on its box) */}
       <SensitiveLinkQuestion />
       {/* The theme's body and title fonts, the same links the editor's preview renders */}
@@ -3559,11 +3553,10 @@ function PublicBlockRenderer({
   switch (block.type) {
     case "header": {
       const data = (block.data || {}) as HeaderBlockData
-      const headerLayout = (theme as any).header_layout || "classic"
       const hasVideo = !!profile.avatar_video_url
 
       // Hero layout with SMOOTH fade using mask
-      if (headerLayout === "hero" && (profile.avatar_url || hasVideo)) {
+      if (heroHeaderShown(theme as any, profile)) {
         // For gradient backgrounds, use mask-image for seamless fade
         const isGradientBg = theme.background_type === "gradient"
         const fadeColor = getGradientBottomColor()
@@ -3874,8 +3867,8 @@ function PublicBlockRenderer({
 
     case "social_row": {
       const data = (block.data || { platforms: [], style: "icons" }) as SocialRowBlockData
-      const headerLayout = (theme as any).header_layout || "classic"
-      const isHeroLayout = headerLayout === "hero"
+      /* Pulled up onto the hero's fade only when there is a hero drawn above it. */
+      const isHeroLayout = heroHeaderShown(theme as any, profile)
 
       if (!data.platforms || data.platforms.length === 0) {
         const defaultLinks = []

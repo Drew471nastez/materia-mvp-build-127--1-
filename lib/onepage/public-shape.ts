@@ -106,11 +106,13 @@ export function publicOnePage(
     id: row.id,
     /*
       THE NAME AND THE FACE COME FROM ONE PLACE (lib/account/identity), so
-      the page body and the tab title cannot disagree: the page's published
-      copy, then its draft, then the live profile. The tab used to stop
-      before that last step and say "Creator", and a sign in provider's
-      picture left in a copy is passed over rather than drawn, so removing
-      the photo in Settings removes it here too.
+      the page body and the tab title cannot disagree. Published: the copy
+      taken at the last publish, then the row, then the live profile. Draft
+      (the editor's preview): the row the creator is editing, then the live
+      profile; the published copy is never read, so a new upload shows the
+      moment it is made. A sign in provider's picture left in a copy is
+      passed over rather than drawn; a photo uploaded to the page is always
+      drawn.
     */
     title: creatorName({ published: profile?.title, own: row.title, live: displayName }),
     bio: profile?.bio || row.bio || "",
@@ -126,7 +128,17 @@ export function publicOnePage(
   }
 }
 
-/** The editor's page, drawn as a visitor would see it once published. */
-export function publicOnePageFromDraft(row: OnePageRowLike, options: { now?: number } = {}): PublicOnePageData {
+/**
+ * The editor's page, drawn as a visitor would see it once published: the
+ * draft first, because that is what the creator is editing and what the next
+ * save publishes, then the owner's live name and photo, which is what the
+ * published page falls back on for a page with none of its own. Without that
+ * last step the preview drew an empty circle where the live page drew the
+ * profile photo.
+ */
+export function publicOnePageFromDraft(
+  row: OnePageRowLike,
+  options: { now?: number; displayName?: string | null; liveAvatarUrl?: string | null } = {},
+): PublicOnePageData {
   return publicOnePage(row, { source: "draft", ...options })
 }

@@ -26,6 +26,7 @@ import { useOnePage } from "@/lib/onepage/context"
 import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/public-shape"
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 /** How long a frame has to say it is ready before it is loaded once more. */
 const FRAME_READY_MS = 6000
@@ -45,10 +46,44 @@ function useMedia(query: string): boolean {
   return match
 }
 
-/** The editor's page, as the published page would be built from it. */
+/**
+ * The owner's live name and photo. The published page falls back on them for
+ * a page with no name or picture of its own (lib/onepage/public-shape), so the
+ * preview reads them too, once, on the owner's own client.
+ */
+function useOwnerProfile(ownerId: string | undefined) {
+  const [owner, setOwner] = useState<{ displayName: string | null; avatarUrl: string | null }>({ displayName: null, avatarUrl: null })
+  useEffect(() => {
+    if (!ownerId) return
+    let live = true
+    createClient()
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", ownerId)
+      .maybeSingle()
+      .then(
+        ({ data }: { data: unknown }) => {
+          if (!live || !data) return
+          const row = data as { display_name?: string | null; avatar_url?: string | null }
+          setOwner({ displayName: row.display_name ?? null, avatarUrl: row.avatar_url ?? null })
+        },
+        () => undefined,
+      )
+    return () => {
+      live = false
+    }
+  }, [ownerId])
+  return owner
+}
+
+/** The editor's page, as the published page would be built from it: the draft first, then the owner's profile. */
 function usePreviewPage(): PublicOnePageData | null {
   const { onepage } = useOnePage()
-  return useMemo(() => (onepage ? publicOnePageFromDraft(onepage as never) : null), [onepage])
+  const owner = useOwnerProfile(onepage?.owner_id)
+  return useMemo(
+    () => (onepage ? publicOnePageFromDraft(onepage as never, { displayName: owner.displayName, liveAvatarUrl: owner.avatarUrl }) : null),
+    [onepage, owner.displayName, owner.avatarUrl],
+  )
 }
 
 /** The colour the page starts on, so a dark page never shows white while its frame loads. */

@@ -13,7 +13,7 @@ import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import { publicOnePage } from "@/lib/onepage/public-shape"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
-import { creatorName, creatorPhoto, keptPhoto, typedSeoTitle } from "@/lib/account/identity"
+import { typedSeoTitle } from "@/lib/account/identity"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -82,133 +82,98 @@ const onePageOwner = cache(async (sellerId: string | null, creatorId: string | n
   }
 })
 
+/**
+ * ===========================================================================
+ *  ONE READ OF THE PAGE, FOR THE TAB AND FOR THE BODY
+ * ===========================================================================
+ * The metadata and the page each found the row with a lookup of their own,
+ * and each built the name and the picture their own way: the body through
+ * lib/onepage/public-shape, the tab with a chain that went on to the creator
+ * page header when the page had no picture. So the page could draw one face
+ * and the tab, the icon beside it and the share card another.
+ *
+ * Now the row is found once per request (React `cache`) and both read the
+ * name and the picture from the same shape (`publishedShape`): what the page
+ * body draws is what the tab title, the favicon, the apple touch icon and
+ * the share card show. The only thing the tab adds is a Meta title the
+ * creator typed.
+ */
+const findPublishedOnePage = cache(async (slug: string) => {
+  const supabase = createAdminClient()
+  const { data: bySlug } = await supabase.from("onepages").select("*").eq("slug", slug).eq("status", "published").maybeSingle()
+  if (bySlug) return bySlug
+
+  /* By username, for username.storelib.com/links and /<handle>/links, where the proxy passes the handle as the slug. */
+  const { data: profile } = await supabase.from("profiles").select("id, username").ilike("username", slug).maybeSingle()
+  if (!profile) return null
+  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", profile.id).maybeSingle()
+  if (creator) {
+    const { data: bySeller } = await supabase.from("onepages").select("*").eq("seller_id", creator.id).eq("status", "published").maybeSingle()
+    if (bySeller) return bySeller
+    const { data: byCreator } = await supabase.from("onepages").select("*").eq("creator_id", creator.id).eq("status", "published").maybeSingle()
+    if (byCreator) return byCreator
+  }
+  const { data: byOwner } = await supabase.from("onepages").select("*").eq("owner_id", profile.id).eq("status", "published").maybeSingle()
+  return byOwner ?? null
+})
+
+type Owner = Awaited<ReturnType<typeof onePageOwner>>
+
+/** The shape the page is drawn from, with the owner's live name and photo to fall back on. */
+function publishedShape(
+  onepage: Parameters<typeof publicOnePage>[0],
+  owner: Owner,
+  extra: { customDomain?: string | null; sellerId?: string | null } = {},
+) {
+  return publicOnePage(onepage, {
+    source: "published",
+    displayName: owner.displayName,
+    /* The live photo, for a page that has no picture of its own, and for one
+       whose copy is still the picture a sign in provider sent (lib/account/identity). */
+    liveAvatarUrl: owner.avatarUrl,
+    ...extra,
+  })
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
 
-  const supabase = createAdminClient()
-
-  // First try to find onepage by slug
-  let { data: onepage, error } = await supabase
-    .from("onepages")
-    .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title, status")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .single()
-
-  // If not found by slug, try to find by username (for subdomain routing)
-  if (error || !onepage) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, username")
-      .ilike("username", slug)
-      .maybeSingle()
-
-    if (profile) {
-      const { data: creator } = await supabase
-        .from("creators")
-        .select("id")
-        .eq("user_id", profile.id)
-        .maybeSingle()
-
-      if (creator) {
-        const { data: creatorOnepage } = await supabase
-          .from("onepages")
-          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title, status")
-          .or(`seller_id.eq.${creator.id},creator_id.eq.${creator.id}`)
-          .eq("status", "published")
-          .maybeSingle()
-
-        if (creatorOnepage) {
-          onepage = creatorOnepage
-          error = null
-        }
-      }
-
-      if (!onepage) {
-        const { data: ownerOnepage } = await supabase
-          .from("onepages")
-          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title, status")
-          .eq("owner_id", profile.id)
-          .eq("status", "published")
-          .maybeSingle()
-
-        if (ownerOnepage) {
-          onepage = ownerOnepage
-          error = null
-        }
-      }
-    }
-  }
-
+  const onepage = await findPublishedOnePage(slug)
   if (!onepage) {
     return { title: slug || "Page Not Found" }
   }
 
-  const profile = onepage.published_profile as any
   const settings = onepage.settings as any
-
   const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
 
-  // The owner's live profile: the name and the photo, with the handle and
-  // the indexing answer beside them (onePageOwner above).
+  // The owner's live profile, with the handle and the indexing answer beside it (onePageOwner above).
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
-  const userProfileAvatarUrl: string | null = owner.avatarUrl
 
   /*
     ===========================================================================
      THE NAME AND THE FACE IN THE TAB ARE THE ONES ON THE PAGE
     ===========================================================================
-    "Why is it still showing Zarra Bianco and my old picture?" The page body
-    read the name through lib/onepage/public-shape and got it right; this
-    built its own, from the copy taken when the page was published and
-    nothing else, and stopped at "Creator" rather than asking the profile.
-    So a creator who renamed themselves saw the old name in the phone's
-    bottom bar for as long as they did not republish.
-
-    One resolver now answers both (lib/account/identity): the page's
-    published name, its draft name, then the live profile. Same order for
-    the picture, with a sign in provider's photo left in a copy passed over,
-    because lib/account/avatar says that one belongs to the profile alone.
+    Read from the same shape the body is drawn from (publishedShape), so they
+    cannot differ. A page that shows no picture has no icon of its own: the
+    creator page header's photo used to stand in here, which is how the tab
+    could show an old face beside a page that drew none.
   */
-  const displayName =
-    creatorName({ published: profile?.title, own: onepage.title, live: owner.displayName }) || "Creator"
+  const drawn = publishedShape(onepage, owner)
+  const displayName = drawn.title || owner.handle || "Creator"
   /* A Meta title that is only the page's name again is what the SEO card
      filled its box with, not something anybody typed (typedSeoTitle). */
   const seoTitle = typedSeoTitle(settings?.seo_title, displayName) ?? undefined
   // For browser tab: let the root layout template add "| Storelib"
-  // If user set a custom SEO title, use it as-is (absolute) to avoid template doubling
   const pageTitle = seoTitle || displayName
   const ogTitle = seoTitle?.replace(/ \| Storelib$/i, "") || displayName
+  const description = settings?.seo_description || drawn.bio || undefined
 
-  // Favicon
-  let faviconUrl: string | null | undefined = creatorPhoto({
-    published: profile?.avatar_url,
-    own: onepage.avatar_url,
-    live: userProfileAvatarUrl,
-  })
+  const faviconUrl = drawn.avatar_url
   /* The sitemap's rule, so a page it does not list does not ask to be listed. */
   const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
 
-  if (!faviconUrl && effectiveSellerId) {
-    try {
-      const { data: storeConfig } = await supabase
-        .from("store_builder_configs")
-        .select("published_config")
-        .eq("creator_id", effectiveSellerId)
-        .eq("page_type", "shop")
-        .maybeSingle()
-
-      /* Through the same rule, so a picture Google sent that is still sitting
-         in the page header cannot be the icon either (lib/account/identity). */
-      const headerSettings = storeConfig?.published_config?.headerSettings as any
-      faviconUrl = keptPhoto(headerSettings?.avatarUrl) || keptPhoto(headerSettings?.faviconUrl)
-    } catch {
-      // Ignore
-    }
-  }
-
   // The share card's picture: the creator's own social image when they set
-  // one, else the same face the tab shows.
+  // one, else the same face the page shows.
   const socialImageUrl = settings?.social_image_url || faviconUrl || undefined
 
   /*
@@ -222,7 +187,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: pageTitle,
-    description: settings?.seo_description || profile?.bio || undefined,
+    description,
     /*
       ONE ADDRESS. The same page answers at storelib.com/<handle>/links, at
       /l/<slug>, and at /links on a connected domain; the canonical names the
@@ -232,7 +197,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       url: pageAddress,
       title: ogTitle,
-      description: settings?.seo_description || profile?.bio || undefined,
+      description,
       type: "profile",
       ...(owner.handle ? { username: owner.handle } : {}),
       images: socialImageUrl ? [socialImageUrl] : undefined,
@@ -240,7 +205,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     twitter: {
       card: socialImageUrl ? "summary_large_image" : "summary",
       title: ogTitle,
-      description: settings?.seo_description || profile?.bio || undefined,
+      description,
       images: socialImageUrl ? [socialImageUrl] : undefined,
     },
     /*
@@ -265,77 +230,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
 
   const adminSupabase = createAdminClient()
 
-  // First try to find onepage by slug
-  let { data: onepage, error } = await adminSupabase
-    .from("onepages")
-    .select("*")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .single()
-
-  // If not found by slug, try to find by username (for subdomain routing)
-  // This handles the case where username.storelib.com/links is accessed
-  // and the middleware passes the username as the slug
-  if (error || !onepage) {
-    // Look up the user by username
-    const { data: profile } = await adminSupabase
-      .from("profiles")
-      .select("id, username")
-      .ilike("username", slug)
-      .maybeSingle()
-
-    if (profile) {
-      // Find the creator for this user
-      const { data: creator } = await adminSupabase
-        .from("creators")
-        .select("id")
-        .eq("user_id", profile.id)
-        .maybeSingle()
-
-      if (creator) {
-        // Try to find onepage by seller_id (creator_id)
-        const { data: creatorOnepage } = await adminSupabase
-          .from("onepages")
-          .select("*")
-          .eq("seller_id", creator.id)
-          .eq("status", "published")
-          .maybeSingle()
-
-        if (creatorOnepage) {
-          onepage = creatorOnepage
-          error = null
-        } else {
-          // Also try by creator_id field
-          const { data: altOnepage } = await adminSupabase
-            .from("onepages")
-            .select("*")
-            .eq("creator_id", creator.id)
-            .eq("status", "published")
-            .maybeSingle()
-
-          if (altOnepage) {
-            onepage = altOnepage
-            error = null
-          }
-        }
-      }
-
-      // If still not found, try by owner_id (user_id)
-      if (!onepage) {
-        const { data: ownerOnepage } = await adminSupabase
-          .from("onepages")
-          .select("*")
-          .eq("owner_id", profile.id)
-          .eq("status", "published")
-          .maybeSingle()
-
-        if (ownerOnepage) {
-          onepage = ownerOnepage
-          error = null
-        }
-      }
-    }
-  }
+  /* The same row the metadata read, held for the request (findPublishedOnePage). */
+  const onepage = await findPublishedOnePage(slug)
 
   if (!onepage) {
     // Check username history — maybe this slug was an old username
@@ -449,10 +345,6 @@ export default async function PublicOnePageRoute({ params }: Props) {
     }
   }
 
-  /* The owner's live name, for a page with no name of its own. onePageOwner
-     read it already for the metadata and holds it for the request. */
-  const profileDisplayName: string | null = owner.displayName
-
   /*
     THE SHAPE THE PAGE IS DRAWN FROM, BUILT WHERE THE EDITOR'S PREVIEW
     BUILDS IT (lib/onepage/public-shape): the published copy, falling back
@@ -460,12 +352,7 @@ export default async function PublicOnePageRoute({ params }: Props) {
     frames this same component with the draft in the same shape, so what a
     creator sees there is what this renders.
   */
-  const transformedOnepage = publicOnePage(onepage, {
-    source: "published",
-    displayName: profileDisplayName,
-    /* The live photo, for a page that never had one of its own, and for one
-       whose copy is still the picture Google sent (lib/account/identity). */
-    liveAvatarUrl: owner.avatarUrl,
+  const transformedOnepage = publishedShape(onepage, owner, {
     /* The creator page's own domain names the OnePage too (<domain>/links):
        read here as well as kept in settings.custom_domain, so a share link is
        right the moment a domain connects. */
