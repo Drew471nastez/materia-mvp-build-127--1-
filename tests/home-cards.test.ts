@@ -73,7 +73,7 @@ function main() {
   check("no window.location on Home", !/window\.location/.test(cards) && !/window\.location/.test(quick))
 
   console.log("\nthe guide")
-  check("says Welcome to Storelib, with the Storelib mark", /Welcome to\s*<br \/>\s*Storelib/.test(cards) && /<StorelibMark/.test(cards))
+  check("says Welcome to Storelib, with the Storelib mark", /Welcome to\s*<br \/>\s*Storelib/.test(cards) && /<StorelibLogo/.test(cards))
   check("never Academy or Amboras", !/Academy|Amboras/.test(cards))
   check("pressing it bumps Getting started, and is kept as opened", /onClick=\{onOpen \?\? bumpGettingStarted\}/.test(cards) && /markGuideOpened\(\)\s*\n\s*bumpGettingStarted\(\)/.test(dash))
   check("scrolled to first when it is off screen", /scrollIntoView\(\{ behavior: "smooth", block: "center" \}\)/.test(cards))

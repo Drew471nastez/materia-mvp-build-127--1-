@@ -16,11 +16,9 @@ import {
   Loader2,
   Pencil
 } from "lucide-react"
-import { StorelibMark as StorelibLogo } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/native-bridge"
 import { THEME_TEMPLATES } from "./tabs/design-tab"
-
-// Storelib logo SVG component - inlined for instant loading
 
 // Goal icon image URLs
 const GOAL_ICON_URLS = {
@@ -2045,13 +2043,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   <div className="relative mb-4 sm:mb-6 mt-4 sm:mt-0">
                     {isSettingUp && (
                       <>
-                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#1a1a2e]/30 animate-ping" />
-                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#1a1a2e]/20 animate-pulse" />
+                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-[7px] bg-[#1a1a2e]/30 animate-ping" />
+                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-[7px] bg-[#1a1a2e]/20 animate-pulse" />
                       </>
                     )}
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-lg bg-white flex items-center justify-center">
-                      <StorelibLogo className="w-full h-full" />
-                    </div>
+                    <StorelibLogo size={80} fluid className="relative h-16 w-16 sm:h-20 sm:w-20" />
                   </div>
 
                   {/* Title - centered */}

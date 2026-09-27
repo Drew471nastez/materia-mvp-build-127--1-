@@ -8,7 +8,7 @@ import {
   EmbeddedCheckout,
 } from "@stripe/react-stripe-js"
 import { X, ArrowLeft } from "lucide-react"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 // Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
 // The controller iframe triggers window.location.href navigation which in WebKit
@@ -25,8 +25,6 @@ const stripePromise = loadStripe(
   // @ts-ignore — advancedFraudSignals is valid but not yet in the TS types
   _isNative ? { advancedFraudSignals: false } : undefined,
 )
-
-const EMAIL_LOGO_URL = STORELIB_LOGO
 
 interface CheckoutModalProps {
   mode: "subscription" | "setup"
@@ -96,10 +94,10 @@ export function CheckoutModal({
           </button>
 
           {/* Storelib Logo */}
-          <img
-            src={EMAIL_LOGO_URL}
-            alt="Storelib"
-            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 rounded-[7px]"
+          <StorelibLogo
+            size={28}
+            fluid
+            className="absolute left-1/2 h-6 w-6 -translate-x-1/2 sm:h-7 sm:w-7"
           />
 
           {/* Close button */}

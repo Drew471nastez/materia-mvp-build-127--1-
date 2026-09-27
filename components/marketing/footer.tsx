@@ -1,13 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { useState, useEffect, type FormEvent } from "react"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
-
-const LOGO_URL = STORELIB_LOGO
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 // Social media icons
 function FacebookIcon({ className }: { className?: string }) {
@@ -137,7 +134,7 @@ export function MarketingFooter() {
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5 lg:gap-12">
           <div className="col-span-2 space-y-6 md:col-span-1">
             <Link href={logoHref} scroll={true} className="flex flex-wrap items-center gap-3 transition-opacity hover:opacity-80">
-              <Image src={LOGO_URL} alt="Storelib" width={40} height={40} className="h-10 w-10 rounded-[7px] shadow-[0_6px_18px_-6px_rgba(139,92,246,0.55)]" />
+              <StorelibLogo size={40} />
               <span className="text-xl font-bold text-white">Storelib</span>
             </Link>
 

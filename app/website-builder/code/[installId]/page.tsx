@@ -20,7 +20,7 @@ import { buildThemeFileTree, flattenTree, detectLanguage } from "@/lib/website-b
 import { toast } from "sonner"
 import { reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
-import { StorelibMark } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 
 // ── File tree node ────────────────────────────────────────────
@@ -2440,7 +2440,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   aria-busy={solving}
                   className="flex h-6 shrink-0 items-center gap-1.5 rounded bg-[#111114] px-2 text-[11px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  {solving ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : <StorelibMark className="h-3 w-3 shrink-0 rounded-[3px]" />}
+                  {solving ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : <StorelibLogo size={12} alt="" />}
                   {solving ? "Solving" : "Solve with AI"}
                 </button>
               </div>

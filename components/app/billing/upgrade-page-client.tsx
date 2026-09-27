@@ -9,13 +9,11 @@ import { hasInAppHistory } from "@/lib/ui/app-navigation"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { moveLayer } from "@/components/app/page-layer"
 import { isNativeApp } from "@/lib/native-bridge"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { ComparePlans } from "@/components/billing/compare-plans"
 import { PlanFaq } from "@/components/billing/plan-faq"
 import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
-
-const EMAIL_LOGO_URL = STORELIB_LOGO
 
 interface UpgradePageClientProps {
   plans: any[]
@@ -257,13 +255,11 @@ export function UpgradePageClient({
             a square mark drawn 28 by 24. Both sides are set now, from one
             size, and it may not shrink or stretch to fit anything.
           */}
-          <img
-            src={EMAIL_LOGO_URL}
-            alt="Storelib"
-            width={28}
-            height={28}
+          <StorelibLogo
+            size={28}
+            priority
             data-upgrade-logo=""
-            className="pointer-events-none absolute left-1/2 h-7 w-7 shrink-0 -translate-x-1/2 rounded-[7px] object-contain"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2"
           />
         </div>
       </div>

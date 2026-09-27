@@ -292,7 +292,7 @@ section("It is reachable, and it works on a file longer than the window")
     // Every other button there changes the section by hand; asking for a
     // change in words is the same job by another route.
     /\/\*\* Opens the assistant on the section this toolbar belongs to\. \*\/\s*\n\s*onAskAi: \(\) => void/.test(editor) &&
-      /<Item label="Ask AI" onClick=\{onAskAi\}>\s*\n\s*<StorelibMark/.test(editor) &&
+      /<Item label="Ask AI" onClick=\{onAskAi\}>\s*\n\s*<StorelibLogo/.test(editor) &&
       /onAskAi=\{\(\) => \{\s*\n\s*setAiOpen\(true\)/.test(editor),
   )
   check(

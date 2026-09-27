@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 export interface SellerFooterSurface {
   backgroundColor?: string
@@ -109,16 +109,18 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
         className={cn("inline-flex shrink-0 items-center", layout === "row" ? "gap-1.5" : "gap-1 sm:gap-1.5")}
         aria-label="Explore Storelib"
       >
-        <img
-          src={STORELIB_LOGO}
-          alt="Storelib"
-          className={cn(
-            "w-auto rounded-[4px]",
-            layout === "stack" && "h-[15px]",
-            layout === "row" && "h-[18px]",
-            layout === "responsive" && "h-[15px] sm:h-[18px]",
-          )}
-        />
+        {/* 15px on a phone is under the 18px where 7px corners would make a
+            circle, so there the corner follows the logo's proportion instead
+            (lib/brand/logo.ts storelibLogoRadius), and it is 7px from 18px up. */}
+        {layout === "responsive" ? (
+          <StorelibLogo
+            size={18}
+            fluid
+            className="h-[15px] w-[15px] [--storelib-logo-radius:3.3px] sm:h-[18px] sm:w-[18px] sm:[--storelib-logo-radius:7px]"
+          />
+        ) : (
+          <StorelibLogo size={layout === "stack" ? 15 : 18} />
+        )}
         <span
           className={cn(
             "font-semibold leading-none tracking-tight text-gray-700",

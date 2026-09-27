@@ -42,10 +42,14 @@
  */
 import type { TemplateFamily } from "../types"
 import { escapeAttr, escapeHtml } from "./escape"
+import { STORELIB_EMAIL_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
 
-/** The Storelib mark the existing platform emails (lib/email.tsx) use. */
-export const EMAIL_LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png"
+/**
+ * The Storelib logo every platform email uses (lib/email.tsx too): a PNG,
+ * because Outlook has no webp, with its 7px corners cut into the file,
+ * because Outlook on Windows ignores border-radius. From storelib.com itself.
+ */
+export const EMAIL_LOGO_URL = storelibAssetUrl(STORELIB_EMAIL_LOGO)
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 
@@ -155,7 +159,6 @@ a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important
 .sn-facts{border-color:#34343c!important;}
 .sn-facts td{border-color:#34343c!important;}
 .sn-notice{background-color:#26262c!important;border-color:#34343c!important;}
-.sn-logo{background-color:#ffffff!important;}
 .sn-btn{background-color:#2f2f4d!important;border:1px solid #7a7a85!important;}
 .sn-link{color:#c4b5fd!important;}
 .sn-ord{border-color:#34343c!important;}
@@ -342,7 +345,7 @@ ${preheader(input.preview)}
 <tr><td class="sn-head" align="left" style="padding:0 4px 18px;">
 <a href="${escapeAttr(input.homeUrl)}" target="_blank" style="text-decoration:none;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="vertical-align:middle;"><img class="sn-logo" src="${EMAIL_LOGO_URL}" alt="" width="28" height="28" style="display:block;width:28px;height:28px;border:0;outline:none;border-radius:7px;"></td>
+<td style="vertical-align:middle;"><img class="sn-logo" src="${EMAIL_LOGO_URL}" alt="" width="28" height="28" style="display:block;width:28px;height:28px;border:0;outline:none;border-radius:7px;box-shadow:${STORELIB_LOGO_SHADOW};"></td>
 <td class="sn-mark" style="vertical-align:middle;padding-left:10px;font-family:${FONT};font-size:17px;line-height:24px;font-weight:700;color:#111827;letter-spacing:-0.2px;">Storelib</td>
 </tr></table>
 </a>

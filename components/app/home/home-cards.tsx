@@ -44,7 +44,7 @@ import { ArrowRight, Check, Play } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AppLink } from "@/components/app/app-link"
-import { StorelibMark } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { OFFERED_PLANS, planDisplayName, planHighlights } from "@/lib/billing/plans"
 import type { HomeProgress, ProgressItem } from "@/lib/home/progress"
 import { APP_PAGE_KEPT_MS, prefetchAppPage } from "@/lib/ui/app-navigation"
@@ -447,7 +447,7 @@ export function SetupGuideCard({ onOpen }: { onOpen?: () => void }) {
         <span className="home-guide-thumb absolute bottom-[-18px] right-[-18px] flex aspect-[16/10.5] w-[78%] max-w-[320px] flex-col justify-between overflow-hidden rounded-[18px] p-4">
           <span className="home-guide-light" />
           <span className="relative flex items-center gap-1.5">
-            <StorelibMark className="h-[18px] w-[18px] shrink-0" />
+            <StorelibLogo size={18} alt="" />
             <span className="text-[12px] font-medium text-white/80">Storelib</span>
           </span>
           <span className="relative flex items-end justify-between gap-3 pb-3 pr-3">

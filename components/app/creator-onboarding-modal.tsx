@@ -21,7 +21,7 @@ import {
 import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { isNativeApp } from "@/lib/native-bridge"
-import { StorelibMark } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { TextSwap } from "@/components/ui/text-swap"
 
@@ -1533,7 +1533,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           return (
             <div data-onboarding-setup={state} className="flex h-full min-h-[300px] flex-col items-center justify-center px-4 pb-6 text-center sm:min-h-[360px]">
               {/* 5% under the 64 and 72px it was ("make the logo icon about 5% smaller"), as a size, not a scale. */}
-              <StorelibMark className="h-[61px] w-[61px] drop-shadow-[0_8px_18px_rgba(139,86,250,0.28)] sm:h-[68px] sm:w-[68px]" />
+              <StorelibLogo size={68} fluid className="h-[61px] w-[61px] sm:h-[68px] sm:w-[68px]" />
               {/*
                 Every phase's line is laid out in one cell and crossfades to
                 the next with a short roll (components/ui/text-swap): the new

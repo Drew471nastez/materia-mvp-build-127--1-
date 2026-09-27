@@ -83,7 +83,7 @@ import {
 } from "lucide-react"
 
 import { ImageViewer, type ViewableImage } from "@/components/website-builder/image-viewer"
-import { StorelibMark } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import {
   ActivityLine,
   AnswerMeta,
@@ -2288,7 +2288,7 @@ function ThemeChatPanel({
             <ChevronDown className="h-3 w-3 opacity-60" strokeWidth={2.2} />
           </button>
           <span className="flex min-w-0 flex-1 items-center gap-2 pl-1.5">
-            <StorelibMark className="h-4 w-4 shrink-0 rounded-[4px]" />
+            <StorelibLogo size={16} alt="" />
             <span data-ask-title="" className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">
               {conversation.title || "Ask Storelib"}
             </span>

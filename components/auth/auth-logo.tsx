@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
-
-const LOGO_SRC = STORELIB_LOGO
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const logoInner = (
   <>
-    <img
-      src={LOGO_SRC}
-      alt="Storelib"
-      className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px] rounded-[7px]"
+    <StorelibLogo
+      size={46}
+      fluid
+      priority
+      className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px]"
     />
     <span className="text-[29px] md:text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">
       Storelib

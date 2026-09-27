@@ -1013,12 +1013,11 @@ check(
   "the mark is our own file, not a hotlinked storage URL",
   (() => {
     /**
-     * Scoped to the image's own src. The shell now legitimately builds the
-     * published site's https:// address, and a blanket "no https anywhere in
-     * this file" rule reads that as a hotlinked asset.
+     * The logo through the one component that draws it, which serves it from
+     * our own public folder (lib/brand/logo.ts STORELIB_LOGO).
      */
-    const src = shell.match(/<img\s+src="([^"]+)"/)?.[1]
-    return src === "/storelib-mark.svg" && existsSync(join(root, "public/storelib-mark.svg"))
+    return /<StorelibLogo size=\{24\}/.test(shell) && !/<img\s+src="https?:/.test(shell)
+      && existsSync(join(root, "public/images/brand/storelib-logo-v2.webp"))
   })(),
 )
 
@@ -2753,14 +2752,12 @@ check(
     if (opens === -1) return false
     const label = chat.indexOf("Storelib AI", opens)
     if (label === -1) return false
-    if (!/StorelibMark/.test(chat.slice(opens, label))) return false
-    // exactly one definition in the tree
-    // The mark itself, identified by its own artwork rather than by "an svg" —
-    // the modal is full of other icons.
+    if (!/<StorelibLogo/.test(chat.slice(opens, label))) return false
+    // Drawn by the one logo component, and no copy of the old inline mark is
+    // left anywhere it used to be pasted.
     const MARK = /viewBox="0 0 200 200"[\s\S]*?fill="#8B56FA"/
-    const files = ["components/storelib-mark.tsx", "components/onepage/onboarding-modal.tsx"]
-    const definitions = files.filter((f) => MARK.test(read(f)))
-    return definitions.length === 1 && definitions[0] === "components/storelib-mark.tsx"
+    const files = ["components/storelib-mark.tsx", "components/onepage/onboarding-modal.tsx", "components/app/welcome-modal.tsx"]
+    return files.every((f) => !MARK.test(read(f))) && existsSync(join(root, "components/brand/storelib-logo.tsx"))
   })(),
 )
 

@@ -8,7 +8,7 @@ import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-moda
 import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import Image from "next/image"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { switchBusiness, type SwitchedTo } from "@/lib/businesses/switch-client"
 import { NewBusinessScreen } from "@/components/app/business-switch-screen"
 
@@ -319,25 +319,18 @@ function SuccessContent() {
               <div className="relative flex items-center justify-center">
                 {/* Smooth vibrating background animations */}
                 <div
-                  className="absolute inset-0 w-14 h-14 rounded-xl bg-purple-400/20"
+                  className="absolute inset-0 w-14 h-14 rounded-[7px] bg-purple-400/20"
                   style={{
                     animation: "ping 2s cubic-bezier(0, 0, 0.2, 1) infinite"
                   }}
                 />
                 <div
-                  className="absolute inset-0 w-14 h-14 rounded-xl bg-purple-400/15"
+                  className="absolute inset-0 w-14 h-14 rounded-[7px] bg-purple-400/15"
                   style={{
                     animation: "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite"
                   }}
                 />
-                {/* Logo container */}
-                <div className="relative w-14 h-14 rounded-xl overflow-hidden shadow-lg bg-white flex items-center justify-center">
-                  <img
-                    src={STORELIB_LOGO}
-                    alt="Storelib"
-                    className="w-full h-full"
-                  />
-                </div>
+                <StorelibLogo size={56} priority className="relative" />
               </div>
             </div>
 

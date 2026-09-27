@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react"
 import Link from "next/link"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 export function CtaSection() {
   const cardRef = useRef<HTMLDivElement>(null)
@@ -95,14 +95,7 @@ export function CtaSection() {
           <div className="relative z-10 px-6 sm:px-12 md:px-16 py-16 sm:py-20">
             {/* Storelib logo */}
             <div className="flex justify-center mb-6">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={STORELIB_LOGO}
-                alt="Storelib"
-                width={46}
-                height={46}
-                className="w-[46px] h-[46px] rounded-[7px]"
-              />
+              <StorelibLogo size={46} />
             </div>
 
             {/* Text content */}

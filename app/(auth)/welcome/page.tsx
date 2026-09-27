@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { HtmlClass } from "@/components/platform/html-class"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
@@ -149,13 +149,7 @@ export default function WelcomePage() {
           className="wlc-fade-down flex items-center justify-center gap-3 shrink-0"
           style={{ paddingTop: "clamp(18px, 4vh, 40px)" }}
         >
-          <img
-            src={STORELIB_LOGO}
-            alt="Storelib"
-            width={34}
-            height={34}
-            style={{ width: 34, height: 34, borderRadius: 5 }}
-          />
+          <StorelibLogo size={34} priority />
           <span className="text-[23px] font-bold tracking-tight text-[#0a0a0a]">
             Storelib
           </span>

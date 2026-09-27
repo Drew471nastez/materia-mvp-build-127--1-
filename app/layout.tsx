@@ -49,6 +49,7 @@ import { RotationGuard } from "@/components/platform/rotation-guard"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativePushInit } from "@/components/native-push-init"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
+import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -97,7 +98,7 @@ export const metadata: Metadata = {
     description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
     images: [
       {
-        url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
+        url: storelibAssetUrl(STORELIB_OG_IMAGE),
         width: 1200,
         height: 630,
         alt: "Storelib - Sell Products & Grow Your Audience",
@@ -108,7 +109,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Storelib - Sell Products & Grow Your Audience",
     description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
-    images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
+    images: [storelibAssetUrl(STORELIB_OG_IMAGE)],
   },
   metadataBase: new URL("https://storelib.com"),
 }

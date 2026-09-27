@@ -42,7 +42,7 @@ import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
@@ -648,11 +648,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <div className="h-5 w-px bg-white/15" />
 
             <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
-              <img
-                src={STORELIB_LOGO}
-                alt="Storelib"
-                className="h-[27px] w-[27px] rounded-[4px]"
-              />
+              <StorelibLogo size={27} priority />
               <span className="text-[15px] font-semibold text-white">Storelib</span>
             </Link>
           </div>

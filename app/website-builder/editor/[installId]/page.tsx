@@ -119,7 +119,7 @@ import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { scheduleCoverRefresh, flushCoverRefresh } from "@/lib/website-builder/cover-refresh"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { CanvasTopLayerGuard } from "@/components/website-builder/canvas-top-layer"
-import { StorelibMark } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ThemeChat } from "@/components/website-builder/theme-chat"
@@ -6945,7 +6945,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <span aria-hidden className="wb-ai-ring">
                   <span className="wb-ai-ring-spin" />
                 </span>
-                <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
+                <StorelibLogo size={18} alt="" className={cn("transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
                 {/* Still working with the panel closed: the same live dot the connection mark uses. */}
                 {aiBusy && !aiOpen && <span aria-hidden className="wb-live-dot" data-pulse="" data-ai-working="" />}
               </button>
@@ -8388,7 +8388,7 @@ function SectionToolbar({
        * them rather than in a menu somewhere else.
        */}
       <Item label="Ask AI" onClick={onAskAi}>
-        <StorelibMark className="h-4 w-4 rounded-[4px]" />
+        <StorelibLogo size={16} alt="" />
       </Item>
       <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />
       {!isChrome && (

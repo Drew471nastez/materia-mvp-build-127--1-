@@ -2,7 +2,7 @@ import dynamic from "next/dynamic"
 import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { storelibLogoUrl } from "@/lib/brand/logo"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 
 // Below-the-fold sections — dynamically imported to reduce initial JS bundle.
@@ -29,7 +29,7 @@ export default function StorelibLanding() {
             "@type": "Organization",
             "name": "Storelib",
             "url": "https://storelib.com",
-            "logo": STORELIB_LOGO,
+            "logo": storelibLogoUrl(),
             "sameAs": [],
             "description": "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience."
           }),
