@@ -1,46 +1,75 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- *  THE REPORTS UNDER THE ANALYTICS CHART
+ *  THE ANALYTICS REPORTS: EVERY FIGURE ON /app/analytics AND ON HOME
  * ═══════════════════════════════════════════════════════════════════════════
- * Every card under the chart is worked out here, from the rows the server
- * read, with no clock and no browser of its own. app/api/analytics/reports
- * feeds it; tests/analytics-reports.test.ts checks it.
+ * Pure: no clock, no database, no browser. The route
+ * (app/api/analytics/reports, lib/analytics/report-read) hands it what the
+ * database counted and the rows it read, and gets back every figure the
+ * page draws. The comment on each part says what it counts.
+ *
+ * WHERE EACH NUMBER COMES FROM
+ *
+ *   Visitors, page views, sessions, traffic sources, pages, products and
+ *   the funnel's first three steps are counted by the database
+ *   (analytics_report, supabase/sql/run-now part 54) and arrive as a
+ *   ReportWire. Until that function exists, wireFromRows counts the very
+ *   same things from the rows here, by the same rules, and the tests hold
+ *   the two to the same answers.
+ *
+ *   Orders and revenue come from `orders` only, never from an event: one
+ *   order per payment (lib/orders/order-view groupOrders), failed, pending
+ *   and disputed payments left out (isSale), money what was charged less
+ *   what was refunded (moneyOf). The Orders page and Home count them the
+ *   same way, so all three agree to the cent.
+ *
+ *   The OnePage's visits from before it was counted in analytics_events are
+ *   read from onepage_views and folded in here (foldLegacyOnePage), once,
+ *   never on top of the events.
  *
  * THE RULES, so the numbers agree with each other:
  *
- *   A session is one visit: one analytics session id (30 minutes without a
- *   page, see lib/analytics-utils). A view with no session id counts as its
- *   visitor's visit for that day, and one with neither counts once.
+ *   A visitor is counted once per period and once per bucket of the chart,
+ *   whichever of the creator's places they saw: somebody who opened the
+ *   OnePage and the website on the same visit is one visitor under All.
  *
- *   A session is described by its FIRST page: where it came from, which
- *   device, which country, which page it landed on. Five pages in one visit
- *   from Instagram is one Instagram session, not five.
+ *   Conversion is orders divided by visitors, for the same property and
+ *   period. With no visitors there is no rate, not 0%.
  *
- *   An order is one payment (lib/orders/order-view groups a basket's rows).
- *   Failed and pending payments are not orders. Money is what was charged
- *   less what was refunded, read from the rows' own amounts (moneyOf).
- *
- *   Every figure is compared with the period the comparison picker names,
- *   bucket by bucket on its own calendar, and nothing is ever filled in: an
- *   empty day is zero, an unknown device is "Unknown", a country nobody
- *   recorded is not a country.
- *
- * The chart at the top of the page reads the same object, so the numbers
- * on its tabs and the cards under it cannot disagree.
+ *   Every figure is compared with the period the page names, bucket by
+ *   bucket on its own calendar, and nothing is ever filled in: an empty day
+ *   is zero, an unknown device is "Unknown".
  */
 
 import { groupOrders, isSale, startOfDay, type OrderRow } from "../orders/order-view"
 import { isInternalReferrer } from "./sources"
 import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span } from "./buckets"
+import {
+  ALL,
+  counts,
+  isSignup,
+  orderProperty,
+  propertyName,
+  subscriberProperty,
+  type CreatorProperties,
+  type PropertySelector,
+  type SubscriberRowLike,
+} from "./properties"
 
 export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
 
+/* ─── Rows ─────────────────────────────────────────────────────────────── */
+
+/** A page view, as analytics_events keeps it (docs/analytics/events.md). */
 export interface ViewRow {
   id?: string
   session_id?: string | null
   visitor_id?: string | null
   product_id?: string | null
   created_at: string
+  /** Absent entirely on a database from before part 54; null when a row could not be placed. */
+  property_type?: string | null
+  property_id?: string | null
+  path?: string | null
   source_category?: string | null
   referrer_domain?: string | null
   country_code?: string | null
@@ -53,13 +82,88 @@ export interface ViewRow {
   utm_campaign?: string | null
 }
 
+/** A step towards a sale (buy_click, checkout_start) or a link click, as analytics_events keeps it. */
 export interface StepRow {
+  id?: string
   event_type: string
   session_id?: string | null
   visitor_id?: string | null
   product_id?: string | null
+  property_type?: string | null
+  property_id?: string | null
+  link_id?: string | null
+  link_url?: string | null
   created_at: string
 }
+
+/** A OnePage view as app/api/onepage/track wrote it: one per address a UTC day, with an id of its own. */
+export interface OnePageViewRow {
+  id?: string
+  visitor_id?: string | null
+  referrer?: string | null
+  user_agent?: string | null
+  country_code?: string | null
+  country_name?: string | null
+  created_at: string
+}
+
+/** A OnePage link tap as app/api/onepage/track wrote it: one per id, block and UTC day. */
+export interface OnePageClickRow {
+  id?: string
+  block_id: string
+  url?: string | null
+  visitor_id?: string | null
+  created_at: string
+}
+
+/** A subscriber, as the reports read one. */
+export interface SubscriberRow extends SubscriberRowLike {
+  id?: string
+  subscribed_at?: string | null
+  created_at?: string | null
+  last_touch?: { source?: string | null } | null
+}
+
+/* ─── What the database answers ───────────────────────────────────────── */
+
+export type WireMaps = Partial<Record<"source" | "referrer" | "campaign" | "device" | "country" | "browser", Record<string, number>>>
+
+/**
+ * ONE PERIOD, COUNTED (analytics_report's answer for `cur` or `prev`). The
+ * first group is the quick part (`figures`); the rest is `detail`. The lists
+ * (pages, products, links, checkouts) are only counted for the period itself.
+ */
+export interface WindowWire {
+  visitors?: number
+  views?: number
+  product_visitors?: number
+  product_views?: number
+  visitor_buckets?: number[]
+  view_buckets?: number[]
+  clicks?: number
+  click_buckets?: number[]
+
+  sessions?: number
+  session_buckets?: number[]
+  maps?: WireMaps
+  rolled_days?: number
+  raw_runs?: number
+  /** [property_type, property_id, path, page views, visitors], the 50 most viewed. */
+  pages?: Array<[string | null, string | null, string | null, number, number]>
+  /** [product_id, page views, visitors]. */
+  products?: Array<[string, number, number]>
+  /** Visitors who opened the checkout (checkout_start). */
+  checkouts?: number
+  /** [property_type, property_id, link, clicks, visitors], the 50 most clicked. */
+  links?: Array<[string | null, string | null, string, number, number]>
+}
+
+export interface ReportWire {
+  cur: WindowWire
+  prev: WindowWire
+}
+
+/* ─── Shapes the page draws ───────────────────────────────────────────── */
 
 export interface Series {
   labels: string[]
@@ -67,10 +171,24 @@ export interface Series {
   previous: number[]
 }
 
+/** A rate per bucket: null where there was nobody to divide by. */
+export interface RateSeries {
+  labels: string[]
+  current: Array<number | null>
+  previous: Array<number | null>
+}
+
 export interface Headline {
   value: number
   previous: number
   /** Fraction, 0.12 for +12%. Null when there was nothing before to compare with. */
+  change: number | null
+}
+
+export interface RateHeadline {
+  /** Null when there were no visitors: no rate, rather than 0%. */
+  value: number | null
+  previous: number | null
   change: number | null
 }
 
@@ -84,52 +202,95 @@ export interface BreakdownRow {
   extra?: { orders?: number; salesCents?: number; code?: string }
 }
 
+export interface PageRow {
+  key: string
+  /** The path, as the visitor saw it. */
+  label: string
+  /** Which of the creator's places it is on, under All; null when one place is chosen. */
+  place: string | null
+  views: number
+  visitors: number
+  share: number
+}
+
+export interface LinkRow {
+  key: string
+  label: string
+  clicks: number
+  visitors: number
+  share: number
+}
+
+export interface ProductRow {
+  key: string
+  label: string
+  views: number
+  orders: number
+  salesCents: number
+  share: number
+}
+
+export interface FunnelStep {
+  key: "visitors" | "product" | "checkout" | "orders"
+  label: string
+  value: number
+  /** Of the step before, 0..1; null for the first step, after a step with nothing recorded, or when more reached this step than the one before. */
+  rate: number | null
+  /** False when this step was not recorded for the period (nothing here while a later step has something). */
+  recorded: boolean
+}
+
+export interface SubscriberFigures extends Headline {
+  byProperty: BreakdownRow[]
+  bySource: BreakdownRow[]
+}
+
 export interface Reports {
   grain: Grain
   /**
-   * The figures and the order cards only: the visit lists and the funnel are
-   * still being counted. The page's first, quick answer (app/api/analytics/
-   * reports streams it ahead of the rest); the lists wait in their shapes.
+   * The quick first answer: the figures and the chart, and not yet the
+   * lists (app/api/analytics/reports streams it ahead of the rest).
    */
   partial?: boolean
-  /** False when the picker says No comparison: every `previous` is then empty. */
+  /** False when there is no comparison: every `previous` is then empty. */
   compared: boolean
-  /** Page views: every page opened, one per page per visitor per half hour (app/api/track-view). */
+  visitors: Headline & { series: Series }
+  /** Page views: every page opened, one per page per visitor per half hour. */
   views: Headline & { series: Series }
   sessions: Headline & { series: Series }
-  conversion: Headline & { series: Series }
-  aov: Headline & { series: Series }
+  conversion: RateHeadline & { series: RateSeries }
   sales: Headline & { series: Series }
   orders: Headline & { series: Series }
   /** Orders placed in each bucket that have since been refunded, in whole or part. */
   refunds: { series: Series }
-  salesByChannel: BreakdownRow[]
-  salesByProduct: BreakdownRow[]
-  funnel: Array<{ key: "sessions" | "buy" | "checkout" | "orders"; label: string; value: number; previous: number; rate: number }>
+  /** Link clicks in each bucket (the OnePage's links and links out of every page). */
+  linkClicks: { value: number; series: Series }
+  topPages: PageRow[]
+  topLinks: LinkRow[]
+  topProducts: ProductRow[]
+  funnel: FunnelStep[]
+  subscribers: SubscriberFigures | null
   breakdowns: {
     source: BreakdownRow[]
-    referrer: BreakdownRow[]
     social: BreakdownRow[]
+    referrer: BreakdownRow[]
     campaign: BreakdownRow[]
     country: BreakdownRow[]
-    city: BreakdownRow[]
     device: BreakdownRow[]
     browser: BreakdownRow[]
-    os: BreakdownRow[]
-    landing: BreakdownRow[]
-    channel: BreakdownRow[]
   }
 }
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
+const SLOT = 15 * 60_000
 
-/** Sales by product's one row for every product the creator has deleted. */
+/** Top products' one row for every product the creator has deleted. */
 export const REMOVED_PRODUCT = "removed"
 
-/* ─── Sessions ────────────────────────────────────────────────────────── */
+/* ─── Sessions, for the pages that still count them from rows ────────── */
 
-export function sessionKey(v: ViewRow, timeZone: string): string {
+export function sessionKey(v: { session_id?: string | null; visitor_id?: string | null; id?: string; created_at: string }, timeZone: string): string {
   if (v.session_id) return `s:${v.session_id}`
   if (v.visitor_id) return `v:${v.visitor_id}:${startOfDay(Date.parse(v.created_at), timeZone)}`
   return `e:${v.id ?? v.created_at}`
@@ -141,7 +302,7 @@ interface Session {
   first: ViewRow
 }
 
-/** One entry per visit, described by its first page. */
+/** One entry per visit, described by its first page (lib/website-builder/site-performance). */
 export function sessionsOf(views: ViewRow[], w: Span, timeZone: string): Session[] {
   const byKey = new Map<string, Session>()
   for (const v of views) {
@@ -156,7 +317,7 @@ export function sessionsOf(views: ViewRow[], w: Span, timeZone: string): Session
 
 /* ─── Labels ──────────────────────────────────────────────────────────── */
 
-const SOURCE_LABEL: Record<string, string> = {
+export const SOURCE_LABEL: Record<string, string> = {
   direct: "Direct",
   organic_search: "Search",
   paid_search: "Paid search",
@@ -167,7 +328,7 @@ const SOURCE_LABEL: Record<string, string> = {
   social: "Social",
 }
 
-const SOCIAL_LABEL: Record<string, string> = {
+export const SOCIAL_LABEL: Record<string, string> = {
   instagram: "Instagram",
   tiktok: "TikTok",
   facebook: "Facebook",
@@ -201,12 +362,11 @@ function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function deviceLabel(d: string | null | undefined): string {
-  const v = (d || "").toLowerCase()
-  if (v === "mobile") return "Mobile"
-  if (v === "desktop") return "Desktop"
-  if (v === "tablet") return "Tablet"
-  return "Unknown"
+/** A source category in words: the network for social ones ("Instagram"), else the group ("Search"). */
+export function sourceName(category: string | null | undefined): string {
+  const n = socialNetwork(category)
+  if (n) return SOCIAL_LABEL[n] ?? (n === "other" ? "Social" : titleCase(n))
+  return SOURCE_LABEL[sourceGroup(category)]
 }
 
 export function countryName(code: string, stored?: string | null): string {
@@ -240,295 +400,64 @@ export function channelOfUrl(url: string | null | undefined, mainDomain: string)
   return "website"
 }
 
-function landingPath(url: string | null | undefined, mainDomain: string): string | null {
-  if (!url) return null
-  try {
-    const u = new URL(url)
-    const path = u.pathname.replace(/\/+$/, "") || "/"
-    return channelOfUrl(url, mainDomain) === "website" ? `${u.hostname}${path === "/" ? "" : path}` : path
-  } catch {
-    return null
-  }
-}
+/* ─── Money ───────────────────────────────────────────────────────────── */
 
-/* ─── Breakdowns ──────────────────────────────────────────────────────── */
+type Grouped = ReturnType<typeof groupOrders>[number]
 
 /**
- * VISITS IN GROUPS. A breakdown reads a few columns of each visit's first
- * page, so visits that agree on those columns are one group with a count.
- * Counting a group of twelve adds twelve, exactly as twelve visits one by one
- * did, and the groups come in the order of their earliest visit, so the
- * first label a card sees for a key is the one it always saw. The database
- * can hand over these groups (analytics_visit_tally) instead of every row.
+ * WHAT A PAYMENT BROUGHT IN, FROM ITS OWN LINES.
+ *
+ * A row's `amount_cents` is what Stripe charged, the tip included (it is
+ * the session's `amount_total`), and the tip is ALSO kept on its own in
+ * `tip_cents`. The order view adds the two, so every tip was counted twice
+ * in Sales and in the average order. Money here is the lines' amounts, less
+ * what was refunded on each, never below nothing.
  */
-export interface VisitGroup {
-  first: ViewRow
-  n: number
-}
-
-type Keyer = (s: { first: ViewRow }) => { key: string; label: string } | null
-
-function breakdown(current: VisitGroup[], previous: VisitGroup[], keyer: Keyer, limit = 25): BreakdownRow[] {
-  const now = new Map<string, { label: string; value: number }>()
-  const before = new Map<string, number>()
-  for (const s of current) {
-    const k = keyer(s)
-    if (!k) continue
-    const row = now.get(k.key)
-    if (row) row.value += s.n
-    else now.set(k.key, { label: k.label, value: s.n })
+export function moneyOf(o: Grouped): { gross: number; refunded: number; net: number } {
+  let gross = 0
+  let refunded = 0
+  for (const line of o.lines) {
+    const m = lineMoney(line)
+    gross += m.gross
+    refunded += m.refunded
   }
-  for (const s of previous) {
-    const k = keyer(s)
-    if (k) before.set(k.key, (before.get(k.key) ?? 0) + s.n)
-  }
-  const total = [...now.values()].reduce((n, r) => n + r.value, 0)
-  return [...now.entries()]
-    .map(([key, r]) => ({ key, label: r.label, value: r.value, previous: before.get(key) ?? 0, share: total ? r.value / total : 0 }))
-    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
-    .slice(0, limit)
-}
-
-function headline(value: number, previous: number): Headline {
-  return { value, previous, change: previous > 0 ? (value - previous) / previous : null }
-}
-
-/* ─── The breakdowns every kind of page shares ─────────────────────────── */
-
-export function referrerKeyer(mainDomain: string): Keyer {
-  return (s) => {
-    const d = (s.first.referrer_domain || "").trim().toLowerCase().replace(/^www\./, "")
-    if (!d || d === "direct") return null
-    /* A whole host, not a suffix: "mystorelib.com" is somebody else's site. */
-    const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || isInternalReferrer(d, mainDomain)
-    return self ? null : { key: d, label: d }
-  }
-}
-
-const keyCountry: Keyer = (s) =>
-  s.first.country_code && s.first.country_code !== "XX"
-    ? { key: s.first.country_code.toUpperCase(), label: countryName(s.first.country_code.toUpperCase(), s.first.country_name) }
-    : null
-
-function visitBreakdowns(now: VisitGroups, before: VisitGroups, mainDomain: string) {
-  return {
-    source: breakdown(now.source, before.source, (s) => {
-      const g = sourceGroup(s.first.source_category)
-      return { key: g, label: SOURCE_LABEL[g] }
-    }),
-    referrer: breakdown(now.referrer, before.referrer, referrerKeyer(mainDomain)),
-    social: breakdown(now.source, before.source, (s) => {
-      const n = socialNetwork(s.first.source_category)
-      return n ? { key: n, label: SOCIAL_LABEL[n] ?? (n === "other" ? "Other social" : titleCase(n)) } : null
-    }),
-    campaign: breakdown(now.campaign, before.campaign, (s) => {
-      const c = (s.first.utm_campaign || "").trim()
-      return c ? { key: c.toLowerCase(), label: c } : null
-    }),
-    country: breakdown(now.country, before.country, keyCountry).map((r) => ({ ...r, extra: { code: r.key } })),
-    city: breakdown(now.city, before.city, (s) => {
-      const c = (s.first.city || "").trim()
-      if (!c) return null
-      let city = c
-      try {
-        city = decodeURIComponent(c)
-      } catch {
-        /* Stored plain. */
-      }
-      const cc = (s.first.country_code || "").toUpperCase()
-      return { key: `${city}|${cc}`, label: cc ? `${city}, ${countryName(cc, s.first.country_name)}` : city }
-    }),
-    device: breakdown(now.device, before.device, (s) => {
-      const d = deviceLabel(s.first.device_type)
-      return { key: d.toLowerCase(), label: d }
-    }),
-    browser: breakdown(now.browser, before.browser, (s) => {
-      const b = (s.first.browser || "").trim()
-      return { key: (b || "unknown").toLowerCase(), label: b ? titleCase(b) : "Unknown" }
-    }),
-    os: breakdown(now.os, before.os, (s) => {
-      const o = (s.first.os || "").trim()
-      return { key: (o || "unknown").toLowerCase(), label: o || "Unknown" }
-    }),
-  }
-}
-
-/* ─── Visits, counted ─────────────────────────────────────────────────── */
-
-/** What each breakdown reads of a visit's first page, and nothing else. */
-export const GROUP_COLUMNS = {
-  source: ["source_category"],
-  referrer: ["referrer_domain"],
-  campaign: ["utm_campaign"],
-  country: ["country_code", "country_name"],
-  city: ["city", "country_code", "country_name"],
-  device: ["device_type"],
-  browser: ["browser"],
-  os: ["os"],
-  page: ["page_url"],
-} as const satisfies Record<string, ReadonlyArray<keyof ViewRow>>
-
-export type VisitGroupKind = keyof typeof GROUP_COLUMNS
-export type VisitGroups = Record<VisitGroupKind, VisitGroup[]>
-
-/**
- * ONE WINDOW'S VISITS, COUNTED: everything the page needs from the view and
- * step rows. Worked out here from the rows (tallyVisits), or by the database
- * from the same rows by the same rules (analytics_visit_tally, read back by
- * talliesFromWire), and either way handed to the same buildReports.
- */
-export interface VisitTally {
-  /** Page views in the window, and per bucket of the chart. */
-  views: number
-  viewBuckets: number[]
-  /** Visits (sessionsOf) in the window, and per bucket, by when each began. */
-  sessions: number
-  sessionBuckets: number[]
-  /** Visits that pressed Buy, and that reached the checkout. Absent from a quick first answer. */
-  steps?: { buy: number; checkout: number }
-  /** The visits in groups, earliest visit first (groupVisits). Absent from a quick first answer. */
-  groups?: VisitGroups
-}
-
-export interface VisitTallies {
-  cur: VisitTally
-  prev: VisitTally
-}
-
-/** Visits in groups, per breakdown, in the order of each group's earliest visit. */
-export function groupVisits(sessions: Array<{ first: ViewRow }>): VisitGroups {
-  const out = {} as VisitGroups
-  for (const kind of Object.keys(GROUP_COLUMNS) as VisitGroupKind[]) {
-    const cols = GROUP_COLUMNS[kind] as ReadonlyArray<keyof ViewRow>
-    const byTuple = new Map<string, VisitGroup>()
-    for (const s of sessions) {
-      const tuple = cols.length === 1 ? String(s.first[cols[0]] ?? "\u0000") : JSON.stringify(cols.map((c) => s.first[c] ?? null))
-      const g = byTuple.get(tuple)
-      if (g) g.n++
-      else {
-        const first = { created_at: s.first.created_at } as ViewRow
-        for (const c of cols) (first as unknown as Record<string, unknown>)[c] = s.first[c] ?? null
-        byTuple.set(tuple, { first, n: 1 })
-      }
-    }
-    out[kind] = [...byTuple.values()]
-  }
-  return out
-}
-
-/** The step rows' visits: each step counted once per visit. */
-function stepVisits(steps: StepRow[], type: string, w: Span, timeZone: string): number {
-  const keys = new Set<string>()
-  for (const s of steps) {
-    if (s.event_type !== type) continue
-    const at = Date.parse(s.created_at)
-    if (!(at >= w.start && at < w.end)) continue
-    keys.add(sessionKey({ ...s, created_at: s.created_at }, timeZone))
-  }
-  return keys.size
+  return { gross, refunded, net: Math.max(0, gross - refunded) }
 }
 
 /**
- * The two windows' visits, counted from the rows, by the rules at the top of
- * this file. The database's analytics_visit_tally is this function in SQL.
+ * ONE LINE'S MONEY, the unit moneyOf adds up. Top products reads the same
+ * function, so its rows add up to Revenue.
  */
-export function tallyVisits(input: { views: ViewRow[]; steps: StepRow[]; window: Span; previous?: Span | null; timeZone: string }): VisitTallies {
-  const { views, steps, window: cur, timeZone } = input
-  const { starts, prev, prevStarts, compared } = periodsOf(cur, input.previous, timeZone)
-  const n = starts.length
-  const one = (w: Span, bucketStartsOf: number[]): VisitTally => {
-    const sessions = sessionsOf(views, w, timeZone)
-    const viewTimes: Array<{ at: number }> = []
-    for (const v of views) {
-      const at = Date.parse(v.created_at)
-      if (at >= w.start && at < w.end) viewTimes.push({ at })
-    }
-    return {
-      views: viewTimes.length,
-      viewBuckets: bucketCounts(viewTimes, bucketStartsOf, w, n),
-      sessions: sessions.length,
-      sessionBuckets: bucketCounts(sessions.map((s) => ({ at: s.at })), bucketStartsOf, w, n),
-      steps: { buy: stepVisits(steps, "buy_click", w, timeZone), checkout: stepVisits(steps, "checkout_start", w, timeZone) },
-      groups: groupVisits(sessions),
-    }
+export function lineMoney(line: OrderRow): { gross: number; refunded: number; net: number } {
+  const gross = Math.max(0, line.amount_cents || 0)
+  let refunded = 0
+  if (line.status === "refunded") {
+    const recorded = line.refund_amount_cents
+    refunded = typeof recorded === "number" && recorded > 0 ? Math.min(recorded, gross) : gross
   }
-  return { cur: one(cur, starts), prev: compared ? one(prev, prevStarts) : one(prev, []) }
+  return { gross, refunded, net: gross - refunded }
 }
 
 /**
- * WHAT THE DATABASE IS ASKED (analytics_visit_tally's arguments): the two
- * windows and the very bucket starts this file draws, so the database never
- * works out a calendar of its own.
+ * THE CREATOR'S SALES FOR ONE PROPERTY: payments, sales only, each under
+ * exactly one property (lib/analytics/properties orderProperty), so All is
+ * the sum of the parts and no order is counted twice or left out.
  */
-export function tallyArgs(window: Span, previous: Span | null | undefined, timeZone: string) {
-  const { starts, prev, prevStarts } = periodsOf(window, previous, timeZone)
-  return {
-    p_time_zone: timeZone,
-    p_cur_start: window.start,
-    p_cur_end: window.end,
-    p_prev_start: prev.start,
-    p_prev_end: prev.end,
-    p_cur_starts: starts,
-    p_prev_starts: prevStarts,
-  }
+export function salesFor(orders: OrderRow[], selector: PropertySelector, defaultWebsite: string | null): Grouped[] {
+  return groupOrders(orders)
+    .filter(isSale)
+    .filter((o) => counts(selector, orderProperty(o), defaultWebsite))
 }
 
-type WireGroup = Array<string | number | null>
-interface WireTally {
-  views: number
-  view_buckets: number[]
-  sessions: number
-  session_buckets: number[]
-  steps?: { buy: number; checkout: number } | null
-  groups?: Partial<Record<VisitGroupKind, WireGroup[]>> | null
-}
-
-/**
- * The database's answer, as the tallies above. Each group comes as its
- * columns (GROUP_COLUMNS order), its count and the rank of its earliest
- * visit; sorted by that rank they are in the order tallyVisits makes.
- */
-export function talliesFromWire(wire: { cur: WireTally; prev: WireTally }, detail: boolean): VisitTallies {
-  const one = (t: WireTally): VisitTally => {
-    const out: VisitTally = {
-      views: Number(t.views) || 0,
-      viewBuckets: (t.view_buckets ?? []).map(Number),
-      sessions: Number(t.sessions) || 0,
-      sessionBuckets: (t.session_buckets ?? []).map(Number),
-    }
-    if (!detail) return out
-    out.steps = { buy: Number(t.steps?.buy) || 0, checkout: Number(t.steps?.checkout) || 0 }
-    const groups = {} as VisitGroups
-    for (const kind of Object.keys(GROUP_COLUMNS) as VisitGroupKind[]) {
-      const cols = GROUP_COLUMNS[kind] as ReadonlyArray<keyof ViewRow>
-      const rows = [...(t.groups?.[kind] ?? [])].sort((a, b) => Number(a[cols.length + 1]) - Number(b[cols.length + 1]))
-      groups[kind] = rows.map((r) => {
-        const first = { created_at: "" } as ViewRow
-        cols.forEach((c, i) => ((first as unknown as Record<string, unknown>)[c] = r[i] ?? null))
-        return { first, n: Number(r[cols.length]) || 0 }
-      })
-    }
-    out.groups = groups
-    return out
-  }
-  return { cur: one(wire.cur), prev: one(wire.prev) }
-}
-
-/* ─── Everything ──────────────────────────────────────────────────────── */
+/* ─── Periods and buckets ─────────────────────────────────────────────── */
 
 /**
  * THE TWO PERIODS AND THEIR BUCKETS.
  *
- * The period before is the one the comparison picker names, handed in by the
- * page (lib/date-range/range compareBounds): the previous period, the same
- * days a year earlier, a custom range, or none. It used to be fixed here as
- * "the same length just before", whatever the picker said, and with a period
- * that runs to now that length is not whole days: at 3pm on the seventh day
- * of "Last 7 days" the period before started at 9am, so every dashed point
- * was a day shifted by six hours.
- *
- * Bucket i of the comparison is bucket i of its own period, counted on its
- * own calendar: the same hour of yesterday, the same day of last year.
+ * The period before is the one the page names, handed in by it (lib/
+ * date-range/range compareBounds): the previous period, or none. Bucket i
+ * of the comparison is bucket i of its own period, counted on its own
+ * calendar: the same hour of yesterday, the same day of last month.
  */
 export function periodsOf(cur: Span, previous: Span | null | undefined, timeZone: string) {
   const prev = previous === undefined ? previousWindow(cur) : previous
@@ -557,420 +486,691 @@ function bucketCounts(items: Array<{ at: number; n?: number }>, starts: number[]
   return out
 }
 
-type Grouped = ReturnType<typeof groupOrders>[number]
-
-/**
- * WHAT A PAYMENT BROUGHT IN, FROM ITS OWN LINES.
- *
- * A row's `amount_cents` is what Stripe charged, the tip included (it is
- * the session's `amount_total`), and the tip is ALSO kept on its own in
- * `tip_cents`. The order view adds the two, so every tip was counted twice
- * in Sales and in the average order. Money here is the lines' amounts, less
- * what was refunded on each, never below nothing.
- */
-export function moneyOf(o: Grouped): { gross: number; refunded: number; net: number } {
-  let gross = 0
-  let refunded = 0
-  for (const line of o.lines) {
-    const m = lineMoney(line)
-    gross += m.gross
-    refunded += m.refunded
-  }
-  return { gross, refunded, net: Math.max(0, gross - refunded) }
+/** The same length as the chart: padded with zeros, or cut. */
+function fit(xs: number[] | undefined, length: number): number[] {
+  return Array.from({ length }, (_, i) => Number(xs?.[i]) || 0)
 }
 
 /**
- * ONE LINE'S MONEY, the unit moneyOf adds up. Sales by product reads the
- * same function, so its rows add up to Total sales: it used to keep only
- * lines marked completed or refunded, with its own copy of the refund rule,
- * while the total counted every line of the payment.
+ * WHAT THE DATABASE IS ASKED (analytics_report's arguments): the two
+ * periods and the very bucket starts this file draws, so the database never
+ * works out a calendar of its own.
  */
-export function lineMoney(line: OrderRow): { gross: number; refunded: number; net: number } {
-  const gross = Math.max(0, line.amount_cents || 0)
-  let refunded = 0
-  if (line.status === "refunded") {
-    const recorded = line.refund_amount_cents
-    refunded = typeof recorded === "number" && recorded > 0 ? Math.min(recorded, gross) : gross
+export function reportArgs(window: Span, previous: Span | null | undefined, timeZone: string) {
+  const { starts, prev, prevStarts } = periodsOf(window, previous, timeZone)
+  return {
+    p_cur_start: window.start,
+    p_cur_end: window.end,
+    p_prev_start: prev.start,
+    p_prev_end: prev.end,
+    p_cur_starts: starts,
+    p_prev_starts: prevStarts,
   }
-  return { gross, refunded, net: gross - refunded }
+}
+
+/* ─── The same counting, from rows ─────────────────────────────────────── */
+
+/**
+ * WHERE A ROW IS, before part 54 gave it a property: the host it was
+ * recorded on, as part 54's backfill places it. Storelib's own hosts are the
+ * creator page, any other host a website (the live one).
+ */
+function placeOf(row: { property_type?: string | null; property_id?: string | null; page_url?: string | null }, mainDomain: string): { type: string | null; id: string | null } {
+  if (row.property_type !== undefined) return { type: row.property_type ?? null, id: row.property_id ?? null }
+  const channel = channelOfUrl(row.page_url, mainDomain)
+  if (!channel) return { type: null, id: null }
+  return channel === "storelib" ? { type: "creator_page", id: null } : { type: "website", id: null }
+}
+
+const visitorOf = (r: { visitor_id?: string | null; session_id?: string | null; id?: string; created_at: string }) =>
+  (r.visitor_id || "") || (r.session_id || "") || `e:${r.id ?? r.created_at}`
+
+const utcDay = (ms: number) => Math.floor(ms / DAY) * DAY
+
+function sessionOf(r: ViewRow): string {
+  if (r.session_id) return r.session_id
+  if (r.visitor_id) return `v:${r.visitor_id}:${new Date(r.created_at).toISOString().slice(0, 10)}`
+  return `e:${r.id ?? r.created_at}`
+}
+
+/** A breakdown key of a visit's first page, exactly as analytics_property_counts writes it. */
+function dimsOf(r: ViewRow): Record<"source" | "referrer" | "campaign" | "device" | "country" | "browser", string | null> {
+  /* The same steps as the SQL: the leading "www." off first (as written), then lower case. */
+  const referrer = (r.referrer_domain || "").replace(/^www\./, "").toLowerCase()
+  return {
+    source: r.source_category || "direct",
+    referrer: referrer || "direct",
+    campaign: r.utm_campaign || null,
+    device: (r.device_type || "").toLowerCase() || "unknown",
+    country: (r.country_code || "").toUpperCase() || "unknown",
+    browser: (r.browser || "").toLowerCase() || "unknown",
+  }
+}
+
+const MAP_CAP: Record<string, number> = { country: 300 }
+
+/**
+ * THE DATABASE'S COUNTING, DONE HERE FROM THE ROWS: analytics_report by the
+ * same rules, for a database that does not have it yet, and for the tests,
+ * which hold the two to the same answer. `views` are the page views from a
+ * day before the earlier period to the end of the later one (a visit is
+ * counted where it began); `steps` the checkout_start and link_click rows of
+ * both periods.
+ */
+export function wireFromRows(input: {
+  views: ViewRow[]
+  steps: StepRow[]
+  window: Span
+  previous: Span | null
+  timeZone: string
+  selector: PropertySelector
+  defaultWebsite: string | null
+  product: string | null
+  mainDomain: string
+}): ReportWire {
+  const { window: cur, timeZone, selector, defaultWebsite, product, mainDomain } = input
+  const { starts, prev, prevStarts } = periodsOf(cur, input.previous, timeZone)
+  const keep = (row: { property_type?: string | null; property_id?: string | null; page_url?: string | null; product_id?: string | null }) => {
+    const place = placeOf(row, mainDomain)
+    if (!counts(selector, { type: place.type as never, id: place.id }, defaultWebsite)) return false
+    return !product || row.product_id === product
+  }
+  const views = input.views.filter(keep).map((v) => ({ v, at: Date.parse(v.created_at), place: placeOf(v, mainDomain) }))
+  views.sort((a, b) => a.at - b.at || String(a.v.id ?? "").localeCompare(String(b.v.id ?? "")))
+  const steps = input.steps.filter((s) => (s.event_type === "link_click" ? !product && keep({ ...s, product_id: null }) : keep(s)))
+
+  /*
+    A visit begins at its first page within that day and the day before
+    (analytics_property_counts): per property and visit, a page starts one
+    when the visit's page before it is from before the previous UTC day.
+  */
+  const lastAt = new Map<string, number>()
+  const startsAt: Array<{ at: number; row: ViewRow }> = []
+  for (const { v, at, place } of views) {
+    if (!place.type) continue
+    const key = `${place.type}:${place.id ?? ""}|${sessionOf(v)}`
+    const before = lastAt.get(key)
+    if (before === undefined || before < utcDay(at) - DAY) startsAt.push({ at, row: v })
+    lastAt.set(key, at)
+  }
+
+  const one = (w: Span, bucketStartsOf: number[], lists: boolean): WindowWire => {
+    const inside = views.filter((x) => x.at >= w.start && x.at < w.end)
+    const n = bucketStartsOf.length
+    const bucketOf = (at: number) => (n > 0 ? bucketIndex(bucketStartsOf, at) : -1)
+
+    const people = new Map<string, boolean>()
+    const perBucket = Array.from({ length: n }, () => ({ views: 0, people: new Set<string>() }))
+    let productViews = 0
+    for (const { v, at } of inside) {
+      const who = visitorOf(v)
+      people.set(who, (people.get(who) ?? false) || !!v.product_id)
+      if (v.product_id) productViews++
+      const b = bucketOf(at)
+      if (b >= 0 && b < n) {
+        perBucket[b].views++
+        perBucket[b].people.add(who)
+      }
+    }
+
+    const clicks = steps.filter((s) => s.event_type === "link_click" && Date.parse(s.created_at) >= w.start && Date.parse(s.created_at) < w.end)
+    const clickBuckets = Array.from({ length: n }, () => 0)
+    for (const c of clicks) {
+      const b = bucketOf(Date.parse(c.created_at))
+      if (b >= 0 && b < n) clickBuckets[b]++
+    }
+
+    /* Visits and where they came from: counted per UTC day, each map's longest tail folded into "(other)" as the rollup does. */
+    const began = startsAt.filter((s) => s.at >= w.start && s.at < w.end)
+    const sessionBuckets = Array.from({ length: n }, () => 0)
+    const perDay = new Map<string, Map<string, Map<string, number>>>()
+    for (const s of began) {
+      const b = bucketOf(Math.floor(s.at / SLOT) * SLOT)
+      if (b >= 0 && b < n) sessionBuckets[b]++
+      const place = placeOf(s.row, mainDomain)
+      const dayKey = `${utcDay(s.at)}|${place.type}:${place.id ?? ""}`
+      let kinds = perDay.get(dayKey)
+      if (!kinds) perDay.set(dayKey, (kinds = new Map()))
+      for (const [kind, k] of Object.entries(dimsOf(s.row))) {
+        if (k === null) continue
+        let m = kinds.get(kind)
+        if (!m) kinds.set(kind, (m = new Map()))
+        m.set(k, (m.get(k) ?? 0) + 1)
+      }
+    }
+    const maps: Record<string, Record<string, number>> = {}
+    for (const kinds of perDay.values()) {
+      for (const [kind, m] of kinds) {
+        const cap = MAP_CAP[kind] ?? 100
+        const ranked = [...m.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+        const out = (maps[kind] ??= {})
+        ranked.forEach(([k, c], i) => {
+          const key = i < cap ? k : "(other)"
+          out[key] = (out[key] ?? 0) + c
+        })
+      }
+    }
+
+    const wire: WindowWire = {
+      visitors: people.size,
+      views: inside.length,
+      product_visitors: [...people.values()].filter(Boolean).length,
+      product_views: productViews,
+      visitor_buckets: perBucket.map((b) => b.people.size),
+      view_buckets: perBucket.map((b) => b.views),
+      clicks: clicks.length,
+      click_buckets: clickBuckets,
+      sessions: began.length,
+      session_buckets: sessionBuckets,
+      maps,
+    }
+    if (!lists) return wire
+
+    const pages = new Map<string, { pt: string | null; pid: string | null; path: string | null; views: number; people: Set<string> }>()
+    const products = new Map<string, { views: number; people: Set<string> }>()
+    for (const { v, place } of inside) {
+      const key = `${place.type}|${place.id}|${v.path ?? ""}`
+      const page = pages.get(key) ?? { pt: place.type, pid: place.id, path: v.path ?? null, views: 0, people: new Set<string>() }
+      page.views++
+      page.people.add(visitorOf(v))
+      pages.set(key, page)
+      if (v.product_id) {
+        const p = products.get(v.product_id) ?? { views: 0, people: new Set<string>() }
+        p.views++
+        p.people.add(visitorOf(v))
+        products.set(v.product_id, p)
+      }
+    }
+    /* As the SQL orders them: views, then visitors, then the path in byte order, a missing path last. */
+    const pathOrder = (a: string | null, b: string | null) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? -1 : 1)
+    const byPath = (a: { views: number; people: Set<string>; path: string | null }, b: { views: number; people: Set<string>; path: string | null }) =>
+      b.views - a.views || b.people.size - a.people.size || pathOrder(a.path, b.path)
+    wire.pages = [...pages.values()].sort(byPath).slice(0, 50).map((p) => [p.pt, p.pid, p.path, p.views, p.people.size])
+    wire.products = [...products.entries()]
+      .sort((a, b) => b[1].views - a[1].views || (a[0] < b[0] ? -1 : 1))
+      .map(([id, p]) => [id, p.views, p.people.size])
+    const checkoutPeople = new Set(
+      steps.filter((s) => s.event_type === "checkout_start" && Date.parse(s.created_at) >= w.start && Date.parse(s.created_at) < w.end).map(visitorOf),
+    )
+    wire.checkouts = checkoutPeople.size
+    const links = new Map<string, { pt: string | null; pid: string | null; link: string; clicks: number; people: Set<string> }>()
+    for (const c of clicks) {
+      const link = c.link_id || c.link_url || ""
+      const key = `${c.property_type}|${c.property_id}|${link}`
+      const l = links.get(key) ?? { pt: c.property_type ?? null, pid: c.property_id ?? null, link, clicks: 0, people: new Set<string>() }
+      l.clicks++
+      l.people.add(visitorOf(c))
+      links.set(key, l)
+    }
+    wire.links = [...links.values()]
+      .sort((a, b) => b.clicks - a.clicks || (a.link < b.link ? -1 : a.link > b.link ? 1 : 0))
+      .slice(0, 50)
+      .map((l) => [l.pt, l.pid, l.link, l.clicks, l.people.size])
+    return wire
+  }
+
+  return { cur: one(cur, starts, true), prev: one(prev, prevStarts, false) }
+}
+
+/* ─── The OnePage's history before its events ─────────────────────────── */
+
+export interface LegacyOnePage {
+  onePageId: string
+  /** The first moment the OnePage has a row in analytics_events: before it, its visits are only in onepage_views. Null when it has none yet. */
+  since: number | null
+  views: OnePageViewRow[]
+  clicks: OnePageClickRow[]
+}
+
+export interface LegacyDeps {
+  isBot: (userAgent: string | null | undefined) => boolean
+  categorize: (referrerHost: string, userAgent: string | null) => string
+  parseAgent: (ua: string | null | undefined) => { device: string | null; browser: string | null; os: string | null }
+  hostOf: (referrer: string | null | undefined) => string
+  mainDomain: string
+}
+
+/**
+ * THE ONEPAGE, COUNTED ONCE. Since part 54 a OnePage visit is written to
+ * analytics_events (property onepage) and, as before, to onepage_views.
+ * Before the first of those events, onepage_views is the only record. So a
+ * OnePage visit is read from onepage_views only before `since`, and from the
+ * events from then on: never from both.
+ *
+ * The two tables do not share an id for the same browser (onepage_views
+ * keeps a hash of the address and the browser's signature; the events keep
+ * the visitor cookie, or a daily hash with no consent), so a person seen on
+ * the OnePage before the switch and on the website is two visitors: there
+ * is nothing that could tell them apart honestly. A onepage_views row is one
+ * address on one UTC day, so it is one visitor, one visit and one view.
+ * Robots are left out by their signature, as the events leave them out;
+ * the owner cannot be told apart in the old table and is counted there.
+ */
+export function foldLegacyOnePage(
+  wire: ReportWire,
+  legacy: LegacyOnePage | null,
+  input: { window: Span; previous: Span | null; timeZone: string; selector: PropertySelector; product: string | null },
+  deps: LegacyDeps,
+): ReportWire {
+  if (!legacy || input.product || (input.selector.type !== "all" && input.selector.type !== "onepage")) return wire
+  const { starts, prev, prevStarts } = periodsOf(input.window, input.previous, input.timeZone)
+  const before = (at: number) => legacy.since === null || at < legacy.since
+  const views = legacy.views
+    .map((v) => ({ v, at: Date.parse(v.created_at) }))
+    .filter(({ v, at }) => Number.isFinite(at) && before(at) && !deps.isBot(v.user_agent))
+  const clicks = legacy.clicks.map((c) => ({ c, at: Date.parse(c.created_at) })).filter(({ at }) => Number.isFinite(at) && before(at))
+
+  const add = (w: Span, bucketStartsOf: number[], base: WindowWire, lists: boolean): WindowWire => {
+    const n = bucketStartsOf.length
+    const inside = views.filter((x) => x.at >= w.start && x.at < w.end)
+    const tapped = clicks.filter((x) => x.at >= w.start && x.at < w.end)
+    if (inside.length === 0 && tapped.length === 0) return base
+    const bucketOf = (at: number) => (n > 0 ? bucketIndex(bucketStartsOf, at) : -1)
+    const people = new Set<string>()
+    const bucketPeople = Array.from({ length: n }, () => new Set<string>())
+    const viewBuckets = fit(base.view_buckets, n)
+    const sessionBuckets = fit(base.session_buckets, n)
+    const clickBuckets = fit(base.click_buckets, n)
+    const maps: Record<string, Record<string, number>> = {}
+    for (const [kind, m] of Object.entries(base.maps ?? {})) maps[kind] = { ...m }
+    const bump = (kind: string, key: string) => {
+      const m = (maps[kind] ??= {})
+      m[key] = (m[key] ?? 0) + 1
+    }
+    for (const { v, at } of inside) {
+      const who = `op:${v.visitor_id || v.id || at}`
+      people.add(who)
+      const b = bucketOf(at)
+      if (b >= 0 && b < n) {
+        bucketPeople[b].add(who)
+        viewBuckets[b]++
+      }
+      const sb = bucketOf(Math.floor(at / SLOT) * SLOT)
+      if (sb >= 0 && sb < n) sessionBuckets[sb]++
+      const host = deps.hostOf(v.referrer)
+      const internal = !host || isInternalReferrer(host, deps.mainDomain)
+      const agent = deps.parseAgent(v.user_agent)
+      bump("source", deps.categorize(internal ? "Direct" : host, v.user_agent ?? null))
+      bump("referrer", internal ? "direct" : host)
+      bump("device", (agent.device || "").toLowerCase() || "unknown")
+      bump("country", (v.country_code || "").toUpperCase() || "unknown")
+      bump("browser", (agent.browser || "").toLowerCase() || "unknown")
+    }
+    for (const { at } of tapped) {
+      const b = bucketOf(at)
+      if (b >= 0 && b < n) clickBuckets[b]++
+    }
+    const out: WindowWire = {
+      ...base,
+      visitors: (base.visitors ?? 0) + people.size,
+      views: (base.views ?? 0) + inside.length,
+      visitor_buckets: fit(base.visitor_buckets, n).map((x, i) => x + bucketPeople[i].size),
+      view_buckets: viewBuckets,
+      sessions: base.sessions === undefined ? undefined : base.sessions + inside.length,
+      session_buckets: base.session_buckets === undefined ? undefined : sessionBuckets,
+      maps: base.maps === undefined ? undefined : maps,
+      clicks: (base.clicks ?? 0) + tapped.length,
+      click_buckets: clickBuckets,
+    }
+    if (lists && base.pages) {
+      const pages = [...base.pages]
+      if (inside.length > 0) pages.push(["onepage", legacy.onePageId, null, inside.length, people.size])
+      pages.sort((a, b) => b[3] - a[3] || b[4] - a[4] || ((a[2] ?? "") < (b[2] ?? "") ? -1 : 1))
+      out.pages = pages.slice(0, 50)
+    }
+    if (lists && base.links) {
+      const byBlock = new Map<string, { clicks: number; people: Set<string> }>()
+      for (const { c, at } of tapped) {
+        const l = byBlock.get(c.block_id) ?? { clicks: 0, people: new Set<string>() }
+        l.clicks++
+        l.people.add(`op:${c.visitor_id || c.id || at}`)
+        byBlock.set(c.block_id, l)
+      }
+      const links = [...base.links]
+      for (const [block, l] of byBlock) {
+        const same = links.findIndex((x) => x[0] === "onepage" && x[2] === block)
+        if (same >= 0) links[same] = [links[same][0], links[same][1], block, links[same][3] + l.clicks, links[same][4] + l.people.size]
+        else links.push(["onepage", legacy.onePageId, block, l.clicks, l.people.size])
+      }
+      links.sort((a, b) => b[3] - a[3] || (a[2] < b[2] ? -1 : 1))
+      out.links = links.slice(0, 50)
+    }
+    return out
+  }
+  return { cur: add(input.window, starts, wire.cur, true), prev: add(prev, prevStarts, wire.prev, false) }
+}
+
+/* ─── Everything ──────────────────────────────────────────────────────── */
+
+function headline(value: number, previous: number): Headline {
+  return { value, previous, change: previous > 0 ? (value - previous) / previous : null }
+}
+
+/** Rows of a breakdown map, its previous period beside it, the largest first. */
+function mapRows(now: Record<string, number> | undefined, before: Record<string, number> | undefined, keyer: (k: string) => { key: string; label: string } | null, limit = 25): BreakdownRow[] {
+  const cur = new Map<string, { label: string; value: number }>()
+  const prev = new Map<string, number>()
+  for (const [k, n] of Object.entries(now ?? {})) {
+    const row = keyer(k)
+    if (!row) continue
+    const seen = cur.get(row.key)
+    if (seen) seen.value += Number(n) || 0
+    else cur.set(row.key, { label: row.label, value: Number(n) || 0 })
+  }
+  for (const [k, n] of Object.entries(before ?? {})) {
+    const row = keyer(k)
+    if (row) prev.set(row.key, (prev.get(row.key) ?? 0) + (Number(n) || 0))
+  }
+  const total = [...cur.values()].reduce((s, r) => s + r.value, 0)
+  return [...cur.entries()]
+    .filter(([, r]) => r.value > 0)
+    .map(([key, r]) => ({ key, label: r.label, value: r.value, previous: prev.get(key) ?? 0, share: total ? r.value / total : 0 }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .slice(0, limit)
+}
+
+const OTHER = "(other)"
+
+export function referrerKeyer(mainDomain: string) {
+  return (k: string) => {
+    const d = k.trim().toLowerCase().replace(/^www\./, "")
+    if (!d || d === "direct") return null
+    if (d === OTHER) return { key: OTHER, label: "Other websites" }
+    /* A whole host, not a suffix: "mystorelib.com" is somebody else's site. */
+    const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || isInternalReferrer(d, mainDomain)
+    return self ? null : { key: d, label: d }
+  }
+}
+
+function deviceLabel(d: string): string {
+  if (d === "mobile") return "Mobile"
+  if (d === "desktop") return "Desktop"
+  if (d === "tablet") return "Tablet"
+  if (d === OTHER) return "Other"
+  return "Unknown"
+}
+
+/** What a OnePage block is called on the page, else where the link goes. */
+function linkLabel(link: string, labels: Record<string, string>): string {
+  if (labels[link]) return labels[link]
+  const host = hostOf(link)
+  if (host) {
+    try {
+      const u = new URL(link)
+      const path = u.pathname.replace(/\/+$/, "")
+      return `${host.replace(/^www\./, "")}${path}`
+    } catch {
+      return host
+    }
+  }
+  if (/^(mailto|tel|sms):$/.test(link)) return link === "mailto:" ? "Email" : link === "tel:" ? "Phone" : "Text message"
+  return "Link"
 }
 
 export function buildReports(input: {
-  /** The rows, counted here (tallyVisits); or `visits`, already counted by the database. */
+  /** What the database counted (analytics_report), the OnePage's history already folded in. */
+  wire?: ReportWire
+  /** Or the rows, counted here by the same rules (wireFromRows). */
   views?: ViewRow[]
   steps?: StepRow[]
-  visits?: VisitTallies
   orders: OrderRow[]
+  /** The period's and the comparison's sign-ups; left out, the card is not shown. */
+  subscribers?: SubscriberRow[]
   window: Span
   /** What the period is compared with: null for no comparison, left out for the period just before. */
   previous?: Span | null
   timeZone: string
   mainDomain: string
   productTitles: Record<string, string>
+  selector?: PropertySelector
+  properties?: CreatorProperties
+  product?: string | null
+  /** A OnePage block's name, by its id. */
+  linkLabels?: Record<string, string>
 }): Reports {
   const { window: cur, timeZone, mainDomain } = input
+  const selector = input.selector ?? ALL
+  const properties: CreatorProperties = input.properties ?? { onePageId: null, websites: [], defaultWebsite: null }
+  const defaultWebsite = properties.defaultWebsite
   const { grain, starts, labels, prev, prevStarts, compared } = periodsOf(cur, input.previous, timeZone)
   const n = starts.length
 
-  /* The visits, counted once: from the rows here, or as the database counted them. */
-  const visits = input.visits ?? tallyVisits({ views: input.views ?? [], steps: input.steps ?? [], window: cur, previous: input.previous, timeZone })
-  const now = visits.cur
-  const then = visits.prev
-  /* A quick first answer has the figures and not yet the visit lists or the funnel. */
-  const partial = !now.groups || !then.groups || !now.steps || !then.steps
+  const wire =
+    input.wire ??
+    wireFromRows({
+      views: input.views ?? [],
+      steps: input.steps ?? [],
+      window: cur,
+      previous: input.previous === undefined ? previousWindow(cur) : input.previous,
+      timeZone,
+      selector,
+      defaultWebsite,
+      product: input.product ?? null,
+      mainDomain,
+    })
+  const now = wire.cur
+  const then = wire.prev
+  /* A quick first answer has the figures and not yet the lists. */
+  const partial = now.maps === undefined || now.pages === undefined
 
-  /* Orders: one per payment, failed, pending and disputed left out (isSale). */
-  const allOrders = groupOrders(input.orders).filter(isSale)
+  /* Orders: one per payment, sales only, under the property asked for. */
+  const allSales = salesFor(input.orders, selector, defaultWebsite)
   const inWindow = (o: { createdAt: string }, w: Span) => {
     const at = Date.parse(o.createdAt)
     return at >= w.start && at < w.end
   }
-  const ordersNow = allOrders.filter((o) => inWindow(o, cur))
-  const ordersBefore = allOrders.filter((o) => inWindow(o, prev))
+  const ordersNow = allSales.filter((o) => inWindow(o, cur))
+  const ordersBefore = allSales.filter((o) => inWindow(o, prev))
   const net = (o: Grouped) => moneyOf(o).net
-  const paid = (list: Grouped[]) => list.filter((o) => moneyOf(o).gross > 0)
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
-  /** A series from what happened, in the period and the one before. */
   const series = (items: (w: Span) => Array<{ at: number; n?: number }>): Series => ({
     labels,
     current: bucketCounts(items(cur), starts, cur, n),
     previous: compared ? bucketCounts(items(prev), prevStarts, prev, n) : [],
   })
-
-  /* Visits and page views per bucket, as tallied: the same counts series() makes from times. */
-  const tallied = (a: VisitTally, b: VisitTally, pick: (t: VisitTally) => number[]): Series => ({
+  const wired = (a: number[] | undefined, b: number[] | undefined): Series => ({
     labels,
-    current: pick(a),
-    previous: compared ? pick(b) : [],
+    current: fit(a, n),
+    previous: compared ? fit(b, n) : [],
   })
-  const sessionSeries = tallied(now, then, (t) => t.sessionBuckets)
-  const viewSeries = tallied(now, then, (t) => t.viewBuckets)
-  const orderTimes = (list: Grouped[]) => list.map((o) => ({ at: Date.parse(o.createdAt) }))
-  const orderSeries = series((w) => orderTimes(w === cur ? ordersNow : ordersBefore))
+  const head = (value: number, previous: number) => (compared ? headline(value, previous) : { value, previous: 0, change: null })
+
+  const orderSeries = series((w) => (w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt) })))
   const salesSeries = series((w) => (w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt), n: net(o) })))
   const refundSeries = series((w) =>
     (w === cur ? ordersNow : ordersBefore).filter((o) => moneyOf(o).refunded > 0).map((o) => ({ at: Date.parse(o.createdAt) })),
   )
-  const ratio = (a: number[], b: number[]) => a.map((o, i) => (b[i] ? o / b[i] : 0))
-  const conversionSeries: Series = {
-    labels,
-    current: ratio(orderSeries.current, sessionSeries.current),
-    previous: ratio(orderSeries.previous, sessionSeries.previous),
+  const visitorSeries = wired(now.visitor_buckets, then.visitor_buckets)
+  const viewSeries = wired(now.view_buckets, then.view_buckets)
+  const sessionSeries = wired(now.session_buckets, then.session_buckets)
+  const clickSeries = wired(now.click_buckets, then.click_buckets)
+
+  /* Conversion: orders over visitors, for the same property and period. No visitors, no rate. */
+  const rateOf = (orders: number, visitors: number) => (visitors > 0 ? orders / visitors : null)
+  const conversionNow = rateOf(ordersNow.length, now.visitors ?? 0)
+  const conversionBefore = compared ? rateOf(ordersBefore.length, then.visitors ?? 0) : null
+  const conversion: Reports["conversion"] = {
+    value: conversionNow,
+    previous: conversionBefore,
+    change: conversionNow !== null && conversionBefore !== null && conversionBefore > 0 ? (conversionNow - conversionBefore) / conversionBefore : null,
+    series: {
+      labels,
+      current: orderSeries.current.map((o, i) => rateOf(o, visitorSeries.current[i])),
+      previous: compared ? orderSeries.previous.map((o, i) => rateOf(o, visitorSeries.previous[i])) : [],
+    },
   }
-  const aovSeries: Series = (() => {
-    const sums = series((w) => paid(w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt), n: moneyOf(o).gross })))
-    const counts = series((w) => orderTimes(paid(w === cur ? ordersNow : ordersBefore)))
-    return { labels, current: ratio(sums.current, counts.current), previous: ratio(sums.previous, counts.previous) }
-  })()
-  const aov = (list: Grouped[]) => {
-    const p = paid(list)
-    return p.length ? p.reduce((sum, o) => sum + moneyOf(o).gross, 0) / p.length : 0
-  }
 
-  const rate = (o: number, s: number) => (s > 0 ? o / s : 0)
-  const head = (value: number, previous: number) => (compared ? headline(value, previous) : { value, previous: 0, change: null })
+  /* Top pages: each page of each place, its views and its visitors. */
+  const placeLabel = (pt: string | null, pid: string | null) =>
+    selector.type === "all" && pt ? propertyName({ type: pt as never, id: pid }, properties) : null
+  const pageTotal = sum((now.pages ?? []).map((p) => Number(p[3]) || 0))
+  const topPages: PageRow[] = (now.pages ?? []).map(([pt, pid, path, views, visitors]) => ({
+    key: `${pt ?? ""}|${pid ?? ""}|${path ?? ""}`,
+    label: path ?? (pt === "onepage" ? "OnePage" : "Page not recorded"),
+    place: placeLabel(pt, pid),
+    views: Number(views) || 0,
+    visitors: Number(visitors) || 0,
+    share: pageTotal ? (Number(views) || 0) / pageTotal : 0,
+  }))
 
-  /**
-   * SALES BY CHANNEL: where each payment was made, and every payment is in
-   * it. Two things emptied this card while orders were plainly there:
-   *
-   *   A channel whose money came to nothing was dropped, so a period of free
-   *   downloads, or of orders all refunded, showed "No sales" beside a
-   *   product list full of them. A channel is listed when it has orders.
-   *
-   *   An order from before the source was written down had no channel, and
-   *   was put under "Not recorded". The checkout calls a sale Storelib unless
-   *   a website's Buy button says otherwise (lib/orders/order-source), and a
-   *   basket is always a website's, which the order view already knows: an
-   *   order with nothing recorded is a Storelib sale by that same rule.
-   *
-   * The ring is shared out by money, or by orders when the money is nothing.
-   */
-  const channelRows: BreakdownRow[] = (() => {
-    const label = { website: "Website", storelib: "Storelib" } as const
-    const tally = (list: Grouped[]) => {
-      const m = new Map<keyof typeof label, { cents: number; orders: number }>()
-      for (const o of list) {
-        const k: keyof typeof label = o.source === "website" ? "website" : "storelib"
-        const row = m.get(k) ?? { cents: 0, orders: 0 }
-        row.cents += net(o)
-        row.orders += 1
-        m.set(k, row)
-      }
-      return m
-    }
-    const now = tally(ordersNow)
-    const before = tally(ordersBefore)
-    const cents = [...now.values()].reduce((sum, v) => sum + v.cents, 0)
-    const count = [...now.values()].reduce((sum, v) => sum + v.orders, 0)
-    return [...now.entries()]
-      .map(([k, v]) => ({
-        key: k,
-        label: label[k],
-        value: v.cents,
-        previous: before.get(k)?.cents ?? 0,
-        share: cents > 0 ? v.cents / cents : count > 0 ? v.orders / count : 0,
-        extra: { orders: v.orders },
-      }))
-      .sort((a, b) => b.value - a.value || (b.extra.orders ?? 0) - (a.extra.orders ?? 0))
-  })()
-
-  /* Sales by product: each product's own line of each payment, by the rule
-     Total sales is counted with (lineMoney), so the two agree. A product
-     the creator has deleted keeps its sales, in one "Removed product" row:
-     its orders stay, with no product once supabase/sql/run-now part 32 has
-     run, and with the id of a product that is gone before it. */
-  const productRows = (() => {
-    const keyOf = (id: string | null | undefined) => (id && input.productTitles[id] ? id : REMOVED_PRODUCT)
-    const tally = (list: Grouped[]) => {
-      const m = new Map<string, { cents: number; units: number }>()
-      for (const o of list) {
-        for (const line of o.lines) {
-          const key = keyOf(line.product_id)
-          const row = m.get(key) ?? { cents: 0, units: 0 }
-          row.cents += lineMoney(line).net
-          row.units += 1
-          m.set(key, row)
-        }
-      }
-      return m
-    }
-    const now = tally(ordersNow)
-    const before = tally(ordersBefore)
-    const total = [...now.values()].reduce((sum, v) => sum + v.cents, 0)
-    return [...now.entries()]
-      .map(([id, v]) => ({
-        key: id,
-        label: id === REMOVED_PRODUCT ? "Removed product" : input.productTitles[id],
-        value: v.cents,
-        previous: before.get(id)?.cents ?? 0,
-        share: total ? v.cents / total : 0,
-        extra: { orders: v.units },
-      }))
-      .sort((a, b) => b.value - a.value || (b.extra.orders ?? 0) - (a.extra.orders ?? 0))
-      .slice(0, 8)
-  })()
-
-  /* The funnel, counted in visits: each step once per visit (tallyVisits). */
-  const funnelRaw = [
-    { key: "sessions" as const, label: "Sessions", value: now.sessions, previous: then.sessions },
-    { key: "buy" as const, label: "Pressed Buy", value: now.steps?.buy ?? 0, previous: then.steps?.buy ?? 0 },
-    { key: "checkout" as const, label: "Reached checkout", value: now.steps?.checkout ?? 0, previous: then.steps?.checkout ?? 0 },
-    { key: "orders" as const, label: "Ordered", value: ordersNow.length, previous: ordersBefore.length },
-  ]
-  const funnel = partial ? [] : funnelRaw.map((f) => ({ ...f, rate: rate(f.value, now.sessions) }))
+  /* Top links: the OnePage's blocks by the name they have on the page. */
+  const linkTotal = sum((now.links ?? []).map((l) => Number(l[3]) || 0))
+  const topLinks: LinkRow[] = (now.links ?? []).map(([pt, pid, link, clicks, visitors]) => ({
+    key: `${pt ?? ""}|${pid ?? ""}|${link}`,
+    label: linkLabel(link, input.linkLabels ?? {}),
+    clicks: Number(clicks) || 0,
+    visitors: Number(visitors) || 0,
+    share: linkTotal ? (Number(clicks) || 0) / linkTotal : 0,
+  }))
 
   /*
-    Country: visits, and the orders and money from buyers there.
-
-    EVERY COUNTRY FIRST, THEN THE TOP 25. The visits were cut to 25 before
-    the orders were added, so a country outside those 25 that had orders
-    came back as a new row saying 0 visits, beside a country that had them.
+    Top products: page views from the events, orders and money from each
+    product's own lines of each payment (lineMoney), so the rows add up to
+    Revenue. A deleted product keeps its sales under "Removed product".
   */
-  const countryRows = (() => {
-    /* A quick first answer has no visit lists yet: the card waits for the whole answer. */
-    if (partial || !now.groups || !then.groups) return []
-    const rows = breakdown(now.groups.country, then.groups.country, keyCountry, Infinity)
-    const byCode = new Map(rows.map((r) => [r.key, r]))
+  const topProducts: ProductRow[] = (() => {
+    const keyOf = (id: string | null | undefined) => (id && input.productTitles[id] ? id : REMOVED_PRODUCT)
+    const rows = new Map<string, { views: number; orders: number; cents: number }>()
+    for (const [id, views] of now.products ?? []) {
+      const key = keyOf(id)
+      const row = rows.get(key) ?? { views: 0, orders: 0, cents: 0 }
+      row.views += Number(views) || 0
+      rows.set(key, row)
+    }
     for (const o of ordersNow) {
-      const code = (o.lines[0].buyer_country_code || "").toUpperCase()
-      if (!code || code === "XX") continue
-      let row = byCode.get(code)
-      if (!row) {
-        row = { key: code, label: countryName(code, o.lines[0].buyer_country), value: 0, previous: 0, share: 0 }
-        byCode.set(code, row)
-        rows.push(row)
-      }
-      row.extra = {
-        code,
-        orders: (row.extra?.orders ?? 0) + 1,
-        salesCents: (row.extra?.salesCents ?? 0) + net(o),
+      for (const line of o.lines) {
+        const key = keyOf(line.product_id)
+        const row = rows.get(key) ?? { views: 0, orders: 0, cents: 0 }
+        row.orders += 1
+        row.cents += lineMoney(line).net
+        rows.set(key, row)
       }
     }
-    for (const r of rows) r.extra = { code: r.key, orders: r.extra?.orders ?? 0, salesCents: r.extra?.salesCents ?? 0 }
-    return rows.sort((a, b) => b.value - a.value || (b.extra?.orders ?? 0) - (a.extra?.orders ?? 0)).slice(0, 25)
+    const cents = sum([...rows.values()].map((r) => r.cents))
+    const orders = sum([...rows.values()].map((r) => r.orders))
+    const views = sum([...rows.values()].map((r) => r.views))
+    return [...rows.entries()]
+      .map(([key, r]) => ({
+        key,
+        label: key === REMOVED_PRODUCT ? "Removed product" : input.productTitles[key],
+        views: r.views,
+        orders: r.orders,
+        salesCents: r.cents,
+        share: cents > 0 ? r.cents / cents : orders > 0 ? r.orders / orders : views > 0 ? r.views / views : 0,
+      }))
+      .sort((a, b) => b.salesCents - a.salesCents || b.orders - a.orders || b.views - a.views || a.label.localeCompare(b.label))
+      .slice(0, 25)
   })()
 
-  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+  /*
+    The funnel, in people: visitors, visitors who opened a product, visitors
+    who opened the checkout, and orders. A step with nothing while a later
+    step has something was not recorded (a checkout opened on the website's
+    own checkout before it was tracked, an order made without the checkout
+    page): it says so rather than 0%, and the next step has no rate.
+  */
+  const funnel: FunnelStep[] = (() => {
+    if (partial) return []
+    const values = [now.visitors ?? 0, now.product_visitors ?? 0, now.checkouts ?? 0, ordersNow.length]
+    const steps: Array<Pick<FunnelStep, "key" | "label">> = [
+      { key: "visitors", label: "Visitors" },
+      { key: "product", label: "Viewed a product" },
+      { key: "checkout", label: "Started checkout" },
+      { key: "orders", label: "Ordered" },
+    ]
+    return steps.map((s, i) => {
+      const value = values[i]
+      const recorded = !(value === 0 && values.slice(i + 1).some((v) => v > 0))
+      const before = i > 0 ? values[i - 1] : 0
+      const beforeRecorded = i > 0 && !(before === 0 && values.slice(i).some((v) => v > 0))
+      const rate = i > 0 && recorded && beforeRecorded && before > 0 && value <= before ? value / before : null
+      return { ...s, value, rate, recorded }
+    })
+  })()
 
-  const noGroups = { source: [], referrer: [], campaign: [], country: [], city: [], device: [], browser: [], os: [], page: [] } satisfies VisitGroups
-  const groupsNow = now.groups ?? noGroups
-  const groupsThen = then.groups ?? noGroups
+  /* Sign-ups: people who left their email on one of the creator's places or at checkout. */
+  const subscribers: SubscriberFigures | null = (() => {
+    if (!input.subscribers) return null
+    const whenOf = (r: SubscriberRow) => Date.parse(r.subscribed_at || r.created_at || "")
+    const mine = input.subscribers.filter((r) => isSignup(r) && counts(selector, subscriberProperty(r), defaultWebsite))
+    const inside = (w: Span) => mine.filter((r) => {
+      const at = whenOf(r)
+      return at >= w.start && at < w.end
+    })
+    const nowRows = inside(cur)
+    const beforeRows = compared ? inside(prev) : []
+    const group = (rows: SubscriberRow[], keyer: (r: SubscriberRow) => { key: string; label: string }) => {
+      const m = new Map<string, { label: string; value: number }>()
+      for (const r of rows) {
+        const k = keyer(r)
+        const row = m.get(k.key) ?? { label: k.label, value: 0 }
+        row.value++
+        m.set(k.key, row)
+      }
+      return m
+    }
+    const rows = (keyer: (r: SubscriberRow) => { key: string; label: string }) => {
+      const a = group(nowRows, keyer)
+      const b = group(beforeRows, keyer)
+      return [...a.entries()]
+        .map(([key, r]) => ({ key, label: r.label, value: r.value, previous: b.get(key)?.value ?? 0, share: nowRows.length ? r.value / nowRows.length : 0 }))
+        .sort((x, y) => y.value - x.value || x.label.localeCompare(y.label))
+    }
+    return {
+      ...head(nowRows.length, beforeRows.length),
+      byProperty: selector.type === "all" ? rows((r) => {
+        const on = subscriberProperty(r)
+        const label = propertyName(on, properties)
+        return { key: label, label }
+      }) : [],
+      bySource: rows((r) => {
+        const source = r.last_touch?.source ?? null
+        return source ? { key: sourceName(source), label: sourceName(source) } : { key: "not_recorded", label: "Not recorded" }
+      }),
+    }
+  })()
+
+  const maps = now.maps ?? {}
+  const before = then.maps ?? {}
+  const breakdowns: Reports["breakdowns"] = {
+    source: mapRows(maps.source, before.source, (k) => {
+      if (k === OTHER) return { key: "other", label: "Other" }
+      const g = sourceGroup(k)
+      return { key: g, label: SOURCE_LABEL[g] }
+    }),
+    social: mapRows(maps.source, before.source, (k) => {
+      const nw = socialNetwork(k)
+      return nw ? { key: nw, label: SOCIAL_LABEL[nw] ?? (nw === "other" ? "Other social" : titleCase(nw)) } : null
+    }),
+    referrer: mapRows(maps.referrer, before.referrer, referrerKeyer(mainDomain)),
+    campaign: mapRows(maps.campaign, before.campaign, (k) => (k === OTHER ? { key: OTHER, label: "Other campaigns" } : k.trim() ? { key: k.toLowerCase(), label: k } : null)),
+    country: mapRows(maps.country, before.country, (k) =>
+      k === "unknown" || k === "XX" || k === OTHER || !/^[A-Z]{2}$/.test(k) ? null : { key: k, label: countryName(k) },
+    ).map((r) => ({ ...r, extra: { code: r.key } })),
+    device: mapRows(maps.device, before.device, (k) => ({ key: k === OTHER ? OTHER : ["mobile", "desktop", "tablet"].includes(k) ? k : "unknown", label: deviceLabel(k) })),
+    browser: mapRows(maps.browser, before.browser, (k) =>
+      k === "unknown" ? { key: "unknown", label: "Unknown" } : k === OTHER ? { key: OTHER, label: "Other" } : { key: k, label: titleCase(k) },
+    ),
+  }
 
   return {
     grain,
     compared,
     ...(partial ? { partial: true } : {}),
-    views: { ...head(now.views, then.views), series: viewSeries },
-    sessions: { ...head(now.sessions, then.sessions), series: sessionSeries },
-    conversion: { ...head(rate(ordersNow.length, now.sessions), rate(ordersBefore.length, then.sessions)), series: conversionSeries },
-    aov: { ...head(aov(ordersNow), aov(ordersBefore)), series: aovSeries },
+    visitors: { ...head(now.visitors ?? 0, then.visitors ?? 0), series: visitorSeries },
+    views: { ...head(now.views ?? 0, then.views ?? 0), series: viewSeries },
+    sessions: { ...head(now.sessions ?? 0, then.sessions ?? 0), series: sessionSeries },
+    conversion,
     sales: { ...head(sum(ordersNow.map(net)), sum(ordersBefore.map(net))), series: salesSeries },
     orders: { ...head(ordersNow.length, ordersBefore.length), series: orderSeries },
     refunds: { series: refundSeries },
-    salesByChannel: channelRows,
-    salesByProduct: productRows,
+    linkClicks: { value: now.clicks ?? 0, series: clickSeries },
+    topPages,
+    topLinks,
+    topProducts,
     funnel,
-    breakdowns: {
-      ...visitBreakdowns(groupsNow, groupsThen, mainDomain),
-      country: countryRows,
-      landing: breakdown(groupsNow.page, groupsThen.page, (s) => {
-        const p = landingPath(s.first.page_url, mainDomain)
-        return p ? { key: p, label: p } : null
-      }),
-      channel: breakdown(groupsNow.page, groupsThen.page, (s) => {
-        const c = channelOfUrl(s.first.page_url, mainDomain)
-        return c ? { key: c, label: c === "website" ? "Website" : "Storelib" } : { key: "unknown", label: "Not recorded" }
-      }),
-    },
-  }
-}
-
-/* ─── OnePage ──────────────────────────────────────────────────────────── */
-
-export interface OnePageViewRow {
-  id?: string
-  visitor_id?: string | null
-  referrer?: string | null
-  user_agent?: string | null
-  country_code?: string | null
-  country_name?: string | null
-  created_at: string
-}
-
-export interface OnePageClickRow {
-  block_id: string
-  url?: string | null
-  visitor_id?: string | null
-  created_at: string
-}
-
-export interface OnePageLeadRow {
-  created_at: string
-}
-
-export interface OnePageReports {
-  grain: Grain
-  compared: boolean
-  views: Headline & { series: Series }
-  clicks: Headline & { series: Series }
-  ctr: Headline & { series: Series }
-  subscribers: Headline & { series: Series }
-  links: BreakdownRow[]
-  breakdowns: ReturnType<typeof visitBreakdowns>
-}
-
-/**
- * A OnePage view is already one per visitor per day (app/api/onepage/track),
- * so each is a visit. Its source, device and browser are read from what it
- * kept: the referrer and the browser's signature, by the same rules a
- * Storelib page view is named with (lib/analytics/sources, user-agent).
- */
-export function buildOnePageReports(input: {
-  views: OnePageViewRow[]
-  clicks: OnePageClickRow[]
-  leads: OnePageLeadRow[]
-  window: Span
-  /** What the period is compared with: null for no comparison, left out for the period just before. */
-  previous?: Span | null
-  timeZone: string
-  mainDomain: string
-  linkLabels: Record<string, string>
-  categorize: (referrerHost: string, userAgent: string | null) => string
-  parseAgent: (ua: string | null | undefined) => { device: string | null; browser: string | null; os: string | null }
-  hostOf: (referrer: string | null | undefined) => string
-}): OnePageReports {
-  const { window: cur, timeZone } = input
-  const { grain, starts, labels, prev, prevStarts, compared } = periodsOf(cur, input.previous, timeZone)
-  const n = starts.length
-
-  const asViews: ViewRow[] = input.views.map((v, i) => {
-    const agent = input.parseAgent(v.user_agent)
-    const host = input.hostOf(v.referrer)
-    return {
-      id: v.id ?? `v${i}`,
-      session_id: `op:${v.id ?? i}`,
-      visitor_id: v.visitor_id ?? null,
-      created_at: v.created_at,
-      source_category: input.categorize(host, v.user_agent ?? null),
-      referrer_domain: host || "Direct",
-      country_code: v.country_code ?? null,
-      country_name: v.country_name ?? null,
-      device_type: agent.device,
-      browser: agent.browser,
-      os: agent.os,
-      page_url: null,
-    }
-  })
-  const now = sessionsOf(asViews, cur, timeZone)
-  const before = sessionsOf(asViews, prev, timeZone)
-
-  const times = (rows: Array<{ created_at: string }>) => rows.map((r) => ({ at: Date.parse(r.created_at) }))
-  const inSpan = (at: number, w: Span) => at >= w.start && at < w.end
-  const sum = (xs: number[]) => xs.reduce((total, x) => total + x, 0)
-  const series = (items: Array<{ at: number }>): Series => ({
-    labels,
-    current: bucketCounts(items, starts, cur, n),
-    previous: compared ? bucketCounts(items, prevStarts, prev, n) : [],
-  })
-
-  const clickTimes = times(input.clicks)
-  const leadTimes = times(input.leads)
-  /* Each window from its own sessions. One list for both counted a session
-     inside an overlapping comparison twice in each series. */
-  const at = (xs: Array<{ at: number }>) => xs.map((s) => ({ at: s.at }))
-  const viewSeries: Series = {
-    labels,
-    current: bucketCounts(at(now), starts, cur, n),
-    previous: compared ? bucketCounts(at(before), prevStarts, prev, n) : [],
-  }
-  const clickSeries = series(clickTimes)
-  const leadSeries = series(leadTimes)
-  const ctrSeries = {
-    labels,
-    current: clickSeries.current.map((c, i) => (viewSeries.current[i] ? c / viewSeries.current[i] : 0)),
-    previous: clickSeries.previous.map((c, i) => (viewSeries.previous[i] ? c / viewSeries.previous[i] : 0)),
-  }
-  const clicksNow = clickTimes.filter((t) => inSpan(t.at, cur)).length
-  const clicksBefore = clickTimes.filter((t) => inSpan(t.at, prev)).length
-  const ratio = (a: number, b: number) => (b > 0 ? a / b : 0)
-  const head = (value: number, previous: number) => (compared ? headline(value, previous) : { value, previous: 0, change: null })
-
-  /* Links: clicks per block, named from the page's own blocks. */
-  const linkRows = (() => {
-    const tally = (w: Span) => {
-      const m = new Map<string, number>()
-      for (const c of input.clicks) {
-        if (!inSpan(Date.parse(c.created_at), w)) continue
-        m.set(c.block_id, (m.get(c.block_id) ?? 0) + 1)
-      }
-      return m
-    }
-    const a = tally(cur)
-    const b = tally(prev)
-    const total = sum([...a.values()])
-    const urlOf = new Map(input.clicks.map((c) => [c.block_id, c.url || ""]))
-    return [...a.entries()]
-      .map(([id, value]) => {
-        const url = urlOf.get(id) || ""
-        const label = input.linkLabels[id] || input.hostOf(url) || "Link"
-        return { key: id, label, value, previous: b.get(id) ?? 0, share: total ? value / total : 0 }
-      })
-      .sort((x, y) => y.value - x.value || x.label.localeCompare(y.label))
-      .slice(0, 25)
-  })()
-
-  return {
-    grain,
-    compared,
-    views: { ...head(now.length, before.length), series: viewSeries },
-    clicks: { ...head(clicksNow, clicksBefore), series: clickSeries },
-    ctr: { ...head(ratio(clicksNow, now.length), ratio(clicksBefore, before.length)), series: ctrSeries },
-    subscribers: {
-      ...head(leadTimes.filter((t) => inSpan(t.at, cur)).length, leadTimes.filter((t) => inSpan(t.at, prev)).length),
-      series: leadSeries,
-    },
-    links: linkRows,
-    breakdowns: visitBreakdowns(groupVisits(now), groupVisits(before), input.mainDomain),
+    subscribers,
+    breakdowns,
   }
 }

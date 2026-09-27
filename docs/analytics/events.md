@@ -255,7 +255,8 @@ counted once into `analytics_property_daily`.
 | `product_views` | `view` rows with a product. |
 | `link_clicks` | `link_click` rows. |
 | `buy_clicks`, `checkout_starts` | Distinct visits with that step, as the funnel counts them. |
-| `sources`, `referrers`, `campaigns`, `devices`, `countries` | jsonb `{key: sessions}`, from each visit's first page, as the reports describe a session. Referrers are hosts without `www.` (`direct` for none), devices `unknown` and countries `unknown` when missing; the 100 largest keys (300 for countries), the rest under `(other)`. |
+| `sources`, `referrers`, `campaigns`, `devices`, `countries`, `browsers` | jsonb `{key: sessions}`, from each visit's first page, as the reports describe a session. Referrers are hosts without `www.` (`direct` for none), devices, browsers and countries `unknown` when missing; the 100 largest keys (300 for countries), the rest under `(other)`. |
+| `session_slots` | jsonb `{quarter hour of the UTC day, 0 to 95: sessions}`: when each visit began. Every time zone's offset is a whole number of quarter hours, so each slot lies inside one day or hour of any zone's chart, and a report in Los Angeles or Kolkata can place a rolled up day's visits in its own days. |
 | `paths` | jsonb `{path: page views}`, the 200 busiest, the rest under `(other)`; legacy rows with no path under `(unknown)`. |
 | `landing_paths` | jsonb `{path: sessions}` by the path each visit began on, 200 busiest. |
 | `updated_at` | When the row was counted. |
@@ -281,12 +282,23 @@ the past the first time. The same call refreshes the older product rollup,
 read and which is unchanged.
 
 The rule for reading: a day comes from the rollup only if it is in
-`analytics_rollup_days` and is before today (UTC); every other day of a range,
-today included, is read from the raw events. `splitDays()` in
-`lib/analytics/events.ts` does this split, and `sumDailyRows()` adds rollup
-rows. Days are UTC days: a report in another time zone reads raw events for
-day and hour buckets and may use rollups for week and month buckets over long
-ranges, where the edge moves by the zone's offset at most.
+`analytics_rollup_days`, is before today (UTC), and lies wholly inside the
+period asked for; every other day of a range (today, a day not rolled up yet,
+and the part days at either edge of a period in a zone that is not UTC) is
+counted from the raw events by `analytics_property_counts`, the function the
+rollup itself is made with, so the two cannot disagree. `analytics_report`
+does this split in the database (lib/analytics/report-read.ts, lib/analytics/reports.ts); `splitDays()` in
+`lib/analytics/events.ts` states the same rule. A day rolled up before
+`browsers` and `session_slots` existed is forgotten by part 54 and counted
+from the events until the cron rolls it up again.
+
+Unique visitors are never read from the rollup: people cannot be added up
+across days. `analytics_report` counts them from the events for the period
+and for each bucket of the chart.
+
+A plain run of the cron also rolls up the most recent days of the last 400
+that were never rolled up, as many as fit in 20 seconds, so a year fills in by
+itself.
 
 Creators may read their own rollup rows (row level security); only the server
 writes them.

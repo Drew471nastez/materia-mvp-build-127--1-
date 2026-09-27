@@ -297,7 +297,7 @@ function Page({ path, search }: { path: string; search: string }) {
         }))} />
       )
     case "/app/analytics":
-      return <AnalyticsClient creatorId="c1" userId="u1" products={PRODUCTS.map(({ id, title }) => ({ id, title })) as never} />
+      return <AnalyticsClient creatorId="c1" userId="u1" products={PRODUCTS.map(({ id, title }) => ({ id, title })) as never} properties={{ onePageId: null, websites: [], defaultWebsite: null }} />
     case "/app/payouts":
       /* app/app/payouts/page.tsx's own box, around the client. */
       return (

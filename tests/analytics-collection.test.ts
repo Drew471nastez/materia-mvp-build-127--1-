@@ -427,10 +427,14 @@ async function main() {
     check("  and the page carries the analytics tracker, with its links left to the blocks", /<TrackView creatorId=\{resolvedCreatorId\} links=\{false\} \/>/.test(onePageRoute))
     check("  the OnePage stats route still reads only its own tables", !/analytics_events/.test(read("app/api/onepage/stats/route.ts")))
     const sql = read("supabase/sql/run-now/54_analytics_one_pipeline.sql")
-    check("the Storelib counts leave OnePage views out, in the database and in Node",
+    /* Changed on purpose: the reports are one set now (analytics_report). A OnePage view is counted once, as the
+       OnePage property, from the events; its old table is read only for the time before the OnePage's first event.
+       The older tally still leaves OnePage views out, as before, for anything that calls it. */
+    const reads = read("lib/analytics/report-read.ts")
+    check("OnePage views are counted once: from the events, and from onepage_views only before the first of them",
       (sql.match(/e\.event_type = 'view' AND \(p_product_id IS NULL OR e\.product_id = p_product_id\) AND e\.property_type IS DISTINCT FROM 'onepage'/g) ?? []).length === 3 &&
-        /rows: read\.rows\.filter\(notOnePage\)/.test(read("app/api/analytics/reports/route.ts")) &&
-        /property_type\.is\.null,property_type\.neq\.onepage/.test(read("app/api/analytics/reports/route.ts")))
+        /end: since === null \? s\.end : Math\.min\(s\.end, since\)/.test(reads) && /\.eq\("property_type", "onepage"\)/.test(reads) &&
+        !/analytics_visit_tally/.test(read("app/api/analytics/reports/route.ts") + reads))
   }
 
   console.log("\nLinks out and the steps towards a sale")

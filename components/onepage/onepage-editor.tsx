@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
+import { AnalyticsSummaryLine } from "@/components/app/analytics-summary-line"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./live-preview"
 import { DesignTab } from "./tabs/design-tab"
@@ -1590,7 +1591,13 @@ function EditorLayout() {
                   ) : (
                     <Activity mode={shown ? "visible" : "hidden"}>
                       {t === "design" && designPanel}
-                      {t === "links" && linksPanel}
+                      {t === "links" && (
+                        <>
+                          {/* A quiet line over the links: the last 30 days, opening Analytics on the OnePage. */}
+                          <AnalyticsSummaryLine property="onepage" className="mb-3" />
+                          {linksPanel}
+                        </>
+                      )}
                       {t === "products" && productsPanel}
                     </Activity>
                   )}

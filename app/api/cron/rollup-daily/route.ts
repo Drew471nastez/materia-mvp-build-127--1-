@@ -40,7 +40,18 @@ import { ROLLUP } from "@/lib/analytics/events"
  * (It was also being redirected before it got that far; see the note about
  * /api in proxy.ts. Two independent reasons the same job never ran.)
  *
- * POST stays, because the live counters endpoint calls it that way.
+ * POST stays, for a refresh asked for by hand.
+ *
+ * ===========================================================================
+ *  THE PAST FILLS ITSELF
+ * ===========================================================================
+ * The reports read a finished day from the property rollup when it has been
+ * rolled up, and count it from the raw events when it has not
+ * (analytics_report, supabase/sql/run-now part 54). The figures are the
+ * same either way; the rollup only makes a long period quick. So a plain
+ * run also rolls up the most recent days of the last 400 that were
+ * never rolled up (up to BACKFILL_PER_RUN, as many as BACKFILL_BUDGET_MS allows), and a year
+ * fills in over the nights that follow without anybody running `?from=`.
  */
 export async function GET(request: Request) {
   return POST(request)
@@ -48,6 +59,24 @@ export async function GET(request: Request) {
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 const MAX_DAYS = 92
+/* Days never rolled up, filled on each plain run: the newest first, and never past the budget. */
+const BACKFILL_PER_RUN = 60
+const BACKFILL_WINDOW_DAYS = 400
+const BACKFILL_BUDGET_MS = 20_000
+
+/** The most recent days of the window that analytics_rollup_days does not name, newest first. */
+async function missingDays(admin: ReturnType<typeof createAdminClient>, before: string): Promise<string[]> {
+  const from = new Date(Date.parse(`${before}T00:00:00Z`) - BACKFILL_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10)
+  const { data, error } = await admin.from(ROLLUP.daysTable).select("day").gte("day", from).lt("day", before)
+  if (error) return []
+  const rolled = new Set(((data ?? []) as Array<{ day: string }>).map((r) => String(r.day).slice(0, 10)))
+  const out: string[] = []
+  for (let t = Date.parse(`${before}T00:00:00Z`) - 86_400_000; out.length < BACKFILL_PER_RUN && t >= Date.parse(`${from}T00:00:00Z`); t -= 86_400_000) {
+    const d = new Date(t).toISOString().slice(0, 10)
+    if (!rolled.has(d)) out.push(d)
+  }
+  return out
+}
 
 function daysBetween(from: string, to: string): string[] | null {
   if (!DAY.test(from) || !DAY.test(to)) return null
@@ -87,8 +116,11 @@ export async function POST(request: Request) {
       // Default: yesterday
       dates = [new Date(Date.now() - 86400000).toISOString().slice(0, 10)]
     }
+    const started = Date.now()
+    /* A plain run also fills a few days the property rollup never had (see above). */
+    const backfill = !from && !to && !dateParam ? await missingDays(admin, dates[0]) : []
 
-    const results: Array<{ date: string; rows: number | null; error?: string; properties: number | null; propertiesError?: string }> = []
+    const results: Array<{ date: string; rows: number | null; error?: string; properties: number | null; propertiesError?: string; backfill?: boolean }> = []
 
     for (const date of dates) {
       const { data, error } = await admin.rpc("refresh_daily_rollup", {
@@ -104,6 +136,12 @@ export async function POST(request: Request) {
         properties: property.error ? null : (property.data as number),
         propertiesError: property.error?.message,
       })
+    }
+
+    for (const date of backfill) {
+      if (Date.now() - started > BACKFILL_BUDGET_MS) break
+      const property = await admin.rpc(ROLLUP.refresh, { p_day: date })
+      results.push({ date, rows: null, properties: property.error ? null : (property.data as number), propertiesError: property.error?.message, backfill: true })
     }
 
     return NextResponse.json({ success: true, results })

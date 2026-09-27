@@ -267,10 +267,11 @@ section("No page draws a picture of itself while it loads, inside or out")
     /const \[figuresReady, setFiguresReady\] = useState\(false\)/.test(dash) && (dash.match(/loading=\{!figuresReady\}/g) ?? []).length === 4
       && (dash.match(/soft=\{isRefreshing && figuresReady\}/g) ?? []).length === 4 && /\{figuresReady && !hasRealData && \(/.test(dash))
   const reports = code("app/app/analytics/analytics-reports.tsx")
-  check("Analytics' cards draw their own shapes while they wait (rows, a chart, a ring, the funnel) and crossfade into the figures",
+  /* Changed on purpose: one set of cards for every place (the OnePage's own set is gone), each a list, the funnel or a figure. */
+  check("Analytics' cards draw their own shapes while they wait (rows, the funnel, a figure) and crossfade into the figures",
     !/WaitingArea/.test(reports) && !/animate-pulse/.test(reports)
-      && (reports.match(/<Body blank=\{/g) ?? []).length === 16
-      && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} lead=\{lead\} \/>\} className=\{BODY\} contentClassName="h-full">/.test(reports))
+      && (reports.match(/<Body blank=\{/g) ?? []).length === 8
+      && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} \/>\} className=\{BODY\} contentClassName="h-full flex flex-col">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
   /* "I don't like the skeleton structure in the chart tabs; before it was
      the blur thing, I liked those, revert it." The home chart under them
@@ -280,7 +281,7 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /transition-\[filter,color,opacity\] duration-\[700ms\]/.test(tab)
       && /\n\s*\{value\}\n/.test(tab) && /\n\s*\{foot\}\n/.test(tab) && /\{loading \? null : change\}/.test(tab)
       && !/ShimmerBlock|shimmer-enter|shimmer-wait|from "@\/components\/ui\/shimmer"/.test(tab)
-      && (code("app/app/analytics/analytics-client.tsx").match(/loading=\{figuresLoading\}/g) ?? []).length === 8)
+      && (code("app/app/analytics/analytics-client.tsx").match(/loading=\{figuresLoading\}/g) ?? []).length === 4)
   const payouts = code("app/app/payouts/payouts-client.tsx")
   /* The redone page (round 5): the balance and revenue figures wait soft, the
      way MetricTab's do, rather than as grey bars; the two balance panels are

@@ -188,26 +188,25 @@ function main() {
     were a two by two grid on a phone; the owner asked for them to be "one
     row, with the horizontal scrolling touch thing that the chart on the
     homepage has". So they are the same strip, with the same hook deciding a
-    sideways swipe from a scroll, following the tab of the mode on screen.
+    sideways swipe from a scroll, following the tab on screen. Changed on
+    purpose: there is one set of four now, for every place (the Store and One
+    page switch became the property filter).
   */
   const storeOrder = tabOrderIn(analytics, "setChartMetricFilter")
-  const onepageOrder = tabOrderIn(analytics, "setOnePageChartFilter")
   const analyticsTabs = [...analytics.matchAll(/<MetricTab tab="([a-z]+)"/g)].map((m) => m[1])
-  check("the analytics figures tag all eight of their tabs, across both modes, in the order they are drawn",
-    JSON.stringify(analyticsTabs) === JSON.stringify([...storeOrder, ...onepageOrder])
-      && JSON.stringify(storeOrder) === JSON.stringify(["views", "revenue", "orders", "conversion"])
-      && JSON.stringify(onepageOrder) === JSON.stringify(["views", "clicks", "subscribers", "ctr"]),
+  check("the analytics figures tag all four of their tabs, in the order they are drawn",
+    JSON.stringify(analyticsTabs) === JSON.stringify(storeOrder)
+      && JSON.stringify(storeOrder) === JSON.stringify(["views", "revenue", "orders", "conversion"]),
     `tagged ${analyticsTabs.join(", ")}`)
   check("and they are one row that scrolls sideways on a phone, four columns wider up, like the home page's",
     /ref=\{metricStripRef\}\s*role="tablist"\s*aria-label="Metric"\s*data-scroll-x\s*className="relative flex divide-x divide-\[#e5e7eb\]\/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"/.test(analytics)
       && /style=\{TAB_STRIP_STYLE\}/.test(analytics)
-      && (analytics.match(/className=\{STRIP_TAB\}/g) ?? []).length === 8
+      && (analytics.match(/className=\{STRIP_TAB\}/g) ?? []).length === 4
       && /const STRIP_TAB = "flex-shrink-0 min-w-\[130px\] md:min-w-0"/.test(analytics)
       && /data-tab=\{tab\}/.test(tabSrc))
-  check("the strip follows the chosen tab of the mode on screen, in the order drawn",
-    /useTabStrip<HTMLDivElement>\(\s*trendMode === "store" \? chartMetricFilter : onePageChartFilter,\s*trendMode === "store" \? STORE_TAB_ORDER : ONE_PAGE_TAB_ORDER,\s*\)/.test(analytics)
-      && /const STORE_TAB_ORDER = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics)
-      && /const ONE_PAGE_TAB_ORDER = \["views", "clicks", "subscribers", "ctr"\] as const/.test(analytics))
+  check("the strip follows the chosen tab, in the order drawn",
+    /useTabStrip<HTMLDivElement>\(chartMetricFilter, TAB_ORDER\)/.test(analytics)
+      && /const TAB_ORDER = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics))
 
   console.log("\nBoth rows draw one tab, with the home page's grey line")
 
