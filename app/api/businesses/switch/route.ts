@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { businessGroup, maySwitch, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
-import { cleanSwitchName, cleanSwitchPhoto, SWITCH_COOKIE, SWITCH_COOKIE_MAX_AGE_S } from "@/lib/businesses/switch-screen"
-import { parseCookieHeader, SESSION_COOKIE_MAX_AGE, sessionCookieChunks, storedSessionJson, storedSessionKey } from "@/lib/supabase/session-jar"
+import { setSessionCookies } from "@/lib/businesses/session-cookies"
 
 /**
  * Switch the browser to the signed in person's other business.
@@ -13,18 +12,13 @@ import { parseCookieHeader, SESSION_COOKIE_MAX_AGE, sessionCookieChunks, storedS
  * account from here, whatever id they send. Only then is a session made for it (lib/businesses/server
  * sessionFor), answered never cached, and the switch written to the log.
  *
- * THE ANSWER CARRIES THE SESSION IN ITS OWN COOKIES. It used to hand the
- * tokens to the page, and the page put them in its cookies through the
- * Supabase client (`auth.setSession`), which waits on the client's lock, its
- * start up, a network call and its listeners, none of them with a limit: on
- * a phone that is where "Switching to ..." stayed for ever. Now the cookies
- * are set here, in the same chunks and format the server and the client use
- * (lib/supabase/session-jar), so the browser holds the new business the
- * moment this answer lands, before any script of the page has run, and a web
- * view that writes `document.cookie` to its network process a moment late
- * (WKWebView does) cannot open the new page with the old session. The
- * session is still in the body, for the app's own device store and for a
- * web view that drops a fetch's cookies (lib/businesses/switch-flow).
+ * THE ANSWER CARRIES THE SESSION IN ITS OWN COOKIES (lib/businesses/
+ * session-cookies), so the browser holds the new business the moment this
+ * answer lands, and nothing on the page has to be waited on for it: on a
+ * phone the page's own way of storing it is where "Switching to ..." stayed
+ * for ever. The session is still in the body, for the app's own device store
+ * and for a web view that drops a fetch's cookies (lib/businesses/switch-
+ * flow).
  *
  * The switch screen's cookie (lib/businesses/switch-screen SWITCH_COOKIE)
  * comes back the same way when the menu sent the name and photo to draw: it
@@ -79,18 +73,6 @@ export async function POST(request: Request) {
   await recordSwitch(user.id, to, request)
 
   const res = NextResponse.json({ session }, { headers: NO_STORE })
-  const secure = new URL(request.url).protocol === "https:" || request.headers.get("x-forwarded-proto") === "https"
-  const key = storedSessionKey()
-  if (key) {
-    const existing = parseCookieHeader(request.headers.get("cookie") || "").keys()
-    const { set, expire } = sessionCookieChunks(key, storedSessionJson(session), existing)
-    for (const c of set) res.cookies.set({ name: c.name, value: c.value, path: "/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false })
-    for (const name of expire) res.cookies.set({ name, value: "", path: "/", maxAge: 0, sameSite: "lax", secure, httpOnly: false })
-  }
-  const name = arrival ? cleanSwitchName(arrival.name) : null
-  if (name) {
-    const photo = cleanSwitchPhoto(arrival?.photo)
-    res.cookies.set({ name: SWITCH_COOKIE, value: photo ? `${name}\n${photo}` : name, path: "/app", maxAge: SWITCH_COOKIE_MAX_AGE_S, sameSite: "lax", secure, httpOnly: false })
-  }
+  setSessionCookies(res, request, session, arrival)
   return res
 }

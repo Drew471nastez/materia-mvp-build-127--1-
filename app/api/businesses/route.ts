@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { canAddBusiness, createBusinessAccount, listBusinesses, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
+import { setSessionCookies } from "@/lib/businesses/session-cookies"
 
 /**
  * The signed in person's businesses (GET), and another one (POST).
@@ -56,5 +57,8 @@ export async function POST(request: Request) {
     )
   }
   await recordSwitch(user.id, created.memberId, request)
-  return NextResponse.json({ userId: created.memberId, session }, { headers: NO_STORE })
+  /* The new business's session in the answer's own cookies, as a switch's (lib/businesses/session-cookies): its setup opens as it with nothing on the page to wait on. */
+  const res = NextResponse.json({ userId: created.memberId, session }, { headers: NO_STORE })
+  setSessionCookies(res, request, session)
+  return res
 }

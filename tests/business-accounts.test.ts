@@ -170,10 +170,14 @@ function switchScreen() {
     /export const SWITCH_FAILED = "That business could not be opened\. Try again\."/.test(client) && /SWITCH_TIMEOUT_MS = ASK_MS/.test(client) && /export const ASK_MS = 20_000/.test(flow) && /abort\.abort\(\)/.test(flow)
       && /throw new SwitchFailed\(outcome\.message, outcome\.retry\)/.test(client))
   const route = read("app/api/businesses/switch/route.ts")
+  const createRoute = read("app/api/businesses/route.ts")
+  const jar = read("lib/businesses/session-cookies.ts")
   check("the switch's answer carries the session in its own cookies, only after the link is checked and the session made",
-    route.indexOf("maySwitch(group, user.id, to)") < route.indexOf("await sessionFor(to)") && route.indexOf("await sessionFor(to)") < route.indexOf("sessionCookieChunks(key, storedSessionJson(session)")
-      && /res\.cookies\.set\(\{ name: c\.name, value: c\.value, path: "\/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false \}\)/.test(route)
-      && /name: SWITCH_COOKIE, value: photo \? `\$\{name\}\\n\$\{photo\}` : name, path: "\/app", maxAge: SWITCH_COOKIE_MAX_AGE_S/.test(route) && /cleanSwitchName\(arrival\.name\)/.test(route))
+    route.indexOf("maySwitch(group, user.id, to)") < route.indexOf("await sessionFor(to)") && route.indexOf("await sessionFor(to)") < route.indexOf("setSessionCookies(res, request, session, arrival)")
+      && createRoute.indexOf("createBusinessAccount(user)") < createRoute.indexOf("setSessionCookies(res, request, session)")
+      && /import "server-only"/.test(jar) && /sessionCookieChunks\(key, storedSessionJson\(session\), existing\)/.test(jar)
+      && /res\.cookies\.set\(\{ name: c\.name, value: c\.value, path: "\/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false \}\)/.test(jar)
+      && /name: SWITCH_COOKIE, value: photo \? `\$\{name\}\\n\$\{photo\}` : name, path: "\/app", maxAge: SWITCH_COOKIE_MAX_AGE_S/.test(jar) && /cleanSwitchName\(arrival\.name\)/.test(jar))
   const layout = read("app/app/layout.tsx")
   check("the new /app's HTML draws the screen when the cookie came, before its session gate, on both of the layout's paths",
     /readSwitchArrival\(\(await cookies\(\)\)\.get\(SWITCH_COOKIE\)\?\.value\)/.test(layout) && (layout.match(/\{arrival\}\s*\n\s*<NativeAuthGate/g) ?? []).length === 2
