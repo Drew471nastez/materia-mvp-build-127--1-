@@ -199,8 +199,8 @@ async function main() {
   {
     const summary = read("app/checkout/parts/order-summary.tsx")
     check(
-      "the tip and the code are kept (the tip now one folded Add a tip line, still naming the creator)",
-      /"Add a tip"/.test(summary) && /<span className="sr-only"> for \{creatorName\}<\/span>/.test(summary) && /const TIPS = \[0, 100, 300, 500\] as const/.test(summary) && /Enter discount code/.test(summary),
+      "the tip and the code are kept (the tip now always open under its Add a tip line, which names the creator)",
+      />Add a tip<\/span>/.test(summary) && /<span className="text-\[#6b7280\]"> for \{creatorName\}<\/span>/.test(summary) && /const TIPS = \[0, 100, 300, 500\] as const/.test(summary) && /Enter discount code/.test(summary),
     )
   }
   check("Link, wallets and PayPal come from Stripe's own elements", /ExpressCheckoutElement/.test(read("app/checkout/parts/stripe-pay.tsx")) && /LinkAuthenticationElement/.test(read("app/checkout/parts/stripe-pay.tsx")))

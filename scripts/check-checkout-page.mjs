@@ -11,15 +11,17 @@
  *              with a shadow between them; on a phone the order above
  *   ORDER      the line says Qty 1 and has nothing on its picture; the big
  *              total; Add promotion code is a grey button that opens into
- *              the field; the chosen tip is white in a grey track, not black
+ *              the field; "Add a tip" is always open, its choices under it
+ *              with the chosen one white in a grey track, not black
  *   PHONE      the order is open as the page arrives and folds; nothing
  *              scrolls sideways; fields are 16px so iOS does not zoom
  *   BAR        a white bar on a layered shadow: Back as a 36px raised circle
  *              in a 44px target, the creator linking to their page, and
  *              Continue shopping
  *   PAY        48px, an 8px corner; "Powered by stripe · Terms · Privacy"
- *   BACK       a press is answered at once (the spinner and the dim wait
- *              250ms, so a quick back shows neither), and never pushes
+ *   BACK       a press is answered at once (Back held pressed, the page
+ *              easing back; the spinner waits 250ms), and never pushes.
+ *              Filmed frame by frame in scripts/check-checkout-motion.mjs
  *
  *   PROBE_CSS=source node scripts/check-checkout-page.mjs
  *   Needs the network (Stripe) and, in the sandbox, SPKI for the proxy CA.
@@ -84,7 +86,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   for (const [label, vp] of [
     ["desktop-1440", { width: 1440, height: 900 }],
     ["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
-  ]) {
+  ].filter(([l]) => !process.env.ONLY || l.startsWith(process.env.ONLY))) {
     console.log(`\n${label}`)
     const p = await browser.newPage()
     await p.setViewport(vp)
@@ -114,7 +116,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const f = document.querySelector("main").getBoundingClientRect()
       return { summaryX: Math.round(s.left), formX: Math.round(f.left), summaryY: Math.round(s.top), formY: Math.round(f.top), bg: getComputedStyle(document.querySelector("[data-page=checkout]")).backgroundColor }
     })
-    if (label.startsWith("desktop")) expect(layout.summaryX < layout.formX && layout.summaryY === layout.formY && layout.bg === "rgb(246, 247, 248)", "SPLIT: the order left on grey, the form right", layout)
+    if (label.startsWith("desktop")) expect(layout.summaryX < layout.formX && layout.summaryY === layout.formY && layout.bg === "rgb(248, 249, 250)", "SPLIT: the order left on the app's own light grey, the form right", layout)
     else expect(layout.summaryY < layout.formY, "SPLIT: on a phone the order is above the form", layout)
 
     const order = await p.evaluate(() => {
@@ -134,19 +136,36 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(order.total === "$9,999.00", "the big total", order.total)
     expect(order.promo === "Add promotion code" && order.promoBg === "rgb(233, 235, 238)", "Add promotion code is a light grey button", order)
     expect(order.tipOn === "rgb(255, 255, 255)" && order.tipUnder, "the chosen tip has the white thumb under it, not black", order)
-    /* The tip: open it, pick $3, and the one thumb slides there. */
-    await p.evaluate(() => { if (!document.querySelector("[data-tip-open]")) document.querySelector("[data-tip-toggle]").click() })
-    await sleep(350)
+    /* The tip is open as the page arrives: its line, its five choices under it, and nothing to press first. */
+    const tipBlock = await p.evaluate(() => {
+      const label = document.querySelector("[data-tip-label]")
+      const group = document.querySelector('[data-tip] [role="radiogroup"]').getBoundingClientRect()
+      return {
+        toggle: !!document.querySelector("[data-tip-toggle], [data-tip] [aria-expanded]"),
+        label: label.textContent,
+        labelColour: getComputedStyle(label.querySelector("span")).color,
+        choices: [...document.querySelectorAll('[data-tip] [role="radio"]')].map((b) => b.textContent),
+        trackH: Math.round(group.height),
+        below: Math.round(group.top - label.getBoundingClientRect().bottom),
+      }
+    })
+    expect(
+      !tipBlock.toggle && /^Add a tip for /.test(tipBlock.label) && tipBlock.labelColour === "rgb(26, 26, 46)" && tipBlock.choices.join() === "None,$1,$3,$5,Other" && tipBlock.trackH >= 40 && tipBlock.below >= 6 && tipBlock.below <= 14,
+      "TIP: Add a tip in full ink, with its five choices open under it, nothing to toggle",
+      tipBlock,
+    )
+    /* Pick $3, and the one thumb slides there. */
     await p.evaluate(() => [...document.querySelectorAll('[data-tip] [role="radio"]')].find((b) => b.textContent === "$3").click())
     const mid = await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(getComputedStyle(document.querySelector("[data-tip-thumb]")).translate)))))
     await sleep(350)
     const tipAfter = await p.evaluate(() => {
       const on = [...document.querySelectorAll('[data-tip] [role="radio"]')].find((b) => b.getAttribute("aria-checked") === "true")
       const t = document.querySelector("[data-tip-thumb]").getBoundingClientRect(), b = on.getBoundingClientRect()
-      return { on: on.textContent, under: Math.abs(t.left - b.left) < 1.5, line: document.querySelector("[data-tip-toggle]").textContent, colour: getComputedStyle(document.querySelector("[data-tip-toggle] span")).color }
+      const amount = document.querySelector("[data-tip-amount]")
+      return { on: on.textContent, under: Math.abs(t.left - b.left) < 1.5, amount: amount?.textContent, colour: amount && getComputedStyle(amount).color }
     })
-    expect(tipAfter.on === "$3" && tipAfter.under && typeof mid === "string", "TIP: the thumb slides to $3, and the row says Tip $3.00 in full ink", { ...tipAfter, mid })
-    expect(tipAfter.colour === "rgb(26, 26, 46)", "the tip row reads in full ink, not faded", tipAfter.colour)
+    expect(tipAfter.on === "$3" && tipAfter.under && typeof mid === "string", "the thumb slides to $3, and the tip's line ends in $3.00", { ...tipAfter, mid })
+    expect(tipAfter.amount === "$3.00" && tipAfter.colour === "rgb(26, 26, 46)", "the amount reads in full ink, not faded", tipAfter)
     await p.evaluate(() => [...document.querySelectorAll('[data-tip] [role="radio"]')].find((b) => b.textContent === "None").click())
     await sleep(300)
     /* Buying for a business: the fields open, and nothing takes the focus or moves the page. */
@@ -211,9 +230,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.screenshot({ path: join(shots, `${label}.png`), fullPage: true })
 
     await p.evaluate(() => { window.__router = []; document.querySelector("[data-back]").click() })
-    await sleep(60)
-    const back = await p.evaluate(() => ({ leaving: document.querySelector("[data-page=checkout]").hasAttribute("data-leaving"), opacity: getComputedStyle(document.querySelector("[data-page=checkout]")).opacity, router: window.__router }))
-    expect(back.leaving && back.opacity === "1" && !back.router.some(([k]) => k === "push" || k === "link"), "BACK: answered at once without a flash, and never a push", back)
+    const at0 = await p.evaluate(() => ({ leaving: document.querySelector("[data-page=checkout]").getAttribute("data-leaving") }))
+    await sleep(160)
+    const back = await p.evaluate(() => ({ opacity: +getComputedStyle(document.querySelector("[data-page=checkout]")).opacity, face: getComputedStyle(document.querySelector("[data-back-face]")).scale, router: window.__router }))
+    expect(at0.leaving === "back" && back.opacity < 1 && back.opacity >= 0.79 && back.face === "0.94" && !back.router.some(([k]) => k === "push" || k === "link"), "BACK: answered in the click itself (Back held pressed, the page easing back a shade, no flash), and never a push", { ...at0, ...back })
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()
   }

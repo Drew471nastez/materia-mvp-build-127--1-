@@ -268,7 +268,7 @@ async function desktop(browser, vp, label, full) {
     const g = getComputedStyle(document.querySelector("[data-ask-glass]"))
     return { glass: g.backdropFilter, fill: g.backgroundColor, halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]"), rings: document.querySelectorAll("[data-ask-soften]").length }
   })
-  expect(/blur\(10px\)/.test(glass.glass) && /(, 0\.95\)| \/ 0\.95\))$/.test(glass.fill), "the pill is near solid white: 95% over a light 10px blur", glass)
+  expect(/blur\(7px\)/.test(glass.glass) && /(, 0\.95\)| \/ 0\.95\))$/.test(glass.fill), "the pill is near solid white: 95% over a light 7px blur", glass)
   /* Round it, the page softening into it and nothing else: the pixels are measured in askai2 (NO GLOW, THE RAMP). */
   expect(!glass.halo && !glass.band && glass.rings === 5, "round it, five rings of blur and nothing else: no halo, no old band", glass)
   const mic0 = await p.$("[data-ask-mic]")
@@ -614,7 +614,7 @@ async function glassStyles(browser, vp) {
   const gl = layers(folded.glass.shadow)
   const outside = gl.filter((l) => !l.inset)
   measures[label] = { glass: folded.glass }
-  expect(/blur\(10px\)/.test(folded.glass.backdrop), "the pill: a light 10px backdrop blur", folded.glass.backdrop)
+  expect(/blur\(7px\)/.test(folded.glass.backdrop), "the pill: a light 7px backdrop blur", folded.glass.backdrop)
   expect(/0\.95\)$/.test(folded.glass.fill), "a near solid white fill, 95%", folded.glass.fill)
   /* Chromium may report the ink border in oklab (Tailwind mixes it there): alpha 0.08. */
   expect(/^1px .*0\.08\)$/.test(folded.glass.border) && outside.some((l) => l.r < 40 && l.a <= 0.08 && l.a > 0), "a hairline edge of ink", { border: folded.glass.border })

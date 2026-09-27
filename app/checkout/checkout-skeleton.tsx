@@ -5,8 +5,9 @@
   The page's own frame, drawn at once: the white bar across the top with Back,
   the creator and Continue shopping, the grey half and the white half with its
   shadow. The blocks inside are the real page's blocks at their real sizes
-  (the total, the line with its picture, the promotion code, the fields, the
-  card box, Pay), so nothing moves when the page lands: its halves fade in
+  (the total, the line with its picture, the promotion code, the tip with
+  its five choices always open, the fields, the card box, Pay), so nothing
+  moves when the page lands: its halves fade in
   over this. The blocks themselves appear only after 200ms (skeleton-deferred),
   so a quick arrival shows the frame and then the page, and never a flash of
   grey bars.
@@ -15,9 +16,9 @@ export function CheckoutSkeleton() {
   const bar = "rounded-[6px] bg-[#e7e9ec]"
   const field = "h-11 rounded-[8px] border border-[#eceef1] bg-[#f7f8f9]"
   return (
-    <div data-checkout-skeleton="" className="relative min-h-screen bg-white lg:bg-[#f6f7f8]" aria-busy aria-label="Loading checkout">
-      <div aria-hidden className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-12px_0_32px_-16px_rgba(17,24,39,0.16)] lg:block" />
-      <div className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.06),0_6px_16px_-12px_rgba(17,17,19,0.12)]">
+    <div data-checkout-skeleton="" className="relative min-h-screen bg-white lg:bg-[#f8f9fa]" aria-busy aria-label="Loading checkout">
+      <div aria-hidden className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-8px_0_24px_-14px_rgba(17,24,39,0.11)] lg:block" />
+      <div className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.055),0_4px_12px_-10px_rgba(17,17,19,0.09)]">
         <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-1.5 px-4 sm:px-7 lg:h-16 lg:px-[60px]">
           <span className="grid h-11 w-11 place-items-center">
             <span className="h-9 w-9 rounded-[10px] border border-black/[0.06] bg-white shadow-[0_1px_1px_rgba(17,17,19,0.04)]" />
@@ -28,7 +29,7 @@ export function CheckoutSkeleton() {
         </div>
       </div>
       <div className="skeleton-deferred relative mx-auto grid max-w-[1120px] lg:grid-cols-2">
-        <div className="border-b border-black/[0.06] bg-[#f6f7f8] px-5 pb-6 pt-6 sm:px-8 lg:border-b-0 lg:bg-transparent lg:px-16 lg:pb-16 lg:pt-12">
+        <div className="border-b border-black/[0.06] bg-[#f8f9fa] px-5 pb-6 pt-6 sm:px-8 lg:border-b-0 lg:bg-transparent lg:px-16 lg:pb-16 lg:pt-12">
           <div className="checkout-shimmer-soft mx-auto w-full max-w-[440px] lg:ml-auto lg:mr-0">
             <div className={`${bar} h-4 w-32`} />
             <div className={`${bar} mt-3 h-9 w-48`} />
@@ -41,17 +42,20 @@ export function CheckoutSkeleton() {
               </div>
               <div className={`${bar} h-3.5 w-16`} />
             </div>
-            <div className="mt-6 space-y-3 border-t border-black/[0.07] pt-5">
-              <div className="flex justify-between">
+            <div className="mt-6 border-t border-black/[0.07] pt-5">
+              <div className="flex h-5 items-center justify-between">
                 <div className={`${bar} h-3.5 w-16`} />
                 <div className={`${bar} h-3.5 w-16`} />
               </div>
-              <div className={`${bar} h-8 w-36`} />
-              <div className="flex justify-between pt-1">
-                <div className={`${bar} h-3.5 w-20`} />
-                <div className="h-3.5 w-4 rounded-[4px] bg-[#e7e9ec]" />
+              <div className={`${bar} mt-3 h-8 w-36`} />
+              {/* The tip, always open: its line, then the track of five at the real one's height. */}
+              <div data-skeleton-tip="" className="mt-5">
+                <div className="flex h-5 items-center">
+                  <div className={`${bar} h-3.5 w-36`} />
+                </div>
+                <div className="mt-2.5 h-[42px] rounded-[10px] bg-[#e8eaed]" />
               </div>
-              <div className="flex justify-between border-t border-black/[0.07] pt-4">
+              <div className="mt-5 flex items-center justify-between border-t border-black/[0.07] pt-4">
                 <div className={`${bar} h-4 w-20`} />
                 <div className={`${bar} h-4 w-20`} />
               </div>

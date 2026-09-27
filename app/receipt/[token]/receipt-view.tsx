@@ -341,7 +341,7 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
         : null
 
   return (
-    <main className="min-h-[100dvh] bg-[#f8f9fa] print:bg-white">
+    <main data-receipt="" className="min-h-[100dvh] bg-[#f8f9fa] print:bg-white">
       <div className="mx-auto w-full max-w-[640px] px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6 sm:pt-10">
         {/* Who it is from, and a way to keep a copy. */}
         <div className="flex items-center justify-between gap-3">

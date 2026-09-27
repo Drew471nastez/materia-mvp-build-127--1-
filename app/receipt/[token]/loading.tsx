@@ -1,7 +1,7 @@
-/** Only shown when the receipt is slow to read; see .skeleton-deferred. */
+/** Only shown when the receipt is slow to read; see .skeleton-deferred. After paying it is under the held paid screen (app/checkout/parts/success.tsx), which waits for [data-receipt]. */
 export default function ReceiptLoading() {
   return (
-    <main className="min-h-[100dvh] bg-[#f8f9fa] skeleton-deferred">
+    <main data-receipt-loading="" className="min-h-[100dvh] bg-[#f8f9fa] skeleton-deferred">
       <div className="mx-auto w-full max-w-[640px] px-4 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6 sm:pt-10">
         <div className="flex h-11 items-center gap-2.5">
           <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />

@@ -504,7 +504,7 @@ async function main() {
     const page = read("app/checkout/page.tsx")
     const client = read("app/checkout/checkout-client.tsx")
     check("the checkout page checks the addresses on the server, for this product's creator", /checkoutReturns\(\{ creatorId: product\.creator_id, success: returnTo, cancel, site \}\)/.test(page))
-    check("the client goes back only to what the server passed it, else the receipt", /window\.location\.replace\(paidReturnUrl\(returnTo\)\)/.test(client) && /router\.replace\(`\/receipt\/\$\{encodeURIComponent\(receiptToken\)\}`\)/.test(client))
+    check("the client goes back only to what the server passed it, else the receipt", /window\.location\.replace\(paidReturnUrl\(returnTo\)\)/.test(client) && /router\.replace\(receiptHref\(receiptToken\)\)/.test(client) && /const receiptHref = \(receiptToken: string\) => `\/receipt\/\$\{encodeURIComponent\(receiptToken\)\}`/.test(client))
     const cart = read("app/api/checkout/cart/route.ts")
     check("a basket's way back is held to the creator's own sites too, not any storelib subdomain", /siteHostsFor\(creatorId\)/.test(cart) && !/endsWith\(`\.\$\{main\}`\)/.test(cart))
     check("and its completion checks the return again before following it", /checkoutReturnTarget\(searchParams\.get\("return"\)/.test(read("app/api/checkout/cart/complete/route.ts")))

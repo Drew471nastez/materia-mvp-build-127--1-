@@ -100,8 +100,8 @@ section("The computer's pill")
     readable over a dark page and a white one.
   */
   check(
-    "the pill is near solid white: 95% over a light 10px blur, with a hairline and layered shadows of ink",
-    /data-ask-glass=""[\s\S]{0,120}className="[^"]*border-\[#1a1a2e\]\/\[0\.08\][^"]*bg-white\/\[0\.95\][^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)[^"]*backdrop-blur-\[10px\]/.test(chat) &&
+    "the pill is near solid white: 95% over a light 7px blur, with a hairline and layered shadows of ink",
+    /data-ask-glass=""[\s\S]{0,120}className="[^"]*border-\[#1a1a2e\]\/\[0\.08\][^"]*bg-white\/\[0\.95\][^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)[^"]*backdrop-blur-\[7px\]/.test(chat) &&
       !/bg-white\/\[0\.64\]/.test(chat),
   )
   check(
