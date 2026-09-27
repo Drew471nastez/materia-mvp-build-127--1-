@@ -13,7 +13,10 @@
  *                  chosen one, moving on transform and opacity only
  *   FOLLOWING      Settings, SEO: the Google and shared link previews read
  *                  the page's name and bio; a rename in Basic info and a new
- *                  bio in Links change them; a typed title stops following
+ *                  bio in Links change them; with the bio cleared the
+ *                  description is made from the page (its one live link,
+ *                  not the one scheduled for 2030) and the line under the
+ *                  field says so; a typed title stops following
  *                  a rename; "Use page name" makes it follow again
  *   THE SAME       after Save, the row the editor sent is handed to the
  *                  public page's real generateMetadata
@@ -159,6 +162,9 @@ const read = (p) => p.evaluate(() => {
     imageUrl: document.querySelector("[data-og-card]")?.getAttribute("data-og-image-url") ?? null,
     cardText: document.querySelector("[data-og-generated]")?.textContent?.trim() ?? null,
     titleFollows: document.querySelector('[data-seo-field="seo-title"]')?.hasAttribute("data-follows") ?? null,
+    /* The line under a field that follows the page, saying where its words come from. */
+    titleSource: t('[data-seo-source="seo-title"]'),
+    descriptionSource: t('[data-seo-source="seo-description"]'),
   }
 })
 async function typeInto(p, selector, text) {
@@ -253,11 +259,12 @@ for (const [label, vp] of [
   await openSettings(p, phone)
   await section(p, "SEO")
   let s = await read(p)
-  expect(s.searchTitle === "Satori Studio | Storelib" && s.shareTitle === "Satori Studio", "the titles start from the page's name", { search: s.searchTitle, share: s.shareTitle })
+  expect(s.searchTitle === "Satori Studio (@satori) | Storelib" && s.shareTitle === "Satori Studio", "the titles start from the page's name, the search title with its handle", { search: s.searchTitle, share: s.shareTitle })
   expect(s.searchDescription === "Prints, posters and a newsletter" && s.shareDescription === s.searchDescription, "the descriptions from its bio", s.searchDescription)
   expect(s.shareDomain === "storelib.me" && s.searchUrl === "https://storelib.me › satori", "the host and the address (OnePages live at storelib.me/{username})", { d: s.shareDomain, u: s.searchUrl })
   expect(s.cardText === "SSstorelib.com/satori/links" || /Satori Studio/.test(s.cardText || ""), "the share picture draws the name", s.cardText)
   expect(s.titleFollows === true, "the title box says it follows the page")
+  expect(s.titleSource === "From your page name and address" && s.descriptionSource === "From your bio", "and under each field, where its words come from", { title: s.titleSource, description: s.descriptionSource })
   await p.screenshot({ path: join(shots, `seo-${label}-start.png`), fullPage: false })
 
   /* A rename in Basic info. */
@@ -265,7 +272,7 @@ for (const [label, vp] of [
   await typeInto(p, "[data-settings-name]", "Satori Prints")
   await section(p, "SEO")
   s = await read(p)
-  expect(s.searchTitle === "Satori Prints | Storelib" && s.shareTitle === "Satori Prints" && /Satori Prints/.test(s.cardText || ""), "a rename reaches both previews and the picture at once", { search: s.searchTitle, share: s.shareTitle, card: s.cardText })
+  expect(s.searchTitle === "Satori Prints (@satori) | Storelib" && s.shareTitle === "Satori Prints" && /Satori Prints/.test(s.cardText || ""), "a rename reaches both previews and the picture at once", { search: s.searchTitle, share: s.shareTitle, card: s.cardText })
   const imageAfterRename = s.imageUrl
 
   /* A new bio, typed where it is written: the Links tab's profile sheet. */
@@ -281,6 +288,29 @@ for (const [label, vp] of [
   s = await read(p)
   expect(s.searchDescription === "Riso prints, zines and a Friday letter" && s.shareDescription === s.searchDescription, "a new bio reaches both descriptions", s.searchDescription)
   expect(s.imageUrl === imageAfterRename, "and leaves the picture's address alone: the picture does not draw the bio", { before: imageAfterRename, after: s.imageUrl })
+
+  /*
+    NO BIO: the description is made from what the page shows. The fixture
+    has one link, one link scheduled for 2030 and a heading; the Instagram
+    in its profile links is in no social row, so it is not on the page.
+  */
+  await p.click(phone ? '[data-onepage-tabbar] [data-tab="links"]' : '[data-tab-row="desktop"] [data-tab="links"]')
+  await sleep(600)
+  await p.evaluate(() => [...document.querySelectorAll("[data-tab-panel=links] button")].find((b) => /Riso prints, zines and a Friday letter/.test(b.textContent) && b.getClientRects().length)?.click())
+  await sleep(600)
+  await typeInto(p, '[role=dialog] textarea', "")
+  await p.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.textContent.trim() === "Save")?.click())
+  await sleep(500)
+  await openSettings(p, phone)
+  await section(p, "SEO")
+  s = await read(p)
+  expect(s.searchDescription === "Links from Satori Prints: Shop the prints." && s.shareDescription === s.searchDescription, "no bio: the description names what is on the page, and the shared one follows it", s.searchDescription)
+  expect(!/Late night mix|Instagram/.test(s.searchDescription || ""), "a link scheduled for later, and a profile link the page does not draw, are not named", s.searchDescription)
+  expect(s.descriptionSource === "From your page: 1 link", "and the line under it says what it was made from", s.descriptionSource)
+  await p.evaluate(() => document.querySelector('[data-seo-source="seo-description"]')?.scrollIntoView({ block: "center" }))
+  await sleep(200)
+  await p.screenshot({ path: join(shots, `seo-${label}-from-page.png`), fullPage: false })
+  await p.evaluate(() => document.querySelector("[data-onepage-seo]")?.scrollIntoView({ block: "start" }))
 
   /* A title of their own, typed. */
   await p.evaluate(() => { window.__long = [] })
@@ -304,7 +334,7 @@ for (const [label, vp] of [
   if (reset) await reset.click()
   await sleep(200)
   s = await read(p)
-  expect(s.searchTitle === "Kyoto Riso | Storelib" && s.shareTitle === "Kyoto Riso" && s.titleFollows === true, "Use page name: it follows the page again", { search: s.searchTitle, share: s.shareTitle })
+  expect(s.searchTitle === "Kyoto Riso (@satori) | Storelib" && s.shareTitle === "Kyoto Riso" && s.titleFollows === true, "Use page name: it follows the page again", { search: s.searchTitle, share: s.shareTitle })
 
   /* A shared description of its own, then Save, then the public page's metadata. */
   if (!(await p.$("#social-description"))) await p.click("[data-seo-social-open]")

@@ -7,10 +7,14 @@
  * Two previews on top, what a chat app draws when the link is shared and
  * what Google lists, and under them the fields that change them. Every field
  * starts out following the page (lib/onepage/seo resolveOnePageSeo): its box
- * is empty and shows what the page gives it, grey, and the previews change
- * as the name, bio, photo or theme change anywhere in the editor. Typing in a
- * box makes that field the creator's own; "Use page name" (or bio, or the
- * search title) empties it and it follows again.
+ * is empty and shows what the page gives it, grey, with a line under it
+ * saying where that comes from ("From your bio", "From your page: 3
+ * products, 2 socials"), and the previews change as the name, bio, photo,
+ * theme, links or products change anywhere in the editor. With no bio the
+ * description is made from the page's blocks (lib/onepage/seo-description),
+ * with each product read as the catalogue has it now, as the public page
+ * reads it. Typing in a box makes that field the creator's own; "Use page
+ * name" (or bio, or the search title) empties it and it follows again.
  *
  * The picture a shared link shows is one of three (lib/onepage/seo
  * pickShareImage): the profile photo, which every page starts with; the
