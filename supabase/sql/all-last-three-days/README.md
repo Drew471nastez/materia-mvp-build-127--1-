@@ -3,7 +3,7 @@
 Every database change the app is waiting on, written 2026-09-24 to 2026-09-27,
 in four files for the Supabase SQL editor.
 
-That is every part in `supabase/sql/run-now/` (01 to 44, then the storage
+That is every part in `supabase/sql/run-now/` (01 to 45, then the storage
 policies and the check). The whole `run-now/` list was written in that week, so
 "the last week" and "everything still to run" are the same set of SQL. These
 four files are therefore the same SQL as `supabase/sql/run-four/`, under the
@@ -49,7 +49,7 @@ from `run-now/`, changes nothing.
   orders, a creator's own AI keys, up to three businesses on one login, the
   notification engine and its admin counts, receipt email records made server
   only, a deleted product leaving the OnePage that named it, and one home for
-  a creator's name and photo.
+  a creator's name and photo, and the website builder agent's document and questions.
 - **4 of 4** the `storage.objects` policies, then the check row.
 
 ## What they change in rows you already have
