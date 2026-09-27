@@ -313,8 +313,11 @@ function main() {
      view model (lib/receipts/discount, from the invoice's reading of the
      payment) before handing it over, so it passes `receipt`, which starts
      as `loaded.view`. Still the view model, never an order row. */
+  /* Changed on purpose again: the bounded wait for the invoice moved into
+     lib/receipts/discount withinTime (tested in receipt-actions), so the
+     discount is applied in one line. Still the view model. */
   check("the browser gets the view model, not the order row",
-    /let receipt = loaded\.view/.test(page) && /receipt = withDiscount\(receipt, invoice\)/.test(page) && /<ReceiptView receipt=\{receipt\}/.test(page) && !/select\("\*/.test(page))
+    /let receipt = loaded\.view/.test(page) && /receipt = withDiscount\(receipt, await withinTime\(\(\) => invoiceForReceipt\(admin, token\), \d+\)\)/.test(page) && /<ReceiptView receipt=\{receipt\}/.test(page) && !/select\("\*/.test(page))
 
   const view = read("app/receipt/[token]/receipt-view.tsx")
   check("a pending payment refreshes by itself", /router\.refresh\(\)/.test(view) && /PENDING_POLL_LIMIT/.test(view))

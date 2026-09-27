@@ -826,6 +826,82 @@ export async function sendBuyerDownloadEmail(
 }
 
 /**
+ * A COPY OF THE RECEIPT TO ANOTHER ADDRESS, from the receipt page's "Send a
+ * copy to another email" (app/api/receipt/send-copy). The same email as the
+ * receipt, built the same way, and nothing else: no email_logs row, no
+ * "already sent" check and no mark on the order, because the order's own
+ * address and its delivery status have not changed. A copy that fails does
+ * not make the receipt read "We could not email" either.
+ */
+export async function sendReceiptCopyEmail(
+  admin: any,
+  params: Omit<SendBuyerEmailParams, "attachments">,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isSmtpConfigured()) return { success: false, error: "Email service not configured" }
+  const identity = params.creatorId ? await resolveCreatorIdentity(admin, params.creatorId) : null
+  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
+  const replyTo = normalizeEmail(params.sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
+  const model = await receiptEmailModel(admin, {
+    receiptToken: params.receiptToken,
+    receiptLink: buildUrl(`/receipt/${encodeURIComponent(params.receiptToken)}`, params.baseUrl),
+    buyerFirstName: params.buyerFirstName,
+    sellerName: fromName,
+    supportEmail: replyTo,
+    fallback: { productTitle: params.productTitle, variantName: params.variantName, amountCents: params.amountCents, orderId: params.orderId },
+  })
+  const firstTitle = model.items[0]?.title ?? params.productTitle
+  const subject =
+    model.items.length > 1
+      ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items`
+      : `Your receipt for ${safeText(firstTitle)}`
+  try {
+    const sent = await sendEmail({
+      from: buildFromHeaderLocal(fromName),
+      to: normalizeEmail(params.buyerEmail),
+      replyTo,
+      subject,
+      html: buyerReceiptEmailHtml(model),
+      text: buyerReceiptEmailText(model),
+    })
+    if (!sent.success) console.error("[email] receipt copy for order", params.orderId, "failed:", sent.error)
+    return sent.success ? { success: true } : { success: false, error: sent.error || "Failed to send email" }
+  } catch (err: any) {
+    console.error("[email] receipt copy for order", params.orderId, "failed:", err?.message || err)
+    return { success: false, error: err?.message || "Failed to send email" }
+  }
+}
+
+/**
+ * A BUYER'S MESSAGE TO THE SELLER, from the receipt's Contact seller form
+ * (app/api/receipt/contact). To the seller's own inbox, as resolveSellerEmail
+ * finds it; Reply-To the buyer's address on the order, so the seller answers
+ * with Reply. The words and markup are lib/receipts/contact.ts.
+ */
+export async function sendSellerMessageEmail(
+  _admin: any,
+  params: { to: string; message: import("@/lib/receipts/contact").SellerMessage },
+): Promise<{ success: boolean; error?: string }> {
+  if (!isSmtpConfigured()) return { success: false, error: "Email service not configured" }
+  const { sellerMessageEmail } = await import("@/lib/receipts/contact")
+  const mail = sellerMessageEmail(params.message)
+  try {
+    const sent = await sendEmail({
+      from: buildFromHeaderLocal(mail.fromName),
+      to: normalizeEmail(params.to),
+      replyTo: normalizeEmail(params.message.buyerEmail),
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+    })
+    if (!sent.success) console.error("[email] buyer message failed:", sent.error)
+    return sent.success ? { success: true } : { success: false, error: sent.error || "Failed to send email" }
+  } catch (err: any) {
+    console.error("[email] buyer message failed:", err?.message || err)
+    return { success: false, error: err?.message || "Failed to send email" }
+  }
+}
+
+/**
  * Whether the creator still wants a sale by email, from the engine's
  * preferences (lib/notify/preferences.ts). Read fresh each time; anything
  * that cannot be read sends, as the email always did.

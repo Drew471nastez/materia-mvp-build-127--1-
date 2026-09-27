@@ -82,4 +82,10 @@ export interface ReceiptViewer {
   /** The signed-in person's own name and photo, for the review card. */
   name?: string | null
   avatarUrl?: string | null
+  /**
+   * The signed-in buyer's own account email, where Resend sends an order on
+   * their account (app/api/receipt/resend, to: "account"). Only set when
+   * they are the buyer; it is their own address, shown to them.
+   */
+  email?: string | null
 }

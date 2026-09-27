@@ -37,3 +37,25 @@ export function withDiscount(view: ReceiptView, source: DiscountSource | null | 
     items: view.items.map((item, i) => ({ ...item, listCents: list[i] })),
   }
 }
+
+/**
+ * The receipt's wait for the payment's figures: the answer if it comes within
+ * `ms`, otherwise null, and null as well when the lookup fails or throws. A
+ * slow or broken Stripe then costs the page its discount line and nothing
+ * else. The timer is cleared either way, so a fast answer leaves nothing
+ * running behind the response.
+ */
+export function withinTime<T>(work: () => Promise<T>, ms: number): Promise<T | null> {
+  return new Promise<T | null>((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms)
+    const settle = (value: T | null) => {
+      clearTimeout(timer)
+      resolve(value)
+    }
+    try {
+      work().then(settle, () => settle(null))
+    } catch {
+      settle(null)
+    }
+  })
+}

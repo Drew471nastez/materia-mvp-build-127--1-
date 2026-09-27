@@ -86,9 +86,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isSeller) {
+      /* An account's order goes where the account says: its owner resends
+         to the account email or sends a copy elsewhere (app/api/receipt/resend
+         with to: "account", app/api/receipt/send-copy), both signed in. The
+         order's own address is what the order is matched by, so it stays. */
       if (order.buyer_id) {
         return NextResponse.json(
-          { error: "This order belongs to an account. Change the email in your account settings instead." },
+          { error: "This order is on an account. Sign in to that account to send a copy somewhere else." },
           { status: 403 },
         )
       }
