@@ -70,9 +70,10 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `44_profile_identity_follows.sql` | The creator's name and photo have one home, `profiles`, and every copy of them follows it: a trigger moves the OnePage's title, the copy taken when it was published, the SEO card's Meta title, the `creators` columns, the creator page's store name and its header photo, but only where they still hold the old value, so a page title somebody typed is left alone. It can never fail a profile save. A one off pass then clears pictures a sign in provider sent out of every copy but the profile, makes the `creators` copies equal to the profile, drops a Meta title that is only the page's name again, and re-points the reporting account's OnePage name at its profile. Needs nothing else. Until it runs, the app does the same from its own routes, which covers Settings, the storefront's Edit profile and the photo save, but not a name changed any other way. | 23 | 10,621 |
 | `45_sites_document_and_questions.sql` | The website builder agent's document and questions: `sites.document` with its revision index, `site_chat_messages.questions`, and the `site_agent_questions` table a blocked run polls. Three changes from 18 to 22 September this list never carried. Each skips itself where its table is not there. Needs nothing else. | 4 | 2523 |
 | `46_email_automations_complete.sql` | Emails and automations, complete: every table, column, index, check, policy, grant and function the Emails page, the email composer, the automation builder and the engine read and write, in one part, whether `09`, `10`, `13`, `21` and `30` ran or not. Contacts with every column the app writes (and the old policies that let anyone with the public key add a contact to any creator's list taken off, since sign-ups go through the server), segments, campaigns (read and deleted from the browser, saved and sent only through the server), one row per address sent, open and click events (an automated email's event needs no campaign), the monthly count and its two functions (server only), automations, the older delayed email queue (read only from the browser: a row there is an email Storelib sends), the engine's runs, jobs, sends and five functions, started checkouts, contact form messages, the rate limit table the test and preview routes count in, and the email-images bucket. Changes no rows except giving a contact with no unsubscribe token one. Ends with one row of true or false. Needs nothing else. | 350 | 55,698 |
+| `47_products_archived_never_published.sql` | An archived product is never also published. A trigger keeps a product's status and its older `archived` flag in step: status archived sets the flag, publishing a product clears it, and setting the flag on a published product archives it, so the `status = 'published'` every page asks for can never show or sell an archived product. Then one pass over products that are published and flagged now (the same pass `08` made). Changes no other rows; skips itself where products has no archived column. Run after `08`. Until it runs, the app writes both marks as before. | 5 | 2,190 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 13,317 |
 
-Parts `01` to `44` all run as the editor's normal role. `90` is the one
+Parts `01` to `47` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
@@ -97,6 +98,9 @@ the old way to status `archived` (there were none of those last time), and
 `32` writes each order's creator into its new `creator_id` column, from the
 order's product. `32` also changes what deleting a product does: its orders
 stay, with no product, where before the database deleted them with it.
+`47` makes the same pass as `08` (a product published and flagged archived
+becomes status `archived`), and from then on a trigger keeps the two in
+step.
 
 ## Reading `00_check_first.sql`
 
