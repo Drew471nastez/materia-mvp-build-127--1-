@@ -76,6 +76,7 @@ const SUITES = [
   "tests/dom-guard.test.ts",
   "tests/product-bundle-zip.test.ts",
   "tests/invoice-logo.test.ts",
+  "tests/follow-route.test.ts",
   "tests/editor-parts.test.ts",
   "tests/category-suggest.test.ts",
   "tests/sql-aggregate.test.ts",

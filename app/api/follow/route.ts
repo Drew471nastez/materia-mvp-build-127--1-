@@ -50,11 +50,21 @@ export async function POST(request: NextRequest) {
   if (wantsToFollow) {
     // Idempotent: the unique constraint means a double-tap is a no-op rather
     // than a duplicate row or a race.
+    //
+    // IGNORE, NOT MERGE. A plain upsert is INSERT ... ON CONFLICT DO UPDATE,
+    // and when the follow already exists (a second tap, a button drawn
+    // before the first one landed) Postgres takes the UPDATE path, which
+    // row-level security checks against an UPDATE policy. `follows` has
+    // none, on purpose: a follow is added or removed, never changed. So
+    // every repeat was refused, 42501 "new row violates row-level security
+    // policy (USING expression)". ignoreDuplicates is ON CONFLICT DO
+    // NOTHING, which needs only the INSERT policy (auth.uid() =
+    // follower_id). Measured on Postgres 16 with the table's own policies.
     const { error } = await supabase
       .from("follows")
-      .upsert({ follower_id: user.id, following_id: target }, { onConflict: "follower_id,following_id" })
+      .upsert({ follower_id: user.id, following_id: target }, { onConflict: "follower_id,following_id", ignoreDuplicates: true })
     if (error) {
-      console.error("[follow] insert failed", error)
+      console.error("[follow] insert failed", error.code, error.message)
       return NextResponse.json({ error: "Could not follow" }, { status: 500 })
     }
   } else {
@@ -64,7 +74,7 @@ export async function POST(request: NextRequest) {
       .eq("follower_id", user.id)
       .eq("following_id", target)
     if (error) {
-      console.error("[follow] delete failed", error)
+      console.error("[follow] delete failed", error.code, error.message)
       return NextResponse.json({ error: "Could not unfollow" }, { status: 500 })
     }
   }
