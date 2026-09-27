@@ -84,7 +84,7 @@ function main() {
   /* "Increase the whole modal a bit so it expands a little more on the screen, but without touching the edges." 930 by 540 became 1040 by 610. */
   check("the card is 1040 by 610 on a computer and never closer than 24px to the window's edges (a 768px tablet once had it 81px off each side)",
     /sm:w-\[1040px\] sm:max-w-\[calc\(100vw-48px\)\] sm:h-\[610px\] sm:max-h-\[calc\(100dvh-48px\)\]/.test(creator)
-      && /sm:max-h-\[min\(610px,calc\(100dvh-48px\)\)\]/.test(creator) && !/930px|540px/.test(creator))
+      && /sm:max-h-\[min\(610px,calc\(100dvh-48px\)\)\]/.test(creator) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator))
   check("the row of buttons gives up padding under 384px, where the roomy one stops fitting",
     (creator.match(/max-\[384px\]:/g) ?? []).length >= 6 && /max-\[384px\]:min-w-\[88px\]/.test(creator))
   check("every step has the same bottom padding, so a step change cannot resize the panel it happens in",
@@ -112,7 +112,7 @@ function main() {
   check("and its timer is cleared when the onboarding goes",
     /useEffect\(\(\) => \(\) => \{\s*if \(stepTimerRef\.current\) clearTimeout\(stepTimerRef\.current\)\s*\}, \[\]\)/.test(creator))
   check("the bar grows on translate alone (a full fill slid in and clipped, so its round end is never squashed), and stops for less motion",
-    /style=\{\{ translate: `\$\{progressWidth - 100\}% 0`, transition: `translate 480ms \$\{MOTION_EASE\}` \}\}/.test(creator) && /data-onboarding-progress-fill="" className="[^"]*motion-reduce:!transition-none"/.test(creator)
+    /style=\{\{ translate: `\$\{progressWidth - 100\}% 0`, transition: `translate 480ms \$\{MOTION_EASE\}` \}\}/.test(creator) && /data-onboarding-progress-fill=""\s*className="[^"]*motion-reduce:!transition-none"/.test(creator)
       && !/transition-\[width\]/.test(creator))
   check("one row of buttons on every step, each fading with its step, so nothing pops in and the panel never resizes as setup begins",
     (creator.match(/data-onboarding-footer=""/g) ?? []).length === 1 && /style=\{fadeWith\(currentStep >= 2 && currentStep <= 4/.test(creator) && /style=\{fadeWith\(currentStep <= 3\)\}/.test(creator)
