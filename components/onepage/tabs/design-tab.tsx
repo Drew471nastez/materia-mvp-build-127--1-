@@ -5,7 +5,6 @@ import type React from "react"
 import { useOnePage } from "@/lib/onepage/context"
 import * as ReactModule from "react"
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition } from "react"
-import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -832,34 +831,39 @@ const SECTION_LABEL: Record<DesignSection, string> = {
  */
 /**
  * ===========================================================================
- *  A PANEL IS PUSHED IN, AND POPPED BACK OUT
+ *  A PANEL FADES IN OVER THE LIST, AND THE LIST FADES BACK
  * ===========================================================================
- * Opening a row and going back swapped one for the other in a single frame,
- * and back always landed at the top of the list. Now it is a navigation
- * stack, as on an iPhone: the panel slides in from the right over the list
- * while the list moves a little to the left and dims under it; back plays
- * it the other way, to the place in the list that was left. On a phone a
- * finger from the left edge of a panel pulls it back the same way, and
- * lets it go back or springs it home.
+ * "I still don't like the page transition. For example I want to go from
+ * Design to Theme and then from Theme to go back, I don't like that page
+ * animation thing. Make sure it's smooth, not glitchy, more simple, clean,
+ * normal, NO SLIDE like."
  *
- * On a computer, where the list is a column beside the phone preview and
- * not the whole screen, the two pages go side by side instead (SIDE BY
- * SIDE ON A COMPUTER below): scripts/check-onepage-design-push.mjs.
+ * It was an iPhone push: the panel slid in from the right while the list
+ * moved left and dimmed under it, a pull from the left edge took it back,
+ * and on a computer the two went side by side. Now nothing moves sideways.
+ * The two pages are drawn in the same place: the page leaving fades out
+ * over 90ms, and the page arriving, over it, fades in from 50ms to 200ms
+ * (opacity only, on the compositor). The list fades out and Theme fades
+ * in; back is the same the other way, to the place in the list that was
+ * left. A plain crossfade, the page arriving over the page leaving at full
+ * strength, drew "Design" and "Theme" on top of each other for several
+ * frames; this way the two only meet faintly, for a frame, and no frame is
+ * empty. The way back is the arrow at the top of the panel (and Android's
+ * back); the edge pull went with the slide it was part of.
  *
- * Both pages are drawn only while they move. At rest the list is kept (its
- * state, not its pixels: `display: none`). Transform and opacity only, on
- * the compositor.
+ * Both pages are drawn only while the fade runs. At rest the list is kept
+ * (its state, not its pixels: `display: none`).
  *
  * ONE MOTION PER PRESS. "Themes, back, Themes again, back: a double
  * refresh." It was two motions (scripts/check-onepage-editor-nav.mjs): the
- * page slid in with only its title, and 40 to 70ms later what was in it
+ * page came in with only its title, and 40 to 70ms later what was in it
  * was built and faded in over 180ms, so every open arrived twice, and the
  * first one showed a page with nothing in it for four frames. Now the
  * panels are kept, as the editor keeps its tabs: each is built once, while
  * the page is idle (or on the tap, if that comes first), and kept in
  * React's <Activity> while another panel or the list is showing. A press
- * shows the one it opens and starts the slide with the page already whole:
- * one motion in, one out, nothing built or faded on the way.
+ * shows the one it opens and starts the fade with the page already whole:
+ * one motion in, one out, nothing built on the way.
  */
 type DesignPage = DesignSection | "home"
 /* React 19.2's <Activity>, as the editor's tabs use it. The installed types are 19.0's, which do not name it yet; the runtime has it. */
@@ -868,25 +872,19 @@ const Activity = (ReactModule as unknown as {
 }).Activity
 /** Every panel, in the order the list names them, which is the order they are built in while the page is idle. */
 const DESIGN_SECTIONS = Object.keys(SECTION_LABEL) as DesignSection[]
-/** iOS's push: 360ms on its own curve, the page under it moving about a quarter as far. */
-const PUSH_MS = 360
-const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-const UNDER_SHIFT = 0.28
-/** On a computer the two pages go side by side, the list all the way out, on a curve with no long tail. */
-const SIDE_MS = 300
-const SIDE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-/** Where the pages go side by side: from 768px, where the list is not the whole screen (the dim is `md:hidden` for the same reason). */
-const SIDE_QUERY = "(min-width: 768px)"
-/** How dark the list goes under a panel: a shade, not a scrim. */
-const UNDER_DIM = 0.07
-/** A finger that starts this close to a panel's left edge is taking it back. */
-const EDGE_PX = 28
+/** The page leaving: out in 90ms, evenly, so it is still faintly there when the page arriving starts. */
+const FADE_OUT_MS = 90
+/** The page arriving: in from 50ms to 200ms, on the tabs' curve, done when it looks done. */
+const FADE_IN_DELAY_MS = 50
+const FADE_IN_MS = 150
+const FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
 
 /**
- * `top` places the page leaving (or, pulled by a finger, the list under the
- * panel) where it was on screen. `panelMin` and `listMin` are how tall each
- * must be to reach the bottom of the screen while they move, so a short
- * page never leaves the other showing, undimmed, below it.
+ * `top` places the page leaving where it was on screen, under the page
+ * arriving. `panelMin` and `listMin` are how tall each must be to reach the
+ * bottom of the screen while they fade, so the page arriving, which is
+ * opaque, always covers the page leaving and a short page never leaves the
+ * other showing below it.
  *
  * THE PAGE LEAVING IS CUT AT THE BOTTOM OF THE SCREEN. It is that tall and
  * no taller (its height, not its least height, and `overflow: clip`), so
@@ -895,7 +893,7 @@ const EDGE_PX = 28
  * the move and went again at its end ("a scrollbar flash"), and where a
  * scrollbar takes room, the column went narrower and wider with it.
  */
-type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number; peek?: boolean }
+type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number }
 
 export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
   const { onepage } = useOnePage()
@@ -910,11 +908,10 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const rootRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const dimRef = useRef<HTMLDivElement>(null)
   const sectionRef = useRef(section)
   /* Where the list was scrolled to when a panel covered it. */
   const listScroll = useRef(0)
-  /* The pages moving now: `top` places the one leaving where it was on screen. */
+  /* The pages fading now: `top` places the one leaving where it was on screen. */
   const [move, setMove] = useState<Move | null>(null)
   /* The panels built so far, kept (see BUILT WHILE NOTHING ELSE IS HAPPENING below). */
   const [built, setBuilt] = useState<DesignSection[]>(() => (section ? [section] : []))
@@ -942,7 +939,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     setMove({ from: current ?? "home", to: next ?? "home", top: arriveAt - y, panelMin: screen + (next ? 0 : y), listMin: screen + listScroll.current })
     setSectionState(next)
     setWarm(null)
-    /* A panel not built yet (a tap before the page was idle) is built on the tap, whole, and the slide waits for it. */
+    /* A panel not built yet (a tap before the page was idle) is built on the tap, whole, and the fade waits for it. */
     if (next) setBuilt((b) => (b.includes(next) ? b : [...b, next]))
     remember(next)
   }, [])
@@ -950,10 +947,10 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   /*
     READIED WHILE THE FINGER IS DOWN. A kept panel still has to be styled
     and laid out when it is shown (Theme: 150ms on a phone slowed four
-    times, 40ms at full speed), and the slide cannot start before that. A
+    times, 40ms at full speed), and the fade cannot start before that. A
     finger rests on a row for 50 to 150ms before it lifts, so the row's
     panel is drawn then, out of sight and taking no room, at a priority the
-    lift overtakes. By the lift it is laid out and only has to move. A
+    lift overtakes. By the lift it is laid out and only has to fade in. A
     finger that scrolls instead lets it go.
   */
   const [warm, setWarm] = useState<DesignSection | null>(null)
@@ -974,7 +971,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   /*
     BUILT WHILE NOTHING ELSE IS HAPPENING, AND KEPT. Theme's eighteen cards
     cost 200ms to build on a phone slowed four times; built on the tap, the
-    slide waited for them, and built after it, the page arrived empty and
+    move waited for them, and built after it, the page arrived empty and
     filled in (the double). So, as the editor does with its tabs, the
     panels are built once the Design tab is on screen and the page is idle,
     at a priority any tap overtakes, and each is kept once built.
@@ -1005,16 +1002,13 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   }, [setSection])
 
   /*
-    The move itself, drawn before the browser paints the first frame of it.
+    The fade itself, started before the browser paints its first frame.
 
-    THE LAST FRAME IS HELD UNTIL REACT HAS DRAWN THE PAGE AT REST. The
-    animations held nothing (`fill: none`), so in the frame they finished
-    the page leaving jumped back to where it stands when nothing moves it,
-    over the page arriving, and stayed there until React's commit hid it a
-    frame or two later: back from Theme showed Theme whole again for two
-    frames before the list. Now each animation holds its last frame
-    (`fill: both`) and is let go in the layout effect of the commit that
-    ends the move, before that commit is painted.
+    THE LAST FRAME IS HELD UNTIL REACT HAS DRAWN THE PAGE AT REST. Each
+    animation holds its last frame (`fill: both`) and is let go in the
+    layout effect of the commit that ends the move, before that commit is
+    painted, so the page leaving never shows again for a frame between the
+    end of the fade and React hiding it.
   */
   const animating = useRef<Animation[]>([])
   useLayoutEffect(() => {
@@ -1023,12 +1017,10 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
       animating.current = []
       return
     }
-    if (move.peek) return
     const scroller = scrollerOf()
     if (scroller) scroller.scrollTop = move.to === "home" ? listScroll.current : 0
     const list = listRef.current
     const panel = panelRef.current
-    const dim = dimRef.current
     let anims: Animation[] = []
     const done = () => {
       if (animating.current !== anims) return
@@ -1040,132 +1032,29 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
       done()
       return
     }
-    const pushing = move.to !== "home"
-    /* A move still running (back pressed mid-push) is taken from where it is. */
-    const w = panel.offsetWidth || 1
-    const running = animating.current.length > 0
-    const panelFrom = running ? new DOMMatrixReadOnly(getComputedStyle(panel).transform).m41 / w : pushing ? 1 : 0
-    animating.current.forEach((a) => a.cancel())
-    const panelTo = pushing ? 0 : 1
+    /* The page arriving is on top (opaque once it is in); the page leaving goes out under it. */
+    const arriving = move.to === "home" ? list : panel
+    const leaving = move.to === "home" ? panel : list
     /*
-      SIDE BY SIDE ON A COMPUTER. The phone's push (the list moving a
-      quarter as far, under the panel) was played in the 630px column as
-      well, where the panel stood in from the right over a list cut off at
-      the left, and the curve's long tail left a strip of the panel at the
-      column's edge for a fifth of a second. From 768px the two pages are
-      the column wide and travel together, the list's right edge on the
-      panel's left edge, on a curve that is done when it looks done.
+      Back pressed while a panel is still fading: each page starts from the
+      opacity it is drawn at now, not from the start, and takes what is left.
     */
-    const side = !!window.matchMedia?.(SIDE_QUERY).matches
-    const shift = side ? 1 : UNDER_SHIFT
-    const at = (p: number) => `translate3d(${(p * 100).toFixed(3)}%, 0, 0)`
-    const under = (p: number) => `translate3d(${(-(1 - p) * shift * 100).toFixed(3)}%, 0, 0)`
-    const duration = (side ? SIDE_MS : PUSH_MS) * Math.max(0.35, Math.abs(panelTo - panelFrom))
-    const timing: KeyframeAnimationOptions = { duration, easing: side ? SIDE_EASE : PUSH_EASE, fill: "both" }
+    const running = animating.current.length > 0
+    const leavingFrom = running ? Number(getComputedStyle(leaving).opacity) : 1
+    const arrivingFrom = running ? Number(getComputedStyle(arriving).opacity) : 0
+    animating.current.forEach((a) => a.cancel())
+    const outMs = Math.max(1, FADE_OUT_MS * leavingFrom)
+    const delay = FADE_IN_DELAY_MS * leavingFrom
+    const inMs = Math.max(1, FADE_IN_MS * (1 - arrivingFrom))
     anims = [
-      panel.animate([{ transform: at(panelFrom) }, { transform: at(panelTo) }], timing),
-      list.animate([{ transform: under(panelFrom) }, { transform: under(panelTo) }], timing),
+      arriving.animate([{ opacity: arrivingFrom }, { opacity: 1 }], { duration: inMs, delay, easing: FADE_EASE, fill: "both" }),
+      leaving.animate([{ opacity: leavingFrom }, { opacity: 0 }], { duration: outMs, easing: "linear", fill: "both" }),
     ]
-    if (dim && !side) anims.push(dim.animate([{ opacity: (1 - panelFrom) * UNDER_DIM }, { opacity: (1 - panelTo) * UNDER_DIM }], timing))
     animating.current = anims
     anims[0].onfinish = done
-    const timer = window.setTimeout(done, duration + 250)
+    const timer = window.setTimeout(done, delay + inMs + 250)
     return () => window.clearTimeout(timer)
   }, [move])
-
-  /* ── A finger from the left edge takes the panel back (a phone) ─────── */
-  /*
-    The edge is a strip of its own, 20px wide down the panel's left side on
-    a phone, that takes its finger (`touch-action: none`), so the panel's
-    scrolling is left to the browser everywhere else and no touch listener
-    anywhere holds a scroll up waiting for script. Pointer events, captured.
-  */
-  const peekRef = useRef<{ id: number; x0: number; y0: number; w: number; dragging: boolean; samples: { t: number; x: number }[] } | null>(null)
-  const restoreList = useRef(false)
-  const drawPeek = (p: number) => {
-    /* p: how far the panel has gone, 0 (covering) to 1 (gone). */
-    const panel = panelRef.current
-    const list = listRef.current
-    const dim = dimRef.current
-    if (panel) panel.style.transform = `translate3d(${(p * 100).toFixed(3)}%, 0, 0)`
-    if (list) list.style.transform = `translate3d(${(-(1 - p) * UNDER_SHIFT * 100).toFixed(3)}%, 0, 0)`
-    if (dim) dim.style.opacity = String((1 - p) * UNDER_DIM)
-  }
-  const clearPeek = () => {
-    for (const el of [panelRef.current, listRef.current]) if (el) el.style.transform = ""
-    if (dimRef.current) dimRef.current.style.opacity = ""
-  }
-  const onEdgeDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse" || animating.current.length || !sectionRef.current) return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    peekRef.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, w: panelRef.current?.offsetWidth || window.innerWidth, dragging: false, samples: [{ t: e.timeStamp, x: e.clientX }] }
-  }
-  const onEdgeMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const g = peekRef.current
-    if (!g || e.pointerId !== g.id) return
-    const dx = e.clientX - g.x0
-    if (!g.dragging) {
-      const dy = e.clientY - g.y0
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
-      /* Up, down or to the left is not a way back. */
-      if (dx <= 0 || Math.abs(dy) > Math.abs(dx)) { peekRef.current = null; return }
-      g.dragging = true
-      g.x0 = e.clientX
-      /* The list is drawn under the panel, where it was left, before the finger moves it. */
-      const scroller = scrollerOf()
-      const y = scroller?.scrollTop ?? 0
-      const screen = scroller?.clientHeight ?? 0
-      flushSync(() => setMove({ from: sectionRef.current ?? "home", to: sectionRef.current ?? "home", top: y - listScroll.current, panelMin: screen + y, listMin: screen + listScroll.current, peek: true }))
-    }
-    g.samples.push({ t: e.timeStamp, x: e.clientX })
-    if (g.samples.length > 8) g.samples.shift()
-    drawPeek(Math.max(0, Math.min(1, (e.clientX - g.x0) / g.w)))
-  }
-  const onEdgeUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    const g = peekRef.current
-    peekRef.current = null
-    if (!g || e.pointerId !== g.id || !g.dragging) return
-    const last = g.samples[g.samples.length - 1]
-    const first = g.samples.find((s) => last.t - s.t <= 80) ?? g.samples[0]
-    const v = last.t > first.t ? (last.x - first.x) / (last.t - first.t) : 0
-    const p = Math.max(0, Math.min(1, (last.x - g.x0) / g.w))
-    /* Past 40% of the way, or let go moving right: back. */
-    const back = e.type !== "pointercancel" && (p > 0.4 || v > 0.45)
-    const to = back ? 1 : 0
-    const timing = { duration: Math.max(140, PUSH_MS * Math.abs(to - p)), easing: PUSH_EASE }
-    const panel = panelRef.current
-    const list = listRef.current
-    const dim = dimRef.current
-    const anims: Animation[] = []
-    if (panel) anims.push(panel.animate([{ transform: `translate3d(${p * 100}%, 0, 0)` }, { transform: `translate3d(${to * 100}%, 0, 0)` }], timing))
-    if (list) anims.push(list.animate([{ transform: `translate3d(${-(1 - p) * UNDER_SHIFT * 100}%, 0, 0)` }, { transform: `translate3d(${-(1 - to) * UNDER_SHIFT * 100}%, 0, 0)` }], timing))
-    if (dim) anims.push(dim.animate([{ opacity: (1 - p) * UNDER_DIM }, { opacity: (1 - to) * UNDER_DIM }], timing))
-    drawPeek(to)
-    animating.current = anims
-    const settle = () => {
-      if (animating.current !== anims) return
-      animating.current = []
-      if (back) {
-        /* The list becomes the page, at its place; the finger's styles go once React has drawn that. */
-        restoreList.current = true
-        sectionRef.current = null
-        setSectionState(null)
-        remember(null)
-      }
-      setMove(null)
-      if (!back) clearPeek()
-    }
-    if (anims[0]) anims[0].onfinish = settle
-    else settle()
-  }
-  /* After a pull back has become the list: its place, and nothing left of the finger. */
-  useLayoutEffect(() => {
-    if (!restoreList.current || section) return
-    restoreList.current = false
-    clearPeek()
-    const scroller = scrollerOf()
-    if (scroller) scroller.scrollTop = listScroll.current
-  }, [section])
 
   if (!onepage) return null
   const { theme, settings } = onepage
@@ -1186,9 +1075,9 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   /* And, out of sight, the one a finger is resting on. */
   const drawnSection: DesignSection | null = shownSection ?? warm
   const listCurrent = !section
-  const listMoving = !!move && (move.from === "home" || move.to === "home" || !!move.peek)
+  const listMoving = !!move && (move.from === "home" || move.to === "home")
   const panelMoving = !!move
-  /* The page leaving sits where it was on screen; the page arriving is in the flow. */
+  /* The page leaving sits where it was on screen, under; the page arriving is in the flow, over it. */
   const leavingStyle = (top: number): React.CSSProperties => ({ position: "absolute", left: 0, right: 0, top, zIndex: 0 })
   /*
     EACH PAGE IS THE COLUMN, AND ONLY THE COLUMN'S EDGE CUTS IT. The pages
@@ -1201,7 +1090,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     column wide and from its top to its bottom, with the reading width and
     the padding inside it, and the stack cuts sideways (`overflow-x: clip`,
     which is not a scroll box, so nothing inside can scroll it) at the
-    column's edges.
+    column's edges. The pages fade in place now and never stand off to a
+    side, but the clip stays: nothing inside can widen the column.
   */
   const pageClass = "bg-white"
   const readingClass = "mx-auto w-full max-w-xl p-4 op-tabbar-clearance md:p-6 md:pb-6"
@@ -1216,7 +1106,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         className={pageClass}
         style={
           listCurrent
-            ? { position: "relative", zIndex: 0, minHeight: move ? move.listMin : undefined }
+            ? /* Arriving (back), it is over the panel fading out, and covers it to the bottom of the screen. */
+              { position: "relative", zIndex: move ? 1 : 0, minHeight: move ? move.listMin : undefined }
             : listMoving
               ? { ...leavingStyle(move!.top), height: move!.listMin, overflow: "clip" }
               : { display: "none" }
@@ -1248,12 +1139,10 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
             <NavRow dataKey="footer" icon={PanelBottom} title="Footer" subtitle={settings.show_branding === false ? "Storelib badge hidden" : "Storelib badge shown"} onClick={() => setSection("footer")} />
           </nav>
         </div>
-        {/* The shade the list takes under a panel: on a phone, where the list is the whole screen; on a computer it would be a grey card in a white pane. */}
-        <div ref={dimRef} aria-hidden data-design-dim="" className="pointer-events-none absolute inset-0 bg-[#1a1a2e] md:hidden" style={{ opacity: 0 }} />
       </div>
       {/*
         The panel page: one element for every panel, always there, so what
-        slides is the page itself and never a page being made. With no panel
+        fades is the page itself and never a page being made. With no panel
         open it is not drawn. Its panels are kept in <Activity>: the one
         showing is visible, the rest keep their state out of sight.
       */}
@@ -1262,16 +1151,16 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         data-design-panel={shownSection ?? undefined}
         inert={!shownSection || section !== shownSection}
         aria-hidden={shownSection ? undefined : true}
-        /* An edge to the page while it moves over the list on a phone: a hairline and a soft shade. Side by side on a computer, nothing is under it. */
-        className={cn(pageClass, panelMoving && "max-md:shadow-[-1px_0_0_rgba(26,26,46,0.05),-16px_0_32px_-12px_rgba(26,26,46,0.14)]")}
+        /* No edge and no shade: it fades in place over the list, the same white. */
+        className={pageClass}
         style={
           shownSection
             ? {
                 ...(section === shownSection
-                  ? /* Moving, it covers the list under it to the bottom of the screen, however short it is. */
-                    { position: "relative", minHeight: panelMoving ? move?.panelMin : undefined }
-                  : { ...leavingStyle(move ? move.top : 0), height: move?.panelMin, overflow: "clip" }),
-                zIndex: 1,
+                  ? /* Arriving, it is over the list and covers it to the bottom of the screen, however short it is. */
+                    { position: "relative", minHeight: panelMoving ? move?.panelMin : undefined, zIndex: 1 }
+                  : /* Leaving (back), it is under the list fading in. */
+                    { ...leavingStyle(move ? move.top : 0), height: move?.panelMin, overflow: "clip" }),
               }
             : drawnSection
               ? /* Readied under a finger: laid out, but unseen, untouchable, and taking no room from the list's scroll. */
@@ -1279,18 +1168,6 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
               : { display: "none" }
         }
       >
-        {shownSection && section === shownSection ? (
-          <div
-            aria-hidden
-            data-edge-back=""
-            className="absolute -left-0 bottom-0 top-0 z-[2] w-5 md:hidden"
-            style={{ touchAction: "none" }}
-            onPointerDown={onEdgeDown}
-            onPointerMove={onEdgeMove}
-            onPointerUp={onEdgeUp}
-            onPointerCancel={onEdgeUp}
-          />
-        ) : null}
         <div className={readingClass}>
           {drawnSection ? <PanelHeader title={SECTION_LABEL[drawnSection]} onBack={() => setSection(null)} backLabel="Back to Design" /> : null}
           {DESIGN_SECTIONS.filter((id) => built.includes(id)).map((id) => (

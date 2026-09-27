@@ -16,9 +16,13 @@
  * and before paint):
  *
  *   width      both pages are exactly the column wide in every frame
- *   side       while both are drawn they sit side by side: the list's right
- *              edge is the panel's left edge, no overlap and no gap
- *   one way    each page only moves one way; nothing jumps back
+ *   in place   every page drawn is at the column's left edge in every
+ *              frame: the move is a fade, and nothing slides. It was a
+ *              side by side slide ("side": the list's right edge on the
+ *              panel's left edge) until the owner: "I still don't like the
+ *              page transition. [...] Make sure it's smooth, not glitchy,
+ *              more simple, clean, normal, NO SLIDE like."
+ *   one way    no page moves at all now, so none can jump back
  *   after      once the move ends the page left is not drawn, nothing is
  *              left animating, and the page arrived is at the column's edge
  *   overflow   the column never scrolls sideways, its vertical scrollbar
@@ -29,7 +33,7 @@
  *
  * Then Links, Design and Products in the top bar (the new tab over the old,
  * the old one gone after, each back where it was scrolled), and the same
- * push at 390 with a finger, where it stays the phone's own push.
+ * fade at 390 with a finger.
  *
  *   PROBE_CSS=source node scripts/check-onepage-design-push.mjs
  *   REPORT=1 ...   numbers only, nothing fails (for a before and after)
@@ -172,10 +176,10 @@ function judge(frames, { arriving, leaving, dir, title, startTop }) {
   /* Width: every page drawn is the column's width. */
   const widths = frames.flatMap((f) => [f.list, f.sub].filter(Boolean).map((p) => Math.round((p.w - f.colW) * 10) / 10))
   out.worstWidth = widths.reduce((m, d) => (Math.abs(d) > Math.abs(m) ? d : m), 0)
-  /* Side by side: while both are drawn, the list's right edge is the panel's left edge. */
+  /* In place: a fade, so every page drawn, in every frame, is at the column's left edge (it was "side by side" while the move was a slide). */
   const both = frames.filter((f) => f.list && f.sub)
   out.framesBoth = both.length
-  out.worstSeam = both.reduce((m, f) => { const d = Math.round((f.sub.x - (f.list.x + f.list.w)) * 10) / 10; return Math.abs(d) > Math.abs(m) ? d : m }, 0)
+  out.worstSeam = frames.flatMap((f) => [f.list, f.sub].filter(Boolean)).reduce((m, pg) => (Math.abs(pg.x) > Math.abs(m) ? pg.x : m), 0)
   /* One way: the page arriving and the page leaving only travel in `dir`. */
   const back = (key) => {
     let worst = 0
@@ -212,7 +216,7 @@ function judge(frames, { arriving, leaving, dir, title, startTop }) {
   for (const f of frames) if (f.title && seq.at(-1) !== f.title) seq.push(f.title)
   out.titles = seq
   out.endTop = last.top
-  out.ok = Math.abs(out.worstWidth) <= 0.5 && Math.abs(out.worstSeam) <= 1 && out.arrivingBack >= -0.5 && out.leavingBack >= -0.5 &&
+  out.ok = Math.abs(out.worstWidth) <= 0.5 && Math.abs(out.worstSeam) <= 0.5 && out.arrivingBack >= -0.5 && out.leavingBack >= -0.5 &&
     out.leftoverFrames === 0 && out.endX === 0 && !out.endLeaving && out.endAnims === 0 && out.sideways <= 0 && out.scrollbarFlips <= 1 && out.colWidths.length === 1 &&
     seq.length <= 2 && (title === null ? seq.length <= 1 : seq.at(-1) === title) && (startTop === undefined || out.endTop === startTop)
   return out
@@ -264,11 +268,11 @@ if (wants("push")) {
     const inFrames = await record(s, () => click(s, `[data-nav-row="${id}"]`))
     const title = await s.p.$eval('[data-design-panel]:not([data-design-panel="home"]) h2', (h) => h.textContent)
     const a = judge(inFrames, { arriving: "sub", leaving: "list", dir: -1, title })
-    expect(a.ok, `${title}: in`, `width ${a.worstWidth}, seam ${a.worstSeam}, frames both ${a.framesBoth}, back-steps ${a.arrivingBack}/${a.leavingBack}, first x ${a.firstArrivingX}, leftover ${a.leftoverFrames}, end x ${a.endX} anims ${a.endAnims}, sideways ${a.sideways}, scrollbar flips ${a.scrollbarFlips}, column ${a.colWidths.join('/')}, titles ${a.titles.join(">")}, top ${a.endTop}`)
+    expect(a.ok, `${title}: in`, `width ${a.worstWidth}, off the edge ${a.worstSeam}, frames both ${a.framesBoth}, back-steps ${a.arrivingBack}/${a.leavingBack}, first x ${a.firstArrivingX}, leftover ${a.leftoverFrames}, end x ${a.endX} anims ${a.endAnims}, sideways ${a.sideways}, scrollbar flips ${a.scrollbarFlips}, column ${a.colWidths.join('/')}, titles ${a.titles.join(">")}, top ${a.endTop}`)
     if (!REPORT && !a.ok) console.log(`        frames: ${JSON.stringify(inFrames.slice(0, 40).map((f) => [f.list?.x ?? "-", f.list?.w ?? "-", f.sub?.x ?? "-", f.sub?.w ?? "-", f.anims]))}`)
     const outFrames = await record(s, () => click(s, "[data-panel-back]"))
     const b = judge(outFrames, { arriving: "list", leaving: "sub", dir: 1, title: "Design", startTop: listTop })
-    expect(b.ok, `${title}: back`, `width ${b.worstWidth}, seam ${b.worstSeam}, frames both ${b.framesBoth}, back-steps ${b.arrivingBack}/${b.leavingBack}, first x ${b.firstArrivingX}, leftover ${b.leftoverFrames}, end x ${b.endX} anims ${b.endAnims}, sideways ${b.sideways}, scrollbar flips ${b.scrollbarFlips}, column ${b.colWidths.join('/')}, titles ${b.titles.join(">")}, top ${b.endTop} (was ${listTop})`)
+    expect(b.ok, `${title}: back`, `width ${b.worstWidth}, off the edge ${b.worstSeam}, frames both ${b.framesBoth}, back-steps ${b.arrivingBack}/${b.leavingBack}, first x ${b.firstArrivingX}, leftover ${b.leftoverFrames}, end x ${b.endX} anims ${b.endAnims}, sideways ${b.sideways}, scrollbar flips ${b.scrollbarFlips}, column ${b.colWidths.join('/')}, titles ${b.titles.join(">")}, top ${b.endTop} (was ${listTop})`)
     if (!REPORT && !b.ok) console.log(`        frames: ${JSON.stringify(outFrames.slice(0, 40).map((f) => [f.list?.x ?? "-", f.list?.w ?? "-", f.sub?.x ?? "-", f.sub?.w ?? "-", f.anims]))}`)
     void label
   }
@@ -286,12 +290,12 @@ if (wants("push")) {
   expect(topAgain === 0, "a panel opens at its top, however it was left", topAgain)
   await click(s, "[data-panel-back]")
   await sleep(900)
-  /* Back pressed half way in: taken from where it is, and still side by side. */
+  /* Back pressed half way in: taken from where it is, and still in place. */
   /* Pressed where the moving button is (a mouse's down and up can land either side of a moving target). */
   const mid = await record(s, async () => { await click(s, '[data-nav-row="theme"]'); await sleep(150); await s.p.$eval("[data-panel-back]", (el) => el.click()) }, 1800)
   const m = judge(mid, { arriving: "list", leaving: "sub", dir: 1, title: "Design" })
-  const seamOk = Math.abs(m.worstSeam) <= 1 && Math.abs(m.worstWidth) <= 0.5 && m.endX === 0 && !m.endLeaving && m.endAnims === 0
-  expect(seamOk, "back pressed half way in: side by side, and the list alone after", `width ${m.worstWidth}, seam ${m.worstSeam}, end x ${m.endX}, leaving drawn ${m.endLeaving}, anims ${m.endAnims}`)
+  const seamOk = Math.abs(m.worstSeam) <= 0.5 && Math.abs(m.worstWidth) <= 0.5 && m.endX === 0 && !m.endLeaving && m.endAnims === 0
+  expect(seamOk, "back pressed half way in: in place, and the list alone after", `width ${m.worstWidth}, off the edge ${m.worstSeam}, end x ${m.endX}, leaving drawn ${m.endLeaving}, anims ${m.endAnims}`)
   if (process.env.SHOTS) {
     await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
     await midShots(s, () => click(s, '[data-nav-row="theme"]'), "theme-in")
@@ -311,11 +315,11 @@ if (wants("push")) {
     const inFrames = await record(s, () => click(s, `[data-nav-row="${id}"]`))
     const title = await s.p.$eval('[data-design-panel]:not([data-design-panel="home"]) h2', (h) => h.textContent)
     const a = judge(inFrames, { arriving: "sub", leaving: "list", dir: -1, title, startTop: 0 })
-    expect(a.ok && listTop > 0, `list at ${listTop}, ${title}: in, at its top`, `width ${a.worstWidth}, seam ${a.worstSeam}, leftover ${a.leftoverFrames}, column ${a.colWidths.join("/")}, scrollbar flips ${a.scrollbarFlips}, top ${a.endTop}`)
+    expect(a.ok && listTop > 0, `list at ${listTop}, ${title}: in, at its top`, `width ${a.worstWidth}, off the edge ${a.worstSeam}, leftover ${a.leftoverFrames}, column ${a.colWidths.join("/")}, scrollbar flips ${a.scrollbarFlips}, top ${a.endTop}`)
     const outFrames = await record(s, () => click(s, "[data-panel-back]"))
     /* The list's own title is scrolled out of sight: only the panel's is ever at the top, and then none. */
     const b = judge(outFrames, { arriving: "list", leaving: "sub", dir: 1, title: null, startTop: listTop })
-    expect(b.ok, `${title}: back, to the list where it was left`, `width ${b.worstWidth}, seam ${b.worstSeam}, leftover ${b.leftoverFrames}, column ${b.colWidths.join("/")}, scrollbar flips ${b.scrollbarFlips}, titles ${b.titles.join(">")}, top ${b.endTop} (was ${listTop})`)
+    expect(b.ok, `${title}: back, to the list where it was left`, `width ${b.worstWidth}, off the edge ${b.worstSeam}, leftover ${b.leftoverFrames}, column ${b.colWidths.join("/")}, scrollbar flips ${b.scrollbarFlips}, titles ${b.titles.join(">")}, top ${b.endTop} (was ${listTop})`)
   }
   expect(!s.errors.length, "no page errors", s.errors.slice(0, 3))
   await s.p.close()
@@ -354,7 +358,7 @@ if (wants("tabs")) {
   await s.p.close()
 }
 
-/* ── (c) A PHONE: THE PHONE'S OWN PUSH, AND THE END OF IT CLEAN ── */
+/* ── (c) A PHONE: THE SAME FADE, IN PLACE, AND THE END OF IT CLEAN ── */
 if (wants("phone")) {
   console.log("\nphone 390x844, CPU/4, a finger: Theme in and back")
   const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
@@ -363,12 +367,12 @@ if (wants("phone")) {
     const inFrames = await record(s, () => tap(s, `[data-nav-row="${id}"]`))
     const title = await s.p.$eval('[data-design-panel]:not([data-design-panel="home"]) h2', (h) => h.textContent)
     const a = judge(inFrames, { arriving: "sub", leaving: "list", dir: -1, title })
-    const aOk = Math.abs(a.worstWidth) <= 0.5 && a.arrivingBack >= -0.5 && a.leftoverFrames === 0 && a.endX === 0 && !a.endLeaving && a.endAnims === 0 && a.sideways <= 0 && a.titles.at(-1) === title
-    expect(aOk, `${title}: in, the page's width, one way, nothing left after`, `width ${a.worstWidth}, frames moving ${a.framesMoving}, back-steps ${a.arrivingBack}, leftover ${a.leftoverFrames}, end x ${a.endX}, anims ${a.endAnims}, sideways ${a.sideways}`)
+    const aOk = Math.abs(a.worstWidth) <= 0.5 && Math.abs(a.worstSeam) <= 0.5 && a.arrivingBack >= -0.5 && a.leftoverFrames === 0 && a.endX === 0 && !a.endLeaving && a.endAnims === 0 && a.sideways <= 0 && a.titles.at(-1) === title
+    expect(aOk, `${title}: in, the page's width, one way, nothing left after`, `width ${a.worstWidth}, off the edge ${a.worstSeam}, frames moving ${a.framesMoving}, back-steps ${a.arrivingBack}, leftover ${a.leftoverFrames}, end x ${a.endX}, anims ${a.endAnims}, sideways ${a.sideways}`)
     const outFrames = await record(s, () => tap(s, "[data-panel-back]"))
     const b = judge(outFrames, { arriving: "list", leaving: "sub", dir: 1, title: "Design" })
-    const bOk = Math.abs(b.worstWidth) <= 0.5 && b.leavingBack >= -0.5 && b.leftoverFrames === 0 && b.endX === 0 && !b.endLeaving && b.endAnims === 0 && b.sideways <= 0 && b.titles.length <= 2 && b.titles.at(-1) === "Design"
-    expect(bOk, `${title}: back, one way, nothing left after, the title changes once`, `width ${b.worstWidth}, frames moving ${b.framesMoving}, back-steps ${b.leavingBack}, leftover ${b.leftoverFrames}, end x ${b.endX}, anims ${b.endAnims}, titles ${b.titles.join(">")}`)
+    const bOk = Math.abs(b.worstWidth) <= 0.5 && Math.abs(b.worstSeam) <= 0.5 && b.leavingBack >= -0.5 && b.leftoverFrames === 0 && b.endX === 0 && !b.endLeaving && b.endAnims === 0 && b.sideways <= 0 && b.titles.length <= 2 && b.titles.at(-1) === "Design"
+    expect(bOk, `${title}: back, one way, nothing left after, the title changes once`, `width ${b.worstWidth}, off the edge ${b.worstSeam}, frames moving ${b.framesMoving}, back-steps ${b.leavingBack}, leftover ${b.leftoverFrames}, end x ${b.endX}, anims ${b.endAnims}, titles ${b.titles.join(">")}`)
   }
   expect(!s.errors.length, "no page errors", s.errors.slice(0, 3))
   await s.p.close()
