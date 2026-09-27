@@ -5,6 +5,7 @@
  * published logo and only the six in use reach the bundle. "Somewhere else"
  * has no company, so it is a plain globe in the page's grey.
  */
+import type { ComponentType, SVGProps } from "react"
 import { Globe } from "lucide-react"
 import { SiCloudflare, SiGodaddy, SiHostinger, SiNamecheap, SiPorkbun, SiSquarespace } from "react-icons/si"
 import type { IconType } from "react-icons"
@@ -24,6 +25,8 @@ const MARKS: Record<Exclude<RegistrarId, "other">, { Icon: IconType; tone: strin
 
 export function RegistrarMark({ id, className }: { id: RegistrarId; className?: string }) {
   if (id === "other") return <Globe aria-hidden data-registrar-mark="other" className={cn("size-4 shrink-0 text-[#6b7280]", className)} />
-  const { Icon, tone } = MARKS[id]
+  /* IconType is typed against React 18's global JSX; this project is on 19 (see components/social/platform-icons.tsx). */
+  const Icon = MARKS[id].Icon as unknown as ComponentType<SVGProps<SVGSVGElement> & { "data-registrar-mark"?: string }>
+  const { tone } = MARKS[id]
   return <Icon aria-hidden data-registrar-mark={id} className={cn("size-4 shrink-0", tone, className)} />
 }
