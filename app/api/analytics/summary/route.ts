@@ -1,144 +1,88 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { startTimer, logSlowRequest } from "@/lib/perf"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { getMainDomain } from "@/lib/url-helpers"
+import { isTimeZone } from "@/lib/orders/time-zone"
+import { boundsOf, presetRange, todayIn } from "@/lib/date-range/range"
+import { salesFor } from "@/lib/analytics/reports"
+import { ownsProperty, parseProperty, propertyParam } from "@/lib/analytics/properties"
+import { summaryHref, SUMMARY_PRESET } from "@/lib/analytics/summary"
+import { reportNow } from "@/lib/analytics/report-cache"
+import { countVisits, creatorProperties, foldLegacy, readLegacyOnePage, readOrders } from "@/lib/analytics/report-read"
 
-export async function GET(request: NextRequest) {
-  const timer = startTimer()
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+
+/**
+ * ONE PLACE'S LAST 30 DAYS, IN TWO NUMBERS: its visitors and its orders,
+ * for the line on the Website screen and in the OnePage editor
+ * (components/app/analytics-summary-line). The same counting as Analytics
+ * (analytics_report's quick part, orders from `orders`), for the same
+ * "Last 30 days" on the creator's clock, so the numbers match the page the
+ * line links to.
+ *
+ * Kept a minute per person and question, here and in the browser: the
+ * line is a glance, not a live counter.
+ */
+const CACHE_MS = 60_000
+const kept = new Map<string, { at: number; answer: Record<string, unknown> }>()
+const HEADERS = { "Cache-Control": `private, max-age=${CACHE_MS / 1000}`, Vary: "Cookie, Authorization" }
+
+export async function GET(request: Request) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const url = new URL(request.url)
+  const tz = url.searchParams.get("tz")
+  const timeZone = isTimeZone(tz) ? tz : "UTC"
+  const selector = parseProperty(url.searchParams.get("property"))
+  /* "Now" as the Analytics page rounds it (lib/analytics/report-cache), so the line and the page it opens count the same moments. */
+  const now = reportNow()
+  const today = todayIn(timeZone, now)
+  const key = `${user.id}|${propertyParam(selector) ?? "all"}|${timeZone}|${today}`
+  const hit = kept.get(key)
+  if (hit && Date.now() - hit.at < CACHE_MS) return NextResponse.json(hit.answer, { headers: HEADERS })
+
+  const admin = createAdminClient()
+  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+  const properties = await creatorProperties(admin, creator.id, user.id)
+  /* Only the creator's own places: anybody else's website is nothing at all. */
+  if (!ownsProperty(properties, selector)) return NextResponse.json({ error: "No such property" }, { status: 404 })
+
   try {
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const window = boundsOf(presetRange(SUMMARY_PRESET, today), timeZone, now)
+    const q = {
+      creatorId: creator.id,
+      selector,
+      properties,
+      product: null,
+      window,
+      previous: null,
+      timeZone,
+      mainDomain: getMainDomain(),
+      part: "figures" as const,
     }
-
-    const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
-
-    if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-    }
-
-    const searchParams = request.nextUrl.searchParams
-    const timeframe = searchParams.get("timeframe") || "last_7_days"
-    const productId = searchParams.get("productId") || "all"
-    const customStart = searchParams.get("customStart")
-    const customEnd = searchParams.get("customEnd")
-
-    const { startDate, endDate } = getDateRange(timeframe, customStart, customEnd)
-
-    let productIds: string[] = []
-    if (productId === "all") {
-      const { data: products } = await supabase.from("products").select("id").eq("creator_id", creator.id)
-      productIds = products?.map((p) => p.id) || []
-    } else {
-      productIds = [productId]
-    }
-
-    // Fire views + orders queries in parallel — they are independent
-    let viewsQuery = supabase
-      .from("analytics_events")
-      .select("visitor_id, session_id, product_id")
-      .eq("creator_id", creator.id)
-      .eq("event_type", "view")
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString())
-
-    if (productId !== "all" && productIds.length > 0) {
-      viewsQuery = viewsQuery.in("product_id", productIds)
-    }
-
-    let ordersQuery = supabase
-      .from("orders")
-      .select("amount_cents")
-      .eq("status", "completed")
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString())
-
-    if (productIds.length > 0) {
-      ordersQuery = ordersQuery.in("product_id", productIds)
-    } else {
-      ordersQuery = ordersQuery.in("product_id", ["__none__"])
-    }
-
-    const [{ data: viewEvents }, { data: orders }] = await Promise.all([viewsQuery, ordersQuery])
-
-    // Unique views = (visitor_id or session fallback) + product/store
-    const uniqueViewKeys = new Set(
-      (viewEvents || [])
-        .map((e: any) => `${(e.visitor_id || e.session_id || "unknown")}__${e.product_id || "store"}`)
-        .filter(Boolean),
-    )
-    const totalViews = uniqueViewKeys.size || 0
-
-    const totalOrders = orders?.length || 0
-    const totalRevenue = orders?.reduce((sum, o) => sum + o.amount_cents, 0) || 0
-
-    let conversionRate = 0
-    if (totalViews > 0) {
-      conversionRate = (totalOrders / totalViews) * 100
-    }
-
-    logSlowRequest(timer, request, { timeframe, productId })
-
-    return NextResponse.json({
-      totalViews,
-      totalOrders,
-      totalRevenue,
-      conversionRate: Number(conversionRate.toFixed(2)),
+    const [visits, legacy, orders] = await Promise.all([countVisits(admin, q), readLegacyOnePage(admin, q), readOrders(admin, [window], creator.id, null)])
+    const wire = foldLegacy(visits.wire, legacy.legacy, q)
+    const sales = salesFor(orders.rows, selector, properties.defaultWebsite).filter((o) => {
+      const at = Date.parse(o.createdAt)
+      return at >= window.start && at < window.end
     })
+    const answer = {
+      visitors: wire.cur.visitors ?? 0,
+      orders: sales.length,
+      href: summaryHref(selector),
+      viewer: user.id,
+    }
+    kept.set(key, { at: Date.now(), answer })
+    while (kept.size > 500) kept.delete(kept.keys().next().value as string)
+    return NextResponse.json(answer, { headers: HEADERS })
   } catch (error) {
-    logSlowRequest(timer, request, { error: "exception" })
-    console.error("[v0] Analytics summary error:", error)
-    return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 })
+    console.error("[analytics/summary]", (error as Error).message)
+    return NextResponse.json({ error: "Could not read analytics" }, { status: 500 })
   }
-}
-
-function getDateRange(timeframe: string, customStart?: string | null, customEnd?: string | null) {
-  const endDate = new Date()
-  let startDate = new Date()
-
-  if (timeframe === "custom" && customStart && customEnd) {
-    startDate = new Date(customStart)
-    return { startDate, endDate: new Date(customEnd) }
-  }
-
-  switch (timeframe) {
-    case "last_30_minutes":
-      startDate.setMinutes(startDate.getMinutes() - 30)
-      break
-    case "today":
-      startDate.setHours(0, 0, 0, 0)
-      break
-    case "yesterday":
-      startDate.setDate(startDate.getDate() - 1)
-      startDate.setHours(0, 0, 0, 0)
-      endDate.setHours(0, 0, 0, 0)
-      break
-    case "last_7_days":
-      startDate.setDate(startDate.getDate() - 7)
-      break
-    case "last_30_days":
-      startDate.setDate(startDate.getDate() - 30)
-      break
-    case "this_month":
-      startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-      break
-    case "last_month":
-      startDate = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1)
-      endDate.setDate(0)
-      break
-    case "last_6_months":
-      startDate.setMonth(startDate.getMonth() - 6)
-      break
-    case "last_year":
-      startDate.setFullYear(startDate.getFullYear() - 1)
-      break
-    default:
-      startDate.setDate(startDate.getDate() - 7)
-  }
-
-  return { startDate, endDate }
 }

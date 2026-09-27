@@ -2,7 +2,7 @@
  * ===========================================================================
  *  PART 54 AGAINST A REAL POSTGRES
  * ===========================================================================
- * supabase/sql/run-now/54_analytics_one_pipeline.sql is run twice on a
+ * supabase/sql/run-now/60_analytics_one_pipeline.sql is run twice on a
  * throwaway database built from the repository's own SQL for the tables it
  * touches (tests/fixtures/analytics-sql/schema.sql: analytics_events as
  * scripts/023 and migrations/20260212 made it, then parts 04, 25 and 32), and
@@ -35,7 +35,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 const FIX = "tests/fixtures/analytics-sql"
-const PART = "supabase/sql/run-now/54_analytics_one_pipeline.sql"
+const PART = "supabase/sql/run-now/60_analytics_one_pipeline.sql"
 
 console.log("\nThe part, as text")
 {
@@ -83,7 +83,7 @@ if (!reachable) {
   const db = `analytics_part54_${process.pid}`
   psql("postgres", ["-c", `drop database if exists ${db}`, "-c", `create database ${db}`])
   try {
-    console.log("\nPart 54 on a database with the tables it touches")
+    console.log("\nPart 60 on a database with the tables it touches")
     for (const f of [`${FIX}/schema.sql`, "supabase/sql/run-now/04_event_and_email_types.sql", "supabase/sql/run-now/25_analytics_speed.sql", "supabase/sql/run-now/32_orders_keep_sales.sql", `${FIX}/legacy_rows.sql`]) runFile(db, f)
     const before = psql(db, ["-tA", "-f", join(root, `${FIX}/tally_snapshot.sql`)]).out.trim()
     const first = runFile(db, PART)
@@ -117,7 +117,7 @@ if (!reachable) {
     console.log("\nThe check after")
     const check99 = psql(db, ["-x", "-f", join(root, "supabase/sql/run-now/99_check_after.sql")]).out
     check("the whole of 99_check_after.sql runs", /p51_email_flows_trigger_rules/.test(check99))
-    check("  and p54 reads true", /p54_analytics_one_pipeline\s*\|\s*t/.test(check99), check99.split("\n").find((l) => /p54/.test(l)))
+    check("  and p54 reads true", /p60_analytics_one_pipeline\s*\|\s*t/.test(check99), check99.split("\n").find((l) => /p54/.test(l)))
   } catch (e) {
     check("the Postgres run finished", false, (e as Error).message)
   } finally {

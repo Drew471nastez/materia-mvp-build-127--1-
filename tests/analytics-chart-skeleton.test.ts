@@ -67,7 +67,7 @@ function main() {
       && /bucketStarts\(span, grain, timeZone\)\.map\(\(s\) => bucketLabel\(s, grain, timeZone\)\)/.test(client))
   check("the series is labelled by the same functions, on the server",
     /const labels = starts\.map\(\(s\) => bucketLabel\(s, grain, timeZone\)\)/.test(read("lib/analytics/reports.ts"))
-      && /date,\s*\n\s*views: r\.views\.series\.current\[i\]/.test(client),
+      && /date,\s*\n\s*views: r\.visitors\.series\.current\[i\]/.test(client),
     "a series labelled one way and a placeholder labelled another is a swap, not a draw-in")
   check("and the placeholder is built from it",
     /trendLabelsFor\(safeSpan, timeZone\)\s*\n\s*\.slice\(-TREND_SKELETON_MAX\)/.test(client))
@@ -86,8 +86,8 @@ function main() {
   console.log("\nSo the card is a chart before the fetch returns")
 
   check("the placeholder is a flat series across the range",
-    /const skeletonTrend = useMemo<TrendData\[\]>/.test(client)
-      && /\.map\(\(date\) => \(\{ date, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 \}\)\)/.test(client))
+    /const skeletonTrend = useMemo<AnalyticsChartData\[\]>/.test(client)
+      && /\.map\(\(date\) => \(\{ date, views: 0, sales: 0, revenue: 0 \}\)\)/.test(client))
   check("used while nothing has arrived",
     /const chartIsLoading = trendData\.length === 0/.test(client)
       && /\(chartIsLoading \? skeletonTrend : trendData\)\.map/.test(client))
@@ -99,10 +99,11 @@ function main() {
     it put us straight back at a white box.
   */
   check("the placeholder is not blurred away, because the frame IS the loading state",
-    /chartIsLoading\s*\n\s*\? "opacity-100 blur-0"\s*\n\s*: isRefreshing/.test(client),
+    /chartIsLoading\s*\?\s*"opacity-100 blur-0"\s*:\s*isRefreshing/.test(client),
     "a placeholder at 30% opacity behind a 2px blur is the blank card again")
-  check("and the sample-data toggle waits until there is something to say",
-    /\{!hasRealData && !chartIsLoading && \(/.test(client),
+  /* Changed on purpose: the sample data toggle is gone. An empty period is the cards' empty states, never invented numbers. */
+  check("and no sample data is drawn in place of an answer, before or after it lands",
+    !/hasRealData|sampleData|SAMPLE_/.test(client),
     "'No activity yet' over a chart that has not loaded is an answer to a question nobody asked")
 
   console.log("\nAnd it reads as waiting rather than as a chart of nothing")

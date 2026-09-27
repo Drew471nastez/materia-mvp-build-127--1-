@@ -26,47 +26,53 @@
  * figures come from app/api/analytics/reports (homeQuestion builds the very
  * key the Analytics page and its prefetch ask with, lib/analytics/
  * report-cache), counted on the server from every row, and homeFromReports
- * turns that answer into Home's shapes. Home used to read the period's
- * views and every order itself, in the browser and in app/app/page.tsx,
- * and a read there stops at 1,000 rows: a busy store's figures quietly
- * stopped counting. homeFigures below is the same mapping from rows, for
- * the tests, so the two cannot drift apart. The rules are those of
- * lib/analytics/reports:
- * orders grouped into payments (lib/orders/order-view), money less what was
+ * turns that answer into Home's shapes. Home counts every place together:
+ * the creator page, the OnePage and every website. It is Analytics with its
+ * property filter on All, so the two show the same numbers for the same
+ * period, a visitor counted once however many of the places they saw.
+ *
+ * homeFigures below is the same mapping from rows, for the tests, so the two
+ * cannot drift apart. The rules are those of lib/analytics/reports: orders
+ * grouped into payments (lib/orders/order-view), money less what was
  * refunded (moneyOf), failed, pending and disputed payments left out
- * (isSale), the period and its comparison from lib/date-range/range, and
- * buckets on the creator's clock from lib/analytics/buckets. This file only
- * turns that answer into the shapes the Home page draws. Pure, so
- * tests/home-figures.test.ts checks the numbers without a browser.
+ * (isSale), conversion as orders over visitors, the period and its
+ * comparison from lib/date-range/range, and buckets on the creator's clock
+ * from lib/analytics/buckets. Pure, so tests/home-figures.test.ts checks the
+ * numbers without a browser.
  */
 import { boundsOf, compareBounds, type CompareValue, type RangeValue } from "../date-range/range"
 import { groupOrders, isSale, type OrderRow } from "../orders/order-view"
-import { bucketIndex, type Span } from "./buckets"
-import { buildReports, moneyOf, periodsOf, type Reports, type ViewRow } from "./reports"
+import type { Span } from "./buckets"
+import { buildReports, moneyOf, type Reports, type StepRow, type ViewRow } from "./reports"
 import { reportKey } from "./report-cache"
 
+/* The tab keys, as the page names them; "views" is the Visitors tab. */
 export type HomeMetric = "views" | "orders" | "revenue" | "conversion"
 
 export interface HomePoint {
   label: string
-  value: number
-  /** Views only: link taps in the same bucket. */
+  /** Null only on the conversion line, where the bucket had no visitors: no rate, rather than 0%. */
+  value: number | null
+  /** Visitors only: link clicks in the same bucket. */
   secondaryValue?: number
   /** Orders only: orders placed in the bucket that have since been refunded. */
   refunds?: number
 }
 
 export interface HomePeriodFigures {
-  periodViews: number
-  prevPeriodViews: number
+  /** Visitors, each counted once in the period, whichever of the creator's places they saw. */
+  periodVisitors: number
+  prevPeriodVisitors: number
+  /** Page views in the period, the line under Visitors. */
+  periodPageViews: number
   periodOrders: number
   prevPeriodOrders: number
   /** Cents, less refunds. */
   periodRevenue: number
   prevPeriodRevenue: number
-  /** Percent, two decimals: 6.25 for 6.25%. */
-  conversionRate: number
-  prevConversionRate: number
+  /** Percent, two decimals: 6.25 for 6.25%. Null when there were no visitors to divide by. */
+  conversionRate: number | null
+  prevConversionRate: number | null
 }
 
 /** What Home compares with, as Analytics does: the period just before. */
@@ -92,45 +98,33 @@ export function homeTotals(orders: OrderRow[]): { totalOrders: number; totalReve
 }
 
 /**
- * The question Home asks app/api/analytics/reports for a period: the store,
- * every product, the period just before, in the viewer's zone. `now` is
- * lib/analytics/report-cache reportNow(), so Home, the Analytics page and
+ * The question Home asks app/api/analytics/reports for a period: every
+ * place, every product, the period just before, in the viewer's zone. `now`
+ * is lib/analytics/report-cache reportNow(), so Home, the Analytics page and
  * its prefetch ask the same question and share one answer.
  */
 export function homeQuestion(period: RangeValue, timeZone: string, now: number): { window: Span; previous: Span | null; key: string } {
   const { window, previous } = homeSpans(period, timeZone, now)
-  const key = reportKey({ start: window.start, end: window.end, compare: previous, product: "all", mode: "store", timeZone })
+  const key = reportKey({ start: window.start, end: window.end, compare: previous, product: "all", property: "all", timeZone })
   return { window, previous, key }
 }
 
-/** The route's all time line (analytics_all_time) as Home's three totals. */
-export function homeAllTime(allTime: { views?: number; orders?: number; salesCents?: number } | null | undefined) {
-  return { totalViews: allTime?.views ?? 0, totalOrders: allTime?.orders ?? 0, totalRevenue: allTime?.salesCents ?? 0 }
-}
-
-/** Link taps (their times) in the chart's own buckets, the ones the reports were counted in. */
-export function clicksByBucket(times: number[], window: Span, previous: Span | null, timeZone: string): number[] {
-  const { starts } = periodsOf(window, previous, timeZone)
-  const clicks = starts.map(() => 0)
-  for (const at of times) {
-    if (!(at >= window.start && at < window.end)) continue
-    const i = bucketIndex(starts, at)
-    if (i >= 0 && i < clicks.length) clicks[i]++
-  }
-  return clicks
+/** The route's all time line (analytics_all_time) as Home's totals. */
+export function homeAllTime(allTime: { orders?: number; salesCents?: number } | null | undefined) {
+  return { totalOrders: allTime?.orders ?? 0, totalRevenue: allTime?.salesCents ?? 0 }
 }
 
 /**
  * The period's four figures and the chart's four series, from the reports
  * Analytics is drawn from: every number Home shows is one of Analytics'.
- * `clicks` are link taps per bucket (clicksByBucket).
  */
-export function homeFromReports(r: Reports, clicks: number[]): HomePeriodFigures & { series: Record<HomeMetric, HomePoint[]> } {
-  const percent = (fraction: number) => Number((fraction * 100).toFixed(2))
-  const labels = r.views.series.labels
+export function homeFromReports(r: Reports): HomePeriodFigures & { series: Record<HomeMetric, HomePoint[]> } {
+  const percent = (fraction: number | null) => (fraction === null ? null : Number((fraction * 100).toFixed(2)))
+  const labels = r.visitors.series.labels
   return {
-    periodViews: r.views.value,
-    prevPeriodViews: r.views.previous,
+    periodVisitors: r.visitors.value,
+    prevPeriodVisitors: r.visitors.previous,
+    periodPageViews: r.views.value,
     periodOrders: r.orders.value,
     prevPeriodOrders: r.orders.previous,
     periodRevenue: r.sales.value,
@@ -138,11 +132,11 @@ export function homeFromReports(r: Reports, clicks: number[]): HomePeriodFigures
     conversionRate: percent(r.conversion.value),
     prevConversionRate: percent(r.conversion.previous),
     series: {
-      views: labels.map((label, i) => ({ label, value: r.views.series.current[i] ?? 0, secondaryValue: clicks[i] ?? 0 })),
+      views: labels.map((label, i) => ({ label, value: r.visitors.series.current[i] ?? 0, secondaryValue: r.linkClicks.series.current[i] ?? 0 })),
       orders: labels.map((label, i) => ({ label, value: r.orders.series.current[i] ?? 0, refunds: r.refunds.series.current[i] ?? 0 })),
       /* The chart's axis is written in dollars. */
       revenue: labels.map((label, i) => ({ label, value: (r.sales.series.current[i] ?? 0) / 100 })),
-      conversion: labels.map((label, i) => ({ label, value: percent(r.conversion.series.current[i] ?? 0) })),
+      conversion: labels.map((label, i) => ({ label, value: percent(r.conversion.series.current[i] ?? null) })),
     },
   }
 }
@@ -150,13 +144,13 @@ export function homeFromReports(r: Reports, clicks: number[]): HomePeriodFigures
 /**
  * The same, from rows: what the route counts, counted here. `orders` may be
  * every order the creator has: only the period's and its comparison's are
- * counted. `views` are the page views read for both spans, and `clicks` the
- * times of the period's link taps.
+ * counted. `views` are the page views read for both spans, and `steps` the
+ * link clicks (link_click rows).
  */
 export function homeFigures(input: {
   orders: OrderRow[]
   views: ViewRow[]
-  clicks: number[]
+  steps?: StepRow[]
   window: Span
   previous: Span | null
   timeZone: string
@@ -164,7 +158,7 @@ export function homeFigures(input: {
   const { window, previous, timeZone } = input
   const r = buildReports({
     views: input.views,
-    steps: [],
+    steps: input.steps ?? [],
     orders: input.orders,
     window,
     previous,
@@ -172,5 +166,5 @@ export function homeFigures(input: {
     mainDomain: "",
     productTitles: {},
   })
-  return homeFromReports(r, clicksByBucket(input.clicks, window, previous, timeZone))
+  return homeFromReports(r)
 }

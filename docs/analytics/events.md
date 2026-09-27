@@ -6,7 +6,7 @@ nothing else. Code: `lib/analytics/events.ts` (types and constants, safe to
 import anywhere), `lib/analytics/property.ts` (resolving a property, server
 only), `lib/analytics/collect.ts` (the pipeline, server only),
 `lib/analytics/page-tracker.ts` and `components/analytics/track-view.tsx` (the
-browser). SQL: `supabase/sql/run-now/54_analytics_one_pipeline.sql`.
+browser). SQL: `supabase/sql/run-now/60_analytics_one_pipeline.sql`.
 
 Revenue and order counts never come from here. `orders` is the source of
 truth for money and sales; attribution of an order to a visit is on the order
@@ -45,7 +45,7 @@ table; `lib/analytics/events.ts` `EVENT` maps a meaning to its stored name.
 | Stored name | `EVENT.` | When it is written |
 | --- | --- | --- |
 | `view` | `pageView` | One real page navigation: a full page load, or a client side route change (Next `<Link>`, `router.push`, back and forward), of a creator page, a product page, a OnePage or any page of a website. With `product_id` set it is also a product view. |
-| `link_click` | `linkClick` | A OnePage link block was clicked (`link_id` is the block), or a link out of the page on the creator page or a website (`link_url` is the destination). New in part 54. |
+| `link_click` | `linkClick` | A OnePage link block was clicked (`link_id` is the block), or a link out of the page on the creator page or a website (`link_url` is the destination). New in part 60. |
 | `buy_click` | `buyClick` | Buy was pressed on a product (`components/checkout/*buy-button.tsx`, the website product section). |
 | `checkout_start` | `checkoutStart` | The checkout page opened for a product (`app/checkout/checkout-client.tsx`). |
 | `checkout_complete` | `checkoutComplete` | Allowed; no page sends it today. |
@@ -69,8 +69,8 @@ The database check `analytics_events_event_type_check` allows exactly
 
 ## 3. Columns
 
-`analytics_events`, as part 54 leaves it. Every column is nullable unless
-said otherwise. Part 54 adds the last five and makes sure the rest exist; it
+`analytics_events`, as part 60 leaves it. Every column is nullable unless
+said otherwise. Part 60 adds the last five and makes sure the rest exist; it
 drops nothing.
 
 | Column | Type | Meaning |
@@ -207,7 +207,7 @@ Nothing is written for:
 
 ## 7. Legacy rows and new rows together
 
-On the day part 54 runs:
+On the day part 60 runs:
 
 - Old `view` rows are placed by the backfill: `property_type` from the host of
   `page_url` (storelib.com, `www.`, localhost, `127.0.0.1` and `*.vercel.app`
@@ -234,7 +234,7 @@ On the day part 54 runs:
 - OnePage link clicks: written to `onepage_clicks` exactly as before (one per
   address and device, block and UTC day) and to `analytics_events` as
   `link_click` (one per visit and block).
-- Before part 54 has run, a view is written as it was (no new columns), and a
+- Before part 60 has run, a view is written as it was (no new columns), and a
   OnePage view or a link click is not written at all (`not_ready`), since with
   no property it would read as a creator page view.
 - `components/app/dashboard-client.tsx` reads link taps as `event_type =
@@ -255,7 +255,8 @@ counted once into `analytics_property_daily`.
 | `product_views` | `view` rows with a product. |
 | `link_clicks` | `link_click` rows. |
 | `buy_clicks`, `checkout_starts` | Distinct visits with that step, as the funnel counts them. |
-| `sources`, `referrers`, `campaigns`, `devices`, `countries` | jsonb `{key: sessions}`, from each visit's first page, as the reports describe a session. Referrers are hosts without `www.` (`direct` for none), devices `unknown` and countries `unknown` when missing; the 100 largest keys (300 for countries), the rest under `(other)`. |
+| `sources`, `referrers`, `campaigns`, `devices`, `countries`, `browsers` | jsonb `{key: sessions}`, from each visit's first page, as the reports describe a session. Referrers are hosts without `www.` (`direct` for none), devices, browsers and countries `unknown` when missing; the 100 largest keys (300 for countries), the rest under `(other)`. |
+| `session_slots` | jsonb `{quarter hour of the UTC day, 0 to 95: sessions}`: when each visit began. Every time zone's offset is a whole number of quarter hours, so each slot lies inside one day or hour of any zone's chart, and a report in Los Angeles or Kolkata can place a rolled up day's visits in its own days. |
 | `paths` | jsonb `{path: page views}`, the 200 busiest, the rest under `(other)`; legacy rows with no path under `(unknown)`. |
 | `landing_paths` | jsonb `{path: sessions}` by the path each visit began on, 200 busiest. |
 | `updated_at` | When the row was counted. |
@@ -281,19 +282,30 @@ the past the first time. The same call refreshes the older product rollup,
 read and which is unchanged.
 
 The rule for reading: a day comes from the rollup only if it is in
-`analytics_rollup_days` and is before today (UTC); every other day of a range,
-today included, is read from the raw events. `splitDays()` in
-`lib/analytics/events.ts` does this split, and `sumDailyRows()` adds rollup
-rows. Days are UTC days: a report in another time zone reads raw events for
-day and hour buckets and may use rollups for week and month buckets over long
-ranges, where the edge moves by the zone's offset at most.
+`analytics_rollup_days`, is before today (UTC), and lies wholly inside the
+period asked for; every other day of a range (today, a day not rolled up yet,
+and the part days at either edge of a period in a zone that is not UTC) is
+counted from the raw events by `analytics_property_counts`, the function the
+rollup itself is made with, so the two cannot disagree. `analytics_report`
+does this split in the database (lib/analytics/report-read.ts, lib/analytics/reports.ts); `splitDays()` in
+`lib/analytics/events.ts` states the same rule. A day rolled up before
+`browsers` and `session_slots` existed is forgotten by part 60 and counted
+from the events until the cron rolls it up again.
+
+Unique visitors are never read from the rollup: people cannot be added up
+across days. `analytics_report` counts them from the events for the period
+and for each bucket of the chart.
+
+A plain run of the cron also rolls up the most recent days of the last 400
+that were never rolled up, as many as fit in 20 seconds, so a year fills in by
+itself.
 
 Creators may read their own rollup rows (row level security); only the server
 writes them.
 
 ## 9. Indexes
 
-On `analytics_events` (part 54 adds the first four):
+On `analytics_events` (part 60 adds the first four):
 
 | Index | Columns | For |
 | --- | --- | --- |

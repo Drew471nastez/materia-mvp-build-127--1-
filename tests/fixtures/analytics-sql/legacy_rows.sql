@@ -1,4 +1,4 @@
--- Rows as the old tracker wrote them, before part 54: no property, no path.
+-- Rows as the old tracker wrote them, before part 60: no property, no path.
 INSERT INTO public.profiles (id, username) VALUES ('a0000000-0000-0000-0000-00000000000a', 'ana'), ('b0000000-0000-0000-0000-00000000000b', 'bee'), ('c0000000-0000-0000-0000-00000000000c', 'cee');
 INSERT INTO public.creators (id, user_id, slug) VALUES
   ('aaaaaaaa-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-00000000000a', 'ana'),

@@ -37,7 +37,7 @@ import { isBotAgent, parseUserAgent } from "./user-agent"
  * Every answer is the same to the caller (the routes send 204): a robot
  * learns nothing from being refused. `reason` is for tests and logs.
  *
- * It never throws. A database that has not run supabase/sql/run-now part 54
+ * It never throws. A database that has not run supabase/sql/run-now part 60
  * yet gets the row it can hold, and a OnePage view or a link click, which it
  * has nowhere to keep apart, is not written at all rather than written as
  * something else.
@@ -187,7 +187,7 @@ function referrerDomainOf(v: unknown, pageUrl: string | null, mainDomain: string
   return isInternalReferrer(host, mainDomain, pageHost) ? "Direct" : host
 }
 
-/* ─── The columns part 54 adds, for a database that has not run it ─── */
+/* ─── The columns part 60 adds, for a database that has not run it ─── */
 
 const NEW_COLUMNS = ["property_type", "property_id", "path", "link_id", "link_url"] as const
 
@@ -324,7 +324,7 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     q = property.id ? q.eq("property_id", property.id) : q.is("property_id", null)
     const { data, error } = await q.limit(1)
     if (error && missingColumn(error)) {
-      /* Before part 54: the old rule, one view per page of the creator's per visitor. */
+      /* Before part 60: the old rule, one view per page of the creator's per visitor. */
       let legacy = db.from("analytics_events").select("id").eq("visitor_id", visitorId).eq("creator_id", creatorId).eq("event_type", EVENT.pageView).gte("created_at", repeatSince)
       legacy = productId ? legacy.eq("product_id", productId) : legacy.is("product_id", null)
       const { data: seen } = await legacy.limit(1)

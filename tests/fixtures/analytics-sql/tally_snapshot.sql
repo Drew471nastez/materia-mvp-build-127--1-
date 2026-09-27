@@ -1,4 +1,4 @@
--- The reports' own counts for creator A over 2026-09-19..2026-09-22 UTC, as one text value, to compare before and after part 54.
+-- The reports' own counts for creator A over 2026-09-19..2026-09-22 UTC, as one text value, to compare before and after part 60.
 \pset format unaligned
 \pset tuples_only on
 SELECT md5(public.analytics_visit_tally('aaaaaaaa-0000-0000-0000-000000000001', NULL, 'UTC',

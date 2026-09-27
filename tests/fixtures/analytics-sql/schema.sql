@@ -1,4 +1,4 @@
--- A throwaway database with the tables part 54 touches, as the repository's SQL made them.
+-- A throwaway database with the tables part 60 touches, as the repository's SQL made them.
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;

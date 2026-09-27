@@ -80,13 +80,14 @@ export interface AnalyticsChartData {
   clicks?: number
   subscribers?: number
   refunds?: number
-  conversion?: number
+  /** Null where the bucket had no visitors: no rate, drawn on the floor and read as "No visitors". */
+  conversion?: number | null
   ctr?: number
   prev_views?: number
   prev_sales?: number
   prev_revenue?: number
   prev_refunds?: number
-  prev_conversion?: number
+  prev_conversion?: number | null
 }
 
 type Key = keyof AnalyticsChartData
@@ -336,7 +337,14 @@ function AnalyticsChartWithTooltipInner({
       return typeof v === "number" ? v : null
     }
     return [
-      ...visibleKeys.map((k): ScrubRow => ({ label: seriesLabels?.[k] ?? LABELS[k] ?? k, value: (i) => format(k, at(i, k) ?? 0), mark: "line", tone: "value", color })),
+      ...visibleKeys.map((k): ScrubRow => ({
+        label: seriesLabels?.[k] ?? LABELS[k] ?? k,
+        /* A rate with nobody to divide by is not 0%. */
+        value: (i) => (k === "conversion" && chartDisplayData[i]?.conversion === null ? "No visitors" : format(k, at(i, k) ?? 0)),
+        mark: "line",
+        tone: "value",
+        color,
+      })),
       ...(compareKey
         ? [{ label: "Compared", value: (i: number) => { const v = at(i, compareKey); return v === null ? null : format(compareKey, v) }, mark: "dashed", tone: "compared", color: CHART_COLORS.compared } as ScrubRow]
         : []),

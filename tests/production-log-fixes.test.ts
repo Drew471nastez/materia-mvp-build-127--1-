@@ -46,11 +46,11 @@ console.log("\nThe database accepts every event and email type the app writes")
   check("the migration is the same file the owner runs", sql === migration)
   const events = /const EVENTS = \[([^\]]+)\]/.exec(read("app/api/track-event/route.ts"))?.[1] ?? ""
   const tracked = [...events.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])
-  /* A page view is stored as EVENT.pageView (lib/analytics/events); part 54 carries the check that allows link_click. */
+  /* A page view is stored as EVENT.pageView (lib/analytics/events); part 60 carries the check that allows link_click. */
   const eventsTs = read("lib/analytics/events.ts")
   const eventBlock = eventsTs.slice(eventsTs.indexOf("export const EVENT = {"), eventsTs.indexOf("} as const", eventsTs.indexOf("export const EVENT = {")))
   const written = [...eventBlock.matchAll(/^\s+[a-zA-Z]+: "([a-z_]+)",$/gm)].map((m) => m[1])
-  const part54 = read("supabase/sql/run-now/54_analytics_one_pipeline.sql")
+  const part54 = read("supabase/sql/run-now/60_analytics_one_pipeline.sql")
   const allowed = [/analytics_events_event_type_check\s+check \(event_type in \(([\s\S]*?)\)\) not valid/.exec(sql)?.[1] ?? "", /analytics_events_event_type_check CHECK \(event_type IN \(([\s\S]*?)\)\) NOT VALID/.exec(part54)?.[1] ?? ""].join(", ")
   const missing = [...new Set([...tracked, ...written, "purchase"])].filter((t) => !allowed.includes(`'${t}'`))
   check("every funnel step and view type is allowed", tracked.length >= 4 && written.includes("view") && written.includes("link_click") && missing.length === 0, missing)
