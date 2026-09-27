@@ -183,12 +183,16 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
   const conditionName = job.condition ?? entry.condition ?? null
   if (conditionName && isConditionName(conditionName)) {
     const facts: Record<string, unknown> = {}
-    const holds = await checkCondition(store, conditionName, job, facts)
+    const holds = await checkCondition(store, conditionName, job, facts, now)
     if (holds === null) {
       await store.rescheduleJob(job.id, worker, iso(now + CONDITION_WAIT_MS), "The condition could not be read", true)
       return "retried"
     }
-    if (!holds) return skip("CONDITION_NO_LONGER_TRUE")
+    if (!holds) {
+      /* Which rule said no, for the trace (lib/reviews/request-rules names them). */
+      if (typeof facts.reviewSkipped === "string") notifyLog("info", "review request not due", { ...fields, why: facts.reviewSkipped })
+      return skip("CONDITION_NO_LONGER_TRUE")
+    }
     /* The email names what is true now (the draft as it is today), not what the plan knew. */
     if (Object.keys(facts).length) job = { ...job, data: { ...(job.data ?? {}), ...facts } }
   }

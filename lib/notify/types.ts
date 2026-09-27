@@ -137,6 +137,9 @@ export const NOTIFICATION_TYPES = [
   "PURCHASE_CONFIRMATION",
   "DIGITAL_PRODUCT_ACCESS",
   "CUSTOMER_REFUND_PROCESSED",
+  /* The buyer, a week after a purchase on Storelib, and once more a week later (lib/reviews/request-rules). */
+  "REVIEW_REQUEST",
+  "REVIEW_REMINDER",
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -197,6 +200,8 @@ export type ConditionName =
   | "payout_still_failed"
   | "dispute_still_open"
   | "domain_still_failing"
+  /** A Storelib order, still the buyer's, not reviewed, and its address has not turned review requests off (lib/reviews/request-rules). */
+  | "review_still_wanted"
 
 export interface RegistryEntry {
   type: NotificationType

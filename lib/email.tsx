@@ -1319,6 +1319,8 @@ export interface SendReviewNotificationParams {
   reviewRating: number
   reviewContent: string
   baseUrl?: string
+  /** The review, so the button opens it in the seller's Reviews list, where they can answer it. */
+  reviewId?: string
 }
 
 function reviewNotificationEmailHtml(params: {
@@ -1399,8 +1401,8 @@ function reviewNotificationEmailHtml(params: {
               <table role="presentation" style="width:100%;margin:0 0 8px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${productLink}" style="display:inline-block;background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(245, 158, 11, 0.4);">
-                      View Product Page
+                    <a href="${productLink}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;">
+                      Read and reply
                     </a>
                   </td>
                 </tr>
@@ -1443,7 +1445,7 @@ ${safeName(params.reviewerName) || "A customer"} wrote:
 
 "${safeText(params.reviewContent)}"
 
-View your product page: ${params.productLink}
+Read and reply: ${params.productLink}
 
 Great reviews help build trust with potential customers!
 - Storelib`
@@ -1488,8 +1490,11 @@ export async function sendReviewNotificationEmail(
     console.log("[email] Using resolved seller email instead of fallback:", finalSellerEmail)
   }
 
-  const productLink = buildUrl(`/p/${encodeURIComponent(productSlug)}#testimonials`, baseUrl)
-  const subject = `⭐ New ${reviewRating}-star review on "${safeText(productTitle)}"`
+  /* The review in the seller's Reviews list, where they can answer or report it; the product page for an older caller. */
+  const productLink = params.reviewId
+    ? buildUrl(`/app/reviews?review=${encodeURIComponent(params.reviewId)}`, baseUrl)
+    : buildUrl(`/p/${encodeURIComponent(productSlug)}#testimonials`, baseUrl)
+  const subject = `New ${reviewRating} star review on "${safeText(productTitle)}"`
   const fromHeader = buildFromHeaderLocal(PLATFORM_BRAND_NAME)
 
   console.log("[email] 📧 Attempting to send review notification:", {

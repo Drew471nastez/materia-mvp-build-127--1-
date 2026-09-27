@@ -24,6 +24,7 @@ import type {
   PreferenceRow,
   PreferenceSource,
   ProductFact,
+  ReviewRequestFactsRow,
   SuppressionScope,
 } from "../lib/notify/store"
 import type { Channel, PreferenceCategory } from "../lib/notify/types"
@@ -49,6 +50,8 @@ export class MemoryNotifyStore implements NotifyStore {
   payoutStatuses = new Map<string, string | null>()
   closedDisputes = new Set<string>()
   domains = new Map<string, { status: string | null; sslStatus: string | null }>()
+  /** Per order: what the review request rule reads (lib/reviews/request-rules). */
+  reviewFacts = new Map<string, ReviewRequestFactsRow>()
   /** Set to make a read fail, as a database outage would. */
   failReads = false
   private seq = 0
@@ -390,5 +393,14 @@ export class MemoryNotifyStore implements NotifyStore {
   async domainStatus(domainId: string) {
     if (this.failReads) return null
     return this.domains.get(domainId)
+  }
+
+  async reviewRequestFacts(orderId: string) {
+    if (this.failReads) return null
+    const facts = this.reviewFacts.get(orderId)
+    if (!facts) return { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null }
+    /* The address's review request unsubscribe, as the real store reads it from email_suppressions. */
+    const email = facts.order?.buyer_email?.toLowerCase() ?? ""
+    return { ...facts, suppressed: [...facts.suppressed, ...(await this.suppressions(email))] }
   }
 }

@@ -34,6 +34,8 @@ export interface EmailChannelOptions {
   render: RenderEmail
   baseUrl: () => string
   unsubscribeUrl?: (userId: string, category: PreferenceCategory) => string
+  /** A customer's optional email (a review request): the link that turns those off for their address, from the order it is about. */
+  customerUnsubscribeUrl?: (job: JobRow) => string | null
   preferencesUrl?: () => string
   /** The domain part of the Message-Id. */
   messageDomain?: string
@@ -56,7 +58,12 @@ export function wantsUnsubscribe(entry: RegistryEntry): boolean {
 export function emailChannel(o: EmailChannelOptions): EmailSend {
   return async ({ job, entry, to, recipientName, deliveryId }) => {
     const optional = wantsUnsubscribe(entry)
-    const unsubscribe = optional && job.recipient_user_id && o.unsubscribeUrl ? o.unsubscribeUrl(job.recipient_user_id, entry.category) : null
+    const unsubscribe =
+      optional && job.recipient_user_id && o.unsubscribeUrl
+        ? o.unsubscribeUrl(job.recipient_user_id, entry.category)
+        : optional && entry.recipient === "customer" && o.customerUnsubscribeUrl
+          ? o.customerUnsubscribeUrl(job)
+          : null
     const ctx: TemplateContext = {
       baseUrl: o.baseUrl(),
       recipientName: recipientName ?? null,

@@ -1,18 +1,20 @@
 "use client"
 
-import { Star } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { percentOf } from "@/lib/reviews/rules"
+import { Stars } from "./stars"
 
+/**
+ * The product's rating in one block: the average, its stars, how many
+ * reviews it comes from, and a bar for each number of stars with how many
+ * gave it. The bars are the star colour of the page's theme (or near black),
+ * never a gradient. Counts beside the bars, not percentages: "3" says more
+ * than "25%" when there are twelve reviews.
+ */
 interface ReviewsRatingBreakdownProps {
   reviewsCount: number
   reviewsAverage: number
-  starBreakdown: {
-    5: number
-    4: number
-    3: number
-    2: number
-    1: number
-  }
+  starBreakdown: { 5: number; 4: number; 3: number; 2: number; 1: number }
   className?: string
   isMobile?: boolean
   accentColor?: string
@@ -31,127 +33,50 @@ export function ReviewsRatingBreakdown({
   accentColor,
   textColor,
   starColor,
-  cardBackgroundColor,
   cardBorderColor,
 }: ReviewsRatingBreakdownProps) {
   if (reviewsCount === 0) return null
-
-  const calculatePercentage = (count: number) => {
-    return reviewsCount > 0 ? Math.round((count / reviewsCount) * 100) : 0
-  }
+  const bar = starColor || accentColor || "#1a1a2e"
+  /* The bars count the reviews the breakdown read; until it arrives, the total the page already had. */
+  const counted = [1, 2, 3, 4, 5].reduce((n, r) => n + (starBreakdown[r as 1] || 0), 0)
+  const total = counted || reviewsCount
 
   return (
-    <div
-      className={cn(
-        "rounded-xl border",
-        isMobile ? "p-4" : "p-6 sm:p-8",
-        className
-      )}
-      style={{
-        backgroundColor: cardBackgroundColor || "#ffffff",
-        borderColor: cardBorderColor || "rgb(229, 231, 235)",
-      }}
-    >
-      <div className={cn(
-        "flex gap-4",
-        isMobile ? "flex-row items-start" : "flex-col sm:flex-row items-start gap-6 sm:gap-8"
-      )}>
-        {/* Overall Rating Display */}
-        <div className={cn(
-          "flex flex-col shrink-0",
-          isMobile ? "items-start min-w-[80px]" : "items-start"
-        )}>
-          <div
-            className={cn(
-              "font-bold mb-1",
-              isMobile ? "text-4xl" : "text-5xl sm:text-6xl mb-2"
-            )}
-            style={{ color: textColor || "#111827" }}
-          >
-            {reviewsAverage.toFixed(1)}
-          </div>
-          <div className={cn("flex items-center gap-0.5 mb-1", isMobile ? "mb-1" : "mb-2")}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star
-                key={star}
-                className={cn(isMobile ? "h-3.5 w-3.5" : "h-5 w-5")}
-                style={{
-                  color: star <= Math.round(reviewsAverage)
-                    ? (starColor || "#000000")
-                    : (starColor ? `${starColor}30` : "rgb(229, 231, 235)"),
-                  fill: star <= Math.round(reviewsAverage) ? "currentColor" : "currentColor",
-                }}
-              />
-            ))}
-          </div>
-          <div
-            className={cn(
-              "font-medium",
-              isMobile ? "text-xs" : "text-sm"
-            )}
-            style={{ color: textColor ? `${textColor}cc` : "rgb(75, 85, 99)" }}
-          >
+    <div data-rating-summary="" className={cn("w-full", className)}>
+      <div className="flex items-end gap-3">
+        <span className={cn("font-semibold leading-none tabular-nums", isMobile ? "text-[40px]" : "text-[44px]")} style={{ color: textColor || "#1a1a2e" }}>
+          {reviewsAverage.toFixed(1)}
+        </span>
+        <div className="pb-1">
+          <Stars rating={reviewsAverage} size={16} color={starColor} />
+          <p className="mt-1 text-[13px]" style={{ color: textColor ? `${textColor}99` : "#6b7280" }}>
             {reviewsCount} {reviewsCount === 1 ? "review" : "reviews"}
-          </div>
-        </div>
-
-        {/* Progress Bars */}
-        <div className={cn("flex-1 w-full", isMobile ? "space-y-1.5" : "space-y-2.5")}>
-          {[5, 4, 3, 2, 1].map((rating) => {
-            const count = starBreakdown[rating as keyof typeof starBreakdown] || 0
-            const percentage = calculatePercentage(count)
-
-            return (
-              <div key={rating} className="flex items-center gap-2">
-                <div
-                  className={cn(
-                    "flex items-center gap-1 font-medium shrink-0",
-                    isMobile ? "w-8 text-xs" : "w-14 gap-1.5 text-sm"
-                  )}
-                  style={{ color: textColor ? `${textColor}cc` : "rgb(55, 65, 81)" }}
-                >
-                  <span>{rating}</span>
-                  <Star
-                    className={cn(isMobile ? "h-2.5 w-2.5" : "h-3.5 w-3.5")}
-                    style={{
-                      color: starColor ? `${starColor}80` : "rgb(156, 163, 175)",
-                      fill: "currentColor",
-                    }}
-                  />
-                </div>
-                <div
-                  className={cn(
-                    "flex-1 rounded-full overflow-hidden",
-                    isMobile ? "h-2" : "h-2.5"
-                  )}
-                  style={{ backgroundColor: cardBorderColor || "rgb(243, 244, 246)" }}
-                >
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500 ease-out",
-                      !accentColor && !starColor && "bg-gradient-to-r from-blue-500 to-blue-600"
-                    )}
-                    style={{
-                      width: `${percentage}%`,
-                      ...(accentColor && { backgroundColor: accentColor }),
-                      ...(!accentColor && starColor && { backgroundColor: starColor }),
-                    }}
-                  />
-                </div>
-                <div
-                  className={cn(
-                    "text-right font-semibold shrink-0",
-                    isMobile ? "w-9 text-xs" : "w-12 text-sm"
-                  )}
-                  style={{ color: textColor ? `${textColor}cc` : "rgb(55, 65, 81)" }}
-                >
-                  {percentage}%
-                </div>
-              </div>
-            )
-          })}
+          </p>
         </div>
       </div>
+
+      <ul className="mt-4 space-y-1.5" aria-label="Reviews by stars">
+        {[5, 4, 3, 2, 1].map((rating) => {
+          const count = starBreakdown[rating as 1] || 0
+          const percent = percentOf(count, total)
+          return (
+            <li key={rating} className="flex items-center gap-2.5 text-[13px]" aria-label={`${rating} stars: ${count}`}>
+              <span className="w-3 shrink-0 text-right tabular-nums" style={{ color: textColor ? `${textColor}cc` : "#4b5563" }}>
+                {rating}
+              </span>
+              <span className="h-2 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: cardBorderColor || "#eef0f3" }}>
+                <span
+                  className="block h-full rounded-full transition-[width] duration-500 ease-out"
+                  style={{ width: `${percent}%`, backgroundColor: bar }}
+                />
+              </span>
+              <span className="w-6 shrink-0 text-right tabular-nums" style={{ color: textColor ? `${textColor}99` : "#6b7280" }}>
+                {count}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

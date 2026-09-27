@@ -18,6 +18,7 @@ export const APP_PAGES: readonly AppPage[] = [
   { label: "Products", href: "/app/products", group: "Pages", words: "digital downloads" },
   { label: "New product", href: "/app/products/new", group: "Pages", words: "add create" },
   { label: "Coupons", href: "/app/coupons", group: "Pages", words: "discount codes" },
+  { label: "Reviews", href: "/app/reviews", group: "Pages", words: "ratings stars reply report buyers" },
   { label: "Orders", href: "/app/orders", group: "Pages", words: "sales refunds customers buyers" },
   { label: "Analytics", href: "/app/analytics", group: "Pages", words: "traffic visitors views" },
   { label: "Creator Page", href: "/creator-page", group: "Pages", words: "profile bio storefront" },

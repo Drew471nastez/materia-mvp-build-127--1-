@@ -82,6 +82,13 @@ const ENTRIES: Record<NotificationType, Entry> = {
   PURCHASE_CONFIRMATION: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "customer", channels: ["email"], template: "receipt", defaultOn: true, cooldownSeconds: 0, emailSentElsewhere: true }),
   DIGITAL_PRODUCT_ACCESS: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "customer", channels: ["email"], template: "receipt", defaultOn: true, cooldownSeconds: 0, emailSentElsewhere: true }),
   CUSTOMER_REFUND_PROCESSED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0, emailSentElsewhere: true }),
+  /*
+    Asking the buyer for a review (lib/reviews/request-rules has every rule). Optional, with an unsubscribe
+    link that turns only these off; lifecycle, so an address gets at most one of them a day whatever it
+    bought. Each is decided again right before it sends: review_still_wanted.
+  */
+  REVIEW_REQUEST: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 0, condition: "review_still_wanted" }),
+  REVIEW_REMINDER: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 0, condition: "review_still_wanted" }),
 }
 
 export const REGISTRY: Record<NotificationType, RegistryEntry> = Object.fromEntries(

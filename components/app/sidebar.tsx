@@ -227,7 +227,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       href: "/app/products",
       label: t("nav.products"),
       icon: NAV_ICONS.products,
-      children: [{ href: "/app/coupons", label: "Coupons" }],
+      children: [
+        { href: "/app/coupons", label: "Coupons" },
+        { href: "/app/reviews", label: "Reviews" },
+      ],
     },
     { href: "/app/analytics", label: t("nav.analytics"), icon: NAV_ICONS.analytics },
     { href: "/app/orders", label: t("nav.sales"), icon: NAV_ICONS.orders },

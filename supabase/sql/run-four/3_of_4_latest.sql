@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 3 of 4
--- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator's own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator's name and photo, the website builder agent's document and questions, an archived product never also published, and one review per buyer per product.
+-- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator's own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator's name and photo, the website builder agent's document and questions, an archived product never also published, one review per buyer per product, and reviews complete (guest reviews, seller replies, reports, ratings from published reviews).
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -925,6 +925,55 @@ ALTER TABLE public.email_flows ADD CONSTRAINT email_flows_status_check CHECK (st
 NOTIFY pgrst, 'reload schema';
 /* One row: both read true, and the old check is gone. */
 SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.email_flows'::regclass AND conname = 'email_flows_trigger_type_check' AND pg_get_constraintdef(oid) ILIKE '%abandoned_checkout%' AND pg_get_constraintdef(oid) ILIKE '%first_purchase%') AS triggers_allowed, EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.email_flows'::regclass AND conname = 'email_flows_status_check') AS statuses_allowed, (SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.email_flows'::regclass AND contype = 'c') AS checks_on_email_flows;
+
+-- part 52_reviews_replies_reports_guests.sql
+/* Reviews, complete: what the review card on the receipt and in the library, the product page, the seller's Reviews list in the app and the Storelib admin read and write. A review can be left from a receipt link without an account (it then belongs to its order and carries the name the buyer gave), so buyer_id may be empty when order_id is not, and one order has at most one review. A review is published or hidden: a seller who reports one hides it until Storelib looks (review_reports, server only, one open report a review), and a seller answers a review once, in public (seller_reply). The product and creator ratings (reviews_count, reviews_average) count published reviews only, kept by the trigger on every write and counted again once now. The public API reads published reviews and a buyer their own; nobody writes reviews from the browser any more, since every write goes through the server, which checks the purchase. A review request email's unsubscribe is its own suppression scope, so turning those off leaves every other email as it was. Changes no review. Makes the one review an order index only when no order already has two reviews; otherwise it skips that index with a warning naming the query to see them. Needs nothing else; the suppression scope is added only where part 40 ran. Until it runs, reviews post and show as before, reported reviews stay hidden only in the app's own reads, and a guest cannot post without signing in. */
+CREATE TABLE IF NOT EXISTS public.reviews ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE, creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, buyer_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE, order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL, rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5), content text NOT NULL, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now() );
+ALTER TABLE public.reviews ALTER COLUMN buyer_id DROP NOT NULL;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS reviewer_name text;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'published';
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS hidden_at timestamptz;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS hidden_reason text;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS edited_at timestamptz;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS seller_reply text;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS seller_reply_at timestamptz;
+ALTER TABLE public.reviews DROP CONSTRAINT IF EXISTS reviews_status_check;
+ALTER TABLE public.reviews ADD CONSTRAINT reviews_status_check CHECK (status IN ('published', 'hidden')) NOT VALID;
+ALTER TABLE public.reviews DROP CONSTRAINT IF EXISTS reviews_buyer_or_order_check;
+ALTER TABLE public.reviews ADD CONSTRAINT reviews_buyer_or_order_check CHECK (buyer_id IS NOT NULL OR order_id IS NOT NULL) NOT VALID;
+ALTER TABLE public.reviews DROP CONSTRAINT IF EXISTS reviews_lengths_check;
+ALTER TABLE public.reviews ADD CONSTRAINT reviews_lengths_check CHECK (char_length(coalesce(seller_reply, '')) <= 1000 AND char_length(coalesce(reviewer_name, '')) <= 80) NOT VALID;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1) THEN RAISE WARNING 'part 52: an order has two reviews, so the one review an order index was not made. Everything else ran. See them with: select order_id, count(*) from public.reviews where order_id is not null group by 1 having count(*) > 1;'; ELSE CREATE UNIQUE INDEX IF NOT EXISTS reviews_one_per_order ON public.reviews (order_id) WHERE order_id IS NOT NULL; END IF; END $$;
+CREATE INDEX IF NOT EXISTS reviews_product_published ON public.reviews (product_id, created_at DESC) WHERE status = 'published';
+CREATE INDEX IF NOT EXISTS reviews_creator_recent ON public.reviews (creator_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS public.review_reports ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), review_id uuid NOT NULL REFERENCES public.reviews(id) ON DELETE CASCADE, creator_id uuid, reported_by uuid, reason text NOT NULL, note text, created_at timestamptz NOT NULL DEFAULT now(), resolved_at timestamptz, resolution text, resolved_by text );
+ALTER TABLE public.review_reports DROP CONSTRAINT IF EXISTS review_reports_values_check;
+ALTER TABLE public.review_reports ADD CONSTRAINT review_reports_values_check CHECK (reason IN ('abusive', 'spam', 'not_a_buyer', 'personal_info', 'off_topic', 'other') AND (resolution IS NULL OR resolution IN ('restored', 'kept_hidden')) AND char_length(coalesce(note, '')) <= 500) NOT VALID;
+CREATE UNIQUE INDEX IF NOT EXISTS review_reports_one_open ON public.review_reports (review_id) WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS review_reports_open ON public.review_reports (created_at DESC) WHERE resolved_at IS NULL;
+ALTER TABLE public.review_reports ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.review_reports FROM anon, authenticated;
+GRANT ALL ON public.review_reports TO service_role;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS reviews_count integer DEFAULT 0;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS reviews_average numeric(2,1) DEFAULT 0;
+ALTER TABLE public.creators ADD COLUMN IF NOT EXISTS reviews_count integer DEFAULT 0;
+ALTER TABLE public.creators ADD COLUMN IF NOT EXISTS reviews_average numeric(2,1) DEFAULT 0;
+CREATE OR REPLACE FUNCTION public.update_product_review_stats() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$ DECLARE v_old_product uuid; v_new_product uuid; v_old_creator uuid; v_new_creator uuid; v_id uuid; BEGIN IF TG_OP <> 'INSERT' THEN v_old_product := OLD.product_id; v_old_creator := OLD.creator_id; END IF; IF TG_OP <> 'DELETE' THEN v_new_product := NEW.product_id; v_new_creator := NEW.creator_id; END IF; FOREACH v_id IN ARRAY ARRAY[v_old_product, CASE WHEN v_new_product IS DISTINCT FROM v_old_product THEN v_new_product END] LOOP IF v_id IS NOT NULL THEN UPDATE public.products SET reviews_count = (SELECT count(*) FROM public.reviews r WHERE r.product_id = v_id AND r.status = 'published'), reviews_average = (SELECT coalesce(round(avg(r.rating), 1), 0) FROM public.reviews r WHERE r.product_id = v_id AND r.status = 'published') WHERE id = v_id; END IF; END LOOP; FOREACH v_id IN ARRAY ARRAY[v_old_creator, CASE WHEN v_new_creator IS DISTINCT FROM v_old_creator THEN v_new_creator END] LOOP IF v_id IS NOT NULL THEN UPDATE public.creators SET reviews_count = (SELECT count(*) FROM public.reviews r WHERE r.creator_id = v_id AND r.status = 'published'), reviews_average = (SELECT coalesce(round(avg(r.rating), 1), 0) FROM public.reviews r WHERE r.creator_id = v_id AND r.status = 'published') WHERE id = v_id; END IF; END LOOP; RETURN NULL; END $fn$;
+REVOKE ALL ON FUNCTION public.update_product_review_stats() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trigger_update_product_review_stats ON public.reviews;
+CREATE TRIGGER trigger_update_product_review_stats AFTER INSERT OR UPDATE OR DELETE ON public.reviews FOR EACH ROW EXECUTE FUNCTION public.update_product_review_stats();
+UPDATE public.products p SET reviews_count = s.n, reviews_average = s.a FROM (SELECT pr.id, count(r.id) FILTER (WHERE r.status = 'published')::integer AS n, coalesce(round(avg(r.rating) FILTER (WHERE r.status = 'published'), 1), 0) AS a FROM public.products pr LEFT JOIN public.reviews r ON r.product_id = pr.id GROUP BY pr.id) s WHERE p.id = s.id AND (coalesce(p.reviews_count, 0) <> s.n OR coalesce(p.reviews_average, 0) <> s.a);
+UPDATE public.creators c SET reviews_count = s.n, reviews_average = s.a FROM (SELECT cr.id, count(r.id) FILTER (WHERE r.status = 'published')::integer AS n, coalesce(round(avg(r.rating) FILTER (WHERE r.status = 'published'), 1), 0) AS a FROM public.creators cr LEFT JOIN public.reviews r ON r.creator_id = cr.id GROUP BY cr.id) s WHERE c.id = s.id AND (coalesce(c.reviews_count, 0) <> s.n OR coalesce(c.reviews_average, 0) <> s.a);
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;
+DROP POLICY IF EXISTS "Published reviews are public" ON public.reviews;
+CREATE POLICY "Published reviews are public" ON public.reviews FOR SELECT USING (status = 'published' OR buyer_id = (select auth.uid()));
+DROP POLICY IF EXISTS "Buyers can insert reviews for purchased products" ON public.reviews;
+DROP POLICY IF EXISTS "Buyers can update their own reviews" ON public.reviews;
+DROP POLICY IF EXISTS "Buyers can delete their own reviews" ON public.reviews;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.reviews FROM anon, authenticated;
+GRANT ALL ON public.reviews TO service_role;
+DO $$ BEGIN IF to_regclass('public.email_suppressions') IS NOT NULL THEN ALTER TABLE public.email_suppressions DROP CONSTRAINT IF EXISTS email_suppressions_scope_check; ALTER TABLE public.email_suppressions ADD CONSTRAINT email_suppressions_scope_check CHECK (scope IN ('all', 'optional', 'review_requests') AND email = lower(email)) NOT VALID; END IF; END $$;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

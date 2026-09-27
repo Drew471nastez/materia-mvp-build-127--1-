@@ -70,6 +70,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PURCHASE_CONFIRMATION: ["productTitle", "productId", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken", "occurredAt"],
   DIGITAL_PRODUCT_ACCESS: ["productTitle", "productId", "storeName", "creatorName", "receiptToken"],
   CUSTOMER_REFUND_PROCESSED: ["productTitle", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken"],
+  REVIEW_REQUEST: ["productTitle", "productId", "creatorName", "receiptToken", "orderId"],
+  REVIEW_REMINDER: ["productTitle", "productId", "creatorName", "receiptToken", "orderId"],
 }
 
 /* ── Canonical paths ───────────────────────────────────────────────────── */
@@ -102,6 +104,8 @@ export const PATHS = {
   order: (id: string) => (id ? `/app/orders?order=${id}` : "/app/orders"),
   help: "/help",
   receipt: (token: string) => `/receipt/${token}`,
+  /** The receipt, open at its review card, with the stars already chosen when `rate` is given. */
+  review: (token: string, rate?: number) => `/receipt/${token}${rate ? `?rate=${rate}` : ""}#review`,
   library: "/library",
   libraryProduct: (id: string) => `/library/products/${id}`,
 } as const
@@ -261,6 +265,8 @@ export interface Message {
   action?: { label: string; path: string } | null
   /** A quiet mailto line under the button, to an address from data (checked in index.ts). */
   reply?: { label: string; email: string; subject?: string } | null
+  /** Five stars that each open the review form with that many chosen (a review request). */
+  rate?: { label: string; paths: string[] } | null
   /** False leaves out "Hi Ana,": an order notice opens with its heading, as store platforms' do. */
   greet?: boolean
   notice?: { title: string; text: string; link?: { label: string; path: string } | null } | null
@@ -1051,6 +1057,54 @@ export const CATALOG: Record<NotificationType, Entry> = {
       inApp: { title: "Refund on its way", body: amount ? `${amount} is on its way back to you.` : "Your refund is on its way back to you.", actionLabel: action?.label ?? null, actionPath: action?.path ?? null },
     }
   },
+
+  REVIEW_REQUEST: (d) => reviewAsk(d, false),
+  REVIEW_REMINDER: (d) => reviewAsk(d, true),
+}
+
+/* ── Asking for a review ───────────────────────────────────────────────── */
+
+/**
+ * The buyer, a week after buying on Storelib and once more a week later
+ * (lib/reviews/request-rules). Short, and it asks rather than assumes: it
+ * cannot know whether they liked it. Each star opens the review card on
+ * their receipt with that many chosen; no sign in, the receipt link is the
+ * proof of purchase.
+ */
+function reviewAsk(d: Data, reminder: boolean): Message {
+  const title = d.text("productTitle", 60)
+  const creator = d.text("creatorName", 40)
+  const token = d.id("receiptToken")
+  const product = d.id("productId")
+  const action = token ? { label: "Write a review", path: PATHS.review(token) } : product ? { label: "Write a review", path: PATHS.libraryProduct(product) } : null
+  const rate = token ? { label: "Tap a star to start", paths: [1, 2, 3, 4, 5].map((n) => PATHS.review(token, n)) } : null
+  const what = title || "your purchase"
+  const from = creator ? ` from ${creator}` : ""
+  return {
+    family: "lifecycle",
+    audience: "customer",
+    subject: reminder
+      ? fitSubject("A quick review of ", title, "?") || "A quick review of your purchase?"
+      : fitSubject("How is ", title, "?") || "How is your purchase?",
+    preview: reminder ? "One line and a rating is plenty." : "A few honest words help other buyers decide.",
+    heading: reminder ? `Would you review ${what}?` : `How is ${what}?`,
+    paragraphs: reminder
+      ? [
+          `Two weeks ago you bought ${what}${from}. If you have used it, a rating and a line or two is all it takes.`,
+          "Good or bad, an honest review helps the next buyer.",
+        ]
+      : [
+          `You bought ${what}${from} a week ago. If you have had a chance to use it, how was it?`,
+          `Your review helps other buyers decide, and tells ${creator || "the seller"} what works.`,
+        ],
+    rate,
+    action,
+    note: reminder
+      ? "This is the last email about reviewing this purchase."
+      : "If something is not working, your receipt has the seller's contact details. We will ask once more next week if you have not reviewed it.",
+    greet: false,
+    inApp: { title: reminder ? "Review your purchase" : "How was your purchase?", body: title ? `Tell other buyers about ${title}.` : "Tell other buyers about it.", actionLabel: action?.label ?? null, actionPath: action?.path ?? null },
+  }
 }
 
 /** Facts with a value, as the layout takes them. */
