@@ -229,6 +229,14 @@ async function main() {
   check("ClamAV is enabled only by the flag and its settings", /isEnabled: \(\) => readProviderSetting\(\)\.requested === "clamav" && isScannerConfigured\(\)/.test(providers))
   check("no route reads CLAMAV_* on its own", !/CLAMAV_/.test(["app/api/v2/upload/complete/route.ts", "app/api/v2/upload/server-upload/route.ts", "lib/storage/scan-gate.ts", "lib/storage/upload-guard.ts", "lib/security/uploads/pipeline.ts"].map(code).join("\n")))
 
+  console.log("\nThe log's SQL (part 59)\n")
+  {
+    const part = read("supabase/sql/run-now/59_file_security_events.sql")
+    check("server only: row level security on, no policy, nothing for anon or a signed in user", /ENABLE ROW LEVEL SECURITY/.test(part) && !/CREATE POLICY/i.test(part) && /REVOKE ALL ON public\.file_security_events FROM anon, authenticated/.test(part))
+    check("safe to run twice: every statement checks first", part.split("\n").filter((l) => /^CREATE (TABLE|INDEX)/.test(l)).every((l) => /IF NOT EXISTS/.test(l)))
+    check("the check after names it, and the README and bundles carry it", /as p59_file_security_events[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")) && /\| `59_file_security_events\.sql` \|/.test(read("supabase/sql/run-now/README.md")) && /-- part 59_file_security_events\.sql/.test(read("supabase/sql/run-four/3_of_4_latest.sql")))
+  }
+
   console.log("\nA person only reads plain sentences\n")
   const words = (["unsupported_type", "too_large", "empty", "not_accepted", "not_an_image", "not_a_video"] as const).map((c) => userMessage(c, "product_file"))
   check("the sentences", words.includes("This file type isn't supported.") && words.includes("We couldn't accept this file. Try another file.") && words.includes("This file is too large. The limit is 10 GB."))
