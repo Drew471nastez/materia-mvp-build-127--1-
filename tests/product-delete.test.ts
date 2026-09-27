@@ -71,12 +71,15 @@ type Product = { id: string; creator_id: string; slug: string; status: string; a
 type Order = { id: string; product_id: string | null; amount_cents: number; status: string }
 type Entitlement = { id: string; product_id: string; buyer_id: string }
 type Asset = { id: string; product_id: string; file_path: string }
+/* A OnePage lead magnet link (subscriber_digital_products), open until it expires. */
+type LeadLink = { id: string; product_id: string; expires_at: string }
 
 interface DbShape {
   products: Product[]
   orders: Order[]
   entitlements: Entitlement[]
   digital_assets: Asset[]
+  subscriber_digital_products: LeadLink[]
   /** Order ids a ledger_events row points at (orders.id, no ON DELETE rule). */
   ledger: string[]
   /** Run-now part 32: orders.creator_id is there and products -> orders is SET NULL. */
@@ -95,12 +98,13 @@ interface DbShape {
 }
 
 function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any } {
-  const db: DbShape = { products: [], orders: [], entitlements: [], digital_assets: [], ledger: [], part32: false, calls: [], ...shape }
+  const db: DbShape = { products: [], orders: [], entitlements: [], digital_assets: [], subscriber_digital_products: [], ledger: [], part32: false, calls: [], ...shape }
   class Query {
     op = "select"
     cols = ""
     opts: { count?: string; head?: boolean } = {}
     filters: Array<[string, unknown]> = []
+    after: Array<[string, string]> = []
     patch: Record<string, unknown> = {}
     one = false
     constructor(readonly table: string) {}
@@ -113,6 +117,10 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
     }
     eq(k: string, v: unknown) {
       this.filters.push([k, v])
+      return this
+    }
+    gt(k: string, v: string) {
+      this.after.push([k, v])
       return this
     }
     limit() {
@@ -132,14 +140,17 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
       return this
     }
     matches(row: object) {
-      return this.filters.every(([k, v]) => (row as Record<string, unknown>)[k] === v)
+      return (
+        this.filters.every(([k, v]) => (row as Record<string, unknown>)[k] === v) &&
+        this.after.every(([k, v]) => String((row as Record<string, unknown>)[k]) > v)
+      )
     }
     then<A, B>(ok: (v: unknown) => A, no?: (e: unknown) => B) {
       return Promise.resolve().then(() => this.run()).then(ok, no)
     }
     run(): { data: unknown; error: unknown; count?: number | null } {
       db.calls.push(`${this.op} ${this.table}${this.op === "select" ? ` ${this.cols}` : ""}`)
-      if (this.table === "orders" || this.table === "entitlements" || this.table === "digital_assets") {
+      if (this.table === "orders" || this.table === "entitlements" || this.table === "digital_assets" || this.table === "subscriber_digital_products") {
         if (this.op !== "select") throw new Error(`the delete must never write ${this.table}`)
         if (db.missing === this.table) return { data: null, error: { code: "42P01", message: `relation "${this.table}" does not exist` }, count: null }
         if (db.unreadable === this.table) return { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" }, count: null }
@@ -170,6 +181,7 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
         /* ON DELETE CASCADE, before and after part 32: the buyers' access and the files go with it. */
         db.entitlements = db.entitlements.filter((e) => e.product_id !== p.id)
         db.digital_assets = db.digital_assets.filter((a) => a.product_id !== p.id)
+        db.subscriber_digital_products = db.subscriber_digital_products.filter((l) => l.product_id !== p.id)
       }
       db.products = db.products.filter((p) => !hits.includes(p))
       return { data: hits.map((p) => ({ id: p.id })), error: null }
@@ -220,6 +232,26 @@ async function main() {
     const db = makeDb({ products: [bundle()], entitlements: access(), part32: true })
     const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
     check("an entitlement with no order counts too, so a free claim is never taken back", r.kind === "archived" && db.entitlements.length === 2, r)
+  }
+  {
+    /*
+      A OnePage lead magnet emailed this month: the email says the file is
+      there for 30 days, and a delete would cascade the link away. Archived.
+      One that has expired promises nothing any more, so it no longer stops a delete.
+    */
+    const now = Date.now()
+    const open = makeDb({ products: [bundle()], subscriber_digital_products: [{ id: "l1", product_id: BUNDLE, expires_at: new Date(now + 86_400_000).toISOString() }], part32: true })
+    const r = await deleteOwnProduct(open, { creatorId: ME, productId: BUNDLE })
+    check("a lead magnet link still open counts as a claim: archived, and the link kept", r.kind === "archived" && open.subscriber_digital_products.length === 1, r)
+    const expired = makeDb({ products: [bundle()], subscriber_digital_products: [{ id: "l2", product_id: BUNDLE, expires_at: new Date(now - 86_400_000).toISOString() }], part32: true })
+    const gone = await deleteOwnProduct(expired, { creatorId: ME, productId: BUNDLE })
+    check("an expired one does not stop the delete", gone.kind === "deleted", gone)
+    const noLeads = makeDb({ products: [bundle()], missing: "subscriber_digital_products", part32: true })
+    const r3 = await deleteOwnProduct(noLeads, { creatorId: ME, productId: BUNDLE })
+    check("a database without the lead magnet table deletes as before", r3.kind === "deleted", r3)
+    const unread = makeDb({ products: [bundle()], unreadable: "subscriber_digital_products", part32: true })
+    const r4 = await deleteOwnProduct(unread, { creatorId: ME, productId: BUNDLE })
+    check("and one whose links cannot be counted deletes nothing", r4.kind === "failed" && unread.products.length === 1, r4)
   }
   {
     const db = makeDb({ products: [bundle()], orders: sales(), noArchivedStatus: true })

@@ -19,10 +19,13 @@ import "server-only"
  *   (supabase/migrations/20260220_seller_ledger.sql).
  *
  *   WHAT COUNTS AS A SALE. Erring on counting: any order row for the product,
- *   whatever its status (paid, pending, refunded, failed, disputed), and any
+ *   whatever its status (paid, pending, refunded, failed, disputed), any
  *   entitlement to it (a free claim, a gift, an import: somebody's library
- *   holds it). A count that cannot be read is not "no sales": nothing is
- *   changed and the caller is told.
+ *   holds it), and a OnePage download link still open (a lead magnet sent
+ *   by email in the last 30 days, `subscriber_digital_products`, which a
+ *   delete would cascade away while the email still promises the file). A
+ *   count that cannot be read is not "no sales": nothing is changed and the
+ *   caller is told.
  *
  *   ANYTHING ELSE THAT REFUSES THE DELETE (23503 from a foreign key this
  *   repository does not know) is archived the same way: a refused delete
@@ -70,21 +73,26 @@ const noTable = (error: DbError) => !!error && (error.code === "42P01" || error.
 
 /**
  * Has anybody bought, claimed or been given this product? Orders of any
- * status, and entitlements. Null when it could not be read.
+ * status, entitlements, and lead magnet links not yet expired. Null when it
+ * could not be read.
  */
-export async function productHasSales(db: ProductsDb, productId: string): Promise<boolean | null> {
-  const count = async (table: string): Promise<number | null> => {
+export async function productHasSales(db: ProductsDb, productId: string, now: Date = new Date()): Promise<boolean | null> {
+  const count = async (table: string, narrow?: (q: any) => any): Promise<number | null> => {
     try {
-      const res = (await db.from(table).select("id", { count: "exact", head: true }).eq("product_id", productId)) as Answer<null>
-      if (res.error) return noTable(res.error) ? 0 : null
+      let q = db.from(table).select("id", { count: "exact", head: true }).eq("product_id", productId)
+      if (narrow) q = narrow(q)
+      const res = (await q) as Answer<null>
+      /* 42703: a copy of the table without the column this narrows by. Nothing in it is counted as open. */
+      if (res.error) return noTable(res.error) || (narrow && res.error.code === "42703") ? 0 : null
       return res.count ?? 0
     } catch {
       return null
     }
   }
-  const [orders, entitlements] = await Promise.all([count("orders"), count("entitlements")])
-  if (orders === null || entitlements === null) return null
-  return orders + entitlements > 0
+  const openLinks = (q: any) => q.gt("expires_at", now.toISOString())
+  const [orders, entitlements, leadLinks] = await Promise.all([count("orders"), count("entitlements"), count("subscriber_digital_products", openLinks)])
+  if (orders === null || entitlements === null || leadLinks === null) return null
+  return orders + entitlements + leadLinks > 0
 }
 
 type Own = { id: string; slug: string | null; status: string }

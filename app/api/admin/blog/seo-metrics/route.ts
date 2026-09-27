@@ -4,6 +4,7 @@ import { recordAdminAction } from "@/lib/admin/audit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { forgetDeletedProduct } from "@/lib/products/forget-product"
+import { productHasSales } from "@/lib/products/delete-product"
 
 export async function DELETE(req: NextRequest) {
   if (!(await isAdminAuthenticated())) {
@@ -15,18 +16,23 @@ export async function DELETE(req: NextRequest) {
   const supabase = createAdminClient()
 
   /*
-    A product somebody bought is not deleted from here. The loop below
-    deletes its ORDERS, which are buyers' receipts and the rows the seller's
-    ledger points at, and nothing brings them back. Unpublishing, from the
+    A product somebody has is not deleted from here. The loop below deletes
+    its ORDERS (buyers' receipts, and the rows the seller's ledger points
+    at) and its ENTITLEMENTS (what is in each buyer's library), and nothing
+    brings them back. It used to count orders only, so a product given,
+    claimed or imported with no order of its own was deleted out of every
+    library that held it. Now it asks the same question a creator's own
+    delete asks (lib/products/delete-product.ts productHasSales): any order,
+    any entitlement, any lead magnet link still open. Unpublishing, from the
     admin's Products view, takes it off sale and keeps the records. A count
-    that cannot be read refuses too: it is not "no orders".
+    that cannot be read refuses too: it is not "no sales".
   */
   const { data: productRow, error: productError } = await supabase.from("products").select("title, slug, creator_id").eq("id", productId).maybeSingle()
-  const { count: orderCount, error: countError } = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("product_id", productId)
-  if (productError || countError) return adminFailure("seo metrics delete check", productError || countError, "Could not check this product's orders. Nothing was deleted.")
-  if ((orderCount ?? 0) > 0) {
+  const hasSales = productError ? null : await productHasSales(supabase, productId)
+  if (productError || hasSales === null) return adminFailure("seo metrics delete check", productError ?? { message: "sales count unread" }, "Could not check who has this product. Nothing was deleted.")
+  if (hasSales) {
     return NextResponse.json(
-      { error: `This product has ${orderCount} order${orderCount === 1 ? "" : "s"}. Deleting it would delete buyers' receipts. Unpublish it from Products in the admin instead.` },
+      { error: "Somebody has this product: an order, a library entry or a download link. Deleting it would take it from them. Unpublish it from Products in the admin instead." },
       { status: 409 },
     )
   }
