@@ -477,13 +477,16 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
 
 // ── Field editor ─────────────────────────────────────────────
 /**
- * Every setting's control, with the one thing any of them may carry under
- * it: Insert shop data, for a setting that can take a dynamic source
+ * Every setting's label and control. The label row is drawn here, not by
+ * the loops that list the fields, because a setting that can take a dynamic
+ * source carries its Insert shop data button at the right end of that row
  * (components/website-builder/editor/controls/dynamic-source-field.tsx).
+ * `label` is absent for a control that names itself: see
+ * fieldCarriesOwnLabel.
  */
-function FieldEditor(props: Parameters<typeof FieldControl>[0]) {
+function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & { label?: string }) {
   return (
-    <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange}>
+    <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange} label={label}>
       <FieldControl {...props} />
     </DynamicSourceField>
   )
@@ -5330,10 +5333,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           onInitialActiveConsumed={() => setEditSchemeKey(null)}
                           advanced={THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields.map(field => (
                             <div key={field.id}>
-                              {!fieldCarriesOwnLabel(field) && (
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                              )}
                               <FieldEditor
+                                label={fieldCarriesOwnLabel(field) ? undefined : field.label}
                                 field={field}
                                 value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
                                 onChange={v => updateSetting(field.id, v)}
@@ -5415,10 +5416,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                               ) : field.type === "header" || field.type === "paragraph" || field.type === "menus" ? (
                                 <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                               ) : (
-                                <>
-                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                  <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                                </>
+                                <FieldEditor label={field.label} field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                               )}
                               {field.type !== "toggle" && field.info && (
                                 <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
@@ -5750,10 +5748,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <div className="p-4 space-y-4">
                   {clean.map(field => (
                     <div key={field.id}>
-                      {!fieldCarriesOwnLabel(field) && (
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                      )}
                       <FieldEditor
+                        label={fieldCarriesOwnLabel(field) ? undefined : field.label}
                         field={field}
                         value={section.settings[field.id]}
                         onChange={val => updateSectionSetting(section.id, field.id, val)}
@@ -5795,10 +5791,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       <SiblingSettingsProvider settings={block.settings}>
                       {visibleFields(blockSchema?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map(field => (
                         <div key={field.id}>
-                          {!fieldCarriesOwnLabel(field) && (
-                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                          )}
                           <FieldEditor
+                            label={fieldCarriesOwnLabel(field) ? undefined : field.label}
                             field={field}
                             value={block.settings[field.id]}
                             onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
@@ -5987,10 +5981,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             ) : field.type === "header" || field.type === "paragraph" || field.type === "menus" ? (
                               <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                             ) : (
-                              <>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              </>
+                              <FieldEditor label={field.label} field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                             )}
                             {field.type !== "toggle" && field.info && (
                               <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>

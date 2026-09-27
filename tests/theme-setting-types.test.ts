@@ -39,6 +39,7 @@ import {
   type RenderContext,
   type SectionSchema,
 } from "../lib/storelib-theme"
+import { insertPlaceholder, placeholderParts } from "../lib/storelib-theme/dynamic"
 
 let passed = 0
 let failed = 0
@@ -326,6 +327,11 @@ section("Dynamic sources: a closed list, escaped for where it lands")
   check("a value with no placeholder is the same value", fillSources("plain", "text", dyn) === "plain")
   check("sources a value names are listed", JSON.stringify(sourcesIn("{{ shop.name }} {{ nope.x }} {{shop.name}} {{ date.year }}")) === JSON.stringify(["shop.name", "date.year"]))
   check("a whole binding is recognised with or without spaces", wholeSource("{{product.image}}") === "product.image" && wholeSource(" {{ product.image }} ") === "product.image" && wholeSource("x {{ product.image }}") === null)
+  check("the editor reads a value back as words and source names", JSON.stringify(placeholderParts("Get {{ product.title }} today &amp; {{ nope.x }}")) === JSON.stringify([{ text: "Get " }, { source: "product.title", label: "Product title" }, { text: " today & {{ nope.x }}" }]))
+  check("and markup around a source as words", JSON.stringify(placeholderParts("<p>By {{creator.name}}</p>")) === JSON.stringify([{ text: "By " }, { source: "creator.name", label: "Creator name" }]))
+  check("a placeholder goes in at the caret with a space where it would run into a word", insertPlaceholder("Gettoday", "product.title", 3).value === "Get {{ product.title }} today" && insertPlaceholder("Get today", "product.title", 4).value === "Get {{ product.title }} today")
+  check("and at the end when there is no caret", insertPlaceholder("Hi", "shop.name").value === "Hi {{ shop.name }}" && insertPlaceholder("", "shop.name").value === "{{ shop.name }}" && insertPlaceholder("x", "shop.name", 99).value === "x {{ shop.name }}")
+  check("the caret lands after what went in", (() => { const r = insertPlaceholder("Get today", "product.title", 4); return r.value.slice(0, r.caret) === "Get {{ product.title }} " })())
   check("the editor offers product sources on the product page only", sourcesFor("text", "index").every((s) => !s.id.startsWith("product.")) && sourcesFor("text", "product").some((s) => s.id === "product.title"))
   check("a picture setting is offered pictures, a link addresses, a colour nothing", sourcesFor("image_picker", "product").every((s) => s.kind === "image") && sourcesFor("url", "index").every((s) => s.kind === "url") && sourcesFor("color", "index").length === 0)
 }

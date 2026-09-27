@@ -101,41 +101,54 @@ function main() {
     /**
      * THE ONE THAT CATCHES THE REGRESSION.
      *
-     * A label above a FieldEditor has to be conditional on that rule —
-     * but only where a colour can actually arrive. The sidebar renders
-     * `{field.label}` in eight places, and four of them sit inside a branch
-     * already pinned to one type (`field.type === "image" ? ...`, or the
-     * final else after the colour branch has been taken). A colour never
-     * reaches those, and guarding them would add a condition that is always
-     * true, which is worse than no condition: it implies a case that cannot
+     * A label given to a FieldEditor has to be conditional on that rule,
+     * but only where a colour can actually arrive. FieldEditor draws the
+     * label row itself now (it is where a setting that takes a dynamic
+     * source keeps its Insert shop data button), so the loops hand it
+     * `label=` instead of printing a `<label>` above it. Some of those
+     * calls sit inside a branch already pinned to one type (the final else
+     * after the colour branch has been taken). A colour never reaches
+     * those, and guarding them would add a condition that is always true,
+     * which is worse than no condition: it implies a case that cannot
      * happen.
      *
-     * The first version of this check counted all eight and demanded all
-     * eight be guarded. It failed on four labels that were already correct,
-     * which would have pushed the next person to write dead guards to quiet
-     * it. So it asks the question that matters instead: is this label in a
-     * loop that hands FieldEditor an unrestricted field? Those are the three
-     * generic loops — section settings, block settings and the advanced
-     * colours list — and every one of them must ask. (The header's nav links
-     * had a fourth; they are the link list editor now, which draws only its
-     * own Label and Link fields and no schema field at all.)
+     * So it asks the question that matters: is this label in a loop that
+     * hands FieldEditor an unrestricted field? Those are the three generic
+     * loops (section settings, block settings and the advanced colours
+     * list) and every one of them must ask. And nothing prints a
+     * `{field.label}` label directly above a FieldEditor any more, which
+     * would be the name twice again.
      */
     const lines = editor.split("\n")
-    const isFieldLabel = (l: string) =>
-      /<label className="text-xs font-medium text-muted-foreground mb-1\.5 block">\{field\.label\}<\/label>/.test(l)
-    /** A branch above the label that pins the type means a colour cannot reach it. */
+    /** A branch above the call that pins the type means a colour cannot reach it. */
     const typePinnedAbove = (i: number) =>
       lines.slice(Math.max(0, i - 6), i).some((l) => /field\.type === "/.test(l))
-    const guardedAbove = (i: number) =>
-      lines.slice(Math.max(0, i - 3), i).some((l) => /!fieldCarriesOwnLabel\(field\)/.test(l))
+    /** The `label=` a FieldEditor call on line i passes, on its own line or the next two. */
+    const labelOf = (i: number): string | null => {
+      for (const [k, l] of lines.slice(i, i + 3).entries()) {
+        /* The call closed on the line before: a label further down is another call's. */
+        if (k > 0 && /\/>\s*$/.test(lines[i + k - 1])) break
+        const m = l.match(/\blabel=\{(.*?)\}(?= |$)/)
+        if (m) return m[1]
+      }
+      return null
+    }
 
     const generic: number[] = []
     const pinned: number[] = []
+    const unguarded: number[] = []
+    const doubled: number[] = []
     lines.forEach((l, i) => {
-      if (!isFieldLabel(l)) return
-      ;(typePinnedAbove(i) ? pinned : generic).push(i + 1)
+      if (!/<FieldEditor\b/.test(l)) return
+      if (lines.slice(Math.max(0, i - 3), i).some((a) => /<label[^>]*>\{field\.label\}<\/label>/.test(a))) doubled.push(i + 1)
+      const label = labelOf(i)
+      if (label === null) return
+      if (typePinnedAbove(i)) pinned.push(i + 1)
+      else {
+        generic.push(i + 1)
+        if (label !== "fieldCarriesOwnLabel(field) ? undefined : field.label") unguarded.push(i + 1)
+      }
     })
-    const unguarded = generic.filter((n) => !guardedAbove(n - 1))
 
     check(
       "the sidebar still has generic field loops for this to be about",
@@ -149,6 +162,11 @@ function main() {
         ? `Unguarded at line${unguarded.length === 1 ? "" : "s"} ${unguarded.join(", ")} of ${EDITOR}. ` +
           `A colour field rendered there prints its name twice: once from this label, once from ColorField's own row.`
         : `${generic.length} generic labels guarded, ${pinned.length} inside a branch a colour cannot reach.`,
+    )
+    check(
+      "no loop prints a label of its own above a FieldEditor",
+      doubled.length === 0,
+      doubled.length ? `Lines ${doubled.join(", ")} of ${EDITOR}: FieldEditor draws the label row, so this prints the name twice.` : undefined,
     )
   }
 

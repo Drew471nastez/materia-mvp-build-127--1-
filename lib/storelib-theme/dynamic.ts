@@ -286,3 +286,54 @@ export function describePlaceholders(value: unknown): string {
   if (typeof value !== "string") return ""
   return decodeEntities(value.replace(PLACEHOLDER, (whole, id: string) => BY_ID.get(id)?.label ?? whole))
 }
+
+/** One run of a value as the editor reads it back: words, or a source by its name. */
+export type PlaceholderPart = { text: string } | { source: string; label: string }
+
+/**
+ * A value cut into the words around its placeholders and the sources they
+ * name, so the editor can print "Get [Product title] today" with the name
+ * set apart instead of the braces. A placeholder that is not a source stays
+ * in the words exactly as typed. Markup is read as words.
+ */
+export function placeholderParts(value: unknown): PlaceholderPart[] {
+  if (typeof value !== "string" || value === "") return []
+  /* plainText trims, and the space between "By" and a name is part of the reading. */
+  const words = (s: string) => {
+    if (!s.includes("<")) return decodeEntities(s)
+    const bare = s.replace(/^(?:<[^>]*>)+|(?:<[^>]*>)+$/g, "")
+    const inner = plainText(s)
+    if (!inner) return /\s/.test(bare) ? " " : ""
+    return `${/^\s/.test(bare) ? " " : ""}${inner}${/\s$/.test(bare) ? " " : ""}`
+  }
+  const out: PlaceholderPart[] = []
+  let last = 0
+  for (const m of value.matchAll(PLACEHOLDER)) {
+    const source = BY_ID.get(m[1])
+    if (!source) continue
+    const at = m.index ?? 0
+    const before = words(value.slice(last, at))
+    if (before) out.push({ text: before })
+    out.push({ source: source.id, label: source.label })
+    last = at + m[0].length
+  }
+  const rest = words(value.slice(last))
+  if (rest) out.push({ text: rest })
+  return out
+}
+
+/**
+ * Where a placeholder goes into a text setting: at the caret when the
+ * editor knows one, at the end otherwise, with a space on whichever side
+ * would run into a word. Returns the caret after it too, so a second
+ * insert lands after the first rather than before it.
+ */
+export function insertPlaceholder(text: string, id: string, at?: number | null): { value: string; caret: number } {
+  const token = placeholderFor(id)
+  const pos = typeof at === "number" && at >= 0 && at <= text.length ? at : text.length
+  const before = text.slice(0, pos)
+  const after = text.slice(pos)
+  const lead = before === "" || /\s$/.test(before) ? "" : " "
+  const trail = after === "" || /^\s/.test(after) ? "" : " "
+  return { value: `${before}${lead}${token}${trail}${after}`, caret: before.length + lead.length + token.length + trail.length }
+}
