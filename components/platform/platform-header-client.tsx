@@ -26,7 +26,7 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
-import { useSearchHandoff } from "@/lib/explore/use-search-handoff"
+import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
 import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
 
 
@@ -934,6 +934,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    * scrolls away.
    */
   const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  /* The phone's strip: its line is still 8px from the top of the window. */
   const searchInHeader = useSearchHandoff(isExploreSurface)
   /**
    * HOW TALL THE STICKY BAR IS, so the phone's search strip can sit under it
@@ -958,6 +959,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  /*
+    THE DESKTOP FIELD'S LINE IS THE BOTTOM OF THIS BAR. "It needs to appear
+    smooth, when I start scrolling down past the initial search bar under the
+    Discover heading." The field arrives as the page's own goes under the
+    header, not 60px later when it leaves the window, and it fades in rather
+    than popping. Until the bar is measured the old line stands in.
+  */
+  const deskHandoff = useSearchHandoffState(isExploreSurface, headerH || WINDOW_SLACK)
   /*
     ═══════════════════════════════════════════════════════════════════════
      THE BAR DOES NOT GO ANYWHERE ANY MORE
@@ -1420,15 +1429,38 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
           {/*
-            NOT RENDERED RATHER THAN HIDDEN. On Explore, while the page's own
-            field is on screen, there is no search here at all and the row
-            rebalances around the logo and the actions — which is the shape
-            Skool's discovery header has, and the reason it reads as calm. An
-            invisible one holding its width would leave a gap in the middle of
-            the bar instead. See lib/explore/use-search-handoff.
+            HIDDEN RATHER THAN NOT RENDERED, NOW. It used to be absent while
+            Explore's own field was on screen and mounted when that field
+            went, which is a field popping into the bar and, with the row
+            being justify-between, the only thing that decided where the
+            middle of the bar was. The owner asked for it to arrive smoothly
+            and with nothing in the header moving: so it is always here on a
+            computer, holding its own width (the logo and the actions sit at
+            the ends of the row either way, so the empty middle is the same
+            empty middle), and it fades in with a few pixels of drop.
+
+            Opacity and `translate` only (Tailwind's translate-y is the
+            `translate` property, so that is what the transition names), and
+            `visibility` so a hidden field is out of the tab order once it has
+            faded. Arriving on a page puts it where it belongs without a fade
+            (`animate` is false), so a back navigation never flashes it. Held
+            while its results are open, so it never leaves from under typing.
+            See lib/explore/use-search-handoff.
           */}
-          {searchInHeader && (
-          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
+          {(() => {
+            const shown = deskHandoff.inHeader || searchModalOpen
+            return (
+          <div
+            data-header-search={shown ? "shown" : "hidden"}
+            aria-hidden={shown ? undefined : true}
+            inert={shown ? undefined : true}
+            className={`hidden md:flex flex-1 max-w-xl mx-4 relative transition-[opacity,translate,visibility] motion-reduce:transition-none ${
+              shown
+                ? "visible opacity-100 translate-y-0 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                : "invisible pointer-events-none opacity-0 -translate-y-1 duration-150 ease-[cubic-bezier(0.4,0,1,1)]"
+            }`}
+            style={deskHandoff.animate ? undefined : { transitionDuration: "0ms" }}
+          >
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
               <Input
@@ -1560,7 +1592,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               </>
             )}
           </div>
-          )}
+            )
+          })()}
 
           {/* Mobile Header for Non-Homepage pages */}
           <div className="md:hidden flex items-center justify-between flex-1 -ml-6">
