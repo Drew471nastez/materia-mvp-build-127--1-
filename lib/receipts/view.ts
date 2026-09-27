@@ -33,6 +33,14 @@ export interface ReceiptItem {
   files: ReceiptFile[]
   /** Where a course is taken, when the product is one. Needs an account. */
   courseHref: string | null
+  /**
+   * The line's price before a discount code, when the payment recorded one
+   * and it adds up (lib/receipts/discount.ts). Absent otherwise, and the
+   * line shows what it was charged.
+   */
+  listCents?: number | null
+  /** The product's refund policy, as the product page states it. Null when it has none. */
+  refundPolicy?: { label: string; finePrint: string | null } | null
 }
 
 export interface ReceiptView {
@@ -47,7 +55,11 @@ export interface ReceiptView {
   totalCents: number
   refundedCents: number
   payment: { method: string | null; brand: string | null; last4: string | null }
-  seller: { name: string; username: string | null; avatarUrl: string | null }
+  /** A code's saving and the code, when the payment recorded one. Zero and null otherwise. */
+  discountCents?: number
+  discountCode?: string | null
+  /** supportEmail is the address the seller chose to be written to, never their login. */
+  seller: { name: string; username: string | null; avatarUrl: string | null; supportEmail?: string | null }
   buyer: {
     firstName: string | null
     maskedEmail: string | null
@@ -67,4 +79,7 @@ export interface ReceiptViewer {
   signedIn: boolean
   /** The signed-in person is the buyer of at least one line. */
   isBuyer: boolean
+  /** The signed-in person's own name and photo, for the review card. */
+  name?: string | null
+  avatarUrl?: string | null
 }

@@ -259,6 +259,50 @@ export function formatFileSize(bytes: number | null | undefined): string {
   return `${(b / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
+/**
+ * A file name in two parts, so a long one is cut in the middle and keeps
+ * the end a person recognises it by: "6e6ba82c-3022-42a6-…b4 (4).pdf".
+ * The page lets the head shrink with an ellipsis and never the tail.
+ */
+export function splitFileName(name: string, tailChars = 6): { head: string; tail: string } {
+  const n = (name ?? "").trim()
+  const dot = n.lastIndexOf(".")
+  const ext = dot > 0 && n.length - dot <= 6 ? n.slice(dot) : ""
+  const stem = ext ? n.slice(0, dot) : n
+  if (stem.length <= tailChars + 4) return { head: n, tail: "" }
+  return { head: stem.slice(0, stem.length - tailChars), tail: stem.slice(stem.length - tailChars) + ext }
+}
+
+/** "PDF", "ZIP": the short type a file row shows, from its name. Empty when it has none. */
+export function fileKindOf(name: string): string {
+  const m = (name ?? "").trim().match(/\.([A-Za-z0-9]{1,5})$/)
+  return m ? m[1].toUpperCase() : ""
+}
+
+/**
+ * The refund policy a product states, in the words the product page uses
+ * (components/product/refund-policy-display.tsx). Null when it has none.
+ */
+const REFUND_POLICY_LABELS: Record<string, string> = {
+  no_refunds: "No refunds",
+  "7_day": "7-day money back guarantee",
+  "14_day": "14-day money back guarantee",
+  "30_day": "30-day money back guarantee",
+  "6_month": "6-month money back guarantee",
+}
+
+export function refundPolicyOf(row: {
+  refund_policy_enabled?: boolean | null
+  refund_policy_type?: string | null
+  refund_policy_fine_print?: string | null
+} | null | undefined): { label: string; finePrint: string | null } | null {
+  if (!row || !row.refund_policy_enabled) return null
+  const label = REFUND_POLICY_LABELS[row.refund_policy_type ?? ""]
+  if (!label) return null
+  const fine = (row.refund_policy_fine_print ?? "").toString().trim()
+  return { label, finePrint: fine ? fine.slice(0, 600) : null }
+}
+
 /* ─── Which files an order includes ───────────────────────────────────── */
 
 /**

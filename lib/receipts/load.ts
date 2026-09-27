@@ -32,6 +32,7 @@ import {
   normaliseCurrency,
   orderNumberOf,
   overallState,
+  refundPolicyOf,
   sumMoney,
 } from "./rules"
 import type { ReceiptFile, ReceiptItem, ReceiptView } from "./view"
@@ -112,7 +113,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
   const productIds = [...new Set(rows.map((r) => r.product_id).filter(Boolean))]
   const variantIds = [...new Set(rows.map((r) => r.variant_id).filter(Boolean) as string[])]
 
-  const [productsRes, assetsRes, mappingRes, variantsRes] = await Promise.all([
+  const [productsRes, assetsRes, mappingRes, variantsRes, policiesRes] = await Promise.all([
     admin.from("products").select("id, title, slug, thumbnail_url, type, creator_id").in("id", productIds),
     admin
       .from("digital_assets")
@@ -126,6 +127,12 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     variantIds.length > 0
       ? admin.from("product_variants").select("id, name").in("id", variantIds)
       : Promise.resolve({ data: [], error: null }),
+    /* Its own read: the refund policy columns came later, and a database
+       without them must still show the receipt, only without the policy. */
+    admin
+      .from("products")
+      .select("id, refund_policy_enabled, refund_policy_type, refund_policy_fine_print")
+      .in("id", productIds),
   ])
 
   const products = new Map<string, any>(((productsRes as any).data ?? []).map((p: any) => [p.id, p]))
@@ -143,6 +150,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     if (m.digital_asset_id) list.push(m.digital_asset_id)
     mapped.set(m.variant_id, list)
   }
+  const policies = new Map<string, any>(((policiesRes as any)?.error ? [] : ((policiesRes as any)?.data ?? [])).map((p: any) => [p.id, p]))
   const variantNames = new Map<string, string>(((variantsRes as any).data ?? []).map((v: any) => [v.id, v.name]))
   /* The download route refuses a variant's files when this map cannot be
      read (lib/receipts/download-access fails closed), so the receipt does
@@ -178,11 +186,12 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       refundedAt: (r.refunded_at as string) ?? null,
       files,
       courseHref: state === "open" && type === "course" ? `/dashboard/courses/${r.product_id}` : null,
+      refundPolicy: refundPolicyOf(policies.get(r.product_id)),
     }
   })
 
   /* The seller, from the first product. A basket is always one seller. */
-  let seller: ReceiptView["seller"] = { name: "the seller", username: null, avatarUrl: null }
+  let seller: ReceiptView["seller"] = { name: "the seller", username: null, avatarUrl: null, supportEmail: null }
   const creatorId = products.get(rows[0].product_id)?.creator_id
   if (creatorId) {
     const { data: creator } = await admin.from("creators").select("id, slug, user_id").eq("id", creatorId).maybeSingle()
@@ -196,8 +205,19 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
         name: (profile?.display_name || profile?.username || creator.slug || "the seller").toString().trim(),
         username: profile?.username || creator.slug || null,
         avatarUrl: profile?.avatar_url || null,
+        supportEmail: null,
       }
     }
+    /* The address the seller set for buyers to write to, and only that one:
+       never the email they sign in with. A separate read, because a
+       database without the column must still show the receipt. */
+    const { data: support, error: supportError } = await admin
+      .from("creators")
+      .select("support_email")
+      .eq("id", creatorId)
+      .maybeSingle()
+    const address = !supportError ? String(support?.support_email ?? "").trim() : ""
+    if (/^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']{2,}$/.test(address) && address.length <= 254) seller.supportEmail = address
   }
 
   const totals = sumMoney(rows)

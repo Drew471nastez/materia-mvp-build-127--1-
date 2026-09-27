@@ -1,11 +1,24 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Star, Loader2, LogIn, CheckCircle, Lock, UserPlus, MessageSquare } from "lucide-react"
-import Image from "next/image"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Star, Loader2, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+/**
+ * The review card on the receipt (app/receipt/[token]/receipt-view.tsx).
+ *
+ * The buyer's own photo heads it, or their initial on a neutral circle: it
+ * is their review, so it is their face, not the seller's. The stars fill as
+ * the pointer moves over them and stay filled on a press, with a small give
+ * on the one pressed, and the word under them says what the number means.
+ *
+ * Posting goes to /api/reviews, which decides again who may review (bought
+ * it, still has it, not the seller, not twice). Whatever it refuses with is
+ * shown here in its own words.
+ *
+ * A guest can write the review before signing in: what they typed is kept
+ * in this browser and put back when they return signed in.
+ */
 
 interface ReviewFormProps {
   productId: string
@@ -21,11 +34,42 @@ interface ReviewFormProps {
   } | null
   onSuccess?: () => void
   redirectUrl?: string
-  creatorAvatarUrl?: string | null
-  creatorName?: string
+  /** The person writing: their name and photo, when signed in. */
+  reviewerName?: string | null
+  reviewerAvatarUrl?: string | null
+  /** Where Sign in and Create account go. The receipt's own links keep the order with the account. */
+  loginHref?: string
+  signupHref?: string
 }
 
 const PENDING_REVIEW_PREFIX = "storelib_pending_review_v1"
+const MIN_CHARS = 10
+const MAX_CHARS = 1000
+const WORDS = ["", "Poor", "Fair", "Good", "Very good", "Excellent"]
+
+const CARD = "rounded-2xl border border-[#e4e7ec]/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]"
+const PRIMARY =
+  "inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[#0f0f1c] bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] transition-[background-color,box-shadow,translate,opacity] duration-150 hover:bg-[#262640] active:translate-y-px active:bg-[#12121f] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-default disabled:border-[#e4e7ec] disabled:bg-[#eceef1] disabled:text-[#9ca3af] disabled:shadow-none disabled:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2"
+const GREY =
+  "inline-flex h-11 flex-1 items-center justify-center rounded-[10px] border border-[#d5d9e0] bg-[#f3f4f6] px-4 text-[14px] font-semibold text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(16,24,40,0.08)] transition-[background-color,box-shadow,translate] duration-150 hover:bg-[#eceef1] active:translate-y-px active:bg-[#e7e9ed] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2"
+
+function ReviewerMark({ name, avatarUrl }: { name: string | null | undefined; avatarUrl: string | null | undefined }) {
+  const [broken, setBroken] = useState(false)
+  const initial = ((name ?? "").trim().charAt(0) || "·").toUpperCase()
+  return (
+    <span
+      data-reviewer=""
+      className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#eef0f3] text-[17px] font-semibold text-[#4b5563] ring-4 ring-[#f5f6f8]"
+    >
+      {avatarUrl && !broken ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+      ) : (
+        initial
+      )}
+    </span>
+  )
+}
 
 export function ReviewForm({
   productId,
@@ -37,346 +81,270 @@ export function ReviewForm({
   existingReview,
   onSuccess,
   redirectUrl,
-  creatorAvatarUrl,
-  creatorName,
+  reviewerName,
+  reviewerAvatarUrl,
+  loginHref,
+  signupHref,
 }: ReviewFormProps) {
   const storageKey = useMemo(() => `${PENDING_REVIEW_PREFIX}:${productId}`, [productId])
 
   const [rating, setRating] = useState(existingReview?.rating || 0)
-  const [hoveredRating, setHoveredRating] = useState(0)
+  const [hovered, setHovered] = useState(0)
+  const [popped, setPopped] = useState(0)
   const [content, setContent] = useState(existingReview?.content || "")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const [submitted, setSubmitted] = useState<{ rating: number; content: string } | null>(null)
+  const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ✅ Restore pending review after login redirect (and clean it up)
+  /* Put back a review written before signing in, then drop the flag from the address. */
   useEffect(() => {
-    if (typeof window === "undefined") return
-    if (!isLoggedIn) return
-
+    if (typeof window === "undefined" || !isLoggedIn) return
     try {
-      const params = new URLSearchParams(window.location.search)
-      const pendingFlag = params.get("pendingReview") === "true"
-
       const raw = window.localStorage.getItem(storageKey)
       if (!raw) return
-
-      const parsed = JSON.parse(raw) as { rating?: number; content?: string; ts?: number } | null
+      const parsed = JSON.parse(raw) as { rating?: number; content?: string } | null
       if (!parsed) return
-
-      // If they came back via the login redirect OR we simply have stored draft, restore it.
-      if (pendingFlag || (parsed.rating || parsed.content)) {
-        if (typeof parsed.rating === "number") setRating(parsed.rating)
-        if (typeof parsed.content === "string") setContent(parsed.content)
-
-        // remove query param so refresh doesn't keep it
-        if (pendingFlag) {
-          params.delete("pendingReview")
-          const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash || ""}`
-          window.history.replaceState({}, "", next)
-        }
-
-        // We keep the stored draft for a little while in case they navigate away,
-        // BUT if they already restored it once and start editing, it's fine either way.
-        // Here we keep it; we only clear it on successful submit.
+      if (typeof parsed.rating === "number" && parsed.rating >= 1 && parsed.rating <= 5) setRating(parsed.rating)
+      if (typeof parsed.content === "string") setContent(parsed.content.slice(0, MAX_CHARS))
+      const params = new URLSearchParams(window.location.search)
+      if (params.get("pendingReview") === "true") {
+        params.delete("pendingReview")
+        const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash || ""}`
+        window.history.replaceState({}, "", next)
       }
     } catch {
-      // ignore
+      /* private mode, or a draft that is not JSON: start empty */
     }
   }, [isLoggedIn, storageKey])
 
-  // ✅ If not logged in, persist what they typed as they type (so it survives login)
+  /* A guest's draft is kept as they type, so it survives signing in. */
   useEffect(() => {
-    if (typeof window === "undefined") return
-    if (isLoggedIn) return
+    if (typeof window === "undefined" || isLoggedIn) return
     try {
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          rating,
-          content,
-          ts: Date.now(),
-        }),
-      )
+      window.localStorage.setItem(storageKey, JSON.stringify({ rating, content, ts: Date.now() }))
     } catch {
-      // ignore
+      /* nothing to keep it in */
     }
   }, [rating, content, isLoggedIn, storageKey])
 
-  const clearPending = () => {
-    if (typeof window === "undefined") return
-    try {
-      window.localStorage.removeItem(storageKey)
-    } catch {
-      // ignore
-    }
+  useEffect(
+    () => () => {
+      if (popTimer.current) clearTimeout(popTimer.current)
+    },
+    [],
+  )
+
+  const choose = (star: number) => {
+    setError("")
+    setRating(star)
+    setPopped(star)
+    if (popTimer.current) clearTimeout(popTimer.current)
+    popTimer.current = setTimeout(() => setPopped(0), 180)
   }
 
+  const goSignIn = (href: string | undefined, fallback: "/login" | "/signup") => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify({ rating, content, ts: Date.now() }))
+    } catch {
+      /* the draft is lost, the sign in still works */
+    }
+    const back = redirectUrl || window.location.pathname
+    const target = href || `${fallback}?redirect=${encodeURIComponent(back)}`
+    window.location.href = `${target}${target.includes("?") ? "&" : "?"}pendingReview=true`
+  }
+
+  const trimmed = content.trim()
+  const ready = rating > 0 && trimmed.length >= MIN_CHARS
+
   const handleSubmit = async () => {
-    // Gate: must have purchased
     if (!hasPurchased) {
-      setError("Only verified buyers can leave a review for this product.")
+      setError("Only buyers can review this product.")
       return
     }
-
     if (!isLoggedIn) {
-      // Store pending review and redirect to login
-      try {
-        window.localStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            rating,
-            content,
-            ts: Date.now(),
-          }),
-        )
-      } catch {
-        // ignore
-      }
-
-      // Use relative path to ensure redirects work on the canonical domain
-      const currentUrl = redirectUrl || window.location.pathname
-      const url = `/login?redirect=${encodeURIComponent(currentUrl)}&pendingReview=true`
-      window.location.href = url
+      goSignIn(loginHref, "/login")
       return
     }
-
     if (rating === 0) {
-      setError("Please select a star rating")
+      setError("Choose a star rating.")
       return
     }
-
-    if (content.trim().length < 10) {
-      setError("Please write at least 10 characters")
+    if (trimmed.length < MIN_CHARS) {
+      setError(`Write at least ${MIN_CHARS} characters.`)
       return
     }
 
     setIsSubmitting(true)
     setError("")
-
     try {
       const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId,
-          rating,
-          content: content.trim(),
-          orderId,
-        }),
+        body: JSON.stringify({ productId, rating, content: trimmed, orderId }),
       })
-
-      const data = await res.json()
-
+      const data = await res.json().catch(() => ({}) as Record<string, any>)
       if (!res.ok) {
-        setError(data.error || "Failed to submit review")
+        setError(
+          data.error ||
+            (res.status === 401 ? "Your session ended. Sign in again to post." : "The review did not save. Try again."),
+        )
         return
       }
-
-      setIsSubmitted(true)
-      clearPending()
+      setSubmitted({ rating, content: trimmed })
+      try {
+        window.localStorage.removeItem(storageKey)
+      } catch {
+        /* nothing kept */
+      }
       onSuccess?.()
     } catch {
-      setError("Something went wrong. Please try again.")
+      setError("No connection. Try again.")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Already reviewed state
-  if (hasReviewed || isSubmitted) {
+  /* Posted now, or on an earlier visit. */
+  const shown = submitted ?? (hasReviewed ? existingReview ?? null : null)
+  if (submitted || hasReviewed) {
     return (
-      <div className="rounded-2xl bg-green-50 border border-green-100 p-5 text-center">
-        <div className="flex justify-center mb-3">
-          <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-            <CheckCircle className="h-6 w-6 text-green-600" />
-          </div>
+      <div className={cn(CARD, "px-5 py-6 text-center sm:px-6")}>
+        <div className="flex justify-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ecfdf3] text-[#067647]">
+            <Check className="h-5 w-5" strokeWidth={2.25} />
+          </span>
         </div>
-        <h3 className="font-semibold text-gray-900 mb-1">Thank you for your review!</h3>
-        <p className="text-sm text-gray-600">Your feedback helps other customers make informed decisions.</p>
-
-        {existingReview && (
-          <div className="mt-4 pt-4 border-t border-green-200">
-            <div className="flex justify-center gap-0.5 mb-2">
+        <h3 className="mt-3 text-[16px] font-semibold text-[#1a1a2e]">Thanks for your review</h3>
+        <p className="mt-1 text-[14px] text-[#6b7280]">Other buyers of {productTitle} can read it now.</p>
+        {shown ? (
+          <div className="mt-4 border-t border-[#eef0f3] pt-4">
+            <div className="flex justify-center gap-0.5" aria-label={`${shown.rating} out of 5 stars`}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
-                  className={cn(
-                    "h-4 w-4",
-                    star <= existingReview.rating ? "fill-black text-black" : "text-gray-300",
-                  )}
+                  aria-hidden
+                  className={cn("h-4 w-4", star <= shown.rating ? "fill-[#f5a524] text-[#f5a524]" : "fill-[#e5e7eb] text-[#e5e7eb]")}
                 />
               ))}
             </div>
-            <p className="text-sm text-gray-600 italic">"{existingReview.content}"</p>
+            <p className="mx-auto mt-2 max-w-[46ch] text-[14px] leading-relaxed text-[#4b5563] [overflow-wrap:anywhere]">{shown.content}</p>
           </div>
-        )}
+        ) : null}
       </div>
     )
   }
 
-  // Not purchased state (still show UI but locked, cleaner than silently failing)
   if (!hasPurchased) {
     return (
-      <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-            <Lock className="h-5 w-5 text-gray-500" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">Reviews are for verified buyers</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Once you purchase <span className="font-medium">{productTitle}</span>, you’ll be able to leave a review here.
-            </p>
-          </div>
-        </div>
+      <div className={cn(CARD, "px-5 py-4")}>
+        <p className="text-[14px] text-[#6b7280]">Reviews for {productTitle} are written by its buyers.</p>
       </div>
     )
   }
 
+  const lit = hovered || rating
+  const word = WORDS[lit] ?? ""
+
   return (
-    <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5 space-y-4">
-      {/* Overlapping circles: seller avatar + review icon */}
-      {creatorAvatarUrl !== undefined && (
-        <div className="flex justify-center mb-1">
-          <div className="relative flex items-center">
-            {/* Seller avatar circle */}
-            <div className="relative z-10 h-14 w-14 rounded-full overflow-hidden border-2 border-white bg-gray-100">
-              {creatorAvatarUrl ? (
-                <>
-                  <Image src={creatorAvatarUrl} alt={creatorName || "Creator"} width={56} height={56} className="h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 text-base font-bold -z-[1]">
-                    {(creatorName || "S").charAt(0).toUpperCase()}
-                  </div>
-                </>
-              ) : (
-                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 text-base font-bold">
-                  {(creatorName || "S").charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-            {/* Review icon — overlapping 10% of avatar */}
-            <div className="relative z-20 -ml-2.5 h-10 w-10 rounded-lg bg-[#7c3aed] border-2 border-white flex items-center justify-center shadow-sm">
-              <MessageSquare className="h-4 w-4 text-white" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="text-center">
-        <h3 className="font-semibold text-gray-900 text-lg">Leave a review</h3>
-        <p className="text-sm text-gray-500 mt-1">Share your experience with {productTitle}</p>
+    <div className={cn(CARD, "px-5 py-6 sm:px-6")}>
+      <div className="flex flex-col items-center text-center">
+        <ReviewerMark name={reviewerName} avatarUrl={isLoggedIn ? reviewerAvatarUrl : null} />
+        <h3 className="mt-3 text-[17px] font-semibold text-[#1a1a2e]">Leave a review</h3>
+        <p className="mt-1 max-w-[40ch] text-[14px] text-[#6b7280]">How was {productTitle}?</p>
       </div>
 
-      {/* Star Rating — wrap in single container for smooth hover */}
-      <div
-        className="flex justify-center gap-1"
-        onMouseLeave={() => setHoveredRating(0)}
-      >
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => {
-              setError("")
-              setRating(star)
-            }}
-            onMouseEnter={() => setHoveredRating(star)}
-            className="p-1 transition-transform hover:scale-110 focus:outline-none"
-            aria-label={`${star} star`}
-          >
-            <Star
-              className={cn(
-                "h-8 w-8 transition-colors duration-150",
-                (hoveredRating || rating) >= star
-                  ? "fill-yellow-400 text-yellow-400"
-                  : "text-gray-300",
-              )}
-            />
-          </button>
-        ))}
+      <div role="radiogroup" aria-label="Rating" className="mt-4 flex justify-center gap-1" onMouseLeave={() => setHovered(0)}>
+        {[1, 2, 3, 4, 5].map((star) => {
+          const on = lit >= star
+          return (
+            <button
+              key={star}
+              type="button"
+              role="radio"
+              aria-checked={rating === star}
+              aria-label={`${star} ${star === 1 ? "star" : "stars"}, ${WORDS[star]}`}
+              data-star=""
+              data-lit={on ? "true" : "false"}
+              onClick={() => choose(star)}
+              onMouseEnter={() => setHovered(star)}
+              className="group flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+            >
+              <Star
+                aria-hidden
+                strokeWidth={1.75}
+                className={cn(
+                  "h-8 w-8 transition-[scale,color,fill] duration-150 ease-out",
+                  on ? "fill-[#f5a524] text-[#f5a524]" : "fill-transparent text-[#d0d5dd]",
+                  popped === star ? "scale-[1.18]" : "scale-100 group-hover:scale-110 group-active:scale-95",
+                )}
+              />
+            </button>
+          )
+        })}
       </div>
+      <p className="mt-1 h-5 text-center text-[13px] font-medium text-[#4b5563]" aria-live="polite">
+        {word}
+      </p>
 
-      {/* Review Text */}
-      <Textarea
+      <label htmlFor={`review-text-${productId}`} className="sr-only">
+        Your review
+      </label>
+      <textarea
+        id={`review-text-${productId}`}
         value={content}
         onChange={(e) => {
           setError("")
-          setContent(e.target.value)
+          setContent(e.target.value.slice(0, MAX_CHARS))
         }}
-        placeholder="Tell others what you think about this product..."
-        className="min-h-[100px] resize-none rounded-xl border-gray-200 focus:border-gray-400 focus:ring-gray-400/20"
-        maxLength={1000}
+        placeholder="What did you like? What could be better?"
+        maxLength={MAX_CHARS}
+        rows={4}
+        className="mt-2 block min-h-[104px] w-full resize-none rounded-xl border border-[#e4e7ec] bg-white px-3.5 py-3 text-[16px] leading-relaxed text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c4c9d2] focus:shadow-[0_0_0_4px_rgba(26,26,46,0.06)] sm:text-[15px]"
       />
-
-      <div className="flex items-center justify-between text-xs text-gray-400">
-        <span>{content.length}/1000 characters</span>
-        <span>Min 10 characters</span>
+      <div className="mt-1.5 flex items-center justify-between gap-3 text-[12px] tabular-nums text-[#9ca3af]">
+        <span>{trimmed.length > 0 && trimmed.length < MIN_CHARS ? `${MIN_CHARS - trimmed.length} more to go` : ""}</span>
+        <span>
+          {content.length} / {MAX_CHARS}
+        </span>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">{error}</div>
-      )}
+      {error ? (
+        <p role="alert" className="mt-3 rounded-lg border border-[#fecdca] bg-[#fef3f2] px-3 py-2 text-[13px] text-[#b42318]">
+          {error}
+        </p>
+      ) : null}
 
-      {/* Submit Button */}
-      {isLoggedIn ? (
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting || rating === 0 || content.trim().length < 10}
-          className="w-full h-11 rounded-xl font-medium bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Posting...
-            </>
-          ) : (
-            "Post Review"
-          )}
-        </Button>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-center text-gray-600 font-medium">Sign in to post your review</p>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => {
-                // Store pending review before redirect
-                try {
-                  window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify({ rating, content, ts: Date.now() })
-                  )
-                } catch { /* ignore */ }
-                const currentUrl = redirectUrl || window.location.pathname
-                window.location.href = `/login?redirect=${encodeURIComponent(currentUrl)}&pendingReview=true`
-              }}
-              variant="outline"
-              className="flex-1 h-11 rounded-xl font-medium"
-            >
-              <LogIn className="h-4 w-4 mr-2" />
-              Login
-            </Button>
-            <Button
-              onClick={() => {
-                // Store pending review before redirect
-                try {
-                  window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify({ rating, content, ts: Date.now() })
-                  )
-                } catch { /* ignore */ }
-                const currentUrl = redirectUrl || window.location.pathname
-                window.location.href = `/signup?redirect=${encodeURIComponent(currentUrl)}&pendingReview=true`
-              }}
-              className="flex-1 h-11 rounded-xl font-medium bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Sign up
-            </Button>
-          </div>
-          <p className="text-xs text-center text-gray-500">Your review will be saved and restored after you sign in.</p>
-        </div>
-      )}
+      <div className="mt-4">
+        {isLoggedIn ? (
+          <button type="button" onClick={handleSubmit} disabled={isSubmitting || !ready} className={PRIMARY}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Posting
+              </>
+            ) : (
+              "Post review"
+            )}
+          </button>
+        ) : (
+          <>
+            <button type="button" onClick={() => goSignIn(loginHref, "/login")} className={cn(GREY, "w-full")}>
+              Sign in to post
+            </button>
+            <p className="mt-2.5 text-center text-[12px] text-[#6b7280]">
+              What you wrote is kept. No account yet?{" "}
+              <button
+                type="button"
+                onClick={() => goSignIn(signupHref, "/signup")}
+                className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-2 hover:decoration-[#1a1a2e]"
+              >
+                Create one
+              </button>
+            </p>
+          </>
+        )}
+      </div>
     </div>
   )
 }
