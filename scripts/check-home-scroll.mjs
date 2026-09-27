@@ -33,10 +33,15 @@
  *
  *   node scripts/check-home-scroll.mjs
  *   BASE=<commit> DPR=2 CPU=6 node scripts/check-home-scroll.mjs
+ *   BANNER_BASE=<commit> node scripts/check-home-scroll.mjs
+ *       (BEFORE is this checkout with only the banner, components/app/home/
+ *       home-banner.tsx, taken from that commit: what a change to the
+ *       banner alone costs a swipe)
  *   ONLY=now node scripts/check-home-scroll.mjs      (one run, no comparison)
  *   EXPERIMENT=noglobe ONLY=now node scripts/check-home-scroll.mjs   (every canvas refused)
  *   OUT=/some/file.json node scripts/check-home-scroll.mjs
  */
+import { execFileSync } from "node:child_process"
 import { existsSync, writeFileSync, readFileSync, rmSync, mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -44,7 +49,19 @@ import puppeteer from "puppeteer-core"
 import { homeProbePage } from "./home-probe-page.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
-const BASE = process.env.BASE ?? "96949910"
+const BANNER_BASE = process.env.BANNER_BASE ?? null
+const BASE = BANNER_BASE ?? process.env.BASE ?? "96949910"
+
+/** BEFORE with the banner alone from BANNER_BASE, written beside this one so its own imports resolve, for the length of a bundle. */
+async function bannerOnlyBefore() {
+  const file = join(process.cwd(), "components/app/home", `.home-banner-before-${process.pid}.tsx`)
+  writeFileSync(file, execFileSync("git", ["show", `${BANNER_BASE}:components/app/home/home-banner.tsx`], { encoding: "utf8" }))
+  try {
+    return await homeProbePage(process.cwd(), { swaps: { "@/components/app/home/home-banner": file } })
+  } finally {
+    rmSync(file, { force: true })
+  }
+}
 const DPR = Number(process.env.DPR ?? 3)
 const CPU = Number(process.env.CPU ?? 4)
 const STATE = process.env.STATE ?? "selling"
@@ -240,7 +257,7 @@ async function measure(name, base) {
 const runs = []
 try {
   for (const which of ONLY ? [ONLY] : ["before", "now"]) {
-    const served = which === "before" ? await homeProbePage(process.cwd(), { before: BASE }) : await homeProbePage()
+    const served = which === "before" ? (BANNER_BASE ? await bannerOnlyBefore() : await homeProbePage(process.cwd(), { before: BASE })) : await homeProbePage()
     try {
       runs.push(await measure(which, served.base))
     } finally {
@@ -253,7 +270,7 @@ try {
 
 console.log(`\nHome at 390x844, DPR ${DPR}, CPU slowed ${CPU}x, state "${STATE}"${process.env.EXPERIMENT ? `, experiment ${process.env.EXPERIMENT}` : ""}`)
 for (const run of runs) {
-  console.log(`\n${run.name === "before" ? `BEFORE (${BASE})` : "NOW"}: ${run.spots.height}px of page`)
+  console.log(`\n${run.name === "before" ? `BEFORE (${BANNER_BASE ? `the banner at ${BASE}` : BASE})` : "NOW"}: ${run.spots.height}px of page`)
   for (const [p, r] of Object.entries(run.report)) {
     console.log(`  ${LABEL[p]}: ${r.gestureMs}ms to deliver`)
     console.log(`    touchmove waited p50 ${r.inputDelayP50}ms, p95 ${r.inputDelayP95}ms, max ${r.inputDelayMax}ms`)
