@@ -32,6 +32,7 @@
  * left exactly as it is. A page whose catalogue could not be reached draws
  * what it drew yesterday rather than emptying itself.
  */
+import { isPubliclyVisible, type VisibilityFields } from "@/lib/products/visibility"
 
 /** What a live product contributes to a block. */
 export type LiveProduct = {
@@ -186,9 +187,9 @@ const COLUMNS = "id, title, slug, price_cents, thumbnail_url, status, archived"
 /* A database from before the archive flag. The status carries the same answer there. */
 const COLUMNS_WITHOUT_FLAG = "id, title, slug, price_cents, thumbnail_url, status"
 
-/** Live means published, this creator's, and not archived by the older flag. */
+/** Live means published and not archived by the older flag: the one rule, lib/products/visibility.ts. */
 function live(row: Record<string, unknown>): boolean {
-  return row.status === "published" && row.archived !== true
+  return isPubliclyVisible(row as VisibilityFields)
 }
 
 /**
