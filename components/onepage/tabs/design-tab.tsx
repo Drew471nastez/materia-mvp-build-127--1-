@@ -2802,14 +2802,15 @@ function scrollBoxOf(el: HTMLElement): HTMLElement | null {
  */
 function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => void) {
   const gridRef = useRef<HTMLDivElement>(null)
-  const pending = useRef<{ box: HTMLElement; top: number } | null>(null)
+  const pending = useRef<{ box: HTMLElement; top: number; rest: number } | null>(null)
   const held = useRef<{ box: HTMLElement; rest: number; natural: number; min: number } | null>(null)
 
   const pickFilter = useCallback((f: ThemeFilter) => {
     if (f === filter) return
     const grid = gridRef.current
     const box = grid ? scrollBoxOf(grid) : null
-    pending.current = box ? { box, top: box.scrollTop } : null
+    /* Everything in the panel but the grid, measured before the change: after it, a panel shorter than its box reports the box. */
+    pending.current = box && grid ? { box, top: box.scrollTop, rest: box.scrollHeight - grid.offsetHeight } : null
     setFilter(f)
   }, [filter, setFilter])
 
@@ -2820,9 +2821,10 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
     if (!grid || !at) return
     grid.style.minHeight = ""
     const natural = grid.offsetHeight
-    const rest = at.box.scrollHeight - natural
+    const rest = at.rest
     const need = Math.ceil(at.top + at.box.clientHeight - rest)
-    if (need > natural) {
+    /* At the very top there is nothing to keep: the page may be as short as it is. */
+    if (at.top > 0 && need > natural) {
       grid.style.minHeight = `${need}px`
       held.current = { box: at.box, rest, natural, min: need }
     } else {
@@ -2849,7 +2851,7 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
         if (!h) return
         const need = Math.ceil(h.box.scrollTop + h.box.clientHeight - h.rest)
         if (need >= h.min) return
-        if (need <= h.natural) {
+        if (h.box.scrollTop <= 0 || need <= h.natural) {
           grid.style.minHeight = ""
           held.current = null
           h.box.removeEventListener("scroll", onScroll)

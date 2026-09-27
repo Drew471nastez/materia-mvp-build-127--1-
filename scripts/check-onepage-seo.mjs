@@ -186,8 +186,9 @@ for (const width of [360, 390, 430]) {
     /* The word as it reads: each button draws its face twice, one over the other, to fade between them. */
     const word = (b) => b.querySelector("span > span")?.textContent.trim() ?? b.textContent.trim()
     const buttons = [...bar.querySelectorAll("[data-tab]")].map((b) => ({ id: b.getAttribute("data-tab"), label: word(b), pressed: b.getAttribute("aria-pressed"), ...r(b) }))
-    const pill = r(bar.querySelector("[data-tab-pill]"))
-    return { vw: innerWidth, vh: innerHeight, bar: r(bar), buttons, pill, sideScroll: document.documentElement.scrollWidth > innerWidth + 1 }
+    /* Each button's own dark fill (the phone bar has no travelling pill): where it is and how much of it shows. */
+    const fills = [...bar.querySelectorAll("[data-tab]")].map((b) => { const f = b.querySelector("[data-tab-fill]"); return { id: b.getAttribute("data-tab"), o: Number(getComputedStyle(f).opacity), ...r(f) } })
+    return { vw: innerWidth, vh: innerHeight, bar: r(bar), buttons, fills, pill: !!bar.querySelector("[data-tab-pill]"), sideScroll: document.documentElement.scrollWidth > innerWidth + 1 }
   })
   const m = await measure()
   const heights = m.buttons.map((b) => b.h)
@@ -200,15 +201,16 @@ for (const width of [360, 390, 430]) {
   expect(settings && m.vw - settings.r >= 12 && m.buttons[0].l >= 12, "12px or more from both edges", { left: m.buttons[0].l, right: settings && Math.round((m.vw - settings.r) * 10) / 10 })
   expect(m.vh - Math.max(...m.buttons.map((b) => b.b)) >= 10, "10px or more under the buttons with no home indicator", m.vh - Math.max(...m.buttons.map((b) => b.b)))
   const on = m.buttons.find((b) => b.pressed === "true")
-  expect(on && Math.abs(on.l - m.pill.l) < 1 && Math.abs(on.w - m.pill.w) < 1 && Math.abs(on.t - m.pill.t) < 1 && Math.abs(on.h - m.pill.h) < 1, "the dark pill lies exactly over the chosen one", { on: on?.id, pill: m.pill })
+  const onFill = m.fills.find((f) => f.id === on?.id)
+  expect(!m.pill && on && onFill.o === 1 && Math.abs(on.l - onFill.l) <= 1 && Math.abs(on.w - onFill.w) <= 2 && m.fills.filter((f) => f.id !== on.id).every((f) => f.o === 0), "the chosen one wears its own dark fill, over its whole face; the others none, and no pill", { on: on?.id, fills: m.fills.map((f) => [f.id, f.o]) })
   expect(!m.sideScroll, "nothing scrolls sideways")
   await p.screenshot({ path: join(shots, `bar-${width}.png`), clip: { x: 0, y: m.vh - 150, width: m.vw, height: 150 } })
 
-  /* A tap on Settings: the pill slides there on the compositor. */
+  /* A tap on Settings: its fill crossfades in where it is, on the compositor. */
   const anim = await p.evaluate(async () => {
-    const pill = document.querySelector("[data-onepage-tabbar] [data-tab-pill]")
+    const bar = document.querySelector("[data-onepage-tabbar]")
     const seen = new Set()
-    const watch = () => pill.getAnimations().forEach((a) => a.effect.getKeyframes().forEach((k) => Object.keys(k).forEach((key) => { if (!["offset", "easing", "composite", "computedOffset"].includes(key)) seen.add(key) })))
+    const watch = () => bar.getAnimations({ subtree: true }).forEach((a) => seen.add(a.transitionProperty || "keyframes"))
     const t0 = performance.now()
     document.querySelector('[data-onepage-tabbar] [data-tab="settings"]').click()
     let frames = 0
@@ -218,8 +220,8 @@ for (const width of [360, 390, 430]) {
   await sleep(200)
   const m2 = await measure()
   const s2 = m2.buttons.find((b) => b.id === "settings")
-  expect(anim.props.length > 0 && anim.props.every((k) => k === "transform" || k === "opacity"), "the pill moves on transform and opacity only", anim.props)
-  expect(s2.pressed === "true" && Math.abs(s2.l - m2.pill.l) < 1 && Math.abs(s2.w - m2.pill.w) < 1, "and comes to rest over Settings", { settings: s2.l, pill: m2.pill.l })
+  expect(anim.props.length > 0 && anim.props.every((k) => k === "opacity"), "the change is opacity only, nothing slides", anim.props)
+  expect(s2.pressed === "true" && m2.fills.find((f) => f.id === "settings").o === 1 && m2.fills.filter((f) => f.id !== "settings").every((f) => f.o === 0), "and Settings is the one dark", m2.fills.map((f) => [f.id, f.o]))
   const longs = await p.evaluate(() => window.__long)
   console.log(`  long tasks from load to the Settings tap: ${JSON.stringify(longs)}; frames drawn in 500ms after the tap: ${anim.frames}`)
   await p.screenshot({ path: join(shots, `bar-${width}-settings.png`), clip: { x: 0, y: m.vh - 150, width: m.vw, height: 150 } })
@@ -253,7 +255,7 @@ for (const [label, vp] of [
   let s = await read(p)
   expect(s.searchTitle === "Satori Studio | Storelib" && s.shareTitle === "Satori Studio", "the titles start from the page's name", { search: s.searchTitle, share: s.shareTitle })
   expect(s.searchDescription === "Prints, posters and a newsletter" && s.shareDescription === s.searchDescription, "the descriptions from its bio", s.searchDescription)
-  expect(s.shareDomain === "storelib.com" && s.searchUrl === "https://storelib.com › satori › links", "the host and the address", { d: s.shareDomain, u: s.searchUrl })
+  expect(s.shareDomain === "storelib.me" && s.searchUrl === "https://storelib.me › satori", "the host and the address (OnePages live at storelib.me/{username})", { d: s.shareDomain, u: s.searchUrl })
   expect(s.cardText === "SSstorelib.com/satori/links" || /Satori Studio/.test(s.cardText || ""), "the share picture draws the name", s.cardText)
   expect(s.titleFollows === true, "the title box says it follows the page")
   await p.screenshot({ path: join(shots, `seo-${label}-start.png`), fullPage: false })

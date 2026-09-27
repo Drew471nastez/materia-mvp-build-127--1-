@@ -295,6 +295,7 @@ const SUITES = [
   "tests/onepage-editor-shell.test.ts",
   "tests/onepage-leave.test.ts",
   "tests/onepage-open.test.ts",
+  "tests/onepage-arrival.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",

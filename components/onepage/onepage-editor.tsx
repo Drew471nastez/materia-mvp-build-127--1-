@@ -1665,7 +1665,7 @@ function EditorLayout() {
 
         THE WORD KEEPS ITS DESCENDERS. It was `leading-none` inside
         `truncate`, a 1em box that clips whatever it overflows: the tails of
-        the g in Design and Settings were cut off. The line is 1.4em now,
+        the g in Design and Settings were cut off. The line is 1.3em now,
         which holds Inter's whole height, and the word still ends in an
         ellipsis rather than spill out of a narrow button
         (scripts/check-onepage-tabbar.mjs measures both).
@@ -1698,7 +1698,7 @@ function EditorLayout() {
                   <TabFace on={on} onClass="text-white" offClass="text-[#4b5563]" className="w-full grid-cols-[minmax(0,1fr)]">
                     <span className="flex min-w-0 max-w-full flex-col items-center gap-[5px]">
                       <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} />
-                      <span className="block max-w-full truncate text-center leading-[1.4]" data-tab-word="">{tab.label}</span>
+                      <span className="block max-w-full truncate text-center leading-[1.3]" data-tab-word="">{tab.label}</span>
                     </span>
                   </TabFace>
                 </button>

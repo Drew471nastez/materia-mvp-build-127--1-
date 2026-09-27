@@ -239,9 +239,13 @@ if (wants("tabs")) for (const [label, vp, phone, throttle] of [["phone-390", PHO
   report[`tabs-${label}`] = rows
   const back = rows[rows.length - 1]
   expect(rows.every((r) => r.blank === 0), "no frame shows an empty panel", rows.map((r) => r.blank))
-  /* On a computer Settings is its own button: the row's pill fades out for it and back in after it. */
-  const slid = phone ? rows : rows.filter((r) => r.to === "design" || r.to === "products")
-  expect(slid.every((r) => r.sliding && r.pillSteps >= 2), "the active pill slides (an animation on it, seen at more than one place)", rows.map((r) => [r.sliding, r.pillSteps]))
+  /* On a computer Settings is its own button: the row's pill fades out for it and back in after it. On a phone
+     nothing travels: "no slide-in slide effect", the chosen button takes its fill in place (scripts/check-onepage-tabbar.mjs). */
+  if (phone) expect(rows.every((r) => !r.sliding && r.pillSteps === 0), "on a phone no pill slides: the chosen button changes in place", rows.map((r) => [r.sliding, r.pillSteps]))
+  else {
+    const slid = rows.filter((r) => r.to === "design" || r.to === "products")
+    expect(slid.every((r) => r.sliding && r.pillSteps >= 2), "the computer row's pill slides (an animation on it, seen at more than one place)", rows.map((r) => [r.sliding, r.pillSteps]))
+  }
   expect(back.scroll === linksScroll, "Links comes back where it was scrolled to", { left: linksScroll, back: back.scroll })
   /* A phone at a quarter speed pays for showing the tab in one or two frames; a computer in none, one on a busy machine. */
   expect(rows.every((r) => r.long <= (phone ? 3 : 1)), "at most three long frames per switch on a slowed phone, one on a computer", rows.map((r) => r.long))
