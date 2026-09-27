@@ -201,6 +201,15 @@ const ARM = () => {
   const base = watched.map(offsets)
   const pro = cards.find((c) => c.dataset.planCard === "growth")
   const priceItems = [...pro.querySelector("[data-plan-header] p").querySelectorAll("[data-morph]")]
+  /* Free reads the same either way: every element in its card, and any change to its DOM at all. */
+  const free = cards.find((c) => c.dataset.planCard === "free")
+  const freeEls = [free, ...free.querySelectorAll("*")]
+  const look = (el) => { const cs = getComputedStyle(el); return `${cs.opacity}|${cs.transform}|${cs.translate}|${cs.color}` }
+  const freeBase = freeEls.map(look)
+  const freeChanged = new Set()
+  let freeMutations = 0
+  const mo = new MutationObserver((list) => { freeMutations += list.length })
+  mo.observe(free, { subtree: true, childList: true, attributes: true, characterData: true })
   const frames = []
   const moved = new Set()
   let last = performance.now()
@@ -213,6 +222,7 @@ const ARM = () => {
     f.thumb = { transform: cs.transform, translate: cs.translate, left: Math.round(thumb.getBoundingClientRect().left * 100) / 100 }
     f.opacity = priceItems.map((el) => ({ text: el.textContent.trim(), on: el.dataset.morph === "on", o: Number(getComputedStyle(el).opacity) }))
     watched.forEach((el, i) => { if (offsets(el) !== base[i]) moved.add(el) })
+    freeEls.forEach((el, i) => { if (look(el) !== freeBase[i]) freeChanged.add(el) })
     const now2 = [...document.querySelectorAll("img[data-plan-picture]")]
     f.imgSame = now2.length === imgs.length && now2.every((n, i) => n === imgs[i] && n.currentSrc === srcs[i] && n.complete)
     frames.push(f)
@@ -221,7 +231,8 @@ const ARM = () => {
   requestAnimationFrame(tick)
   window.__probe = {
     frames,
-    stop: () => { stop = true },
+    stop: () => { stop = true; mo.disconnect() },
+    free: () => ({ morphs: free.querySelectorAll("[data-morph]").length, changed: [...freeChanged].map((el) => `${el.tagName.toLowerCase()} "${(el.textContent || "").trim().slice(0, 24)}"`), mutations: freeMutations }),
     moved: () => [...moved].map((el) => `${el.tagName.toLowerCase()}${el.dataset.morph ? `[data-morph=${el.dataset.morph}]` : ""} "${(el.textContent || "").trim().slice(0, 24)}"`),
     thumbTarget: () => {
       const on = group.querySelector('[aria-checked="true"]').getBoundingClientRect()
@@ -235,6 +246,8 @@ const ARM = () => {
 const INK = () => {
   const out = []
   for (const item of document.querySelectorAll("[data-plan-header] p [data-morph]")) {
+    /* An empty version (monthly's side of ", billed yearly") has no glyphs to cut. */
+    if (!item.textContent.trim()) continue
     const cs = getComputedStyle(item)
     const ctx = document.createElement("canvas").getContext("2d")
     ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
@@ -427,13 +440,16 @@ async function toggles(page, W, label) {
     if (phone) await page.tap(sel)
     else await page.click(sel)
     await new Promise((r) => setTimeout(r, 650))
-    const r = await page.evaluate(() => { window.__probe.stop(); return { frames: window.__probe.frames, moved: window.__probe.moved(), thumb: window.__probe.thumbTarget() } })
+    const r = await page.evaluate(() => { window.__probe.stop(); return { frames: window.__probe.frames, moved: window.__probe.moved(), thumb: window.__probe.thumbTarget(), free: window.__probe.free() } })
     r.moved.forEach((m) => movedAll.add(m))
     const f = r.frames
     const sizes = new Set(f.map((x) => JSON.stringify(x.cards)))
     /* The price: the shown one's opacity, the hidden one's, and when both are partly there. */
     const curve = f.map((x) => x.opacity.map((o) => Math.round(o.o * 100) / 100))
     const both = Math.max(...f.map((x) => Math.min(...x.opacity.map((o) => o.o))))
+    /* A blank frame is one where the old and the new price together come to much less than one price. */
+    const leastSum = Math.min(...f.map((x) => x.opacity.reduce((a, o) => a + o.o, 0)))
+    const leastMax = Math.min(...f.map((x) => Math.max(...x.opacity.map((o) => o.o))))
     const settleAt = (() => {
       /* From the first frame that shows the press (the tap's own round trip is not the switch) to the first frame of the final state. */
       const key = (x) => JSON.stringify(x.opacity.map((o) => o.o)) + x.thumb.transform + x.thumb.translate
@@ -456,6 +472,9 @@ async function toggles(page, W, label) {
       imgSame: f.every((x) => x.imgSame),
       longestFrame: Math.round(Math.max(...f.slice(1).map((x) => x.dt))),
       both: Math.round(both * 100) / 100,
+      leastSum: Math.round(leastSum * 100) / 100,
+      leastMax: Math.round(leastMax * 100) / 100,
+      free: r.free,
       settleMs: settleAt,
       curve: curve.filter((c, i) => i === 0 || JSON.stringify(c) !== JSON.stringify(curve[i - 1])).slice(0, 40),
     })
@@ -465,7 +484,8 @@ async function toggles(page, W, label) {
   const ink = await page.evaluate(INK)
   console.log(`\n${label}: Monthly and Yearly pressed ${presses.length} times${phone ? " (CPU slowed 4x)" : ""}`)
   for (const p of per) {
-    console.log(`    to ${p.option.padEnd(7)} ${p.frames} frames, card sizes seen ${p.sizes}, thumb states ${p.thumbs}, settled after ${p.settleMs}ms, longest frame ${p.longestFrame}ms, old and new price both above ${p.both}`)
+    console.log(`    to ${p.option.padEnd(7)} ${p.frames} frames, card sizes seen ${p.sizes}, thumb states ${p.thumbs}, settled after ${p.settleMs}ms, longest frame ${p.longestFrame}ms, old and new price both above ${p.both}, together never under ${p.leastSum}, the brighter never under ${p.leastMax}`)
+    console.log(`      Free: ${p.free.morphs} animated lines, ${p.free.changed.length} elements changed opacity/translate/colour, ${p.free.mutations} DOM changes`)
     console.log(`      price opacity per frame [${p.curve.map((c) => c.join("/")).join("  ")}]`)
     console.log(`      thumb ends ${p.thumbFinal}, off the pressed option by ${p.thumbOnTarget.dl}/${p.thumbOnTarget.dr}px`)
   }
@@ -475,7 +495,9 @@ async function toggles(page, W, label) {
   expect(per.every((p) => /matrix|none/.test(p.thumbFinal) && !/none \| none/.test(p.thumbFinal) || p.option === "monthly"), "the thumb moves on transform", per.map((p) => p.thumbFinal))
   expect(per.every((p) => Math.abs(p.thumbOnTarget.dl) <= 0.5 && Math.abs(p.thumbOnTarget.dr) <= 0.5), "the thumb lands exactly on the option pressed", per.map((p) => p.thumbOnTarget))
   expect(per.every((p) => p.settleMs !== null && p.settleMs <= 300), "everything has settled within 300ms of the press showing", per.map((p) => p.settleMs))
-  expect(per.every((p) => p.both <= 0.35), "the old and the new price are never both clearly on screen", per.map((p) => p.both))
+  expect(per.every((p) => p.leastSum >= 0.9 && p.leastMax >= 0.5), "no blank frame: the old and the new price always add up to a whole price", per.map((p) => [p.leastSum, p.leastMax]))
+  expect(per.every((p) => p.both <= 0.55), "and never two whole prices: at worst both at half", per.map((p) => p.both))
+  expect(per.every((p) => p.free.morphs === 0 && p.free.changed.length === 0 && p.free.mutations === 0), "Free holds completely still: no animated line, no change of opacity, position or colour, no DOM change", per.map((p) => p.free))
   const inkOut = Math.max(...ink.map((i) => Math.max(i.above, i.below)))
   expect(inkOut === 0, `the price's glyphs stay inside the box that fades (worst ${inkOut}px outside)`, ink)
   return { per, asks, moved: [...movedAll], ink }
@@ -487,6 +509,20 @@ try {
     for (const W of [390, 1280]) {
       const page = await open(surface, W)
       results[`${surface}-${W}`] = { toggle: await toggles(page, W, `${surface}, at ${W}px`) }
+      /* The switch slowed twenty times and photographed part way, so a person can look at the in-between frames. */
+      if (SHOTS && surface === "upgrade") {
+        mkdirSync(SHOTS, { recursive: true })
+        const cdp = await page.createCDPSession()
+        await cdp.send("Animation.enable")
+        await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.05 })
+        const clip = await page.evaluate(() => { const r = document.querySelector("[data-plan-cards]").getBoundingClientRect(); const s = document.querySelector("[data-billing-interval]").getBoundingClientRect(); return { x: Math.max(0, r.x - 8), y: Math.max(0, s.y - 8), width: r.width + 16, height: Math.min(r.bottom, s.y + 360) - s.y + 16 } })
+        await page.click('[data-interval-option="yearly"]')
+        for (const ms of [40, 80, 130, 200, 300]) {
+          await new Promise((r) => setTimeout(r, (ms - (ms === 40 ? 0 : [40, 80, 130, 200, 300][[40, 80, 130, 200, 300].indexOf(ms) - 1])) * 20))
+          await page.screenshot({ path: join(SHOTS, `billing-switch-${W}-${String(ms).padStart(3, "0")}ms.png`), clip })
+        }
+        await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+      }
       if (SHOTS && surface === "settings") {
         mkdirSync(SHOTS, { recursive: true })
         await page.evaluate(() => document.querySelector("[data-probe-scroller]").scrollTo(0, 0))

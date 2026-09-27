@@ -242,7 +242,7 @@ function main() {
   check("no backdrop blur over the pictures", !/backdrop-blur/.test(cards))
   /* Grain in overlay all but vanished over the dark pictures, and a blended layer is one a phone composites against the picture under every animation. */
   check("a film grain over each picture, drawn as a tile, not fetched, and not blended", /data-plan-grain/.test(cards) && /feTurbulence/.test(cards) && /backgroundImage: PLAN_GRAIN/.test(cards) && !/mix-blend/.test(cards))
-  check("monthly and yearly are both laid out, so switching never resizes a card", /<Morph value=\{interval\} items=\{\{ monthly: monthly\.price, yearly: yearly\.price \}\} \/>/.test(cards) && !/key=\{priced\.price\}/.test(cards))
+  check("monthly and yearly are both laid out, so switching never resizes a card", /<TextSwap value=\{interval\} items=\{\{ monthly: monthly\.price, yearly: yearly\.price \}\} \/>/.test(cards) && !/key=\{priced\.price\}/.test(cards))
   check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{sizes\}/.test(cards) && /sizes=\{inSection \? PLAN_PICTURE_SIZES_FILL : PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 360px, calc\(100vw - 32px\)"/.test(cards))
   check("both pictures are on the host next.config lets the optimizer fetch", (cards.match(/skgtqglupjcnfhfscink\.supabase\.co/g) ?? []).length === 1 && /hostname: 'skgtqglupjcnfhfscink\.supabase\.co'/.test(readSource("next.config.mjs")))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
@@ -294,7 +294,7 @@ function main() {
   console.log("\nThe new copy reads like Storelib")
 
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
-  for (const file of ["lib/billing/plans.ts", "components/billing/plan-cards.tsx", "components/marketing/pricing-section.tsx"]) {
+  for (const file of ["lib/billing/plans.ts", "components/billing/plan-cards.tsx", "components/marketing/pricing-section.tsx", "components/ui/text-swap.tsx"]) {
     /* The words are about copy. `transform` is also the CSS property the switch moves on, which is not copy. */
     const src = readSource(file).replace(/\btransform(?=\s*:|-none|\s+\$\{)/g, "")
     check(`${file}: no banned words`, !banned.test(src), src.match(banned)?.[0])
@@ -326,14 +326,32 @@ function main() {
     /* The switch: nothing is remounted, nothing is laid out again, and only position and opacity move. */
     check("nothing in the cards is keyed to the interval, so the switch remounts nothing", !/key=\{(interval|value|`\$\{interval)/.test(cards))
     check("a button that differs by interval is two buttons in one cell, each kept for good, not a link swapped for a button",
-      /monthlyAction === yearlyAction \?/.test(cards) && /<Morph\s+fill\s+value=\{interval\}/.test(cards))
+      /monthlyAction === yearlyAction \?/.test(cards) && /<TextSwap\s+fill\s+lift="[^"]+"\s+value=\{interval\}/.test(cards))
     check("the thumb slides by its own width on a transform, one column wide by construction",
       /transform: `translate3d\(\$\{yearly \? "100%" : "0"\}, 0, 0\)`/.test(cards) && /grid-cols-2/.test(cards) && !/transition-\[(left|width|translate)\]/.test(cards))
-    check("the changing lines crossfade and drift on opacity and a transform, in 240ms",
-      /const SWITCH_MS = 240/.test(cards) && /opacity 150ms linear 70ms, transform \$\{SWITCH_MS\}ms/.test(cards) && /opacity 90ms linear, transform \$\{SWITCH_MS\}ms/.test(cards))
-    check("the words in the pill change colour at once, only the thumb moves", !/transition-colors/.test(cards.slice(cards.indexOf("function IntervalSwitch"))))
-    check("with reduced motion the lines and the thumb do not animate",
-      /motion-reduce:!transition-none motion-reduce:!transform-none/.test(cards) && /data-interval-thumb=""[\s\S]{0,400}motion-reduce:!transition-none/.test(cards))
+    /*
+      "When switching monthly/yearly it should animate the text change smoothly. It should NOT try to change
+      the Free plan price since it doesn't change, only Pro changes." One shared swap (components/ui/text-swap):
+      a line that reads the same either way is plain text, the part two versions share holds still, and the
+      rest crossfades, old and new on the same curve so they always add up to one line, with a short roll.
+    */
+    const swap = readCode("components/ui/text-swap.tsx")
+    check("every changing line on a card goes through the shared TextSwap, and plan-cards has no swap of its own",
+      /import \{ SWAP_EASE, SWAP_MS, TextSwap \} from "@\/components\/ui\/text-swap"/.test(cards) && !/function Morph\b/.test(cards) && (cards.match(/<TextSwap\b/g) ?? []).length === 4)
+    check("a line that is the same either way (Free) is drawn as plain text, with nothing to fade or move",
+      /keys\.every\(\(k\) => items\[k\] === first\)\) return <>\{first\}<\/>/.test(swap))
+    check("only the part that changes swaps: a shared start stays as plain text, never split inside a word",
+      /prefix = texts\[0\]\.slice\(0, n\)/.test(swap) && /\\p\{L\}/.test(swap) && /return prefix \? <>\{prefix\}\{swap\}<\/> : swap/.test(swap))
+    check("old and new fade on the same curve and time (a true crossfade, no blank frame) and roll on translate",
+      /export const SWAP_MS = 260/.test(swap) && /export const SWAP_FADE_MS = 200/.test(swap)
+        && /transition: `opacity \$\{SWAP_FADE_MS\}ms \$\{FADE_EASE\}, translate \$\{SWAP_MS\}ms \$\{SWAP_EASE\}`/.test(swap)
+        && !/opacity \d+ms linear \d+ms/.test(swap))
+    check("the pill's thumb moves on the same time and curve as the lines", /const SWITCH_MS = SWAP_MS/.test(cards) && /const SWITCH_EASE = SWAP_EASE/.test(cards))
+    check("the words in the pill ease their colour with the thumb, not at once",
+      /style=\{\{ transition: `color \$\{SWITCH_MS\}ms \$\{SWITCH_EASE\}` \}\}/.test(cards.slice(cards.indexOf("function IntervalSwitch"))))
+    check("with reduced motion the lines, the words and the thumb do not animate",
+      /motion-reduce:!transition-none motion-reduce:!translate-none/.test(swap) && /data-interval-thumb=""[\s\S]{0,400}motion-reduce:!transition-none/.test(cards)
+        && /z-\[1\] inline-flex cursor-pointer motion-reduce:!transition-none/.test(cards))
 
     /* One source for the art. */
     check("the pictures, their dimming and their grain are written in one place, PLAN_ART",

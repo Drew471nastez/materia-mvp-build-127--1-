@@ -229,7 +229,7 @@ const MEASURE = () => {
         spill,
       }
     }),
-    /* The buttons on screen: where monthly and yearly differ both are drawn in one cell (plan-cards Morph) and only one is shown. */
+    /* The buttons on screen: where monthly and yearly differ both are drawn in one cell (components/ui/text-swap) and only one is shown. */
     buttons: [...document.querySelectorAll("[data-plan-action]")].filter((el) => !el.closest('[data-morph="off"]')).map((el) => ({
       text: el.textContent.trim(), h: Math.round(box(el).height), w: Math.round(box(el).width),
       caps: getComputedStyle(el).textTransform === "uppercase", arrow: !!el.querySelector("svg"),
@@ -384,7 +384,7 @@ try {
         const pill = document.querySelector("[data-billing-interval]")
         const pro = document.querySelector('[data-plan-card="growth"]')
         const button = [...(pro?.querySelectorAll("[data-plan-action]") ?? [])].find((el) => !el.closest('[data-morph="off"]'))
-        /* What is on screen: both intervals' lines are laid out in the same place (plan-cards Morph), and only the one in force is shown. */
+        /* What is on screen: both intervals' lines are laid out in the same place (components/ui/text-swap), and only the one in force is shown. */
         const shown = (el) => {
           if (!el) return ""
           const copy = el.cloneNode(true)

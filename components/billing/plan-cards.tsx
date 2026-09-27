@@ -33,6 +33,7 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Check, Loader2, X } from "lucide-react"
+import { SWAP_EASE, SWAP_MS, TextSwap } from "@/components/ui/text-swap"
 import { OFFERED_PLANS, YEARLY_BILLING_LIVE, YEARLY_SAVING_PERCENT, pricedFor, type BillingInterval, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
 
 export interface PlanCardAction {
@@ -139,74 +140,16 @@ export const PLAN_PICTURE_SIZES = "(min-width: 768px) 360px, calc(100vw - 32px)"
 export const PLAN_PICTURE_SIZES_FILL = "(min-width: 768px) 420px, calc(100vw - 32px)"
 
 /**
- * THE SWITCH'S TIMING, shared by the pill's thumb and every line that
- * changes, so they move as one: 240ms on a curve that starts quickly and
- * settles softly, on position and opacity only, both done by the compositor.
- */
-const SWITCH_MS = 240
-const SWITCH_EASE = "cubic-bezier(0.2, 0, 0, 1)"
-
-/**
  * MONTHLY AND YEARLY ARE BOTH ALREADY THERE. Every line that differs between
- * the two (the price, the words under it, the small print, the button) is
- * drawn twice in the same grid cell and only the one that applies is shown,
- * so the card never changes size and nothing is mounted when the pill moves.
- *
- * The one going fades out in 90ms; the one coming waits 70ms and fades in
- * over 150ms, so the two are never both clearly on screen (at worst both at
- * 8%). Both drift a fifth of a line as they go, the old one
- * away and the new one into place. Each line keeps a little room above and
- * below its letters (padding, taken back by a negative margin) so the box a
- * phone composites while it fades never cuts through a glyph.
- *
- * With reduced motion the lines swap in one frame and do not move.
+ * the two (Pro's price, the words under it, the small print, the button) is
+ * drawn by TextSwap (components/ui/text-swap): both versions laid out in one
+ * cell, so the card never changes size and nothing is mounted when the pill
+ * moves, and a smooth crossfade with a short roll between them. A line that
+ * is the same either way (everything on Free) is plain text and never moves.
+ * The pill's thumb slides on the same time and curve, so they move as one.
  */
-function Morph<K extends string>({
-  value,
-  items,
-  align = "start",
-  fill = false,
-  className = "",
-}: {
-  value: K
-  items: Record<K, React.ReactNode>
-  align?: "start" | "center"
-  /** As wide as its container, for the button. */
-  fill?: boolean
-  className?: string
-}) {
-  const keys = Object.keys(items) as K[]
-  const at = keys.indexOf(value)
-  return (
-    <span
-      data-morph-group=""
-      className={`${fill ? "grid w-full justify-items-stretch" : `inline-grid ${align === "center" ? "justify-items-center" : "justify-items-start"}`} ${className}`}
-    >
-      {keys.map((key, i) => {
-        const on = key === value
-        return (
-          <span
-            key={key}
-            aria-hidden={on ? undefined : true}
-            inert={on ? undefined : true}
-            data-morph={on ? "on" : "off"}
-            className={`[grid-area:1/1] ${fill ? "" : "-my-[0.12em] py-[0.12em]"} motion-reduce:!transition-none motion-reduce:!transform-none`}
-            style={{
-              opacity: on ? 1 : 0,
-              transform: `translate3d(0, ${on ? "0" : i < at ? "-0.2em" : "0.2em"}, 0)`,
-              transition: on
-                ? `opacity 150ms linear 70ms, transform ${SWITCH_MS}ms ${SWITCH_EASE}`
-                : `opacity 90ms linear, transform ${SWITCH_MS}ms ${SWITCH_EASE}`,
-              pointerEvents: on ? undefined : "none",
-            }}
-          >
-            {items[key]}
-          </span>
-        )
-      })}
-    </span>
-  )
-}
+const SWITCH_MS = SWAP_MS
+const SWITCH_EASE = SWAP_EASE
 
 function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean }) {
   const look = PLAN_ART[plan]
@@ -323,10 +266,10 @@ function PlanCard({
           data-plan-price=""
           className={`mt-1.5 ${compact ? "text-[38px]" : "text-[44px] sm:text-[48px]"} font-extrabold leading-none tracking-[-0.035em] tabular-nums`}
         >
-          <Morph value={interval} items={{ monthly: monthly.price, yearly: yearly.price }} />
+          <TextSwap value={interval} items={{ monthly: monthly.price, yearly: yearly.price }} />
         </p>
         <p className="mt-1.5 text-[13px] font-medium leading-[18px] text-white/85">
-          <Morph value={interval} items={{ monthly: monthly.priceNote, yearly: yearly.priceNote }} />
+          <TextSwap value={interval} items={{ monthly: monthly.priceNote, yearly: yearly.priceNote }} />
         </p>
         <p className={`mt-auto ${compact ? "pt-3" : "pt-4"} ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-white/90`}>{plan.summary}</p>
       </div>
@@ -366,8 +309,9 @@ function PlanCard({
           {monthlyAction === yearlyAction ? (
             <PlanButton action={monthlyAction} plan={plan.id} compact={compact} />
           ) : (
-            <Morph
+            <TextSwap
               fill
+              lift="0.25em"
               value={interval}
               items={{
                 monthly: <PlanButton action={monthlyAction} plan={plan.id} compact={compact} />,
@@ -376,7 +320,7 @@ function PlanCard({
             />
           )}
           <p className="mt-2.5 text-center text-[12px] leading-[16px] text-[#6b7280]">
-            <Morph align="center" value={interval} items={{ monthly: monthly.note, yearly: yearly.note }} />
+            <TextSwap align="center" value={interval} items={{ monthly: monthly.note, yearly: yearly.note }} />
           </p>
         </div>
       </div>
@@ -460,8 +404,9 @@ export function PlanCards({
  * The two options share one grid of two equal columns, so the thumb is
  * exactly one column wide by construction and moving it is a shift by
  * its own width (100%): nothing to measure, nothing laid out again, and the
- * words never move. The words change colour at once; only the thumb slides,
- * on the same 240ms curve the prices use.
+ * words never move. The thumb slides on the same time and curve the prices
+ * use, and the words ease from grey to ink over that same time, so the
+ * colour arrives with the thumb instead of before it.
  *
  * `small` is the pill for a section heading's row: 32px tall with 13px words,
  * each option still a 44px press (its ::after reaches past the pill above
@@ -498,7 +443,8 @@ function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingI
             aria-checked={on}
             data-interval-option={option}
             onClick={() => onChange(option)}
-            className={`relative z-[1] inline-flex cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-full text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] ${
+            style={{ transition: `color ${SWITCH_MS}ms ${SWITCH_EASE}` }}
+            className={`relative z-[1] inline-flex cursor-pointer motion-reduce:!transition-none select-none items-center justify-center whitespace-nowrap rounded-full text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] ${
               small
                 ? "h-[26px] gap-1.5 px-3 after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"
                 : "h-9 gap-1.5 px-4 sm:px-5"
