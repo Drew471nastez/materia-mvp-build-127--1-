@@ -16,7 +16,7 @@ import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
-import { readSwitchArrival, SWITCH_COOKIE, SWITCH_SPIN_SCRIPT } from "@/lib/businesses/switch-screen"
+import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 
 /**
@@ -53,13 +53,15 @@ export default async function AppLayout({
     any script, and that screen hands over to the page once it is ready to
     draw (components/app/business-switch-screen). Outside the session gate,
     so the app's own gate waits under it too. The script sets the screen's
-    spinner to the turn the page before had it at.
+    spinner to the turn the page before had it at, and gives the screen a
+    limit of its own for a phone whose script never loads (lib/businesses/
+    switch-screen SWITCH_ARRIVAL_SCRIPT): the screen always ends.
   */
   /* The name and photo the menu showed: the screen's bar draws the business with them (components/app/shell-header-still). */
   const switchingTo = readSwitchArrival((await cookies()).get(SWITCH_COOKIE)?.value)
   const arrival = switchingTo ? (
     <>
-      <script dangerouslySetInnerHTML={{ __html: SWITCH_SPIN_SCRIPT }} />
+      <script dangerouslySetInnerHTML={{ __html: SWITCH_ARRIVAL_SCRIPT }} />
       <BusinessSwitchArrival name={switchingTo.name} photo={switchingTo.photo} />
     </>
   ) : null

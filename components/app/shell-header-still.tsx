@@ -49,8 +49,9 @@ function StillAvatar({ name, photo, size, className }: { name: string; photo: st
       style={{ width: size, height: size }}
     >
       {source ? (
+        /* decoding="sync": drawn in the same frame as the bar or not at all, never the bare circle for a frame and then the photo. It is preloaded (the menu's list, and the arrival's own <head> preload). */
         // eslint-disable-next-line @next/next/no-img-element
-        <img {...source} alt="" width={size} height={size} decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+        <img {...source} alt="" width={size} height={size} decoding="sync" fetchPriority="high" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <span aria-hidden="true" className="font-medium leading-none" style={{ fontSize: Math.max(9, Math.round(size * 0.38)) }}>
           {initialsOf(name)}

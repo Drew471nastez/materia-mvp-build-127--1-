@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { ShellHeaderStill } from "@/components/app/shell-header-still"
+import { ShellHeaderStill, STILL_AVATAR } from "@/components/app/shell-header-still"
+import { avatarSource } from "@/components/app/app-avatar"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { AppTopCorners } from "@/components/app/app-top-corners"
 import { playEntrance } from "@/components/app/app-stage"
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils"
 import {
   ARRIVAL_BUSY_MIN_AREA,
   ARRIVAL_CAP_MS,
+  ARRIVAL_HARD_CAP_MS,
   ARRIVAL_SETTLE_CAP_MS,
   clearSwitchCookie,
   handoverAt,
@@ -162,6 +164,12 @@ function Lines({ lineKey, text }: { lineKey: string; text: string }) {
 
 /* ── The screen ─────────────────────────────────────────────────────────── */
 
+/** Try again comes in on the line's own fade, a little after it. */
+function fadeIn(el: HTMLElement | null) {
+  if (!el || reducedMotion() || typeof el.animate !== "function") return
+  el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: LINE_FADE_MS, delay: LINE_FADE_MS * 0.4, easing: NAV_ENTER_EASE, fill: "backwards" })
+}
+
 /**
  * `spin`: the spinner's turn (lib/businesses/switch-screen spinDelay), set on
  * the screen itself on the page you were on. The new document's HTML sets it
@@ -220,7 +228,7 @@ function SwitchSurface({ children, header }: { children?: ReactNode; header?: Re
         {/* The business you are going to, drawn where the real header puts it: the bar is never an empty band. */}
         {header}
       </div>
-      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-white md:top-[calc(58px+env(safe-area-inset-top,0px))]">
+      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-[#f8f9fa] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-white">
         {children}
       </div>
     </div>
@@ -236,6 +244,7 @@ function Screen({
   screenRef,
   surface = "app",
   leaving = false,
+  problem = null,
 }: {
   step: SwitchStep
   name: string
@@ -247,8 +256,10 @@ function Screen({
   surface?: ScreenSurface
   /** The page under it is taking over: the spinner and the line fade out, the surface stays. */
   leaving?: boolean
+  /** The new page never came: one line saying so in place of the step, and Try again under it. */
+  problem?: { text: string; onRetry: () => void } | null
 }) {
-  const text = switchLine(step, name, { ready })
+  const text = problem ? problem.text : switchLine(step, name, { ready })
   /* The spinner exactly where PageSpinner puts it (40% down), the line under it without moving it. */
   const middle = (
     <div
@@ -261,10 +272,22 @@ function Screen({
     >
       <div className="relative row-start-2">
         {/* The line before the spinner in the markup (it is placed under it all the same): a document painted before it is fully read shows the words first. */}
-        <div className="absolute left-1/2 top-full ml-[-150px] mt-4 w-[300px]">
-          <Lines lineKey={step} text={text} />
+        <div className="absolute left-1/2 top-full ml-[-150px] mt-4 flex w-[300px] flex-col items-center">
+          <Lines lineKey={problem ? "problem" : step} text={text} />
+          {problem && (
+            <button
+              type="button"
+              ref={fadeIn}
+              onClick={problem.onRetry}
+              data-switch-retry=""
+              className="mt-4 h-10 rounded-full bg-[#1a1a2e] px-5 text-[14px] font-semibold text-white [-webkit-tap-highlight-color:transparent] active:opacity-80"
+            >
+              Try again
+            </button>
+          )}
         </div>
-        <span aria-hidden className="block">
+        {/* Nothing is on its way while it says it did not open: the spinner goes, on opacity, and keeps its room so nothing moves. */}
+        <span aria-hidden className={cn("block transition-opacity duration-200", problem && "opacity-0")}>
           <ActivitySpinner label="" />
         </span>
       </div>
@@ -278,7 +301,7 @@ function Screen({
       data-step={step}
       role="status"
       aria-live="polite"
-      aria-busy={!leaving}
+      aria-busy={!leaving && !problem}
       className="fixed inset-0 z-[500] touch-none select-none"
       style={spin ? ({ "--switch-spin-delay": spin } as React.CSSProperties) : undefined}
     >
@@ -339,6 +362,12 @@ export type SwitchingHandle = {
   opening: () => void
   /** The switch did not happen: the screen goes, over the business you are still in. */
   fail: () => void
+  /**
+   * The browser holds the new business but its page never came. The screen
+   * stays (the page under it is the business before, no longer yours to use
+   * as it was), says so in one line, and `retry` asks for the page again.
+   */
+  stall: (retry: () => void) => void
 }
 
 /**
@@ -365,6 +394,7 @@ export function SwitchingScreen({
   const creating = mode === "create"
   const { step, go, shown } = useSteps(creating ? "creating" : "asking")
   const ref = useRef<HTMLDivElement>(null)
+  const [problem, setProblem] = useState<{ text: string; onRetry: () => void } | null>(null)
   /* Its spinner's turn, from the wall clock, as the new document's will be. */
   const [spin] = useState(() => spinDelay(Date.now(), reducedMotion()))
 
@@ -381,7 +411,11 @@ export function SwitchingScreen({
 
   useEffect(() => {
     handleRef.current = {
-      opening: () => go(creating ? "starting" : "opening", { atOnce: true }),
+      opening: () => {
+        setProblem(null)
+        go(creating ? "starting" : "opening", { atOnce: true })
+      },
+      stall: (retry) => setProblem({ text: creating ? "Your new business did not open" : `${name} did not open`, onRetry: retry }),
       fail: () => {
         const el = ref.current
         if (!el || reducedMotion() || typeof el.animate !== "function") { onGone(); return }
@@ -394,10 +428,10 @@ export function SwitchingScreen({
       },
     }
     return () => { handleRef.current = null }
-  }, [creating, go, handleRef, onGone])
+  }, [creating, go, handleRef, name, onGone])
 
   /* Only ever drawn after a press, so there is a document to put it in. */
-  return createPortal(<Screen step={step} name={name} photo={photo} ready={ready} spin={spin} screenRef={ref} surface={creating ? "plain" : "app"} />, document.body)
+  return createPortal(<Screen step={step} name={name} photo={photo} ready={ready} spin={spin} screenRef={ref} surface={creating ? "plain" : "app"} problem={problem} />, document.body)
 }
 
 /* ── On the new /app ────────────────────────────────────────────────────── */
@@ -436,27 +470,47 @@ function onFirstScreen(el: Element) {
  *   while its first figures come): answered.
  *
  * The last three share ARRIVAL_SETTLE_CAP_MS: a slow picture never keeps
- * anybody on the screen. The whole thing gives up at ARRIVAL_CAP_MS.
+ * anybody on the screen. The shell gets ARRIVAL_CAP_MS.
+ *
+ * NEVER HANDED OVER TO THE COLD START. If the shell is not there by then
+ * because the app's session gate is still at work (components/native-auth-
+ * gate, finding the session on the device), handing over would put the
+ * cold start's frame on the glass: the bar with nothing in it and a grey
+ * panel, then the page. So the screen stays until the gate has ended, one
+ * way or the other (the page, its own "Cannot reach the server" with Try
+ * again, or a page load of its own), which the gate itself bounds at ten
+ * seconds. `by` (from ARRIVAL_HARD_CAP_MS) bounds the whole wait all the
+ * same.
  */
-async function whenAppReady(screen: HTMLElement): Promise<void> {
+async function whenAppReady(screen: HTMLElement, by: number): Promise<void> {
   const start = performance.now()
   const outside = (el: Element) => !screen.contains(el)
-  await until(() => {
-    const scroll = document.querySelector(".app-content-scroll")
-    if (!scroll?.firstElementChild) return false
-    return !Array.from(document.querySelectorAll("[data-app-cold-start]")).some(outside)
-  }, start + ARRIVAL_CAP_MS)
-  const by = performance.now() + ARRIVAL_SETTLE_CAP_MS
-  await within((document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready, by)
+  const coldStart = () => Array.from(document.querySelectorAll("[data-app-cold-start]")).some(outside)
+  const shell = () => !!document.querySelector(".app-content-scroll")?.firstElementChild && !coldStart()
+  await until(shell, Math.min(by, start + ARRIVAL_CAP_MS))
+  if (!shell() && coldStart()) await until(() => !coldStart(), by)
+  const settleBy = Math.min(by, performance.now() + ARRIVAL_SETTLE_CAP_MS)
+  await within((document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready, settleBy)
   const pictures = Array.from(document.images).filter((img) => outside(img) && onFirstScreen(img))
-  await within(Promise.all(pictures.map((img) => (typeof img.decode === "function" ? img.decode().catch(() => undefined) : undefined))), by)
+  await within(Promise.all(pictures.map((img) => (typeof img.decode === "function" ? img.decode().catch(() => undefined) : undefined))), settleBy)
   await until(() => !Array.from(document.querySelectorAll('[aria-busy="true"]')).some((el) => {
     if (!outside(el) || !onFirstScreen(el)) return false
     const r = el.getBoundingClientRect()
     return r.width * r.height >= ARRIVAL_BUSY_MIN_AREA
-  }), by)
+  }), settleBy)
   /* One frame for whatever that last answer drew. */
   await frame()
+}
+
+/**
+ * The script takes over from the HTML's own limit (lib/businesses/switch-
+ * screen SWITCH_ARRIVAL_SCRIPT): the screen is this component's to end now,
+ * and the timer that would have taken it away without React is stopped.
+ */
+function takeOverFromHtml() {
+  const w = window as Window & { __slSwitchOwned?: boolean; __slSwitchGiveUp?: number }
+  w.__slSwitchOwned = true
+  if (w.__slSwitchGiveUp) window.clearTimeout(w.__slSwitchGiveUp)
 }
 
 /**
@@ -464,46 +518,105 @@ async function whenAppReady(screen: HTMLElement): Promise<void> {
  * switch left (lib/businesses/switch-screen SWITCH_COOKIE). It opens on the
  * line the page before ended on, says "Loading your dashboard" only if the
  * page takes long enough to read it, and hands over once the page is ready.
+ *
+ * IT ALWAYS ENDS, AND ENDING CLEARS THE COOKIE. Every way out goes through
+ * `end`: the hand over, ARRIVAL_HARD_CAP_MS on a timer that does not depend
+ * on frames being drawn, the page being shown again from the back and
+ * forward cache (the switch is long over by then), and this component going
+ * away before any of those. Before this script runs at all, the HTML has its
+ * own limit (SWITCH_ARRIVAL_SCRIPT), for a phone whose script never loads.
+ *
+ * ONLY FROM A DOCUMENT'S OWN HTML. The layout draws it whenever the cookie
+ * is sent, and the cookie is sent with the router's own requests as well as
+ * the page's. Drawn fresh by the router (a refresh inside /app within the
+ * cookie's half minute) it draws nothing and clears the cookie: a screen
+ * that is not already on the glass is never put there by a background
+ * request.
  */
 export function BusinessSwitchArrival({ name, photo = null }: { name: string; photo?: string | null }) {
+  const [live] = useState(() => typeof document === "undefined" || !!document.getElementById(SWITCH_SCREEN_ID))
   const { step, go, shown, settle } = useSteps("opening")
   const ref = useRef<HTMLDivElement>(null)
   const [gone, setGone] = useState(false)
 
   useEffect(() => {
+    takeOverFromHtml()
     const el = ref.current
-    if (!el) return
-    let cancelled = false
-    /* "Opening" has been up since the page before: it can give way at once. */
-    shown(performance.now() - LINE_MIN_MS)
-    go("arriving")
     const secure = location.protocol === "https:"
-    const finish = () => {
-      if (cancelled) return
-      cancelled = true
+    let over = false
+    const clear = () => {
       document.cookie = clearSwitchCookie({ secure })
       /* The canvas goes back to the app's own (app/globals.css
          html.switch-arriving, html.app-layout): the switch is over. */
       document.documentElement.classList.remove(SWITCH_HTML_CLASS)
+    }
+    const end = () => {
+      if (over) return
+      over = true
+      clear()
       setGone(true)
     }
-    whenAppReady(el).then(async () => {
-      if (cancelled) return
+    if (!live || !el) {
+      end()
+      return
+    }
+    const hard = window.setTimeout(end, ARRIVAL_HARD_CAP_MS)
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) end()
+    }
+    window.addEventListener("pageshow", onShow)
+    /* "Opening" has been up since the page before: it can give way at once. */
+    shown(performance.now() - LINE_MIN_MS)
+    go("arriving")
+    const by = performance.now() + ARRIVAL_HARD_CAP_MS - HANDOVER_MS - 150
+    whenAppReady(el, by).then(async () => {
+      if (over) return
       const at = settle(performance.now())
       if (at > performance.now()) await new Promise((r) => window.setTimeout(r, at - performance.now()))
-      if (cancelled) return
+      if (over) return
       /* The page takes the stage's rise under the fade: the fade is the screen's. */
       const outer = document.querySelector<HTMLElement>(".app-content-scroll")
       if (outer) playEntrance(outer, { fade: false })
-      if (reducedMotion() || typeof el.animate !== "function") { finish(); return }
-      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: HANDOVER_MS, easing: NAV_ENTER_EASE, fill: "forwards" }).onfinish = finish
-      window.setTimeout(finish, HANDOVER_MS + 150)
+      if (reducedMotion() || typeof el.animate !== "function") { end(); return }
+      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: HANDOVER_MS, easing: NAV_ENTER_EASE, fill: "forwards" }).onfinish = end
+      window.setTimeout(end, HANDOVER_MS + 150)
     })
-    return () => { cancelled = true }
-  }, [go, settle, shown])
+    return () => {
+      window.clearTimeout(hard)
+      window.removeEventListener("pageshow", onShow)
+      if (!over) {
+        over = true
+        clear()
+      }
+    }
+  }, [go, live, settle, shown])
 
-  if (gone) return null
-  return <Screen step={step} name={name} photo={photo} ready screenRef={ref} />
+  if (gone || !live) return null
+  return (
+    <>
+      <StillPhotoPreload photo={photo} />
+      <Screen step={step} name={name} photo={photo} ready screenRef={ref} />
+    </>
+  )
+}
+
+/**
+ * THE PHOTO IS ASKED FOR FROM THE <head>. The bar's photo is in the cookie,
+ * so the server knows it before it writes a byte of the page: a preload for
+ * each bar's size (the phone's and the computer's, each only at its own
+ * width) is hoisted into the head by React and fetched before the screen's
+ * markup is parsed, and the bar's <img> finds it there and draws with it
+ * (decoding="sync") instead of a frame later.
+ */
+function StillPhotoPreload({ photo }: { photo: string | null }) {
+  const phone = avatarSource(photo, STILL_AVATAR.phone)
+  const desktop = avatarSource(photo, STILL_AVATAR.desktop)
+  return (
+    <>
+      {phone ? <link rel="preload" as="image" href={phone.src} imageSrcSet={phone.srcSet} imageSizes={phone.sizes} media="(max-width: 767.98px)" fetchPriority="high" /> : null}
+      {desktop ? <link rel="preload" as="image" href={desktop.src} imageSrcSet={desktop.srcSet} imageSizes={desktop.sizes} media="(min-width: 768px)" fetchPriority="high" /> : null}
+    </>
+  )
 }
 
 /* ── On the new business's setup ────────────────────────────────────────── */

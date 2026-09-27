@@ -112,6 +112,20 @@ export const ARRIVAL_CAP_MS = 8000
 export const ARRIVAL_SETTLE_CAP_MS = 1600
 /** A part of the first screen marked aria-busy is waited for only when it is at least this big (px²): the chart, not a 40px pill. */
 export const ARRIVAL_BUSY_MIN_AREA = 120 * 120
+/**
+ * The most the arrival's screen is ever up once its script runs, on a timer
+ * that needs no frame to be drawn. Past the app's session gate's own limit
+ * (ten seconds, components/native-auth-gate), so the gate reaches its own end
+ * first and the screen hands over to that, never to its cold start.
+ */
+export const ARRIVAL_HARD_CAP_MS = 15_000
+/**
+ * The most it is up if its script never runs at all (a phone that lost the
+ * connection half way through loading it): the HTML's own timer, in
+ * SWITCH_ARRIVAL_SCRIPT, takes it away, clears the cookie and gives the
+ * canvas back. The script stops that timer as it takes over.
+ */
+export const ARRIVAL_GIVE_UP_MS = 20_000
 
 /* ── Across the reload ──────────────────────────────────────────────────── */
 
@@ -208,6 +222,22 @@ export function spinDelay(nowEpochMs: number, reducedMotion: boolean): string {
 
 export const SWITCH_SPIN_SCRIPT =
   `try{var r=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;document.documentElement.style.setProperty("--switch-spin-delay",-(Date.now()%(r?3000:1000))+"ms")}catch(e){}`
+
+/**
+ * What the new /app's HTML runs just before it draws the screen (app/app/
+ * layout.tsx): the spinner's turn (SWITCH_SPIN_SCRIPT), and the screen's
+ * limit for a page whose script never runs. The screen is drawn by the
+ * server, so it would otherwise stay over the page for as long as the page
+ * had no script to take it away: after ARRIVAL_GIVE_UP_MS, unless the
+ * script has taken over (components/app/business-switch-screen sets
+ * __slSwitchOwned and stops this timer), it hides the screen, clears the
+ * cookie and gives the canvas back. Nothing else is touched.
+ */
+export const SWITCH_ARRIVAL_SCRIPT =
+  SWITCH_SPIN_SCRIPT +
+  `try{window.__slSwitchGiveUp=setTimeout(function(){if(window.__slSwitchOwned)return;try{document.documentElement.classList.remove(${JSON.stringify("switch-arriving")});` +
+  `document.cookie=${JSON.stringify(`${SWITCH_COOKIE}=; Path=/app; Max-Age=0; SameSite=Lax`)}+(location.protocol==="https:"?"; Secure":"");` +
+  `var s=document.querySelectorAll("[data-business-switch-screen]");for(var i=0;i<s.length;i++)s[i].style.display="none"}catch(e){}},${ARRIVAL_GIVE_UP_MS})}catch(e){}`
 
 /* ── The new document's first frame ─────────────────────────────────────── */
 

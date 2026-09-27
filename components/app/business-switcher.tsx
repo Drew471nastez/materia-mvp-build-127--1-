@@ -7,7 +7,7 @@ import { SwitchingScreen, type SwitchingHandle } from "@/components/app/business
 import { STILL_AVATAR } from "@/components/app/shell-header-still"
 import { iconDepth } from "@/components/ui/depth-button"
 import { canAddBusiness, LIMIT_REACHED } from "@/lib/businesses/rules"
-import { createBusiness, SWITCH_FAILED, switchBusiness } from "@/lib/businesses/switch-client"
+import { createBusiness, openAgain, SWITCH_FAILED, SwitchFailed, SwitchStalled, switchBusiness, type SwitchSteps } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 
 /**
@@ -144,12 +144,15 @@ export function BusinessSwitcher({
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /* What Try again beside the error does: the same switch again. None for a refusal pressing again cannot change. */
+  const [retry, setRetry] = useState<(() => void) | null>(null)
   const [expanded, setExpanded] = useState(false)
   /* The business being switched to, while its screen is up. */
   const [switching, setSwitching] = useState<BusinessRow | null>(null)
   /* A new business being made, while its screen is up. */
   const [creating, setCreating] = useState(false)
   const screen = useRef<SwitchingHandle | null>(null)
+  const openRef = useRef<(b: BusinessRow) => void>(() => {})
   const screenGone = useCallback(() => {
     setSwitching(null)
     setCreating(false)
@@ -161,6 +164,7 @@ export function BusinessSwitcher({
     const t = window.setTimeout(() => {
       setExpanded(false)
       setError(null)
+      setRetry(null)
     }, FOLD_AFTER_CLOSE_MS)
     return () => window.clearTimeout(t)
   }, [open])
@@ -182,25 +186,47 @@ export function BusinessSwitcher({
   /* Room for another business on this login, whichever of its businesses this is (lib/businesses/rules MAX_BUSINESSES). */
   const canAdd = canAddBusiness(businesses.length)
 
+  /*
+    THE NEW PAGE NEVER CAME (lib/businesses/switch-flow). The browser holds
+    the other business already, so the page under the screen is not one to
+    go back to: the screen stays, says so in one line, and Try again asks
+    for the page again, as many times as it takes.
+  */
+  const stalled = (next: string, steps: SwitchSteps) => {
+    const again = () => {
+      screen.current?.opening()
+      openAgain(next, steps).catch(() => screen.current?.stall(again))
+    }
+    screen.current?.stall(again)
+  }
+
   const openBusiness = async (b: BusinessRow) => {
     if (b.current || busy) return
     setError(null)
+    setRetry(null)
     setBusy(b.userId)
     setSwitching(b)
+    /* A business still being set up opens on its onboarding, not an /app for the screen to carry on in. */
+    const steps: SwitchSteps = {
+      arrival: b.ready ? { name: b.name, photo: b.avatarUrl } : undefined,
+      business: b,
+      onOpening: () => screen.current?.opening(),
+    }
     try {
-      /* A business still being set up opens on its onboarding, not an /app for the screen to carry on in. */
-      await switchBusiness(b.userId, "/app", {
-        arrival: b.ready ? { name: b.name, photo: b.avatarUrl } : undefined,
-        business: b,
-        onOpening: () => screen.current?.opening(),
-      })
+      await switchBusiness(b.userId, "/app", steps)
     } catch (e) {
+      if (e instanceof SwitchStalled) {
+        stalled(e.next, steps)
+        return
+      }
       setError(e instanceof Error && e.message ? e.message : SWITCH_FAILED)
+      setRetry(() => (e instanceof SwitchFailed && !e.retry ? null : () => openRef.current(b)))
       /* Busy until the screen has gone, so nothing under it can be pressed twice. */
       if (screen.current) screen.current.fail()
       else screenGone()
     }
   }
+  openRef.current = openBusiness
 
   const add = async () => {
     if (busy) return
@@ -216,11 +242,17 @@ export function BusinessSwitcher({
       return
     }
     setError(null)
+    setRetry(null)
     setBusy("new")
     setCreating(true)
     try {
       await createBusiness({ onOpening: () => screen.current?.opening() })
     } catch (e) {
+      /* Made and held, only its setup page did not come: the screen says so and asks for it again. */
+      if (e instanceof SwitchStalled) {
+        stalled(e.next, {})
+        return
+      }
       setError(e instanceof Error && e.message ? e.message : "The business could not be created. Try again.")
       /* As a failed switch: busy until the screen has gone, then the menu under it says why. */
       if (screen.current) screen.current.fail()
@@ -345,7 +377,15 @@ export function BusinessSwitcher({
       */}
       {error && (
         <p role="alert" className={cn("px-3 pt-1 text-red-600", sheet ? "text-[13px]" : "text-[12px]")}>
-          {error}
+          {retry ? error.replace(/\s*Try again\.?$/, "") : error}
+          {retry && (
+            <>
+              {" "}
+              <button type="button" onClick={retry} data-business-retry="" className="font-medium underline underline-offset-2 [-webkit-tap-highlight-color:transparent]">
+                Try again
+              </button>
+            </>
+          )}
         </p>
       )}
       {switching && <SwitchingScreen name={switching.name} photo={switching.avatarUrl} ready={switching.ready} handleRef={screen} onGone={screenGone} />}

@@ -60,6 +60,10 @@ export interface MintedSession {
   access_token: string
   refresh_token: string
   expires_at: number | null
+  /* The rest of the session as Supabase stores it, so the switch route can put it in this browser's cookies whole (lib/supabase/session-jar storedSessionJson). */
+  expires_in: number | null
+  token_type: string
+  user: unknown
 }
 
 /** The signed in user, from the cookie on the web or the bearer token the app sends. */
@@ -247,6 +251,9 @@ export async function sessionFor(userId: string): Promise<MintedSession | null> 
     access_token: data.session.access_token,
     refresh_token: data.session.refresh_token,
     expires_at: data.session.expires_at ?? null,
+    expires_in: data.session.expires_in ?? null,
+    token_type: data.session.token_type || "bearer",
+    user: data.session.user ?? null,
   }
 }
 

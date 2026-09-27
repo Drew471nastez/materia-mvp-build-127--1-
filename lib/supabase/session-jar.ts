@@ -110,13 +110,22 @@ export async function readSessionFromCookies(key: string, cookieHeader: string):
 export function sessionCookieWrites(key: string, value: string, cookieHeader: string, secure: boolean): string[] {
   const attrs = `; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; samesite=lax${secure ? "; secure" : ""}`
   const gone = `; path=/; max-age=0; samesite=lax${secure ? "; secure" : ""}`
-  const chunks = createChunks(key, BASE64_PREFIX + stringToBase64URL(value))
-  const keep = new Set(chunks.map((c) => c.name))
-  const writes = chunks.map((c) => `${c.name}=${encodeURIComponent(c.value)}${attrs}`)
-  for (const name of parseCookieHeader(cookieHeader).keys()) {
-    if (isChunkLike(name, key) && !keep.has(name)) writes.push(`${name}=${gone}`)
-  }
-  return writes
+  const { set, expire } = sessionCookieChunks(key, value, parseCookieHeader(cookieHeader).keys())
+  return [...set.map((c) => `${c.name}=${encodeURIComponent(c.value)}${attrs}`), ...expire.map((name) => `${name}=${gone}`)]
+}
+
+/**
+ * The same cookies as name and value, for a server response to set (app/api/
+ * businesses/switch): the chunks that hold `value` under `key`, and the names
+ * of older chunks among `existing` to expire. The value is not URI encoded
+ * here; the response's own cookie writer does that.
+ */
+export function sessionCookieChunks(key: string, value: string, existing: Iterable<string>): { set: { name: string; value: string }[]; expire: string[] } {
+  const set = createChunks(key, BASE64_PREFIX + stringToBase64URL(value)).map((c) => ({ name: c.name, value: c.value }))
+  const keep = new Set(set.map((c) => c.name))
+  const expire: string[] = []
+  for (const name of existing) if (isChunkLike(name, key) && !keep.has(name)) expire.push(name)
+  return { set, expire }
 }
 
 /** Expire every cookie that holds part of the session under `key`. */
@@ -147,4 +156,25 @@ export function fresherSession(device: string | null, cookie: string | null): st
   if (c > d) return cookie
   if (d >= 0) return device
   return null
+}
+
+/**
+ * A session as supabase-js stores it: the JSON its own storage holds under
+ * storedSessionKey(), so a copy written by the server (app/api/businesses/
+ * switch) or straight into the jar (lib/businesses/switch-client) reads back
+ * exactly as one the client wrote itself.
+ */
+export function storedSessionJson(
+  session: { access_token: string; refresh_token: string; expires_at?: number | null; expires_in?: number | null; token_type?: string | null; user?: unknown },
+  nowSeconds = Math.floor(Date.now() / 1000),
+): string {
+  const expiresAt = typeof session.expires_at === "number" ? session.expires_at : nowSeconds + (typeof session.expires_in === "number" ? session.expires_in : 3600)
+  return JSON.stringify({
+    access_token: session.access_token,
+    token_type: session.token_type || "bearer",
+    expires_in: typeof session.expires_in === "number" ? session.expires_in : Math.max(0, expiresAt - nowSeconds),
+    expires_at: expiresAt,
+    refresh_token: session.refresh_token,
+    user: session.user ?? null,
+  })
 }
