@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { typedSeoTitle } from "@/lib/account/identity"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -239,7 +240,16 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
   const handleSaveSeo = async () => {
     setLocalSaveState("saving")
     updateSettings({
-      seo_title: metaTitle,
+      /*
+        THE BOX SHOWS THE PAGE NAME UNTIL SOMEBODY TYPES OVER IT, and this
+        used to save what it was showing. That wrote a second copy of the
+        creator's name into the page, and a copy that outranked everything:
+        renaming yourself changed the page and the tab still read the old
+        name, because the tab title starts from this field. Only a title
+        that says something the page name does not is stored
+        (lib/account/identity typedSeoTitle).
+      */
+      seo_title: typedSeoTitle(metaTitle, pageName || onepage?.title),
       seo_description: metaDescription,
       social_image_url: ogImage || null,
       social_image_position_x: ogImage ? ogPosX : null,
@@ -265,7 +275,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
       updateSlug(pageSlug)
     }
     const typedSettings: Record<string, unknown> = {}
-    if (typedSinceSync("metaTitle", metaTitle)) typedSettings.seo_title = metaTitle
+    if (typedSinceSync("metaTitle", metaTitle)) typedSettings.seo_title = typedSeoTitle(metaTitle, pageName || onepage?.title)
     if (typedSinceSync("metaDescription", metaDescription)) typedSettings.seo_description = metaDescription
     if (typedSinceSync("ogPosX", ogPosX) || typedSinceSync("ogPosY", ogPosY)) {
       typedSettings.social_image_position_x = ogImage ? ogPosX : null

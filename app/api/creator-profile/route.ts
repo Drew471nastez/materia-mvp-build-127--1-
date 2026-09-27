@@ -26,6 +26,9 @@
  */
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse, after } from "next/server"
+import { revalidateTag } from "next/cache"
+import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
+import { creatorTag } from "@/lib/commerce/product-page-cache"
 import { announce, profileAddresses } from "@/lib/seo/announce"
 import type { AboutMediaItem, ShopHeaderSettings, SocialLinksConfig } from "@/lib/store-builder/types"
 import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
@@ -383,10 +386,30 @@ export async function PATCH(request: NextRequest) {
   if (avatarUrl !== undefined) profileUpdate.avatar_url = avatarUrl
 
   if (Object.keys(profileUpdate).length > 0) {
+    /* What the name and the photo were, read before they are overwritten:
+       every other row that holds a copy of them follows this change, and
+       only a copy that still holds the OLD value moves
+       (lib/account/profile-follow). */
+    const { data: before } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).maybeSingle()
+
     const { error } = await supabase.from("profiles").update(profileUpdate).eq("id", user.id)
     if (error) {
       console.error("[creator-profile] profile update failed", error)
       return NextResponse.json({ error: "Could not save your profile" }, { status: 500 })
+    }
+
+    const followed = await followProfileIdentity(supabase as unknown as FollowClient, user.id, {
+      ...(displayName !== undefined ? { name: { before: before?.display_name, after: displayName } } : {}),
+      ...(avatarUrl !== undefined ? { photo: { before: before?.avatar_url, after: avatarUrl } } : {}),
+    })
+    /* The public pages read the profile through a cache shared between
+       visitors (lib/commerce/product-page-cache): they show the new name on
+       their next view, not a minute later. */
+    try {
+      revalidateTag(creatorTag(user.id), "max")
+      if (followed.creatorId) revalidateTag(creatorTag(followed.creatorId), "max")
+    } catch {
+      /* Outside a request that can revalidate: the cache's own minute does it. */
     }
   }
 

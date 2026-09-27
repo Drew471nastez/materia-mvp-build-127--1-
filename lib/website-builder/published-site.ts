@@ -180,7 +180,10 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
       if (isBanned(creator as { banned_at?: string | null })) return null
       const p = profile as { display_name?: string | null; username?: string | null }
       const c = creator as { id: string; slug?: string | null; display_name?: string | null }
-      return { creatorId: c.id, displayName: c.display_name || p.display_name || p.username || name, slug: c.slug ?? null }
+      /* The profile's name first: `creators.display_name` is a copy written
+         when the account was made and edited by nothing since, so it held
+         the name a renamed creator no longer uses (lib/account/identity). */
+      return { creatorId: c.id, displayName: p.display_name || c.display_name || p.username || name, slug: c.slug ?? null }
     }
   }
 

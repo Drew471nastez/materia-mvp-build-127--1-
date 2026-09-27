@@ -9,6 +9,7 @@ import { notFound, permanentRedirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { keptPhoto } from "@/lib/account/identity"
 import { isReservedWord } from "@/lib/reserved-words"
 import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
@@ -195,8 +196,10 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     const globalSettings = publishedConfig?.globalSettings as GlobalStoreSettings | undefined
     ownTitle = globalSettings?.seoTitle?.trim() || undefined
     ownDescription = globalSettings?.seoDescription?.trim() || undefined
-    const avatarFromHeader =
-      headerSettings?.avatarUrl && headerSettings.avatarUrl !== "" ? headerSettings.avatarUrl : undefined
+    /* Through lib/account/identity, so a picture a sign in provider sent that
+       is still sitting in the header cannot be the share card's face after
+       the person replaced or removed their photo. "" means initials. */
+    const avatarFromHeader = keptPhoto(headerSettings?.avatarUrl) ?? undefined
 
     // Source-of-truth order for social image:
     // 1) Explicit Social Image in SEO settings
