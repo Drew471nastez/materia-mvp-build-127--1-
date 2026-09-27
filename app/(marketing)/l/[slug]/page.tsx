@@ -12,7 +12,7 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { findPublishedOnePage, onePageOwner, publishedOnePageSeo, publishedShape, resolveOnePage } from "@/lib/onepage/published-page"
 import { creatorPageUrl } from "@/lib/onepage/resolve-address"
-import { onePageMetadataFrom } from "@/lib/onepage/seo"
+import { onePageMetadataFrom, resolveOnePageSeo } from "@/lib/onepage/seo"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import crypto from "crypto"
 
@@ -69,7 +69,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // The owner's live profile, with the handle and the indexing answer beside it.
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
-  const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug)
+  /* The description names the page's products as the body draws them, read live (liveProducts). */
+  const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug, { liveProducts: true })
 
   /* The sitemap's rule, so a page it does not list does not ask to be listed.
      Not listed means not indexed, and not followed: the links are the whole
@@ -268,7 +269,18 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
             url: owner.canonical,
             name: transformedOnepage.title || owner.handle || "Creator",
             image: transformedOnepage.avatar_url,
-            description: transformedOnepage.bio,
+            /* The same words the metadata gives (lib/onepage/seo), from the blocks drawn below with their products read live. */
+            description: resolveOnePageSeo({
+              name: transformedOnepage.title,
+              bio: transformedOnepage.bio,
+              blocks: transformedOnepage.blocks,
+              socialLinks: transformedOnepage.social_links,
+              handle: onepage.slug || slug,
+              avatarUrl: transformedOnepage.avatar_url,
+              theme: transformedOnepage.theme,
+              settings: onepage.settings,
+              pageUrl: owner.canonical ?? "",
+            }).description.value,
             sameAs: onePageSameAs(transformedOnepage.social_links),
           }),
         )
