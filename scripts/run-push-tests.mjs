@@ -73,6 +73,7 @@ const SUITES = [
   "tests/no-image-transforms.test.ts",
   "tests/page-performance.test.ts",
   "tests/products-area.test.ts",
+  "tests/dom-guard.test.ts",
   "tests/editor-parts.test.ts",
   "tests/category-suggest.test.ts",
   "tests/sql-aggregate.test.ts",
