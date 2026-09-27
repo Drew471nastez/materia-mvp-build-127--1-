@@ -51,7 +51,7 @@ const KNOWN_UNFIXED = new Set([
   "components/onepage/public-onepage.tsx",
   "components/onepage/tabs/design-tab.tsx",
   "components/onepage/tabs/links-tab.tsx",
-  "components/onepage/tabs/settings-tab.tsx",
+  /* settings-tab.tsx came off: its hooks are all above its one return now. */
 ])
 
 const HOOK =

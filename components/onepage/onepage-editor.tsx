@@ -1658,10 +1658,11 @@ function EditorLayout() {
       */}
       {!showMobilePreview && (
         <div
-          className="md:hidden fixed bottom-0 left-0 right-0 z-20 h-[var(--op-tabbar-h)] border-t border-[#e5e7eb] bg-white shadow-[0_-1px_2px_rgba(16,24,40,0.03),0_-8px_24px_rgba(16,24,40,0.05)]"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-20 h-[var(--op-tabbar-h)] border-t border-[#e5e7eb] bg-white shadow-[0_-1px_2px_rgba(16,24,40,0.03),0_-6px_16px_rgba(16,24,40,0.04)]"
           data-onepage-tabbar=""
         >
-          <div ref={phonePill.rowRef} className="relative isolate grid grid-cols-4 gap-2 px-4 pt-2.5" data-tab-row="phone">
+          {/* 9px under the bar's 1px hairline: 10px over the buttons, as --op-tabbar-h counts it. */}
+          <div ref={phonePill.rowRef} className="relative isolate grid grid-cols-4 gap-2 px-4 pt-[9px]" data-tab-row="phone">
             <span
               ref={phonePill.pillRef}
               aria-hidden

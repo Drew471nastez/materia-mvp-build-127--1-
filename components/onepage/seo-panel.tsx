@@ -86,6 +86,7 @@ function Field({
   max,
   multiline,
   resetLabel,
+  followsLabel = "Follows your page",
   onChange,
   id,
 }: {
@@ -95,6 +96,7 @@ function Field({
   max: number
   multiline?: boolean
   resetLabel: string
+  followsLabel?: string
   onChange: (value: string | null) => void
   id: string
 }) {
@@ -114,11 +116,11 @@ function Field({
   return (
     <div className="space-y-1.5">
       <div className="flex min-h-[20px] items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-[13px] font-medium text-[#374151]">
+        <label htmlFor={id} className="min-w-0 truncate text-[13px] font-medium text-[#374151]">
           {label}
         </label>
         {own ? (
-          <span className="flex items-baseline gap-3">
+          <span className="flex shrink-0 items-baseline gap-3 whitespace-nowrap">
             <span className={cn("text-[12px] tabular-nums", count >= max ? "text-amber-600" : "text-[#9ca3af]")}>
               {count}/{max}
             </span>
@@ -132,7 +134,7 @@ function Field({
             </button>
           </span>
         ) : (
-          <span className="text-[12px] text-[#9ca3af]">Follows your page</span>
+          <span className="shrink-0 whitespace-nowrap text-[12px] text-[#9ca3af]">{followsLabel}</span>
         )}
       </div>
       {multiline ? <textarea {...common} rows={3} className={cn(common.className, "h-auto resize-none py-3 leading-snug")} /> : <input {...common} type="text" />}
@@ -250,7 +252,11 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
       {/* WHEN THE LINK IS SHARED: the picture, the host, the title and the description, as iMessage, WhatsApp and X draw them. */}
       <figure className="space-y-2" data-share-preview="">
         <figcaption className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Shared link</figcaption>
-        <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-og-card="">
+        <div
+          className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+          data-og-card=""
+          data-og-image-url={image.url}
+        >
           {image.customUrl ? (
             <div
               ref={cropRef}
@@ -389,7 +395,8 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           <>
             <Field
               id="social-title"
-              label="Title when shared"
+              label="Shared title"
+              followsLabel={seo.title.auto ? "Follows your page" : "Same as search"}
               field={seo.socialTitle}
               stored={stored("social_title")}
               max={SEO_TITLE_MAX}
@@ -398,12 +405,13 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
             />
             <Field
               id="social-description"
-              label="Description when shared"
+              label="Shared description"
+              followsLabel="Same as search"
               field={seo.socialDescription}
               stored={stored("social_description")}
               max={SEO_DESCRIPTION_MAX}
               multiline
-              resetLabel="Use search description"
+              resetLabel="Use search text"
               onChange={write("social_description")}
             />
           </>

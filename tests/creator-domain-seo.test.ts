@@ -220,7 +220,7 @@ async function main() {
     check("  which is the address the domain's sitemap lists", page === `https://${host}/` && page === getStoreShareUrl("mariapopescu", host))
     check("  and storelib.com/<handle>/<slug> and /p/<slug> name the domain's /<slug>",
       prints === getProductShareUrl("mariapopescu", "prints", host) && /const productUrl = getProductShareUrl\(sellerHandle \|\| "", product\.slug, pageHost\)/.test(code("app/(marketing)/p/[slug]/page.tsx")) && /canonical: productUrl,/.test(code("app/(marketing)/p/[slug]/page.tsx")) && /url: productUrl,/.test(code("app/(marketing)/p/[slug]/page.tsx")))
-    check("  and the OnePage names the domain's /links", links === getLinksUrlWithCustomDomain("mariapopescu", host) && links === getLinksShareUrl("mariapopescu", host) && /url: pageAddress,/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+    check("  and the OnePage names the domain's /links", links === getLinksUrlWithCustomDomain("mariapopescu", host) && links === getLinksShareUrl("mariapopescu", host) && /url: seo\.url,/.test(code("lib/onepage/seo.ts")) && /return getLinksShareUrl\(slug, pageHost\)/.test(code("lib/onepage/published-page.ts")))
     check("the structured data names the same address as the canonical",
       /const pageAddress = pageHost \? `https:\/\/\$\{pageHost\}\/` : /.test(u) && /url: pageAddress,/.test(u) && /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug, pageHost\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
     const pages = ["app/(marketing)/u/[username]/page.tsx", "app/(marketing)/p/[slug]/page.tsx", "app/(marketing)/l/[slug]/page.tsx", "app/(marketing)/[sellername]/page.tsx", "app/(marketing)/[sellername]/[productSlug]/page.tsx", "app/(marketing)/[sellername]/links/page.tsx"]
