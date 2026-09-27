@@ -25,6 +25,7 @@
  * should fail loudly enough that somebody fixes it.
  */
 import * as React from "react"
+import { recoverFromStaleCode } from "@/lib/ui/stale-code"
 
 interface Props {
   children: React.ReactNode
@@ -40,6 +41,9 @@ export class SafeRegion extends React.Component<Props, { failed: boolean }> {
   }
 
   componentDidCatch(error: unknown) {
+    /* A section whose code a deploy renamed is not a fault: the page loads
+       again (or offers to), and the section comes back (lib/ui/stale-code). */
+    if (recoverFromStaleCode(error)) return
     /*
       SWALLOWED ON THE PAGE, NOT IN THE LOGS. A section that quietly stops
       appearing and reports nothing is a bug nobody finds until a creator

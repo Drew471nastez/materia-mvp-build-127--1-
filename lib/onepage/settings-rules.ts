@@ -15,8 +15,8 @@
  * the editor adds is not lost, within a size limit. Pure, for
  * tests/onepage-search-share.test.ts.
  */
-import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX, cleanOverride, safeImageUrl } from "@/lib/onepage/seo"
-import { isValidUsername } from "@/lib/reserved-words"
+import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX, cleanOverride, isShareImageMode, safeImageUrl } from "@/lib/onepage/seo"
+import { checkOnePageName } from "@/lib/onepage/username"
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string }
 
@@ -73,6 +73,10 @@ export function checkSettingsPatch(raw: unknown, stored: Record<string, unknown>
     } else if (key === "subscribe_style" || key === "share_style") {
       if (value !== "glassmorphism" && !(BUTTON_STYLES as readonly unknown[]).includes(value)) return { ok: false, error: "That button style does not exist" }
       out[key] = buttonStyleOf(value, "white")
+    } else if (key === "share_image_mode") {
+      /* Kept here only where the database has no onepages.share_image_mode column yet (app/api/onepage). */
+      if (!isShareImageMode(value)) return { ok: false, error: "That share image choice does not exist" }
+      out[key] = value
     } else if (key === "verified_badge_type") {
       if (!(BADGE_TYPES as readonly unknown[]).includes(value)) return { ok: false, error: "That badge does not exist" }
       out[key] = value
@@ -85,17 +89,16 @@ export function checkSettingsPatch(raw: unknown, stored: Record<string, unknown>
 }
 
 /**
- * A page address a person may take: the rules a username follows
- * (lib/reserved-words isValidUsername: 3 to 30 lowercase letters, numbers
- * and single hyphens, no reserved word, no link-farm handle), because the
- * page is served at storelib.com/<address>/links beside the creator pages.
+ * A page address a person may take: storelib.me/<address>. The rules are
+ * lib/onepage/username checkOnePageName (the username rules: 3 to 30
+ * lowercase letters, numbers and single hyphens, no reserved word, no link
+ * farm handle, plus the OnePage host's own reserved words), and the error
+ * is its sentence, as the editor shows it.
  */
 export function checkPageSlug(raw: unknown): Checked<string> {
   if (typeof raw !== "string") return { ok: false, error: "Page address could not be read" }
-  const slug = raw.trim().toLowerCase()
-  const verdict = isValidUsername(slug)
-  if (!verdict.valid) return { ok: false, error: (verdict.error || "That page address is not available").replace(/^Username/, "Page address").replace(/username/g, "page address") }
-  return { ok: true, value: slug }
+  const verdict = checkOnePageName(raw)
+  return verdict.ok ? { ok: true, value: verdict.value } : { ok: false, error: verdict.error }
 }
 
 /** The page's name and bio: text, within the lengths the editor allows. */

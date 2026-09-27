@@ -20,6 +20,18 @@
  *   WRONG ADDRESS moves a guest order (every line of the basket) and sends
  *                 there; refuses an account's order, an old order, a second
  *                 change, and an address that is not one.
+ *   ACCOUNT EMAIL Resend with to: "account" goes to the signed-in owner's
+ *                 account email and nobody else's; "Send a copy" goes to the
+ *                 typed address once, changes neither the order nor its
+ *                 delivery status, needs the account the order is on, and
+ *                 counts towards the five a day.
+ *   CONTACT       a message from the receipt reaches the seller's own inbox
+ *                 (their support address, else their login's address as it
+ *                 is now, the owner's for a second business), with Reply-To
+ *                 the order's address (never one in the request), is
+ *                 limited, is a seller_message row in email_logs, and says
+ *                 so in words; a seller with no address is told, never sent
+ *                 to Storelib's support inbox instead.
  *   DOWNLOAD      a paid receipt gets a signed link for its own file; a
  *                 refunded one gets the reason, and no link is signed.
  *   REVIEW        only a buyer who still has the product, once, with a
@@ -35,7 +47,8 @@ import { build } from "esbuild"
 import { readFileSync } from "node:fs"
 import { fakeDb } from "./_fake-db"
 import { fileKindOf, refundPolicyOf, splitFileName } from "@/lib/receipts/rules"
-import { withDiscount } from "@/lib/receipts/discount"
+import { withDiscount, withinTime } from "@/lib/receipts/discount"
+import { cleanMessage, sellerMessageEmail } from "@/lib/receipts/contact"
 
 let passed = 0
 let failed = 0
@@ -83,6 +96,8 @@ const send = (kind) => async (_admin, params) => {
 export const sendBuyerDownloadEmail = send("buyer")
 export const sendSellerNotificationEmail = send("seller")
 export const sendReviewNotificationEmail = send("review")
+export const sendReceiptCopyEmail = send("copy")
+export const sendSellerMessageEmail = send("contact")
 export const resolveSellerEmail = async () => "seller@example.com"
 `,
   ),
@@ -243,15 +258,51 @@ function pure() {
   const page = readFileSync("app/receipt/[token]/receipt-view.tsx", "utf8") + readFileSync("components/reviews/review-form.tsx", "utf8")
   check("no violet on the receipt or its review card", !/#(8b5cf6|7c3aed|6d28d9|5b21b6|a78bfa|ede9fe|f5f3ff|ddd6fe)|violet-|purple-/i.test(page))
   check("the review card shows the buyer, not the seller", /reviewerAvatarUrl/.test(page) && !/creatorAvatarUrl|MessageSquare/.test(page))
-  check("an account's order is not offered a form the route refuses", /receipt\.buyer\.unclaimed \? \(\s*<form onSubmit=\{changeEmail\}/.test(page))
+  /* Was: the change form sat behind `receipt.buyer.unclaimed ?` alone. An
+     account's own buyer now gets a copy form in the same place, so the pin
+     reads both halves: the change form only for a guest order, the copy
+     form only for the signed-in owner of an order on an account. */
+  check("an account's order is not offered a form the route refuses",
+    /receipt\.buyer\.unclaimed \|\| accountEmail \? \([\s\S]{0,200}<form onSubmit=\{accountEmail \? sendCopy : changeEmail\}/.test(page) &&
+      /const accountEmail = !receipt\.buyer\.unclaimed && viewer\.isBuyer && viewer\.email/.test(page))
+  check("the creator's name links to their page with a soft hover pill", /data-seller-link=""[\s\S]{0,400}hover:bg-\[#eaecf0\][\s\S]{0,200}focus-visible:ring-2/.test(page))
+
+  const mail = sellerMessageEmail({
+    buyerName: "Ghita\r\nBcc: x@evil.example",
+    buyerEmail: "ghita@example.com",
+    orderNumber: "1BE1AC18",
+    items: ["<b>Brand Kit</b>"],
+    message: "Hi <script>alert(1)</script>\nthe zip will not open",
+    orderLink: "https://storelib.com/app/orders/1",
+  })
+  check("a message's subject is one line, whatever the name held", !/[\r\n]/.test(mail.subject) && /^Order 1BE1AC18: a message from Ghita Bcc/.test(mail.subject), mail.subject)
+  check("and so is the From name", !/[\r\n<>"]/.test(mail.fromName) && /via Storelib$/.test(mail.fromName), mail.fromName)
+  check("what the buyer typed arrives as text, not markup",
+    !/<script>|<b>Brand/.test(mail.html) && /&lt;script&gt;/.test(mail.html) && /&lt;b&gt;Brand Kit&lt;\/b&gt;/.test(mail.html))
+  check("the email says Reply reaches the buyer and links the order",
+    /Reply to this email and it goes to ghita@example\.com/.test(mail.html) && /href="https:\/\/storelib\.com\/app\/orders\/1"/.test(mail.html) && /Open the order: https/.test(mail.text))
+  check("a message is tidied: no control characters, no runs of blank lines",
+    cleanMessage("  a\u0000b\r\n\n\n\n\nc  ") === "ab\n\nc" && cleanMessage(42) === "")
+}
+
+async function waits() {
+  console.log("\nThe wait for the payment's figures")
+  const t0 = Date.now()
+  check("a slow lookup gives up at the limit with nothing", (await withinTime(() => new Promise((r) => setTimeout(() => r("late"), 400)), 60)) === null && Date.now() - t0 < 300)
+  check("a failed lookup gives nothing, not an error", (await withinTime(() => Promise.reject(new Error("stripe down")), 200)) === null)
+  check("a lookup that throws before it starts gives nothing", (await withinTime(() => { throw new Error("no key") }, 200)) === null)
+  check("a quick answer is used", (await withinTime(() => Promise.resolve({ discountCents: 1 }), 200))?.discountCents === 1)
 }
 
 async function main() {
   pure()
+  await waits()
   const resend = (await import(await bundleRoute("app/api/receipt/resend/route.ts"))) as any
   const change = (await import(await bundleRoute("app/api/receipt/update-email/route.ts"))) as any
   const download = (await import(await bundleRoute("app/api/download/[assetId]/route.ts"))) as any
   const reviews = (await import(await bundleRoute("app/api/reviews/route.ts"))) as any
+  const copyRoute = (await import(await bundleRoute("app/api/receipt/send-copy/route.ts"))) as any
+  const contact = (await import(await bundleRoute("app/api/receipt/contact/route.ts"))) as any
 
   /* ── Resend ─────────────────────────────────────────────────────────── */
   console.log("\nResend")
@@ -338,8 +389,11 @@ async function main() {
     reset(db)
     const r = await change.POST(post("/api/receipt/update-email", { orderId: ORDER, receiptToken: TOKEN, newEmail: "new@example.com" }))
     const b = await json(r)
-    check("an order on an account: 403, pointing at account settings (the page says the same before asking)",
-      r.status === 403 && /account settings/.test(b.error) && S.sent.length === 0, JSON.stringify(b))
+    /* Was /account settings/: that page could not change where Resend sent
+       (Resend used the order's address). An account's receipt now goes to
+       the account email, or a copy elsewhere, both signed in. */
+    check("an order on an account: 403, asking to sign in to that account (the page says the same before asking)",
+      r.status === 403 && /Sign in to that account/.test(b.error) && S.sent.length === 0 && db.tables.orders[0].buyer_email === "ghita@example.com", JSON.stringify(b))
   }
   {
     const db = world({ order: { created_at: new Date(Date.now() - 8 * 86400 * 1000).toISOString() } })
@@ -364,6 +418,208 @@ async function main() {
     const r = await change.POST(post("/api/receipt/update-email", { orderId: ORDER, receiptToken: TOKEN, newEmail: "new@example.com" }))
     const b = await json(r)
     check("moved but the sender failed: 502 that says to use Resend", r.status === 502 && /Resend/.test(b.error), JSON.stringify(b))
+  }
+
+  /* ── Account email ──────────────────────────────────────────────────── */
+  console.log("\nAccount email")
+  const owner = { id: BUYER, email: "Ghita.New@Example.com" }
+  {
+    const db = world({ order: { buyer_id: BUYER } })
+    reset(db, owner)
+    const r = await resend.POST(post("/api/receipt/resend", { orderId: ORDER, receiptToken: TOKEN, resendType: "buyer", to: "account", email: "attacker@example.com" }))
+    const b = await json(r)
+    check("Resend to the account: 200", r.status === 200 && b.success === true, JSON.stringify(b))
+    check("one email, to the signed-in account's own address", S.sent.length === 1 && S.sent[0].buyerEmail === "ghita.new@example.com", JSON.stringify(S.sent))
+    check("the order keeps its address", db.tables.orders[0].buyer_email === "ghita@example.com")
+    check("recorded as a resend to the account, without an address",
+      db.tables.security_events.some((e: any) => e.event_type === "receipt_resent" && e.metadata?.to === "account") && !JSON.stringify(db.tables.security_events).includes("ghita.new"))
+  }
+  {
+    const db = world({ order: { buyer_id: BUYER } })
+    reset(db, null)
+    const r = await resend.POST(post("/api/receipt/resend", { orderId: ORDER, receiptToken: TOKEN, to: "account" }))
+    check("to the account, signed out: 401, nothing sent", r.status === 401 && S.sent.length === 0, String(r.status))
+    reset(db, { id: SELLER_USER, email: "someone@example.com" })
+    const other = await resend.POST(post("/api/receipt/resend", { orderId: ORDER, receiptToken: TOKEN, to: "account" }, { "x-forwarded-for": "203.0.113.30" }))
+    check("to the account, as somebody else: 403, nothing sent", other.status === 403 && S.sent.length === 0, String(other.status))
+  }
+  {
+    const db = world()
+    reset(db, owner)
+    const r = await resend.POST(post("/api/receipt/resend", { orderId: ORDER, receiptToken: TOKEN, to: "account" }))
+    check("a guest order cannot be sent to whoever is signed in: 403", r.status === 403 && S.sent.length === 0, String(r.status))
+  }
+
+  const copy = (body: unknown, headers: Record<string, string> = {}) => copyRoute.POST(post("/api/receipt/send-copy", body, headers))
+  {
+    const db = world({ order: { buyer_id: BUYER, buyer_notified_at: "2026-09-27T10:00:00Z", buyer_email_last_error: null } })
+    reset(db, owner)
+    const logsBefore = JSON.stringify(db.tables.email_logs)
+    const r = await copy({ orderId: ORDER, receiptToken: TOKEN, email: " Work@Studio.example " })
+    const b = await json(r)
+    check("a copy from the account the order is on: 200", r.status === 200 && b.success === true, JSON.stringify(b))
+    check("one copy, to the typed address, with this receipt's token",
+      S.sent.length === 1 && S.sent[0].kind === "copy" && S.sent[0].buyerEmail === "work@studio.example" && S.sent[0].receiptToken === TOKEN, JSON.stringify(S.sent))
+    check("the order's address and delivery record are untouched",
+      db.tables.orders[0].buyer_email === "ghita@example.com" && db.tables.orders[0].buyer_notified_at === "2026-09-27T10:00:00Z" && JSON.stringify(db.tables.email_logs) === logsBefore)
+    check("counted with the resends, without the token or the address",
+      db.tables.security_events.length === 1 && db.tables.security_events[0].event_type === "receipt_resent" && db.tables.security_events[0].metadata?.to === "copy" &&
+        !JSON.stringify(db.tables.security_events).includes(TOKEN) && !JSON.stringify(db.tables.security_events).includes("studio"))
+    check("and the limiter counted it", db.tables.rate_limit_hits.some((h: any) => h.bucket === "receipt-copy"))
+  }
+  {
+    const db = world({ order: { buyer_id: BUYER } })
+    reset(db, null)
+    const r = await copy({ orderId: ORDER, receiptToken: TOKEN, email: "work@studio.example" })
+    check("a copy signed out: 401, nothing sent", r.status === 401 && S.sent.length === 0)
+    reset(db, { id: SELLER_USER, email: "seller@example.com" })
+    const other = await copy({ orderId: ORDER, receiptToken: TOKEN, email: "work@studio.example" }, { "x-forwarded-for": "203.0.113.31" })
+    check("a copy as another account: 403, nothing sent", other.status === 403 && S.sent.length === 0)
+  }
+  {
+    const db = world()
+    reset(db, owner)
+    const r = await copy({ orderId: ORDER, receiptToken: TOKEN, email: "work@studio.example" })
+    check("a copy of a guest order: 403 (a forwarded link cannot mail it anywhere)", r.status === 403 && S.sent.length === 0)
+  }
+  {
+    const db = world({ order: { buyer_id: BUYER } })
+    reset(db, owner)
+    const bad = await copy({ orderId: ORDER, receiptToken: TOKEN, email: "not an address" })
+    check("a copy to something that is not an address: 400", bad.status === 400 && S.sent.length === 0)
+    const wrong = await copy({ orderId: ORDER, receiptToken: TOKEN_2, email: "work@studio.example" })
+    check("another line's token with this id: 404", wrong.status === 404 && S.sent.length === 0)
+    const junk = await copyRoute.POST(post("/api/receipt/send-copy", "{nope"))
+    check("a body that is not JSON: 400", junk.status === 400)
+  }
+  {
+    const db = world({ order: { buyer_id: BUYER } })
+    reset(db, owner)
+    const statuses: number[] = []
+    for (let i = 0; i < 4; i++) statuses.push((await copy({ orderId: ORDER, receiptToken: TOKEN, email: `work${i}@studio.example` }, { "x-forwarded-for": `198.51.100.${10 + i}` })).status)
+    check("the fourth copy in five minutes for one order is refused", statuses.join() === "200,200,200,429" && S.sent.length === 3, statuses.join())
+  }
+  {
+    const since = new Date(Date.now() - 60 * 1000).toISOString()
+    const db = world({ order: { buyer_id: BUYER }, extra: { security_events: Array.from({ length: 5 }, (_, i) => ({ id: `e${i}`, order_id: ORDER, event_type: "receipt_resent", created_at: since })) } })
+    reset(db, owner)
+    const r = await copy({ orderId: ORDER, receiptToken: TOKEN, email: "work@studio.example" })
+    const b = await json(r)
+    check("five sends today already: a copy is refused in words", r.status === 429 && /5 times today/.test(b.error) && S.sent.length === 0, JSON.stringify(b))
+  }
+  {
+    const db = world({ order: { buyer_id: BUYER } })
+    reset(db, owner)
+    S.sendFails = true
+    const r = await copy({ orderId: ORDER, receiptToken: TOKEN, email: "work@studio.example" })
+    const b = await json(r)
+    check("the sender fails: 502 with words the page shows", r.status === 502 && /did not go out/.test(b.error), JSON.stringify(b))
+  }
+
+  /* ── Contact seller ─────────────────────────────────────────────────── */
+  console.log("\nContact seller")
+  const write = (body: unknown, headers: Record<string, string> = {}) => contact.POST(post("/api/receipt/contact", body, headers))
+  {
+    const db = world()
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "  Hi, the zip will not open on my Mac.\u0000  ", buyerEmail: "attacker@example.com" })
+    const b = await json(r)
+    check("a guest holding the token can write: 200", r.status === 200 && b.success === true, JSON.stringify(b))
+    const m = S.sent[0]
+    /* Changed on purpose: the route resolves the inbox itself now (lib/seller-inbox), the support address the seller set first. */
+    check("one message, to the support address the seller set", S.sent.length === 1 && m.kind === "contact" && m.to === "help@seller.example", JSON.stringify(S.sent))
+    const logged = db.tables.email_logs.filter((l: any) => l.email_type === "seller_message")
+    check("recorded in email_logs as seller_message, sent, with no message text", logged.length === 1 && logged[0].status === "sent" && logged[0].order_id === ORDER && logged[0].recipient_email === "help@seller.example" && !JSON.stringify(logged).includes("zip"), JSON.stringify(logged))
+    check("Reply-To is the order's address, not one in the request", m?.message?.buyerEmail === "ghita@example.com", JSON.stringify(m?.message))
+    check("with the order number, the buyer's name, every line and a link to the order",
+      m?.message?.orderNumber === "11111111" && m?.message?.buyerName === "Ghita" && m?.message?.items?.length === 2 && /\/app\/orders\/11111111-1111-4111-8111-111111111111$/.test(m?.message?.orderLink), JSON.stringify(m?.message))
+    check("the message tidied", m?.message?.message === "Hi, the zip will not open on my Mac.")
+    check("recorded without the message", db.tables.security_events.length === 1 && db.tables.security_events[0].event_type === "seller_contacted" && !JSON.stringify(db.tables.security_events).includes("zip"))
+    check("and the limiter counted it", db.tables.rate_limit_hits.some((h: any) => h.bucket === "receipt-contact"))
+  }
+  {
+    /* No support address: the login's address as it is now, read from auth, not the profile's older copy. */
+    const db = world()
+    db.tables.creators[0].support_email = null
+    ;(db.tables.profiles.find((p: any) => p.id === SELLER_USER) as any).email = "andrew.old@example.com"
+    ;(db as any).auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === SELLER_USER ? { email: "Andrew.Now@Example.com" } : null } }) } }
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    check("no support address: the login's current address", r.status === 200 && S.sent[0]?.to === "andrew.now@example.com", JSON.stringify(S.sent))
+  }
+  {
+    /* A second business: its account's address is the owner's with a tag, from before the owner changed it. The owner's login today wins. */
+    const OWNER = "99999999-9999-4999-8999-999999999999"
+    const db = world({ extra: { business_links: [{ member_id: SELLER_USER, owner_id: OWNER }] } })
+    db.tables.creators[0].support_email = null
+    ;(db.tables.profiles.find((p: any) => p.id === SELLER_USER) as any).email = "andrew+slb-1a2b3c4d@old.example"
+    ;(db as any).auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === OWNER ? { email: "andrew@new.example" } : id === SELLER_USER ? { email: "andrew+slb-1a2b3c4d@old.example" } : null } }) } }
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    check("a second business: the owner's login address as it is now, no tag", r.status === 200 && S.sent[0]?.to === "andrew@new.example", JSON.stringify(S.sent))
+  }
+  {
+    /* Auth cannot be read: the profile's address, untagged. */
+    const db = world()
+    db.tables.creators[0].support_email = null
+    ;(db.tables.profiles.find((p: any) => p.id === SELLER_USER) as any).email = "andrew+slb-1a2b3c4d@example.com"
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    check("auth unreadable: the profile's address with the business tag taken off", r.status === 200 && S.sent[0]?.to === "andrew@example.com", JSON.stringify(S.sent))
+  }
+  {
+    /* Nobody to write to: said in words, nothing sent, and never Storelib's support inbox in the seller's place. */
+    const db = world()
+    db.tables.creators[0].support_email = null
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    const b = await json(r)
+    check("a seller with no address: refused in words, nothing sent", r.status === 409 && b.success === false && /no email address/.test(b.error) && S.sent.length === 0, JSON.stringify(b))
+  }
+  {
+    const db = world()
+    reset(db, null)
+    const empty = await write({ orderId: ORDER, receiptToken: TOKEN, message: "   " })
+    check("an empty message: 400 in words", empty.status === 400 && /Write a message/.test((await json(empty)).error))
+    const long = await write({ orderId: ORDER, receiptToken: TOKEN, message: "x".repeat(2001) })
+    check("over 2,000 characters: 400", long.status === 400)
+    const wrong = await write({ orderId: ORDER, receiptToken: TOKEN_2, message: "Hello there" })
+    check("another line's token with this id: 404", wrong.status === 404)
+    const junk = await contact.POST(post("/api/receipt/contact", "{nope"))
+    check("a body that is not JSON: 400", junk.status === 400)
+    check("none of them sent anything", S.sent.length === 0)
+  }
+  {
+    const db = world()
+    reset(db, null)
+    const statuses: number[] = []
+    for (let i = 0; i < 4; i++) statuses.push((await write({ orderId: ORDER, receiptToken: TOKEN, message: `Question ${i}` })).status)
+    check("the fourth message in five minutes is refused", statuses.join() === "200,200,200,429" && S.sent.length === 3, statuses.join())
+  }
+  {
+    const since = new Date(Date.now() - 60 * 1000).toISOString()
+    const db = world({ extra: { security_events: Array.from({ length: 5 }, (_, i) => ({ id: `c${i}`, order_id: ORDER, event_type: "seller_contacted", created_at: since })) } })
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "One more question" }, { "x-forwarded-for": "198.51.100.40" })
+    const b = await json(r)
+    check("five today already: 429 in words", r.status === 429 && /5 times today/.test(b.error) && S.sent.length === 0, JSON.stringify(b))
+  }
+  {
+    const db = world()
+    reset(db, null)
+    S.sendFails = true
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Hello there" })
+    const b = await json(r)
+    check("the sender fails: 502 with words the page shows", r.status === 502 && /did not go out/.test(b.error), JSON.stringify(b))
+    const logged = db.tables.email_logs.filter((l: any) => l.email_type === "seller_message")
+    check("and email_logs says it failed", logged.length === 1 && logged[0].status === "failed" && /provider said no/.test(logged[0].error_message), JSON.stringify(logged))
+  }
+  {
+    /* Before the SQL part: email_logs refuses the new type. The message still goes and the buyer is told it went. */
+    const db = world({ failInsert: { email_logs: { code: "23514", message: 'new row for relation "email_logs" violates check constraint "email_logs_email_type_check"' } } })
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Hello there" })
+    check("before the email_logs SQL: sent and 200 all the same", r.status === 200 && S.sent.length === 1)
   }
 
   /* ── Download ───────────────────────────────────────────────────────── */

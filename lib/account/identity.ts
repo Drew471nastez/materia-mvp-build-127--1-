@@ -19,7 +19,11 @@
  *   IT FOLLOWS.     When the profile changes, a copy that still holds what
  *                   the profile held is rewritten (`followsProfile`). A copy
  *                   holding something else is a page title somebody chose,
- *                   and is left alone.
+ *                   and is left alone. THAT IS THE NAME ONLY. A copy of the
+ *                   PHOTO is rewritten whatever it holds
+ *                   (`mirrorsProfilePhoto`): there is one photo, and the
+ *                   "somebody chose this" exception is what left one creator
+ *                   with three faces at once, one per editor.
  *   IT FILLS IN.    A published page is drawn from its published copy, so
  *                   that copy still wins at render time; the live profile is
  *                   what answers when the copy holds nothing
@@ -109,9 +113,18 @@ export function creatorName(input: {
 }
 
 /**
- * THE FACE A PUBLIC SURFACE SHOWS, in the same order, with one difference: a
- * provider's picture held in a copy is passed over rather than drawn, so
- * removing the photo in Settings removes it here too.
+ * THE FACE A PUBLIC SURFACE SHOWS, and it is NOT the same order as the name.
+ *
+ * A name can honestly differ from surface to surface: a page is called one
+ * thing and the person another. A face cannot. Three photos of one creator
+ * were showing at once — the creator page's, the one in Settings and the
+ * OnePage's — because each copy was read before the profile, and each copy
+ * had been written by a different editor.
+ *
+ * So the live profile answers first here, always. A copy is read only for a
+ * page drawn without the profile to hand, so that page shows a face rather
+ * than initials while the copies are being brought into line
+ * (lib/account/profile-follow).
  */
 export function creatorPhoto(input: {
   /** onepages.published_profile.avatar_url */
@@ -121,7 +134,7 @@ export function creatorPhoto(input: {
   /** profiles.avatar_url */
   live?: unknown
 }): string | null {
-  return keptPhoto(input.published) || keptPhoto(input.own) || profileAvatar(text(input.live)) || null
+  return profileAvatar(text(input.live)) || keptPhoto(input.published) || keptPhoto(input.own) || null
 }
 
 /**
@@ -143,28 +156,24 @@ export function followsProfile(stored: unknown, before: unknown, after: unknown)
 }
 
 /**
- * The same for a copy of the photo, with two differences.
+ * WHAT A COPY OF THE PHOTO BECOMES, AND IT IS ALWAYS THE PROFILE'S.
  *
- *   EXACTLY THE SAME ADDRESS. Two addresses that differ only in case are two
- *   files, so a photo copy follows only when it is the very address the
- *   profile held, never a case insensitive match.
+ * A copy of the name is left alone when it holds something somebody typed.
+ * A copy of the photo used to be treated the same way, and that is the whole
+ * of this bug: the OnePage editor wrote a photo of its own, the creator page
+ * header held one from onboarding, Settings held a third, and each of them
+ * counted as "chosen" from the moment it was written, so none of them ever
+ * followed again. One person, three faces, for good.
  *
- *   A PROVIDER'S PICTURE. A Google picture in a copy is never something its
- *   owner chose, so it follows whatever the profile now says, a removal
- *   included.
- *
- * Anything else, a photo uploaded in the OnePage editor above all, is a
- * choice and is left exactly as it is: an upload there goes to its own file
- * (onepage-assets), so it is never the profile's address.
+ * There is one photo. Every copy of it takes whatever the profile says, a
+ * removal (`null`) included. `undefined` only ever means "already that, do
+ * not write" — never "leave this one as it is".
  */
-export function followsProfilePhoto(stored: unknown, before: unknown, after: unknown): string | null | undefined {
+export function mirrorsProfilePhoto(stored: unknown, after: unknown): string | null | undefined {
   const now = text(stored)
-  if (now === null) return undefined
   const next = text(after)
   if (now === next) return undefined
-  if (providerPhoto(now)) return next
-  const was = text(before)
-  return was !== null && now === was ? next : undefined
+  return next
 }
 
 /**

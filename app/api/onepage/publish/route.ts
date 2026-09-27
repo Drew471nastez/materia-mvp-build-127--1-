@@ -22,7 +22,6 @@ export async function POST(request: Request) {
       theme,
       title,
       bio,
-      avatar_url,
       avatar_video_url,
       avatar_video_crop,
       social_links,
@@ -41,6 +40,17 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString()
+
+    /*
+      THE PHOTO IN THE PUBLISHED COPY IS THE PROFILE'S. There is one photo
+      (lib/account/identity), and the browser's copy of it can be as old as
+      the tab: publishing used to freeze whatever it sent into
+      `published_profile`, which is where the tab title's icon and the share
+      card are built from, so the live page could show a face nobody had used
+      for months. Read here, not taken from the request.
+    */
+    const { data: ownProfile } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle()
+    const photoNow = typeof ownProfile?.avatar_url === "string" && ownProfile.avatar_url.trim() !== "" ? ownProfile.avatar_url.trim() : null
 
     // If direct data was provided, use it (prevents race conditions)
     // Otherwise fall back to fetching from database (legacy support)
@@ -63,11 +73,12 @@ export async function POST(request: Request) {
         published_profile: {
           title: title || "",
           bio: bio || "",
-          avatar_url: avatar_url || null,
+          avatar_url: photoNow,
           avatar_video_url: avatar_video_url || null,
           avatar_video_crop: avatar_video_crop || null,
         },
         published_social_links: social_links || {},
+        avatar_url: photoNow,
       } as any
     } else {
       // Legacy: fetch from database
@@ -90,11 +101,12 @@ export async function POST(request: Request) {
         published_profile: {
           title: fullOnepage.title,
           bio: fullOnepage.bio,
-          avatar_url: fullOnepage.avatar_url,
+          avatar_url: photoNow,
           avatar_video_url: fullOnepage.avatar_video_url,
           avatar_video_crop: fullOnepage.settings?.avatar_video_crop || null,
         },
         published_social_links: fullOnepage.social_links,
+        avatar_url: photoNow,
       } as any
     }
 

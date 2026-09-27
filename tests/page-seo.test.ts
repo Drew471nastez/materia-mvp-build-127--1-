@@ -84,8 +84,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 
 console.log("\nA OnePage says where it lives and who it is about")
 {
-  check("it is canonical under the handle, or at /links on a connected domain",
-    getLinksShareUrl("Mara") === "https://storelib.com/mara/links" && getLinksUrlWithCustomDomain("mara", "marashop.com") === "https://www.marashop.com/links")
+  check("it is canonical at storelib.me/<handle>, or at /links on a connected domain",
+    getLinksShareUrl("Mara") === "https://storelib.me/mara" && getLinksUrlWithCustomDomain("mara", "marashop.com") === "https://www.marashop.com/links")
   check("it is listed by the sitemap's rule: published, with something published, under a handle that is not a farm's",
     onePageIndexable({ status: "published", publishedProducts: 2, handle: "mariapopescu" }) &&
       !onePageIndexable({ status: "draft", publishedProducts: 2, handle: "mariapopescu" }) &&
@@ -219,7 +219,8 @@ console.log("\nAn old address moved for good says so")
 {
   /* A 307 keeps a search engine on the old address; a 308 moves what it knows to the new one. */
   check("a renamed creator's page", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && !/\bredirect\(`\/\$\{historyRecord/.test(code("app/(marketing)/u/[username]/page.tsx")))
-  check("their OnePage", /permanentRedirect\(getLinksInternalPath\(historyRecord\.new_username\)\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  /* The page reads the rename from lib/onepage/resolve-address now (a past username or a past page address, one resolver shared with the proxy), and carries the visitor's query; still permanent, still straight to storelib.me/<new>. */
+  check("their OnePage, straight to storelib.me/<new> on storelib.me", /permanentRedirect\(`\$\{onOnePageHost \? onePageUrl\(address\.name\) : getLinksInternalPath\(address\.name\)\}\$\{query\}`\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
   check("a renamed product", /permanentRedirect\(`\/p\/\$\{product\.slug\}`\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
   const c = code("app/(marketing)/c/[slug]/page.tsx")
   check("the old /c/ address, while a guess with nothing behind it stays temporary",

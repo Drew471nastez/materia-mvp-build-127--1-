@@ -4,6 +4,9 @@ import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepage/settings-rules"
+import { isShareImageMode } from "@/lib/onepage/seo"
+import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
+import { onePageNameTaken } from "@/lib/onepage/name-availability"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
 const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
@@ -95,6 +98,11 @@ export async function GET() {
   }
 }
 
+/** PostgREST's "no such column" (PGRST204), or Postgres's own (42703), for this column. */
+function missingColumn(error: { code?: string; message?: string }, column: string): boolean {
+  return (error.code === "PGRST204" || error.code === "42703") && (error.message ?? "").includes(column)
+}
+
 // PUT - Update onepage draft
 export async function PUT(request: Request) {
   try {
@@ -123,7 +131,13 @@ export async function PUT(request: Request) {
       draft_blocks,
       slug,
       archived_blocks,
+      share_image_mode,
     } = body
+
+    /* The picture a shared link shows: one of three (lib/onepage/seo). Null is the same as not sent. */
+    if (share_image_mode !== undefined && share_image_mode !== null && !isShareImageMode(share_image_mode)) {
+      return refuse("That share image choice does not exist")
+    }
 
     // Get existing record with current settings
     const { data: existing } = await supabase
@@ -138,11 +152,12 @@ export async function PUT(request: Request) {
     }
 
     /*
-      A NEW PAGE ADDRESS. It is served at storelib.com/<address>/links, where
-      a slug is looked up before a username, so an address that is somebody
-      else's username would put this page on their address. Checked with the
-      service client: the owner's own client cannot see other people's pages
-      under RLS, so the old check never found a clash. Only a change is
+      A NEW PAGE ADDRESS, storelib.me/<address>. A slug is looked up there
+      before a username, so an address that is somebody else's username
+      would put this page on their address, and one that differs from
+      another page's only in case is the same address. The check is
+      lib/onepage/name-availability, the one the editor's live check runs,
+      so the field never says free for a name this refuses. Only a change is
       checked, so a page made before these rules still saves.
     */
     let nextSlug: string | undefined
@@ -151,12 +166,9 @@ export async function PUT(request: Request) {
       if (!verdict.ok) return refuse(verdict.error)
       nextSlug = verdict.value
       if (nextSlug !== existing.slug) {
-        const admin = createAdminClient()
-        const [{ data: pageTaken }, { data: nameTaken }] = await Promise.all([
-          admin.from("onepages").select("id").eq("slug", nextSlug).neq("id", id).limit(1).maybeSingle(),
-          admin.from("profiles").select("id").ilike("username", nextSlug).neq("id", user.id).limit(1).maybeSingle(),
-        ])
-        if (pageTaken || nameTaken) return refuse(TAKEN)
+        const taken = await onePageNameTaken(nextSlug, { onepageId: id, userId: user.id })
+        if (taken === "unknown") return refuse("That page address could not be checked just now. Try again in a moment.")
+        if (taken === "taken") return refuse(TAKEN)
       }
     }
 
@@ -167,13 +179,33 @@ export async function PUT(request: Request) {
     
     if (profileText.value.title !== undefined) updates.title = profileText.value.title
     if (profileText.value.bio !== undefined) updates.bio = profileText.value.bio
-    if (avatar_url !== undefined) updates.avatar_url = avatar_url
+    /*
+      THE PHOTO IS THE PROFILE'S, AND THIS ROUTE NEVER SETS IT. A photo saved
+      from the OnePage editor used to land in this row and nowhere else, so
+      the creator page kept one face, Settings a second and the OnePage a
+      third (lib/account/identity). The editor's photo control saves the
+      profile now, through app/api/account/avatar, exactly as Settings does;
+      every copy follows from there (lib/account/profile-follow).
+
+      A save that carries a photo is still answered, because every save sends
+      the whole page: the row's copy is set to whatever the PROFILE holds at
+      this moment, never to what the browser sent. An editor open in another
+      tab since before the photo changed therefore cannot save the old one
+      back over it, which is the shape the creator page bug had.
+    */
+    let photoNow: string | null | undefined
+    if (avatar_url !== undefined) {
+      const { data: profile } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle()
+      photoNow = typeof profile?.avatar_url === "string" && profile.avatar_url.trim() !== "" ? profile.avatar_url.trim() : null
+      updates.avatar_url = photoNow
+    }
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
     if (social_links !== undefined) updates.social_links = social_links
     if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
     if (nextSlug !== undefined) updates.slug = nextSlug
     if (archived_blocks !== undefined) (updates as any).archived_blocks = archived_blocks
+    if (isShareImageMode(share_image_mode)) updates.share_image_mode = share_image_mode
     
     // PROPERLY MERGE SETTINGS - don't overwrite, merge with existing
     if (settings !== undefined || avatar_video_crop !== undefined) {
@@ -226,19 +258,32 @@ export async function PUT(request: Request) {
       }
     }
 
-    const { data: updated, error } = await supabase
-      .from("onepages")
-      .update(updates)
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .select()
-      .single()
+    const write = (row: typeof updates) => supabase.from("onepages").update(row).eq("id", id).eq("owner_id", user.id).select().single()
+    let { data: updated, error } = await write(updates)
+
+    /*
+      A DATABASE WITHOUT onepages.share_image_mode YET (run-now part 57 adds
+      it): the choice is kept in the page's settings instead, where
+      lib/onepage/seo shareImageModeOf reads it, so choosing a picture works
+      before the SQL runs. Once the column is there it is the one read.
+    */
+    if (error && updates.share_image_mode !== undefined && missingColumn(error, "share_image_mode")) {
+      const { share_image_mode: mode, ...rest } = updates
+      rest.settings = { ...((rest.settings ?? existing.settings ?? {}) as Record<string, unknown>), share_image_mode: mode } as typeof rest.settings
+      ;({ data: updated, error } = await write(rest))
+    }
 
     if (error) {
       /* Two saves racing for one address: the unique index answers, and it is the same answer. */
       if ((error as { code?: string }).code === "23505") return refuse(TAKEN)
       console.error("Error updating onepage:", (error as { code?: string }).code ?? "unknown")
       return NextResponse.json({ error: "Failed to update" }, { status: 500 })
+    }
+
+    /* The copy taken at the last publish takes the same photo, so the live
+       page changes with the profile rather than at the next publish. */
+    if (photoNow !== undefined) {
+      await followProfileIdentity(supabase as unknown as FollowClient, user.id, { photo: { after: photoNow } })
     }
 
     return NextResponse.json({ onepage: updated })

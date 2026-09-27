@@ -104,7 +104,12 @@ check("each tab comes back to where it was scrolled", /scrollMemory\.current\[fr
 check("the switch is one short fade on the compositor, and nothing slides",
   /const fade = incoming\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: TAB_FADE_IN_MS, easing: TAB_FADE_EASE \}\)/.test(editor)
   && /const TAB_FADE_IN_MS = 120/.test(editor) && !/TAB_SHIFT_PX/.test(editor) && !/outgoing\.animate\(/.test(editor) && !/incoming\.animate\(\s*\[\{ transform/.test(editor))
-check("the pill slides by transform, started from the press", /data-tab-pill=""/.test(editor) && /pillMoves\.current\.forEach\(\(slide\) => slide\(tab\)\)/.test(editor) && /scaleX\(\$\{from\.w \/ w\}\)/.test(editor))
+/*
+  "No slide-in slide effect" (the phone bar): the computer's segmented row
+  keeps its sliding pill; the phone's buttons change in place
+  (tests/onepage-arrival.test.ts, scripts/check-onepage-tabbar.mjs).
+*/
+check("the computer row's pill slides by transform, started from the press", /data-tab-pill=""/.test(editor) && /pillMoves\.current\.forEach\(\(slide\) => slide\(tab\)\)/.test(editor) && /scaleX\(\$\{from\.w \/ w\}\)/.test(editor) && /pillMoves\.current = \[desktopPill\.slideTo\]/.test(editor))
 check("the panels follow a frame after the bars", /requestAnimationFrame\(\(\) => \{\s*timer = window\.setTimeout\(\(\) => startTransition\(\(\) => setPanelTab\(activeTab\)\), 0\)/.test(editor))
 
 /*
@@ -116,9 +121,9 @@ check("the panels follow a frame after the bars", /requestAnimationFrame\(\(\) =
 */
 console.log("\nThe phone's tab bar")
 check("four equal buttons, Settings one of them with its word",
-  /grid grid-cols-4 gap-2 px-4/.test(editor) && /\[\.\.\.tabs, \{ id: "settings" as const, label: "Settings", icon: SlidersHorizontal \}\]/.test(editor) && !/aria-label="Settings"/.test(editor))
+  /grid grid-cols-4 gap-1\.5 px-3 pt-\[9px\] min-\[340px\]:gap-2 min-\[340px\]:px-4/.test(editor) && /\[\.\.\.tabs, \{ id: "settings" as const, label: "Settings", icon: SlidersHorizontal \}\]/.test(editor) && !/aria-label="Settings"/.test(editor))
 check("each 54px, white with a hairline and a soft foot; the chosen one near black with Preview's light and shade",
-  /flex h-\[54px\] min-w-0 cursor-pointer items-center justify-center rounded-\[12px\] border border-\[#e3e4e8\] bg-white/.test(editor) && /rounded-\[12px\] bg-\[#1a1a2e\] shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.14\)/.test(editor))
+  /relative isolate flex h-\[54px\] min-w-0 cursor-pointer items-center justify-center rounded-\[12px\] border border-\[#e3e4e8\] bg-white/.test(editor) && /rounded-\[12px\] bg-\[#1a1a2e\] shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.14\)/.test(editor))
 check("the bar is one shared height, and the tabs leave that room under their content",
   /h-\[var\(--op-tabbar-h\)\]/.test(editor) && /--op-tabbar-h: calc\(64px \+ max\(10px, env\(safe-area-inset-bottom, 0px\)\)\)/.test(css) && /\.op-tabbar-clearance \{\s*padding-bottom: calc\(var\(--op-tabbar-h\) \+ 16px\)/.test(css))
 

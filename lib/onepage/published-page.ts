@@ -18,12 +18,14 @@ import { isBanned } from "@/lib/seo/bans"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import { publicOnePage } from "@/lib/onepage/public-shape"
 import { resolveOnePageSeo, type ResolvedOnePageSeo } from "@/lib/onepage/seo"
+import { resolveOnePageAddress, type OnePageAddress } from "@/lib/onepage/resolve-address"
+import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 
 /**
  * WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
  *
  *   handle      the owner's username, which the page is canonical under:
- *               storelib.com/<handle>/links, or /links on their connected
+ *               storelib.me/<handle>, or /links on their connected
  *               domain, where the proxy serves the same page
  *   banned      an operator banned the owner: the page is not served at all,
  *               as their products are not (lib/seo/bans.ts)
@@ -67,26 +69,31 @@ export const onePageOwner = cache(async (sellerId: string | null, creatorId: str
 export type OnePageOwner = Awaited<ReturnType<typeof onePageOwner>>
 
 /**
+ * WHERE A NAME LEADS, READ ONCE PER REQUEST (lib/onepage/resolve-address):
+ * the page at that address, the page of the account with that username, the
+ * creator page of an account with no OnePage, or the address a renamed page
+ * or account has now. The page, its metadata and its share image all read
+ * this one answer. A read that fails is a name that leads nowhere, which is
+ * what it was before: the page's own not found.
+ */
+export const resolveOnePage = cache(async (slug: string): Promise<OnePageAddress<any>> => {
+  try {
+    return await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*"))
+  } catch {
+    return { kind: "missing" }
+  }
+})
+
+/**
  * ONE READ OF THE PAGE, FOR THE TAB, THE BODY AND THE SHARE IMAGE: by its
- * slug, then by the owner whose username the slug is (username.storelib.com/
- * links and /<handle>/links, where the proxy passes the handle as the slug).
+ * address in any case, then by the owner whose username the name is
+ * (storelib.me/<name>, which the proxy serves from /<name>/links with the
+ * name as the slug). Both lookups are lib/onepage/address-lookup's, the
+ * same ones the proxy asks for an old address.
  */
 export const findPublishedOnePage = cache(async (slug: string) => {
-  const supabase = createAdminClient()
-  const { data: bySlug } = await supabase.from("onepages").select("*").eq("slug", slug).eq("status", "published").maybeSingle()
-  if (bySlug) return bySlug
-
-  const { data: profile } = await supabase.from("profiles").select("id, username").ilike("username", slug).maybeSingle()
-  if (!profile) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", profile.id).maybeSingle()
-  if (creator) {
-    const { data: bySeller } = await supabase.from("onepages").select("*").eq("seller_id", creator.id).eq("status", "published").maybeSingle()
-    if (bySeller) return bySeller
-    const { data: byCreator } = await supabase.from("onepages").select("*").eq("creator_id", creator.id).eq("status", "published").maybeSingle()
-    if (byCreator) return byCreator
-  }
-  const { data: byOwner } = await supabase.from("onepages").select("*").eq("owner_id", profile.id).eq("status", "published").maybeSingle()
-  return byOwner ?? null
+  const address = await resolveOnePage(slug)
+  return address.kind === "page" ? address.page : null
 })
 
 /** The shape the page is drawn from, with the owner's live name and photo to fall back on. */
@@ -107,8 +114,8 @@ export function publishedShape(
 
 /**
  * The address the page is shared at: <creator page domain>/links, or
- * storelib.com/<handle>/links under the owner's own handle, which is the one
- * the sitemap lists. The address it was reached at when there is no handle.
+ * storelib.me/<handle> under the owner's own handle, which is the one the
+ * sitemap lists. The page's own name there when there is no handle.
  */
 export async function onePageAddress(onepage: { seller_id?: string | null; creator_id?: string | null }, owner: OnePageOwner, slug: string) {
   if (owner.canonical) return owner.canonical
@@ -131,6 +138,8 @@ export async function publishedOnePageSeo(onepage: any, owner: OnePageOwner, slu
     avatarUrl: drawn.avatar_url,
     theme: drawn.theme,
     settings: onepage.settings,
+    /* The picture a shared link shows (lib/onepage/seo shareImageModeOf): the column, read live like the settings. */
+    shareImageMode: onepage.share_image_mode,
     pageUrl,
   })
   return { seo, drawn }

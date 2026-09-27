@@ -56,8 +56,29 @@ export function isChunkLoadError(error: unknown): boolean {
     /Failed to fetch dynamically imported module/i.test(text) ||
     /error loading dynamically imported module/i.test(text) ||
     /Importing a module script failed/i.test(text) ||
-    /'text\/html' is not a valid JavaScript MIME type/i.test(text)
+    /'text\/html' is not a valid JavaScript MIME type/i.test(text) ||
+    /*
+      TURBOPACK'S OWN WORDS. Next 16 builds with Turbopack, whose runtime
+      throws a plain Error("Failed to load chunk /_next/static/chunks/….js
+      from module …"), no ChunkLoadError name and none of the wordings
+      above. So every stale tab since the switch was reported as a fault
+      ("[client-error] … Failed to load chunk … ?dpl=…" on /explore,
+      /checkout, creator pages and the blog) and never reloaded.
+    */
+    /Failed to load chunk /i.test(text)
   )
+}
+
+/**
+ * "Load failed" is Safari's whole message for a fetch that never finished.
+ * Inside /app, right after a deploy, that is the router asking the new
+ * deployment for a page in the old one's terms; anywhere else it is too
+ * vague to act on, so only /app counts it.
+ */
+export function isStaleCodeError(error: unknown, path: string | null | undefined): boolean {
+  if (isChunkLoadError(error)) return true
+  const message = typeof (error as { message?: unknown })?.message === "string" ? (error as { message: string }).message : ""
+  return message.trim() === "Load failed" && typeof path === "string" && /^\/app(\/|$)/.test(path)
 }
 
 export interface ReloadStore {
@@ -72,17 +93,32 @@ export interface ReloadStore {
  * cannot be read: a browser with storage blocked would otherwise reload for
  * ever, because "have I already tried" would always answer no.
  */
-export function shouldReloadForStaleCode(error: unknown, store: ReloadStore | null | undefined): boolean {
-  if (!isChunkLoadError(error)) return false
+export function shouldReloadForStaleCode(
+  error: unknown,
+  store: ReloadStore | null | undefined,
+  path?: string | null,
+  now: number = Date.now(),
+): boolean {
+  if (!isStaleCodeError(error, path)) return false
   if (!store) return false
   try {
-    if (store.getItem(RELOAD_KEY)) return false
-    store.setItem(RELOAD_KEY, String(Date.now()))
+    /*
+      ONCE PER DEPLOY, NOT ONCE PER TAB FOREVER. A tab that reloaded for this
+      morning's deploy must be able to reload for this afternoon's, so a
+      record older than RELOAD_AGAIN_MS no longer counts. A page that fails
+      again straight after its reload finds the record and shows the error.
+    */
+    const last = Number(store.getItem(RELOAD_KEY))
+    if (Number.isFinite(last) && last > 0 && now - last < RELOAD_AGAIN_MS) return false
+    store.setItem(RELOAD_KEY, String(now))
     return true
   } catch {
     return false
   }
 }
+
+/** How long one reload counts for: longer than any page takes to fail again, shorter than the gap between deploys. */
+export const RELOAD_AGAIN_MS = 10 * 60_000
 
 /**
  * What to tell the person looking at it.
@@ -138,6 +174,6 @@ export function buildReport(error: unknown, href: string): ClientErrorReport {
     message: message.slice(0, 300),
     digest: typeof (error as { digest?: unknown })?.digest === "string" ? (error as { digest: string }).digest : null,
     path: path.slice(0, 200),
-    stale: isChunkLoadError(error),
+    stale: isStaleCodeError(error, path),
   }
 }

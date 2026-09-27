@@ -92,6 +92,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "checkout/invoice/route.ts": "the receipt token is the credential",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
   "receipt/view/route.ts": "the receipt token is the credential",
+  "receipt/contact/route.ts": "the receipt token and order id are the credential; it only writes to the seller, Reply-To the order's own address, rate limited",
   "onepage/download/route.ts": "the download token is the credential",
   "onepage/download/[token]/route.ts": "the download token is the credential",
   "coupons/validate/route.ts": "a buyer checking a code at checkout, and it answers yes or no",

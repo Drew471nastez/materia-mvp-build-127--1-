@@ -28,6 +28,7 @@ import { parseHtml, type HElement, type HNode } from "@/lib/rich-text/html"
 import { isButtonShaped, parseStyle, safeHref } from "@/lib/rich-text/policy"
 import { decodeHtmlEntities } from "@/lib/html-entities"
 import { DEFAULT_ACCENT, buttonColors, hexColor, type EmailTheme } from "./brand"
+import { inboxImageSrc } from "./sender"
 
 export const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 export const TEXT = "#1f2937"
@@ -168,10 +169,12 @@ function inline(nodes: HNode[], ctx: Ctx): string {
         break
       }
       case "img": {
-        const src = emailImageSrc(node.attrs.src)
-        if (!src) break
+        const stored = emailImageSrc(node.attrs.src)
+        if (!stored) break
         const w = Number(node.attrs.width)
         const width = Number.isFinite(w) && w > 0 ? Math.min(520, Math.round(w)) : 520
+        /* Twice its drawn width, in a format the inbox shows (./sender inboxImageSrc), never the upload itself. */
+        const src = inboxImageSrc(stored, width) ?? stored
         out += `<img src="${esc(src)}" alt="${esc((node.attrs.alt ?? "").slice(0, 300))}" width="${width}" style="display:inline-block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;vertical-align:middle;">`
         break
       }

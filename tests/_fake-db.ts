@@ -79,8 +79,16 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
           case "lte":
             return String(v ?? "") <= String(val)
           case "ilike": {
-            /* PostgREST's ilike: case insensitive, % for any run of characters, _ for one. */
-            const pattern = String(val).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")
+            /* PostgREST's ilike: case insensitive, % for any run of characters, _ for one, and a backslash makes the next one literal, as in Postgres. */
+            let pattern = ""
+            const raw = String(val)
+            for (let i = 0; i < raw.length; i++) {
+              const c = raw[i]
+              if (c === "\\" && i + 1 < raw.length) pattern += raw[++i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+              else if (c === "%") pattern += ".*"
+              else if (c === "_") pattern += "."
+              else pattern += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+            }
             return typeof v === "string" && new RegExp(`^${pattern}$`, "i").test(v)
           }
           default:

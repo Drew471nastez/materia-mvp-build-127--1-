@@ -41,11 +41,61 @@ async function launch() {
     })
   }
   const chromium = (await import("@sparticuz/chromium")).default
-  return puppeteer.launch({
-    executablePath: await chromium.executablePath(),
-    headless: true,
-    args: [...chromium.args, "--hide-scrollbars", "--font-render-hinting=none"],
-  })
+  return launchPacked(puppeteer, chromium)
+}
+
+/*
+  ONE UNPACKING AT A TIME. "[cover] could not take the screenshots: spawn
+  ETXTBSY". @sparticuz/chromium unpacks its browser into /tmp/chromium the
+  first time it is asked, and answers "it is there" as soon as that FILE
+  EXISTS, while it is still being written. Two covers asked for at once on
+  one instance (Fluid compute runs requests side by side in one process):
+  the first starts writing, the second is told the path and starts a
+  program that is half written, and Linux refuses: ETXTBSY, text file busy.
+
+  So the unpacking is one promise per process, kept on globalThis (every
+  route that takes a cover shares it, whichever bundle it came in), and
+  everybody waits for the same one. A failed unpacking is forgotten, so the
+  next cover tries again. And a start that still meets a busy file (another
+  writer this code does not know about) waits a moment and tries once more.
+*/
+type Pack = { executablePath: () => Promise<string>; args: string[] }
+type Starter<B> = { launch: (options: { executablePath: string; headless: boolean; args: string[] }) => Promise<B> }
+
+const UNPACKING = Symbol.for("storelib.cover.chromium-unpacking")
+const TEXT_BUSY_WAIT_MS = 400
+
+export function unpackOnce(pack: Pack): Promise<string> {
+  const g = globalThis as unknown as Record<symbol, Promise<string> | null | undefined>
+  if (!g[UNPACKING]) {
+    g[UNPACKING] = pack.executablePath().catch((e) => {
+      g[UNPACKING] = null
+      throw e
+    })
+  }
+  return g[UNPACKING] as Promise<string>
+}
+
+export function isTextBusy(e: unknown): boolean {
+  const err = e as { code?: unknown; message?: unknown } | null
+  return err?.code === "ETXTBSY" || /ETXTBSY/.test(String(err?.message ?? ""))
+}
+
+export async function launchPacked<B>(puppeteer: Starter<B>, pack: Pack, wait = TEXT_BUSY_WAIT_MS): Promise<B> {
+  const start = async () =>
+    puppeteer.launch({
+      executablePath: await unpackOnce(pack),
+      headless: true,
+      args: [...pack.args, "--hide-scrollbars", "--font-render-hinting=none"],
+    })
+  try {
+    return await start()
+  } catch (e) {
+    if (!isTextBusy(e)) throw e
+    console.warn("[cover] the browser was still being unpacked (ETXTBSY); starting it again")
+    await new Promise((r) => setTimeout(r, wait))
+    return start()
+  }
 }
 
 /**

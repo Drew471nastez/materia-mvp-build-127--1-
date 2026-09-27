@@ -41,7 +41,7 @@ import { AppLanguageModal } from "@/components/app/language-picker"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
-import { prefetchAppPage } from "@/lib/ui/app-navigation"
+import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
@@ -153,6 +153,38 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setProfileDropdownOpen(false)
     setHeaderProfileOpen(false)
   }, [pathname])
+
+  /*
+    THE ONEPAGE EDITOR IS FETCHED BEFORE THE PRESS, ON A PHONE TOO. It is the
+    heaviest page in /app (about 215KB of its own code, gzipped, on top of
+    the shell's), and on a phone nothing fetched it ahead: the rail's hover
+    does on a computer, but the menu's row and Home's card only warm it as
+    the finger lands, so the first press waited for the server and then for
+    the code, and the spinner came up. Once the shell is idle, a creator who
+    has a OnePage has it fetched whole (prefetchAppPage), code included, and
+    again when the app comes back after longer than the router keeps it.
+  */
+  useEffect(() => {
+    if (!onePagePublished || !isPhoneShell()) return
+    let warmedAt = 0
+    const warm = () => {
+      if (window.location.pathname.startsWith("/app/onepage")) return
+      warmedAt = Date.now()
+      prefetchAppPage(router, "/app/onepage")
+    }
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const idle = w.requestIdleCallback ? w.requestIdleCallback(warm, { timeout: 5000 }) : window.setTimeout(warm, 2500)
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && warmedAt && Date.now() - warmedAt > APP_PAGE_KEPT_MS) warm()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      if (w.cancelIdleCallback) w.cancelIdleCallback(idle)
+      else window.clearTimeout(idle)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onePagePublished])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

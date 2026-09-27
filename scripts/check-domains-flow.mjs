@@ -399,8 +399,24 @@ console.log("\nA check that did not pass (390)")
 console.log("\nThe provider picked, and Remove (1280)")
 {
   const p = await open("after", "pending", 1280)
-  await p.select("[data-dns-registrar]", "porkbun")
-  await wait(150)
+  /* The picker is a list with each provider's own mark: open it, see six marks and a globe, pick Porkbun. */
+  await p.click("[data-dns-registrar]")
+  await p.waitForSelector("[data-registrar-option]")
+  await wait(250)
+  const list = await p.evaluate(() => [...document.querySelectorAll("[data-registrar-option]")].map((o) => {
+    const m = o.querySelector("[data-registrar-mark]")
+    return { id: o.getAttribute("data-registrar-option"), mark: m?.getAttribute("data-registrar-mark") ?? null, colour: m ? getComputedStyle(m).color : null, h: Math.round(o.getBoundingClientRect().height) }
+  }))
+  const BRAND = { godaddy: "rgb(27, 219, 219)", namecheap: "rgb(222, 55, 35)", cloudflare: "rgb(243, 128, 32)", squarespace: "rgb(0, 0, 0)", porkbun: "rgb(239, 120, 120)", hostinger: "rgb(103, 61, 230)", other: "rgb(107, 114, 128)" }
+  expect(list.length === 7 && list.every((o) => o.mark === o.id && o.colour === BRAND[o.id]), "every provider in the list carries its own mark in its own colour", list)
+  await p.screenshot({ path: join(shots, "domains-flow-after-1280-provider-list.png") })
+  /* A screenshot can close the list (it resizes the page); open it again if so. */
+  if (!(await p.$('[data-registrar-option="porkbun"]'))) { await p.click("[data-dns-registrar]"); await p.waitForSelector('[data-registrar-option="porkbun"]'); await wait(250) }
+  await p.click('[data-registrar-option="porkbun"]')
+  await wait(250)
+  const trigger = await p.evaluate(() => document.querySelector("[data-dns-registrar] [data-registrar-mark]")?.getAttribute("data-registrar-mark"))
+  const openMark = await p.evaluate(() => document.querySelector("[data-dns-open] [data-registrar-mark]")?.getAttribute("data-registrar-mark"))
+  expect(trigger === "porkbun" && openMark === "porkbun", "the picked provider's mark shows in the picker and in its Open link", { trigger, openMark })
   const got = await p.evaluate(() => ({
     names: [...document.querySelectorAll("[data-dns-name]")].map((n) => n.textContent.trim()),
     tip: document.querySelector("[data-dns-tip]")?.textContent.trim() ?? "",

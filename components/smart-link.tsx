@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
-import { getLinksInternalPath, toSameOriginPath } from "@/lib/url-helpers"
+import { getLinksInternalPath, isOnePageHost, toSameOriginPath } from "@/lib/url-helpers"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -13,6 +13,7 @@ import { getLinksInternalPath, toSameOriginPath } from "@/lib/url-helpers"
  *   https://seller.storelib.com           -> /u/seller
  *   https://seller.storelib.com/p/slug     -> /p/slug
  *   https://seller.storelib.com/links      -> /seller/links
+ *   https://storelib.me/seller             -> /seller/links
  *   /u/seller  (already internal)          -> /u/seller
  */
 function toInternalHref(href: string): string {
@@ -23,6 +24,12 @@ function toInternalHref(href: string): string {
     const url = new URL(href)
     const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
     const host = url.hostname
+
+    // storelib.me/name -> /name/links, the route the OnePage renders from
+    if (isOnePageHost(host)) {
+      const name = url.pathname.split("/").filter(Boolean)[0]
+      return name ? getLinksInternalPath(name.toLowerCase()) : href
+    }
 
     // Only rewrite storelib.com subdomains
     if (!host.endsWith(`.${mainDomain}`)) return href

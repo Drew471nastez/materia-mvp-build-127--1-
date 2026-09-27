@@ -13,6 +13,7 @@ import { withoutMetadata } from "@/lib/images/compress"
 import { announceAvatar } from "@/lib/account/avatar-store"
 import { nativeLogOut } from "@/lib/native-bridge"
 import { ReturnLink } from "@/components/navigation/return-link"
+import { EmailChangeFlow } from "@/components/app/settings/account-panels"
 
 /**
  * Compresses an image using canvas to fit within 2MB.
@@ -74,7 +75,12 @@ interface BuyerSettingsProps {
 
 type Tab = "general" | "security"
 
-export function BuyerSettings({ userId, email, displayName: initialName, avatarUrl, username: initialUsername, createdAt }: BuyerSettingsProps) {
+export function BuyerSettings({ userId, email: initialEmail, displayName: initialName, avatarUrl, username: initialUsername, createdAt }: BuyerSettingsProps) {
+  /* The account's email, which a receipt's Resend sends to for an order on
+     this account. Changed with a code to each address (EmailChangeFlow,
+     app/api/auth/change-email), the same flow as the seller's settings. */
+  const [email, setEmail] = useState(initialEmail)
+  const [changingEmail, setChangingEmail] = useState(false)
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>("general")
 
@@ -476,7 +482,27 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                 <CheckCircle className="h-3 w-3" />
                 Verified
               </span>
+              <button
+                type="button"
+                onClick={() => setChangingEmail((v) => !v)}
+                aria-expanded={changingEmail}
+                data-change-email=""
+                className="h-11 shrink-0 rounded-xl border border-neutral-200 bg-white px-3.5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 active:bg-neutral-100"
+              >
+                {changingEmail ? "Close" : "Change"}
+              </button>
             </div>
+            {changingEmail ? (
+              <div className="mt-4 border-t border-neutral-100 pt-4">
+                <EmailChangeFlow
+                  currentEmail={email}
+                  onChanged={(next) => {
+                    setEmail(next)
+                    router.refresh()
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
 
           {/* Save button */}

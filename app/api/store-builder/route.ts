@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { defaultShopPageConfig, defaultProductPageConfig } from "@/lib/store-builder/defaults"
 import type { PageType } from "@/lib/store-builder/types"
 import { pagePhotoForProfile } from "@/lib/account/avatar"
+import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 
 // GET - Fetch store builder config for a page type or specific product
 export async function GET(request: Request) {
@@ -303,6 +304,10 @@ export async function POST(request: Request) {
 
       if (profileError) {
         console.error(`[store-builder] profile photo not synced (${profileError.code ?? "unknown"})`)
+      } else {
+        /* And every other copy of the photo takes it too, so the OnePage and
+           the creator row cannot keep a second face (lib/account/profile-follow). */
+        await followProfileIdentity(supabase as unknown as FollowClient, user.id, { photo: { after: avatarValue } })
       }
     }
   }
@@ -516,6 +521,9 @@ export async function PUT(request: Request) {
 
       if (profileError) {
         console.error(`[store-builder] profile photo not synced on publish (${profileError.code ?? "unknown"})`)
+      } else {
+        /* And every other copy takes it: one photo (lib/account/profile-follow). */
+        await followProfileIdentity(supabase as unknown as FollowClient, user.id, { photo: { after: productPhoto } })
       }
     }
 
@@ -599,6 +607,9 @@ export async function PUT(request: Request) {
 
     if (profileError) {
       console.error(`[store-builder] profile photo not synced on publish (${profileError.code ?? "unknown"})`)
+    } else {
+      /* And every other copy takes it: one photo (lib/account/profile-follow). */
+      await followProfileIdentity(supabase as unknown as FollowClient, user.id, { photo: { after: pagePhoto } })
     }
   }
 

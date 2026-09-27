@@ -26,7 +26,7 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
-import { useSearchHandoff } from "@/lib/explore/use-search-handoff"
+import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
 import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
 
 
@@ -229,6 +229,16 @@ type Profile = {
 }
 
 /** True below 768px, the width from which the header stops drawing its phone buttons. */
+/* The header's Categories menu: the panel, and its two states (see where it is drawn). */
+const HEADER_MENU_PANEL =
+  "absolute top-full left-0 mt-2 z-50 flex h-[min(480px,calc(100dvh-120px))] w-[320px] flex-col overflow-hidden rounded-xl bg-white text-[#1a1a2e] " +
+  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_12px_32px_-8px_rgba(15,23,42,0.18)] " +
+  "origin-top-left transition-[opacity,scale,translate] motion-reduce:transition-none"
+const HEADER_MENU_OPEN =
+  "opacity-100 scale-100 translate-y-0 duration-[160ms] ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0 starting:scale-[0.98] starting:-translate-y-1"
+const HEADER_MENU_LEAVING =
+  "pointer-events-none opacity-0 scale-[0.98] -translate-y-1 duration-[140ms] ease-[cubic-bezier(0.4,0,1,1)]"
+
 function useBelowMd(): boolean {
   const [below, setBelow] = useState(false)
   useEffect(() => {
@@ -495,6 +505,35 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
+  /*
+    THE MENU STAYS ON SCREEN WHILE IT LEAVES. It was drawn only while open,
+    so a click away took it off in the same frame: a white panel gone from
+    one frame to the next, which is the snap the owner saw. `present` keeps it
+    in the tree through its exit transition and lets go when that ends (at
+    once under reduced motion, where there is none, and after 600ms whatever
+    happens, so it can never be left behind).
+    Set during render when it opens, so the opening frame already has it.
+  */
+  const [categoriesPresent, setCategoriesPresent] = useState(false)
+  if (categoriesDropdownOpen && !categoriesPresent) setCategoriesPresent(true)
+  useEffect(() => {
+    if (categoriesDropdownOpen || !categoriesPresent) return
+    /* No transition runs under reduced motion, so nothing would end: let go now. */
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const t = window.setTimeout(() => setCategoriesPresent(false), still ? 0 : 600)
+    return () => window.clearTimeout(t)
+  }, [categoriesDropdownOpen, categoriesPresent])
+  /* Escape closes it wherever focus is, not only from inside the panel. */
+  useEffect(() => {
+    if (!categoriesDropdownOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      setCategoriesDropdownOpen(false)
+      document.querySelector<HTMLElement>("[data-categories-dropdown] > button")?.focus({ preventScroll: true })
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [categoriesDropdownOpen])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
@@ -895,6 +934,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    * scrolls away.
    */
   const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  /* The phone's strip: its line is still 8px from the top of the window. */
   const searchInHeader = useSearchHandoff(isExploreSurface)
   /**
    * HOW TALL THE STICKY BAR IS, so the phone's search strip can sit under it
@@ -919,6 +959,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  /*
+    THE DESKTOP FIELD'S LINE IS THE BOTTOM OF THIS BAR. "It needs to appear
+    smooth, when I start scrolling down past the initial search bar under the
+    Discover heading." The field arrives as the page's own goes under the
+    header, not 60px later when it leaves the window, and it fades in rather
+    than popping. Until the bar is measured the old line stands in.
+  */
+  const deskHandoff = useSearchHandoffState(isExploreSurface, headerH || WINDOW_SLACK)
   /*
     ═══════════════════════════════════════════════════════════════════════
      THE BAR DOES NOT GO ANYWHERE ANY MORE
@@ -1318,7 +1366,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
                     aria-expanded={categoriesDropdownOpen}
                     aria-haspopup="true"
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-colors duration-150 cursor-pointer ${
                       categoriesDropdownOpen
                         ? "bg-white/15 text-white"
                         : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -1341,15 +1389,30 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 with a "Back to Categories" link over a violet icon and a Hot
                 badge. See components/explore/category-browser.
               */}
-              {categoriesDropdownOpen && (
+              {/*
+                IN AND OUT BY TRANSITION, NOT BY KEYFRAMES. It opens from its
+                `starting:` values (@starting-style) and closes by the same
+                transition run backwards: a fade with a 4px lift and a hair of
+                scale toward the button, 160ms in and 140ms out. A transition
+                reverses from wherever it is, so a click that reopens it while
+                it is leaving turns it round instead of restarting it.
+                Opacity, `scale` and `translate` only (Tailwind's scale-* and
+                translate-y-* are those properties, not `transform`), on a
+                panel that is `absolute`, so nothing behind it moves. Leaving,
+                it takes no pointer and no focus, so a row under the cursor
+                cannot light up on its way out.
+              */}
+              {categoriesPresent && (
                 <div
                   data-header-categories=""
+                  data-state={categoriesDropdownOpen ? "open" : "closed"}
                   role="dialog"
                   aria-label="Categories"
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") setCategoriesDropdownOpen(false)
+                  inert={categoriesDropdownOpen ? undefined : true}
+                  onTransitionEnd={(e) => {
+                    if (e.target === e.currentTarget && e.propertyName === "opacity" && !categoriesDropdownOpen) setCategoriesPresent(false)
                   }}
-                  className="absolute top-full left-0 mt-2 z-50 flex h-[min(480px,calc(100dvh-120px))] w-[320px] flex-col overflow-hidden rounded-xl bg-white text-[#1a1a2e] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_12px_32px_-8px_rgba(15,23,42,0.18)] animate-in fade-in-0 zoom-in-[0.97] origin-top-left duration-150 ease-out"
+                  className={cn(HEADER_MENU_PANEL, categoriesDropdownOpen ? HEADER_MENU_OPEN : HEADER_MENU_LEAVING)}
                 >
                   <CategoryBrowser
                     groups={HEADER_GROUPS}
@@ -1366,15 +1429,38 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
           {/*
-            NOT RENDERED RATHER THAN HIDDEN. On Explore, while the page's own
-            field is on screen, there is no search here at all and the row
-            rebalances around the logo and the actions — which is the shape
-            Skool's discovery header has, and the reason it reads as calm. An
-            invisible one holding its width would leave a gap in the middle of
-            the bar instead. See lib/explore/use-search-handoff.
+            HIDDEN RATHER THAN NOT RENDERED, NOW. It used to be absent while
+            Explore's own field was on screen and mounted when that field
+            went, which is a field popping into the bar and, with the row
+            being justify-between, the only thing that decided where the
+            middle of the bar was. The owner asked for it to arrive smoothly
+            and with nothing in the header moving: so it is always here on a
+            computer, holding its own width (the logo and the actions sit at
+            the ends of the row either way, so the empty middle is the same
+            empty middle), and it fades in with a few pixels of drop.
+
+            Opacity and `translate` only (Tailwind's translate-y is the
+            `translate` property, so that is what the transition names), and
+            `visibility` so a hidden field is out of the tab order once it has
+            faded. Arriving on a page puts it where it belongs without a fade
+            (`animate` is false), so a back navigation never flashes it. Held
+            while its results are open, so it never leaves from under typing.
+            See lib/explore/use-search-handoff.
           */}
-          {searchInHeader && (
-          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
+          {(() => {
+            const shown = deskHandoff.inHeader || searchModalOpen
+            return (
+          <div
+            data-header-search={shown ? "shown" : "hidden"}
+            aria-hidden={shown ? undefined : true}
+            inert={shown ? undefined : true}
+            className={`hidden md:flex flex-1 max-w-xl mx-4 relative transition-[opacity,translate,visibility] motion-reduce:transition-none ${
+              shown
+                ? "visible opacity-100 translate-y-0 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                : "invisible pointer-events-none opacity-0 -translate-y-1 duration-150 ease-[cubic-bezier(0.4,0,1,1)]"
+            }`}
+            style={deskHandoff.animate ? undefined : { transitionDuration: "0ms" }}
+          >
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
               <Input
@@ -1506,7 +1592,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               </>
             )}
           </div>
-          )}
+            )
+          })()}
 
           {/* Mobile Header for Non-Homepage pages */}
           <div className="md:hidden flex items-center justify-between flex-1 -ml-6">

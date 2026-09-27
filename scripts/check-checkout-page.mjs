@@ -11,8 +11,9 @@
  *              with a shadow between them; on a phone the order above
  *   ORDER      the line says Qty 1 and has nothing on its picture; the big
  *              total; Add promotion code is a grey button that opens into
- *              the field; "Add a tip" is always open, its choices under it
- *              with the chosen one white in a grey track, not black
+ *              the field; "Add a tip" is one folded line as the page
+ *              arrives, which opens to its choices with the chosen one
+ *              white in a grey track, not black
  *   PHONE      the order is open as the page arrives and folds; nothing
  *              scrolls sideways; fields are 16px so iOS does not zoom
  *   BAR        a white bar on a layered shadow: Back as a 36px raised circle
@@ -119,6 +120,29 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     if (label.startsWith("desktop")) expect(layout.summaryX < layout.formX && layout.summaryY === layout.formY && layout.bg === "rgb(248, 249, 250)", "SPLIT: the order left on the app's own light grey, the form right", layout)
     else expect(layout.summaryY < layout.formY, "SPLIT: on a phone the order is above the form", layout)
 
+    /*
+      "In the checkout, Add a tip should be collapsed as default." Folded as the
+      page arrives, on every width: one line, its choices out of reach, the
+      page's total without a tip. Then opened, for the rest of the checks.
+    */
+    const folded = await p.evaluate(() => {
+      const tip = document.querySelector("[data-tip]")
+      const toggle = tip.querySelector("[data-tip-toggle]")
+      const group = tip.querySelector('[role="radiogroup"]')
+      const panel = group.closest("[aria-hidden], [inert]")
+      return {
+        expanded: toggle?.getAttribute("aria-expanded"),
+        open: tip.hasAttribute("data-tip-open"),
+        choicesH: Math.round(group.closest(".min-h-0")?.getBoundingClientRect().height ?? -1),
+        inert: !!panel?.inert,
+        lineH: Math.round(toggle.getBoundingClientRect().height),
+        label: tip.querySelector("[data-tip-label]").textContent,
+        amount: !!tip.querySelector("[data-tip-amount]"),
+      }
+    })
+    expect(folded.expanded === "false" && !folded.open && folded.choicesH === 0 && folded.inert && folded.lineH === 36 && /^Add a tip for /.test(folded.label) && !folded.amount, "TIP: folded as the page arrives, one 36px line that names the creator, its choices closed and out of reach", folded)
+    await p.evaluate(() => document.querySelector("[data-tip-toggle]").click())
+    await sleep(400)
     const order = await p.evaluate(() => {
       const li = document.querySelector("[data-line-item]")
       const on = [...document.querySelectorAll('[data-tip] [role="radio"]')].find((b) => b.getAttribute("aria-checked") === "true")
@@ -136,22 +160,23 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(order.total === "$9,999.00", "the big total", order.total)
     expect(order.promo === "Add promotion code" && order.promoBg === "rgb(233, 235, 238)", "Add promotion code is a light grey button", order)
     expect(order.tipOn === "rgb(255, 255, 255)" && order.tipUnder, "the chosen tip has the white thumb under it, not black", order)
-    /* The tip is open as the page arrives: its line, its five choices under it, and nothing to press first. */
+    /* Opened: its five choices under the line, in reach. */
     const tipBlock = await p.evaluate(() => {
       const label = document.querySelector("[data-tip-label]")
+      const toggle = document.querySelector("[data-tip-toggle]")
       const group = document.querySelector('[data-tip] [role="radiogroup"]').getBoundingClientRect()
       return {
-        toggle: !!document.querySelector("[data-tip-toggle], [data-tip] [aria-expanded]"),
+        expanded: toggle.getAttribute("aria-expanded"),
         label: label.textContent,
         labelColour: getComputedStyle(label.querySelector("span")).color,
         choices: [...document.querySelectorAll('[data-tip] [role="radio"]')].map((b) => b.textContent),
         trackH: Math.round(group.height),
-        below: Math.round(group.top - label.getBoundingClientRect().bottom),
+        below: Math.round(group.top - toggle.getBoundingClientRect().bottom),
       }
     })
     expect(
-      !tipBlock.toggle && /^Add a tip for /.test(tipBlock.label) && tipBlock.labelColour === "rgb(26, 26, 46)" && tipBlock.choices.join() === "None,$1,$3,$5,Other" && tipBlock.trackH >= 40 && tipBlock.below >= 6 && tipBlock.below <= 14,
-      "TIP: Add a tip in full ink, with its five choices open under it, nothing to toggle",
+      tipBlock.expanded === "true" && /^Add a tip for /.test(tipBlock.label) && tipBlock.labelColour === "rgb(26, 26, 46)" && tipBlock.choices.join() === "None,$1,$3,$5,Other" && tipBlock.trackH >= 40 && tipBlock.below >= 4 && tipBlock.below <= 14,
+      "TIP: pressed, Add a tip opens to its five choices under it, in full ink",
       tipBlock,
     )
     /* Pick $3, and the one thumb slides there. */

@@ -69,6 +69,12 @@ export interface UploadResult {
   fileName: string
   fileSize: number
   mimeType: string
+  /**
+   * The malware scan's state when the upload finished, as /complete said:
+   * "pending_scan" when Storelib's scanner will give the verdict next
+   * (the editor asks /api/v2/upload/scan), otherwise the header check's.
+   */
+  scanStatus?: string | null
 }
 
 export interface UploadError {
@@ -833,6 +839,7 @@ export class DirectUploader {
       fileName: this.file.name,
       fileSize: this.file.size,
       mimeType: this.file.type || "application/octet-stream",
+      scanStatus: typeof data?.asset?.scanStatus === "string" ? data.asset.scanStatus : null,
     }
   }
 

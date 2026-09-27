@@ -27,18 +27,55 @@ const supabaseAdmin = createClient(
  * signature at all. This used to check a signature only when the request
  * carried one, so a POST without it was trusted: anybody could unsubscribe
  * or suppress any address on every creator's list.
+ *
+ * Mailgun's scheme exactly ("Securing Webhooks"): the hex HMAC-SHA256 of
+ * timestamp followed by token, keyed with the account's HTTP webhook signing
+ * key, compared in constant time. tests/mailgun-signature.test.ts holds a
+ * delivery signed by Mailgun's own documented Python verifier.
  */
 function verifyWebhookSignature(signature: unknown): boolean {
-  if (!signature || typeof signature !== "object") return false
+  return signatureProblem(signature) === null
+}
+
+/**
+ * Why a delivery was refused, for the one log line: a body with no signature
+ * at all is somebody other than Mailgun, and a well formed signature that
+ * matches no key is Mailgun signing with a key this deployment does not
+ * have. The two call for different fixes, so the line says which.
+ */
+function signatureProblem(signature: unknown): "unsigned" | "malformed" | "no matching key" | null {
+  if (!signature || typeof signature !== "object") return "unsigned"
   const { timestamp, token, signature: given } = signature as Record<string, unknown>
-  if (timestamp == null || typeof token !== "string" || typeof given !== "string" || !token || !given) return false
+  if (timestamp == null || typeof token !== "string" || typeof given !== "string" || !token || !given) return "malformed"
   const expectedLength = 64
-  if (given.length !== expectedLength) return false
+  if (given.length !== expectedLength) return "malformed"
   const presented = Buffer.from(given, "utf8")
-  return SIGNING_KEYS.some((key) => {
+  const ok = SIGNING_KEYS.some((key) => {
     const digest = crypto.createHmac("sha256", key).update(String(timestamp) + token).digest("hex")
     return crypto.timingSafeEqual(Buffer.from(digest, "utf8"), presented)
   })
+  return ok ? null : "no matching key"
+}
+
+/**
+ * The body, JSON or a form. Mailgun's webhooks send JSON with the signature
+ * as an object ({ signature: { timestamp, token, signature }, "event-data" }).
+ * Its legacy webhooks post a form with timestamp, token and signature as
+ * fields beside the event's own; those are gathered into the same object,
+ * so both are checked the same way. Anything else is null.
+ */
+async function readDelivery(request: Request): Promise<Record<string, unknown> | null> {
+  const type = request.headers.get("content-type") || ""
+  if (/application\/x-www-form-urlencoded|multipart\/form-data/i.test(type)) {
+    const form = await request.formData().catch(() => null)
+    if (!form) return null
+    const fields: Record<string, unknown> = {}
+    for (const [k, v] of form.entries()) if (typeof v === "string") fields[k] = v
+    const { timestamp, token, signature, ...event } = fields
+    return { ...event, signature: { timestamp, token, signature } }
+  }
+  const body = await request.json().catch(() => null)
+  return body && typeof body === "object" ? (body as Record<string, unknown>) : null
 }
 
 /**
@@ -77,19 +114,16 @@ function masked(email: string): string {
  */
 export async function POST(request: Request) {
   try {
-    let body: any
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json({ error: "Send JSON" }, { status: 400 })
-    }
+    const body: any = await readDelivery(request)
+    if (!body) return NextResponse.json({ error: "Send JSON" }, { status: 400 })
 
     if (SIGNING_KEYS.length === 0) {
       console.error("[mailgun-webhook] MAILGUN_WEBHOOK_SIGNING_KEY is not configured; refusing the request")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     if (!verifyWebhookSignature(body?.signature)) {
-      console.error("[mailgun-webhook] Invalid webhook signature")
+      /* "no matching key" is Mailgun signing with a key this deployment does not have: MAILGUN_WEBHOOK_SIGNING_KEY is not the account's HTTP webhook signing key. */
+      console.error(`[mailgun-webhook] Invalid webhook signature: ${signatureProblem(body?.signature)}`)
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
     }
 

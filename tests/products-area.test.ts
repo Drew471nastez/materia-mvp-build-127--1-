@@ -385,7 +385,8 @@ check("on every width the list is one card whose first row is its toolbar: the v
     && /<Press aria-label="Sort" data-sort="" look=\{cn\(SORT_LOOK, sort !== "newest" && SORT_ON, "group-data-open\/press:bg-\[#ececef\]"\)\}>\s*<ArrowUpDown className="h-4 w-4 /.test(list)
     && /const SORT_LOOK = cn\(DOWNLOAD_LOOK, "lg:h-\[35px\] lg:w-\[35px\]"\)/.test(list)
     && !list.slice(list.indexOf('data-toolbar=""'), list.indexOf('data-list-head=""')).includes("Export products")
-    && /\{viewLabel\}\s*<ChevronsUpDown/.test(list))
+    /* The name in a span of its own since a browser translator swapped the bare text node and the view kept saying "All" (lib/ui/dom-guard, tests/dom-guard.test.ts). */
+    && /<span>\{viewLabel\}<\/span>\s*<ChevronsUpDown/.test(list))
 /* "Instead of the download icon where it currently is, put the sort by icon, which opens the mobile bottom sheet with only the sort by options. The view (All, Active, Draft, Archived) bottom sheet ... opens a bottom sheet with only the view options." */
 const pickSheet = code("app/app/products/pick-sheet.tsx")
 check("the view opens a sheet of the views alone and Sort a sheet of the orders alone; the column's name under the toolbar, with no checkbox (nothing to select)",
@@ -491,15 +492,31 @@ const layer = code("components/app/page-layer.tsx")
   scripts/check-layer-motion.mjs measures it frame by frame.
 */
 check("the layer rises in React's own view transition at the commit, named page-layer, with nothing for an update or a swap",
-  /export const LAYER_MOTION_MS = 360/.test(layer) && /export const LAYER_LEAVE_MS = 300/.test(layer) && /export const LAYER_MOTION_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(layer)
+  /* Changed on purpose: the way down is 280ms, "~280ms, ease like cubic-bezier(0.32,0.72,0,1)", as the owner's brief for Cancel asks. */
+  /export const LAYER_MOTION_MS = 360/.test(layer) && /export const LAYER_LEAVE_MS = 280/.test(layer) && /export const LAYER_MOTION_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(layer)
     && /const ReactViewTransition = \(React as unknown as \{ ViewTransition\?: React\.ComponentType<ViewTransitionProps> \}\)\.ViewTransition \?\? null/.test(layer)
     && /<ReactViewTransition\s+name=\{LAYER_NAME\}\s+enter=\{moves \? "layer-rise" : "none"\}\s+exit=\{moves \? "layer-drop" : "none"\}\s+update="none"\s+share="none"\s+default="none"\s*>/.test(layer)
     && /export const LAYER_NAME = "page-layer"/.test(layer))
 check("  the page under a rising layer stays: React's hiding of the root's picture is undone before the first frame",
   /function keepPageUnder\(move: ViewTransitionLike\)/.test(layer) && /effect\?\.pseudoElement !== "::view-transition-group\(root\)"/.test(layer) && /if \(next === "enter"\) keepPageUnder\(move\)/.test(layer))
-check("the way back drops the layer in a view transition of its own, waiting only for the layer to unmount, capped at LAYER_WAIT_MS, and let go at once when a popstate brought no page",
-  /export const LAYER_WAIT_MS = 450/.test(layer) && /if \(motion === "leave"\) dropLayer\(navigate\)/.test(layer) && /move = doc\.startViewTransition\(\(\) => \{/.test(layer)
-    && /move\.skipTransition\(\)/.test(layer) && /leaving\?\.\(\)/.test(layer) && /window\.addEventListener\("popstate", onPop, \{ once: true \}\)/.test(layer)
+/*
+  Changed on purpose: "when I click Cancel to close that page, it's not closing smoothly, going down, on mobile version;
+  it's abrupt, direct." The way back was a view transition of its own that waited at most LAYER_WAIT_MS (450ms) for the
+  list and was let go at once when a popstate brought no page, so a list the router had to fetch again (after a save,
+  whose refresh drops every kept page) replaced the editor in one frame; without view transitions a still dropped at
+  once over the live editor, which then stood there again until the list took it away. Now the way back is one move in
+  every engine: the editor stays live (no second press, its spinner turning) until the commit that takes it away, and
+  in that commit a still of it, built hidden as the navigation started, is shown over the list and drops, 280ms on the
+  iOS curve, fading a little. scripts/check-editor-close.mjs samples every frame of it, both engines, new and saved
+  product, with and without a change to discard, and with the list slow to come.
+*/
+check("the way back drops the layer at the commit that brings the page under it, in every engine, however long that takes",
+  /if \(motion === "leave"\) dropLayer\(navigate\)/.test(layer) && !/doc\.startViewTransition\(\(\) => \{/.test(layer) && !/skipTransition\(\)/.test(layer)
+    && /if \(!dropAtCommit\(\)\) markReactMotion\("leave"\)/.test(layer)
+    && /want\.still = layer \? layerStill\(layer\) : null\s*if \(want\.still\) want\.still\.style\.visibility = "hidden"/.test(layer)
+    && /still\.style\.visibility = ""\s*let over = false/.test(layer)
+    && /const move = moveByHand\(still, false, LAYER_LEAVE_MS\)/.test(layer)
+    && /\}, LAYER_PRESS_KEPT_MS\)\s*afterNextPaint\(\(\) => \{/.test(layer)
     && /manual = true\s*flushSync\(\(\) => \{/.test(layer) && /const reactMoves = \(\) => layerMotionOn\(\) && !manual/.test(layer))
 /*
   Changed on purpose. This used to end "...or without view transitions: the
@@ -511,8 +528,9 @@ check("the way back drops the layer in a view transition of its own, waiting onl
 */
 check("no move under reduced motion or from 768px where the editor is a page in the shell; without view transitions the layer moves itself rather than the page swapping",
   /return window\.matchMedia\(LAYER_PHONE\)\.matches && !window\.matchMedia\(REDUCED\)\.matches/.test(layer) && /export const LAYER_PHONE = "\(max-width: 767px\)"/.test(layer)
-    && /if \(leaving \|\| manual \|\| doc\.__reactViewTransition \|\| !layerMotionOn\(\) \|\| !document\.querySelector\("\[data-page-layer\]"\)\) \{\s*navigate\(\)\s*return/.test(layer)
-    && /if \(typeof doc\.startViewTransition !== "function"\) \{\s*if \(dropping\) navigate\(\)\s*else dropByHand\(navigate\)/.test(layer)
+    /* Changed on purpose: one way back for every engine (dropAtCommit), so no branch on startViewTransition here. */
+    && /if \(dropWant \|\| dropping \|\| manual \|\| doc\.__reactViewTransition \|\| !layerMotionOn\(\) \|\| !document\.querySelector\("\[data-page-layer\]"\)\) \{\s*navigate\(\)\s*return/.test(layer)
+    && /if \(!still \|\| !still\.isConnected \|\| !layerMotionOn\(\)\) \{/.test(layer)
     && /else if \(layerMotionOn\(\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
     && /if \(!move \|\| !reactMoves\(\)\) return false/.test(layer))
 check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-leave-ms", `\$\{LAYER_LEAVE_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
@@ -539,7 +557,8 @@ check("  a move is held at its first position until frames arrive a frame apart 
     && /quiet = last >= 0 && t - last < FRAME_FLOWS_MS \? quiet \+ 1 : 0/.test(layer) && /if \(quiet >= steady \|\| performance\.now\(\) - began > FRAMES_FLOW_CAP_MS\)/.test(layer)
     && /startWhenFramesFlow\(\[a\], 2\)/.test(layer)
     && /for \(const a of animations\) a\.playbackRate = 0/.test(layer) && /if \(next === "enter" \|\| next === "leave"\) layerMoveWhenDrawn\(move\)/.test(layer)
-    && /move\.ready\.catch\(\(\) => \{\}\)\s*layerMoveWhenDrawn\(move\)/.test(layer) && /startWhenFramesFlow\(anims\)/.test(code("app/app/orders/order-motion.ts")))
+    /* Changed on purpose: the way back's own view transition is gone (dropAtCommit plays it by hand, through moveByHand and so startWhenFramesFlow with two in a row). */
+    && /const move = moveByHand\(still, false, LAYER_LEAVE_MS\)/.test(layer) && /startWhenFramesFlow\(anims\)/.test(code("app/app/orders/order-motion.ts")))
 check("  a page's own redraw waits for the move (afterLayerMove), let go when the move ends or after 1.5s",
   /export function afterLayerMove\(fn: \(\) => void\): \(\) => void/.test(layer) && /const AFTER_MOVE_CAP_MS = 1500/.test(layer) && (layer.match(/runAfterMove\(\)/g) ?? []).length >= 2
     && /afterLayerMove\(\(\) => \{\s*setOptions\(d\.options \?\? \[\]\)/.test(code("components/email/compose/composer.tsx")))

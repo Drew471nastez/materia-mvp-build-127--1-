@@ -19,6 +19,12 @@
  *   products list -> New product -> Cancel
  *   orders list -> an order -> Back
  *
+ * GOING BACK IS PLAYED BY THE LAYER ITSELF in every engine (page-layer
+ * dropAtCommit): the editor stays live until the commit that brings the
+ * page under it, and a still of it drops from there. So every way back here
+ * is measured as a move by hand, with or without view transitions; only the
+ * way in is a view transition where the engine has them.
+ *
  * THE FIRST TIME, TIMED. Every frame the page's own clock sees while the
  * move runs: how far along it is (the translateY it is at), the gaps between
  * frames (a gap over 20ms is a dropped frame at 60Hz; the first one, where
@@ -591,8 +597,9 @@ async function productsTrip(p, cdp, label, { isNew }) {
   report(`${trip} in`, up, "enter")
   expect(onScreen.layer && onScreen.motion === null, "the editor is up, and the move has cleaned up after itself", onScreen)
 
-  const down = await timedMove(p, cdp, { sel: EDITOR_BACK, pressed: `${EDITOR_BACK}[data-leaving]`, kind: "leave" })
-  report(`${trip} back`, down, "leave")
+  /* The way back is played by the layer itself in every engine now, at the commit that brings the list (page-layer dropAtCommit): measured as a move by hand. */
+  const down = await timedMove(p, cdp, { sel: EDITOR_BACK, pressed: `${EDITOR_BACK}[data-leaving]`, kind: "hand-leave" })
+  report(`${trip} back`, down, "hand-leave")
   await sleep(200)
   const after = await scrollOf(p)
   const back = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), path: window.__path }))
@@ -603,8 +610,7 @@ async function productsTrip(p, cdp, label, { isNew }) {
   const shotIn = await frozenMove(p, cdp, { sel: openSel === "a[data-probe-pick]" ? "[data-row]:not([hidden]) a[data-row-link]" : openSel, label: `${trip}-in-${label}`, layer: true, which: "::view-transition-new(page-layer)" })
   pictures(`${trip} in`, shotIn, "enter")
   await sleep(250)
-  const shotOut = await frozenMove(p, cdp, { sel: EDITOR_BACK, label: `${trip}-back-${label}`, layer: true, which: "::view-transition-old(page-layer)" })
-  pictures(`${trip} back`, shotOut, "leave")
+  await handShot(p, cdp, EDITOR_BACK, `${trip}-back-${label}`, "drop")
   await sleep(250)
 }
 
@@ -845,16 +851,15 @@ async function emailsTrip(p, cdp, label) {
   await sleep(700)
   const onScreen = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), path: window.__path, back: !!document.querySelector("button[aria-label='Back to emails']") }))
   expect(onScreen.layer && onScreen.back && onScreen.path === "/app/emails/new", "the composer is up, as a layer, with its Back", onScreen)
-  const down = await timedMove(p, cdp, { sel: COMPOSER_BACK, pressed: `${COMPOSER_BACK}[data-layer-press]`, kind: "leave" })
-  report("composer back", down, "leave")
+  const down = await timedMove(p, cdp, { sel: COMPOSER_BACK, pressed: `${COMPOSER_BACK}[data-layer-press]`, kind: "hand-leave" })
+  report("composer back", down, "hand-leave")
   await sleep(300)
   const back = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), path: window.__path }))
   expect(!back.layer && back.path === "/app/emails", "Back leaves the Emails page on the screen", back)
   const shotIn = await frozenMove(p, cdp, { sel: "[data-new-email]", label: `email-in-${label}`, layer: true, which: "::view-transition-new(page-layer)" })
   pictures("composer in", shotIn, "enter")
   await sleep(900)
-  const shotOut = await frozenMove(p, cdp, { sel: COMPOSER_BACK, label: `email-back-${label}`, layer: true, which: "::view-transition-old(page-layer)" })
-  pictures("composer back", shotOut, "leave")
+  await handShot(p, cdp, COMPOSER_BACK, `email-back-${label}`, "drop")
   await sleep(300)
 }
 
@@ -931,21 +936,54 @@ async function slowTrips(p, cdp) {
   let m = await waitMove(p, n, 3000)
   expect(!!m?.ready && !m.skipped && m.done - m.ready > 250, "and the editor rises once it is ready", m && { ms: +(m.done - m.ready).toFixed(0) })
 
-  console.log(`  -- the list 700ms away: Back answers, the screen is given back at once, the spinner turns, the list lands`)
+  /*
+    Changed on purpose. The way back used to take a view transition's
+    picture and let it go the moment a popstate brought no page, so a list
+    that had to be fetched again replaced the editor in one frame: the
+    "abrupt, direct" close. Now nothing is photographed; the editor stays
+    live with its spinner for as long as the list takes, and drops from
+    where it is, over the list, in the commit that brings it.
+  */
+  console.log(`  -- the list 700ms away: Back answers, the editor stays live with its spinner, and drops over the list when it comes`)
   n = await moveCount(p)
-  const t0 = await p.evaluate(() => performance.now())
+  await p.evaluate(() => {
+    window.__slowDrop = []
+    const t0 = performance.now()
+    const tick = () => {
+      const still = document.querySelector('[data-layer-still="over"]')
+      const shown = still && getComputedStyle(still).visibility !== "hidden"
+      window.__slowDrop.push({
+        t: Math.round(performance.now() - t0),
+        layer: !!document.querySelector("[data-page-layer]"),
+        list: !!document.querySelector("[data-new-product]"),
+        y: shown ? Math.round(new DOMMatrixReadOnly(getComputedStyle(still).transform).m42) : null,
+      })
+      if (performance.now() - t0 < 2200) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
   await p.$eval(EDITOR_BACK, (el) => el.click())
   await sleep(260)
   const b1 = await readSpin(EDITOR_BACK)
   await sleep(120)
   const b2 = await readSpin(EDITOR_BACK)
-  m = await waitMove(p, n, 3000)
+  await sleep(1900)
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
-  expect(!!m && (m.skipped || !m.ready) && m.done - t0 < 200, "the picture is let go as soon as the page is known to be on its way, not held", m && { heldMs: +(m.done - t0).toFixed(0), skipped: !!m.skipped })
+  const slow = await p.evaluate(() => window.__slowDrop)
+  const vts = (await moveCount(p)) - n
+  expect(vts === 0, "no view transition is started for the way back: nothing is photographed and let go", vts)
   expect(b1.layer && b1.spinner > 0.9 && b1.state === "running" && b2.t > b1.t, "the editor is live, and Back holds a spinner, turning", { b1, b2 })
-  await sleep(900)
-  const landed = await p.evaluate(() => ({ path: window.__path, layer: !!document.querySelector("[data-page-layer]") }))
-  expect(landed.path === "/app/products" && !landed.layer, "and the list lands when it comes", landed)
+  const shownAt = slow.findIndex((f) => f.y !== null)
+  const before = shownAt > 0 ? slow.slice(0, shownAt) : slow
+  const dropping = slow.filter((f) => f.y !== null)
+  const partWay = dropping.filter((f) => f.y > 2 && f.y < 842).length
+  const bare = slow.filter((f) => !f.layer && !f.list)
+  console.log(`        (still shown at ${slow[shownAt]?.t}ms; drop y ${dropping.map((f) => f.y).join(" ")})`)
+  expect(shownAt > 0 && before.every((f) => f.layer), "until the list is there the editor is the live layer, never a still over it", { shownAt: slow[shownAt]?.t })
+  expect(dropping.length > 0 && dropping.every((f) => f.list) && partWay >= 5, "then it drops from where it was, over the list, over several frames", { partWay, first: dropping[0], last: dropping[dropping.length - 1] })
+  expect(bare.length === 0, "no frame with neither the editor nor the list", bare.slice(0, 3))
+  const landed = await p.evaluate(() => ({ path: window.__path, layer: !!document.querySelector("[data-page-layer]"), stills: document.querySelectorAll("[data-layer-still]").length }))
+  expect(landed.path === "/app/products" && !landed.layer && landed.stills === 0, "and the list is left on the screen", landed)
   await p.evaluate(() => {
     window.__slowMs = 0
   })

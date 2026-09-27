@@ -23,19 +23,30 @@ import "server-only"
  *
  * So renaming yourself left the old name in the tab, and replacing your
  * photo left the old one as the icon, for as long as the page was not
- * republished. This runs after the profile is written and moves every copy
- * that STILL HELD THE OLD VALUE. A copy holding something else is a page
- * title or a store name somebody chose, and is left exactly as it is
- * (`followsProfile`); a copy holding a sign in provider's picture follows
- * whatever happens, because nobody chose that one either.
+ * republished. This runs after the profile is written.
+ *
+ * THE NAME AND THE PHOTO ARE NOT TREATED THE SAME, and that is deliberate:
+ *
+ *   the name    only a copy that STILL HOLDS THE OLD VALUE moves. A copy
+ *               holding something else is a page title or a store name
+ *               somebody chose, and is left exactly as it is
+ *               (`followsProfile`).
+ *   the photo   EVERY copy moves, whatever it holds
+ *               (`mirrorsProfilePhoto`). One creator had three faces at
+ *               once, one per editor, because each editor's write counted
+ *               as a choice and the copy never followed again. There is one
+ *               photo; every editor that offers a photo picker saves it to
+ *               the profile (lib/account/avatar-save), and this puts the
+ *               copies back on it.
  *
  * Belt and braces with the database trigger in
- * supabase/sql/run-now/43_profile_identity_follows.sql, which does the same
- * for every writer, this one included. Running both is harmless: the second
- * pass finds the copies already moved and writes nothing.
+ * supabase/sql/run-now/44_profile_identity_follows.sql and the photo pass in
+ * 53_one_profile_photo.sql, which do the same for every writer, this one
+ * included. Running both is harmless: the second pass finds the copies
+ * already moved and writes nothing.
  */
 import { followProfilePhoto } from "./avatar"
-import { followsProfile, followsProfilePhoto } from "./identity"
+import { followsProfile, mirrorsProfilePhoto } from "./identity"
 
 type Row = Record<string, unknown>
 type Res<T> = PromiseLike<{ data: T | null; error: { code?: string; message?: string } | null }>
@@ -53,8 +64,12 @@ export interface FollowClient {
 export interface ProfileChange {
   /** The profile's display name before and after. Omit to leave names alone. */
   name?: { before: unknown; after: unknown }
-  /** The profile's photo before and after. Omit to leave photos alone. */
-  photo?: { before: unknown; after: unknown }
+  /**
+   * The profile's photo. Omit to leave photos alone. `before` is kept for
+   * the caller's own logging and for the name half's symmetry; the photo
+   * copies take `after` whatever they hold.
+   */
+  photo?: { before?: unknown; after: unknown }
 }
 
 export interface Followed {
@@ -82,7 +97,7 @@ export async function followProfileIdentity(client: FollowClient, userId: string
   if (!name && !photo) return done
 
   const nameFollows = (stored: unknown) => (name ? followsProfile(stored, name.before, name.after) : undefined)
-  const photoFollows = (stored: unknown) => (photo ? followsProfilePhoto(stored, photo.before, photo.after) : undefined)
+  const photoFollows = (stored: unknown) => (photo ? mirrorsProfilePhoto(stored, photo.after) : undefined)
 
   /* ── The OnePage: its draft, its published copy, and its SEO title ───── */
   try {

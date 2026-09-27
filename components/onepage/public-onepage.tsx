@@ -3724,7 +3724,8 @@ function PublicBlockRenderer({
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
           {data.show_avatar !== false && (
-            <div className="relative" style={{ width: avatarSize, height: avatarSize, marginTop: isDesktop ? 25 : 0 }}>
+            /* A circle whatever the column around it does: its own size, never shrunk by the flex column (flex-shrink 0). */
+            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0 }}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>

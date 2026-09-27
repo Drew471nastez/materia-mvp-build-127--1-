@@ -9,6 +9,12 @@
  * appearing state, without glitches, without being too direct, and without
  * ruining the image."
  *
+ * It is also the ONLY place that decides. Every other photo control in the
+ * app (the OnePage editor, the creator page builder, both onboarding flows)
+ * saves through the same route, so a change made in any of them is this one
+ * photo changing (app/api/account/avatar, lib/account/profile-follow). There
+ * is no per surface override to reset.
+ *
  * Change opens the file picker. The picture is cut to its centre square and
  * drawn at 512px in the browser, so it is never stretched and never sent at
  * phone camera size, and that same picture is in the circle at once, faded
@@ -188,7 +194,7 @@ export function ProfilePhoto({
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-semibold text-[#1a1a2e]">Profile photo</p>
         <p className="mb-2 text-[13px] text-[#6b7280]" aria-live="polite">
-          {uploading ? "Uploading…" : busy === "remove" ? "Removing…" : "JPG, PNG or WebP. Cut to a square for you."}
+          {uploading ? "Uploading…" : busy === "remove" ? "Removing…" : "JPG, PNG or WebP, cut to a square."}
         </p>
         <div className="flex items-center gap-2">
           <button
@@ -196,7 +202,7 @@ export function ProfilePhoto({
             onClick={() => input.current?.click()}
             disabled={!!busy}
             data-photo-change=""
-            className={cn(secondaryDepth, "h-9 rounded-lg px-3 text-[13px]")}
+            className={cn(secondaryDepth, "h-11 rounded-lg px-4 text-[13px] sm:h-9 sm:px-3")}
           >
             {src || preview ? "Change" : "Upload"}
           </button>
@@ -205,7 +211,7 @@ export function ProfilePhoto({
               type="button"
               onClick={() => void remove()}
               disabled={!!busy}
-              className="h-9 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] underline-offset-4 transition-colors hover:text-[#1a1a2e] hover:underline disabled:opacity-50"
+              className="h-11 rounded-lg px-3 text-[13px] font-medium text-[#6b7280] underline-offset-4 transition-colors hover:text-[#1a1a2e] hover:underline disabled:opacity-50 sm:h-9 sm:px-2"
             >
               Remove
             </button>

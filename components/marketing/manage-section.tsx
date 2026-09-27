@@ -55,6 +55,32 @@ function ManagedImageCarousel() {
     setLoadedSet(new Set(loadedSetRef.current))
   }, [])
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A PICTURE THAT ARRIVED BEFORE THE PAGE COULD HEAR IT
+    ═══════════════════════════════════════════════════════════════════════
+    "The Manage your business images are not displaying at all, it shows
+    just a grey." The three slides are in the server's HTML with opacity 0,
+    and each is shown by its own onLoad. But this section is a dynamic
+    import, hydrated well after the HTML is parsed, and the pictures are
+    eager and small: on a warm cache, or any quick line, they had finished
+    loading before React attached a listener to them. A load event that has
+    already happened is never sent again, so nothing ever marked them
+    loaded, the pictures stayed at opacity 0 and the grey pulse stayed over
+    them, on storelib.com, for good.
+
+    So on mount each one is asked whether it is already complete, the way
+    AppAvatar asks for a photo drawn by the server. A picture that failed
+    before hydration is complete too, and is marked the same way onError
+    would have marked it.
+  */
+  const imgRefs = useRef<Array<HTMLImageElement | null>>([])
+  useEffect(() => {
+    imgRefs.current.forEach((img, i) => {
+      if (img?.complete) markLoaded(i)
+    })
+  }, [markLoaded])
+
   const startFillAnimation = useCallback(() => {
     fillStartRef.current = performance.now()
     const tick = (now: number) => {
@@ -133,6 +159,9 @@ function ManagedImageCarousel() {
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             key={i}
+            ref={(el) => {
+              imgRefs.current[i] = el
+            }}
             /*
               ═══════════════════════════════════════════════════════════════
                ENOUGH PIXELS FOR THE SCREEN IT IS PAINTED ON

@@ -63,7 +63,28 @@ export const canAskClaude = () => !!process.env.ANTHROPIC_API_KEY
  * to know about: every failure is null, and the reason is logged by class,
  * never with the creator's content.
  */
+/*
+  AN ACCOUNT WITH NO CREDIT IS NOT ASKED AGAIN FOR A WHILE. "Your credit
+  balance is too low to access the Anthropic API" is an answer about the
+  Anthropic account, not about this product, and it was written as an error
+  on every title a creator settled on. It is said once per instance, and
+  Claude is left alone for BILLING_PAUSE_MS, so the editor does not wait on
+  a call that cannot succeed; the keyword suggestion answers meanwhile, and
+  the editor shows nothing about it either way (./category-suggestion.ts
+  ignores a failed answer).
+*/
+const BILLING_PAUSE_MS = 15 * 60_000
+let pausedUntil = 0
+let saidBilling = false
+
+export function isBillingRefusal(err: unknown): boolean {
+  const e = err as { status?: unknown; message?: unknown; error?: { error?: { message?: unknown } } } | null
+  const text = `${String(e?.message ?? "")} ${String(e?.error?.error?.message ?? "")}`
+  return (e?.status === 400 || e?.status === 402 || e?.status === 403) && /credit balance is too low|billing/i.test(text)
+}
+
 export async function askClaudeForCategory(input: SuggestInput): Promise<string | null> {
+  if (Date.now() < pausedUntil) return null
   const content: Anthropic.Beta.BetaContentBlockParam[] = [
     /* Pictures before the words that talk about them. */
     ...input.images.map((url) => ({ type: "image" as const, source: { type: "url" as const, url } })),
@@ -92,6 +113,12 @@ export async function askClaudeForCategory(input: SuggestInput): Promise<string 
     return text?.text ?? null
   } catch (err) {
     if (err instanceof MissingAnthropicKeyError) return null
+    if (isBillingRefusal(err)) {
+      pausedUntil = Date.now() + BILLING_PAUSE_MS
+      if (!saidBilling) console.warn("[category-suggestion] the Anthropic account has no credit; suggesting from keywords until it does")
+      saidBilling = true
+      return null
+    }
     if (err instanceof Anthropic.RateLimitError) console.warn("[category-suggestion] Claude is rate limited")
     else if (err instanceof Anthropic.BadRequestError) console.error("[category-suggestion] Claude refused the request", err.message)
     else if (err instanceof Anthropic.APIError) console.error(`[category-suggestion] Claude error ${err.status ?? ""}`)

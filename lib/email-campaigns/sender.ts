@@ -68,17 +68,68 @@ const EMAIL_QUALITY = 75
  * it (lib/storage/image-url, and a test fails the build over it). The site's
  * Next image endpoint is the one the storefront already uses for the same
  * pictures (lib/images/optimized-url), so the email asks it for twice the
- * drawn width, as an absolute address an inbox can fetch. It answers a
- * request that does not ask for WebP or AVIF with the original format, so
- * Outlook on Windows gets a PNG or a JPEG it can show. A host the endpoint
- * does not fetch from is drawn from its stored address, untouched.
+ * drawn width, as an absolute address an inbox can fetch.
+ *
+ * WHAT FORMAT EACH INBOX GETS. The endpoint picks by the Accept header. A
+ * client that does not say it takes WebP or AVIF (Outlook on Windows asks
+ * for "*\/*") gets a JPEG, or a PNG when the upload was a PNG, even when
+ * the stored file is a WebP; Gmail and Apple Mail, which do say so, get the
+ * smaller WebP or AVIF they can show. Measured on storelib.com by
+ * scripts/check-email-weight.mjs. Two things it cannot do: a WebP whose
+ * JPEG would come out larger than the stored file is sent as stored, and a
+ * JPEG has no transparency, so a see-through WebP logo reaches Outlook on a
+ * black ground. Quality stays at 75, the setting that keeps the JPEG
+ * smaller than the upload, at twice the drawn size, where it is not told
+ * apart from the original.
+ *
+ * An SVG is never drawn as the creator's picture: Gmail and Outlook do not
+ * show SVG, and the resizer refuses it. The initial is drawn instead. A host
+ * the endpoint does not fetch from is drawn from its stored address.
  */
 export function emailImageSrc(url: unknown, drawnWidth: number): string | null {
   const safe = emailImageUrl(url)
+  if (!safe || isSvg(safe)) return null
+  return sized(safe, drawnWidth)
+}
+
+/**
+ * A picture a creator put in the body of an email (a campaign's picture or
+ * product card, a picture in the text), sized as above. Unlike the sender's
+ * picture it is never dropped: an SVG, which cannot be resized, is drawn
+ * from its stored address, as it was before.
+ */
+export function inboxImageSrc(url: unknown, drawnWidth: number): string | null {
+  const safe = emailImageUrl(url)
   if (!safe) return null
-  const original = toOriginalImageUrl(safe)
-  const sized = optimizedImageUrl(original, drawnWidth, EMAIL_QUALITY)
-  return sized.startsWith("/_next/image") ? `${APP_ORIGIN}${sized}` : sized
+  return isSvg(safe) ? safe : sized(safe, drawnWidth)
+}
+
+function isSvg(url: string): boolean {
+  try {
+    return /\.svgz?$/i.test(new URL(url).pathname)
+  } catch {
+    return false
+  }
+}
+
+/** Storelib's own address as the path the resizer takes; anything else unchanged. */
+function ownPath(url: string): string {
+  try {
+    const u = new URL(url)
+    const own = new URL(APP_ORIGIN).hostname.replace(/^www\./, "")
+    if (u.hostname.replace(/^www\./, "") === own && u.pathname !== "/_next/image") return `${u.pathname}${u.search}`
+  } catch {
+    /* not a URL: left as it is */
+  }
+  return url
+}
+
+function sized(safe: string, drawnWidth: number): string {
+  const original = ownPath(toOriginalImageUrl(safe))
+  const resized = optimizedImageUrl(original, drawnWidth, EMAIL_QUALITY)
+  if (resized.startsWith("/_next/image")) return `${APP_ORIGIN}${resized}`
+  /* Not resized: the stored address, whole again if it was made a path above. */
+  return resized.startsWith("/") ? `${APP_ORIGIN}${resized}` : resized
 }
 
 /** The first letter of a name or a title, for the tile drawn where no picture is. */

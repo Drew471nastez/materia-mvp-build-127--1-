@@ -22,6 +22,7 @@ import { maskEmail } from "@/lib/privacy/mask-email"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { STORELIB_EMAIL_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
+import { emailButton } from "@/lib/mail-document"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -273,7 +274,7 @@ export async function resolveCreatorIdentity(
       .single()
 
     if (creatorError) {
-      console.error("[email] Error fetching creator:", creatorError)
+      console.error("[email] Error fetching creator:", creatorError.code, creatorError.message)
     }
 
     let fromName = ""
@@ -296,7 +297,7 @@ export async function resolveCreatorIdentity(
         .single()
 
       if (profileError) {
-        console.error("[email] Error fetching profile:", profileError)
+        console.error("[email] Error fetching profile:", profileError.code, profileError.message)
       }
 
       // ✅ FROM NAME priority: display_name → username
@@ -306,7 +307,7 @@ export async function resolveCreatorIdentity(
       // fallback reply-to and seller email from profile email
       if (!replyTo && profile?.email?.trim()) {
         replyTo = profile.email.trim()
-        console.log("[email] Using profile email as replyTo:", replyTo)
+        console.log("[email] Using profile email as replyTo:", maskEmail(replyTo))
       }
 
       // Seller email should be the profile email if we don't have support_email
@@ -328,7 +329,7 @@ export async function resolveCreatorIdentity(
         }
       } catch (authErr) {
         // This might fail if auth admin is not available, which is fine
-        console.log("[email] Could not fetch auth user email (this is fine):", authErr)
+        console.log("[email] Could not fetch auth user email (this is fine):", authErr instanceof Error ? authErr.message : "unknown")
       }
     }
 
@@ -346,11 +347,11 @@ export async function resolveCreatorIdentity(
       sellerEmail: normalizeEmail(ownerAddress(sellerEmail) ?? "") || DEFAULT_SUPPORT,
     }
 
+    /* Masked: the seller's own address does not belong in a log. */
     console.log("[email] Resolved creator identity:", {
       creatorId,
-      fromName: result.fromName,
-      replyTo: result.replyTo,
-      sellerEmail: result.sellerEmail,
+      replyTo: maskEmail(result.replyTo),
+      sellerEmail: maskEmail(result.sellerEmail),
     })
 
     return result
@@ -826,6 +827,83 @@ export async function sendBuyerDownloadEmail(
 }
 
 /**
+ * A COPY OF THE RECEIPT TO ANOTHER ADDRESS, from the receipt page's "Send a
+ * copy to another email" (app/api/receipt/send-copy). The same email as the
+ * receipt, built the same way, and nothing else: no email_logs row, no
+ * "already sent" check and no mark on the order, because the order's own
+ * address and its delivery status have not changed. A copy that fails does
+ * not make the receipt read "We could not email" either.
+ */
+export async function sendReceiptCopyEmail(
+  admin: any,
+  params: Omit<SendBuyerEmailParams, "attachments">,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isSmtpConfigured()) return { success: false, error: "Email service not configured" }
+  const identity = params.creatorId ? await resolveCreatorIdentity(admin, params.creatorId) : null
+  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
+  const replyTo = normalizeEmail(params.sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
+  const model = await receiptEmailModel(admin, {
+    receiptToken: params.receiptToken,
+    receiptLink: buildUrl(`/receipt/${encodeURIComponent(params.receiptToken)}`, params.baseUrl),
+    buyerFirstName: params.buyerFirstName,
+    sellerName: fromName,
+    supportEmail: replyTo,
+    creatorId: params.creatorId,
+    fallback: { productTitle: params.productTitle, variantName: params.variantName, amountCents: params.amountCents, orderId: params.orderId },
+  })
+  const firstTitle = model.items[0]?.title ?? params.productTitle
+  const subject =
+    model.items.length > 1
+      ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items`
+      : `Your receipt for ${safeText(firstTitle)}`
+  try {
+    const sent = await sendEmail({
+      from: buildFromHeaderLocal(fromName),
+      to: normalizeEmail(params.buyerEmail),
+      replyTo,
+      subject,
+      html: buyerReceiptEmailHtml(model),
+      text: buyerReceiptEmailText(model),
+    })
+    if (!sent.success) console.error("[email] receipt copy for order", params.orderId, "failed:", sent.error)
+    return sent.success ? { success: true } : { success: false, error: sent.error || "Failed to send email" }
+  } catch (err: any) {
+    console.error("[email] receipt copy for order", params.orderId, "failed:", err?.message || err)
+    return { success: false, error: err?.message || "Failed to send email" }
+  }
+}
+
+/**
+ * A BUYER'S MESSAGE TO THE SELLER, from the receipt's Contact seller form
+ * (app/api/receipt/contact). To the seller's own inbox, as resolveSellerEmail
+ * finds it; Reply-To the buyer's address on the order, so the seller answers
+ * with Reply. The words and markup are lib/receipts/contact.ts.
+ */
+export async function sendSellerMessageEmail(
+  _admin: any,
+  params: { to: string; message: import("@/lib/receipts/contact").SellerMessage },
+): Promise<{ success: boolean; error?: string }> {
+  if (!isSmtpConfigured()) return { success: false, error: "Email service not configured" }
+  const { sellerMessageEmail } = await import("@/lib/receipts/contact")
+  const mail = sellerMessageEmail(params.message)
+  try {
+    const sent = await sendEmail({
+      from: buildFromHeaderLocal(mail.fromName),
+      to: normalizeEmail(params.to),
+      replyTo: normalizeEmail(params.message.buyerEmail),
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+    })
+    if (!sent.success) console.error("[email] buyer message failed:", sent.error)
+    return sent.success ? { success: true } : { success: false, error: sent.error || "Failed to send email" }
+  } catch (err: any) {
+    console.error("[email] buyer message failed:", err?.message || err)
+    return { success: false, error: err?.message || "Failed to send email" }
+  }
+}
+
+/**
  * Whether the creator still wants a sale by email, from the engine's
  * preferences (lib/notify/preferences.ts). Read fresh each time; anything
  * that cannot be read sends, as the email always did.
@@ -1185,9 +1263,7 @@ function leadMagnetEmailHtml(params: {
               <table role="presentation" style="width:100%;margin:0 0 18px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${downloadLink}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;padding:14px 26px;border-radius:10px;font-size:15px;font-weight:800;">
-                      Download now
-                    </a>
+                    ${emailButton({ href: downloadLink, label: "Download now", fill: "#7c3aed", padding: "14px 26px", radius: 10, text: "font-size:15px;font-weight:800;", align: "center" })}
                   </td>
                 </tr>
               </table>
@@ -1236,13 +1312,10 @@ export async function sendLeadMagnetEmail(
   const { recipientEmail, productTitle, productFileUrl, creatorId, customSubject, customHeading, customBody } = params
 
   console.log("[email] 🔍 sendLeadMagnetEmail called with:", {
-    recipientEmail,
-    productTitle,
-    productFileUrl: productFileUrl ? productFileUrl.substring(0, 50) + "..." : "none",
+    recipientEmail: maskEmail(recipientEmail),
+    hasFile: !!productFileUrl,
     creatorId,
     smtpConfigured: isSmtpConfigured(),
-    customSubject,
-    customHeading,
   })
 
   if (!isSmtpConfigured()) {
@@ -1261,11 +1334,8 @@ export async function sendLeadMagnetEmail(
 
   console.log("[email] 📧 Sending lead magnet email:", {
     from: fromHeader,
-    to: customerEmail,
-    replyTo,
-    subject,
-    productTitle,
-    downloadLink: productFileUrl,
+    to: maskEmail(customerEmail),
+    replyTo: maskEmail(replyTo),
   })
 
   try {
@@ -1298,7 +1368,7 @@ export async function sendLeadMagnetEmail(
       `lead magnet email to ${customerEmail}`,
     )
 
-    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail, "ID:", result.messageId)
+    console.log("[email] ✅ Lead magnet email sent successfully to:", maskEmail(customerEmail), "ID:", result.messageId)
     return { success: true }
   } catch (err: any) {
     const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
@@ -1401,9 +1471,7 @@ function reviewNotificationEmailHtml(params: {
               <table role="presentation" style="width:100%;margin:0 0 8px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${productLink}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;">
-                      Read and reply
-                    </a>
+                    ${emailButton({ href: productLink, label: "Read and reply", fill: "#1a1a2e", padding: "14px 28px", radius: 10, text: "font-size:15px;font-weight:700;", align: "center" })}
                   </td>
                 </tr>
               </table>
@@ -1467,7 +1535,7 @@ export async function sendReviewNotificationEmail(
   } = params
 
   console.log("[email] 📧 Sending review notification email:", {
-    sellerEmail,
+    sellerEmail: maskEmail(sellerEmail),
     creatorId,
     productTitle,
     reviewRating,
@@ -1487,7 +1555,7 @@ export async function sendReviewNotificationEmail(
   let finalSellerEmail = normalizeEmail(sellerEmail)
   if (finalSellerEmail === DEFAULT_SUPPORT && identity?.sellerEmail && identity.sellerEmail !== DEFAULT_SUPPORT) {
     finalSellerEmail = identity.sellerEmail
-    console.log("[email] Using resolved seller email instead of fallback:", finalSellerEmail)
+    console.log("[email] Using resolved seller email instead of fallback:", maskEmail(finalSellerEmail))
   }
 
   /* The review in the seller's Reviews list, where they can answer or report it; the product page for an older caller. */
@@ -1498,10 +1566,8 @@ export async function sendReviewNotificationEmail(
   const fromHeader = buildFromHeaderLocal(PLATFORM_BRAND_NAME)
 
   console.log("[email] 📧 Attempting to send review notification:", {
-    from: fromHeader,
-    to: finalSellerEmail,
-    replyTo,
-    subject,
+    to: maskEmail(finalSellerEmail),
+    replyTo: maskEmail(replyTo),
   })
 
   try {
@@ -1539,7 +1605,7 @@ export async function sendReviewNotificationEmail(
       `review notification to ${finalSellerEmail}`,
     )
 
-    console.log("[email] ✅ Review notification sent successfully to:", finalSellerEmail, "ID:", result.messageId)
+    console.log("[email] ✅ Review notification sent successfully to:", maskEmail(finalSellerEmail), "ID:", result.messageId)
     return { success: true }
   } catch (err: any) {
     const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
@@ -1819,7 +1885,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
      and sized for the inbox; the initials when there is none, never a broken image. */
   const sellerAvatarSrc = emailImageSrc(sellerAvatarUrl, 32)
   const sellerAvatarHtml = sellerAvatarSrc
-    ? `<td style="width:32px;height:32px;border-radius:8px;overflow:hidden;"><img src="${escapeHtml(sellerAvatarSrc)}" alt="${escapeHtml(escapedStoreName)}" width="32" height="32" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" /></td>`
+    ? `<td style="width:32px;height:32px;border-radius:8px;overflow:hidden;"><img src="${escapeHtml(sellerAvatarSrc)}" alt="${escapeHtml(escapedStoreName)}" width="32" height="32" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;border:0;" /></td>`
     : `<td style="width:32px;height:32px;background:#e8e5e0;border-radius:8px;text-align:center;vertical-align:middle;font-weight:700;font-size:13px;color:#888;">${sellerInitials}</td>`
 
   // Send buyer refund confirmation
@@ -1831,7 +1897,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             to: buyerEmail,
             from: buildFromHeader(escapedStoreName),
             replyTo: contactEmail,
-            subject: `Your ${formattedAmount} refund has been processed — ${escapedProduct}`,
+            subject: `Your ${formattedAmount} refund for ${escapedProduct} has been processed`,
             html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1941,7 +2007,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
               <p style="margin:0 0 16px;font-size:13.5px;color:#888;line-height:1.6;">Have questions about this refund?</p>
               <table role="presentation" cellpadding="0" cellspacing="0" align="center">
                 <tr>
-                  <td style="background:#1a1a1a;border-radius:10px;">
+                  <td bgcolor="#1a1a1a" style="background:#1a1a1a;border-radius:10px;mso-padding-alt:12px 30px;">
                     <a href="mailto:${contactEmail}" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">Contact ${escapedStoreName}</a>
                   </td>
                 </tr>
@@ -1979,9 +2045,9 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
         MAX_RETRIES,
         "buyer refund email"
       )
-      console.log("[email] ✅ Buyer refund email sent to:", buyerEmail)
+      console.log("[email] ✅ Buyer refund email sent to:", maskEmail(buyerEmail))
     } catch (err) {
-      console.error("[email] ❌ Failed to send buyer refund email:", err)
+      console.error("[email] ❌ Failed to send buyer refund email:", err instanceof Error ? err.message : "unknown")
     }
   }
 
@@ -1994,7 +2060,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             to: sellerEmail,
             from: buildFromHeader(PLATFORM_BRAND_NAME),
             replyTo: DEFAULT_SUPPORT,
-            subject: `Refund Issued — ${formattedAmount} for ${escapedProduct}`,
+            subject: `Refund issued: ${formattedAmount} for ${escapedProduct}`,
             html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2124,7 +2190,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
               <p style="margin:0 0 16px;font-size:13.5px;color:#888;line-height:1.6;">Review this refund in your dashboard</p>
               <table role="presentation" cellpadding="0" cellspacing="0" align="center">
                 <tr>
-                  <td style="background:#1a1a1a;border-radius:10px;">
+                  <td bgcolor="#1a1a1a" style="background:#1a1a1a;border-radius:10px;mso-padding-alt:12px 30px;">
                     <a href="${baseUrl}/dashboard/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
                   </td>
                 </tr>
@@ -2167,9 +2233,9 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
         MAX_RETRIES,
         "seller refund email"
       )
-      console.log("[email] ✅ Seller refund notification sent to:", sellerEmail)
+      console.log("[email] ✅ Seller refund notification sent to:", maskEmail(sellerEmail))
     } catch (err) {
-      console.error("[email] ❌ Failed to send seller refund notification:", err)
+      console.error("[email] ❌ Failed to send seller refund notification:", err instanceof Error ? err.message : "unknown")
     }
   }
 }

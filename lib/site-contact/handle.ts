@@ -35,6 +35,8 @@ export interface ContactDeps {
   recordSource: (creatorId: string, email: string, detail: unknown) => Promise<void>
   /** "https://storelib.com". */
   platform: string
+  /** The creator's login address as it is now (lib/seller-inbox). Left out, the saved addresses are used. */
+  loginEmail?: (userId: string) => Promise<string | null>
 }
 
 export type ContactReply = { status: number; body: { ok: true } | { error: string } }
@@ -80,11 +82,12 @@ export async function handleContact(raw: unknown, deps: ContactDeps): Promise<Co
     console.warn("[contact] site_contact_messages is not there yet; the message is emailed and not kept (run the contact form SQL part)")
   }
 
-  const inbox = await creatorInbox(deps.db, msg.creatorId, msg.sectionId)
+  const inbox = await creatorInbox(deps.db, msg.creatorId, msg.sectionId, deps.loginEmail)
   if (!inbox) {
     console.warn("[contact] the creator has no address to send the message to")
-    /* Kept (or not) as above; the visitor did their part. */
-    return { status: 200, body: { ok: true } }
+    /* Kept, the creator reads it in Emails, and the visitor did their part.
+       Neither kept nor sendable is a message nobody will ever read: say so. */
+    return kept.kept ? { status: 200, body: { ok: true } } : { status: 502, body: { error: "The message did not send. Try again in a minute." } }
   }
   const store = await deps.brand(msg.creatorId)
   const contactUrl = sender.id ? `${deps.platform}/app/emails?contact=${encodeURIComponent(sender.id)}` : `${deps.platform}/app/emails`

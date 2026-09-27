@@ -25,6 +25,7 @@
  */
 import { DEFAULT_ACCENT, buttonColors, textOn as readableOn, themeOf, type EmailTheme } from "./brand"
 import { FONT, HEAD, LINE, MUTED, TEXT, buttonHtml, emailHref, emailImageSrc, esc, richToEmail } from "./rich"
+import { inboxImageSrc } from "./sender"
 
 export type Align = "left" | "center" | "right"
 /** The old editor's text styles, still read from drafts it saved. */
@@ -231,9 +232,11 @@ export function renderBlock(block: Block, theme: EmailTheme = PLAIN_THEME): stri
       return alignTable(block.align, buttonHtml({ href: url, label, fill: c.fill, text: c.text, align: block.align }), 20)
     }
     case "image": {
-      const src = safeImageSrc(block.src)
-      if (!src) return ""
+      const stored = safeImageSrc(block.src)
+      if (!stored) return ""
       const width = Math.round((CONTENT_WIDTH * Math.max(10, Math.min(100, block.width || 100))) / 100)
+      /* The block keeps the stored address; what is sent is sized for the inbox (./sender inboxImageSrc). */
+      const src = inboxImageSrc(stored, width) ?? stored
       const margin = block.align === "center" ? "margin:0 auto;" : block.align === "right" ? "margin:0 0 0 auto;" : ""
       const img = `<img src="${escapeAttr(src)}" alt="${escapeAttr(block.alt.slice(0, 300))}" width="${width}" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;border-radius:8px;${margin}">`
       const href = emailHref(safeUrl(block.href))
@@ -243,7 +246,8 @@ export function renderBlock(block: Block, theme: EmailTheme = PLAIN_THEME): stri
       const url = emailHref(safeUrl(block.url))
       if (!url || !block.title) return ""
       const c = buttonColors(block.color, theme)
-      const img = safeImageSrc(block.imageUrl)
+      const stored = safeImageSrc(block.imageUrl)
+      const img = stored ? inboxImageSrc(stored, 96) ?? stored : ""
       const imageCell = img
         ? `<td width="112" valign="top" style="width:112px;padding:16px 0 16px 16px;"><a href="${escapeAttr(url)}" target="_blank" style="text-decoration:none;"><img src="${escapeAttr(img)}" alt="${escapeAttr(block.title)}" width="96" height="96" style="display:block;width:96px;height:96px;border:0;border-radius:8px;object-fit:cover;"></a></td>`
         : ""

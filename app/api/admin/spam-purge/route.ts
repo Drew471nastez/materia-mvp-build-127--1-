@@ -154,11 +154,20 @@ async function idsWithRealActivity(admin: ReturnType<typeof createAdminClient>, 
 async function collectCandidates(): Promise<{ candidates: Candidate[]; scanned: number; spared: number }> {
   const admin = createAdminClient()
 
-  const { data: profiles, error: profilesError } = await admin
+  let { data: profiles, error: profilesError } = await admin
     .from("profiles")
     .select("id, username, display_name, created_at, spam_state")
     .not("username", "is", null)
     .limit(5000)
+  /* profiles.spam_state arrives with a SQL part not yet run everywhere: read
+     without it (nobody is marked clear or confirmed yet) rather than fail. */
+  if (profilesError?.code === "42703") {
+    ;({ data: profiles, error: profilesError } = await admin
+      .from("profiles")
+      .select("id, username, display_name, created_at")
+      .not("username", "is", null)
+      .limit(5000))
+  }
 
   /* A profiles read that failed is not "nobody to remove": it is a question that was not answered. */
   if (profilesError) throw new Error(`profiles read failed: ${profilesError.code ?? ""}`)

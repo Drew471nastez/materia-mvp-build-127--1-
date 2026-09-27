@@ -17,6 +17,7 @@
  * Categories are the stored strings: direct, organic_search, paid_search,
  * paid, email, affiliate, referral, social_<network>, or plain social.
  */
+import { isOnePageHost } from "@/lib/onepage/address"
 
 function normalizeStr(v?: string | null): string {
   return (v || "").trim()
@@ -227,6 +228,8 @@ export function isInternalReferrer(host: string, mainDomain: string, pageHost?: 
   if (!h || h === "direct") return false
   const main = normalizeLower(mainDomain).replace(/^www\./, "")
   if (main && hostIs(h, main)) return true
+  /* A OnePage on storelib.me is Storelib too: a visitor it sent on was already on the creator's page. */
+  if (isOnePageHost(h)) return true
   if (pageHost && h === normalizeLower(pageHost).replace(/^www\./, "")) return true
   return hostIs(h, "checkout.stripe.com", "stripe.com", "paypal.com", "localhost") || h.endsWith(".vercel.app")
 }

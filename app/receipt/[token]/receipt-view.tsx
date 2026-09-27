@@ -1,9 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowDownToLine, ArrowRight, Check, FileText, Loader2, PlayCircle, Printer } from "lucide-react"
+import { ArrowDownToLine, ArrowRight, Check, Copy, FileText, Loader2, Mail, PlayCircle, Printer } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
 import { ReceiptReview } from "@/components/reviews/receipt-review"
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -260,7 +260,18 @@ function ItemBlock({
 
 /* ─── The page ─────────────────────────────────────────────────────────── */
 
-export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; viewer: ReceiptViewer; locale: string }) {
+export function ReceiptView({
+  receipt,
+  viewer,
+  locale,
+  storeHref: serverStoreHref,
+}: {
+  receipt: Receipt
+  viewer: ReceiptViewer
+  locale: string
+  /** The seller's page as the server worked it out, so the first render matches it. */
+  storeHref?: string | null
+}) {
   const router = useRouter()
   const platform = usePlatform()
   const { primary, currency } = receipt
@@ -284,6 +295,10 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
   const [emailNote, setEmailNote] = useState<string | null>(null)
   const [changing, setChanging] = useState(false)
   const [newEmail, setNewEmail] = useState("")
+  /* An order on the signed-in buyer's own account: Resend goes to the
+     account's email, and a copy can go anywhere else, once. A guest order
+     keeps "Wrong address?", which moves the order's address. */
+  const accountEmail = !receipt.buyer.unclaimed && viewer.isBuyer && viewer.email ? viewer.email : null
 
   const resend = async () => {
     setEmailState("sending")
@@ -292,7 +307,12 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
       const res = await fetch("/api/receipt/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: primary.orderId, receiptToken: primary.token, resendType: "buyer" }),
+        body: JSON.stringify({
+          orderId: primary.orderId,
+          receiptToken: primary.token,
+          resendType: "buyer",
+          ...(accountEmail ? { to: "account" } : {}),
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
@@ -341,6 +361,39 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
     }
   }
 
+  /* One copy to another address, for an order on the buyer's account. */
+  const sendCopy = async (e: FormEvent) => {
+    e.preventDefault()
+    const value = newEmail.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setEmailState("error")
+      setEmailNote("That does not look like an email address.")
+      return
+    }
+    setEmailState("sending")
+    setEmailNote(null)
+    try {
+      const res = await fetch("/api/receipt/send-copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: primary.orderId, receiptToken: primary.token, email: value }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.success) {
+        setEmailState("error")
+        setEmailNote(data.error || "The copy did not go out. Try again in a minute.")
+        return
+      }
+      setEmailState("sent")
+      setEmailNote(`Copy sent to ${value}.`)
+      setChanging(false)
+      setNewEmail("")
+    } catch {
+      setEmailState("error")
+      setEmailNote("No connection. Try again.")
+    }
+  }
+
   /* Moving a guest order into the signed-in person's library. */
   const [claiming, setClaiming] = useState(false)
   const [claimNote, setClaimNote] = useState<string | null>(null)
@@ -370,7 +423,16 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
 
   const hasFiles = receipt.items.some((i) => i.files.length > 0)
   const single = receipt.items.length === 1 ? receipt.items[0] : null
-  const storeHref = useMemo(() => (receipt.seller.username ? getStoreUrl(receipt.seller.username) : null), [receipt.seller.username])
+  /* The seller's public page. In the app's shell getStoreUrl answers a path
+     rather than the web address; asking it only once the platform is known
+     keeps the first render identical to the server's, so hydration does
+     not see two different hrefs. */
+  const storeHref = useMemo(() => {
+    const name = receipt.seller.username
+    if (!name) return null
+    if (platform === "web" && serverStoreHref !== undefined) return serverStoreHref
+    return getStoreUrl(name)
+  }, [receipt.seller.username, platform, serverStoreHref])
 
   const subline = (() => {
     switch (receipt.state) {
@@ -411,7 +473,16 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
         {/* Who it is from, and a way to keep a copy. */}
         <div className="flex items-center justify-between gap-3">
           {storeHref ? (
-            <a href={storeHref} className="flex min-h-[44px] min-w-0 items-center gap-2.5" rel="noreferrer">
+            /* The seller's page. A soft grey pill fades in behind the photo
+               and name on hover, sinks a pixel on a press, and rings on
+               keyboard focus. The negative margin keeps the photo where it
+               was, on the page's edge. */
+            <a
+              href={storeHref}
+              data-seller-link=""
+              className="-ml-2 flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-full py-1.5 pl-2 pr-3.5 transition-[background-color,box-shadow,translate] duration-150 ease-out hover:bg-[#eaecf0] active:translate-y-px active:bg-[#e3e6ea] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:min-h-[40px]"
+              rel="noreferrer"
+            >
               <SellerMark name={receipt.seller.name} avatarUrl={receipt.seller.avatarUrl} />
               <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{receipt.seller.name}</span>
             </a>
@@ -504,13 +575,22 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
           </p>
         ) : null}
 
-        {/* The email with the link, and fixing a typo in the address. */}
+        {/* The email with the link: send it again, fix a guest's typo, or,
+            on the buyer's own account, send one copy somewhere else. */}
         {receipt.buyer.maskedEmail ? (
           <div data-receipt-email="" className={`${CARD} mt-4 px-4 py-4 sm:px-5 print:hidden`}>
             <div className="flex items-center justify-between gap-3">
               <p className="min-w-0 text-[14px] text-[#4b5563]">
-                {receipt.buyer.email === "failed" ? "We could not email " : "Receipt emailed to "}
-                <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{receipt.buyer.maskedEmail}</span>
+                {accountEmail ? (
+                  <>
+                    Receipt goes to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{accountEmail}</span>
+                  </>
+                ) : (
+                  <>
+                    {receipt.buyer.email === "failed" ? "We could not email " : "Receipt emailed to "}
+                    <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{receipt.buyer.maskedEmail}</span>
+                  </>
+                )}
               </p>
               <button type="button" onClick={resend} disabled={emailState === "sending"} className={`${SECONDARY} ${SMALL} min-w-[84px]`}>
                 {emailState === "sending" && !changing ? (
@@ -525,42 +605,60 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
             </div>
 
             {changing ? (
-              receipt.buyer.unclaimed ? (
-                <form onSubmit={changeEmail} className="mt-3 flex flex-col gap-2 sm:flex-row">
-                  <label htmlFor="receipt-new-email" className="sr-only">
-                    New email address
-                  </label>
-                  <input
-                    id="receipt-new-email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    autoFocus
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="h-10 min-w-0 flex-1 rounded-[10px] border border-[#d5d9e0] bg-white px-3 text-[16px] text-[#1a1a2e] shadow-[inset_0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9aa1ac] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14px]"
-                  />
-                  <div className="flex gap-2">
-                    <button type="submit" disabled={emailState === "sending"} className={`${PRIMARY} flex-1 sm:flex-none`}>
-                      {emailState === "sending" ? "Sending" : "Send here"}
-                    </button>
-                    <button type="button" onClick={() => setChanging(false)} className={SECONDARY}>
-                      Cancel
-                    </button>
-                  </div>
-                </form>
+              receipt.buyer.unclaimed || accountEmail ? (
+                <div className="animate-in fade-in-0 duration-150">
+                  <form onSubmit={accountEmail ? sendCopy : changeEmail} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <label htmlFor="receipt-new-email" className="sr-only">
+                      {accountEmail ? "Email to send a copy to" : "New email address"}
+                    </label>
+                    <input
+                      id="receipt-new-email"
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      autoFocus
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="h-10 min-w-0 flex-1 rounded-[10px] border border-[#d5d9e0] bg-white px-3 text-[16px] text-[#1a1a2e] shadow-[inset_0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9aa1ac] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14px]"
+                    />
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={emailState === "sending"} className={`${PRIMARY} flex-1 sm:flex-none`}>
+                        {emailState === "sending" ? "Sending" : accountEmail ? "Send copy" : "Send here"}
+                      </button>
+                      <button type="button" onClick={() => setChanging(false)} className={SECONDARY}>
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                  {accountEmail ? (
+                    <p className="mt-2 text-[13px] leading-relaxed text-[#6b7280]">
+                      Only this copy goes there. To change your account email, go to{" "}
+                      <Link href="/library/settings" className={TEXT_LINK}>
+                        Settings
+                      </Link>
+                      .
+                    </p>
+                  ) : null}
+                </div>
               ) : (
-                /* The route refuses a token change for an order on an account
-                   (app/api/receipt/update-email): say where it is changed. */
-                <p className="mt-2 text-[13px] leading-relaxed text-[#6b7280]">
-                  This order is saved to an account, so its receipt goes to that account&apos;s email. Change it in{" "}
-                  <Link href="/library/settings" className={TEXT_LINK}>
-                    account settings
-                  </Link>
-                  , then use Resend.
+                /* An order on an account whose owner is not the one looking:
+                   the route refuses a token change (app/api/receipt/update-email),
+                   and a copy needs that account (app/api/receipt/send-copy). */
+                <p className="mt-2 text-[13px] leading-relaxed text-[#6b7280] animate-in fade-in-0 duration-150">
+                  {viewer.signedIn ? (
+                    <>This order is on another account. Sign in with that one to send a copy somewhere else.</>
+                  ) : (
+                    <>
+                      This order is on an account.{" "}
+                      <Link href={loginHref} className={TEXT_LINK}>
+                        Sign in
+                      </Link>{" "}
+                      to send a copy somewhere else.
+                    </>
+                  )}
                 </p>
               )
             ) : (
@@ -572,7 +670,7 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
                 }}
                 className="mt-1 min-h-[32px] text-[13px] text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
               >
-                Wrong address?
+                {accountEmail ? "Send a copy to another email" : "Wrong address?"}
               </button>
             )}
 
@@ -643,21 +741,15 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
         ) : null}
 
         {/* Who to ask, and what the seller promised about refunds. */}
-        <div data-receipt-help="" className="mt-6 space-y-1.5 border-t border-[#e4e7ec] px-1 pt-4 text-[13px] leading-relaxed text-[#6b7280]">
-          <p>
-            Questions about this order?{" "}
-            {receipt.seller.supportEmail ? (
-              <>
-                Write to {receipt.seller.name} at{" "}
-                <a href={`mailto:${receipt.seller.supportEmail}?subject=${encodeURIComponent(`Order ${receipt.number}`)}`} className={TEXT_LINK}>
-                  {receipt.seller.supportEmail}
-                </a>
-                .
-              </>
-            ) : (
-              <>Reply to your receipt email and it reaches {receipt.seller.name}.</>
-            )}
-          </p>
+        <div data-receipt-help="" className="mt-6 space-y-1.5 border-t border-[#e4e7ec] px-1 pt-3 text-[13px] leading-relaxed text-[#6b7280]">
+          <ContactSeller
+            sellerName={receipt.seller.name}
+            supportEmail={receipt.seller.supportEmail ?? null}
+            orderNumber={receipt.number}
+            orderId={primary.orderId}
+            token={primary.token}
+            replyTo={receipt.buyer.maskedEmail}
+          />
           {policies.map((item) => (
             <div key={item.orderId}>
               {item.refundPolicy?.finePrint ? (
@@ -678,6 +770,212 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
         </div>
       </div>
     </main>
+  )
+}
+
+/* ─── Contact seller ───────────────────────────────────────────────────── */
+
+/** The clipboard, and the old way when a browser or a web view refuses it. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    /* fall through */
+  }
+  try {
+    const area = document.createElement("textarea")
+    area.value = text
+    area.setAttribute("readonly", "")
+    area.style.position = "fixed"
+    area.style.opacity = "0"
+    document.body.appendChild(area)
+    area.select()
+    const ok = document.execCommand("copy")
+    area.remove()
+    return ok
+  } catch {
+    return false
+  }
+}
+
+const QUIET =
+  "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[#e1e4e9] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[background-color,border-color,translate] duration-150 hover:border-[#d5d9e0] hover:bg-[#f7f8fa] active:translate-y-px active:bg-[#f1f2f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-60"
+
+/**
+ * "Questions about this order?" and a small Contact seller button. It opens
+ * the seller's support address with Write email and Copy (a mailto link on a
+ * computer with no mail app does nothing and says nothing, so the address is
+ * always there to copy), or, when the seller set none, a short form that
+ * app/api/receipt/contact emails to the seller with the buyer's address to
+ * reply to. Why not in-app messages: lib/receipts/contact.ts.
+ */
+function ContactSeller({
+  sellerName,
+  supportEmail,
+  orderNumber,
+  orderId,
+  token,
+  replyTo,
+}: {
+  sellerName: string
+  supportEmail: string | null
+  orderNumber: string
+  orderId: string
+  token: string
+  /** The order's address, masked, which is where the seller's reply goes (app/api/receipt/contact). */
+  replyTo: string | null
+}) {
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle")
+  const [message, setMessage] = useState("")
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle")
+  const [error, setError] = useState<string | null>(null)
+  const addressRef = useRef<HTMLParagraphElement>(null)
+  const mailto = supportEmail ? `mailto:${supportEmail}?subject=${encodeURIComponent(`Order ${orderNumber}`)}` : null
+
+  const copy = async () => {
+    if (!supportEmail) return
+    const ok = await copyText(supportEmail)
+    setCopied(ok ? "done" : "failed")
+    if (!ok && addressRef.current) {
+      /* Nothing to copy with: select it, so a long press or Ctrl C works. */
+      const range = document.createRange()
+      range.selectNodeContents(addressRef.current)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
+    if (ok) setTimeout(() => setCopied("idle"), 2000)
+  }
+
+  const send = async (e: FormEvent) => {
+    e.preventDefault()
+    const text = message.trim()
+    if (text.length < 2) {
+      setState("error")
+      setError("Write a message first.")
+      return
+    }
+    setState("sending")
+    setError(null)
+    try {
+      const res = await fetch("/api/receipt/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, receiptToken: token, message: text }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.success) {
+        setState("error")
+        setError(data.error || "The message did not go out. Try again in a minute.")
+        return
+      }
+      setState("sent")
+      setMessage("")
+    } catch {
+      setState("error")
+      setError("No connection. Try again.")
+    }
+  }
+
+  return (
+    <div data-receipt-contact="">
+      <div className="flex items-center justify-between gap-3">
+        <p>Questions about this order?</p>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="receipt-contact"
+          onClick={() => setOpen((o) => !o)}
+          className={`${QUIET} print:hidden`}
+        >
+          <Mail className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
+          Contact seller
+        </button>
+      </div>
+      {supportEmail ? (
+        <p className="hidden print:block">
+          Write to {sellerName} at {supportEmail}.
+        </p>
+      ) : null}
+
+      {open ? (
+        <div
+          id="receipt-contact"
+          className="mt-2.5 rounded-xl border border-[#e4e7ec] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] animate-in fade-in-0 slide-in-from-top-1 duration-200 print:hidden"
+        >
+          {supportEmail && mailto ? (
+            <>
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+                <div className="min-w-0 sm:flex-1">
+                  <p className="text-[12px] text-[#8a919c]">{sellerName}&apos;s support email</p>
+                  <p ref={addressRef} data-support-email="" className="text-[14px] font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">
+                    {supportEmail}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={copy} className={`${QUIET} flex-1 sm:flex-none`} aria-live="polite">
+                    {copied === "done" ? <Check className="h-3.5 w-3.5 text-[#067647]" aria-hidden /> : <Copy className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />}
+                    {copied === "done" ? "Copied" : "Copy"}
+                  </button>
+                  <a href={mailto} className={`${QUIET} flex-1 sm:flex-none`}>
+                    <Mail className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
+                    Write email
+                  </a>
+                </div>
+              </div>
+              <p className="mt-2 text-[12px] text-[#8a919c]">
+                {copied === "failed" ? "Could not copy. The address is selected, copy it from there." : `Mention order ${orderNumber} so they can find it.`}
+              </p>
+            </>
+          ) : state === "sent" ? (
+            <p role="status" className="flex items-start gap-1.5 text-[13px] text-[#067647]">
+              <Check className="mt-[3px] h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span>
+                Sent to {sellerName}. {replyTo ? `They reply to ${replyTo}.` : "They reply by email."}
+              </span>
+            </p>
+          ) : (
+            <form onSubmit={send}>
+              <label htmlFor="receipt-contact-message" className="sr-only">
+                Message to {sellerName}
+              </label>
+              <textarea
+                id="receipt-contact-message"
+                autoFocus
+                rows={3}
+                maxLength={2000}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder={`Write to ${sellerName} about order ${orderNumber}`}
+                className="block w-full resize-none rounded-[10px] border border-[#d5d9e0] bg-white px-3 py-2 text-[16px] leading-snug text-[#1a1a2e] shadow-[inset_0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9aa1ac] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14px]"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="min-w-0 text-[12px] text-[#8a919c] [overflow-wrap:anywhere]">
+                  {replyTo ? `They reply to ${replyTo}` : "They reply by email"}
+                </p>
+                <button type="submit" disabled={state === "sending"} className={`${PRIMARY} ${SMALL} min-w-[76px]`}>
+                  {state === "sending" ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      Sending
+                    </>
+                  ) : (
+                    "Send"
+                  )}
+                </button>
+              </div>
+              {error ? (
+                <p role="alert" className="mt-2 text-[13px] text-[#b42318]">
+                  {error}
+                </p>
+              ) : null}
+            </form>
+          )}
+        </div>
+      ) : null}
+    </div>
   )
 }
 

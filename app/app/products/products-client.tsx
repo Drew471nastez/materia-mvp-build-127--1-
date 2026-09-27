@@ -1065,7 +1065,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       aria-label={`Showing ${viewLabel}. Change view`}
                       className="flex h-11 shrink-0 cursor-pointer items-center gap-1 rounded-lg pl-2.5 pr-2 text-[15px] font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] [-webkit-tap-highlight-color:transparent] md:h-8 md:px-2 md:text-[13px] md:hover:bg-[#f4f4f6] md:data-open:bg-[#ececef] lg:h-[35px] lg:gap-[5px] lg:px-[9px] lg:text-[14.5px]"
                     >
-                      {viewLabel}
+                      {/* Its own element: see TRANSLATED TEXT below. */}
+                      <span>{viewLabel}</span>
                       <ChevronsUpDown className="h-4 w-4 text-[#6b7280] md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" aria-hidden />
                     </button>
                   }
@@ -1233,7 +1234,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               )}
             >
               <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">
-                {from + 1}&ndash;{from + pageProducts.length} of {filteredProducts.length.toLocaleString("en-US")}
+                {/* One string, so a page turn replaces the words (see TRANSLATED TEXT below). */}
+                {`${from + 1}\u2013${from + pageProducts.length} of ${filteredProducts.length.toLocaleString("en-US")}`}
               </span>
               {pages > 1 ? (
                 <div className="flex items-center gap-1 max-md:gap-0">
@@ -1292,13 +1294,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     : "bg-[#c4290c] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(127,29,29,0.3)] hover:bg-[#a8230a] active:bg-[#8f1e08]",
                 )}
               >
+                {/* The word in an element of its own on both sides, so a refused delete can take the spinner away (see TRANSLATED TEXT below). */}
                 {isDeleting ? (
                   <>
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    {deleteKind === "archive" ? "Archiving" : "Deleting"}
+                    <span>{deleteKind === "archive" ? "Archiving" : "Deleting"}</span>
                   </>
                 ) : (
-                  deleteQuestion(productToDelete.title, deleteKind).confirm
+                  <span>{deleteQuestion(productToDelete.title, deleteKind).confirm}</span>
                 )}
               </button>
             </div>
@@ -1450,7 +1453,7 @@ const PhoneRow = memo(function PhoneRow({
           {product.sales_count ? (
             <>
               <Sep />
-              <span className="tabular-nums">{product.sales_count.toLocaleString("en-US")} sold</span>
+              <span className="tabular-nums">{`${product.sales_count.toLocaleString("en-US")} sold`}</span>
             </>
           ) : null}
         </span>
@@ -1556,6 +1559,19 @@ function OpeningMark({ size }: { size: "phone" | "table" }) {
   )
 }
 
+/*
+  TRANSLATED TEXT. A browser's translator (Chrome's, Safari's) swaps every
+  text node on the page for <font> elements of its own. React still holds the
+  old text node, so a word that sits beside other children, as a text node of
+  its own, is changed in a node no longer on the page (the view still said
+  "All" after picking Draft) and taking it away threw, taking the whole list
+  down: "Failed to execute 'removeChild' on 'Node'", measured by pressing
+  Delete, refused, on a translated page. A changing word here is therefore
+  always the ONLY child of its element, which React rewrites whole
+  (textContent), translated or not. instrumentation-client.ts keeps the rest
+  of the app from crashing on the same thing (lib/ui/dom-guard).
+*/
+
 /** A free product says Free rather than $0.00, on the list and in the table. */
 function priceOf(cents: number) {
   return cents > 0 ? formatMoney(cents) : "Free"
@@ -1585,7 +1601,7 @@ function StatusMark({ status, label, strong = false }: { status: Status; label: 
           status === "live" ? "bg-[#22a06b]" : status === "draft" ? "bg-[#e0a100]" : "bg-[#b6bac1]",
         )}
       />
-      {label}
+      <span>{label}</span>
     </span>
   )
 }

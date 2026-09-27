@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { ProMark, Segmented, SwitchRow, fieldInput } from "@/components/onepage/editor-kit"
 import { SeoPanel } from "@/components/onepage/seo-panel"
-import { getLinksUrl, getMainDomain } from "@/lib/url-helpers"
+import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
 import { BADGE_TYPES, buttonStyleOf, checkPageSlug, type ButtonStyle } from "@/lib/onepage/settings-rules"
 import { PRO_CHECKOUT_PLAN_ID, offeredPlan, planDisplayName, planHighlights, type PlanId } from "@/lib/billing/plans"
 
@@ -138,6 +138,40 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromPageKey])
 
+  /*
+    IS THE ADDRESS FREE? Asked of the server a moment after typing stops
+    (app/api/onepage/address, which runs the same check the save runs), and
+    only for a name the rules already accept that is not the page's own, so
+    the field says "taken" before Save does rather than after.
+  */
+  const [availability, setAvailability] = useState<{ name: string; state: "checking" | "free" | "taken" | "unknown"; error?: string } | null>(null)
+  const typedName = pageSlug.trim().toLowerCase()
+  const typedIsNew = !!onepage && typedName !== onepage.slug && checkPageSlug(typedName).ok
+  useEffect(() => {
+    if (!typedIsNew) {
+      setAvailability(null)
+      return
+    }
+    setAvailability({ name: typedName, state: "checking" })
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/onepage/address?name=${encodeURIComponent(typedName)}`, { signal: controller.signal, cache: "no-store" })
+        const body = (await res.json().catch(() => ({}))) as { available?: boolean | null; error?: string }
+        if (body.available === true) setAvailability({ name: typedName, state: "free" })
+        else if (body.available === false) setAvailability({ name: typedName, state: "taken", error: body.error || "That page address is taken" })
+        else setAvailability({ name: typedName, state: "unknown" })
+      } catch {
+        if (!controller.signal.aborted) setAvailability({ name: typedName, state: "unknown" })
+      }
+    }, 350)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [typedName, typedIsNew])
+  const slugTaken = availability?.name === typedName && availability.state === "taken"
+
   /** Whether a field holds something typed since it last took the page's value. */
   const typedSinceSync = (key: string, value: unknown) => {
     const synced = syncedFromPageRef.current
@@ -151,7 +185,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
   const handleSaveAllSettings = async () => {
     if (!onepage) return
     const next = pageSlug.trim().toLowerCase()
-    if (typedSinceSync("pageSlug", pageSlug) && next !== onepage.slug && checkPageSlug(next).ok) {
+    if (typedSinceSync("pageSlug", pageSlug) && next !== onepage.slug && checkPageSlug(next).ok && !slugTaken) {
       updateSlug(next)
     }
   }
@@ -164,7 +198,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
   if (!onepage) return null
 
   const settings = onepage.settings as Record<string, any>
-  const pageUrl = givenUrl || getLinksUrl(onepage.slug)
+  const pageUrl = givenUrl || getLinksShareUrl(onepage.slug)
   const slugVerdict = pageSlug === onepage.slug ? null : checkPageSlug(pageSlug)
 
   const copyUrl = async () => {
@@ -213,7 +247,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
       <button
         type="button"
         onClick={runSave}
-        disabled={saving || (!unsaved && !failed) || (slugVerdict !== null && !slugVerdict.ok)}
+        disabled={saving || (!unsaved && !failed) || (slugVerdict !== null && !slugVerdict.ok) || slugTaken}
         className={cn(primaryDepth, "h-10 gap-2 rounded-lg px-4 text-[14px] disabled:cursor-not-allowed disabled:opacity-40")}
       >
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -248,7 +282,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     )
   }
 
-  const mainDomain = getMainDomain()
+  const onePageDomain = getOnePageDomain()
 
   const renderBasicInfo = () => (
     <div className="space-y-5" data-settings-basic="">
@@ -277,10 +311,10 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         <div
           className={cn(
             "flex h-12 items-center overflow-hidden rounded-xl border bg-white transition-[border-color,box-shadow] duration-150 focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]",
-            slugVerdict && !slugVerdict.ok ? "border-red-400 focus-within:border-red-500" : "border-[#e3e4e8] focus-within:border-[#1a1a2e]",
+            (slugVerdict && !slugVerdict.ok) || slugTaken ? "border-red-400 focus-within:border-red-500" : "border-[#e3e4e8] focus-within:border-[#1a1a2e]",
           )}
         >
-          <span className="shrink-0 pl-4 text-[16px] text-[#9ca3af] sm:text-[15px]">{mainDomain}/</span>
+          <span className="shrink-0 pl-4 text-[16px] text-[#9ca3af] sm:text-[15px]">{onePageDomain}/</span>
           <input
             id="op-page-slug"
             data-settings-slug=""
@@ -297,14 +331,21 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             placeholder="your-name"
             className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[15px]"
           />
-          <span className="shrink-0 pr-4 text-[16px] text-[#9ca3af] sm:text-[15px]">/links</span>
         </div>
         {slugVerdict && !slugVerdict.ok ? (
           <p className="text-[12.5px] text-red-600" role="alert" data-slug-error="">
             {slugVerdict.error}
           </p>
+        ) : slugTaken ? (
+          <p className="text-[12.5px] text-red-600" role="alert" data-slug-error="">
+            {availability?.error}
+          </p>
+        ) : slugPending && availability?.name === typedName && availability.state === "checking" ? (
+          <p className="text-[12.5px] text-[#6b7280]" data-slug-checking="">Checking {onePageDomain}/{typedName}</p>
         ) : slugPending ? (
-          <p className="text-[12.5px] text-[#6b7280]">Your page moves to this address when you save. The old one stops working.</p>
+          <p className="text-[12.5px] text-[#6b7280]" data-slug-free={availability?.state === "free" ? "" : undefined}>
+            {availability?.state === "free" ? `${onePageDomain}/${typedName} is free. ` : ""}Your page moves to this address when you save. The old one stops working.
+          </p>
         ) : null}
       </div>
 

@@ -19,6 +19,9 @@
  *   HISTORY    Back out of the editor and Forward into it again
  *   DEPLOY     a new build lands while Home is open, then the rail's row
  *   SLOW       the editor's server takes 3s
+ *   HUNG       the editor's server never answers the first request for it
+ *              (the prefetch under the pointer, or the press): the shell's
+ *              cap loads the editor as a document, never the page before
  *
  * Every way must land on the first press: the editor drawn, no bar, no
  * spinner, no loader left. And what the eye sees on the way in is recorded
@@ -188,7 +191,8 @@ put("app/app/products/page.tsx", stub("products"))
 put("app/app/website-builder/page.tsx", stub("website"))
 put("app/app/[...rest]/page.tsx", stub("other"))
 put("app/creator-page/page.tsx", stub("creator-page"))
-put("app/app/onepage/page.tsx", `import { OnePageEditor } from "@/components/onepage/onepage-editor"
+put("app/app/onepage/page.tsx", `import { existsSync, unlinkSync } from "node:fs"
+import { OnePageEditor } from "@/components/onepage/onepage-editor"
 
 export const dynamic = "force-dynamic"
 
@@ -218,6 +222,12 @@ const FIXTURE = {
 }
 
 export default async function Page() {
+  /* HUNG: the first request after the probe drops this file never gets an answer, as a lost request never does. */
+  const hang = process.env.ONEPAGE_HANG_FILE
+  if (hang && existsSync(hang)) {
+    unlinkSync(hang)
+    await new Promise(() => {})
+  }
   /* The editor's own server time, apart from the other pages': a slow one is what a creator with a big page waits for. */
   await new Promise((r) => setTimeout(r, Number(process.env.ONEPAGE_DELAY_MS ?? process.env.PAGE_DELAY_MS ?? 250)))
   return <OnePageEditor initialOnePage={FIXTURE as never} />
@@ -302,7 +312,7 @@ let server = null
 let serverLog = ""
 let onepageDelay = "250"
 async function start() {
-  server = spawn(process.execPath, [join(app, "node_modules/next/dist/bin/next"), "start", "-p", String(PORT), "-H", "127.0.0.1"], { cwd: app, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", PAGE_DELAY_MS: "250", ONEPAGE_DELAY_MS: onepageDelay }, stdio: ["ignore", "pipe", "pipe"] })
+  server = spawn(process.execPath, [join(app, "node_modules/next/dist/bin/next"), "start", "-p", String(PORT), "-H", "127.0.0.1"], { cwd: app, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", PAGE_DELAY_MS: "250", ONEPAGE_DELAY_MS: onepageDelay, ONEPAGE_HANG_FILE: join(app, "hang-once") }, stdio: ["ignore", "pipe", "pipe"] })
   server.stdout.on("data", (d) => { serverLog += d })
   server.stderr.on("data", (d) => { serverLog += d })
   for (let i = 0; i < 150; i++) {
@@ -628,6 +638,23 @@ try {
     const l = await inEditor(page, 14000)
     expect(l.ms !== null, `it lands (${l.ms}ms)`, l.ms === null ? l : "")
     numbers.deployMs = l.ms
+    return page
+  })
+
+  await scenario("HUNG: the first request for the editor never answers; the press still ends in the editor", async () => {
+    const page = await open()
+    await goHome(page)
+    await clearFilm(page)
+    writeFileSync(join(app, "hang-once"), "1")
+    const t = Date.now()
+    await press(page, "OnePage")
+    const l = await inEditor(page, 16000)
+    expect(l.ms !== null, `it lands (${l.ms}ms)`, l.ms === null ? l : "")
+    films.hung = await film(page, t)
+    const back = / > page:dashboard@/.test(films.hung)
+    expect(!back, "the page before is never handed back on the way", films.hung)
+    numbers.hungMs = l.ms
+    page.warnings = []
     return page
   })
 

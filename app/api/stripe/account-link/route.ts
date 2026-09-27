@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 
 /**
  * POST /api/stripe/account-link
@@ -74,7 +75,9 @@ export async function POST(request: Request) {
           type: "account_update",
         })
         return NextResponse.json({ url: accountLink.url })
-      } catch {
+      } catch (e) {
+        /* A rejected account is rejected for either kind of link: not asked twice. */
+        if (stripeRefusal(e)) throw e
         // account_update not supported — fall through to account_onboarding
       }
     }
@@ -88,6 +91,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: accountLink.url })
   } catch (error: any) {
+    const refusal = stripeRefusal(error)
+    if (refusal) {
+      logStripeRefusal("account-link", refusal)
+      return NextResponse.json({ error: refusal.error, code: refusal.code }, { status: refusal.status })
+    }
     console.error("[Account Link Error]", error)
     return NextResponse.json(
       { error: error.message || "Failed to create account link" },

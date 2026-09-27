@@ -5,7 +5,9 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { PageSpinner } from "@/components/ui/activity-spinner"
 import {
   endAppNavigation,
+  getAppNavigation,
   isLandingHeld,
+  loadsAsDocumentWhenStalled,
   markCommitted,
   markLanded,
   NAV_ENTER_EASE,
@@ -399,6 +401,12 @@ function SlowPage() {
       const timers: number[] = []
       /* The cap, from the press. */
       timers.push(window.setTimeout(() => {
+        /* The OnePage editor is where the press ends: loaded as a document, the spinner staying up until it is (lib/ui/app-navigation). */
+        if (loadsAsDocumentWhenStalled(nav.href) && getAppNavigation() === nav && document.visibilityState === "visible") {
+          console.warn(`[app-stage] ${nav.href} has not arrived after ${NAV_SPINNER_CAP_MS}ms: loading it as a document`)
+          window.location.assign(nav.href as string)
+          return
+        }
         capped.current = nav
         console.warn(`[app-stage] ${nav.href ?? "a page"} has not arrived after ${NAV_SPINNER_CAP_MS}ms: showing the page you were on`)
         setCapTick((n) => n + 1)

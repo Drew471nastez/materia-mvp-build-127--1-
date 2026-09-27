@@ -4,13 +4,15 @@
  * URL Structure:
  * - username.storelib.com         -> the WEBSITE they built
  * - storelib.com/{username}       -> Seller store homepage
- * - storelib.com/{username}/links -> Seller onepage/links page
+ * - storelib.me/{username}        -> Seller OnePage (lib/onepage/address)
  * - username.storelib.com/p/slug  -> Product page (on seller's subdomain)
  *
  * Internal routes (still work for compatibility):
- * - /u/{username}  -> Seller store homepage (308 to /{username})
- * - /l/{slug}      -> Seller onepage/links page (308 to /{slug}/links)
- * - /p/{slug}      -> Product page
+ * - /u/{username}      -> Seller store homepage (308 to /{username})
+ * - /{username}/links  -> the route the OnePage renders from; on storelib.com
+ *                         it answers 308 to storelib.me/{username}
+ * - /l/{slug}          -> 308 to storelib.me/{slug}
+ * - /p/{slug}          -> Product page
  *
  * Capacitor (native app):
  * - Always returns internal paths to avoid cross-domain navigation
@@ -20,6 +22,9 @@
 import { isNativeApp } from "@/lib/platform-utils"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 import { servingHost } from "@/lib/custom-domains/hostname"
+import { getOnePageDomain, isOnePageHost, onePageUrl, onePageUrlDisplay } from "@/lib/onepage/address"
+
+export { getOnePageDomain, isOnePageHost, onePageUrl, onePageUrlDisplay }
 
 // Main domain from environment or default
 export const getMainDomain = () => process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -95,25 +100,19 @@ export function getStoreUrl(username: string): string {
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- *  THE ONEPAGE LIVES UNDER THE CREATOR'S HANDLE
+ *  THE ONEPAGE IS storelib.me/{handle}
  * ═══════════════════════════════════════════════════════════════════════════
- * It used to be handed out as `username.storelib.com/links`, and that address
- * had stopped working. The subdomain is the WEBSITE a creator builds, so
- * `/links` on it is read as a page of that website; for anybody who has not
- * made a page by that name it is a 404. Measured on production:
+ * It was `username.storelib.com/links` (a 404 once the subdomain became the
+ * website), then `storelib.com/{handle}/links`, which works and is too long
+ * for a bio. The address handed out now is `storelib.me/{handle}`, built by
+ * lib/onepage/address onePageUrl, and both older addresses answer with a
+ * permanent redirect to it (lib/onepage/host-route).
  *
- *     andrewrullz.storelib.com/links  ->  404, x-matched-path /w/[username]/[page]
- *     storelib.com/l/andrewrullz      ->  200, the real page
- *
- * So the Share card was handing every creator a dead link to give out.
- *
- * `storelib.com/{handle}/links` is the address now: under the handle, beside
- * the creator page at `storelib.com/{handle}` and the products at
- * `storelib.com/{handle}/{slug}`, which is one shape a person can hold in
- * their head instead of three. `/l/{slug}` still answers and redirects here.
+ * In the native shell this is still the internal path: the app loads
+ * storelib.com, and a hop to another origin loses the session it keeps.
  *
  * @param username - The seller's username (same as onepage slug in most cases)
- * @returns Full URL like "https://storelib.com/username/links"
+ * @returns Full URL like "https://storelib.me/username"
  */
 export function getLinksUrl(username: string): string {
   if (!username) return getSiteUrl()
@@ -123,14 +122,7 @@ export function getLinksUrl(username: string): string {
   /* In the native shell, a path: a cross-origin hop loses the session. */
   if (isNativeApp()) return getLinksInternalPath(handle)
 
-  const mainDomain = getMainDomain()
-  const protocol = mainDomain.includes("localhost") ? "http" : "https"
-
-  if (mainDomain.includes("localhost")) {
-    return `${getSiteUrl()}${getLinksInternalPath(handle)}`
-  }
-
-  return `${protocol}://${mainDomain}${getLinksInternalPath(handle)}`
+  return onePageUrl(handle)
 }
 
 /**
@@ -219,8 +211,9 @@ function onOwnDomain(pageHost?: string | null): string | null {
 }
 
 /**
- * Get the canonical links/onepage URL for sharing/copying/displaying — always
- * returns the full subdomain URL regardless of whether running inside Capacitor.
+ * Get the canonical OnePage URL for sharing, copying and displaying: always
+ * the full https://storelib.me/{handle}, inside Capacitor too, or
+ * <their domain>/links when the creator page has a domain of its own.
  */
 export function getLinksShareUrl(username: string, pageHost?: string | null): string {
   /* The OnePage lives at /links on the creator page's own domain. */
@@ -228,14 +221,8 @@ export function getLinksShareUrl(username: string, pageHost?: string | null): st
   if (own) return `${own}/links`
   if (!username) return getSiteUrl()
 
-  const handle = username.toLowerCase()
-  const mainDomain = getMainDomain()
-
-  if (mainDomain.includes("localhost")) {
-    return `${getSiteUrl()}${getLinksInternalPath(handle)}`
-  }
-
-  return `https://${mainDomain}${getLinksInternalPath(handle)}`
+  /* storelib.me/{handle} (lib/onepage/address), the one address handed out. */
+  return onePageUrl(username)
 }
 
 /**
@@ -289,10 +276,10 @@ export function getStoreInternalPath(username: string): string {
 }
 
 /**
- * Get relative path for links page internal navigation.
- *
- * THE ONE PLACE THAT KNOWS THE SHAPE. Every other helper above builds its
- * answer out of this, so the format is changed here and nowhere else.
+ * The ROUTE the OnePage renders from, on storelib.com: in-app navigation in
+ * the native shell, the proxy's rewrite from storelib.me/{slug}, and the
+ * editor's own links. Not an address to hand out: on the web it answers
+ * with a 308 to storelib.me/{slug}, which onePageUrl builds.
  *
  * @param slug - The onepage slug (usually same as username)
  * @returns Relative path like "/slug/links"
@@ -330,15 +317,12 @@ export function getStoreUrlDisplay(username: string): string {
 }
 
 /**
- * Format a links URL for display (shorter version)
+ * Format a OnePage URL for display: "storelib.me/username", no scheme.
  * @param username - The seller's username
- * @returns Display string like "storelib.com/username/links"
  */
 export function getLinksUrlDisplay(username: string): string {
-  const mainDomain = getMainDomain()
-  if (!username) return `${mainDomain}/links`
-
-  return `${mainDomain}${getLinksInternalPath(username.toLowerCase())}`
+  if (!username) return getOnePageDomain()
+  return onePageUrlDisplay(username)
 }
 
 /**
@@ -534,6 +518,9 @@ export function isCustomDomain(host: string): boolean {
  * @returns true if on a links page
  */
 export function isLinksPage(pathname: string, host?: string): boolean {
+  /* storelib.me serves nothing but OnePages: one segment is one. */
+  if (host && isOnePageHost(host)) return pathname.split("/").filter(Boolean).length === 1
+
   // Check subdomain + /links path
   if (host) {
     const username = extractUsernameFromHost(host)

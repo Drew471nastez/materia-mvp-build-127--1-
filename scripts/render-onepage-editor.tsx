@@ -26,7 +26,8 @@ const onepage: OnePage = {
   slug: "satori",
   title: "Satori Studio",
   bio: "Prints, posters and a newsletter",
-  avatar_url: px(3),
+  /* A probe that needs a real https photo, or none (scripts/check-onepage-share-image.mjs), hands its own. */
+  avatar_url: "PROBE_AVATAR" in globalThis ? (globalThis as any).PROBE_AVATAR : px(3),
   theme: { ...defaultTheme, ...PROBE_THEME },
   settings: defaultSettings,
   social_links: { instagram: "https://instagram.com/satori" },

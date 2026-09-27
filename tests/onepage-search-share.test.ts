@@ -57,7 +57,8 @@ function check(label: string, ok: boolean, detail?: string) {
   }
 }
 
-const PAGE_URL = "https://storelib.com/satori/links"
+/* The address a OnePage is shared at: storelib.me/{handle} (lib/onepage/address). */
+const PAGE_URL = "https://storelib.me/satori"
 const THEME = { background_type: "solid", background_color: "#1A2E1A", text_color: "#eef2ec", secondary_text_color: "#b7c4b6", button_color: "#ff0000" }
 const base = (over: Record<string, unknown> = {}, settings: Record<string, unknown> = {}) =>
   resolveOnePageSeo({ name: "Satori Studio", bio: "Prints, posters and a newsletter", handle: "satori", avatarUrl: "https://x.supabase.co/a.jpg", theme: THEME, settings, pageUrl: PAGE_URL, ...over })
@@ -69,15 +70,19 @@ function resolution() {
   check("the description is the bio", d.description.value === "Prints, posters and a newsletter" && d.description.auto)
   check("the shared title is the name alone: the app prints the site beside it", d.socialTitle.value === "Satori Studio" && d.socialTitle.auto)
   check("the shared description is the description", d.socialDescription.value === d.description.value && d.socialDescription.auto)
-  check("the picture is the card drawn from the page", d.image.source === "generated" && d.image.customUrl === null)
-  check("its address is beside the page, outside /api, with a fingerprint", /^https:\/\/storelib\.com\/satori\/links\/share\.png\?v=[a-z0-9]{6,12}$/.test(d.image.url), d.image.url)
-  check("the host and Google's grey line", d.domain === "storelib.com" && d.breadcrumb === "storelib.com › satori › links")
+  /* Changed on purpose: a shared link shows the profile photo unless the creator picks the card (tests/onepage-share-image.test.ts pins the three choices). */
+  check("the picture is the page's photo", d.image.source === "profile" && d.image.mode === "profile" && d.image.customUrl === null)
+  const cardOf = (over: Record<string, unknown> = {}, settings: Record<string, unknown> = {}) => base({ shareImageMode: "card", ...over }, settings)
+  const dc = cardOf()
+  check("the card, when chosen, is drawn from the page", dc.image.source === "generated" && dc.image.customUrl === null)
+  check("its address is beside the page, outside /api, with a fingerprint", /^https:\/\/storelib\.com\/satori\/links\/share\.png\?v=[a-z0-9]{6,12}$/.test(dc.image.url), dc.image.url)
+  check("the host and Google's grey line", d.domain === "storelib.me" && d.breadcrumb === "storelib.me › satori")
 
   const renamed = base({ name: "Satori Prints" })
-  check("a rename moves the title, the shared title and the picture", renamed.title.value === "Satori Prints | Storelib" && renamed.socialTitle.value === "Satori Prints" && renamed.image.url !== d.image.url)
+  check("a rename moves the title, the shared title and the card", renamed.title.value === "Satori Prints | Storelib" && renamed.socialTitle.value === "Satori Prints" && cardOf({ name: "Satori Prints" }).image.url !== dc.image.url)
   check("a new bio moves the description and not the picture", base({ bio: "Posters only" }).description.value === "Posters only" && base({ bio: "Posters only" }).image.url === d.image.url)
   check("a new photo moves the picture", base({ avatarUrl: "https://x.supabase.co/b.jpg" }).image.url !== d.image.url)
-  check("a new theme colour moves the picture", base({ theme: { ...THEME, background_color: "#000000" } }).image.url !== d.image.url)
+  check("a new theme colour moves the card", cardOf({ theme: { ...THEME, background_color: "#000000" } }).image.url !== dc.image.url)
 
   console.log("\nAn empty page")
   const empty = base({ bio: "", name: "" })
@@ -118,10 +123,12 @@ function resolution() {
   check("plain text of nothing is nothing", plainText(null) === "" && plainText(42) === "")
 
   console.log("\nThe share picture")
-  const custom = base({}, { social_image_url: "https://x.supabase.co/storage/v1/object/public/onepage-assets/u/og.jpg", social_image_position_x: 30, social_image_position_y: 70 })
+  /* An upload is the picture when Custom image is chosen (changed on purpose: it used to replace the card by being there). */
+  const customOf = (settings: Record<string, unknown>) => base({ shareImageMode: "custom" }, settings)
+  const custom = customOf({ social_image_url: "https://x.supabase.co/storage/v1/object/public/onepage-assets/u/og.jpg", social_image_position_x: 30, social_image_position_y: 70 })
   check("an upload replaces the card", custom.image.source === "custom" && custom.image.focal.x === 30 && custom.image.focal.y === 70)
-  check("moving its crop moves the fingerprint", base({}, { social_image_url: custom.image.customUrl, social_image_position_x: 31, social_image_position_y: 70 }).image.url !== custom.image.url)
-  check("an http, IP or internal picture is no picture", ["http://x.co/a.jpg", "https://127.0.0.1/a.jpg", "https://localhost/a.jpg", "https://metadata.internal/a.jpg", "javascript:alert(1)"].every((u) => base({}, { social_image_url: u }).image.source === "generated"))
+  check("moving its crop moves the fingerprint", customOf({ social_image_url: custom.image.customUrl, social_image_position_x: 31, social_image_position_y: 70 }).image.url !== custom.image.url)
+  check("an http, IP or internal picture is no picture", ["http://x.co/a.jpg", "https://127.0.0.1/a.jpg", "https://localhost/a.jpg", "https://metadata.internal/a.jpg", "javascript:alert(1)"].every((u) => { const i = customOf({ social_image_url: u }).image; return i.customUrl === null && i.source !== "custom" }))
   const dark = shareCardModel({ name: "A", avatarUrl: null, theme: { background_type: "solid", background_color: "#000000", text_color: "#111111" }, pageUrl: PAGE_URL })
   check("text the theme would draw unreadable is swapped for one that reads", dark.text === "#ffffff")
   const grad = shareCardModel({ name: "A", avatarUrl: null, theme: { background_type: "gradient", gradient_color_1: "#ffd1dc", gradient_color_2: "#fbe7c6", gradient_direction: 90 }, pageUrl: PAGE_URL })
@@ -135,7 +142,10 @@ function resolution() {
   const m = onePageMetadataFrom(d, { handle: "satori", indexable: true, icon: "https://x.supabase.co/a.jpg" }) as any
   check("the title whole, so the layout adds no second brand", m.title.absolute === "Satori Studio | Storelib")
   check("one address for canonical and og:url", m.alternates.canonical === PAGE_URL && m.openGraph.url === PAGE_URL)
-  check("a large card, always, with its size", m.twitter.card === "summary_large_image" && m.openGraph.images[0].width === 1200 && m.openGraph.images[0].height === 630)
+  /* Changed on purpose: the photo is a square summary card, the drawn card a large one. */
+  check("the photo is a summary card, 600 square", m.twitter.card === "summary" && m.openGraph.images[0].width === 600 && m.openGraph.images[0].height === 600)
+  const mc = onePageMetadataFrom(dc, { handle: "satori", indexable: true }) as any
+  check("the card a large one, with its size", mc.twitter.card === "summary_large_image" && mc.openGraph.images[0].width === 1200 && mc.openGraph.images[0].height === 630)
   check("not listed means not indexed", (onePageMetadataFrom(d, { indexable: false }) as any).robots.index === false)
 }
 
@@ -163,8 +173,8 @@ function rules() {
   check("a value sent back as it is stored is kept, however old", checkSettingsPatch({ social_image_url: "http://old.example/a.png" }, { social_image_url: "http://old.example/a.png" }).ok)
   check("settings that are not an object are refused", !checkSettingsPatch("x").ok && !checkSettingsPatch([1]).ok)
   check("a page address follows the username rules", checkPageSlug("Satori-Prints").ok && (checkPageSlug("Satori-Prints") as any).value === "satori-prints")
-  check("a short, reserved or broken address is refused, in the page's words",
-    ["ab", "app", "checkout", "-x-", "a--b", "x".repeat(31)].every((s) => !checkPageSlug(s).ok) && /Page address/.test((checkPageSlug("ab") as any).error))
+  check("a short, reserved or broken address is refused, with a sentence saying what to do",
+    ["ab", "app", "checkout", "-x-", "a--b", "x".repeat(31)].every((s) => !checkPageSlug(s).ok) && (checkPageSlug("ab") as any).error === "Use at least 3 characters")
 }
 
 /* ─── The real route and page, with the database swapped ─────────────────── */
@@ -271,7 +281,7 @@ const DRAFT = {
 
 function previewOf(draft: Record<string, any>) {
   const drawn = publicOnePageFromDraft(draft as any, { displayName: "Satori Studio", liveAvatarUrl: null })
-  return resolveOnePageSeo({ name: drawn.title, bio: drawn.bio, handle: draft.slug, avatarUrl: drawn.avatar_url, theme: drawn.theme, settings: draft.settings, pageUrl: PAGE_URL })
+  return resolveOnePageSeo({ name: drawn.title, bio: drawn.bio, handle: draft.slug, avatarUrl: drawn.avatar_url, theme: drawn.theme, settings: draft.settings, shareImageMode: draft.share_image_mode, pageUrl: PAGE_URL })
 }
 
 async function metadataAndRoutes() {
@@ -283,7 +293,8 @@ async function metadataAndRoutes() {
   const cases: Array<[string, Record<string, any>]> = [
     ["following the page", DRAFT],
     ["a typed title and a shared description", { ...DRAFT, settings: { ...DRAFT.settings, seo_title: "Risograph prints from Kyoto", social_description: "New prints every Friday" } }],
-    ["an empty bio and an uploaded picture", { ...DRAFT, bio: "", settings: { ...DRAFT.settings, social_image_url: "https://x.supabase.co/storage/v1/object/public/onepage-assets/u/og.jpg", social_image_position_x: 20, social_image_position_y: 80 } }],
+    ["an empty bio and an uploaded picture", { ...DRAFT, bio: "", share_image_mode: "custom", settings: { ...DRAFT.settings, social_image_url: "https://x.supabase.co/storage/v1/object/public/onepage-assets/u/og.jpg", social_image_position_x: 20, social_image_position_y: 80 } }],
+    ["the card chosen", { ...DRAFT, share_image_mode: "card" }],
   ]
   for (const [label, draft] of cases) {
     S.admin = world(savedRow(draft))
@@ -299,12 +310,14 @@ async function metadataAndRoutes() {
       meta.openGraph?.images?.[0]?.url === seen.image.url &&
       meta.twitter?.images?.[0] === seen.image.url &&
       meta.twitter?.title === seen.socialTitle.value &&
-      meta.twitter?.card === "summary_large_image"
+      /* The card type follows the picture (changed on purpose: a photo is "summary"). */
+      meta.twitter?.card === seen.image.twitterCard &&
+      meta.openGraph?.images?.[0]?.type === seen.image.type
     check(`${label}: title, description, share card and address are the preview's`, same, JSON.stringify({ meta: { t: meta.title, d: meta.description, og: meta.openGraph }, seen: { t: seen.title, d: seen.description, st: seen.socialTitle, img: seen.image.url } }))
   }
   S.admin = world(savedRow(DRAFT))
   const missing = await page.generateMetadata({ params: Promise.resolve({ slug: "nobody-here" }) })
-  check("a page that is not there has a plain title and no card", missing.title === "nobody-here" && !missing.openGraph)
+  check("a page that is not there says so, is not indexed and has no card", missing.title === "Page not found" && missing.robots?.index === false && !missing.openGraph)
 
   console.log("\nPUT /api/onepage")
   const put = async (body: Record<string, unknown>, plan = "free") => {

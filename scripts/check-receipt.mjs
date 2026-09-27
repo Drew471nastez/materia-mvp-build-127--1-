@@ -27,8 +27,26 @@
  *                  stars fill on hover and stay on a press, posting sends
  *                  the rating and text, a refusal says why.
  *   TOTALS         the paid order shows subtotal, discount with its code,
- *                  tip, total, and the card; the help line names the
- *                  seller's address and the refund policy.
+ *                  tip, total, and the card; the help line has the refund
+ *                  policy.
+ *   SELLER         the photo and name link to the seller's page; a soft grey
+ *                  pill fades in behind them on hover (150ms), a press sinks
+ *                  it, a keyboard focus rings it, and a phone gets 44px.
+ *   CONTACT        "Contact seller" opens the support address with Write
+ *                  email (mailto, subject "Order <number>") and Copy (the
+ *                  clipboard really holds it); with no support address it is
+ *                  a form that posts to /api/receipt/contact and says Sent,
+ *                  or the server's words.
+ *   ACCOUNT EMAIL  on the buyer's own account order the card names the
+ *                  account email, Resend posts to: "account", and "Send a
+ *                  copy to another email" posts /api/receipt/send-copy; signed
+ *                  out, the same order explains and offers Sign in; a guest
+ *                  order keeps Wrong address.
+ *   REFUNDED       says so, closes the files, shows the refund.
+ *   CLEAN          no console error and no page error in any case, and the
+ *                  page rendered on a server and hydrated in the browser
+ *                  (React's development build, which reports every
+ *                  difference) logs no hydration warning.
  *
  *   PROBE_CSS=source node scripts/check-receipt.mjs
  *   SHOTS=/some/dir PROBE_CSS=source node scripts/check-receipt.mjs
@@ -38,6 +56,7 @@ import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
 
@@ -70,7 +89,22 @@ try {
     `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.jsx")}`, `--alias:next/image=${join(dir, "image.jsx")}`,
     `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"] })
+  /* The same page with React's development build, for the hydration pass. */
+  execFileSync("pnpm", ["exec", "esbuild", join(root, "scripts/render-receipt.tsx"),
+    "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(dir, "probe-dev.js")}`,
+    '--define:process.env.NODE_ENV="development"',
+    `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.jsx")}`, `--alias:next/image=${join(dir, "image.jsx")}`,
+    `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
+    { stdio: ["ignore", "ignore", "inherit"] })
+  /* And the server's render of it, in Node. */
+  execFileSync("pnpm", ["exec", "esbuild", join(root, "scripts/render-receipt-ssr.tsx"),
+    "--bundle", "--format=esm", "--platform=node", "--jsx=automatic", "--log-level=error", `--outfile=${join(dir, "ssr.mjs")}`,
+    '--define:process.env.NODE_ENV="development"', "--packages=external",
+    `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.jsx")}`, `--alias:next/image=${join(dir, "image.jsx")}`,
+    `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
+    { stdio: ["ignore", "ignore", "inherit"] })
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
+const { renderReceipt } = await import(pathToFileURL(join(dir, "ssr.mjs")).href)
 /*
  * This Chromium answers (hover: none) in headless mode whatever is emulated,
  * so Tailwind's hover rules (inside `@media (hover: hover)`) would never
@@ -79,9 +113,19 @@ try {
  */
 const sheet = await appCss(root)
 const mouseSheet = sheet.replace(/@media \(hover: ?hover\)/g, "@media all")
-const pageHtml = (css) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-  `<style>${interFaces(root)}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
-  `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}}</script><script>${readFileSync(join(dir, "probe.js"), "utf8")}</script></body></html>`
+/* Inter's faces point at the build's files by file://, which a page served
+   over http may not load (a console error on every page). The probe's own
+   server hands them out instead. */
+const fontFiles = new Map()
+const faces = interFaces(root).replace(/url\(file:\/\/([^)]+?)\/([^/)]+)\)/g, (_, folder, name) => {
+  fontFiles.set(name, join(folder, name))
+  return `url(/__font/${name})`
+})
+const probeJs = readFileSync(join(dir, "probe.js"), "utf8")
+const probeDevJs = readFileSync(join(dir, "probe-dev.js"), "utf8")
+const pageHtml = (css, { markup = "", js = probeJs, env = "production" } = {}) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+  `<style>${faces}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
+  `</head><body><div id="app">${markup}</div><script>window.process={env:{NODE_ENV:"${env}"}}</script><script>${js}</script></body></html>`
 const html = pageHtml(sheet)
 const mouseHtml = pageHtml(mouseSheet)
 rmSync(dir, { recursive: true, force: true })
@@ -99,6 +143,8 @@ const answer = {
   download: "ok",
   resend: "ok",
   change: "ok",
+  copy: "ok",
+  contact: "ok",
   review: "ok",
   reviewCheck: { isLoggedIn: true, hasPurchased: true, hasReviewed: false, existingReview: null },
 }
@@ -107,6 +153,11 @@ const server = createServer((req, res) => {
   if (IMAGES[url.pathname]) {
     res.writeHead(200, { "content-type": "image/svg+xml" })
     res.end(IMAGES[url.pathname])
+    return
+  }
+  if (url.pathname.startsWith("/__font/") && fontFiles.has(url.pathname.slice(8))) {
+    res.writeHead(200, { "content-type": "font/woff2" })
+    res.end(readFileSync(fontFiles.get(url.pathname.slice(8))))
     return
   }
   if (url.pathname === "/files/signed.pdf") {
@@ -136,6 +187,14 @@ const server = createServer((req, res) => {
         delay = 400
         if (answer.change === "ok") out = { success: true }
         else { status = 403; out = { error: "The address can only be changed in the first week. Reply to your receipt email and the seller can help." } }
+      } else if (url.pathname === "/api/receipt/send-copy") {
+        delay = 400
+        if (answer.copy === "ok") out = { success: true }
+        else { status = 429; out = { error: "A copy was just sent. Try again in a few minutes." } }
+      } else if (url.pathname === "/api/receipt/contact") {
+        delay = 400
+        if (answer.contact === "ok") out = { success: true }
+        else { status = 429; out = { error: "You have written 5 times today. The seller will reply by email.", limitReached: true } }
       } else if (url.pathname === "/api/reviews/check") {
         out = answer.reviewCheck
       } else if (url.pathname === "/api/reviews") {
@@ -148,6 +207,12 @@ const server = createServer((req, res) => {
     return
   }
   res.writeHead(200, { "content-type": "text/html" })
+  if (url.searchParams.get("ssr") === "1") {
+    /* Rendered here, as the server would, then hydrated by React's development build. */
+    const markup = renderReceipt(url.searchParams.get("ssrcase") || url.searchParams.get("case") || "free", base)
+    res.end(pageHtml(url.searchParams.get("mouse") === "1" ? mouseSheet : sheet, { markup, js: probeDevJs, env: "development" }))
+    return
+  }
   res.end(url.searchParams.get("mouse") === "1" ? mouseHtml : html)
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
@@ -201,16 +266,23 @@ const VIEWPORTS = [
   ["390", { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
   ["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
 ]
-const CASES = ["free", "paid", "multi", "nofiles", "guest"]
+const CASES = ["free", "paid", "multi", "nofiles", "guest", "signedout", "nosupport", "refunded"]
+const SIGNED_OUT = new Set(["guest", "signedout", "nosupport"])
 
-async function open(viewport, which, reviewCheck) {
-  answer.reviewCheck = reviewCheck ?? (which === "guest"
+/* Everything the page says to the console, per page. */
+const logs = new WeakMap()
+async function open(viewport, which, reviewCheck, { ssr = false, ssrcase = "" } = {}) {
+  answer.reviewCheck = reviewCheck ?? (SIGNED_OUT.has(which)
     /* What /api/reviews/check answers a guest now that the card asks with the receipt token (the token proves the purchase). */
     ? { isLoggedIn: false, hasPurchased: true, hasReviewed: false, viaReceipt: true, existingReview: null }
     : { isLoggedIn: true, hasPurchased: true, hasReviewed: false, existingReview: null })
   const page = await browser.newPage()
+  const said = []
+  logs.set(page, said)
+  page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") said.push(`${m.type()}: ${m.text()}`) })
+  page.on("pageerror", (e) => said.push(`pageerror: ${e.message}`))
   await page.setViewport(viewport)
-  await page.goto(`${base}/receipt/x?case=${which}${viewport.hasTouch ? "" : "&mouse=1"}`, { waitUntil: "networkidle0" })
+  await page.goto(`${base}/receipt/x?case=${which}${viewport.hasTouch ? "" : "&mouse=1"}${ssr ? "&ssr=1" : ""}${ssrcase ? `&ssrcase=${ssrcase}` : ""}`, { waitUntil: "networkidle0" })
   await page.evaluate(() => document.fonts.ready)
   await wait(150)
   return page
@@ -224,6 +296,8 @@ try {
       if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-${which}-${label}.png`), fullPage: true })
       if (!SHOTS_ONLY) {
         console.log(`\n${which} at ${label}`)
+        const said = logs.get(page) ?? []
+        expect(said.length === 0, "no console error, no page error", said.slice(0, 3).join(" | "))
         const violet = await page.evaluate(VIOLET_SCAN)
         expect(violet.length === 0, "nothing on the page is violet", violet.slice(0, 4).join(" | "))
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
@@ -296,10 +370,34 @@ try {
           expect(/Total\$27\.00/.test(text), "the total", text)
           expect(/Visa ending 4242/.test(text), "the card", text)
           const help = await page.evaluate(() => document.querySelector("[data-receipt-help]")?.textContent || "")
-          expect(/help@andrewrullz\.com/.test(help), "the seller's address to write to", help)
+          /* The address used to be printed in the help line; it is now one
+             press away, behind Contact seller (checked in "contact seller"). */
+          expect(/Questions about this order\?/.test(help) && /Contact seller/.test(help), "the help line offers Contact seller", help)
           expect(/30-day money back guarantee/.test(help), "the refund policy", help)
         }
-        if (which !== "guest") {
+        if (which === "refunded") {
+          const text = await page.evaluate(() => document.querySelector("[data-receipt]")?.textContent || "")
+          expect(/This order was refunded/.test(text), "the headline says it was refunded", text.slice(0, 120))
+          expect(/Refunded, files closed/.test(text), "the line says its files are closed", text.slice(0, 400))
+          expect(rows.length === 0 && !(await page.$("[data-receipt-file] button")), "no Download is offered")
+          const totals = await page.evaluate(() => document.querySelector("[data-receipt-totals]")?.textContent || "")
+          expect(/Refunded−\$24\.00/.test(totals), "the refund is in the totals", totals)
+        }
+        const seller = await page.evaluate(() => {
+          const a = document.querySelector("[data-seller-link]")
+          if (!a) return null
+          const r = a.getBoundingClientRect()
+          const img = a.querySelector("img, [data-avatar], span")
+          return { href: a.getAttribute("href"), h: Math.round(r.height), bg: getComputedStyle(a).backgroundColor, dur: getComputedStyle(a).transitionDuration, props: getComputedStyle(a).transitionProperty, left: Math.round((img?.getBoundingClientRect().left ?? 0) - (document.querySelector("header")?.getBoundingClientRect().left ?? 0)) }
+        })
+        expect(!!seller && seller.href === "https://storelib.com/andrewrullz", "the seller's photo and name link to their page", JSON.stringify(seller))
+        expect(!!seller && seller.h >= 44, "and are a 44px target", JSON.stringify(seller))
+        expect(!!seller && /rgba\(0, 0, 0, 0\)|transparent/.test(seller.bg), "with no pill until a pointer arrives", seller?.bg)
+        expect(!!seller && /0\.15s/.test(seller.dur) && /background-color/.test(seller.props), "the pill fades in over 150ms", JSON.stringify(seller))
+        expect(!!seller && Math.abs(seller.left) <= 1, "the photo stays on the page's edge", JSON.stringify(seller))
+        const contact = await page.evaluate(() => [...document.querySelectorAll("[data-receipt-contact] button")].find((b) => /Contact seller/.test(b.textContent || ""))?.getBoundingClientRect().height ?? 0)
+        expect(contact >= 36, "Contact seller is there and easy to press", String(contact))
+        if (!SIGNED_OUT.has(which) && which !== "refunded") {
           const lib = await page.$("a[href='/library']")
           if (lib) {
             const before = await page.evaluate((a) => ({ shadow: getComputedStyle(a).boxShadow, arrow: a.querySelector("[data-arrow]")?.getBoundingClientRect().left ?? 0 }), lib)
@@ -363,8 +461,8 @@ try {
       expect(/Sending/.test(sending), "Resend says Sending while it waits", sending)
       await wait(600)
       const call = asked.find((a) => a.path === "/api/receipt/resend")
-      expect(!!call && call.body.orderId === "1be1ac18-0000-4000-8000-000000000001" && call.body.receiptToken?.startsWith("rcpt_") && call.body.resendType === "buyer",
-        "posts the order id, its token and resendType buyer", JSON.stringify(call?.body))
+      expect(!!call && call.body.orderId === "1be1ac18-0000-4000-8000-000000000001" && call.body.receiptToken?.startsWith("rcpt_") && call.body.resendType === "buyer" && call.body.to === undefined,
+        "posts the order id, its token and resendType buyer, to the order's address", JSON.stringify(call?.body))
       const note = await page.evaluate(() => document.querySelector("[data-receipt-email] [role=status]")?.textContent || "")
       expect(/Sent/.test(note), "says Sent", note)
 
@@ -391,16 +489,224 @@ try {
       await page.close()
     }
     {
-      /* An order already on an account: the route would refuse a token change. */
-      const page = await open(VIEWPORTS[1][1], "free")
+      /* An order on an account, signed out: the route would refuse a token
+         change and a copy needs the account, so it says how. This pin used
+         to read "account settings"; that page could not change where Resend
+         sent (Resend used the order's address), so it now asks to sign in. */
+      const page = await open(VIEWPORTS[1][1], "signedout")
       asked.length = 0
+      const first = await page.evaluate(() => document.querySelector("[data-receipt-email]")?.textContent || "")
+      expect(/Receipt emailed to na••••@gmail\.com/.test(first), "signed out, the order's masked address", first)
       await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Wrong address/.test(b.textContent || ""))?.click())
       await wait(200)
       const text = await page.evaluate(() => document.querySelector("[data-receipt-email]")?.textContent || "")
       expect(!(await page.$("#receipt-new-email")), "an account's order does not offer a form the server refuses")
-      expect(/account settings/i.test(text), "it says where the address is changed", text)
-      if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-free-1440-wrong-address.png"), fullPage: false })
+      expect(/This order is on an account\. Sign in to send a copy somewhere else\./.test(text), "it says to sign in", text)
+      const signIn = await page.evaluate(() => document.querySelector("[data-receipt-email] a")?.getAttribute("href") || "")
+      expect(/^\/login\?redirect=%2Freceipt%2F/.test(signIn), "and Sign in comes back to this receipt", signIn)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-signedout-1440-wrong-address.png"), fullPage: false })
       await page.close()
+    }
+    for (const [label, viewport] of VIEWPORTS) {
+      /* The buyer's own account: Resend to the account email, or a copy elsewhere. */
+      const page = await open(viewport, "free")
+      asked.length = 0
+      answer.resend = "ok"
+      const first = await page.evaluate(() => document.querySelector("[data-receipt-email]")?.textContent || "")
+      expect(/Receipt goes to ghita\.nastase@gmail\.com/.test(first), `${label}: the buyer's account email is named`, first)
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Resend")?.click())
+      await wait(700)
+      const call = asked.find((a) => a.path === "/api/receipt/resend")
+      expect(!!call && call.body.to === "account" && call.body.resendType === "buyer" && call.body.receiptToken?.startsWith("rcpt_"), `${label}: Resend asks for the account email`, JSON.stringify(call?.body))
+      expect(!(await page.$("#receipt-new-email")), `${label}: no field until asked`)
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Send a copy to another email/.test(b.textContent || ""))?.click())
+      await wait(250)
+      const input = await page.$("#receipt-new-email")
+      expect(!!input, `${label}: Send a copy opens a field`)
+      const hint = await page.evaluate(() => document.querySelector("[data-receipt-email]")?.textContent || "")
+      expect(/Only this copy goes there/.test(hint) && /Settings/.test(hint), `${label}: says it is one copy and where the account email is changed`, hint)
+      const settings = await page.evaluate(() => [...document.querySelectorAll("[data-receipt-email] a")].map((a) => a.getAttribute("href")))
+      expect(settings.includes("/library/settings"), `${label}: Settings is the buyer's settings`, JSON.stringify(settings))
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-free-${label}-copy-open.png`), fullPage: label === "390" })
+      asked.length = 0
+      answer.copy = "ok"
+      await input.type("work@studio.example")
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Send copy")?.click())
+      await wait(150)
+      const pending = await page.evaluate(() => [...document.querySelectorAll("[data-receipt-email] button")].map((b) => b.textContent).join("|"))
+      expect(/Sending/.test(pending), `${label}: Send copy says Sending while it waits`, pending)
+      await wait(600)
+      const copy = asked.find((a) => a.path === "/api/receipt/send-copy")
+      expect(!!copy && copy.body.email === "work@studio.example" && copy.body.orderId === "1be1ac18-0000-4000-8000-000000000001" && copy.body.receiptToken?.startsWith("rcpt_"),
+        `${label}: posts the address, the order id and its token`, JSON.stringify(copy?.body))
+      const sent = await page.evaluate(() => document.querySelector("[data-receipt-email] [role=status]")?.textContent || "")
+      expect(/Copy sent to work@studio\.example/.test(sent), `${label}: and says where the copy went`, sent)
+      expect(!(await page.$("#receipt-new-email")), `${label}: the field closes`)
+      if (label === "1440") {
+        answer.copy = "limited"
+        await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Send a copy to another email/.test(b.textContent || ""))?.click())
+        await wait(200)
+        await page.type("#receipt-new-email", "work@studio.example")
+        await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Send copy")?.click())
+        await wait(700)
+        const limited = await page.evaluate(() => document.querySelector("[data-receipt-email] [role=status]")?.textContent || "")
+        expect(/A copy was just sent/.test(limited), "a refused copy shows the server's words", limited)
+        await page.type("#receipt-new-email", "x")
+        await page.evaluate(() => { const i = document.querySelector("#receipt-new-email"); i.value = "" })
+      }
+      await page.close()
+    }
+
+    /* ── Contact seller ────────────────────────────────────────────────── */
+    console.log("\ncontact seller")
+    for (const [label, viewport] of VIEWPORTS) {
+      const page = await open(viewport, "paid")
+      await browser.defaultBrowserContext().overridePermissions(base, ["clipboard-read", "clipboard-write", "clipboard-sanitized-write"])
+      expect(!(await page.$("#receipt-contact")), `${label}: closed until asked`)
+      await page.evaluate(() => [...document.querySelectorAll("[data-receipt-contact] button")].find((b) => /Contact seller/.test(b.textContent || ""))?.click())
+      await wait(300)
+      const panel = await page.evaluate(() => {
+        const p = document.querySelector("#receipt-contact")
+        const mail = p?.querySelector("a[href^='mailto:']")
+        const btn = [...document.querySelectorAll("[data-receipt-contact] button")].find((b) => /Contact seller/.test(b.textContent || ""))
+        return { text: p?.textContent || "", mailto: mail?.getAttribute("href") || "", expanded: btn?.getAttribute("aria-expanded"), opacity: p ? getComputedStyle(p).opacity : "" }
+      })
+      expect(/help@andrewrullz\.com/.test(panel.text), `${label}: the seller's support address`, panel.text)
+      expect(panel.mailto === "mailto:help@andrewrullz.com?subject=Order%201BE1AC18", `${label}: Write email opens mail with the order number as the subject`, panel.mailto)
+      expect(panel.expanded === "true", `${label}: the button says it is open`, panel.expanded)
+      expect(panel.opacity === "1", `${label}: the panel has faded in`, panel.opacity)
+      await page.evaluate(() => [...document.querySelectorAll("#receipt-contact button")].find((b) => /Copy/.test(b.textContent || ""))?.click())
+      await wait(200)
+      const clip = await page.evaluate(async () => { try { return await navigator.clipboard.readText() } catch (e) { return "unreadable: " + e } })
+      const copied = await page.evaluate(() => document.querySelector("#receipt-contact")?.textContent || "")
+      expect(clip === "help@andrewrullz.com", `${label}: Copy puts the address on the clipboard`, clip)
+      expect(/Copied/.test(copied), `${label}: and says Copied`, copied)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-paid-${label}-contact.png`), fullPage: label === "390" })
+      await page.close()
+    }
+    for (const [label, viewport] of VIEWPORTS) {
+      /* No support address: a form, sent through Storelib to the seller. */
+      const page = await open(viewport, "nosupport")
+      await page.evaluate(() => [...document.querySelectorAll("[data-receipt-contact] button")].find((b) => /Contact seller/.test(b.textContent || ""))?.click())
+      await wait(300)
+      const field = await page.$("#receipt-contact-message")
+      expect(!!field, `${label}: a message field`)
+      const panel = await page.evaluate(() => document.querySelector("#receipt-contact")?.textContent || "")
+      expect(!/@andrewrullz/.test(panel) && /They reply to na••••@gmail\.com/.test(panel), `${label}: no seller address, and where the reply goes`, panel)
+      const empty = await page.evaluate(() => { document.querySelector("#receipt-contact form button[type=submit]")?.click(); return true })
+      await wait(100)
+      const emptyNote = await page.evaluate(() => document.querySelector("#receipt-contact [role=alert]")?.textContent || "")
+      expect(empty && /Write a message first/.test(emptyNote), `${label}: an empty message is caught before it is sent`, emptyNote)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-nosupport-${label}-contact.png`), fullPage: label === "390" })
+      asked.length = 0
+      answer.contact = "ok"
+      await field.type("Hi, the zip will not open on my Mac. Can you help?")
+      await page.evaluate(() => document.querySelector("#receipt-contact form button[type=submit]")?.click())
+      await wait(150)
+      const sending = await page.evaluate(() => document.querySelector("#receipt-contact form button[type=submit]")?.textContent || "")
+      expect(/Sending/.test(sending), `${label}: says Sending while it waits`, sending)
+      await wait(600)
+      const call = asked.find((a) => a.path === "/api/receipt/contact")
+      expect(!!call && /zip will not open/.test(call.body.message) && call.body.orderId === "1be1ac18-0000-4000-8000-000000000001" && call.body.receiptToken?.startsWith("rcpt_"),
+        `${label}: posts the message, the order id and its token`, JSON.stringify(call?.body))
+      const sent = await page.evaluate(() => document.querySelector("#receipt-contact [role=status]")?.textContent || "")
+      expect(/Sent to AndrewRullz\. They reply to na••••@gmail\.com\./.test(sent), `${label}: then says Sent and where the reply goes`, sent)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-nosupport-${label}-contact-sent.png`), fullPage: false })
+      await page.close()
+    }
+    {
+      const page = await open(VIEWPORTS[1][1], "nosupport")
+      await page.evaluate(() => [...document.querySelectorAll("[data-receipt-contact] button")].find((b) => /Contact seller/.test(b.textContent || ""))?.click())
+      await wait(300)
+      answer.contact = "limited"
+      await page.type("#receipt-contact-message", "Following up on my order.")
+      await page.evaluate(() => document.querySelector("#receipt-contact form button[type=submit]")?.click())
+      await wait(700)
+      const err = await page.evaluate(() => document.querySelector("#receipt-contact [role=alert]")?.textContent || "")
+      expect(/5 times today/.test(err), "a refused message shows the server's words", err)
+      expect(!!(await page.$("#receipt-contact-message")), "and keeps what was written", "")
+      const kept = await page.evaluate(() => document.querySelector("#receipt-contact-message")?.value || "")
+      expect(/Following up/.test(kept), "the text is still there to send again", kept)
+      answer.contact = "ok"
+      await page.close()
+    }
+
+    /* ── The seller's name: hover, press, keyboard ─────────────────────── */
+    console.log("\nseller link")
+    {
+      const page = await open(VIEWPORTS[1][1], "free")
+      const link = await page.$("[data-seller-link]")
+      const bg = () => page.evaluate((a) => getComputedStyle(a).backgroundColor, link)
+      const before = await bg()
+      await link.hover()
+      await wait(60)
+      const mid = await bg()
+      await wait(250)
+      const after = await bg()
+      expect(/rgba\(0, 0, 0, 0\)/.test(before) && after === "rgb(234, 236, 240)", "hover fades a light grey pill in", `${before} -> ${mid} -> ${after}`)
+      expect(mid !== after || mid === "rgb(234, 236, 240)", "on its way there it is in between (a fade, not a jump)", `${mid}`)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-free-1440-seller-hover.png"), clip: { x: 360, y: 0, width: 720, height: 220 } })
+      const top = await page.evaluate((a) => a.getBoundingClientRect().top, link)
+      await page.mouse.down()
+      await wait(200)
+      const pressed = await page.evaluate((a) => ({ top: a.getBoundingClientRect().top, bg: getComputedStyle(a).backgroundColor }), link)
+      await page.mouse.move(0, 0)
+      await page.mouse.up()
+      expect(pressed.top - top >= 0.9 && pressed.bg === "rgb(227, 230, 234)", "a press sinks it a pixel and darkens it a little", JSON.stringify({ top, pressed }))
+      await page.close()
+    }
+    {
+      const page = await open(VIEWPORTS[1][1], "free")
+      await page.keyboard.press("Tab")
+      await wait(200)
+      const focus = await page.evaluate(() => {
+        const a = document.activeElement
+        return { seller: a?.hasAttribute("data-seller-link"), shadow: a ? getComputedStyle(a).boxShadow : "" }
+      })
+      expect(focus.seller && focus.shadow !== "none", "Tab reaches it first and rings it", JSON.stringify(focus))
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-free-1440-seller-focus.png"), clip: { x: 360, y: 0, width: 720, height: 220 } })
+      await page.close()
+    }
+    {
+      /* A phone: no hover (its sheet keeps hover rules closed), a press
+         still answers. Headless Chromium never sets :active for an emulated
+         touch (it waits for a gesture that never comes), so the press is a
+         pointer press at phone size. On iOS, :active needs a touchstart
+         listener on the document, which components/platform/stuck-layer-guard adds. */
+      const page = await open(VIEWPORTS[0][1], "free")
+      const box = await page.evaluate(() => { const r = document.querySelector("[data-seller-link]").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.height } })
+      const idle = await page.evaluate(() => getComputedStyle(document.querySelector("[data-seller-link]")).backgroundColor)
+      await page.mouse.move(box.x, box.y)
+      await page.mouse.down()
+      await wait(200)
+      const touched = await page.evaluate(() => getComputedStyle(document.querySelector("[data-seller-link]")).backgroundColor)
+      await page.mouse.up()
+      expect(/rgba\(0, 0, 0, 0\)/.test(idle), "390: no hover pill on a phone", idle)
+      expect(touched === "rgb(227, 230, 234)", "390: a press shows the pressed pill", touched)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-free-390-top.png"), clip: { x: 0, y: 0, width: 390, height: 260 } })
+      await page.close()
+    }
+
+    /* ── Rendered on a server, hydrated in the browser ─────────────────── */
+    console.log("\nhydration")
+    {
+      /* First, that this pass can fail: the server draws one order and the
+         browser hydrates another. React must say so. */
+      const page = await open(VIEWPORTS[1][1], "free", undefined, { ssr: true, ssrcase: "paid" })
+      await wait(300)
+      const said = logs.get(page) ?? []
+      expect(said.some((l) => /hydrat/i.test(l)), "a planted mismatch is reported (the check can fail)", said.slice(0, 2).join(" | "))
+      await page.close()
+    }
+    for (const [label, viewport] of VIEWPORTS) {
+      for (const which of CASES) {
+        const page = await open(viewport, which, undefined, { ssr: true })
+        await wait(300)
+        const said = (logs.get(page) ?? []).filter((l) => !/Download the React DevTools/.test(l))
+        const hydrated = await page.evaluate(() => !!document.querySelector("[data-receipt]"))
+        expect(hydrated && said.length === 0, `${which} at ${label}: hydrates with nothing in the console`, said.slice(0, 3).join(" | "))
+        await page.close()
+      }
     }
 
     /* ── Review ────────────────────────────────────────────────────────── */

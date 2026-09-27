@@ -199,19 +199,28 @@ const DESIGN_SAMPLE = () => {
   const body = sub ? sub.querySelector("[data-panel-body]") || [...sub.children].find((c) => !c.hasAttribute("data-panel-header") && !c.hasAttribute("data-edge-back") && c.getBoundingClientRect().height > 40) : null
   const bodyO = body ? op(body) : 0
   const listX = vis(list) ? Math.round(list.getBoundingClientRect().left) : null
+  /*
+    The pages fade now, in place ("NO SLIDE"), so a page's opacity is part
+    of what moves, and a panel fading in is not an empty one: empty is a
+    panel drawn (a tenth or more) whose controls are drawn at less than half
+    of it.
+  */
+  const listO = vis(list) ? op(list) : null
+  const subO = vis(sub) ? op(sub) : null
   /* The page arriving is on screen (more than a third of it in view) with nothing in it. */
-  const subOnScreen = subX !== null && subX < W * 0.66
-  return { listX, subX, bodyO, emptyPanel: subOnScreen && bodyO < 0.5, blank: listX === null && subX === null, sub: sub?.getAttribute("data-design-panel") || null }
+  const subOnScreen = subX !== null && subX < W * 0.66 && (subO ?? 0) >= 0.1
+  return { listX, subX, listO, subO, bodyO, emptyPanel: subOnScreen && bodyO < 0.5 * (subO ?? 1), blank: listX === null && subX === null, sub: sub?.getAttribute("data-design-panel") || null }
 }
 
 /* The pressed control answering the finger (the back tile dipping, a row going grey) is the press, not a move of the page. */
 const PRESS_FEEDBACK = /\[data-back-(tile|shade)\]|\[data-nav-row=/
 function summarise(r) {
   const f = r.painted
-  const moving = new Set(f.map((x) => `${x.listX}|${x.subX}`)).size - 1
+  const sig = (x) => `${x.listX}|${x.subX}|${x.listO}|${x.subO}`
+  const moving = new Set(f.map(sig)).size - 1
   const onDesign = (on) => on.startsWith("design:")
   const m = motions(r.anims, r.transitions.filter((x) => !PRESS_FEEDBACK.test(x.what || "")), onDesign)
-  const first = f.findIndex((x, i) => i > 0 && `${x.listX}|${x.subX}` !== `${f[i - 1].listX}|${f[i - 1].subX}`)
+  const first = f.findIndex((x, i) => i > 0 && sig(x) !== sig(f[i - 1]))
   return {
     commits: r.commits,
     mountsList: r.mounts.list,

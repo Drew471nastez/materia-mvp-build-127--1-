@@ -16,8 +16,9 @@
  *              switch, whether any frame shows no panel at all, whether the
  *              active pill slides (frames with it between two tabs), and
  *              whether each tab keeps its own scroll position.
- *   push/pop   Design, a row, and back: the frames, any blank frame, and how
- *              many frames the move is spread over.
+ *   push/pop   Design, a row, and back: the frames, any blank frame, how
+ *              many frames the fade is spread over, and that no page moves
+ *              sideways in any frame (it is a fade, not a slide).
  *   choices    a pick in Buttons: whether the dark border arrives over
  *              several frames or in one, and whether the label moves.
  *   sliders    OnePage's Corners slider and the website builder's: for each
@@ -55,7 +56,12 @@ const longPage = await serveEditorProbe({
   fail,
   blocks: Array.from({ length: 14 }, (_, i) => ({ id: `l${i}`, type: "link_button", enabled: true, sort_order: i, data: { label: `Link number ${i + 1}`, url: `https://example.com/${i}` } })),
 })
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
+/*
+  The browser's own swipe back is off: a sideways pull on a page with nothing
+  to scroll sideways is Chromium's history back, which would leave the probe
+  page and hide what the editor itself does with the pull.
+*/
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--overscroll-history-navigation=0", "--disable-features=OverscrollHistoryNavigation"] })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
 const DESKTOP = { width: 1440, height: 900 }
@@ -233,9 +239,13 @@ if (wants("tabs")) for (const [label, vp, phone, throttle] of [["phone-390", PHO
   report[`tabs-${label}`] = rows
   const back = rows[rows.length - 1]
   expect(rows.every((r) => r.blank === 0), "no frame shows an empty panel", rows.map((r) => r.blank))
-  /* On a computer Settings is its own button: the row's pill fades out for it and back in after it. */
-  const slid = phone ? rows : rows.filter((r) => r.to === "design" || r.to === "products")
-  expect(slid.every((r) => r.sliding && r.pillSteps >= 2), "the active pill slides (an animation on it, seen at more than one place)", rows.map((r) => [r.sliding, r.pillSteps]))
+  /* On a computer Settings is its own button: the row's pill fades out for it and back in after it. On a phone
+     nothing travels: "no slide-in slide effect", the chosen button takes its fill in place (scripts/check-onepage-tabbar.mjs). */
+  if (phone) expect(rows.every((r) => !r.sliding && r.pillSteps === 0), "on a phone no pill slides: the chosen button changes in place", rows.map((r) => [r.sliding, r.pillSteps]))
+  else {
+    const slid = rows.filter((r) => r.to === "design" || r.to === "products")
+    expect(slid.every((r) => r.sliding && r.pillSteps >= 2), "the computer row's pill slides (an animation on it, seen at more than one place)", rows.map((r) => [r.sliding, r.pillSteps]))
+  }
   expect(back.scroll === linksScroll, "Links comes back where it was scrolled to", { left: linksScroll, back: back.scroll })
   /* A phone at a quarter speed pays for showing the tab in one or two frames; a computer in none, one on a busy machine. */
   expect(rows.every((r) => r.long <= (phone ? 3 : 1)), "at most three long frames per switch on a slowed phone, one on a computer", rows.map((r) => r.long))
@@ -248,16 +258,29 @@ if (wants("tabs")) for (const [label, vp, phone, throttle] of [["phone-390", PHO
   await s.p.close()
 }
 
-/* ── DESIGN PUSH AND POP ── */
+/*
+ * ── DESIGN, A ROW AND BACK: A FADE ──
+ * The owner: "I still don't like the page transition. For example I want to
+ * go from Design to Theme and then from Theme to go back, I don't like that
+ * page animation thing. Make sure it's smooth, not glitchy, more simple,
+ * clean, normal, NO SLIDE like." This read a push (the panel's and the
+ * list's x changing frame by frame); it now reads a fade: the page arriving
+ * over the page leaving, its opacity changing frame by frame, and neither
+ * page ever away from its place at the column's edge.
+ */
 if (wants("push")) for (const [label, vp, phone, throttle] of [["phone-390", PHONE, true, 4], ["desktop-1440", DESKTOP, false, 1]]) {
   console.log(`\n${label}: Design, a row and back`)
   const s = await open(vp, "design", { throttle })
   const PANEL = () => {
     const list = document.querySelector('[data-design-panel="home"]')
     const sub = document.querySelector('[data-design-panel]:not([data-design-panel="home"])')
-    const x = (el) => (el ? Math.round(el.getBoundingClientRect().left) : null)
-    const o = (el) => { let v = 1; for (let n = el; n && n !== document.body; n = n.parentElement) v *= Number(getComputedStyle(n).opacity); return el ? Math.round(v * 100) / 100 : null }
-    return { listX: x(list), subX: x(sub), listO: o(list), subO: o(sub), blank: !list && !sub }
+    const drawn = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden"
+    const x = (el) => (drawn(el) ? Math.round(el.getBoundingClientRect().left) : null)
+    const o = (el) => { let v = 1; for (let n = el; n && n !== document.body; n = n.parentElement) v *= Number(getComputedStyle(n).opacity); return drawn(el) ? Math.round(v * 100) / 100 : null }
+    /* The column's left edge: a page at rest starts there, and in a fade it never leaves it. */
+    const stack = document.querySelector("[data-design-stack]")
+    const edge = stack ? Math.round(stack.getBoundingClientRect().left) : 0
+    return { listX: x(list), subX: x(sub), listO: o(list), subO: o(sub), edge, blank: !drawn(list) && !drawn(sub) }
   }
   const rows = []
   for (const [what, sel] of [["open Theme", '[data-nav-row="theme"]'], ["back", "[data-panel-back]"], ["open Buttons", '[data-nav-row="buttons"]'], ["back", "[data-panel-back]"]]) {
@@ -268,26 +291,31 @@ if (wants("push")) for (const [label, vp, phone, throttle] of [["phone-390", PHO
     await press(s, phone, sel, 90)
     const { gaps, painted } = await rec
     const commits = (await s.p.evaluate(() => window.__commits)) - commits0
-    const moving = new Set(painted.map((f) => `${f.listX}|${f.subX}`)).size - 1
+    const sig = (f) => `${f.listX}|${f.subX}|${f.listO}|${f.subO}`
+    const moving = new Set(painted.map(sig)).size - 1
+    /* A frame with either page drawn anywhere but the column's edge: a slide. */
+    const sideways = painted.filter((f) => (f.listX !== null && f.listX !== f.edge) || (f.subX !== null && f.subX !== f.edge)).length
     const blank = painted.filter((f) => f.blank || ((f.listO ?? 0) < 0.05 && (f.subO ?? 0) < 0.05)).length
     /* The tap's own cost (building the panel) and the slide after it, apart. */
     const tapAt = (await s.p.evaluate(() => window.__downs.at(-1))) ?? 0
-    const first = painted.findIndex((f, i) => i > 0 && `${f.listX}|${f.subX}` !== `${painted[i - 1].listX}|${painted[i - 1].subX}`)
+    const first = painted.findIndex((f, i) => i > 0 && sig(f) !== sig(painted[i - 1]))
     const toMotion = first > 0 ? Math.round(painted[first].t - tapAt) : null
     const slideGaps = first > 0 ? painted.slice(first + 1).map((f, i) => f.t - painted[first + i].t).filter((g, i) => i < 20) : []
-    rows.push({ what, ...summary(gaps), moving, blank, commits, toMotion, slideLong: slideGaps.filter((g) => g > 34).length })
+    rows.push({ what, ...summary(gaps), moving, sideways, blank, commits, toMotion, slideLong: slideGaps.filter((g) => g > 34).length })
     await sleep(300)
   }
-  for (const r of rows) console.log(`        ${r.what.padEnd(13)} p95 ${r.p95}ms  max ${r.max}ms  long ${r.long}  tap to motion ${r.toMotion}ms  long frames in the slide ${r.slideLong}  frames in motion ${r.moving}  blank ${r.blank}  commits ${r.commits}`)
+  for (const r of rows) console.log(`        ${r.what.padEnd(13)} p95 ${r.p95}ms  max ${r.max}ms  long ${r.long}  tap to first change ${r.toMotion}ms  long frames in the fade ${r.slideLong}  frames in motion ${r.moving}  sideways ${r.sideways}  blank ${r.blank}  commits ${r.commits}`)
   report[`push-${label}`] = rows
-  expect(rows.every((r) => r.moving >= 6), "each push and pop is spread over several frames", rows.map((r) => r.moving))
+  /* A 180ms fade: about 11 frames at 60fps, fewer sampled on a phone slowed four times. */
+  expect(rows.every((r) => r.moving >= 4), "each open and back fades over several frames, not in one", rows.map((r) => r.moving))
+  expect(rows.every((r) => r.sideways === 0), "no page moves sideways in any frame: a fade, not a slide", rows.map((r) => r.sideways))
   expect(rows.every((r) => r.blank === 0), "no blank frame", rows.map((r) => r.blank))
-  expect(rows.every((r) => r.toMotion !== null && r.toMotion <= (phone ? 120 : 40)), "the page starts to move within a few frames of the tap", rows.map((r) => r.toMotion))
-  /* Theme, the heaviest panel: the frames the compositor drew while it slid in. */
+  expect(rows.every((r) => r.toMotion !== null && r.toMotion <= (phone ? 120 : 40)), "the page starts to change within a few frames of the tap", rows.map((r) => r.toMotion))
+  /* Theme, the heaviest panel: the frames the compositor drew while it faded in. */
   const drawn = await drawnFrames(s, () => press(s, phone, '[data-nav-row="theme"]'), 600)
   console.log(`        open Theme, frames drawn: p95 ${drawn.p95}ms  max ${drawn.max}ms  over 34ms ${drawn.long}`)
   report[`push-drawn-${label}`] = drawn
-  expect(drawn.long <= 1, "the compositor draws the slide without a gap (one at most)", drawn)
+  expect(drawn.long <= 1, "the compositor draws the fade without a gap (one at most)", drawn)
   await press(s, phone, "[data-panel-back]")
   await sleep(700)
   await midShot(s, phone, '[data-nav-row="wallpaper"]', `${label}-push-mid`, 1500)
@@ -296,32 +324,32 @@ if (wants("push")) for (const [label, vp, phone, throttle] of [["phone-390", PHO
   await s.p.close()
 }
 
-/* ── A FINGER FROM THE LEFT EDGE TAKES A PANEL BACK (a phone) ── */
+/*
+ * ── A FINGER FROM THE LEFT EDGE MOVES NOTHING (a phone) ──
+ * The edge pull dragged the panel sideways with the finger, and went with
+ * the slide ("NO SLIDE"). The same pull now leaves the panel where it is,
+ * open, at the column's edge in every step; the way back is the arrow.
+ */
 if (wants("push")) {
   console.log("\nphone-390: a pull from the left edge")
   const s = await open(PHONE, "design")
   const touch = (type, x, y) => s.cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] })
-  const panelX = () => s.p.evaluate(() => { const el = document.querySelector('[data-design-panel]:not([data-design-panel="home"])'); return el ? Math.round(el.getBoundingClientRect().left) : null })
-  for (const [what, to, expectBack] of [["a short pull springs back", 0.25, false], ["a long pull goes back", 0.6, true]]) {
-    if (!(await s.p.$('[data-design-panel="buttons"]'))) { await press(s, true, '[data-nav-row="buttons"]'); await sleep(700) }
-    const y = 420
-    await touch("touchStart", 6, y)
-    const gaps = []
-    for (let k = 1; k <= 10; k++) {
-      const x = 6 + ((390 * to) * k) / 10
-      await touch("touchMove", x, y)
-      await s.p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-      /* From the second step: the pull starts once the finger has gone 6px. */
-      if (k >= 3) gaps.push(Math.abs((await panelX()) - (x - 6 - (390 * to) / 10)))
-    }
-    await touch("touchEnd")
-    await sleep(700)
-    const back = await s.p.evaluate(() => !document.querySelector('[data-design-panel]:not([data-design-panel="home"])') && !!document.querySelector('[data-design-panel="home"]')?.getClientRects().length)
-    const lag = Math.max(...gaps)
-    console.log(`        ${what}: panel within ${lag}px of the finger, back to the list: ${back}`)
-    report[`edge-${expectBack ? "long" : "short"}`] = { lag, back }
-    expect(lag <= 2 && back === expectBack, what, { lagPx: lag, back })
+  const panelX = () => s.p.evaluate(() => { const el = document.querySelector('[data-design-panel]:not([data-design-panel="home"])'); return el && el.getClientRects().length ? Math.round(el.getBoundingClientRect().left) : null })
+  if (!(await s.p.$('[data-design-panel="buttons"]'))) { await press(s, true, '[data-nav-row="buttons"]'); await sleep(700) }
+  const y = 420
+  const xs = []
+  await touch("touchStart", 6, y)
+  for (let k = 1; k <= 10; k++) {
+    await touch("touchMove", 6 + (390 * 0.6 * k) / 10, y)
+    await s.p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+    xs.push(await panelX())
   }
+  await touch("touchEnd")
+  await sleep(700)
+  const still = await s.p.evaluate(() => !!document.querySelector('[data-design-panel="buttons"]')?.getClientRects().length)
+  console.log(`        panel x through the pull: ${[...new Set(xs)].join(", ")}  still open: ${still}`)
+  report["edge-pull"] = { xs: [...new Set(xs)], still }
+  expect(xs.every((x) => x === 0) && still, "the panel stays put under a pull from the edge, and stays open", { xs: [...new Set(xs)], still })
   expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
   await s.p.close()
 }

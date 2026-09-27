@@ -7,7 +7,7 @@ OUT=ROOT+'supabase/sql/run-four/'
 GROUPS=[
  ('1_of_4_core.sql','1 of 4','Rate limits, newsletter, agent connections and GitHub, refunds recorded once, event and email types, order source, site speed, website addresses, coupons and the admin console, email automations.',['01','02','03','04','05','06','07','08','09','10']),
  ('2_of_4_library_checkout_uploads.sql','2 of 4','Agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',['11','12','13','14','15','16','17','18','19']),
- ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator\'s own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator\'s name and photo, the website builder agent\'s document and questions, an archived product never also published, one review per buyer per product, and reviews complete (guest reviews, seller replies, reports, ratings from published reviews).',None),
+ ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator\'s own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator\'s name and photo, the website builder agent\'s document and questions, an archived product never also published, one review per buyer per product, reviews complete (guest reviews, seller replies, reports, ratings from published reviews), one profile photo everywhere, one OnePage address in any case, the malware scan log, email records for a buyer\'s message to the seller, the picture a shared OnePage link shows, and a OnePage\'s old addresses followed.',None),
 ]
 parts={f[:2]:f for f in os.listdir(RN) if re.match(r'\d\d_.*\.sql$',f)}
 # File 3 takes every part from 20 up to 89, so a new part lands there without editing this list.
@@ -91,3 +91,19 @@ open(THREE+'3_of_3_storage_policies_and_check.sql','w').write(f4)
 for f in sorted(os.listdir(THREE)):
     if f.endswith('.sql'): print('three:', f, os.path.getsize(THREE+f))
 
+
+# THE RANGE IN EACH README FOLLOWS THE PARTS. Every folder's README named the
+# range by hand ("01 to 38", "01 to 45", "01 to 50") and none was rewritten
+# when a part was added, so all four disagreed with each other and with
+# run-now/. The numbers come from the parts themselves now.
+import re as _re
+_numbered=sorted(p for p in parts if p.isdigit() and '01'<=p<'90')
+_span=f"{_numbered[0]} to {_numbered[-1]}"
+for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-three'):
+    _path=ROOT+'supabase/sql/'+_folder+'/README.md'
+    if not os.path.exists(_path): continue
+    _text=open(_path).read()
+    _fixed=_re.sub(r"\(0[0-9] to [0-9]{2}([,)])", lambda m: f"({_span}{m.group(1)}", _text)
+    if _fixed!=_text:
+        open(_path,'w').write(_fixed)
+        print('readme:', _folder, _span)

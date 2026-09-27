@@ -9,6 +9,17 @@ import { Camera, X } from "lucide-react"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { pickPhoto } from "@/lib/native-camera"
+import { announceAvatar } from "@/lib/account/avatar-store"
+
+/** The one photo, saved where it lives (app/api/account/avatar). */
+async function savePhoto(url: string | null) {
+  await fetch("/api/account/avatar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  }).catch(() => null)
+  announceAvatar(url)
+}
 
 export function ProfileSection() {
   const { onepage, updateProfile, updateSlug } = useOnePage()
@@ -28,19 +39,22 @@ export function ProfileSection() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      /* One profile photo: the account's own avatars folder, saved through
+         the same route Settings uses (lib/account/avatar-save). */
       const ext = photo.mimeType === "image/png" ? "png" : "jpg"
       const fileName = `${user.id}/avatar-${Date.now()}.${ext}`
 
       const { error: uploadErr } = await supabase.storage
-        .from("onepage-assets")
+        .from("avatars")
         .upload(fileName, photo.blob, { upsert: true, contentType: photo.mimeType })
 
       if (uploadErr) throw uploadErr
 
       const { data: { publicUrl } } = supabase.storage
-        .from("onepage-assets")
+        .from("avatars")
         .getPublicUrl(fileName)
 
+      await savePhoto(publicUrl)
       updateProfile({ avatar_url: publicUrl })
     } catch (err) {
       console.error("Avatar upload error:", err)
@@ -50,7 +64,8 @@ export function ProfileSection() {
     }
   }
 
-  const removeAvatar = () => {
+  const removeAvatar = async () => {
+    await savePhoto(null)
     updateProfile({ avatar_url: null })
   }
 

@@ -33,21 +33,30 @@ export function getFirebaseAdmin(): admin.app.App | null {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
   const privateKey = process.env.FIREBASE_PRIVATE_KEY
   if (!projectId || !clientEmail || !privateKey) {
-    console.error(
-      "[firebase] Push disabled: set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY",
-    )
+    /* Said once per instance, not once per notification. */
+    if (!said) console.warn("[firebase] Push to phones is off: set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY")
+    said = true
     return null
   }
 
-  app = admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId,
-      clientEmail,
-      // Vercel stores the key on one line with literal \n sequences.
-      privateKey: privateKey.replace(/\\n/g, "\n"),
-    }),
-  })
+  try {
+    app = admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        // Vercel stores the key on one line with literal \n sequences.
+        privateKey: privateKey.replace(/\\n/g, "\n"),
+      }),
+    })
+  } catch (e) {
+    /* A key that does not parse: phones are skipped, the sale is not. */
+    if (!said) console.warn(`[firebase] Push to phones is off: the FIREBASE_* credentials were refused (${e instanceof Error ? e.message.slice(0, 120) : "unknown"})`)
+    said = true
+    return null
+  }
   return app
 }
+
+let said = false
 
 export default admin

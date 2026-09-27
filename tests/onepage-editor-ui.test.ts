@@ -201,8 +201,20 @@ function main() {
       (push): 21 to 23 frames in motion, no blank frame, the page moving
       6 to 60ms after the tap, the list back where it was left.
     */
-    check("a panel slides in over the list by transform, the list shifting under it",
-      /panel\.animate\(\[\{ transform: at\(panelFrom\) \}, \{ transform: at\(panelTo\) \}\], timing\)/.test(design) && /list\.animate\(\[\{ transform: under\(panelFrom\) \}, \{ transform: under\(panelTo\) \}\], timing\)/.test(design))
+    /*
+      NO SLIDE. The owner: "I still don't like the page transition. [...]
+      Make sure it's smooth, not glitchy, more simple, clean, normal, NO
+      SLIDE like." The push (the panel from the right, the list shifting
+      left and dimming under it) is now a fade in place, on opacity only:
+      the page leaving out over 90ms, the page arriving in from 50 to 200ms.
+      scripts/check-onepage-motion.mjs (push) reads no sideways movement in
+      any frame and no blank frame.
+    */
+    check("the list fades out and a panel fades in (and back the other way), on opacity only",
+      /arriving\.animate\(\[\{ opacity: arrivingFrom \}, \{ opacity: 1 \}\], \{ duration: inMs, delay, easing: FADE_EASE, fill: "both" \}\)/.test(design)
+      && /leaving\.animate\(\[\{ opacity: leavingFrom \}, \{ opacity: 0 \}\], \{ duration: outMs, easing: "linear", fill: "both" \}\)/.test(design)
+      && /const FADE_OUT_MS = 90\b/.test(design) && /const FADE_IN_DELAY_MS = 50\b/.test(design) && /const FADE_IN_MS = 150\b/.test(design)
+      && !/\.animate\(\[\{ transform:/.test(design.slice(design.indexOf("export function DesignTab("), design.indexOf("function reducedMotion("))))
     check("and back returns to the place in the list that was left", /scroller\.scrollTop = move\.to === "home" \? listScroll\.current : 0/.test(design))
     /*
       "When I switch and navigate, there are glitchy, buggy page
@@ -222,9 +234,10 @@ function main() {
       /* The room under the content is the phone tab bar's own height (app/globals.css --op-tabbar-h, .op-tabbar-clearance). */
       /t === "design" \? null : "p-4 md:p-6 op-tabbar-clearance md:pb-6"/.test(editorSrc) && /t === "settings" \? "max-w-2xl" : t === "design" \? null : "max-w-xl"/.test(editorSrc)
       && /style=\{\{ overflowX: "clip" \}\} data-design-stack=""/.test(design) && /const readingClass = "mx-auto w-full max-w-xl p-4 op-tabbar-clearance md:p-6 md:pb-6"/.test(design))
-    check("on a computer the pages go side by side, the list all the way out, with no shade or shadow",
-      /const SIDE_QUERY = "\(min-width: 768px\)"/.test(design) && /const shift = side \? 1 : UNDER_SHIFT/.test(design) && /if \(dim && !side\)/.test(design)
-      && /panelMoving && "max-md:shadow-/.test(design))
+    /* Side by side on a computer was the slide too: now no page moves sideways anywhere, and there is no shade or edge shadow ("NO SLIDE"). */
+    check("no page moves sideways on a phone or a computer, and nothing dims or shades the list",
+      !/SIDE_QUERY|UNDER_SHIFT|UNDER_DIM|translate3d/.test(design.slice(design.indexOf("type DesignPage"), design.indexOf("function reducedMotion(")))
+      && !/data-design-dim=""/.test(design) && !/max-md:shadow-\[-1px_0_0/.test(design))
     check("the last frame is held until React has drawn the page at rest, and let go before that is painted",
       /fill: "both"/.test(design) && /if \(!move\) \{\s*animating\.current\.forEach\(\(a\) => a\.cancel\(\)\)/.test(design))
     check("the page leaving is cut at the bottom of the screen, so a move never makes the column scroll",
@@ -251,7 +264,8 @@ function main() {
       && /const onBack = \(\) => setSection\(null\)/.test(design)
       && /const inner = nativeBackTarget\(\)[\s\S]{0,200}inner\.dispatchEvent\(new CustomEvent\(NATIVE_BACK_EVENT\)\)/.test(nativeBack)
       && nativeBack.indexOf("nativeBackTarget()") < nativeBack.indexOf("const isRoot = isRootRoute"))
-    check("a finger from the left edge takes the panel back, on a strip that owns its touch", /data-edge-back=""/.test(design) && /touchAction: "none"/.test(design) && /onPointerMove=\{onEdgeMove\}/.test(design))
+    /* The pull from the left edge dragged the panel sideways; it went with the slide ("NO SLIDE"). The way back is the arrow, and Android's back. */
+    check("no edge pull is left: the way back is the arrow at the top of the panel", !/data-edge-back=""/.test(design) && !/onPointerMove=\{onEdgeMove\}/.test(design) && /onBack=\{\(\) => setSection\(null\)\} backLabel="Back to Design"/.test(design))
     /*
       A PICK FADES IN, THE OLD ONE OUT. The border and the check were the
       card's own classes, swapped in a frame, and on a phone or in the app
@@ -300,8 +314,15 @@ function main() {
     */
     const design = read("components/onepage/tabs/design-tab.tsx")
     const card = design.slice(design.indexOf("function ThemeCard("), design.indexOf("function ThemeSection("))
-    check("a theme card's avatar never shrinks, and a spacer makes its height its width",
-      /data-theme-avatar="" className="block aspect-square w-\[22%\] flex-none overflow-hidden rounded-full"/.test(card) && /<span aria-hidden className="block pb-\[100%\]" \/>/.test(card))
+    /*
+      Still a tall pill on the owner's iPhone after the spacer (26 by 41,
+      22% of the card's height): the size is now fixed, 28px both ways, on
+      a phone and a computer, and nothing is worked out from the card.
+    */
+    check("a theme card's avatar is a fixed 28px circle that cannot be stretched or squashed",
+      /data-theme-avatar=""\s+className="block h-\[28px\] min-h-\[28px\] w-\[28px\] min-w-\[28px\] flex-none aspect-square overflow-hidden rounded-full"/.test(card) && !/w-\[22%\]/.test(card))
+    check("the layout pictures in the Header panel are circles that cannot shrink", (design.match(/data-layout-avatar="" className="(h-7 w-7|w-10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 3)
+    check("the live page's avatar keeps its own square box in the column", /data-page-avatar="" style=\{\{ width: avatarSize, height: avatarSize, aspectRatio: "1 \/ 1", flexShrink: 0/.test(read("components/onepage/public-onepage.tsx")))
     check("the Header panel's profile picture is a circle, as the page draws it", /aspect-square h-\[88px\] w-\[88px\] shrink-0 cursor-pointer rounded-full/.test(design) && /data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full/.test(design))
     check("the Links tab's profile picture keeps its size beside a long name", /data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0/.test(read("components/onepage/tabs/links-tab.tsx")))
     const onboarding = read("components/onepage/onboarding-modal.tsx")

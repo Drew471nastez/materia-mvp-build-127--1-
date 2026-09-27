@@ -47,6 +47,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid"
+import { inboxAddress, sellerInbox, type LoginEmail } from "@/lib/seller-inbox"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -308,12 +309,13 @@ export async function markEmailed(db: Db, id: string | null): Promise<void> {
 /**
  * The address the creator's messages go to: the one the section names (the
  * older Contact Form section has a "Recipient Email" field, which a creator
- * may have filled in), then the support email from Settings, then the email
- * of the account. Read from the published site and the creator's own rows,
- * never from the request.
+ * may have filled in), then what lib/seller-inbox answers for every message
+ * to a seller: the support email from Settings, then the login's address as
+ * it is now (the owner's, for a second business), then the profile's. Read
+ * from the published site and the creator's own rows, never from the request.
+ * A "+slb-" business tag never reaches the To.
  */
-export async function creatorInbox(db: Db, creatorId: string, sectionId: string | null): Promise<string | null> {
-  const valid = (v: unknown) => (typeof v === "string" && EMAIL.test(v.trim()) ? v.trim().toLowerCase() : null)
+export async function creatorInbox(db: Db, creatorId: string, sectionId: string | null, loginEmail: LoginEmail = async () => null): Promise<string | null> {
   if (sectionId) {
     try {
       const { data: install } = await db
@@ -330,7 +332,7 @@ export async function creatorInbox(db: Db, creatorId: string, sectionId: string 
         for (const p of (pages ?? []) as { sections?: unknown }[]) {
           const list = Array.isArray(p.sections) ? (p.sections as { id?: string; settings?: Record<string, unknown> }[]) : []
           const hit = list.find((s) => s?.id === sectionId)
-          const own = valid(hit?.settings?.recipient_email)
+          const own = inboxAddress(hit?.settings?.recipient_email)
           if (own) return own
           if (hit) break
         }
@@ -339,19 +341,7 @@ export async function creatorInbox(db: Db, creatorId: string, sectionId: string 
       /* The creator's own addresses below. */
     }
   }
-  try {
-    const { data: creator } = await db.from("creators").select("support_email, user_id").eq("id", creatorId).maybeSingle()
-    const c = creator as { support_email?: string | null; user_id?: string | null } | null
-    const support = valid(c?.support_email)
-    if (support) return support
-    if (c?.user_id) {
-      const { data: profile } = await db.from("profiles").select("email").eq("id", c.user_id).maybeSingle()
-      return valid((profile as { email?: string | null } | null)?.email)
-    }
-  } catch {
-    return null
-  }
-  return null
+  return (await sellerInbox(db, creatorId, loginEmail))?.to ?? null
 }
 
 /* ─── The email to the creator ─────────────────────────────────────────── */

@@ -49,6 +49,7 @@ import {
   surfaceOfPath,
   type OrderOrigin,
 } from "./order-source"
+import { isOnePageHost } from "@/lib/onepage/address"
 
 /**
  * A page's account of itself as it travels: the origin, and the visit's
@@ -79,10 +80,10 @@ export interface OriginInput {
   firstTouch?: FirstTouch | null
 }
 
-/** Storelib's own host, a preview of it, or a developer's machine. */
+/** Storelib's own host, the OnePage host (storelib.me), a preview, or a developer's machine. */
 function isPlatformHost(host: string, main: string): boolean {
   const h = host.toLowerCase().replace(/^www\./, "").split(":")[0]
-  return h === main || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")
+  return h === main || isOnePageHost(h) || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")
 }
 
 /** A creator's website: a Storelib subdomain or a domain of their own. */
@@ -196,6 +197,9 @@ export function describeCheckout(input: OriginInput): OrderOrigin | null {
       const found = surfaceOfPath(behind.at(-2))
       if (surface === "product" && (found === "explore" || found === "profile" || found === "onepage")) surface = found
       if (surface) origin.surface = surface
+    } else if (refHost && isOnePageHost(refHost)) {
+      /* Sent here from a OnePage on storelib.me: the OnePage is where it began. */
+      origin.surface = "onepage"
     } else if (refHost && isSiteHost(refHost, main) && !hostIs(refHost, ...PAYMENT_HOSTS) && hostIs(refHost, main)) {
       /* A page on a Storelib subdomain is a creator's website, whether or
          not its button said so. */
@@ -231,7 +235,10 @@ export function describePage(input: OriginInput): OrderOrigin | null {
   const main = input.mainDomain.toLowerCase()
   const pageHost = url.host.toLowerCase().replace(/^www\./, "")
   const origin: OrderOrigin = {}
-  if (isSiteHost(pageHost, main)) {
+  if (isOnePageHost(pageHost)) {
+    /* storelib.me serves nothing but OnePages. */
+    origin.surface = "onepage"
+  } else if (isSiteHost(pageHost, main)) {
     /* A creator's own domain answers /links with their OnePage. */
     if (/^\/links\/?$/.test(url.pathname)) origin.surface = "onepage"
     else {

@@ -24,9 +24,9 @@
  *             the receipt, never the bare loading page under them.
  *   ARRIVE    back from a bank's page with the payment made: the first frame
  *             is "Finishing your order", never the form with Pay on it.
- *   SKELETON  the loading skeleton laid over the page: the tip's line and
- *             its track of five, always open now, and the total under them
- *             sit where the page's own do, so nothing moves as it lands.
+ *   SKELETON  the loading skeleton laid over the page: the tip's line,
+ *             folded as the page arrives, and the total under it sit where
+ *             the page's own do, so nothing moves as it lands.
  *
  *   PROBE_CSS=source node scripts/check-checkout-motion.mjs
  *   BEFORE=<git ref> films that commit's checkout-client.tsx instead, to
@@ -238,24 +238,24 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await p.close()
       return got
     }
+    /* The tip is folded as the page arrives ("Add a tip should be collapsed as default"), and the skeleton draws the same one line. */
     const page = await where("mode=replace", () => {
-      const track = document.querySelector('[data-tip] [role="radiogroup"]').getBoundingClientRect()
-      const label = document.querySelector("[data-tip-label]").getBoundingClientRect()
+      const line = document.querySelector("[data-tip-toggle]").getBoundingClientRect()
       const total = document.querySelector('[data-totals="bottom"]').getBoundingClientRect()
       /* From the subtotal's line down: above it, the product's title wraps to however many lines it has. */
       const top = document.querySelector('[data-totals="top"]').getBoundingClientRect().top
-      return { label: Math.round(label.top - top), track: Math.round(track.top - top), trackH: Math.round(track.height), total: Math.round(total.top - top) }
+      return { line: Math.round(line.top - top), lineH: Math.round(line.height), total: Math.round(total.top - top), folded: document.querySelector("[data-tip-toggle]").getAttribute("aria-expanded") === "false" }
     })
     const sk = await where("skeleton=1", () => {
       const tip = document.querySelector("[data-skeleton-tip]")
-      const track = tip.lastElementChild.getBoundingClientRect()
       const total = tip.nextElementSibling.getBoundingClientRect()
       const top = tip.parentElement.firstElementChild.getBoundingClientRect().top
-      return { label: Math.round(tip.getBoundingClientRect().top - top), track: Math.round(track.top - top), trackH: Math.round(track.height), total: Math.round(total.top - top) }
+      return { line: Math.round(tip.getBoundingClientRect().top - top), lineH: Math.round(tip.getBoundingClientRect().height), total: Math.round(total.top - top) }
     })
-    const off = { label: sk.label - page.label, track: sk.track - page.track, total: sk.total - page.total }
+    const off = { line: sk.line - page.line, total: sk.total - page.total }
     console.log("   page", JSON.stringify(page), "skeleton", JSON.stringify(sk))
-    expect(sk.trackH === page.trackH && Math.abs(off.track) <= 6 && Math.abs(off.total) <= 6 && Math.abs(off.label) <= 6, "from the subtotal down, the skeleton's tip line, its track and the total sit within 6px of the page's own", off)
+    expect(page.folded, "the page's tip is folded as it arrives", page)
+    expect(sk.lineH === page.lineH && Math.abs(off.line) <= 6 && Math.abs(off.total) <= 6, "from the subtotal down, the skeleton's folded tip line and the total sit within 6px of the page's own", off)
   }
 
   for (const [label, vp] of [
@@ -320,6 +320,15 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await sleep(200)
       const button = await p.evaluateHandle(() => [...document.querySelectorAll("button")].find((b) => /Get it free/.test(b.textContent)))
       await p.evaluate((b) => b.setAttribute("data-probe-free", ""), button)
+      /*
+        press() presses where the button is on the screen and does not
+        scroll. With the tip folded the phone's order is shorter, the agree
+        box was already in view when it was ticked, nothing scrolled, and Get
+        it free sat under the bottom edge: the press landed on nothing. So
+        the button is brought into view first, as a finger would.
+      */
+      await p.evaluate(() => document.querySelector("[data-probe-free]").scrollIntoView({ block: "center" }))
+      await sleep(250)
       const { at, frames } = await film(p, vp, () => press(p, "[data-probe-free]"), 250 + 1100 + 40 + 700 + 900)
       const m = await measure(frames, vp)
       /* From the paid screen's first frame (it fades in over 160ms), read from the page, to the receipt. */

@@ -5,9 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { loadReceiptByToken } from "@/lib/receipts/load"
 import { isPlausibleToken } from "@/lib/receipts/rules"
-import { withDiscount } from "@/lib/receipts/discount"
+import { withDiscount, withinTime } from "@/lib/receipts/discount"
 import { invoiceForReceipt } from "@/lib/checkout/invoice"
 import type { ReceiptViewer } from "@/lib/receipts/view"
+import { getStoreUrl } from "@/lib/url-helpers"
 import { ReceiptView } from "./receipt-view"
 
 export const dynamic = "force-dynamic"
@@ -54,6 +55,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ token:
     } = await supabase.auth.getUser()
     if (user) {
       viewer = { signedIn: true, isBuyer: loaded.buyerIds.includes(user.id) }
+      if (viewer.isBuyer) viewer.email = user.email ?? null
       /* Their own name and photo, for the review card. Never anybody else's. */
       const { data: me } = await admin.from("profiles").select("display_name, username, avatar_url").eq("id", user.id).maybeSingle()
       viewer.name = (me?.display_name || me?.username || "").toString().trim() || null
@@ -71,12 +73,9 @@ export default async function ReceiptPage({ params }: { params: Promise<{ token:
      was charged, as before. */
   let receipt = loaded.view
   if (receipt.invoice) {
-    const invoice = await Promise.race([
-      invoiceForReceipt(admin, token).catch(() => null),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
-    ])
-    receipt = withDiscount(receipt, invoice)
+    receipt = withDiscount(receipt, await withinTime(() => invoiceForReceipt(admin, token), 1500))
   }
 
-  return <ReceiptView receipt={receipt} viewer={viewer} locale={locale} />
+  const storeHref = receipt.seller.username ? getStoreUrl(receipt.seller.username) : null
+  return <ReceiptView receipt={receipt} viewer={viewer} locale={locale} storeHref={storeHref} />
 }

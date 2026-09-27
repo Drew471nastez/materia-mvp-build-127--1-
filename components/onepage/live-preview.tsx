@@ -27,6 +27,7 @@ import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/pu
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 
 /** How long a frame has to say it is ready before it is loaded once more. */
 const FRAME_READY_MS = 6000
@@ -47,12 +48,18 @@ function useMedia(query: string): boolean {
 }
 
 /**
- * The owner's live name and photo. The published page falls back on them for
- * a page with no name or picture of its own (lib/onepage/public-shape), so the
- * preview reads them too, once, on the owner's own client.
+ * The owner's live name and photo. The page is drawn from the profile's
+ * photo, not from its own copy (lib/account/identity), so the preview reads
+ * the profile too, once, on the owner's own client.
+ *
+ * And it listens after that: a photo changed in this editor, or in Settings
+ * in another tab, is announced through the shell's store
+ * (lib/account/avatar-store), so the preview changes with it instead of on
+ * the next page load.
  */
 export function useOwnerProfile(ownerId: string | undefined) {
   const [owner, setOwner] = useState<{ displayName: string | null; avatarUrl: string | null }>({ displayName: null, avatarUrl: null })
+  const shellAvatar = useShellAvatar(owner.avatarUrl)
   useEffect(() => {
     if (!ownerId) return
     let live = true
@@ -73,7 +80,7 @@ export function useOwnerProfile(ownerId: string | undefined) {
       live = false
     }
   }, [ownerId])
-  return owner
+  return useMemo(() => ({ displayName: owner.displayName, avatarUrl: shellAvatar }), [owner.displayName, shellAvatar])
 }
 
 /** The editor's page, as the published page would be built from it: the draft first, then the owner's profile. */

@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { AVATAR_CHOSEN, onboardingPhoto } from "@/lib/account/avatar"
+import { announceAvatar } from "@/lib/account/avatar-store"
 import {
   ArrowLeft,
   Check,
@@ -787,6 +788,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       const { data: { publicUrl } } = supabase.storage
         .from("avatars")
         .getPublicUrl(fileName)
+
+      /* One profile photo: what is chosen here IS the account's photo, saved
+         where it lives, so the account cannot come out of onboarding with a
+         second face (app/api/account/avatar, lib/account/profile-follow). */
+      await fetch("/api/account/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: publicUrl }),
+      }).catch(() => null)
+      announceAvatar(publicUrl)
 
       setAvatarUrl(publicUrl)
       setShowCropModal(false)

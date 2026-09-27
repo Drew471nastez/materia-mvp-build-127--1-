@@ -282,14 +282,16 @@ check("with no /l/ prefix", !getLinksInternalPath("x").startsWith("/l/"))
  * THE FOUR OF THEM AGREE. A creator sees the share URL in one place, the
  * display string in another and follows the link from a third; when those
  * were built separately, one of them was a 404 for months. All three are
- * built out of getLinksInternalPath now, so they cannot disagree.
+ * built out of lib/onepage/address onePageUrl now, storelib.me/<handle>
+ * (the owner: "nobody wants to put a long link in their bio"), so they
+ * cannot disagree. /<handle>/links stays the ROUTE the page renders from.
  */
 {
   const handle = "andrew-rullz"
-  const path = getLinksInternalPath(handle)
-  check("the share URL ends in the same path", getLinksShareUrl(handle).endsWith(path), getLinksShareUrl(handle))
-  check("and so does the one links navigate to", getLinksUrl(handle).endsWith(path), getLinksUrl(handle))
-  check("and so does the string a creator is shown", getLinksUrlDisplay(handle).endsWith(path), getLinksUrlDisplay(handle))
+  const address = `storelib.me/${handle}`
+  check("the share URL is storelib.me/<handle>", getLinksShareUrl(handle) === `https://${address}`, getLinksShareUrl(handle))
+  check("and so is the one links navigate to", getLinksUrl(handle) === `https://${address}`, getLinksUrl(handle))
+  check("and so is the string a creator is shown", getLinksUrlDisplay(handle) === address, getLinksUrlDisplay(handle))
   check(
     "none of them is a subdomain any more",
     ![getLinksShareUrl(handle), getLinksUrl(handle), getLinksUrlDisplay(handle)].some((u) => u.includes(`${handle}.`)),
@@ -322,27 +324,28 @@ check(
 }
 
 /**
- * AND THE TWO OLD ADDRESSES STILL ANSWER. Both are links people have already
- * sent each other. `/l/<slug>` is the platform's own prefix and consolidates;
- * the subdomain's `/links` was the broken one and is sent to the page it was
- * always meant to reach.
+ * AND THE OLD ADDRESSES STILL ANSWER. All of them are links people have
+ * already sent each other: `/l/<slug>`, `/<handle>/links` and the
+ * subdomain's `/links` (the broken one) are sent to storelib.me/<name> by
+ * lib/onepage/host-route, which proxy.ts asks first. The cases themselves
+ * are pinned in tests/onepage-host.test.ts.
  */
 {
   const proxySource = code("proxy.ts")
+  const hostRoute = code("lib/onepage/host-route.ts")
   check(
-    "/l/<slug> redirects to the new address",
-    /pathname === "\/l" \|\| pathname\.startsWith\("\/l\/"\)/.test(proxySource) &&
-      /to\.pathname = `\/\$\{slug\.replace\(\/\\\/\+\$\/, ""\)\}\/links`/.test(proxySource),
+    "/l/<slug> and /<handle>/links redirect to the new address",
+    /onePageRoute\(\{/.test(proxySource) && /parts\[0\] === "l" && parts\.length >= 2/.test(hostRoute) && /parts\[1\]\.toLowerCase\(\) === "links"/.test(hostRoute),
     "old links and search results should not compete with the address being handed out now",
   )
   check(
     "and only on the main domain",
-    /bareHost === MAIN_DOMAIN && \(pathname === "\/l"/.test(proxySource),
+    /if \(host !== main\) return null/.test(hostRoute),
     "without the host guard it would catch the custom-domain rewrite to /l/<username> and break it",
   )
   check(
     "the subdomain's /links goes to the page it was meant to reach",
-    /to\.pathname = `\/\$\{subdomain\}\/links`/.test(proxySource),
+    /host\.endsWith\(`\.\$\{sites\}`\) && \(input\.pathname === "\/links"/.test(hostRoute),
     "it was a 404, and it is the address the Share card gave out",
   )
 }

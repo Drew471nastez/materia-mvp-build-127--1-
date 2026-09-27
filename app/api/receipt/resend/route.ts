@@ -13,6 +13,12 @@ export const runtime = "nodejs"
  * token: the pair must match one row or nothing is sent. The email goes to
  * the address on the order, never to one named in the request.
  *
+ * With `to: "account"` it goes to the signed-in buyer's account email
+ * instead: an order on an account belongs to that account, and the account's
+ * address is the one Storelib has verified (a change there needs a code to
+ * each address, app/api/auth/change-email). Only the account the order is on
+ * may ask; the order's own address is left as it was.
+ *
  * A basket is one email: sendBuyerDownloadEmail reads every line of the
  * payment through lib/receipts/load and lists them together.
  */
@@ -32,7 +38,7 @@ async function resendsToday(admin: any, orderId: string): Promise<number> {
 }
 
 export async function POST(request: NextRequest) {
-  let body: { receiptToken?: unknown; orderId?: unknown; resendType?: unknown }
+  let body: { receiptToken?: unknown; orderId?: unknown; resendType?: unknown; to?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -84,6 +90,21 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
     const sellerReplyTo = creatorId ? await resolveSellerEmail(admin, creatorId) : "support@storelib.com"
 
+    /* Where the buyer's copy goes: the order's address, or the account's. */
+    let recipient: string = order.buyer_email
+    const toAccount = body.to === "account" && resendType === "buyer"
+    if (toAccount) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: "Sign in again to send it to your account email." }, { status: 401 })
+      if (!order.buyer_id || order.buyer_id !== user.id || !user.email) {
+        return NextResponse.json({ error: "This order is on another account." }, { status: 403 })
+      }
+      recipient = user.email.trim().toLowerCase()
+    }
+
     /*
       THE SELLER'S "YOU MADE A SALE" EMAIL IS THE SELLER'S TO ASK FOR. The
       receipt token is the buyer's credential; with it alone a buyer could
@@ -113,7 +134,7 @@ export async function POST(request: NextRequest) {
       buyerResult = await sendBuyerDownloadEmail(admin, {
         orderId: order.id,
         creatorId,
-        buyerEmail: order.buyer_email,
+        buyerEmail: recipient,
         buyerFirstName: order.buyer_first_name || "",
         productTitle: product?.title || "Your purchase",
         receiptToken,
@@ -148,7 +169,7 @@ export async function POST(request: NextRequest) {
       event_type: "receipt_resent",
       ip: callerAddress(request) || "unknown",
       user_agent: request.headers.get("user-agent") || "unknown",
-      metadata: { resend_type: resendType, buyer_success: buyerResult.success, seller_success: sellerResult.success },
+      metadata: { resend_type: resendType, to: toAccount ? "account" : "order", buyer_success: buyerResult.success, seller_success: sellerResult.success },
     })
 
     const ok = buyerResult.success && sellerResult.success

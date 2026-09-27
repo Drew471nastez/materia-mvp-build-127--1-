@@ -242,6 +242,27 @@ async function main() {
     check("neither kept nor sent is the one answer that says it failed", reply.status === 502)
   }
   {
+    /* The account's address, as lib/seller-inbox reads it for every message to a seller. */
+    const tagged = contactDb({ support: null })
+    tagged.rows("profiles")[0].email = "owner+slb-1a2b3c4d@maralind.com"
+    check("a second business's tagged address reaches the owner without the tag", (await creatorInbox(tagged, CREATOR, null)) === "owner@maralind.com")
+    const now = contactDb({ support: null })
+    check("the login's address as it is now wins over the profile's older copy", (await creatorInbox(now, CREATOR, null, async (id) => (id === "u-1" ? "Owner.New@Maralind.com" : null))) === "owner.new@maralind.com")
+  }
+  {
+    /* No address anywhere: kept, the creator reads it in Emails; not kept either, the visitor is told it did not send. */
+    const kept = contactDb({ support: null })
+    kept.rows("profiles")[0].email = null
+    const { deps: d1, rec: r1 } = deps(kept)
+    const keptReply = await handleContact(body(), d1)
+    check("no address but the message is kept: 200, nothing emailed", keptReply.status === 200 && r1.sent.length === 0)
+    const lost = contactDb({ support: null, messages: false })
+    lost.rows("profiles")[0].email = null
+    const { deps: d2, rec: r2 } = deps(lost)
+    const lostReply = await handleContact(body(), d2)
+    check("no address and nowhere to keep it: 502, never a quiet 'sent'", lostReply.status === 502 && r2.sent.length === 0, lostReply)
+  }
+  {
     const db = contactDb()
     const { deps: d } = deps(db)
     const reply = await handleContact(body({ creator_id: "99999999-9999-4999-8999-999999999999" }), d)

@@ -2,7 +2,13 @@
  * ===========================================================================
  *  THE ONEPAGE, UNDER THE CREATOR'S HANDLE
  * ===========================================================================
- * `storelib.com/{handle}/links`.
+ * The route storelib.me/{handle} renders from: proxy.ts rewrites it here
+ * (lib/onepage/host-route). On storelib.com, `/{handle}/links` itself now
+ * answers with a 308 to storelib.me/{handle}, except in the native app,
+ * which keeps being served here so it never leaves its own origin.
+ *
+ * What follows is why this route exists at all, from when it was the
+ * address handed out: `storelib.com/{handle}/links`.
  *
  * WHY IT MOVED. The address creators were given to hand out was
  * `{handle}.storelib.com/links`, and that address had stopped working. The
@@ -41,6 +47,8 @@ export const dynamic = "force-dynamic"
 
 interface Props {
   params: Promise<{ sellername: string }>
+  /* Passed on, so a redirect the page answers with keeps the visitor's utm and ref. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 /** The handle in the path is the slug the OnePage is stored under. */
@@ -58,6 +66,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   there, and a type error nobody sees is the one that hides the next one.
   Awaiting it is the same call the renderer makes.
 */
-export default async function SellerOnePageRoute({ params }: Props) {
-  return await PublicOnePageRoute({ params: asSlug(params) })
+export default async function SellerOnePageRoute({ params, searchParams }: Props) {
+  return await PublicOnePageRoute({ params: asSlug(params), searchParams })
 }

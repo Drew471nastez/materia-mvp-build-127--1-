@@ -9,6 +9,21 @@
  * - EMAIL_REPLY_TO: "support@storelib.com"
  */
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { GMAIL_CLIP_BYTES, finalizeEmailHtml } from "@/lib/mail-document"
+
+export { finalizeEmailHtml }
+
+/**
+ * The body as it is sent: a whole document (lib/mail-document), and a word
+ * in the log when it is heavy enough for Gmail to clip. The size only, never
+ * the subject or an address.
+ */
+function sendableHtml(html: string, subject: string): string {
+  const doc = finalizeEmailHtml(html, subject)
+  const bytes = Buffer.byteLength(doc)
+  if (bytes > GMAIL_CLIP_BYTES * 0.8) console.warn(`[mailgun] HTML is ${Math.round(bytes / 1024)} KB; Gmail clips a message over 102 KB`)
+  return doc
+}
 
 // Mailgun configuration from environment variables
 const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY || ""
@@ -31,6 +46,24 @@ export function withDisplayName(from: string, name = "Storelib"): string {
   }
   if (/^[^\s<>@]+@[^\s<>@]+$/.test(value)) return `${name} <${value}>`
   return value
+}
+
+/**
+ * A DISPLAY NAME A MAIL SERVER READS AS A NAME. A seller's store name or a
+ * buyer's first name goes into From as typed, and a name with a comma, a
+ * colon or an @ in it ("Ana, Studio", "Jo: orders") is not a name to a mail
+ * server: RFC 5322 reads the comma as a second address and the colon as a
+ * group, and the message is refused or shown from someone else. Such a name
+ * is put in quotes; quotes and line breaks inside it are taken out first.
+ * A name without those characters, or already quoted, is left as it is.
+ */
+export function quotedFrom(from: string): string {
+  const m = (from || "").match(/^\s*([\s\S]*?)\s*<([^<>\s]+@[^<>\s]+)>\s*$/)
+  if (!m) return from
+  if (/^".*"$/.test(m[1])) return from
+  const name = m[1].replace(/[\r\n"\\]+/g, " ").replace(/\s+/g, " ").trim()
+  if (!name) return `Storelib <${m[2]}>`
+  return /[()<>[\]:;@,.]/.test(name) ? `"${name}" <${m[2]}>` : `${name} <${m[2]}>`
 }
 
 // Email defaults
@@ -82,6 +115,8 @@ export interface MailgunSendResult {
  */
 function htmlToPlainText(html: string): string {
   return html
+    .replace(/<head(\s[^>]*)?>[\s\S]*?<\/head>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
@@ -180,7 +215,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
-  const fromAddress = withDisplayName(options.from || EMAIL_FROM)
+  const fromAddress = quotedFrom(withDisplayName(options.from || EMAIL_FROM))
   const replyTo = options.replyTo || EMAIL_REPLY_TO
 
   // Build form data for Mailgun API
@@ -188,10 +223,11 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   formData.append("from", fromAddress)
   formData.append("to", options.to)
   formData.append("subject", options.subject)
-  formData.append("html", options.html)
+  const html = sendableHtml(options.html, options.subject)
+  formData.append("html", html)
 
   // Always include a plain text version (critical for spam prevention)
-  const textContent = options.text || htmlToPlainText(options.html)
+  const textContent = options.text || htmlToPlainText(html)
   formData.append("text", textContent)
 
   // Add Reply-To header
@@ -349,11 +385,12 @@ export async function sendMailgunOnce(
   if (!isValidEmail(options.to)) return { success: false, status: 400, error: "Invalid email address" }
 
   const form = new FormData()
-  form.append("from", withDisplayName(options.from || EMAIL_FROM))
+  form.append("from", quotedFrom(withDisplayName(options.from || EMAIL_FROM)))
   form.append("to", options.to)
   form.append("subject", options.subject)
-  form.append("html", options.html)
-  form.append("text", options.text || htmlToPlainText(options.html))
+  const html = sendableHtml(options.html, options.subject)
+  form.append("html", html)
+  form.append("text", options.text || htmlToPlainText(html))
   form.append("h:Reply-To", options.replyTo || EMAIL_REPLY_TO)
   if (options.messageId) form.append("h:Message-Id", options.messageId)
   for (const [key, value] of Object.entries(options.headers ?? {})) form.append(`h:${key}`, value)

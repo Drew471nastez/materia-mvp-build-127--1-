@@ -24,12 +24,15 @@
  */
 
 import {
+  RELOAD_AGAIN_MS,
   RELOAD_KEY,
   buildReport,
+  isStaleCodeError,
   describeForUser,
   isChunkLoadError,
   shouldReloadForStaleCode,
 } from "@/lib/client-errors"
+import { staleAction } from "@/lib/ui/stale-code"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 
@@ -113,6 +116,49 @@ function main() {
       !shouldReloadForStaleCode({ name: "ChunkLoadError", message: "Loading chunk 1 failed." }, blockedStore),
     )
     check("nor one with no storage at all", !shouldReloadForStaleCode({ name: "ChunkLoadError", message: "x" }, null))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A deploy under Turbopack, and a tab that outlives two deploys")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /* The production reports, word for word in shape: Turbopack's plain Error, no ChunkLoadError name. */
+    const turbo = new Error("Failed to load chunk /_next/static/chunks/0f3c1d2e9a8b7c6d.js?dpl=dpl_8XyZ from module 81234")
+    check("Turbopack's \"Failed to load chunk\" is recognised as stale code", isChunkLoadError(turbo))
+    check("so it is reported as stale, not as a fault", buildReport(turbo, "https://storelib.com/checkout?product=x").stale === true)
+    const store = fakeStore()
+    check("and the page reloads for it", shouldReloadForStaleCode(turbo, store, "/explore"))
+
+    const safari = new TypeError("Load failed")
+    check("Safari's \"Load failed\" inside /app is stale code", isStaleCodeError(safari, "/app/products") && isStaleCodeError(safari, "/app"))
+    check("but not outside /app, where it is too vague to act on", !isStaleCodeError(safari, "/checkout") && !isStaleCodeError(safari, "/appetite") && !isStaleCodeError(safari, null))
+    check("nor a different failure inside /app", !isStaleCodeError(new TypeError("Failed to fetch"), "/app/orders"))
+
+    const t0 = 1_800_000_000_000
+    const tab = fakeStore()
+    check("a stale tab reloads", shouldReloadForStaleCode(turbo, tab, "/blog/x", t0))
+    check("a failure straight after that reload does not reload again", !shouldReloadForStaleCode(turbo, tab, "/blog/x", t0 + 5_000))
+    check("the next deploy, later that day, reloads the same tab again", shouldReloadForStaleCode(turbo, tab, "/blog/x", t0 + RELOAD_AGAIN_MS + 1))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Outside a boundary: reload, or a bar where something was typed")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const chunk = new Error("Failed to load chunk /_next/static/chunks/a.js from module 1")
+    const t = 1_800_000_000_000
+    check("a page with nothing typed reloads", staleAction({ error: chunk, path: "/lucadragoste", holdsWork: false, store: fakeStore(), now: t }) === "reload")
+    check("checkout never reloads by itself: a card, a company and a tip are not kept", staleAction({ error: chunk, path: "/checkout", holdsWork: false, store: fakeStore(), now: t }) === "bar")
+    check("nor a page with words in a field or unsaved work", staleAction({ error: chunk, path: "/app/products/new", holdsWork: true, store: fakeStore(), now: t }) === "bar")
+    check("a page that reloaded a moment ago offers the bar instead of looping", staleAction({ error: chunk, path: "/explore", holdsWork: false, store: fakeStore({ [RELOAD_KEY]: String(t - 3_000) }), now: t }) === "bar")
+    check("blocked storage offers the bar, never a reload", staleAction({ error: chunk, path: "/explore", holdsWork: false, store: blockedStore, now: t }) === "bar")
+    check("an ordinary bug does nothing here", staleAction({ error: new TypeError("x is not a function"), path: "/explore", holdsWork: false, store: fakeStore(), now: t }) === "none")
+    const inst = readFileSync(join(root, "instrumentation-client.ts"), "utf8")
+    check("installed for every page, before the app starts", /\nwatchStaleCode\(\)\n/.test(inst))
+    const region = readFileSync(join(root, "components/storefront/safe-region.tsx"), "utf8")
+    check("a creator page's swallowed section heals the same way", /if \(recoverFromStaleCode\(error\)\) return/.test(region))
+    const screen = readFileSync(join(root, "components/platform/error-screen.tsx"), "utf8")
+    check("the boundary's screen reads the path, for /app's \"Load failed\"", /shouldReloadForStaleCode\(error, store, window\.location\.pathname\)/.test(screen))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
