@@ -49,7 +49,10 @@ export function ErrorScreen({
     } catch {
       store = null
     }
-    if (shouldReloadForStaleCode(error, store)) {
+    /* The same address, loaded again: nothing in it is lost. On /checkout the
+       form is already gone once a boundary shows this, and the buyer's name
+       and email come back from the tab (app/checkout remembered()). */
+    if (shouldReloadForStaleCode(error, store, window.location.pathname)) {
       setReloading(true)
       window.location.reload()
       return

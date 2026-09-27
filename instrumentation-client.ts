@@ -18,14 +18,21 @@
  * translator swaps the text nodes React holds, and without this the next
  * insert or removal next to one of them throws and takes the page. First,
  * because it has to be in place before React makes its first node.
+ *
+ * Heal a tab that still holds the last deploy's code (lib/ui/stale-code.ts):
+ * a lazy import that fails outside any error boundary, in a press or an
+ * effect, reloads the page once, or on a page with something typed in it
+ * shows a bar that offers to.
  */
 import { noteRouterStart, watchRouterStarts } from "@/lib/ui/router-starts"
 import { watchLeaveGuard } from "@/lib/ui/leave-guard"
 import { guardDomAgainstTranslators } from "@/lib/ui/dom-guard"
+import { watchStaleCode } from "@/lib/ui/stale-code"
 
 guardDomAgainstTranslators()
 watchRouterStarts()
 watchLeaveGuard()
+watchStaleCode()
 
 export function onRouterTransitionStart() {
   noteRouterStart()
