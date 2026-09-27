@@ -135,7 +135,11 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
     if (creator) {
       sellerBanned = isBanned(creator)
-      sellerName = creator.display_name || undefined
+      /* `creators.display_name` is a copy of the profile's, written when the
+         account was made and edited by nothing since, so the live profile
+         below wins over it (lib/account/identity). It is read here only for
+         a creator whose profile row cannot be reached. */
+      sellerName = undefined
       /**
        * THE HANDLE IS NEEDED WHETHER OR NOT THE NAME WAS, because the
        * canonical address of a product is storelib.com/<handle>/<slug> and
@@ -147,8 +151,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
       if (creator.user_id) {
         const profile = await loadCreatorProfile(creator.user_id)
         sellerHandle = profile?.username || undefined
-        if (!sellerName) sellerName = profile?.display_name || profile?.full_name || undefined
+        sellerName = profile?.display_name || profile?.full_name || creator.display_name || undefined
       }
+      if (!sellerName) sellerName = creator.display_name || undefined
     }
 
     const headerSettings = shopConfig?.published_config?.headerSettings as ShopHeaderSettings | undefined

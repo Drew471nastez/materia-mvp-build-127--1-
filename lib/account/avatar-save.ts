@@ -44,7 +44,14 @@ export interface PhotoClient {
 }
 
 export type PhotoSaved =
-  | { ok: true; url: string | null; creatorId: string | null; pagesFollowed: number }
+  | {
+      ok: true
+      url: string | null
+      creatorId: string | null
+      pagesFollowed: number
+      /** The photo this one replaced, so the caller can clear the copies of it and sweep the file. */
+      previous: string | null
+    }
   | { ok: false; status: number; error: string }
 
 export async function saveProfilePhoto(
@@ -57,6 +64,16 @@ export async function saveProfilePhoto(
     const { error } = await supabase.auth.updateUser({ data: { [AVATAR_CHOSEN]: true } })
     if (error) console.error(`[account/avatar] choice not kept on the account (${error.code ?? error.status ?? "unknown"})`)
   }
+
+  /* 1b. The photo being replaced, read BEFORE it is overwritten. Every other
+     row that holds a copy of it follows this change (lib/account/profile-follow),
+     and the file itself is swept when nothing points at it any more; both need
+     to know which address is going away. */
+  const { data: before } = await supabase.from("profiles").select("avatar_url").eq(
+    "id",
+    user.id,
+  ).maybeSingle()
+  const previous = typeof before?.avatar_url === "string" && before.avatar_url.trim() !== "" ? before.avatar_url.trim() : null
 
   /* 2. The photo, read back. */
   const { data: rows, error } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", user.id).select("avatar_url")
@@ -99,5 +116,5 @@ export async function saveProfilePhoto(
     }
   }
 
-  return { ok: true, url, creatorId, pagesFollowed }
+  return { ok: true, url, creatorId, pagesFollowed, previous }
 }

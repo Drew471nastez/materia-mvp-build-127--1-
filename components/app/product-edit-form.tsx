@@ -1,6 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
+import { forgetProduct } from "@/lib/products/forget-client"
 import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -209,6 +210,9 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
       setError(error.message)
     } else {
       invalidateExploreCache()
+      /* The row is gone; now so is every cached copy of it, and the block on
+         their OnePage that named it (app/api/products/forget). */
+      await forgetProduct(product.id, product.slug)
       router.push("/app/products")
     }
   }
@@ -240,6 +244,9 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
     // Invalidate SWR caches on publish/unpublish
     if (product.slug) invalidateProductCache(product.slug)
     invalidateExploreCache()
+    /* And the server's, so an unpublished product leaves the product page,
+       the shop and the sitemap now rather than when their TTL runs out. */
+    await forgetProduct(product.id, product.slug)
 
     router.refresh()
   }

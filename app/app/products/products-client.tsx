@@ -1,6 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
+import { forgetProduct } from "@/lib/products/forget-client"
 import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
@@ -539,6 +540,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       const supabase = createClient()
       const row = restoring ? await restoreProduct(supabase, product.id) : await archiveProduct(supabase, product.id)
       announceChange({ product: product.id })
+      /* Archived is off every page, and restored is back on one. Both are a
+         change to what a visitor may see, so both purge what is cached. */
+      await forgetProduct(product.id, product.slug)
       setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, ...row } : p)))
       showNotification(restoring ? (row.status === "published" ? "Product restored" : "Product restored as a draft") : "Product archived")
     } catch (error) {
@@ -650,6 +654,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       /* A live product's address now answers nothing; the search engines are
          told by the slug it had, since the row is gone. Never waited for. */
       if (productToDelete.status === "published" && productToDelete.slug) announceChange({ removedProduct: productToDelete.slug })
+      /* The row is gone; now so is every cached copy of it, and the block
+         on their OnePage that named it (app/api/products/forget). */
+      await forgetProduct(productToDelete.id, productToDelete.slug)
       setProducts(prev => prev.filter(p => p.id !== productToDelete.id))
       showNotification("Product deleted")
       closeDelete()

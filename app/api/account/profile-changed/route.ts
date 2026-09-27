@@ -1,0 +1,71 @@
+import { NextResponse, type NextRequest } from "next/server"
+import { revalidateTag } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
+import { readCurrentUser } from "@/lib/auth/current-user"
+import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
+import { creatorTag } from "@/lib/commerce/product-page-cache"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+/**
+ * ===========================================================================
+ *  THE NAME CHANGED IN SETTINGS, AND EVERY COPY OF IT FOLLOWS
+ * ===========================================================================
+ * Settings › General saves the profile straight from the browser, on the
+ * person's own client, through row level security (components/app/
+ * settings-form-new.tsx). That is fine for the profile itself and no help at
+ * all to the five other rows that keep a copy of the name: the OnePage's
+ * title, the copy taken when it was published, the SEO card's Meta title,
+ * the creator row and the creator page's store name. Renaming yourself left
+ * the old name in the tab of your own OnePage.
+ *
+ * So the form calls this straight after it has saved, with the name it was
+ * showing before. The server reads the name the profile holds NOW, and moves
+ * only the copies that still hold the old one (lib/account/profile-follow) —
+ * a page title somebody typed is never touched. Then the caches the public
+ * pages read the profile through are cleared, so the new name is on the next
+ * view rather than up to a minute later.
+ *
+ * `previous` comes from the caller and decides nothing but WHICH of this
+ * person's own copies move; every row it can reach belongs to the signed in
+ * user and is written on their own client.
+ */
+const NO_STORE = { "Cache-Control": "no-store" }
+
+export async function POST(request: NextRequest) {
+  let body: { previousName?: unknown; previousPhoto?: unknown }
+  try {
+    body = await request.json()
+  } catch {
+    body = {}
+  }
+
+  const supabase = await createClient()
+  const current = await readCurrentUser(supabase)
+  if (current.state === "indeterminate") {
+    return NextResponse.json({ error: "Could not reach Storelib." }, { status: 503, headers: NO_STORE })
+  }
+  if (!current.user) return NextResponse.json({ error: "Your session ended." }, { status: 401, headers: NO_STORE })
+  const user = current.user
+
+  const { data: profile } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).maybeSingle()
+  if (!profile) return NextResponse.json({ ok: true, followed: null }, { headers: NO_STORE })
+
+  const previousName = typeof body.previousName === "string" ? body.previousName : undefined
+  const previousPhoto = typeof body.previousPhoto === "string" || body.previousPhoto === null ? (body.previousPhoto as string | null) : undefined
+
+  const followed = await followProfileIdentity(supabase as unknown as FollowClient, user.id, {
+    ...(previousName !== undefined ? { name: { before: previousName, after: profile.display_name } } : {}),
+    ...(previousPhoto !== undefined ? { photo: { before: previousPhoto, after: profile.avatar_url } } : {}),
+  })
+
+  try {
+    revalidateTag(creatorTag(user.id), "max")
+    if (followed.creatorId) revalidateTag(creatorTag(followed.creatorId), "max")
+  } catch {
+    /* Outside a request that can revalidate: the cache's own minute does it. */
+  }
+
+  return NextResponse.json({ ok: true, followed }, { headers: NO_STORE })
+}

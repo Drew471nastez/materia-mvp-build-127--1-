@@ -3,6 +3,7 @@ import { adminFailure } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
+import { forgetDeletedProduct } from "@/lib/products/forget-product"
 
 export async function DELETE(req: NextRequest) {
   if (!(await isAdminAuthenticated())) {
@@ -20,7 +21,7 @@ export async function DELETE(req: NextRequest) {
     admin's Products view, takes it off sale and keeps the records. A count
     that cannot be read refuses too: it is not "no orders".
   */
-  const { data: productRow, error: productError } = await supabase.from("products").select("title").eq("id", productId).maybeSingle()
+  const { data: productRow, error: productError } = await supabase.from("products").select("title, slug, creator_id").eq("id", productId).maybeSingle()
   const { count: orderCount, error: countError } = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("product_id", productId)
   if (productError || countError) return adminFailure("seo metrics delete check", productError || countError, "Could not check this product's orders. Nothing was deleted.")
   if ((orderCount ?? 0) > 0) {
@@ -63,6 +64,15 @@ export async function DELETE(req: NextRequest) {
     return adminFailure("seo metrics", error)
   }
   await recordAdminAction(supabase, { action: "delete_product", targetType: "product", targetId: productId, targetLabel: productRow?.title ?? null })
+  /* The same clean up a creator's own delete does: the caches that held it,
+     and the blocks on their OnePage that named it (lib/products/forget-product). */
+  if (productRow?.creator_id) {
+    await forgetDeletedProduct(supabase, {
+      creatorId: productRow.creator_id as string,
+      productId,
+      slug: (productRow.slug as string | null) ?? null,
+    })
+  }
   return NextResponse.json({ ok: true })
 }
 

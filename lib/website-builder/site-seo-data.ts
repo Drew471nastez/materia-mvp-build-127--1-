@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { getMainDomain } from "@/lib/url-helpers"
 import { builtSiteIndexable } from "@/lib/seo/indexing"
+import { creatorTag } from "@/lib/commerce/product-page-cache"
 import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
 import { websiteHandleOf } from "./site-address-data"
 import {
@@ -73,7 +74,10 @@ export async function creatorAvatar(creatorId: string): Promise<string | null> {
       }
     },
     ["site-avatar", creatorId],
-    { revalidate: 300 },
+    /* Tagged, so a photo changed in Settings clears this rather than
+       sitting for five minutes (lib/commerce/product-page-cache creatorTag,
+       cleared by /api/account/avatar and /api/account/profile-changed). */
+    { revalidate: 300, tags: [creatorTag(creatorId)] },
   )()
 }
 

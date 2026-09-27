@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { forgetProduct } from "@/lib/products/forget-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -67,6 +68,9 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
     if (error) {
       setError(error.message)
     } else {
+      /* The row is gone; now so is every cached copy of it, and the block on
+         their OnePage that named it (app/api/products/forget). */
+      await forgetProduct(product.id, product.slug)
       router.push("/app/courses")
     }
   }

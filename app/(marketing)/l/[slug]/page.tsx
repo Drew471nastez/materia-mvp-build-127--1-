@@ -12,6 +12,8 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import { publicOnePage } from "@/lib/onepage/public-shape"
+import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
+import { creatorName, creatorPhoto, keptPhoto, typedSeoTitle } from "@/lib/account/identity"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -55,10 +57,12 @@ const onePageOwner = cache(async (sellerId: string | null, creatorId: string | n
       ? await supabase.from("creators").select("*").eq("user_id", ownerId).maybeSingle()
       : { data: null }
   const row = creator as { id?: string; user_id?: string | null; banned_at?: string | null } | null
-  // profiles.avatar_url is the single source of truth: Settings and Store Builder both sync to it.
+  // profiles.avatar_url and profiles.display_name are the single source of
+  // truth: Settings and Store Builder both sync to them, and every copy of
+  // them follows a change (lib/account/profile-follow).
   const userId = ownerId || row?.user_id || null
   const { data: profile } = userId
-    ? await supabase.from("profiles").select("avatar_url, username").eq("id", userId).maybeSingle()
+    ? await supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle()
     : { data: null }
   const id = row?.id ?? effective
   const [products, domain] = await Promise.all([
@@ -72,6 +76,7 @@ const onePageOwner = cache(async (sellerId: string | null, creatorId: string | n
     handle,
     banned: isBanned(row),
     avatarUrl: (profile as { avatar_url?: string | null } | null)?.avatar_url || null,
+    displayName: (profile as { display_name?: string | null } | null)?.display_name || null,
     publishedProducts: products.count ?? 0,
     canonical: handle ? (domain ? getLinksUrlWithCustomDomain(handle, domain) : getLinksShareUrl(handle)) : null,
   }
@@ -142,23 +147,45 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = onepage.published_profile as any
   const settings = onepage.settings as any
 
-  // SEO Title Priority: seo_title > display name > title > "Creator"
-  const displayName = profile?.title || onepage.title || "Creator"
-  const seoTitle = settings?.seo_title?.trim()
+  const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
+
+  // The owner's live profile: the name and the photo, with the handle and
+  // the indexing answer beside them (onePageOwner above).
+  const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
+  const userProfileAvatarUrl: string | null = owner.avatarUrl
+
+  /*
+    ===========================================================================
+     THE NAME AND THE FACE IN THE TAB ARE THE ONES ON THE PAGE
+    ===========================================================================
+    "Why is it still showing Zarra Bianco and my old picture?" The page body
+    read the name through lib/onepage/public-shape and got it right; this
+    built its own, from the copy taken when the page was published and
+    nothing else, and stopped at "Creator" rather than asking the profile.
+    So a creator who renamed themselves saw the old name in the phone's
+    bottom bar for as long as they did not republish.
+
+    One resolver now answers both (lib/account/identity): the page's
+    published name, its draft name, then the live profile. Same order for
+    the picture, with a sign in provider's photo left in a copy passed over,
+    because lib/account/avatar says that one belongs to the profile alone.
+  */
+  const displayName =
+    creatorName({ published: profile?.title, own: onepage.title, live: owner.displayName }) || "Creator"
+  /* A Meta title that is only the page's name again is what the SEO card
+     filled its box with, not something anybody typed (typedSeoTitle). */
+  const seoTitle = typedSeoTitle(settings?.seo_title, displayName) ?? undefined
   // For browser tab: let the root layout template add "| Storelib"
   // If user set a custom SEO title, use it as-is (absolute) to avoid template doubling
   const pageTitle = seoTitle || displayName
   const ogTitle = seoTitle?.replace(/ \| Storelib$/i, "") || displayName
 
   // Favicon
-  let faviconUrl = profile?.avatar_url || onepage.avatar_url
-  const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
-
-  // Also look up the user's profiles.avatar_url as fallback, from the owner
-  // (or, with no owner_id, the creator's user), with the handle and the
-  // indexing answer beside it: onePageOwner above.
-  const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
-  const userProfileAvatarUrl: string | null = owner.avatarUrl
+  let faviconUrl: string | null | undefined = creatorPhoto({
+    published: profile?.avatar_url,
+    own: onepage.avatar_url,
+    live: userProfileAvatarUrl,
+  })
   /* The sitemap's rule, so a page it does not list does not ask to be listed. */
   const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
 
@@ -171,29 +198,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         .eq("page_type", "shop")
         .maybeSingle()
 
+      /* Through the same rule, so a picture Google sent that is still sitting
+         in the page header cannot be the icon either (lib/account/identity). */
       const headerSettings = storeConfig?.published_config?.headerSettings as any
-      if (headerSettings?.avatarUrl) {
-        faviconUrl = headerSettings.avatarUrl
-      } else if (headerSettings?.faviconUrl) {
-        faviconUrl = headerSettings.faviconUrl
-      }
+      faviconUrl = keptPhoto(headerSettings?.avatarUrl) || keptPhoto(headerSettings?.faviconUrl)
     } catch {
       // Ignore
     }
   }
 
-  // Social image fallback chain:
-  // 1. Custom social image from SEO settings (manually set by user)
-  // 2. OnePage published profile avatar (set in OnePage editor)
-  // 3. OnePage draft avatar
-  // 4. User's profiles.avatar_url (single source of truth — synced by Settings & Store Builder)
-  // 5. Store builder favicon/avatar
-  const socialImageUrl = settings?.social_image_url || profile?.avatar_url || onepage.avatar_url || userProfileAvatarUrl || faviconUrl || undefined
-
-  // Use user profile avatar for favicon too if no other favicon
-  if (!faviconUrl && userProfileAvatarUrl) {
-    faviconUrl = userProfileAvatarUrl
-  }
+  // The share card's picture: the creator's own social image when they set
+  // one, else the same face the tab shows.
+  const socialImageUrl = settings?.social_image_url || faviconUrl || undefined
 
   /*
     The address it is shared at: <creator page domain>/links, or
@@ -433,16 +449,9 @@ export default async function PublicOnePageRoute({ params }: Props) {
     }
   }
 
-  // Fetch profile display_name as a fallback for when no OnePage title is set
-  let profileDisplayName: string | null = null
-  if (onepage.owner_id) {
-    const { data: ownerProfile } = await adminSupabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", onepage.owner_id)
-      .maybeSingle()
-    profileDisplayName = ownerProfile?.display_name || null
-  }
+  /* The owner's live name, for a page with no name of its own. onePageOwner
+     read it already for the metadata and holds it for the request. */
+  const profileDisplayName: string | null = owner.displayName
 
   /*
     THE SHAPE THE PAGE IS DRAWN FROM, BUILT WHERE THE EDITOR'S PREVIEW
@@ -454,12 +463,35 @@ export default async function PublicOnePageRoute({ params }: Props) {
   const transformedOnepage = publicOnePage(onepage, {
     source: "published",
     displayName: profileDisplayName,
+    /* The live photo, for a page that never had one of its own, and for one
+       whose copy is still the picture Google sent (lib/account/identity). */
+    liveAvatarUrl: owner.avatarUrl,
     /* The creator page's own domain names the OnePage too (<domain>/links):
        read here as well as kept in settings.custom_domain, so a share link is
        right the moment a domain connects. */
     customDomain: await primaryHostFor(resolvedCreatorId, "creator_page"),
     sellerId: resolvedCreatorId,
   })
+
+  /*
+    AND ITS PRODUCTS, READ FROM THE PRODUCTS AND NOT FROM THE COPY IN THE
+    BLOCK. A product block stores the title, price, picture and address the
+    product had when it was added, and publishing freezes that copy a second
+    time into `published_blocks`. Deleting the product left the row on the
+    page with its picture and a button to a 404; archiving or unpublishing it
+    did the same, and a price change was not shown at all.
+
+    So every block that names a product is resolved against the row here, on
+    each render: gone, archived or unpublished takes the block off the page,
+    and a live one is drawn from the product. This route is force-dynamic, so
+    it happens the moment the creator presses delete, with nothing to purge
+    and nothing to run. lib/onepage/live-products.ts.
+  */
+  transformedOnepage.blocks = await withLiveProducts(
+    adminSupabase as unknown as ProductsDb,
+    resolvedCreatorId ?? "",
+    transformedOnepage.blocks,
+  )
 
   /*
     WHO THIS PAGE IS ABOUT, for a search engine, and only on a page it may

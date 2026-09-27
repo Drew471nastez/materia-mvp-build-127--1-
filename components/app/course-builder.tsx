@@ -1,6 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
+import { forgetProduct } from "@/lib/products/forget-client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -142,6 +143,9 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
     const supabase = createClient()
     const { error } = await supabase.from("products").update({ status: newStatus }).eq("id", product.id)
     if (!error) announceChange({ product: product.id })
+    /* Published or unpublished is a change to what a visitor may see, so the
+       caches that hold this course are dropped (app/api/products/forget). */
+    if (!error) await forgetProduct(product.id, product.slug)
     router.refresh()
   }
 
