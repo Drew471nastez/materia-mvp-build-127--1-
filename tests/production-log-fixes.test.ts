@@ -46,10 +46,14 @@ console.log("\nThe database accepts every event and email type the app writes")
   check("the migration is the same file the owner runs", sql === migration)
   const events = /const EVENTS = \[([^\]]+)\]/.exec(read("app/api/track-event/route.ts"))?.[1] ?? ""
   const tracked = [...events.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])
-  const written = [...read("app/api/track-view/route.ts").matchAll(/event_type: "([a-z_]+)"/g)].map((m) => m[1])
-  const allowed = /analytics_events_event_type_check\s+check \(event_type in \(([\s\S]*?)\)\) not valid/.exec(sql)?.[1] ?? ""
+  /* A page view is stored as EVENT.pageView (lib/analytics/events); part 54 carries the check that allows link_click. */
+  const eventsTs = read("lib/analytics/events.ts")
+  const eventBlock = eventsTs.slice(eventsTs.indexOf("export const EVENT = {"), eventsTs.indexOf("} as const", eventsTs.indexOf("export const EVENT = {")))
+  const written = [...eventBlock.matchAll(/^\s+[a-zA-Z]+: "([a-z_]+)",$/gm)].map((m) => m[1])
+  const part54 = read("supabase/sql/run-now/54_analytics_one_pipeline.sql")
+  const allowed = [/analytics_events_event_type_check\s+check \(event_type in \(([\s\S]*?)\)\) not valid/.exec(sql)?.[1] ?? "", /analytics_events_event_type_check CHECK \(event_type IN \(([\s\S]*?)\)\) NOT VALID/.exec(part54)?.[1] ?? ""].join(", ")
   const missing = [...new Set([...tracked, ...written, "purchase"])].filter((t) => !allowed.includes(`'${t}'`))
-  check("every funnel step and view type is allowed", tracked.length >= 4 && missing.length === 0, missing)
+  check("every funnel step and view type is allowed", tracked.length >= 4 && written.includes("view") && written.includes("link_click") && missing.length === 0, missing)
   const types = /emailType: ([^\n]+)/.exec(read("lib/email.tsx"))?.[1] ?? ""
   const emailTypes = [...types.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])
   const emailAllowed = /email_logs_email_type_check\s+check \(email_type in \(([^)]*)\)\) not valid/.exec(sql)?.[1] ?? ""
@@ -62,8 +66,9 @@ console.log("\nLogs and answers carry no private data")
   const email = strip(read("lib/email.tsx"))
   check("a failed email log writes the code and message, not the row with the address in it",
     /Failed to log email attempt:", error\.code, error\.message\)/.test(email) && !/Failed to log email attempt:", error\)/.test(email))
-  const track = strip(read("app/api/track-event/route.ts"))
-  check("a failed event says so without the database's words", /error: "Not recorded"/.test(track) && !/error: error\.message/.test(track))
+  /* Every tracking answer is an empty 204 now (lib/analytics/collect-route); the log has the code and the message, the answer nothing. */
+  const track = strip(read("lib/analytics/collect.ts")) + strip(read("lib/analytics/collect-route.ts"))
+  check("a failed event says so without the database's words", /console\.error\("\[analytics\] insert failed:", error\.code/.test(track) && !/error: error\.message/.test(track) && /new NextResponse\(null, \{ status: 204 \}\)/.test(track))
 }
 
 console.log("\nThe invoice keeps its mark")

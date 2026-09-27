@@ -8,6 +8,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { productMatchesQuery, searchSections } from "@/lib/website-builder/shop-page"
 import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { TrackView } from "@/components/analytics/track-view"
 
 /**
  * ===========================================================================
@@ -80,6 +81,8 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
         storefront={{ creatorId: site.creatorId, installId: site.installId }}
         emptyDetail={query ? `Nothing matched "${query}".` : "Type what you are looking for."}
       />
+      {/* A page of the website like any other: one view, with its own path. */}
+      <TrackView creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )
