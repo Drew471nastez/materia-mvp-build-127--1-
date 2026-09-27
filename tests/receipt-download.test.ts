@@ -346,7 +346,9 @@ function main() {
   console.log("\n  the email and the routes around it")
 
   const email = read("lib/email.tsx")
-  const tpl = email.slice(email.indexOf("export function buyerReceiptEmailHtml"), email.indexOf("export function buyerReceiptEmailText"))
+  /* The receipt's drawing moved to lib/receipts/email.ts, pure, so it can be drawn in a test; lib/email.tsx sends it. */
+  const receiptEmail = read("lib/receipts/email.ts")
+  const tpl = receiptEmail.slice(receiptEmail.indexOf("export function buyerReceiptEmailHtml"), receiptEmail.indexOf("export function buyerReceiptEmailText"))
   check("titles, variants and names are escaped", /escapeHtml\(safeText\(it\.title\)\)/.test(tpl) && /escapeHtml\(safeText\(it\.variantName\)\)/.test(tpl))
   check("the link is escaped too", /const link = escapeHtml\(m\.link\)/.test(tpl))
   check("escapeHtml escapes quotes as well as brackets", /\.replace\(\/"\/g, "&quot;"\)/.test(email))

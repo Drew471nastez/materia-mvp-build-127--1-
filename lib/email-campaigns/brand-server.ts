@@ -15,7 +15,8 @@
 import "server-only"
 
 import { APP_URL } from "@/lib/email-automation"
-import { addressLine, brandName, DEFAULT_BRAND, emailImageUrl, hexColor, httpsUrl, type Brand } from "./brand"
+import { addressLine, brandName, DEFAULT_BRAND, hexColor, httpsUrl, type Brand } from "./brand"
+import { senderPhoto } from "./sender"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -25,7 +26,8 @@ export interface BrandExtras {
    * The creator's own photo, for the footer beside their name: this
    * business's profile photo as it is now (profiles.avatar_url, the one photo
    * the app shows everywhere, lib/account/avatar). A second business is its
-   * own profile, so its own photo.
+   * own profile, so its own photo. With it, the logo above is not drawn: an
+   * email carries one picture of the creator (./sender senderPicture).
    */
   avatarUrl: string | null
   /** The name to sign with: the profile's display name, else the username. */
@@ -95,7 +97,7 @@ export async function loadBrand(db: Db, creatorId: string): Promise<Brand & Bran
           country: profile.country,
         })
       : null,
-    avatarUrl: emailImageUrl(profile?.avatar_url),
+    avatarUrl: senderPhoto(profile?.avatar_url),
     creatorName: brandName(profile?.display_name, profile?.username, creator.headline, creator.slug),
   }
 }

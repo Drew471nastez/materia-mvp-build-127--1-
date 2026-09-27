@@ -19,9 +19,9 @@
  *   limited   too many tries from one place
  *   error     the write failed: nothing changed, try again
  *
- * The sender is drawn as the creator is now: their website's logo or their
- * photo (https only), else the first letter of the store name in a neutral
- * circle. The address the email went to is shown masked, as it always was.
+ * The sender is drawn as the creator is now, with the one picture their
+ * emails carry: their photo, else their website's logo (https only), else
+ * the first letter of the store name in a neutral circle. The address the email went to is shown masked, as it always was.
  *
  * Pure (no server imports); the drawing is lib/unsubscribe-card.ts, shared
  * with Storelib's own notification emails.

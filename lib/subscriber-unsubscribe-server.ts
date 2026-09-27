@@ -11,6 +11,7 @@ import { NextResponse } from "next/server"
 
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
+import { senderPicture } from "@/lib/email-campaigns/sender"
 import { maskEmail, subscriberPage, type ListSender, type SubscriberPageState } from "@/lib/subscriber-unsubscribe-page"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -37,11 +38,15 @@ export async function pageLimited(request: Request): Promise<boolean> {
   return (await rateLimit({ bucket: "subscriber-unsubscribe-page", subjects: [addressSubject(request)], windows: PAGE_LIMIT })) !== null
 }
 
-/** The creator as they are now: the website's logo or their photo (https only), and the store name. */
+/**
+ * The creator as they are now, and as their emails showed them: the same one
+ * picture (lib/email-campaigns/sender senderPicture, their photo or else their
+ * website's logo), and the store name.
+ */
 export async function loadListSender(db: Db, creatorId: string): Promise<ListSender> {
   try {
     const brand = await loadBrand(db, creatorId)
-    return { name: brand.name, imageUrl: brand.logoUrl ?? brand.avatarUrl ?? null }
+    return { name: brand.name, imageUrl: senderPicture({ photoUrl: brand.avatarUrl, logoUrl: brand.logoUrl })?.url ?? null }
   } catch {
     return { name: "This sender", imageUrl: null }
   }

@@ -39,6 +39,7 @@ import { blockIssues, hasRealContent, newBlock, renderBlocks, storeBlocks } from
 import { DEFAULT_BRAND, brandName, themeOf, type Brand } from "@/lib/email-campaigns/brand"
 import { readStoredBody } from "@/lib/email-campaigns/stored"
 import { buildEmail, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
+import { senderPhoto } from "@/lib/email-campaigns/sender"
 import { SAMPLE_READER } from "@/lib/email-variables"
 import { byteLength, checkContent, PREVIEW_MAX, SUBJECT_MAX, SUBJECT_SHORT, type Problem } from "@/lib/email-campaigns/validate"
 import { STATUS_LABEL, readStatus, type CampaignStatus, type RecipientCounts } from "@/lib/email-campaigns/state"
@@ -288,7 +289,11 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       previewText: personalizeSubject(previewText, reader),
       bodyHtml: personalizeHtml(sentBody, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, "#"),
       brand: look,
-      avatarUrl: brand?.avatarUrl ?? me.avatarUrl,
+      /* The photo the send reads (brand-server loadBrand). Until that answer
+         arrives, the same photo put through the same rule (senderPhoto), so
+         the preview never shows a picture the send would not: a missing
+         photo on the brand used to fall through to the raw profile field. */
+      avatarUrl: brand ? (brand.avatarUrl ?? null) : senderPhoto(me.avatarUrl),
       kind: "marketing",
       unsubscribeUrl: "#",
     })
