@@ -56,10 +56,12 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const [downloads, profile, { count: wishlistCount }] = await Promise.all([
     getLibraryDownloads(user.id),
     profileForRequest(user.id),
+    /* Only what is still on sale, as the wishlist itself lists (app/api/wishlist): an archived or deleted product is not counted. */
     supabase
       .from("wishlist_items")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
+      .select("id, products!inner(status)", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("products.status", "published"),
   ])
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User"

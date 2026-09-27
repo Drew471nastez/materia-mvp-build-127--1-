@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { isPubliclyVisible } from "@/lib/products/visibility"
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
           compare_at_cents,
           thumbnail_url,
           type,
+          status,
           creator_id,
           creators (
             id,
@@ -102,7 +104,8 @@ export async function GET(request: NextRequest) {
     const enrichedItems = []
 
     for (const item of items) {
-      if (!item.products) continue
+      /* Deleted (no row), or archived, unpublished or a draft now: not on sale, so not on the list (lib/products/visibility). */
+      if (!item.products || !isPubliclyVisible(item.products as { status?: string | null })) continue
 
       let creatorInfo = null
       if (item.products.creators?.user_id) {

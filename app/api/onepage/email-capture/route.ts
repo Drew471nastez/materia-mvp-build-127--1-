@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isPubliclyVisible, publicOnly } from "@/lib/products/visibility"
 import { sendLeadMagnetEmail, triggerEmailFlows } from "@/lib/email"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
 import { fromOfHost } from "@/lib/orders/order-source"
@@ -91,18 +92,32 @@ export async function POST(request: Request) {
     let downloadLink: string | null = null
     let downloadToken: string | null = null
 
-    // Handle digital product delivery
+    /*
+      THE DOWNLOAD IS GIVEN ONLY WHILE THE PRODUCT IS ON SALE, AND ONLY THIS
+      PAGE'S OWN. The id comes from the visitor's request, and this route
+      used to read any product by it: an archived, unpublished or draft one,
+      or another creator's, was emailed all the same. Now it has to be
+      published and belong to the page's creator (lib/products/visibility).
+      A product that is not is simply not sent: the address is still
+      collected, which is what the live page does with the block too
+      (lib/onepage/live-products.ts withoutDelivery).
+    */
+    let deliverable: { id: string; title: string; price_cents: number | null } | null = null
     if (digital_product_id) {
-      // Verify product exists and is free
-      const { data: product, error: productError } = await adminSupabase
-        .from("products")
-        .select("id, title, price_cents, thumbnail_url, slug")
-        .eq("id", digital_product_id)
-        .single()
+      let lookup = publicOnly(
+        adminSupabase
+          .from("products")
+          .select("id, title, price_cents, thumbnail_url, slug, status")
+          .eq("id", digital_product_id),
+      )
+      if (onepage.seller_id) lookup = lookup.eq("creator_id", onepage.seller_id)
+      const { data: product, error: productError } = await lookup.maybeSingle()
+      if (!productError && product && isPubliclyVisible(product)) deliverable = product
+    }
 
-      if (productError || !product) {
-        return NextResponse.json({ error: "Product not found" }, { status: 404 })
-      }
+    // Handle digital product delivery
+    if (deliverable) {
+      const product = deliverable
 
       if (product.price_cents && product.price_cents > 0) {
         return NextResponse.json({ error: "Only free products can be used for email capture" }, { status: 400 })
@@ -114,7 +129,7 @@ export async function POST(request: Request) {
         .select("id, download_token")
         .eq("subscriber_email", normalizedEmail)
         .eq("onepage_id", onepage_id)
-        .eq("product_id", digital_product_id)
+        .eq("product_id", deliverable.id)
         .single()
 
       if (existingDownload) {
@@ -132,7 +147,7 @@ export async function POST(request: Request) {
           .insert({
             subscriber_email: normalizedEmail,
             onepage_id: onepage_id,
-            product_id: digital_product_id,
+            product_id: deliverable.id,
             download_token: downloadToken,
             max_downloads: 10,
             expires_at: expiresAt.toISOString(),
@@ -204,11 +219,11 @@ export async function POST(request: Request) {
     // Insert or update lead
     if (existingLead) {
       // Update existing lead with digital product if provided
-      if (digital_product_id && !existingLead.digital_product_id) {
+      if (deliverable && !existingLead.digital_product_id) {
         await adminSupabase
           .from("onepage_leads")
           .update({
-            digital_product_id,
+            digital_product_id: deliverable.id,
             digital_download_sent: !!downloadLink,
             digital_download_sent_at: downloadLink ? new Date().toISOString() : null,
           })
@@ -234,8 +249,8 @@ export async function POST(request: Request) {
         utm_source: utm_source || null,
         utm_medium: utm_medium || null,
         utm_campaign: utm_campaign || null,
-        delivery_status: digital_product_id ? "sent" : "not_applicable",
-        digital_product_id: digital_product_id || null,
+        delivery_status: deliverable ? "sent" : "not_applicable",
+        digital_product_id: deliverable?.id ?? null,
         digital_download_sent: !!downloadLink,
         digital_download_sent_at: downloadLink ? new Date().toISOString() : null,
       })
