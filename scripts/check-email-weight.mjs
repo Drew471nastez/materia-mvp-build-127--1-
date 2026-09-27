@@ -101,6 +101,7 @@ function weigh(dir, label) {
       const inner = (() => {
         try {
           const u = new URL(img.src)
+          if (u.pathname === "/api/email/img") return u.searchParams.get("u")
           return u.pathname === "/_next/image" ? u.searchParams.get("url") : img.src
         } catch {
           return img.src

@@ -20,6 +20,7 @@ import { publicOnePage } from "@/lib/onepage/public-shape"
 import { resolveOnePageSeo, type ResolvedOnePageSeo } from "@/lib/onepage/seo"
 import { resolveOnePageAddress, type OnePageAddress } from "@/lib/onepage/resolve-address"
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
+import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 
 /**
  * WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
@@ -58,6 +59,8 @@ export const onePageOwner = cache(async (sellerId: string | null, creatorId: str
   const handle = (profile as { username?: string | null } | null)?.username || null
   return {
     handle,
+    /* The seller the page's products belong to, for a page row that does not name one. */
+    creatorId: id || null,
     banned: isBanned(row),
     avatarUrl: (profile as { avatar_url?: string | null } | null)?.avatar_url || null,
     displayName: (profile as { display_name?: string | null } | null)?.display_name || null,
@@ -128,12 +131,29 @@ export async function onePageAddress(onepage: { seller_id?: string | null; creat
  * editor's Settings previewed from the draft that was published
  * (lib/onepage/seo resolveOnePageSeo, the same function on both sides).
  */
-export async function publishedOnePageSeo(onepage: any, owner: OnePageOwner, slug: string): Promise<{ seo: ResolvedOnePageSeo; drawn: ReturnType<typeof publishedShape> }> {
+export async function publishedOnePageSeo(
+  onepage: any,
+  owner: OnePageOwner,
+  slug: string,
+  { liveProducts = false }: { liveProducts?: boolean } = {},
+): Promise<{ seo: ResolvedOnePageSeo; drawn: ReturnType<typeof publishedShape> }> {
   const drawn = publishedShape(onepage, owner)
+  /*
+    THE DESCRIPTION NAMES ONLY WHAT A VISITOR SEES (lib/onepage/seo-description):
+    the published blocks, with each product read from its row as the page
+    body reads it (lib/onepage/live-products), so an archived, unpublished or
+    deleted product is never named. Only the metadata asks for this; the
+    share pictures draw no text and skip the read.
+  */
+  const blocks = liveProducts
+    ? await withLiveProducts(createAdminClient() as unknown as ProductsDb, drawn.seller_id || owner.creatorId || "", drawn.blocks)
+    : drawn.blocks
   const pageUrl = await onePageAddress(onepage, owner, slug)
   const seo = resolveOnePageSeo({
     name: drawn.title,
     bio: drawn.bio,
+    blocks,
+    socialLinks: drawn.social_links,
     handle: onepage.slug || slug,
     avatarUrl: drawn.avatar_url,
     theme: drawn.theme,
