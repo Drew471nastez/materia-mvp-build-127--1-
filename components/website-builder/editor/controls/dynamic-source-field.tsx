@@ -84,6 +84,12 @@ export function DynamicSourceField({
   const body = React.useRef<HTMLDivElement>(null)
   /** Where the caret was in the field's text box, so an insert lands there. */
   const caret = React.useRef<number | null>(null)
+  /* Read on every selection change and again as the text box loses focus to the button. */
+  const keepCaret = (el: EventTarget) => {
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      if (typeof el.selectionStart === "number") caret.current = el.selectionStart
+    }
+  }
   /** Focus handed back to the button by a pick is not a request for its tooltip. */
   const quiet = React.useRef(false)
   const refocus = () => {
@@ -191,8 +197,8 @@ export function DynamicSourceField({
         "relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors " +
         "hover:bg-neutral-100 hover:text-foreground aria-expanded:bg-neutral-100 aria-expanded:text-foreground " +
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 " +
-        /* 44px under a thumb: 8px either side, 12px up into the gap above, 4px down to the field and not over it. */
-        "before:absolute before:content-[''] max-sm:before:-inset-x-2 max-sm:before:-top-3 max-sm:before:-bottom-1"
+        /* 44px under a thumb: 8px either side, 14px up into the 16px gap above, 2px down to the field and not over it. */
+        "before:absolute before:content-[''] max-sm:before:-inset-x-2 max-sm:before:-top-3.5 max-sm:before:-bottom-0.5"
       }
     >
       <Database className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -214,9 +220,10 @@ export function DynamicSourceField({
               row is 28px for the button; -6px above and 2px below keep the
               words and the field where a plain label puts them (16px of
               words, 6px, the field), so this field lines up with its
-              neighbours to within 2px.
+              neighbours to within 2px. On a phone the row keeps its top
+              margin, because the button's 44px reaches 14px up into it.
             */}
-            <div className="-mt-1.5 mb-0.5 max-sm:mb-1 flex min-h-7 items-center justify-between gap-2" data-dynamic-label="">
+            <div className="-mt-1.5 mb-0.5 max-sm:mt-0 flex min-h-7 items-center justify-between gap-2" data-dynamic-label="">
               {label ? <label className="min-w-0 truncate text-xs font-medium text-muted-foreground">{label}</label> : <span />}
               {phone ? (
                 action
@@ -230,16 +237,14 @@ export function DynamicSourceField({
                   delayDuration={400}
                 >
                   <TooltipTrigger asChild>{action}</TooltipTrigger>
-                  <TooltipContent side="top">{INSERT_LABEL}</TooltipContent>
+                  <TooltipContent side="left">{INSERT_LABEL}</TooltipContent>
                 </Tooltip>
               )}
             </div>
             <div
               ref={body}
-              onSelect={(e) => {
-                const el = e.target as HTMLInputElement | HTMLTextAreaElement
-                if (typeof el.selectionStart === "number") caret.current = el.selectionStart
-              }}
+              onSelect={(e) => keepCaret(e.target)}
+              onBlur={(e) => keepCaret(e.target)}
             >
               {bound ? (
                 <div
