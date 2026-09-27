@@ -177,3 +177,27 @@ export async function checkReviewEligibility(
 
   return { ok: true }
 }
+
+/**
+ * A GUEST, FROM THEIR RECEIPT LINK. The receipt token proves the purchase
+ * (it is the same credential the downloads take), and there is no account
+ * to compare, so this asks the one thing it can: is the address the order
+ * was bought with the seller's own published address. Everything else a
+ * second account could share is on an account, and a guest has none.
+ */
+export async function checkGuestReviewEligibility(
+  admin: Admin,
+  { productId, email }: { productId: string; email?: string | null },
+): Promise<ReviewEligibility> {
+  if (!productId) return { ok: false, code: "own_product", message: "You cannot review this product" }
+  const seller = await readSeller(admin, productId)
+  if (!seller) return { ok: false, code: "own_product", message: "You cannot review this product" }
+  if (same(email, seller.supportEmail)) {
+    return {
+      ok: false,
+      code: "linked_seller",
+      message: "This order was made with the seller's own address, so it cannot review their products",
+    }
+  }
+  return { ok: true }
+}

@@ -47,6 +47,19 @@ const REVIEW_COLUMNS = new Set([
   "product_id",
   "rating",
   "updated_at",
+  /*
+    Added by run-now part 52 (reviews complete), on purpose: the guest's
+    name, published or hidden, the edit date and the seller's one reply.
+    Every read that names one of these asks again without them when the
+    part has not run (lib/reviews/store missingColumn).
+  */
+  "reviewer_name",
+  "status",
+  "hidden_at",
+  "hidden_reason",
+  "edited_at",
+  "seller_reply",
+  "seller_reply_at",
 ])
 
 const SKIP = new Set(["node_modules", ".next", ".git", "ios", "android", "public", "tests"])

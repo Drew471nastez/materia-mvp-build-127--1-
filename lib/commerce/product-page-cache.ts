@@ -313,16 +313,24 @@ export const cachedReviews = (productId: string) =>
   unstable_cache(
     async () => {
       const supabase = createPublicReadClient()
-      const { data } = await supabase
-        .from("reviews")
-        .select(`
-      *,
-      buyer:profiles!buyer_id(id, display_name, avatar_url)
-    `)
-        .eq("product_id", productId)
-        .order("created_at", { ascending: false })
-        .limit(10)
-      return (data ?? []) as unknown as CachedReview[]
+      /*
+        Published reviews only, with the columns a card draws (the buyer's
+        name and photo, the seller's reply) and nothing else. Before run-now
+        part 52 there is no status or reply column, and PostgREST refuses a
+        request naming one (42703): asked again the old way, so reviews keep
+        showing either way.
+      */
+      const read = (columns: string, published: boolean) => {
+        let q = supabase.from("reviews").select(columns).eq("product_id", productId)
+        if (published) q = q.eq("status", "published")
+        return q.order("created_at", { ascending: false }).limit(10)
+      }
+      const buyer = "buyer:profiles!buyer_id(id, display_name, avatar_url)"
+      let res = await read(`id, product_id, rating, content, created_at, edited_at, reviewer_name, seller_reply, seller_reply_at, ${buyer}`, true)
+      if (res.error && (res.error.code === "42703" || res.error.code === "PGRST204")) {
+        res = await read(`id, product_id, rating, content, created_at, ${buyer}`, false)
+      }
+      return (res.data ?? []) as unknown as CachedReview[]
     },
     ["product-reviews", productId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(productId)] },
