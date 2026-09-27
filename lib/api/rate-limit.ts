@@ -240,4 +240,12 @@ export const LIMITS = {
    * lib/sites/rate-limit.ts), counted per route.
    */
   siteAi: [{ limit: 6, seconds: 60 }, { limit: 40, seconds: 3600 }],
+  /**
+   * Analytics events from one address (lib/analytics/collect): page views,
+   * link clicks and the steps towards a sale together. A person reading a
+   * site opens a page every few seconds at most; two a second for a minute,
+   * or two thousand in an hour, is a script, or many people behind one
+   * address, where losing the excess is the lesser harm.
+   */
+  track: [{ limit: 120, seconds: 60 }, { limit: 2000, seconds: 3600 }],
 } as const satisfies Record<string, readonly RateWindow[]>

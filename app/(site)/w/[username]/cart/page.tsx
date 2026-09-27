@@ -7,6 +7,7 @@ import { dressPage, publishedShopByName } from "@/lib/website-builder/published-
 import { resolveSectionColors } from "@/lib/storelib-theme/color-schemes"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteMetadata } from "../render-site"
+import { TrackView } from "@/components/analytics/track-view"
 
 /**
  * ===========================================================================
@@ -53,6 +54,9 @@ export default async function SiteCartPage({ params }: PageProps) {
   const radius = Number((site.themeSettings as Record<string, unknown>).radius_medium ?? 12) || 12
 
   return (
+    <>
+    {/* The cart is a page of the website too: one view, with its own path. */}
+    <TrackView creatorId={site.creatorId} />
     <ThemePage
       theme={site.themeSettings}
       sections={sections}
@@ -70,5 +74,6 @@ export default async function SiteCartPage({ params }: PageProps) {
         }}
       />
     </ThemePage>
+    </>
   )
 }

@@ -1,7 +1,43 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
 import crypto from "crypto"
+import { collectFrom } from "@/lib/analytics/collect-route"
+
+/**
+ * A OnePage LINK, IN BOTH PLACES IT IS COUNTED.
+ *
+ * onepage_clicks is what the OnePage editor's link stats and Analytics'
+ * OnePage view read, one per visitor, block and UTC day, exactly as before:
+ * nothing here changes it. The same click is also an analytics event
+ * (link_click, property onepage) through the one pipeline every page shares
+ * (lib/analytics/collect), which has its own rules: not a robot, not the
+ * owner, one per visit and link. Whose OnePage it is comes from the row,
+ * never from the page.
+ */
+async function recordLinkClick(request: NextRequest, body: Record<string, unknown>): Promise<void> {
+  try {
+    const admin = createAdminClient()
+    const { data: page } = await admin.from("onepages").select("id, seller_id, creator_id, owner_id").eq("id", body.onepage_id).maybeSingle()
+    const row = page as { id: string; seller_id?: string | null; creator_id?: string | null; owner_id?: string | null } | null
+    if (!row) return
+    let creatorId = row.seller_id || row.creator_id || null
+    if (!creatorId && row.owner_id) {
+      const { data: creator } = await admin.from("creators").select("id").eq("user_id", row.owner_id).maybeSingle()
+      creatorId = (creator as { id?: string } | null)?.id ?? null
+    }
+    if (!creatorId) return
+    await collectFrom(
+      request,
+      "link_click",
+      { creatorId, href: body.href, linkUrl: body.url, linkId: body.block_id, sessionId: body.session_id, visitorId: body.visitor_id },
+      admin,
+    )
+  } catch {
+    /* The OnePage's own count above is what this route answers for. */
+  }
+}
 
 // Hash IP address for privacy
 function hashIP(ip: string): string {
@@ -106,6 +142,8 @@ export async function POST(request: NextRequest) {
           user_agent: userAgent.slice(0, 500),
         })
       }
+
+      await recordLinkClick(request, body)
     }
 
     return NextResponse.json({ success: true })

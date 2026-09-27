@@ -78,7 +78,17 @@ const MAX_SPAN_MS = 30 * 366 * 24 * 3_600_000
 const CACHE_MS = 15_000
 
 const VIEW_COLUMNS =
-  "id, session_id, visitor_id, product_id, created_at, source_category, referrer_domain, country_code, country_name, city, device_type, browser, os, page_url, utm_campaign"
+  "id, session_id, visitor_id, product_id, created_at, source_category, referrer_domain, country_code, country_name, city, device_type, browser, os, page_url, utm_campaign, property_type"
+
+/**
+ * THE ONEPAGE IS COUNTED ONCE. Its views are analytics events too now
+ * (property onepage, lib/analytics/collect), but this Storelib view has never
+ * counted them: the OnePage view reads onepage_views. So they are left out
+ * here, as the database's own count leaves them out (part 54's
+ * analytics_visit_tally), and a OnePage visit is counted once, in the OnePage
+ * view, as before. docs/analytics/events.md, "Legacy and new rows".
+ */
+const notOnePage = (row: { property_type?: string | null }) => row.property_type !== "onepage"
 /* What the figures read of an order (lib/orders/order-view, reports.ts moneyOf). */
 const ORDER_COLUMNS =
   "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, buyer_country_code, buyer_country"
@@ -373,17 +383,19 @@ function storeAnswer(
 
 /* ─── The rows, while the database cannot count them itself ───────────── */
 
-function readViews(admin: Admin, spans: Span[], creatorId: string, product: string | null) {
-  return withColumns(VIEW_COLUMNS, (columns) =>
-    readSpans<ViewRow & { id: string }>(spans, (start, end, after) => {
+async function readViews(admin: Admin, spans: Span[], creatorId: string, product: string | null) {
+  const read = await withColumns(VIEW_COLUMNS, (columns) =>
+    readSpans<ViewRow & { id: string; property_type?: string | null }>(spans, (start, end, after) => {
       let q = admin.from("analytics_events").select(columns).eq("creator_id", creatorId).eq("event_type", "view").lt("created_at", end)
       if (product) q = q.eq("product_id", product)
       return startingAt(q, start, after)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
-        .limit(PAGE) as unknown as Read<ViewRow & { id: string }>
+        .limit(PAGE) as unknown as Read<ViewRow & { id: string; property_type?: string | null }>
     }),
   )
+  /* Filtered after the read, so a page edge is still where the keyset left it. */
+  return { rows: read.rows.filter(notOnePage), truncated: read.truncated }
 }
 
 async function readSteps(admin: Admin, spans: Span[], creatorId: string, product: string | null) {
@@ -432,8 +444,14 @@ async function allTimeOf(admin: Admin, creatorId: string, product: string | null
   })
   if (counted) return { views: Number(counted.views) || 0, orders: Number(counted.orders) || 0, salesCents: Number(counted.sales_cents) || 0 }
 
-  let viewsQuery = admin.from("analytics_events").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("event_type", "view")
-  if (product) viewsQuery = viewsQuery.eq("product_id", product)
+  const countViews = (withoutOnePage: boolean) => {
+    let q = admin.from("analytics_events").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("event_type", "view")
+    if (withoutOnePage) q = q.or("property_type.is.null,property_type.neq.onepage")
+    if (product) q = q.eq("product_id", product)
+    return q
+  }
+  /* Before part 54 there is no property_type, and no OnePage row to leave out. */
+  const viewsQuery = countViews(true).then((r) => (r.error ? countViews(false) : r))
   const everyOrder = byCreator((scope) =>
     withColumns(ORDER_COLUMNS, async (columns) =>
       ownRows(

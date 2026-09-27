@@ -36,6 +36,7 @@ import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -3434,15 +3435,30 @@ function PublicBlockRenderer({
   }
   const hoverEffect = getHoverEffect()
 
+  /*
+    One request, counted twice on the server (app/api/onepage/track): in
+    onepage_clicks for this editor's link stats, and as a link_click in
+    Analytics, which is why the page's address and the visit go with it.
+    keepalive, so a link that leaves the page does not cancel its own count.
+  */
   const trackClick = async (blockId: string, url: string) => {
     try {
       await fetch("/api/onepage/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ onepage_id: onepageId, block_id: block.id, event_type: "click", url }),
+        keepalive: true,
+        body: JSON.stringify({
+          onepage_id: onepageId,
+          block_id: block.id,
+          event_type: "click",
+          url,
+          href: window.location.href,
+          session_id: getOrCreateSessionId() || undefined,
+          visitor_id: getOrCreateVisitorId() || undefined,
+        }),
       })
-    } catch (e) {
-      console.error("Track error:", e)
+    } catch {
+      /* A count is never worth an error on the page. */
     }
   }
 

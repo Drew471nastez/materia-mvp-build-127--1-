@@ -75,9 +75,10 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `49_payouts_table.sql` | The payouts table the Stripe webhook, Cash out and Withdraw write every payout to, and the order timeline, notifications and admin console read. Written in February and never run, so every payout write has been failing quietly. Creators read their own; only the server writes. Needs creators. | 11 | 2297 |
 | `50_signup_abuse.sql` | Sign up protection: the attempts table the sign up guard writes, and the spam score and state on profiles the admin console reads (it logs `column profiles.spam_state does not exist`). Written in August and never run. No rows change. | 13 | 2988 |
 | `51_email_flows_trigger_rules.sql` | Automations could not be created from the First order or Checkout reminder templates: an old check on `email_flows` that no file here made refused both triggers. Drops every check on `email_flows.trigger_type` or `status`, whatever its name, and adds the two the app writes against (NOT VALID). | 7 | 2059 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 13,317 |
+| `54_analytics_one_pipeline.sql` | Analytics as one pipeline: every event knows the property it happened on (the creator page, the OnePage, or one website by its install id) and the page's path, so a website's pages are counted one by one. Adds those columns and a link's id and destination to `analytics_events`, allows the new `link_click` event (NOT VALID), four indexes for the reports' reads, and places old page views on their property from the address they were recorded on (a second run changes nothing; no other row changes). A daily rollup per creator, property and UTC day, the days it holds, and the function the daily cron refreshes a day with; server only, creators read their own. `analytics_visit_tally` and `analytics_all_time` leave OnePage page views out, so the Storelib view counts them once, in the OnePage view, as before. Run after `25` and `32`. Until it runs, page views are recorded as before and OnePage views and link clicks wait for it; docs/analytics/events.md is the contract. Can take a minute on a large events table. | 33 | 23,911 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 16,985 |
 
-Parts `01` to `47` all run as the editor's normal role. `90` is the one
+Parts `01` to `54` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:

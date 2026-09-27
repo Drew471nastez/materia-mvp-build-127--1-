@@ -3,6 +3,7 @@ import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { TrackView } from "@/components/analytics/track-view"
 import { headers } from "next/headers"
 import { getLinksInternalPath, getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { primaryHostFor } from "@/lib/custom-domains/store"
@@ -403,6 +404,11 @@ export default async function PublicOnePageRoute({ params }: Props) {
     <>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
       <PublicOnePage onepage={transformedOnepage} />
+      {/* The OnePage in Analytics, as one property among the creator's, by the
+          same rules as every other page (lib/analytics/collect). The count
+          above, in onepage_views, is the OnePage editor's and is unchanged.
+          Its links report their own clicks, with the block they came from. */}
+      {resolvedCreatorId && <TrackView creatorId={resolvedCreatorId} links={false} />}
     </>
   )
 }

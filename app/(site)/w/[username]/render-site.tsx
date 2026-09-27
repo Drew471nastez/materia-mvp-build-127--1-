@@ -234,8 +234,10 @@ export async function renderSite(
         storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages) }}
         emptyDetail="Check back soon!"
       />
-      {/* A visit to the published site counts in Analytics like a visit to the
-          creator page does. Previews and cover renders never reach this line. */}
+      {/* Every page of the published site is one view in Analytics, with its
+          own path, placed on this website by the server from the address
+          (lib/analytics/property). It was one view a visit, whatever was read.
+          Previews and cover renders never reach this line. */}
       <TrackView type="store" creatorId={site.creatorId} />
       {/* How fast the page was for this visitor: LCP, INP and CLS, once, as
           they leave. Published pages only, like the line above. */}

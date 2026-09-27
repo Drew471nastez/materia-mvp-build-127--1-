@@ -173,12 +173,13 @@ console.log("\nAnalytics: the pieces that feed it")
   check("no made-up device split", !/Math\.round\(totalViews \* 0\.55\)/.test(client))
   const utils = read("lib/analytics-utils.ts")
   check("the analytics session has its own cookie, not the checkout's", /const SESSION_COOKIE = "sl_asid"/.test(utils) && !/materia_session=/.test(utils))
-  const event = read("app/api/track-event/route.ts")
-  check("a funnel step is recorded once per visit", /\.eq\("session_id", sessionId\)/.test(event) && /duplicate: true/.test(event))
+  /* Changed on purpose: every tracking route is one pipeline now (lib/analytics/collect), so the rules are read there. */
+  const event = read("lib/analytics/collect.ts")
+  check("a funnel step is recorded once per visit", /\.eq\("event_type", kind\)\.eq\("session_id", sessionId\)/.test(event) && /reason: "duplicate"/.test(event))
   check("the checkout reports its step with the visit", /trackFunnelStep\("checkout_start"/.test(read("app/checkout/checkout-client.tsx")))
-  check("a website's pages are counted", /<TrackView type="store" creatorId=\{site\.creatorId\}/.test(read("app/(site)/w/[username]/render-site.tsx")))
+  check("a website's pages are counted, each by its path", /<TrackView type="store" creatorId=\{site\.creatorId\}/.test(read("app/(site)/w/[username]/render-site.tsx")) && /\[creatorId, productId, pathname\]/.test(read("components/analytics/track-view.tsx")))
   check("  and its product pages, never a preview", /previewToken \? null : <TrackView type="product"/.test(read("components/website-builder/theme/render-product.tsx")))
-  check("every country by name", /Intl\.DisplayNames\(\["en"\], \{ type: "region" \}\)/.test(read("app/api/track-view/route.ts")))
+  check("every country by name", /Intl\.DisplayNames\(\["en"\], \{ type: "region" \}\)/.test(read("lib/analytics/collect.ts")))
 }
 
 console.log("\nAnalytics: OnePage")
@@ -218,7 +219,7 @@ console.log("\nAnalytics: OnePage")
   check("Instagram's browser is named Instagram, not Safari", parseUserAgent(IPHONE_IG).browser === "Instagram")
   check("an iPad is a tablet", parseUserAgent("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)").device === "tablet")
   check("a referrer's host, without www", referrerHost("https://www.google.com/x") === "google.com" && referrerHost("") === "")
-  check("the view tracker and the reports share one set of source rules", /from "@\/lib\/analytics\/sources"/.test(read("app/api/track-view/route.ts")))
+  check("the view tracker and the reports share one set of source rules", /from "\.\/sources"/.test(read("lib/analytics/collect.ts")) && /from "@\/lib\/analytics\/collect-route"/.test(read("app/api/track-view/route.ts")))
   const route = read("app/api/analytics/reports/route.ts")
   check("the OnePage is found from the signed-in user, never the request", /\.eq\("owner_id", userId\)/.test(route))
 }
@@ -279,22 +280,23 @@ console.log("\nTracking: robots and people")
   check("and its source hint is the server's own function", /return categorizeServerSource\(referrer, utmSource, utmMedium, clientApp\)/.test(utils))
   check("an iPad, which says it is a Mac, is a tablet", /navigator\.maxTouchPoints \?\? 0\) > 1/.test(utils))
 
-  const view = read("app/api/track-view/route.ts")
-  check("the view tracker drops robots before anything is read", /if \(isBotAgent\(ua\)\) \{/.test(view))
-  check("and the creator's own visits", /if \(await isOwnVisit\(/.test(view) && /auth\.getUser\(\)/.test(read("lib/analytics/own-visit.ts")))
+  /* Changed on purpose: the view tracker, the funnel steps and the OnePage links are one pipeline (lib/analytics/collect). */
+  const view = read("lib/analytics/collect.ts")
+  check("the view tracker drops robots before anything is read", /if \(isBotAgent\(ua\)\) return \{ recorded: false, reason: "bot" \}/.test(view) && view.indexOf("isBotAgent(ua)") < view.indexOf('from("creators")'))
+  check("and the creator's own visits", /if \(await deps\.isOwnVisit\(/.test(view) && /isOwnVisit,/.test(read("lib/analytics/collect-route.ts")) && /auth\.getUser\(\)/.test(read("lib/analytics/own-visit.ts")))
   check("the half-hour dedupe survives two rows in the window (maybeSingle errored, and the error branch inserted)",
-    /await dedupeQuery\.limit\(1\)/.test(view) && !/dedupeQuery\.maybeSingle\(\)/.test(view))
+    /await q\.limit\(1\)/.test(view) && !/\.eq\("event_type", EVENT\.pageView\)[^\n]*\.maybeSingle\(\)/.test(view))
   check("device, browser and system come from the request's own signature", /const parsed = parseUserAgent\(ua\)/.test(view))
-  check("a referrer that is Storelib, the creator's site or Stripe is Direct", /isInternalReferrer\(host, getMainDomain\(\), pageHost\)/.test(view))
-  check("a page that is not a real creator's is not counted", /from\("creators"\)\.select\("id, user_id"\)\.eq\("id", payload\.creatorId\)/.test(view))
-  check("a scripted browser does not send a view", /if \(isAutomatedBrowser\(\)\) return/.test(read("components/analytics/track-view.tsx")))
+  check("a referrer that is Storelib, the creator's site or Stripe is Direct", /isInternalReferrer\(host, mainDomain, pageHost\)/.test(view))
+  check("a page that is not a real creator's is not counted", /from\("creators"\)\.select\("id, user_id"\)\.eq\("id", creatorId\)/.test(view))
+  check("a scripted browser does not send a view", /webdriver === true\) return "automated"/.test(read("lib/analytics/page-tracker.ts")) && /schedulePageView\(window/.test(read("components/analytics/track-view.tsx")))
 
-  const event = read("app/api/track-event/route.ts")
   check("funnel steps read the consent cookie on the server, not the page",
-    /const consented = allows\(parse\(\(await cookies\(\)\)\.get\(CONSENT_COOKIE\)\?\.value, Date\.now\(\)\), "analytics"\)/.test(event)
+    /const consented = allows\(parse\(req\.cookie\(CONSENT_COOKIE\), now\), "analytics"\)/.test(view)
       /* Changed on purpose: without consent the ids are now the daily hash and its visit (lib/analytics/anon-visit), never what the page sent. */
-      && /const sessionId = consented\s*\?\s*typeof payload\.sessionId === "string"/.test(event) && /const visitorId = consented \? \(typeof payload\.visitorId === "string"/.test(event))
-  check("and only the steps the funnel knows are recorded", /\(EVENTS as readonly string\[\]\)\.includes\(payload\.eventType\)/.test(event) && /isBotAgent/.test(event))
+      && /visitorId = consented \? browserId\(body\.visitorId\) : anonVisitor/.test(view) && /sessionId = consented \? sessionFromBody : anonVisitor \? await anonSession/.test(view))
+  const event = read("app/api/track-event/route.ts")
+  check("and only the steps the funnel knows are recorded", /\(EVENTS as readonly string\[\]\)\.includes\(eventType\)/.test(event) && /isBotAgent/.test(view))
 }
 
 console.log("\nReports: time zones, periods and comparisons")
@@ -391,9 +393,11 @@ console.log("\nAnalytics: from the review")
   check("All time is answered, not refused: the span allows years past 2020", /const MAX_SPAN_MS = 30 \* 366 \* 24 \* 3_600_000/.test(route))
   check("and All time is compared with nothing", /const isAllTime = period\.preset === "all_time"/.test(page) && /isAllTime \? null : compareBounds\(/.test(page) && !/<ComparePicker/.test(page))
   check("OnePage views: each window counted from its own sessions, never twice", !/now\.concat\(before\)/.test(read("lib/analytics/reports.ts")) && /current: bucketCounts\(at\(now\), starts, cur, n\)/.test(read("lib/analytics/reports.ts")))
-  const ev = read("app/api/track-event/route.ts")
+  /* The funnel steps go through the one pipeline a page view does (lib/analytics/collect). */
+  const ev = read("lib/analytics/collect.ts")
   check("a funnel step needs a real creator and their own product, and the creator's own clicks do not count",
-    /from\("creators"\)\.select\("id, user_id"\)\.eq\("id", payload\.creatorId\)/.test(ev) && /\.eq\("creator_id", payload\.creatorId\)/.test(ev) && /isOwnVisit\(/.test(ev))
+    /from\("creators"\)\.select\("id, user_id"\)\.eq\("id", creatorId\)/.test(ev) && /\.eq\("id", productId\)\.eq\("creator_id", creatorId\)/.test(ev) && /isOwnVisit\(/.test(ev) &&
+      /collectFrom\(req, eventType as CollectKind, body, createAdminClient\(\)\)/.test(read("app/api/track-event/route.ts")))
   check("a step is sent once per page, with nothing stored", /const sentSteps = new Set<string>\(\)/.test(read("lib/analytics-utils.ts")) && /if \(sentSteps\.has\(key\)\) return Promise\.resolve\(\)/.test(read("lib/analytics-utils.ts")))
   check("a failed refresh keeps the figures; only a different question clears them",
     /questionOf\(s\.data\.key\) === question \? s\.data : null/.test(read("app/app/analytics/analytics-reports.tsx")))
