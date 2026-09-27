@@ -9,6 +9,7 @@ import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
+import { attributionForCheckout, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
 
@@ -197,7 +198,11 @@ export async function POST(request: Request) {
     /* The OnePage sends where it is and where its visit came from; a page
        that sends nothing is read from its own address (the Referer). */
     const origin = originOf(body.origin, request)
-    await tagOrderSource(admin, order.id, channelOf(origin, orderSourceFromRequest(request)), origin)
+    const channel = channelOf(origin, orderSourceFromRequest(request))
+    await tagOrderSource(admin, order.id, channel, origin)
+    /* First and last touch and the property, checked for this creator (lib/attribution). */
+    const attribution = await attributionForCheckout(admin, { creatorId: product.creator.id, source: channel, origin, sent: body.origin })
+    await recordOrderAttribution(admin, order.id, attribution)
 
     // Upsert customer
     await admin.rpc("upsert_customer", {
@@ -225,6 +230,7 @@ export async function POST(request: Request) {
       bought: true,
       source: contactSourceOfOrder(origin, product.id),
     })
+    await recordContactAttribution(admin, product.creator.id, normalizedEmail, attribution)
 
     // Create entitlement for logged-in users
     if (user) {

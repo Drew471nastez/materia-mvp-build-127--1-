@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { randomUUID } from "node:crypto"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { recordSignupAttribution } from "@/lib/attribution/server"
 
 /** Deliberately plain. A clever pattern refuses addresses that work. */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
@@ -117,6 +118,8 @@ export async function POST(request: Request) {
        was on; on a creator's own domain, that website. */
     const source = contactSourceFrom({ request, surface: "profile", form: "bar", sent: origin })
     await recordContactSource(adminSupabase, creator.id, address, source)
+    /* The property and the visit's touches, onto the same contact (lib/attribution). */
+    await recordSignupAttribution(adminSupabase, { creatorId: creator.id, email: address, source, sent: origin })
 
     if (welcome) {
       try {

@@ -15,6 +15,7 @@ import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { useProductTopBarShown } from "@/lib/store-builder/product-top-bar"
 import { useRouter } from "next/navigation"
+import { carryTouches } from "@/lib/attribution/browser"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -238,7 +239,7 @@ export function EditorStickyAddToCart({
       back. The checkout still renders on the server; a client navigation
       fetches it as an RSC payload rather than as a new page.
     */
-    router.push(checkoutUrl)
+    router.push(carryTouches(checkoutUrl))
   }
 
   const handleWrapperClick = () => {
@@ -563,7 +564,7 @@ export function LiveStickyAddToCart({
          way home. */
       if (opening) return
       startOpening()
-      router.push(checkoutUrl)
+      router.push(carryTouches(checkoutUrl))
     }
   }
 

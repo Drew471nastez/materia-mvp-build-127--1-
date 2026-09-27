@@ -3,6 +3,7 @@ import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { headers } from "next/headers"
 import { getLinksInternalPath, getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { primaryHostFor } from "@/lib/custom-domains/store"
@@ -403,6 +404,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
     <>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
       <PublicOnePage onepage={transformedOnepage} />
+      {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
+      <CaptureTouch creatorId={resolvedCreatorId} property="onepage" />
     </>
   )
 }

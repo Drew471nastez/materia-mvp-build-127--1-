@@ -75,9 +75,10 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `49_payouts_table.sql` | The payouts table the Stripe webhook, Cash out and Withdraw write every payout to, and the order timeline, notifications and admin console read. Written in February and never run, so every payout write has been failing quietly. Creators read their own; only the server writes. Needs creators. | 11 | 2297 |
 | `50_signup_abuse.sql` | Sign up protection: the attempts table the sign up guard writes, and the spam score and state on profiles the admin console reads (it logs `column profiles.spam_state does not exist`). Written in August and never run. No rows change. | 13 | 2988 |
 | `51_email_flows_trigger_rules.sql` | Automations could not be created from the First order or Checkout reminder templates: an old check on `email_flows` that no file here made refused both triggers. Drops every check on `email_flows.trigger_type` or `status`, whatever its name, and adds the two the app writes against (NOT VALID). | 7 | 2059 |
+| `52_attribution.sql` | Where a buyer or a sign-up came from: first and last touch (source, referring host, UTM tags, landing page) and the property it happened on (creator page, OnePage or a website, with its id) on orders, subscribers and started checkouts, and when it was written, so the webhook and the buyer's browser write it once. Checks on their shape (NOT VALID) and the indexes the reports group revenue by. Adds columns and indexes only: no rows change and no money column is touched. Run after `32` and `13` (or `46`); without them it skips those pieces with a notice and can be run again. Until it runs, orders and sign-ups are made as before, without attribution. docs/analytics/attribution.md. | 16 | 4,473 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 13,317 |
 
-Parts `01` to `47` all run as the editor's normal role. `90` is the one
+Parts `01` to `52` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:

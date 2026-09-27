@@ -200,6 +200,7 @@ const SUITES = [
   "tests/automation-templates.test.ts",
   "tests/checkout-contacts.test.ts",
   "tests/checkout-welcome.test.ts",
+  "tests/attribution.test.ts",
   "tests/section-sandbox.test.ts",
   "tests/agent-connection.test.ts",
   "tests/github-sync.test.ts",

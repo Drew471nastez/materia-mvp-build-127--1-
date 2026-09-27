@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { usePressPending } from "@/lib/navigation/press-pending"
+import { carryTouches } from "@/lib/attribution/browser"
 
 interface BuyButtonProps {
   productId: string
@@ -81,7 +82,7 @@ export function BuyButton({
       to. See lib/navigation/in-app-history and the note in
       components/store-builder/sticky-add-to-cart.
     */
-    router.push(checkoutUrl)
+    router.push(carryTouches(checkoutUrl))
   }
 
   // Display price - use custom price if provided, otherwise regular price

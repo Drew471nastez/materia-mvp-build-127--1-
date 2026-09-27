@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { CheckoutLinkOrigin } from "@/components/website-builder/checkout-link-origin"
+import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { CheckoutReturnNotice } from "@/components/website-builder/checkout-return-notice"
 import { SiteDocument } from "@/components/website-builder/site-document"
 
@@ -47,6 +48,9 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       {/* A link to checkout carries which website and where its visit came
           from, for the order's Source. Static: nothing here reads the request. */}
       <CheckoutLinkOrigin />
+      {/* Where this visit came from, kept for this website's address and
+          carried to checkout and to its sign-up forms (lib/attribution). */}
+      <CaptureTouch property="website" />
       {/* Back from checkout having paid (?checkout=paid): said once, then gone. */}
       <CheckoutReturnNotice />
       {/* Marks <html> as a website, so the app shell's guards stand down. */}

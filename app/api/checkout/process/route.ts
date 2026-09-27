@@ -9,6 +9,7 @@ import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
+import { attributionForCheckout, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceOrder } from "@/lib/checkout/pricing"
 import { recordCouponUse } from "@/lib/checkout/coupons"
@@ -169,7 +170,11 @@ export async function POST(request: Request) {
 
     console.log("[checkout/process] Order created successfully:", order.id)
     const origin = originOf(body.origin, request)
-    await tagOrderSource(admin, order.id, channelOf(origin, orderSourceFromRequest(request)), origin)
+    const channel = channelOf(origin, orderSourceFromRequest(request))
+    await tagOrderSource(admin, order.id, channel, origin)
+    /* First and last touch and the property, checked for this creator (lib/attribution). */
+    const attribution = await attributionForCheckout(admin, { creatorId: creator.id, source: channel, origin, sent: body.origin })
+    await recordOrderAttribution(admin, order.id, attribution)
 
     const step = async (name: string, fn: () => Promise<unknown>) => {
       try {
@@ -203,6 +208,7 @@ export async function POST(request: Request) {
         source: contactSourceOfOrder(origin, product.id),
       }),
     )
+    await recordContactAttribution(admin, creator.id, email, attribution)
 
     if (user && !alreadyOwned) {
       await step("entitlement", async () => {
