@@ -140,6 +140,7 @@ const SUITES = [
   "tests/purchase-verify.test.ts",
   "tests/receipt-download.test.ts",
   "tests/receipt-actions.test.ts",
+  "tests/onepage-seo.test.ts",
   "tests/policy-pages.test.ts",
   "tests/footer-complete.test.ts",
   "tests/section-responsive.test.ts",

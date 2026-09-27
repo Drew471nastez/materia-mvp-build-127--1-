@@ -78,6 +78,11 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
             return String(v ?? "") >= String(val)
           case "lte":
             return String(v ?? "") <= String(val)
+          case "ilike": {
+            /* PostgREST's ilike: case insensitive, % for any run of characters, _ for one. */
+            const pattern = String(val).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")
+            return typeof v === "string" && new RegExp(`^${pattern}$`, "i").test(v)
+          }
           default:
             return true
         }
@@ -112,7 +117,9 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       if (state.op === "update") {
         const hit = rows.filter(matches)
         for (const r of hit) Object.assign(r, state.payload)
-        return { data: state.returning ? hit : null, error: null }
+        if (!state.returning) return { data: null, error: null }
+        /* `.select().single()` after an update answers the one row, as PostgREST does. */
+        return { data: state.single ? hit.map((r) => ({ ...r }))[0] ?? null : hit, error: null }
       }
       if (state.op === "delete") {
         const keep = rows.filter((r) => !matches(r))
@@ -168,6 +175,7 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       is: (c: string, v: unknown) => (state.filters.push(["is", c, v]), builder),
       gte: (c: string, v: unknown) => (state.filters.push(["gte", c, v]), builder),
       lte: (c: string, v: unknown) => (state.filters.push(["lte", c, v]), builder),
+      ilike: (c: string, v: unknown) => (state.filters.push(["ilike", c, v]), builder),
       order: () => builder,
       range: (a: number, b: number) => ((state.limit = b - a + 1), builder),
       limit: (n: number) => ((state.limit = n), builder),
