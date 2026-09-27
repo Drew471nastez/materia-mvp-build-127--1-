@@ -177,6 +177,8 @@ const PLATFORMS: Record<string, { label: string; hosts?: readonly string[] }> = 
   bluesky: { label: "Bluesky", hosts: ["bsky.app"] },
   substack: { label: "Substack", hosts: ["substack.com"] },
   vimeo: { label: "Vimeo", hosts: ["vimeo.com"] },
+  /* Named here only so the name is spelled right; a chat link is a way to reach somebody, never listed as a profile. */
+  whatsapp: { label: "WhatsApp" },
 }
 
 /** Ways to reach a person, not places to follow them: never named. */
