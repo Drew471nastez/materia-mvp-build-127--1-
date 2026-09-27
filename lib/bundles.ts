@@ -15,6 +15,7 @@
  *   - product/variant title changes (files_hash includes the title)
  */
 
+import JSZip from "jszip"
 import { STORAGE_BUCKET } from "@/lib/storage"
 import type { createAdminClient } from "@/lib/supabase/admin"
 
@@ -55,6 +56,24 @@ export function makeZipFileName(title: string, variantName?: string | null): str
       .replace(/^_|_$/g, "")
       .slice(0, 120) + ".zip"
   )
+}
+
+/**
+ * A file's name inside the ZIP, unique within it: two files a creator
+ * uploaded with the same name would otherwise be one entry, the second
+ * silently replacing the first. The second becomes "name (2).ext".
+ * Folders in a name are kept flat, so nothing unpacks outside the folder the
+ * buyer chose.
+ */
+export function zipEntryName(fileName: string, taken: Set<string>): string {
+  const base = (fileName || "file").replace(/[\\/]+/g, "_").replace(/^\.+/, "").trim() || "file"
+  const dot = base.lastIndexOf(".")
+  const stem = dot > 0 ? base.slice(0, dot) : base
+  const ext = dot > 0 ? base.slice(dot) : ""
+  let name = base
+  for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${stem} (${n})${ext}`
+  taken.add(name.toLowerCase())
+  return name
 }
 
 // ---------------------------------------------------------------------------
@@ -161,18 +180,16 @@ export async function ensureProductBundle(
   }
 
   // ── 4. Generate ZIP ─────────────────────────────────────────────────────
-  let archiver: typeof import("archiver")
-  try {
-    archiver = await import("archiver")
-  } catch {
-    console.error("[bundles] archiver package not available — run: pnpm add archiver")
-    return null
-  }
-
-  const archive = archiver.default("zip", { zlib: { level: 6 } })
-  const chunks: Buffer[] = []
-
-  archive.on("data", (chunk: Buffer) => chunks.push(chunk))
+  /*
+    JSZIP, NOT ARCHIVER. This used `archiver`, which was never a dependency
+    of this project: every bundle logged "[bundles] archiver package not
+    available" and the buyer got the files one by one. jszip is one already,
+    pure JavaScript, and the theme export and import routes run it in
+    production, so nothing new has to be installed or traced into the
+    function. The ZIP was built in memory before as well (BUNDLE_MAX_BYTES).
+  */
+  const zip = new JSZip()
+  const names = new Set<string>()
 
   let addedCount = 0
   for (const asset of assets) {
@@ -192,23 +209,16 @@ export async function ensureProductBundle(
       continue
     }
 
-    const fileBuffer = await res.arrayBuffer()
-    archive.append(Buffer.from(fileBuffer), { name: asset.file_name })
+    zip.file(zipEntryName(asset.file_name, names), new Uint8Array(await res.arrayBuffer()), { binary: true })
     addedCount++
   }
-
-  await archive.finalize()
-  await new Promise<void>((resolve, reject) => {
-    archive.on("end", resolve)
-    archive.on("error", reject)
-  })
 
   if (addedCount === 0) {
     console.error("[bundles] No files were added to the ZIP")
     return null
   }
 
-  const zipBuffer = Buffer.concat(chunks)
+  const zipBuffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } })
   const zipFileName = makeZipFileName(productTitle, variantName)
 
   // Stable storage path — same key every time so upsert simply overwrites
