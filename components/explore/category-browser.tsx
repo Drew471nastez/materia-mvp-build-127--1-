@@ -448,7 +448,12 @@ export function CategoryBrowser({
   /* One move, one curve, for both lists and the veil. */
   const move = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
   const veil = still ? "none" : `opacity ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
-  const pane = "absolute inset-0 overflow-y-auto overscroll-contain bg-white"
+  /* On a computer the scrollbar is a thin grey thumb with no track: the list says it scrolls
+     without a grey rail down the panel's side. A phone's is the system's overlay, untouched. */
+  const pane = cn(
+    "absolute inset-0 overflow-y-auto overscroll-contain bg-white",
+    !phone && "[scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.18)_transparent]",
+  )
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)} data-category-browser="">
