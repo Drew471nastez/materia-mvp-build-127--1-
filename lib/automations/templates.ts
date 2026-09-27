@@ -9,8 +9,10 @@
  * to end, from the trigger to the send, the retry and the open.
  *
  * The copy is plain and short, in the creator's own voice, because it goes
- * out under their name. A button is drawn in the editor's ink and wears the
- * creator's colour when it is sent (merge-fields brandButtons).
+ * out under their name, and it signs off with {{creator_name}}: the name on
+ * their profile when each email is sent, never a bracketed name to fill in.
+ * A button is drawn in the editor's ink and wears the creator's colour when
+ * it is sent (merge-fields brandButtons).
  */
 
 import type { Audience, EntryRule, FlowStep, TriggerType } from "./flow-model"
@@ -43,7 +45,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "Welcome, {{first_name}}",
-          body: "<p>Hi {{first_name}},</p><p>Thanks for joining. I will send you new work, updates and the occasional offer, and nothing else.</p><p>If you want to say hello, reply to this email. I read every reply.</p>",
+          body: "<p>Hi {{first_name}},</p><p>Thanks for signing up. You will hear from me when I have something new, and now and then about a sale. That is all.</p><p>You can reply to any of my emails. It comes straight to me.</p><p>{{creator_name}}</p>",
         },
       },
       { id: "welcome_wait", type: "wait", config: { amount: 3, unit: "days" } },
@@ -51,8 +53,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "welcome_2",
         type: "email",
         config: {
-          subject: "What would help you most?",
-          body: `<p>Hi {{first_name}},</p><p>You joined my list a few days ago. If there is something you would like me to make or write about, reply and tell me. It shapes what I work on next.</p>${button("See my products", "store_url")}`,
+          subject: "Can I ask you something?",
+          body: `<p>Hi {{first_name}},</p><p>Quick question: what made you sign up? Reply with a line or two. It helps me decide what to make next.</p>${button("See what I have made", "store_url")}<p>{{creator_name}}</p>`,
         },
       },
     ],
@@ -69,7 +71,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "You left {{product_name}} at checkout",
-          body: `<p>Hi {{first_name}},</p><p>You started checking out {{product_name}} and did not finish. If the payment did not go through, you can pick up where you left off.</p>${button("Finish checkout", "checkout_url")}<p>If you have a question first, reply to this email.</p>`,
+          body: `<p>Hi {{first_name}},</p><p>You got as far as checkout with {{product_name}} and stopped there. If the payment failed or something looked off, you can pick up where you left off.</p>${button("Finish checkout", "checkout_url")}<p>Got a question first? Just reply.</p><p>{{creator_name}}</p>`,
         },
       },
       { id: "cart_wait", type: "wait", config: { amount: 1, unit: "days" } },
@@ -78,7 +80,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "Still thinking about {{product_name}}?",
-          body: `<p>Hi {{first_name}},</p><p>A quick note in case my last email got buried. {{product_name}} is still here if you want it.</p>${button("See the product", "product_url")}<p>This is the last reminder I will send about it.</p>`,
+          body: `<p>Hi {{first_name}},</p><p>One more note about {{product_name}}, in case my last email got buried. It is still there if you want it.</p>${button("Take another look", "product_url")}<p>I will not email you about it again.</p><p>{{creator_name}}</p>`,
         },
       },
     ],
@@ -95,7 +97,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "Thanks for your first order, {{first_name}}",
-          body: `<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. It means a lot that you picked something from {{store_name}}.</p><p>Your download stays on your order page, so you can come back to it any time.</p>${button("Open your order", "order_url")}<p>If anything is unclear, reply to this email and I will help.</p>`,
+          body: `<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. It is your first order from {{store_name}}, and I am glad you picked it.</p><p>Your download is on your order page. Keep the link and you can go back to it whenever you like.</p>${button("Open your order", "order_url")}<p>If something does not work, reply and I will sort it out.</p><p>{{creator_name}}</p>`,
         },
       },
       { id: "first_wait", type: "wait", config: { amount: 5, unit: "days" } },
@@ -103,8 +105,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "first_2",
         type: "email",
         config: {
-          subject: "Did everything work?",
-          body: "<p>Hi {{first_name}},</p><p>It has been a few days since your first order. Did the download work, and is {{product_name}} what you hoped for?</p><p>Reply and tell me. If something is missing, I will sort it out.</p>",
+          subject: "Did the download work?",
+          body: "<p>Hi {{first_name}},</p><p>Checking in a few days after your order. Did {{product_name}} download all right, and is it what you expected?</p><p>If anything is missing or confusing, reply and tell me. I will fix it.</p><p>{{creator_name}}</p>",
         },
       },
     ],
@@ -121,7 +123,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "Thank you for buying {{product_name}}",
-          body: "<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. Your receipt and download link are in a separate email.</p><p>If anything is unclear or does not work, reply here and I will help.</p>",
+          body: `<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. It means a lot.</p><p>Your receipt and download link are in a separate email, and your order page has them too:</p>${button("Open your order", "order_url")}<p>If anything is unclear, reply to this email. It comes straight to me.</p><p>Thanks again,<br>{{creator_name}}</p>`,
         },
       },
     ],
@@ -139,7 +141,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "Getting started with {{product_name}}",
-          body: `<p>Hi {{first_name}},</p><p>Your files for {{product_name}} are on your order page whenever you need them. Download them once and keep a copy somewhere safe.</p>${button("Open your order", "order_url")}<p>Not sure where to begin? Reply with what you are working on and I will point you to the right place.</p>`,
+          body: `<p>Hi {{first_name}},</p><p>A quick note now that you have had {{product_name}} for a day. Your files are on your order page. Download them once and keep a copy somewhere you will find it.</p>${button("Open your order", "order_url")}<p>Not sure where to start? Reply with what you are working on and I will point you to the right part.</p><p>{{creator_name}}</p>`,
         },
       },
     ],
@@ -157,7 +159,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "How is {{product_name}} going?",
-          body: "<p>Hi {{first_name}},</p><p>It has been a week since you bought {{product_name}}. How is it going?</p><p>If you have a minute, reply with what you think. I read every reply, and it helps me make the next one better.</p>",
+          body: "<p>Hi {{first_name}},</p><p>It has been a week since you bought {{product_name}}. How is it going so far?</p><p>If you have a minute, reply with a sentence or two. I read every one, and it shapes what I make next.</p><p>{{creator_name}}</p>",
         },
       },
     ],
@@ -175,7 +177,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "Would you review {{product_name}}?",
-          body: `<p>Hi {{first_name}},</p><p>You bought {{product_name}} a little while ago. If you have a minute, a short review helps other people decide, and it helps me too.</p>${button("Leave a review", "review_url")}<p>Thank you. If something did not work as it should, reply here instead.</p>`,
+          body: `<p>Hi {{first_name}},</p><p>If you have a minute, would you leave a short review of {{product_name}}? A few honest words help other people decide, and they help me too.</p>${button("Leave a review", "review_url")}<p>If something did not work, reply here instead and I will fix it.</p><p>Thank you,<br>{{creator_name}}</p>`,
         },
       },
     ],
@@ -195,7 +197,7 @@ export const TEMPLATES: FlowTemplate[] = [
         type: "email",
         config: {
           subject: "New since you bought {{product_name}}",
-          body: `<p>Hi {{first_name}},</p><p>It has been a couple of months since you bought {{product_name}}. I have made new things since then.</p>${button("See what is new", "store_url")}<p>Thanks for supporting my work.</p>`,
+          body: `<p>Hi {{first_name}},</p><p>It has been a couple of months since you bought {{product_name}}. I have made a few new things since then that you might like.</p>${button("See what is new", "store_url")}<p>Thanks for supporting my work.</p><p>{{creator_name}}</p>`,
         },
       },
     ],

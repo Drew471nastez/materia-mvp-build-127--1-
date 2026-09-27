@@ -2,7 +2,10 @@
  * ===========================================================================
  *  SALES, REFUNDS AND DISPUTES, FOR THE CREATOR
  * ===========================================================================
- *   sale.first_created, order.first_created   FIRST_SALE, once per creator
+ *   sale.first_created, order.first_created   FIRST_SALE, once per creator. The
+ *                                             email half is the seller's sale
+ *                                             email (lib/email.tsx), drawn as
+ *                                             FIRST_SALE; the engine writes the bell.
  *   sale.created, order.created               NEW_SALE, keyed by the order.
  *                                             The email half is sent by
  *                                             lib/email.tsx sendOrderEmails;

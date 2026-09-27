@@ -112,7 +112,7 @@ function world() {
 async function main() {
   realLog("\nThe registry and the orchestrator")
   check("every notification type has a registry entry and a template data list", NOTIFICATION_TYPES.every((t) => REGISTRY[t]?.type === t && Array.isArray(DATA_KEYS[t])))
-  check("the receipts and the seller's sale email are sent elsewhere, not twice", ["PURCHASE_CONFIRMATION", "DIGITAL_PRODUCT_ACCESS", "NEW_SALE", "CUSTOMER_REFUND_PROCESSED"].every((t) => REGISTRY[t as keyof typeof REGISTRY].emailSentElsewhere === true))
+  check("the receipts and the seller's sale email are sent elsewhere, not twice", ["PURCHASE_CONFIRMATION", "DIGITAL_PRODUCT_ACCESS", "NEW_SALE", "FIRST_SALE", "CUSTOMER_REFUND_PROCESSED"].every((t) => REGISTRY[t as keyof typeof REGISTRY].emailSentElsewhere === true))
   check("security and money notices are required, lifecycle nudges are optional", REGISTRY.PASSWORD_CHANGED.requirement === "required_service" && REGISTRY.PAYOUT_METHOD_CHANGED.requirement === "required_service" && REGISTRY.FIRST_PRODUCT_REMINDER.requirement === "optional_product")
   const ev = (name: DomainEvent["name"], payload: Record<string, unknown> = {}): DomainEvent => ({ name, key: `${name}:k`, payload, occurredAt: "2026-10-01T09:00:00Z", creatorId: CREATOR, userId: USER })
   const ctx = { now: Date.parse("2026-10-01T09:00:00Z"), userId: USER, creatorId: CREATOR }

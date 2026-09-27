@@ -40,6 +40,7 @@
 import { DEFAULT_BRAND, httpsUrl, type Brand } from "./brand"
 import { FONT, esc } from "./rich"
 import { decodeHtmlEntities } from "@/lib/html-entities"
+import { resolveVariables, variableKey, type ResolveOptions, type VariableValues } from "@/lib/email-variables"
 
 export interface EmailFrame {
   subject: string
@@ -211,43 +212,57 @@ export function emailText(f: Pick<EmailFrame, "bodyHtml" | "brand" | "kind" | "r
 /* ─── Merge fields ───────────────────────────────────────────────────── */
 
 /**
- * The fields a creator can put in an email, and what each becomes. Values
- * are escaped: a subscriber who signed up as "<b>Ana" gets their name shown,
- * not rendered.
+ * The fields a creator can put in a campaign, and what each becomes: the
+ * reader, the creator as they are when the email is sent, the year, the way
+ * out. Filled by the one resolver automations use too (lib/email-variables),
+ * which also reads the older spellings and bracket placeholders ("[Your
+ * name]") and removes what it does not know. Values are escaped: a
+ * subscriber who signed up as "<b>Ana" gets their name shown, not rendered.
  */
-export const MERGE_FIELDS = ["first_name", "name", "email"] as const
+export const MERGE_FIELDS = ["first_name", "last_name", "name", "email", "creator_name", "store_name", "store_url", "current_year", "unsubscribe_url"] as const
 
 export interface Reader {
   name?: string | null
   email?: string | null
+  /** The creator's name to sign with, as their profile has it now. */
+  creatorName?: string | null
+  /** The store's name, logo and page as they are now (lib/email-campaigns/brand-server loadBrand). */
+  storeName?: string | null
+  storeUrl?: string | null
+  /** This reader's own unsubscribe page. Left as {{unsubscribe_url}} when not given, for the caller to fill. */
+  unsubscribeUrl?: string | null
 }
 
-function values(r: Reader): Record<string, string> {
-  const name = (r.name || "").replace(/\s+/g, " ").trim()
+function valuesOf(r: Reader): VariableValues {
   return {
-    name: name || "there",
-    first_name: name.split(" ")[0] || "there",
-    email: (r.email || "").trim(),
+    name: r.name,
+    email: r.email,
+    creator_name: r.creatorName,
+    store_name: r.storeName,
+    store_url: r.storeUrl,
+    unsubscribe_url: r.unsubscribeUrl,
   }
 }
 
+function optionsOf(r: Reader): ResolveOptions {
+  return { leave: r.unsubscribeUrl ? [] : ["unsubscribe_url"] }
+}
+
 export function personalizeHtml(html: string, r: Reader): string {
-  const v = values(r)
-  return html.replace(/\{\{\s*(first_name|name|email)\s*\}\}/gi, (_m, key: string) => esc(v[key.toLowerCase()] ?? ""))
+  return resolveVariables(html, valuesOf(r), "html", optionsOf(r))
 }
 
 export function personalizeSubject(text: string, r: Reader): string {
-  const v = values(r)
-  return text.replace(/\{\{\s*(first_name|name|email)\s*\}\}/gi, (_m, key: string) => v[key.toLowerCase()] ?? "").replace(/[\r\n]+/g, " ")
+  return resolveVariables(text, valuesOf(r), "text", optionsOf(r))
 }
 
-/** Any {{field}} this send does not know, so it can be refused before it goes out as braces. */
+/** Any {{field}} a campaign does not know, so it can be refused before it goes out as braces. */
 export function unknownMergeFields(...texts: string[]): string[] {
   const out = new Set<string>()
   for (const t of texts) {
-    for (const m of (t || "").matchAll(/\{\{\s*([^}\s]*)\s*\}\}/g)) {
-      const key = (m[1] || "").toLowerCase()
-      if (!(MERGE_FIELDS as readonly string[]).includes(key) && key !== "unsubscribe_url") out.add(m[1] || "")
+    for (const m of (t || "").matchAll(/\{\{\s*([^}|]*?)\s*(?:\|[^}]*)?\}\}/g)) {
+      const key = variableKey(m[1] || "")
+      if (!key || !(MERGE_FIELDS as readonly string[]).includes(key)) out.add(m[1] || "")
     }
   }
   return [...out]
