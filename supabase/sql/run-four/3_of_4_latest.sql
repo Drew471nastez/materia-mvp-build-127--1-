@@ -1075,6 +1075,8 @@ ALTER TABLE public.analytics_property_daily ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "creators read own property days" ON public.analytics_property_daily;
 CREATE POLICY "creators read own property days" ON public.analytics_property_daily FOR SELECT USING (creator_id IN (SELECT c.id FROM public.creators c WHERE c.user_id = (SELECT auth.uid())));
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.analytics_property_daily FROM anon, authenticated;
+DROP POLICY IF EXISTS "Allow insert analytics" ON public.analytics_events;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.analytics_events FROM anon, authenticated;
 CREATE TABLE IF NOT EXISTS public.analytics_rollup_days (day date PRIMARY KEY, refreshed_at timestamptz NOT NULL DEFAULT now(), properties integer NOT NULL DEFAULT 0);
 DO $$ BEGIN /* A day rolled up before session_slots existed is forgotten (only the note that it is rolled up, not a row of anybody's), so the reports count it from the events until the daily cron rolls it up again. */ DELETE FROM public.analytics_rollup_days r WHERE EXISTS (SELECT 1 FROM public.analytics_property_daily d WHERE d.day = r.day AND d.sessions > 0 AND d.session_slots = '{}'::jsonb); END $$;
 ALTER TABLE public.analytics_rollup_days ENABLE ROW LEVEL SECURITY;

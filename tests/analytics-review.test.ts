@@ -170,6 +170,26 @@ async function main() {
     check("  one day a call, so a run stopped by the budget keeps what it did", /for \(const date of backfill\) \{\s*if \(Date\.now\(\) - started > BACKFILL_BUDGET_MS\) break\s*const property = await admin\.rpc\(ROLLUP\.refresh, \{ p_day: date \}\)/.test(cron))
   }
 
+  console.log("\nOnly the server writes a page view")
+  {
+    /*
+      Old scripts left "Allow insert analytics" on analytics_events with an
+      INSERT grant to anon: anyone holding the public key could write rows
+      straight into a creator's counts, past every rule the collector applies
+      (bots, refreshes, the owner, a property that is not theirs). Every
+      writer in the app goes through the service key (the track routes, the
+      OnePage route, checkout, account deletion), so part 61 closes the door
+      and the check after says so.
+    */
+    const part = readFileSync(join(process.cwd(), "supabase/sql/run-now/61_analytics_one_pipeline.sql"), "utf8")
+    const after = readFileSync(join(process.cwd(), "supabase/sql/run-now/99_check_after.sql"), "utf8")
+    check("part 61 drops the open insert policy", /^DROP POLICY IF EXISTS "Allow insert analytics" ON public\.analytics_events;$/m.test(part))
+    check("  and takes writing away from anon and a signed in user", /^REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.analytics_events FROM anon, authenticated;$/m.test(part))
+    check("  and the check after reads false while the policy is there", /policyname = 'Allow insert analytics'\) as p61_analytics_one_pipeline/.test(after))
+    const routes = ["app/api/track-view/route.ts", "app/api/track-event/route.ts", "app/api/onepage/track/route.ts"]
+    check("  every tracking route writes with the service key", routes.every((r) => /createAdminClient\(\)/.test(readFileSync(join(process.cwd(), r), "utf8"))))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
