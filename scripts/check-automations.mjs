@@ -201,7 +201,8 @@ try {
 
   for (const [label, vp] of viewports) {
     const isPhone = vp.width < 640
-    const gutter = vp.width < 640 ? 16 : vp.width < 1024 ? 24 : 32
+    /* The app's gutter (app/globals.css --app-gutter): 10px on a phone since every /app card moved to 10px from the glass. */
+    const gutter = vp.width < 640 ? 10 : vp.width < 1024 ? 24 : 32
 
     console.log(`\nChooser, ${label}`)
     const p = await open(vp, "chooser")
@@ -216,7 +217,7 @@ try {
     expect(rows.some((r) => /Welcome series.*Email, wait 3 days, email/.test(r.text)), "each says its steps in words", rows[0].text.slice(0, 120))
     expect(new Set(rows.map((r) => r.x)).size === 1 && new Set(rows.map((r) => r.w)).size === 1 && new Set(rows.map((r) => r.iconX)).size === 1, "every row and every icon on one left edge, one width", rows.map((r) => [r.x, r.w, r.iconX]))
     const listBox = await p.$eval("[aria-label='Starting points']", (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width) } })
-    if (isPhone) expect(listBox.x === 16 + 1 && listBox.w === vp.width - 32 - 2, "full width inside a 16px gutter", listBox)
+    if (isPhone) expect(listBox.x === gutter + 1 && listBox.w === vp.width - 2 * gutter - 2, "full width inside the app's 10px phone gutter", listBox)
     else expect(listBox.w === 1200 - 64 - 2 && Math.abs(listBox.x + listBox.w / 2 - vp.width / 2) <= 1, "the page's 1200px container on a wide screen, centred, like the product editor", listBox)
     await frame(p, isPhone, "h1")
     const drawn = await p.$$eval("[aria-label='Starting points'] > li > button [data-list-icon] svg", (x) => x.map((e) => e.getAttribute("data-flow-icon")))
@@ -290,7 +291,7 @@ try {
     expect(axis.state.x === axis.nodes[0].x && axis.state.w === axis.nodes[0].w && axis.activity.x === axis.nodes[0].x && axis.activity.w === axis.nodes[0].w, "the state line, the steps and the activity share one edge and one width", { state: axis.state, node: axis.nodes[0], activity: axis.activity })
     expect(Math.abs(axis.back.x - axis.nodes[0].x) <= 3, "the Back arrow lines up with the column below it", { back: axis.back.x, column: axis.nodes[0].x })
     if (isPhone) {
-      expect(axis.nodes[0].x === 16 && axis.nodes[0].r === vp.width - 16, "16px gutters on a phone", axis.nodes[0])
+      expect(axis.nodes[0].x === gutter && axis.nodes[0].r === vp.width - gutter, "the app's 10px gutters on a phone", axis.nodes[0])
       expect(axis.aside === null, "no side panel on a phone", axis.aside)
     } else {
       expect(axis.aside && axis.aside.w === 420 && axis.aside.x > axis.nodes[0].r && Math.abs(axis.aside.r - axis.more.r) <= 2, "the panel beside the column, 420px, its right edge under the menu", { aside: axis.aside, more: axis.more })
@@ -332,6 +333,41 @@ try {
       expect(rows.length === 1, "the email's toolbar is one row in the panel", rows)
     }
     await b.screenshot({ path: join(shots, `builder-${label}-email.png`) })
+    if (isPhone) {
+      /* The sheet's foot: Move, Remove and Done in reach without scrolling to the end of the email. */
+      const foot = await b.evaluate(() => {
+        const f = [...document.querySelectorAll("[data-panel-foot]")].find((x) => x.closest("[role=dialog]"))
+        if (!f) return null
+        const r = f.getBoundingClientRect()
+        const done = f.querySelector("[data-panel-done]")?.getBoundingClientRect()
+        const buttons = [...f.querySelectorAll("button")].map((x) => { const q = x.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.height), Math.round(q.right)] })
+        return { bottom: Math.round(r.bottom), top: Math.round(r.top), vh: innerHeight, done: done ? Math.round(done.height) : 0, buttons, spill: f.scrollWidth - f.clientWidth }
+      })
+      expect(!!foot && foot.bottom <= foot.vh && foot.top < foot.vh - 40 && foot.done >= 40, "the step's actions and Done sit at the foot of the sheet, on screen", foot)
+      expect(!!foot && foot.spill <= 0 && foot.buttons.every(([w, h, r]) => h >= 40 && w >= 40 && r <= vp.width), "on one row that fits, every button a 40px target", foot?.buttons)
+    }
+    /* Preview: the email as it goes out, in the composer's preview. */
+    await b.evaluate(() => document.querySelector("[data-flow-preview]").scrollIntoView({ block: "center" }))
+    await sleep(80)
+    await b.click("[data-flow-preview]")
+    await b.waitForSelector("[data-preview-layer]", { timeout: 3000 }).catch(() => null)
+    await sleep(600)
+    const pv = await b.evaluate(() => {
+      const layer = document.querySelector("[data-preview-layer]")
+      if (!layer) return null
+      const r = layer.getBoundingClientRect()
+      const f = layer.querySelector("iframe")
+      const hit = document.elementFromPoint(innerWidth / 2, 30)
+      return { box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], words: /Hi Alex/.test(f?.contentDocument?.body?.textContent ?? ""), onTop: !!hit?.closest("[data-preview-layer]"), frame: f ? Math.round(f.getBoundingClientRect().width) : 0 }
+    })
+    expect(!!pv && pv.box[0] === 0 && pv.box[1] === 0 && pv.box[2] === vp.width && pv.box[3] === vp.height && pv.onTop && pv.words, "Preview shows the email as it goes out, over everything, full screen", pv)
+    expect(!!pv && pv.frame > 0 && pv.frame <= vp.width, "and the email fits the screen", pv?.frame)
+    const asked = await b.evaluate(() => window.__calls.filter(([m, u]) => m === "POST" && u.endsWith("/preview")).length)
+    expect(asked === 0, "drawn in the browser from the creator's look the page brought, with no request", asked)
+    await b.screenshot({ path: join(shots, `builder-${label}-preview.png`) })
+    await b.click("[data-preview-done]")
+    await sleep(500)
+    expect(await b.evaluate(() => !document.querySelector("[data-preview-layer]")), "Done takes it away")
     await b.type("input[id^='subject-']", " and welcome")
     await sleep(150)
     /* A phone saves from its bar; from 768px the foot bar comes up with Discard and Save. */
@@ -360,7 +396,7 @@ try {
     await b.click("button[aria-label='More actions']")
     await sleep(500)
     const actions = await b.evaluate(() => [...document.querySelectorAll("[data-action-list] [role=menuitem], [data-action-sheet] button")].map((x) => x.textContent.trim()))
-    expect(actions.join("|") === "Turn off|Delete automation", "the menu holds Turn off and Delete", actions)
+    expect(actions.join("|") === "Turn off|Duplicate|Delete automation", "the menu holds Turn off, Duplicate and Delete", actions)
     await b.evaluate(() => [...document.querySelectorAll("[data-action-list] [role=menuitem], [data-action-sheet] button")].find((x) => x.textContent.trim() === "Turn off").click())
     await sleep(500)
     const confirm = await b.evaluate(() => [...document.querySelectorAll("[role=dialog]")].map((d) => d.textContent).find((t) => /partway through/.test(t)) ?? null)
@@ -456,11 +492,29 @@ try {
     const at = await open(vp, "subscribers")
     await at.evaluate(() => [...document.querySelectorAll("button, [role=tab]")].find((b) => b.textContent.trim() === "Automations").click())
     await sleep(500)
-    const switches = await at.$$eval("[role=switch]", (x) => x.map((e) => { const r = e.getBoundingClientRect(); return { on: e.getAttribute("aria-checked"), bg: getComputedStyle(e).backgroundColor, w: Math.round(r.width), h: Math.round(r.height) } }))
+    const switches = await at.$$eval("[role=switch]", (x) => x.filter((e) => e.getBoundingClientRect().width > 0).map((e) => { const r = e.getBoundingClientRect(); return { on: e.getAttribute("aria-checked"), bg: getComputedStyle(e).backgroundColor, w: Math.round(r.width), h: Math.round(r.height) } }))
     const onSwitch = switches.find((x) => x.on === "true")
     const offSwitch = switches.find((x) => x.on === "false")
     expect(switches.length === 2 && onSwitch?.bg === "rgb(17, 17, 19)" && offSwitch?.bg === "rgb(228, 229, 233)" && switches.every((x) => x.w === 38 && x.h === 22),
       "the Automations list's switches are the slim black switch: near black on, quiet grey off, 38 by 22", switches)
+    const list = await at.evaluate(() => {
+      const ul = document.querySelector("[data-flow-list]")
+      const table = document.querySelector("tr[data-flow-row]")?.closest("table")
+      const shown = (el) => !!el && el.getBoundingClientRect().width > 0
+      const rows = ul ? [...ul.querySelectorAll("[data-flow-row]")].map((li) => {
+        const r = li.getBoundingClientRect()
+        const name = li.querySelector("a")
+        const menu = li.querySelector("button[aria-label^='Actions for']")?.getBoundingClientRect()
+        return { h: Math.round(r.height), left: Math.round(r.left), right: Math.round(r.right), nameCut: name ? name.scrollWidth > name.clientWidth + 1 : true, name: name?.textContent, menu: menu ? [Math.round(menu.width), Math.round(menu.height), Math.round(menu.right)] : null }
+      }) : []
+      return { list: shown(ul), table: shown(table), rows }
+    })
+    if (isPhone) {
+      expect(list.list && !list.table, "on a phone each automation is a row of its own, not a table to scroll sideways", list)
+      expect(list.rows.length === 2 && list.rows.every((r) => !r.nameCut && r.right <= vp.width && r.h >= 64), "every name in full, every row inside the screen", list.rows)
+      expect(list.rows.every((r) => r.menu && r.menu[0] >= 44 && r.menu[1] >= 44 && r.menu[2] <= vp.width), "its menu is a 44px target at the row's end", list.rows.map((r) => r.menu))
+    } else expect(list.table && !list.list, "from 768px the table, one column per number", list)
+    expect((await sideways(at)) === 0, "the Automations tab never scrolls sideways", await sideways(at))
     await at.screenshot({ path: join(shots, `automations-list-${label}.png`) })
     await at.close()
     const sp2 = await open(vp, "subscribers")
@@ -471,6 +525,60 @@ try {
     expect(detail && /andrewrullz\.storelib\.com/.test(detail) && /Welcome series/.test(detail), "a contact's detail says where they came from and what they are in", detail?.slice(0, 140))
     await sp2.close()
   }
+  /*
+    768: A TABLET. No side panel yet (that is from 1024px), so a step opens
+    in the sheet as on a phone, while the page is the shell's page with the
+    black bar. Nothing may scroll sideways, the sheet and its foot must be
+    on screen, and the list is the table.
+  */
+  for (const vp of [{ width: 768, height: 1024 }, { width: 820, height: 1180, isMobile: true, hasTouch: true }]) {
+    const label = String(vp.width)
+    console.log(`\nTablet, ${label}`)
+    const c = await open(vp, "chooser")
+    expect((await sideways(c)) === 0, "the chooser never scrolls sideways", await sideways(c))
+    await c.screenshot({ path: join(shots, `chooser-${label}.png`) })
+    await c.close()
+    const b = await open(vp, "builder")
+    expect((await sideways(b)) === 0, "the builder never scrolls sideways", await sideways(b))
+    expect((await spills(b, "ol[aria-label=Steps] > li > button")).length === 0, "nothing spills out of a step", await spills(b, "ol[aria-label=Steps] > li > button"))
+    await b.click("ol[aria-label=Steps] > li:nth-child(3) button")
+    await sleep(700)
+    const sheet = await b.evaluate(() => {
+      const s = document.querySelector("input[id^='subject-']")
+      const dlg = s?.closest("[role=dialog]")
+      const foot = dlg?.querySelector("[data-panel-foot]")?.getBoundingClientRect()
+      const r = dlg?.getBoundingClientRect()
+      return s ? { inSheet: !!dlg, left: Math.round(r.left), right: Math.round(r.right), footBottom: foot ? Math.round(foot.bottom) : null, vh: innerHeight, done: !!dlg.querySelector("[data-panel-done]") } : null
+    })
+    expect(!!sheet && sheet.inSheet && sheet.left >= 0 && sheet.right <= vp.width && sheet.footBottom !== null && sheet.footBottom <= sheet.vh && sheet.done, "a step opens in the sheet, on screen, with its foot and Done", sheet)
+    await b.screenshot({ path: join(shots, `builder-${label}-email.png`) })
+    await b.type("input[id^='subject-']", " again")
+    await b.click("[data-panel-done]")
+    await sleep(600)
+    const foot = await b.$eval("[data-flow-foot]", (f) => { const r = f.getBoundingClientRect(); return { shown: f.hasAttribute("data-shown"), bottom: Math.round(r.bottom), words: f.textContent } })
+    expect(foot.shown && foot.bottom === vp.height && /Save/.test(foot.words), "Done keeps the edit, and Save is at the foot", foot)
+    await b.screenshot({ path: join(shots, `builder-${label}.png`) })
+    await b.close()
+    /* A page that could not bring the creator's look: the server draws the preview instead. */
+    const x = await open(vp, "broken")
+    await x.click("ol[aria-label=Steps] > li:nth-child(3) button")
+    await sleep(700)
+    await x.evaluate(() => document.querySelector("[data-flow-preview]").scrollIntoView({ block: "center" }))
+    await x.click("[data-flow-preview]")
+    await x.waitForSelector("[data-preview-layer]", { timeout: 3000 }).catch(() => null)
+    await sleep(500)
+    const fallback = await x.evaluate(() => ({ layer: !!document.querySelector("[data-preview-layer]"), asked: window.__calls.filter(([m, u]) => m === "POST" && u.endsWith("/preview")).length }))
+    expect(fallback.layer && fallback.asked === 1, "without the creator's look the server draws the preview, once", fallback)
+    await x.close()
+    const at = await open(vp, "subscribers")
+    await at.evaluate(() => [...document.querySelectorAll("button, [role=tab]")].find((x) => x.textContent.trim() === "Automations").click())
+    await sleep(500)
+    const shown = await at.evaluate(() => ({ table: (document.querySelector("tr[data-flow-row]")?.getBoundingClientRect().width ?? 0) > 0, rows: (document.querySelector("[data-flow-list]")?.getBoundingClientRect().width ?? 0) > 0 }))
+    expect(shown.table && !shown.rows && (await sideways(at)) === 0, "the Automations tab is the table, and the page does not scroll sideways", shown)
+    await at.screenshot({ path: join(shots, `automations-list-${label}.png`) })
+    await at.close()
+  }
+
   console.log(`\nScreenshots: ${shots}`)
 } finally {
   await browser?.close()

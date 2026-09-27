@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { cleanName, cleanSteps, cleanTrigger, cleanTriggerConfig, signedInCreator } from "@/lib/automations/flow-io"
+import { UNTITLED, cleanName, cleanSteps, cleanTrigger, cleanTriggerConfig, signedInCreator } from "@/lib/automations/flow-io"
 import { stopFlowRuns } from "@/lib/automations/flow-admin"
 import { isTriggerType, problemsOf, type TriggerType } from "@/lib/automations/flow-model"
 
@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const patch = {
-    name: cleanName(body.name) ?? "Untitled flow",
+    name: cleanName(body.name) ?? UNTITLED,
     trigger_type: trigger,
     trigger_config: cleanTriggerConfig(trigger, body.trigger_config, flow.trigger_config),
     steps,

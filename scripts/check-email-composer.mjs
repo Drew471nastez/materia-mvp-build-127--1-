@@ -89,6 +89,8 @@ export const useSearchParams = () => new URLSearchParams()
       "--jsx=automatic",
       '--define:process.env.NODE_ENV="production"',
       "--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN=undefined",
+      /* The preview now fills fields through lib/email-variables, which reads the app's address from process.env: a browser has no process. */
+      '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;',
       "--alias:@=.",
       "--alias:@/lib/supabase/client=./.email-composer-probe/supabase-client.js",
       "--alias:next/navigation=./.email-composer-probe/navigation.js",
@@ -106,12 +108,15 @@ export const useSearchParams = () => new URLSearchParams()
     ["phone 360", { width: 360, height: 740, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
     ["phone 390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
     ["phone 430", { width: 430, height: 932, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["tablet 768", { width: 768, height: 1024, isMobile: true, hasTouch: true }],
     ["desktop 1280", { width: 1280, height: 860 }],
   ]
   for (const [label, vp] of sizes) {
     console.log(`\n${label}`)
     const tag = label.replace(/\s/g, "-")
     const phone = vp.width < 768
+    /* From 768px to 1023px the page is the shell's, and the preview is a screen of its own raised from the bar. */
+    const tablet = !phone && vp.width < 1024
     const p = await browser.newPage()
     await p.setViewport(vp)
     await p.setRequestInterception(true)
@@ -119,7 +124,7 @@ export const useSearchParams = () => new URLSearchParams()
     const errors = []
     p.on("pageerror", (e) => errors.push(String(e)))
     await p.goto(`${ORIGIN}/app/emails/new`)
-    await p.waitForSelector("[data-email-editor] [data-email-text]")
+    await p.waitForSelector("[data-email-editor] [data-email-text]", { timeout: 15000 }).catch((e) => { console.log("page errors:", errors.slice(0, 3)); throw e })
     await sleep(400)
 
     /* ── The frame ── */
@@ -343,6 +348,19 @@ export const useSearchParams = () => new URLSearchParams()
       expect(down.length >= 4 && fall.ys.at(-1) === "gone", "Done takes it down the same way, then it is gone", { partway: down.length, end: fall.ys.at(-1) })
       expect(fall.long === 0, "no long task while it comes and goes", fall.longMs)
       expect(rise.props.length > 0 && rise.props.every((x) => x === "transform" || x === "opacity"), "the move animates transform and opacity only", rise.props)
+    } else if (tablet) {
+      await p.click('[data-open-preview="bar"]')
+      await sleep(600)
+      const shown = await p.evaluate(() => {
+        const layer = document.querySelector("[data-preview-layer]")?.getBoundingClientRect()
+        const f = document.querySelector("[data-preview-layer] iframe")
+        const body = f?.contentDocument?.body?.innerHTML ?? ""
+        return { layer: layer ? [Math.round(layer.top), Math.round(layer.width), Math.round(layer.height)] : null, words: /Hello from the/.test(body), width: f ? Math.round(f.getBoundingClientRect().width) : 0, aside: !!document.querySelector('aside[aria-label="Preview"] iframe') }
+      })
+      expect(!!shown.layer && shown.layer[0] === 0 && shown.layer[1] === vp.width && shown.layer[2] === vp.height && shown.words && shown.width > 0 && shown.width <= vp.width && !shown.aside, "on a tablet Preview in the bar raises the email on a screen of its own, fitted to it", shown)
+      await p.screenshot({ path: join(shots, `${tag}-preview.png`) })
+      await p.click("[data-preview-done]")
+      await sleep(500)
     } else {
       await sleep(400)
       const aside = await p.evaluate(() => {
@@ -356,8 +374,8 @@ export const useSearchParams = () => new URLSearchParams()
     /* ── The logo, as the email is sent, light and dark ── */
     for (const scheme of ["light", "dark"]) {
       await p.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }])
-      if (phone) {
-        await p.click('[data-open-preview="foot"]')
+      if (phone || tablet) {
+        await p.click(phone ? '[data-open-preview="foot"]' : '[data-open-preview="bar"]')
         await sleep(500)
       }
       const logo = await p.evaluate(() => {
@@ -368,7 +386,7 @@ export const useSearchParams = () => new URLSearchParams()
         return { border: s.borderTopWidth, padding: s.paddingTop + " " + s.paddingLeft, bg: s.backgroundColor, radius: s.borderTopLeftRadius, shadow: s.boxShadow }
       })
       expect(!!logo && logo.border === "0px" && logo.padding === "0px 0px" && logo.bg === "rgba(0, 0, 0, 0)" && logo.radius === "0px" && logo.shadow === "none", `the logo in the email has no frame (${scheme})`, logo)
-      if (phone) {
+      if (phone || tablet) {
         if (scheme === "dark") await p.screenshot({ path: join(shots, `${tag}-preview-dark.png`) })
         await p.click("[data-preview-done]")
         await sleep(400)
@@ -405,6 +423,126 @@ export const useSearchParams = () => new URLSearchParams()
     expect(sale.subject === "20% off until Sunday" && sale.preview === "Use the code at checkout." && sale.blocks === "rich,button,rich" && sale.centred === "center", "Sale fills the subject, the preview text and the email, centred", sale)
     expect(sale.starters === 0 && sale.bars === 1 && sale.sideways <= 0, "then the layouts go, one bar stays, and nothing overflows", sale)
     await q.screenshot({ path: join(shots, `${tag}-sale.png`), fullPage: false })
+
+    /* ── Switching layouts, editing one, and going back to blank ── */
+    const state = () =>
+      q.evaluate(() => {
+        const bar = document.querySelector("[data-layout-bar]")
+        const pane = document.querySelector("[data-compose]")
+        return {
+          bar: bar ? bar.querySelector("[data-layout-name]").textContent : null,
+          edited: bar ? /edited/.test(bar.textContent) : null,
+          subject: document.querySelector("#compose-subject").value,
+          preview: document.querySelector("#compose-preview").value,
+          blocks: [...document.querySelectorAll("[data-email-editor] [data-block-id]")].map((b) => b.dataset.blockType).join(","),
+          words: [...document.querySelectorAll("[data-email-editor] [data-email-text]")].map((t) => t.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, 40),
+          starters: document.querySelectorAll("[data-starters]").length,
+          dialog: document.querySelector('[role="dialog"]')?.textContent?.replace(/\s+/g, " ").trim().slice(0, 60) ?? null,
+          sideways: Math.max(pane.scrollWidth - pane.clientWidth, document.documentElement.scrollWidth - innerWidth),
+        }
+      })
+    const settle = () => sleep(phone ? 650 : 350)
+    /*
+      The keyboard goes first, as it does when a finger leaves the text for
+      the page (the formatting bar docked on it goes with it), then the
+      target is scrolled to the middle: at the top edge the page's own stuck
+      bar would take the tap.
+    */
+    const tap = async (sel) => {
+      if (await q.evaluate(() => !!document.activeElement?.closest?.("[data-email-text]"))) {
+        await q.evaluate(() => document.activeElement.blur())
+        await sleep(phone ? 320 : 60)
+      }
+      await q.$eval(sel, (el) => el.scrollIntoView({ block: "center" }))
+      await sleep(60)
+      await q.click(sel)
+    }
+    const pickInDialog = async (id) => {
+      await q.waitForSelector(`[role="dialog"] [data-starter="${id}"]`, { timeout: 3000 }).catch(async (e) => { await q.screenshot({ path: join(shots, `${tag}-FAILED-pick.png`) }); console.log(await state()); throw e })
+      await sleep(phone ? 450 : 150)
+      await q.click(`[role="dialog"] [data-starter="${id}"]`)
+      await settle()
+    }
+    let st = await state()
+    expect(st.bar === "Sale" && st.edited === false, "the line above the email names the layout, not edited", st)
+    /* Into each text and out again, typing nothing: still the layout as it came. */
+    for (const el of await q.$$("[data-email-editor] [data-email-text]")) {
+      await el.click()
+      await sleep(40)
+    }
+    await q.evaluate(() => document.activeElement?.blur?.())
+    await sleep(200)
+    st = await state()
+    expect(st.edited === false, "clicking in and out of its texts does not count as an edit", st)
+
+    await tap("[data-layout-change]")
+    await sleep(phone ? 500 : 200)
+    const picker = await q.evaluate(() => {
+      const d = document.querySelector('[role="dialog"]')
+      const rows = [...d.querySelectorAll("[data-starter]")]
+      const r = d.getBoundingClientRect()
+      return { rows: rows.map((x) => x.dataset.starter).join(","), ticked: rows.filter((x) => x.getAttribute("aria-current") === "true").map((x) => x.dataset.starter), left: Math.round(r.left), right: Math.round(r.right), heights: rows.map((x) => Math.round(x.getBoundingClientRect().height)) }
+    })
+    expect(picker.rows === "blank,letter,announcement,product,newsletter,sale" && picker.ticked.join() === "sale", "Change opens the layouts, Blank first and Sale ticked", picker)
+    expect(picker.left >= 0 && picker.right <= vp.width && picker.heights.every((h) => h >= 44), "the picker fits the screen and every row is a 44px target", picker)
+    await q.screenshot({ path: join(shots, `${tag}-layout-picker.png`) })
+    await pickInDialog("newsletter")
+    st = await state()
+    expect(st.bar === "Newsletter" && st.blocks === "rich,divider,rich,divider,rich" && st.subject === "What is new this month" && st.preview === "A few things from this month." && !st.dialog, "an unedited layout switches at once, with its own subject and preview text", st)
+
+    /* Written over: now a switch asks first. */
+    await q.click("[data-email-editor] [data-email-text]")
+    await q.keyboard.press("End")
+    await q.keyboard.type(" And one more thing.")
+    await sleep(150)
+    st = await state()
+    expect(st.edited === true, "typing into the layout marks it edited", st)
+    await tap("[data-layout-change]")
+    await sleep(phone ? 500 : 200)
+    await pickInDialog("letter")
+    st = await state()
+    expect(/Use the Letter layout\?/.test(st.dialog ?? "") && st.bar === "Newsletter", "switching an edited layout asks first, and has not changed anything yet", st)
+    await q.screenshot({ path: join(shots, `${tag}-layout-confirm.png`) })
+    const keep = await q.$$('[role="dialog"] button')
+    for (const btn of keep) if ((await btn.evaluate((x) => x.textContent)).trim() === "Keep my email") await btn.click()
+    await settle()
+    st = await state()
+    expect(st.bar === "Newsletter" && st.edited === true && /one more thing/.test(await q.$eval("[data-email-editor]", (e) => e.textContent)), "Keep my email leaves it as it was", st)
+    await tap("[data-layout-change]")
+    await sleep(phone ? 500 : 200)
+    await pickInDialog("letter")
+    await q.click("[data-layout-confirm]")
+    await settle()
+    st = await state()
+    expect(st.bar === "Letter" && st.blocks === "rich" && st.subject === "" && st.preview === "" && /^Hi \{\{first_name\}\},/.test(st.words), "Replace puts the Letter in, and the Newsletter's subject and preview go with it", st)
+
+    /* A subject of your own is yours, whatever the layout does. */
+    await tap("#compose-subject")
+    await q.keyboard.type("Studio news")
+    await tap("[data-layout-remove]")
+    await settle()
+    st = await state()
+    expect(st.bar === null && st.blocks === "rich" && st.words === "" && st.subject === "Studio news" && st.starters === 1, "Remove on an unedited layout goes straight back to a blank email, keeps the typed subject, and offers the layouts again", st)
+    await tap('[data-starters] [data-starter="announcement"]')
+    await settle()
+    st = await state()
+    expect(st.bar === "Announcement" && st.subject === "Studio news" && st.preview === "What is new, and when.", "starting again from a layout keeps the typed subject and fills the empty preview text", st)
+    await q.click("[data-email-editor] [data-email-text]")
+    await q.keyboard.press("End")
+    await q.keyboard.type(" Doors open at nine.")
+    await sleep(150)
+    await tap("[data-layout-remove]")
+    await sleep(phone ? 500 : 200)
+    st = await state()
+    expect(/Start from blank\?/.test(st.dialog ?? ""), "Remove on an edited layout asks first", st)
+    await q.click("[data-layout-confirm]")
+    await settle()
+    st = await state()
+    expect(st.bar === null && st.words === "" && st.subject === "Studio news" && st.preview === "" && st.sideways <= 0, "Clear it leaves a blank email with the typed subject, and nothing overflows at any step", st)
+    await q.screenshot({ path: join(shots, `${tag}-layout-blank.png`) })
+    await sleep(1300)
+    const last = await q.evaluate(() => window.__requests.filter((r) => /\/api\/email\/campaigns/.test(r.url) && (r.method === "POST" || r.method === "PATCH")).at(-1)?.body ?? null)
+    expect(!!last && last.subject === "Studio news" && !/Doors open/.test(String(last.body ?? "")), "and that is what was saved", last && { subject: last.subject, body: String(last.body).slice(0, 60) })
     await q.close()
   }
   await browser.close()

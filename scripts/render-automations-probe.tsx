@@ -31,6 +31,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.includes("/api/automations/flows/") && init?.method === "DELETE") return json({ ok: true })
   if (url.endsWith("/api/automations/flows")) return json({ id: "new-flow" })
   if (url.includes("/test")) return json({ ok: true, to: "astrid@example.com" })
+  if (url.endsWith("/preview")) return json({ html: '<!doctype html><html><body style="margin:0;background:#f4f5f7"><table width="100%"><tr><td style="padding:24px"><div style="max-width:600px;margin:0 auto;background:#fff;padding:32px;font:16px/1.6 Arial">Hi Alex,<p>Thanks for joining.</p></div></td></tr></table></body></html>', subject: "Welcome, Alex", previewText: "", fromName: "Astrid" })
+  if (url.endsWith("/duplicate")) return json({ id: "copy-flow" })
   return realFetch(input, init)
 }
 
@@ -72,6 +74,8 @@ function builderData(broken: boolean): BuilderData {
   ]
   const statuses = ["active", "completed", "exited", "failed", "active", "cancelled"]
   return {
+    /* The creator as a send reads them, which the page brings for the preview; the broken flow's page has none, so its preview asks the server. */
+    look: broken ? null : { fromName: "Astrid Lens", replyTo: "", storeUrl: "https://storelib.com/astrid", brand: { name: "Astrid Lens", logoUrl: null, accentColor: "#0f766e", onAccent: "#ffffff" } },
     flow: { id: "f1", name: "Welcome series", trigger_type: "new_subscriber", trigger_config: { template: "welcome", entry: { mode: "after", days: 30 } }, status: broken ? "draft" : "active", steps, updated_at: "2026-09-20T10:00:00Z" },
     products: [
       { id: "11111111-1111-1111-1111-111111111111", title: "Autumn presets" },
@@ -155,6 +159,7 @@ function Subscribers() {
         ]}
         onToggleFlow={() => {}}
         onDeleteFlow={() => {}}
+        onDuplicateFlow={() => {}}
         campaigns={[]}
         onOpenCampaign={() => {}}
         onCampaignIntent={() => {}}

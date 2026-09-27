@@ -95,6 +95,15 @@ export function cleanName(v: unknown): string | null {
   return name || null
 }
 
+/** The name a flow is saved under when it has none. */
+export const UNTITLED = "Untitled automation"
+
+/** "Copy of Welcome series", kept within the 80 characters a name can have. */
+export function copyName(name: unknown): string {
+  const base = cleanName(name) ?? UNTITLED
+  return `Copy of ${base}`.slice(0, 80)
+}
+
 export function cleanTrigger(v: unknown): TriggerType | null {
   return isTriggerType(v) ? v : null
 }

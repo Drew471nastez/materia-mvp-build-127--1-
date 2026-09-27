@@ -11,7 +11,9 @@
  *                 keyboard number, stuck to the top of the email from 768px
  *   preview       no Write | Preview switch; beside the writing from 1024px,
  *                 and below that a layer that rises on transform only
- *   layouts       an empty new email offers the starters
+ *   layouts       an empty email offers the starters; once one is in, a line
+ *                 above the email names it and changes or removes it, and a
+ *                 change that would lose written words asks first
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -75,8 +77,13 @@ check("which rises and falls on transform only, the iOS sheet curve", /transform
 check("and clears the status bar and the home indicator", /pt-\[env\(safe-area-inset-top,0px\)\]/.test(layer) && /pb-\[env\(safe-area-inset-bottom,0px\)\]/.test(layer))
 
 console.log("\nLayouts")
-check("an empty new email offers them", /canStart = editable && !campaignId && !loading && !hasRealContent\(clean\)/.test(composer) && /<StarterList onPick=\{startFrom\} \/>/.test(composer))
-check("picking one never overwrites a subject already written", /if \(d\.subject && !subject\.trim\(\)\) setSubject/.test(composer))
+const layoutBar = read("components/email/compose/layout-bar.tsx")
+check("an empty email offers them, a saved empty draft too", /canStart = editable && !loading && !hasContent && !layout/.test(composer) && /<StarterList onPick=\{chooseLayout\} \/>/.test(composer))
+check("a line above the email names the layout, with Change and Remove", /<LayoutBar/.test(composer) && /data-layout-change/.test(layoutBar) && /data-layout-remove/.test(layoutBar) && />\s*Remove\s*</.test(layoutBar))
+check("the picker has Blank first and ticks the one in use", /<StarterList bare withBlank current=\{current\}/.test(layoutBar) && /withBlank \? <Row id="blank"/.test(read("components/email/compose/starter-list.tsx")))
+check("a change asks first only when it would lose written words", /if \(needsConfirm\(layout, clean\)\) setLayoutDialog\(\{ mode: "confirm", choice \}\)\s*else applyLayout\(choice\)/.test(composer))
+check("a typed subject is never overwritten: the envelope follows the layout only where the layout wrote it", /envelopeAfter\(\{ subject, previewText \}, layout, d\)/.test(composer))
+check("the confirm is in the same dialog, not a second one on top", /mode: "confirm"/.test(layoutBar) && (layoutBar.match(/<ComposeDialog/g) ?? []).length === 1)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

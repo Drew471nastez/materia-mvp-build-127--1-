@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { signedInCreator } from "@/lib/automations/flow-io"
+import { UNTITLED, signedInCreator } from "@/lib/automations/flow-io"
 import { BLANK_TEMPLATE, templateById } from "@/lib/automations/templates"
 import { defaultEntry, isTriggerType, serializeSteps } from "@/lib/automations/flow-model"
 
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     .from("email_flows")
     .insert({
       creator_id: me.creatorId,
-      name: template?.name ?? "Untitled automation",
+      name: template?.name ?? UNTITLED,
       trigger_type: trigger,
       trigger_config: {
         template: template?.id ?? BLANK_TEMPLATE,
