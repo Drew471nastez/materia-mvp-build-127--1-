@@ -24,7 +24,8 @@ import { loggable } from "./plain-reason"
 
 export type AdminAction = {
   action: string
-  targetType: "creator" | "product" | "order" | "account"
+  /** "domain" is a payment method domain held by Stripe, not a row in this database. */
+  targetType: "creator" | "product" | "order" | "account" | "domain"
   targetId: string
   /** A handle or title, so the log still reads after the row is gone. */
   targetLabel?: string | null

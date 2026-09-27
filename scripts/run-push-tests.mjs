@@ -284,6 +284,7 @@ const SUITES = [
   "tests/onepage-editor-ui.test.ts",
   "tests/checkout-loads.test.ts",
   "tests/notify-templates.test.ts",
+  "tests/wallet-domains.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
