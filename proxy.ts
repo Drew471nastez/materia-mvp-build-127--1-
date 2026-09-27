@@ -7,6 +7,8 @@ import { previewTokenFrom } from "@/lib/website-builder/preview-token"
 import { isApexHost } from "@/lib/custom-domains/hostname"
 import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
 import { onePageRoute } from "@/lib/onepage/host-route"
+import { oldAddressRedirect, resolveOnePageAddress, type OldAddressRedirect } from "@/lib/onepage/resolve-address"
+import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -189,6 +191,44 @@ async function hasLiveAiSite(slug: string): Promise<boolean> {
     return !!(data as { storage_prefix: string | null } | null)?.storage_prefix
   } catch {
     return false
+  }
+}
+
+/**
+ * ── An old OnePage address, sent to where the page is now ──────────────────
+ * {name}.storelib.com/links, storelib.com/{name}/links, /{name}.links and
+ * /l/{name} all answer with a 308 to storelib.me/{name}. For most creators
+ * that is their OnePage. For a renamed account or page it is a 404, and for
+ * a creator who never had a OnePage it is a 404 too, which is what
+ * dj-danut.storelib.com/links answered. So the name is looked up first, the
+ * same way the page looks it up (lib/onepage/resolve-address), and the
+ * redirect goes straight to the final address: one hop, query kept.
+ *
+ * Only the redirect's target can change. A page that answers, a name nobody
+ * has, a database without keys, a failed read or a slow one (over
+ * ONEPAGE_LOOKUP_MS) all keep the redirect exactly as it was.
+ *
+ * Its own client, with no cookies and no session: these addresses are
+ * public, and nothing here reads or writes a visitor's session.
+ */
+const ONEPAGE_LOOKUP_MS = 2500
+
+async function oldOnePageTarget(name: string, already: OldAddressRedirect, search: string): Promise<OldAddressRedirect> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return already
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const slow = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ONEPAGE_LOOKUP_MS)
+    })
+    const address = await Promise.race([resolveOnePageAddress(name, supabaseOnePageLookup(supabase, "id, slug")), slow])
+    return address ? oldAddressRedirect(address, already, { search, mainDomain: MAIN_DOMAIN }) : already
+  } catch {
+    return already
+  } finally {
+    if (timer) clearTimeout(timer)
   }
 }
 
@@ -677,9 +717,11 @@ export async function proxy(request: NextRequest) {
       case "rewrite":
         return NextResponse.rewrite(new URL(onePage.path, request.url))
       case "redirect": {
-        const to = NextResponse.redirect(onePage.location, { status: onePage.status })
-        /* A permanent move may be held by the edge; the root's temporary one may not. */
-        to.headers.set("Cache-Control", onePage.status === 307 ? "no-store" : "public, max-age=3600")
+        /* An old address goes straight to where the page is now (oldOnePageTarget above). */
+        const { location, status } = onePage.onePage ? await oldOnePageTarget(onePage.onePage, onePage, search) : onePage
+        const to = NextResponse.redirect(location, { status })
+        /* A permanent move may be held by the edge; a temporary one (the root, a creator with no OnePage yet) may not. */
+        to.headers.set("Cache-Control", status === 307 ? "no-store" : "public, max-age=3600")
         return to
       }
       case "robots":
@@ -752,8 +794,10 @@ export async function proxy(request: NextRequest) {
     ── The OnePage's old addresses ───────────────────────────────────────
     `/l/{slug}` and `/{handle}/links` answer with a 308 to
     storelib.me/{slug}, decided in the OnePage block above
-    (lib/onepage/host-route). A slug that cannot be a name falls through to
-    the /l/ route, which answers its not found.
+    (lib/onepage/host-route), or to wherever the name leads now: a renamed
+    page's new address, or a creator page when there is no OnePage
+    (oldOnePageTarget). A slug that cannot be a name falls through to the
+    /l/ route, which answers its not found.
   */
 
   /**
@@ -857,7 +901,9 @@ export async function proxy(request: NextRequest) {
         /links ON A SUBDOMAIN was the address the Share card once handed out,
         and the website answered it with a 404. It is sent to the OnePage,
         storelib.me/{name}, by the OnePage block at the top of this function
-        (lib/onepage/host-route), before this branch is reached.
+        (lib/onepage/host-route), before this branch is reached; to the
+        page's new address after a rename, and to the creator page for a
+        creator with no OnePage (oldOnePageTarget).
       */
       if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
         const apex = new URL(`https://${MAIN_DOMAIN}`)

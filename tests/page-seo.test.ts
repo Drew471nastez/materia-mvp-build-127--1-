@@ -219,7 +219,8 @@ console.log("\nAn old address moved for good says so")
 {
   /* A 307 keeps a search engine on the old address; a 308 moves what it knows to the new one. */
   check("a renamed creator's page", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && !/\bredirect\(`\/\$\{historyRecord/.test(code("app/(marketing)/u/[username]/page.tsx")))
-  check("their OnePage, straight to storelib.me/<new> on storelib.me", /permanentRedirect\(onOnePageHost \? onePageUrl\(historyRecord\.new_username\) : getLinksInternalPath\(historyRecord\.new_username\)\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  /* The page reads the rename from lib/onepage/resolve-address now (a past username or a past page address, one resolver shared with the proxy), and carries the visitor's query; still permanent, still straight to storelib.me/<new>. */
+  check("their OnePage, straight to storelib.me/<new> on storelib.me", /permanentRedirect\(`\$\{onOnePageHost \? onePageUrl\(address\.name\) : getLinksInternalPath\(address\.name\)\}\$\{query\}`\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
   check("a renamed product", /permanentRedirect\(`\/p\/\$\{product\.slug\}`\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
   const c = code("app/(marketing)/c/[slug]/page.tsx")
   check("the old /c/ address, while a guess with nothing behind it stays temporary",

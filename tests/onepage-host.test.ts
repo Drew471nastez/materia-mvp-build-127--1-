@@ -267,8 +267,14 @@ function wiring() {
   check("storelib.me's route has the same not found", /export \{ default \} from "..\/..\/l\/\[slug\]\/not-found"/.test(code("app/(marketing)/[sellername]/links/not-found.tsx")))
   const seo = code("lib/onepage/seo.ts")
   check("the metadata carries the page's own origin as its base", /metadataBase: new URL\(originOf\(seo\.url\)/.test(seo))
-  const found = code("lib/onepage/published-page.ts")
-  check("a page is found in any case, with _ and % literal", /ilike\("slug", exactIlike\(slug\)\)/.test(found) && /ilike\("username", exactIlike\(slug\)\)/.test(found))
+  /*
+    The lookups moved from lib/onepage/published-page.ts to
+    lib/onepage/address-lookup.ts on purpose: the proxy resolves an old
+    address with the same ones now (tests/onepage-old-links.test.ts), so the
+    pin reads them where they are. Same check, same two columns.
+  */
+  const found = code("lib/onepage/address-lookup.ts")
+  check("a page is found in any case, with _ and % literal", /ilike\("slug", exactIlike\(name\)\)/.test(found) && /ilike\("username", exactIlike\(name\)\)/.test(found))
 
   console.log("\nSitemaps")
   const maps = code("lib/seo/sitemaps.ts")

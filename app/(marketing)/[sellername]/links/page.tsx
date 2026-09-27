@@ -47,6 +47,8 @@ export const dynamic = "force-dynamic"
 
 interface Props {
   params: Promise<{ sellername: string }>
+  /* Passed on, so a redirect the page answers with keeps the visitor's utm and ref. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 /** The handle in the path is the slug the OnePage is stored under. */
@@ -64,6 +66,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   there, and a type error nobody sees is the one that hides the next one.
   Awaiting it is the same call the renderer makes.
 */
-export default async function SellerOnePageRoute({ params }: Props) {
-  return await PublicOnePageRoute({ params: asSlug(params) })
+export default async function SellerOnePageRoute({ params, searchParams }: Props) {
+  return await PublicOnePageRoute({ params: asSlug(params), searchParams })
 }

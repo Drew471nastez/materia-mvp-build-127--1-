@@ -38,6 +38,12 @@
  *   /{name}/links, /{name}.links, /l/{name}   308 to storelib.me/{name}
  *   {name}.storelib.com/links                 308 to storelib.me/{name}
  *
+ * Where the name has moved (a renamed account or page) or has no OnePage
+ * at all (a creator who never made one), proxy.ts turns that 308 into the
+ * final address before answering: storelib.me/{current name}, or a 307 to
+ * the creator page storelib.com/{username}. The redirects below carry the
+ * name as `onePage` for that; lib/onepage/resolve-address decides.
+ *
  * A name is redirected only when isResolvableOnePageName says it is one, so
  * nothing a visitor types in the path can steer where the redirect goes: the
  * host is always ours, and the path is a name that passed the check.
@@ -55,8 +61,13 @@ export type OnePageRoute =
   | { kind: "next" }
   /** Serve this internal path instead (query included); the address bar does not change. */
   | { kind: "rewrite"; path: string }
-  /** Send the browser here. */
-  | { kind: "redirect"; location: string; status: 301 | 307 | 308 }
+  /**
+   * Send the browser here. `onePage` is set on an OLD OnePage address: the
+   * name it was for, which proxy.ts resolves (lib/onepage/resolve-address) so
+   * a renamed page or a creator with no OnePage goes to the final address in
+   * one hop. Without an answer from the database, `location` stands.
+   */
+  | { kind: "redirect"; location: string; status: 301 | 307 | 308; onePage?: string }
   /** Answer robots.txt for the OnePage host. */
   | { kind: "robots"; body: string }
   /** Nothing here: a page 404 (rewritten to `path`, which renders the page's own not found) or an API 404. */
@@ -144,7 +155,7 @@ export function onePageRoute(input: OnePageRouteInput): OnePageRoute | null {
   const main = input.mainDomain.toLowerCase()
   const search = input.search || ""
   const method = (input.method || "GET").toUpperCase()
-  const toMe = (name: string) => ({ kind: "redirect" as const, location: `https://${domain}/${name.toLowerCase()}${search}`, status: 308 as const })
+  const toMe = (name: string) => ({ kind: "redirect" as const, location: `https://${domain}/${name.toLowerCase()}${search}`, status: 308 as const, onePage: name })
 
   /* ── www.storelib.me: the name without www is the address ───────────── */
   if (host === `www.${domain}`) {
@@ -199,6 +210,8 @@ function onTheOnePageHost(pathname: string, search: string, method: string, main
   const missing = (api = false): OnePageRoute => ({ kind: "not-found", api, path: ONEPAGE_MISSING_PATH })
   const toPlatform = (): OnePageRoute => ({ kind: "redirect", location: `https://${main}${pathname}${search}`, status: 308 })
   const toName = (name: string) => ({ kind: "redirect" as const, location: `https://${domain}/${name.toLowerCase()}${search}`, status: 308 as const })
+  /* An old spelling of the address on the new host: resolved by the proxy like the storelib.com ones. */
+  const fromOld = (name: string) => ({ ...toName(name), onePage: name })
 
   /* Next's own files: scripts, styles, fonts and optimised images. */
   if (pathname.startsWith("/_next/")) return { kind: "next" }
@@ -223,7 +236,7 @@ function onTheOnePageHost(pathname: string, search: string, method: string, main
     /* storelib.me/{name}.links: the old spelling on the new host. */
     if (/\.links$/i.test(first)) {
       const name = nameOf(first.slice(0, -".links".length))
-      return name ? toName(name) : missing()
+      return name ? fromOld(name) : missing()
     }
     /* A platform word: the platform page, on the platform's host. */
     if (isReservedRootSegment(first)) return toPlatform()
@@ -236,7 +249,7 @@ function onTheOnePageHost(pathname: string, search: string, method: string, main
   /* storelib.me/l/{name} */
   if (first === "l" && parts.length === 2) {
     const name = nameOf(parts[1])
-    return name ? toName(name) : missing()
+    return name ? fromOld(name) : missing()
   }
 
   if (isReservedRootSegment(first)) return toPlatform()
@@ -244,7 +257,7 @@ function onTheOnePageHost(pathname: string, search: string, method: string, main
   /* storelib.me/{name}/links */
   if (parts.length === 2 && parts[1].toLowerCase() === "links") {
     const name = nameOf(first)
-    return name ? toName(name) : missing()
+    return name ? fromOld(name) : missing()
   }
 
   return missing()
