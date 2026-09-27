@@ -124,6 +124,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
 
   // Reads of things that are already public.
   "reviews/stats/route.ts": "the rating shown on a public product page",
+  "reviews/breakdown/route.ts": "the star counts under a public product's rating, from published reviews only, no names or text",
   "domains/resolve/route.ts": "maps a public hostname to the site it serves",
   "v2/search/route.ts": "public search over published products",
   "website-builder/search/route.ts": "public search inside a published site",
