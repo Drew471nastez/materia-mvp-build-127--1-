@@ -842,6 +842,10 @@ const SECTION_LABEL: Record<DesignSection, string> = {
  * finger from the left edge of a panel pulls it back the same way, and
  * lets it go back or springs it home.
  *
+ * On a computer, where the list is a column beside the phone preview and
+ * not the whole screen, the two pages go side by side instead (SIDE BY
+ * SIDE ON A COMPUTER below): scripts/check-onepage-design-push.mjs.
+ *
  * Both pages are drawn only while they move. At rest the list is kept (its
  * state, not its pixels: `display: none`). Transform and opacity only, on
  * the compositor.
@@ -868,6 +872,11 @@ const DESIGN_SECTIONS = Object.keys(SECTION_LABEL) as DesignSection[]
 const PUSH_MS = 360
 const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const UNDER_SHIFT = 0.28
+/** On a computer the two pages go side by side, the list all the way out, on a curve with no long tail. */
+const SIDE_MS = 300
+const SIDE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+/** Where the pages go side by side: from 768px, where the list is not the whole screen (the dim is `md:hidden` for the same reason). */
+const SIDE_QUERY = "(min-width: 768px)"
 /** How dark the list goes under a panel: a shade, not a scrim. */
 const UNDER_DIM = 0.07
 /** A finger that starts this close to a panel's left edge is taking it back. */
@@ -878,6 +887,13 @@ const EDGE_PX = 28
  * panel) where it was on screen. `panelMin` and `listMin` are how tall each
  * must be to reach the bottom of the screen while they move, so a short
  * page never leaves the other showing, undimmed, below it.
+ *
+ * THE PAGE LEAVING IS CUT AT THE BOTTOM OF THE SCREEN. It is that tall and
+ * no taller (its height, not its least height, and `overflow: clip`), so
+ * a long page leaving (Theme, back to the list) never makes the column
+ * taller than the page arriving needs: the column's scrollbar came in for
+ * the move and went again at its end ("a scrollbar flash"), and where a
+ * scrollbar takes room, the column went narrower and wider with it.
  */
 type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number; peek?: boolean }
 
@@ -988,20 +1004,39 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     return () => root.removeEventListener(NATIVE_BACK_EVENT, onBack)
   }, [setSection])
 
-  /* The move itself, drawn before the browser paints the first frame of it. */
+  /*
+    The move itself, drawn before the browser paints the first frame of it.
+
+    THE LAST FRAME IS HELD UNTIL REACT HAS DRAWN THE PAGE AT REST. The
+    animations held nothing (`fill: none`), so in the frame they finished
+    the page leaving jumped back to where it stands when nothing moves it,
+    over the page arriving, and stayed there until React's commit hid it a
+    frame or two later: back from Theme showed Theme whole again for two
+    frames before the list. Now each animation holds its last frame
+    (`fill: both`) and is let go in the layout effect of the commit that
+    ends the move, before that commit is painted.
+  */
   const animating = useRef<Animation[]>([])
   useLayoutEffect(() => {
-    if (!move || move.peek) return
+    if (!move) {
+      animating.current.forEach((a) => a.cancel())
+      animating.current = []
+      return
+    }
+    if (move.peek) return
     const scroller = scrollerOf()
     if (scroller) scroller.scrollTop = move.to === "home" ? listScroll.current : 0
     const list = listRef.current
     const panel = panelRef.current
     const dim = dimRef.current
+    let anims: Animation[] = []
     const done = () => {
-      animating.current = []
+      if (animating.current !== anims) return
       setMove((m) => (m === move ? null : m))
     }
     if (!list || !panel || typeof panel.animate !== "function" || reducedMotion()) {
+      animating.current.forEach((a) => a.cancel())
+      animating.current = anims
       done()
       return
     }
@@ -1012,17 +1047,29 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     const panelFrom = running ? new DOMMatrixReadOnly(getComputedStyle(panel).transform).m41 / w : pushing ? 1 : 0
     animating.current.forEach((a) => a.cancel())
     const panelTo = pushing ? 0 : 1
+    /*
+      SIDE BY SIDE ON A COMPUTER. The phone's push (the list moving a
+      quarter as far, under the panel) was played in the 630px column as
+      well, where the panel stood in from the right over a list cut off at
+      the left, and the curve's long tail left a strip of the panel at the
+      column's edge for a fifth of a second. From 768px the two pages are
+      the column wide and travel together, the list's right edge on the
+      panel's left edge, on a curve that is done when it looks done.
+    */
+    const side = !!window.matchMedia?.(SIDE_QUERY).matches
+    const shift = side ? 1 : UNDER_SHIFT
     const at = (p: number) => `translate3d(${(p * 100).toFixed(3)}%, 0, 0)`
-    const under = (p: number) => `translate3d(${(-(1 - p) * UNDER_SHIFT * 100).toFixed(3)}%, 0, 0)`
-    const timing = { duration: PUSH_MS * Math.max(0.35, Math.abs(panelTo - panelFrom)), easing: PUSH_EASE }
-    const anims = [
+    const under = (p: number) => `translate3d(${(-(1 - p) * shift * 100).toFixed(3)}%, 0, 0)`
+    const duration = (side ? SIDE_MS : PUSH_MS) * Math.max(0.35, Math.abs(panelTo - panelFrom))
+    const timing: KeyframeAnimationOptions = { duration, easing: side ? SIDE_EASE : PUSH_EASE, fill: "both" }
+    anims = [
       panel.animate([{ transform: at(panelFrom) }, { transform: at(panelTo) }], timing),
       list.animate([{ transform: under(panelFrom) }, { transform: under(panelTo) }], timing),
     ]
-    if (dim) anims.push(dim.animate([{ opacity: (1 - panelFrom) * UNDER_DIM }, { opacity: (1 - panelTo) * UNDER_DIM }], timing))
+    if (dim && !side) anims.push(dim.animate([{ opacity: (1 - panelFrom) * UNDER_DIM }, { opacity: (1 - panelTo) * UNDER_DIM }], timing))
     animating.current = anims
     anims[0].onfinish = done
-    const timer = window.setTimeout(done, timing.duration + 250)
+    const timer = window.setTimeout(done, duration + 250)
     return () => window.clearTimeout(timer)
   }, [move])
 
@@ -1143,10 +1190,24 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const panelMoving = !!move
   /* The page leaving sits where it was on screen; the page arriving is in the flow. */
   const leavingStyle = (top: number): React.CSSProperties => ({ position: "absolute", left: 0, right: 0, top, zIndex: 0 })
-  const pageClass = "-mx-4 px-4 md:-mx-6 md:px-6 bg-white"
+  /*
+    EACH PAGE IS THE COLUMN, AND ONLY THE COLUMN'S EDGE CUTS IT. The pages
+    were the 576px of the editor's reading width (max-w-xl) inside a 630px
+    column, so a page moving out was still drawn in the 27px either side of
+    it: the list's words cut at the column's left edge, Theme's cards at its
+    right, and the column itself could be scrolled sideways by the page
+    standing off to the right. The editor gives this tab the whole column,
+    padding and all (onepage-editor, the tab boxes); each page is the
+    column wide and from its top to its bottom, with the reading width and
+    the padding inside it, and the stack cuts sideways (`overflow-x: clip`,
+    which is not a scroll box, so nothing inside can scroll it) at the
+    column's edges.
+  */
+  const pageClass = "bg-white"
+  const readingClass = "mx-auto w-full max-w-xl p-4 pb-24 md:p-6 md:pb-6"
 
   return (
-    <div ref={rootRef} className="relative isolate" data-design-stack="" data-native-back={section ? "" : undefined}>
+    <div ref={rootRef} className="relative isolate" style={{ overflowX: "clip" }} data-design-stack="" data-native-back={section ? "" : undefined}>
       <div
         ref={listRef}
         data-design-panel="home"
@@ -1157,36 +1218,38 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
           listCurrent
             ? { position: "relative", zIndex: 0, minHeight: move ? move.listMin : undefined }
             : listMoving
-              ? { ...leavingStyle(move!.top), minHeight: move!.listMin }
+              ? { ...leavingStyle(move!.top), height: move!.listMin, overflow: "clip" }
               : { display: "none" }
         }
       >
         {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
-        <PanelHeader title="Design" />
-        <nav aria-label="Design" className="flex flex-col" onPointerDown={onRowDown} onPointerCancel={onRowCancel}>
-          <NavRow dataKey="theme" icon={Layers} title="Theme" subtitle={templateName || "Your own"} onClick={() => setSection("theme")} />
-          <NavRow dataKey="header" icon={CircleUserRound} title="Header" subtitle={`${(t.header_layout || "classic") === "hero" ? "Hero" : "Classic"} layout, ${t.title_style === "logo" ? "logo title" : "text title"}`} onClick={() => setSection("header")} />
-          <NavRow
-            dataKey="wallpaper"
-            icon={PaintBucket}
-            title="Wallpaper"
-            subtitle={wallpaperSummary}
-            trailing={theme.background_type === "solid" || theme.background_type === "gradient" ? swatch(theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color) : null}
-            onClick={() => setSection("wallpaper")}
-          />
-          <NavRow
-            dataKey="text"
-            icon={Type}
-            title="Text"
-            subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? `${bodyFont}, titles in ${titleFont}` : bodyFont}</span>}
-            onClick={() => setSection("text")}
-          />
-          <NavRow dataKey="buttons" icon={RectangleHorizontal} title="Buttons" subtitle={`${theme.button_style === "filled" ? "Solid" : theme.button_style === "outline" ? "Outline" : "Glass"}, ${theme.button_border_radius ?? 8}px corners`} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
-          <NavRow dataKey="socials" icon={AtSign} title="Social icons" subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || "Solid"} onClick={() => setSection("socials")} />
-          <NavRow dataKey="footer" icon={PanelBottom} title="Footer" subtitle={settings.show_branding === false ? "Storelib badge hidden" : "Storelib badge shown"} onClick={() => setSection("footer")} />
-        </nav>
+        <div className={readingClass}>
+          <PanelHeader title="Design" />
+          <nav aria-label="Design" className="flex flex-col" onPointerDown={onRowDown} onPointerCancel={onRowCancel}>
+            <NavRow dataKey="theme" icon={Layers} title="Theme" subtitle={templateName || "Your own"} onClick={() => setSection("theme")} />
+            <NavRow dataKey="header" icon={CircleUserRound} title="Header" subtitle={`${(t.header_layout || "classic") === "hero" ? "Hero" : "Classic"} layout, ${t.title_style === "logo" ? "logo title" : "text title"}`} onClick={() => setSection("header")} />
+            <NavRow
+              dataKey="wallpaper"
+              icon={PaintBucket}
+              title="Wallpaper"
+              subtitle={wallpaperSummary}
+              trailing={theme.background_type === "solid" || theme.background_type === "gradient" ? swatch(theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color) : null}
+              onClick={() => setSection("wallpaper")}
+            />
+            <NavRow
+              dataKey="text"
+              icon={Type}
+              title="Text"
+              subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? `${bodyFont}, titles in ${titleFont}` : bodyFont}</span>}
+              onClick={() => setSection("text")}
+            />
+            <NavRow dataKey="buttons" icon={RectangleHorizontal} title="Buttons" subtitle={`${theme.button_style === "filled" ? "Solid" : theme.button_style === "outline" ? "Outline" : "Glass"}, ${theme.button_border_radius ?? 8}px corners`} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
+            <NavRow dataKey="socials" icon={AtSign} title="Social icons" subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || "Solid"} onClick={() => setSection("socials")} />
+            <NavRow dataKey="footer" icon={PanelBottom} title="Footer" subtitle={settings.show_branding === false ? "Storelib badge hidden" : "Storelib badge shown"} onClick={() => setSection("footer")} />
+          </nav>
+        </div>
         {/* The shade the list takes under a panel: on a phone, where the list is the whole screen; on a computer it would be a grey card in a white pane. */}
-        <div ref={dimRef} aria-hidden className="pointer-events-none absolute inset-0 bg-[#1a1a2e] md:hidden" style={{ opacity: 0 }} />
+        <div ref={dimRef} aria-hidden data-design-dim="" className="pointer-events-none absolute inset-0 bg-[#1a1a2e] md:hidden" style={{ opacity: 0 }} />
       </div>
       {/*
         The panel page: one element for every panel, always there, so what
@@ -1199,16 +1262,16 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         data-design-panel={shownSection ?? undefined}
         inert={!shownSection || section !== shownSection}
         aria-hidden={shownSection ? undefined : true}
-        className={pageClass}
+        /* An edge to the page while it moves over the list on a phone: a hairline and a soft shade. Side by side on a computer, nothing is under it. */
+        className={cn(pageClass, panelMoving && "max-md:shadow-[-1px_0_0_rgba(26,26,46,0.05),-16px_0_32px_-12px_rgba(26,26,46,0.14)]")}
         style={
           shownSection
             ? {
-                ...(section === shownSection ? { position: "relative" } : leavingStyle(move ? move.top : 0)),
+                ...(section === shownSection
+                  ? /* Moving, it covers the list under it to the bottom of the screen, however short it is. */
+                    { position: "relative", minHeight: panelMoving ? move?.panelMin : undefined }
+                  : { ...leavingStyle(move ? move.top : 0), height: move?.panelMin, overflow: "clip" }),
                 zIndex: 1,
-                /* An edge to the page while it moves over the list: a hairline and a soft shade. */
-                boxShadow: panelMoving ? "-1px 0 0 rgba(26,26,46,0.05), -16px 0 32px -12px rgba(26,26,46,0.14)" : undefined,
-                /* Moving, it covers the list under it to the bottom of the screen, however short it is. */
-                minHeight: panelMoving ? move?.panelMin : undefined,
               }
             : drawnSection
               ? /* Readied under a finger: laid out, but unseen, untouchable, and taking no room from the list's scroll. */
@@ -1228,20 +1291,22 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
             onPointerCancel={onEdgeUp}
           />
         ) : null}
-        {drawnSection ? <PanelHeader title={SECTION_LABEL[drawnSection]} onBack={() => setSection(null)} backLabel="Back to Design" /> : null}
-        {DESIGN_SECTIONS.filter((id) => built.includes(id)).map((id) => (
-          <Activity key={id} mode={id === drawnSection ? "visible" : "hidden"}>
-            <div data-panel-body={id}>
-              {id === "header" && <HeaderSection />}
-              {id === "theme" && <ThemeSection />}
-              {id === "wallpaper" && <WallpaperSection />}
-              {id === "text" && <TextSection />}
-              {id === "buttons" && <ButtonsSection />}
-              {id === "socials" && <SocialsSection />}
-              {id === "footer" && <FooterSection userPlan={userPlan} />}
-            </div>
-          </Activity>
-        ))}
+        <div className={readingClass}>
+          {drawnSection ? <PanelHeader title={SECTION_LABEL[drawnSection]} onBack={() => setSection(null)} backLabel="Back to Design" /> : null}
+          {DESIGN_SECTIONS.filter((id) => built.includes(id)).map((id) => (
+            <Activity key={id} mode={id === drawnSection ? "visible" : "hidden"}>
+              <div data-panel-body={id}>
+                {id === "header" && <HeaderSection />}
+                {id === "theme" && <ThemeSection />}
+                {id === "wallpaper" && <WallpaperSection />}
+                {id === "text" && <TextSection />}
+                {id === "buttons" && <ButtonsSection />}
+                {id === "socials" && <SocialsSection />}
+                {id === "footer" && <FooterSection userPlan={userPlan} />}
+              </div>
+            </Activity>
+          ))}
+        </div>
       </div>
     </div>
   )

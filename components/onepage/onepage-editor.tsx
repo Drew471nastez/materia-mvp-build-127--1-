@@ -1556,16 +1556,32 @@ function EditorLayout() {
                 className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-contain bg-white"
                 style={{
                   scrollbarWidth: "thin",
+                  /*
+                    The scrollbar's room is kept whether the tab scrolls or
+                    not. Where scrollbars take room (Windows, a Mac set to
+                    show them), Design's list does not scroll and Theme
+                    does, so every push and back made the column 10px
+                    narrower or wider in its first frame and both pages
+                    were laid out again at the new width.
+                  */
+                  scrollbarGutter: "stable",
                   zIndex: t === panels.tab ? 1 : 0,
                   /* Hidden, a kept tab is neither drawn nor laid out, and keeps its place in React. */
                   visibility: shown ? undefined : "hidden",
                   contentVisibility: shown ? undefined : "hidden",
                 }}
               >
+                {/*
+                  The reading width and the padding are each tab's own.
+                  Design's pages slide across the whole column, so that tab
+                  is given all of it and keeps both inside each page
+                  (design-tab, EACH PAGE IS THE COLUMN).
+                */}
                 <div
                   className={cn(
-                    "p-4 md:p-6 pb-24 md:pb-6 w-full mx-auto",
-                    t === "settings" ? "max-w-2xl" : "max-w-xl"
+                    "w-full mx-auto",
+                    t === "design" ? null : "p-4 md:p-6 pb-24 md:pb-6",
+                    t === "settings" ? "max-w-2xl" : t === "design" ? null : "max-w-xl"
                   )}
                 >
                   {t === "settings" ? (
