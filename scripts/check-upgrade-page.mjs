@@ -174,7 +174,7 @@ for (const [label, viewport] of [
   if (!cold.answered) problems.push(`${at} Back should answer the press at once, with a spinner in place of its arrow: ${JSON.stringify(cold)}`)
   if (warm.back !== 1 || warm.pushed.length) problems.push(`${at} with an /app page behind it Back should be router.back(): ${JSON.stringify(warm)}`)
   if (m.overflow > 0) problems.push(`${at} the page is ${m.overflow}px wider than the window`)
-  if (logo.w !== 28 || logo.h !== 28 || logo.shrink !== "0" || logo.fit !== "contain") problems.push(`${at} the mark is not a fixed 28px square: ${JSON.stringify(logo)}`)
+  if (logo.w !== 28 || logo.h !== 28 || logo.shrink !== "0" || !["contain", "cover"].includes(logo.fit)) problems.push(`${at} the mark is not a fixed 28px square: ${JSON.stringify(logo)}`)
   if (pulled.bar !== "rgb(255, 255, 255)") problems.push(`${at} the bar is not solid white: ${pulled.bar}`)
   if (pulled.top !== "rgb(255, 255, 255)") problems.push(`${at} a pull past the top shows ${pulled.top} above the white bar`)
   if (pulled.bottom !== "rgb(248, 249, 250)") problems.push(`${at} a pull past the bottom shows ${pulled.bottom} under the grey page`)

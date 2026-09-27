@@ -172,7 +172,7 @@ async function main() {
     const words = CATEGORY_INFO.filter((c) => !c.required).map((c) => pageWords({ kind: "off", emails: c.emails, token: "t", preferencesUrl: "/" }).title)
     check("every optional category reads as a sentence", words.every((w) => /^[A-Z][a-z].* are off$/.test(w)), words)
     const confirm = page({ kind: "confirm", emails: "sale emails", token: "t.k", preferencesUrl: "https://storelib.com/app/settings?tab=notifications" })
-    check("the question is the shared card, drawn with the Storelib mark and name", /class="sender"[\s\S]*<svg class="mark"[\s\S]*<p class="sender-name">Storelib<\/p>/.test(confirm))
+    check("the question is the shared card, drawn with the Storelib mark and name", /class="sender"[\s\S]*<img class="mark"[\s\S]*<p class="sender-name">Storelib<\/p>/.test(confirm))
     check("its button is the primary, a plain form POST that works with no JavaScript", /<form method="post" action="\/api\/notify\/unsubscribe">[\s\S]*name="action" value="unsubscribe"[\s\S]*class="btn btn-primary">Turn them off</.test(confirm) && !/<script/i.test(confirm))
     check("after it, turning them back on is the quieter secondary", /class="btn btn-secondary">Turn them back on</.test(off))
     check("the result is announced; the question is not", /role="status" aria-live="polite"/.test(off) && !/aria-live/.test(confirm) && /role="alert"/.test(page({ kind: "error", preferencesUrl: "/" })))

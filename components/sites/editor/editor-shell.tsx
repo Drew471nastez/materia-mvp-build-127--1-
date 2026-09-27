@@ -70,6 +70,7 @@ import { PublishButton, type PublishState } from "./publish-button"
 import { HistoryPanel } from "./history-panel"
 import { SiteSheet } from "./site-sheet"
 import { useBundler } from "./use-bundler"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 type SaveState = "clean" | "dirty" | "saving" | "error"
 type Pane = "chat" | "preview" | "code"
@@ -489,19 +490,8 @@ export function EditorShell({
           className="flex shrink-0 items-center rounded-[8px] p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 sm:hidden" />
-          {/*
-            The mark, not a letter. `img` rather than next/image: it is a fixed
-            24px SVG from our own public folder, so there is nothing for an
-            optimizer to do and a remotePatterns entry to maintain would be a
-            cost with no return.
-          */}
-          <img
-            src="/storelib-mark.svg"
-            alt=""
-            width={24}
-            height={24}
-            className="hidden h-6 w-6 rounded-[6px] sm:block"
-          />
+          {/* The logo, not a letter. */}
+          <StorelibLogo size={24} alt="" className="hidden sm:block" />
         </SmartLink>
 
         <span className="hidden text-sm text-muted-foreground sm:inline">/</span>

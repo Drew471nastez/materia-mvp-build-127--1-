@@ -25,11 +25,10 @@ import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff } from "@/lib/explore/use-search-handoff"
 import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
 
-const LOGO_URL = STORELIB_LOGO
 
 
 
@@ -1202,14 +1201,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo - refreshes main page */}
                 <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
-                  <Image
-                    src={LOGO_URL || "/placeholder.svg"}
-                    alt="Storelib"
-                    width={131}
-                    height={44}
-                    className="h-[44px] w-auto rounded-[7px]"
-                    priority
-                  />
+                  <StorelibLogo size={44} priority />
                   <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
@@ -1290,14 +1282,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
                   <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
-                    <Image
-                      src={LOGO_URL || "/placeholder.svg"}
-                      alt="Storelib"
-                      width={120}
-                      height={40}
-                      className="h-[42px] w-auto rounded-[7px]"
-                      priority
-                    />
+                    <StorelibLogo size={42} priority />
                     <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
                   </Link>
                 </div>
@@ -1321,14 +1306,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - links to /explore */}
                 <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
-                  <Image
-                    src={LOGO_URL || "/placeholder.svg"}
-                    alt="Storelib"
-                    width={131}
-                    height={44}
-                    className="h-[44px] w-auto rounded-[7px]"
-                    priority
-                  />
+                  <StorelibLogo size={44} priority />
                   <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
@@ -1560,14 +1538,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
               {/* Logo next to hamburger - links to /explore */}
               <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
-                <Image
-                  src={LOGO_URL || "/placeholder.svg"}
-                  alt="Storelib"
-                  width={108}
-                  height={36}
-                  className="h-[38px] w-auto rounded-[7px]"
-                  priority
-                />
+                <StorelibLogo size={38} priority />
                 <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
               </Link>
             </div>

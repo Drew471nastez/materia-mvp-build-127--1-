@@ -3,7 +3,7 @@
 import { Bell, ChevronDown, Compass, Search, Settings } from "lucide-react"
 import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
 import { avatarSource, initialsOf } from "@/components/app/app-avatar"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 /**
  * ===========================================================================
@@ -109,8 +109,7 @@ export function ShellHeaderStill({ name, photo }: { name: string; photo: string 
             </div>
             <div className="h-5 w-px bg-white/15" />
             <span data-still="logo" className="flex shrink-0 items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={STORELIB_LOGO} alt="" className="h-[27px] w-[27px] rounded-[4px]" />
+              <StorelibLogo size={27} alt="" />
               <span className="text-[15px] font-semibold text-white">Storelib</span>
             </span>
           </div>

@@ -37,6 +37,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1040,13 +1041,7 @@ function ShareButton({
             onClick={() => openExternalUrl("https://storelib.com")}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#1a1a2e] flex items-center justify-center shrink-0 overflow-hidden">
-                <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
-                  alt="Storelib"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <StorelibLogo size={40} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900">Create your own page</p>
                 <p className="text-xs text-gray-500 truncate">Build your store with Storelib</p>

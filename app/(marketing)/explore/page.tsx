@@ -7,6 +7,7 @@ import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
     siteName: "Storelib",
     images: [
       {
-        url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
+        url: storelibAssetUrl(STORELIB_OG_IMAGE),
         width: 1200,
         height: 630,
         alt: "Storelib - Discover Digital Products",
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Storelib | Discover",
     description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
-    images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
+    images: [storelibAssetUrl(STORELIB_OG_IMAGE)],
   },
   alternates: {
     canonical: "https://storelib.com/explore",

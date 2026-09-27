@@ -20,7 +20,7 @@
  *
  * Pure (no server imports), so the suites can read what it draws.
  */
-import { STORELIB_S_PATH, STORELIB_S_TRANSFORM } from "@/components/storelib-mark"
+import { STORELIB_LOGO, STORELIB_LOGO_SHADOW } from "@/lib/brand/logo"
 
 export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
@@ -61,9 +61,9 @@ export interface CardInput {
   footer?: string
 }
 
-/* The Storelib S, the curves of components/storelib-mark.tsx, on its violet tile. */
+/* The Storelib logo, the same file every page draws (lib/brand/logo.ts). A path on this page's own host, which is storelib.com, so nothing comes from anywhere else. */
 function storelibMark(): string {
-  return `<svg class="mark" viewBox="0 0 200 200" aria-hidden="true" focusable="false"><rect x="4" y="2" width="192" height="196" rx="44" fill="#8b56fa"/><path d="${STORELIB_S_PATH}" fill="#fdfdff" transform="${STORELIB_S_TRANSFORM}"/></svg>`
+  return `<img class="mark" src="${STORELIB_LOGO}" alt="" width="48" height="48">`
 }
 
 function initialOf(name: string): string {
@@ -134,7 +134,7 @@ const STYLE = `
   .sender { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .figure { position: relative; display: inline-flex; }
   .avatar, .mark { width: 48px; height: 48px; border-radius: 999px; display: block; }
-  .mark { border-radius: 12px; }
+  .mark { border-radius: 7px; box-shadow: ${STORELIB_LOGO_SHADOW}; object-fit: cover; }
   img.avatar { position: relative; object-fit: cover; background: var(--initial); border: 1px solid var(--line); color: transparent; }
   /* A picture that does not load draws its ::before: the letter, where the broken-image icon would be. */
   img.avatar::before { content: attr(data-initial); position: absolute; inset: -1px; display: flex; align-items: center; justify-content: center;

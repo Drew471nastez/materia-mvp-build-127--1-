@@ -134,7 +134,7 @@ function main() {
     /onScroll=\{updateScrollEdges\}/.test(creator) && /el\.style\.setProperty\("--fade-top", above \? "20px" : "0px"\)/.test(creator) && /maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK/.test(creator))
   /* "the last step, it's the old Storelib logo, and it's cut badly in the corners." */
   check("the setup screen draws the one Storelib mark, whole, with no copy of it in this file",
-    /import \{ StorelibMark \} from "@\/components\/storelib-mark"/.test(creator) && /<StorelibMark className="h-\[61px\] w-\[61px\] drop-shadow-\[[^\]]+\] sm:h-\[68px\] sm:w-\[68px\]" \/>/.test(creator)
+    /import \{ StorelibLogo \} from "@\/components\/brand\/storelib-logo"/.test(creator) && /<StorelibLogo size=\{68\} fluid className="h-\[61px\] w-\[61px\] sm:h-\[68px\] sm:w-\[68px\]" \/>/.test(creator)
       && !/const StorelibLogo/.test(creator) && !/animate-ping/.test(creator))
   /* The line used to be remounted per phase and faded in from nothing, so each change had a blank beat; now it is the shared swap. */
   check("its line crossfades from phase to phase (the shared TextSwap, no blank beat) over marks that fill on translate, and says plainly when it failed",

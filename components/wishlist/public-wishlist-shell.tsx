@@ -1,13 +1,10 @@
 "use client"
 
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
 import { MarketingFooter } from "@/components/marketing/footer"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
-
-const LOGO_URL = STORELIB_LOGO
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 export function PublicWishlistShell() {
   const router = useRouter()
@@ -26,7 +23,7 @@ export function PublicWishlistShell() {
           </button>
 
           <div className="flex items-center gap-2">
-            <Image src={LOGO_URL} alt="Storelib" width={32} height={32} className="h-8 w-8 rounded-[7px]" />
+            <StorelibLogo size={32} />
             <span className="text-sm font-semibold text-neutral-900">Storelib</span>
           </div>
 

@@ -33,7 +33,7 @@ import {
   TriangleAlert,
 } from "lucide-react"
 
-import { StorelibMark } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 import { cn } from "@/lib/utils"
 import type { AgentEvent } from "@/lib/sites/agent/types"
@@ -1188,7 +1188,7 @@ export function ChatPane({
         {/* The product's own mark, not a generic sparkle. This header is the
             first thing on screen on a phone, where it is the only branding
             the editor shows at all. */}
-        <StorelibMark className="h-4 w-4 shrink-0" />
+        <StorelibLogo size={16} alt="" />
         <span className="text-sm font-medium">Storelib AI</span>
       </div>
 

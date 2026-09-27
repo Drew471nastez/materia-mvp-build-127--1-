@@ -4,6 +4,7 @@ import { CATEGORY_PAGES } from "@/lib/explore/category-pages"
 import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -76,7 +77,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: `https://storelib.com/explore/${category}`,
       images: [
         {
-          url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
+          url: storelibAssetUrl(STORELIB_OG_IMAGE),
           width: 1200,
           height: 630,
           alt: `${label} on Storelib`,
@@ -87,7 +88,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: `${label} | Storelib`,
       description,
-      images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
+      images: [storelibAssetUrl(STORELIB_OG_IMAGE)],
     },
     alternates: {
       canonical: `https://storelib.com/explore/${category}`,

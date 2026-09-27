@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const COMPARE_IMAGE =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp"
@@ -255,14 +255,7 @@ export function ToolStackSection() {
               {/* Storelib row */}
               <div className="flex items-center gap-3 sm:gap-4 py-3">
                 <span className="w-8 flex items-center justify-center shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={STORELIB_LOGO}
-                    alt="Storelib"
-                    width={31}
-                    height={31}
-                    className="w-[31px] h-[31px] rounded-[7px]"
-                  />
+                  <StorelibLogo size={31} />
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] sm:text-base font-semibold text-neutral-900">

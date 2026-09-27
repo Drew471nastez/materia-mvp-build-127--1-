@@ -8,7 +8,7 @@ interface DynamicFaviconProps {
   faviconUrl?: string | null
 }
 
-// Platform favicon URL from Supabase storage
+// The Storelib logo (lib/brand/logo.ts), cropped to a rounded favicon below
 const PLATFORM_FAVICON_URL = STORELIB_LOGO
 
 /**
@@ -165,7 +165,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
           // Fallback to platform favicon on error
           createRoundedFavicon(PLATFORM_FAVICON_URL)
             .then((dataUrl) => setFavicon(dataUrl, "image/png"))
-            .catch(() => setFavicon(PLATFORM_FAVICON_URL, "image/svg+xml"))
+            .catch(() => setFavicon(PLATFORM_FAVICON_URL, "image/webp"))
         })
     } else {
       // Platform page — the Storelib mark, through the same crop.
@@ -174,8 +174,8 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
           setFavicon(dataUrl, "image/png")
         })
         .catch(() => {
-          // Fallback to direct SVG if canvas fails
-          setFavicon(PLATFORM_FAVICON_URL, "image/svg+xml")
+          // Fallback to the file itself if canvas fails
+          setFavicon(PLATFORM_FAVICON_URL, "image/webp")
         })
     }
 

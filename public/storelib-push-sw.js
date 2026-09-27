@@ -18,7 +18,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/apple-icon.png",
+      /* The Storelib logo with its corners cut in (lib/brand/logo.ts STORELIB_EMAIL_LOGO): a notification has no CSS to round it. */
+      icon: "/images/brand/storelib-logo-email-v2.png",
       badge: "/icon-light-32x32.png",
       tag: data.tag || undefined,
       data: { url: data.url || "/app" },

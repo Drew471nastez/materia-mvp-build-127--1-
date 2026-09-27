@@ -24,7 +24,7 @@ import { playList, shootList, type ListShot } from "./list-motion"
 import { LAYER_LEAVE_MS, LAYER_PRESS_WAIT_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { STORELIB_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { archiveProduct, isArchivedProduct as isArchived, restoreProduct } from "@/lib/products/archive"
 
@@ -251,7 +251,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a2e; }
         .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
         .logo { margin-bottom: 16px; }
-        .logo img { height: 32px; }
+        .logo img { width: 32px; height: 32px; border-radius: 7px; box-shadow: ${STORELIB_LOGO_SHADOW}; }
         .header h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
         .header p { color: #6b7280; font-size: 14px; }
         .summary { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
@@ -269,14 +269,14 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
         .status-archived { background: #f3f4f6; color: #6b7280; }
         .price { font-weight: 600; color: #1a1a2e; }
         .footer { margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; }
-        .footer img { height: 20px; margin-bottom: 8px; opacity: 0.6; }
+        .footer img { width: 20px; height: 20px; border-radius: 7px; box-shadow: ${STORELIB_LOGO_SHADOW}; margin-bottom: 8px; opacity: 0.6; }
         .branding { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
       </style>
     </head>
     <body>
       <div class="header">
         <div class="logo">
-          <img src="${STORELIB_LOGO}" alt="Storelib" />
+          <img src="${storelibAssetUrl(STORELIB_LOGO)}" alt="Storelib" width="32" height="32" />
         </div>
         <h1>Products Report</h1>
         <p>Generated on ${today}</p>
@@ -326,7 +326,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
 
       <div class="footer">
         <div class="branding">
-          <img src="${STORELIB_LOGO}" alt="Storelib" />
+          <img src="${storelibAssetUrl(STORELIB_LOGO)}" alt="Storelib" width="20" height="20" />
         </div>
         <p>This report contains ${products.length} product(s) • Powered by StoreLib</p>
       </div>

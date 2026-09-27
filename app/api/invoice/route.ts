@@ -8,6 +8,7 @@ import { invoiceNumber } from "@/lib/checkout/invoice"
 import { addressLines, businessFromFields, businessFromMetadata, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
 import { countryName } from "@/lib/checkout/countries"
 import { stripe } from "@/lib/stripe"
+import { STORELIB_LOGO_PNG, STORELIB_ORIGIN } from "@/lib/brand/logo"
 
 export const runtime = "nodejs"
 
@@ -140,8 +141,8 @@ export async function GET(request: Request) {
  * serverless bundle: every invoice logged "Cannot find module 'sharp'" and
  * went out without its mark.
  */
-const LOGO_PATH = "/apple-icon.png"
-const LOGO_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
+const LOGO_PATH = STORELIB_LOGO_PNG
+const LOGO_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || STORELIB_ORIGIN
 
 /* Kept for the life of the instance: the mark does not change between invoices. */
 let logoCache: Buffer | null = null
@@ -257,7 +258,19 @@ async function drawInvoice({
   let nameX = L
   if (logo) {
     try {
-      doc.image(logo, L, 47, { height: 24 })
+      /*
+        THE LOGO'S 7PX CORNER, ON PAPER TOO. The file is a square, so the
+        corner is a clip: 24pt is the 32px the logo is in an email, and 7px of
+        32 is 5.25pt. A hairline at 6% ink is the page's faint shadow, as far
+        as a PDF has one.
+      */
+      doc.save()
+      doc.roundedRect(L, 47, 24, 24, 5.25).clip()
+      doc.image(logo, L, 47, { width: 24, height: 24 })
+      doc.restore()
+      doc.save()
+      doc.roundedRect(L, 47, 24, 24, 5.25).lineWidth(0.4).strokeOpacity(0.06).strokeColor("#0f172a").stroke()
+      doc.restore()
       nameX = L + 32
     } catch {
       nameX = L

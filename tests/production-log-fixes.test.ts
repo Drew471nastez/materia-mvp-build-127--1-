@@ -70,7 +70,7 @@ console.log("\nThe invoice keeps its mark")
 {
   const invoice = strip(read("app/api/invoice/route.ts"))
   check("no sharp, which the serverless bundle does not have", !/import\("sharp"\)/.test(invoice))
-  check("a PNG the PDF library draws as it is, checked by its signature", /LOGO_PATH = "\/apple-icon\.png"/.test(invoice) && /0x89, 0x50, 0x4e, 0x47/.test(invoice))
+  check("a PNG the PDF library draws as it is, checked by its signature", /LOGO_PATH = STORELIB_LOGO_PNG/.test(invoice) && /export const STORELIB_LOGO_PNG = "\/images\/brand\/storelib-logo-v2\.png"/.test(read("lib/brand/logo.ts")) && /0x89, 0x50, 0x4e, 0x47/.test(invoice))
 }
 
 console.log("\nThe Mailgun webhook trusts only a signed delivery")

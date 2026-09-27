@@ -358,7 +358,7 @@ for (const [label, viewport] of [
   const setup = await page.evaluate(`(() => { const box = ${box.toString()}
     const wrap = document.querySelector("[data-onboarding-setup]")
     if (!wrap) return null
-    const mark = wrap.querySelector("svg[aria-label=Storelib]")
+    const mark = wrap.querySelector("[data-storelib-logo]")
     let clipped = null
     for (let n = mark && mark.parentElement; n && n !== wrap; n = n.parentElement) if (getComputedStyle(n).overflow !== "visible") clipped = n.className
     const shown = wrap.querySelector('[data-morph="on"] h1') || wrap.querySelector("h1")

@@ -8,6 +8,7 @@ import ShareButtons from "./_share-buttons"
 import ReadingProgress from "./_reading-progress"
 import CtaBanner from "./_cta-banner"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { storelibLogoUrl } from "@/lib/brand/logo"
 
 export const dynamic = "force-dynamic"
 
@@ -267,7 +268,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     datePublished: post.published_at,
     dateModified: post.published_at,
     author: { "@type": "Person", name: post.author || DEFAULT_AUTHOR.name },
-    publisher: { "@type": "Organization", name: "Storelib", url: "https://storelib.com", logo: { "@type": "ImageObject", url: "https://storelib.com/favicon.ico" } },
+    publisher: { "@type": "Organization", name: "Storelib", url: "https://storelib.com", logo: { "@type": "ImageObject", url: storelibLogoUrl(), width: 512, height: 512 } },
     url: `https://storelib.com/blog/${slug}`,
     mainEntityOfPage: { "@type": "WebPage", "@id": `https://storelib.com/blog/${slug}` },
     ...(post.cover_image_url ? { image: { "@type": "ImageObject", url: post.cover_image_url, width: 1200, height: 630 } } : {}),

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react"
 import { Wifi, RefreshCw } from "lucide-react"
 import { isNativeApp } from "@/lib/native-bridge"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 /**
  * OfflineGuard
@@ -73,11 +73,7 @@ export function OfflineGuard({ children }: { children: ReactNode }) {
 
           {/* Logo wordmark / brand */}
           <div className="mb-2">
-            <img
-              src={STORELIB_LOGO}
-              alt="Storelib"
-              className="w-8 h-8 mx-auto mb-3 rounded-[7px]"
-            />
+            <StorelibLogo size={32} unoptimized className="mx-auto mb-3 block" />
           </div>
 
           <h2 className="text-[20px] font-bold text-gray-900 mb-2 text-center">No internet connection</h2>

@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { LayoutDashboard, LogOut, Download, Menu, Heart, Compass, Settings, Sparkles, X } from "lucide-react"
@@ -10,11 +9,9 @@ import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
-
-const LOGO_URL = STORELIB_LOGO
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -77,13 +74,7 @@ export function DashboardSidebar() {
     <>
       <div className="flex h-16 items-center border-b border-border px-4">
         <Link href="/library" className="flex items-center gap-2.5" onClick={onItemClick}>
-          <Image
-            src={LOGO_URL}
-            alt="Storelib"
-            width={37}
-            height={37}
-            className="h-[37px] w-[37px] shrink-0 rounded-[7px]"
-          />
+          <StorelibLogo size={37} />
           <span className="text-xl font-semibold tracking-tight truncate">Storelib</span>
         </Link>
       </div>
@@ -175,13 +166,7 @@ export function DashboardSidebar() {
       >
         <div className="flex h-14 items-center justify-between px-4">
         <Link href="/library" className="flex items-center gap-2">
-          <Image
-            src={LOGO_URL}
-            alt="Storelib"
-            width={37}
-            height={37}
-            className="h-[37px] w-[37px] shrink-0 rounded-[7px]"
-          />
+          <StorelibLogo size={37} />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>
         <div className="flex items-center gap-1">

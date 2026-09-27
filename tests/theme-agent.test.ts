@@ -2766,7 +2766,7 @@ section("The panel says the true thing, and does not make you wait to type")
 
   check(
     "the panel wears the Storelib mark, not a generic star",
-    /<StorelibMark/.test(chat) && !/Sparkles/.test(chat),
+    /<StorelibLogo/.test(chat) && !/Sparkles/.test(chat),
   )
 }
 
@@ -2775,7 +2775,7 @@ section("The panel says the true thing, and does not make you wait to type")
   check(
     "and so does the button that opens it",
     // One button at every size: the mark, with its own glow.
-    /<StorelibMark className=\{cn\("h-\[18px\] w-\[18px\]/.test(editor) &&
+    /<StorelibLogo size=\{18\}/.test(editor) &&
       !/Sparkles/.test(editor),
   )
   /**
@@ -2788,7 +2788,7 @@ section("The panel says the true thing, and does not make you wait to type")
     "the mark keeps its own colour in both states",
     // Open or closed, only the mark's opacity moves. The tile under it has
     // depth of its own now and never inverts.
-    /<StorelibMark className=\{cn\("h-\[18px\] w-\[18px\] rounded-\[5px\] transition-opacity", aiOpen \? "opacity-100" : "opacity-80"\)\}/.test(
+    /<StorelibLogo size=\{18\} alt="" className=\{cn\("transition-opacity", aiOpen \? "opacity-100" : "opacity-80"\)\}/.test(
       editor,
     ) && !/aiOpen\s*\n?\s*\? "border-foreground bg-muted"/.test(editor),
   )
