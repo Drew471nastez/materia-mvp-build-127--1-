@@ -249,6 +249,16 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=3600' },
         ],
       },
+      {
+        // Apple Pay on the web: Stripe's own association file, which Apple
+        // fetches when the domain is registered and again as it re-verifies.
+        // Plain text, 200, no redirect, or Apple Pay never appears at checkout.
+        source: '/.well-known/apple-developer-merchantid-domain-association',
+        headers: [
+          { key: 'Content-Type', value: 'text/plain' },
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+        ],
+      },
     ]
   },
 }

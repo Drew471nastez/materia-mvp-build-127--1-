@@ -19,9 +19,19 @@
  */
 import type { NotificationType, TemplateContext, TemplateFamily } from "../types"
 import { cleanText, segment } from "./escape"
-import type { Fact } from "./layout"
+import type { Fact, OrderSummary, SummaryRow } from "./layout"
 
 /* ── Data keys ─────────────────────────────────────────────────────────── */
+
+/**
+ * The order details a sale email reads besides the basics (lib/email.tsx
+ * saleEmailData fills them from the order rows). All in the smallest unit of
+ * `currency`; `lines` is [{ title, variantName, quantity, amountCents }].
+ */
+const SALE_KEYS = [
+  "lines", "variantName", "subtotalCents", "discountCents", "couponCode", "tipCents", "taxCents", "feeCents", "netCents",
+  "customerEmail", "customerCountry", "paymentMethod", "cardBrand", "cardLast4",
+] as const
 
 /** The data keys each template reads. Workflows fill these; every one is optional. */
 export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
@@ -44,8 +54,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PAYOUT_FAILED: ["payoutId", "amountCents", "currency", "reason", "bankLast4"],
   PAYOUT_ACTION_REQUIRED: ["reason", "dueBy"],
   PAYOUT_RESTRICTED: ["reason"],
-  FIRST_SALE: ["productTitle", "productId", "amountCents", "currency", "orderId", "orderNumber", "customerName"],
-  NEW_SALE: ["productTitle", "productId", "amountCents", "currency", "orderId", "orderNumber", "customerName", "occurredAt"],
+  FIRST_SALE: ["productTitle", "productId", "amountCents", "currency", "orderId", "orderNumber", "customerName", ...SALE_KEYS],
+  NEW_SALE: ["productTitle", "productId", "amountCents", "currency", "orderId", "orderNumber", "customerName", "occurredAt", ...SALE_KEYS],
   REFUND_CREATED: ["productTitle", "amountCents", "currency", "orderId", "orderNumber", "reason"],
   DISPUTE_CREATED: ["disputeId", "orderId", "orderNumber", "productTitle", "amountCents", "currency", "reason", "dueBy"],
   DISPUTE_ACTION_REQUIRED: ["disputeId", "orderId", "orderNumber", "productTitle", "amountCents", "currency", "reason", "dueBy"],
@@ -179,6 +189,32 @@ export class Data {
   money(): string {
     return formatMoney(this.raw?.amountCents, this.raw?.currency)
   }
+  /** Another amount in cents, in the same currency, or "". */
+  moneyOf(key: string): string {
+    return this.cents(key) === null ? "" : formatMoney(this.raw?.[key], this.raw?.currency)
+  }
+  /** A whole number of cents, or null when it is missing or not a number. */
+  cents(key: string): number | null {
+    const v = this.raw?.[key]
+    return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null
+  }
+  /** An amount in cents, in this data's currency. */
+  format(cents: number): string {
+    return formatMoney(cents, this.raw?.currency)
+  }
+  /** A record read the same safe way, in this data's currency. */
+  child(record: Record<string, unknown>): Data {
+    return new Data({ ...record, currency: this.raw?.currency })
+  }
+  /** A list of records (a basket's lines), each read the same safe way, in the parent's currency. */
+  list(key: string, max = 50): Data[] {
+    const v = this.raw?.[key]
+    if (!Array.isArray(v)) return []
+    return v
+      .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object" && !Array.isArray(x))
+      .slice(0, max)
+      .map((x) => this.child(x))
+  }
   date(key: string, short = false): string {
     return formatDate(this.raw?.[key], short)
   }
@@ -220,7 +256,13 @@ export interface Message {
   paragraphs: string[]
   /** Rows with an empty value are dropped. */
   facts?: [string, string][]
+  /** A sale's order summary (layout.ts OrderSummary). */
+  order?: OrderSummary | null
   action?: { label: string; path: string } | null
+  /** A quiet mailto line under the button, to an address from data (checked in index.ts). */
+  reply?: { label: string; email: string; subject?: string } | null
+  /** False leaves out "Hi Ana,": an order notice opens with its heading, as store platforms' do. */
+  greet?: boolean
   notice?: { title: string; text: string; link?: { label: string; path: string } | null } | null
   note?: string | null
   inApp: { title: string; body: string; actionLabel?: string | null; actionPath?: string | null }
@@ -253,16 +295,175 @@ function customerAction(d: Data, label: string, preferLibrary = false): { label:
   return { label: "Open your library", path: PATHS.library }
 }
 
+/* ── A sale ────────────────────────────────────────────────────────────── */
+
+const SUBJECT_MAX = 60
+
+/** `before` + the name + `after`, the name cut so the whole line fits in 60 characters. */
+function fitSubject(before: string, name: string, after: string): string {
+  const room = SUBJECT_MAX - before.length - after.length
+  if (!name || room < 8) return ""
+  return `${before}${cleanText(name, room)}${after}`
+}
+
+const COUNTRY_NAMES = (() => {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" })
+  } catch {
+    return null
+  }
+})()
+
+/** "PT" as "Portugal"; a name as given. */
+function countryName(value: string): string {
+  if (/^[A-Z]{2}$/i.test(value) && value.toUpperCase() !== "XX") {
+    try {
+      return COUNTRY_NAMES?.of(value.toUpperCase()) || value.toUpperCase()
+    } catch {
+      return value.toUpperCase()
+    }
+  }
+  return value
+}
+
+/** "Visa ending in 4242", "PayPal", "Card"; "" when the data says nothing. */
+function paymentLabel(d: Data): string {
+  const brand = d.text("cardBrand", 24).replace(/_/g, " ")
+  const last4 = d.last4("cardLast4")
+  const method = d.text("paymentMethod", 24).toLowerCase()
+  const nice = (b: string) => (b.toLowerCase() === "amex" ? "American Express" : b.replace(/\b[a-z]/g, (c) => c.toUpperCase()))
+  if (brand) return last4 ? `${nice(brand)} ending in ${last4}` : nice(brand)
+  if (method === "paypal") return "PayPal"
+  if (method === "link") return "Link"
+  if (method && method !== "free") return nice(method.replace(/_/g, " "))
+  return last4 ? `Card ending in ${last4}` : ""
+}
+
+/**
+ * NEW_SALE, and FIRST_SALE for the creator's first paid one: the email a
+ * store platform sends its seller for a new order. The subject names what
+ * sold and for how much; the body is the order itself: each item, the
+ * totals, the fee and what the seller receives, who bought it, and one
+ * button to the order. Every figure comes from data; a missing one leaves
+ * out its row, never prints a guess.
+ */
+function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
+  const totalCents = d.cents("amountCents")
+  const total = d.money()
+  const free = totalCents === 0
+  const given = d.list("lines").filter((l) => l.text("title", 120))
+  const lines = given.length > 0 ? given : d.text("productTitle", 120) ? [d.child({ title: d.text("productTitle", 120), variantName: d.text("variantName", 80), amountCents: totalCents })] : []
+  const count = lines.length
+  const title = lines[0]?.text("title", 120) || d.text("productTitle", 120)
+  const name = d.text("customerName", 80)
+  const firstName = d.first("customerName")
+  const email = d.text("customerEmail", 200)
+  const orderLabel = d.orderLabel()
+  const path = PATHS.order(d.id("orderId"))
+
+  /* What was bought, in words: "Presets Vol 2", "Presets Vol 2 and 2 more items". */
+  const more = count > 1 ? ` and ${count - 1} more ${count - 1 === 1 ? "item" : "items"}` : ""
+  const thing = title ? `${title}${more}` : count > 1 ? `${count} items` : "a product"
+  const who = name || "A customer"
+
+  /* The fee and what the seller receives, only when the fee is known. */
+  const fee = d.cents("feeCents")
+  const netGiven = d.cents("netCents")
+  const net = !free && totalCents !== null ? (netGiven ?? (fee !== null ? Math.max(0, totalCents - fee) : null)) : null
+  const netText = net === null ? "" : d.format(net)
+
+  /* Subject: what sold and for how much, at most 60 characters. */
+  const moreShort = count > 1 ? ` and ${count - 1} more` : ""
+  let subject = ""
+  if (first) subject = total && !free ? fitSubject("Your first sale: ", title, `${moreShort} for ${total}`) : fitSubject("Your first sale: ", title, moreShort)
+  else if (free) subject = fitSubject("New free order: ", title, moreShort)
+  else if (total) subject = fitSubject("You sold ", title, `${moreShort} for ${total}`)
+  if (!subject) subject = first ? (total && !free ? `Your first sale: ${total}` : "You made your first sale") : total && !free ? `New order for ${total}` : "You have a new order"
+
+  const buyer = firstName || "A customer"
+  const preview = free
+    ? `${buyer} claimed ${thing} for free.`
+    : join(`${buyer} bought ${thing}.`, (netText || total) && `${netText || total} goes to your balance.`)
+
+  const sentence = free ? `${who} claimed ${thing} from your store for free.` : `${who} bought ${thing} from your store.`
+  const paragraphs = first
+    ? [sentence, "Congratulations on your first sale on Storelib. Here are the details."]
+    : [sentence]
+
+  /* The order: items, totals, then what the seller receives. */
+  const orderLines = lines.map((l) => {
+    const qty = l.cents("quantity")
+    const detail = [l.text("variantName", 80), qty !== null && qty > 1 ? `Qty ${qty}` : ""].filter(Boolean).join(" \u00b7 ")
+    const amount = l.cents("amountCents") === 0 ? "Free" : l.moneyOf("amountCents")
+    return { title: l.text("title", 120), detail: detail || null, amount: amount || (count === 1 ? total : "") }
+  })
+  const totals: SummaryRow[] = []
+  const subtotal = d.moneyOf("subtotalCents")
+  const discount = d.cents("discountCents")
+  const tip = d.cents("tipCents")
+  const tax = d.cents("taxCents")
+  const code = d.text("couponCode", 40)
+  const adjusted = (discount ?? 0) > 0 || (tip ?? 0) > 0 || (tax ?? 0) > 0
+  if (subtotal && (adjusted || count > 1)) totals.push({ label: "Subtotal", value: subtotal })
+  if (discount !== null && discount > 0) totals.push({ label: code ? `Discount (${code})` : "Discount", value: `\u2212${d.moneyOf("discountCents")}` })
+  if (tip !== null && tip > 0) totals.push({ label: "Tip", value: d.moneyOf("tipCents") })
+  if (tax !== null && tax > 0) totals.push({ label: "Tax", value: d.moneyOf("taxCents") })
+  if (total) totals.push({ label: free ? "Total" : "Total paid", value: total, strong: true })
+  const payout: SummaryRow[] = []
+  if (net !== null && netText) {
+    if (fee !== null && fee > 0) payout.push({ label: "Storelib fee", value: `\u2212${d.moneyOf("feeCents")}` })
+    payout.push({ label: "You receive", value: netText, strong: true })
+  }
+  const country = d.text("customerCountry", 60)
+  const customer: Fact[] = [
+    { label: "Name", value: name },
+    { label: "Email", value: email },
+    { label: "Country", value: country ? countryName(country) : "" },
+    { label: "Payment", value: free ? "" : paymentLabel(d) },
+  ].filter((f) => f.value)
+
+  const order: OrderSummary | null =
+    orderLines.length > 0 || totals.length > 0
+      ? {
+          title: orderLabel ? `Order ${orderLabel}` : "Order summary",
+          subtitle: when(ctx, d) || null,
+          lines: orderLines.filter((l) => l.title),
+          totals,
+          payout,
+          sections: [{ title: "Customer", rows: customer }],
+        }
+      : null
+
+  const inAppBody = free ? `${who} claimed ${thing} for free.` : join(`${who} bought ${thing}`, total && `for ${total}`) + "."
+  return {
+    family: first ? "success" : "transaction",
+    audience: "creator",
+    subject,
+    preview,
+    heading: first ? "You made your first sale" : "You have a new order",
+    greet: false,
+    paragraphs,
+    order,
+    action: { label: "View order", path },
+    reply: email ? { label: "Reply to the customer", email, subject: orderLabel ? `Your order ${orderLabel}` : "Your order" } : null,
+    note: "You get sale emails because they are on in your notification settings. You can turn them off there and still see every order in the app.",
+    inApp: first
+      ? { title: "Your first sale", body: inAppBody, actionLabel: "View order", actionPath: path }
+      : { title: total && !free ? `New sale: ${total}` : "New order", body: inAppBody, actionLabel: "View order", actionPath: path },
+  }
+}
+
 export const CATALOG: Record<NotificationType, Entry> = {
   WELCOME_TO_STORELIB: () => ({
     family: "base",
     audience: "creator",
     subject: "Welcome to Storelib",
-    preview: "Here is where to start, in two short steps.",
+    preview: "Your store is ready. Here is where to start.",
     heading: "Welcome to Storelib",
     paragraphs: [
-      "Thanks for signing up. Storelib is where you sell your digital products, and you can have your first one up today.",
-      "Most people start by adding one product and setting up payments, so the first sale can pay out. Each takes a few minutes.",
+      "Thanks for signing up. Storelib gives you one place to sell what you make: products, downloads, courses, services, memberships or anything else, with your own store, website and link in bio page.",
+      "Most people start with two things: adding their first product and setting up payments, so the first sale can pay out. Each takes a few minutes.",
+      "Everything else, like your website, emails and discount codes, can wait until you are ready.",
     ],
     action: { label: "Add your first product", path: PATHS.newProduct },
     inApp: { title: "Welcome to Storelib", body: "Add your first product and set up payments to start selling.", actionLabel: "Add a product", actionPath: PATHS.newProduct },
@@ -576,49 +777,9 @@ export const CATALOG: Record<NotificationType, Entry> = {
     inApp: { title: "Payouts are paused", body: "Complete what Stripe asks for to start payouts again.", actionLabel: "Open settings", actionPath: PATHS.payments },
   }),
 
-  FIRST_SALE: (d) => {
-    const title = d.text("productTitle", 60)
-    const amount = d.money()
-    const name = d.first("customerName")
-    const path = PATHS.order(d.id("orderId"))
-    const who = name || "Someone"
-    return {
-      family: "success",
-      audience: "creator",
-      subject: "You made your first sale!",
-      preview: join(`${who} bought`, title || "your product", amount && `for ${amount}`) + ".",
-      heading: "You made your first sale",
-      paragraphs: [
-        join(`${who} just bought`, title || "your product", amount && `for ${amount}`) + ".",
-        "Congratulations. The first one is the hardest, and it is done.",
-        "The money goes to your balance and pays out on your normal schedule.",
-      ],
-      facts: [["Product", title], ["Amount", amount], ["Order", d.orderLabel()]],
-      action: { label: "View the order", path },
-      inApp: { title: "Your first sale", body: join(`${who} bought`, title || "your product", amount && `for ${amount}`) + ".", actionLabel: "View order", actionPath: path },
-    }
-  },
+  FIRST_SALE: (d, ctx) => saleMessage(d, ctx, true),
 
-  NEW_SALE: (d, ctx) => {
-    const title = d.text("productTitle", 60)
-    const short = d.text("productTitle", 28)
-    const amount = d.money()
-    const name = d.first("customerName")
-    const path = PATHS.order(d.id("orderId"))
-    const who = name || "Someone"
-    return {
-      family: "transaction",
-      audience: "creator",
-      subject: short ? join(`New sale: ${short}`, amount && `for ${amount}`) : amount ? `New sale for ${amount}` : "You made a sale",
-      preview: join(`${who} bought`, title || "your product") + ".",
-      heading: "You made a sale",
-      paragraphs: [join(`${who} bought`, title || "your product", amount && `for ${amount}`) + "."],
-      facts: [["Product", title], ["Amount", amount], ["Customer", name], ["Order", d.orderLabel()], ["Date", when(ctx, d)]],
-      action: { label: "View the order", path },
-      note: "You can turn off sale emails in your notification settings and still see every sale in the app.",
-      inApp: { title: amount ? `New sale: ${amount}` : "New sale", body: join(`${who} bought`, title || "your product") + ".", actionLabel: "View order", actionPath: path },
-    }
-  },
+  NEW_SALE: (d, ctx) => saleMessage(d, ctx, false),
 
   REFUND_CREATED: (d) => {
     const title = d.text("productTitle", 60)

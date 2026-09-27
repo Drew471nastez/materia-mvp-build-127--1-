@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils"
 const STORE_URL = "{{store_url}}"
 
 /** A link field (lib/automations/merge-fields), kept as the field: it is filled per person when sent. */
-const LINK_FIELD = /^\{\{\s*(store_url|product_url|order_url|review_url|checkout_url)\s*\}\}$/
+const LINK_FIELD = /^\{\{\s*(store_url|product_url|order_url|download_url|review_url|checkout_url|unsubscribe_url)\s*\}\}$/
 
 function normaliseUrl(raw: string): string | null {
   const v = raw.trim()

@@ -70,6 +70,10 @@ import {
   type WaitUnit,
 } from "@/lib/automations/flow-model"
 import { fieldsFor } from "@/lib/automations/merge-fields"
+import type { Identity } from "@/lib/automations/engine"
+import { previewFlowEmail } from "@/lib/automations/preview"
+import { SAMPLE_READER } from "@/lib/email-variables"
+import { EmailPreview, type PreviewMode } from "@/components/email/compose/email-preview"
 import { joinedSentence } from "@/lib/contacts/contact-source"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../../../orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
@@ -79,6 +83,8 @@ import { refreshMatching, write } from "@/components/email/emails-cache"
 import { PreviewLayer } from "@/components/email/compose/preview-layer"
 import type { PreviewMode } from "@/components/email/compose/email-preview"
 import { FlowTopBar, StepMark, backButton } from "../flow-parts"
+
+const SAMPLE_NAME = SAMPLE_READER.name.split(" ")[0]
 
 export interface StepStats {
   sent: number
@@ -112,6 +118,8 @@ export interface BuilderData {
   /** False before RUN_CHECKOUT_CONTACTS.sql: no started checkout is recorded, so a checkout reminder cannot start. */
   startsRecorded?: boolean
   accountEmail: string | null
+  /** The creator as the send path reads them now, for the preview (lib/automations/preview). */
+  look?: Identity | null
 }
 
 interface Draft {
@@ -439,6 +447,8 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
         stats={data.stats[selectedStep.id]}
         problems={problemAt(selectedStep.id)}
         accountEmail={data.accountEmail}
+        look={data.look ?? null}
+        sampleProduct={sampleProductOf(draft, data.products)}
         onChange={(s) => updateStep(selectedStep.id, s)}
         onMove={(by) => moveStep(selectedStep.id, by)}
         onRemove={() => removeStep(selectedStep.id)}
@@ -1038,6 +1048,12 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
   )
 }
 
+/** The product a preview names: the first one this flow is for, else their newest, else a stand in. */
+function sampleProductOf(draft: Draft, products: BuilderData["products"]): string | null {
+  const only = isPurchaseTrigger(draft.trigger) ? draft.config.product_ids ?? [] : []
+  return products.find((p) => only.includes(p.id))?.title ?? products[0]?.title ?? null
+}
+
 function StepPanel(props: {
   flowId: string
   trigger: TriggerType
@@ -1046,6 +1062,8 @@ function StepPanel(props: {
   stats?: StepStats
   problems: Problem[]
   accountEmail: string | null
+  look: Identity | null
+  sampleProduct: string | null
   onChange: (s: FlowStep) => void
   onMove: (by: -1 | 1) => void
   onRemove: () => void
@@ -1093,10 +1111,17 @@ function StepPanel(props: {
   )
 }
 
-function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extract<FlowStep, { type: "email" }>; stats?: StepStats; accountEmail: string | null; onChange: (s: FlowStep) => void }) {
+function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extract<FlowStep, { type: "email" }>; stats?: StepStats; accountEmail: string | null; look: Identity | null; sampleProduct: string | null; onChange: (s: FlowStep) => void }) {
   const { step } = props
   const { toast } = useToast()
   const [testing, setTesting] = React.useState(false)
+  const [previewing, setPreviewing] = React.useState(false)
+  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
+  /* Filled and framed exactly as a send is, with a sample buyer (lib/automations/preview). Drawn only when open. */
+  const preview = React.useMemo(
+    () => (previewing && props.look ? previewFlowEmail(step, props.trigger, props.look, props.sampleProduct) : null),
+    [previewing, props.look, props.trigger, props.sampleProduct, step],
+  )
   const set = (config: Partial<typeof step.config>) => props.onChange({ ...step, config: { ...step.config, ...config } })
   const fields = fieldsFor(props.trigger)
   const test = async () => {
@@ -1184,9 +1209,22 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
         </div>
         <BodyEditor key={step.id} label="Email body" value={step.config.body} onChange={(body) => set({ body })} links={fields.filter((f) => f.link).map((f) => ({ label: f.label, href: `{{${f.key}}}` }))} />
         <p className={hint}>
-          Fields: {fields.filter((f) => !f.link).map((f) => `{{${f.key}}}`).join(", ")}. {"{{first_name}}"} is &ldquo;there&rdquo; when a name is not known. Every email ends with your name and an unsubscribe link.
+          Fields: {fields.filter((f) => !f.link).map((f) => `{{${f.key}}}`).join(", ")}. &ldquo;Hi {"{{first_name}}"},&rdquo; reads &ldquo;Hi there,&rdquo; when a name is not known, and {"{{creator_name}}"} is the name on your profile when the email is sent. Every email ends with your name and an unsubscribe link.
         </p>
       </div>
+      {props.look ? (
+        <div>
+          <button type="button" className={PANEL_BUTTON} aria-expanded={previewing} onClick={() => setPreviewing((v) => !v)}>
+            {previewing ? "Hide preview" : "Preview"}
+          </button>
+          {preview ? (
+            <div className="mt-3">
+              <p className={cn(hint, "mb-2")}>As {SAMPLE_NAME} would get it, with your name, photo and store as they are now.</p>
+              <EmailPreview html={preview.html} senderName={props.look.fromName} subject={preview.subject} previewText={preview.previewText} mode={previewMode} onMode={setPreviewMode} fit />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5">
         <p className="min-w-0 text-[12px] text-[#4b5563]">
           {props.accountEmail ? <>Send this one to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span>, as it is now.</> : "Your account has no email address for a test."}

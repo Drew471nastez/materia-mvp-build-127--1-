@@ -39,6 +39,7 @@ import { blockIssues, hasRealContent, newBlock, renderBlocks, storeBlocks } from
 import { DEFAULT_BRAND, brandName, themeOf, type Brand } from "@/lib/email-campaigns/brand"
 import { readStoredBody } from "@/lib/email-campaigns/stored"
 import { buildEmail, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
+import { SAMPLE_READER } from "@/lib/email-variables"
 import { byteLength, checkContent, PREVIEW_MAX, SUBJECT_MAX, SUBJECT_SHORT, type Problem } from "@/lib/email-campaigns/validate"
 import { STATUS_LABEL, readStatus, type CampaignStatus, type RecipientCounts } from "@/lib/email-campaigns/state"
 import { BlockEditor } from "./block-editor"
@@ -120,7 +121,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const [segments, setSegments] = React.useState<SegmentOption[]>([])
   const [plan, setPlan] = React.useState<{ limit: number; used: number } | null>(null)
   /* The look the email is sent in, read by the server as it is now (lib/email-campaigns/brand-server). */
-  const [brand, setBrand] = React.useState<(Brand & { avatarUrl?: string | null }) | null>(null)
+  const [brand, setBrand] = React.useState<(Brand & { avatarUrl?: string | null; creatorName?: string }) | null>(null)
   /* Counting opens is a setting only once the database has the column for it. */
   const [trackOpens, setTrackOpens] = React.useState(true)
   const [canSetOpens, setCanSetOpens] = React.useState(false)
@@ -276,8 +277,12 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     })
   }, [subject, previewText, sentBody, clean])
 
+  /* The preview reads as a buyer gets it: a sample reader, and you as the send will read you (lib/email-variables). */
+  const reader = React.useMemo(
+    () => ({ name: SAMPLE_READER.name, email: SAMPLE_READER.email, creatorName: brand?.creatorName || me.name, storeName: look.name, storeUrl: look.storeUrl, unsubscribeUrl: "#" }),
+    [brand, me.name, look],
+  )
   const previewHtml = React.useMemo(() => {
-    const reader = { name: me.name, email: me.email }
     return buildEmail({
       subject: personalizeSubject(subject, reader),
       previewText: personalizeSubject(previewText, reader),
@@ -287,7 +292,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       kind: "marketing",
       unsubscribeUrl: "#",
     })
-  }, [subject, previewText, sentBody, me.name, me.email, me.avatarUrl, look, brand])
+  }, [subject, previewText, sentBody, reader, me.avatarUrl, look, brand])
 
   /* ─── Saving ─── */
 
@@ -883,7 +888,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
             >
               <div className={cn(card, "overflow-hidden lg:max-h-[var(--compose-room)] lg:overflow-y-auto")}>
                 {editable && !wide ? null : (
-                <EmailPreview html={previewHtml} senderName={me.name || "You"} subject={personalizeSubject(subject, { name: me.name })} previewText={previewText} mode={previewMode} onMode={setPreviewMode} />
+                <EmailPreview html={previewHtml} senderName={me.name || "You"} subject={personalizeSubject(subject, reader)} previewText={personalizeSubject(previewText, reader)} mode={previewMode} onMode={setPreviewMode} />
                 )}
               </div>
             </aside>
@@ -918,8 +923,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           onClose={() => setPreviewOpen(false)}
           html={previewHtml}
           senderName={me.name || "You"}
-          subject={personalizeSubject(subject, { name: me.name })}
-          previewText={previewText}
+          subject={personalizeSubject(subject, reader)}
+          previewText={personalizeSubject(previewText, reader)}
           mode={previewMode}
           onMode={setPreviewMode}
         />

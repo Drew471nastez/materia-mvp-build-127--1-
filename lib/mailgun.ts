@@ -15,8 +15,26 @@ const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY || ""
 const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || "storelib.com"
 const MAILGUN_BASE_URL = process.env.MAILGUN_BASE_URL || "https://api.eu.mailgun.net"
 
+/**
+ * EVERY FROM HEADER HAS A NAME. An address on its own ("noreply@storelib.com",
+ * which is what EMAIL_FROM held on the server) shows in the inbox as
+ * "noreply": the welcome email arrived that way. Any from without a display
+ * name is given "Storelib" here, where every send passes, so no sender can
+ * leave it out. A from that already has a name keeps it.
+ */
+export function withDisplayName(from: string, name = "Storelib"): string {
+  const value = (from || "").trim()
+  if (!value) return `Storelib <noreply@storelib.com>`
+  if (/<[^<>@\s]+@[^<>\s]+>\s*$/.test(value)) {
+    /* "<a@b.c>" with nothing before it still has no name. */
+    return /^\s*<.+>\s*$/.test(value) ? `${name} ${value}` : value
+  }
+  if (/^[^\s<>@]+@[^\s<>@]+$/.test(value)) return `${name} <${value}>`
+  return value
+}
+
 // Email defaults
-export const EMAIL_FROM = process.env.EMAIL_FROM || "Storelib <noreply@storelib.com>"
+export const EMAIL_FROM = withDisplayName(process.env.EMAIL_FROM || "Storelib <noreply@storelib.com>")
 export const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "support@storelib.com"
 export const PLATFORM_BRAND = "Storelib"
 
@@ -162,7 +180,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
-  const fromAddress = options.from || EMAIL_FROM
+  const fromAddress = withDisplayName(options.from || EMAIL_FROM)
   const replyTo = options.replyTo || EMAIL_REPLY_TO
 
   // Build form data for Mailgun API
@@ -331,7 +349,7 @@ export async function sendMailgunOnce(
   if (!isValidEmail(options.to)) return { success: false, status: 400, error: "Invalid email address" }
 
   const form = new FormData()
-  form.append("from", options.from || EMAIL_FROM)
+  form.append("from", withDisplayName(options.from || EMAIL_FROM))
   form.append("to", options.to)
   form.append("subject", options.subject)
   form.append("html", options.html)

@@ -395,7 +395,15 @@ async function sideEffects(
     }),
   )
 
-  /* The seller hears about each product this caller wrote. */
+  /* The seller hears about the order once: the first call lists every line
+     of the basket and marks them all told, so the calls for the other lines
+     find them sent (lib/email.tsx sendSellerNotificationEmail). A line
+     another caller wrote after that email is sent on its own call. */
+  const saleLines = s.created.map((l) => ({
+    orderId: l.orderId,
+    quantity: s.items[l.index]?.quantity ?? null,
+    discountCents: s.items[l.index]?.discountCents ?? 0,
+  }))
   for (const line of s.created) {
     await step("seller email", () =>
       sendSellerNotificationEmail(admin, {
@@ -409,6 +417,7 @@ async function sideEffects(
         amountCents: line.amountCents,
         feeCents: 0,
         baseUrl: s.baseUrl,
+        sale: { couponCode: s.couponCode, lines: saleLines },
       }),
     )
   }

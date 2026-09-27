@@ -9,6 +9,8 @@
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 
+import { ASSOCIATION_BYTES, ASSOCIATION_PATH, associationNote, associationOk, buildReport } from "@/lib/checkout/wallet-domains"
+
 import { ActionDialog } from "@/app/admin/_console/actions"
 import { renderView } from "@/app/admin/_console/console"
 import { AdminLogin } from "@/app/admin/_console/login"
@@ -287,12 +289,48 @@ function Probe() {
   )
 }
 
+/**
+ * The wallet panel on the Health view reads itself from Stripe, so its answer
+ * is stubbed with the real report shape (lib/checkout/wallet-domains). The
+ * default is the case worth measuring: Apple Pay refused with Stripe's own
+ * long sentence, the association file a 404, Google Pay and Link fine.
+ * `&wallets=done` renders the finished state instead.
+ */
+const walletAnswer = (done: boolean) => {
+  const record = {
+    id: "pmd_1PqRsTuVwXyZ",
+    domain_name: "storelib.com",
+    enabled: true,
+    livemode: true,
+    created: Math.floor(NOW / 1000) - 3600,
+    apple_pay: done
+      ? { status: "active" }
+      : { status: "inactive", status_details: { error_message: "Apple could not verify the domain: the file at https://storelib.com/.well-known/apple-developer-merchantid-domain-association could not be fetched. Serve it and register the domain again." } },
+    google_pay: { status: "active" },
+    link: { status: "active" },
+    paypal: { status: "inactive" },
+  }
+  const association = done
+    ? { status: 200, bytes: ASSOCIATION_BYTES, redirectedTo: null }
+    : { status: 404, bytes: 0, redirectedTo: null }
+  return buildReport({
+    domain: "storelib.com",
+    record,
+    all: [record, { id: "pmd_2", domain_name: "shop.mihai-ionescu-photography-and-presets.com", enabled: false, livemode: true }],
+    association: { url: `https://storelib.com${ASSOCIATION_PATH}`, ...association, ok: associationOk(association), note: associationNote(association) },
+  })
+}
+
 /* The refund preview the dialog asks for, answered here. */
 const realFetch = window.fetch.bind(window)
 window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
   if (url.includes("/api/admin/orders/refund")) {
     return new Response(JSON.stringify({ id: orders[0].id, amount: 2900, currency: "USD", product: "Brush set for Procreate", buyer: "an***@gmail.com" }), { status: 200, headers: { "Content-Type": "application/json" } })
+  }
+  if (url.includes("/api/admin/payment-domains")) {
+    const done = new URLSearchParams(location.search).get("wallets") === "done"
+    return new Response(JSON.stringify(walletAnswer(done)), { status: 200, headers: { "Content-Type": "application/json" } })
   }
   return realFetch(input, init)
 }) as typeof fetch

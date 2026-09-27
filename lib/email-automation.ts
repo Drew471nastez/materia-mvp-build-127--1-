@@ -20,6 +20,7 @@
 import { DEFAULT_BRAND, brandName, hexColor, httpsUrl, themeOf, type Brand } from "@/lib/email-campaigns/brand"
 import { richToEmail } from "@/lib/email-campaigns/rich"
 import { buildEmail, emailText } from "@/lib/email-campaigns/template"
+import { resolveVariables, unsubscribePageFor, type ResolveOptions, type VariableValues } from "@/lib/email-variables"
 
 export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/$/, "")
 
@@ -58,32 +59,65 @@ export async function standingOf(db: Db, creatorId: string, email: string): Prom
 }
 
 export function unsubscribeUrlFor(token: string): string {
-  return `${APP_URL}/unsubscribe?token=${encodeURIComponent(token)}`
+  return unsubscribePageFor(token)
 }
 
-/** Replaces {{name}}, {{first_name}} and the older {{customer_name}} / {{product_name}}. */
-export function personalize(content: string, values: { name?: string; product?: string }): string {
-  const name = (values.name || "").trim()
-  const first = name.split(/\s+/)[0] || ""
-  return content
-    .replace(/\{\{\s*(customer_name|name)\s*\}\}/gi, escapeHtml(name || "there"))
-    .replace(/\{\{\s*first_name\s*\}\}/gi, escapeHtml(first || "there"))
-    .replace(/\{\{\s*product_name\s*\}\}/gi, escapeHtml(values.product || "your product"))
-    /* The editor's own placeholders, typed as words in the default text. */
-    .replace(/Customer Name/g, escapeHtml(name || "there"))
-    .replace(/Product Name/g, escapeHtml(values.product || "your product"))
+/** What the older sending paths know about one email: the person, the product, and the creator when they read it. */
+export interface PersonalValues {
+  name?: string
+  product?: string
+  /** The creator's name to sign with ("[Your name]", {{creator_name}}). */
+  creatorName?: string
+  storeName?: string
+  storeUrl?: string | null
 }
 
-/** The same personalization for a subject line, which is text, not HTML. */
-export function personalizeText(content: string, values: { name?: string; product?: string }): string {
-  const name = (values.name || "").trim()
-  const first = name.split(/\s+/)[0] || ""
-  return content
-    .replace(/\{\{\s*(customer_name|name)\s*\}\}/gi, name || "there")
-    .replace(/\{\{\s*first_name\s*\}\}/gi, first || "there")
-    .replace(/\{\{\s*product_name\s*\}\}/gi, values.product || "your product")
-    .replace(/Customer Name/g, name || "there")
-    .replace(/Product Name/g, values.product || "your product")
+/**
+ * The editor's own placeholders, typed as words in an older default text,
+ * turned into the tags they meant so the one resolver fills them.
+ */
+function typedOut(content: string): string {
+  return content.replace(/Customer Name/g, "{{name}}").replace(/Product Name/g, "{{product_name}}")
+}
+
+function valuesOf(values: PersonalValues): VariableValues {
+  return {
+    name: values.name,
+    product_name: values.product,
+    creator_name: values.creatorName,
+    store_name: values.storeName,
+    store_url: values.storeUrl,
+  }
+}
+
+/**
+ * Every tag, the older {{customer_name}} / {{product_name}}, the typed-out
+ * "Customer Name", and bracket placeholders like "[Your name]", filled by the
+ * one resolver (lib/email-variables). What the caller does not know (the
+ * creator's name on the oldest path) is filled by automationEmail's sweep,
+ * which does.
+ */
+export function personalize(content: string, values: PersonalValues): string {
+  return resolveVariables(typedOut(content), valuesOf(values), "html", optionsFor(values))
+}
+
+/**
+ * The same personalization for a subject line, which is text, not HTML. A
+ * subject is sent as it comes back from here (lib/email.tsx), with no sweep
+ * after it, so nothing is left for later: a creator placeholder the caller
+ * could not fill is taken out rather than sent.
+ */
+export function personalizeText(content: string, values: PersonalValues): string {
+  return resolveVariables(typedOut(content), valuesOf(values), "text", { fallbacks: { product_name: "your product" } })
+}
+
+/** Without the creator read, their placeholders wait for automationEmail's sweep, which has them. */
+function optionsFor(values: PersonalValues): ResolveOptions {
+  const creatorKnown = Boolean(values.creatorName?.trim() || values.storeName?.trim())
+  return {
+    fallbacks: { product_name: "your product" },
+    leave: creatorKnown ? ["unsubscribe_url"] : ["creator_name", "store_name", "store_url", "unsubscribe_url"],
+  }
 }
 
 export function escapeHtml(s: string): string {
@@ -165,11 +199,19 @@ export function automationEmail(input: {
 }): { html: string; text: string; headers?: Record<string, string> } {
   const brand: Brand = input.brand ?? { ...DEFAULT_BRAND, name: brandName(input.fromName) }
   const url = input.unsubscribeToken ? unsubscribeUrlFor(input.unsubscribeToken) : null
-  const bodyHtml = richToEmail(input.body, themeOf(brand))
+  /* THE LAST SWEEP. The engine hands a body already filled; the older paths
+     (lib/email.tsx, the cron's queue) fill only the person and the product.
+     Whatever is left, "[Your name]" in a flow saved from an older preset, a
+     {{creator_name}}, a tag nobody knows, is filled here with the creator as
+     the caller read them, or removed: a sent email never shows a placeholder. */
+  const known: VariableValues = { creator_name: input.fromName, store_name: brand.name, store_url: brand.storeUrl, unsubscribe_url: url }
+  const bodyHtml = richToEmail(resolveVariables(input.body, known, "html"), themeOf(brand))
+  const subject = input.subject ? resolveVariables(input.subject, known, "text") : undefined
+  const previewText = input.previewText ? resolveVariables(input.previewText, known, "text") : input.previewText
   const reason = input.because === "customer" ? `You are getting this because you bought from ${brand.name}.` : url ? null : `Sent by ${brand.name}.`
   const html = buildEmail({
-    subject: input.subject ?? brand.name,
-    previewText: input.previewText ?? null,
+    subject: subject ?? brand.name,
+    previewText: previewText ?? null,
     bodyHtml,
     brand,
     avatarUrl: input.avatarUrl ?? null,

@@ -238,6 +238,7 @@ export async function POST(request: Request) {
         feeCents: 0,
         baseUrl,
         variantName: variant?.name || null,
+        sale: coupon ? { couponCode: coupon.code ?? null, discountCents: totals.discountCents } : undefined,
       })
       emailSent = result.buyerSuccess
     })

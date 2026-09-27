@@ -308,6 +308,8 @@ export async function fulfilPaymentIntent(
       baseUrl: opts.baseUrl,
       variantName,
       attachments,
+      /* The code, for the seller's order summary: the rows keep only what was charged. */
+      sale: { couponCode: m.coupon_code || null, discountCents: Math.max(0, Number.parseInt(m.discount_cents || "0", 10) || 0) },
     })
   })
 

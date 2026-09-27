@@ -8,6 +8,7 @@
  * ✅ Reply-To priority: seller email (for purchases) → creator support_email → creator profile email → platform support
  */
 
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 import { creatorTimeZone, formatForCreator } from "@/lib/account/time-zone"
 import type { MailAttachment } from "./mailgun"
@@ -153,6 +154,8 @@ export interface SendSellerEmailParams {
   feeCents: number
   baseUrl?: string
   variantName?: string | null
+  /** What the checkout knew beyond the order rows: a code, a basket's quantities. */
+  sale?: SaleExtras
 }
 
 // -------------------------
@@ -614,176 +617,230 @@ async function receiptEmailModel(
   }
 }
 
-function sellerEmailHtml(params: {
-  productTitle: string
-  buyerFirstName: string
-  buyerLastName: string
-  buyerEmail: string
-  amountCents: number
-  feeCents: number
-  ordersLink: string
-  footerBrand: string
-  variantName?: string | null
-  /** The creator's own zone (lib/account/time-zone), or null for UTC, said as such. */
-  timeZone?: string | null
-}) {
-  /* Every value a buyer or seller typed is escaped: a name, a title or an
-     address carrying markup must print as text in this email, not as a link. */
-  const productTitle = escapeHtml(safeText(params.productTitle))
-  const variantName = params.variantName ? escapeHtml(safeText(params.variantName)) : null
-  const buyerFirstName = escapeHtml(safeName(params.buyerFirstName))
-  const buyerLastName = escapeHtml(safeName(params.buyerLastName))
-  const buyerEmail = escapeHtml(safeText(params.buyerEmail))
-  const ordersLink = escapeHtml(params.ordersLink)
-  const isFree = params.amountCents === 0
-  const earnings = params.amountCents - params.feeCents
-  const footerBrand = escapeHtml(safeText(params.footerBrand))
+/* ─── The seller's sale email: its data ──────────────────────────────── */
 
-  const formatUSD = (cents: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
-
-  /* In the creator's own time zone, with its name, not the server's clock. */
-  const { date: dateStr, time: timeStr } = formatForCreator(new Date(), params.timeZone ?? null)
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <title>Cha-Ching! You made a sale</title>
-</head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="padding:44px 36px 30px;text-align:center;background:linear-gradient(135deg, #059669 0%, #047857 100%);">
-              <div style="font-size:48px;margin-bottom:12px;">💰</div>
-              <h1 style="margin:0;font-size:32px;font-weight:800;color:#fff;">Cha-Ching!</h1>
-              <p style="margin:12px 0 0 0;font-size:17px;color:rgba(255,255,255,0.95);font-weight:500;">You just made a sale!</p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:34px 34px 12px;">
-              <!-- Sale Amount Highlight -->
-              <table role="presentation" style="width:100%;background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);border-radius:12px;padding:24px;margin:0 0 24px 0;text-align:center;">
-                <tr>
-                  <td>
-                    <p style="margin:0 0 8px 0;font-size:14px;color:#047857;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isFree ? "New Customer" : "You Earned"}</p>
-                    <p style="margin:0;font-size:${isFree ? "24px" : "36px"};font-weight:900;color:#065f46;">${isFree ? "Free Download" : formatUSD(earnings)}</p>
-                    ${!isFree ? `<p style="margin:8px 0 0 0;font-size:13px;color:#6b7280;">from ${formatUSD(params.amountCents)} sale</p>` : ""}
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Product Info -->
-              <table role="presentation" style="width:100%;background:#f9fafb;border-radius:10px;padding:20px;margin:0 0 20px 0;">
-                <tr>
-                  <td>
-                    <p style="margin:0 0 6px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">Product Sold</p>
-                    <p style="margin:0;font-size:18px;font-weight:700;color:#111827;">${productTitle}</p>
-                    ${variantName ? `<p style="margin:4px 0 0 0;font-size:14px;font-weight:600;color:#7c3aed;">${variantName}</p>` : ''}
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Customer & Order Details -->
-              <table role="presentation" style="width:100%;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:0 0 24px 0;">
-                <tr>
-                  <td style="padding:16px 20px;border-bottom:1px solid #e5e7eb;">
-                    <table role="presentation" style="width:100%;">
-                      <tr>
-                        <td style="width:50%;">
-                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Customer</p>
-                          <p style="margin:0;font-size:15px;color:#111827;font-weight:600;">${buyerFirstName} ${buyerLastName}</p>
-                        </td>
-                        <td style="width:50%;text-align:right;">
-                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Email</p>
-                          <p style="margin:0;font-size:14px;color:#4f46e5;">${buyerEmail}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:16px 20px;background:#fafafa;">
-                    <table role="presentation" style="width:100%;">
-                      <tr>
-                        <td style="width:50%;">
-                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Date</p>
-                          <p style="margin:0;font-size:14px;color:#374151;">${dateStr}</p>
-                        </td>
-                        <td style="width:50%;text-align:right;">
-                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Time</p>
-                          <p style="margin:0;font-size:14px;color:#374151;">${timeStr}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" style="width:100%;margin:0 0 8px 0;">
-                <tr>
-                  <td align="center">
-                    <a href="${ordersLink}" style="display:inline-block;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(16, 185, 129, 0.4);">
-                      View All Orders
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 18px 0;" />
-              <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.5;">
-                Keep up the great work! Your digital products are making an impact.
-              </p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:18px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} Storelib · Helping creators sell digital products
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
+/**
+ * What a checkout knows that the order rows do not keep: the code and what it
+ * took off, and each basket line's quantity and share of the discount. All
+ * optional; without them the email lists what the rows say.
+ */
+export interface SaleExtras {
+  couponCode?: string | null
+  /** What a code took off a single-product order, in cents. */
+  discountCents?: number | null
+  /** A basket's lines, by order row: the quantity and what a code took off that line. */
+  lines?: Array<{ orderId: string; quantity?: number | null; discountCents?: number | null }>
+  currency?: string | null
+  country?: string | null
 }
 
-function sellerEmailText(params: {
-  productTitle: string
-  buyerFirstName: string
-  buyerLastName: string
-  buyerEmail: string
-  amountCents: number
-  feeCents: number
-  ordersLink: string
-  variantName?: string | null
-}) {
-  const isFree = params.amountCents === 0
-  const earnings = params.amountCents - params.feeCents
-  const formatUSD = (cents: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
-  const variantName = params.variantName ? safeText(params.variantName) : null
-  const productLine = variantName
-    ? `Product: ${safeText(params.productTitle)} (${variantName})`
-    : `Product: ${safeText(params.productTitle)}`
+/** The data renderEmail("NEW_SALE" | "FIRST_SALE") reads, with what the sender needs around it. */
+export interface SaleEmailData {
+  data: Record<string, unknown>
+  /** Every order row the email describes: one, or each line of a basket. */
+  orderIds: string[]
+  first: boolean
+  occurredAt: string
+}
 
-  return `Cha-Ching! You just made a sale!
+type SaleRow = {
+  id: string
+  created_at?: string | null
+  product_id?: string | null
+  amount_cents?: number | null
+  tip_cents?: number | null
+  fee_cents?: number | null
+  application_fee_cents?: number | null
+  currency?: string | null
+  buyer_email?: string | null
+  buyer_first_name?: string | null
+  buyer_last_name?: string | null
+  buyer_country?: string | null
+  buyer_country_code?: string | null
+  payment_method?: string | null
+  card_brand?: string | null
+  card_last4?: string | null
+  variant_name?: string | null
+  stripe_session_id?: string | null
+  status?: string | null
+}
 
-${productLine}
-Customer: ${safeName(params.buyerFirstName)} ${safeName(params.buyerLastName)} (${safeText(params.buyerEmail)})
-${isFree ? "Type: Free Download" : `Amount: ${formatUSD(params.amountCents)}\nYour Earnings: ${formatUSD(earnings)}`}
+const whole = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null)
 
-View all orders: ${params.ordersLink}
+/**
+ * The order behind a sale email, read back from the rows as written, so the
+ * email says what the Orders page says: the basket's every line (rows that
+ * share the session and the buyer's address), the totals, the fee, the
+ * customer and the order's number (#1001 onwards, counted as the Orders page
+ * counts them). A row that cannot be read leaves the caller's own figures;
+ * anything unknown is left out, never guessed.
+ */
+export async function saleEmailData(admin: any, params: SendSellerEmailParams): Promise<SaleEmailData> {
+  const sale = params.sale ?? {}
+  let rows: SaleRow[] = []
+  try {
+    const { data: row } = await admin.from("orders").select("*").eq("id", params.orderId).maybeSingle()
+    if (row) {
+      rows = [row as SaleRow]
+      const session = typeof row.stripe_session_id === "string" ? row.stripe_session_id : ""
+      if (session) {
+        const { data: siblings } = await admin.from("orders").select("*").eq("stripe_session_id", session).limit(50)
+        const email = (row.buyer_email ?? "").toString().trim().toLowerCase()
+        const same = ((siblings ?? []) as SaleRow[]).filter((r) => (r.buyer_email ?? "").toString().trim().toLowerCase() === email)
+        if (same.some((r) => r.id === row.id)) rows = same
+      }
+    }
+  } catch (e) {
+    console.error("[email] sale email: order not read:", e instanceof Error ? e.message : e)
+  }
+  rows.sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || a.id.localeCompare(b.id))
 
-Keep up the great work!
-- Storelib`
+  const titles = new Map<string, string>()
+  const productIds = [...new Set(rows.map((r) => r.product_id).filter((id): id is string => typeof id === "string" && id.length > 0))]
+  if (productIds.length > 0) {
+    try {
+      const { data: products } = await admin.from("products").select("id, title").in("id", productIds)
+      for (const p of (products ?? []) as Array<{ id: string; title: string | null }>) if (p.title) titles.set(p.id, p.title)
+    } catch {
+      /* The caller's title stands in. */
+    }
+  }
+
+  const first = rows[0] ?? null
+  const currency = (first?.currency || sale.currency || "usd").toString().toLowerCase()
+  const extraFor = (id: string) => sale.lines?.find((l) => l.orderId === id)
+  const single = rows.length <= 1
+
+  let lines: Array<{ title: string; variantName: string | null; quantity: number | null; amountCents: number }> = []
+  let subtotal = 0
+  let discount = 0
+  let tip = 0
+  let total = 0
+  let fee: number | null = null
+  if (rows.length > 0) {
+    let feeKnown = true
+    let feeSum = 0
+    for (const r of rows) {
+      const amount = Math.max(0, whole(r.amount_cents) ?? 0)
+      const rowTip = Math.max(0, whole(r.tip_cents) ?? 0)
+      const extra = extraFor(r.id)
+      const rowDiscount = Math.max(0, whole(extra?.discountCents) ?? (single ? whole(sale.discountCents) ?? 0 : 0))
+      const before = amount - rowTip + rowDiscount
+      lines.push({
+        title: titles.get(r.product_id ?? "") || (r.id === params.orderId ? safeText(params.productTitle) : "") || "Product",
+        variantName: safeText(r.variant_name ?? (r.id === params.orderId ? params.variantName ?? "" : "")) || null,
+        quantity: whole(extra?.quantity),
+        amountCents: before,
+      })
+      subtotal += before
+      discount += rowDiscount
+      tip += rowTip
+      total += amount
+      const rowFee = whole(r.fee_cents) ?? whole(r.application_fee_cents)
+      if (rowFee === null) feeKnown = false
+      else feeSum += rowFee
+    }
+    fee = feeKnown ? feeSum : null
+  } else {
+    total = Math.max(0, whole(params.amountCents) ?? 0)
+    discount = Math.max(0, whole(sale.discountCents) ?? 0)
+    subtotal = total + discount
+    lines = [{ title: safeText(params.productTitle) || "Product", variantName: safeText(params.variantName ?? "") || null, quantity: null, amountCents: subtotal }]
+    fee = whole(params.feeCents) && (params.feeCents as number) > 0 ? (params.feeCents as number) : null
+  }
+  /* The figures must add up, or the breakdown is left out and the total stands alone. */
+  const adds = subtotal - discount + tip === total
+  const orderIds = rows.length > 0 ? rows.map((r) => r.id) : [params.orderId]
+  const occurredAt = first?.created_at ? String(first.created_at) : new Date().toISOString()
+
+  const [number, isFirst] = await Promise.all([
+    first && params.creatorId ? orderNumberFor(admin, params.creatorId, first).catch(() => null) : Promise.resolve(null),
+    total > 0 && params.creatorId ? isFirstPaidSale(admin, params.creatorId, orderIds).catch(() => false) : Promise.resolve(false),
+  ])
+
+  const nameOf = (a?: string | null, b?: string | null) => [safeName(a ?? ""), safeName(b ?? "")].filter(Boolean).join(" ")
+  const customerName = nameOf(first?.buyer_first_name, first?.buyer_last_name) || nameOf(params.buyerFirstName, params.buyerLastName)
+  const customerEmail = normalizeEmail(first?.buyer_email || params.buyerEmail || "")
+  const country = safeText(first?.buyer_country || first?.buyer_country_code || sale.country || "")
+  const data: Record<string, unknown> = {
+    orderId: rows[0]?.id ?? params.orderId,
+    orderNumber: number ? String(number) : "",
+    productTitle: lines[0]?.title ?? safeText(params.productTitle),
+    productId: first?.product_id ?? "",
+    variantName: lines.length === 1 ? lines[0].variantName ?? "" : "",
+    amountCents: total,
+    currency,
+    lines,
+    subtotalCents: adds ? subtotal : null,
+    discountCents: adds && discount > 0 ? discount : null,
+    couponCode: adds && discount > 0 ? safeText(sale.couponCode ?? "").slice(0, 40) : "",
+    tipCents: adds && tip > 0 ? tip : null,
+    feeCents: total > 0 ? fee : null,
+    customerName,
+    customerEmail,
+    customerCountry: country,
+    paymentMethod: first?.payment_method ?? "",
+    cardBrand: first?.card_brand ?? "",
+    cardLast4: first?.card_last4 ?? "",
+    occurredAt,
+  }
+  return { data, orderIds, first: isFirst, occurredAt }
+}
+
+/**
+ * The order's number as the Orders page gives it (lib/orders/order-view
+ * groupOrders): the creator's orders oldest first, a basket counted once,
+ * from #1001. Counted from the orders before this one; null when there are
+ * too many to count here, and the email then names the order by its date.
+ */
+async function orderNumberFor(admin: any, creatorId: string, first: SaleRow): Promise<number | null> {
+  if (!first.created_at) return null
+  const { FIRST_ORDER_NUMBER } = await import("@/lib/orders/order-view")
+  const { data: products, error: productError } = await admin.from("products").select("id").eq("creator_id", creatorId).limit(2000)
+  if (productError || !products?.length) return null
+  const ids = (products as Array<{ id: string }>).map((p) => p.id)
+  const own = first.stripe_session_id ? `s:${first.stripe_session_id}` : `o:${first.id}`
+  const groups = new Set<string>()
+  const at = String(first.created_at)
+  for (let from = 0; from < 20_000; from += 1000) {
+    const { data, error } = await admin
+      .from("orders")
+      .select("id, stripe_session_id, created_at")
+      .in("product_id", ids)
+      .lte("created_at", at)
+      .order("created_at", { ascending: true })
+      .range(from, from + 999)
+    if (error) return null
+    const page = (data ?? []) as SaleRow[]
+    for (const r of page) {
+      const when = String(r.created_at ?? "")
+      if (when > at || (when === at && r.id >= first.id)) continue
+      const key = r.stripe_session_id ? `s:${r.stripe_session_id}` : `o:${r.id}`
+      if (key !== own) groups.add(key)
+    }
+    if (page.length < 1000) return FIRST_ORDER_NUMBER + groups.size
+  }
+  return null
+}
+
+/**
+ * The creator's first paid sale: no other paid order on their products
+ * (completed, refunded or disputed, above zero) but the rows of this one.
+ * The rule lib/orders/sale-events isFirstSale uses, without its flag, which
+ * that function may already have set for this very order.
+ */
+async function isFirstPaidSale(admin: any, creatorId: string, these: string[]): Promise<boolean> {
+  const { data: products, error: productError } = await admin.from("products").select("id").eq("creator_id", creatorId).limit(2000)
+  if (productError || !products?.length) return false
+  let others = admin
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .in("product_id", (products as Array<{ id: string }>).map((p) => p.id))
+    .in("status", ["completed", "refunded", "disputed"])
+    .gt("amount_cents", 0)
+  if (these.length > 0) others = others.not("id", "in", `(${these.join(",")})`)
+  const { count, error } = await others
+  return !error && count === 0
 }
 
 // -------------------------
@@ -910,33 +967,32 @@ async function sellerWantsSaleEmail(admin: any, creatorId: string | null | undef
   }
 }
 
+/**
+ * THE SELLER'S "YOU HAVE A NEW ORDER" EMAIL, once per order.
+ *
+ *   once        email_logs: an order that already has a "sent" seller email
+ *               is not sent again (a basket's email marks each of its lines)
+ *   wanted      the creator's Sales by email setting (lib/notify preferences),
+ *               read after the once check
+ *   to          the creator's address; a second business's goes to the
+ *               owner's own inbox (ownerAddress, lib/businesses/email-alias)
+ *   drawn in    Storelib's notification layout (lib/notify/templates):
+ *               renderEmail("NEW_SALE"), or "FIRST_SALE" for the creator's
+ *               first paid order. The engine records the bell for both and
+ *               sends neither email itself (emailSentElsewhere in
+ *               lib/notify/registry), so the first sale is one email, this
+ *               one, with the order in it.
+ *   from        "Storelib <...>", Reply-To Storelib support (the creator
+ *               replying to their own sale notice should reach a person,
+ *               not themselves); the buyer is one click away in the body
+ *   headers     the one-click opt-out for sales emails (RFC 8058), a new_sale tag
+ */
 export async function sendSellerNotificationEmail(
   admin: any,
   params: SendSellerEmailParams,
   attempt = 1,
 ): Promise<{ success: boolean; error?: string; logId?: string; skipped?: boolean }> {
-  const {
-    orderId,
-    creatorId,
-    sellerEmail,
-    productTitle,
-    buyerFirstName,
-    buyerLastName,
-    buyerEmail,
-    amountCents,
-    feeCents,
-    baseUrl,
-    variantName,
-  } = params
-
-  console.log("[email] 🔔 Sending seller notification email:", {
-    orderId,
-    creatorId,
-    sellerEmail,
-    productTitle,
-    buyerEmail,
-    amountCents,
-  })
+  const { orderId, creatorId, sellerEmail, baseUrl } = params
 
   const alreadySent = await wasEmailAlreadySent(admin, orderId, "seller_notification")
   if (alreadySent) {
@@ -962,65 +1018,66 @@ export async function sendSellerNotificationEmail(
 
   if (!isSmtpConfigured()) {
     const error = "Email service not configured (SMTP credentials missing)"
-    console.error("[email] ❌ Seller notification failed:", error)
+    console.error("[email] Seller notification failed:", error)
     if (logId) await updateEmailLog(admin, logId, "failed", error)
     await updateOrderEmailStatus(admin, orderId, "seller", false, error)
     return { success: false, error, logId: logId || undefined }
   }
 
-  const [identity, creatorZone] = creatorId
-    ? await Promise.all([resolveCreatorIdentity(admin, creatorId), creatorTimeZone(admin, creatorId)])
-    : [null, null]
-  const replyTo = identity?.replyTo || DEFAULT_SUPPORT
+  const [identity, creatorZone, userId] = creatorId
+    ? await Promise.all([resolveCreatorIdentity(admin, creatorId), creatorTimeZone(admin, creatorId), creatorUserId(admin, creatorId)])
+    : [null, null, null]
 
   // Use resolved seller email if provided email is fallback
   let finalSellerEmail = normalizeEmail(sellerEmail)
   if (finalSellerEmail === DEFAULT_SUPPORT && identity?.sellerEmail && identity.sellerEmail !== DEFAULT_SUPPORT) {
     finalSellerEmail = identity.sellerEmail
-    console.log("[email] Using resolved seller email instead of fallback:", finalSellerEmail)
+    console.log("[email] Using resolved seller email instead of fallback:", maskEmail(finalSellerEmail))
   }
+  /* A second business's tagged address reaches the owner's own inbox. */
+  finalSellerEmail = normalizeEmail(ownerAddress(finalSellerEmail) ?? "") || finalSellerEmail
 
-  const ordersLink = buildUrl("/app/orders", baseUrl)
-  // Seller notification emails are always from Storelib
-  const subject = `Cha-Ching! You sold ${safeText(productTitle)}`
-
-  console.log("[email] 📧 Attempting to send seller notification:", {
-    from: buildFromHeaderLocal(PLATFORM_BRAND_NAME),
-    to: finalSellerEmail,
-    replyTo,
-    subject,
-  })
+  let rendered: { subject: string; html: string; text: string }
+  let covered: string[] = [orderId]
+  let first = false
+  let headers: Record<string, string> | undefined
+  try {
+    const sale = await saleEmailData(admin, params)
+    covered = sale.orderIds.includes(orderId) ? sale.orderIds : [orderId, ...sale.orderIds]
+    first = sale.first
+    /* In the creator's own time zone, with its name, not the server's clock. */
+    const { date, time } = formatForCreator(sale.occurredAt, creatorZone ?? null)
+    const [{ renderEmail }, { unsubscribeUrl, preferencesUrl }] = await Promise.all([import("@/lib/notify/templates"), import("@/lib/notify/unsubscribe")])
+    const unsubscribe = userId ? unsubscribeUrl(userId, "sales") : null
+    rendered = renderEmail(first ? "FIRST_SALE" : "NEW_SALE", sale.data, {
+      baseUrl: getStableBaseUrl(baseUrl),
+      recipientName: identity?.fromName ?? null,
+      unsubscribeUrl: unsubscribe,
+      preferencesUrl: preferencesUrl(),
+      when: time ? `${date} at ${time}` : date,
+    })
+    if (unsubscribe) headers = { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+  } catch (err: any) {
+    const errorMessage = err?.message || "The sale email could not be drawn"
+    console.error("[email] Seller notification not drawn:", errorMessage)
+    if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
+    await updateOrderEmailStatus(admin, orderId, "seller", false, errorMessage)
+    return { success: false, error: errorMessage, logId: logId || undefined }
+  }
 
   try {
     const result = await withRetry(
       async () => {
         const response = await sendEmail({
+          // Seller notification emails are always from Storelib
           from: buildFromHeaderLocal(PLATFORM_BRAND_NAME),
           to: finalSellerEmail,
-          replyTo,
-          subject,
-          html: sellerEmailHtml({
-            productTitle,
-            buyerFirstName,
-            buyerLastName,
-            buyerEmail,
-            amountCents,
-            feeCents,
-            ordersLink,
-            footerBrand: PLATFORM_BRAND_NAME,
-            variantName,
-            timeZone: creatorZone,
-          }),
-          text: sellerEmailText({
-            productTitle,
-            buyerFirstName,
-            buyerLastName,
-            buyerEmail,
-            amountCents,
-            feeCents,
-            ordersLink,
-            variantName,
-          }),
+          replyTo: DEFAULT_SUPPORT,
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
+          headers: { ...headers, "X-Storelib-Notification": first ? "FIRST_SALE" : "NEW_SALE" },
+          tags: first ? [{ name: "new_sale", value: "1" }, { name: "first_sale", value: "1" }] : [{ name: "new_sale", value: "1" }],
         })
 
         if (!response.success) {
@@ -1030,19 +1087,38 @@ export async function sendSellerNotificationEmail(
         return response
       },
       MAX_RETRIES,
-      `seller notification to ${finalSellerEmail}`,
+      `seller notification for order ${orderId}`,
     )
 
-    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail, "ID:", result.messageId)
+    console.log("[email] Seller notification sent for order", orderId, "to", maskEmail(finalSellerEmail), "id:", result.messageId)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "seller", true)
+    /* A basket is one order and one email: its other lines are marked as
+       told, so the per-line calls for them (fulfil-cart-session) and a later
+       retry find them sent and do not mail the same order again. */
+    for (const other of covered) {
+      if (other === orderId) continue
+      if (await wasEmailAlreadySent(admin, other, "seller_notification")) continue
+      await logEmailAttempt(admin, { orderId: other, emailType: "seller_notification", recipientEmail: finalSellerEmail, status: "sent", attempt })
+      await updateOrderEmailStatus(admin, other, "seller", true)
+    }
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
     const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
-    console.error("[email] ❌ Seller notification failed after retries:", errorMessage, err)
+    console.error("[email] Seller notification failed after retries:", errorMessage)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "seller", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
+  }
+}
+
+/** The creator's login, for the unsubscribe link; null when it cannot be read. */
+async function creatorUserId(admin: any, creatorId: string): Promise<string | null> {
+  try {
+    const { data } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
+    return typeof data?.user_id === "string" ? data.user_id : null
+  } catch {
+    return null
   }
 }
 
@@ -1062,6 +1138,8 @@ export async function sendOrderEmails(
     variantName?: string | null
     /** For the buyer's email only. */
     attachments?: MailAttachment[]
+    /** For the seller's email: the code and what it took off. */
+    sale?: SaleExtras
   },
 ): Promise<{ buyerSuccess: boolean; sellerSuccess: boolean }> {
   const {
@@ -1077,6 +1155,7 @@ export async function sendOrderEmails(
     baseUrl,
     variantName,
     attachments,
+    sale,
   } = params
 
   console.log("[sendOrderEmails] order", orderId, "to", maskEmail(buyerEmail), "smtp:", isSmtpConfigured())
@@ -1134,6 +1213,7 @@ export async function sendOrderEmails(
       feeCents,
       baseUrl,
       variantName,
+      sale,
     })
     console.log("[sendOrderEmails] Seller email result:", sellerResult.success ? "✅ sent" : "❌ failed", sellerResult.error || "")
   } catch (sellerErr: any) {
@@ -1459,7 +1539,7 @@ function reviewNotificationEmailHtml(params: {
 
           <tr>
             <td style="padding:18px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} Storelib · Helping creators sell digital products
+              © ${new Date().getFullYear()} Storelib
             </td>
           </tr>
         </table>
@@ -1662,6 +1742,7 @@ export async function legacyTriggerEmailFlows(
   const errors: string[] = []
   let triggered = 0
   const who = maskEmail(recipientEmail)
+  let liveBrand: Awaited<ReturnType<typeof loadBrand>> | null = null
 
   console.log("[email-flows] Triggering flows for:", { triggerType, creatorId, recipient: who })
 
@@ -1726,7 +1807,9 @@ export async function legacyTriggerEmailFlows(
 
           if (delayMs === 0) {
             try {
-              const mail = automationEmail({ body, fromName, unsubscribeToken: standing.unsubscribeToken })
+              /* The creator's name, logo and photo as they are now, read once per call, like every other automation send. */
+              liveBrand ??= await loadBrand(admin, creatorId).catch(() => null)
+              const mail = automationEmail({ body, fromName, unsubscribeToken: standing.unsubscribeToken, brand: liveBrand ?? undefined, avatarUrl: liveBrand?.avatarUrl ?? null })
               const result = await sendEmail({
                 from: buildFromHeaderLocal(fromName),
                 to: normalizeEmail(recipientEmail),

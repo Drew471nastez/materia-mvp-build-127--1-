@@ -19,6 +19,7 @@
  *
  * Pure (no server imports), for tests/notify-unsubscribe.test.ts.
  */
+import { unsubscribeCard, type CardButton, type CardTone } from "@/lib/unsubscribe-card"
 
 export type UnsubscribeAction = "unsubscribe" | "resubscribe"
 
@@ -45,10 +46,6 @@ export async function readRequest(request: Request): Promise<UnsubscribeRequest>
   return { mode: "form", token: form.get("token") ?? fromQuery, action: actionFrom(form.get("action")) }
 }
 
-function escape(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
-}
-
 function sentence(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
@@ -66,14 +63,14 @@ export function pageWords(state: PageState): { title: string; body: string; butt
   switch (state.kind) {
     case "confirm":
       return {
-        title: `Stop ${state.emails} by email?`,
-        body: `You can turn them back on any time in your settings. Security and payment notices are still sent.`,
+        title: `Turn off ${state.emails}?`,
+        body: `You can turn them back on any time. Security and payment notices are still sent.`,
         button: { label: "Turn them off", action: "unsubscribe" },
       }
     case "off":
       return {
         title: `${sentence(state.emails)} are off`,
-        body: `You will not get ${state.emails} by email any more. Security and payment notices are still sent.`,
+        body: `You will not get ${state.emails} any more. Security and payment notices are still sent.`,
         button: { label: "Turn them back on", action: "resubscribe" },
       }
     case "on":
@@ -91,50 +88,29 @@ export function pageWords(state: PageState): { title: string; body: string; butt
   }
 }
 
+/** The whole page: the shared card (lib/unsubscribe-card.ts) with the Storelib mark on top. */
 export function page(state: PageState): string {
   const words = pageWords(state)
-  const form =
+  const tone: CardTone = state.kind === "confirm" ? "asked" : state.kind === "off" || state.kind === "on" ? "done" : "problem"
+  const buttons: CardButton[] =
     words.button && (state.kind === "confirm" || state.kind === "off" || state.kind === "on")
-      ? `<form method="post" action="/api/notify/unsubscribe">
-      <input type="hidden" name="token" value="${escape(state.token)}">
-      <input type="hidden" name="action" value="${words.button.action}">
-      <button type="submit">${escape(words.button.label)}</button>
-    </form>`
-      : ""
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<meta name="referrer" content="no-referrer">
-<title>${escape(words.title)} | Storelib</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px;
-    background: #f8f9fa; color: #1a1a2e; font: 15px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  main { width: 100%; max-width: 420px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 28px 24px;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04); }
-  .brand { font-size: 13px; font-weight: 600; color: #6b7280; letter-spacing: 0.01em; margin-bottom: 20px; }
-  h1 { font-size: 20px; line-height: 1.3; font-weight: 600; }
-  p { margin-top: 8px; color: #4b5563; font-size: 14px; }
-  form { margin-top: 20px; }
-  button { height: 44px; width: 100%; border-radius: 12px; border: 1px solid #e5e7eb; background: #fff; color: #1a1a2e;
-    font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 1px 0 rgba(16, 24, 40, 0.06); }
-  button:hover { background: #f9fafb; }
-  button:focus-visible, a:focus-visible { outline: 2px solid #1a1a2e; outline-offset: 2px; }
-  a { display: inline-block; margin-top: 16px; color: #4b5563; font-size: 14px; text-underline-offset: 3px; }
-  a:hover { color: #1a1a2e; }
-</style>
-</head>
-<body>
-<main>
-  <p class="brand">Storelib</p>
-  <h1>${escape(words.title)}</h1>
-  <p>${escape(words.body)}</p>
-  ${form}
-  <a href="${escape(state.preferencesUrl)}">All notification settings</a>
-</main>
-</body>
-</html>`
+      ? [
+          {
+            label: words.button.label,
+            action: "/api/notify/unsubscribe",
+            fields: { token: state.token, action: words.button.action },
+            /* The question's answer is the page's one real action; undoing it afterwards is quieter. */
+            look: state.kind === "confirm" ? "primary" : "secondary",
+          },
+        ]
+      : []
+  return unsubscribeCard({
+    title: words.title,
+    sender: { kind: "storelib" },
+    tone,
+    heading: words.title,
+    body: words.body,
+    buttons,
+    link: { href: state.preferencesUrl, label: "All notification settings" },
+  })
 }

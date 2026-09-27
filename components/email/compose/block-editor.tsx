@@ -60,6 +60,9 @@ const FIELDS = [
   { label: "First name", field: "first_name" },
   { label: "Full name", field: "name" },
   { label: "Email address", field: "email" },
+  /* Filled when the email is sent, from your profile and store as they are then (lib/email-variables). */
+  { label: "Your name", field: "creator_name" },
+  { label: "Store name", field: "store_name" },
 ]
 
 export interface BlockEditorProps {

@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { requireBearerSecret } from "@/lib/api/require-secret"
-import { automationEmail, standingOf } from "@/lib/email-automation"
+import { automationEmail, personalizeText, standingOf } from "@/lib/email-automation"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { runDueJobs } from "@/lib/automations/run"
 import { runCampaignQueue } from "@/lib/email-campaigns/queue"
@@ -188,6 +189,18 @@ async function drainLegacyQueue(deadline: number): Promise<{ sent: number; faile
 
   if (fetchError || !scheduledEmails || scheduledEmails.length === 0) return out
 
+  /* The creator's name, logo, colour and photo as they are NOW, read once per
+     creator per run: a row queued days ago is sent in today's look. */
+  const looks = new Map<string, ReturnType<typeof loadBrand>>()
+  const lookOf = (creatorId: string) => {
+    let look = looks.get(creatorId)
+    if (!look) {
+      look = loadBrand(supabaseAdmin, creatorId)
+      looks.set(creatorId, look)
+    }
+    return look
+  }
+
   for (const email of scheduledEmails) {
     if (Date.now() > deadline) break
 
@@ -237,18 +250,22 @@ async function drainLegacyQueue(deadline: number): Promise<{ sent: number; faile
         continue
       }
 
-      const identity = await resolveCreatorIdentity(email.creator_id)
+      const [identity, look] = await Promise.all([resolveCreatorIdentity(email.creator_id), lookOf(email.creator_id).catch(() => null)])
       const mail = automationEmail({
         body: email.body,
         fromName: identity.fromName,
         unsubscribeToken: standing.unsubscribeToken,
+        brand: look ? { name: look.name, logoUrl: look.logoUrl, storeUrl: look.storeUrl, accent: look.accent, address: look.address } : undefined,
+        avatarUrl: look?.avatarUrl ?? null,
       })
+      /* Queued with the person filled in; the creator's placeholders are filled now, as they are today. */
+      const subject = personalizeText(String(email.subject ?? ""), { creatorName: identity.fromName, storeName: look?.name, storeUrl: look?.storeUrl })
 
       const result = await sendEmail({
         from: buildFromHeaderLocal(identity.fromName),
         to: email.recipient_email.toLowerCase().trim(),
         replyTo: identity.replyTo,
-        subject: email.subject,
+        subject,
         html: mail.html,
         text: mail.text,
         headers: mail.headers,
