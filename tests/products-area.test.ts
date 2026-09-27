@@ -385,7 +385,8 @@ check("on every width the list is one card whose first row is its toolbar: the v
     && /<Press aria-label="Sort" data-sort="" look=\{cn\(SORT_LOOK, sort !== "newest" && SORT_ON, "group-data-open\/press:bg-\[#ececef\]"\)\}>\s*<ArrowUpDown className="h-4 w-4 /.test(list)
     && /const SORT_LOOK = cn\(DOWNLOAD_LOOK, "lg:h-\[35px\] lg:w-\[35px\]"\)/.test(list)
     && !list.slice(list.indexOf('data-toolbar=""'), list.indexOf('data-list-head=""')).includes("Export products")
-    && /\{viewLabel\}\s*<ChevronsUpDown/.test(list))
+    /* The name in a span of its own since a browser translator swapped the bare text node and the view kept saying "All" (lib/ui/dom-guard, tests/dom-guard.test.ts). */
+    && /<span>\{viewLabel\}<\/span>\s*<ChevronsUpDown/.test(list))
 /* "Instead of the download icon where it currently is, put the sort by icon, which opens the mobile bottom sheet with only the sort by options. The view (All, Active, Draft, Archived) bottom sheet ... opens a bottom sheet with only the view options." */
 const pickSheet = code("app/app/products/pick-sheet.tsx")
 check("the view opens a sheet of the views alone and Sort a sheet of the orders alone; the column's name under the toolbar, with no checkbox (nothing to select)",
