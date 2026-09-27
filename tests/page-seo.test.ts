@@ -107,12 +107,15 @@ console.log("\nA OnePage says where it lives and who it is about")
   check("a picture that is not a full address is left out rather than guessed", !("image" in (profilePageJsonLd({ url: "u", name: "n", image: "/placeholder.svg" }) as { mainEntity: object }).mainEntity))
 
   const page = code("app/(marketing)/l/[slug]/page.tsx")
+  /* The row, the owner and the address are read in lib/onepage/published-page, and the tags written by lib/onepage/seo, for the page and its share image alike. */
+  const loader = code("lib/onepage/published-page.ts")
+  const seoLib = code("lib/onepage/seo.ts")
   check("the page names its canonical, and the share card its address and kind",
-    /const pageAddress = owner\.canonical \?\? getLinksShareUrl\(slug, pageHost\)/.test(page) &&
-      /alternates: \{ canonical: pageAddress \}/.test(page) && /type: "profile"/.test(page) && /url: pageAddress/.test(page))
+    /if \(owner\.canonical\) return owner\.canonical/.test(loader) && /return getLinksShareUrl\(slug, pageHost\)/.test(loader) &&
+      /alternates: \{ canonical: seo\.url \}/.test(seoLib) && /type: "profile" as const/.test(seoLib) && /url: seo\.url,/.test(seoLib) && /onePageMetadataFrom\(seo, /.test(page))
   check("its robots tag is the sitemap's rule, and noindex means nofollow too",
     /const indexable = !owner\.banned && onePageIndexable\(\{ status: onepage\.status, publishedProducts: owner\.publishedProducts, handle: owner\.handle \}\)/.test(page) &&
-      /robots: indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(page))
+      /robots: extra\.indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(seoLib))
   check("its structured data is printed only when it may be listed, and escaped",
     /owner\.canonical && onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(transformedOnepage\.social_links\)/.test(page))
   /*
@@ -124,12 +127,12 @@ console.log("\nA OnePage says where it lives and who it is about")
   */
   const shape = read("lib/onepage/public-shape.ts")
   check("and a page published before the published columns existed still draws its draft content",
-    /publicOnePage\(onepage, \{\s*source: "published"/.test(page) &&
+    /publicOnePage\(onepage, \{\s*source: "published"/.test(loader) &&
       /published \? row\.published_blocks \|\| row\.draft_blocks : row\.draft_blocks/.test(shape) && /published \? row\.published_social_links \|\| row\.social_links : row\.social_links/.test(shape))
   check("and a block outside its schedule is left out before the page is sent",
     /blocks: blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(shape) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(shape))
   check("the handle and the counts are asked once per request, for the metadata and the page",
-    /const onePageOwner = cache\(async/.test(page) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
+    /export const onePageOwner = cache\(async/.test(loader) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
 }
 
 console.log("\nThe creator page is one address, described in the creator's own words")

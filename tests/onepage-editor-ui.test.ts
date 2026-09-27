@@ -112,7 +112,7 @@ function main() {
     check("a popover on a computer, the shared sheet on a phone", /<Popover open=\{open\}/.test(field) && /<BottomSheet isOpen=\{open\}/.test(field))
     /* Moved on purpose: the route builds the page through lib/onepage/public-shape.ts, which leaves it out. */
     check("the live page still leaves out a block before its start",
-      /publicOnePage\(onepage, \{\s*source: "published"/.test(read("app/(marketing)/l/[slug]/page.tsx")) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(read("lib/onepage/public-shape.ts")))
+      /publicOnePage\(onepage, \{\s*source: "published"/.test(read("lib/onepage/published-page.ts")) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(read("lib/onepage/public-shape.ts")))
   }
 
   section("Wallpaper")
@@ -219,8 +219,9 @@ function main() {
     */
     const editorSrc = read("components/onepage/onepage-editor.tsx")
     check("each page is the column: the editor gives Design the whole column, and the stack cuts sideways at its edges",
-      /t === "design" \? null : "p-4 md:p-6 pb-24 md:pb-6"/.test(editorSrc) && /t === "settings" \? "max-w-2xl" : t === "design" \? null : "max-w-xl"/.test(editorSrc)
-      && /style=\{\{ overflowX: "clip" \}\} data-design-stack=""/.test(design) && /const readingClass = "mx-auto w-full max-w-xl p-4 pb-24 md:p-6 md:pb-6"/.test(design))
+      /* The room under the content is the phone tab bar's own height (app/globals.css --op-tabbar-h, .op-tabbar-clearance). */
+      /t === "design" \? null : "p-4 md:p-6 op-tabbar-clearance md:pb-6"/.test(editorSrc) && /t === "settings" \? "max-w-2xl" : t === "design" \? null : "max-w-xl"/.test(editorSrc)
+      && /style=\{\{ overflowX: "clip" \}\} data-design-stack=""/.test(design) && /const readingClass = "mx-auto w-full max-w-xl p-4 op-tabbar-clearance md:p-6 md:pb-6"/.test(design))
     check("on a computer the pages go side by side, the list all the way out, with no shade or shadow",
       /const SIDE_QUERY = "\(min-width: 768px\)"/.test(design) && /const shift = side \? 1 : UNDER_SHIFT/.test(design) && /if \(dim && !side\)/.test(design)
       && /panelMoving && "max-md:shadow-/.test(design))

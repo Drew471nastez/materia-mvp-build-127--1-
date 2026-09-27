@@ -51,7 +51,7 @@ function useMedia(query: string): boolean {
  * a page with no name or picture of its own (lib/onepage/public-shape), so the
  * preview reads them too, once, on the owner's own client.
  */
-function useOwnerProfile(ownerId: string | undefined) {
+export function useOwnerProfile(ownerId: string | undefined) {
   const [owner, setOwner] = useState<{ displayName: string | null; avatarUrl: string | null }>({ displayName: null, avatarUrl: null })
   useEffect(() => {
     if (!ownerId) return

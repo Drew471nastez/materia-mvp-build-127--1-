@@ -3864,6 +3864,21 @@ html.capacitor.has-page-layer {
   }
 }
 
+/* ── The OnePage editor's tab bar on a phone, one height for everybody ────
+   The bar (components/onepage/onepage-editor.tsx, data-onepage-tabbar) is
+   this tall: 10px over the buttons, the 54px buttons, and under them 10px or
+   the home indicator's inset, whichever is more. The tabs' content leaves
+   the same room under its end plus 16px, so the last row scrolls clear of
+   the bar. One number, read by both, so they cannot drift apart. */
+:root {
+  --op-tabbar-h: calc(64px + max(10px, env(safe-area-inset-bottom, 0px)));
+}
+@media (max-width: 767px) {
+  .op-tabbar-clearance {
+    padding-bottom: calc(var(--op-tabbar-h) + 16px);
+  }
+}
+
 /* ── A layer rises and drops (components/app/page-layer.tsx) ──────────────
    A view transition each way: React's at the commit coming in, one of the
    layer's own around the navigation going back. The layer is its own

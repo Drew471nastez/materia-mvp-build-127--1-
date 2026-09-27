@@ -27,6 +27,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Share,
+  SlidersHorizontal,
 } from "lucide-react"
 import * as ReactModule from "react"
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, startTransition } from "react"
@@ -1580,12 +1581,12 @@ function EditorLayout() {
                 <div
                   className={cn(
                     "w-full mx-auto",
-                    t === "design" ? null : "p-4 md:p-6 pb-24 md:pb-6",
+                    t === "design" ? null : "p-4 md:p-6 op-tabbar-clearance md:pb-6",
                     t === "settings" ? "max-w-2xl" : t === "design" ? null : "max-w-xl"
                   )}
                 >
                   {t === "settings" ? (
-                    <SettingsTab ref={settingsTabRef} />
+                    <SettingsTab ref={settingsTabRef} pageUrl={pageUrl} onSave={handleSaveWithProCheck} userPlan={userPlan} />
                   ) : (
                     <Activity mode={shown ? "visible" : "hidden"}>
                       {t === "design" && designPanel}
@@ -1640,47 +1641,56 @@ function EditorLayout() {
         )}
       </div>
 
-      {/* Mobile Bottom Tab Bar - Fixed at bottom, only when NOT in preview */}
+      {/*
+        THE PHONE'S TAB BAR: FOUR EQUAL BUTTONS, SETTINGS ONE OF THEM.
+        "The settings button sits too much in the corner, almost not
+        visible." It was a 40px grey square squeezed against the right edge
+        beside three wide tabs, with a filled icon and no word. Now Links,
+        Design, Products and Settings are four equal buttons, an icon over
+        its word, each 54px tall, 16px in from both edges and 8px apart, in
+        the same depth as the bar at the top: white with a hairline and a
+        soft foot (iconDepth, like undo and redo), and the chosen one near
+        black with the light and shade of Preview (primaryDepth). The dark
+        pill slides from one to the next on transform (useTabPill). The bar
+        is --op-tabbar-h tall (app/globals.css), the buttons end 10px above
+        its foot or above the home indicator, and the tabs leave the same
+        room under their content.
+      */}
       {!showMobilePreview && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20" data-onepage-tabbar="">
-          <div ref={phonePill.rowRef} className="relative isolate flex items-center justify-around gap-1 px-2 sm:px-4 py-2 sm:py-3 pb-[max(8px,env(safe-area-inset-bottom))]" data-tab-row="phone">
+        <div
+          className="md:hidden fixed bottom-0 left-0 right-0 z-20 h-[var(--op-tabbar-h)] border-t border-[#e5e7eb] bg-white shadow-[0_-1px_2px_rgba(16,24,40,0.03),0_-6px_16px_rgba(16,24,40,0.04)]"
+          data-onepage-tabbar=""
+        >
+          {/* 9px under the bar's 1px hairline: 10px over the buttons, as --op-tabbar-h counts it. */}
+          <div ref={phonePill.rowRef} className="relative isolate grid grid-cols-4 gap-2 px-4 pt-[9px]" data-tab-row="phone">
             <span
               ref={phonePill.pillRef}
               aria-hidden
               data-tab-pill=""
-              className="pointer-events-none absolute left-0 top-0 z-[1] origin-left rounded-[7px] sm:rounded-xl bg-gray-900"
+              className="pointer-events-none absolute left-0 top-0 z-[1] origin-left rounded-[12px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25),0_4px_12px_rgba(16,24,40,0.14)]"
               style={{ opacity: 0 }}
             />
-            {tabs.map((tab) => {
+            {[...tabs, { id: "settings" as const, label: "Settings", icon: SlidersHorizontal }].map((tab) => {
               const Icon = tab.icon
               const on = activeTab === tab.id
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   data-tab={tab.id}
                   aria-pressed={on}
                   onClick={() => handleTabChange(tab.id)}
-                  className="flex items-center px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium flex-1 justify-center min-w-0 bg-gray-100 [-webkit-tap-highlight-color:transparent]"
+                  className="flex h-[54px] min-w-0 cursor-pointer items-center justify-center rounded-[12px] border border-[#e3e4e8] bg-white px-1 text-[11.5px] font-medium shadow-[inset_0_-2px_0_rgba(0,0,0,0.05),0_1px_2px_rgba(15,23,42,0.07)] outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40 [-webkit-tap-highlight-color:transparent]"
                 >
-                  <TabFace on={on} onClass="text-white" offClass="text-gray-600">
-                    <Icon className="mr-1.5 sm:mr-2 h-4 w-4 shrink-0" />
-                    <span className="truncate">{tab.label}</span>
+                  <TabFace on={on} onClass="text-white" offClass="text-[#4b5563]">
+                    <span className="flex min-w-0 flex-col items-center gap-[5px]">
+                      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} />
+                      <span className="max-w-full truncate leading-none">{tab.label}</span>
+                    </span>
                   </TabFace>
                 </button>
               )
             })}
-            {/* Settings Button - Mobile - same height as other tab buttons */}
-            <button
-              data-tab="settings"
-              aria-pressed={activeTab === "settings"}
-              aria-label="Settings"
-              onClick={() => handleTabChange("settings")}
-              className="flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl shrink-0 bg-gray-100 [-webkit-tap-highlight-color:transparent]"
-            >
-              <TabFace on={activeTab === "settings"} onClass="text-white" offClass="text-gray-600">
-                <SettingsFilterIcon className="h-4 w-4" />
-              </TabFace>
-            </button>
           </div>
         </div>
       )}

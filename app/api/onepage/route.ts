@@ -2,6 +2,26 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepage/settings-rules"
+
+/* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
+const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
+const TAKEN = "That page address is taken"
+
+/** Whether the owner pays for a plan: Pro (sold as "growth") or the older Pro, in a state that still entitles. */
+async function onPaidPlan(userId: string): Promise<boolean> {
+  try {
+    const { data } = await createAdminClient().from("creators").select("subscription_plan_id, subscription_status").eq("user_id", userId).maybeSingle()
+    const row = data as { subscription_plan_id?: string | null; subscription_status?: string | null } | null
+    const plan = (row?.subscription_plan_id || "free").toLowerCase().trim()
+    const status = (row?.subscription_status || "active").toLowerCase()
+    return (plan === "growth" || plan === "pro" || plan === "professional") && ["active", "trialing", "past_due"].includes(status)
+  } catch {
+    /* Unreadable is not a reason to refuse somebody who pays: the editor already asked. */
+    return true
+  }
+}
 
 // GET - Fetch user's onepage (creates one if doesn't exist)
 export async function GET() {
@@ -82,7 +102,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== "object") return refuse("The page could not be read")
     const {
       id,
       title,
@@ -110,37 +131,67 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
-    // Check slug uniqueness if changed
-    if (slug && slug !== existing.slug) {
-      const { data: slugExists } = await supabase
-        .from("onepages")
-        .select("id")
-        .eq("slug", slug)
-        .neq("id", id)
-        .single()
-
-      if (slugExists) {
-        return NextResponse.json({ error: "Slug already taken" }, { status: 400 })
+    /*
+      A NEW PAGE ADDRESS. It is served at storelib.com/<address>/links, where
+      a slug is looked up before a username, so an address that is somebody
+      else's username would put this page on their address. Checked with the
+      service client: the owner's own client cannot see other people's pages
+      under RLS, so the old check never found a clash. Only a change is
+      checked, so a page made before these rules still saves.
+    */
+    let nextSlug: string | undefined
+    if (slug !== undefined && slug !== existing.slug) {
+      const verdict = checkPageSlug(slug)
+      if (!verdict.ok) return refuse(verdict.error)
+      nextSlug = verdict.value
+      if (nextSlug !== existing.slug) {
+        const admin = createAdminClient()
+        const [{ data: pageTaken }, { data: nameTaken }] = await Promise.all([
+          admin.from("onepages").select("id").eq("slug", nextSlug).neq("id", id).limit(1).maybeSingle(),
+          admin.from("profiles").select("id").ilike("username", nextSlug).neq("id", user.id).limit(1).maybeSingle(),
+        ])
+        if (pageTaken || nameTaken) return refuse(TAKEN)
       }
     }
 
+    const profileText = checkProfileText(title, bio)
+    if (!profileText.ok) return refuse(profileText.error)
+
     const updates: Partial<OnePage> & { seller_id?: string; creator_id?: string } = {}
     
-    if (title !== undefined) updates.title = title
-    if (bio !== undefined) updates.bio = bio
+    if (profileText.value.title !== undefined) updates.title = profileText.value.title
+    if (profileText.value.bio !== undefined) updates.bio = profileText.value.bio
     if (avatar_url !== undefined) updates.avatar_url = avatar_url
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
     if (social_links !== undefined) updates.social_links = social_links
     if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
-    if (slug !== undefined) updates.slug = slug
+    if (nextSlug !== undefined) updates.slug = nextSlug
     if (archived_blocks !== undefined) (updates as any).archived_blocks = archived_blocks
     
     // PROPERLY MERGE SETTINGS - don't overwrite, merge with existing
     if (settings !== undefined || avatar_video_crop !== undefined) {
       const existingSettings = (existing.settings as any) || {}
-      const newSettings = settings || {}
-      
+      /* Every setting checked (lib/onepage/settings-rules); one that cannot be made right refuses the save with the reason. */
+      const checked = settings === undefined || settings === null ? { ok: true as const, value: {} as Record<string, any> } : checkSettingsPatch(settings, existingSettings)
+      if (!checked.ok) return refuse(checked.error)
+      const newSettings = checked.value as Record<string, any>
+
+      /*
+        THE TWO PAID SETTINGS ARE PAID HERE TOO. The editor asks before it
+        saves them on a free plan, but only in its header; the Save in
+        Settings and any other caller went straight past. Turning either on
+        now asks the creator's plan, as the Stripe webhook and the billing
+        page keep it (creators.subscription_plan_id and its status). Only a
+        change is asked about, so a page that already has one still saves.
+      */
+      const turnsOnPaid =
+        (newSettings.verified_badge_enabled === true && existingSettings.verified_badge_enabled !== true) ||
+        (newSettings.show_branding === false && existingSettings.show_branding !== false)
+      if (turnsOnPaid && !(await onPaidPlan(user.id))) {
+        return refuse("The verified badge and hiding the Storelib badge are part of Pro")
+      }
+
       updates.settings = {
         ...existingSettings,
         ...newSettings,
@@ -176,7 +227,9 @@ export async function PUT(request: Request) {
       .single()
 
     if (error) {
-      console.error("Error updating onepage:", error)
+      /* Two saves racing for one address: the unique index answers, and it is the same answer. */
+      if ((error as { code?: string }).code === "23505") return refuse(TAKEN)
+      console.error("Error updating onepage:", (error as { code?: string }).code ?? "unknown")
       return NextResponse.json({ error: "Failed to update" }, { status: 500 })
     }
 

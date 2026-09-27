@@ -100,7 +100,7 @@ console.log("\nThe preview is the live page")
   const proxy = code("proxy.ts")
   check("framed only by this origin, and only with embedded=1", /url\.pathname === "\/onepage-preview" \|\|/.test(proxy) && /const framed = framableWhenEmbedded && url\.searchParams\.get\("embedded"\) === "1"/.test(proxy))
   check("and no creator can hold the name", /"onepage-preview"/.test(read("lib/routes/reserved-segments.ts")))
-  check("the live route builds its page with the same function", /publicOnePage\(onepage, \{\s*source: "published"/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  check("the live route builds its page with the same function", /publicOnePage\(onepage, \{\s*source: "published"/.test(code("lib/onepage/published-page.ts")) && /publishedShape\(onepage, owner, \{/.test(code("app/(marketing)/l/[slug]/page.tsx")))
 }
 
 console.log("\nOne shape for the live page and the preview")

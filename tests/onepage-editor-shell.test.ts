@@ -35,6 +35,8 @@ const editor = read("components/onepage/onepage-editor.tsx")
 const css = read("app/globals.css")
 const design = read("components/onepage/tabs/design-tab.tsx")
 const settings = read("components/onepage/tabs/settings-tab.tsx")
+/* The SEO section is its own file now (components/onepage/seo-panel.tsx). */
+const seoPanel = read("components/onepage/seo-panel.tsx")
 
 console.log("\nFull screen on a phone")
 check("the editor starts at the top of the screen, under the header only from 768px", /fixed left-0 right-0 top-0 md:left-\[240px\] md:top-\[58px\]/.test(editor))
@@ -88,7 +90,7 @@ check("each tab has its own scroll box, the one on screen is the editor's scroll
   /data-tab-panel=\{t\}/.test(editor) && /data-scroll-container=\{t === panels\.tab \? "links-tab" : undefined\}/.test(editor))
 check("Links, Design and Products are kept, out of sight in React's Activity", /<Activity mode=\{shown \? "visible" : "hidden"\}>/.test(editor) && /const KEPT_TABS: TabType\[\] = \["links", "design", "products"\]/.test(editor))
 check("and built ahead while the page is idle", /requestIdleCallback\(build/.test(editor))
-check("Settings is still built each time it opens", /t === "settings" \? \(\s*<SettingsTab ref=\{settingsTabRef\} \/>/.test(editor))
+check("Settings is still built each time it opens, and saves through the editor's own Save", /t === "settings" \? \(\s*<SettingsTab ref=\{settingsTabRef\} pageUrl=\{pageUrl\} onSave=\{handleSaveWithProCheck\} userPlan=\{userPlan\} \/>/.test(editor))
 check("each tab comes back to where it was scrolled", /scrollMemory\.current\[from\] = outgoing\.scrollTop/.test(editor) && /incoming\.scrollTop = scrollMemory\.current\[to\] \?\? 0/.test(editor))
 /*
   "Even when I'm switching in the bottom tabs, make sure it's smooth and
@@ -105,14 +107,29 @@ check("the switch is one short fade on the compositor, and nothing slides",
 check("the pill slides by transform, started from the press", /data-tab-pill=""/.test(editor) && /pillMoves\.current\.forEach\(\(slide\) => slide\(tab\)\)/.test(editor) && /scaleX\(\$\{from\.w \/ w\}\)/.test(editor))
 check("the panels follow a frame after the bars", /requestAnimationFrame\(\(\) => \{\s*timer = window\.setTimeout\(\(\) => startTransition\(\(\) => setPanelTab\(activeTab\)\), 0\)/.test(editor))
 
+/*
+  "The settings button sits too much in the corner, almost not visible."
+  It was a 40px grey square against the right edge. Measured by
+  scripts/check-onepage-seo.mjs at 360, 390 and 430: four buttons of one
+  size (76, 83.5, 93.5 by 54), 16px from both edges, 10px above the foot
+  or the home indicator, the pill exactly over the chosen one.
+*/
+console.log("\nThe phone's tab bar")
+check("four equal buttons, Settings one of them with its word",
+  /grid grid-cols-4 gap-2 px-4/.test(editor) && /\[\.\.\.tabs, \{ id: "settings" as const, label: "Settings", icon: SlidersHorizontal \}\]/.test(editor) && !/aria-label="Settings"/.test(editor))
+check("each 54px, white with a hairline and a soft foot; the chosen one near black with Preview's light and shade",
+  /flex h-\[54px\] min-w-0 cursor-pointer items-center justify-center rounded-\[12px\] border border-\[#e3e4e8\] bg-white/.test(editor) && /rounded-\[12px\] bg-\[#1a1a2e\] shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.14\)/.test(editor))
+check("the bar is one shared height, and the tabs leave that room under their content",
+  /h-\[var\(--op-tabbar-h\)\]/.test(editor) && /--op-tabbar-h: calc\(64px \+ max\(10px, env\(safe-area-inset-bottom, 0px\)\)\)/.test(css) && /\.op-tabbar-clearance \{\s*padding-bottom: calc\(var\(--op-tabbar-h\) \+ 16px\)/.test(css))
+
 console.log("\nThree more designs")
 for (const [id, category] of [["studio", "light"], ["night", "dark"], ["peach", "gradient"]]) {
   check(`${id}, under ${category}`, new RegExp(`id: "${id}",\\s*name: "[A-Z][a-z]+",\\s*category: "${category}",`).test(design))
 }
 
 console.log("\nSettings")
-check("SEO is one share card", /data-og-card=""/.test(settings) && /Share preview/.test(settings))
-check("Add image opens the picker straight away, no modal", /fileInputRef\.current\?\.click\(\)/.test(settings) && !/showOgImageModal/.test(settings) && !/Upload Social Image/.test(settings))
+check("SEO is the share card and the Google result, as they will look", /data-og-card=""/.test(seoPanel) && /Shared link/.test(seoPanel) && /data-search-preview=""/.test(seoPanel) && /<SeoPanel pageUrl=\{pageUrl\}/.test(settings))
+check("Use my own picture opens the picker straight away, no modal", /fileInputRef\.current\?\.click\(\)/.test(seoPanel) && !/showOgImageModal/.test(seoPanel + settings) && !/Upload Social Image/.test(seoPanel + settings))
 check("the section list is words, no icons", !/icon: [A-Z]/.test(settings.slice(settings.indexOf("const SETTINGS_SECTIONS"), settings.indexOf("const SETTINGS_SECTIONS") + 600)))
 /* A section swapped in one frame; now it settles in tone as Website Settings' tabs do (scripts/check-onepage-editor-nav.mjs, links: 1 opacity step before, 13 now, top unmoved). */
 check("a section changes as Website Settings' tabs do: keyed, and the shared fade once one is pressed",
