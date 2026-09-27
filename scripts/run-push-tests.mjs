@@ -60,6 +60,7 @@ const SUITES = [
   "tests/library-and-pages.test.ts",
   "tests/creator-page-products.test.ts",
   "tests/deleted-product-gone.test.ts",
+  "tests/onepage-preview-parity.test.ts",
   "tests/product-delete.test.ts",
   "tests/product-visibility.test.ts",
   "tests/native-scroll-guard.test.ts",

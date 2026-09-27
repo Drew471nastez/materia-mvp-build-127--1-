@@ -37,7 +37,9 @@ export default function Image({ src, alt, fill, priority, unoptimized, sizes, qu
   /* One answer for every query: an empty list (the Products tab maps it) that also says onboarding is done (the editor reads that off a single row). */
   writeFileSync(join(dir, "supabase.js"), `const result = { data: Object.assign([], { onboarding_completed: true }), error: null }
 const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(result) : q, apply: () => q })
-export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: () => q, storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this } }), removeChannel() {} } }
+/* A probe that names a catalogue (window.PROBE_PRODUCTS) gets it back from a read of products, the read lib/onepage/live-products makes. */
+const rows = (list) => { const r = { data: list, error: null }; const p = new Proxy(function () {}, { get: (_, k) => k === "then" ? (res) => res(r) : p, apply: () => p }); return p }
+export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: (table) => (table === "products" && Array.isArray(globalThis.PROBE_PRODUCTS) ? rows(globalThis.PROBE_PRODUCTS) : q), storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this } }), removeChannel() {} } }
 `)
   try {
     execFileSync("pnpm", ["exec", "esbuild", join(root, entry),
