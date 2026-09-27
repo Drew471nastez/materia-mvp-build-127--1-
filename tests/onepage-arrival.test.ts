@@ -78,7 +78,7 @@ async function main() {
     const clock = fakeClock()
     let aborted = 0
     let settled: ReadResult<unknown> | null = null
-    within((signal) => { signal.addEventListener("abort", () => aborted++); return never() }, 2500, clock.timers).then((r) => { settled = r })
+    within((signal) => { signal.addEventListener("abort", () => aborted++); return never<ReadResult<unknown>>() }, 2500, clock.timers).then((r) => { settled = r })
     await clock.advance(2499)
     check("not before its time", settled === null)
     await clock.advance(1)
@@ -89,7 +89,7 @@ async function main() {
     const clock = fakeClock()
     let tries = 0
     let settled: ReadResult<unknown> | null = null
-    readTwice(() => { tries++; return never() }, { attemptMs: 2500, budgetMs: 4000 }, clock.timers).then((r) => { settled = r })
+    readTwice(() => { tries++; return never<ReadResult<unknown>>() }, { attemptMs: 2500, budgetMs: 4000 }, clock.timers).then((r) => { settled = r })
     await clock.advance(4000)
     check("two hung tries end inside the 4s budget: 2.5s and then the 1.5s left", (settled as ReadResult<unknown> | null)?.error?.code === READ_TIMEOUT && tries === 2)
   }
@@ -97,7 +97,7 @@ async function main() {
     const clock = fakeClock()
     let tries = 0
     let settled: ReadResult<unknown> | null = null
-    readTwice(() => { tries++; return never() }, { attemptMs: 3900, budgetMs: 4000 }, clock.timers).then((r) => { settled = r })
+    readTwice(() => { tries++; return never<ReadResult<unknown>>() }, { attemptMs: 3900, budgetMs: 4000 }, clock.timers).then((r) => { settled = r })
     await clock.advance(4000)
     check("no second try when the budget has no real room for it", (settled as ReadResult<unknown> | null)?.error?.code === READ_TIMEOUT && tries === 1)
   }
