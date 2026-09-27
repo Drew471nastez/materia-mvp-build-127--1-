@@ -107,6 +107,24 @@ function pathOf(href: string): string {
 }
 
 /**
+ * A PRESS ON ONEPAGE ENDS IN THE EDITOR. "It shows the loading thing but it
+ * never takes me there." For most pages the cap above hands back the page
+ * you were on. The OnePage editor is a place somebody set out to go, and
+ * handing back Home after eight seconds of spinner read as the press being
+ * refused, with the editor then landing much later over whatever they had
+ * gone on to do. So for the editor, a navigation still underway at the cap
+ * is finished the way the router finishes one it cannot: the address is
+ * loaded as a document (components/app/app-stage.tsx SlowPage). Its server
+ * page answers within a few seconds whatever Supabase does
+ * (lib/onepage/bounded-read.ts), so this is the rare case of a request the
+ * router lost.
+ */
+export function loadsAsDocumentWhenStalled(href: string | null): boolean {
+  if (!href) return false
+  return pathOf(href) === "/app/onepage"
+}
+
+/**
  * Whether a slow navigation to this address waits with the spinner. Not the
  * product editor or the coupon editor, new or saved: the page you were on
  * stays until the editor is ready. Not the plans page either: it is drawn over the whole shell

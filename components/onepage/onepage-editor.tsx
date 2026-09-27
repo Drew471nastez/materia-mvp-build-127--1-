@@ -93,8 +93,13 @@ const KEPT_TABS: TabType[] = ["links", "design", "products"]
 const TAB_FADE_IN_MS = 120
 const TAB_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const TAB_FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
-/** The pill under the chosen tab slides to the next one on iOS's curve. */
+/** The pill under the chosen tab of the computer's row slides to the next one on iOS's curve. */
 const PILL_MS = 240
+/**
+ * The phone bar's chosen button takes its dark fill in place over this long,
+ * on opacity alone, and its icon and word cross from grey to white with it.
+ */
+const TAB_SELECT_MS = 140
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -383,13 +388,14 @@ function ShareOnePage({
 }
 
 /**
- * THE PILL UNDER THE CHOSEN TAB SLIDES. The chosen tab's dark (on a phone)
- * or white (on a computer) background was its own, so a switch was two
- * backgrounds swapping in one frame. It is one pill now, drawn under the
+ * THE PILL UNDER THE CHOSEN TAB SLIDES, ON A COMPUTER. The segmented row
+ * in the header: the chosen tab's white background was its own, so a switch
+ * was two backgrounds swapping in one frame. It is one pill now, drawn under the
  * words and over the grey of the tabs, moved by `transform` from under the
  * last tab to under the next one (scaled from the last one's width on the
  * way, as the Settings page's outline does), on the compositor. With no
- * tab of the row chosen (Settings, on a computer) it fades away where it is.
+ * tab of the row chosen (Settings) it fades away where it is. The phone's
+ * bar has no pill: its buttons change in place (THE PHONE'S TAB BAR below).
  */
 function useTabPill(activeId: string, remount?: unknown) {
   const rowRef = useRef<HTMLDivElement>(null)
@@ -456,12 +462,12 @@ function useTabPill(activeId: string, remount?: unknown) {
  * colour it has when not, one over the other. A switch fades one into the
  * other, rather than changing the colour of the words in a single frame.
  */
-function TabFace({ on, onClass, offClass, children }: { on: boolean; onClass: string; offClass: string; children: React.ReactNode }) {
-  const face = "col-start-1 row-start-1 flex min-w-0 items-center justify-center transition-opacity duration-200 ease-out"
+function TabFace({ on, onClass, offClass, className, children }: { on: boolean; onClass: string; offClass: string; className?: string; children: React.ReactNode }) {
+  const face = "col-start-1 row-start-1 flex min-w-0 max-w-full items-center justify-center transition-opacity ease-out motion-reduce:transition-none"
   return (
-    <span className="relative z-[2] grid min-w-0">
-      <span className={cn(face, offClass)} style={{ opacity: on ? 0 : 1 }}>{children}</span>
-      <span aria-hidden className={cn(face, onClass)} style={{ opacity: on ? 1 : 0 }}>{children}</span>
+    <span className={cn("relative z-[2] grid min-w-0", className)}>
+      <span className={cn(face, offClass)} style={{ opacity: on ? 0 : 1, transitionDuration: `${TAB_SELECT_MS}ms` }}>{children}</span>
+      <span aria-hidden className={cn(face, onClass)} style={{ opacity: on ? 1 : 0, transitionDuration: `${TAB_SELECT_MS}ms` }}>{children}</span>
     </span>
   )
 }
@@ -637,7 +643,7 @@ function EditorLayout() {
   const scrollMemory = useRef<Partial<Record<TabType, number>>>({})
   const shownTabRef = useRef(panels.tab)
   const activeTabRef = useRef(activeTab)
-  /* The two pills' own slides, started from the press (see useTabPill). */
+  /* The computer row's pill slide, started from the press (see useTabPill). */
   const pillMoves = useRef<((id: string) => void)[]>([])
   const showTab = useCallback((tab: TabType) => {
     if (activeTabRef.current === tab) return
@@ -1170,8 +1176,7 @@ function EditorLayout() {
   }, [onepage?.id])
 
   const desktopPill = useTabPill(activeTab)
-  const phonePill = useTabPill(activeTab, showMobilePreview)
-  pillMoves.current = [desktopPill.slideTo, phonePill.slideTo]
+  pillMoves.current = [desktopPill.slideTo]
   /*
     The same elements from one render of the editor to the next, so a tap on
     a tab (which re-renders the editor to move the pill) does not re-render
@@ -1643,18 +1648,27 @@ function EditorLayout() {
 
       {/*
         THE PHONE'S TAB BAR: FOUR EQUAL BUTTONS, SETTINGS ONE OF THEM.
-        "The settings button sits too much in the corner, almost not
-        visible." It was a 40px grey square squeezed against the right edge
-        beside three wide tabs, with a filled icon and no word. Now Links,
-        Design, Products and Settings are four equal buttons, an icon over
-        its word, each 54px tall, 16px in from both edges and 8px apart, in
-        the same depth as the bar at the top: white with a hairline and a
-        soft foot (iconDepth, like undo and redo), and the chosen one near
-        black with the light and shade of Preview (primaryDepth). The dark
-        pill slides from one to the next on transform (useTabPill). The bar
-        is --op-tabbar-h tall (app/globals.css), the buttons end 10px above
-        its foot or above the home indicator, and the tabs leave the same
-        room under their content.
+        Links, Design, Products and Settings, an icon over its word, each
+        54px tall, 8px apart and 16px in from the edges (6px and 12px under
+        340px), white with a hairline and a soft foot, the chosen one near
+        black with the light and shade of Preview. The bar is --op-tabbar-h
+        tall (app/globals.css), the buttons end 10px above its foot or above
+        the home indicator, and the tabs leave the same room under their
+        content.
+
+        THE CHOSEN ONE CHANGES IN PLACE. "No slide-in slide effect." A dark
+        pill used to travel from the last tab to the next on transform. Now
+        each button has its own dark fill, and a tap crossfades it (opacity,
+        TAB_SELECT_MS) while the icon and word crossfade from grey to white
+        (TabFace). Nothing moves sideways. A press gives a little under the
+        thumb (scale on :active). Reduced motion swaps at once.
+
+        THE WORD KEEPS ITS DESCENDERS. It was `leading-none` inside
+        `truncate`, a 1em box that clips whatever it overflows: the tails of
+        the g in Design and Settings were cut off. The line is 1.3em now,
+        which holds Inter's whole height, and the word still ends in an
+        ellipsis rather than spill out of a narrow button
+        (scripts/check-onepage-tabbar.mjs measures both).
       */}
       {!showMobilePreview && (
         <div
@@ -1662,14 +1676,7 @@ function EditorLayout() {
           data-onepage-tabbar=""
         >
           {/* 9px under the bar's 1px hairline: 10px over the buttons, as --op-tabbar-h counts it. */}
-          <div ref={phonePill.rowRef} className="relative isolate grid grid-cols-4 gap-2 px-4 pt-[9px]" data-tab-row="phone">
-            <span
-              ref={phonePill.pillRef}
-              aria-hidden
-              data-tab-pill=""
-              className="pointer-events-none absolute left-0 top-0 z-[1] origin-left rounded-[12px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25),0_4px_12px_rgba(16,24,40,0.14)]"
-              style={{ opacity: 0 }}
-            />
+          <div className="grid grid-cols-4 gap-1.5 px-3 pt-[9px] min-[340px]:gap-2 min-[340px]:px-4" data-tab-row="phone">
             {[...tabs, { id: "settings" as const, label: "Settings", icon: SlidersHorizontal }].map((tab) => {
               const Icon = tab.icon
               const on = activeTab === tab.id
@@ -1680,12 +1687,18 @@ function EditorLayout() {
                   data-tab={tab.id}
                   aria-pressed={on}
                   onClick={() => handleTabChange(tab.id)}
-                  className="flex h-[54px] min-w-0 cursor-pointer items-center justify-center rounded-[12px] border border-[#e3e4e8] bg-white px-1 text-[11.5px] font-medium shadow-[inset_0_-2px_0_rgba(0,0,0,0.05),0_1px_2px_rgba(15,23,42,0.07)] outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40 [-webkit-tap-highlight-color:transparent]"
+                  className="relative isolate flex h-[54px] min-w-0 cursor-pointer items-center justify-center rounded-[12px] border border-[#e3e4e8] bg-white px-0.5 text-[11.5px] font-medium shadow-[inset_0_-2px_0_rgba(0,0,0,0.05),0_1px_2px_rgba(15,23,42,0.07)] outline-none transition-[scale] duration-[120ms] ease-out active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
                 >
-                  <TabFace on={on} onClass="text-white" offClass="text-[#4b5563]">
-                    <span className="flex min-w-0 flex-col items-center gap-[5px]">
+                  <span
+                    aria-hidden
+                    data-tab-fill=""
+                    className="pointer-events-none absolute -inset-px z-[1] rounded-[12px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25),0_4px_12px_rgba(16,24,40,0.14)] transition-opacity ease-out motion-reduce:transition-none"
+                    style={{ opacity: on ? 1 : 0, transitionDuration: `${TAB_SELECT_MS}ms` }}
+                  />
+                  <TabFace on={on} onClass="text-white" offClass="text-[#4b5563]" className="w-full grid-cols-[minmax(0,1fr)]">
+                    <span className="flex min-w-0 max-w-full flex-col items-center gap-[5px]">
                       <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} />
-                      <span className="max-w-full truncate leading-none">{tab.label}</span>
+                      <span className="block max-w-full truncate text-center leading-[1.3]" data-tab-word="">{tab.label}</span>
                     </span>
                   </TabFace>
                 </button>

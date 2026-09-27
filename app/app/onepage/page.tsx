@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import type { OnePage } from "@/lib/onepage/types"
@@ -7,6 +8,7 @@ import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { SessionRecovery } from "@/components/auth/session-recovery"
+import { readTwice, within } from "@/lib/onepage/bounded-read"
 
 export const dynamic = "force-dynamic"
 
@@ -21,7 +23,11 @@ export async function generateMetadata(): Promise<Metadata> {
   try {
     const { user } = await currentUserForRequest()
     if (!user) return { title: "OnePage" }
-    const profile = await profileForRequest(user.id)
+    /* A name for the tab is never worth waiting on: past a second and a half the tab says OnePage. */
+    const profile = await Promise.race([
+      profileForRequest(user.id),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+    ])
     const displayName = profile?.display_name || profile?.username || "OnePage"
     return { title: displayName }
   } catch {
@@ -29,14 +35,10 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-/** A read that failed for a reason other than the row not being there, asked once more before giving up. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Read = PromiseLike<{ data: any; error: { code?: string; message?: string } | null }>
-async function readTwice(read: () => Read) {
-  const first = await read()
-  if (!first.error) return first
-  return read()
-}
+/** A new page is a few writes; they get this long before the page says it could not be made. */
+const MAKE_PAGE_MS = 6000
+/** The store builder's social links are a nicety for a page that has none: never waited on for long. */
+const STORE_SOCIALS_MS = 1500
 
 export default async function OnePageEditorPage() {
   const supabase = await createClient()
@@ -53,6 +55,15 @@ export default async function OnePageEditorPage() {
   if (!user) return <SessionRecovery />
 
   /*
+    EVERY WAIT HAS AN END, AND THE TWO READS GO TOGETHER. The creator row
+    and the page both depend on nothing but the user, and were asked one
+    after the other with no ceiling: a read that hung held the router's
+    answer, the shell's spinner gave way at its cap, and the editor came
+    whenever the read did, or never. Now they are asked at once, each try is
+    cut off after 2.5s and a failed one is asked again only while 4s have
+    room for it (lib/onepage/bounded-read.ts). What they decide is decided
+    in the same order as before.
+
     WHO THIS IS, AND A FAILED READ IS NOT "NOBODY". This sent anybody whose
     creator row did not come back to /onboarding, which is where a timeout
     or a dropped connection also went: /onboarding, then /signup/success,
@@ -61,9 +72,17 @@ export default async function OnePageEditorPage() {
     sent to onboarding; a read that failed twice is an error, with its
     own Try again, on the editor's own address.
   */
-  const { data: creator, error: creatorError } = await readTwice(() =>
-    supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle(),
-  )
+  const [creatorRead, pageRead] = await Promise.all([
+    readTwice((signal) =>
+      supabase.from("creators").select("*").eq("user_id", user.id).abortSignal(signal).maybeSingle(),
+    ),
+    readTwice((signal) =>
+      supabase.from("onepages").select("*").eq("owner_id", user.id).abortSignal(signal).maybeSingle(),
+    ),
+  ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const creator = creatorRead.data as any
+  const creatorError = creatorRead.error
   if (creatorError) {
     console.error("[OnePage] Creator fetch error:", creatorError)
     throw new Error("The creator could not be read")
@@ -85,9 +104,9 @@ export default async function OnePageEditorPage() {
     a read that failed twice is an error with a Try again, and nothing is
     made over somebody's page.
   */
-  let { data: onepage, error: fetchError } = await readTwice(() =>
-    supabase.from("onepages").select("*").eq("owner_id", user.id).maybeSingle(),
-  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onepage = pageRead.data as any
+  const fetchError = pageRead.error
   if (fetchError) {
     console.error("[OnePage] OnePage fetch error:", fetchError)
     throw new Error("The OnePage could not be read")
@@ -107,8 +126,32 @@ export default async function OnePageEditorPage() {
    */
   let createdNow = false
   if (!onepage) {
-    onepage = (await ensureOnePage(supabase, user.id, creator)) as typeof onepage
+    const made = await within(
+      async () => ({ data: await ensureOnePage(supabase, user.id, creator), error: null }),
+      MAKE_PAGE_MS,
+    )
+    onepage = made.data as typeof onepage
     createdNow = !!onepage
+  }
+
+  /*
+    THE SOCIAL LINKS ARE WRITTEN AFTER THE ANSWER, NOT BEFORE IT. The links
+    a page with none is given (from the creator row, or the store builder's
+    header) are put on the page this render hands the editor, as before, and
+    the write that keeps them is sent now and finished after the response
+    (next/server `after`), so the editor never waits on an UPDATE. A write
+    that fails is tried again on the next open, as it always was.
+  */
+  const keep = (write: PromiseLike<unknown>) => {
+    const sent = Promise.resolve(write).then(
+      () => undefined,
+      () => undefined,
+    )
+    try {
+      after(sent)
+    } catch {
+      /* Outside a request (a test): the write still runs on its own. */
+    }
   }
 
   // If onepage exists but has no social data, try to sync from creators table or store_builder_configs
@@ -116,8 +159,8 @@ export default async function OnePageEditorPage() {
   if (onepage && !rawOnepage.instagram && !rawOnepage.tiktok && !rawOnepage.youtube) {
     // First check creators table (from main onboarding)
     if (creatorSocials.instagram || creatorSocials.tiktok || creatorSocials.youtube) {
-      // Sync social data from creators table to onepage
-      await supabase
+      // Sync social data from creators table to onepage, finished after the response
+      keep(supabase
         .from("onepages")
         .update({
           instagram: creatorSocials.instagram,
@@ -138,7 +181,7 @@ export default async function OnePageEditorPage() {
             },
           } : {}),
         })
-        .eq("id", onepage.id)
+        .eq("id", onepage.id))
 
       // Update the local onepage object with the synced data
       rawOnepage.instagram = creatorSocials.instagram
@@ -151,13 +194,19 @@ export default async function OnePageEditorPage() {
         youtube: creatorSocials.youtube,
       }
     } else {
-      // Fallback: Check if store_builder_configs has social data we can use
-      const { data: storeConfig } = await supabase
-        .from("store_builder_configs")
-        .select("draft_config")
-        .eq("creator_id", creator.id)
-        .eq("page_type", "shop")
-        .maybeSingle()
+      // Fallback: Check if store_builder_configs has social data we can use (a slow answer is no answer)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: storeConfig } = await within<any>(
+        (signal) =>
+          supabase
+            .from("store_builder_configs")
+            .select("draft_config")
+            .eq("creator_id", creator.id)
+            .eq("page_type", "shop")
+            .abortSignal(signal)
+            .maybeSingle(),
+        STORE_SOCIALS_MS,
+      )
 
       if (storeConfig?.draft_config?.sections) {
         const headerSection = storeConfig.draft_config.sections.find((s: any) => s.type === "header")
@@ -166,8 +215,8 @@ export default async function OnePageEditorPage() {
           const hasData = sl.instagram?.url || sl.tiktok?.url || sl.youtube?.url
 
           if (hasData) {
-            // Sync social data from store builder to onepage
-            await supabase
+            // Sync social data from store builder to onepage, finished after the response
+            keep(supabase
               .from("onepages")
               .update({
                 instagram: sl.instagram?.url || null,
@@ -188,7 +237,7 @@ export default async function OnePageEditorPage() {
                   },
                 } : {}),
               })
-              .eq("id", onepage.id)
+              .eq("id", onepage.id))
 
             // Update the local onepage object with the synced data
             rawOnepage.instagram = sl.instagram?.url || null
