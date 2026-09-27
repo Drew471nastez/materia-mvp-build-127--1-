@@ -485,10 +485,20 @@ check("the way back drops the layer in a view transition of its own, waiting onl
   /export const LAYER_WAIT_MS = 450/.test(layer) && /if \(motion === "leave"\) dropLayer\(navigate\)/.test(layer) && /move = doc\.startViewTransition\(\(\) => \{/.test(layer)
     && /move\.skipTransition\(\)/.test(layer) && /leaving\?\.\(\)/.test(layer) && /window\.addEventListener\("popstate", onPop, \{ once: true \}\)/.test(layer)
     && /manual = true\s*flushSync\(\(\) => \{/.test(layer) && /const reactMoves = \(\) => layerMotionOn\(\) && !manual/.test(layer))
-check("no move under reduced motion, without view transitions, or from 768px where the editor is a page in the shell: the page swaps and lands as any other",
+/*
+  Changed on purpose. This used to end "...or without view transitions: the
+  page swaps and lands as any other", and that was the whole of the owner's
+  complaint: WebKit had none before Safari 18, so on those iPhones the editor
+  appeared and vanished in one frame. It no longer swaps there; the layer
+  plays the same move itself (page-layer.tsx, BY HAND). Reduced motion and
+  768px are unchanged, and both paths read them from the one layerMotionOn.
+*/
+check("no move under reduced motion or from 768px where the editor is a page in the shell; without view transitions the layer moves itself rather than the page swapping",
   /return window\.matchMedia\(LAYER_PHONE\)\.matches && !window\.matchMedia\(REDUCED\)\.matches/.test(layer) && /export const LAYER_PHONE = "\(max-width: 767px\)"/.test(layer)
-    && /if \(leaving \|\| manual \|\| doc\.__reactViewTransition \|\| !layerMotionOn\(\) \|\| typeof doc\.startViewTransition !== "function" \|\| !document\.querySelector\("\[data-page-layer\]"\)\) \{\s*navigate\(\)\s*return/.test(layer)
-    && /if \(!move \|\| !reactMoves\(\)\) return/.test(layer))
+    && /if \(leaving \|\| manual \|\| doc\.__reactViewTransition \|\| !layerMotionOn\(\) \|\| !document\.querySelector\("\[data-page-layer\]"\)\) \{\s*navigate\(\)\s*return/.test(layer)
+    && /if \(typeof doc\.startViewTransition !== "function"\) \{\s*if \(dropping\) navigate\(\)\s*else dropByHand\(navigate\)/.test(layer)
+    && /else if \(layerMotionOn\(\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
+    && /if \(!move \|\| !reactMoves\(\)\) return false/.test(layer))
 check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-leave-ms", `\$\{LAYER_LEAVE_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
 check("on a phone the layer rises from the bottom edge and drops back to it, on transform alone; nothing slides sideways and the page under it never fades",
   /@keyframes layer-rise \{\s*from \{ transform: translateY\(100%\); \}/.test(css) && /@keyframes layer-drop \{\s*to \{ transform: translateY\(100%\); \}/.test(css)
@@ -501,8 +511,17 @@ check("  a press on the way in or out answers on its own frame, and a spinner ta
   /export const LAYER_PRESS_WAIT_MS = 100/.test(layer) && /export function holdPress\(/.test(layer) && /if \(press !== false\) holdPress\(press \?\? recentPress\(\)\)/.test(layer)
     && /\[data-layer-press=""\] > :not\(\[data-layer-press-spinner\]\) \{\s*opacity: 0\.4;/.test(css) && /@keyframes press-spinner-in/.test(css))
 /* "200 fps smooth": nothing of the pages' own lands in the frames of a move (scripts/check-layer-motion.mjs measures 0 dropped frames at 4x CPU). */
-check("  a move is held at its first position until frames arrive a frame apart again, at most 400ms, then played whole",
-  /export function startWhenFramesFlow\(animations: Animation\[\]\)/.test(layer) && /const FRAMES_FLOW_CAP_MS = 400/.test(layer) && /const FRAME_FLOWS_MS = 24/.test(layer)
+/*
+  Changed on purpose: `steady`. One frame on time is proof enough behind a
+  view transition, where both pages are pictures and nothing of them can draw
+  again. A move played by hand has a live page in it whose own first render
+  is still landing, and one quiet frame there is often only the gap between
+  two pieces of it, so those moves wait for two in a row.
+*/
+check("  a move is held at its first position until frames arrive a frame apart again (two in a row for a move played by hand), at most 400ms, then played whole",
+  /export function startWhenFramesFlow\(animations: Animation\[\], steady = 1\)/.test(layer) && /const FRAMES_FLOW_CAP_MS = 400/.test(layer) && /const FRAME_FLOWS_MS = 24/.test(layer)
+    && /quiet = last >= 0 && t - last < FRAME_FLOWS_MS \? quiet \+ 1 : 0/.test(layer) && /if \(quiet >= steady \|\| performance\.now\(\) - began > FRAMES_FLOW_CAP_MS\)/.test(layer)
+    && /startWhenFramesFlow\(\[a\], 2\)/.test(layer)
     && /for \(const a of animations\) a\.playbackRate = 0/.test(layer) && /if \(next === "enter" \|\| next === "leave"\) layerMoveWhenDrawn\(move\)/.test(layer)
     && /move\.ready\.catch\(\(\) => \{\}\)\s*layerMoveWhenDrawn\(move\)/.test(layer) && /startWhenFramesFlow\(anims\)/.test(code("app/app/orders/order-motion.ts")))
 check("  a page's own redraw waits for the move (afterLayerMove), let go when the move ends or after 1.5s",

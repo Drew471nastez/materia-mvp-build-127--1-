@@ -41,8 +41,17 @@
  * growing frame by frame, nothing above the card moving, the fields
  * focusable once open and inert once closed.
  *
+ * WITH NO VIEW TRANSITIONS, the two products trips again in an engine that
+ * has none (WebKit before Safari 18, which is what the owner was looking at
+ * when he said the editor was "direct"). There page-layer.tsx plays the move
+ * itself: the layer's own box coming in over a still of the list, a still of
+ * the editor going back over the list as it commits. The same numbers are
+ * taken for those moves, plus the share of their frames that arrived on time
+ * and one picture of each caught part way (layer-motion-<trip>-<in|back>-
+ * hand-390.png).
+ *
  * At 1280 a layer does not move (the editor is a page in the shell there),
- * and under reduced motion nothing moves.
+ * and under reduced motion nothing moves, with or without view transitions.
  *
  *   node scripts/check-layer-motion.mjs
  *   ONLY=390 node scripts/check-layer-motion.mjs     (one phone width, and 1280)
@@ -150,8 +159,9 @@ const css = await appCss(root)
 const inter = interFaces(root).replace(/url\(file:\/\//g, "url(http://probe.test/__file")
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>
 <script>
-  window.__moves = []; window.__long = []
+  window.__moves = []; window.__long = []; window.__shifts = []
   new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long.push({ t: e.startTime, d: e.duration }) }).observe({ type: "longtask", buffered: true })
+  try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__shifts.push({ t: e.startTime, v: e.value }) }).observe({ type: "layout-shift", buffered: true }) } catch {}
   const start = document.startViewTransition && document.startViewTransition.bind(document)
   if (start) document.startViewTransition = function (arg) {
     const t = start(arg)
@@ -179,11 +189,21 @@ const RECORD = () => {
     if (!window.__recording) return
     const anims = document.getAnimations()
     const layer = anims.find((a) => /page-layer/.test(a.effect?.pseudoElement || ""))
+    /* A move page-layer.tsx plays itself (no view transitions here): on the layer's own box coming in, on the still going back. */
+    const hand = anims.find((a) => {
+      const t = a.effect?.target
+      return !a.effect?.pseudoElement && t?.hasAttribute && (t.hasAttribute("data-page-layer") || t.hasAttribute("data-layer-still")) && a.effect.getKeyframes().some((k) => k.transform)
+    })
     const order = document.querySelector(".orders-detail")?.getAnimations().find((a) => a.effect?.getKeyframes().some((k) => k.transform))
-    const a = layer || order
+    const a = layer || hand || order
     const timing = a?.effect?.getComputedTiming()
     let y = null
-    if (a && timing && timing.progress != null) {
+    const keys = (a?.effect?.getKeyframes() ?? []).flatMap((k) => Object.keys(k).filter((x) => !["offset", "computedOffset", "easing", "composite"].includes(x)))
+    if (a === hand && hand) {
+      /* Read off the element, not worked out from the progress: the ground truth of where it is drawn this frame. */
+      const m = new DOMMatrixReadOnly(getComputedStyle(hand.effect.target).transform)
+      y = +m.m42.toFixed(1)
+    } else if (a && timing && timing.progress != null) {
       const kf = a.effect.getKeyframes()
       /* A CSS animation's curve is on its keyframes, so the effect's own progress is linear: the curve is applied here. */
       const m = /cubic-bezier\(([^)]+)\)/.exec(kf[0].easing || "")
@@ -211,7 +231,7 @@ const RECORD = () => {
       const to = read(kf[kf.length - 1]) ?? 0
       y = +(from + (to - from) * prog).toFixed(1)
     }
-    window.__frames.push({ t: +t.toFixed(1), y, which: layer ? layer.effect.pseudoElement : order ? "order" : null })
+    window.__frames.push({ t: +t.toFixed(1), y, props: keys, which: layer ? layer.effect.pseudoElement : hand ? "hand" : order ? "order" : null })
     requestAnimationFrame(tick)
   }
   requestAnimationFrame(tick)
@@ -341,7 +361,7 @@ async function timedMove(p, cdp, { sel, pressed, kind }) {
   await p.tracing.start({ categories: ["benchmark", "cc", "blink.user_timing"] })
   await pressTimed(p, sel, pressed)
   let window_ = null
-  if (kind === "order") {
+  if (kind === "order" || kind.startsWith("hand")) {
     /* An order's move is Web Animations on the pane, no view transition: it runs from its first to its last recorded frame. Waited for until it has run. */
     for (let i = 0; i < 80; i++) {
       await sleep(50)
@@ -358,7 +378,7 @@ async function timedMove(p, cdp, { sel, pressed, kind }) {
   await sleep(150)
   const data = await p.evaluate(() => {
     window.__recording = false
-    return { frames: window.__frames, long: window.__long }
+    return { frames: window.__frames, long: window.__long, shifts: window.__shifts }
   })
   const trace = JSON.parse(Buffer.from(await p.tracing.stop()).toString("utf8")).traceEvents
   const compositor = { presented: 0, partial: 0, dropped: 0 }
@@ -408,7 +428,21 @@ async function timedMove(p, cdp, { sel, pressed, kind }) {
   const moveFrom = inMove[0]?.t ?? from
   const moveTo = inMove[inMove.length - 1]?.t ?? to
   const long = data.long.filter((l) => l.t >= moveFrom && l.t < moveTo).map((l) => +l.d.toFixed(0))
+  /* Every frame the page laid out again inside the move: a move on transform alone shifts nothing. */
+  const shift = +(data.shifts ?? []).filter((x) => x.t >= moveFrom && x.t < moveTo).reduce((a, x) => a + x.v, 0).toFixed(4)
+  /* The frame times, as a distribution rather than a worst case: 16.7 is one frame at 60Hz. */
+  const sorted = [...gaps.slice(1)].sort((a, b) => a - b)
+  const at = (q) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(q * (sorted.length - 1)))] : null)
+  /* The share of the move's frames that arrived on time (a gap of one frame at 60Hz). */
+  const onTime = sorted.length ? +(sorted.filter((g) => g <= 20).length / sorted.length).toFixed(2) : null
+  /* What is actually animated, read off the running move's own keyframes. */
+  const props = [...new Set(inMove.flatMap((f) => f.props ?? []))]
   return {
+    onTime,
+    median: at(0.5),
+    p95: at(0.95),
+    shift,
+    props,
     move: window_ ? { ready: !!window_.ready, skipped: !!window_.skipped, waitedMs: window_.ready ? +(window_.ready - window_.at).toFixed(1) : null, ms: window_.done && window_.ready ? +(window_.done - window_.ready).toFixed(0) : null } : null,
     held,
     frames: inMove.length,
@@ -575,14 +609,40 @@ async function productsTrip(p, cdp, label, { isNew }) {
 }
 
 function report(name, r, kind) {
-  console.log(`        (${name}: ${JSON.stringify({ move: r.move, held: r.held, frames: r.frames, firstGap: r.firstGap, maxGap: r.maxGap, dropped: r.dropped, partway: r.partway, long: r.long, latency: r.latency, compositor: r.compositor })})`)
+  console.log(`        (${name}: ${JSON.stringify({ move: r.move, held: r.held, frames: r.frames, firstGap: r.firstGap, median: r.median, p95: r.p95, onTime: r.onTime, maxGap: r.maxGap, dropped: r.dropped, partway: r.partway, shift: r.shift, props: r.props, long: r.long, latency: r.latency, compositor: r.compositor })})`)
   console.log(`        (${name} translateY by frame: ${r.ys.join(" ")})`)
-  if (!kind.startsWith("order")) expect(!!r.move?.ready && !r.move.skipped, `${name}: one move, started at the commit`, r.move)
-  const dir = kind === "leave" || kind === "order-back" ? 1 : -1
+  /*
+    WHAT EACH KIND IS HELD TO. A view transition freezes both pages into
+    pictures and nothing of either can draw again while it runs, so those
+    moves, and an order's (its pane is the only thing moving), drop nothing at
+    all. A move played by hand has a LIVE page inside it. Going back that is
+    the list committing under a still that is the only thing drawing, and it
+    drops nothing either. Coming in it is the product editor, the biggest page
+    in the app, rendering for the first time in the same frames as the move:
+    on the saved product three or four of its sixteen frames arrive a frame
+    late. So the way in is held to most of its frames arriving on time, which
+    is what the eye reads as motion, rather than to all of them.
+  */
+  const hand = kind.startsWith("hand")
+  const bar = kind === "hand-enter" ? { p95: 50, onTime: 0.6 } : { p95: 34, onTime: 0.9 }
+  expect(r.props.length > 0 && r.props.every((k) => k === "transform" || k === "opacity"), `${name}: transform and opacity only, nothing that lays the page out`, r.props)
+  expect(r.median !== null && r.median <= 20 && r.p95 <= bar.p95, `${name}: frame times at ${THROTTLE}x slower CPU (median, 95th, ms)`, { median: r.median, p95: r.p95 })
+  expect(r.shift === 0, `${name}: no layout shift inside the move`, r.shift)
+  if (!kind.startsWith("order") && !hand) expect(!!r.move?.ready && !r.move.skipped, `${name}: one move, started at the commit`, r.move)
+  const dir = kind === "leave" || kind === "order-back" || kind === "hand-leave" ? 1 : -1
   const mono = r.ys.every((y, i) => i === 0 || (y - r.ys[i - 1]) * dir >= -1)
   expect(r.partway >= 8 && mono, `${name}: from the bottom edge and back to it, on translateY alone, ${r.partway} frames part way, never backwards`, { partway: r.partway, first: r.ys[0], last: r.ys[r.ys.length - 1] })
-  expect(r.dropped === 0, `${name}: no dropped frame after the first at ${THROTTLE}x slower CPU`, { dropped: r.dropped, maxGap: r.maxGap, firstGap: r.firstGap })
-  expect(r.long.length === 0, `${name}: no long task on the main thread while it moves`, r.long)
+  if (hand) {
+    expect(r.onTime !== null && r.onTime >= bar.onTime, `${name}: ${Math.round(bar.onTime * 100)}% of its frames or more on time at ${THROTTLE}x slower CPU (a live page draws inside this move)`, { onTime: r.onTime, dropped: r.dropped, maxGap: r.maxGap })
+  } else {
+    expect(r.dropped === 0, `${name}: no dropped frame after the first at ${THROTTLE}x slower CPU`, { dropped: r.dropped, maxGap: r.maxGap, firstGap: r.firstGap })
+  }
+  if (kind === "hand-enter") {
+    /* The editor's own first render is the long task here, and it is the page's, not the move's: what matters is that it never stops the move for longer than a frame or two, which the frame times above say. */
+    expect(r.long.every((d) => d < 120), `${name}: the page's own first render never stops the main thread for longer than two frames`, r.long)
+  } else {
+    expect(r.long.length === 0, `${name}: no long task on the main thread while it moves`, r.long)
+  }
   expect(r.latency !== null && r.latency <= 50, `${name}: the press shows on the next frames (finger to pressed look, ms, ${THROTTLE}x CPU)`, r.latency)
 }
 
@@ -594,6 +654,131 @@ function pictures(name, s, kind) {
   expect(s.dur >= 280 && s.dur <= 380, `${name}: 280 to 380ms`, s.dur)
   expect(s.shots.every((f) => f.ink > 0.01), `${name}: a page in every frame (ink in the page area)`, s.shots.map((f) => f.ink))
   expect(s.shots.every((f) => !f.header), `${name}: the black header never shows where the layer already is`, s.shots.map((f) => ({ at: f.at, top: f.top, header: f.header })))
+}
+
+/*
+  ===========================================================================
+   THE SAME TRIPS WITH NO VIEW TRANSITIONS
+  ===========================================================================
+  WebKit had none before Safari 18, and in that engine the editor used to
+  appear and, on Cancel, vanish in one frame: "not direct" is exactly what
+  the owner was looking at. Now page-layer.tsx plays the move itself there,
+  on the layer's own box coming in and on a still copy of the editor going
+  back, and these trips measure that move by the same numbers as the
+  transition's: every frame, the distribution of the frame times, the long
+  tasks, the layout shift, and what is animated.
+*/
+
+/** One picture of a move played by hand, caught part way and held there. */
+async function handShot(p, cdp, sel, label, which) {
+  await p.$eval(sel, (el) => el.click())
+  /*
+    Caught where it is part way, not after a fixed wait: the move is held at
+    its first position until the screen keeps up (page-layer
+    startWhenFramesFlow), so how long that is depends on the page.
+  */
+  let at = null
+  for (let i = 0; i < 120; i++) {
+    at = await p.evaluate(() => {
+      const a = document.getAnimations().find((x) => {
+        const t = x.effect?.target
+        return !x.effect?.pseudoElement && t?.hasAttribute && (t.hasAttribute("data-page-layer") || t.hasAttribute("data-layer-still")) && x.effect.getKeyframes().some((k) => k.transform)
+      })
+      if (!a) return null
+      const m = new DOMMatrixReadOnly(getComputedStyle(a.effect.target).transform)
+      const top = +m.m42.toFixed(1)
+      if (top <= 40 || top >= innerHeight - 40) return { top, waiting: true }
+      a.pause()
+      return { top, stills: document.querySelectorAll("[data-layer-still]").length }
+    })
+    if (at && !at.waiting) break
+    await sleep(16)
+  }
+  if (!at || at.waiting) return expect(false, `${label}: a move to photograph, caught part way`, at)
+  /* Two frames for the held position to reach the screen. */
+  await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  const { data: png } = await cdp.send("Page.captureScreenshot", { format: "png" })
+  writeFileSync(join(shots, `layer-motion-${label}.png`), Buffer.from(png, "base64"))
+  const vp = p.viewport()
+  const ink = await inkOf(p, png, 80, vp.height - 90)
+  const header = await headerOverLayer(p, png, at.top)
+  expect(at.top > 40 && at.top < vp.height - 40, `${label}: caught part way, ${Math.round(at.top)}px from its place, one still up`, at)
+  expect(at.stills === 1, `${label}: one still under or over the move, never two`, at.stills)
+  expect(ink > 0.01, `${label}: a page in the frame (ink in the page area)`, ink)
+  expect(header.bad === 0, `${label}: the black header never shows where the layer already is`, header)
+  await p.evaluate(() => {
+    for (const a of document.getAnimations()) if (a.playState === "paused") a.play()
+  })
+  await sleep(800)
+}
+
+async function handTrip(p, cdp, label, { isNew }) {
+  const trip = isNew ? "new" : "edit"
+  console.log(`  -- products list -> ${isNew ? "New product -> Cancel" : "a product -> Back"}, with no view transitions`)
+  await scrollListTo(p, isNew ? 0 : 420)
+  const before = await scrollOf(p)
+  if (!isNew) {
+    await p.evaluate(() => {
+      const rows = [...document.querySelectorAll("[data-row]:not([hidden])")].filter((r) => {
+        const b = r.getBoundingClientRect()
+        return b.height > 0 && b.top > 200 && b.bottom < innerHeight - 120
+      })
+      rows[0]?.querySelector("a[data-row-link]")?.setAttribute("data-probe-pick", "")
+    })
+  }
+  const openSel = isNew ? "[data-new-product]" : "a[data-probe-pick]"
+  const up = await timedMove(p, cdp, {
+    sel: openSel,
+    pressed: isNew ? "[data-new-product][data-layer-press]" : "[data-row][data-layer-press], [data-row][data-opening]",
+    kind: "hand-enter",
+  })
+  report(`${trip} in by hand`, up, "hand-enter")
+  const onScreen = await p.evaluate(() => ({
+    layer: !!document.querySelector("[data-page-layer]"),
+    motion: document.documentElement.dataset.layerMotion ?? null,
+    hand: document.documentElement.dataset.layerHand ?? null,
+    stills: document.querySelectorAll("[data-layer-still]").length,
+    transform: getComputedStyle(document.querySelector("[data-page-layer]")).transform,
+  }))
+  expect(
+    onScreen.layer && onScreen.motion === null && onScreen.hand === null && onScreen.stills === 0 && onScreen.transform === "none",
+    "the editor is up at rest, and the move has left no still and no mark behind",
+    onScreen,
+  )
+
+  const down = await timedMove(p, cdp, { sel: EDITOR_BACK, pressed: `${EDITOR_BACK}[data-leaving]`, kind: "hand-leave" })
+  report(`${trip} back by hand`, down, "hand-leave")
+  await sleep(350)
+  const after = await scrollOf(p)
+  const back = await p.evaluate(() => ({
+    layer: !!document.querySelector("[data-page-layer]"),
+    path: window.__path,
+    stills: document.querySelectorAll("[data-layer-still]").length,
+    motion: document.documentElement.dataset.layerMotion ?? null,
+    /* The still is fixed with its overflow hidden: it can never have added height to the page. */
+    overflow: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+  }))
+  expect(
+    !back.layer && back.path === "/app/products" && back.stills === 0 && back.motion === null && back.overflow === 0,
+    `${isNew ? "Cancel" : "Back"} leaves the list on the screen, with nothing of the move left and no height added`,
+    back,
+  )
+  expect(Math.abs(after.outer - before.outer) <= 2 && Math.abs(after.inner - before.inner) <= 2, "the list is where it was left", { before, after })
+
+  /* The row is a new element after the trip back: picked again for the picture. */
+  if (!isNew) {
+    await p.evaluate(() => {
+      const rows = [...document.querySelectorAll("[data-row]:not([hidden])")].filter((r) => {
+        const b = r.getBoundingClientRect()
+        return b.height > 0 && b.top > 200 && b.bottom < innerHeight - 120
+      })
+      rows[0]?.querySelector("a[data-row-link]")?.setAttribute("data-probe-pick", "")
+    })
+  }
+  await handShot(p, cdp, openSel, `${trip}-in-hand-${label}`, "rise")
+  await sleep(250)
+  await handShot(p, cdp, EDITOR_BACK, `${trip}-back-hand-${label}`, "drop")
+  await sleep(250)
 }
 
 const COMPOSER_BACK = "button[aria-label='Back to emails']"
@@ -893,6 +1078,77 @@ try {
     expect(still.layer && still.anims === 0, "with reduced motion the editor is simply there: nothing rises", still)
     await p.close()
   }
+  console.log(`\nphone 390, no view transitions (WebKit before Safari 18)`)
+  {
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    p.on("dialog", (d) => d.accept().catch(() => {}))
+    /* The engine WebKit was before Safari 18: no startViewTransition at all, so neither React's move nor the layer's own transition can run. */
+    await p.evaluateOnNewDocument(() => {
+      delete Document.prototype.startViewTransition
+    })
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const u = r.url()
+      if (u.startsWith("data:")) return r.continue()
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (!u.startsWith("http://probe.test/app") && u.startsWith("http://probe.test/") && !u.startsWith("http://probe.test/__file")) return r.respond({ status: 404, contentType: "application/json", body: "{}" })
+      if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("file:")) return r.continue()
+      r.abort()
+    })
+    await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: Number(process.env.DPR ?? 2) })
+    const cdp = await p.createCDPSession()
+    await p.goto("http://probe.test/app/products")
+    await sleep(1200)
+    if (errors.length) fail(`The page threw: ${errors[0]}`)
+    const none = await p.evaluate(() => typeof document.startViewTransition)
+    expect(none !== "function", "this engine has no view transitions to make the move with", none)
+    await handTrip(p, cdp, "390", { isNew: false })
+    await handTrip(p, cdp, "390", { isNew: true })
+    if (errors.length) expect(false, "nothing threw", errors)
+    await p.close()
+  }
+
+  console.log(`\nphone 390, no view transitions, reduced motion`)
+  {
+    const p = await browser.newPage()
+    await p.evaluateOnNewDocument(() => {
+      delete Document.prototype.startViewTransition
+    })
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const u = r.url()
+      if (u.startsWith("data:")) return r.continue()
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (!u.startsWith("http://probe.test/app") && u.startsWith("http://probe.test/") && !u.startsWith("http://probe.test/__file")) return r.respond({ status: 404, contentType: "application/json", body: "{}" })
+      if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      r.abort()
+    })
+    await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
+    await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
+    await p.goto("http://probe.test/app/products")
+    await sleep(1200)
+    await p.evaluate(() => {
+      window.__hand = 0
+      const tick = () => {
+        window.__hand += document.getAnimations().filter((a) => {
+          const t = a.effect?.target
+          return !a.effect?.pseudoElement && t?.hasAttribute && (t.hasAttribute("data-page-layer") || t.hasAttribute("data-layer-still"))
+        }).length
+        if (window.__hand < 1000) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+      const a = [...document.querySelectorAll("[data-row]:not([hidden]) a[data-row-link]")].find((x) => x.getBoundingClientRect().height > 0)
+      a.click()
+    })
+    await sleep(800)
+    const still = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), anims: window.__hand, stills: document.querySelectorAll("[data-layer-still]").length }))
+    expect(still.layer && still.anims === 0 && still.stills === 0, "with reduced motion the editor is simply there: nothing moves and no still is made", still)
+    await p.close()
+  }
+
 } finally {
   await browser.close()
   if (!process.env.KEEP) rmSync(join(stubs, "app.js"), { force: true })

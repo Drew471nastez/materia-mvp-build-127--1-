@@ -3962,6 +3962,37 @@ html[data-layer-motion]::view-transition-new(app-nav-pill) {
   }
 }
 
+/* ── The same move by hand, where there are no view transitions ───────────
+   WebKit had no view transitions before Safari 18, and on those iPhones the
+   editor appeared and vanished in one frame. So the layer moves itself
+   instead (components/app/page-layer.tsx, BY HAND), over or under a still
+   copy of the window that stands in for the photograph a transition would
+   have taken. <html> carries data-layer-hand while such a move runs, next to
+   the data-layer-motion every layer move sets.
+
+   Transform alone, on one element each way, promoted for the move and
+   dropped from its own layer again the moment the attribute goes. The still
+   takes no presses and the Tab key never reaches it (both set on the element
+   itself), and it is `position: fixed` with its overflow hidden, so it adds
+   no height to the page and traps no scroll. The shadow is the one the
+   moving picture carries on the view transition path, so a layer casts the
+   same edge whichever way it moved. */
+html[data-layer-hand] [data-page-layer],
+[data-layer-still] {
+  will-change: transform;
+  backface-visibility: hidden;
+  box-shadow: 0 -10px 30px -12px rgba(17, 24, 39, 0.22);
+}
+/* A still is a picture of a page, never a page: no caret, no selection, no
+   scrollbar of its own inside it. */
+[data-layer-still] * {
+  caret-color: transparent;
+  scrollbar-width: none;
+}
+[data-layer-still] *::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── The press that opens or leaves a layer (page-layer.tsx holdPress) ─────
    Dimmed on the next frame, the way an iOS bar button is under a finger; a
    row takes the list's pressed grey instead. Past LAYER_PRESS_WAIT_MS the
