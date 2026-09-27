@@ -6,6 +6,9 @@ import { rateLimit, addressSubject, callerAddress } from "@/lib/api/rate-limit"
 import { resolveDownloadAccess } from "@/lib/receipts/download-access"
 import { DENY_MESSAGES, isUuid } from "@/lib/receipts/rules"
 import { gateDownload } from "@/lib/storage/scan-gate"
+import { logSecurityEvent } from "@/lib/security/uploads/audit"
+import { runAfterResponse } from "@/lib/security/uploads/pipeline"
+import { DOWNLOAD_TRY_AGAIN } from "@/lib/security/uploads/policy"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -43,6 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     windows: DOWNLOAD_WINDOWS,
     message: "That is a lot of downloads at once. Wait a minute and try again.",
   })
+  if (limited) runAfterResponse(() => logSecurityEvent(createAdminClient(), { event: "rate_limit", outcome: "limited", code: "download", assetId, ip: callerAddress(request) }))
   if (limited) return limited
 
   try {
@@ -69,6 +73,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     if (!asset) {
       return NextResponse.json({ error: "File not found" }, { status: 404, headers: NO_STORE })
     }
+    if (!decision.ok) runAfterResponse(() => logSecurityEvent(admin, { event: "download", outcome: "denied", code: decision.reason, assetId: asset.id, userId, ip: callerAddress(request) }))
     if (!decision.ok) {
       return NextResponse.json(
         { error: DENY_MESSAGES[decision.reason], reason: decision.reason },
@@ -76,13 +81,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
       )
     }
     if (!asset.file_path) {
-      return NextResponse.json({ error: "This file is not available yet." }, { status: 404, headers: NO_STORE })
+      return NextResponse.json({ error: DOWNLOAD_TRY_AGAIN }, { status: 404, headers: NO_STORE })
     }
     /* Flagged files never go out, and a file nobody has scanned yet is
        scanned now, before the first buyer gets it (lib/storage/scan-gate.ts).
        This used to refuse only files already marked infected. */
     const gate = await gateDownload(admin, asset, { isCreator: decision.via === "creator" })
     if (!gate.ok) {
+      runAfterResponse(() => logSecurityEvent(admin, { event: "download", outcome: "denied", code: gate.code, assetId: asset.id, userId, bucket: asset.storage_bucket ?? null, path: asset.file_path, ip: callerAddress(request) }))
       return NextResponse.json({ error: gate.error }, { status: gate.status, headers: NO_STORE })
     }
 
@@ -96,7 +102,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     )
     if (!signed) {
       console.error("[download] could not sign a URL for asset", asset.id)
-      return NextResponse.json({ error: "The file could not be prepared. Try again." }, { status: 500, headers: NO_STORE })
+      return NextResponse.json({ error: DOWNLOAD_TRY_AGAIN }, { status: 500, headers: NO_STORE })
     }
 
     /* Tracked, never blocking: one row per file handed out. */
@@ -125,6 +131,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     )
   } catch (error) {
     console.error("[download] failed:", error instanceof Error ? error.message : error)
-    return NextResponse.json({ error: "Download failed. Try again." }, { status: 500, headers: NO_STORE })
+    return NextResponse.json({ error: DOWNLOAD_TRY_AGAIN }, { status: 500, headers: NO_STORE })
   }
 }

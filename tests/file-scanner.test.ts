@@ -1,26 +1,26 @@
 /**
  * ===========================================================================
- *  THE MALWARE SCANNER: THE SERVICE, THE CLIENT, AND WHAT A VERDICT DOES
+ *  THE OPTIONAL MALWARE ENGINE, AND WHAT A FILE'S STATUS DOES
  * ===========================================================================
- * Storelib on Vercel -> services/file-scanner (a small Node API) -> ClamAV.
+ * Storelib's built-in checks (lib/security/uploads) decide every upload. The
+ * ClamAV scanner (services/file-scanner) is an OPTIONAL provider behind the
+ * MalwareProvider interface, switched on only by SECURITY_MALWARE_PROVIDER=
+ * clamav plus its URL and secret. Production has the secret and neither of
+ * the others, and must make no call and hold nothing waiting.
  *
- *   SETUP       both CLAMAV_SERVICE_URL and CLAMAV_SERVICE_SECRET, or scanning
- *               is off. The secret alone (production today) is off, never an
- *               error, and never throws.
- *   ANSWERS     the scanner's JSON read strictly: only a real "clean" with a
- *               hash is clean; a proxy's error page is never "no virus".
- *   CLIENT      run against a stand-in scanner over HTTP: clean, EICAR,
- *               retries on 503, no retry on a wrong secret, a timeout, the
- *               size limit checked before sending, a stored object streamed.
- *   POLICY      lib/storage/scan-gate.ts with a stand-in database: clean is
- *               kept, infected is deleted and quarantined, no verdict stays
- *               pending and is never served to a buyer, and with scanning
- *               off everything is as it was.
- *   WIRING      every way a file enters storage calls the scan; the editor
- *               shows Scanning, Clean and Blocked; the cron is scheduled; the
- *               admin page is server checked and imports nothing server only.
- *   SERVICE     services/file-scanner's own suite (node --test, against a
- *               fake clamd speaking INSTREAM) runs from here too.
+ *   SETUP       the flag and both variables, or off. Never throws.
+ *   ANSWERS     the scanner's JSON read strictly.
+ *   CLIENT      against a stand-in scanner over HTTP, with the flag on.
+ *   POLICY      lib/storage/scan-gate.ts and lib/security/uploads/pipeline.ts
+ *               with a stand-in database: files from before the checks
+ *               (status null or pending) are served and checked once, a
+ *               refused file never is, no buyer is ever told "still being
+ *               checked", the hash is written after an upload, and an engine
+ *               that is on removes an infected file in the background.
+ *   WIRING      every way a file enters storage calls the central check; the
+ *               editor never says Scanning, Clean or Blocked by the virus
+ *               scan; no scan cron; /admin/security replaces /admin/scanner.
+ *   SERVICE     services/file-scanner's own suite still runs from here.
  *
  * Run with:  npm run test:push
  */
@@ -78,6 +78,12 @@ const server = http.createServer(async (req, res) => {
       return
     }
     const range = /bytes=0-(\d+)/.exec(String(req.headers.range || ""))
+    const span = /bytes=(\d+)-(\d+)/.exec(String(req.headers.range || ""))
+    if (span) {
+      const part = body.subarray(Number(span[1]), Number(span[2]) + 1)
+      res.writeHead(206, { "Content-Length": part.length }).end(Buffer.from(part))
+      return
+    }
     if (range) {
       const part = body.subarray(0, Number(range[1]) + 1)
       res.writeHead(206, { "Content-Length": part.length }).end(Buffer.from(part))
@@ -127,7 +133,7 @@ function fakeAdmin(base: string, rows: Record<string, any> = {}) {
     const call: Call = { table, op: "select", filters: [] }
     calls.push(call)
     const b: any = {}
-    for (const m of ["eq", "in", "or", "lt", "gte", "order", "limit", "not", "neq"]) {
+    for (const m of ["eq", "in", "or", "lt", "gte", "order", "limit", "not", "neq", "is"]) {
       b[m] = (...args: unknown[]) => {
         call.filters.push(`${m}:${args.map((a) => JSON.stringify(a)).join(",")}`)
         return b
@@ -164,21 +170,23 @@ function fakeAdmin(base: string, rows: Record<string, any> = {}) {
 }
 
 async function main() {
-  console.log("\nSetup: both variables, or off\n")
+  console.log("\nSetup: the flag and both variables, or off\n")
   {
+    const FLAG = { SECURITY_MALWARE_PROVIDER: "clamav" }
     const off = readScannerSetup({})
-    check("nothing set is off, both named missing", !off.configured && off.missing.length === 2)
-    const secretOnly = readScannerSetup({ CLAMAV_SERVICE_SECRET: SECRET })
-    check("the secret alone (production today) is off, and only the URL is missing", !secretOnly.configured && secretOnly.missing.join() === "CLAMAV_SERVICE_URL")
-    const urlOnly = readScannerSetup({ CLAMAV_SERVICE_URL: "https://scanner.example.com" })
-    check("the URL alone is off, the secret missing", !urlOnly.configured && urlOnly.missing.join() === "CLAMAV_SERVICE_SECRET")
-    const plain = readScannerSetup({ CLAMAV_SERVICE_URL: "http://scanner.example.com", CLAMAV_SERVICE_SECRET: SECRET })
+    check("nothing set is off, the flag and both variables named missing", !off.configured && off.missing.length === 3)
+    const production = readScannerSetup({ CLAMAV_SERVICE_SECRET: SECRET })
+    check("production (the secret alone) is off", !production.configured && (production.missing as string[]).includes("SECURITY_MALWARE_PROVIDER") && (production.missing as string[]).includes("CLAMAV_SERVICE_URL"))
+    check("URL and secret without the flag are still off: nothing is called", !isScannerConfigured({ CLAMAV_SERVICE_URL: "https://scanner.example.com", CLAMAV_SERVICE_SECRET: SECRET }))
+    const urlOnly = readScannerSetup({ ...FLAG, CLAMAV_SERVICE_URL: "https://scanner.example.com" })
+    check("the flag and the URL alone are off, the secret missing", !urlOnly.configured && urlOnly.missing.join() === "CLAMAV_SERVICE_SECRET")
+    const plain = readScannerSetup({ ...FLAG, CLAMAV_SERVICE_URL: "http://scanner.example.com", CLAMAV_SERVICE_SECRET: SECRET })
     check("plain http to a real host is refused (the secret would cross the internet in clear)", !plain.configured && (plain as { invalidUrl?: boolean }).invalidUrl === true)
-    const junk = readScannerSetup({ CLAMAV_SERVICE_URL: "not a url", CLAMAV_SERVICE_SECRET: SECRET })
+    const junk = readScannerSetup({ ...FLAG, CLAMAV_SERVICE_URL: "not a url", CLAMAV_SERVICE_SECRET: SECRET })
     check("a value that is not a URL is off, and does not throw", !junk.configured)
-    const good = readScannerSetup({ CLAMAV_SERVICE_URL: "https://scanner.example.com/", CLAMAV_SERVICE_SECRET: ` ${SECRET} ` })
-    check("https with a trailing slash is used without it, the secret trimmed", good.configured && good.config?.url === "https://scanner.example.com" && good.config?.secret === SECRET)
-    check("http to localhost is allowed, for Docker on your own machine", isScannerConfigured({ CLAMAV_SERVICE_URL: "http://localhost:8080", CLAMAV_SERVICE_SECRET: SECRET }))
+    const good = readScannerSetup({ ...FLAG, CLAMAV_SERVICE_URL: "https://scanner.example.com/", CLAMAV_SERVICE_SECRET: ` ${SECRET} ` })
+    check("with the flag, https with a trailing slash is used without it, the secret trimmed", good.configured && good.config?.url === "https://scanner.example.com" && good.config?.secret === SECRET)
+    check("http to localhost is allowed, for Docker on your own machine", isScannerConfigured({ ...FLAG, CLAMAV_SERVICE_URL: "http://localhost:8080", CLAMAV_SERVICE_SECRET: SECRET }))
     check("one attempt's time grows with the file and stops at the ceiling", attemptTimeoutMs(0, 240_000) === 20_000 && attemptTimeoutMs(100 * 1024 * 1024, 240_000) === 30_000 && attemptTimeoutMs(1e12, 240_000) === 240_000)
     check("the EICAR test bytes are the 68 byte standard string", eicarTestBytes().length === 68 && EICAR.startsWith("X5O!P%@AP"))
   }
@@ -203,9 +211,10 @@ async function main() {
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   const scanner = await import("../lib/security/file-scanner")
 
-  console.log("\nWith scanning off, nothing is sent and it is said once\n")
+  console.log("\nWith the engine off (production), nothing is sent\n")
   {
     delete process.env.CLAMAV_SERVICE_URL
+    delete process.env.SECURITY_MALWARE_PROVIDER
     process.env.CLAMAV_SERVICE_SECRET = SECRET
     const infos: string[] = []
     const info = console.info
@@ -216,9 +225,18 @@ async function main() {
     check("no request reached any scanner", S.scans === 0)
     check("one log line, however often it is asked", infos.filter((l) => /scanning is off/.test(l)).length === 1, infos)
     const health = await scanner.scannerHealth()
-    check("health says not configured and names the missing URL", !health.configured && health.missing.join() === "CLAMAV_SERVICE_URL")
+    check("health says not configured and names the flag and the URL", !health.configured && health.missing.includes("SECURITY_MALWARE_PROVIDER") && health.missing.includes("CLAMAV_SERVICE_URL"))
+    const providers = await import("../lib/security/uploads/providers")
+    check("no provider is active", providers.activeProviders().length === 0 && providers.providerStatus().external === null && !providers.providerStatus().misconfigured)
+    process.env.CLAMAV_SERVICE_URL = base
+    check("even with the URL set as well, no provider is active without the flag", providers.activeProviders().length === 0)
+    process.env.SECURITY_MALWARE_PROVIDER = "clamav"
+    check("the flag switches ClamAV on", providers.activeProviders().map((p) => p.name).join() === "clamav")
+    delete process.env.CLAMAV_SERVICE_URL
+    check("the flag without the URL is asked for but off, and said so", providers.activeProviders().length === 0 && providers.providerStatus().misconfigured)
   }
 
+  process.env.SECURITY_MALWARE_PROVIDER = "clamav"
   process.env.CLAMAV_SERVICE_URL = base
   process.env.CLAMAV_SERVICE_SECRET = SECRET
   const quiet = { info: console.info, warn: console.warn }
@@ -275,14 +293,12 @@ async function main() {
     check("health reads the scanner's /health", health.configured && health.reachable === true && (health.health as any)?.engine?.signatures === 28129, health)
   }
 
-  console.log("\nWhat a verdict does to a paid file (lib/storage/scan-gate.ts)\n")
+  console.log("\nWhat a file's status does (lib/storage/scan-gate.ts, lib/security/uploads/pipeline.ts)\n")
   {
     const gate = await import("../lib/storage/scan-gate")
-    const pdf = (extra = "") => {
-      const head = new TextEncoder().encode("%PDF-1.4\n" + "x".repeat(9000) + extra)
-      return head
-    }
-    const asset = (path: string, size: number, status = "pending_scan") => ({
+    const pipeline = await import("../lib/security/uploads/pipeline")
+    const pdf = (extra = "") => new TextEncoder().encode("%PDF-1.4\n" + "x".repeat(9000) + extra)
+    const asset = (path: string, size: number, status: string | null = "pending_scan") => ({
       id: "11111111-1111-4111-8111-111111111111",
       file_path: path,
       file_name: "guide.pdf",
@@ -290,107 +306,103 @@ async function main() {
       file_size: size,
       storage_bucket: "digital-products",
       scan_status: status,
+      uploaded_by: "u1",
     })
-
     S.objects.set("c1/digital-products/clean.pdf", pdf())
-    const a = fakeAdmin(base)
-    const cleanStatus = await gate.scanAsset(a.admin, asset("c1/digital-products/clean.pdf", pdf().length))
-    const cleanWrite = a.calls.find((c) => c.table === "digital_assets" && c.op === "update")
-    check("clean: the row says clean, by ClamAV, with its hash", cleanStatus === "clean" && cleanWrite?.values?.scan_status === "clean" && cleanWrite?.values?.scan_result?.engine === "clamav" && /^[a-f0-9]{64}$/.test(cleanWrite?.values?.scan_result?.sha256), cleanWrite)
-    check("clean: the scan is logged, nothing removed", a.calls.some((c) => c.table === "file_scans" && c.op === "insert" && c.values?.status === "clean") && a.removed.length === 0)
-
-    /* The test string past the first 8 KB, so the header check cannot see it and ClamAV must. */
     S.objects.set("c1/digital-products/bad.pdf", pdf(EICAR))
-    const b = fakeAdmin(base, { digital_assets: { id: "11111111-1111-4111-8111-111111111111", file_path: "c1/digital-products/bad.pdf", storage_bucket: "digital-products", uploaded_by: "u1", product_id: "p1", file_name: "guide.pdf" } })
-    const badStatus = await gate.scanAsset(b.admin, asset("c1/digital-products/bad.pdf", pdf(EICAR).length))
-    check("infected: the file is deleted from storage", badStatus === "infected" && b.removed.includes("digital-products/c1/digital-products/bad.pdf"), { badStatus, removed: b.removed })
-    check(
-      "infected: the row is infected and quarantined, with the threat's name",
-      b.calls.some((c) => c.op === "update" && c.values?.upload_status === "quarantined" && c.values?.scan_status === "infected" && c.values?.scan_result?.threatName === "Eicar-Test-Signature"),
-    )
-
-    S.mode = "down"
-    const c = fakeAdmin(base, { digital_assets: { scan_result: { attempts: 2 } } })
-    const pendingStatus = await gate.scanAsset(c.admin, asset("c1/digital-products/clean.pdf", pdf().length), { deadlineMs: 4000 })
-    const pendingWrite = c.calls.find((x) => x.op === "update" && x.table === "digital_assets")
-    check("no verdict: the file stays pending, the attempt counted", pendingStatus === "pending_scan" && pendingWrite?.values?.scan_status === "pending_scan" && pendingWrite?.values?.scan_result?.attempts === 3, pendingWrite)
-    check("no verdict: only a row still unscanned is touched", (pendingWrite?.filters ?? []).some((f) => /scan_status\.is\.null,scan_status\.in\.\(pending_scan,scanning,scan_error\)/.test(f)))
-    check("no verdict: nothing is removed", c.removed.length === 0)
-
-    const d = fakeAdmin(base)
-    const b4 = S.scans
-    const big = await gate.gateDownload(d.admin, asset("c1/digital-products/clean.pdf", 60 * 1024 * 1024), { isCreator: false })
-    check("a buyer never gets a large file still waiting: 409, still being checked", !big.ok && (big as any).status === 409 && S.scans === b4)
-    const own = await gate.gateDownload(d.admin, asset("c1/digital-products/clean.pdf", 60 * 1024 * 1024), { isCreator: true })
-    check("the creator can always fetch their own file", own.ok)
-    const small = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", pdf().length), { isCreator: false })
-    check("a small waiting file with the scanner down is still refused", !small.ok && (small as any).status === 409)
-    S.mode = "normal"
-    const smallNow = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", pdf().length), { isCreator: false })
-    check("with the scanner back, a small waiting file is scanned on the spot and served", smallNow.ok)
-    const flagged = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/bad.pdf", 10, "quarantined"), { isCreator: false })
-    check("a quarantined file is never served", !flagged.ok && (flagged as any).status === 403)
-    const legacy = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", 60 * 1024 * 1024, null as unknown as string), { isCreator: false })
-    check("a large file from before the scanner (no scan status) keeps selling while it waits for the sweep", legacy.ok, legacy)
     S.objects.set("c1/digital-products/legacy-bad.pdf", new TextEncoder().encode(EICAR))
-    const legacyBad = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/legacy-bad.pdf", 60 * 1024 * 1024, null as unknown as string), { isCreator: false })
-    check("but one the header check refuses is never served", !legacyBad.ok && (legacyBad as any).status === 403, legacyBad)
 
-    delete process.env.CLAMAV_SERVICE_URL
-    const e = fakeAdmin(base)
-    const before = S.scans
-    const offStatus = await gate.scanAsset(e.admin, asset("c1/digital-products/clean.pdf", pdf().length))
-    const offWrite = e.calls.find((x) => x.op === "update")
-    check("scanning off: exactly as before, the header check is the scan", offStatus === "clean" && offWrite?.values?.scan_result?.engine === "heuristic" && S.scans === before)
-    check("scanning off: nothing is written to the scan log", !e.calls.some((x) => x.table === "file_scans"))
-    const offGate = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", 60 * 1024 * 1024), { isCreator: false })
-    check("scanning off: a waiting file is served after its header check, as before", offGate.ok)
-    process.env.CLAMAV_SERVICE_URL = base
+    for (const status of [null, "", "pending_scan", "scanning"]) {
+      const a = fakeAdmin(base)
+      const before = S.scans
+      const served = await gate.gateDownload(a.admin, asset("c1/digital-products/clean.pdf", 60 * 1024 * 1024, status), { isCreator: false })
+      const write = a.calls.find((c) => c.table === "digital_assets" && c.op === "update")
+      check(`a file with status ${JSON.stringify(status)} is served to a buyer at once, and given its verdict`, served.ok && write?.values?.scan_status === "clean" && write?.values?.scan_result?.engine === "builtin" && S.scans === before, { served, write })
+    }
+    S.mode = "down"
+    const down = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", 1000), { isCreator: false })
+    check("with an engine on and down, a waiting file is still served: never 409, never \"still being checked\"", down.ok, down)
+    S.mode = "normal"
+    const missing = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/not-there.pdf", 1000, null), { isCreator: false })
+    check("a file whose start cannot be read is served, not held", missing.ok)
+    const lb = fakeAdmin(base)
+    const legacyBad = await gate.gateDownload(lb.admin, asset("c1/digital-products/legacy-bad.pdf", 60 * 1024 * 1024, null), { isCreator: false })
+    check("an older file its first bytes refuse (as the old header check did) is not served", !legacyBad.ok && (legacyBad as { status: number }).status === 403, legacyBad)
+    check("and is marked blocked, but kept in storage for the admin", lb.calls.some((c) => c.op === "update" && c.values?.scan_status === "blocked") && lb.removed.length === 0, lb.removed)
+    for (const status of ["blocked", "infected", "quarantined"]) {
+      const g = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", 10, status), { isCreator: false })
+      check(`a ${status} file is never served, with a plain sentence`, !g.ok && (g as { error: string }).error === "This file isn't available. Contact the seller for help.")
+    }
+    check("the creator can always fetch their own file", (await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", 10, "blocked"), { isCreator: true })).ok)
+    const clean = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", 10, "clean"), { isCreator: false })
+    check("a clean file is served without a read", clean.ok)
+
+    const zipWithExe = (await import("../lib/security/uploads/samples")).SAMPLES.find((x) => x.id === "zip_with_program")!.bytes()
+    S.objects.set("c1/digital-products/old.zip", zipWithExe)
+    const oz = fakeAdmin(base)
+    const oldZip = await pipeline.resolveAsset(oz.admin, { ...asset("c1/digital-products/old.zip", zipWithExe.length, null), file_name: "pack.zip", mime_type: "application/zip" })
+    check("an older ZIP the newer checks would refuse (setup.exe inside) keeps selling, and is logged for the admin", oldZip === "clean" && oz.calls.some((c) => c.table === "file_security_events" && c.values?.event === "backfill" && c.values?.code === "zip_blocked_entry"), oz.calls.filter((c) => c.op !== "select"))
+
+    delete process.env.SECURITY_MALWARE_PROVIDER
+    const h = fakeAdmin(base, { digital_assets: { scan_result: { engine: "builtin" } } })
+    const b0 = S.scans
+    await pipeline.afterProductUpload(h.admin, asset("c1/digital-products/clean.pdf", pdf().length, "clean"))
+    const hashWrite = h.calls.find((c) => c.op === "update" && c.values?.checksum)
+    check("after an upload the SHA-256 is streamed from storage into checksum and scan_result", hashWrite?.values?.checksum === createHash("sha256").update(pdf()).digest("hex") && hashWrite?.values?.scan_result?.sha256 === hashWrite?.values?.checksum, hashWrite)
+    check("with no engine switched on, the scanner is never called", S.scans === b0)
+    process.env.SECURITY_MALWARE_PROVIDER = "clamav"
+    const inf = fakeAdmin(base, { digital_assets: { scan_result: { engine: "builtin" } } })
+    await pipeline.afterProductUpload(inf.admin, asset("c1/digital-products/bad.pdf", pdf(EICAR).length, "clean"))
+    check("with ClamAV switched on, an infected file is found in the background, removed and blocked", inf.removed.includes("digital-products/c1/digital-products/bad.pdf") && inf.calls.some((c) => c.op === "update" && c.values?.scan_status === "blocked"), inf.removed)
+    check("and the engine's verdict is in the security log", inf.calls.some((c) => c.table === "file_security_events" && c.values?.event === "provider_scan" && c.values?.outcome === "removed"))
   }
   console.info = quiet.info
   console.warn = quiet.warn
   server.close()
 
-  console.log("\nEvery way in calls the scan\n")
+  console.log("\nEvery way in calls the central check\n")
   {
     const complete = code("app/api/v2/upload/complete/route.ts")
-    check("complete: a product file answers at once and the editor asks for the verdict", /isScannerConfigured\(\)\s*\?\s*"pending_scan"/.test(complete))
-    check("complete: a link page file is scanned before it answers, and removed if infected", /scanStoredObject\(admin, PUBLIC_BUCKET, path/.test(complete) && /if \(infected\) await admin\.storage\.from\(PUBLIC_BUCKET\)\.remove\(\[path\]\)/.test(complete))
+    check("complete: a product file is checked from storage and is final at once", /inspectStoredObject\(/.test(complete) && /context: "product_file"/.test(complete) && !/"pending_scan"/.test(complete))
+    check("complete: a link page file is checked as one, removed if refused", /context: "link_page_file"/.test(complete) && /remove\(\[path\]\)/.test(complete))
+    check("complete: the hash and any engine run after the answer", /runAfterResponse\(async \(\) => \{[\s\S]*afterProductUpload\(admin, asset/.test(complete))
     const serverUpload = code("app/api/v2/upload/server-upload/route.ts")
-    check("server upload: the bytes are scanned before they are stored", serverUpload.indexOf("scanBytes(buffer") > 0 && serverUpload.indexOf("scanBytes(buffer") < serverUpload.indexOf(".upload(filePath!"))
-    check("server upload: a picture is screened before it is stored", serverUpload.indexOf("screenPublicBytes(admin, picture.bytes") < serverUpload.indexOf("admin.storage.from(PUBLIC_BUCKET).upload(filePath"))
-    check("signed URL pictures are screened when they are checked", /screenPublicBytes\(admin, checked\.bytes/.test(code("lib/storage/upload-guard.ts")))
-    check("link page uploads through the server are screened", /screenPublicBytes\(adminSupabase, body/.test(code("app/api/onepage/upload-file/route.ts")))
-    check("email pictures are screened", /screenPublicBytes\(adminSupabase, picture\.bytes/.test(code("app/api/email/upload-image/route.ts")))
-    check("theme packages are screened before they are unpacked", code("app/api/website-builder/themes/import/route.ts").indexOf("screenPublicBytes(admin, buf") < code("app/api/website-builder/themes/import/route.ts").indexOf("JSZip.loadAsync(buf)"))
-    check("pictures uploaded straight from a browser are scanned by the hourly sweep, and removed if infected", /screenPublicBytes\(admin, bytes/.test(code("lib/storage/metadata-sweep.ts")) && /summary\.removed\+\+/.test(code("lib/storage/metadata-sweep.ts")))
+    check("server upload: the bytes are checked and hashed before they are stored", serverUpload.indexOf("inspectUpload({") > 0 && serverUpload.indexOf("inspectUpload({") < serverUpload.indexOf(".upload(filePath!") && /sha256Of\(bytes\)/.test(serverUpload))
+    check("pictures go through preparePublicImage, which asks the central check", /inspectHead\(\{ fileName: "picture"/.test(code("lib/storage/public-image.ts")))
+    check("link page uploads through the server use the central check", /context: "link_page_file"/.test(code("app/api/onepage/upload-file/route.ts")))
+    check("the link page signed URL route prechecks with the central rule", /validateFile\(fileName, contentType, fileSize, null, isDigital \? "link_page_file" : "public_image"\)/.test(code("app/api/onepage/signed-upload-url/route.ts")))
+    check("videos use the central check", /context: "video"/.test(code("app/api/storage/upload-video/route.ts")))
+    const themes = code("app/api/website-builder/themes/import/route.ts")
+    check("theme packages are checked (ZIP contents included) before they are unpacked", themes.indexOf('context: "theme_package"') > 0 && themes.indexOf('context: "theme_package"') < themes.indexOf("JSZip.loadAsync(buf)") && /packageFileAllowed\(/.test(themes))
+    check("pictures uploaded straight from a browser are checked by the hourly sweep", /inspectHead\(/.test(code("lib/storage/metadata-sweep.ts")) && /summary\.removed\+\+/.test(code("lib/storage/metadata-sweep.ts")))
+    check("the old names (scanFile, validateFile) answer with the central check", /from "@\/lib\/security\/uploads"/.test(read("lib/storage/security.ts")) && /precheckUpload\(/.test(code("lib/storage/validation.ts")))
     const vercel = JSON.parse(read("vercel.json"))
-    check("the retry cron is scheduled every ten minutes", vercel.crons.some((c: { path: string; schedule: string }) => c.path === "/api/cron/scan-files" && c.schedule === "*/10 * * * *"))
-    check("and is protected by CRON_SECRET", /requireBearerSecret\(request, "CRON_SECRET"\)/.test(code("app/api/cron/scan-files/route.ts")))
-    check("the client file is server only; the core it shares with the browser is not", /^import "server-only"/.test(read("lib/security/file-scanner.ts")) && !/server-only|next\/headers/.test(read("lib/security/file-scanner-core.ts")))
-    check("antivirus.ts asks the core, never the server only client", /from "@\/lib\/security\/file-scanner-core"/.test(read("lib/storage/antivirus.ts")) && !/from "@\/lib\/security\/file-scanner"/.test(read("lib/storage/antivirus.ts")))
+    check("no ten minute scan cron: the backfill rides the daily storage job", !vercel.crons.some((c: { path: string }) => c.path === "/api/cron/scan-files") && !existsSync("app/api/cron/scan-files/route.ts") && /sweepAssets\(/.test(code("lib/storage/cleanup.ts")))
+    check("the client file is server only; the core it shares is not", /^import "server-only"/.test(read("lib/security/file-scanner.ts")) && !/server-only|next\/headers/.test(read("lib/security/file-scanner-core.ts")))
+    check("the storage barrel no longer calls a cloud engine by itself", !/CLOUDMERSIVE_API_KEY|VIRUSTOTAL_API_KEY|CLAMAV_REST_URL/.test(code("lib/storage/antivirus.ts")))
   }
 
-  console.log("\nThe product editor: Scanning, Clean, Blocked\n")
+  console.log("\nThe product editor says nothing about checks\n")
   {
     const rows = code("app/app/products/new/file-uploads.tsx")
-    check("a finished upload waiting for its verdict is followed on its row", /result\.scanStatus === "pending_scan"/.test(rows) && /followScan\(done\.file_path, result\.assetId\)/.test(rows) && /fetch\("\/api\/v2\/upload\/scan"/.test(rows))
-    check("the row says Scanning, Clean, or Virus check pending", /"Scanning"/.test(rows) && /"Clean"/.test(rows) && /"Virus check pending"/.test(rows))
-    check("a blocked file says so in red with the threat's name", /Blocked by the virus scan\{scan\.threat \? `: \$\{scan\.threat\}` : ""\}/.test(rows) && /text-\[#b42318\]/.test(rows))
-    check("scan state is kept apart from the form's files, so a verdict is never an unsaved change", /useState<Record<string, FileScan>>/.test(rows))
-    check("with scanning off the row says nothing new", /if \(body\.scanning === false\) return null/.test(rows))
-    check("the editor loads each saved file's scan status", /scan_status, scan_result"\)\.eq\("product_id", id\)/.test(code("app/app/products/load-editor.ts")))
+    check("no Scanning, Clean, Virus check pending or Blocked by the virus scan", !/"Scanning"|"Clean"|Virus check pending|Blocked by the virus scan|virus|ClamAV/i.test(rows))
+    check("nothing asks /api/v2/upload/scan after an upload", !/\/api\/v2\/upload\/scan/.test(rows))
+    check("\"Checking file…\" only once the check takes longer than a blink", /CHECKING_DELAY_MS = 300/.test(rows) && /setTimeout\(\(\) => setChecking\(true\), CHECKING_DELAY_MS\)/.test(rows) && /"Checking file…"/.test(rows))
+    check("a refused upload has only a way to remove it, no Retry", /status === "error" && upload\.refused \?/.test(rows))
+    check("the editor loads no threat names", !/scan_result/.test(code("app/app/products/load-editor.ts")))
   }
 
   console.log("\nThe admin page\n")
   {
-    const page = code("app/admin/scanner/page.tsx")
-    check("it checks the admin session on the server and is never indexed", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(page) && /index: false/.test(read("app/admin/scanner/page.tsx")))
-    const client = read("app/admin/scanner/scanner-admin.tsx")
-    check("its client component imports nothing server only", /^"use client"/.test(client) && !/lib\/security\/file-scanner"|admin-blog-auth|next\/headers|server-only/.test(client))
-    check("it says when the scanner URL is not set, with the steps", /is not set, so scanning is off/.test(client) && /Redeploy Storelib/.test(client) && /Scan EICAR/.test(client))
-    const route = code("app/api/admin/scanner/route.ts")
-    check("its route scans EICAR, an upload, a stored object, and retries waiting files", /mode === "eicar"/.test(route) && /mode === "upload"/.test(route) && /mode === "object"/.test(route) && /mode === "sweep"/.test(route))
+    const page = code("app/admin/security/page.tsx")
+    check("it checks the admin session on the server and is never indexed", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(page) && /index: false/.test(read("app/admin/security/page.tsx")))
+    check("/admin/scanner goes to /admin/security", /permanentRedirect\("\/admin\/security"\)/.test(code("app/admin/scanner/page.tsx")))
+    const client = read("app/admin/security/security-admin.tsx")
+    check("its client component imports nothing server only", /^"use client"/.test(client) && !/lib\/security\/file-scanner"|admin-blog-auth|next\/headers|server-only|uploads\/(audit|stored|pipeline|providers)/.test(client))
+    check("no engine reads as normal: grey, not a warning", /return <Status value=\{null\} label="Not enabled, built-in checks only" \/>/.test(client))
+    const route = code("app/api/admin/security/route.ts")
+    check("its route runs the central check on a sample, an upload and a stored file", /mode === "sample"/.test(route) && /mode === "upload"/.test(route) && /mode === "object"/.test(route) && /requireAdmin\(\)/.test(route))
+    check("the console links to it as File security", /\{ href: "\/admin\/security", label: "File security" \}/.test(read("app/admin/_console/shell.tsx")))
   }
 
   console.log("\nThe service itself (services/file-scanner)\n")
@@ -402,7 +414,7 @@ async function main() {
     check("both services restart unless stopped, with health checks", (compose.match(/restart: unless-stopped/g) ?? []).length === 2 && (compose.match(/healthcheck:/g) ?? []).length === 2)
     check("signatures are updated by freshclam and kept on a volume", /FRESHCLAM_CHECKS/.test(compose) && /clamav-db:\/var\/lib\/clamav/.test(compose))
     check("the API runs as a non-root user", /USER node/.test(read(`${dir}/Dockerfile`)))
-    check("the README covers running, deploying, Vercel and EICAR", /CLAMAV_SERVICE_URL/.test(read(`${dir}/README.md`)) && /EICAR/.test(read(`${dir}/README.md`)) && /Vercel/.test(read(`${dir}/README.md`)))
+    check("the README says it is optional and how to switch it on", /CLAMAV_SERVICE_URL/.test(read(`${dir}/README.md`)) && /SECURITY_MALWARE_PROVIDER=clamav/.test(read(`${dir}/README.md`)) && /optional/i.test(read(`${dir}/README.md`)) && /EICAR/.test(read(`${dir}/README.md`)))
     let suite = ""
     let ok = false
     try {

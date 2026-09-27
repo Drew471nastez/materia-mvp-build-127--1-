@@ -37,6 +37,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { isUuid } from "@/lib/receipts/rules"
 import { generateSignedDownloadUrl } from "./download"
 import { gateDownload, type ScannableAsset } from "./scan-gate"
+import { BLOCKED_STATUSES } from "@/lib/security/uploads/pipeline"
 
 /** Long enough to start a download on a slow phone, short enough to be useless shared. */
 export const OWNER_LINK_SECONDS = 120
@@ -111,6 +112,13 @@ export async function ownerDownload(
 
   if (!(await ownsAsset(admin, asset, input.userId))) return { status: 404, body: { error: NOT_FOUND } }
   if (!asset.file_path) return { status: 404, body: { error: "This file has not finished uploading." } }
+
+  /* A file the checks refused is not handed back, not even to its owner: the
+     gate lets a creator's own reads through (lib/storage/scan-gate), but a
+     download puts the file on a device, and a flagged one helps nobody there. */
+  if (BLOCKED_STATUSES.has(String(asset.scan_status ?? ""))) {
+    return { status: 403, body: { error: "The virus scan flagged this file, so it cannot be downloaded." } }
+  }
 
   const passed = await gate(admin, asset, { isCreator: true })
   if (!passed.ok) {

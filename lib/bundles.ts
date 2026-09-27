@@ -15,6 +15,7 @@
  *   - product/variant title changes (files_hash includes the title)
  */
 
+import { sanitizeDisplayName } from "@/lib/security/uploads/filename"
 import JSZip from "jszip"
 import { STORAGE_BUCKET } from "@/lib/storage"
 import type { createAdminClient } from "@/lib/supabase/admin"
@@ -26,7 +27,7 @@ export const BUNDLE_THRESHOLD = 6
 export const BUNDLE_MAX_BYTES = 400 * 1024 * 1024
 
 /** Files a bundle never includes: the ones the virus scan flagged. */
-const BLOCKED_SCAN = new Set(["infected", "quarantined"])
+const BLOCKED_SCAN = new Set(["blocked", "infected", "quarantined"])
 
 type AdminClient = ReturnType<typeof createAdminClient>
 
@@ -66,7 +67,8 @@ export function makeZipFileName(title: string, variantName?: string | null): str
  * buyer chose.
  */
 export function zipEntryName(fileName: string, taken: Set<string>): string {
-  const base = (fileName || "file").replace(/[\\/]+/g, "_").replace(/^\.+/, "").trim() || "file"
+  /* Folders, dots in front, control characters and direction marks out (lib/security/uploads/filename.ts). */
+  const base = sanitizeDisplayName((fileName || "file").replace(/[\\/]+/g, "_"))
   const dot = base.lastIndexOf(".")
   const stem = dot > 0 ? base.slice(0, dot) : base
   const ext = dot > 0 ? base.slice(dot) : ""

@@ -14,7 +14,6 @@ import {
   Pause,
   Play,
   RotateCcw,
-  Shield,
   Loader2,
 } from "lucide-react"
 import {
@@ -23,6 +22,8 @@ import {
   type UploadStatus,
   type UploadError,
 } from "@/lib/storage/chunked-upload"
+import { precheckUpload, userMessage } from "@/lib/security/uploads"
+import { plainError } from "@/app/app/products/new/file-uploads"
 
 interface UploadedFile {
   id?: string
@@ -68,17 +69,14 @@ export function FileUpload({
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
+  /* Plain states only: the file check runs on the server and says nothing unless a file is refused. */
   const getStatusLabel = (status: UploadStatus): string => {
     switch (status) {
-      case "computing_checksum": return "Verifying file integrity..."
-      case "preparing": return "Preparing upload..."
-      case "uploading": return "Uploading..."
-      case "completing": return "Finalizing..."
-      case "complete": return "Complete"
+      case "complete": return "Ready"
       case "paused": return "Paused"
-      case "error": return "Failed"
+      case "error": return "Not uploaded"
       case "aborted": return "Cancelled"
-      default: return "Waiting..."
+      default: return "Uploading…"
     }
   }
 
@@ -100,9 +98,10 @@ export function FileUpload({
       setError(null)
 
       for (const file of Array.from(selectedFiles)) {
-        // Client-side size check
-        if (file.size > maxSizeBytes) {
-          setError(`File "${file.name}" exceeds maximum size of ${formatFileSize(maxSizeBytes)}`)
+        /* The same rule the server applies (lib/security/uploads): size, and not a program. */
+        const verdict = precheckUpload({ fileName: file.name, size: file.size, declaredMime: file.type, context: "product_file", maxBytes: maxSizeBytes })
+        if (!verdict.ok) {
+          setError(verdict.code === "too_large" ? userMessage("too_large", "product_file", maxSizeBytes) : verdict.userMessage)
           continue
         }
 
@@ -171,7 +170,7 @@ export function FileUpload({
               const next = new Map(prev)
               const entry = next.get(uploadKey)
               if (entry) {
-                next.set(uploadKey, { ...entry, status: "error", error: err.message })
+                next.set(uploadKey, { ...entry, status: "error", error: plainError(err).text })
               }
               return next
             })
@@ -192,7 +191,7 @@ export function FileUpload({
           return next
         })
 
-        // Start upload (don't await — allow parallel uploads)
+        // Start upload (don't await (allow parallel uploads))
         uploader.start().catch(() => {
           // Error already handled by onError callback
         })
@@ -250,7 +249,7 @@ export function FileUpload({
 
       if (!response.ok) {
         const errorData = await response.json()
-        setError(`Failed to delete file: ${errorData.error || "Delete failed"}`)
+        setError(errorData.error && !/error|failed/i.test(errorData.error) ? errorData.error : "The file could not be removed. Try again.")
         return
       }
 
@@ -259,7 +258,7 @@ export function FileUpload({
       onUploadComplete?.(updatedFiles)
     } catch (err) {
       console.error("[file-upload] Delete error:", err)
-      setError("Failed to delete file")
+      setError("The file could not be removed. Try again.")
     }
   }
 
@@ -304,10 +303,10 @@ export function FileUpload({
         />
         <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
         <p className="mt-2 text-sm font-medium">
-          {isUploading ? "Uploading..." : "Click to upload or drag and drop"}
+          {isUploading ? "Uploading…" : "Click to upload or drag and drop"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Max file size: {formatFileSize(maxSizeBytes)} — Direct upload, no server limits
+          Up to {formatFileSize(maxSizeBytes)} each
         </p>
       </div>
 
@@ -318,9 +317,7 @@ export function FileUpload({
             <div key={key} className="rounded-lg border border-border p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  {upload.status === "computing_checksum" ? (
-                    <Shield className="h-4 w-4 text-blue-500 shrink-0" />
-                  ) : upload.status === "error" ? (
+                  {upload.status === "error" ? (
                     <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                   ) : upload.status === "complete" ? (
                     <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
@@ -332,7 +329,7 @@ export function FileUpload({
                     <p className="text-xs text-muted-foreground">
                       {getStatusLabel(upload.status)}
                       {upload.status === "uploading" && upload.bytesTotal > 0 && (
-                        <> — {formatFileSize(upload.bytesUploaded)} / {formatFileSize(upload.bytesTotal)}</>
+                        <> · {formatFileSize(upload.bytesUploaded)} of {formatFileSize(upload.bytesTotal)}</>
                       )}
                     </p>
                   </div>

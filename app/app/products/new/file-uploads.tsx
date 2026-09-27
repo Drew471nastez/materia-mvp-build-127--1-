@@ -31,14 +31,16 @@
  *   finishes before a big one above it does not jump over it, in this list
  *   or in the form's own list of files, which is what gets saved.
  *
- *   THE VIRUS SCAN IS A WORD ON THE SAME LINE. With Storelib's malware
- *   scanner on, a finished file's line reads "Scanning" while ClamAV reads
- *   it (/api/v2/upload/scan, in the background: nothing waits for it), then
- *   "Clean", or "Blocked" in red with the threat's name. A blocked file has
- *   already been removed from storage and no buyer can get it; Delete takes
- *   the row away. With no verdict yet (the scanner was busy or down) it says
- *   "Virus check pending" and the server keeps retrying. With the scanner
- *   off, nothing is added to the line at all.
+ *   CHECKING IS INVISIBLE UNLESS IT TAKES A MOMENT. Every file is checked
+ *   by the server when it has arrived (/api/v2/upload/complete,
+ *   lib/security/uploads), from a few small reads, well under a second.
+ *   The line says "Checking file…" only if that step is still going after
+ *   CHECKING_DELAY_MS, so an ordinary upload never flashes it; then the row
+ *   is simply the file. A file that is not accepted says one plain sentence
+ *   in its row ("This file type isn't supported.", "We couldn't accept this
+ *   file. Try another file.") with only a way to remove it: trying the same
+ *   file again would give the same answer. Nothing here names a check, an
+ *   engine or anything found; that is for the admin (/admin/security).
  *
  * Nothing here animates layout, and every motion is dropped under
  * prefers-reduced-motion.
@@ -72,26 +74,23 @@ export interface FileUpload {
   total: number
   secondsLeft: number | null
   error?: string
+  /** The server refused the file itself: trying again would change nothing, so no Retry. */
+  refused?: boolean
 }
 
-/** Where a file's malware scan is, as its row says it. */
-export type FileScan = { state: "scanning" | "clean" | "blocked" | "waiting"; threat?: string }
+/**
+ * The "Checking file…" line waits this long before it shows: the check is
+ * usually over sooner, and a word that flashes for a frame is noise.
+ */
+export const CHECKING_DELAY_MS = 300
 
-/** A saved file's state from the row the editor loaded, before anything is asked. */
-export function scanFromStatus(status: string | null | undefined, threat?: string | null): FileScan | null {
-  if (status === "infected" || status === "quarantined") return { state: "blocked", ...(threat ? { threat } : {}) }
-  if (status === "pending_scan" || status === "scanning") return { state: "scanning" }
-  return null
+/** A saved file the checks refused (scan_status), which buyers never get. */
+export function isRefusedFile(f: Pick<UploadedFile, "scan_status">): boolean {
+  return f.scan_status === "blocked" || f.scan_status === "infected" || f.scan_status === "quarantined"
 }
 
-/** The scan route's answer as a row state; null when scanning is off and the row says nothing. */
-export function scanFromAnswer(body: { status?: unknown; threat?: unknown; scanning?: unknown } | null): FileScan | null {
-  if (!body) return { state: "waiting" }
-  if (body.status === "infected") return { state: "blocked", ...(typeof body.threat === "string" ? { threat: body.threat } : {}) }
-  if (body.scanning === false) return null
-  if (body.status === "clean" || body.status === "skipped") return { state: "clean" }
-  return { state: "waiting" }
-}
+/** The one sentence a refused file's row says. */
+export const REFUSED_FILE = "We couldn't accept this file. Try another file."
 
 /* ── words and numbers ───────────────────────────────────────────────── */
 
@@ -121,15 +120,23 @@ function formatLeft(seconds: number): string {
   return m ? `${h} h ${m} min left` : `${h} h left`
 }
 
-/** What went wrong, in words a creator can act on. */
-function plainError(err: UploadError): string {
-  if (err.code === "NETWORK_ERROR") return "Connection lost"
-  if (err.httpStatus === 413) return "Too large to upload"
-  /* A refusal the server explained (not allowed, over a limit) says so itself. */
-  if (err.code === "PREPARE_FAILED" && err.httpStatus && err.httpStatus < 500 && err.message) return err.message
-  /* Refused when it was finished: most often the virus scan, which says so. */
-  if ((err.code === "COMPLETE_FAILED" || err.code === "SERVER_UPLOAD_FAILED") && err.httpStatus === 400 && err.message) return err.message
-  return "Upload failed"
+/** Server sentences a creator may read as they are: the calm ones (lib/security/uploads/policy.ts, limits, quota). */
+function sayable(message: string | undefined): message is string {
+  if (!message || message.length > 160) return false
+  return !/required|not found|denied|unauthori[sz]ed|forbidden|http|failed:|error|exception|stack|asset|bucket|token|record/i.test(message)
+}
+
+/** What went wrong, in words a creator can act on, and whether trying again could help. */
+export function plainError(err: UploadError): { text: string; refused: boolean } {
+  if (err.code === "NETWORK_ERROR") return { text: "Connection lost", refused: false }
+  const status = err.httpStatus ?? 0
+  const refused = status === 400 || status === 413 || status === 415
+  if (status === 413) return { text: sayable(err.message) ? err.message : "This file is too large. The limit is 10 GB.", refused: true }
+  if (status === 415) return { text: sayable(err.message) ? err.message : "This file type isn't supported.", refused: true }
+  if (status === 401) return { text: "Sign in again, then try once more.", refused: false }
+  /* A refusal the server explained (not accepted, over a limit, the plan's file count) says so itself. */
+  if (status >= 400 && status < 500 && sayable(err.message)) return { text: err.message, refused }
+  return { text: "Upload failed. Try again.", refused: false }
 }
 
 /** The short name of a file's kind, drawn in its glyph. */
@@ -169,50 +176,6 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
   /* Transfer rate, smoothed, for the time left. */
   const rates = useRef(new Map<string, { since: number; at: number; sent: number; rate: number }>())
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
-  /* Each file's malware scan, by storage path. Kept here rather than on the
-     form's files, so a verdict arriving never reads as an unsaved change. */
-  const [scans, setScans] = useState<Record<string, FileScan>>({})
-  const setScan = useCallback((path: string, scan: FileScan | null) => {
-    setScans((prev) => {
-      if (!scan) {
-        if (!(path in prev)) return prev
-        const next = { ...prev }
-        delete next[path]
-        return next
-      }
-      return { ...prev, [path]: scan }
-    })
-  }, [])
-  const asked = useRef(new Set<string>())
-
-  /**
-   * Asks for a file's verdict and follows it on the row. The route scans the
-   * whole file, which for a large one takes a while; the editor carries on
-   * meanwhile. A busy or unreachable answer is tried once more, then left
-   * as pending for the server's own retries.
-   */
-  const followScan = useCallback(async (path: string, assetId: string) => {
-    if (asked.current.has(path)) return
-    asked.current.add(path)
-    setScan(path, { state: "scanning" })
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch("/api/v2/upload/scan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assetId }),
-        })
-        const body = await res.json().catch(() => null)
-        if (res.ok) return setScan(path, scanFromAnswer(body))
-        if (res.status !== 429 && res.status < 500) return setScan(path, { state: "waiting" })
-      } catch {
-        /* A dropped connection: once more, below. */
-      }
-      await new Promise((r) => setTimeout(r, 4000))
-    }
-    setScan(path, { state: "waiting" })
-  }, [setScan])
-
   useEffect(() => {
     const t = timers.current
     return () => {
@@ -298,29 +261,18 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
         })
         patchNow(key, { status: "complete", progress: 100, sent: result.fileSize, total: result.fileSize, secondsLeft: null })
         later(() => drop(key), SETTLE_MS)
-        /* The virus scan runs in the background; the cron picks up any this
-           misses. "pending_scan" is Storelib's scanner waiting to read the
-           whole file: its verdict is followed on the row. */
-        if (result.assetId && result.scanStatus === "pending_scan") {
-          void followScan(done.file_path, result.assetId)
-        } else if (result.assetId) {
-          fetch("/api/v2/upload/scan", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ assetId: result.assetId }),
-          }).catch(() => {})
-        }
       },
       onError: (err) => {
         uploaders.current.delete(key)
         /* Cancelled here: the row is already on its way out. */
         if (err.code === "ABORTED") return
-        patchNow(key, { status: "error", error: plainError(err), secondsLeft: null })
+        const said = plainError(err)
+        patchNow(key, { status: "error", error: said.text, refused: said.refused, secondsLeft: null })
       },
     })
     uploaders.current.set(key, uploader)
     uploader.start().catch(() => { /* onError has it */ })
-  }, [queue, setFiles, patchNow, later, drop, followScan])
+  }, [queue, setFiles, patchNow, later, drop])
 
   const start = useCallback((files: File[], productId?: string) => {
     const added: FileUpload[] = files.map((file) => {
@@ -342,7 +294,7 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
   const retry = useCallback((key: string) => {
     const u = uploadsRef.current.find((x) => x.key === key)
     if (!u || uploaders.current.has(key)) return
-    patchNow(key, { status: "idle", progress: 0, sent: 0, error: undefined, secondsLeft: null })
+    patchNow(key, { status: "idle", progress: 0, sent: 0, error: undefined, refused: undefined, secondsLeft: null })
     run(u.key, u.seq, u.file, u.productId)
   }, [patchNow, run])
 
@@ -352,14 +304,8 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
   /** The row a saved file is drawn in: the upload's own, when this session uploaded it. */
   const rowKeyOf = useCallback((f: UploadedFile) => rows.current.get(f.file_path)?.key ?? f.id ?? f.file_path, [])
 
-  /** A saved file's scan: this session's when there is one, else what the editor loaded. */
-  const scanOf = useCallback(
-    (f: UploadedFile): FileScan | null => scans[f.file_path] ?? scanFromStatus(f.scan_status, f.scan_threat),
-    [scans],
-  )
-
   const inFlight = uploads.filter((u) => u.status !== "complete" && u.status !== "aborted")
-  return { uploads, start, cancel, retry, rowKeyOf, seqOf, inFlight, scanOf, followScan, localOf }
+  return { uploads, start, cancel, retry, rowKeyOf, seqOf, inFlight, localOf }
 }
 
 export type FileUploads = ReturnType<typeof useFileUploads>
@@ -403,7 +349,6 @@ type Entry =
 
 function FileRow({
   entry,
-  scan,
   local,
   onCancel,
   onRetry,
@@ -412,8 +357,6 @@ function FileRow({
   onSaved,
 }: {
   entry: Entry
-  /** The file's malware scan, when there is one to show. */
-  scan?: FileScan | null
   /** The file as it was picked in this session, when it was. */
   local?: File | null
   onCancel: (key: string) => void
@@ -486,37 +429,34 @@ function FileRow({
   const fill = upload ? (status === "error" ? 0 : upload.progress / 100) : justDone ? 1 : 0
   const fillOpacity = moving ? 1 : 0
 
+  /* "Checking file…" only once the check has taken longer than a blink. */
+  const [checking, setChecking] = useState(false)
+  useEffect(() => {
+    if (status !== "completing") {
+      setChecking(false)
+      return
+    }
+    const t = setTimeout(() => setChecking(true), CHECKING_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [status])
+
+  const refusedFile = !!file && isRefusedFile(file)
   let meta: React.ReactNode
   if (saving?.state === "preparing") meta = <span data-file-download="preparing">Preparing download</span>
   else if (saving?.state === "error") meta = <span data-file-download="error" role="alert" className="text-[#b42318]">{saving.message}</span>
-  else if (file && scan?.state === "blocked") {
-    meta = (
-      <span data-file-scan="blocked" className="text-[#b42318]">
-        Blocked by the virus scan{scan.threat ? `: ${scan.threat}` : ""}. Buyers never get it.
-      </span>
-    )
-  } else if (file && scan) {
-    meta = (
-      <>
-        {formatBytes(file.file_size)} ·{" "}
-        <span data-file-scan={scan.state}>
-          {scan.state === "scanning" ? "Scanning" : scan.state === "clean" ? "Clean" : "Virus check pending"}
-        </span>
-      </>
-    )
-  } else if (file) meta = formatBytes(file.file_size)
+  else if (refusedFile) meta = <span data-file-refused="" className="text-[#b42318]">{REFUSED_FILE}</span>
+  else if (file) meta = formatBytes(file.file_size)
   else if (status === "error") meta = <span className="text-[#b42318]">{upload!.error}</span>
   else if (status === "paused") meta = "Paused, waiting for a connection"
-  else if (status === "completing") meta = "Finishing"
-  else if (status === "uploading" && upload!.sent > 0) {
-    meta = formatSent(upload!.sent, upload!.total) + (upload!.secondsLeft != null ? ` · ${formatLeft(upload!.secondsLeft)}` : "")
-  } else meta = `Preparing · ${formatBytes(upload!.total)}`
+  else if (status === "completing" && checking) meta = "Checking file…"
+  else if ((status === "uploading" || status === "completing") && upload!.sent > 0) {
+    meta = formatSent(upload!.sent, upload!.total) + (status === "uploading" && upload!.secondsLeft != null ? ` · ${formatLeft(upload!.secondsLeft)}` : "")
+  } else meta = `Uploading… · ${formatBytes(upload!.total)}`
 
   return (
     <li
       data-file-row=""
-      data-state={file ? (justDone ? "done" : "file") : status}
-      data-scan={scan?.state}
+      data-state={file ? (justDone ? "done" : refusedFile ? "refused" : "file") : status === "completing" && checking ? "checking" : status}
       className={cn(ROW, "transition-opacity duration-150 motion-reduce:transition-none", status === "aborted" && "opacity-0")}
     >
       <span
@@ -543,11 +483,7 @@ function FileRow({
         ) : (
           <p className="truncate text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{name}</p>
         )}
-        {/* A blocked file's line wraps: the threat's name is the point of it. */}
-        <p
-          data-file-meta=""
-          className={cn("text-[13px] leading-[18px] tabular-nums text-[#6b7280]", scan?.state === "blocked" && file ? "[overflow-wrap:anywhere]" : "truncate")}
-        >
+        <p data-file-meta="" className={cn("text-[13px] leading-[18px] tabular-nums text-[#6b6b76]", status === "error" || refusedFile ? "[overflow-wrap:anywhere]" : "truncate")}>
           {meta}
         </p>
       </div>
@@ -575,6 +511,10 @@ function FileRow({
               ]}
             />
           </>
+        ) : upload && status === "error" && upload.refused ? (
+          <button type="button" aria-label={`Remove ${name}`} onClick={() => onCancel(upload.key)} className={ICON_BUTTON}>
+            <X className="h-4 w-4" />
+          </button>
         ) : upload && status === "error" ? (
           <>
             <button
@@ -648,7 +588,7 @@ export function DigitalFiles({
       .map((u): Entry => ({ kind: "upload", key: u.key, seq: u.seq, upload: u })),
   ].sort((a, b) => a.seq - b.seq)
 
-  /* A screen reader hears each file land, and a file the scan blocked. */
+  /* A screen reader hears each file land, and a file that was not accepted. */
   const heard = useRef(new Set<string>())
   useEffect(() => {
     for (const u of uploads.uploads) {
@@ -658,25 +598,14 @@ export function DigitalFiles({
       }
     }
   }, [uploads.uploads])
-  const { scanOf, followScan } = uploads
   useEffect(() => {
-    for (const f of files) {
-      if (scanOf(f)?.state === "blocked" && !heard.current.has(`blocked:${f.file_path}`)) {
-        heard.current.add(`blocked:${f.file_path}`)
-        setAnnounce(`${f.file_name} was blocked by the virus scan`)
+    for (const u of uploads.uploads) {
+      if (u.status === "error" && u.refused && !heard.current.has(`refused:${u.key}`)) {
+        heard.current.add(`refused:${u.key}`)
+        setAnnounce(`${u.file.name}: ${u.error}`)
       }
     }
-  }, [files, scanOf])
-
-  /* A saved file still waiting for its scan is asked about once when the
-     editor opens, so the row can say how it ended. */
-  useEffect(() => {
-    for (const f of files) {
-      if (f.id && (f.scan_status === "pending_scan" || f.scan_status === "scanning")) void followScan(f.file_path, f.id)
-    }
-    // Only the files the editor opened with.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [uploads.uploads])
 
   /* In a browser the browser shows the download; the apps hand it to the system browser, so they say where it went. */
   const onSaved = useCallback(
@@ -773,7 +702,6 @@ export function DigitalFiles({
           <FileRow
             key={entry.key}
             entry={entry}
-            scan={entry.kind === "file" ? uploads.scanOf(entry.file) : null}
             local={entry.kind === "file" ? uploads.localOf(entry.file) : entry.upload.file}
             onCancel={uploads.cancel}
             onRetry={uploads.retry}

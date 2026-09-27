@@ -64,6 +64,7 @@ import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { MediaGrid, type PendingMedia } from "./media-grid"
+import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CategoryPicker } from "./category-picker"
 import { useCategorySuggestion } from "./category-suggestion"
@@ -131,24 +132,8 @@ function variantPriceLabel(v: ProductVariant): string {
 // Limits
 const MAX_PHOTOS = 12
 const MAX_YOUTUBE_VIDEOS = 5
-const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024 // 10 GB per file (lib/storage/security MAX_DIGITAL_PRODUCT_FILE_SIZE)
 const MAX_DIGITAL_FILES = 15
 
-// Blocked file extensions for security
-const BLOCKED_EXTENSIONS = new Set([
-  "exe", "bat", "cmd", "com", "scr", "pif", "msi", "msp", "mst",
-  "cpl", "hta", "inf", "ins", "isp", "lnk", "reg", "rgs",
-  "sct", "shb", "shs", "ws", "vbe", "vbs", "vb",
-  "jse", "wsc", "wsf", "wsh",
-  "ps1", "psm1", "psd1", "ps1xml", "ps2", "ps2xml",
-  "sh", "bash", "csh", "ksh", "zsh",
-  "py", "pyc", "pyw", "rb", "pl", "php", "asp", "aspx", "jsp",
-  "app", "command", "action", "workflow",
-  "jar", "class", "jnlp", "dll", "so", "dylib",
-  "iso", "img", "dmg", "vhd", "vhdx",
-  "url", "webloc", "desktop",
-  "cer", "crt", "der", "p7b", "pfx", "p12",
-])
 
 
 const stripHtmlToPlainText = (input: string): string => {
@@ -1243,71 +1228,22 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       return
     }
 
-    // Validate each file before starting uploads
+    /* Each file through the same rule the server applies (lib/security/uploads
+       precheckUpload): size, and not a program. One calm sentence when a file
+       cannot be added; everything else starts at once, with no question asked. */
     for (const file of fileArray) {
-      // Check for empty files
-      if (file.size === 0) {
-        setError(`File "${file.name}" is empty (0 bytes)`)
-        return
-      }
-
-      // Check file size (10 GB max)
-      if (file.size > MAX_FILE_SIZE) {
-        setError(`File "${file.name}" is over 10 GB, the most one file can be`)
+      const verdict = precheckUpload({ fileName: file.name, size: file.size, declaredMime: file.type, context: "product_file" })
+      if (!verdict.ok) {
+        setError(fileArray.length > 1 ? `${sanitizeDisplayName(file.name)}: ${verdict.userMessage}` : verdict.userMessage)
         return
       }
 
       // Check for duplicate file names
       const isDuplicate = digitalFiles.some(f => f.file_name === file.name) || inFlight.some(u => u.file.name === file.name)
       if (isDuplicate) {
-        setError(`A file named "${file.name}" already exists. Please rename it or remove the existing file first.`)
+        setError(`A file named "${file.name}" is already here. Rename it or remove the one already added.`)
         return
       }
-
-      // Check for invalid file name characters
-      const invalidChars = /[<>:"|?*\x00-\x1f]/
-      if (invalidChars.test(file.name)) {
-        setError(`File "${file.name}" contains invalid characters`)
-        return
-      }
-
-      // Check file name length (255 char limit for most filesystems)
-      if (file.name.length > 255) {
-        setError(`File name "${file.name}" is too long (max 255 characters)`)
-        return
-      }
-
-      // Check blocked extensions
-      const ext = file.name.split(".").pop()?.toLowerCase() || ""
-      if (BLOCKED_EXTENSIONS.has(ext)) {
-        setError(`File type ".${ext}" is not allowed for security reasons`)
-        return
-      }
-
-      // Check double extensions (e.g. file.pdf.exe)
-      const parts = file.name.split(".")
-      if (parts.length > 2) {
-        const lastExt = parts[parts.length - 1].toLowerCase()
-        if (BLOCKED_EXTENSIONS.has(lastExt)) {
-          setError(`File "${file.name}" has a blocked extension`)
-          return
-        }
-      }
-    }
-
-    // Check total storage size (optional warning for very large uploads)
-    const totalSize = fileArray.reduce((sum, f) => sum + f.size, 0)
-    const existingSize = digitalFiles.reduce((sum, f) => sum + f.file_size, 0)
-    const combinedSize = totalSize + existingSize
-    if (combinedSize > 20 * 1024 * 1024 * 1024) { // 20GB warning
-      const confirmed = await ask({
-        title: "Upload this much?",
-        body: `That makes ${formatFileSize(combinedSize)} of files, which can take a long time to upload.`,
-        confirm: "Upload",
-        cancel: "Not now",
-        tone: "default",
-      })
-      if (!confirmed) return
     }
 
     let currentProductId = productId

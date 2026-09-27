@@ -120,7 +120,8 @@ import { DateRangePicker } from "@/components/app/date-range-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { createClient } from "@/lib/supabase/client"
-import { BLOCKED_EXTENSIONS, readFileHeader, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "@/lib/storage/security"
+import { readFileHeader, scanFile } from "@/lib/storage/security"
+import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, EXTRA_BLOCK_CATALOG, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
 import { canonicalSocialPlatform, hasSocialHandles, socialHandleUrl } from "@/lib/onepage/social-url"
 import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
@@ -2709,28 +2710,20 @@ export function LinksTab() {
                       const isDigitalFile = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file'
                       const folder = isDigitalFile ? 'digital' : 'images'
 
-                      // --- Client-side security checks (fast, before any upload) ---
-
-                      // 1. File size limit: plan-based (free=10GB, growth=50GB, pro=unlimited)
-                      if (isDigitalFile && file.size > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
-                        const limitGB = MAX_DIGITAL_PRODUCT_FILE_SIZE / (1024 * 1024 * 1024)
-                        throw new Error(`File size exceeds the ${limitGB} GB limit for digital product uploads.`)
-                      }
-                      if (file.size <= 0) {
-                        throw new Error('File is empty (0 bytes).')
-                      }
-
-                      // 2. Extension blocklist (instant check)
-                      const fileExt = file.name.split('.').pop()?.toLowerCase() || ''
-                      if (BLOCKED_EXTENSIONS.has(fileExt)) {
-                        throw new Error(`File type ".${fileExt}" is blocked for security reasons. This file type can contain executable code.`)
-                      }
-
-                      // 3. Deep security scan: read file header and check magic bytes
+                      /* The same rule the server applies (lib/security/uploads): size,
+                         not a program, a picture where a picture goes. One plain sentence
+                         when a file cannot be used; the server checks the bytes again. */
+                      const verdict = precheckUpload({
+                        fileName: file.name,
+                        size: file.size,
+                        declaredMime: file.type,
+                        context: isDigitalFile ? 'link_page_file' : 'public_image',
+                      })
+                      if (!verdict.ok) throw new Error(verdict.userMessage)
                       const fileHeader = await readFileHeader(file)
-                      const securityScan = scanFile(file.name, file.type || 'application/octet-stream', fileHeader)
+                      const securityScan = scanFile(file.name, file.type || 'application/octet-stream', fileHeader, isDigitalFile ? 'link_page_file' : 'public_image')
                       if (!securityScan.safe) {
-                        throw new Error(securityScan.reason || 'File blocked for security reasons.')
+                        throw new Error(securityScan.reason || "We couldn't accept this file. Try another file.")
                       }
 
                       // Use signed URL upload for digital files (any size) and large image files
@@ -2934,7 +2927,7 @@ export function LinksTab() {
                             }
                             if (!uploaded) {
                               const err = await serverRes.json().catch(() => null)
-                              lastError = err?.error || `Server upload failed (${serverRes.status})`
+                              lastError = err?.error || 'Upload failed. Try again.'
                               console.warn('Server upload failed:', lastError)
                             }
                           } catch (serverErr: unknown) {
@@ -2958,7 +2951,7 @@ export function LinksTab() {
                         }
 
                         if (!uploaded) {
-                          throw new Error(lastError || 'All upload methods failed. Please try again.')
+                          throw new Error(lastError || 'Upload failed. Try again.')
                         }
                       }
 
@@ -3003,8 +2996,10 @@ export function LinksTab() {
                       setImageFieldType(null)
                     } catch (error) {
                       console.error('Upload failed:', error)
-                      const errMsg = error instanceof Error ? error.message : 'Upload failed'
-                      alert(`Upload failed: ${errMsg}`)
+                      /* One plain sentence: the server's own when it is one, never a code or a status. */
+                      const said = error instanceof Error ? error.message : ''
+                      const plain = said && said.length < 160 && !/failed|error|http|\(\d{3}\)|required|not found|denied|unauthori|token|bucket/i.test(said)
+                      alert(plain ? said : 'Upload failed. Try again.')
                     } finally {
                       setImageUploading(false)
                       setTimeout(() => setUploadProgress(0), 500)
@@ -3594,7 +3589,7 @@ export function LinksTab() {
                         setCropBox({ x: 50, y: 50, size: 200 })
                       } catch (error) {
                         console.error("Upload error:", error)
-                        alert('Failed to upload image')
+                        alert('Upload failed. Try again.')
                       } finally {
                         setUploading(false)
                       }
@@ -3640,7 +3635,7 @@ export function LinksTab() {
                 if (!file) return
                 
                 if (file.size > 100 * 1024 * 1024) {
-                  alert('Video file must be less than 100MB')
+                  alert('This file is too large. The limit is 100 MB.')
                   return
                 }
                 
@@ -3906,7 +3901,7 @@ export function LinksTab() {
                         setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
                       } catch (error) {
                         console.error("Upload error:", error)
-                        alert('Failed to upload video')
+                        alert('Upload failed. Try again.')
                       } finally {
                         setUploadingVideo(false)
                       }

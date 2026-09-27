@@ -24,7 +24,8 @@ import "server-only"
  * It also:
  *   - removes upload records left "pending" or "failed" for two days, with
  *     their file, unless a variant still lists them;
- *   - scans digital files still waiting for a scan (lib/storage/scan-gate.ts).
+ *   - gives older files their first check and a SHA-256, a few a run
+ *     (lib/security/uploads/pipeline.ts), and trims the security log.
  *
  * Bounded: at most `limit` files per run, so a backlog drains over several
  * days instead of one request timing out and removing nothing.
@@ -32,7 +33,8 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { DIGITAL_BUCKETS } from "./plans"
-import { scanAsset } from "./scan-gate"
+import { pruneSecurityLog } from "@/lib/security/uploads/audit"
+import { sweepAssets } from "@/lib/security/uploads/pipeline"
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
@@ -66,7 +68,10 @@ export interface CleanupSummary {
   removed: Record<string, number>
   refused: number
   staleUploads: number
+  /** Older files given their verdict this run. */
   scanned: number
+  /** Files given their SHA-256 this run. */
+  hashed?: number
   errors: string[]
 }
 
@@ -145,23 +150,19 @@ export async function runStorageCleanup(
     }
   }
 
-  /* 3. Files still waiting for a scan. */
+  /* 3. Files with no verdict yet (from before the checks) and files not yet
+     hashed, a few at a time (lib/security/uploads/pipeline.ts sweepAssets),
+     then the security log's old rows. */
   if (!dryRun) {
-    const { data: pending } = await admin
-      .from("digital_assets")
-      .select("id, file_path, file_name, file_size, mime_type, storage_bucket, scan_status")
-      .eq("scan_status", "pending_scan")
-      .eq("upload_status", "completed")
-      .order("created_at", { ascending: true })
-      .limit(Math.max(0, Math.min(options.scanLimit ?? 25, 100)))
-    for (const asset of pending ?? []) {
-      try {
-        await scanAsset(admin, asset)
-        summary.scanned++
-      } catch (e) {
-        summary.errors.push(`scan ${asset.id}: ${e instanceof Error ? e.message : String(e)}`)
-      }
+    try {
+      const swept = await sweepAssets(admin, { budgetMs: 120_000, limit: Math.max(1, Math.min(options.scanLimit ?? 50, 200)) })
+      summary.scanned = swept.resolved + swept.blocked
+      summary.hashed = swept.hashed
+      for (const e of swept.errors) summary.errors.push(`check ${e}`)
+    } catch (e) {
+      summary.errors.push(`check: ${e instanceof Error ? e.message : String(e)}`)
     }
+    await pruneSecurityLog(admin)
   }
 
   return summary

@@ -253,7 +253,7 @@ check("on a phone it is the shared bottom sheet", /import \{ BottomSheet \} from
 check("from 640px a compact modal in the middle", /AlertDialogPrimitive\.Content/.test(confirmSheet) && /data-surface="modal"/.test(confirmSheet) && /max-w-\[420px\]/.test(confirmSheet))
 check("two buttons: the safe one with the bar's depth, the one that does it near black, never red", /cn\(secondaryDepth, "h-12/.test(confirmSheet) && /destructiveDepth/.test(confirmSheet) && /bg-\[#1a1a2e\]/.test(confirmSheet) && !/criticalDepth|#c4290c/.test(confirmSheet))
 check("the old forced dialog sheet and its swipe code are gone from the editor", !/showExitDialog|handleSaveAndExit|"unsaved"/.test(editor) && /\{confirmSheet\}/.test(editor))
-check("no window.confirm left in the editor: a big upload and deleting a file ask in the sheet", !/\bconfirm\(`/.test(editor) && /title: "Upload this much\?"/.test(editor) && /title: "Delete this file\?"/.test(editor))
+check("no window.confirm left in the editor: deleting a file asks in the sheet, and a big upload asks nothing (the owner: no confirmation steps)", !/\bconfirm\(`/.test(editor) && !/title: "Upload this much\?"/.test(editor) && /title: "Delete this file\?"/.test(editor))
 
 console.log("\nHold to drag: one set of sensors (app/app/products/new/hold-to-drag.ts)")
 

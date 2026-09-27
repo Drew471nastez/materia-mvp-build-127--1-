@@ -8,15 +8,18 @@
  * so the suite can run them and so lib/storage/antivirus.ts can ask "is a
  * scanner configured" without importing server only code.
  *
- * Configured means BOTH variables are set:
+ * The scanner is an OPTIONAL provider (lib/security/uploads/providers.ts).
+ * Configured means the flag names it AND both of its variables are set:
  *
- *   CLAMAV_SERVICE_URL     https://scanner.example.com (http only for localhost)
- *   CLAMAV_SERVICE_SECRET  the same secret the scanner was started with
+ *   SECURITY_MALWARE_PROVIDER=clamav   the explicit switch
+ *   CLAMAV_SERVICE_URL                 https://scanner.example.com (http only for localhost)
+ *   CLAMAV_SERVICE_SECRET              the same secret the scanner was started with
  *
- * One without the other is "not configured", never an error: the secret
- * alone is how production runs until the scanner has an address, and the
- * app must behave exactly as it did before scanning existed.
+ * Anything less is "not configured", never an error, and nothing is sent
+ * anywhere: production has the secret set and no URL and no flag, and runs on
+ * Storelib's built-in checks alone (lib/security/uploads/inspect.ts).
  */
+import { clamavRequested } from "./uploads/provider-config"
 
 export type ScanStatus = "clean" | "infected" | "error" | "not_scanned"
 
@@ -60,7 +63,7 @@ export interface ScannerConfig {
 
 export type ScannerSetup =
   | { configured: true; config: ScannerConfig; missing: [] }
-  | { configured: false; config: null; missing: ("CLAMAV_SERVICE_URL" | "CLAMAV_SERVICE_SECRET")[]; invalidUrl?: boolean }
+  | { configured: false; config: null; missing: ("SECURITY_MALWARE_PROVIDER" | "CLAMAV_SERVICE_URL" | "CLAMAV_SERVICE_SECRET")[]; invalidUrl?: boolean }
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
 
@@ -72,7 +75,8 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
 export function readScannerSetup(env: Record<string, string | undefined> = process.env): ScannerSetup {
   const rawUrl = (env.CLAMAV_SERVICE_URL ?? "").trim()
   const secret = (env.CLAMAV_SERVICE_SECRET ?? "").trim()
-  const missing: ("CLAMAV_SERVICE_URL" | "CLAMAV_SERVICE_SECRET")[] = []
+  const missing: ("SECURITY_MALWARE_PROVIDER" | "CLAMAV_SERVICE_URL" | "CLAMAV_SERVICE_SECRET")[] = []
+  if (!clamavRequested(env)) missing.push("SECURITY_MALWARE_PROVIDER")
   let url: string | null = null
   let invalidUrl = false
   if (rawUrl) {
@@ -88,7 +92,7 @@ export function readScannerSetup(env: Record<string, string | undefined> = proce
   }
   if (!url) missing.push("CLAMAV_SERVICE_URL")
   if (!secret) missing.push("CLAMAV_SERVICE_SECRET")
-  if (url && secret) return { configured: true, config: { url, secret }, missing: [] }
+  if (url && secret && missing.length === 0) return { configured: true, config: { url, secret }, missing: [] }
   return { configured: false, config: null, missing, ...(invalidUrl ? { invalidUrl } : {}) }
 }
 
