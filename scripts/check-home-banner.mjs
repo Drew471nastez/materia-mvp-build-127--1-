@@ -336,7 +336,7 @@ try {
         const out = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide:not([data-slide="active"])'))
         return { name: cs.animationName, delay: cs.animationDelay, outProperty: out.transitionProperty, outDuration: out.transitionDuration }
       })
-      expect(fade.name === "home-banner-in" && fade.delay === "0.16s" && /^opacity, visibility$/.test(fade.outProperty) && /^0\.15s/.test(fade.outDuration), "a slide changes by a fade alone, the old line out in 150ms and the next in after 160ms", fade)
+      expect(fade.name === "home-banner-in" && fade.delay === "0.11s" && /^opacity, visibility$/.test(fade.outProperty) && /^0\.16s/.test(fade.outDuration), "a slide changes by a fade alone, the old line out over 160ms and the next starting at 110ms so no frame is empty", fade)
       await cdp.send("Animation.setPlaybackRate", { playbackRate: 10 })
     } else {
       /* A mouse over it holds it. */

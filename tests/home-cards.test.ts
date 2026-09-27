@@ -156,14 +156,16 @@ function main() {
   check("never sharper than 2x", /MAX_DPR = 2\b/.test(read("components/app/home/globe-scene.ts")) && /Math\.min\(window\.devicePixelRatio \|\| 1, MAX_DPR\)/.test(globe))
   /* "I don't like it at all, on swipe and on the autoplay. It needs to be a fade. Not a slide like a carousel." */
   check("a slide change is a fade and nothing moves, whatever asked for it",
-    /\.home-banner-slide \{\s*visibility: hidden;\s*opacity: 0;\s*transition: opacity 150ms[^;]*visibility 0s linear 150ms;\s*\}/.test(banner) &&
-    /\.home-banner-stack\[data-changed\] > \.home-banner-slide\[data-slide="active"\] \{\s*animation: home-banner-in 260ms ease 160ms both;/.test(banner) &&
+    /\.home-banner-slide \{\s*visibility: hidden;\s*opacity: 0;\s*transition: opacity 160ms[^;]*visibility 0s linear 160ms;\s*\}/.test(banner) &&
+    /\.home-banner-stack\[data-changed\] > \.home-banner-slide\[data-slide="active"\] \{\s*animation: home-banner-in 280ms cubic-bezier\(0, 0, 0\.2, 1\) 110ms both;/.test(banner) &&
     /@keyframes home-banner-in \{\s*from \{ opacity: 0; \}\s*to \{ opacity: 1; \}/.test(banner))
   check("no translate, no direction, no carousel left in it",
     !/--home-banner-in|--home-banner-out|data-dir|setDir|translate3d|home-banner-move/.test(banner) &&
     !/\btranslate:/.test(banner.slice(banner.indexOf(".home-banner-slide {"), banner.indexOf(".home-banner-eyebrow"))))
-  check("the old line is gone before the next one starts, so two are never half there at once",
-    /transition: opacity 150ms/.test(banner) && /animation: home-banner-in 260ms ease 160ms both/.test(banner))
+  /* Measured at 390, processor slowed four times: out 150 / in at 160 left one 33ms frame with nothing on it. */
+  check("the next line starts while the old one is still painted but near zero, so no frame is ever empty",
+    /transition: opacity 160ms cubic-bezier\(0, 0, 0\.2, 1\)/.test(banner) && /home-banner-in 280ms cubic-bezier\(0, 0, 0\.2, 1\) 110ms both/.test(banner) &&
+    /never a frame\s*\n\s*\* {2}with NOTHING on it|there is never a frame\s*\n {2}with NOTHING on it/.test(banner))
   check("and the slide on screen when Home opens is simply there, not faded in",
     /data-changed=\{changed \? "" : undefined\}/.test(banner) && /const \[changed, setChanged\] = useState\(false\)/.test(banner))
   check("and a swipe picks the slide without the text following the finger", !/setTrack|t\.style\.translate/.test(banner) && /go\(index \+ \(s\.dx < 0 \? 1 : -1\), true\)/.test(banner))
