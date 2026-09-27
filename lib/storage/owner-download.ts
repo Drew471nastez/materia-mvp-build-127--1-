@@ -114,9 +114,11 @@ export async function ownerDownload(
 
   const passed = await gate(admin, asset, { isCreator: true })
   if (!passed.ok) {
+    /* Spelled out: the suite compiles without strict narrowing. */
+    const refused = passed as Extract<typeof passed, { ok: false }>
     /* The gate's words are for a buyer ("the seller has been told"); this is the seller. */
-    const error = passed.status === 403 ? "The virus scan flagged this file, so it cannot be downloaded." : passed.error
-    return { status: passed.status as 403 | 409, body: { error } }
+    const error = refused.status === 403 ? "The virus scan flagged this file, so it cannot be downloaded." : refused.error
+    return { status: refused.status as 403 | 409, body: { error } }
   }
 
   const fileName = downloadFileName(input.name, asset.file_name)
