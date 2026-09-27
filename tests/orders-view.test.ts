@@ -295,9 +295,9 @@ async function main() {
     /* Every path that makes an order records where it came from, after the
        insert and never inside it. */
     const insertFirst: Array<[string, RegExp]> = [
-      ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*const origin = originOf\(body\.origin, request\)\n\s*await tagOrderSource\(admin, order\.id, channelOf\(origin, orderSourceFromRequest\(request\)\), origin\)/],
-      ["app/api/checkout/quick-free/route.ts", /const origin = originOf\(body\.origin, request\)\n\s*await tagOrderSource\(admin, order\.id, channelOf\(origin, orderSourceFromRequest\(request\)\), origin\)/],
-      ["lib/checkout/fulfil-payment.ts", /const origin = orderOriginFrom\(m, opts\.request\)\n\s*await tagOrderSource\(admin, order\.id, orderSourceFrom\(m, opts\.request\), origin\)/],
+      ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*const origin = originOf\(body\.origin, request\)\n\s*const channel = channelOf\(origin, orderSourceFromRequest\(request\)\)\n\s*await tagOrderSource\(admin, order\.id, channel, origin\)/],
+      ["app/api/checkout/quick-free/route.ts", /const origin = originOf\(body\.origin, request\)\n\s*const channel = channelOf\(origin, orderSourceFromRequest\(request\)\)\n\s*await tagOrderSource\(admin, order\.id, channel, origin\)/],
+      ["lib/checkout/fulfil-payment.ts", /const origin = orderOriginFrom\(m, opts\.request\)\n\s*const source = orderSourceFrom\(m, opts\.request\)\n\s*await tagOrderSource\(admin, order\.id, source, origin\)/],
       ["app/api/stripe/webhook/route.ts", /await tagOrderSource\(supabaseAdmin, order\.id, orderSourceFrom\(metadata\), orderOriginFrom\(metadata\)\)/],
       ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website", ctx\.origin\)/],
       ["app/api/admin/sales-trigger/route.ts", /await tagOrderSource\(admin, order\.id, "storelib", \{ surface: "admin" \}\)/],
@@ -310,13 +310,14 @@ async function main() {
     const session = read("app/api/checkout/stripe-session/route.ts")
     check(
       "the PaymentIntent carries the source and the detail to fulfilment",
-      /\[SOURCE_METADATA_KEY\]: channelOf\(origin, orderSourceFromRequest\(request\)\)/.test(session) &&
+      /const channel = channelOf\(origin, orderSourceFromRequest\(request\)\)/.test(session) &&
+        /\[SOURCE_METADATA_KEY\]: channel,/.test(session) &&
         /\[ORIGIN_METADATA_KEY\]: encodeOrigin\(origin\)/.test(session) &&
         /const origin = originOf\(body\.origin, request\)/.test(session),
     )
     check("a basket's session carries the detail", /\[ORIGIN_METADATA_KEY\]: origin/.test(read("app/api/checkout/cart/route.ts")) && /origin: orderOriginFrom\(metadata\)/.test(read("lib/checkout/fulfil-cart-session.ts")))
     check("the checkout page, the OnePage form and the cart send where they began",
-      /origin: checkoutOrigin\(\)/.test(read("app/checkout/checkout-client.tsx")) &&
+      /origin: checkoutOrigin\(creator\.id\)/.test(read("app/checkout/checkout-client.tsx")) &&
         /origin: pageOrigin\(\)/.test(read("components/onepage/public-onepage.tsx")) &&
         /origin: pageOrigin\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
     check("a website adds itself to every link to checkout", /<CheckoutLinkOrigin \/>/.test(read("app/(site)/layout.tsx")) && /checkoutHrefWithOrigin\(`\/checkout\?productId=/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))

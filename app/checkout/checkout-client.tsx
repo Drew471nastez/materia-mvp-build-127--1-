@@ -36,6 +36,7 @@ import { canReturnInApp, canReturnTo } from "@/lib/navigation/in-app-history"
 import { creatorPageHref } from "@/lib/navigation/back-plan"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
+import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, money } from "./parts/ui"
@@ -200,6 +201,10 @@ export default function CheckoutPageClient({
   const secretRef = React.useRef<string | null>(null)
 
   React.useEffect(() => setNativeApp(isNativeApp()), [])
+  /* Touches a website's link carried here (`sl_at`): read once, then off the address (lib/attribution/browser). */
+  React.useEffect(() => {
+    adoptCarriedTouches()
+  }, [])
   React.useEffect(() => {
     void trackFunnelStep("checkout_start", creator.id, product.id)
   }, [creator.id, product.id])
@@ -678,7 +683,7 @@ export default function CheckoutPageClient({
       /* Which page sent the buyer here and where their visit came from, for
          the order's Source (lib/orders/checkout-origin). Read when Pay is
          pressed, when the page before this one is surely known. */
-      origin: checkoutOrigin(),
+      origin: checkoutOrigin(creator.id),
     }
   }
 

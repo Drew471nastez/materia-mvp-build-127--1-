@@ -12,6 +12,7 @@ import { chargeUnits, packItems } from "@/lib/checkout/cart-items"
 import { HELD_SESSION_SECONDS, HOLD_COOKIE, holdCouponUse, holderForEmail, isHolder, needsHold, newHolder, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
 import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
+import { attributionForCheckout, attributionToMetadata, type Attribution } from "@/lib/attribution/server"
 import { cookies } from "next/headers"
 
 export const runtime = "nodejs"
@@ -153,9 +154,12 @@ export async function POST(request: Request) {
   const sent = cleanOrigin(body.origin)
   const site = siteOrigin !== platformOrigin ? cleanHost(new URL(siteOrigin).host) : sent?.site
   const origin = encodeOrigin({ ...sent, surface: "website", site })
+  /* A basket is a website's: its touches, checked for this creator, and the
+     website as the property (lib/attribution). Never read for a price. */
+  const attribution = await attributionForCheckout(admin, { creatorId, source: "website", origin: { ...sent, surface: "website", site }, sent: body.origin })
 
   const totalCents = priced.totalCents
-  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, origin: { ...sent, surface: "website", site } })
+  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, origin: { ...sent, surface: "website", site }, attribution })
 
   if (totalCents < MIN_CHARGE_CENTS) {
     return NextResponse.json(
@@ -260,6 +264,8 @@ export async function POST(request: Request) {
         ...packItems(lines.map((l) => l.item)),
       },
     }
+    /* Last, and only while Stripe's 50 keys allow. */
+    Object.assign(params.metadata!, attributionToMetadata(attribution, Object.keys(params.metadata!).length))
     let session: Stripe.Checkout.Session
     try {
       session = await stripe.checkout.sessions.create(params)
@@ -301,6 +307,7 @@ async function freeBasket(
     creatorId: string
     platformOrigin: string
     origin: Parameters<typeof encodeOrigin>[0]
+    attribution: Attribution
   },
 ) {
   const buyer = c.body.buyer && typeof c.body.buyer === "object" ? c.body.buyer : {}
@@ -334,6 +341,7 @@ async function freeBasket(
     buyerFirstName: firstName,
     buyerLastName: lastName || null,
     origin: c.origin,
+    attribution: c.attribution,
     couponId: coupon.id,
     couponHolder: holder,
     baseUrl: c.platformOrigin,

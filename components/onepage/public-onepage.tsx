@@ -4907,6 +4907,8 @@ function PublicBlockRenderer({
               enable_digital_product: data.enable_digital_product,
               digital_product_file_url: data.digital_product_file_url,
               digital_product_title: data.digital_product_title,
+              /* Where this visit came from, for the contact's source (lib/attribution). */
+              origin: pageOrigin(),
             }),
           })
           const result = await response.json()

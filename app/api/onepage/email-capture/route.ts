@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isPubliclyVisible, publicOnly } from "@/lib/products/visibility"
 import { sendLeadMagnetEmail, triggerEmailFlows } from "@/lib/email"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { recordSignupAttribution } from "@/lib/attribution/server"
 import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
@@ -297,6 +298,7 @@ export async function POST(request: Request) {
         // Trigger new_subscriber email flows if insert was successful
         if (!subscriberInsertError) {
           await recordContactSource(adminSupabase, onepage.seller_id, normalizedEmail, leadSource)
+          await recordSignupAttribution(adminSupabase, { creatorId: onepage.seller_id, email: normalizedEmail, source: leadSource, sent: body.origin })
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",
@@ -328,6 +330,7 @@ export async function POST(request: Request) {
         /* Joining again is joining, so the welcome goes, as it does above. */
         if (!resubError) {
           await recordContactSource(adminSupabase, onepage.seller_id, normalizedEmail, leadSource)
+          await recordSignupAttribution(adminSupabase, { creatorId: onepage.seller_id, email: normalizedEmail, source: leadSource, sent: body.origin })
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",

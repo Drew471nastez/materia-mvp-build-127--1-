@@ -203,7 +203,8 @@ function main() {
     const src = read(f)
     const hard = (src.match(/^\s*window\.location\.href = checkoutUrl/gm) ?? []).length
     check(`${f} does not reload the page to reach checkout`, hard === 0, `${hard} left`)
-    check(`  and pushes on the client instead`, /router\.push\(checkoutUrl\)/.test(src))
+    /* carryTouches only adds the visit's touches on a host other than storelib.com (lib/attribution/browser). */
+    check(`  and pushes on the client instead`, /router\.push\(carryTouches\(checkoutUrl\)\)/.test(src))
   }
   /*
     ONE HARD NAVIGATION IS KEPT ON PURPOSE. The downloads link crosses to the

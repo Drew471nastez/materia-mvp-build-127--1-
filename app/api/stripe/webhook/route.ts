@@ -7,6 +7,7 @@ import { generateReceiptToken } from "@/lib/security"
 import { createHash } from "node:crypto"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
+import { attributionFromMetadata, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
@@ -416,6 +417,8 @@ export async function POST(request: Request) {
 
     console.log("[Webhook] Order created:", order.id)
     await tagOrderSource(supabaseAdmin, order.id, orderSourceFrom(metadata), orderOriginFrom(metadata))
+    const attribution = attributionFromMetadata(metadata, { source: orderSourceFrom(metadata), origin: orderOriginFrom(metadata) })
+    await recordOrderAttribution(supabaseAdmin, order.id, attribution)
 
     // ── Ledger: record sale earnings ──────────────────────────────────────
     if (creatorId && totalAmount > 0) {
@@ -538,6 +541,7 @@ export async function POST(request: Request) {
         bought: true,
         source: contactSourceOfOrder(orderOriginFrom(metadata), productId),
       })
+      await recordContactAttribution(supabaseAdmin, creatorId, buyerEmail, attribution)
     }
 
     // Entitlement
