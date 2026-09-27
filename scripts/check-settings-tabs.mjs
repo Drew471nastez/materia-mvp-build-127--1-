@@ -28,9 +28,14 @@
  *                    than 160ms, where the 140ms fade from 0.4 it replaced
  *                    was there by 134 to 153ms), over by 260ms, and never
  *                    moving (transform none on every frame)
- *   THE OUTLINE      the selected tab's outline, frame by frame: it slides
- *                    (three or more frames between the two tabs) and ends
- *                    exactly on the new tab
+ *   THE PILL         the selected tab's pill, frame by frame: it slides
+ *                    (three or more frames between the two tabs), ends
+ *                    exactly on the new tab, is never scaled (no stretch),
+ *                    never passes where it is going (no overshoot, in
+ *                    position or width), and is declared as 200ms on a
+ *                    plain ease out ("more normal, regular, clean and
+ *                    smooth"). SETTINGS_SHOTS adds it photographed part way,
+ *                    slowed twenty times.
  *   NOT ON LOAD      the first paint, and a tab opened by ?tab= on load, are
  *                    simply there: no fade, no slide
  *   NOT ON RE-RENDER typing in General's Name field repaints the form, and
@@ -88,7 +93,9 @@ const server = createServer((req, res) => {
     const free = { id: "free", name: "Free", price_cents: 0, billing_period: null, features: [] }
     const body = req.url.startsWith("/api/billing/overview")
       ? { plans: [free, { id: "growth", name: "Growth", price_cents: 2990, billing_period: "month", features: [] }, { id: "pro", name: "Pro", price_cents: 9900, billing_period: "month", features: [] }], subscription: null, currentPlan: free, invoices: [], paymentMethod: null }
-      : req.url.startsWith("/api/domains") ? { domains: [] } : {}
+      : req.url.startsWith("/api/domains") ? { domains: [] }
+      /* Nothing stored yet: every category on its defaults, which is what a new account reads. */
+      : req.url.startsWith("/api/notifications/preferences") ? { categories: [] } : {}
     setTimeout(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(body)) }, 120)
     return
   }
@@ -140,6 +147,9 @@ const RECORDER = () => {
       ringX: rr && row ? Math.round((rr.left - row.left) * 10) / 10 : null,
       ringW: rr ? Math.round(rr.width * 10) / 10 : null,
       ringAnims: ring ? ring.getAnimations().length : 0,
+      ringTiming: ring && ring.getAnimations()[0] ? (() => { const t = ring.getAnimations()[0].effect.getTiming(); return `${t.duration} ${t.easing}` })() : null,
+      /* Stretch: anything but a plain move and a true width (a scale squashes the hairline and the round ends). */
+      ringStretch: ring ? (() => { const c = getComputedStyle(ring); return (c.transform !== "none" && !/^matrix\(1, 0, 0, 1,/.test(c.transform)) || (c.scale && c.scale !== "none") })() : false,
       tabX: tr && row ? Math.round((tr.left - row.left) * 10) / 10 : null,
       tabW: tr ? Math.round(tr.width * 10) / 10 : null,
       scroll: s ? s.scrollTop : null,
@@ -197,9 +207,20 @@ async function press(page, errors, tab) {
   const slideFrames = rec.filter((r) => between(r.ringX)).length
   const ringOnTab = settled ? Math.abs(settled.ringX - settled.tabX) <= 0.5 && Math.abs(settled.ringW - settled.tabW) <= 0.5 && settled.ringVisible : false
   const ringDone = rec.find((r, i) => i > 0 && r.ringAnims === 0 && rec[i - 1].ringAnims > 0)
+  /* A calm slide: never scaled, and never past where it is going (no overshoot, no bounce back). */
+  const stretched = rec.filter((r) => r.ringStretch).length
+  const lo = Math.min(before.ringX ?? 0, settled?.ringX ?? 0) - 0.5
+  const hi = Math.max(before.ringX ?? 0, settled?.ringX ?? 0) + 0.5
+  const overshoot = rec.filter((r) => r.ringX != null && (r.ringX < lo || r.ringX > hi)).length
+  const wLo = Math.min(before.ringW ?? 0, settled?.ringW ?? 0) - 0.5
+  const wHi = Math.max(before.ringW ?? 0, settled?.ringW ?? 0) + 0.5
+  const widthOut = rec.filter((r) => r.ringW != null && (r.ringW < wLo || r.ringW > wHi)).length
   return {
     tab, barMoved, contentMoved, leftMoved, blank, shift: Math.round(shift * 10000) / 10000, gutterChanged, scroll: [before.scroll, settled?.scroll],
     visibleAt: full ? Math.round(full.t - t0) : null, fading, minOpacity, rose, slideFrames, ringOnTab, slideEndsAt: ringDone ? Math.round(ringDone.t - t0) : null,
+    stretched, overshoot, widthOut,
+    /* The slide itself, from its first frame to its last: the click's own render is not part of it. */
+    slideTiming: rec.find((r) => r.ringTiming)?.ringTiming ?? null,
     curve,
   }
 }
@@ -238,6 +259,19 @@ for (const [label, viewport] of [
     const f = window.__rec.filter((r) => r.t >= t1)
     return { frames: f.length, minOpacity: Math.min(...f.map((r) => r.opacity)), anims: Math.max(0, ...f.map((r) => r.anims)), name: document.querySelector("#firstName").value }
   }, t1)
+  /* The pill part way, slowed twenty times, so a person can look at it: its hairline and round ends keep their shape. */
+  if (process.env.SETTINGS_SHOTS) {
+    const cdp = await page.createCDPSession()
+    await cdp.send("Animation.enable")
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.05 })
+    const clip = await page.evaluate(() => { const r = document.querySelector("[data-settings-tabs]").getBoundingClientRect(); return { x: Math.max(0, r.x), y: r.y - 4, width: Math.min(r.width, innerWidth - Math.max(0, r.x)), height: r.height + 8 } })
+    await page.evaluate(() => document.querySelectorAll("[data-settings-tabs] button")[3].click())
+    for (const ms of [30, 70, 120, 250]) {
+      await wait(ms === 30 ? 600 : (ms - [30, 70, 120, 250][[30, 70, 120, 250].indexOf(ms) - 1]) * 20)
+      await page.screenshot({ path: join(process.env.SETTINGS_SHOTS, `settings-pill-${label}-${String(ms).padStart(3, "0")}ms.png`), clip })
+    }
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+  }
   await page.close()
 
   /* A tab opened by the address on load is there at once too. */
@@ -281,6 +315,10 @@ for (const [label, viewport] of [
     else if (r.visibleAt < 160) problems.push(`${at} fully there at ${r.visibleAt}ms, as direct as before`)
     if (r.slideFrames < 3) problems.push(`${at} the outline slid over ${r.slideFrames} frames`)
     if (!r.ringOnTab) problems.push(`${at} the outline did not end on the tab`)
+    if (r.stretched) problems.push(`${at} the pill was scaled (stretched) on ${r.stretched} frames`)
+    if (r.overshoot || r.widthOut) problems.push(`${at} the pill went past where it was going (${r.overshoot} frames in position, ${r.widthOut} in width)`)
+    /* The slide's own timing, as declared (frame times on a busy machine say more about the machine): 200ms on a plain ease out that never passes 1. */
+    if (r.slideTiming && !/^200 cubic-bezier\(0\.33, 1, 0\.68, 1\)$/.test(r.slideTiming)) problems.push(`${at} the pill slides on ${r.slideTiming}, not 200ms on a plain ease out`)
   }
   const at = `at ${label}:`
   if (load.minOpacity < 1 || load.anims) problems.push(`${at} the first paint faded (min opacity ${load.minOpacity}, ${load.anims} animations)`)

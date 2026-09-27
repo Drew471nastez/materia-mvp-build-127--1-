@@ -173,10 +173,31 @@ export function NotificationPreferencesPanel() {
             <PreferenceRow key={row.category} row={row} error={errors[row.category]} onChange={change} />
           )) ??
             CATEGORY_INFO.map((c) => (
-              /* The same rows' height while they load, so nothing moves when they land. */
-              <li key={c.category} className="flex min-h-12 items-center justify-between gap-3 py-3">
-                <span className="h-3.5 w-32 rounded bg-[#f1f2f4]" />
-                <span className="h-[22px] w-[120px] rounded-full bg-[#f6f7f8]" />
+              /*
+                THE REAL ROWS WHILE THEY LOAD. The names and the lines under
+                them never come from the server, so they are drawn at once and
+                only the switches wait. The rows used to be one grey bar each,
+                48px tall, and the real rows (a name over a line, taller, and
+                two or three lines on a phone) pushed the card down 16px a row
+                when they landed, a jump just after the tab had faded in.
+              */
+              <li key={c.category} className="flex min-h-12 items-center justify-between gap-3 py-3" data-notification-pref-loading={c.category}>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium leading-[1.4] text-[#1a1a2e]">{c.label}</p>
+                  <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{c.detail}</p>
+                </div>
+                {c.required ? (
+                  <span className="flex w-[148px] shrink-0 justify-center text-[13px] text-[#9ca3af]">Always on</span>
+                ) : (
+                  <div className="flex shrink-0 items-center" aria-hidden="true">
+                    <span className={EMAIL_COL}>
+                      <span className="h-[22px] w-10 rounded-full bg-[#f1f2f4]" />
+                    </span>
+                    <span className={APP_COL}>
+                      <span className="h-[22px] w-10 rounded-full bg-[#f1f2f4]" />
+                    </span>
+                  </div>
+                )}
               </li>
             ))}
         </ul>
