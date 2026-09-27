@@ -261,8 +261,8 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
       aiSite.indexOf("aiSiteAddresses(site.creatorId, published)") > aiSite.indexOf("if (!result.ok)"))
   const products = code("app/app/products/products-client.tsx")
   check("a deleted product by the slug it had, only once the delete went through, and only if it was live",
-    /if \(productToDelete\.status === "published" && productToDelete\.slug\) announceChange\(\{ removedProduct: productToDelete\.slug \}\)/.test(products) &&
-      products.indexOf("announceChange({ removedProduct") > products.indexOf('throw new Error("Nothing was deleted")'))
+    /if \(product\.status === "published" && product\.slug\) announceChange\(\{ removedProduct: product\.slug \}\)/.test(products) &&
+      products.indexOf("announceChange({ removedProduct") > products.indexOf('if (result.outcome === "deleted")'))
   check("which the server believes only for a real slug no product of theirs still has",
     /typeof body\?\.removedProduct === "string" && SLUG\.test\(body\.removedProduct\)/.test(api) && /removedProductAddresses\(slug, creatorId\)/.test(api) &&
       /if \(still \|\| !notSpam\(handle\)\) return \[\]/.test(announce))

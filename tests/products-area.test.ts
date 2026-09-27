@@ -616,7 +616,9 @@ function productsTable(rows: Row[], opts: { refuseArchivedStatus?: boolean } = {
 check("the list uses these and updates from the row the database answered with",
   /restoreProduct\(supabase, product\.id\)/.test(list) && /archiveProduct\(supabase, product\.id\)/.test(list) && /\{ \.\.\.p, \.\.\.row \}/.test(list) &&
     !/update\(\{ archived: newArchivedState \}\)/.test(list) && !/const isArchived = /.test(list))
-check("a delete row level security refused is not reported as done", /\.delete\(\)\s*\.eq\("id", productToDelete\.id\)\s*\.select\("id"\)/.test(list) && /if \(!gone\?\.length\)/.test(list))
+/* The delete is the server's now (app/api/products/delete), which counts the rows it deleted: tests/product-delete.test.ts. */
+check("a delete row level security refused is not reported as done",
+  /await deleteProduct\(product\.id\)/.test(list) && /if \(!gone\.data \|\| gone\.data\.length === 0\) return \{ kind: "failed"/.test(code("lib/products/delete-product.ts")))
 check("the PDF report escapes what a creator typed before it is written into a window of this origin",
   /\$\{escapeHtml\(product\.title\)\}/.test(list) && !/<td class="product-title">\$\{product\.title\}<\/td>/.test(list))
 check("the delete question takes focus, closes on Escape unless a delete is running, and gives focus back",
