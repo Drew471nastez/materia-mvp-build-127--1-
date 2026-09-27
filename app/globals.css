@@ -120,9 +120,9 @@ html.capacitor.app-layout {
   down to the bar's own height — 68px under the status bar on a phone, 58px
   from md, read with env(safe-area-inset-top) so a browser gets 0, the same
   way the surface and app/app/cold-start.tsx write it — and the surface's
-  own colour under it (the page's #f8f9fa on a phone, white from md), with
-  the bar's rounded corners. A frame painted before the screen is parsed is
-  then the screen's own surface instead of a white page.
+  own colour under it (the page's #f8f9fa on a phone, white from md). A
+  frame painted before the screen is parsed is then the screen's own
+  surface instead of a white page.
 
   `background-attachment: fixed` because this background is propagated to
   the canvas and would otherwise be laid out in the root element's own box,
@@ -143,36 +143,31 @@ html.switch-arriving {
      the height of nothing. */
   min-height: 100svh;
   /* The phone's surface is the page's own #f8f9fa (components/app/business-
-     switch-screen SwitchSurface), so this field is too. And the bar's two
-     corners are drawn here as well, where the header hangs them (the radius
-     from app-top-corners below, the same --app-top-corner): a frame of the
-     canvas alone is then the screen's surface with its corners, not a flat
-     band over a square edge that rounds a frame later. Each corner is a
-     quarter circle of the page's colour cut out of a square of the bar's.
+     switch-screen SwitchSurface), so this field is too; white from md.
 
-     No custom properties of its own, on purpose: a custom property set on
-     <html> is inherited by every element, so taking the class off at the
-     hand over would restyle the whole page in the middle of the screen's
-     fade (measured: a 175ms task at a phone's speed). Plain values only. */
+     ONE PLAIN GRADIENT AND NOTHING ELSE, both measured at a phone's speed
+     (scripts/check-business-switch.mjs, "no long task while the screen hands
+     over"). The class comes off in the last frame of the screen's fade, and
+     what it takes with it has to be cheap to take:
+       custom properties set here are inherited by every element, so taking
+       them off restyled the whole page: a 175ms task;
+       the bar's corners drawn here as two radial gradients made the fixed
+       root background expensive to repaint: a 56 to 118ms task on every
+       switch, against no task at all without them. The corners are only
+       missing on a frame of the canvas alone, in a browser that paints the
+       new document before its screen is parsed, and the screen draws them
+       itself a frame later; a task on every switch is the worse trade. */
   background-color: #f8f9fa;
-  background-image:
-    radial-gradient(circle at 100% 100%, transparent calc(var(--app-top-corner) - 0.5px), #111111 var(--app-top-corner)),
-    radial-gradient(circle at 0 100%, transparent calc(var(--app-top-corner) - 0.5px), #111111 var(--app-top-corner)),
-    linear-gradient(#111111 0, #111111 calc(68px + env(safe-area-inset-top, 0px)), #f8f9fa calc(68px + env(safe-area-inset-top, 0px)));
-  background-size: var(--app-top-corner) var(--app-top-corner), var(--app-top-corner) var(--app-top-corner), 100% 100%;
-  background-position: 0 calc(68px + env(safe-area-inset-top, 0px)), 100% calc(68px + env(safe-area-inset-top, 0px)), 0 0;
+  background-image: linear-gradient(#111111 0, #111111 calc(68px + env(safe-area-inset-top, 0px)), #f8f9fa calc(68px + env(safe-area-inset-top, 0px)));
   background-repeat: no-repeat;
   background-attachment: fixed;
+  background-size: 100% 100%;
 }
 
 @media (min-width: 768px) {
   html.switch-arriving {
     background-color: #ffffff;
-    background-image:
-      radial-gradient(circle at 100% 100%, transparent calc(var(--app-top-corner) - 0.5px), #131316 var(--app-top-corner)),
-      radial-gradient(circle at 0 100%, transparent calc(var(--app-top-corner) - 0.5px), #131316 var(--app-top-corner)),
-      linear-gradient(#131316 0, #131316 calc(58px + env(safe-area-inset-top, 0px)), #ffffff calc(58px + env(safe-area-inset-top, 0px)));
-    background-position: 0 calc(58px + env(safe-area-inset-top, 0px)), 100% calc(58px + env(safe-area-inset-top, 0px)), 0 0;
+    background-image: linear-gradient(#131316 0, #131316 calc(58px + env(safe-area-inset-top, 0px)), #ffffff calc(58px + env(safe-area-inset-top, 0px)));
   }
 }
 

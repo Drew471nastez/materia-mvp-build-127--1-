@@ -268,9 +268,8 @@ function switchScreen() {
   check("  and that canvas is the screen's own two fields, at the bar's height at each width, outside every layer",
     /html\.switch-arriving \{/.test(globals) && /linear-gradient\(#111111 0, #111111 calc\(68px \+ env\(safe-area-inset-top, 0px\)\), #f8f9fa calc\(68px \+ env\(safe-area-inset-top, 0px\)\)\)/.test(globals)
       && /linear-gradient\(#131316 0, #131316 calc\(58px \+ env\(safe-area-inset-top, 0px\)\), #ffffff calc\(58px \+ env\(safe-area-inset-top, 0px\)\)\)/.test(globals)
-      && /radial-gradient\(circle at 100% 100%, transparent calc\(var\(--app-top-corner\) - 0\.5px\), #111111 var\(--app-top-corner\)\)/.test(globals)
-      /* No custom property of its own on <html>: taking the class off would restyle every element in the middle of the hand over. */
-      && !/html\.switch-arriving \{[^}]*\n\s*--[a-z-]+:/.test(globals)
+      /* One plain gradient and no custom property of its own: taking the class off happens in the hand over's last frame, and either cost a long task there (measured). */
+      && !/html\.switch-arriving \{[^}]*\n\s*--[a-z-]+:/.test(globals) && !/html\.switch-arriving \{[^}]*radial-gradient/.test(globals)
       && /html\.switch-arriving body \{\s*background-color: transparent;/.test(globals)
       && /background-attachment: fixed;/.test(globals))
   check("  and it comes off again when the screen hands over",
