@@ -18,7 +18,8 @@
  *               several frames, not in one jump, and far enough to show
  *               what was cut off
  *   the caret   a press on an arrow, by mouse or by finger, keeps the
- *               selection in the text; Bold pressed afterwards bolds it
+ *               selection in the text; Bold pressed afterwards bolds it; a
+ *               keyboard shortcut lights its control at once
  *   layout      the controls do not move when the arrows come and go; the
  *               page never scrolls sideways
  *   the link    at 390 the link form is inside the window, 16px, 44px tall
@@ -228,6 +229,12 @@ try {
       await sleep(120)
       const v = await p.evaluate(() => window.__value)
       expect(/Hello <(b|strong)>world<\/(b|strong)>/.test(v), "Bold keeps the selection and bolds it", v)
+      await p.keyboard.down("Control")
+      await p.keyboard.press("i")
+      await p.keyboard.up("Control")
+      await sleep(120)
+      const italic = await p.$eval(`${FIELD} button[aria-label="Italic"]`, (b) => b.getAttribute("aria-pressed"))
+      expect(italic === "true" && /<i>world<\/i>|<i><(b|strong)>world|<(b|strong)><i>world/.test(await p.evaluate(() => window.__value)), "Ctrl and I italicises it, and Italic shows as pressed straight away", { italic, v: await p.evaluate(() => window.__value) })
       await shoot(p, FIELD, `field-${label}`)
     }
     expect((await sideways(p)) <= 0, "the page never scrolls sideways", await sideways(p))

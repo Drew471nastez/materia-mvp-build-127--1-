@@ -384,6 +384,32 @@ console.log("\nA picture's size, shape and place")
   check("the field has an Emoji control, and no blue focus ring", /emoji: \{ label: "Emoji", icon: Smile \}/.test(editor) && !/ring-ring/.test(editor) && !/focus:border-ring/.test(editor))
 }
 
+/*
+ * THE TOOLBAR ROW THAT SCROLLS SIDEWAYS. "Add an arrow plus a smooth, clean
+ * edge fade at the horizontal scroll of the toolbar buttons." One row
+ * (components/app/rich-text/scroll-row.tsx) for every formatting toolbar;
+ * scripts/check-toolbar-scroll.mjs measures it in a browser.
+ */
+section("A toolbar row that scrolls sideways fades and has an arrow at the end with more")
+{
+  const row = read("components/app/rich-text/scroll-row.tsx")
+  check("its ends are read once a frame, from the scroll and from a ResizeObserver",
+    /requestAnimationFrame\(read\)/.test(row) && /addEventListener\("scroll", schedule, \{ passive: true \}\)/.test(row) && /new ResizeObserver\(schedule\)/.test(row))
+  check("the fade slides (mask-position), it does not switch", /transition-\[mask-position,-webkit-mask-position\]/.test(row) && /maskComposite: "intersect"/.test(row))
+  check("an arrow scrolls the row smoothly, and still where motion is reduced", /row\.scrollBy\(\{ left: dir \* by, behavior: still \? "auto" : "smooth" \}\)/.test(row))
+  check("an arrow keeps the text's selection", /data-scroll-arrow=\{side\}[\s\S]{0,200}onMouseDown=\{\(e\) => e\.preventDefault\(\)\}/.test(row))
+  check("a hidden arrow cannot be pressed", /pointer-events-none opacity-0/.test(row) && /group-data-\[end=true\]\/scrollrow:pointer-events-auto/.test(row))
+  check("no scrollbar, and a focused control clears the fade", /\[scrollbar-width:none\]/.test(row) && /scrollPaddingInline/.test(row))
+  const rte = read("components/app/rich-text-editor.tsx")
+  const bar = read("components/email/compose/format-bar.tsx")
+  const builder = read("components/website-builder/rich-text-field.tsx")
+  check("the description field, the email composer's bar and the builder's field all use it",
+    /<ScrollRow/.test(rte) && (bar.match(/<ScrollRow/g) ?? []).length === 2 && /<ScrollRow/.test(builder))
+  check("each arrow is as big a target as the controls beside it", /arrowClassName="w-11 sm:w-8"/.test(rte) && /const ARROW = "w-11 md:w-8"/.test(bar))
+  check("the arrows are not in the toolbar's arrow key order", /button:not\(\[disabled\]\):not\(\[data-scroll-arrow\]\)/.test(rte))
+  check("a shortcut lights its control at once", /type\?\.startsWith\("format"\)\) readActive\(\)/.test(rte))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

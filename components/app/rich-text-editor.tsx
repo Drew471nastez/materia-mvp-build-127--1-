@@ -1260,6 +1260,10 @@ export function RichTextEditor({
           onInput={(e) => {
             if (!(e.nativeEvent as InputEvent).isComposing) ensureBlock()
             commit()
+            /* A shortcut (Cmd or Ctrl and B, I, U) changes the marks without
+               moving the caret, so no selectionchange says so: read them here. */
+            const type = (e.nativeEvent as InputEvent).inputType
+            if (type?.startsWith("format")) readActive()
           }}
           onBlur={commit}
           onKeyDown={onKeyDown}
