@@ -309,7 +309,12 @@ function main() {
   const page = code("app/receipt/[token]/page.tsx")
   check("the page is never indexed and sends no Referer", /index: false/.test(page) && /referrer: "no-referrer"/.test(page))
   check("a malformed token is a 404 before any query", /if \(!isPlausibleToken\(token\)\) notFound\(\)/.test(page))
-  check("the browser gets the view model, not the order row", /<ReceiptView receipt=\{loaded\.view\}/.test(page) && !/select\("\*/.test(page))
+  /* Changed on purpose: the page now adds a discount code's saving to the
+     view model (lib/receipts/discount, from the invoice's reading of the
+     payment) before handing it over, so it passes `receipt`, which starts
+     as `loaded.view`. Still the view model, never an order row. */
+  check("the browser gets the view model, not the order row",
+    /let receipt = loaded\.view/.test(page) && /receipt = withDiscount\(receipt, invoice\)/.test(page) && /<ReceiptView receipt=\{receipt\}/.test(page) && !/select\("\*/.test(page))
 
   const view = read("app/receipt/[token]/receipt-view.tsx")
   check("a pending payment refreshes by itself", /router\.refresh\(\)/.test(view) && /PENDING_POLL_LIMIT/.test(view))
