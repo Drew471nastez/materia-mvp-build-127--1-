@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, useEffect, useRef } from "react"
+import { useCallback, useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
@@ -23,13 +23,32 @@ import { PricingSection } from "@/components/marketing/pricing-section"
 import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibMark } from "@/components/storelib-mark"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { TextSwap } from "@/components/ui/text-swap"
 
-/**
- * How long a step takes to leave, in ms. It is the CSS duration and the
- * timer that swaps the step, one number, so the two cannot drift: a swap
- * late by a frame is seen as a pop rather than a change.
- */
-const STEP_SWAP_MS = 180
+/*
+  ONE CLOCK FOR EVERY MOVE IN THE ONBOARDING. A step change is a crossfade:
+  the next step arrives over STEP_IN_MS while the one on screen leaves over
+  the shorter STEP_OUT_MS, both at once and on the same curve, drifting
+  STEP_SHIFT px the way the flow is going. The two overlap, so there is never
+  a frame with nothing on screen (the old one leaving first and the new one
+  arriving after it left a blank beat between them), and the old one is
+  mostly gone before the new one is clearly there, so they are never read as
+  two pages on top of each other. The footer's buttons, the progress bar and
+  the setup screen's lines move on the same curve.
+*/
+const STEP_IN_MS = 280
+const STEP_OUT_MS = 160
+const STEP_SHIFT = 16
+const MOTION_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+/** A button or group that comes and goes with the step: it fades, and is gone for a press or a tab once it has. */
+const fadeWith = (on: boolean, extra = ""): CSSProperties => ({
+  opacity: on ? 1 : 0,
+  visibility: on ? "visible" : "hidden",
+  transition: `opacity 200ms ${MOTION_EASE}, visibility 0s linear ${on ? 0 : 200}ms${extra ? `, ${extra}` : ""}`,
+})
+/** The one line on the setup screen, whichever phase it names. */
+const SETUP_LINE = "text-[20px] font-semibold leading-7 text-[#1a1a2e] sm:text-[22px]"
+const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
 /*
   ONE TYPE SCALE FOR EVERY STEP. The four steps had four sizes of heading
@@ -401,11 +420,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
+  /** The step on its way out, drawn under the new one while the two crossfade, and how far it was scrolled. */
+  const [leavingStep, setLeavingStep] = useState<{ step: number; offset: number } | null>(null)
   /** The panel the steps are drawn in, so the next one starts at its top. */
   const stepScrollRef = useRef<HTMLDivElement | null>(null)
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stepEnterRef = useRef<HTMLDivElement | null>(null)
+  const stepLeaveRef = useRef<HTMLDivElement | null>(null)
+  /** Which way the step change that is about to render goes, or null to change without moving. */
+  const stepMoveRef = useRef<"left" | "right" | null>(null)
   useEffect(() => () => {
     if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
   }, [])
@@ -809,30 +832,46 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   }
 
   /**
-   * MOVING BETWEEN STEPS. The step on screen leaves, the next one arrives,
-   * and `STEP_SWAP_MS` is that half of it: the same number is the CSS
-   * duration and this timer, so the swap happens as the old step finishes
-   * going rather than a frame or two after, which is what was read as a pop.
+   * MOVING BETWEEN STEPS. The new step is drawn at once and the old one stays
+   * beside it, in the same cell, while one fades and drifts in and the other
+   * fades and drifts out (the layout effect below). The panel is back at its
+   * top for the new step, and the old one is held where it was scrolled to,
+   * so nothing on screen jumps. With less motion asked for, the step simply
+   * changes.
    *
-   * A second press while a step is already leaving is ignored. Before, two
-   * presses in the same 200ms started two timers and skipped a step.
-   *
-   * The next step starts at its top. Step 2's categories are taller than
-   * step 1 on a phone, so going back landed part way down a short step.
+   * A second press while a step is still arriving is ignored. Before, two
+   * presses in the same moment started two changes and skipped a step.
    */
-  const goToStep = (next: number, direction: "left" | "right") => {
-    if (isAnimating) return
+  const showStep = (next: number, direction: "left" | "right", animate = true) => {
     /* A failed way back is about the moment it failed, not about every step after it. */
     setSwitchBackError(null)
-    setSlideDirection(direction)
-    setIsAnimating(true)
-    if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
-    stepTimerRef.current = setTimeout(() => {
-      setCurrentStep(next)
-      stepScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-      setIsAnimating(false)
-    }, STEP_SWAP_MS)
+    if (next === currentStep) return
+    const calm = !animate || reducedMotion()
+    stepMoveRef.current = calm ? null : direction
+    setLeavingStep(calm ? null : { step: currentStep, offset: stepScrollRef.current?.scrollTop ?? 0 })
+    setCurrentStep(next)
   }
+  const goToStep = (next: number, direction: "left" | "right") => {
+    if (leavingStep) return
+    showStep(next, direction)
+  }
+  useLayoutEffect(() => {
+    stepScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+    const direction = stepMoveRef.current
+    stepMoveRef.current = null
+    if (!direction) return
+    const dx = direction === "right" ? STEP_SHIFT : -STEP_SHIFT
+    stepEnterRef.current?.animate(
+      [{ opacity: 0, translate: `${dx}px 0` }, { opacity: 1, translate: "0 0" }],
+      { duration: STEP_IN_MS, easing: MOTION_EASE },
+    )
+    stepLeaveRef.current?.animate(
+      [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: `${-dx}px 0` }],
+      { duration: STEP_OUT_MS, easing: MOTION_EASE, fill: "forwards" },
+    )
+    if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
+    stepTimerRef.current = setTimeout(() => setLeavingStep(null), STEP_IN_MS)
+  }, [currentStep])
 
   // Handle next step
   const handleNext = () => {
@@ -871,7 +910,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const _cat = overrideData?.selectedCategory !== undefined ? overrideData.selectedCategory : selectedCategory
     const _slug = _dn.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 
-    setCurrentStep(5)
+    /* From the plan step it crossfades like any other step; back from Stripe it is simply there. */
+    showStep(5, "right", !overrideData)
     setIsSettingUp(true)
 
     // Phase 1: Creating your profile... (2 seconds)
@@ -1202,6 +1242,372 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     ? allCategories.filter(c => c.toLowerCase().includes(categorySearch.toLowerCase()))
     : EXTENDED_CATEGORIES
 
+  /**
+   * ONE STEP'S CONTENT, BY NUMBER. Drawn for the step on screen and, for
+   * the moment a step change takes, for the one leaving beside it.
+   */
+  const renderStep = (step: number) => (
+    <>
+        {/* Step 1: Let's get started */}
+        {step === 1 && (
+          <div className="flex flex-col items-center">
+            <div className={HEADING_BLOCK}>
+              <h1 className={HEADING}>
+                Name your store
+              </h1>
+              <p className={SUBHEADING}>
+                You can change it later, and everything else too.
+              </p>
+            </div>
+
+            {/* Input fields */}
+            <div className="w-full max-w-[600px] space-y-3 sm:space-y-4">
+              {/* Username input - with shop bag icon */}
+              <div className="relative">
+                <div className={cn(
+                  "flex items-center gap-3 px-5 h-[56px] rounded-[14px] transition-[background-color,box-shadow]",
+                  usernameFocused
+                    ? "bg-white shadow-[0_0_0_2px_#1a1a2e]"
+                    : FIELD_REST
+                )}>
+                  <ShoppingBag className="w-5 h-5 text-gray-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    onFocus={() => setUsernameFocused(true)}
+                    onBlur={() => setUsernameFocused(false)}
+                    placeholder="Your store name"
+                    className="flex-1 text-base outline-none bg-transparent"
+                    autoFocus={false}
+                    autoComplete="off"
+                  />
+                  {checkingUsername && (
+                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                  )}
+                  {!checkingUsername && usernameAvailable === true && displayName && (
+                    <Check className="w-5 h-5 text-green-500" />
+                  )}
+                  {!checkingUsername && usernameAvailable === false && displayName && (
+                    <X className="w-5 h-5 text-red-500" />
+                  )}
+                </div>
+                {usernameAvailable === false && (
+                  <p className="text-red-500 text-xs mt-1.5 ml-1">This name is not available</p>
+                )}
+              </div>
+
+              {/* URL preview */}
+              <div className={cn("flex items-center gap-3 px-5 h-[56px] rounded-[14px]", FIELD_REST)}>
+                <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span className="text-base">
+                  <span className="text-black font-medium">{getSlug() || "username"}</span>
+                  <span className="text-gray-400">.storelib.com</span>
+                </span>
+              </div>
+
+              {/* Bio input */}
+              <div className={cn("flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[14px]", FIELD_WELL)}>
+                <svg className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell us a few words about you..."
+                  rows={2}
+                  className="flex-1 text-base outline-none bg-transparent resize-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Store Category */}
+        {step === 2 && (
+          <div className="flex flex-col items-center">
+            <div className={HEADING_BLOCK}>
+              <h1 className={HEADING}>
+                Store category
+              </h1>
+              <p className={SUBHEADING}>
+                Choose what best fits your store.
+              </p>
+            </div>
+
+            {/* Category pills */}
+            {/*
+              Each category a white pill on a hairline, the chosen one
+              near black; the ring is a shadow, not a border, so
+              choosing one changes its colour and not its size.
+              "Other" sits with "See more" at the end of the pills,
+              where the choice is made: in the row of buttons at the
+              bottom it read as a way through the step, beside Skip.
+            */}
+            <div data-onboarding-categories="" className="w-full max-w-[650px] flex flex-wrap justify-center gap-2.5 sm:gap-3">
+              {PRIMARY_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  aria-pressed={selectedCategory === category}
+                  onClick={() => setSelectedCategory(selectedCategory === category ? null : category)}
+                  className={cn(CATEGORY_PILL, selectedCategory === category ? CATEGORY_ON : CATEGORY_OFF)}
+                >
+                  {category}
+                </button>
+              ))}
+
+              {/* Show selected extended category inline so user can see it */}
+              {selectedCategory && !PRIMARY_CATEGORIES.includes(selectedCategory) && (
+                <button
+                  key={selectedCategory}
+                  type="button"
+                  aria-pressed="true"
+                  onClick={() => setSelectedCategory(null)}
+                  className={cn(CATEGORY_PILL, CATEGORY_ON)}
+                >
+                  {selectedCategory}
+                </button>
+              )}
+
+              {/* See more and Other, together, so a wrap never parts them. */}
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(true)}
+                  className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
+                >
+                  See more
+                </button>
+                <span aria-hidden="true" className="h-4 w-px bg-[#e5e7eb]" />
+                <button
+                  type="button"
+                  data-onboarding-other=""
+                  onClick={() => {
+                    setSelectedCategory(null)
+                    handleNext()
+                  }}
+                  className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
+                >
+                  Other
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* Step 3: Socials & Profile */}
+        {step === 3 && (
+          <div className="flex flex-col items-center">
+            <div className={HEADING_BLOCK}>
+              <h1 className={HEADING}>
+                Add your socials
+              </h1>
+              <p className={SUBHEADING}>
+                These will appear on your OnePage
+              </p>
+            </div>
+
+            <div className="w-full max-w-[600px] flex flex-col sm:flex-row gap-4 sm:gap-8">
+              {/* Avatar section */}
+              <div className="flex flex-col items-center shrink-0">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl sm:text-3xl font-bold text-gray-400">
+                      {displayName.charAt(0).toUpperCase() || "A"}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="mt-2 sm:mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarSelect}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Social inputs */}
+              <div className="flex-1 space-y-3">
+                {/* Instagram */}
+                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
+                  <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
+                  <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
+                  <input
+                    type="text"
+                    value={socials.instagram}
+                    onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
+                    placeholder="username"
+                    className="flex-1 text-sm sm:text-base outline-none bg-transparent"
+                  />
+                </div>
+
+                {/* TikTok */}
+                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
+                  <TikTokIcon className="w-5 h-5 shrink-0" />
+                  <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
+                  <input
+                    type="text"
+                    value={socials.tiktok}
+                    onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
+                    placeholder="username"
+                    className="flex-1 text-sm sm:text-base outline-none bg-transparent"
+                  />
+                </div>
+
+                {/* YouTube */}
+                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
+                  <Youtube className="w-5 h-5 text-red-500 shrink-0" />
+                  <input
+                    type="text"
+                    value={socials.youtube}
+                    onChange={(e) => setSocials({ ...socials, youtube: e.target.value })}
+                    placeholder="youtube.com/@username"
+                    className="flex-1 text-sm sm:text-base outline-none bg-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Choose a Plan */}
+        {step === 4 && (
+          <div className="flex flex-col">
+            <div className={HEADING_BLOCK}>
+              <h1 className={HEADING}>
+                Choose your plan
+              </h1>
+              <p className={SUBHEADING}>
+                Start free and upgrade when you need to.
+              </p>
+            </div>
+
+            <PricingSection
+              compact
+              hideDetailsLink
+              onboardingCallbacks={{
+                onPlanSelect: (planId) => {
+                  if (planId === "free") handleSelectFree()
+                  else handleSelectPaid(planId)
+                },
+                loadingPlan: planCheckoutLoading,
+                ctaLabels: {
+                  free: "Start free",
+                  growth: "Get Pro",
+                },
+              }}
+            />
+          </div>
+        )}
+
+        {/*
+          ═══════════════════════════════════════════════════════════
+           THE LAST STEP: SETTING UP, IN ONE CALM PLACE
+          ═══════════════════════════════════════════════════════════
+          It drew its own copy of the mark inside a white rounded box
+          that clipped it: the box's corners and the mark's own did not
+          match, so the violet tile was cut at every corner, with two
+          pulsing squares behind it. Now the one mark
+          (components/storelib-mark), whole, with a soft shadow that
+          follows its shape, and under it one line at a time that
+          crossfades as setup moves on, over three short marks that
+          fill as each phase finishes. Nothing in it changes size, so
+          the screen holds still between phases.
+        */}
+        {step === 5 && (() => {
+          const state = setupError ? "error" : setupComplete ? "done" : setupPhase ?? "creating"
+          const reached = state === "done" ? 3 : state === "almost" ? 2 : state === "applying" ? 1 : 0
+          return (
+            <div data-onboarding-setup={state} className="flex h-full min-h-[300px] flex-col items-center justify-center px-4 pb-6 text-center sm:min-h-[360px]">
+              {/* 5% under the 64 and 72px it was ("make the logo icon about 5% smaller"), as a size, not a scale. */}
+              <StorelibMark className="h-[61px] w-[61px] drop-shadow-[0_8px_18px_rgba(139,86,250,0.28)] sm:h-[68px] sm:w-[68px]" />
+              {/*
+                Every phase's line is laid out in one cell and crossfades to
+                the next with a short roll (components/ui/text-swap): the new
+                line arrives as the old one goes, never after a blank beat,
+                and the cell is the size of the longest, so nothing under it
+                moves. The marks and Try again share a cell the same way.
+              */}
+              <div className="mt-6" aria-live="polite">
+                <TextSwap
+                  as="div"
+                  align="center"
+                  value={state}
+                  items={{
+                    creating: <h1 className={SETUP_LINE}>Creating your store</h1>,
+                    applying: <h1 className={SETUP_LINE}>Applying your settings</h1>,
+                    almost: <h1 className={SETUP_LINE}>Almost ready</h1>,
+                    done: (
+                      <h1 className={cn(SETUP_LINE, "inline-flex items-center gap-2.5")}>
+                        Your store is ready
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a] shadow-[0_1px_2px_rgba(22,163,74,0.35)]">
+                          <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                        </span>
+                      </h1>
+                    ),
+                    error: (
+                      <div>
+                        <h1 className={SETUP_LINE}>Your store was not saved</h1>
+                        <p className="mt-1.5 text-[15px] leading-[21px] text-[#6b7280]">Check your connection and try again.</p>
+                      </div>
+                    ),
+                  }}
+                />
+              </div>
+              <TextSwap
+                as="div"
+                align="center"
+                lift="6px"
+                className="mt-2"
+                value={state === "error" ? "retry" : "progress"}
+                items={{
+                  progress: (
+                    <div className="flex gap-1.5 pt-1" aria-hidden="true">
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className="h-1 w-8 overflow-hidden rounded-full bg-[#ede9fe]">
+                          {/* Slid in from the left and clipped, so a mark fills on `translate` and its round end is never squashed. */}
+                          <span
+                            data-onboarding-setup-mark=""
+                            className="block h-full w-full rounded-full bg-[#8b5cf6] motion-reduce:!transition-none"
+                            style={{ translate: `${(i < reached ? 1 : i === reached ? 0.45 : 0) * 100 - 100}% 0`, transition: `translate 480ms ${MOTION_EASE}` }}
+                          />
+                        </span>
+                      ))}
+                    </div>
+                  ),
+                  retry: (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSetupError(false)
+                        startSetup()
+                      }}
+                      className={cn("h-11 rounded-xl px-6 text-[14px] font-semibold transition-[background-color,box-shadow]", NEXT_ON)}
+                    >
+                      Try again
+                    </button>
+                  ),
+                }}
+              />
+            </div>
+          )
+        })()}
+    </>
+  )
+
   return (
     <>
       <Dialog open={open} onOpenChange={() => {}}>
@@ -1213,15 +1619,18 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 "fixed inset-0 top-0 left-0 w-screen h-[100dvh] max-w-none translate-x-0 translate-y-0 rounded-none"
               : cn(
                   /*
-                    Desktop: the 930 by 540 card, and never wider than the
-                    window it is in. The card was 930px from 640px up, so on
-                    a 768px tablet held upright it hung 81px off each side:
-                    Back and Next were off the screen, and there was nothing
-                    to scroll sideways to reach them. It keeps its size where
-                    there is room and takes the window's, less a margin,
-                    where there is not.
+                    Desktop: the 1040 by 610 card, and never wider or taller
+                    than the window it is in. It was 930 by 540; "increase the
+                    whole modal a bit so it expands a little more on the
+                    screen, but without touching the edges" made it about 12%
+                    larger each way. The card was once 930px from 640px up, so
+                    on a 768px tablet held upright it hung 81px off each side:
+                    Back and Next were off the screen. It keeps its size where
+                    there is room and takes the window's, less 24px on every
+                    side, where there is not (a 1280 by 720 laptop keeps 55px
+                    above and below it; a short window keeps 24px).
                   */
-                  "sm:w-[930px] sm:max-w-[calc(100vw-40px)] sm:h-[540px] sm:max-h-[calc(100dvh-40px)] sm:rounded-[44px]",
+                  "sm:w-[1040px] sm:max-w-[calc(100vw-48px)] sm:h-[610px] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]",
                   // Mobile: true fullscreen experience
                   "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
                   // Shadow
@@ -1240,7 +1649,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             "flex flex-col h-full bg-white",
             nativeFullScreen
               ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-              : "sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
+              /* The card's own limit, window included: a short window kept the column 610px tall inside a shorter card, and Back and Next were cut off under its edge. */
+              : "sm:max-h-[min(610px,calc(100dvh-48px))] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
           )}>
             {/*
               ═══════════════════════════════════════════════════════════════
@@ -1286,10 +1696,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 )}
               </div>
               <div data-onboarding-progress="" className="h-[6px] w-[160px] overflow-hidden rounded-full bg-gray-200 sm:h-[8px] sm:w-[200px]">
-                {/* Width alone, so the bar's growth is its own and nothing else is animated with it. */}
+                {/*
+                  A full length fill slid in from the left, clipped by the track,
+                  so the bar grows on `translate` alone (no layout, nothing
+                  squashed: its round end stays round), on the steps' curve.
+                */}
                 <div
-                  className="h-full rounded-full bg-purple-600 transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                  style={{ width: `${progressWidth}%` }}
+                  data-onboarding-progress-fill=""
+                  className="h-full w-full rounded-full bg-purple-600 motion-reduce:!transition-none"
+                  style={{ translate: `${progressWidth - 100}% 0`, transition: `translate 480ms ${MOTION_EASE}` }}
                 />
               </div>
               <div aria-hidden="true" />
@@ -1306,10 +1721,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               the fade, none of which the compositor can do on its own, and
               the panel it all happens in is the one being scrolled. Now the
               scroller is fixed and only what is inside it moves, on opacity
-              and transform, which are the two a phone animates without
-              drawing a frame again (`translate`, which is what translate-x-3 sets
-              in Tailwind 4, not `transform`). A person who has asked for less motion
-              gets the swap with no movement at all.
+              and `translate`, the two a phone animates without laying out
+              or drawing a frame again. The leaving step and the arriving one
+              share one grid cell for the moment they crossfade, so the cell
+              is as tall as the taller of them and nothing under it moves. A
+              person who has asked for less motion gets the change with no
+              movement at all.
             */}
             {/*
               THE EDGES OF WHAT SCROLLS FADE, THEY ARE NOT CUT. On the plan
@@ -1332,346 +1749,24 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 currentStep === 4 && "pb-4 sm:pb-6",
               )}
             >
-            <div
-              data-onboarding-step={currentStep}
-              style={{ transitionDuration: `${STEP_SWAP_MS}ms` }}
-              className={cn(
-                "transition-[opacity,translate] ease-out motion-reduce:transition-none motion-reduce:translate-x-0",
-                /* The setup screen is centred in the whole panel, so the step it sits in is the panel's height. */
-                currentStep === 5 && "h-full",
-                isAnimating && (slideDirection === "right" ? "translate-x-3 opacity-0" : "-translate-x-3 opacity-0"),
-              )}
-            >
-              {/* Step 1: Let's get started */}
-              {currentStep === 1 && (
-                <div className="flex flex-col items-center">
-                  <div className={HEADING_BLOCK}>
-                    <h1 className={HEADING}>
-                      Name your store
-                    </h1>
-                    <p className={SUBHEADING}>
-                      You can change it later, and everything else too.
-                    </p>
-                  </div>
-
-                  {/* Input fields */}
-                  <div className="w-full max-w-[600px] space-y-3 sm:space-y-4">
-                    {/* Username input - with shop bag icon */}
-                    <div className="relative">
-                      <div className={cn(
-                        "flex items-center gap-3 px-5 h-[56px] rounded-[14px] transition-[background-color,box-shadow]",
-                        usernameFocused
-                          ? "bg-white shadow-[0_0_0_2px_#1a1a2e]"
-                          : FIELD_REST
-                      )}>
-                        <ShoppingBag className="w-5 h-5 text-gray-400 shrink-0" />
-                        <input
-                          type="text"
-                          value={displayName}
-                          onChange={(e) => setDisplayName(e.target.value)}
-                          onFocus={() => setUsernameFocused(true)}
-                          onBlur={() => setUsernameFocused(false)}
-                          placeholder="Your store name"
-                          className="flex-1 text-base outline-none bg-transparent"
-                          autoFocus={false}
-                          autoComplete="off"
-                        />
-                        {checkingUsername && (
-                          <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                        )}
-                        {!checkingUsername && usernameAvailable === true && displayName && (
-                          <Check className="w-5 h-5 text-green-500" />
-                        )}
-                        {!checkingUsername && usernameAvailable === false && displayName && (
-                          <X className="w-5 h-5 text-red-500" />
-                        )}
-                      </div>
-                      {usernameAvailable === false && (
-                        <p className="text-red-500 text-xs mt-1.5 ml-1">This name is not available</p>
-                      )}
-                    </div>
-
-                    {/* URL preview */}
-                    <div className={cn("flex items-center gap-3 px-5 h-[56px] rounded-[14px]", FIELD_REST)}>
-                      <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
-                      <span className="text-base">
-                        <span className="text-black font-medium">{getSlug() || "username"}</span>
-                        <span className="text-gray-400">.storelib.com</span>
-                      </span>
-                    </div>
-
-                    {/* Bio input */}
-                    <div className={cn("flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[14px]", FIELD_WELL)}>
-                      <svg className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <textarea
-                        value={bio}
-                        onChange={(e) => setBio(e.target.value)}
-                        placeholder="Tell us a few words about you..."
-                        rows={2}
-                        className="flex-1 text-base outline-none bg-transparent resize-none"
-                      />
-                    </div>
-                  </div>
+            <div data-onboarding-steps="" className="grid min-h-full">
+              {leavingStep && (
+                <div
+                  key={leavingStep.step}
+                  ref={stepLeaveRef}
+                  data-onboarding-leaving={leavingStep.step}
+                  aria-hidden="true"
+                  inert
+                  className="pointer-events-none [grid-area:1/1]"
+                  /* Where it was on screen: the panel is back at its top for the new step, so the old one is held where it was scrolled to. */
+                  style={{ marginTop: -leavingStep.offset }}
+                >
+                  {renderStep(leavingStep.step)}
                 </div>
               )}
-
-              {/* Step 2: Store Category */}
-              {currentStep === 2 && (
-                <div className="flex flex-col items-center">
-                  <div className={HEADING_BLOCK}>
-                    <h1 className={HEADING}>
-                      Store category
-                    </h1>
-                    <p className={SUBHEADING}>
-                      Choose what best fits your store.
-                    </p>
-                  </div>
-
-                  {/* Category pills */}
-                  {/*
-                    Each category a white pill on a hairline, the chosen one
-                    near black; the ring is a shadow, not a border, so
-                    choosing one changes its colour and not its size.
-                    "Other" sits with "See more" at the end of the pills,
-                    where the choice is made: in the row of buttons at the
-                    bottom it read as a way through the step, beside Skip.
-                  */}
-                  <div data-onboarding-categories="" className="w-full max-w-[650px] flex flex-wrap justify-center gap-2.5 sm:gap-3">
-                    {PRIMARY_CATEGORIES.map((category) => (
-                      <button
-                        key={category}
-                        type="button"
-                        aria-pressed={selectedCategory === category}
-                        onClick={() => setSelectedCategory(selectedCategory === category ? null : category)}
-                        className={cn(CATEGORY_PILL, selectedCategory === category ? CATEGORY_ON : CATEGORY_OFF)}
-                      >
-                        {category}
-                      </button>
-                    ))}
-
-                    {/* Show selected extended category inline so user can see it */}
-                    {selectedCategory && !PRIMARY_CATEGORIES.includes(selectedCategory) && (
-                      <button
-                        key={selectedCategory}
-                        type="button"
-                        aria-pressed="true"
-                        onClick={() => setSelectedCategory(null)}
-                        className={cn(CATEGORY_PILL, CATEGORY_ON)}
-                      >
-                        {selectedCategory}
-                      </button>
-                    )}
-
-                    {/* See more and Other, together, so a wrap never parts them. */}
-                    <div className="flex items-center">
-                      <button
-                        type="button"
-                        onClick={() => setShowCategoryModal(true)}
-                        className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
-                      >
-                        See more
-                      </button>
-                      <span aria-hidden="true" className="h-4 w-px bg-[#e5e7eb]" />
-                      <button
-                        type="button"
-                        data-onboarding-other=""
-                        onClick={() => {
-                          setSelectedCategory(null)
-                          handleNext()
-                        }}
-                        className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
-                      >
-                        Other
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              )}
-
-              {/* Step 3: Socials & Profile */}
-              {currentStep === 3 && (
-                <div className="flex flex-col items-center">
-                  <div className={HEADING_BLOCK}>
-                    <h1 className={HEADING}>
-                      Add your socials
-                    </h1>
-                    <p className={SUBHEADING}>
-                      These will appear on your OnePage
-                    </p>
-                  </div>
-
-                  <div className="w-full max-w-[600px] flex flex-col sm:flex-row gap-4 sm:gap-8">
-                    {/* Avatar section */}
-                    <div className="flex flex-col items-center shrink-0">
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200">
-                        {avatarUrl ? (
-                          <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-2xl sm:text-3xl font-bold text-gray-400">
-                            {displayName.charAt(0).toUpperCase() || "A"}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => avatarInputRef.current?.click()}
-                        className="mt-2 sm:mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Edit
-                      </button>
-                      <input
-                        ref={avatarInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarSelect}
-                        className="hidden"
-                      />
-                    </div>
-
-                    {/* Social inputs */}
-                    <div className="flex-1 space-y-3">
-                      {/* Instagram */}
-                      <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
-                        <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
-                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
-                        <input
-                          type="text"
-                          value={socials.instagram}
-                          onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
-                          placeholder="username"
-                          className="flex-1 text-sm sm:text-base outline-none bg-transparent"
-                        />
-                      </div>
-
-                      {/* TikTok */}
-                      <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
-                        <TikTokIcon className="w-5 h-5 shrink-0" />
-                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
-                        <input
-                          type="text"
-                          value={socials.tiktok}
-                          onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
-                          placeholder="username"
-                          className="flex-1 text-sm sm:text-base outline-none bg-transparent"
-                        />
-                      </div>
-
-                      {/* YouTube */}
-                      <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
-                        <Youtube className="w-5 h-5 text-red-500 shrink-0" />
-                        <input
-                          type="text"
-                          value={socials.youtube}
-                          onChange={(e) => setSocials({ ...socials, youtube: e.target.value })}
-                          placeholder="youtube.com/@username"
-                          className="flex-1 text-sm sm:text-base outline-none bg-transparent"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: Choose a Plan */}
-              {currentStep === 4 && (
-                <div className="flex flex-col">
-                  <div className={HEADING_BLOCK}>
-                    <h1 className={HEADING}>
-                      Choose your plan
-                    </h1>
-                    <p className={SUBHEADING}>
-                      Start free and upgrade when you need to.
-                    </p>
-                  </div>
-
-                  <PricingSection
-                    compact
-                    hideDetailsLink
-                    onboardingCallbacks={{
-                      onPlanSelect: (planId) => {
-                        if (planId === "free") handleSelectFree()
-                        else handleSelectPaid(planId)
-                      },
-                      loadingPlan: planCheckoutLoading,
-                      ctaLabels: {
-                        free: "Start free",
-                        growth: "Get Pro",
-                      },
-                    }}
-                  />
-                </div>
-              )}
-
-              {/*
-                ═══════════════════════════════════════════════════════════
-                 THE LAST STEP: SETTING UP, IN ONE CALM PLACE
-                ═══════════════════════════════════════════════════════════
-                It drew its own copy of the mark inside a white rounded box
-                that clipped it: the box's corners and the mark's own did not
-                match, so the violet tile was cut at every corner, with two
-                pulsing squares behind it. Now the one mark
-                (components/storelib-mark), whole, with a soft shadow that
-                follows its shape, and under it one line at a time that
-                crossfades as setup moves on, over three short marks that
-                fill as each phase finishes. Nothing in it changes size, so
-                the screen holds still between phases.
-              */}
-              {currentStep === 5 && (() => {
-                const state = setupError ? "error" : setupComplete ? "done" : setupPhase ?? "creating"
-                const reached = state === "done" ? 3 : state === "almost" ? 2 : state === "applying" ? 1 : 0
-                return (
-                  <div data-onboarding-setup={state} className="flex h-full min-h-[300px] flex-col items-center justify-center px-4 pb-6 text-center sm:min-h-[360px]">
-                    <StorelibMark className="h-16 w-16 drop-shadow-[0_8px_18px_rgba(139,86,250,0.28)] sm:h-[72px] sm:w-[72px]" />
-                    <div className="mt-6 min-h-[64px]" aria-live="polite">
-                      <div key={state} className="animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none">
-                        {state === "error" ? (
-                          <>
-                            <h1 className="text-[20px] font-semibold leading-7 text-[#1a1a2e] sm:text-[22px]">Your store was not saved</h1>
-                            <p className="mt-1.5 text-[15px] leading-[21px] text-[#6b7280]">Check your connection and try again.</p>
-                          </>
-                        ) : (
-                          <h1 className="inline-flex items-center gap-2.5 text-[20px] font-semibold leading-7 text-[#1a1a2e] sm:text-[22px]">
-                            {state === "done" ? "Your store is ready" : state === "almost" ? "Almost ready" : state === "applying" ? "Applying your settings" : "Creating your store"}
-                            {state === "done" && (
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a] shadow-[0_1px_2px_rgba(22,163,74,0.35)]">
-                                <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
-                              </span>
-                            )}
-                          </h1>
-                        )}
-                      </div>
-                    </div>
-                    {state === "error" ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSetupError(false)
-                          startSetup()
-                        }}
-                        className={cn("mt-2 h-11 rounded-xl px-6 text-[14px] font-semibold transition-[background-color,box-shadow]", NEXT_ON)}
-                      >
-                        Try again
-                      </button>
-                    ) : (
-                      <div className="mt-2 flex gap-1.5" aria-hidden="true">
-                        {[0, 1, 2].map((i) => (
-                          <span key={i} className="h-1 w-8 overflow-hidden rounded-full bg-[#ede9fe]">
-                            <span
-                              className="block h-full w-full origin-left rounded-full bg-[#8b5cf6] transition-transform duration-500 ease-out motion-reduce:transition-none"
-                              style={{ transform: `scaleX(${i < reached ? 1 : i === reached ? 0.45 : 0})` }}
-                            />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
+              <div key={currentStep} ref={stepEnterRef} data-onboarding-step={currentStep} className="[grid-area:1/1]">
+                {renderStep(currentStep)}
+              </div>
             </div>
             </div>
 
@@ -1687,71 +1782,71 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               the heights do not change, so the press stays 44px and nothing
               reads as a different button.
             */}
-            {/* Footer with buttons — steps 1-3 */}
-            {currentStep >= 1 && currentStep <= 3 && (
-              <div className={cn(
+            {/*
+              ONE ROW OF BUTTONS FOR EVERY STEP. It used to be three: Back,
+              Skip and Next on the first three steps, Back alone on the plan
+              step, and a 64px gap on the last, each swapped in whole as the
+              step changed, so Back popped in on step 2, Skip and Next
+              vanished on the plan step, and the panel above grew 4 to 8px as
+              setup began. Now the row is always there at the same height
+              and each button fades in or out with its step, on the step's
+              own curve, and cannot be pressed or reached by Tab while it is
+              gone.
+            */}
+            <div
+              data-onboarding-footer=""
+              aria-hidden={currentStep === 5 || undefined}
+              className={cn(
                 /* The same bottom padding on every step: the category step's
                    was 12px deeper, which made the panel above it 12px
                    shorter, so a step change resized the box it happened in. */
                 "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0 max-[384px]:px-3",
                 "pb-5 sm:pb-4",
-              )}>
-                {/* Back, on the left */}
-                <div className="flex items-center gap-3 max-[384px]:gap-2">
-                  {currentStep > 1 && (
-                    <button
-                      onClick={handleBack}
-                      className={cn("px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium rounded-xl transition-[background-color,box-shadow] max-[384px]:px-4", BACK_LOOK)}
-                    >
-                      Back
-                    </button>
-                  )}
-                </div>
-
-                {/* Skip and Next buttons - right side */}
-                <div className="flex items-center gap-3 sm:gap-4 max-[384px]:gap-2">
-                  {canSkip() && (
-                    <button
-                      onClick={handleSkip}
-                      className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors max-[384px]:px-2.5"
-                    >
-                      Skip
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handleNext}
-                    disabled={!canProceed()}
-                    className={cn(
-                      "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm transition-colors min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-[88px] max-[384px]:px-4",
-                      canProceed()
-                        ? NEXT_ON
-                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                    )}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4 (plan selection) — Back button only; plan cards contain the CTAs */}
-            {currentStep === 4 && (
-              <div className="px-4 sm:px-12 pt-2 pb-5 sm:pb-4 flex items-center shrink-0">
+              )}
+            >
+              {/* Back, on the left */}
+              <div className="flex items-center gap-3 max-[384px]:gap-2">
                 <button
+                  type="button"
                   onClick={handleBack}
-                  disabled={!!planCheckoutLoading}
-                  className={cn("px-5 sm:px-6 py-3 text-sm font-medium rounded-xl transition-[background-color,box-shadow] disabled:opacity-50 disabled:cursor-not-allowed", BACK_LOOK)}
+                  disabled={currentStep < 2 || currentStep > 4 || (currentStep === 4 && !!planCheckoutLoading)}
+                  data-onboarding-back=""
+                  style={fadeWith(currentStep >= 2 && currentStep <= 4, `background-color 150ms, box-shadow 150ms, color 150ms`)}
+                  className={cn("px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium rounded-xl max-[384px]:px-4 disabled:cursor-not-allowed motion-reduce:!transition-none", BACK_LOOK, currentStep === 4 && planCheckoutLoading && "text-[#9ca3af]")}
                 >
                   Back
                 </button>
               </div>
-            )}
 
-            {/* Step 5 (setup) — no buttons, just bottom spacing */}
-            {currentStep === 5 && (
-              <div className="h-16" />
-            )}
+              {/* Skip and Next, on the right, for the first three steps */}
+              <div className="flex items-center gap-3 sm:gap-4 max-[384px]:gap-2 motion-reduce:!transition-none" style={fadeWith(currentStep <= 3)}>
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={!canSkip()}
+                  style={fadeWith(canSkip(), "color 150ms")}
+                  className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 max-[384px]:px-2.5 motion-reduce:!transition-none"
+                >
+                  Skip
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={currentStep > 3 || !canProceed()}
+                  style={{ transition: `background-color 200ms ${MOTION_EASE}, color 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}` }}
+                  className={cn(
+                    "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-[88px] max-[384px]:px-4 motion-reduce:!transition-none",
+                    /* Keeps its colour while it fades out with the plan step coming in. */
+                    currentStep > 3 || canProceed()
+                      ? NEXT_ON
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  )}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

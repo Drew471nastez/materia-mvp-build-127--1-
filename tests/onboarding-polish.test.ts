@@ -81,25 +81,42 @@ function main() {
     /aria-label=\{`Back to \$\{switchBack\.name\}`\}/.test(creator) && /max-sm:w-11/.test(creator) && /h-11/.test(creator))
   check("what went wrong is a row of its own under the top row, never over the heading",
     /\{switchBackError && \(\s*<p role="alert" className="shrink-0 px-3 pt-1\.5/.test(creator))
-  check("the card is never wider than the window it is in (a 768px tablet had it 81px off each side)",
-    /sm:w-\[930px\] sm:max-w-\[calc\(100vw-40px\)\] sm:h-\[540px\] sm:max-h-\[calc\(100dvh-40px\)\]/.test(creator))
+  /* "Increase the whole modal a bit so it expands a little more on the screen, but without touching the edges." 930 by 540 became 1040 by 610. */
+  check("the card is 1040 by 610 on a computer and never closer than 24px to the window's edges (a 768px tablet once had it 81px off each side)",
+    /sm:w-\[1040px\] sm:max-w-\[calc\(100vw-48px\)\] sm:h-\[610px\] sm:max-h-\[calc\(100dvh-48px\)\]/.test(creator)
+      && /sm:max-h-\[min\(610px,calc\(100dvh-48px\)\)\]/.test(creator) && !/930px|540px/.test(creator))
   check("the row of buttons gives up padding under 384px, where the roomy one stops fitting",
     (creator.match(/max-\[384px\]:/g) ?? []).length >= 6 && /max-\[384px\]:min-w-\[88px\]/.test(creator))
   check("every step has the same bottom padding, so a step change cannot resize the panel it happens in",
     !/currentStep === 2 && "sm:pb-7"/.test(creator))
-  /* translate, not transform: Tailwind 4's translate-x-3 sets the translate property, so naming transform left the slide jumping. */
-  check("a step changes on opacity and translate alone, inside a scroller that is not itself animated",
-    /"transition-\[opacity,translate\] ease-out motion-reduce:transition-none motion-reduce:translate-x-0"/.test(creator)
-      && !/flex-1 min-h-0 overflow-y-auto transition-all/.test(creator))
-  check("the CSS duration and the timer that swaps the step are one number",
-    /const STEP_SWAP_MS = 180/.test(creator) && /transitionDuration: `\$\{STEP_SWAP_MS\}ms`/.test(creator) && /\}, STEP_SWAP_MS\)/.test(creator))
-  check("a second press while a step is leaving is ignored, and the next step starts at its top",
-    /const goToStep = \(next: number, direction: "left" \| "right"\) => \{\s*if \(isAnimating\) return/.test(creator)
-      && /stepScrollRef\.current\?\.scrollTo\(\{ top: 0, behavior: "instant" as ScrollBehavior \}\)/.test(creator))
+  /*
+    "Make all the state changes and animations smoother and cleaner." A step change is a crossfade: the new
+    step arrives while the old one leaves, overlapping in one grid cell (no blank beat between them), on
+    opacity and translate alone, inside a scroller that is not itself animated. scripts/check-onboarding.mjs
+    samples it frame by frame with the CPU slowed four times.
+  */
+  check("a step change crossfades the leaving and the arriving step in one cell, on opacity and translate alone",
+    /\[\{ opacity: 0, translate: `\$\{dx\}px 0` \}, \{ opacity: 1, translate: "0 0" \}\]/.test(creator)
+      && /\[\{ opacity: 1, translate: "0 0" \}, \{ opacity: 0, translate: `\$\{-dx\}px 0` \}\]/.test(creator)
+      && /data-onboarding-leaving=\{leavingStep\.step\}/.test(creator) && /data-onboarding-steps="" className="grid min-h-full"/.test(creator)
+      && !/flex-1 min-h-0 overflow-y-auto transition-all/.test(creator) && !/isAnimating|slideDirection|STEP_SWAP_MS/.test(creator))
+  check("one clock for every move: the step's times and curve are named once",
+    /const STEP_IN_MS = 280/.test(creator) && /const STEP_OUT_MS = 160/.test(creator) && /const MOTION_EASE = "cubic-bezier\(0\.22, 1, 0\.36, 1\)"/.test(creator)
+      && /duration: STEP_IN_MS, easing: MOTION_EASE/.test(creator) && /duration: STEP_OUT_MS, easing: MOTION_EASE/.test(creator))
+  check("a second press while a step is arriving is ignored, the next step starts at its top, and the old one is held where it was scrolled",
+    /const goToStep = \(next: number, direction: "left" \| "right"\) => \{\s*if \(leavingStep\) return/.test(creator)
+      && /stepScrollRef\.current\?\.scrollTo\(\{ top: 0, behavior: "instant" as ScrollBehavior \}\)/.test(creator)
+      && /style=\{\{ marginTop: -leavingStep\.offset \}\}/.test(creator))
+  check("with less motion asked for, or back from Stripe, the step simply changes; setup crossfades in from the plans like any other step",
+    /const calm = !animate \|\| reducedMotion\(\)/.test(creator) && /showStep\(5, "right", !overrideData\)/.test(creator) && !/setCurrentStep\(5\)/.test(creator))
   check("and its timer is cleared when the onboarding goes",
     /useEffect\(\(\) => \(\) => \{\s*if \(stepTimerRef\.current\) clearTimeout\(stepTimerRef\.current\)\s*\}, \[\]\)/.test(creator))
-  check("the bar's growth is the width alone, and stops for a person who asked for less motion",
-    /transition-\[width\] duration-500 ease-out motion-reduce:transition-none/.test(creator))
+  check("the bar grows on translate alone (a full fill slid in and clipped, so its round end is never squashed), and stops for less motion",
+    /style=\{\{ translate: `\$\{progressWidth - 100\}% 0`, transition: `translate 480ms \$\{MOTION_EASE\}` \}\}/.test(creator) && /data-onboarding-progress-fill="" className="[^"]*motion-reduce:!transition-none"/.test(creator)
+      && !/transition-\[width\]/.test(creator))
+  check("one row of buttons on every step, each fading with its step, so nothing pops in and the panel never resizes as setup begins",
+    (creator.match(/data-onboarding-footer=""/g) ?? []).length === 1 && /style=\{fadeWith\(currentStep >= 2 && currentStep <= 4/.test(creator) && /style=\{fadeWith\(currentStep <= 3\)\}/.test(creator)
+      && !/<div className="h-16" \/>/.test(creator))
 
   /* "in the store category step, make sure the Other button is next to See more, not in the bar at the bottom with Back, Skip, Next." */
   check("Other sits beside See more among the categories, and the row at the bottom is Back, Skip and Next",
@@ -117,13 +134,15 @@ function main() {
     /onScroll=\{updateScrollEdges\}/.test(creator) && /el\.style\.setProperty\("--fade-top", above \? "20px" : "0px"\)/.test(creator) && /maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK/.test(creator))
   /* "the last step, it's the old Storelib logo, and it's cut badly in the corners." */
   check("the setup screen draws the one Storelib mark, whole, with no copy of it in this file",
-    /import \{ StorelibMark \} from "@\/components\/storelib-mark"/.test(creator) && /<StorelibMark className="h-16 w-16 drop-shadow/.test(creator)
+    /import \{ StorelibMark \} from "@\/components\/storelib-mark"/.test(creator) && /<StorelibMark className="h-\[61px\] w-\[61px\] drop-shadow-\[[^\]]+\] sm:h-\[68px\] sm:w-\[68px\]" \/>/.test(creator)
       && !/const StorelibLogo/.test(creator) && !/animate-ping/.test(creator))
-  check("its line crossfades from phase to phase over marks that fill, and says plainly when it failed",
-    /<div key=\{state\} className="animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none">/.test(creator)
-      && /Creating your store/.test(creator) && /Applying your settings/.test(creator) && /Your store was not saved/.test(creator) && /scaleX\(/.test(creator))
+  /* The line used to be remounted per phase and faded in from nothing, so each change had a blank beat; now it is the shared swap. */
+  check("its line crossfades from phase to phase (the shared TextSwap, no blank beat) over marks that fill on translate, and says plainly when it failed",
+    /import \{ TextSwap \} from "@\/components\/ui\/text-swap"/.test(creator) && /<TextSwap\s+as="div"\s+align="center"\s+value=\{state\}/.test(creator)
+      && !/key=\{state\}/.test(creator) && !/scaleX\(/.test(creator) && /data-onboarding-setup-mark=""/.test(creator)
+      && /Creating your store/.test(creator) && /Applying your settings/.test(creator) && /Your store was not saved/.test(creator))
   check("a failed way back clears itself: on the next step, and after six seconds",
-    /setSwitchBackError\(null\)\n\s*setSlideDirection\(direction\)/.test(creator) && /setTimeout\(\(\) => setSwitchBackError\(null\), 6000\)/.test(creator))
+    /setSwitchBackError\(null\)\n\s*if \(next === currentStep\) return/.test(creator) && /setTimeout\(\(\) => setSwitchBackError\(null\), 6000\)/.test(creator))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

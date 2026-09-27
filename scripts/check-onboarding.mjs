@@ -103,7 +103,8 @@ const TOP_ROW = `(${(boxSrc) => {
     rightRoom: Math.round((rowBox.right - pad.right) - b.right),
     /* The one that matters: what is left between the way back and the bar. */
     gap: back ? Math.round(b.x - box(back).right) : null,
-    fill: (() => { const f = bar.firstElementChild; return f ? Math.round(f.getBoundingClientRect().width) : 0 })(),
+    /* How much of the track the fill covers: it is a full length bar slid in from the left and clipped. */
+    fill: (() => { const f = bar.firstElementChild; return f ? Math.round(Math.max(0, f.getBoundingClientRect().right - bar.getBoundingClientRect().left)) : 0 })(),
   }
 }})`
 
@@ -119,7 +120,11 @@ for (const [label, viewport] of [
   ["390", { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true }],
   ["430", { width: 430, height: 932, deviceScaleFactor: 3, isMobile: true, hasTouch: true }],
   ["768", { width: 768, height: 1024, deviceScaleFactor: 2 }],
+  ["1280", { width: 1280, height: 720, deviceScaleFactor: 1 }],
   ["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
+  ["1920", { width: 1920, height: 1080, deviceScaleFactor: 1 }],
+  /* A short laptop window: the card keeps its margin by giving up height. */
+  ["1366x600", { width: 1366, height: 600, deviceScaleFactor: 1 }],
 ]) {
   const phone = viewport.width < 640
   const page = await browser.newPage()
@@ -134,6 +139,29 @@ for (const [label, viewport] of [
   if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `onboarding-${label}.png`) })
   const top = await page.evaluate(`${TOP_ROW}(${JSON.stringify(box.toString())})`)
   const at = `at ${label}:`
+
+  /*
+    THE CARD'S SIZE. "Increase the whole modal a bit so it expands a little
+    more on the screen, but without touching the edges." From 640px up it is
+    1040 by 610 (it was 930 by 540) where the window has room, and never
+    closer than 24px to any edge of it; a phone is the whole screen, as before.
+  */
+  const card = await page.evaluate(`(() => { const box = ${box.toString()}
+    const d = document.querySelector('[role="dialog"]')
+    return d ? box(d) : null })()`)
+  if (!card) problems.push(`${at} no dialog`)
+  else if (phone) {
+    if (card.w !== viewport.width || card.h !== viewport.height || card.x !== 0 || card.y !== 0) problems.push(`${at} a phone should have the whole screen, got ${JSON.stringify(card)}`)
+  } else {
+    const margin = Math.min(card.x, card.y, viewport.width - card.right, viewport.height - card.bottom)
+    if (margin < 23.5) problems.push(`${at} the card comes within ${margin}px of the window's edge (${JSON.stringify(card)})`)
+    const roomyW = viewport.width - 48 >= 1040
+    const roomyH = viewport.height - 48 >= 610
+    if (roomyW && card.w !== 1040) problems.push(`${at} the card is ${card.w}px wide, not 1040`)
+    if (roomyH && card.h !== 610) problems.push(`${at} the card is ${card.h}px tall, not 610`)
+    if (!roomyW && card.w !== viewport.width - 48) problems.push(`${at} a narrow window should get the card at its width less 48px, got ${card.w}`)
+    if (!roomyH && card.h !== viewport.height - 48) problems.push(`${at} a short window should get the card at its height less 48px, got ${card.h}`)
+  }
   if (!top) { problems.push(`${at} no progress bar was drawn`); await page.close(); continue }
   if (!top.back) problems.push(`${at} the way back to the first business was not drawn`)
   else {
@@ -164,41 +192,80 @@ for (const [label, viewport] of [
   }, { timeout: 8000 })
 
   /*
-    THE STEP CHANGE, FRAME BY FRAME. A script cannot feel whether it was
-    smooth, so this reads the two things that decide it: what is animated
-    (opacity and transform are the two a phone can do without drawing the
-    page again), and whether the panel the steps sit in moves with them.
+    THE STEP CHANGE, FRAME BY FRAME, WITH THE CPU SLOWED FOUR TIMES. A script
+    cannot feel whether it was smooth, so this reads what decides it: what is
+    animated (opacity and translate are the two a phone does without laying
+    out or drawing the page again), that the arriving step and the leaving
+    one overlap so no frame is blank, that they are never two whole pages on
+    top of each other, and that the panel and the row of buttons they sit
+    between do not move.
   */
-  const swap = await page.evaluate(`(async () => {
-    const panel = document.querySelector("[data-onboarding-step]")
-    const scroller = panel.parentElement
-    const declared = getComputedStyle(panel).transitionProperty
+  const cdp = await page.createCDPSession()
+  const SWAP = `(async () => {
+    const scroller = document.querySelector("[data-onboarding-scroller]")
+    const footer = document.querySelector("[data-onboarding-footer]")
     const frames = []
+    const props = new Set()
     let stop = false
+    const read = (el) => el ? { o: +Number(getComputedStyle(el).opacity).toFixed(3), x: parseFloat((getComputedStyle(el).translate || "0").split(" ")[0]) || 0 } : null
+    let pressAt = Infinity
     const tick = () => {
-      const cs = getComputedStyle(panel)
-      frames.push({ o: +Number(cs.opacity).toFixed(3), x: parseFloat((cs.translate || "0").split(" ")[0]) || 0, step: panel.getAttribute("data-onboarding-step"), sh: Math.round(scroller.getBoundingClientRect().height), sy: Math.round(scroller.getBoundingClientRect().top) })
+      const enter = document.querySelector("[data-onboarding-step]")
+      const leave = document.querySelector("[data-onboarding-leaving]")
+      for (const el of [enter, leave]) if (el) for (const a of el.getAnimations()) for (const k of a.effect.getKeyframes()) for (const p of Object.keys(k)) if (!["offset", "easing", "composite", "computedOffset"].includes(p)) props.add(p)
+      const sr = scroller.getBoundingClientRect(), fr = footer.getBoundingClientRect()
+      const t = performance.now()
+      if (t >= pressAt) frames.push({ t, step: enter && enter.getAttribute("data-onboarding-step"), enter: read(enter), leave: read(leave), sh: Math.round(sr.height), sy: Math.round(sr.top), fy: Math.round(fr.top), fh: Math.round(fr.height) })
       if (!stop) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
-    ;[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Next").click()
-    await new Promise((r) => setTimeout(r, 700))
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    const from = document.querySelector("[data-onboarding-step]").getAttribute("data-onboarding-step")
+    pressAt = performance.now()
+    ;[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Next" && !b.disabled).click()
+    await new Promise((r) => setTimeout(r, 900))
     stop = true
-    return { declared, frames }
-  })()`)
-  const props = swap.declared.split(",").map((s) => s.trim()).sort().join(",")
-  /* Tailwind 4's translate-x-3 sets \`translate\`, not \`transform\`: naming transform left the slide jumping while only the fade ran. */
-  if (props !== "opacity,translate") problems.push(`${at} the step animates "${swap.declared}", not opacity and translate alone`)
-  const sliding = new Set(swap.frames.map((f) => f.x.toFixed(2)).filter((x) => Math.abs(Number(x)) > 0.05 && Math.abs(Number(x)) < 11.95)).size
-  if (sliding < 3) problems.push(`${at} the step moved through ${sliding} in-between positions: it jumped rather than slid`)
-  const fading = swap.frames.filter((f) => f.o > 0.02 && f.o < 0.98).length
-  if (fading < 3) problems.push(`${at} the step changed in ${fading} part-way frames: that is a cut, not a fade`)
-  if (!swap.frames.some((f) => f.step === "2")) problems.push(`${at} pressing Next did not reach step 2`)
-  const endedVisible = swap.frames[swap.frames.length - 1]
-  if (endedVisible.o < 0.99) problems.push(`${at} the step it arrived at stayed at ${endedVisible.o} opacity`)
-  const heights = new Set(swap.frames.map((f) => f.sh))
-  const tops = new Set(swap.frames.map((f) => f.sy))
-  if (heights.size > 1 || tops.size > 1) problems.push(`${at} the panel the steps are in moved while they changed (heights ${[...heights]}, tops ${[...tops]})`)
+    return { from, props: [...props].sort().join(","), frames, leftover: !!document.querySelector("[data-onboarding-leaving]") }
+  })()`
+  /* One step change, read. `slowed` is the CPU slowed four times, where a blank or doubled frame would show. */
+  const measureSwap = async (slowed) => {
+    if (slowed) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+    const swap = await page.evaluate(SWAP)
+    if (slowed) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    const name = `${at} step ${swap.from} to ${Number(swap.from) + 1}${slowed ? " (CPU slowed 4x)" : ""}:`
+    if (swap.props !== "opacity,translate") problems.push(`${name} the step change animates "${swap.props}", not opacity and translate alone`)
+    const during = swap.frames.filter((f) => f.leave)
+    const sliding = new Set(during.map((f) => f.enter && f.enter.x.toFixed(2)).filter((x) => x && Math.abs(Number(x)) > 0.05 && Math.abs(Number(x)) < 15.95)).size
+    const fading = during.filter((f) => f.enter && f.enter.o > 0.02 && f.enter.o < 0.98).length
+    /*
+      Frames are sampled on the main thread. The fade and the drift run on the
+      compositor, so a long main thread frame on a slowed CPU drops samples,
+      not frames on screen: the count of in-between frames is held at full
+      speed, and the slowed pass is read for what a sample can still prove.
+    */
+    if (!slowed && sliding < 3) problems.push(`${name} the arriving step moved through ${sliding} in-between positions: it jumped rather than slid`)
+    if (!slowed && fading < 3) problems.push(`${name} the step changed in ${fading} part-way frames: that is a cut, not a fade`)
+    /* No blank frame: from the press on, the brighter of the two steps never drops below 0.4, and together they never below 0.7. */
+    const leastMax = Math.min(...swap.frames.map((f) => Math.max(f.enter ? f.enter.o : 0, f.leave ? f.leave.o : 0)))
+    const leastSum = Math.min(...swap.frames.map((f) => (f.enter ? f.enter.o : 0) + (f.leave ? f.leave.o : 0)))
+    const both = Math.max(0, ...swap.frames.map((f) => Math.min(f.enter ? f.enter.o : 0, f.leave ? f.leave.o : 0)))
+    if (leastMax < 0.4 || leastSum < 0.7) problems.push(`${name} a nearly blank frame (brighter step at ${leastMax}, both together at ${leastSum})`)
+    if (both > 0.5) problems.push(`${name} the two steps were both over half there at once (${both}): two pages on top of each other`)
+    if (!swap.frames.some((f) => f.step === String(Number(swap.from) + 1))) problems.push(`${name} pressing Next did not reach the next step`)
+    const last = swap.frames[swap.frames.length - 1]
+    if (!last.enter || last.enter.o < 0.99) problems.push(`${name} the step it arrived at stayed at ${last.enter && last.enter.o} opacity`)
+    if (swap.leftover) problems.push(`${name} the step that left was never taken away`)
+    const heights = new Set(swap.frames.map((f) => f.sh))
+    const tops = new Set(swap.frames.map((f) => f.sy))
+    const feet = new Set(swap.frames.map((f) => `${f.fy}/${f.fh}`))
+    if (heights.size > 1 || tops.size > 1) problems.push(`${name} the panel the steps are in moved while they changed (heights ${[...heights]}, tops ${[...tops]})`)
+    if (feet.size > 1) problems.push(`${name} the row of buttons moved or changed height while the step changed (${[...feet]})`)
+    const curve = swap.frames.slice(0, 16).map((f) => `${f.leave ? f.leave.o.toFixed(2) : "-"}/${f.enter ? f.enter.o.toFixed(2) : "-"}`).join(" ")
+    return { props: swap.props, sliding, fading, leastMax, leastSum, both, curve }
+  }
+  const swapSlowed = await measureSwap(true)
+  const swap = { props: swapSlowed.props }
+  const fading = swapSlowed.fading, sliding = swapSlowed.sliding, leastMax = swapSlowed.leastMax, leastSum = swapSlowed.leastSum, both = swapSlowed.both, swapCurve = swapSlowed.curve
 
   /* Step 2, where the row of buttons is at its longest: Back, Skip, Next. Other is among the categories, beside See more. */
   await wait(120)
@@ -206,7 +273,7 @@ for (const [label, viewport] of [
     const names = ["Back", "Skip", "Next"]
     const found = names.map((n) => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === n)).filter(Boolean)
     const doc = document.scrollingElement
-    const panel = document.querySelector("[data-onboarding-step]").parentElement
+    const panel = document.querySelector("[data-onboarding-scroller]")
     return {
       buttons: found.map((b) => ({ label: b.textContent.trim(), ...box(b) })),
       width: window.innerWidth,
@@ -240,10 +307,21 @@ for (const [label, viewport] of [
     anything has scrolled, the top is sharp.
   */
   const clickText = (t) => page.evaluate((t) => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === t && !x.disabled); if (b) b.click(); return !!b }, t)
-  await clickText("Next")
+  const swapFull = await measureSwap(false)
   await page.waitForFunction(() => document.querySelector("[data-onboarding-step]")?.getAttribute("data-onboarding-step") === "3", { timeout: 5000 }).catch(() => {})
-  await wait(400)
-  await clickText("Next")
+  await wait(100)
+  /* Under SHOTS the step change to the plans is slowed twenty times and photographed part way, for a person to look at. */
+  if (process.env.SHOTS && ["390", "1280", "1440"].includes(label)) {
+    await cdp.send("Animation.enable")
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.05 })
+    await clickText("Next")
+    for (const ms of [30, 80, 160]) {
+      await wait(ms === 30 ? 700 : (ms === 80 ? 50 : 80) * 20)
+      await page.screenshot({ path: join(process.env.SHOTS, `onboarding-swap-${label}-${String(ms).padStart(3, "0")}ms.png`) })
+    }
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+    await wait(400)
+  } else await clickText("Next")
   await page.waitForFunction(() => document.querySelector("[data-onboarding-step]")?.getAttribute("data-onboarding-step") === "4", { timeout: 5000 }).catch(() => {})
   await wait(500)
   const edges = await page.evaluate(async () => {
@@ -269,8 +347,11 @@ for (const [label, viewport] of [
   /*
     THE LAST STEP. Starting free goes to setup; the probe's database refuses,
     so it ends on the error state, which is enough to see the mark: whole,
-    nothing clipping it, at 64px (72 from 640).
+    nothing clipping it, at 61px (68 from 640), and the row of buttons under
+    the panel exactly where it was on the plan step, so the panel does not
+    grow as setup begins.
   */
+  const footAtPlan = await page.evaluate(() => { const r = document.querySelector("[data-onboarding-footer]").getBoundingClientRect(); const sc = document.querySelector("[data-onboarding-scroller]").getBoundingClientRect(); return `${Math.round(r.top)}/${Math.round(r.height)}/${Math.round(sc.height)}` })
   await clickText("Start free")
   await page.waitForFunction(() => !!document.querySelector("[data-onboarding-setup]"), { timeout: 8000 }).catch(() => {})
   await wait(900)
@@ -280,21 +361,26 @@ for (const [label, viewport] of [
     const mark = wrap.querySelector("svg[aria-label=Storelib]")
     let clipped = null
     for (let n = mark && mark.parentElement; n && n !== wrap; n = n.parentElement) if (getComputedStyle(n).overflow !== "visible") clipped = n.className
-    return { state: wrap.getAttribute("data-onboarding-setup"), mark: mark ? box(mark) : null, clipped, heading: (wrap.querySelector("h1") || {}).textContent }
+    const shown = wrap.querySelector('[data-morph="on"] h1') || wrap.querySelector("h1")
+    const r = document.querySelector("[data-onboarding-footer]").getBoundingClientRect()
+    const sc = document.querySelector("[data-onboarding-scroller]").getBoundingClientRect()
+    return { state: wrap.getAttribute("data-onboarding-setup"), mark: mark ? box(mark) : null, clipped, heading: (shown || {}).textContent, foot: Math.round(r.top) + "/" + Math.round(r.height) + "/" + Math.round(sc.height) }
   })()`)
   if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `onboarding-setup-${label}.png`) })
   if (!setup) problems.push(`${at} Start free did not reach the setup screen`)
   else {
     if (!setup.mark) problems.push(`${at} the setup screen has no Storelib mark`)
-    else if (setup.mark.w !== (phone ? 64 : 72)) problems.push(`${at} the mark is ${setup.mark.w}px, not ${phone ? 64 : 72}`)
+    /* "make the logo icon about 5% smaller": 64 and 72px were the sizes, 61 and 68 are 5% under them. */
+    else if (setup.mark.w !== (phone ? 61 : 68)) problems.push(`${at} the mark is ${setup.mark.w}px, not ${phone ? 61 : 68}`)
     if (setup.clipped) problems.push(`${at} the mark sits in a box that clips it (${setup.clipped})`)
+    if (setup.foot !== footAtPlan) problems.push(`${at} the panel and the row of buttons moved as setup began (${footAtPlan} on the plan step, ${setup.foot} on setup)`)
   }
 
   report[label] = {
     gap: top.gap, backMid: top.back?.midY, barMid: top.bar.midY, backBox: top.back ? `${top.back.w}x${top.back.h}` : null,
-    room: [top.leftRoom, top.rightRoom], fadeFrames: fading, slidePositions: sliding, animates: swap.declared,
+    room: [top.leftRoom, top.rightRoom], card, slowed: { fadeFrames: fading, slidePositions: sliding, leastMax, leastSum, both, swapCurve }, full: swapFull, animates: swap.props,
     footer: footer.buttons.map((b) => `${b.label} ${b.x}-${b.right}`), sideways: footer.sideways,
-    planScrollRoom: edges.room, edgesScrolled: edges.middle, setup: setup && { state: setup.state, mark: setup.mark && setup.mark.w, heading: setup.heading },
+    planScrollRoom: edges.room, edgesScrolled: edges.middle, setup: setup && { state: setup.state, mark: setup.mark && setup.mark.w, heading: setup.heading, foot: setup.foot, footAtPlan },
   }
   if (errors.length) problems.push(`${at} ${errors.length} error(s): ${errors[0]}`)
   await page.close()

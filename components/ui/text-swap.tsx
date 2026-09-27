@@ -38,6 +38,7 @@ export function TextSwap<K extends string>({
   align = "start",
   fill = false,
   lift = "0.3em",
+  as: Tag = "span",
   className = "",
 }: {
   value: K
@@ -47,6 +48,8 @@ export function TextSwap<K extends string>({
   fill?: boolean
   /** How far a line drifts as it goes. */
   lift?: string
+  /** "div" when the versions are blocks (a heading, a button row), so the markup stays valid. */
+  as?: "span" | "div"
   className?: string
 }) {
   const keys = Object.keys(items) as K[]
@@ -78,14 +81,14 @@ export function TextSwap<K extends string>({
 
   const at = keys.indexOf(value)
   const swap = (
-    <span
+    <Tag
       data-morph-group=""
       className={`${fill ? "grid w-full justify-items-stretch" : `inline-grid ${align === "center" ? "justify-items-center" : "justify-items-start"}`} ${className}`}
     >
       {keys.map((key, i) => {
         const on = key === value
         return (
-          <span
+          <Tag
             key={key}
             aria-hidden={on ? undefined : true}
             inert={on ? undefined : true}
@@ -104,10 +107,10 @@ export function TextSwap<K extends string>({
             }}
           >
             {parts[key]}
-          </span>
+          </Tag>
         )
       })}
-    </span>
+    </Tag>
   )
   return prefix ? <>{prefix}{swap}</> : swap
 }
