@@ -106,12 +106,15 @@ export const useSearchParams = () => new URLSearchParams()
     ["phone 360", { width: 360, height: 740, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
     ["phone 390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
     ["phone 430", { width: 430, height: 932, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["tablet 768", { width: 768, height: 1024, isMobile: true, hasTouch: true }],
     ["desktop 1280", { width: 1280, height: 860 }],
   ]
   for (const [label, vp] of sizes) {
     console.log(`\n${label}`)
     const tag = label.replace(/\s/g, "-")
     const phone = vp.width < 768
+    /* From 768px to 1023px the page is the shell's, and the preview is a screen of its own raised from the bar. */
+    const tablet = !phone && vp.width < 1024
     const p = await browser.newPage()
     await p.setViewport(vp)
     await p.setRequestInterception(true)
@@ -343,6 +346,19 @@ export const useSearchParams = () => new URLSearchParams()
       expect(down.length >= 4 && fall.ys.at(-1) === "gone", "Done takes it down the same way, then it is gone", { partway: down.length, end: fall.ys.at(-1) })
       expect(fall.long === 0, "no long task while it comes and goes", fall.longMs)
       expect(rise.props.length > 0 && rise.props.every((x) => x === "transform" || x === "opacity"), "the move animates transform and opacity only", rise.props)
+    } else if (tablet) {
+      await p.click('[data-open-preview="bar"]')
+      await sleep(600)
+      const shown = await p.evaluate(() => {
+        const layer = document.querySelector("[data-preview-layer]")?.getBoundingClientRect()
+        const f = document.querySelector("[data-preview-layer] iframe")
+        const body = f?.contentDocument?.body?.innerHTML ?? ""
+        return { layer: layer ? [Math.round(layer.top), Math.round(layer.width), Math.round(layer.height)] : null, words: /Hello from the/.test(body), width: f ? Math.round(f.getBoundingClientRect().width) : 0, aside: !!document.querySelector('aside[aria-label="Preview"] iframe') }
+      })
+      expect(!!shown.layer && shown.layer[0] === 0 && shown.layer[1] === vp.width && shown.layer[2] === vp.height && shown.words && shown.width > 0 && shown.width <= vp.width && !shown.aside, "on a tablet Preview in the bar raises the email on a screen of its own, fitted to it", shown)
+      await p.screenshot({ path: join(shots, `${tag}-preview.png`) })
+      await p.click("[data-preview-done]")
+      await sleep(500)
     } else {
       await sleep(400)
       const aside = await p.evaluate(() => {
@@ -356,8 +372,8 @@ export const useSearchParams = () => new URLSearchParams()
     /* ── The logo, as the email is sent, light and dark ── */
     for (const scheme of ["light", "dark"]) {
       await p.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }])
-      if (phone) {
-        await p.click('[data-open-preview="foot"]')
+      if (phone || tablet) {
+        await p.click(phone ? '[data-open-preview="foot"]' : '[data-open-preview="bar"]')
         await sleep(500)
       }
       const logo = await p.evaluate(() => {
@@ -368,7 +384,7 @@ export const useSearchParams = () => new URLSearchParams()
         return { border: s.borderTopWidth, padding: s.paddingTop + " " + s.paddingLeft, bg: s.backgroundColor, radius: s.borderTopLeftRadius, shadow: s.boxShadow }
       })
       expect(!!logo && logo.border === "0px" && logo.padding === "0px 0px" && logo.bg === "rgba(0, 0, 0, 0)" && logo.radius === "0px" && logo.shadow === "none", `the logo in the email has no frame (${scheme})`, logo)
-      if (phone) {
+      if (phone || tablet) {
         if (scheme === "dark") await p.screenshot({ path: join(shots, `${tag}-preview-dark.png`) })
         await p.click("[data-preview-done]")
         await sleep(400)

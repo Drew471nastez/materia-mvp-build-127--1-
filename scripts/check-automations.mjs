@@ -525,6 +525,49 @@ try {
     expect(detail && /andrewrullz\.storelib\.com/.test(detail) && /Welcome series/.test(detail), "a contact's detail says where they came from and what they are in", detail?.slice(0, 140))
     await sp2.close()
   }
+  /*
+    768: A TABLET. No side panel yet (that is from 1024px), so a step opens
+    in the sheet as on a phone, while the page is the shell's page with the
+    black bar. Nothing may scroll sideways, the sheet and its foot must be
+    on screen, and the list is the table.
+  */
+  for (const vp of [{ width: 768, height: 1024 }, { width: 820, height: 1180, isMobile: true, hasTouch: true }]) {
+    const label = String(vp.width)
+    console.log(`\nTablet, ${label}`)
+    const c = await open(vp, "chooser")
+    expect((await sideways(c)) === 0, "the chooser never scrolls sideways", await sideways(c))
+    await c.screenshot({ path: join(shots, `chooser-${label}.png`) })
+    await c.close()
+    const b = await open(vp, "builder")
+    expect((await sideways(b)) === 0, "the builder never scrolls sideways", await sideways(b))
+    expect((await spills(b, "ol[aria-label=Steps] > li > button")).length === 0, "nothing spills out of a step", await spills(b, "ol[aria-label=Steps] > li > button"))
+    await b.click("ol[aria-label=Steps] > li:nth-child(3) button")
+    await sleep(700)
+    const sheet = await b.evaluate(() => {
+      const s = document.querySelector("input[id^='subject-']")
+      const dlg = s?.closest("[role=dialog]")
+      const foot = dlg?.querySelector("[data-panel-foot]")?.getBoundingClientRect()
+      const r = dlg?.getBoundingClientRect()
+      return s ? { inSheet: !!dlg, left: Math.round(r.left), right: Math.round(r.right), footBottom: foot ? Math.round(foot.bottom) : null, vh: innerHeight, done: !!dlg.querySelector("[data-panel-done]") } : null
+    })
+    expect(!!sheet && sheet.inSheet && sheet.left >= 0 && sheet.right <= vp.width && sheet.footBottom !== null && sheet.footBottom <= sheet.vh && sheet.done, "a step opens in the sheet, on screen, with its foot and Done", sheet)
+    await b.screenshot({ path: join(shots, `builder-${label}-email.png`) })
+    await b.type("input[id^='subject-']", " again")
+    await b.click("[data-panel-done]")
+    await sleep(600)
+    const foot = await b.$eval("[data-flow-foot]", (f) => { const r = f.getBoundingClientRect(); return { shown: f.hasAttribute("data-shown"), bottom: Math.round(r.bottom), words: f.textContent } })
+    expect(foot.shown && foot.bottom === vp.height && /Save/.test(foot.words), "Done keeps the edit, and Save is at the foot", foot)
+    await b.screenshot({ path: join(shots, `builder-${label}.png`) })
+    await b.close()
+    const at = await open(vp, "subscribers")
+    await at.evaluate(() => [...document.querySelectorAll("button, [role=tab]")].find((x) => x.textContent.trim() === "Automations").click())
+    await sleep(500)
+    const shown = await at.evaluate(() => ({ table: (document.querySelector("tr[data-flow-row]")?.getBoundingClientRect().width ?? 0) > 0, rows: (document.querySelector("[data-flow-list]")?.getBoundingClientRect().width ?? 0) > 0 }))
+    expect(shown.table && !shown.rows && (await sideways(at)) === 0, "the Automations tab is the table, and the page does not scroll sideways", shown)
+    await at.screenshot({ path: join(shots, `automations-list-${label}.png`) })
+    await at.close()
+  }
+
   console.log(`\nScreenshots: ${shots}`)
 } finally {
   await browser?.close()

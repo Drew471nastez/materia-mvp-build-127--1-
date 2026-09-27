@@ -901,7 +901,7 @@ function PanelHead({ kind, trigger, title, onClose }: { kind: Parameters<typeof 
 /** Done, in the phone's sheet only: the panel beside the steps on a computer has nothing to close into. */
 function PanelDone({ onClose }: { onClose: () => void }) {
   return (
-    <button type="button" data-panel-done="" className={cn(DEPTH_PRIMARY, "h-10 shrink-0 rounded-[10px] px-4 text-[15px] lg:hidden")} onClick={onClose}>
+    <button type="button" data-panel-done="" className={cn(DEPTH_PRIMARY, "h-10 shrink-0 rounded-[10px] px-4 text-[15px] sm:h-8 sm:rounded-lg sm:px-3.5 sm:text-[13px] lg:hidden")} onClick={onClose}>
       Done
     </button>
   )
