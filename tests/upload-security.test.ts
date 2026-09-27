@@ -302,7 +302,14 @@ async function main() {
   const a = await generateSignedDownloadUrl(fakeAdmin, "c/digital-products/f.pdf", 86400 * 365, "messages", "Guide.pdf")
   check("a year-long expiry is cut to an hour", signed.every((s) => s.expiry <= 3600), JSON.stringify(signed.map((s) => s.expiry)))
   check("a row naming another private bucket is ignored", !signed.some((s) => s.bucket === "messages") && a?.bucket === "digital-products")
-  check("the URL is made as a download with the file's name", signed.every((s) => (s.options as { download?: unknown }).download === "Guide.pdf"))
+  check("the URL is made as a download with the file's name", new URL(a!.url).searchParams.get("download") === "Guide.pdf" && a!.url.startsWith("https://s/digital-products/"))
+  {
+    /* storage-js pasted the name in unencoded, so & and # cut it short; it is encoded here now. */
+    const odd = await generateSignedDownloadUrl(fakeAdmin, "c/f.zip", 300, undefined, "Drums & Bass #2 + café.zip")
+    check("a name with & # + and accents reaches storage whole", new URL(odd!.url).searchParams.get("download") === "Drums & Bass #2 + café.zip" && new URL(odd!.url).searchParams.get("token") === "x" && !new URL(odd!.url).hash)
+    const bare = await generateSignedDownloadUrl(fakeAdmin, "c/f.zip", 300, undefined, null)
+    check("with no name it is still an attachment, under the stored name", new URL(bare!.url).searchParams.get("download") === "")
+  }
   signed.length = 0
   check("a path that climbs out is never signed", (await generateSignedDownloadUrl(fakeAdmin, "c/../other/f.pdf")) === null && signed.length === 0)
 

@@ -61,7 +61,17 @@ export async function generateSignedDownloadUrl(
 
   const expiry = Math.max(30, Math.min(expirySeconds, 3600))
   const name = typeof downloadName === "string" ? downloadName.replace(/[\r\n"\\/]/g, "_").trim().slice(0, 180) : ""
-  const options = { download: name || true }
+  /*
+    THE NAME GOES ON THE URL HERE, ENCODED, NOT THROUGH storage-js. Its
+    `download` option is pasted into the query as it is and the whole URL
+    then goes through encodeURI, which leaves & # + ; alone: "Drums & Bass.zip"
+    reached storage as "Drums " and a stray parameter, and "Kit #2.zip" as
+    "Kit " with the rest cut off as a fragment. The parameter is not part of
+    the signature (storage-js adds it after signing too), and storage answers
+    it with Content-Disposition: attachment and the name, as filename and as
+    the RFC 5987 filename*. Empty asks for an attachment under the stored name.
+  */
+  const withName = (signedUrl: string) => `${signedUrl}${signedUrl.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`
 
   // Build bucket order: preferred first (if provided and allowed), then standard fallbacks
   const standardBuckets = [STORAGE_BUCKET, "product-files", "digital-assets"]
@@ -73,10 +83,10 @@ export async function generateSignedDownloadUrl(
   for (const bucket of bucketsToTry) {
     const { data, error } = await admin.storage
       .from(bucket)
-      .createSignedUrl(normalizedPath, expiry, options)
+      .createSignedUrl(normalizedPath, expiry)
 
     if (!error && data?.signedUrl) {
-      return { url: data.signedUrl, bucket }
+      return { url: withName(data.signedUrl), bucket }
     }
   }
 
@@ -85,10 +95,10 @@ export async function generateSignedDownloadUrl(
     for (const bucket of bucketsToTry) {
       const { data, error } = await admin.storage
         .from(bucket)
-        .createSignedUrl(filePath, expiry, options)
+        .createSignedUrl(filePath, expiry)
 
       if (!error && data?.signedUrl) {
-        return { url: data.signedUrl, bucket }
+        return { url: withName(data.signedUrl), bucket }
       }
     }
   }

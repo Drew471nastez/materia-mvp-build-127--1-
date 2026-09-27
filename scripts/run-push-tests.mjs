@@ -273,6 +273,7 @@ const SUITES = [
   "tests/notify-webhook.test.ts",
   "tests/rich-text.test.ts",
   "tests/upload-security.test.ts",
+  "tests/owner-download.test.ts",
   "tests/direct-uploader.test.ts",
   "tests/settings-account-fixes.test.ts",
   "tests/settings-country.test.ts",
