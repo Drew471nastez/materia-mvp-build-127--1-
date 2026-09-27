@@ -68,6 +68,10 @@ const TABS = [
 */
 
 type TabId = typeof TABS[number]["id"]
+
+/** The tab pill's glide and the words' colour: one time, one plain ease out with no overshoot. */
+const TAB_SLIDE_MS = 200
+const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "notifications", "privacy"]
 
 interface SettingsFormProps {
@@ -756,20 +760,22 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   }, [activeTab])
 
   /*
-    THE SELECTED TAB'S OUTLINE SLIDES TO THE NEXT ONE.
-    One outline over the whole bar, placed on the selected tab by measuring
-    it, instead of a border on each tab that went out on one and came on at
-    another. On a press it moves there in 200ms on transform alone: it is
-    drawn at its new place and width, and starts from the old one by a
-    translate and a scaleX that end at none, so it rests at scale 1 and its
-    round ends are never stretched. A press during the slide starts from
-    where the outline is on screen, not where it was going.
+    THE SELECTED TAB'S PILL SLIDES TO THE NEXT ONE, CALMLY.
+    One pill (the grey fill and its hairline) behind the whole row, placed on
+    the selected tab by measuring it. On a press it glides from where it is
+    on screen to the new tab in 200ms on a plain ease out: no overshoot, no
+    bounce, and no stretch. It used to be an outline scaled sideways from the
+    old tab's width, so its hairline and round ends were squashed and pulled
+    as it went; now it keeps its true shape on every frame and only its
+    position and width change, together, on one curve. The words under it ease
+    from grey to ink over the same 200ms. A press during the slide starts from
+    where the pill is on screen, not where it was going.
 
-    The tab's own border stays until the outline is placed, before the first
-    paint, so there is never a frame with no selection. A change in the tab's
-    size (Inter arriving after the fallback) moves it without a slide, and so
-    does a tab opened by the address on load. Nothing slides when the system
-    asks for less motion.
+    The tab's own fill and border stay until the pill is placed, before the
+    first paint, so there is never a frame with no selection. A change in the
+    tab's size (Inter arriving after the fallback) moves it without a slide,
+    and so does a tab opened by the address on load. Nothing slides when the
+    system asks for less motion.
   */
   useLayoutEffect(() => {
     const ring = tabRingRef.current
@@ -788,11 +794,11 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       ring.style.top = `${tab.offsetTop}px`
       ring.style.height = `${tab.offsetHeight}px`
       ring.style.width = `${w}px`
-      ring.style.transform = `translateX(${x}px)`
+      ring.style.translate = `${x}px 0`
       if (from && (Math.abs(from.x - x) > 0.5 || Math.abs(from.w - w) > 0.5)) {
         ring.animate(
-          [{ transform: `translateX(${from.x}px) scaleX(${from.w / w})` }, { transform: `translateX(${x}px)` }],
-          { duration: 200, easing: "cubic-bezier(0.33, 1, 0.68, 1)" },
+          [{ translate: `${from.x}px 0`, width: `${from.w}px` }, { translate: `${x}px 0`, width: `${w}px` }],
+          { duration: TAB_SLIDE_MS, easing: TAB_EASE },
         )
       }
     }
@@ -1322,10 +1328,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   key={tab.id}
                   ref={activeTab === tab.id ? activeTabRef : undefined}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors duration-200 whitespace-nowrap cursor-pointer border ${
+                  data-settings-tab={tab.id}
+                  style={{ transitionDuration: `${TAB_SLIDE_MS}ms`, transitionTimingFunction: TAB_EASE }}
+                  className={`relative z-[1] flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-[color,background-color] motion-reduce:transition-none whitespace-nowrap cursor-pointer border [-webkit-tap-highlight-color:transparent] ${
                     activeTab === tab.id
-                      ? `bg-[#f3f4f6] text-[#1a1a2e] ${tabRingOn ? "border-transparent" : "border-[#d1d5db]"}`
-                      : "bg-[#f9fafb] text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border-transparent"
+                      ? `text-[#1a1a2e] ${tabRingOn ? "bg-transparent border-transparent" : "bg-[#f3f4f6] border-[#d1d5db]"}`
+                      : "bg-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]/70 border-transparent"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -1333,12 +1341,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 </button>
               )
             })}
-            {/* The selected tab's outline, over the tabs and never in the way of a press. */}
+            {/* The selected tab's pill, under the words and never in the way of a press. */}
             <span
               ref={tabRingRef}
               aria-hidden
               data-settings-tab-ring=""
-              className={`pointer-events-none absolute left-0 top-0 origin-left rounded-full border border-[#d1d5db] ${tabRingOn ? "" : "invisible"}`}
+              className={`pointer-events-none absolute left-0 top-0 z-0 rounded-full border border-[#d1d5db] bg-[#f3f4f6] ${tabRingOn ? "" : "invisible"}`}
             />
           </div>
         </div>

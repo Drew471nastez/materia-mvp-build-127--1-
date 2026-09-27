@@ -133,12 +133,24 @@ check(
 }
 
 {
-  /* The selected tab's outline slides between tabs, on transform alone, and stays put when motion is not wanted. */
+  /*
+    "I don't like the switching animation. Make it more normal, regular, clean and smooth." The selected tab's
+    pill used to be an outline scaled sideways from the old tab's width, so its hairline and round ends were
+    squashed and pulled on the way. Now one pill (fill and hairline) glides on its position and its true width
+    together, 200ms on a plain ease out with no overshoot, and the words ease their colour over the same time.
+  */
   const slide = settings.slice(settings.indexOf("useLayoutEffect(() => {\n    const ring = tabRingRef.current"), settings.indexOf("}, [activeTab])", settings.indexOf("const ring = tabRingRef.current")))
   check(
-    "the tab outline slides on transform only, 200ms",
-    /ring\.animate\(\s*\[\{ transform: `translateX\(\$\{from\.x\}px\) scaleX\(\$\{from\.w \/ w\}\)` \}, \{ transform: `translateX\(\$\{x\}px\)` \}\],\s*\{ duration: 200, easing: "cubic-bezier\(0\.33, 1, 0\.68, 1\)" \},?\s*\)/.test(slide) &&
-      !/ring\.animate\([\s\S]*(width|left|height):/.test(slide),
+    "the tab pill glides on its position and true width together, never scaled, 200ms on a plain ease out",
+    /ring\.animate\(\s*\[\{ translate: `\$\{from\.x\}px 0`, width: `\$\{from\.w\}px` \}, \{ translate: `\$\{x\}px 0`, width: `\$\{w\}px` \}\],\s*\{ duration: TAB_SLIDE_MS, easing: TAB_EASE \},?\s*\)/.test(slide)
+      && !/scale/i.test(slide)
+      && /const TAB_SLIDE_MS = 200/.test(settings) && /const TAB_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(settings),
+  )
+  check(
+    "the pill is the one selection, fill and hairline, under the words; the words ease their colour with it",
+    /data-settings-tab-ring=""\s*className=\{`pointer-events-none absolute left-0 top-0 z-0 rounded-full border border-\[#d1d5db\] bg-\[#f3f4f6\]/.test(settings)
+      && /style=\{\{ transitionDuration: `\$\{TAB_SLIDE_MS\}ms`, transitionTimingFunction: TAB_EASE \}\}/.test(settings)
+      && /relative z-\[1\] flex items-center[^`]*transition-\[color,background-color\] motion-reduce:transition-none/.test(settings),
   )
   check(
     "it slides only after a press, and never when less motion is asked for",
@@ -146,9 +158,15 @@ check(
       /slide && ring\.style\.width && !window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/.test(slide) &&
       /tabPressedRef\.current = true/.test(settings.slice(settings.indexOf("const handleTabChange"), settings.indexOf("const handleSubmit = async"))),
   )
+  /* The Notifications tab's rows used to load as 48px grey bars and grow to their real height when they landed: a jump after the fade. */
+  const prefs = code("components/app/settings/notification-preferences.tsx")
   check(
-    "the tab keeps its own border until the outline is placed, so no frame is without a selection",
-    /tabRingOn \? "border-transparent" : "border-\[#d1d5db\]"/.test(settings) && /data-settings-tab-ring=""/.test(settings),
+    "the Notifications rows are drawn with their real names and lines while the switches load, so nothing grows when they land",
+    /data-notification-pref-loading=\{c\.category\}/.test(prefs) && /\{c\.label\}<\/p>/.test(prefs) && /\{c\.detail\}<\/p>/.test(prefs) && !/h-3\.5 w-32 rounded bg-\[#f1f2f4\]/.test(prefs),
+  )
+  check(
+    "the tab keeps its own fill and border until the pill is placed, so no frame is without a selection",
+    /tabRingOn \? "bg-transparent border-transparent" : "bg-\[#f3f4f6\] border-\[#d1d5db\]"/.test(settings) && /data-settings-tab-ring=""/.test(settings),
   )
 }
 
