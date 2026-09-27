@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fillOwnedProduct } from "@/lib/library/owned-products"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, FileIcon, ExternalLink } from "lucide-react"
@@ -30,7 +32,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
   if (!user) return null
 
   // Check entitlement
-  const { data: entitlement } = await supabase
+  const { data: read } = await supabase
     .from("entitlements")
     .select(`
       *,
@@ -40,6 +42,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
     .eq("buyer_id", user.id)
     .eq("product_id", id)
     .single()
+  /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  const entitlement = await fillOwnedProduct(createAdminClient(), read)
 
   if (!entitlement) notFound()
 

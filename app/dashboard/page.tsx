@@ -1,6 +1,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, GraduationCap, Users, ArrowRight, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -30,8 +32,10 @@ export default async function DashboardOverview({ searchParams }: DashboardOverv
     .eq("buyer_id", user!.id)
     .order("created_at", { ascending: false })
 
-  const products = entitlements?.filter((e) => e.product?.type === "digital") || []
-  const courses = entitlements?.filter((e) => e.product?.type === "course") || []
+  /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  const owned = await fillOwnedProducts(createAdminClient(), entitlements)
+  const products = owned.filter((e) => e.product?.type === "digital") || []
+  const courses = owned.filter((e) => e.product?.type === "course") || []
   const communities = entitlements?.filter((e) => e.community_access) || []
 
   return (

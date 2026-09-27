@@ -1,6 +1,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { GraduationCap, PlayCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
@@ -22,7 +24,9 @@ export default async function DashboardCoursesPage() {
     )
     .eq("buyer_id", user!.id)
 
-  const courses = entitlements?.filter((e) => e.product?.type === "course") || []
+  /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  const owned = await fillOwnedProducts(createAdminClient(), entitlements)
+  const courses = owned.filter((e) => e.product?.type === "course") || []
 
   // Get progress for each course
   const { data: progress } = await supabase

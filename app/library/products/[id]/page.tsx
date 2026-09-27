@@ -3,6 +3,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { fillOwnedProduct } from "@/lib/library/owned-products"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { ArrowLeft, CheckCircle, Calendar, Package } from "lucide-react"
@@ -38,7 +39,9 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
     .eq("product_id", id)
     .maybeSingle()
 
-  let product: any = entitlement?.product || null
+  /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  const owned = await fillOwnedProduct(admin, entitlement)
+  let product: any = owned?.product || null
   let creatorId: string | null = entitlement?.creator_id || null
   let purchasedAt: string = entitlement?.created_at || ""
   let receiptToken: string | null = null

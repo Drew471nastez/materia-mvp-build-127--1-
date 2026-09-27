@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fillOwnedProduct } from "@/lib/library/owned-products"
 import { CoursePlayer } from "@/components/dashboard/course-player"
 import { pageUser } from "@/lib/auth/page-user"
 
@@ -19,7 +21,7 @@ export default async function CourseAccessPage({ params, searchParams }: CourseA
   if (!user) return null
 
   // Check entitlement
-  const { data: entitlement } = await supabase
+  const { data: read } = await supabase
     .from("entitlements")
     .select(
       `
@@ -32,14 +34,26 @@ export default async function CourseAccessPage({ params, searchParams }: CourseA
     .eq("product_id", id)
     .single()
 
-  if (!entitlement) notFound()
+  if (!read) notFound()
+
+  /*
+    A COURSE THE CREATOR HAS SINCE ARCHIVED IS STILL THEIRS. The course, its
+    modules and its lessons are readable under row level security only
+    through a PUBLISHED product (or by its creator), so an archived course
+    read as not found for the people who paid for it. The entitlement above
+    is the buyer's own, read with their session; once it is there, the
+    product and the course are read with the server's client
+    (lib/library/owned-products).
+  */
+  const admin = createAdminClient()
+  const entitlement = (await fillOwnedProduct(admin, read))!
 
   // Fetch course with modules and lessons
-  const { data: course } = await supabase.from("courses").select("*").eq("product_id", id).single()
+  const { data: course } = await admin.from("courses").select("*").eq("product_id", id).single()
 
   if (!course) notFound()
 
-  const { data: modules } = await supabase
+  const { data: modules } = await admin
     .from("course_modules")
     .select("*, lessons:course_lessons(*)")
     .eq("course_id", course.id)

@@ -1,6 +1,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { Package, Download } from "lucide-react"
 
 export default async function DashboardProductsPage() {
@@ -21,7 +23,9 @@ export default async function DashboardProductsPage() {
     )
     .eq("buyer_id", user!.id)
 
-  const products = entitlements?.filter((e) => e.product?.type === "digital") || []
+  /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  const owned = await fillOwnedProducts(createAdminClient(), entitlements)
+  const products = owned.filter((e) => e.product?.type === "digital") || []
 
   return (
     <div className="p-8">

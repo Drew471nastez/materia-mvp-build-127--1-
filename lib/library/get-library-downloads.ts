@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { fillOwnedProducts } from "@/lib/library/owned-products"
 
 type EntitlementRow = {
   id: string
@@ -81,7 +82,16 @@ export async function getLibraryDownloads(
 
   const map = new Map<string, any>()
 
-  ;(entitlements as EntitlementRow[] | null)?.forEach((row) => {
+  /*
+    AN ARCHIVED PRODUCT IS STILL THEIRS. The entitlement's embedded product
+    is read through the products table's row level security, which hides a
+    product that is no longer published, so the row came back with no
+    product and the purchase left the library. Filled back in by id with the
+    server's client, only when one is missing (lib/library/owned-products).
+  */
+  const owned = await fillOwnedProducts(admin, entitlements as EntitlementRow[] | null)
+
+  owned.forEach((row) => {
     if (row.product?.type === "digital") {
       map.set(row.product_id, row)
     }
