@@ -21,22 +21,27 @@
  *      paid sale wrote a ledger_events row whose order_id references orders
  *      with no ON DELETE rule, so Postgres refused (23503). Where there was
  *      no ledger row, the delete went through and took the orders with it.
+ *      And with or without part 32, a delete cascades to every buyer's
+ *      entitlement and to the product's files.
+ *
+ * THE RULE NOW (the owner's priority: buyers' data first). A product with
+ * any sale, meaning any order of any status or any entitlement, is always
+ * archived and never deleted, with or without part 32. Only a product
+ * nobody has bought, claimed or been given is deleted.
  *
  * WHAT IS PINNED. The server's delete (lib/products/delete-product.ts)
- * against a stand-in database that has the foreign keys of both kinds of
- * database: a product with no orders is deleted; one with orders is deleted
- * with its orders kept where part 32 ran, and archived with its orders kept,
- * and the one line why, where it did not; a delete ownership or row level
- * security refuses is a failure, never a success. Then the list's memory of
- * this tab's changes, so a kept copy of the list never draws a deleted
- * product again, the browser half of the request, and the screens that use
- * them.
+ * against a stand-in database with the foreign keys a real one has, both
+ * before and after part 32: sales are archived with orders, entitlements
+ * and files untouched; no sales is deleted; a delete ownership or row level
+ * security refuses is a failure, never a success. The question asked before
+ * the press says which it will be. Then the list's memory of this tab's
+ * changes, the browser half of the request, and the screens that use them.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { ARCHIVED_FOR_LINKS, ARCHIVED_FOR_SALES, deleteOwnProduct, ordersOutliveProducts } from "@/lib/products/delete-product"
-import { deleteProduct, isStale, leaveNotice, rememberDeleted, rememberStatus, takeNotice, withChanges } from "@/lib/products/delete-client"
+import { ARCHIVED_FOR_LINKS, ARCHIVED_FOR_SALES, deleteOwnProduct, previewDelete, productHasSales } from "@/lib/products/delete-product"
+import { deleteProduct, deleteQuestion, isStale, leaveNotice, previewProductDelete, rememberDeleted, rememberStatus, takeNotice, withChanges } from "@/lib/products/delete-client"
 
 let passed = 0
 let failed = 0
@@ -63,11 +68,15 @@ const BUNDLE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 const THEIRS = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 type Product = { id: string; creator_id: string; slug: string; status: string; archived: boolean }
-type Order = { id: string; product_id: string | null; amount_cents: number }
+type Order = { id: string; product_id: string | null; amount_cents: number; status: string }
+type Entitlement = { id: string; product_id: string; buyer_id: string }
+type Asset = { id: string; product_id: string; file_path: string }
 
 interface DbShape {
   products: Product[]
   orders: Order[]
+  entitlements: Entitlement[]
+  digital_assets: Asset[]
   /** Order ids a ledger_events row points at (orders.id, no ON DELETE rule). */
   ledger: string[]
   /** Run-now part 32: orders.creator_id is there and products -> orders is SET NULL. */
@@ -78,13 +87,15 @@ interface DbShape {
   unknownFk?: boolean
   /** A status check from before "archived". */
   noArchivedStatus?: boolean
-  /** The orders count cannot be read. */
-  ordersUnreadable?: boolean
+  /** A count of this table cannot be read. */
+  unreadable?: string
+  /** This table is not in the database at all. */
+  missing?: string
   calls: string[]
 }
 
 function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any } {
-  const db: DbShape = { products: [], orders: [], ledger: [], part32: false, calls: [], ...shape }
+  const db: DbShape = { products: [], orders: [], entitlements: [], digital_assets: [], ledger: [], part32: false, calls: [], ...shape }
   class Query {
     op = "select"
     cols = ""
@@ -92,13 +103,12 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
     filters: Array<[string, unknown]> = []
     patch: Record<string, unknown> = {}
     one = false
-    returning: string | null = null
     constructor(readonly table: string) {}
     select(cols: string, opts?: { count?: string; head?: boolean }) {
       if (this.op === "select") {
         this.cols = cols
         this.opts = opts ?? {}
-      } else this.returning = cols
+      }
       return this
     }
     eq(k: string, v: unknown) {
@@ -121,22 +131,20 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
       this.patch = patch
       return this
     }
-    matches(row: Record<string, unknown>) {
-      return this.filters.every(([k, v]) => row[k] === v)
+    matches(row: object) {
+      return this.filters.every(([k, v]) => (row as Record<string, unknown>)[k] === v)
     }
     then<A, B>(ok: (v: unknown) => A, no?: (e: unknown) => B) {
       return Promise.resolve().then(() => this.run()).then(ok, no)
     }
     run(): { data: unknown; error: unknown; count?: number | null } {
       db.calls.push(`${this.op} ${this.table}${this.op === "select" ? ` ${this.cols}` : ""}`)
-      if (this.table === "orders") {
-        if (this.op !== "select") throw new Error("the delete must never write orders")
-        if (/creator_id/.test(this.cols) && !db.part32) return { data: null, error: { code: "42703", message: "column orders.creator_id does not exist" } }
-        if (this.opts.head) {
-          if (db.ordersUnreadable) return { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" }, count: null }
-          return { data: null, error: null, count: db.orders.filter((o) => this.matches(o)).length }
-        }
-        return { data: db.orders.slice(0, 1), error: null }
+      if (this.table === "orders" || this.table === "entitlements" || this.table === "digital_assets") {
+        if (this.op !== "select") throw new Error(`the delete must never write ${this.table}`)
+        if (db.missing === this.table) return { data: null, error: { code: "42P01", message: `relation "${this.table}" does not exist` }, count: null }
+        if (db.unreadable === this.table) return { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" }, count: null }
+        const rows = (db[this.table] as object[]).filter((r) => this.matches(r))
+        return this.opts.head ? { data: null, error: null, count: rows.length } : { data: rows, error: null }
       }
       if (this.table !== "products") throw new Error(`unexpected table ${this.table}`)
       const hits = db.products.filter((p) => this.matches(p))
@@ -146,7 +154,7 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
         for (const p of hits) Object.assign(p, this.patch)
         return { data: hits.map((p) => ({ ...p })), error: null }
       }
-      /* delete */
+      /* delete, with the database's own rules */
       if (db.rlsRefuses) return { data: [], error: null }
       if (db.unknownFk && hits.length) return { data: null, error: { code: "23503", message: 'update or delete on table "products" violates foreign key constraint' } }
       for (const p of hits) {
@@ -154,12 +162,14 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
         if (db.part32) {
           for (const o of its) o.product_id = null
         } else {
-          /* ON DELETE CASCADE, and the ledger's order_id with no rule refuses it. */
           if (its.some((o) => db.ledger.includes(o.id))) {
             return { data: null, error: { code: "23503", message: 'update or delete on table "orders" violates foreign key constraint "ledger_events_order_id_fkey" on table "ledger_events"' } }
           }
           db.orders = db.orders.filter((o) => o.product_id !== p.id)
         }
+        /* ON DELETE CASCADE, before and after part 32: the buyers' access and the files go with it. */
+        db.entitlements = db.entitlements.filter((e) => e.product_id !== p.id)
+        db.digital_assets = db.digital_assets.filter((a) => a.product_id !== p.id)
       }
       db.products = db.products.filter((p) => !hits.includes(p))
       return { data: hits.map((p) => ({ id: p.id })), error: null }
@@ -169,59 +179,72 @@ function makeDb(shape: Partial<DbShape>): DbShape & { from: (t: string) => any }
 }
 
 const bundle = (): Product => ({ id: BUNDLE, creator_id: ME, slug: "tech-house-master-bundle-2025", status: "published", archived: false })
-const sales = (): Order[] => [
-  { id: "o1", product_id: BUNDLE, amount_cents: 2900 },
-  { id: "o2", product_id: BUNDLE, amount_cents: 2900 },
+const sales = (status = "completed"): Order[] => [
+  { id: "o1", product_id: BUNDLE, amount_cents: 2900, status },
+  { id: "o2", product_id: BUNDLE, amount_cents: 2900, status },
 ]
+const access = (): Entitlement[] => [
+  { id: "e1", product_id: BUNDLE, buyer_id: "buyer-1" },
+  { id: "e2", product_id: BUNDLE, buyer_id: "buyer-2" },
+]
+const files = (): Asset[] => [{ id: "f1", product_id: BUNDLE, file_path: "c1/tech-house.zip" }]
 
 async function main() {
-  console.log("\n  a product with no orders")
-  {
-    const db = makeDb({ products: [bundle()] })
+  console.log("\n  a product nobody bought is deleted")
+  for (const part32 of [false, true]) {
+    const db = makeDb({ products: [bundle()], digital_assets: files(), part32 })
     const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
-    check("is deleted", r.kind === "deleted", r)
-    check("and is gone from the database", db.products.length === 0)
-  }
-  {
-    /* Part 32 or not makes no difference to a product nobody bought. */
-    const db = makeDb({ products: [bundle()], part32: true })
-    const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
-    check("is deleted on a database that has run part 32 too", r.kind === "deleted" && db.products.length === 0, r)
+    check(`deleted, and gone from the database (part 32 ${part32 ? "run" : "not run"})`, r.kind === "deleted" && db.products.length === 0, r)
   }
 
-  console.log("\n  a product with orders, where part 32 has run")
-  {
-    const db = makeDb({ products: [bundle()], orders: sales(), ledger: ["o1"], part32: true })
+  console.log("\n  a product with sales is archived, never deleted")
+  for (const part32 of [false, true]) {
+    const db = makeDb({ products: [bundle()], orders: sales(), entitlements: access(), digital_assets: files(), ledger: ["o1"], part32 })
     const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
-    check("is deleted", r.kind === "deleted" && db.products.length === 0, r)
-    check("and every order is kept, with no product", db.orders.length === 2 && db.orders.every((o) => o.product_id === null && o.amount_cents === 2900), db.orders)
+    const tag = `(part 32 ${part32 ? "run" : "not run"})`
+    check(`archived, not deleted ${tag}`, r.kind === "archived" && r.reason === "sales" && db.products.length === 1, r)
+    check(`with one plain line that says why ${tag}`, r.kind === "archived" && r.message === ARCHIVED_FOR_SALES && !/—/.test(r.message))
+    check(`off every page: archived by status and by the flag ${tag}`, db.products[0]?.status === "archived" && db.products[0]?.archived === true, db.products)
+    check(`its orders untouched ${tag}`, db.orders.length === 2 && db.orders.every((o) => o.product_id === BUNDLE), db.orders)
+    check(`every buyer keeps their access ${tag}`, db.entitlements.length === 2 && db.entitlements.every((e) => e.product_id === BUNDLE), db.entitlements)
+    check(`and the files are still there ${tag}`, db.digital_assets.length === 1, db.digital_assets)
+    check(`no delete was even tried ${tag}`, !db.calls.some((c) => c.startsWith("delete")), db.calls)
   }
-
-  console.log("\n  a product with orders, where part 32 has not run")
-  {
-    const db = makeDb({ products: [bundle()], orders: sales(), ledger: ["o1"], part32: false })
+  for (const status of ["pending", "refunded", "failed", "disputed"]) {
+    const db = makeDb({ products: [bundle()], orders: sales(status), part32: true })
     const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
-    check("is archived rather than deleted", r.kind === "archived" && r.reason === "sales", r)
-    check("with one plain line that says why", r.kind === "archived" && r.message === ARCHIVED_FOR_SALES && !/—/.test(r.message), r)
-    check("off every page: archived by status and by the flag", db.products[0]?.status === "archived" && db.products[0]?.archived === true, db.products)
-    check("its orders are untouched", db.orders.length === 2 && db.orders.every((o) => o.product_id === BUNDLE), db.orders)
-    check("and no delete was even tried, so nothing could cascade", !db.calls.some((c) => c.startsWith("delete")), db.calls)
-  }
-  {
-    /* The owner's own case if the ledger is empty: before, the delete went through and took the orders. */
-    const db = makeDb({ products: [bundle()], orders: sales(), ledger: [], part32: false })
-    const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
-    check("with no ledger row either, the orders are still kept (a cascade would have deleted them)", r.kind === "archived" && db.orders.length === 2, { r, orders: db.orders.length })
+    check(`an order of any status counts as a sale: ${status}`, r.kind === "archived" && db.products.length === 1, r)
   }
   {
-    const db = makeDb({ products: [bundle()], orders: sales(), part32: false, noArchivedStatus: true })
+    /* A free claim, a gift or an import: in somebody's library with no order at all. */
+    const db = makeDb({ products: [bundle()], entitlements: access(), part32: true })
+    const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
+    check("an entitlement with no order counts too, so a free claim is never taken back", r.kind === "archived" && db.entitlements.length === 2, r)
+  }
+  {
+    const db = makeDb({ products: [bundle()], orders: sales(), noArchivedStatus: true })
     const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
     check("a status check from before archived: a draft with the flag, off every page just the same",
       r.kind === "archived" && db.products[0]?.status === "draft" && db.products[0]?.archived === true, db.products)
   }
+
+  console.log("\n  the question before the press says which it will be")
   {
-    const db = makeDb({ part32: false })
-    check("part 32 is read as orders.creator_id being there", (await ordersOutliveProducts(db)) === false && (await ordersOutliveProducts(makeDb({ part32: true }))) === true)
+    const sold = await previewDelete(makeDb({ products: [bundle()], orders: sales() }), { creatorId: ME, productId: BUNDLE })
+    const none = await previewDelete(makeDb({ products: [bundle()] }), { creatorId: ME, productId: BUNDLE })
+    const theirs = await previewDelete(makeDb({ products: [{ ...bundle(), creator_id: SOMEONE }] }), { creatorId: ME, productId: BUNDLE })
+    check("with sales: it will be archived", sold.kind === "ready" && sold.hasSales === true, sold)
+    check("without: it will be deleted", none.kind === "ready" && none.hasSales === false, none)
+    check("somebody else's product: nothing is said about it", theirs.kind === "failed" && theirs.status === 404, theirs)
+    const a = deleteQuestion("Tech House Master Bundle 2025", "archive")
+    check("the archive question says archived, why, and that buyers keep their access",
+      a.title === "Archive Tech House Master Bundle 2025?" && /has sales/.test(a.body) && /archived, not deleted/.test(a.body) && /buyers keep their access/.test(a.body) && a.confirm === "Archive", a)
+    const d = deleteQuestion("Tech House Master Bundle 2025", "delete")
+    check("the delete question is the plain one", d.title === "Delete Tech House Master Bundle 2025?" && d.body === "It comes off your page and cannot be brought back." && d.confirm === "Delete", d)
+    const u = deleteQuestion("Tech House Master Bundle 2025", "unknown")
+    check("not known in time: words that are true either way", /If it has sales it is archived instead/.test(u.body) && !/cannot be brought back/.test(u.body), u)
+    const all = [a, d, u].map((q) => `${q.title} ${q.body} ${q.confirm}`).join(" ")
+    check("no dash and no banned word in any of it", !/[–—]/.test(all) && !/unlock|elevate|seamless|powerful|effortless|supercharge|transform/i.test(all))
   }
 
   console.log("\n  a delete that is refused is never reported as done")
@@ -236,10 +259,14 @@ async function main() {
     const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
     check("row level security deleting nothing, with no error: a failure", r.kind === "failed" && db.products.length === 1, r)
   }
-  {
-    const db = makeDb({ products: [bundle()], ordersUnreadable: true })
+  for (const table of ["orders", "entitlements"]) {
+    const db = makeDb({ products: [bundle()], unreadable: table })
     const r = await deleteOwnProduct(db, { creatorId: ME, productId: BUNDLE })
-    check("sales that cannot be counted: a failure, nothing deleted", r.kind === "failed" && db.products.length === 1 && /Nothing was deleted/.test(r.kind === "failed" ? r.error : ""), r)
+    check(`${table} that cannot be counted: a failure, nothing deleted`, r.kind === "failed" && db.products.length === 1 && /Nothing was deleted/.test(r.kind === "failed" ? r.error : ""), r)
+  }
+  {
+    const r = await productHasSales(makeDb({ missing: "entitlements" }), BUNDLE)
+    check("a table the database does not have holds no sales", r === false, r)
   }
   {
     const db = makeDb({ products: [bundle()], unknownFk: true, part32: true })
@@ -251,6 +278,24 @@ async function main() {
     const r1 = await deleteOwnProduct(makeDb({ products: [bundle()] }), { creatorId: "", productId: BUNDLE })
     const r2 = await deleteOwnProduct(makeDb({ products: [bundle()] }), { creatorId: ME, productId: "../products" })
     check("no store on the account, or not a product id: refused before anything is read", r1.kind === "failed" && r2.kind === "failed" && r2.status === 400)
+  }
+
+  console.log("\n  the browser asks first, and a failure to ask is not a guess")
+  {
+    const real = globalThis.fetch
+    const answer = (status: number, body: unknown) => {
+      globalThis.fetch = (async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })) as typeof fetch
+    }
+    answer(200, { ok: true, hasSales: true })
+    check("sales: archive", (await previewProductDelete(BUNDLE)) === "archive")
+    answer(200, { ok: true, hasSales: false })
+    check("none: delete", (await previewProductDelete(BUNDLE)) === "delete")
+    answer(500, { ok: false, error: "Could not check its sales. Nothing was deleted" })
+    check("could not tell: unknown", (await previewProductDelete(BUNDLE)) === "unknown")
+    globalThis.fetch = ((_: unknown, init?: { signal?: AbortSignal }) =>
+      new Promise((_ok, no) => init?.signal?.addEventListener("abort", () => no(new Error("aborted"))))) as typeof fetch
+    check("no answer in time: unknown", (await previewProductDelete(BUNDLE, 50)) === "unknown")
+    globalThis.fetch = real
   }
 
   console.log("\n  the list never draws a deleted product again")
@@ -327,7 +372,11 @@ async function main() {
     const lib = strip(read("lib/products/delete-product.ts"))
     check("the delete is scoped to the caller's creator", /\.delete\(\)\s*\.eq\("id", productId\)\s*\.eq\("creator_id", creatorId\)\s*\.select\("id"\)/.test(lib))
     check("and counts the rows it deleted", /if \(!gone\.data \|\| gone\.data\.length === 0\) return \{ kind: "failed"/.test(lib))
-    check("nothing in it deletes or writes an order", lib.includes('from("orders")') && lib.split('from("orders")').slice(1).every((chain) => !/^[^\n]*\.(delete|update|insert|upsert)\(/.test(chain)))
+    check("it writes only the product: never an order, an entitlement or a file",
+      !/from\((table|"orders"|"entitlements"|"digital_assets")\)[^\n]*\.(delete|update|insert|upsert)\(/.test(lib) && /count\("orders"\), count\("entitlements"\)/.test(lib))
+    check("a product with sales is archived before any delete is tried", lib.indexOf('if (hasSales) return archive("sales")') > 0 && lib.indexOf('if (hasSales) return archive("sales")') < lib.indexOf(".delete()"))
+    check("and part 32 no longer decides anything", !/ordersOutliveProducts|creator_id"\)\.limit/.test(lib))
+    check("GET says which a press will do, for the same caller", /export async function GET/.test(route) && /previewDelete\(who\.admin, \{ creatorId: who\.creatorId, productId \}\)/.test(route))
   }
 
   console.log("\n  the screens")
@@ -341,12 +390,16 @@ async function main() {
     check("a delete refreshes the kept pages, only once it went through",
       /router\.refresh\(\)/.test(confirm) && confirm.indexOf("router.refresh()") > confirm.indexOf("await deleteProduct(") && confirm.indexOf("router.refresh()") < confirm.indexOf("catch (error)"))
     check("an archive instead is shown with its line", /showNotification\(result\.message\)/.test(confirm) && /rememberStatus\(product\.id, result\)/.test(confirm))
+    check("the list asks the server first, and its question is the shared one",
+      /const kind = await previewProductDelete\(product\.id\)/.test(list) && /deleteQuestion\(productToDelete\.title, deleteKind\)\.title/.test(list) && /deleteQuestion\(productToDelete\.title, deleteKind\)\.body/.test(list))
     check("a refusal is said in the question, which stays open", /setDeleteError\(/.test(confirm) && confirm.indexOf("closeDelete()") < confirm.indexOf("catch (error)") && /role="alert"[^>]*>\s*\{deleteError\}/.test(list))
 
     const editor = strip(read("app/app/products/new/product-editor.tsx"))
     check("the editor's more menu has Delete, last and apart, in red", /\{ label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: \(\) => void handleDeleteProduct\(\) \}/.test(editor))
     const del = editor.slice(editor.indexOf("const handleDeleteProduct"), editor.indexOf("const handleRedirectToProduct"))
-    check("it asks first", /const sure = await ask\(\{/.test(del) && /if \(!sure\) return/.test(del))
+    check("it asks first, in words that say which it will be",
+      /const kind = await previewProductDelete\(productId\)/.test(del) && /const sure = await ask\(\{ \.\.\.deleteQuestion\(savedTitle, kind\), cancel: "Cancel" \}\)/.test(del) && /if \(!sure\) return/.test(del) &&
+        del.indexOf("previewProductDelete(") < del.indexOf("await ask(") && del.indexOf("await ask(") < del.indexOf("await deleteProduct("))
     check("it deletes through the server", /await deleteProduct\(productId\)/.test(del) && !/\.delete\(\)/.test(del))
     check("a refusal is shown and the editor stays: no way back before the answer",
       /showToast\(/.test(del) && del.indexOf("return\n") < del.indexOf("returnToProducts(") && del.indexOf("returnToProducts(") > del.indexOf("await deleteProduct("))
@@ -357,6 +410,7 @@ async function main() {
 
     const course = strip(read("components/app/course-edit-form.tsx"))
     check("the course editor deletes through the server", /await deleteProduct\(product\.id\)/.test(course) && !/\.from\("products"\)\.delete\(\)/.test(course))
+    check("and asks the same true question", /deleteQuestion\(product\.title, await previewProductDelete\(product\.id\)\)/.test(course))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

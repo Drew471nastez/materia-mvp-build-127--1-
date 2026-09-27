@@ -2,7 +2,7 @@
 
 import { announceChange } from "@/lib/seo/announce-client"
 import { forgetProduct } from "@/lib/products/forget-client"
-import { deleteProduct, leaveNotice, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
+import { deleteProduct, deleteQuestion, leaveNotice, previewProductDelete, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -1621,10 +1621,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   }
 
   /*
-    DELETE, FROM THE MORE MENU. Asked first, in the editor's own sheet. Then
-    deleted on the server (app/api/products/delete, by the session's own
-    creator), which answers with what the database did. Deleted, or archived
-    because it has sales the database would lose with it: either way it has
+    DELETE, FROM THE MORE MENU. Asked first, in the editor's own sheet, in
+    words that say what the press will do: a product somebody bought,
+    claimed or was given is archived, never deleted, so no buyer loses it.
+    Then done on the server (app/api/products/delete, by the session's own
+    creator), which answers with what the database did. Deleted, or
+    archived: either way it has
     left the store, so the editor goes back to the list, which shows the
     line and no longer shows the product (lib/products/delete-client). Not
     done: the editor stays, with the product as it was, and says why.
@@ -1632,12 +1634,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [deleting, setDeleting] = useState(false)
   const handleDeleteProduct = async () => {
     if (!productId || deleting || leaving || leavingRef.current) return
-    const sure = await ask({
-      title: `Delete ${savedTitle.trim() || "this product"}?`,
-      body: "It comes off your page and cannot be brought back. Its sales stay in Orders.",
-      confirm: "Delete",
-      cancel: "Cancel",
-    })
+    /* Which it will be, so the question is true before the press: a product with sales is archived, never deleted. */
+    setDeleting(true)
+    const kind = await previewProductDelete(productId)
+    setDeleting(false)
+    const sure = await ask({ ...deleteQuestion(savedTitle, kind), cancel: "Cancel" })
     if (!sure) return
     setDeleting(true)
     try {

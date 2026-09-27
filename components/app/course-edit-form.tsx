@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { deleteProduct, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
+import { deleteProduct, deleteQuestion, previewProductDelete, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -62,7 +62,9 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
   }
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this course?")) return
+    /* The question says what the press will do: a course with sales is archived, never deleted, so no student loses it. */
+    const q = deleteQuestion(product.title, await previewProductDelete(product.id))
+    if (!confirm(`${q.title}\n\n${q.body}`)) return
 
     /* On the server, by the session's own creator, with the caches and the OnePage after it (app/api/products/delete). */
     setError(null)

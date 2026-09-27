@@ -2,7 +2,7 @@
 
 import { announceChange } from "@/lib/seo/announce-client"
 import { forgetProduct } from "@/lib/products/forget-client"
-import { deleteProduct, isStale, rememberDeleted, rememberStatus, takeNotice, withChanges } from "@/lib/products/delete-client"
+import { deleteProduct, deleteQuestion, isStale, previewProductDelete, rememberDeleted, rememberStatus, takeNotice, withChanges, type DeleteKind } from "@/lib/products/delete-client"
 import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
@@ -594,7 +594,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     }
   }
 
-  const handleDeleteClick = (product: Product) => {
+  /* What the press will do, asked before the question opens so its words are true: a product with sales is archived, never deleted. */
+  const [deleteKind, setDeleteKind] = useState<DeleteKind>("delete")
+  const previewing = useRef(false)
+  const handleDeleteClick = async (product: Product) => {
+    if (previewing.current) return
+    previewing.current = true
+    const kind = await previewProductDelete(product.id)
+    previewing.current = false
+    setDeleteKind(kind)
     setDeleteError(null)
     setProductToDelete(product)
     setDeleteModalOpen(true)
@@ -1237,9 +1245,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           <div role="alertdialog" aria-modal="true" aria-labelledby="delete-product-title" className="relative w-full max-w-[400px] rounded-2xl bg-white shadow-[0_20px_50px_-12px_rgba(17,24,39,0.3)] animate-in fade-in-0 zoom-in-95 duration-200">
             <div className="px-5 pb-4 pt-5">
               <h3 id="delete-product-title" className="break-words text-[15px] font-semibold text-[#1a1a2e]">
-                Delete {productToDelete.title}?
+                {deleteQuestion(productToDelete.title, deleteKind).title}
               </h3>
-              <p className="mt-1.5 text-[13px] leading-5 text-[#6b7280]">It comes off your page and cannot be brought back. Archive it instead to keep it.</p>
+              <p className="mt-1.5 text-[13px] leading-5 text-[#6b7280]">{deleteQuestion(productToDelete.title, deleteKind).body}</p>
               {deleteError ? (
                 <p role="alert" className="mt-2 text-[13px] font-medium leading-5 text-[#c4290c]">
                   {deleteError}
@@ -1260,15 +1268,21 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#c4290c] px-3 text-[13px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(127,29,29,0.3)] transition-colors duration-100 hover:bg-[#a8230a] active:bg-[#8f1e08] disabled:opacity-50 max-md:h-11 max-md:flex-1 max-md:text-[15px]"
+                className={cn(
+                  "inline-flex h-8 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium text-white transition-colors duration-100 disabled:opacity-50 max-md:h-11 max-md:flex-1 max-md:text-[15px]",
+                  /* Archive loses nothing and can be undone: near black, as the app's other actions. Delete stays red. */
+                  deleteKind === "archive"
+                    ? "bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.25)] hover:bg-[#2a2a40] active:bg-[#0f0f1c]"
+                    : "bg-[#c4290c] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(127,29,29,0.3)] hover:bg-[#a8230a] active:bg-[#8f1e08]",
+                )}
               >
                 {isDeleting ? (
                   <>
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Deleting
+                    {deleteKind === "archive" ? "Archiving" : "Deleting"}
                   </>
                 ) : (
-                  "Delete"
+                  deleteQuestion(productToDelete.title, deleteKind).confirm
                 )}
               </button>
             </div>

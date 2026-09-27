@@ -6,33 +6,35 @@ import "server-only"
  * ===========================================================================
  * "I tried to delete that product and it didn't delete it."
  *
- * Deleting was `supabase.from("products").delete()` in the browser. Three
- * things went wrong with that, and this is where each is handled:
+ * Deleting was `supabase.from("products").delete()` in the browser. What
+ * that got wrong, and what happens here instead:
  *
- *   A PRODUCT WITH SALES. orders.product_id referenced products ON DELETE
- *   CASCADE (scripts/004_create_orders_entitlements.sql) until run-now part
- *   32 made it SET NULL. Before part 32, the delete took the product's
- *   orders with it; and every paid sale also wrote a ledger_events row whose
- *   order_id references orders with no ON DELETE rule
- *   (supabase/migrations/20260220_seller_ledger.sql), so a product with a
- *   paid sale could not be deleted at all: Postgres refused with 23503 and
- *   the product stayed. Now a product with sales is deleted only where the
- *   database keeps its orders (part 32, seen as orders.creator_id, the same
- *   signal lib/analytics/creator-orders reads), and archived everywhere
- *   else: off every page and out of the default list, its sales untouched.
- *   Anything else that still refuses the delete (23503 from a table this
- *   repository does not know) is archived the same way, since a refused
- *   delete changed nothing.
+ *   A PRODUCT WITH SALES IS NEVER DELETED. It is archived: status archived
+ *   and the archived flag, so it is off every public page and out of the
+ *   list's All view, and nothing a buyer has is touched. Deleting it would
+ *   have taken, through ON DELETE CASCADE, every buyer's entitlement (their
+ *   library access) and the product's files (digital_assets), whether or not
+ *   run-now part 32 has run; and before part 32, its orders too, or it was
+ *   refused outright (23503) by the ledger_events row a paid sale writes
+ *   (supabase/migrations/20260220_seller_ledger.sql).
+ *
+ *   WHAT COUNTS AS A SALE. Erring on counting: any order row for the product,
+ *   whatever its status (paid, pending, refunded, failed, disputed), and any
+ *   entitlement to it (a free claim, a gift, an import: somebody's library
+ *   holds it). A count that cannot be read is not "no sales": nothing is
+ *   changed and the caller is told.
+ *
+ *   ANYTHING ELSE THAT REFUSES THE DELETE (23503 from a foreign key this
+ *   repository does not know) is archived the same way: a refused delete
+ *   changed nothing, so archiving is safe.
  *
  *   A DELETE NOBODY WAS ALLOWED TO DO. A delete row level security filters
  *   out is not an error; it deletes nothing and says nothing. Here the row
  *   is read and deleted by the caller's own creator id, and the rows the
  *   database answers with are counted: none is a failure, never a success.
  *
- *   ONE ANSWER. The caller gets `deleted`, `archived` (with the one line
- *   that says why) or a failure with a message, and nothing in between.
- *
- * It never deletes an order, and never touches a product of another creator.
+ * It never writes an order, an entitlement or a file, and never touches a
+ * product of another creator.
  */
 
 type Row = Record<string, unknown>
@@ -54,6 +56,8 @@ export type DeleteProductResult =
     }
   | { kind: "failed"; status: number; error: string }
 
+export type DeletePreview = { kind: "ready"; hasSales: boolean } | { kind: "failed"; status: number; error: string }
+
 /** A product id is a uuid; anything else is not looked up. */
 export const PRODUCT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -61,20 +65,54 @@ export const PRODUCT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 export const ARCHIVED_FOR_SALES = "It has sales, so it was archived instead"
 export const ARCHIVED_FOR_LINKS = "It is still linked to other records, so it was archived instead"
 
+/** A table this database does not have (42P01, or PGRST205 from the schema cache): nothing in it. */
+const noTable = (error: DbError) => !!error && (error.code === "42P01" || error.code === "PGRST205")
+
 /**
- * Does this database keep a deleted product's orders? Part 32 adds
- * orders.creator_id and turns the product foreign key into SET NULL in one
- * transaction, so the column is there exactly when the rule is. A read that
- * fails for any other reason counts as no: the product is archived, which
- * loses nothing, rather than deleted, which might.
+ * Has anybody bought, claimed or been given this product? Orders of any
+ * status, and entitlements. Null when it could not be read.
  */
-export async function ordersOutliveProducts(db: ProductsDb): Promise<boolean> {
-  try {
-    const res = (await db.from("orders").select("creator_id").limit(1)) as Answer<Row[] | null>
-    return !res.error
-  } catch {
-    return false
+export async function productHasSales(db: ProductsDb, productId: string): Promise<boolean | null> {
+  const count = async (table: string): Promise<number | null> => {
+    try {
+      const res = (await db.from(table).select("id", { count: "exact", head: true }).eq("product_id", productId)) as Answer<null>
+      if (res.error) return noTable(res.error) ? 0 : null
+      return res.count ?? 0
+    } catch {
+      return null
+    }
   }
+  const [orders, entitlements] = await Promise.all([count("orders"), count("entitlements")])
+  if (orders === null || entitlements === null) return null
+  return orders + entitlements > 0
+}
+
+type Own = { id: string; slug: string | null; status: string }
+
+async function findOwn(db: ProductsDb, creatorId: string, productId: string): Promise<Own | { kind: "failed"; status: number; error: string }> {
+  if (!creatorId) return { kind: "failed", status: 403, error: "No store on this account" }
+  if (!PRODUCT_ID.test(productId)) return { kind: "failed", status: 400, error: "That is not a product" }
+  /* Theirs, or nothing: by the id AND the caller's own creator. */
+  const found = (await db
+    .from("products")
+    .select("id, slug, status")
+    .eq("id", productId)
+    .eq("creator_id", creatorId)
+    .maybeSingle()) as Answer<Row | null>
+  if (found.error) return { kind: "failed", status: 500, error: "Could not read the product. Nothing was deleted" }
+  if (!found.data) return { kind: "failed", status: 404, error: "This product is not in your store" }
+  return { id: productId, slug: (found.data.slug as string | null) ?? null, status: String(found.data.status ?? "draft") }
+}
+
+const SALES_UNREAD = "Could not check its sales. Nothing was deleted"
+
+/** What pressing Delete will do, for the question asked before it: delete, or archive because it has sales. */
+export async function previewDelete(db: ProductsDb, { creatorId, productId }: { creatorId: string; productId: string }): Promise<DeletePreview> {
+  const own = await findOwn(db, creatorId, productId)
+  if ("kind" in own) return own
+  const hasSales = await productHasSales(db, productId)
+  if (hasSales === null) return { kind: "failed", status: 500, error: SALES_UNREAD }
+  return { kind: "ready", hasSales }
 }
 
 async function archiveOwn(db: ProductsDb, creatorId: string, productId: string): Promise<Answer<Row[] | null>> {
@@ -90,20 +128,9 @@ export async function deleteOwnProduct(
   db: ProductsDb,
   { creatorId, productId }: { creatorId: string; productId: string },
 ): Promise<DeleteProductResult> {
-  if (!creatorId) return { kind: "failed", status: 403, error: "No store on this account" }
-  if (!PRODUCT_ID.test(productId)) return { kind: "failed", status: 400, error: "That is not a product" }
-
-  /* Theirs, or nothing: by the id AND the caller's own creator. */
-  const found = (await db
-    .from("products")
-    .select("id, slug, status")
-    .eq("id", productId)
-    .eq("creator_id", creatorId)
-    .maybeSingle()) as Answer<Row | null>
-  if (found.error) return { kind: "failed", status: 500, error: "Could not read the product. Nothing was deleted" }
-  if (!found.data) return { kind: "failed", status: 404, error: "This product is not in your store" }
-  const slug = (found.data.slug as string | null) ?? null
-  const status = String(found.data.status ?? "draft")
+  const own = await findOwn(db, creatorId, productId)
+  if ("kind" in own) return own
+  const { slug, status } = own
 
   const archive = async (reason: "sales" | "linked"): Promise<DeleteProductResult> => {
     const res = await archiveOwn(db, creatorId, productId)
@@ -117,10 +144,10 @@ export async function deleteOwnProduct(
     }
   }
 
-  /* Its sales. A count that cannot be read is not "no sales". */
-  const sold = (await db.from("orders").select("id", { count: "exact", head: true }).eq("product_id", productId)) as Answer<null>
-  if (sold.error) return { kind: "failed", status: 500, error: "Could not check its sales. Nothing was deleted" }
-  if ((sold.count ?? 0) > 0 && !(await ordersOutliveProducts(db))) return archive("sales")
+  /* Bought, claimed or given to anybody: archived, never deleted, so no buyer loses it. */
+  const hasSales = await productHasSales(db, productId)
+  if (hasSales === null) return { kind: "failed", status: 500, error: SALES_UNREAD }
+  if (hasSales) return archive("sales")
 
   const gone = (await db
     .from("products")
@@ -132,7 +159,7 @@ export async function deleteOwnProduct(
     /* A row that still points at it, and says so. The delete changed nothing, so archiving is safe. */
     if (gone.error.code === "23503") {
       console.error("[delete-product] refused by a foreign key, archived instead:", gone.error.message, gone.error.details ?? "")
-      return archive((sold.count ?? 0) > 0 ? "sales" : "linked")
+      return archive("linked")
     }
     console.error("[delete-product] delete failed:", gone.error.code, gone.error.message)
     return { kind: "failed", status: 500, error: "Could not delete the product" }

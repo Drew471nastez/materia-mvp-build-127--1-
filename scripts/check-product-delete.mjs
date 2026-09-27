@@ -16,7 +16,8 @@
  *   presses. Deleted: back to Products, where the product is not drawn even
  *   though the list was drawn from the copy from before the delete, the
  *   router's kept pages are dropped (a refresh), and "Product deleted" is
- *   shown. Archived: back to Products, not in All, with the line why.
+ *   shown. A product with sales: the question says Archive and why before
+ *   the press; back to Products, not in All, with the line why.
  *   THE LIST (390 and 1280). A row's menu, Delete, the question; refused, the
  *   question stays open and says why; deleted, the row goes, a refresh.
  *
@@ -105,12 +106,17 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   /** A page at `path`, with the delete route answered by `ctx.answer`. */
   async function open(path, vp) {
     const p = await browser.newPage()
-    const ctx = { answer: null, deletes: [], errors: [] }
+    /* `hasSales`: what the route's GET says a press will do. */
+    const ctx = { answer: null, hasSales: false, deletes: [], previews: 0, errors: [] }
     p.on("pageerror", (e) => ctx.errors.push(e.message))
     await p.setRequestInterception(true)
     p.on("request", (r) => {
       const u = r.url()
       if (u.startsWith("data:")) return r.continue()
+      if (u.startsWith("http://probe.test/api/products/delete?") && r.method() === "GET") {
+        ctx.previews++
+        return setTimeout(() => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, hasSales: ctx.hasSales }) }).catch(() => {}), 120)
+      }
       if (u === "http://probe.test/api/products/delete") {
         ctx.deletes.push(JSON.parse(r.postData() || "{}"))
         const a = ctx.answer || { status: 500, body: { ok: false, error: "No answer set" } }
@@ -191,7 +197,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await sleep(isPhone ? 800 : 450)
     const q = await confirmShape(p)
     await p.screenshot({ path: join(shots, `delete-${label}-confirm.png`) })
-    expect(!!q && /^Delete Portrait retouching presets/.test(q.title ?? "") && /Its sales stay in Orders/.test(q.body ?? ""), "it asks first, naming the product", q && { title: q.title, body: q.body })
+    expect(ctx.previews === 1, "it asked the server what a press will do before asking", ctx.previews)
+    expect(!!q && /^Delete Portrait retouching presets/.test(q.title ?? "") && q.body === "It comes off your page and cannot be brought back.", "no sales: it asks to delete, naming the product", q && { title: q.title, body: q.body })
     expect(!!q && q.btns.map((b) => b.text).join() === "Cancel,Delete", "Cancel and Delete", q?.btns)
     if (isPhone) expect(!!q && q.surface === "sheet" && q.btns.every((b) => b.h === 48), "a sheet on a phone, 48px buttons", q)
     else expect(!!q && q.surface === "modal", "a modal on a computer", q?.surface)
@@ -232,13 +239,19 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     if (ctx.errors.length) expect(false, "nothing threw", ctx.errors)
     await p.close()
 
-    console.log(`\n${label}: a product with sales, on a database that would lose them`)
+    console.log(`\n${label}: a product with sales is archived, never deleted`)
     const a = await open(`/app/products/${PRODUCT}`, vp)
     a.ctx.answer = { status: 200, body: { ok: true, outcome: "archived", reason: "sales", message: SALES_LINE, status: "archived", archived: true, slug: "portrait-presets" } }
+    a.ctx.hasSales = true
     await a.p.click(MORE)
     await sleep(700)
     await pressMenuRow(a.p, "Delete")
     await sleep(isPhone ? 800 : 450)
+    const aq = await confirmShape(a.p)
+    await a.p.screenshot({ path: join(shots, `delete-${label}-confirm-sales.png`) })
+    expect(!!aq && /^Archive Portrait retouching presets/.test(aq.title ?? "") && /has sales/.test(aq.body ?? "") && /buyers keep their access/.test(aq.body ?? ""),
+      "with sales: the question says it will be archived, and why, before the press", aq && { title: aq.title, body: aq.body })
+    expect(!!aq && aq.btns.map((b) => b.text).join() === "Cancel,Archive", "Cancel and Archive", aq?.btns)
     await a.p.evaluate(() => [...document.querySelectorAll("[data-confirm]")].find((b) => b.getBoundingClientRect().height > 0)?.click())
     await sleep(1600)
     const aDrawn = await a.p.evaluate((id) => [...document.querySelectorAll(`[data-row="${id}"]`)].filter((e) => e.getClientRects().length > 0).length, PRODUCT)
@@ -287,6 +300,21 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(lGone === 0 && !lModal, "deleted: the row goes and the question closes", { rows: lGone, modal: lModal })
     expect(lLog.includes("refresh"), "and the router's kept pages are dropped, so going back cannot bring it back", lLog.filter((e) => /refresh/.test(e)))
     expect(/Product deleted/.test(await toastText(l.p)), "Product deleted", await toastText(l.p))
+    /* A product with sales, from the list: the question says Archive, and its button is not red. */
+    l.ctx.hasSales = true
+    await pressFirst(l.p, `[data-row="p2"] button[aria-label="Actions for Product 3"]`)
+    await sleep(700)
+    await pressMenuRow(l.p, "Delete")
+    await sleep(700)
+    const lq = await l.p.evaluate(() => {
+      const d = document.querySelector('[role="alertdialog"]')
+      if (!d) return null
+      const go = [...d.querySelectorAll("button")].find((b) => b.textContent.trim() !== "Cancel")
+      return { title: d.querySelector("h3")?.textContent, body: d.querySelector("p")?.textContent, go: go?.textContent.trim(), bg: go ? getComputedStyle(go).backgroundColor : null }
+    })
+    await l.p.screenshot({ path: join(shots, `delete-${label}-list-sales.png`) })
+    expect(!!lq && lq.title === "Archive Product 3?" && /buyers keep their access/.test(lq.body ?? "") && lq.go === "Archive" && lq.bg === "rgb(26, 26, 46)",
+      "with sales, the list asks to archive, in near black rather than red", lq)
     if (l.ctx.errors.length) expect(false, "nothing threw", l.ctx.errors)
     await l.p.close()
   }

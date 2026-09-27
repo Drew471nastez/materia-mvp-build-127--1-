@@ -57,6 +57,51 @@ export async function deleteProduct(productId: string): Promise<DeleteOutcome> {
   throw new Error("Could not delete the product")
 }
 
+/* ── The question, true before the press ──────────────────────────────── */
+
+/**
+ * What pressing Delete will do: `delete`, or `archive` because somebody
+ * bought, claimed or was given the product (a product with sales is never
+ * deleted, lib/products/delete-product.ts). `unknown` when the server could
+ * not say in time, which the question words so it is true either way.
+ */
+export type DeleteKind = "delete" | "archive" | "unknown"
+
+export async function previewProductDelete(productId: string, timeoutMs = 4000): Promise<DeleteKind> {
+  const stop = typeof AbortController === "function" ? new AbortController() : null
+  const timer = stop ? setTimeout(() => stop.abort(), timeoutMs) : null
+  try {
+    const res = await fetch(`/api/products/delete?productId=${encodeURIComponent(productId)}`, { cache: "no-store", signal: stop?.signal })
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; hasSales?: boolean } | null
+    if (!res.ok || !body?.ok || typeof body.hasSales !== "boolean") return "unknown"
+    return body.hasSales ? "archive" : "delete"
+  } catch {
+    return "unknown"
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/** The words of the question, one set for every screen that deletes. */
+export function deleteQuestion(name: string, kind: DeleteKind): { title: string; body: string; confirm: string } {
+  const what = name.trim() || "this product"
+  if (kind === "archive") {
+    return {
+      title: `Archive ${what}?`,
+      body: "It has sales, so it will be archived, not deleted. It comes off your page and buyers keep their access.",
+      confirm: "Archive",
+    }
+  }
+  if (kind === "unknown") {
+    return {
+      title: `Delete ${what}?`,
+      body: "It comes off your page. If it has sales it is archived instead, so buyers keep their access.",
+      confirm: "Delete",
+    }
+  }
+  return { title: `Delete ${what}?`, body: "It comes off your page and cannot be brought back.", confirm: "Delete" }
+}
+
 /* ── What this tab has changed, for the list's kept copy ─────────────────── */
 
 /** As long as the router keeps a page (next.config staleTimes, five minutes), and a little more. */
