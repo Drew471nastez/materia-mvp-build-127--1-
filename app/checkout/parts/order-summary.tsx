@@ -240,15 +240,19 @@ const CHOICES: readonly number[] = [...TIPS, OTHER]
 
 /**
  * ===========================================================================
- *  A TIP, IN PLAIN SIGHT
+ *  A TIP, FOLDED UNTIL IT IS WANTED
  * ===========================================================================
- * It was one folded line, "Add a tip", that had to be pressed before any
- * amount could be chosen. "Make the add a tip with some options a little bit
- * more visible, not toggleable": now the line is a heading with the choices
- * under it, always there, and nothing opens or closes. The field for an
- * amount of your own still appears only when Other is chosen. With a tip on,
- * its amount sits at the end of the heading, like every other line of the
- * order.
+ * "In the checkout, Add a tip should be collapsed as default." It was a
+ * heading with the five choices always open under it ("a little bit more
+ * visible, not toggleable"), which put a control most buyers never use in
+ * front of every one of them. Now it is one line of the order, "Add a tip
+ * for <creator>" in full ink with a chevron, closed on every load, paid or
+ * free, phone or computer. Pressed, it opens to the same track of choices;
+ * the field for an amount of your own still appears only when Other is
+ * chosen. It starts open only when a tip is already on (nothing keeps a tip
+ * across a reload today, so that is only ever a tip chosen on this page),
+ * and with a tip on its amount sits at the end of the line whether the
+ * choices are open or not, like every other line of the order.
  *
  * The amounts sent are the ones this always sent: None, $1, $3 and $5 go to
  * onPreset, an amount typed goes to onCustom, and the page works the tip out
@@ -272,12 +276,15 @@ export function TipPicker({
   idSuffix: string
 }) {
   const usingCustom = custom !== ""
+  /* Closed unless a tip is actually on when it first draws; after that only the buyer opens and closes it. */
+  const [open, setOpen] = React.useState(() => tipCents > 0 || usingCustom)
   /* Other chosen and nothing typed yet: still Other, and no tip until there is an amount. */
   const [otherChosen, setOtherChosen] = React.useState(false)
   const other = usingCustom || otherChosen
   const inputRef = React.useRef<HTMLInputElement>(null)
   const id = `tip-custom${idSuffix}`
   const labelId = `tip-label${idSuffix}`
+  const panelId = `tip-choices${idSuffix}`
   /* One tab stop for the group, arrows between the choices, as a radio group
      is used everywhere else. */
   const current = other ? CHOICES.length - 1 : CHOICES.findIndex((c) => c === tipCents)
@@ -303,82 +310,99 @@ export function TipPicker({
     ;(e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('[role="radio"]')[next])?.focus()
   }
   return (
-    <div data-tip="">
-      <div data-tip-label="" className="flex min-h-5 items-baseline justify-between gap-3 text-[14px]">
-        <p id={labelId} className="min-w-0 truncate">
+    <div data-tip="" data-tip-open={open ? "" : undefined}>
+      <button
+        type="button"
+        data-tip-toggle=""
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="-mx-2 flex h-9 w-[calc(100%+1rem)] cursor-pointer items-center justify-between gap-3 rounded-[7px] px-2 text-left text-[14px] transition-colors duration-150 hover:bg-black/[0.035] active:bg-black/[0.06] [-webkit-tap-highlight-color:transparent]"
+      >
+        <span data-tip-label="" id={labelId} className="min-w-0 truncate">
           <span className="font-medium text-[#1a1a2e]">Add a tip</span>
           <span className="text-[#6b7280]"> for {creatorName}</span>
-        </p>
-        {tipCents > 0 ? (
-          <span data-tip-amount="" className="checkout-rise shrink-0 font-medium tabular-nums text-[#1a1a2e]">
-            {money(tipCents)}
-          </span>
-        ) : null}
-      </div>
-      {/*
-        ONE WHITE THUMB THAT SLIDES. The chosen tip used to switch its own
-        background on and the last one's off, which read as a blink. Now a
-        single raised thumb moves under the choices to the one pressed, and
-        only the words change colour: quick, and it says which is on. The
-        track carries a faint inner edge so it holds its shape on the grey
-        half as well as on white.
-      */}
-      <div
-        role="radiogroup"
-        aria-labelledby={labelId}
-        className="relative mt-2.5 grid grid-cols-5 gap-[3px] rounded-[10px] bg-[#e8eaed] p-[3px] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.04)]"
-      >
-        <span
-          aria-hidden
-          data-tip-thumb=""
-          className="pointer-events-none absolute bottom-[3px] left-[3px] top-[3px] rounded-[8px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_0_0_1px_rgba(16,24,40,0.05)] transition-[translate] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-          style={{ width: "calc((100% - 18px) / 5)", translate: `calc(${Math.max(0, current)} * (100% + 3px)) 0` }}
-        />
-        {CHOICES.map((cents, i) => {
-          const on = i === current
-          return (
-            <button
-              key={cents}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              tabIndex={i === focusable ? 0 : -1}
-              onKeyDown={(e) => onArrows(e, i)}
-              onClick={() => choose(i)}
-              className={cn(
-                "relative h-9 min-w-0 cursor-pointer rounded-[8px] text-[13.5px] font-medium tabular-nums outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
-                on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
-              )}
-            >
-              {cents === OTHER ? "Other" : cents === 0 ? "None" : money(cents).replace(".00", "")}
-            </button>
-          )
-        })}
-      </div>
-      <Reveal open={other} pad className="-mx-[3px]">
-        <div className="relative pt-2">
-          <label htmlFor={id} className="sr-only">
-            Your own tip, in dollars
-          </label>
-          <span aria-hidden className="pointer-events-none absolute bottom-0 left-3.5 flex h-11 items-center text-[15px] text-[#a2a7b0]">
-            $
-          </span>
-          <TextInput
-            ref={inputRef}
-            id={id}
-            inputMode="decimal"
-            placeholder="Amount"
-            value={custom}
-            onChange={(e) => {
-              /* Dollars and cents, up to the $1,000 the server takes: what is
-                 typed is what the total uses, never a clamped figure behind it. */
-              const typed = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-              const [whole, frac] = typed.split(".")
-              const capped = Number(whole || 0) > 1000 ? "1000" : whole
-              onCustom(frac !== undefined ? `${capped}.${frac.slice(0, 2)}` : capped)
-            }}
-            className="pl-7 tabular-nums"
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {tipCents > 0 ? (
+            <span data-tip-amount="" className="checkout-rise font-medium tabular-nums text-[#1a1a2e]">
+              {money(tipCents)}
+            </span>
+          ) : null}
+          <ChevronDown
+            aria-hidden
+            className={cn("h-4 w-4 text-[#6b7280] transition-[rotate] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", open && "rotate-180")}
           />
+        </span>
+      </button>
+      <Reveal open={open} id={panelId} pad className="-mx-[3px]">
+        <div className="pt-1.5">
+          {/*
+            ONE WHITE THUMB THAT SLIDES. The chosen tip used to switch its own
+            background on and the last one's off, which read as a blink. Now a
+            single raised thumb moves under the choices to the one pressed, and
+            only the words change colour: quick, and it says which is on. The
+            track carries a faint inner edge so it holds its shape on the grey
+            half as well as on white.
+          */}
+          <div
+            role="radiogroup"
+            aria-labelledby={labelId}
+            className="relative grid grid-cols-5 gap-[3px] rounded-[10px] bg-[#e8eaed] p-[3px] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.04)]"
+          >
+            <span
+              aria-hidden
+              data-tip-thumb=""
+              className="pointer-events-none absolute bottom-[3px] left-[3px] top-[3px] rounded-[8px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_0_0_1px_rgba(16,24,40,0.05)] transition-[translate] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              style={{ width: "calc((100% - 18px) / 5)", translate: `calc(${Math.max(0, current)} * (100% + 3px)) 0` }}
+            />
+            {CHOICES.map((cents, i) => {
+              const on = i === current
+              return (
+                <button
+                  key={cents}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  tabIndex={i === focusable ? 0 : -1}
+                  onKeyDown={(e) => onArrows(e, i)}
+                  onClick={() => choose(i)}
+                  className={cn(
+                    "relative h-9 min-w-0 cursor-pointer rounded-[8px] text-[13.5px] font-medium tabular-nums outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
+                    on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
+                  )}
+                >
+                  {cents === OTHER ? "Other" : cents === 0 ? "None" : money(cents).replace(".00", "")}
+                </button>
+              )
+            })}
+          </div>
+          <Reveal open={other} pad className="-mx-[3px]">
+            <div className="relative pt-2">
+              <label htmlFor={id} className="sr-only">
+                Your own tip, in dollars
+              </label>
+              <span aria-hidden className="pointer-events-none absolute bottom-0 left-3.5 flex h-11 items-center text-[15px] text-[#a2a7b0]">
+                $
+              </span>
+              <TextInput
+                ref={inputRef}
+                id={id}
+                inputMode="decimal"
+                placeholder="Amount"
+                value={custom}
+                onChange={(e) => {
+                  /* Dollars and cents, up to the $1,000 the server takes: what is
+                     typed is what the total uses, never a clamped figure behind it. */
+                  const typed = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
+                  const [whole, frac] = typed.split(".")
+                  const capped = Number(whole || 0) > 1000 ? "1000" : whole
+                  onCustom(frac !== undefined ? `${capped}.${frac.slice(0, 2)}` : capped)
+                }}
+                className="pl-7 tabular-nums"
+              />
+            </div>
+          </Reveal>
         </div>
       </Reveal>
     </div>

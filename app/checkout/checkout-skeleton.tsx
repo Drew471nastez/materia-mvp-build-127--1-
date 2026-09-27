@@ -48,12 +48,10 @@ export function CheckoutSkeleton() {
                 <div className={`${bar} h-3.5 w-16`} />
               </div>
               <div className={`${bar} mt-3 h-8 w-36`} />
-              {/* The tip, always open: its line, then the track of five at the real one's height. */}
-              <div data-skeleton-tip="" className="mt-5">
-                <div className="flex h-5 items-center">
-                  <div className={`${bar} h-3.5 w-36`} />
-                </div>
-                <div className="mt-2.5 h-[42px] rounded-[10px] bg-[#e8eaed]" />
+              {/* The tip, folded as it loads: one line at the real one's height, its words and its chevron. */}
+              <div data-skeleton-tip="" className="mt-5 flex h-9 items-center justify-between">
+                <div className={`${bar} h-3.5 w-36`} />
+                <div className={`${bar} h-3.5 w-4`} />
               </div>
               <div className="mt-5 flex items-center justify-between border-t border-black/[0.07] pt-4">
                 <div className={`${bar} h-4 w-20`} />

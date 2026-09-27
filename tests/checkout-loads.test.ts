@@ -69,13 +69,19 @@ function main() {
   check("the line says Qty 1, and nothing sits on its picture", /Qty 1/.test(summary) && !/aria-label="Quantity 1"/.test(summary))
   check("the code starts as a grey Add promotion code button", /Add promotion code/.test(summary) && /data-promo="add"/.test(summary))
   check("the chosen tip is white in a grey track, never black: one thumb that slides", /data-tip-thumb=""/.test(summary) && /rounded-\[8px\] bg-white shadow-/.test(summary) && /transition-\[translate\]/.test(summary) && !/bg-\[#1a1a2e\] text-white/.test(summary))
-  /* "Make the add a tip with some options a little bit more visible, not toggleable." */
+  /*
+    Changed on purpose. It was "Make the add a tip with some options a little bit more visible, not toggleable", and
+    the tip was always open. The owner has since asked: "in the checkout, Add a tip should be collapsed as default."
+    So it is one folded line again, closed on every load unless a tip is actually on, and it opens to the same track.
+  */
   {
     const tipPicker = summary.slice(summary.indexOf("export function TipPicker"), summary.indexOf("export function Totals"))
-    check("the tip is always open: Add a tip, its choices under it, nothing that folds", /Add a tip/.test(tipPicker) && /data-tip-label=""/.test(tipPicker) && /role="radiogroup"\s*aria-labelledby=\{labelId\}/.test(tipPicker) && !/aria-expanded|data-tip-toggle|data-tip-open|setOpen/.test(tipPicker) && !/<Reveal open=\{open\}/.test(tipPicker))
+    check("the tip starts folded: Add a tip is a line that opens to its choices, closed unless a tip is already on", /Add a tip/.test(tipPicker) && /data-tip-label=""/.test(tipPicker) && /role="radiogroup"\s*aria-labelledby=\{labelId\}/.test(tipPicker)
+      && /const \[open, setOpen\] = React\.useState\(\(\) => tipCents > 0 \|\| usingCustom\)/.test(tipPicker) && /data-tip-toggle=""/.test(tipPicker) && /aria-expanded=\{open\}/.test(tipPicker) && /<Reveal open=\{open\} id=\{panelId\}/.test(tipPicker))
     check("its choices are 36px, on a track with a faint edge that holds on the grey", /relative h-9 min-w-0/.test(tipPicker) && /bg-\[#e8eaed\] p-\[3px\] shadow-\[inset_0_0_0_1px/.test(tipPicker))
     const sk = read("app/checkout/checkout-skeleton.tsx")
-    check("and the skeleton draws it open too, the track at the real one's height", /data-skeleton-tip=""/.test(sk) && /mt-2\.5 h-\[42px\] rounded-\[10px\]/.test(sk))
+    /* Changed on purpose with the fold: the skeleton draws the closed line, not the open track. */
+    check("and the skeleton draws it folded too, one line at the real one's height", /data-skeleton-tip="" className="mt-5 flex h-9 items-center justify-between"/.test(sk) && !/mt-2\.5 h-\[42px\] rounded-\[10px\]/.test(sk))
   }
   check("Pay is 48px with an 8px corner, and Stripe signs the page", /h-12 w-full[^"]*rounded-\[8px\]/.test(ui) && /<PoweredByStripe \/>/.test(client))
 
