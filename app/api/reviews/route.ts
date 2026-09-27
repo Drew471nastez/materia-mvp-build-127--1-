@@ -5,6 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
 import { productTag } from "@/lib/commerce/product-page-cache"
+import { canDeliver, isUuid } from "@/lib/receipts/rules"
+
+const MAX_REVIEW_CHARS = 1000
+const ALREADY_REVIEWED = "You already reviewed this product."
 
 // GET - Fetch reviews for a product
 export async function GET(request: NextRequest) {
@@ -74,19 +78,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { productId, rating, content, orderId } = body
+  /* What arrives is whatever a browser sent: shape is checked, not trusted. */
+  let body: { productId?: unknown; rating?: unknown; content?: unknown; orderId?: unknown }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 })
+  }
+  const productId = typeof body.productId === "string" ? body.productId : ""
+  const rating = Number(body.rating)
+  const content = typeof body.content === "string" ? body.content.trim() : ""
+  const orderId = isUuid(body.orderId) ? body.orderId : null
 
-  if (!productId || !rating || !content) {
+  if (!isUuid(productId) || !body.rating || !content) {
     return NextResponse.json({ error: "productId, rating, and content are required" }, { status: 400 })
   }
 
-  if (rating < 1 || rating > 5) {
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 })
   }
 
-  if (content.trim().length < 10) {
+  if (content.length < 10) {
     return NextResponse.json({ error: "Review must be at least 10 characters" }, { status: 400 })
+  }
+  if (content.length > MAX_REVIEW_CHARS) {
+    return NextResponse.json({ error: `Keep the review under ${MAX_REVIEW_CHARS} characters` }, { status: 400 })
   }
 
   /*
@@ -106,28 +122,44 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: eligibility.message }, { status: 403 })
   }
 
-  // Check if user has purchased this product
+  /*
+    Bought it. `limit(1)`, never `.single()`: somebody who bought the product
+    twice holds two entitlements, and `.single()` answers an error for two
+    rows, which read as "you must purchase this product" to a paying buyer.
+  */
   const { data: entitlement } = await admin
     .from("entitlements")
     .select("id")
     .eq("buyer_id", user.id)
     .eq("product_id", productId)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
   if (!entitlement) {
     return NextResponse.json({ error: "You must purchase this product to leave a review" }, { status: 403 })
   }
 
-  // Check if user already reviewed this product
+  /* And still has it: an entitlement outlives a refund (the download route
+     reads the order for that), so a buyer whose every order for this product
+     was refunded, failed or disputed has nothing to review. An entitlement
+     with no order behind it (a creator's grant) is left as it was. */
+  const { data: ownOrders } = await admin.from("orders").select("*").eq("buyer_id", user.id).eq("product_id", productId)
+  if (Array.isArray(ownOrders) && ownOrders.length > 0 && !ownOrders.some((o: any) => canDeliver(o))) {
+    return NextResponse.json({ error: "Only a completed purchase can be reviewed." }, { status: 403 })
+  }
+
+  /* One review per buyer per product. A second one is refused, plainly;
+     the receipt shows the first instead of the form (/api/reviews/check). */
   const { data: existingReview } = await admin
     .from("reviews")
     .select("id")
     .eq("buyer_id", user.id)
     .eq("product_id", productId)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
   if (existingReview) {
-    return NextResponse.json({ error: "You have already reviewed this product" }, { status: 409 })
+    return NextResponse.json({ error: ALREADY_REVIEWED, alreadyReviewed: true }, { status: 409 })
   }
 
   // Get product with creator info (including user_id for notifications)
@@ -157,9 +189,10 @@ export async function POST(request: NextRequest) {
       product_id: productId,
       creator_id: product.creator_id,
       buyer_id: user.id,
-      order_id: orderId || null,
+      /* Only an order of this buyer's for this product; any other id is dropped. */
+      order_id: orderId && Array.isArray(ownOrders) && ownOrders.some((o: any) => o.id === orderId) ? orderId : null,
       rating,
-      content: content.trim(),
+      content,
     })
     .select(`
       *,
@@ -168,8 +201,13 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    console.error("[reviews] Error creating review:", error)
-    return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
+    /* Two presses at once both passed the check above; the unique index
+       (run-now part 47) lets one in and refuses the other. */
+    if ((error as { code?: string }).code === "23505") {
+      return NextResponse.json({ error: ALREADY_REVIEWED, alreadyReviewed: true }, { status: 409 })
+    }
+    console.error("[reviews] Error creating review:", error.message)
+    return NextResponse.json({ error: "The review did not save. Try again." }, { status: 500 })
   }
 
   console.log("[reviews] ✅ Review created successfully:", review.id)
@@ -182,6 +220,8 @@ export async function POST(request: NextRequest) {
     only there for the paths that forget, and this one does not.
   */
   revalidateTag(productTag(productId), "max")
+  /* The product row itself (its review count) is cached under its slug. */
+  if (product.slug) revalidateTag(productTag(product.slug), "max")
 
   // Create notification and send email to seller (don't block response on this)
   const creatorUserId = (product.creator as any)?.user_id

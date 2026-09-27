@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkReviewEligibility } from "@/lib/reviews/eligibility"
+import { canDeliver } from "@/lib/receipts/rules"
 
 // Check if user can review a product and if they already have
 export async function GET(request: NextRequest) {
@@ -48,15 +49,16 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // Check if user has purchased this product
-  const { data: entitlement } = await admin
-    .from("entitlements")
-    .select("id")
-    .eq("buyer_id", user.id)
-    .eq("product_id", productId)
-    .single()
+  /* The same purchase question the write endpoint asks (app/api/reviews):
+     an entitlement, `limit(1)` because a second purchase is a second row,
+     and at least one order for it that was not refunded, when there are any. */
+  const [{ data: entitlement }, { data: ownOrders }] = await Promise.all([
+    admin.from("entitlements").select("id").eq("buyer_id", user.id).eq("product_id", productId).limit(1).maybeSingle(),
+    admin.from("orders").select("*").eq("buyer_id", user.id).eq("product_id", productId),
+  ])
 
-  const hasPurchased = !!entitlement
+  const hasPurchased =
+    !!entitlement && !(Array.isArray(ownOrders) && ownOrders.length > 0 && !ownOrders.some((o: any) => canDeliver(o)))
 
   // Check if user already reviewed
   const { data: existingReview } = await admin
@@ -64,7 +66,8 @@ export async function GET(request: NextRequest) {
     .select("id, rating, content, created_at")
     .eq("buyer_id", user.id)
     .eq("product_id", productId)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
   const hasReviewed = !!existingReview
 
