@@ -18,12 +18,13 @@ import { isBanned } from "@/lib/seo/bans"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import { publicOnePage } from "@/lib/onepage/public-shape"
 import { resolveOnePageSeo, type ResolvedOnePageSeo } from "@/lib/onepage/seo"
+import { exactIlike } from "@/lib/onepage/username"
 
 /**
  * WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
  *
  *   handle      the owner's username, which the page is canonical under:
- *               storelib.com/<handle>/links, or /links on their connected
+ *               storelib.me/<handle>, or /links on their connected
  *               domain, where the proxy serves the same page
  *   banned      an operator banned the owner: the page is not served at all,
  *               as their products are not (lib/seo/bans.ts)
@@ -68,15 +69,25 @@ export type OnePageOwner = Awaited<ReturnType<typeof onePageOwner>>
 
 /**
  * ONE READ OF THE PAGE, FOR THE TAB, THE BODY AND THE SHARE IMAGE: by its
- * slug, then by the owner whose username the slug is (username.storelib.com/
- * links and /<handle>/links, where the proxy passes the handle as the slug).
+ * slug, then by the owner whose username the slug is (storelib.me/<name>,
+ * which the proxy serves from /<name>/links with the name as the slug).
  */
 export const findPublishedOnePage = cache(async (slug: string) => {
   const supabase = createAdminClient()
   const { data: bySlug } = await supabase.from("onepages").select("*").eq("slug", slug).eq("status", "published").maybeSingle()
   if (bySlug) return bySlug
 
-  const { data: profile } = await supabase.from("profiles").select("id, username").ilike("username", slug).maybeSingle()
+  /*
+    IN ANY CASE. storelib.me sends /{Name} to /{name}, so a page saved with a
+    capital in its address before addresses were lower cased is still found.
+    `_` and `%` are literal here (exactIlike): an ILIKE pattern would read
+    `a_b` as "a, any character, b" and could answer with somebody else's page.
+  */
+  const { data: byAnyCase } = await supabase
+    .from("onepages").select("*").ilike("slug", exactIlike(slug)).eq("status", "published").limit(1).maybeSingle()
+  if (byAnyCase) return byAnyCase
+
+  const { data: profile } = await supabase.from("profiles").select("id, username").ilike("username", exactIlike(slug)).maybeSingle()
   if (!profile) return null
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", profile.id).maybeSingle()
   if (creator) {
@@ -107,8 +118,8 @@ export function publishedShape(
 
 /**
  * The address the page is shared at: <creator page domain>/links, or
- * storelib.com/<handle>/links under the owner's own handle, which is the one
- * the sitemap lists. The address it was reached at when there is no handle.
+ * storelib.me/<handle> under the owner's own handle, which is the one the
+ * sitemap lists. The page's own name there when there is no handle.
  */
 export async function onePageAddress(onepage: { seller_id?: string | null; creator_id?: string | null }, owner: OnePageOwner, slug: string) {
   if (owner.canonical) return owner.canonical

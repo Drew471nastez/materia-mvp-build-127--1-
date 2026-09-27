@@ -1,0 +1,251 @@
+/**
+ * ===========================================================================
+ *  WHAT THE PROXY DOES WITH A ONEPAGE ADDRESS, DECIDED WITHOUT A REQUEST
+ * ===========================================================================
+ * proxy.ts asks `onePageRoute` first, with the host, the path, the query and
+ * the method, and does exactly what it answers. Pure, so every case below is
+ * pinned by tests/onepage-host.test.ts without a server.
+ *
+ * ON storelib.me (the exact host, never a look-alike):
+ *
+ *   /{name}                  the OnePage, rewritten to /{name}/links, the
+ *                            route that has always rendered it
+ *   /{Name}                  308 to /{name}: one spelling per page
+ *   /{name}/, /{name}/links  308 to /{name}
+ *   /{name}.links, /l/{name}
+ *   /                        307 to storelib.com: the host has no page of
+ *                            its own (temporary, so a page for it later
+ *                            is not fighting a cached redirect)
+ *   /robots.txt              its own, naming its own sitemap
+ *   /sitemap.xml             its own index of OnePage sitemaps
+ *   /sitemap/onepages-N.xml  one file of it
+ *   /api/...                 ONLY the calls a public OnePage makes, with the
+ *                            method it makes them with; every other API is a
+ *                            404 here, so the session, the dashboard and the
+ *                            admin cannot be reached through this host
+ *   /_next/..., fonts, media  as they are
+ *   /app, /admin, /login,    308 to the same path on storelib.com: a
+ *   /checkout, any platform  platform page is served where the session
+ *   word                     lives, never on this host
+ *   anything else            404 (a small page, noindex)
+ *
+ *   www.storelib.me/...      308 to storelib.me/..., should that host ever
+ *                            be attached
+ *
+ * ON storelib.com (the old addresses, 308 so search engines move what they
+ * know, the query carried through so utm and ref survive):
+ *
+ *   /{name}/links, /{name}.links, /l/{name}   308 to storelib.me/{name}
+ *   {name}.storelib.com/links                 308 to storelib.me/{name}
+ *
+ * A name is redirected only when isResolvableOnePageName says it is one, so
+ * nothing a visitor types in the path can steer where the redirect goes: the
+ * host is always ours, and the path is a name that passed the check.
+ *
+ * THE NATIVE APP STAYS WHERE IT IS. It loads storelib.com, and a hop to
+ * another origin drops the session it keeps there, so a request from the
+ * app keeps being served at /{name}/links on storelib.com.
+ */
+import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
+import { getOnePageDomain } from "@/lib/onepage/address"
+import { isResolvableOnePageName } from "@/lib/onepage/username"
+
+export type OnePageRoute =
+  /** Leave the request alone. */
+  | { kind: "next" }
+  /** Serve this internal path instead (query included); the address bar does not change. */
+  | { kind: "rewrite"; path: string }
+  /** Send the browser here. */
+  | { kind: "redirect"; location: string; status: 301 | 307 | 308 }
+  /** Answer robots.txt for the OnePage host. */
+  | { kind: "robots"; body: string }
+  /** Nothing here: a page 404 (rewritten to `path`, which renders the page's own not found) or an API 404. */
+  | { kind: "not-found"; api: boolean; path: string }
+
+export interface OnePageRouteInput {
+  /** The Host header, as sent. */
+  host: string
+  /** The path as the browser asked for it (still percent encoded). */
+  pathname: string
+  /** The query with its `?`, or "". */
+  search: string
+  method?: string
+  userAgent?: string | null
+  /** storelib.com unless configured. */
+  mainDomain: string
+  /** The host published sites live under (<name>.storelib.com); the main domain unless configured. */
+  sitesDomain?: string
+  /** Subdomains that are the platform's own (www, app, api...), never a creator's. */
+  platformSubdomains?: readonly string[]
+}
+
+/**
+ * The API calls a published OnePage makes from its own page, and the method
+ * each is made with (components/onepage/public-onepage.tsx). Nothing else
+ * under /api answers on the OnePage host.
+ */
+export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string[] }[] = [
+  /* A view or a click on a block. */
+  { path: /^\/api\/onepage\/track\/?$/, methods: ["POST"] },
+  /* A lead form block. */
+  { path: /^\/api\/onepage\/leads\/?$/, methods: ["POST"] },
+  /* The subscribe bell. */
+  { path: /^\/api\/subscribe\/?$/, methods: ["POST"] },
+  /* A free product claimed in place. */
+  { path: /^\/api\/checkout\/quick-free\/?$/, methods: ["POST"] },
+  /* Its download, by the receipt token the claim returned. */
+  { path: /^\/api\/download\/[A-Za-z0-9-]{1,64}\/?$/, methods: ["GET", "HEAD"] },
+]
+
+/** Files a OnePage's markup may ask the host for directly: fonts, media, icons. */
+const ASSET = /\.(?:ico|avif|woff2?|ttf|otf|eot|mp4|webm|mp3|m4a)$/i
+
+/** Where a request that has nothing on the OnePage host is rendered: the page's own not found (see app/(marketing)/l/[slug]). */
+export const ONEPAGE_MISSING_PATH = "/l/-"
+
+/** robots.txt for the OnePage host. The pages are open; the calls are not pages. */
+export function onePageRobots(domain = getOnePageDomain()): string {
+  return ["User-agent: *", "Allow: /", "Disallow: /api/", "", `Sitemap: https://${domain}/sitemap.xml`, ""].join("\n")
+}
+
+/** Is this User-Agent the Storelib app's own WebView? */
+export function isNativeAppAgent(userAgent: string | null | undefined): boolean {
+  return /Capacitor|StorelibApp/.test(userAgent || "")
+}
+
+function bareHostOf(host: string): string {
+  return host.split(":")[0].trim().toLowerCase().replace(/\.$/, "")
+}
+
+/** A path segment as a name, or null when it cannot be one. Percent escapes are read; a name never contains one. */
+function nameOf(segment: string | undefined): string | null {
+  if (!segment) return null
+  let s: string
+  try {
+    s = decodeURIComponent(segment)
+  } catch {
+    return null
+  }
+  return isResolvableOnePageName(s) ? s : null
+}
+
+function segmentsOf(pathname: string): string[] {
+  return pathname.split("/").filter(Boolean)
+}
+
+/**
+ * The decision for one request, or null when this request is not about a
+ * OnePage at all (every other host and path, which the proxy handles as it
+ * always has).
+ */
+export function onePageRoute(input: OnePageRouteInput): OnePageRoute | null {
+  const host = bareHostOf(input.host)
+  const domain = getOnePageDomain()
+  const main = input.mainDomain.toLowerCase()
+  const search = input.search || ""
+  const method = (input.method || "GET").toUpperCase()
+  const toMe = (name: string) => ({ kind: "redirect" as const, location: `https://${domain}/${name.toLowerCase()}${search}`, status: 308 as const })
+
+  /* ── www.storelib.me: the name without www is the address ───────────── */
+  if (host === `www.${domain}`) {
+    return { kind: "redirect", location: `https://${domain}${input.pathname}${search}`, status: 308 }
+  }
+
+  /* ── storelib.me ────────────────────────────────────────────────────── */
+  if (host === domain) return onTheOnePageHost(input.pathname, search, method, main, domain)
+
+  const native = isNativeAppAgent(input.userAgent)
+
+  /* ── {name}.storelib.com/links: the address the Share card once gave out ── */
+  const sites = (input.sitesDomain || main).toLowerCase()
+  if (host.endsWith(`.${sites}`) && (input.pathname === "/links" || input.pathname === "/links/")) {
+    const sub = host.slice(0, -(sites.length + 1))
+    if (sub.includes(".") || !isResolvableOnePageName(sub) || (input.platformSubdomains ?? []).includes(sub)) return null
+    if (native) return { kind: "redirect", location: `https://${main}/${sub}/links${search}`, status: 308 }
+    return toMe(sub)
+  }
+
+  /* ── storelib.com: the old addresses ────────────────────────────────── */
+  if (host !== main) return null
+  const parts = segmentsOf(input.pathname)
+
+  /* /l/{name}, the first address a OnePage had. */
+  if (parts[0] === "l" && parts.length >= 2) {
+    const name = nameOf(parts[1])
+    if (!name || isReservedRootSegment(name)) return null
+    if (native) return { kind: "redirect", location: `https://${main}/${name.toLowerCase()}/links${search}`, status: 308 }
+    return toMe(name)
+  }
+
+  /* /{name}/links, the address it had until now. */
+  if (parts.length === 2 && parts[1].toLowerCase() === "links" && !isReservedRootSegment(parts[0])) {
+    const name = nameOf(parts[0])
+    if (!name || native) return null
+    return toMe(name)
+  }
+
+  /* /{name}.links, a spelling that has been handed around. */
+  if (parts.length === 1 && /\.links$/i.test(parts[0])) {
+    const name = nameOf(parts[0].slice(0, -".links".length))
+    if (!name || isReservedRootSegment(name)) return null
+    if (native) return { kind: "redirect", location: `https://${main}/${name.toLowerCase()}/links${search}`, status: 308 }
+    return toMe(name)
+  }
+
+  return null
+}
+
+function onTheOnePageHost(pathname: string, search: string, method: string, main: string, domain: string): OnePageRoute {
+  const missing = (api = false): OnePageRoute => ({ kind: "not-found", api, path: ONEPAGE_MISSING_PATH })
+  const toPlatform = (): OnePageRoute => ({ kind: "redirect", location: `https://${main}${pathname}${search}`, status: 308 })
+  const toName = (name: string) => ({ kind: "redirect" as const, location: `https://${domain}/${name.toLowerCase()}${search}`, status: 308 as const })
+
+  /* Next's own files: scripts, styles, fonts and optimised images. */
+  if (pathname.startsWith("/_next/")) return { kind: "next" }
+
+  if (pathname === "/") return { kind: "redirect", location: `https://${main}/${search}`, status: 307 }
+  if (pathname === "/robots.txt") return { kind: "robots", body: onePageRobots(domain) }
+  if (pathname === "/sitemap.xml") return { kind: "rewrite", path: "/sitemap/onepages.xml" }
+  if (/^\/sitemap\/onepages-\d{1,6}\.xml$/.test(pathname)) return { kind: "next" }
+
+  if (pathname === "/api" || pathname.startsWith("/api/")) {
+    const allowed = ONEPAGE_HOST_API.some((a) => a.path.test(pathname) && a.methods.includes(method))
+    return allowed ? { kind: "next" } : missing(true)
+  }
+
+  if (ASSET.test(pathname)) return { kind: "next" }
+
+  const parts = segmentsOf(pathname)
+  if (parts.length === 0) return missing()
+  const first = parts[0]
+
+  if (parts.length === 1) {
+    /* storelib.me/{name}.links: the old spelling on the new host. */
+    if (/\.links$/i.test(first)) {
+      const name = nameOf(first.slice(0, -".links".length))
+      return name ? toName(name) : missing()
+    }
+    /* A platform word: the platform page, on the platform's host. */
+    if (isReservedRootSegment(first)) return toPlatform()
+    const name = nameOf(first)
+    if (!name) return missing()
+    if (name !== name.toLowerCase() || name !== first || pathname.endsWith("/")) return toName(name)
+    return { kind: "rewrite", path: `/${name}/links${search}` }
+  }
+
+  /* storelib.me/l/{name} */
+  if (first === "l" && parts.length === 2) {
+    const name = nameOf(parts[1])
+    return name ? toName(name) : missing()
+  }
+
+  if (isReservedRootSegment(first)) return toPlatform()
+
+  /* storelib.me/{name}/links */
+  if (parts.length === 2 && parts[1].toLowerCase() === "links") {
+    const name = nameOf(first)
+    return name ? toName(name) : missing()
+  }
+
+  return missing()
+}

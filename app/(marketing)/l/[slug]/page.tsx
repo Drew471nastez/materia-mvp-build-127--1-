@@ -4,6 +4,8 @@ import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { headers } from "next/headers"
 import { getLinksInternalPath } from "@/lib/url-helpers"
+import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
+import { exactIlike, isResolvableOnePageName } from "@/lib/onepage/username"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { onePageIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -41,13 +43,16 @@ interface Props {
   (lib/onepage/published-page), from the same shape the body is drawn from,
   so they cannot differ; a page that shows no picture has no icon of its own.
 */
+/** Not a page: said once, for the tab and for crawlers. */
+const MISSING: Metadata = { title: "Page not found", robots: { index: false, follow: false } }
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
 
+  /* A name that cannot be one is not looked up (lib/onepage/username). */
+  if (!isResolvableOnePageName(slug)) return MISSING
   const onepage = await findPublishedOnePage(slug)
-  if (!onepage) {
-    return { title: slug || "Page Not Found" }
-  }
+  if (!onepage) return MISSING
 
   // The owner's live profile, with the handle and the indexing answer beside it.
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
@@ -64,6 +69,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PublicOnePageRoute({ params }: Props) {
   const { slug } = await params
 
+  /*
+    A NAME THAT CANNOT BE ONE IS A 404 BEFORE THE DATABASE IS ASKED. The
+    proxy sends every address on storelib.me that holds no OnePage here as
+    `/l/-`, and a path with a slash, a dot run or a percent sign in it is
+    nobody's page either.
+  */
+  if (!isResolvableOnePageName(slug)) notFound()
+
   const adminSupabase = createAdminClient()
 
   /* The same row the metadata read, held for the request (findPublishedOnePage). */
@@ -74,15 +87,20 @@ export default async function PublicOnePageRoute({ params }: Props) {
     const { data: historyRecord } = await adminSupabase
       .from("username_history")
       .select("new_username")
-      .ilike("old_username", slug)
+      .ilike("old_username", exactIlike(slug))
       .order("changed_at", { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (historyRecord?.new_username) {
-      /* Their page, at the address it has now: /{handle}/links. Permanent
-         (308), so a search engine moves what it knows there. */
-      permanentRedirect(getLinksInternalPath(historyRecord.new_username))
+      /*
+        Their page, at the address it has now. Permanent (308), so a search
+        engine moves what it knows there. On storelib.me that is
+        storelib.me/{handle} in one step; on storelib.com it is the route,
+        which the proxy sends on to storelib.me (and the native app keeps).
+      */
+      const onOnePageHost = isOnePageHost((await headers()).get("host"))
+      permanentRedirect(onOnePageHost ? onePageUrl(historyRecord.new_username) : getLinksInternalPath(historyRecord.new_username))
     }
 
     notFound()
@@ -209,10 +227,14 @@ export default async function PublicOnePageRoute({ params }: Props) {
     and a live one is drawn from the product. This route is force-dynamic, so
     it happens the moment the creator presses delete, with nothing to purge
     and nothing to run. lib/onepage/live-products.ts.
+
+    Asked by the seller the shape names, the field the editor's preview
+    frame asks by too (components/onepage/preview-document.tsx), so both
+    read the same products for the same page. tests/onepage-preview-parity.test.ts.
   */
   transformedOnepage.blocks = await withLiveProducts(
     adminSupabase as unknown as ProductsDb,
-    resolvedCreatorId ?? "",
+    transformedOnepage.seller_id ?? "",
     transformedOnepage.blocks,
   )
 

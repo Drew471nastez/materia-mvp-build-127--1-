@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
 import { isApexHost } from "@/lib/custom-domains/hostname"
 import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
+import { onePageRoute } from "@/lib/onepage/host-route"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -646,6 +647,59 @@ export async function proxy(request: NextRequest) {
 
   /**
    * ═══════════════════════════════════════════════════════════════════════════
+   *  storelib.me IS THE ONEPAGE'S HOST, AND THE OLD ONEPAGE ADDRESSES GO THERE
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Decided by lib/onepage/host-route (pure, and pinned case by case in
+   * tests/onepage-host.test.ts), and done here BEFORE anything else reads the
+   * request: storelib.me is not a creator's connected domain, so the
+   * custom-domain rule below would otherwise send it to www.storelib.me, a
+   * host that does not exist, which is exactly what production answered.
+   *
+   * Nothing below this block runs for storelib.me. No Supabase client is
+   * made, no session is read or renewed and no cookie is written: the host
+   * serves public pages and the handful of calls they make, and a session
+   * has no business on it.
+   */
+  const onePage = onePageRoute({
+    host,
+    pathname,
+    search,
+    method: request.method,
+    userAgent: request.headers.get("user-agent"),
+    mainDomain: MAIN_DOMAIN,
+    sitesDomain: SITES_DOMAIN,
+    platformSubdomains: EXCLUDED_SUBDOMAINS,
+  })
+  if (onePage) {
+    switch (onePage.kind) {
+      case "next":
+        return NextResponse.next()
+      case "rewrite":
+        return NextResponse.rewrite(new URL(onePage.path, request.url))
+      case "redirect": {
+        const to = NextResponse.redirect(onePage.location, { status: onePage.status })
+        /* A permanent move may be held by the edge; the root's temporary one may not. */
+        to.headers.set("Cache-Control", onePage.status === 307 ? "no-store" : "public, max-age=3600")
+        return to
+      }
+      case "robots":
+        return new NextResponse(onePage.body, {
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+        })
+      case "not-found": {
+        if (onePage.api) {
+          return NextResponse.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "no-store" } })
+        }
+        /* The page's own small not found (app/(marketing)/l/[slug]/not-found), answered 404, never indexed. */
+        const missing = NextResponse.rewrite(new URL(onePage.path, request.url))
+        missing.headers.set("X-Robots-Tag", "noindex")
+        return missing
+      }
+    }
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
    *  AN API CALL IS NOT A PAGE VIEW, AND MUST NOT BE REDIRECTED FOR TIDINESS
    * ═══════════════════════════════════════════════════════════════════════════
    * THIS KILLED EVERY CRON JOB ON THE PLATFORM, and found by reading the logs:
@@ -694,6 +748,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonical, { status: 301 })
   }
 
+  /*
+    ── The OnePage's old addresses ───────────────────────────────────────
+    `/l/{slug}` and `/{handle}/links` answer with a 308 to
+    storelib.me/{slug}, decided in the OnePage block above
+    (lib/onepage/host-route). A slug that cannot be a name falls through to
+    the /l/ route, which answers its not found.
+  */
+
   /**
    * ── One address for a creator's page ──────────────────────────────────────
    *
@@ -714,28 +776,6 @@ export async function proxy(request: NextRequest) {
    * `request.nextUrl.pathname` here is still what the BROWSER asked for,
    * because this runs before any rewriting.
    */
-  if (bareHost === MAIN_DOMAIN && (pathname === "/l" || pathname.startsWith("/l/"))) {
-    /*
-      ── The OnePage moved under the handle, and /l/ still answers ──────────
-      `storelib.com/{handle}/links`, beside the creator page at
-      `storelib.com/{handle}` and the products at `storelib.com/{handle}/{slug}`.
-      `/l/{slug}` is the old spelling and consolidates onto the new one for
-      the same reason `/u/` does: shared links and search results should not
-      compete with the address being handed out now.
-
-      The slug is carried through rather than swapped for a handle. An
-      onepage is looked up by slug first and by username second, which is
-      what /l/{slug} already did, so a creator whose onepage slug is not
-      their username lands on their own page either way.
-    */
-    const slug = pathname.slice(3)
-    if (slug) {
-      const to = request.nextUrl.clone()
-      to.pathname = `/${slug.replace(/\/+$/, "")}/links`
-      return NextResponse.redirect(to, { status: 308 })
-    }
-  }
-
   if (bareHost === MAIN_DOMAIN && (pathname === "/u" || pathname.startsWith("/u/"))) {
     const handle = pathname.slice(3)
     /* `/u` and `/u/` alone are not a creator; they belong to the platform. */
@@ -813,32 +853,12 @@ export async function proxy(request: NextRequest) {
        * collision it avoids.
        */
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
-      /**
-       * ═══════════════════════════════════════════════════════════════════
-       *  /links ON A SUBDOMAIN WAS A 404, AND IT WAS THE ADDRESS WE GAVE OUT
-       * ═══════════════════════════════════════════════════════════════════
-       * The Share card handed every creator `{handle}.storelib.com/links` as
-       * their OnePage. This host serves the WEBSITE they built, so `/links`
-       * was looked up as a page of that website and, for anybody who never
-       * made a page by that name, was not there. Measured on production:
-       *
-       *     andrewrullz.storelib.com/links -> 404, x-matched-path /w/[username]/[page]
-       *
-       * Every one of those links is already broken, so sending them to the
-       * page they were meant to reach cannot cost anything, and the OnePage
-       * now has one address: storelib.com/{handle}/links.
-       *
-       * It does take the name `links` away from a creator's own website
-       * pages. That is the same trade the custom-domain branch below already
-       * makes — it has rewritten `/links` to the OnePage all along — so this
-       * makes the two hosts agree rather than introducing a new rule.
-       */
-      if (pathname === "/links" || pathname === "/links/") {
-        const to = new URL(`https://${MAIN_DOMAIN}`)
-        to.pathname = `/${subdomain}/links`
-        to.search = search
-        return NextResponse.redirect(to, { status: 308 })
-      }
+      /*
+        /links ON A SUBDOMAIN was the address the Share card once handed out,
+        and the website answered it with a 404. It is sent to the OnePage,
+        storelib.me/{name}, by the OnePage block at the top of this function
+        (lib/onepage/host-route), before this branch is reached.
+      */
       if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
         const apex = new URL(`https://${MAIN_DOMAIN}`)
         apex.pathname = pathname

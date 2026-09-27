@@ -31,6 +31,7 @@
 
 import { groupOrders, isSale, startOfDay, type OrderRow } from "../orders/order-view"
 import { isInternalReferrer } from "./sources"
+import { isOnePageHost } from "@/lib/onepage/address"
 import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span } from "./buckets"
 
 export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
@@ -236,7 +237,7 @@ export function channelOfUrl(url: string | null | undefined, mainDomain: string)
   const host = hostOf(url)
   if (!host) return null
   const main = mainDomain.toLowerCase().replace(/^www\./, "")
-  if (host === main || host === `www.${main}` || host === "localhost" || host.endsWith(".vercel.app")) return "storelib"
+  if (host === main || host === `www.${main}` || isOnePageHost(host) || host === "localhost" || host.endsWith(".vercel.app")) return "storelib"
   return "website"
 }
 

@@ -95,7 +95,7 @@ export async function profileAddresses(creatorId: string): Promise<string[]> {
 }
 
 /**
- * A OnePage, found by its owner's account: storelib.com/<handle>/links, and
+ * A OnePage, found by its owner's account: storelib.me/<handle>, and
  * /links on their connected domain when they have one, which is where its
  * canonical points (app/(marketing)/l/[slug]).
  */

@@ -37,6 +37,7 @@
  */
 
 import { cleanHost, cleanOrigin, fromLabel, surfaceOfPath, type OrderOrigin } from "@/lib/orders/order-source"
+import { isOnePageHost } from "@/lib/onepage/address"
 
 export const CONTACT_SURFACES = ["website", "profile", "onepage", "product", "checkout", "import", "manual", "api"] as const
 export type ContactSurface = (typeof CONTACT_SURFACES)[number]
@@ -177,7 +178,7 @@ const MAIN_DOMAIN = () => (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 
 function isPlatformHost(host: string): boolean {
   const main = MAIN_DOMAIN()
-  return host === main || host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app")
+  return host === main || isOnePageHost(host) || host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app")
 }
 
 function refererUrl(request: Request | null | undefined): URL | null {
@@ -213,7 +214,10 @@ export function contactSourceFrom(input: {
   const sent = (input.sent && typeof input.sent === "object" ? input.sent : {}) as Partial<OrderOrigin> & Record<string, unknown>
   let surface = input.surface
   let site: string | undefined
-  if (host && !isPlatformHost(host)) {
+  if (host && isOnePageHost(host)) {
+    /* storelib.me serves nothing but OnePages, so a form posted from it joined from one. */
+    if (!surface || surface === "profile" || surface === "product") surface = "onepage"
+  } else if (host && !isPlatformHost(host)) {
     /* A creator's domain answers /links with their OnePage. */
     if (url && /^\/links\/?$/.test(url.pathname) && surface !== "website") surface = "onepage"
     else {

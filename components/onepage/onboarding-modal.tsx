@@ -20,6 +20,7 @@ import {
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/native-bridge"
 import { THEME_TEMPLATES } from "./tabs/design-tab"
+import { getOnePageDomain } from "@/lib/onepage/address"
 
 // Goal icon image URLs
 const GOAL_ICON_URLS = {
@@ -1212,15 +1213,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                       </svg>
                       {/*
-                        The address as it will actually be: the handle sits in
-                        the path, not in the host. It used to read
-                        "<handle>.storelib.com/links", which was both the old
-                        format and, by the end, a 404.
+                        The address as it will actually be: storelib.me/{name}
+                        (lib/onepage/address). It used to read
+                        "<handle>.storelib.com/links", then
+                        "storelib.com/<handle>/links".
                       */}
                       <span className="text-base">
-                        <span className="text-gray-400">storelib.com/</span>
+                        <span className="text-gray-400">{getOnePageDomain()}/</span>
                         <span className="text-black font-medium">{getSlug() || "username"}</span>
-                        <span className="text-gray-400">/links</span>
                       </span>
                     </div>
 

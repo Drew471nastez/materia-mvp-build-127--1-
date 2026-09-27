@@ -131,9 +131,9 @@ export interface ResolvedOnePageSeo {
     version: string
   }
   url: string
-  /** The host a chat app prints under the card: "storelib.com". */
+  /** The host a chat app prints under the card: "storelib.me". */
   domain: string
-  /** Google's grey line: "storelib.com › satori › links". */
+  /** Google's grey line: "storelib.me › satori". */
   breadcrumb: string
 }
 
@@ -171,6 +171,15 @@ export function overrideOf(stored: unknown, automatic: string, max: number, also
   if (!typed) return null
   const same = (a: string) => a.toLowerCase() === typed.toLowerCase()
   return same(automatic) || alsoAutomatic.some((a) => a && same(a)) ? null : typed
+}
+
+function originOf(url: string): string | null {
+  try {
+    const u = new URL(url)
+    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : null
+  } catch {
+    return null
+  }
 }
 
 function hostOf(url: string): string {
@@ -279,7 +288,7 @@ export interface ShareCardModel {
   name: string
   initials: string
   avatarUrl: string | null
-  /** "storelib.com/satori/links" */
+  /** "storelib.me/satori" */
   address: string
   background: { color: string; gradient: string | null; imageUrl: string | null; dim: number }
   text: string
@@ -430,6 +439,13 @@ export function coverRect(w: number, h: number, boxW: number, boxH: number, fx: 
 export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: string | null; indexable: boolean; icon?: string | null }) {
   const images = [{ url: seo.image.url, width: seo.image.width, height: seo.image.height, alt: seo.image.alt }]
   return {
+    /*
+      THE PAGE'S OWN ORIGIN, storelib.me for a OnePage on it (lib/onepage/
+      address), so anything Next resolves against a base resolves there
+      rather than against the root layout's storelib.com. Every URL written
+      below is absolute already.
+    */
+    ...(originOf(seo.url) ? { metadataBase: new URL(originOf(seo.url) as string) } : {}),
     title: { absolute: seo.title.value },
     description: seo.description.value,
     alternates: { canonical: seo.url },

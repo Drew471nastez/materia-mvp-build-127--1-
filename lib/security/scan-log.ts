@@ -4,12 +4,12 @@ import "server-only"
  * ===========================================================================
  *  ONE ROW PER SCAN, FOR THE ADMIN PAGE
  * ===========================================================================
- * public.file_scans (supabase/sql/run-now/54_file_scans.sql): what was
+ * public.file_scans (supabase/sql/run-now/55_file_scans.sql): what was
  * scanned, where from, and what came of it. Never the file's contents, only
  * its bucket, path, size, SHA-256 and the verdict. Server only: row level
  * security is on and no policy lets a browser read or write it.
  *
- * Writing a row never fails a scan or an upload. Before part 54 has run the
+ * Writing a row never fails a scan or an upload. Before part 55 has run the
  * table is missing; that is said once in the log and then ignored.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -86,14 +86,14 @@ export async function recordScan(
     })
     if (error && missingTable(error) && !saidMissing) {
       saidMissing = true
-      console.info("[file-scanner] file_scans is not there yet (supabase/sql/run-now/54_file_scans.sql); scans are not logged")
+      console.info("[file-scanner] file_scans is not there yet (supabase/sql/run-now/55_file_scans.sql); scans are not logged")
     }
   } catch {
     /* A log row is never worth failing an upload for. */
   }
 }
 
-/** The latest scans, newest first. `unavailable` when part 54 has not run. */
+/** The latest scans, newest first. `unavailable` when part 55 has not run. */
 export async function recentScans(admin: SupabaseClient, limit = 25): Promise<{ rows: ScanLogRow[]; unavailable?: string }> {
   const { data, error } = await admin
     .from("file_scans")
@@ -101,7 +101,7 @@ export async function recentScans(admin: SupabaseClient, limit = 25): Promise<{ 
     .order("created_at", { ascending: false })
     .limit(Math.max(1, Math.min(limit, 100)))
   if (error) {
-    return { rows: [], unavailable: missingTable(error) ? "The scan log starts after supabase/sql/run-now/54_file_scans.sql has run." : "The scan log could not be read." }
+    return { rows: [], unavailable: missingTable(error) ? "The scan log starts after supabase/sql/run-now/55_file_scans.sql has run." : "The scan log could not be read." }
   }
   return { rows: (data ?? []) as ScanLogRow[] }
 }
@@ -119,6 +119,6 @@ export async function pruneScanLog(admin: SupabaseClient, days = 90): Promise<vo
       .in("status", ["clean", "not_scanned"])
       .lt("created_at", new Date(Date.now() - days * 86_400_000).toISOString())
   } catch {
-    /* Before part 54 there is nothing to prune. */
+    /* Before part 55 there is nothing to prune. */
   }
 }

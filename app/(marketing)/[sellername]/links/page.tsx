@@ -2,7 +2,13 @@
  * ===========================================================================
  *  THE ONEPAGE, UNDER THE CREATOR'S HANDLE
  * ===========================================================================
- * `storelib.com/{handle}/links`.
+ * The route storelib.me/{handle} renders from: proxy.ts rewrites it here
+ * (lib/onepage/host-route). On storelib.com, `/{handle}/links` itself now
+ * answers with a 308 to storelib.me/{handle}, except in the native app,
+ * which keeps being served here so it never leaves its own origin.
+ *
+ * What follows is why this route exists at all, from when it was the
+ * address handed out: `storelib.com/{handle}/links`.
  *
  * WHY IT MOVED. The address creators were given to hand out was
  * `{handle}.storelib.com/links`, and that address had stopped working. The

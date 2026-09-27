@@ -10,8 +10,10 @@ import "server-only"
  *                               Hub and the blog
  *   /sitemap/products-N.xml     every published product, at the address
  *                               every link uses: storelib.com/<handle>/<slug>
- *   /sitemap/creators-N.xml     every creator page that has earned one, and
- *                               its published OnePage
+ *   /sitemap/creators-N.xml     every creator page that has earned one
+ *
+ * storelib.me/sitemap.xml is a second index, of /sitemap/onepages-N.xml:
+ * the published OnePages of those same creators, at storelib.me/<handle>.
  *   /sitemap/websites-N.xml     the front page of every published website
  *                               on its storelib.com subdomain (read by
  *                               Google when storelib.com is a Domain
@@ -45,7 +47,8 @@ import { bannedCreatorIds } from "./bans"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
-import { getLinksShareUrl, getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
+import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
+import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
 import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/articles"
 import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
@@ -194,13 +197,20 @@ export async function sitemapIndex(): Promise<SitemapEntry[]> {
   return entries
 }
 
-/** `pages`, `products-3`, … → what to build, or null for a name that is not one. */
-export function parseSitemapName(name: string): { kind: "pages" } | { kind: "products" | "creators" | "websites"; chunk: number } | null {
+/**
+ * `pages`, `products-3`, … → what to build, or null for a name that is not one.
+ * `onepages` is storelib.me's index and `onepages-N` its files: the proxy
+ * sends storelib.me/sitemap.xml to /sitemap/onepages.xml.
+ */
+export function parseSitemapName(
+  name: string,
+): { kind: "pages" } | { kind: "onepages-index" } | { kind: "products" | "creators" | "websites" | "onepages"; chunk: number } | null {
   const bare = name.replace(/\.xml$/, "")
   if (bare === "pages") return { kind: "pages" }
-  const m = /^(products|creators|websites)-(\d{1,6})$/.exec(bare)
+  if (bare === "onepages") return { kind: "onepages-index" }
+  const m = /^(products|creators|websites|onepages)-(\d{1,6})$/.exec(bare)
   if (!m) return null
-  return { kind: m[1] as "products" | "creators" | "websites", chunk: Number(m[2]) }
+  return { kind: m[1] as "products" | "creators" | "websites" | "onepages", chunk: Number(m[2]) }
 }
 
 /* ── Pages ─────────────────────────────────────────────────────────────── */
@@ -351,6 +361,30 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
  * robots tag. A creator page's date is its newest published product's.
  */
 export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
+  return (await creatorChunk(chunk)).creators
+}
+
+/**
+ * ONE FILE OF storelib.me's SITEMAP: the published OnePages of the same
+ * chunk of creators, at storelib.me/<handle> (lib/onepage/address). Under
+ * the same gate as the creator page they belong to, because a page of
+ * outbound links is exactly what a link farm signs up for. storelib.com's
+ * own files no longer list a OnePage: its address is on another host, and
+ * storelib.me/sitemap.xml names these (app/sitemap/[name], proxy.ts).
+ */
+export async function onePagesSitemap(chunk: number): Promise<SitemapEntry[]> {
+  return (await creatorChunk(chunk)).onePages
+}
+
+/** How many onepages-N.xml files storelib.me's index names: one per chunk of creators, as creators-N.xml. */
+export async function onePagesSitemapIndex(origin: string): Promise<SitemapEntry[]> {
+  const admin = createAdminClient()
+  const creators = await countOf(admin, "creators", (q) => q, "creators")
+  const chunks = Math.max(1, Math.ceil(creators / SITEMAP_CHUNK))
+  return Array.from({ length: chunks }, (_, i) => ({ url: `${origin}/sitemap/onepages-${i}.xml` }))
+}
+
+async function creatorChunk(chunk: number): Promise<{ creators: SitemapEntry[]; onePages: SitemapEntry[] }> {
   const admin = createAdminClient()
   const creators = await readRange<{ id: string; user_id: string | null; cover_url?: string | null }>(
     (a, b) => admin.from("creators").select("id, user_id, cover_url").order("id", { ascending: true }).range(a, b),
@@ -386,6 +420,7 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
   const sellerByUserId = await sellers(admin, selling.map((c) => c.user_id as string))
   const onePages = await publishedOnePages(admin, selling.map((c) => c.id))
   const entries: SitemapEntry[] = []
+  const pages: SitemapEntry[] = []
   for (const c of selling) {
     const seller = sellerByUserId.get(c.user_id as string)
     const profile = { username: seller?.username, ...newestProduct.get(c.id)! }
@@ -396,9 +431,9 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
     entries.push({ url: `${BASE}/${profile.username}`, lastModified: profile.at, images: [seller?.avatar_url, c.cover_url] })
     /* Their published OnePage, under the same gate: a page of outbound
        links is exactly what a link farm signs up for. */
-    if (onePages.has(c.id)) entries.push({ url: getLinksShareUrl(profile.username), lastModified: onePages.get(c.id) })
+    if (onePages.has(c.id)) pages.push({ url: onePageUrl(profile.username), lastModified: onePages.get(c.id) })
   }
-  return entries
+  return { creators: entries, onePages: pages }
 }
 
 /** creator id → when their published OnePage last changed, for these creators. */

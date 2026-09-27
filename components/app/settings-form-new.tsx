@@ -967,7 +967,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
        * =====================================================================
        *   storelib.com/<handle>         the creator page  (profiles.username)
        *   <handle>.storelib.com         the website       (creators.slug)
-       *   storelib.com/<handle>/links   the OnePage       (onepages.slug)
+       *   storelib.me/<handle>          the OnePage       (onepages.slug)
        *
        * The first two are updated above. This is the third, and it used to be
        * wrapped in `try { } catch {}` marked "non-fatal" — but a Supabase
@@ -988,7 +988,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           .eq("owner_id", profile.id)
         if (onepageError) {
           console.error("[settings] onepage slug sync failed:", onepageError.message)
-          onepageWarning = `Your details were saved, but your OnePage address could not be moved to storelib.com/${cleanUsername}/links. Save again to retry.`
+          onepageWarning = `Your details were saved, but your OnePage address could not be moved to ${getLinksUrlDisplay(cleanUsername)}. Save again to retry.`
         }
       }
 

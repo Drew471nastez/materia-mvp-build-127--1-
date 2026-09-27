@@ -57,7 +57,8 @@ function check(label: string, ok: boolean, detail?: string) {
   }
 }
 
-const PAGE_URL = "https://storelib.com/satori/links"
+/* The address a OnePage is shared at: storelib.me/{handle} (lib/onepage/address). */
+const PAGE_URL = "https://storelib.me/satori"
 const THEME = { background_type: "solid", background_color: "#1A2E1A", text_color: "#eef2ec", secondary_text_color: "#b7c4b6", button_color: "#ff0000" }
 const base = (over: Record<string, unknown> = {}, settings: Record<string, unknown> = {}) =>
   resolveOnePageSeo({ name: "Satori Studio", bio: "Prints, posters and a newsletter", handle: "satori", avatarUrl: "https://x.supabase.co/a.jpg", theme: THEME, settings, pageUrl: PAGE_URL, ...over })
@@ -71,7 +72,7 @@ function resolution() {
   check("the shared description is the description", d.socialDescription.value === d.description.value && d.socialDescription.auto)
   check("the picture is the card drawn from the page", d.image.source === "generated" && d.image.customUrl === null)
   check("its address is beside the page, outside /api, with a fingerprint", /^https:\/\/storelib\.com\/satori\/links\/share\.png\?v=[a-z0-9]{6,12}$/.test(d.image.url), d.image.url)
-  check("the host and Google's grey line", d.domain === "storelib.com" && d.breadcrumb === "storelib.com › satori › links")
+  check("the host and Google's grey line", d.domain === "storelib.me" && d.breadcrumb === "storelib.me › satori")
 
   const renamed = base({ name: "Satori Prints" })
   check("a rename moves the title, the shared title and the picture", renamed.title.value === "Satori Prints | Storelib" && renamed.socialTitle.value === "Satori Prints" && renamed.image.url !== d.image.url)
@@ -163,8 +164,8 @@ function rules() {
   check("a value sent back as it is stored is kept, however old", checkSettingsPatch({ social_image_url: "http://old.example/a.png" }, { social_image_url: "http://old.example/a.png" }).ok)
   check("settings that are not an object are refused", !checkSettingsPatch("x").ok && !checkSettingsPatch([1]).ok)
   check("a page address follows the username rules", checkPageSlug("Satori-Prints").ok && (checkPageSlug("Satori-Prints") as any).value === "satori-prints")
-  check("a short, reserved or broken address is refused, in the page's words",
-    ["ab", "app", "checkout", "-x-", "a--b", "x".repeat(31)].every((s) => !checkPageSlug(s).ok) && /Page address/.test((checkPageSlug("ab") as any).error))
+  check("a short, reserved or broken address is refused, with a sentence saying what to do",
+    ["ab", "app", "checkout", "-x-", "a--b", "x".repeat(31)].every((s) => !checkPageSlug(s).ok) && (checkPageSlug("ab") as any).error === "Use at least 3 characters")
 }
 
 /* ─── The real route and page, with the database swapped ─────────────────── */
@@ -302,7 +303,7 @@ async function metadataAndRoutes() {
   }
   S.admin = world(savedRow(DRAFT))
   const missing = await page.generateMetadata({ params: Promise.resolve({ slug: "nobody-here" }) })
-  check("a page that is not there has a plain title and no card", missing.title === "nobody-here" && !missing.openGraph)
+  check("a page that is not there says so, is not indexed and has no card", missing.title === "Page not found" && missing.robots?.index === false && !missing.openGraph)
 
   console.log("\nPUT /api/onepage")
   const put = async (body: Record<string, unknown>, plan = "free") => {

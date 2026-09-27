@@ -5,6 +5,7 @@ import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepage/settings-rules"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
+import { onePageNameTaken } from "@/lib/onepage/name-availability"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
 const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
@@ -139,11 +140,12 @@ export async function PUT(request: Request) {
     }
 
     /*
-      A NEW PAGE ADDRESS. It is served at storelib.com/<address>/links, where
-      a slug is looked up before a username, so an address that is somebody
-      else's username would put this page on their address. Checked with the
-      service client: the owner's own client cannot see other people's pages
-      under RLS, so the old check never found a clash. Only a change is
+      A NEW PAGE ADDRESS, storelib.me/<address>. A slug is looked up there
+      before a username, so an address that is somebody else's username
+      would put this page on their address, and one that differs from
+      another page's only in case is the same address. The check is
+      lib/onepage/name-availability, the one the editor's live check runs,
+      so the field never says free for a name this refuses. Only a change is
       checked, so a page made before these rules still saves.
     */
     let nextSlug: string | undefined
@@ -152,12 +154,9 @@ export async function PUT(request: Request) {
       if (!verdict.ok) return refuse(verdict.error)
       nextSlug = verdict.value
       if (nextSlug !== existing.slug) {
-        const admin = createAdminClient()
-        const [{ data: pageTaken }, { data: nameTaken }] = await Promise.all([
-          admin.from("onepages").select("id").eq("slug", nextSlug).neq("id", id).limit(1).maybeSingle(),
-          admin.from("profiles").select("id").ilike("username", nextSlug).neq("id", user.id).limit(1).maybeSingle(),
-        ])
-        if (pageTaken || nameTaken) return refuse(TAKEN)
+        const taken = await onePageNameTaken(nextSlug, { onepageId: id, userId: user.id })
+        if (taken === "unknown") return refuse("That page address could not be checked just now. Try again in a moment.")
+        if (taken === "taken") return refuse(TAKEN)
       }
     }
 

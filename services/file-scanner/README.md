@@ -226,7 +226,7 @@ creators.
 | Over 1 GB | Header checked only, recorded as `skipped`, downloadable | n/a |
 
 Every scan is logged in `public.file_scans` (Storelib SQL part
-`supabase/sql/run-now/54_file_scans.sql`), shown on `/admin/scanner`.
+`supabase/sql/run-now/55_file_scans.sql`), shown on `/admin/scanner`.
 
 ## Settings
 

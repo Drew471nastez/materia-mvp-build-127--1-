@@ -16,7 +16,7 @@
  * tests/onepage-search-share.test.ts.
  */
 import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX, cleanOverride, safeImageUrl } from "@/lib/onepage/seo"
-import { isValidUsername } from "@/lib/reserved-words"
+import { checkOnePageName } from "@/lib/onepage/username"
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string }
 
@@ -85,17 +85,16 @@ export function checkSettingsPatch(raw: unknown, stored: Record<string, unknown>
 }
 
 /**
- * A page address a person may take: the rules a username follows
- * (lib/reserved-words isValidUsername: 3 to 30 lowercase letters, numbers
- * and single hyphens, no reserved word, no link-farm handle), because the
- * page is served at storelib.com/<address>/links beside the creator pages.
+ * A page address a person may take: storelib.me/<address>. The rules are
+ * lib/onepage/username checkOnePageName (the username rules: 3 to 30
+ * lowercase letters, numbers and single hyphens, no reserved word, no link
+ * farm handle, plus the OnePage host's own reserved words), and the error
+ * is its sentence, as the editor shows it.
  */
 export function checkPageSlug(raw: unknown): Checked<string> {
   if (typeof raw !== "string") return { ok: false, error: "Page address could not be read" }
-  const slug = raw.trim().toLowerCase()
-  const verdict = isValidUsername(slug)
-  if (!verdict.valid) return { ok: false, error: (verdict.error || "That page address is not available").replace(/^Username/, "Page address").replace(/username/g, "page address") }
-  return { ok: true, value: slug }
+  const verdict = checkOnePageName(raw)
+  return verdict.ok ? { ok: true, value: verdict.value } : { ok: false, error: verdict.error }
 }
 
 /** The page's name and bio: text, within the lengths the editor allows. */
