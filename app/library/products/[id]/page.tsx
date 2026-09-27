@@ -10,6 +10,7 @@ import { ArrowLeft, CheckCircle, Calendar, Package } from "lucide-react"
 import { DownloadButton } from "@/components/download-button"
 import { ReturnLink } from "@/components/navigation/return-link"
 import { pageUser } from "@/lib/auth/page-user"
+import { LibraryReview } from "@/components/reviews/library-review"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -123,6 +124,9 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
     .select("id, file_name, created_at")
     .eq("product_id", id)
     .order("created_at", { ascending: true })
+
+  /* Their own name and photo, for the review card. */
+  const { data: me } = await admin.from("profiles").select("display_name, username, avatar_url").eq("id", user.id).maybeSingle()
 
   const purchaseDate = purchasedAt
     ? new Date(purchasedAt).toLocaleDateString("en-US", {
@@ -243,6 +247,15 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
           </div>
         </div>
       </div>
+
+      {/* Review it, any time after buying; their review with Edit and Delete once written. */}
+      <LibraryReview
+        productId={id}
+        productTitle={product?.title || "this product"}
+        reviewerName={(me?.display_name || me?.username || "").toString().trim() || null}
+        reviewerAvatarUrl={me?.avatar_url || null}
+        sellerName={creatorDisplayName !== "Unknown" ? creatorDisplayName : null}
+      />
     </div>
   )
 }

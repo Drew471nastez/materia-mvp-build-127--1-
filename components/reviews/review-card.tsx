@@ -1,22 +1,44 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star } from "lucide-react"
+import { useLayoutEffect, useRef, useState } from "react"
+import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useState } from "react"
+import { AppAvatar } from "@/components/app/app-avatar"
+import { reviewerOf } from "@/lib/reviews/rules"
+import { Stars } from "./stars"
+
+/**
+ * ===========================================================================
+ *  ONE REVIEW, AS A VISITOR READS IT ON THE PRODUCT PAGE
+ * ===========================================================================
+ * The buyer's photo (AppAvatar: their initials on a neutral circle when there
+ * is none), their name, "Verified purchase" (every review here is one:
+ * nobody without an order can write one), the stars, the date, the words,
+ * and under them the seller's one reply. What Etsy, Shopify's product
+ * reviews and the App Store show, and nothing else: no "New" badge, no
+ * tooltip to find out what a blue tick means.
+ *
+ * Long reviews are cut at six lines with "Show more", so one essay does not
+ * push the other reviews off the page.
+ *
+ * Colours come from the product page's theme when it sets them (text, star,
+ * border); otherwise Storelib's greys and amber.
+ */
+
+export interface ReviewCardData {
+  id: string
+  rating: number
+  content: string
+  created_at: string
+  edited_at?: string | null
+  reviewer_name?: string | null
+  seller_reply?: string | null
+  seller_reply_at?: string | null
+  buyer?: { id?: string; display_name?: string | null; avatar_url?: string | null } | null
+}
 
 interface ReviewCardProps {
-  review: {
-    id: string
-    rating: number
-    content: string
-    created_at: string
-    buyer?: {
-      id: string
-      display_name?: string | null
-      avatar_url?: string | null
-    } | null
-  }
+  review: ReviewCardData
   isMobile?: boolean
   textColor?: string
   starColor?: string
@@ -24,157 +46,93 @@ interface ReviewCardProps {
   cardBorderColor?: string
 }
 
-export function ReviewCard({
-  review,
-  isMobile = false,
-  textColor,
-  starColor,
-  cardBackgroundColor,
-  cardBorderColor,
-}: ReviewCardProps) {
-  const [showVerifiedTooltip, setShowVerifiedTooltip] = useState(false)
-  
-  const buyerName = review.buyer?.display_name || "Anonymous Customer"
-  const buyerInitials = buyerName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
+/* The same words on the server and in every browser: the page is in English and renders first on the server. */
+export function reviewDate(iso?: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+}
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const formatted = date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-    // "Jan 29, 2026" → "Jan. 29, 2026"
-    return formatted.replace(/^(\w{3})/, "$1.")
-  }
+const tint = (color: string | undefined, alpha: string, fallback: string) => (color ? `${color}${alpha}` : fallback)
 
-  // Check if review is "new" (within last 7 days)
-  const isNew = () => {
-    const reviewDate = new Date(review.created_at)
-    const now = new Date()
-    const diffInDays = (now.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24)
-    return diffInDays <= 7
-  }
+export function ReviewCard({ review, isMobile = false, textColor, starColor, cardBorderColor }: ReviewCardProps) {
+  const { name, avatarUrl } = reviewerOf(review)
+  const body = useRef<HTMLParagraphElement>(null)
+  const [long, setLong] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  /* Whether the words run past six lines, measured once they are drawn. */
+  useLayoutEffect(() => {
+    const el = body.current
+    if (el) setLong(el.scrollHeight > el.clientHeight + 2)
+  }, [review.content])
 
   return (
-    <div
-      className={cn(
-        "border-b last:border-0",
-        isMobile ? "py-4 first:pt-0" : "py-5 first:pt-0"
-      )}
-      style={{ borderColor: cardBorderColor || "rgb(243, 244, 246)" }}
+    <article
+      data-review=""
+      className={cn("border-b last:border-0", isMobile ? "py-4 first:pt-0" : "py-5 first:pt-0")}
+      style={{ borderColor: cardBorderColor || "#eef0f3" }}
     >
-      <div className={cn("flex gap-3", isMobile ? "items-start" : "items-start gap-4")}>
-        {/* Avatar */}
-        <Avatar className={cn("shrink-0", isMobile ? "h-10 w-10" : "h-12 w-12")}>
-          <AvatarImage src={review.buyer?.avatar_url || undefined} alt={buyerName} />
-          <AvatarFallback className={cn(
-            "bg-gradient-to-br from-blue-500 to-purple-500 text-white font-semibold",
-            isMobile ? "text-xs" : "text-sm"
-          )}>
-            {buyerInitials}
-          </AvatarFallback>
-        </Avatar>
-
-        {/* Review Content */}
-        <div className="flex-1 min-w-0">
-          {/* Header: Name, Verified Badge, New Badge, and Date */}
-          <div className={cn(
-            "flex items-start justify-between gap-2 mb-1.5",
-            isMobile && "flex-wrap"
-          )}>
-            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-              <span
-                className={cn(
-                  "font-semibold",
-                  isMobile ? "text-sm truncate max-w-[120px]" : "truncate"
-                )}
-                style={{ color: textColor || "#111827" }}
-              >
-                {buyerName}
-              </span>
-
-              {/* Verified Buyer Badge */}
-              <div className="relative shrink-0">
-                <button
-                  className="flex items-center"
-                  onMouseEnter={() => setShowVerifiedTooltip(true)}
-                  onMouseLeave={() => setShowVerifiedTooltip(false)}
-                  onClick={() => setShowVerifiedTooltip(!showVerifiedTooltip)}
-                >
-                  <div className={cn(
-                    "rounded-full bg-blue-500 flex items-center justify-center",
-                    isMobile ? "h-3.5 w-3.5" : "h-4 w-4"
-                  )}>
-                    <svg className={cn("text-white", isMobile ? "h-2 w-2" : "h-2.5 w-2.5")} viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                </button>
-
-                {/* Tooltip */}
-                {showVerifiedTooltip && (
-                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-50">
-                    Verified Buyer
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900" />
-                  </div>
-                )}
-              </div>
-
-              {/* New Badge */}
-              {isNew() && (
-                <span className={cn(
-                  "inline-flex items-center rounded font-medium bg-gray-100 text-gray-600 shrink-0",
-                  isMobile ? "px-1 py-0.5 text-[9px]" : "px-1.5 py-0.5 text-[10px]"
-                )}>
-                  New
-                </span>
-              )}
-            </div>
-            <span
-              className={cn(
-                "shrink-0",
-                isMobile ? "text-[10px]" : "text-xs"
-              )}
-              style={{ color: textColor ? `${textColor}99` : "rgb(107, 114, 128)" }}
-            >
-              {formatDate(review.created_at)}
-            </span>
-          </div>
-
-          {/* Star Rating */}
-          <div className={cn("flex items-center gap-0.5", isMobile ? "mb-2" : "mb-3")}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star
-                key={star}
-                className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")}
-                style={{
-                  color: star <= review.rating
-                    ? (starColor || "#000000")
-                    : (starColor ? `${starColor}40` : "rgb(209, 213, 219)"),
-                  fill: star <= review.rating ? "currentColor" : "none",
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Review Text */}
-          <p
-            className={cn(
-              "leading-relaxed whitespace-pre-wrap",
-              isMobile ? "text-sm" : "text-sm"
-            )}
-            style={{ color: textColor ? `${textColor}cc` : "rgb(55, 65, 81)" }}
-          >
-            {review.content}
+      <div className="flex items-center gap-3">
+        <AppAvatar src={avatarUrl} name={name} alt="" size={isMobile ? 36 : 40} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-semibold leading-5" style={{ color: textColor || "#1a1a2e" }}>
+            {name}
+          </p>
+          <p className="flex items-center gap-1 text-[12px] leading-4" style={{ color: tint(textColor, "99", "#6b7280") }}>
+            <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} style={{ color: tint(textColor, "99", "#067647") }} />
+            Verified purchase
           </p>
         </div>
       </div>
-    </div>
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <Stars rating={review.rating} size={isMobile ? 14 : 15} color={starColor} />
+        <span className="text-[12px]" style={{ color: tint(textColor, "99", "#6b7280") }}>
+          {reviewDate(review.created_at)}
+          {review.edited_at ? " · Edited" : ""}
+        </span>
+      </div>
+
+      <p
+        ref={body}
+        className={cn("mt-2 whitespace-pre-line text-[14px] leading-relaxed [overflow-wrap:anywhere]", !open && "line-clamp-6")}
+        style={{ color: tint(textColor, "d9", "#374151") }}
+      >
+        {review.content}
+      </p>
+      {long || open ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="mt-1 text-[13px] font-medium underline underline-offset-2"
+          style={{ color: textColor || "#1a1a2e" }}
+        >
+          {open ? "Show less" : "Show more"}
+        </button>
+      ) : null}
+
+      {review.seller_reply ? (
+        <div
+          data-seller-reply=""
+          className="mt-3 rounded-xl px-3.5 py-3"
+          style={{ backgroundColor: tint(textColor, "0a", "#f6f7f9") }}
+        >
+          <p className="text-[12px] font-semibold" style={{ color: textColor || "#1a1a2e" }}>
+            Seller&apos;s reply
+            {review.seller_reply_at ? (
+              <span className="font-normal" style={{ color: tint(textColor, "99", "#6b7280") }}>
+                {" · "}
+                {reviewDate(review.seller_reply_at)}
+              </span>
+            ) : null}
+          </p>
+          <p className="mt-1 whitespace-pre-line text-[14px] leading-relaxed [overflow-wrap:anywhere]" style={{ color: tint(textColor, "d9", "#374151") }}>
+            {review.seller_reply}
+          </p>
+        </div>
+      ) : null}
+    </article>
   )
 }

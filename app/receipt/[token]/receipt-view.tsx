@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowDownToLine, ArrowRight, Check, FileText, Loader2, PlayCircle, Printer } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
-import { ReviewForm } from "@/components/reviews/review-form"
+import { ReceiptReview } from "@/components/reviews/receipt-review"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -630,12 +630,12 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
         {single && single.state === "open" ? (
           /* `#review` is where an automated review request lands (lib/automations/merge-fields review_url). */
           <div id="review" className="mt-4 scroll-mt-6 print:hidden">
-            <ReviewSlot
+            <ReceiptReview
               item={single}
               viewer={viewer}
               receiptPath={receiptPath}
               buyerFirstName={receipt.buyer.firstName}
-              unclaimed={receipt.buyer.unclaimed}
+              sellerName={receipt.seller.name}
               loginHref={loginHref}
               signupHref={signupHref}
             />
@@ -693,80 +693,4 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
 function SellerMark({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
   /* The shared avatar: a Google photo loads from its own host, a broken one becomes the initials. */
   return <AppAvatar src={avatarUrl} name={name.trim() || "Seller"} alt="" size={32} className="ring-1 ring-black/[0.04]" />
-}
-
-/**
- * The review box for a one-product order. It asks the server whether this
- * person may review and already has, and shows nothing until it knows. It
- * asks again when the order moves onto their account (Add to library), which
- * is what makes them a buyer in the review route's eyes.
- */
-function ReviewSlot({
-  item,
-  viewer,
-  receiptPath,
-  buyerFirstName,
-  unclaimed,
-  loginHref,
-  signupHref,
-}: {
-  item: ReceiptItem
-  viewer: ReceiptViewer
-  receiptPath: string
-  buyerFirstName: string | null
-  unclaimed: boolean
-  loginHref: string
-  signupHref: string
-}) {
-  const [status, setStatus] = useState<{
-    isLoggedIn?: boolean
-    hasPurchased?: boolean
-    hasReviewed?: boolean
-    existingReview?: any
-    blockedReason?: string
-  } | null>(null)
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    let live = true
-    fetch(`/api/reviews/check?productId=${encodeURIComponent(item.productId)}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (live) setStatus(data)
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (live) setReady(true)
-      })
-    return () => {
-      live = false
-    }
-  }, [item.productId, unclaimed])
-
-  if (!ready) return null
-  const signedIn = status?.isLoggedIn ?? viewer.signedIn
-  /* Signed in, and the review route would say no: the seller themself, or an
-     order not on this account yet. Offer nothing the server refuses. */
-  if (signedIn && status && !status.hasPurchased && !status.hasReviewed) {
-    if (status.blockedReason || !unclaimed) return null
-    return (
-      <p className="px-1 text-[13px] text-[#6b7280]">Add this order to your library above, then you can review it.</p>
-    )
-  }
-  return (
-    <ReviewForm
-      productId={item.productId}
-      productTitle={item.title}
-      orderId={item.orderId}
-      isLoggedIn={signedIn}
-      hasPurchased
-      hasReviewed={!!status?.hasReviewed}
-      existingReview={status?.existingReview}
-      redirectUrl={receiptPath}
-      reviewerName={viewer.name || buyerFirstName}
-      reviewerAvatarUrl={viewer.avatarUrl ?? null}
-      loginHref={loginHref}
-      signupHref={signupHref}
-      onSuccess={() => setStatus((s) => ({ ...(s ?? {}), hasReviewed: true }))}
-    />
-  )
 }

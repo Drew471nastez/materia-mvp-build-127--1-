@@ -205,7 +205,8 @@ const CASES = ["free", "paid", "multi", "nofiles", "guest"]
 
 async function open(viewport, which, reviewCheck) {
   answer.reviewCheck = reviewCheck ?? (which === "guest"
-    ? { isLoggedIn: false, hasPurchased: false, hasReviewed: false }
+    /* What /api/reviews/check answers a guest now that the card asks with the receipt token (the token proves the purchase). */
+    ? { isLoggedIn: false, hasPurchased: true, hasReviewed: false, viaReceipt: true, existingReview: null }
     : { isLoggedIn: true, hasPurchased: true, hasReviewed: false, existingReview: null })
   const page = await browser.newPage()
   await page.setViewport(viewport)
@@ -465,7 +466,10 @@ try {
     {
       const page = await open(VIEWPORTS[0][1], "guest")
       const text = await page.evaluate(() => document.querySelector("#review")?.textContent || "")
-      expect(/Sign in/.test(text), "a guest is asked to sign in to post", text.slice(0, 200))
+      /* Changed on purpose: the receipt token proves the purchase, so a guest posts from here without an account
+         (components/reviews/receipt-review, the review request email lands here). Asking with the token is pinned too. */
+      expect(/Post review/.test(text) && !/Sign in to post/.test(text), "a guest posts from the receipt link without signing in", text.slice(0, 200))
+      expect(asked.some((a) => a.path === "/api/reviews/check" && /receiptToken=/.test(a.query)), "the card asks with the line's receipt token")
       const initial = await page.evaluate(() => document.querySelector("#review [data-reviewer]")?.textContent?.trim() || "")
       expect(initial === "GH", "a guest's card shows their initials on a neutral circle (AppAvatar's two letters)", initial)
       if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-guest-390-review.png"), fullPage: true })
