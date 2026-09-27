@@ -232,6 +232,12 @@ async function main() {
     check("the apps' notices fit the toast on a phone and say what to do", ownFileNotice("ios-download") === "Tap Download to save it to Files" && ownFileNotice("android-download") === "Saving to Downloads on this phone" && ownFileNotice("downloaded") === null && [ownFileNotice("ios-download"), ownFileNotice("android-download")].every((m) => (m ?? "").length <= 34))
   }
 
+  {
+    /* A buyer's Download in the app: the iOS build has no Browser plugin, so the button must not call it alone. */
+    const buyer = read("components/download-button.tsx")
+    check("a buyer's download in the app goes through openInSystemBrowser, which falls back to the address itself", buyer.includes("await openInSystemBrowser(data.downloadUrl)") && !buyer.includes('import("@capacitor/browser")'))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

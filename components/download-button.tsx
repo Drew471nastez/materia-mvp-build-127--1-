@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Download, Loader2, AlertCircle } from "lucide-react"
 import { isNativeApp } from "@/lib/platform-utils"
+import { openInSystemBrowser } from "@/lib/platform/save-file"
 
 interface DownloadButtonProps {
   assetId: string
@@ -75,8 +76,11 @@ export async function downloadEntitledFile(
     const filename = data.fileName || "download"
 
     if (isNativeApp()) {
-      const { Browser } = await import("@capacitor/browser")
-      await Browser.open({ url: data.downloadUrl })
+      /* The Browser plugin where the app has it (Android), else the address
+         itself, which Capacitor hands to Safari: the iOS app is built
+         without that plugin, so calling it alone failed every download there
+         (lib/platform/save-file openInSystemBrowser). */
+      await openInSystemBrowser(data.downloadUrl)
       return { success: true, openedIn: "viewer" }
     }
 
