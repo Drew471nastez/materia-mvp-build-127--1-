@@ -11,8 +11,13 @@
  * again. Linktree, Beacons, Stan and Shopify all behave this way.
  *
  *   field              follows, until overridden          stored override
- *   title              "<name> | Storelib"                settings.seo_title
- *   description        the bio, as plain text             settings.seo_description
+ *   title              "<name> (@handle) | Storelib"      settings.seo_title
+ *                      ("<name> | Storelib" when the name
+ *                      is the handle), 60 at most
+ *   description        the bio, else a sentence made from settings.seo_description
+ *                      the page's products, socials and
+ *                      links, else "<name> on Storelib."
+ *                      (./seo-description)
  *   social title       the title override, else the name  settings.social_title
  *   social description the description                    settings.social_description
  *   image              the page's photo, square           share_image_mode, and
@@ -37,6 +42,8 @@
  * `resolveOnePageSeo`, so what the creator sees is what a crawler is given.
  * Pure: no React, no database, safe on the client and the server.
  */
+
+import { autoPageDescription, summarizePage, type DescriptionSource, type PageSummary } from "@/lib/onepage/seo-description"
 
 export const SEO_TITLE_MAX = 60
 export const SEO_DESCRIPTION_MAX = 160
@@ -143,6 +150,16 @@ export interface OnePageSeoInput {
   settings: OnePageSeoSettings | Record<string, unknown> | null | undefined
   /** onepages.share_image_mode as the row holds it (missing on an older database: the settings are read, then "profile"). */
   shareImageMode?: unknown
+  /**
+   * The blocks the page draws and its social links, for a description made
+   * from what is on it (./seo-description). The public page hands the
+   * published copy with its products read live; the editor the draft. Left
+   * out, the page is read as showing nothing but its bio.
+   */
+  blocks?: unknown
+  socialLinks?: unknown
+  /** The clock a block's schedule is read against (tests). */
+  now?: number
   /** The page's own address: its canonical and og:url. */
   pageUrl: string
   /** Where the site serves from, for the share image's address. */
@@ -157,6 +174,8 @@ export interface ResolvedField {
 
 export interface ResolvedOnePageSeo {
   name: string
+  /** What the automatic description was made from, and what the page shows, for the editor's note under the field. */
+  derived: { title: "name" | "name-and-handle"; description: DescriptionSource; page: PageSummary }
   title: ResolvedField
   description: ResolvedField
   socialTitle: ResolvedField
@@ -202,17 +221,28 @@ export function onePageName(name: unknown, handle: unknown): string {
   return h ? `@${h}` : "My page"
 }
 
-/** "<name> | Storelib" while it fits in a search result, the name alone when it does not. */
-export function autoTitle(name: string): string {
-  const branded = `${name} | ${BRAND}`
-  return textLength(branded) <= SEO_TITLE_MAX ? branded : clipText(name, SEO_TITLE_MAX)
+/** "satori" for "Satori", "@satori" and "sa.tori": a name and a handle compared the way a reader compares them. */
+const bare = (v: string) => v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "")
+
+/**
+ * The search title: "<name> (@handle) | Storelib", as Instagram and TikTok
+ * title a profile, or "<name> | Storelib" when the name is the handle
+ * already. Held to 60: the brand goes first, then the handle, and only then
+ * is the name cut.
+ */
+export function autoTitle(name: string, handle?: unknown): string {
+  const h = plainText(handle).replace(/^@+/, "")
+  const withHandle = h && bare(h) !== bare(name) ? `${name} (@${h})` : null
+  const ways = [withHandle && `${withHandle} | ${BRAND}`, withHandle, `${name} | ${BRAND}`, name].filter((w): w is string => !!w)
+  return ways.find((w) => textLength(w) <= SEO_TITLE_MAX) ?? clipText(name, SEO_TITLE_MAX)
 }
 
-/** The bio as a sentence Google can show, or a plain line naming the page. */
-export function autoDescription(name: string, bio: unknown): string {
-  const b = plainText(bio)
-  if (b) return clipText(b, SEO_DESCRIPTION_MAX)
-  return clipText(`Links and products from ${name}.`, SEO_DESCRIPTION_MAX)
+/**
+ * The description for a page with no description of its own: the bio, else
+ * what is on the page, else a plain line naming it (./seo-description).
+ */
+export function autoDescription(name: string, bio: unknown, page?: { blocks?: unknown; socialLinks?: unknown; now?: number }): string {
+  return autoPageDescription(name, bio, summarizePage(page ?? {})).value
 }
 
 /**
@@ -265,12 +295,16 @@ export function resolveOnePageSeo(input: OnePageSeoInput): ResolvedOnePageSeo {
   const name = onePageName(input.name, input.handle)
   const plainName = plainText(input.name)
 
-  const autoT = autoTitle(name)
-  const titleOverride = overrideOf(settings.seo_title, autoT, SEO_TITLE_MAX, [name, plainName])
+  const autoT = autoTitle(name, input.handle)
+  /* The name, and the title as it was made before the handle was in it, typed back are not overrides either. */
+  const titleOverride = overrideOf(settings.seo_title, autoT, SEO_TITLE_MAX, [name, plainName, autoTitle(name)])
   const title: ResolvedField = titleOverride ? { value: titleOverride, auto: false } : { value: autoT, auto: true }
 
-  const autoD = autoDescription(name, input.bio)
-  const descriptionOverride = overrideOf(settings.seo_description, autoD, SEO_DESCRIPTION_MAX)
+  const page = summarizePage({ blocks: input.blocks, socialLinks: input.socialLinks, now: input.now })
+  const madeDescription = autoPageDescription(name, input.bio, page)
+  const autoD = madeDescription.value
+  /* Nor is the one sentence every page without a bio used to get, saved back by an older editor. */
+  const descriptionOverride = overrideOf(settings.seo_description, autoD, SEO_DESCRIPTION_MAX, [`Links and products from ${name}.`])
   const description: ResolvedField = descriptionOverride ? { value: descriptionOverride, auto: false } : { value: autoD, auto: true }
 
   /* A chat app prints the site's name beside the card, so the social title is the name, or the title somebody chose. */
@@ -302,6 +336,7 @@ export function resolveOnePageSeo(input: OnePageSeoInput): ResolvedOnePageSeo {
 
   return {
     name,
+    derived: { title: autoT === autoTitle(name) ? "name" : "name-and-handle", description: madeDescription.source, page },
     title,
     description,
     socialTitle,

@@ -69,7 +69,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // The owner's live profile, with the handle and the indexing answer beside it.
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
-  const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug)
+  /* The description names the page's products as the body draws them, read live (liveProducts). */
+  const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug, { liveProducts: true })
 
   /* The sitemap's rule, so a page it does not list does not ask to be listed.
      Not listed means not indexed, and not followed: the links are the whole
