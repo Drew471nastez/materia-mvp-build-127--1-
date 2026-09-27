@@ -6,8 +6,9 @@
  *
  * Drawn from the published page: its name, its photo and its theme
  * (components/onepage/share-card ShareCardArt, the same elements the editor's
- * Settings draws its preview with), or the picture the creator uploaded,
- * cropped at the point they dragged to. The page's metadata names this
+ * Settings draws its preview with), or, when the creator chose Custom image,
+ * the picture they uploaded, cropped at the point they dragged to. The
+ * profile photo, the default, is served beside it (links/photo.jpg). The page's metadata names this
  * address (lib/onepage/seo resolveOnePageSeo), with `v` a fingerprint of
  * what the image is drawn from.
  *
@@ -26,7 +27,7 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { findPublishedOnePage, onePageOwner, publishedOnePageSeo } from "@/lib/onepage/published-page"
 import { fetchCardImage } from "@/lib/onepage/share-image"
-import { SHARE_IMAGE_HEIGHT, SHARE_IMAGE_WIDTH } from "@/lib/onepage/seo"
+import { SHARE_IMAGE_HEIGHT, SHARE_IMAGE_WIDTH, shareImageVersion } from "@/lib/onepage/seo"
 import { ShareCardArt, ShareCardUpload } from "@/components/onepage/share-card"
 
 export const runtime = "nodejs"
@@ -79,10 +80,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ sell
   if (owner.banned) return new Response("Not found", { status: 404, headers: { "cache-control": SHORT } })
 
   const { seo } = await publishedOnePageSeo(onepage, owner, slug)
+  /*
+    THE UPLOAD ONLY WHEN IT IS THE CHOSEN PICTURE (lib/onepage/seo
+    pickShareImage). A page that shows its profile photo when shared
+    (/<slug>/links/photo.jpg) is still answered here with its card, for an
+    app holding this address from before, under the card's own fingerprint.
+  */
+  const drawsUpload = seo.image.source === "custom" && !!seo.image.customUrl
+  const version = shareImageVersion({ card: seo.image.card, customUrl: drawsUpload ? seo.image.customUrl : null, focal: seo.image.focal })
   const asked = new URL(request.url).searchParams.get("v")
-  const cache = asked === seo.image.version ? LONG : SHORT
+  const cache = asked === version ? LONG : SHORT
 
-  if (seo.image.customUrl) {
+  if (drawsUpload && seo.image.customUrl) {
     const upload = await fetchCardImage(seo.image.customUrl)
     if (upload) {
       const drawn = await png(<ShareCardUpload src={upload.dataUrl} size={upload} focal={seo.image.focal} />, cache)

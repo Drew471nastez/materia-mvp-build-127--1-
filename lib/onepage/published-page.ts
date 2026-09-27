@@ -138,6 +138,8 @@ export async function publishedOnePageSeo(onepage: any, owner: OnePageOwner, slu
     avatarUrl: drawn.avatar_url,
     theme: drawn.theme,
     settings: onepage.settings,
+    /* The picture a shared link shows (lib/onepage/seo shareImageModeOf): the column, read live like the settings. */
+    shareImageMode: onepage.share_image_mode,
     pageUrl,
   })
   return { seo, drawn }

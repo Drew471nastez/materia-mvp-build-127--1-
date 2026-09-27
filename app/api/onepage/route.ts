@@ -4,6 +4,7 @@ import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepage/settings-rules"
+import { isShareImageMode } from "@/lib/onepage/seo"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 
@@ -97,6 +98,11 @@ export async function GET() {
   }
 }
 
+/** PostgREST's "no such column" (PGRST204), or Postgres's own (42703), for this column. */
+function missingColumn(error: { code?: string; message?: string }, column: string): boolean {
+  return (error.code === "PGRST204" || error.code === "42703") && (error.message ?? "").includes(column)
+}
+
 // PUT - Update onepage draft
 export async function PUT(request: Request) {
   try {
@@ -125,7 +131,13 @@ export async function PUT(request: Request) {
       draft_blocks,
       slug,
       archived_blocks,
+      share_image_mode,
     } = body
+
+    /* The picture a shared link shows: one of three (lib/onepage/seo). Null is the same as not sent. */
+    if (share_image_mode !== undefined && share_image_mode !== null && !isShareImageMode(share_image_mode)) {
+      return refuse("That share image choice does not exist")
+    }
 
     // Get existing record with current settings
     const { data: existing } = await supabase
@@ -193,6 +205,7 @@ export async function PUT(request: Request) {
     if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
     if (nextSlug !== undefined) updates.slug = nextSlug
     if (archived_blocks !== undefined) (updates as any).archived_blocks = archived_blocks
+    if (isShareImageMode(share_image_mode)) updates.share_image_mode = share_image_mode
     
     // PROPERLY MERGE SETTINGS - don't overwrite, merge with existing
     if (settings !== undefined || avatar_video_crop !== undefined) {
@@ -245,13 +258,20 @@ export async function PUT(request: Request) {
       }
     }
 
-    const { data: updated, error } = await supabase
-      .from("onepages")
-      .update(updates)
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .select()
-      .single()
+    const write = (row: typeof updates) => supabase.from("onepages").update(row).eq("id", id).eq("owner_id", user.id).select().single()
+    let { data: updated, error } = await write(updates)
+
+    /*
+      A DATABASE WITHOUT onepages.share_image_mode YET (run-now part 57 adds
+      it): the choice is kept in the page's settings instead, where
+      lib/onepage/seo shareImageModeOf reads it, so choosing a picture works
+      before the SQL runs. Once the column is there it is the one read.
+    */
+    if (error && updates.share_image_mode !== undefined && missingColumn(error, "share_image_mode")) {
+      const { share_image_mode: mode, ...rest } = updates
+      rest.settings = { ...((rest.settings ?? existing.settings ?? {}) as Record<string, unknown>), share_image_mode: mode } as typeof rest.settings
+      ;({ data: updated, error } = await write(rest))
+    }
 
     if (error) {
       /* Two saves racing for one address: the unique index answers, and it is the same answer. */

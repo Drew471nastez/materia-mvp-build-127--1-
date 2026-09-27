@@ -70,6 +70,8 @@ export interface OnePageSettings {
   social_image_url?: string | null
   social_image_position_x?: number | null
   social_image_position_y?: number | null
+  /* The share picture's choice, kept here only where the database has no onepages.share_image_mode column yet. */
+  share_image_mode?: "profile" | "card" | "custom"
   custom_domain?: string | null
   analytics_enabled: boolean
   subscribe_enabled?: boolean
@@ -472,6 +474,8 @@ export interface OnePage {
   updated_at: string
   // Track if the user has completed the OnePage onboarding wizard
   onboarding_completed?: boolean
+  /** The picture a shared link shows (lib/onepage/seo shareImageModeOf): the profile photo unless changed. */
+  share_image_mode?: "profile" | "card" | "custom" | null
 }
 
 export interface OnePageTemplate {

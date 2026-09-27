@@ -15,7 +15,23 @@
  *   description        the bio, as plain text             settings.seo_description
  *   social title       the title override, else the name  settings.social_title
  *   social description the description                    settings.social_description
- *   image              a card drawn in the page's theme   settings.social_image_url
+ *   image              the page's photo, square           share_image_mode, and
+ *                                                         settings.social_image_url
+ *                                                         for "custom"
+ *
+ * THE PICTURE A SHARED LINK SHOWS is one of three, chosen in the editor
+ * (onepages.share_image_mode, "profile" unless changed):
+ *
+ *   profile   the photo at the top of the page (lib/account/identity
+ *             creatorPhoto: the profile photo, then the page's own copy),
+ *             600 by 600, served by the app (/<handle>/links/photo.jpg) so
+ *             every app gets a small square JPEG from one host. A small
+ *             square is a "summary" card on X, as Linktree and Beacons send
+ *             it. No photo at all: the card below, and the editor says so.
+ *   card      the 1200 by 630 card drawn in the page's theme
+ *             (/<handle>/links/share.png), a "summary_large_image".
+ *   custom    the picture the creator uploaded, cropped to 1200 by 630 on
+ *             the same address as the card. Nothing uploaded: as "profile".
  *
  * The editor's previews and the public page's generateMetadata both call
  * `resolveOnePageSeo`, so what the creator sees is what a crawler is given.
@@ -28,6 +44,31 @@ export const SHARE_IMAGE_WIDTH = 1200
 export const SHARE_IMAGE_HEIGHT = 630
 /** Bumped when the drawing of the card changes, so every cached copy is asked for again. */
 export const SHARE_CARD_REVISION = 1
+/** The profile photo, as a shared link shows it: a square JPEG of this many pixels a side. */
+export const PROFILE_IMAGE_SIZE = 600
+
+/* ─────────────────────────── Which picture ─────────────────────────── */
+
+export const SHARE_IMAGE_MODES = ["profile", "card", "custom"] as const
+export type ShareImageMode = (typeof SHARE_IMAGE_MODES)[number]
+export const DEFAULT_SHARE_IMAGE_MODE: ShareImageMode = "profile"
+
+export function isShareImageMode(value: unknown): value is ShareImageMode {
+  return (SHARE_IMAGE_MODES as readonly unknown[]).includes(value)
+}
+
+/**
+ * The picture a page chose: its `share_image_mode` column; for a database the
+ * column has not reached yet, the same choice kept in its settings
+ * (app/api/onepage stores it there when the column is missing); otherwise,
+ * and for anything that is not one of the three, the profile photo.
+ */
+export function shareImageModeOf(row: { share_image_mode?: unknown; settings?: unknown } | null | undefined): ShareImageMode {
+  const own = row?.share_image_mode
+  if (isShareImageMode(own)) return own
+  const kept = row?.settings && typeof row.settings === "object" ? (row.settings as Record<string, unknown>).share_image_mode : undefined
+  return isShareImageMode(kept) ? kept : DEFAULT_SHARE_IMAGE_MODE
+}
 const BRAND = "Storelib"
 
 /* ─────────────────────────────── Text ─────────────────────────────── */
@@ -87,6 +128,8 @@ export interface OnePageSeoSettings {
   social_image_url?: string | null
   social_image_position_x?: number | null
   social_image_position_y?: number | null
+  /** Only for a database without the onepages.share_image_mode column (shareImageModeOf). */
+  share_image_mode?: string | null
 }
 
 export interface OnePageSeoInput {
@@ -98,6 +141,8 @@ export interface OnePageSeoInput {
   avatarUrl: string | null | undefined
   theme: unknown
   settings: OnePageSeoSettings | Record<string, unknown> | null | undefined
+  /** onepages.share_image_mode as the row holds it (missing on an older database: the settings are read, then "profile"). */
+  shareImageMode?: unknown
   /** The page's own address: its canonical and og:url. */
   pageUrl: string
   /** Where the site serves from, for the share image's address. */
@@ -121,8 +166,18 @@ export interface ResolvedOnePageSeo {
     width: number
     height: number
     alt: string
-    /** "generated" is the card drawn from the page; "custom" is an upload. */
-    source: "generated" | "custom"
+    /** og:image:type */
+    type: "image/jpeg" | "image/png"
+    /** What X is told: a square photo is a summary, a wide picture a large one. */
+    twitterCard: "summary" | "summary_large_image"
+    /** The picture the creator chose. */
+    mode: ShareImageMode
+    /** The picture a shared link shows: "profile" the photo, "generated" the card, "custom" the upload. */
+    source: "profile" | "generated" | "custom"
+    /** Why `source` is not what `mode` asked for: no photo at all, or nothing uploaded. Null when it is. */
+    fallback: "no-photo" | "no-upload" | null
+    /** The photo at the top of the page, which "profile" shows. */
+    photoUrl: string | null
     customUrl: string | null
     focal: { x: number; y: number }
     /** What the generated card is drawn from. */
@@ -231,9 +286,19 @@ export function resolveOnePageSeo(input: OnePageSeoInput): ResolvedOnePageSeo {
   const customUrl = safeImageUrl(settings.social_image_url)
   const focal = { x: percent(settings.social_image_position_x), y: percent(settings.social_image_position_y) }
   const card = shareCardModel({ name, avatarUrl: input.avatarUrl, theme: input.theme, pageUrl: input.pageUrl })
-  const version = shareImageVersion({ card, customUrl, focal })
   const origin = (input.origin || "https://storelib.com").replace(/\/+$/, "")
   const key = plainText(input.handle).replace(/^@/, "") || "page"
+  const mode = shareImageModeOf({ share_image_mode: input.shareImageMode, settings })
+  const photoUrl = card.avatarUrl
+  const picked = pickShareImage(mode, { photoUrl, customUrl })
+  const size = picked.source === "profile"
+    ? { width: PROFILE_IMAGE_SIZE, height: PROFILE_IMAGE_SIZE, type: "image/jpeg" as const, twitterCard: "summary" as const }
+    : { width: SHARE_IMAGE_WIDTH, height: SHARE_IMAGE_HEIGHT, type: "image/png" as const, twitterCard: "summary_large_image" as const }
+  const version =
+    picked.source === "profile"
+      ? profilePhotoVersion(photoUrl as string)
+      : shareImageVersion({ card, customUrl: picked.source === "custom" ? customUrl : null, focal })
+  const path = picked.source === "profile" ? profilePhotoPath(key) : shareImagePath(key)
 
   return {
     name,
@@ -242,11 +307,13 @@ export function resolveOnePageSeo(input: OnePageSeoInput): ResolvedOnePageSeo {
     socialTitle,
     socialDescription,
     image: {
-      url: `${origin}${shareImagePath(key)}?v=${version}`,
-      width: SHARE_IMAGE_WIDTH,
-      height: SHARE_IMAGE_HEIGHT,
+      url: `${origin}${path}?v=${version}`,
+      ...size,
       alt: name,
-      source: customUrl ? "custom" : "generated",
+      mode,
+      source: picked.source,
+      fallback: picked.fallback,
+      photoUrl,
       customUrl,
       focal,
       card,
@@ -258,9 +325,52 @@ export function resolveOnePageSeo(input: OnePageSeoInput): ResolvedOnePageSeo {
   }
 }
 
+/**
+ * The picture a shared link shows for the chosen one. The photo needs a
+ * photo, the upload an upload; a choice that has nothing to show falls to
+ * the photo, and with no photo either, to the card, which always draws.
+ */
+export function pickShareImage(
+  mode: ShareImageMode,
+  { photoUrl, customUrl }: { photoUrl: string | null; customUrl: string | null },
+): { source: ResolvedOnePageSeo["image"]["source"]; fallback: ResolvedOnePageSeo["image"]["fallback"] } {
+  if (mode === "card") return { source: "generated", fallback: null }
+  if (mode === "custom" && customUrl) return { source: "custom", fallback: null }
+  if (photoUrl) return { source: "profile", fallback: mode === "custom" ? "no-upload" : null }
+  return { source: "generated", fallback: mode === "custom" ? "no-upload" : "no-photo" }
+}
+
 /** The share image's path: beside the page it pictures, outside /api so every crawler may read it. */
 export function shareImagePath(key: string): string {
   return `/${encodeURIComponent(key.toLowerCase())}/links/share.png`
+}
+
+/** The profile photo's path, beside the card's, for the same reason. */
+export function profilePhotoPath(key: string): string {
+  return `/${encodeURIComponent(key.toLowerCase())}/links/photo.jpg`
+}
+
+/** The `v` of the photo's address: a new photo is a new address, so no app keeps showing the old one. */
+export function profilePhotoVersion(photoUrl: string): string {
+  return fingerprint(JSON.stringify([SHARE_CARD_REVISION, "profile", PROFILE_IMAGE_SIZE, photoUrl]))
+}
+
+/**
+ * The address to fetch a photo from at the size the share image needs. A
+ * Google account photo is asked for at 96 pixels by default (`=s96-c`); the
+ * same address answers any size, so it is asked for at 600 rather than
+ * blown up from 96. Every other address is fetched as it is.
+ */
+export function photoAtSize(url: string, size = PROFILE_IMAGE_SIZE): string {
+  try {
+    const u = new URL(url)
+    if (!/(^|\.)googleusercontent\.com$/i.test(u.hostname)) return url
+    if (/=[swh]\d+[^/]*$/.test(u.pathname)) u.pathname = u.pathname.replace(/=[swh]\d+[^/]*$/, `=s${size}-c`)
+    else if (/^\/a-?\//.test(u.pathname)) u.pathname = `${u.pathname}=s${size}-c`
+    return u.toString()
+  } catch {
+    return url
+  }
 }
 
 /**
@@ -395,9 +505,14 @@ export function shareCardModel({ name, avatarUrl, theme, pageUrl }: { name: stri
  * cached the old one fetches the new one; nothing else changes it.
  */
 export function shareImageVersion({ card, customUrl, focal }: { card: ShareCardModel; customUrl: string | null; focal: { x: number; y: number } }): string {
-  const source = customUrl
-    ? JSON.stringify([SHARE_CARD_REVISION, "custom", customUrl, focal.x, focal.y])
-    : JSON.stringify([SHARE_CARD_REVISION, card.name, card.avatarUrl, card.address, card.background, card.text, card.muted, card.accent])
+  return fingerprint(
+    customUrl
+      ? JSON.stringify([SHARE_CARD_REVISION, "custom", customUrl, focal.x, focal.y])
+      : JSON.stringify([SHARE_CARD_REVISION, card.name, card.avatarUrl, card.address, card.background, card.text, card.muted, card.accent]),
+  )
+}
+
+function fingerprint(source: string): string {
   /* FNV-1a, 32 bit, twice with different seeds: enough to tell two versions of one page apart. */
   const fnv = (seed: number) => {
     let h = seed >>> 0
@@ -437,7 +552,7 @@ export function coverRect(w: number, h: number, boxW: number, boxH: number, fx: 
  * title the creator chose without it.
  */
 export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: string | null; indexable: boolean; icon?: string | null }) {
-  const images = [{ url: seo.image.url, width: seo.image.width, height: seo.image.height, alt: seo.image.alt }]
+  const images = [{ url: seo.image.url, width: seo.image.width, height: seo.image.height, alt: seo.image.alt, type: seo.image.type }]
   return {
     /*
       THE PAGE'S OWN ORIGIN, storelib.me for a OnePage on it (lib/onepage/
@@ -458,8 +573,9 @@ export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: s
       ...(extra.handle ? { username: extra.handle } : {}),
       images,
     },
+    /* A square photo is a "summary" card, the small picture beside the words, as X draws a Linktree link; the wide card is a large one. */
     twitter: {
-      card: "summary_large_image" as const,
+      card: seo.image.twitterCard,
       title: seo.socialTitle.value,
       description: seo.socialDescription.value,
       images: [seo.image.url],

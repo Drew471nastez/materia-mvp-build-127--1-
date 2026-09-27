@@ -102,6 +102,8 @@ interface OnePageContextType {
   toggleBlockEnabled: (blockId: string) => void
 
   updateSettings: (updates: Partial<OnePage["settings"]>, options?: EditOptions) => void
+  /** A field of the page's own row that is not a setting (the share picture's choice), recorded like any edit. */
+  updateOnePage: (updates: Partial<OnePage>, options?: EditOptions) => void
   updateSlug: (slug: string) => void
   markDirty: () => void
 
@@ -339,12 +341,12 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     [runSave],
   )
 
-  const updateOnePage = useCallback((updates: Partial<OnePage>) => {
+  const updateOnePage = useCallback((updates: Partial<OnePage>, options?: EditOptions) => {
     const prev = latestOnepageRef.current
     if (!prev) return
     const fields = changedFields(prev as any, updates as any)
     if (fields.length === 0) return
-    commit({ ...prev, ...updates }, editKey("page", null, fields))
+    commit({ ...prev, ...updates }, editKey("page", null, fields), options)
   }, [commit])
 
   const setOnePage = useCallback((newOnepage: OnePage) => {
@@ -723,6 +725,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         moveBlockDown,
         toggleBlockEnabled,
         updateSettings,
+        updateOnePage,
         updateSlug,
         markDirty,
         undo,

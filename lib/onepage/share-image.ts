@@ -12,7 +12,7 @@
  * without it (initials for a photo, the plain colour for a background).
  */
 import "server-only"
-import { safeImageUrl } from "@/lib/onepage/seo"
+import { PROFILE_IMAGE_SIZE, safeImageUrl } from "@/lib/onepage/seo"
 import { fetchPublic } from "@/lib/api/public-fetch"
 
 export interface CardImage {
@@ -60,6 +60,19 @@ export function imageInfo(buf: Uint8Array): { width: number; height: number; mim
  * draw or it could not be fetched in time. Never throws.
  */
 export async function fetchCardImage(url: string | null | undefined, { maxBytes = 6 * 1024 * 1024, timeoutMs = 3500 }: { maxBytes?: number; timeoutMs?: number } = {}): Promise<CardImage | null> {
+  const buf = await fetchImageBytes(url, { maxBytes, timeoutMs })
+  if (!buf) return null
+  const info = imageInfo(buf)
+  if (!info || !info.width || !info.height) return null
+  return { ...info, dataUrl: `data:${info.mime};base64,${Buffer.from(buf).toString("base64")}` }
+}
+
+/**
+ * The bytes at `url`, fetched the same careful way, whatever kind of picture
+ * they are (the profile photo is read by sharp, which reads WebP and AVIF
+ * too), or null. Never throws.
+ */
+export async function fetchImageBytes(url: string | null | undefined, { maxBytes = 6 * 1024 * 1024, timeoutMs = 3500 }: { maxBytes?: number; timeoutMs?: number } = {}): Promise<Uint8Array | null> {
   const first = safeImageUrl(url)
   if (!first) return null
   try {
@@ -76,9 +89,29 @@ export async function fetchCardImage(url: string | null | undefined, { maxBytes 
     if (!res.ok) return null
     const buf = new Uint8Array(await res.arrayBuffer())
     if (buf.byteLength === 0 || buf.byteLength > maxBytes) return null
-    const info = imageInfo(buf)
-    if (!info || !info.width || !info.height) return null
-    return { ...info, dataUrl: `data:${info.mime};base64,${Buffer.from(buf).toString("base64")}` }
+    return buf
+  } catch {
+    return null
+  }
+}
+
+/**
+ * THE PROFILE PHOTO AS A SHARED LINK SHOWS IT: a square JPEG, `size` pixels
+ * a side, cut from the middle as the page's round photo is, turned the way
+ * the camera held it (EXIF), on white where it was transparent. Any picture
+ * sharp reads (JPEG, PNG, GIF, WebP, AVIF) goes in; what comes out is small
+ * enough for WhatsApp's preview and one kind every app reads. Null when it
+ * cannot be read. Never throws.
+ */
+export async function squarePhoto(bytes: Uint8Array, size = PROFILE_IMAGE_SIZE): Promise<Buffer | null> {
+  try {
+    const { default: sharp } = await import("sharp")
+    return await sharp(bytes, { failOn: "none", limitInputPixels: 50_000_000 })
+      .rotate()
+      .resize(size, size, { fit: "cover", position: "centre" })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 84, mozjpeg: true })
+      .toBuffer()
   } catch {
     return null
   }
