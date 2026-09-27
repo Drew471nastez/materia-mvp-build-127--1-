@@ -7,6 +7,9 @@
  *   ?view=render       a description the old editor saved, drawn for a visitor
  *   ?view=hydrate      both, rendered to a string first and then hydrated,
  *                      the way the server and the browser meet
+ *   ?view=bar          the email composer's one formatting bar over two
+ *                      text blocks, at the width `&w=` (default the window)
+ *   ?view=builder      the website builder's field, in a sidebar `&w=` wide
  *
  * `&value=` sets the starting value; `&resizable=1` gives the field its
  * resize bar, as the product editor does. Every value the field hands up is kept
@@ -24,6 +27,9 @@ import { RichTextEditor } from "@/components/app/rich-text-editor"
 import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 import { BodyEditor } from "@/app/app/emails/flow/body-editor"
+import { FormatBar, usePhoneLayout } from "@/components/email/compose/format-bar"
+import { EmailText } from "@/components/email/compose/text-block"
+import { RichTextField } from "@/components/website-builder/rich-text-field"
 
 type W = Window & { __value: string; __values: string[]; __errors: string[]; __ready: boolean }
 const w = window as unknown as W
@@ -102,6 +108,47 @@ function Email({ start }: { start: string }) {
   )
 }
 
+/** The composer's bar and two blocks, as block-editor.tsx lays them out. */
+function Bar() {
+  const phone = usePhoneLayout()
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [a, setA] = React.useState(initial || "<p>Hello from the studio</p>")
+  const [b, setB] = React.useState("<p>Second block</p>")
+  const width = params.get("w")
+  return (
+    <div className="min-h-screen bg-[#f8f9fa] py-4">
+      <div ref={ref} data-email-editor="" className="mx-auto rounded-2xl border border-[#e5e7eb]/60 bg-white" style={{ maxWidth: width ? Number(width) : undefined }}>
+        <FormatBar
+          editorRef={ref}
+          phone={phone}
+          inserts={[{ type: "button", label: "Button" }, { type: "image", label: "Image" }]}
+          onInsert={() => {}}
+          blockActions={() => [{ label: "Move up", run: () => {} }, { label: "Delete", run: () => {}, danger: true }]}
+          fields={[{ label: "First name", field: "first_name" }]}
+        />
+        <div data-compose="" className="space-y-3 px-5 pb-4 pt-6">
+          <div data-block-id="a">
+            <EmailText id="a" html={a} label="Text" placeholder="Write something" onChange={(h) => { setA(h); w.__value = h; w.__values.push(h) }} />
+          </div>
+          <div data-block-id="b">
+            <EmailText id="b" html={b} label="Text" placeholder="Write something" onChange={setB} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The website builder's field, in a sidebar as narrow as the builder's. */
+function Builder() {
+  const [value, setValue] = React.useState(initial || "<p>About the shop</p>")
+  return (
+    <div className="bg-white p-3" style={{ width: Number(params.get("w") ?? 300) }}>
+      <RichTextField value={value} onChange={(h) => { setValue(h); w.__value = h }} placeholder="Text" />
+    </div>
+  )
+}
+
 function Rendered({ html }: { html: string }) {
   return (
     <div className="mx-auto max-w-[640px] p-4 text-[14px] text-[#374151]" data-rendered>
@@ -129,6 +176,8 @@ if (view === "hydrate") {
 } else {
   const root = createRoot(app)
   if (view === "email") root.render(<Email start={initial} />)
+  else if (view === "bar") root.render(<Bar />)
+  else if (view === "builder") root.render(<Builder />)
   else if (view === "render") root.render(<Rendered html={initial || LEGACY} />)
   else root.render(<Field start={initial} />)
 }

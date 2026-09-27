@@ -62,6 +62,7 @@ import { cn } from "@/lib/utils"
 import { normaliseTypedHref } from "@/lib/rich-text/policy"
 import { cleanStoredHtml, escapeAttr, escapeText, isBlankHtml } from "@/lib/rich-text/html"
 import type { BlockType } from "@/lib/email-campaigns/blocks"
+import { ScrollRow } from "@/components/app/rich-text/scroll-row"
 
 type Mode = "format" | "link" | "insert" | "fields" | "block"
 type Align = "left" | "center" | "right"
@@ -153,7 +154,6 @@ const keep = (e: React.MouseEvent | React.PointerEvent) => e.preventDefault()
 
 export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, fields }: FormatBarProps) {
   const barRef = React.useRef<HTMLDivElement>(null)
-  const stripRef = React.useRef<HTMLDivElement>(null)
   const saved = React.useRef<Range | null>(null)
   const targetRef = React.useRef<HTMLElement | null>(null)
   const [blockId, setBlockId] = React.useState<string | null>(null)
@@ -475,32 +475,6 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
   ]
   const actions = blockId ? blockActions(blockId) : []
 
-  /* The row scrolls sideways on a phone; the end that has more fades. */
-  React.useEffect(() => {
-    const strip = stripRef.current
-    if (!strip) return
-    let frame = 0
-    const read = () => {
-      frame = 0
-      const max = strip.scrollWidth - strip.clientWidth
-      const x = strip.scrollLeft
-      const fade = max > 2 ? (x > 2 && x < max - 2 ? "both" : x > 2 ? "start" : "end") : "none"
-      if (strip.dataset.fade !== fade) strip.dataset.fade = fade
-    }
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(read)
-    }
-    read()
-    strip.addEventListener("scroll", schedule, { passive: true })
-    const ro = new ResizeObserver(schedule)
-    ro.observe(strip)
-    return () => {
-      cancelAnimationFrame(frame)
-      strip.removeEventListener("scroll", schedule)
-      ro.disconnect()
-    }
-  }, [mode, phone])
-
   const back = (label = "Back to formatting") => (
     <button
       type="button"
@@ -578,13 +552,13 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
       <div className="flex min-w-0 flex-1 items-center px-1">
         {back()}
         <span className="mr-1 hidden shrink-0 text-[12px] font-medium text-[#6b7280] md:inline">{mode === "insert" ? "Add" : mode === "fields" ? "Fill in" : "This text"}</span>
-        <div ref={stripRef} data-bar-strip="" data-fade="none" className={STRIP}>
+        <ScrollRow data-bar-strip="" className={STRIP} arrowClassName={ARROW}>
           {items.map((i) => (
             <button key={i.label} type="button" className={cn(WORD, i.danger && "text-[#b42318]")} onMouseDown={keep} onClick={i.run}>
               {i.label}
             </button>
           ))}
-        </div>
+        </ScrollRow>
       </div>
     )
   } else {
@@ -595,7 +569,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
             <Plus aria-hidden className="h-5 w-5 md:h-4 md:w-4" />
           </button>
         </div>
-        <div ref={stripRef} data-bar-strip="" data-fade="none" className={cn(STRIP, "px-1")}>
+        <ScrollRow data-bar-strip="" className={cn(STRIP, "px-1")} arrowClassName={ARROW}>
           {tools.map((t, i) =>
             t === "sep" ? (
               <React.Fragment key={`sep-${i}`}>{SEP}</React.Fragment>
@@ -635,7 +609,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
               </button>
             </>
           ) : null}
-        </div>
+        </ScrollRow>
         {phone ? (
           <div className="flex shrink-0 items-center border-l border-[#eef0f2] px-1">
             <button
@@ -683,11 +657,10 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
   return bar
 }
 
-/** The row that scrolls sideways inside itself: native momentum, no bar, a fade at whichever end has more. */
-const STRIP = cn(
-  "flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [touch-action:pan-x]",
-  "[-webkit-mask-image:var(--strip-fade)] [mask-image:var(--strip-fade)]",
-  "data-[fade=end]:[--strip-fade:linear-gradient(to_right,#000_calc(100%-24px),transparent)]",
-  "data-[fade=start]:[--strip-fade:linear-gradient(to_right,transparent,#000_24px)]",
-  "data-[fade=both]:[--strip-fade:linear-gradient(to_right,transparent,#000_24px,#000_calc(100%-24px),transparent)]",
-)
+/**
+ * The row that scrolls sideways inside itself: native momentum, no bar, and
+ * a fade with an arrow at whichever end has more (components/app/rich-text/scroll-row.tsx).
+ */
+const STRIP = "gap-0.5 [touch-action:pan-x] [--row-fade:44px] md:[--row-fade:40px]"
+/** The arrow's target is a control's: 44px on a phone, 32px from 768px. */
+const ARROW = "w-11 md:w-8"

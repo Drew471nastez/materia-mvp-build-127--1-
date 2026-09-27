@@ -38,6 +38,7 @@ import * as React from "react"
 import { Bold, ChevronDown, Italic, Link, List, ListOrdered } from "lucide-react"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { cn } from "@/lib/utils"
+import { ScrollRow } from "@/components/app/rich-text/scroll-row"
 
 /**
  * NO ASSISTANT BUTTON IN HERE.
@@ -271,9 +272,10 @@ export function RichTextField({
     <div className="rounded-lg border border-border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-neutral-900/10 focus-within:border-neutral-400 transition-colors" data-builder-rich-text="">
       {/* ONE WEIGHT, ONE SIZE, ONE COLOUR. 15px icons on a 28px target on a
           computer and 40px on a phone, one row that scrolls sideways inside
-          itself on a narrow sidebar rather than wrapping to two. What the
-          caret is in is lit, so the toolbar says what a press will undo. */}
-      <div className="flex items-center gap-px overflow-x-auto border-b border-border bg-muted/30 px-1.5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          itself on a narrow sidebar rather than wrapping to two, with a fade
+          and an arrow at the end that has more. What the caret is in is lit,
+          so the toolbar says what a press will undo. */}
+      <ScrollRow wrapClassName="border-b border-border bg-muted/30" className="gap-px px-1.5 py-1 [--row-fade:36px]" arrowClassName="w-10 sm:w-8">
         <BlockSelect current={active.block} onPick={(tag) => run("formatBlock", `<${tag}>`)} />
         <Divider />
 
@@ -298,7 +300,7 @@ export function RichTextField({
         <ToolbarButton label="Numbered list" on={active.ol} onClick={() => run("insertOrderedList")}>
           <ListOrdered className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
-      </div>
+      </ScrollRow>
 
       {linkDraft !== null && (
         <form

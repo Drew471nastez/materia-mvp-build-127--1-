@@ -40,8 +40,9 @@
  * applies the same list again when the row is saved.
  *
  * ON A PHONE. The toolbar is one row that scrolls sideways, every control a
- * 44px target, with a fade and a small chevron at whichever end has more;
- * a control acts on a tap, never on the swipe that scrolls the row. The
+ * 44px target, with a fade and an arrow at whichever end has more (a press
+ * on the arrow slides the row along, ./rich-text/scroll-row.tsx); a control
+ * acts on a tap, never on the swipe that scrolls the row. The
  * text is 16px so iOS does not zoom the page when the field is focused. The
  * field grows with its text up to a height that leaves the toolbar and the
  * caret both above the keyboard, then scrolls inside itself, handing a
@@ -52,8 +53,6 @@
 import * as React from "react"
 import {
   Bold,
-  ChevronLeft,
-  ChevronRight,
   Heading2,
   Heading3,
   ImagePlus,
@@ -77,6 +76,7 @@ import { normaliseTypedHref } from "@/lib/rich-text/policy"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 import { PictureControls, Tip } from "./rich-text/picture-controls"
 import { EmojiControl } from "./rich-text/emoji-picker"
+import { ScrollRow } from "./rich-text/scroll-row"
 
 export type RichTextTool =
   | "h2" | "h3"
@@ -337,8 +337,6 @@ export function RichTextEditor({
     setDragHeight(clampHeight(now + (e.key === "ArrowDown" ? 32 : -32)))
   }, [clampHeight, minHeight])
   const toolbarRef = React.useRef<HTMLDivElement>(null)
-  const stripRef = React.useRef<HTMLDivElement>(null)
-  const stripWrapRef = React.useRef<HTMLDivElement>(null)
   const savedRange = React.useRef<Range | null>(null)
   const linkTarget = React.useRef<HTMLAnchorElement | null>(null)
   /** The value the DOM is showing: the last one written in, or the last one handed up. */
@@ -755,7 +753,7 @@ export function RichTextEditor({
   /* Arrow keys move along the toolbar and Tab leaves it, the pattern a
      screen reader expects of role="toolbar". */
   const onToolbarKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const buttons = [...(toolbarRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? [])]
+    const buttons = [...(toolbarRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled]):not([data-scroll-arrow])") ?? [])]
     const at = buttons.indexOf(document.activeElement as HTMLButtonElement)
     if (at < 0) return
     let next = -1
@@ -938,47 +936,6 @@ export function RichTextEditor({
   })
 
   /*
-    THE ROW THAT SCROLLS SIDEWAYS. On a phone the toolbar is one row wider
-    than the screen. Whichever end has more controls past it fades out, with
-    a small chevron in the fade, and each goes away once that end is reached.
-    The scroll only asks for a frame; the frame reads the row once and writes
-    two attributes, and only when they change, so scrolling it never renders
-    anything or lays anything out twice.
-  */
-  React.useEffect(() => {
-    const strip = stripRef.current
-    const wrap = stripWrapRef.current
-    if (!strip || !wrap) return
-    let frame = 0
-    const read = () => {
-      frame = 0
-      const max = strip.scrollWidth - strip.clientWidth
-      const x = Math.abs(strip.scrollLeft)
-      const start = max > 2 && x > 2
-      const end = max > 2 && x < max - 2
-      const fade = start && end ? "both" : start ? "start" : end ? "end" : "none"
-      if (strip.dataset.fade !== fade) {
-        strip.dataset.fade = fade
-        strip.dataset.more = String(end)
-        wrap.dataset.start = String(start)
-        wrap.dataset.end = String(end)
-      }
-    }
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(read)
-    }
-    read()
-    strip.addEventListener("scroll", schedule, { passive: true })
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null
-    ro?.observe(strip)
-    return () => {
-      cancelAnimationFrame(frame)
-      strip.removeEventListener("scroll", schedule)
-      ro?.disconnect()
-    }
-  }, [])
-
-  /*
     A TAP, NOT A SWIPE. A finger that goes down on a control and then moves
     is scrolling the row, and must not also press what it started on. Each
     press is followed from pointerdown: once it has moved more than 8px, or
@@ -1068,12 +1025,11 @@ export function RichTextEditor({
         className={cn("rich-text-toolbar flex items-center border-b border-[#eef0f2] bg-white", stickyToolbar && "sticky z-[5]")}
         style={stickyToolbar ? { top: stickyToolbar } : undefined}
       >
-        <div ref={stripWrapRef} data-start="false" data-end="false" className="group/strip relative flex min-w-0 flex-1">
-        <div
-          ref={stripRef}
-          data-more="false"
-          data-fade="none"
+        {/* The row of controls, which scrolls sideways on a phone with a fade
+            and an arrow at whichever end has more (./rich-text/scroll-row.tsx). */}
+        <ScrollRow
           data-toolbar-strip=""
+          arrowClassName="w-11 sm:w-8"
           onPointerDownCapture={onStripPointerDown}
           onPointerMoveCapture={onStripPointerMove}
           onPointerUpCapture={onStripPointerEnd}
@@ -1081,15 +1037,11 @@ export function RichTextEditor({
           onClickCapture={onStripClickCapture}
           onScroll={onStripScroll}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-1 py-1 sm:flex-wrap sm:px-1.5",
+            "gap-0.5 px-1 py-1 [--row-fade:48px] sm:flex-wrap sm:px-1.5",
             /* Native momentum, no snapping, and a flick that reaches the end
                stops there instead of pulling the page sideways. A vertical
                swipe that starts on the row still scrolls the page. */
-            "overscroll-x-contain [scroll-snap-type:none] [touch-action:pan-x_pan-y] [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            "[-webkit-mask-image:var(--strip-fade)] [mask-image:var(--strip-fade)]",
-            "data-[fade=end]:[--strip-fade:linear-gradient(to_right,#000_calc(100%-28px),transparent)]",
-            "data-[fade=start]:[--strip-fade:linear-gradient(to_right,transparent,#000_28px)]",
-            "data-[fade=both]:[--strip-fade:linear-gradient(to_right,transparent,#000_28px,#000_calc(100%-28px),transparent)]",
+            "[scroll-snap-type:none] [touch-action:pan-x_pan-y] [-webkit-overflow-scrolling:touch]",
           )}
         >
         {visible.map((group, g) => (
@@ -1142,24 +1094,7 @@ export function RichTextEditor({
             {extraTools(api)}
           </>
         ) : null}
-        </div>
-        {/* The hints that more of the row is off to that side. Drawn over the
-            fade and never in the way of a tap. */}
-        <span
-          aria-hidden
-          data-toolbar-hint="start"
-          className="pointer-events-none absolute inset-y-0 left-0 flex w-4 items-center justify-start pl-0.5 text-[#9ca3af] opacity-0 transition-opacity duration-150 group-data-[start=true]/strip:opacity-100"
-        >
-          <ChevronLeft className="h-3 w-3" strokeWidth={2.5} />
-        </span>
-        <span
-          aria-hidden
-          data-toolbar-hint="end"
-          className="pointer-events-none absolute inset-y-0 right-0 flex w-4 items-center justify-end pr-0.5 text-[#9ca3af] opacity-0 transition-opacity duration-150 group-data-[end=true]/strip:opacity-100"
-        >
-          <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
-        </span>
-        </div>
+        </ScrollRow>
         {toolbarEnd ? <div className="flex shrink-0 items-center self-stretch border-l border-[#eef0f2] px-1">{toolbarEnd}</div> : null}
       </div>
       </TooltipPrimitive.Provider>

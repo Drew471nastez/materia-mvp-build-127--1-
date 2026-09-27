@@ -12,8 +12,9 @@
  *                at 16px or more on a phone, so iOS does not zoom; focusing
  *                the field does not move or resize anything; the field grows
  *                with its text to a limit and then scrolls inside itself
- *   the row      on a phone the end with more controls past it fades, with a
- *                chevron, and both go when that end is reached; a finger that
+ *   the row      on a phone the end with more controls past it fades, with an
+ *                arrow, and both go when that end is reached (the arrow
+ *                itself: scripts/check-toolbar-scroll.mjs); a finger that
  *                moves more than 8px presses nothing, a tap presses, and a
  *                swipe scrolls the row
  *   resizing     the bar at the foot has a 32px or taller target on a phone,
@@ -138,7 +139,15 @@ try {
   }
   const sideways = (p) => p.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth)
   const value = (p) => p.evaluate(() => window.__value)
-  const tool = (p, label) => p.click(`[role=toolbar] button[aria-label="${label}"]`)
+  /* A control is brought clear of the row's fade and arrows first (the row's
+     scroll-padding is the fade), as a person scrolls to it before tapping:
+     a control half under an arrow is the arrow's to press. */
+  const tool = async (p, label) => {
+    const sel = `[role=toolbar] button[aria-label="${label}"]`
+    await p.$eval(sel, (b) => b.scrollIntoView({ block: "nearest", inline: "nearest" }))
+    await sleep(260)
+    await p.click(sel)
+  }
   const pressed = (p, label) => p.$eval(`[role=toolbar] button[aria-label="${label}"]`, (b) => b.getAttribute("aria-pressed"))
   const field = "[role=textbox][contenteditable=true]"
   const box = (p, sel) => p.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } })
@@ -174,7 +183,7 @@ try {
     console.log(`\nThe field, ${label} (${vp.width}px)`)
     const { p, errors } = await open(vp, "view=editor")
 
-    const buttons = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { l: b.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) } }))
+    const buttons = await p.$$eval("[role=toolbar] button:not([data-scroll-arrow])", (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { l: b.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) } }))
     const want = phone ? 44 : 32
     expect(buttons.length === 16, "sixteen controls: two headings, four marks, two lists, quote, link, picture, emoji, divider, clear, undo, redo", buttons.length)
     expect(buttons.every((b) => b.w === want && b.h === want), `every control is ${want}px square`, [...new Set(buttons.map((b) => `${b.w}x${b.h}`))])
@@ -182,7 +191,7 @@ try {
     /* The row of controls is the scroller, inside the toolbar: the toolbar
        itself stays put so it can stick, and so a slot at its end (a block's
        own menu in the email composer) never scrolls away. */
-    const bar = await p.$eval("[role=toolbar]", (bar) => { const t = bar.querySelector("[data-more]") ?? bar; return { scroll: t.scrollWidth, client: t.clientWidth, overflowX: getComputedStyle(t).overflowX } })
+    const bar = await p.$eval("[role=toolbar]", (bar) => { const t = bar.querySelector("[data-toolbar-strip]") ?? bar; return { scroll: t.scrollWidth, client: t.clientWidth, overflowX: getComputedStyle(t).overflowX } })
     if (phone) {
       expect(rows === 1, "one row", rows)
       expect(bar.scroll > bar.client && bar.overflowX === "auto", "that scrolls sideways inside itself", bar)
@@ -211,21 +220,21 @@ try {
     const blue = (c) => { const m = /rgba?\((\d+), (\d+), (\d+)/.exec(c); return !!m && Number(m[3]) > Number(m[1]) + 40 }
     expect(!!drawn && !blue(ring.border) && !ring.shadow.split(/,(?![^(]*\))/).some((x) => blue(x) && !/, 0\)/.test(x)), "and draws a soft grey halo, not a blue ring", ring)
 
-    /* The row's ends: a fade and a chevron where there is more, and none where there is not. */
+    /* The row's ends: a fade and an arrow where there is more, and none where there is not. */
     const ends = () => p.evaluate(() => {
       const strip = document.querySelector("[data-toolbar-strip]")
       const wrap = strip.parentElement
-      const op = (side) => getComputedStyle(wrap.querySelector(`[data-toolbar-hint=${side}]`)).opacity
+      const op = (side) => getComputedStyle(wrap.querySelector(`[data-scroll-arrow=${side}]`)).opacity
       const cs = getComputedStyle(strip)
       return { fade: strip.dataset.fade, mask: cs.maskImage || cs.webkitMaskImage, start: op("start"), end: op("end"), x: Math.round(strip.scrollLeft) }
     })
     const atStart = await ends()
     if (phone) {
-      expect(atStart.fade === "end" && /gradient/.test(atStart.mask) && atStart.end === "1" && atStart.start === "0", "the row's far end fades, with a chevron, and its near end does not", atStart)
+      expect(atStart.fade === "end" && /gradient/.test(atStart.mask) && atStart.end === "1" && atStart.start === "0", "the row's far end fades, with an arrow, and its near end does not", atStart)
       await p.evaluate(() => { const s = document.querySelector("[data-toolbar-strip]"); s.scrollLeft = s.scrollWidth })
       await sleep(250)
       const atEnd = await ends()
-      expect(atEnd.fade === "start" && atEnd.end === "0" && atEnd.start === "1", "scrolled to the end, that fade and chevron go and the other end's come", atEnd)
+      expect(atEnd.fade === "start" && atEnd.end === "0" && atEnd.start === "1", "scrolled to the end, that fade and arrow go and the other end's come", atEnd)
       await p.evaluate(() => { document.querySelector("[data-toolbar-strip]").scrollLeft = 0 })
       await sleep(250)
       expect((await ends()).fade === "end", "and back at the start, back as they were", await ends())
@@ -276,7 +285,7 @@ try {
       await sleep(120)
       await cdp.detach()
     } else {
-      expect(atStart.fade === "none" && atStart.start === "0" && atStart.end === "0", "a row that fits has no fade and no chevrons", atStart)
+      expect(atStart.fade === "none" && atStart.start === "0" && atStart.end === "0", "a row that fits has no fade and no arrows", atStart)
     }
 
     await p.keyboard.type("Hello ")
@@ -669,9 +678,9 @@ try {
   console.log("\nThe Emails body, phone")
   {
     const { p, errors } = await open(viewports[0][1], "view=email&value=" + encodeURIComponent("<p>Hi {{first_name}},</p>"))
-    const labels = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => b.getAttribute("aria-label") || b.textContent.trim()))
+    const labels = await p.$$eval("[role=toolbar] button:not([data-scroll-arrow])", (bs) => bs.map((b) => b.getAttribute("aria-label") || b.textContent.trim()))
     expect(labels.join(",") === "Heading,Bold,Italic,Bulleted list,Link,Button,First name", "its own short toolbar, plus Button and First name", labels)
-    const sizes = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)))
+    const sizes = await p.$$eval("[role=toolbar] button:not([data-scroll-arrow])", (bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)))
     expect(sizes.every((h) => h === 44), "all 44px tall", sizes)
     await p.click(field)
     await p.keyboard.press("End")
