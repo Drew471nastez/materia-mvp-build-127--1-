@@ -33,6 +33,7 @@ import { StatusBadge } from "../../../orders/order-parts"
 import { FlowTopBar, ListIcon, TEMPLATE_ICON, backButton } from "../flow-parts"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
 import { leaveLayer } from "../../layer-nav"
+import { refreshMatching } from "@/components/email/emails-cache"
 
 /**
  * The page's width: the 1200px every /app page uses from lg, the product
@@ -73,6 +74,8 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
       const res = await fetch("/api/automations/flows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       const out = await res.json().catch(() => ({}))
       if (!res.ok || !out.id) throw new Error(out.error || "Could not create it. Try again.")
+      /* The Emails list has a new row to show when it is seen again. */
+      refreshMatching("emails:flows")
       /* Replace, not push: Back from the new flow goes to the Emails page,
          not to this list again. */
       router.replace(`/app/emails/flow/${out.id}`)

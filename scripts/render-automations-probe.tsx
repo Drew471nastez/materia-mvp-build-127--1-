@@ -31,6 +31,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.includes("/api/automations/flows/") && init?.method === "DELETE") return json({ ok: true })
   if (url.endsWith("/api/automations/flows")) return json({ id: "new-flow" })
   if (url.includes("/test")) return json({ ok: true, to: "astrid@example.com" })
+  if (url.endsWith("/preview")) return json({ html: '<!doctype html><html><body style="margin:0;background:#f4f5f7"><table width="100%"><tr><td style="padding:24px"><div style="max-width:600px;margin:0 auto;background:#fff;padding:32px;font:16px/1.6 Arial">Hi Alex,<p>Thanks for joining.</p></div></td></tr></table></body></html>', subject: "Welcome, Alex", previewText: "", fromName: "Astrid" })
+  if (url.endsWith("/duplicate")) return json({ id: "copy-flow" })
   return realFetch(input, init)
 }
 
@@ -155,6 +157,7 @@ function Subscribers() {
         ]}
         onToggleFlow={() => {}}
         onDeleteFlow={() => {}}
+        onDuplicateFlow={() => {}}
         campaigns={[]}
         onOpenCampaign={() => {}}
         onCampaignIntent={() => {}}

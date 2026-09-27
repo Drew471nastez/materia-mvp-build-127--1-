@@ -58,6 +58,7 @@ import { ContactPage } from "./contact-detail"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
 import { TABS, campaignKey, isTab, loadReport, loadTab, reportKey, tabKey, type SentData, type SubscribersData } from "./emails-data"
 import { noteListAddress } from "./list-return"
+import { openLayer } from "./layer-nav"
 
 function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search)
@@ -332,7 +333,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       () => onNotice("Could not copy the email"),
     )
   }
-  const [confirm, setConfirm] = React.useState<{ type: "campaign" | "subscriber" | "flow"; id: string } | null>(null)
+  const [confirm, setConfirm] = React.useState<{ type: "campaign" | "subscriber" | "flow" | "flow-off"; id: string } | null>(null)
 
   const refreshCampaignLists = () => {
     refresh(...ALL_EMAIL_LISTS, keyFor("published"))
@@ -405,8 +406,13 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
    * on, and turning one off takes out everyone partway through, so both are
    * its answer to give (app/api/automations/flows/[id]/status).
    */
-  const toggleFlow = async (flow: FlowRow) => {
+  const toggleFlow = async (flow: FlowRow, confirmed = false) => {
     const on = flow.status !== "active"
+    /* Turning off stops everyone partway through, so it asks first, as the automation's own page does. */
+    if (!on && !confirmed && (flow.totals?.in_progress ?? 0) > 0) {
+      setConfirm({ type: "flow-off", id: flow.id })
+      return
+    }
     const res = await fetch(`/api/automations/flows/${flow.id}/status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -427,6 +433,19 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           ? `Off. ${out.stopped} ${out.stopped === 1 ? "person" : "people"} stopped partway.`
           : "Off. Sign-ups are still recorded.",
     )
+  }
+
+  /**
+   * A copy of an automation, off, opened so it can be changed before it is
+   * turned on (app/api/automations/flows/[id]/duplicate).
+   */
+  const duplicateFlow = async (flow: FlowRow) => {
+    const res = await fetch(`/api/automations/flows/${flow.id}/duplicate`, { method: "POST" }).catch(() => null)
+    const out = res ? await res.json().catch(() => ({})) : {}
+    if (!res || !res.ok || !out.id) return onNotice(out.error || "Could not make a copy. Try again.", true)
+    refresh(keyFor("flows"))
+    onNotice("Copy made. It is off until you turn it on.")
+    openLayer(router, `/app/emails/flow/${out.id}`)
   }
 
   /** Every subscribed address as a CSV, named for today. */
@@ -456,6 +475,10 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     if (!target) return
     if (target.type === "campaign") onNotice(await deleteCampaign(target.id))
     else if (target.type === "flow") await deleteFlow(target.id)
+    else if (target.type === "flow-off") {
+      const flow = flows.find((f) => f.id === target.id)
+      if (flow) await toggleFlow(flow, true)
+    }
     else await removeSubscriber(target.id)
   }
 
@@ -492,6 +515,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           flows={flows}
           onToggleFlow={(f) => void toggleFlow(f)}
           onDeleteFlow={(id) => setConfirm({ type: "flow", id })}
+          onDuplicateFlow={(f) => void duplicateFlow(f)}
           campaigns={campaigns}
           onOpenCampaign={onOpen}
           onOpenContact={onOpenContact}
@@ -536,14 +560,14 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       <ComposeDialog
         open={confirm !== null}
         onClose={() => setConfirm(null)}
-        title={confirm?.type === "campaign" ? "Delete this email?" : confirm?.type === "flow" ? "Delete this automation?" : "Remove this subscriber?"}
+        title={confirm?.type === "campaign" ? "Delete this email?" : confirm?.type === "flow" ? "Delete this automation?" : confirm?.type === "flow-off" ? `Turn off ${flows.find((f) => f.id === confirm.id)?.name ?? "this automation"}?` : "Remove this subscriber?"}
         footer={
           <>
             <button type="button" className={buttonSecondary} onClick={() => setConfirm(null)}>
               Cancel
             </button>
             <button type="button" className={cn(buttonPrimary, "bg-[#b42318] hover:bg-[#9b1c14] active:bg-[#861912]")} onClick={() => void confirmDelete()}>
-              {confirm?.type === "subscriber" ? "Remove" : "Delete"}
+              {confirm?.type === "subscriber" ? "Remove" : confirm?.type === "flow-off" ? "Turn off" : "Delete"}
             </button>
           </>
         }
@@ -553,6 +577,11 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
             ? "It is removed with its numbers. Anything already sent stays in people's inboxes."
             : confirm?.type === "flow"
               ? "Everyone partway through it gets nothing more, and it is removed."
+              : confirm?.type === "flow-off"
+                ? (() => {
+                    const n = flows.find((f) => f.id === confirm.id)?.totals?.in_progress ?? 0
+                    return `${n} ${n === 1 ? "person is" : "people are"} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.`
+                  })()
               : "They are unsubscribed and get no more of your emails."}
         </p>
       </ComposeDialog>

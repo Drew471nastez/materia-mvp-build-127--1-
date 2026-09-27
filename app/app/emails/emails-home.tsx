@@ -123,6 +123,7 @@ export interface EmailsHomeProps {
   flows: FlowRow[]
   onToggleFlow: (flow: FlowRow) => void
   onDeleteFlow: (id: string) => void
+  onDuplicateFlow: (flow: FlowRow) => void
 
   campaigns: CampaignRow[]
   /** Opens a sent or scheduled email's page over the list. */
@@ -720,10 +721,23 @@ function SubscribersTable(props: EmailsHomeProps) {
   )
 }
 
+/**
+ * THE AUTOMATIONS. From 768px a table, one column per number. On a phone a
+ * table of eight columns is a strip to scroll sideways with the name cut to
+ * "Welcome ser...", so there each automation is a row of its own: the name
+ * in full, what starts it, its steps and what it has done, with its switch
+ * and its menu at the end, where a thumb is. Tapping the row opens it.
+ */
 function FlowsTable(props: EmailsHomeProps) {
   const router = useRouter()
   const press = usePress()
   const href = (f: FlowRow) => `/app/emails/flow/${f.id}`
+  const menu = (f: FlowRow, on: boolean): ActionMenuItem[] => [
+    { label: "Edit", onClick: () => openLayer(router, href(f)) },
+    { label: on ? "Turn off" : "Turn on", onClick: () => props.onToggleFlow(f) },
+    { label: "Duplicate", onClick: () => props.onDuplicateFlow(f) },
+    { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
+  ]
   return (
     <>
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
@@ -739,61 +753,91 @@ function FlowsTable(props: EmailsHomeProps) {
             }
           />
         ) : (
-          <ScrollEdge>
-            <table className="w-full min-w-[720px] border-collapse">
-              <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-                <tr>
-                  <th data-scroll-edge="" className={cn(th, stickyHead)}>Automation</th>
-                  <th className={th}>Starts when</th>
-                  <th className={th}>Steps</th>
-                  <th className={cn(th, "text-right")}>In progress</th>
-                  <th className={cn(th, "text-right")}>Sent</th>
-                  <th className={cn(th, "text-right")}>Opened</th>
-                  <th className={th}>On</th>
-                  <th className={cn(th, "w-12")} aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f1f2f4]">
-                {props.flows.map((f) => {
-                  const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
-                  const on = f.status === "active"
-                  const t = f.totals
-                  return (
-                    <tr key={f.id} className={pressable} data-flow-row={f.id} onClick={() => openLayer(router, href(f))} {...press(f.id, () => router.prefetch(href(f)))}>
-                      <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
-                        <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
-                          <Link href={href(f)} prefetch={false} className="truncate outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
-                            {f.name}
-                          </Link>
-                          {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
-                        </span>
-                      </td>
-                      <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[240px] truncate">{trigger}</span></td>
-                      <td className={cn(td, "text-[#4b5563]")}>{stepSummary(normalizeSteps(f.steps))}</td>
-                      <td className={cn(td, "text-right tabular-nums")}>{t ? t.in_progress.toLocaleString("en-US") : "–"}</td>
-                      <td className={cn(td, "text-right tabular-nums")}>{t ? t.sent.toLocaleString("en-US") : "–"}</td>
-                      <td className={cn(td, "text-right tabular-nums")}>{t && t.sent > 0 ? rate(t.opened, t.sent) : "–"}</td>
-                      <td className={td} onClick={(e) => e.stopPropagation()}>
+          <>
+            <ul aria-label="Automations" className="divide-y divide-[#f1f2f4] md:hidden" data-flow-list="">
+              {props.flows.map((f) => {
+                const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
+                const on = f.status === "active"
+                const t = f.totals
+                const numbers = t ? [t.in_progress > 0 ? `${t.in_progress.toLocaleString("en-US")} in progress` : null, `${t.sent.toLocaleString("en-US")} sent`, t.sent > 0 ? `${rate(t.opened, t.sent)} opened` : null].filter(Boolean).join(" · ") : null
+                return (
+                  <li
+                    key={f.id}
+                    className={cn(pressable, "flex min-h-[72px] items-center gap-3 py-3 pl-4 pr-2")}
+                    data-flow-row={f.id}
+                    onClick={() => openLayer(router, href(f))}
+                    {...press(f.id, () => router.prefetch(href(f)))}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <Link href={href(f)} prefetch={false} className="min-w-0 break-words text-[15px] font-semibold leading-5 text-[#1a1a2e] outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
+                          {f.name}
+                        </Link>
+                        {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
+                      </p>
+                      <p className="mt-0.5 text-[13px] leading-[18px] text-[#4b5563]">{trigger}</p>
+                      <p className="mt-0.5 text-[12px] leading-4 tabular-nums text-[#6b7280]">
+                        {stepSummary(normalizeSteps(f.steps))}
+                        {numbers ? ` · ${numbers}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                      <span className="flex h-11 items-center px-1.5">
                         <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={`Send ${f.name} automatically`} />
-                      </td>
-                      <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                        <ResponsiveActionMenu
-                          title={f.name}
-                          align="end"
-                          trigger={<RowMenuButton label={`Actions for ${f.name}`} />}
-                          items={[
-                            { label: "Edit", onClick: () => openLayer(router, href(f)) },
-                            { label: on ? "Turn off" : "Turn on", onClick: () => props.onToggleFlow(f) },
-                            { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </ScrollEdge>
+                      </span>
+                      <ResponsiveActionMenu title={f.name} align="end" trigger={<RowMenuButton label={`Actions for ${f.name}`} className="h-11 w-11" />} items={menu(f, on)} />
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            <ScrollEdge frameClassName="max-md:hidden">
+              <table className="w-full min-w-[720px] border-collapse">
+                <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                  <tr>
+                    <th data-scroll-edge="" className={cn(th, stickyHead)}>Automation</th>
+                    <th className={th}>Starts when</th>
+                    <th className={th}>Steps</th>
+                    <th className={cn(th, "text-right")}>In progress</th>
+                    <th className={cn(th, "text-right")}>Sent</th>
+                    <th className={cn(th, "text-right")}>Opened</th>
+                    <th className={th}>On</th>
+                    <th className={cn(th, "w-12")} aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f1f2f4]">
+                  {props.flows.map((f) => {
+                    const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
+                    const on = f.status === "active"
+                    const t = f.totals
+                    return (
+                      <tr key={f.id} className={pressable} data-flow-row={f.id} onClick={() => openLayer(router, href(f))} {...press(f.id, () => router.prefetch(href(f)))}>
+                        <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
+                          <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
+                            <Link href={href(f)} prefetch={false} className="truncate outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
+                              {f.name}
+                            </Link>
+                            {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
+                          </span>
+                        </td>
+                        <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[240px] truncate">{trigger}</span></td>
+                        <td className={cn(td, "text-[#4b5563]")}>{stepSummary(normalizeSteps(f.steps))}</td>
+                        <td className={cn(td, "text-right tabular-nums")}>{t ? t.in_progress.toLocaleString("en-US") : "–"}</td>
+                        <td className={cn(td, "text-right tabular-nums")}>{t ? t.sent.toLocaleString("en-US") : "–"}</td>
+                        <td className={cn(td, "text-right tabular-nums")}>{t && t.sent > 0 ? rate(t.opened, t.sent) : "–"}</td>
+                        <td className={td} onClick={(e) => e.stopPropagation()}>
+                          <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={`Send ${f.name} automatically`} />
+                        </td>
+                        <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
+                          <ResponsiveActionMenu title={f.name} align="end" trigger={<RowMenuButton label={`Actions for ${f.name}`} />} items={menu(f, on)} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </ScrollEdge>
+          </>
         )}
       </ShimmerSwap>
     </>

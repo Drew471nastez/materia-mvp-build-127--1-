@@ -123,7 +123,7 @@ function Emails() {
       <EmailsHome
         tab={tab} onTab={setTab} loading={loading}
         subscribers={[]} checkoutBuyersCount={0} search="" onSearch={noop} onExportSubscribers={noop} onCopyEmail={noop} onRemoveSubscriber={noop}
-        flows={[]} onToggleFlow={noop} onDeleteFlow={noop}
+        flows={[]} onToggleFlow={noop} onDeleteFlow={noop} onDuplicateFlow={noop}
         campaigns={campaigns as never} onOpenCampaign={noop} onCampaignIntent={noop} onDuplicateCampaign={noop} onDeleteCampaign={noop}
         overview={loading ? null : { total_sent: 3600, total_opened: 1900, total_clicked: 410, total_unsubscribed: 7, open_rate: 52.8, click_rate: 11.4 }}
         usage={{ sent: 2100, limit: 3000 }} period={period} onPeriod={setPeriod} today={today}

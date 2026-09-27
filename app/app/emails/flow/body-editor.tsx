@@ -115,10 +115,13 @@ export function BodyEditor({
             type="button"
             className={extra}
             title="Their first name, or 'there' when it is not known"
+            aria-label="First name"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => editor.insertHtml("{{first_name}}")}
           >
-            First name
+            {/* "Name" on a phone, so the whole toolbar fits the sheet without a scroll to reach it. */}
+            <span className="sm:hidden">Name</span>
+            <span className="max-sm:hidden">First name</span>
           </button>
         </>
       )}

@@ -33,7 +33,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Ellipsis, Plus, X } from "lucide-react"
+import { ArrowDown, ArrowLeft, ArrowUp, Ellipsis, Plus, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -75,6 +75,9 @@ import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from ".
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { RUN_STATUS } from "../../contact-detail"
 import { BodyEditor } from "../body-editor"
+import { refreshMatching, write } from "@/components/email/emails-cache"
+import { PreviewLayer } from "@/components/email/compose/preview-layer"
+import type { PreviewMode } from "@/components/email/compose/email-preview"
 import { FlowTopBar, StepMark, backButton } from "../flow-parts"
 
 export interface StepStats {
@@ -149,6 +152,8 @@ const PANEL_REMOVE =
   "ml-auto inline-flex h-8 cursor-pointer select-none items-center rounded-lg px-3 text-[13px] font-medium text-[#b42318] transition-colors duration-100 hover:bg-[#fef3f2] active:bg-[#fde8e6] max-sm:h-10 [-webkit-tap-highlight-color:transparent]"
 
 const EMAILS = "/app/emails?tab=flows"
+/** The Emails list's cache key for this tab (app/app/emails/emails-data.ts tabKey). */
+const FLOWS_KEY = "emails:flows"
 
 function draftOf(flow: BuilderData["flow"]): Draft {
   const trigger: TriggerType = isTriggerType(flow.trigger_type) ? flow.trigger_type : "new_subscriber"
@@ -281,6 +286,8 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       const next = draftOf({ ...data.flow, ...out.flow })
       setDraft(next)
       setSavedJson(JSON.stringify(next))
+      /* The Emails list keeps what it read; its row for this flow is out of date now. */
+      refreshMatching(FLOWS_KEY)
       return true
     } catch {
       toast({ title: "Not saved", description: "Could not reach Storelib. Check your connection.", variant: "destructive" })
@@ -326,6 +333,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
         return
       }
       setStatus(out.status)
+      refreshMatching(FLOWS_KEY)
       toast({
         title: next ? "Live" : "Paused",
         description: next
@@ -347,6 +355,9 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       const res = await fetch(`/api/automations/flows/${data.flow.id}`, { method: "DELETE" })
       if (!res.ok) throw new Error()
       setSavedJson(JSON.stringify(draft))
+      /* Gone from the list before the list is seen again, not a moment after. */
+      write<Array<{ id: string }> | undefined>(FLOWS_KEY, (prev) => prev?.filter((f) => f.id !== data.flow.id))
+      refreshMatching(FLOWS_KEY)
       router.replace(EMAILS)
     } catch {
       setDeleting(false)
@@ -370,11 +381,35 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
   }
 
   const turnOff = () => (data.counts.active > 0 ? setConfirmOff(true) : void setOn(false))
+
+  /*
+    DUPLICATE: a copy, off, opened in place of this one. What is copied is
+    what is saved, so unsaved changes are saved first and go into both.
+  */
+  const [copying, setCopying] = React.useState(false)
+  const duplicate = async () => {
+    if (copying) return
+    if (dirty && !(await save())) return
+    setCopying(true)
+    try {
+      const res = await fetch(`/api/automations/flows/${data.flow.id}/duplicate`, { method: "POST" })
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok || !out.id) throw new Error(out.error)
+      refreshMatching(FLOWS_KEY)
+      toast({ title: "Copy made", description: "It is off until you turn it on." })
+      router.push(`/app/emails/flow/${out.id}`)
+    } catch (error) {
+      toast({ title: "No copy made", description: (error as Error)?.message || "Try again.", variant: "destructive" })
+    } finally {
+      setCopying(false)
+    }
+  }
   const menu: ActionMenuItem[] = [
     ...(on ? [{ label: "Turn off", onClick: turnOff }] : dirty ? [{ label: "Save and turn on", onClick: () => void setOn(true) }] : []),
+    { label: copying ? "Copying" : "Duplicate", onClick: () => void duplicate() },
     { label: "Delete automation", variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirmDelete(true) },
   ]
-  const busy = saving || switching || deleting
+  const busy = saving || switching || deleting || copying
   /* The bar's one action. Save is the phone's: from 768px it is in the foot bar. */
   const primary = dirty
     ? { label: saving ? "Saving" : "Save", run: () => void save(), phoneOnly: true }
@@ -863,6 +898,15 @@ function PanelHead({ kind, trigger, title, onClose }: { kind: Parameters<typeof 
   )
 }
 
+/** Done, in the phone's sheet only: the panel beside the steps on a computer has nothing to close into. */
+function PanelDone({ onClose }: { onClose: () => void }) {
+  return (
+    <button type="button" data-panel-done="" className={cn(DEPTH_PRIMARY, "h-10 shrink-0 rounded-[10px] px-4 text-[15px] lg:hidden")} onClick={onClose}>
+      Done
+    </button>
+  )
+}
+
 function Choice({ checked, onChange, label, detail, disabled, children }: { checked: boolean; onChange: () => void; label: string; detail?: string; disabled?: boolean; children?: React.ReactNode }) {
   return (
     <label
@@ -924,6 +968,7 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
               <Choice checked={!only} label="Any product" onChange={() => { setOnly(false); onChange({ config: { ...draft.config, product_ids: undefined } }) }} />
               <Choice checked={only} label="Only these products" detail={products.length === 0 ? "You have no products yet." : undefined} disabled={products.length === 0} onChange={() => setOnly(true)} />
             </div>
+            {only && products.length > 0 && picked.size === 0 ? <p className={hint} data-no-products-picked="">Tick at least one. With none ticked it starts for any product.</p> : null}
             {only && products.length > 0 ? (
               <div className="mt-2 max-h-[220px] overflow-y-auto rounded-xl border border-[#e3e4e8]">
                 {products.map((p) => (
@@ -986,6 +1031,9 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
         )}
         <p className={hint}>Only people who trigger it after you turn it on are sent anything. Someone who unsubscribes is never sent another email, wherever they are in the flow.</p>
       </div>
+      <div data-panel-foot="" className="sticky bottom-0 z-[2] flex justify-end border-t border-[#eef0f2] bg-white px-4 py-3 lg:hidden">
+        <PanelDone onClose={onClose} />
+      </div>
     </div>
   )
 }
@@ -1020,16 +1068,26 @@ function StepPanel(props: {
         {step.type === "wait" ? <WaitFields step={step} onChange={props.onChange} /> : null}
         {step.type === "condition" ? <CheckFields steps={steps} step={step} onChange={props.onChange} /> : null}
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-t border-[#eef0f2] px-4 py-3">
-        <button type="button" className={PANEL_BUTTON} disabled={i <= 0} onClick={() => props.onMove(-1)}>
-          Move up
+      {/*
+        THE STEP'S ACTIONS, ALWAYS IN REACH. In the phone's sheet the foot is
+        stuck to the bottom of the sheet (which sits on the keyboard), so
+        Move, Remove and Done are there however long the email is, with no
+        scroll to the end of it first. Move up and down are arrows on a
+        phone, so the row fits 360px with Done at its end.
+      */}
+      <div data-panel-foot="" className="sticky bottom-0 z-[2] flex items-center gap-2 border-t border-[#eef0f2] bg-white px-4 py-3 lg:static">
+        <button type="button" className={cn(PANEL_BUTTON, "max-sm:w-10 max-sm:px-0")} disabled={i <= 0} onClick={() => props.onMove(-1)} aria-label="Move up">
+          <ArrowUp aria-hidden className="h-4 w-4 sm:hidden" />
+          <span className="max-sm:hidden">Move up</span>
         </button>
-        <button type="button" className={PANEL_BUTTON} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)}>
-          Move down
+        <button type="button" className={cn(PANEL_BUTTON, "max-sm:w-10 max-sm:px-0")} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)} aria-label="Move down">
+          <ArrowDown aria-hidden className="h-4 w-4 sm:hidden" />
+          <span className="max-sm:hidden">Move down</span>
         </button>
         <button type="button" className={PANEL_REMOVE} onClick={props.onRemove}>
           Remove
         </button>
+        <PanelDone onClose={props.onClose} />
       </div>
     </div>
   )
@@ -1051,9 +1109,47 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
       setTesting(false)
     }
   }
+  /*
+    PREVIEW, drawn by the server exactly as a send draws it (app/api/
+    automations/flows/[id]/preview): the creator's name, logo and colour,
+    the fields filled with an example reader, the footer. Shown in the
+    composer's own preview (components/email/compose/preview-layer), a
+    screen of its own on every size, with Phone and Desktop.
+  */
+  const [preview, setPreview] = React.useState<{ html: string; subject: string; previewText: string; fromName: string } | null>(null)
+  const [previewOpen, setPreviewOpen] = React.useState(false)
+  const [previewing, setPreviewing] = React.useState(false)
+  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
+  const openPreview = async () => {
+    if (previewing) return
+    setPreviewing(true)
+    try {
+      const res = await fetch(`/api/automations/flows/${props.flowId}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step }) })
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok || typeof out.html !== "string") throw new Error(out.error)
+      setPreview({ html: out.html, subject: String(out.subject ?? ""), previewText: String(out.previewText ?? ""), fromName: String(out.fromName ?? "") })
+      setPreviewOpen(true)
+    } catch (error) {
+      toast({ title: "No preview", description: (error as Error)?.message || "Check your connection and try again.", variant: "destructive" })
+    } finally {
+      setPreviewing(false)
+    }
+  }
   const s = props.stats
   return (
     <>
+      {preview ? (
+        <PreviewLayer
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          html={preview.html}
+          senderName={preview.fromName || "You"}
+          subject={preview.subject}
+          previewText={preview.previewText}
+          mode={previewMode}
+          onMode={setPreviewMode}
+        />
+      ) : null}
       {s && s.sent + s.failed > 0 ? (
         <dl className="grid grid-cols-4 overflow-hidden rounded-xl border border-[#eef0f2] text-center">
           {[
@@ -1080,7 +1176,12 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
         <input id={`preview-${step.id}`} className={field} value={step.config.preview_text ?? ""} maxLength={200} onChange={(e) => set({ preview_text: e.target.value || undefined })} placeholder="Shown after the subject in most inboxes" />
       </div>
       <div>
-        <span className={labelText}>Email</span>
+        <div className="mb-1.5 flex min-h-8 items-center justify-between gap-3">
+          <span className={cn(labelText, "mb-0")}>Email</span>
+          <button type="button" data-flow-preview="" className={cn(PANEL_BUTTON, "-my-1")} disabled={previewing} onClick={() => void openPreview()}>
+            {previewing ? "Opening" : "Preview"}
+          </button>
+        </div>
         <BodyEditor key={step.id} label="Email body" value={step.config.body} onChange={(body) => set({ body })} links={fields.filter((f) => f.link).map((f) => ({ label: f.label, href: `{{${f.key}}}` }))} />
         <p className={hint}>
           Fields: {fields.filter((f) => !f.link).map((f) => `{{${f.key}}}`).join(", ")}. {"{{first_name}}"} is &ldquo;there&rdquo; when a name is not known. Every email ends with your name and an unsubscribe link.

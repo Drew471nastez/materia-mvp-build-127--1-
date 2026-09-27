@@ -1,11 +1,7 @@
-import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { cleanSteps, signedInCreator } from "@/lib/automations/flow-io"
-import { prepareEmail, type RunRow } from "@/lib/automations/engine"
-import { mailerFor } from "@/lib/automations/run"
-import { supabaseStore } from "@/lib/automations/supabase-store"
+import { drawFlowEmail } from "@/lib/automations/flow-preview"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { createAdminClient } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
 
@@ -41,23 +37,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!step || step.type !== "email") return NextResponse.json({ error: "Choose an email to test." }, { status: 400 })
   if (!step.config.subject.trim()) return NextResponse.json({ error: "Give the email a subject first." }, { status: 400 })
 
-  const admin = createAdminClient()
-  const identity = await supabaseStore(admin).identity(me.creatorId)
-  const mailer = mailerFor(admin)
-  const product = typeof body.product === "string" && body.product.trim() ? body.product.trim().slice(0, 120) : "Your product"
-  const run: RunRow = { id: "test", flow_id: id, creator_id: me.creatorId, email: me.userEmail, name: "Alex Example", status: "active", started_at: new Date().toISOString(), context: { product_title: product } }
-  /* Filled and branded exactly as a real send is (engine prepareEmail). A
-     test has no order, so the order and product links go to your page. */
-  const ready = prepareEmail(step, run, identity, { productUrl: null, orderUrl: null, checkoutUrl: null })
-  const mail = mailer.compose({
-    step: ready.step,
-    run,
-    identity,
-    standing: { suppressed: false, unsubscribeToken: null, subscribed: true, status: "subscribed" },
-    token: randomUUID(),
-    merge: ready.merge,
-  })
-  const result = await mailer.send({ to: me.userEmail, fromName: identity.fromName, replyTo: identity.replyTo, ...mail, subject: `Test: ${mail.subject}` })
+  /* Filled and branded exactly as a real send is (lib/automations/flow-preview). */
+  const drawn = await drawFlowEmail({ flowId: id, creatorId: me.creatorId, to: me.userEmail, step, product: body.product })
+  const result = await drawn.mailer.send({ to: me.userEmail, fromName: drawn.identity.fromName, replyTo: drawn.identity.replyTo, subject: `Test: ${drawn.subject}`, html: drawn.html, text: drawn.text, headers: drawn.headers })
   if (!result.success) return NextResponse.json({ error: "The test could not be sent. Try again in a minute." }, { status: 502 })
   return NextResponse.json({ ok: true, to: me.userEmail })
 }

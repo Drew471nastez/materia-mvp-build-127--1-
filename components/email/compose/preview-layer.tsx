@@ -94,6 +94,7 @@ export function PreviewLayer({ open, onClose, mode, onMode, ...preview }: Previe
   }, [open, onClose])
 
   if (!mounted || typeof document === "undefined") return null
+  /* Over the shared sheet (components/ui/bottom-sheet, z 200): an automation's email is previewed from the sheet it is edited in. */
   return createPortal(
     <div
       ref={ref}
@@ -102,7 +103,7 @@ export function PreviewLayer({ open, onClose, mode, onMode, ...preview }: Previe
       aria-label="Preview"
       data-preview-layer=""
       data-open={open ? "true" : "false"}
-      className="fixed inset-0 z-[70] flex flex-col bg-[#f4f5f7] will-change-transform"
+      className="fixed inset-0 z-[210] flex flex-col bg-[#f4f5f7] will-change-transform"
     >
       <header className="shrink-0 border-b border-[#e5e7eb] bg-white pt-[env(safe-area-inset-top,0px)]">
         <div className="mx-auto flex h-14 w-full max-w-[760px] items-center gap-2 px-4">
