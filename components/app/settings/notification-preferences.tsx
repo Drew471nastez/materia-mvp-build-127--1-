@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils"
  * The card has id="notifications", so a link with that hash scrolls to it.
  */
 
-const CARD = "bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]"
+const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]"
 /* The two columns, the same width in every row so the switches line up. */
 const EMAIL_COL = "flex w-[92px] shrink-0 items-center justify-center"
 const APP_COL = "flex w-14 shrink-0 items-center justify-center"

@@ -33,7 +33,8 @@ import { returnToCoupons, useCouponListOrigin, warmCoupons } from "./list-return
   ONE CARD, THE /app CARD (CLAUDE.md), with the product editor's padding. The
   columns space the cards, so a card carries no margin of its own.
 */
-const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6"
+/* Sideways padding from --app-card-x (app/globals.css), as every /app card takes it. */
+const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 const HINT = "text-[13px] leading-5 text-[#6b7280]"
 /* Focused, a field takes the app's calm edge (the description editor's, and every /app search field's): a light hairline and a soft halo, not a black ring. */
@@ -307,13 +308,13 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
         )}
       >
         <h1 className="sr-only">{isEdit ? `Edit coupon ${title}` : "New coupon"}</h1>
-        <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 app-gutter sm:h-16 sm:px-6">
           <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label="Going back to coupons" onLeave={() => void leave()} />
           <CouponSaveButton saving={saving} disabled={!canSave} onSave={() => void save()} />
         </div>
       </div>
 
-      <div data-editor-page="" className="mx-auto w-full max-w-[760px] px-4 pb-6 pt-3 sm:px-6 sm:pb-16 sm:pt-4 lg:max-w-[1200px] lg:px-8 lg:pb-8 lg:pt-6">
+      <div data-editor-page="" className="mx-auto w-full max-w-[760px] app-gutter pb-6 pt-3 sm:pb-16 sm:pt-4 lg:max-w-[1200px] lg:pb-8 lg:pt-6">
         {/* The page header, from lg: back to Coupons, the code, where it stands. */}
         <header data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex">
           <button

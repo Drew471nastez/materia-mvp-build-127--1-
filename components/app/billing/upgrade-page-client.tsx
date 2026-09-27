@@ -238,7 +238,7 @@ export function UpgradePageClient({
       */}
       {/* A little depth under it ("more depth, just a little"): a hairline and a soft shade. */}
       <div data-upgrade-bar="" className="sticky top-0 z-20 border-b border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04),0_6px_16px_-10px_rgba(17,24,39,0.18)]">
-        <div className="relative flex h-14 items-center px-4 sm:h-16 sm:px-6">
+        <div className="relative flex h-14 items-center app-gutter sm:h-16 sm:px-6">
           <Link
             href="/app/settings?tab=billing"
             onClick={goBack}
@@ -270,7 +270,7 @@ export function UpgradePageClient({
 
       <div
         data-upgrade-body=""
-        className={`mx-auto max-w-[1080px] px-4 pb-16 pt-9 transition-opacity duration-200 sm:px-6 sm:pt-14 lg:px-8 ${leaving ? "pointer-events-none opacity-60" : ""}`}
+        className={`mx-auto max-w-[1080px] app-gutter pb-16 pt-9 transition-opacity duration-200 sm:pt-14 ${leaving ? "pointer-events-none opacity-60" : ""}`}
       >
         {/*
           THE TITLE CARRIES THE PAGE. It was the size of a settings heading

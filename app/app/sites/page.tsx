@@ -36,8 +36,9 @@ export default async function SitesPage() {
   const plan = creatorId ? await creatorSitePlan(creatorId) : "free"
   const gate = siteCountGate(plan, sites.length)
 
+  /* app-gutter is the phone number; sm:px-6 keeps this page at 24 from 640 up, as it was. */
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full max-w-[1180px] app-gutter sm:px-6 py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Storelib AI</h1>

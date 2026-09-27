@@ -18,7 +18,8 @@ export const INK = "#1a1a2e"
 /** The width of the list's content, and of an order's. Shared by each page's bar and body. */
 export const LIST_WIDTH = "max-w-[1200px]"
 export const ORDER_WIDTH = "max-w-[1040px]"
-export const GUTTER = "px-4 sm:px-6 lg:px-8"
+/* The gutter every /app page shell wears; the numbers are in app/globals.css (--app-gutter). */
+export const GUTTER = "app-gutter"
 
 /**
  * The list's bar, on Orders and on Products: the title and the page's one

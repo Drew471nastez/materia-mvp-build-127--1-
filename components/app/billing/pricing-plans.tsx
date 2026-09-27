@@ -45,7 +45,7 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+    <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
       <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Choose Your Plan</h3>
       <p className="text-[13px] text-[#6b7280] mb-6">
         Upgrade to reduce platform transaction fees and unlock premium features

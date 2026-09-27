@@ -43,7 +43,7 @@ export function PaymentMethodSection({ paymentMethod, onManagePayment }: Payment
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+    <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div>
           <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">

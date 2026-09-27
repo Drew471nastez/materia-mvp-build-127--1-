@@ -126,7 +126,7 @@ type Selection = "trigger" | string | null
  * page container from lg.
  */
 const FLOW_WIDTH = "max-w-[760px] lg:max-w-[1200px]"
-const FLOW_GUTTER = "px-4 sm:px-6 lg:px-8"
+const FLOW_GUTTER = "app-gutter"
 
 /** The name, where it is edited: the bar's size on a phone, the page title's from 768px. */
 const nameText = "text-[17px] font-semibold text-[#1a1a2e] md:text-[24px] md:font-bold lg:text-[28px]"

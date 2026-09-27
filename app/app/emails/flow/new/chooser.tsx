@@ -98,7 +98,7 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
         <h1 className="min-w-0 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e] md:text-[24px] md:font-bold md:leading-9 lg:text-[28px]">New automation</h1>
       </FlowTopBar>
 
-      <div className={cn("mx-auto w-full px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-1 sm:px-6 md:pb-10 md:pt-2 lg:px-8", WIDTH)}>
+      <div className={cn("mx-auto w-full app-gutter pb-[calc(24px+env(safe-area-inset-bottom))] pt-1 md:pb-10 md:pt-2", WIDTH)}>
         <p className="text-[14px] leading-5 text-[#6b7280]">Pick one to start from. You can change every step, and nothing is sent until you turn it on.</p>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-5">

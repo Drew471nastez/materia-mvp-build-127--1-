@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils"
  * scripts/check-account-settings.mjs measures the layout at 390 and 1280.
  */
 
-const CARD = "bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]"
+const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]"
 const FIELD =
   "h-11 w-full rounded-xl border border-[#e5e7eb] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none transition-colors " +
   "placeholder:text-[#9ca3af] focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20"

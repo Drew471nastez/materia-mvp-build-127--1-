@@ -92,7 +92,7 @@ export function SubscriptionStatus({ subscription, onCancel }: SubscriptionStatu
   const planPrice = `$${(subscription.subscription_plans.price_cents / 100).toFixed(0)}`
 
   return (
-    <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+    <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">

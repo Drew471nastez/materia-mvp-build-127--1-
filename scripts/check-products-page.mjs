@@ -244,7 +244,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(d && d.border === "1px solid rgb(238, 240, 242)" && d.radius === "8px" && d.bg === "rgb(255, 255, 255)" && d.shadow === "none", "with the faintest border (1px #eef0f2), 8px round, white, no shadow", d)
       expect(d && d.gap === 12 && d.pressesMeet === 0 && d.mid <= 0.5, "12px from New product, on its centre line, the two presses meeting and never overlapping", d)
       expect(bar.hitAbove && bar.hitBelow, "New product is a 44px press: a finger 5px outside it still lands on it", { above: bar.hitAbove, below: bar.hitBelow })
-      expect(bar.titleLeft === 16 && bar.addRight === 16, "16px in from both edges", { left: bar.titleLeft, right: bar.addRight })
+      /* 10px, not 16: the /app gutter on a phone is --app-gutter (app/globals.css), and every page reads it from there. */
+      expect(bar.titleLeft === 10 && bar.addRight === 10, "10px in from both edges, the shared phone gutter", { left: bar.titleLeft, right: bar.addRight })
     } else {
       expect(bar.expShown && bar.expText === "Export" && bar.exp[1] === S.btn && bar.expSize === S.btnText, `Export says Export, ${S.btn}px`, bar)
     }

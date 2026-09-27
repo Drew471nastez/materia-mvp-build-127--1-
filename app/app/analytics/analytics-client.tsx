@@ -460,7 +460,7 @@ export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
       {/* Try Pro at the top of the page (components/app/announcement-bar-mobile). */}
       <TryProStrip />
 
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
+      <div className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
         {/* Title, with the Store / OnePage switch beside it on a phone */}
         <div className="flex items-center justify-between sm:justify-start gap-3">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>

@@ -89,6 +89,8 @@ check("and undoing it is not", snapshotOf({ ...fields, compareAtPrice: "39" }) =
 console.log("\nThe editor no longer loads itself")
 
 const editor = code("app/app/products/new/product-editor.tsx")
+/* The one place the /app gutter and card padding are written (app/globals.css). */
+const css = read("app/globals.css")
 check("it reads no search parameter to find its product", !/useSearchParams/.test(editor))
 check("it fetches no creator and no product on mount", !/\.from\("creators"\)/.test(editor) && !/\.from\("products"\)\s*\.select\("\*"\)/.test(editor) && !/\.from\("product_variants"\)\s*\.select\(`/.test(editor))
 check("it is not held back behind a timer", !/setIsPageReady|isPageReady/.test(editor) && !/setTimeout\(forceScrollTop/.test(editor))
@@ -151,7 +153,9 @@ check("the unsaved tracking still drives the leave question", /if \(hasUnsavedCh
 /* "On desktop large screens ... too narrow ... the Save and Cancel ... better to be at the bottom ... match the Storelib UI more." */
 console.log("\nFrom lg: a page header, two columns, and Save at the foot")
 const headSource = editor.slice(editor.indexOf('data-editor-head=""'), editor.indexOf("</header>"))
-check("the page container is the /app one from lg: 1200px, 32px gutters", /data-editor-page="" className="mx-auto w-full max-w-\[760px\] [^"]*lg:max-w-\[1200px\] lg:px-8/.test(editor))
+check("the page container is the /app one: app-gutter (10px on a phone, 32px from lg — app/globals.css --app-gutter), 1200px from lg",
+  /data-editor-page="" className="mx-auto w-full max-w-\[760px\] app-gutter [^"]*lg:max-w-\[1200px\]/.test(editor)
+    && /--app-gutter: 10px/.test(css) && /--app-gutter: 32px/.test(css))
 check("a page header from lg only: back to Products (which asks first), the name, the status badge, the more menu",
   /className="mb-5 hidden min-h-9 items-center gap-2 lg:flex"/.test(headSource) && /aria-label="Back to products"/.test(headSource) && /onClick=\{\(\) => void handleCancel\(\)\}/.test(headSource)
     && /text-\[24px\] font-bold leading-9 text-\[#1a1a2e\] sm:text-\[28px\]/.test(headSource) && /productId \? savedTitle\.trim\(\) \|\| "Untitled" : "New product"/.test(headSource)
@@ -168,8 +172,9 @@ check("how it is shown and found beside it: status (lg only), settings, search",
   [at('data-editor-status=""'), at(">Settings</h2>"), at(">Search engine listing</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
     && /data-editor-status="" className=\{cn\(CARD, "hidden lg:block"\)\}/.test(editor))
 /* Changed on purpose: one card fewer (Category is a field in Content now), so ten. */
-check("every card is the /app card, spaced by its column rather than a margin of its own",
-  /const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-\[#e5e7eb\]\/60 bg-white p-4 shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] sm:space-y-5 sm:p-6"/.test(editor)
+check("every card is the /app card — sideways padding from --app-card-x (12px on a phone, 24px from sm), py-4 sm:py-6 up and down — spaced by its column rather than a margin of its own",
+  /const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-\[#e5e7eb\]\/60 bg-white app-card-x py-4 shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] sm:space-y-5 sm:py-6"/.test(editor)
+    && /--app-card-x: 12px/.test(css) && /--app-card-x: 24px/.test(css)
     && (editor.match(/className=\{CARD\}/g) ?? []).length >= 10 && !/mb-3 scroll-mt-4/.test(editor))
 const footSource = editor.slice(editor.indexOf('data-editor-foot=""'), editor.indexOf("{/* CTA Bottom Sheet */}"))
 check("the foot bar from lg: sticky at the bottom of the pane that scrolls, white, a hairline and a soft shadow upward, over the home indicator's inset",
@@ -485,7 +490,6 @@ check("no move under reduced motion, without view transitions, or from 768px whe
     && /if \(leaving \|\| manual \|\| doc\.__reactViewTransition \|\| !layerMotionOn\(\) \|\| typeof doc\.startViewTransition !== "function" \|\| !document\.querySelector\("\[data-page-layer\]"\)\) \{\s*navigate\(\)\s*return/.test(layer)
     && /if \(!move \|\| !reactMoves\(\)\) return/.test(layer))
 check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-leave-ms", `\$\{LAYER_LEAVE_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
-const css = read("app/globals.css")
 check("on a phone the layer rises from the bottom edge and drops back to it, on transform alone; nothing slides sideways and the page under it never fades",
   /@keyframes layer-rise \{\s*from \{ transform: translateY\(100%\); \}/.test(css) && /@keyframes layer-drop \{\s*to \{ transform: translateY\(100%\); \}/.test(css)
     && /html\[data-layer-motion="enter"\]::view-transition-new\(page-layer\) \{\s*animation: layer-rise var\(--layer-motion-ms, 360ms\) var\(--layer-motion-ease, ease-out\) both;/.test(css)

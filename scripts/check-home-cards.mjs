@@ -249,7 +249,8 @@ try {
       expect(Math.abs(m.gs.top - m.plan.top) < 1 && m.guide.top >= m.gs.bottom && Math.abs(m.guide.width - (m.plan.right - m.gs.left)) < 1, "two across, the guide the width below them", JSON.stringify([m.gs.top, m.plan.top, m.guide.top, m.guide.width]))
     } else if (viewport.width < 640) {
       expect(m.gs.bottom <= m.guide.top && m.guide.bottom <= m.plan.top, "one under another on a phone", JSON.stringify([m.gs.top, m.guide.top, m.plan.top]))
-      expect(Math.abs(m.gs.width - (viewport.width - 32)) < 1, "full width less the gutter", m.gs.width)
+      /* 10px each side, not 16: the /app gutter on a phone is --app-gutter (app/globals.css). */
+      expect(Math.abs(m.gs.width - (viewport.width - 20)) < 1, "full width less the 10px phone gutter on each side", m.gs.width)
     }
     expect(m.gs.top > m.banner.bottom, "under the banner", JSON.stringify([m.banner.bottom, m.gs.top]))
     const done = m.rows.filter((r) => r.struck).length

@@ -1175,14 +1175,15 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     })
     const H = isPhone ? 40 : 32
     /* The column is centred in the content area, which from md stops at the scrollbar's column. */
-    const edge = isPhone ? 16 : Math.max(0, Math.round((bar.area.width - 760) / 2)) + 24
-    const pad = isPhone ? 16 : Math.round(bar.area.left) + edge
-    const padEnd = isPhone ? 16 : Math.round(bar.area.right) + edge
+    /* On a phone the bar takes the /app gutter, which is 10px (--app-gutter, app/globals.css), not its own 16. */
+    const edge = isPhone ? 10 : Math.max(0, Math.round((bar.area.width - 760) / 2)) + 24
+    const pad = isPhone ? 10 : Math.round(bar.area.left) + edge
+    const padEnd = isPhone ? 10 : Math.round(bar.area.right) + edge
     expect(bar.top === 0, "the bar is at the top of the page", bar.top)
     expect(bar.h === (isPhone ? 56 + bar.padTop : 64), `and is ${isPhone ? "56px under any safe area" : "64px"}, with no row of tabs under it`, bar.h)
     expect(!!bar.save && !!bar.cancel, "with Cancel and Save in it", { save: bar.save, cancel: bar.cancel })
     expect(!bar.oldState && bar.loose.length === 0, "and no state in the middle: no Unsaved changes, Live, Draft or New product to read", { oldState: bar.oldState, loose: bar.loose })
-    expect(bar.cancel.left === pad, "Cancel is at the start of the bar, on the column's edge", { left: bar.cancel.left, want: pad })
+    expect(bar.cancel.left === pad, "Cancel is at the start of the bar, on the column's edge (the 10px phone gutter)", { left: bar.cancel.left, want: pad })
     expect(bar.save.right === padEnd, "Save is at the end", { right: bar.save.right, want: padEnd })
     expect(bar.cancel.h === H && bar.save.h === H, `Cancel and Save are both ${H}px`, { cancel: bar.cancel.h, save: bar.save.h })
     if (!isNew) expect(bar.more && bar.more.h === H && bar.more.w === H && bar.save.left - (bar.more.left + bar.more.w) === 8, `the more button is a ${H}px square, 8px before Save`, bar.more)

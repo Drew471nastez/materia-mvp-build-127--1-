@@ -1109,7 +1109,7 @@ export function WebsiteBuilderClient({
   */
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
-      <div data-wb-page="" className="mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
+      <div data-wb-page="" className="mx-auto max-w-[1200px] space-y-7 app-gutter py-6">
         {/* ── Header ─────────────────────────────────────────────────
             The title, the address under it, and on the title's line the two
             things you do to the site as a whole, as white secondary buttons:

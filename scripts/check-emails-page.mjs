@@ -333,7 +333,8 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
       const r = (el) => { const b = el.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width) } }
       return { title: r(document.querySelector("[data-orders-bar] h1")), auto: r(document.querySelector("[data-new-automation]")), mail: r(document.querySelector("[data-new-email]")), vw: innerWidth, autoText: document.querySelector("[data-new-automation]").textContent.trim() }
     })
-    expect(head.title.r + 8 <= head.auto.l && head.auto.r + 6 <= head.mail.l && head.mail.r <= head.vw - 15, "New automation and New email side by side, clear of the title, inside the gutter", head)
+    /* Inside the page's gutter, which on a phone is the shared 10px (--app-gutter, app/globals.css) rather than 16. */
+    expect(head.title.r + 8 <= head.auto.l && head.auto.r + 6 <= head.mail.l && head.mail.r <= head.vw - (phone ? 10 : 15), "New automation and New email side by side, clear of the title, inside the gutter (10px on a phone)", head)
     expect(head.auto.b - head.auto.t >= 32 && head.mail.b - head.mail.t >= 32, "both at least 32px tall", [head.auto.b - head.auto.t, head.mail.b - head.mail.t])
     await p.screenshot({ path: join(shots, `${tag}-subscribers.png`) })
 

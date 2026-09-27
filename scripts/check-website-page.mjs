@@ -224,7 +224,9 @@ function staticPage(W) {
     `every block sits on the same two gutters (${r.cards.length} measured)`,
     lopsided.length ? lopsided.map((c) => `${c.left}/${c.right}`).join(", ") : r.cards.length < 3 ? "fewer blocks than expected" : "",
   )
-  expect(r.pad.left === r.pad.right && r.pad.left >= 16, `and those gutters are equal, and at least 16px (${r.pad.left}/${r.pad.right}px)`)
+  /* The floor is the /app gutter at this width (--app-gutter, app/globals.css): 10px on a phone, 32 from 1024. */
+  const floor = W >= 1024 ? 32 : W >= 640 ? 24 : 10
+  expect(r.pad.left === r.pad.right && r.pad.left >= floor, `and those gutters are equal, and at least the ${floor}px /app gutter (${r.pad.left}/${r.pad.right}px)`)
   /**
    * 44px is a TOUCH rule, so it is checked at touch widths. The library rows
    * carry 36px Publish and Edit buttons that only exist from `sm` up, which

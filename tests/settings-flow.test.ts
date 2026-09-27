@@ -819,6 +819,52 @@ check(
   /\.app-content-scroll \{\s*overscroll-behavior-y: contain;/.test(read("app/globals.css")),
 )
 
+/*
+  ── HOW FAR IN AN /app PAGE STARTS, AND WHERE THAT NUMBER LIVES ──────────────
+  "Reduce their padding left and right, like increase their width on phones so
+  they are more close to the edges." A card was inset twice — the page's gutter
+  and the card's own padding — and the two were written out separately in about
+  twenty files, so nobody could see the sum. Both now come from app/globals.css
+  and nowhere else, and scripts/check-app-insets.mjs renders the real pages and
+  reads the sum back off the boxes. These checks hold the one place, and that
+  only the phone moved.
+*/
+{
+  const css = read("app/globals.css")
+  check(
+    "the gutter and the card padding are two custom properties in app/globals.css: on a phone 10px and 12px, so a word starts 23px in rather than 33",
+    /:root \{\s*--app-gutter: 10px;\s*--app-card-x: 12px;\s*\}/.test(css),
+  )
+  check(
+    "from 640px both are 24px and from 1024px the gutter is 32px, exactly what `sm:px-6 lg:px-8` and `sm:p-6` were: a tablet and a computer do not move",
+    /@media \(min-width: 640px\) \{\s*:root \{\s*--app-gutter: 24px;\s*--app-card-x: 24px;\s*\}\s*\}/.test(css)
+      && /@media \(min-width: 1024px\) \{\s*:root \{\s*--app-gutter: 32px;\s*\}\s*\}/.test(css),
+  )
+  check(
+    "the two utilities pad sideways only, and live in the components layer so a page's own `lg:px-[35px]` or `sm:px-0` still wins",
+    /@layer components \{[\s\S]*?\.app-gutter \{\s*padding-inline: var\(--app-gutter\);\s*\}/.test(css)
+      && /\.app-card-x \{\s*padding-inline: var\(--app-card-x\);\s*\}/.test(css)
+      && /\.app-gutter-bleed \{\s*margin-inline: calc\(var\(--app-gutter\) \* -1\);\s*padding-inline: var\(--app-gutter\);\s*\}/.test(css),
+  )
+  check(
+    "every /app page shell wears it: Settings, Home, Analytics, and the list pages through orders/order-parts GUTTER",
+    /className="max-w-4xl mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
+      && /className="app-gutter py-6 max-w-\[1200px\] mx-auto"/.test(code("components/app/dashboard-client.tsx"))
+      && /className="app-gutter py-6 max-w-\[1200px\] mx-auto space-y-6"/.test(code("app/app/analytics/analytics-client.tsx"))
+      && /export const GUTTER = "app-gutter"/.test(code("app/app/orders/order-parts.tsx")),
+  )
+  check(
+    "the Settings tab strip still reaches the glass, out by whatever the shell put in rather than by its own copy of 16px",
+    /data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0/.test(code("components/app/settings-form-new.tsx")),
+  )
+  check(
+    "no Settings or billing card writes its own sideways padding any more: `p-4 sm:p-6` is gone from both",
+    !/p-4 sm:p-6/.test(read("components/app/settings-form-new.tsx"))
+      && !/p-4 sm:p-6|p-5 sm:p-6/.test(read("components/app/billing/billing-page-client.tsx"))
+      && (code("components/app/settings-form-new.tsx").match(/app-card-x py-4 sm:py-6/g) ?? []).length >= 10,
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

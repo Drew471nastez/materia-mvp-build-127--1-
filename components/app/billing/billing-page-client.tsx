@@ -299,7 +299,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         already cuts anything sideways at the edge of its gutters, and a clip
         here, on the content edge, cut the plan cards' shadows off flat.
       */}
-      <div className={embedded ? "" : "max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden"}>
+      <div className={embedded ? "" : "max-w-4xl mx-auto app-gutter py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden"}>
         {/* Header — the page owns this when billing is a tab. */}
         {!embedded && (
         <div className="mb-6 flex items-start justify-between gap-3">
@@ -312,7 +312,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
 
         {/* Tab Navigation — likewise. */}
         {!embedded && (
-        <div ref={tabNavRef} className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div ref={tabNavRef} className="mb-6 sm:mb-8 overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
               const Icon = tab.icon
@@ -338,7 +338,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Left: Current Plan */}
-              <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-5 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Current Plan</h3>
                   {subscription?.status === "canceled" ? (
@@ -440,7 +440,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
               </div>
 
               {/* Right: Payment Details */}
-              <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-5 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payment Details</h3>
                   <div className="flex items-center gap-1.5 text-[11px] text-[#9ca3af]">
@@ -500,7 +500,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             Above the plans: what has been paid first, then what can be
             bought.
           */}
-          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
+          <div className="bg-white rounded-2xl app-card-x py-5 sm:py-6 shadow-sm border border-[#e5e7eb]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
               {liveInvoices.length > 0 && (

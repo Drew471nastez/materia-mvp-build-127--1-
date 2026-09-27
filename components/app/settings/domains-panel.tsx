@@ -82,7 +82,7 @@ type CheckResult = {
 }
 
 /* ── The owner's classes, said once ─────────────────────────────────────── */
-const CARD = "bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]"
+const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]"
 /** A free plan: the card is there, blurred, and nothing in it answers. */
 const BLURRED = "blur-[1.5px] opacity-80 pointer-events-none select-none"
 /** 44px on a phone, the owner's 32px from 640 up. */

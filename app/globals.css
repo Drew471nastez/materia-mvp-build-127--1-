@@ -3103,6 +3103,91 @@ html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── THE GUTTER AND THE CARD PADDING OF EVERY /app PAGE, IN ONE PLACE ────────
+ *
+ * "On mobile devices, reduce the left and right padding a little bit more of
+ * the containers with the settings things. Reduce their padding left and
+ * right, like increase their width on phones so they are more close to the
+ * edges."
+ *
+ * A card on an /app page is inset TWICE, and neither inset can see the
+ * other. The page shell keeps a gutter between the card and the glass, and
+ * the card keeps its own padding between its border and the words in it. On
+ * a 390px phone that was 16 + 16, so a line of text started 33px in (the
+ * card's hairline is the 33rd) and the reader got 324 of 390 pixels. Two
+ * separate numbers, written out as `px-4 sm:px-6 lg:px-8` and `p-4 sm:p-6`
+ * in about twenty files, is why it had drifted that wide: nobody could see
+ * the sum.
+ *
+ * So the sum lives here. Every /app page shell wears `app-gutter` and every
+ * card that pads itself wears `app-card-x`, and these two custom properties
+ * are the only place the numbers are written. Change them and every page
+ * moves together; scripts/check-app-insets.mjs renders the real pages and
+ * reads the sum back off the boxes.
+ *
+ * ON A PHONE: 10 + 12 (+1 hairline) = 23px before the first word, down from
+ * 33, and a card 20px wider. Not the 12–16px total that was first asked for:
+ * that leaves a card all but touching the glass, and on a rounded screen the
+ * corner eats it. 10px is the smallest inset where a white card still reads
+ * as a card laid ON the page rather than as the page, and 12px of padding is
+ * the least that keeps an input's own border off the card's.
+ *
+ * FROM 640px UP NOTHING CHANGES: 24 and 24, then 32 for the gutter from
+ * 1024, exactly what `sm:px-6 lg:px-8` and `sm:p-6` were. This is a phone
+ * change; a tablet and a computer have width to spare and are left alone.
+ *
+ * WHAT DOES NOT WEAR THESE. A row meant to run edge to edge (the Home
+ * banner, a table's sideways scroller, the pill nav, a sheet's own frame)
+ * never had a gutter and does not gain one — they are not page shells. The
+ * OnePage and website-builder canvases draw a page inside a page, and their
+ * own frames stay as they were. Nor do the cards on an order, an email or a
+ * contact: their `px-4` is 16 at EVERY width, already tighter on a computer
+ * than a Settings card, and pointing them here would widen them there.
+ * ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --app-gutter: 10px;
+  --app-card-x: 12px;
+}
+@media (min-width: 640px) {
+  :root {
+    --app-gutter: 24px;
+    --app-card-x: 24px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --app-gutter: 32px;
+  }
+}
+/*
+  IN `components`, NOT `utilities`, so a Tailwind utility beside one of these
+  still wins: Products adds `lg:px-[35px]` over its gutter, and the Settings
+  tab strip drops its own at `sm:`. Both are plain utilities, and a utility
+  only beats a class of the same specificity when it comes later in the
+  cascade — which, in the components layer, everything Tailwind emits does.
+*/
+@layer components {
+  /* The page shell's own inset. Sideways only: what a page leaves above and
+     below its content is its own business and is still written on the page. */
+  .app-gutter {
+    padding-inline: var(--app-gutter);
+  }
+  /* A strip that must run to the glass (the Settings tab bar) from inside a
+     shell that has the gutter on: out by exactly what the shell put in, and
+     the same again as padding, so the first tab starts where the title does
+     and the last one can be scrolled to the edge. One number, so the two can
+     never fall out of step. */
+  .app-gutter-bleed {
+    margin-inline: calc(var(--app-gutter) * -1);
+    padding-inline: var(--app-gutter);
+  }
+  /* A card's inner padding, sideways only, so `py-4 sm:py-6` beside it keeps
+     the vertical rhythm the cards were drawn with. */
+  .app-card-x {
+    padding-inline: var(--app-card-x);
+  }
+}
+
 /* ── Room for the nav pill ───────────────────────────────────────────────────
  *
  * On a phone the /app navigation is a pill floating over the bottom of the

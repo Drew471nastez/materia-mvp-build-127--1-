@@ -67,7 +67,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
 
   if (!invoices || invoices.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+      <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
         <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Billing History</h3>
         <div className="bg-[#f9fafb] rounded-xl p-8 text-center">
           <FileText className="h-10 w-10 text-[#9ca3af] mx-auto mb-3" />
@@ -81,7 +81,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+    <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
       <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Billing History</h3>
 
       {/* Mobile view */}

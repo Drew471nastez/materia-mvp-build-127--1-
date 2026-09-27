@@ -1285,7 +1285,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         page rises inside the shell's scroller, whose track is always there.
       */}
       <div data-settings-page="" className="overflow-x-clip bg-[#fafafa]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
+        <div className="max-w-4xl mx-auto app-gutter py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
         {/*
           THE HEADER AND THE ADDRESS PILL. On a phone the pill took the right
           half of the row the title and the subtitle shared, and "Manage your
@@ -1306,7 +1306,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         </div>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
-        <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="relative flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
               const Icon = tab.icon
@@ -1376,7 +1376,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               {billingData ? (
                 <BillingPageClient initialData={billingData as never} embedded />
               ) : billingError ? (
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="bg-white rounded-2xl app-card-x py-6 shadow-sm border border-[#e5e7eb]">
                   <p className="text-[14px] font-medium text-[#1a1a2e]">We could not load your billing.</p>
                   <p className="mt-1 text-[13px] text-[#6b7280]">
                     Nothing has changed on your account. This is a problem reading it.
@@ -1397,7 +1397,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   rather than shimmering — and the tab itself already
                   switched, so nothing is blocking behind it.
                 */
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="bg-white rounded-2xl app-card-x py-6 shadow-sm border border-[#e5e7eb]">
                   <div className="flex items-center gap-2.5 text-[#6b7280]">
                     <span className="h-3.5 w-3.5 rounded-full border-2 border-[#e5e7eb] border-t-[#7c3aed] animate-spin" />
                     <span className="text-[13.5px]">Checking your plan and invoices</span>
@@ -1442,7 +1442,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               */}
 
               {/* Profile Image Card: changed right here (components/app/settings/profile-photo) */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <ProfilePhoto
                   userId={profile.id}
                   src={avatarUrl || null}
@@ -1462,7 +1462,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 under it (components/app/settings/addresses) says what it is
                 the address of.
               */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]" data-settings-card="profile">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]" data-settings-card="profile">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   {t("settings.profileInfo")}
                 </h3>
@@ -1522,7 +1522,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               </div>
 
               {/* Emails Card - Email + Support Email */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   Emails
                 </h3>
@@ -1577,7 +1577,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               </div>
 
               {/* Language Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   Language
                 </h3>
@@ -1595,7 +1595,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               </div>
 
               {/* Timezone Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   Time zone
                 </h3>
@@ -1605,7 +1605,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               </div>
 
               {/* Address Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   Address
                 </h3>
@@ -1681,7 +1681,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               </div>
 
               {/* Resources Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Resources</h3>
                 <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
                   <a
@@ -1755,7 +1755,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 Security, where a decision that logs out a phone in a drawer
                 belongs.
               */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Log out</p>
@@ -1850,7 +1850,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               )}
 
               {/* Stripe Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <div className="w-9 h-9 sm:w-[44px] sm:h-[44px] rounded-xl overflow-hidden shrink-0">
@@ -1909,7 +1909,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               </div>
 
               {/* PayPal Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <div className="w-9 h-9 sm:w-[38px] sm:h-[38px] rounded-xl overflow-hidden shrink-0">
@@ -2033,7 +2033,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             : "translate-y-full opacity-0 pointer-events-none"
         }`}
       >
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-4xl mx-auto app-gutter py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 min-w-0">
             {error ? (
               <>

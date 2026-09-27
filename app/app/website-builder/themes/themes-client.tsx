@@ -98,7 +98,7 @@ export function ThemeMarketplaceClient({
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
-      <div className="app-page-enter mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="app-page-enter mx-auto max-w-[1200px] app-gutter py-6">
         {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -152,7 +152,7 @@ function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; 
     >
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* ── Preview ───────────────────────────────────────────── */}
-        <div className="relative border-b border-[#eceef1] bg-[#f3f4f6] p-4 sm:p-6 lg:border-b-0 lg:border-r">
+        <div className="relative border-b border-[#eceef1] bg-[#f3f4f6] app-card-x py-4 sm:py-6 lg:border-b-0 lg:border-r">
           <div className="mb-4 flex justify-end">
             <div role="group" aria-label="Preview on" className="flex rounded-lg bg-white p-0.5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-inset ring-[#e5e7eb]">
               {(["desktop", "phone"] as const).map((d) => (
@@ -189,7 +189,7 @@ function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; 
         </div>
 
         {/* ── What it is ────────────────────────────────────────── */}
-        <div className="flex min-w-0 flex-col p-5 sm:p-6">
+        <div className="flex min-w-0 flex-col app-card-x py-5 sm:py-6">
           <p className="text-[12px] font-medium text-[#6b7280]">Version {def.version}</p>
           <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-[#1a1a2e]">{def.name}</h2>
           <p className="mt-2 text-[14px] leading-[1.6] text-[#4b5563]">{def.description}</p>

@@ -167,8 +167,8 @@ console.log("\nThe frame: the product editor's")
   check("below lg one bar at the top, under the status bar on a phone: the way out and Save",
     /data-editor-bar=""[\s\S]{0,200}"sticky top-0 z-30 bg-\[#f8f9fa\] transition-shadow duration-150 max-md:\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\] lg:hidden"/.test(editor)
       && /<LeaveButton mode=\{leaveMode\} disabled=\{busy\} asks=\{dirty\} label="Going back to coupons" onLeave=\{\(\) => void leave\(\)\} \/>\s*<CouponSaveButton/.test(editor))
-  check("from lg the 1200px page, 24px under the header, a page header with the way back",
-    /data-editor-page="" className="mx-auto w-full max-w-\[760px\] px-4 pb-6 pt-3 sm:px-6 sm:pb-16 sm:pt-4 lg:max-w-\[1200px\] lg:px-8 lg:pb-8 lg:pt-6"/.test(editor)
+  check("from lg the 1200px page, its gutter the shared app-gutter (10px on a phone, 32px from lg), a page header with the way back",
+    /data-editor-page="" className="mx-auto w-full max-w-\[760px\] app-gutter pb-6 pt-3 sm:pb-16 sm:pt-4 lg:max-w-\[1200px\] lg:pb-8 lg:pt-6"/.test(editor)
       && /data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex"/.test(editor) && /aria-label="Back to coupons"/.test(editor))
   check("two columns, two thirds and one third", /lg:grid lg:grid-cols-\[minmax\(0,2fr\)_minmax\(272px,1fr\)\] lg:items-start/.test(editor) && /data-editor-main=""/.test(editor) && /data-editor-side=""/.test(editor))
   check("Cancel and Save in a sticky bar along the foot from lg", /data-editor-foot=""\s*className="sticky bottom-0 z-30 mt-auto hidden[^"]*lg:block"/.test(editor))

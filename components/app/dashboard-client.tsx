@@ -1169,7 +1169,7 @@ export function DashboardClient({
             neither is written here, so neither costs a render. */}
         <div ref={contentRef}>
 
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
+      <div className="app-gutter py-6 max-w-[1200px] mx-auto">
 
         {/* Header Section */}
         {/*

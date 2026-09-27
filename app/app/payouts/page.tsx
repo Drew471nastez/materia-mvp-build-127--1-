@@ -64,7 +64,7 @@ export default async function PayoutsPage() {
         <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
       </PaneBar>
 
-      <div className="mx-auto max-w-[1200px] px-4 pb-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1200px] app-gutter pb-8">
         {/* The bar and the heading arrive at once; Stripe's answers
             stream in behind them (PayoutsBody). */}
         <Suspense fallback={<PayoutsWaiting />}>
