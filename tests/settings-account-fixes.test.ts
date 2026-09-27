@@ -195,7 +195,7 @@ console.log("\n6. The time zone, saved and followed")
   check("Home's greeting and the Orders page's first render follow it", /accountTimeZone\(null, user\.user_metadata\)\)/.test(readCode("app/app/page.tsx")) && /timeZone=\{accountTimeZone\(null, user\.user_metadata\) \?\? readTimeZone/.test(readCode("app/app/orders/sales/page.tsx")))
   const email = readCode("lib/email.tsx")
   /* The first sale email is the notification engine's FIRST_SALE now (lib/notify), no longer a sender in lib/email.tsx. */
-  check("the sale email is written in it", /creatorTimeZone\(admin, creatorId\)/.test(email) && /timeZone: creatorZone/.test(email) && !/function sendFirstSaleEmail/.test(email))
+  check("the sale email is written in it", /creatorTimeZone\(admin, creatorId\)/.test(email) && /formatForCreator\(sale\.occurredAt, creatorZone \?\? null\)/.test(email) && !/function sendFirstSaleEmail/.test(email))
   const picker = readCode("components/app/time-zone-picker.tsx")
   check("the picker lists every zone the browser knows, and offers this device's", /supportedValuesOf\?\.\("timeZone"\)/.test(picker) && /Use my current time zone/.test(picker))
 }

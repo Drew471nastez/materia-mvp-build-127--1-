@@ -128,8 +128,9 @@ async function main() {
   check("an immediate send checks the person first",
     trigger.indexOf("await standingOf(") < trigger.indexOf("await sendEmail(") && /if \(standing\.suppressed\)/.test(trigger))
   check("and builds the email through the one module",
-    /automationEmail\(\{ body, fromName, unsubscribeToken: standing\.unsubscribeToken \}\)/.test(trigger)
+    /automationEmail\(\{ body, fromName, unsubscribeToken: standing\.unsubscribeToken, brand: liveBrand \?\? undefined, avatarUrl: liveBrand\?\.avatarUrl \?\? null \}\)/.test(trigger)
       && /headers: mail\.headers/.test(trigger))
+  check("with the creator's photo and name as they are now", /liveBrand \?\?= await loadBrand\(admin, creatorId\)/.test(trigger))
   check("nothing hand-rolls a second flow email wrapper",
     !/wrapFlowEmailHtml/.test(flows) && !/function personalizeContent/.test(flows))
   check("a recipient is not written to the log",

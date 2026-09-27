@@ -122,3 +122,17 @@ export function segment(value: unknown): string {
   const s = cleanText(value, 200)
   return s ? encodeURIComponent(s) : ""
 }
+
+/**
+ * A mailto: link to one plain address, or null. Only a simple address is
+ * accepted (letters, digits and . _ % + - before the @, a dotted host after
+ * it), so nothing a buyer typed can add recipients, headers or a body. The
+ * subject, when given, is encoded.
+ */
+export function mailtoUrl(email: unknown, subject?: string): string | null {
+  if (typeof email !== "string") return null
+  const e = email.trim()
+  if (e.length > 254 || !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(e)) return null
+  const s = cleanText(subject, 120)
+  return `mailto:${e}${s ? `?subject=${encodeURIComponent(s)}` : ""}`
+}

@@ -6,6 +6,7 @@ import type { AudiencePayload, AuditPayload, EmailPayload, PeoplePayload, SiteRo
 
 import { ago, date, money, num, short, statusWord } from "./format"
 import type { Route } from "./nav-state"
+import { WalletDomainsPanel } from "./panel-wallets"
 import { ViewHeader } from "./shell"
 import { DataList, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, reasonFor, type Column } from "./ui"
 
@@ -334,8 +335,11 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
   const groups = [...new Set(data.env.map((e) => e.group))]
   return (
     <div className="space-y-4">
-      <ViewHeader title="Health" meta="Scheduled jobs, configuration and the database, checked now. Read only." />
+      <ViewHeader title="Health" meta="Scheduled jobs, configuration, the database and the checkout's wallet buttons, checked now." />
       <ReadNotes problems={data.problems} notices={data.notices} />
+
+      {/* The one panel here that changes something, and the last step for Apple Pay. */}
+      <WalletDomainsPanel />
 
       <Panel title="Scheduled jobs" meta="Judged by the work each one leaves behind">
         <DataList

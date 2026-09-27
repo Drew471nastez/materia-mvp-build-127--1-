@@ -30,7 +30,9 @@ import { emit } from "@/lib/notify/outbox"
  *
  * The buyer's receipt and the seller's sale email are still sent where they
  * always were (lib/email.tsx, idempotent on email_logs); the engine records
- * the in-app half and does not send them again.
+ * the in-app half and does not send them again. That includes FIRST_SALE:
+ * the seller's email for the creator's first paid order is drawn as the
+ * first sale, so it arrives once, with the order in it.
  */
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any

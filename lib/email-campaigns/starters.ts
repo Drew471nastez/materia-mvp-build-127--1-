@@ -16,7 +16,8 @@
  * The words are there to be replaced. They say what goes in each place, in
  * the voice of the email, so an email sent without changing them still reads
  * as an email and not as a form. The reader's first name is the merge field
- * the send fills in ({{first_name}}, "there" when it is not known).
+ * the send fills in ({{first_name}}, "there" when it is not known), and the
+ * sign-off is {{creator_name}}, the name on the profile when it is sent.
  *
  * Pure and browser-safe.
  */
@@ -36,7 +37,7 @@ export interface Starter {
 }
 
 export interface StarterContext {
-  /** The store's name, for the sign-off. */
+  /** The store's name. Kept for callers; the sign-off is the {{creator_name}} tag, filled when it is sent. */
   name: string
   /** Where a button goes when the creator has not said: their store. Empty for none. */
   storeUrl?: string | null
@@ -58,8 +59,13 @@ export const STARTERS: Starter[] = [
 
 const rich = (html: string) => newBlock("rich", { html })
 
-function signOff(words: string, name: string): string {
-  return `<p>${words}<br>${escapeHtml(name.trim() || "The team")}</p>`
+/**
+ * Signed with the {{creator_name}} tag, not the name as it was when the
+ * email was started: the send fills it with the name on the profile then
+ * (lib/email-variables), so a renamed store signs with its new name.
+ */
+function signOff(words: string): string {
+  return `<p>${escapeHtml(words)}<br>{{creator_name}}</p>`
 }
 
 /**
@@ -67,7 +73,6 @@ function signOff(words: string, name: string): string {
  * every time, so two emails started from the same one never share a block.
  */
 export function starterDraft(id: StarterId, ctx: StarterContext): StarterDraft {
-  const name = ctx.name.trim() || "The team"
   const url = ctx.storeUrl || ""
   switch (id) {
     case "letter":
@@ -76,18 +81,18 @@ export function starterDraft(id: StarterId, ctx: StarterContext): StarterDraft {
         previewText: "",
         blocks: [
           rich(
-            `<p>Hi {{first_name}},</p><p>Write the way you would talk to one person. Say why you are writing today, and keep it to a few short paragraphs.</p><p>If there is one thing you want them to do, ask for it plainly and give them the link.</p>${signOff("Thanks for reading,", name)}`,
+            `<p>Hi {{first_name}},</p><p>Write the way you would talk to one person. Say why you are writing today, and keep it to a few short paragraphs.</p><p>If there is one thing you want them to do, ask for it plainly and give them the link.</p>${signOff("Thanks for reading,")}`,
           ),
         ],
       }
     case "announcement":
       return {
-        subject: `News from ${name}`,
+        subject: "News from {{store_name}}",
         previewText: "What is new, and when.",
         blocks: [
           rich(`<h2>Something new is coming</h2><p>Hi {{first_name}},</p><p>Say what is happening in two or three sentences: what it is, when it starts, and what the reader can do about it.</p>`),
           newBlock("button", { label: "Find out more", url, align: "left" }),
-          rich(signOff("See you there,", name)),
+          rich(signOff("See you there,")),
         ],
       }
     case "product":
@@ -97,7 +102,7 @@ export function starterDraft(id: StarterId, ctx: StarterContext): StarterDraft {
         blocks: [
           rich(`<h2>Just released</h2><p>Hi {{first_name}},</p><p>Tell people what it is, who it is for, and one detail you are proud of.</p>`),
           newBlock("product"),
-          rich(`<p>Questions about it? Reply to this email and I will answer.</p><p>${escapeHtml(name)}</p>`),
+          rich(`<p>Questions about it? Reply to this email and I will answer.</p><p>{{creator_name}}</p>`),
         ],
       }
     case "newsletter":
@@ -111,7 +116,7 @@ export function starterDraft(id: StarterId, ctx: StarterContext): StarterDraft {
             `<h3>The first thing</h3><p>A few lines about it, with a link if there is more to read.</p><h3>The second thing</h3><p>Keep each part short enough to read on a phone in one go.</p>`,
           ),
           newBlock("divider"),
-          rich(signOff("Until next month,", name)),
+          rich(signOff("Until next month,")),
         ],
       }
     case "sale":

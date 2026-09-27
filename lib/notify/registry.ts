@@ -53,7 +53,9 @@ const ENTRIES: Record<NotificationType, Entry> = {
   PAYOUT_RESTRICTED: E({ category: "payouts_and_payments", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY }),
 
   /* ── Sales ────────────────────────────────────────────────────────── */
-  FIRST_SALE: E({ category: "sales", priority: "important", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "success", defaultOn: true, cooldownSeconds: 0 }),
+  /* The first sale's email is the seller's sale email itself (lib/email.tsx sendSellerNotificationEmail draws FIRST_SALE
+     for the creator's first paid order), so the first sale is one email with the order in it, not two. The engine keeps the bell. */
+  FIRST_SALE: E({ category: "sales", priority: "important", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "success", defaultOn: true, cooldownSeconds: 0, emailSentElsewhere: true }),
   /* The seller's sale email is lib/email.tsx sendOrderEmails, once per order through email_logs. */
   NEW_SALE: E({ category: "sales", priority: "normal", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "transaction", defaultOn: true, cooldownSeconds: 0, emailSentElsewhere: true }),
   /* lib/email.tsx sendRefundEmails already emails the seller as well as the buyer. */
