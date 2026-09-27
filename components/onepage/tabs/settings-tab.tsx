@@ -3,7 +3,7 @@
 import { useOnePage } from "@/lib/onepage/context"
 import { cn } from "@/lib/utils"
 import { ChipFill } from "@/components/onepage/choice-marks"
-import { Copy, Check, ChevronRight, Loader2 } from "lucide-react"
+import { Copy, Check, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -375,19 +375,23 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             <label htmlFor="op-badge-type" className="text-[13px] font-medium text-[#374151]">
               What it says
             </label>
-            <select
-              id="op-badge-type"
-              data-settings-badge=""
-              value={type}
-              onChange={(e) => updateSettings({ verified_badge_type: e.target.value } as never)}
-              className={cn(fieldInput, "cursor-pointer appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22 fill=%22%236b7280%22><path d=%22M5.5 7.5l4.5 4.5 4.5-4.5%22 stroke=%22%236b7280%22 stroke-width=%221.6%22 fill=%22none%22/></svg>')] bg-[length:18px] bg-[right_14px_center] bg-no-repeat pr-10")}
-            >
-              {BADGE_TYPES.map((id) => (
-                <option key={id} value={id}>
-                  {BADGE_LABELS[id]}
-                </option>
-              ))}
-            </select>
+            {/* The phone's own picker on a phone, a list on a computer: a native select, with the editor's box around it. */}
+            <div className="relative">
+              <select
+                id="op-badge-type"
+                data-settings-badge=""
+                value={type}
+                onChange={(e) => updateSettings({ verified_badge_type: e.target.value } as never)}
+                className={cn(fieldInput, "cursor-pointer appearance-none pr-11")}
+              >
+                {BADGE_TYPES.map((id) => (
+                  <option key={id} value={id}>
+                    {BADGE_LABELS[id]}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
+            </div>
             <div className="flex items-center gap-1.5 pt-2 text-[15px] font-semibold text-[#1a1a2e]" data-badge-preview="">
               <span className="truncate">{onepage.title || "Your name"}</span>
               <svg viewBox="0 0 22 22" className="h-4 w-4 shrink-0 text-[#1d9bf0]" fill="currentColor" aria-label={BADGE_LABELS[type]}>
