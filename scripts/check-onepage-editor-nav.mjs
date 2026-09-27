@@ -248,6 +248,8 @@ if (wants("nav")) {
     ["back", "[data-panel-back]"],
   ]
   const rows = []
+  /* The editor builds its tabs in the idle time after it arrives, now within 1.5s: Theme's cards may be there before the first press. */
+  const preBuilt = await s.p.evaluate(() => document.querySelectorAll("[data-theme-card]").length)
   /* Each press a real tap, the finger down HOLD ms (90 unless set); "tap to motion" counts from the lift. */
   for (const [what, sel] of steps) {
     const listScroll = await s.p.evaluate(() => Math.round(document.querySelector("[data-tab-panel][data-scroll-container]")?.scrollTop ?? 0))
@@ -276,7 +278,7 @@ if (wants("nav")) {
   /* Theme's cards: built once in the whole sequence (while idle, or on the first tap), never again. */
   const cardsBuilt = rows.map((r) => r.themeCards)
   const once = cardsBuilt.reduce((a, b) => a + b, 0)
-  expect(once > 0 && once === Math.max(...cardsBuilt) && cardsBuilt.slice(2).every((n) => n === 0), "the Theme panel is built once, and neither back nor the second open builds it again", cardsBuilt)
+  expect((once > 0 || preBuilt > 0) && once === Math.max(...cardsBuilt) && cardsBuilt.slice(2).every((n) => n === 0), "the Theme panel is built once, and neither back nor the second open builds it again", { preBuilt, cardsBuilt })
   expect(pushes.filter((r) => r.what === "back").every((r) => r.themeCards === 0), "back mounts nothing", pushes.filter((r) => r.what === "back").map((r) => r.themeCards))
   expect(pushes.every((r) => r.framesMoving >= 6), "each move is spread over several frames", pushes.map((r) => r.framesMoving))
   expect(pushes.every((r) => r.shift < 0.01), "no layout shift", pushes.map((r) => r.shift))
@@ -599,18 +601,23 @@ if (wants("links")) {
   console.log(`        to Settings: commits ${set.commits}, motions ${setMotions}, shift ${set.shift}`)
   report.settings = { commits: set.commits, motions: setMotions, shift: set.shift }
   expect(setMotions <= 1 && set.shift < 0.01, "Settings arrives in one motion, without a shift", report.settings)
-  /* A section of Settings, as Website Settings changes tabs: one fade in tone, nothing moving. */
-  await sleep(400)
-  const chip = await s.p.evaluate(() => { const b = [...document.querySelectorAll('[data-tab-panel="settings"] button[aria-pressed]')].find((x) => x.getClientRects().length && x.getAttribute("aria-pressed") === "false"); if (!b) return null; b.setAttribute("data-probe-chip", ""); return b.textContent.trim() })
+  /*
+    A section of Settings: the section pressed fades in over several frames, and does not move.
+    It was one keyed section settling in tone (settings-panel-in); the sections are kept now and
+    crossfaded (components/onepage/pill-tabs PillPanels), so the section read is the one shown,
+    and its fade is a script animation. scripts/check-onepage-pill-tabs.mjs measures the rest.
+  */
+  await sleep(1500)
+  const chip = await s.p.evaluate(() => { const b = [...document.querySelectorAll('[data-tab-panel="settings"] button[aria-selected], [data-tab-panel="settings"] button[aria-pressed]')].find((x) => x.getClientRects().length && x.getBoundingClientRect().width > 0 && (x.getAttribute("aria-selected") ?? x.getAttribute("aria-pressed")) === "false"); if (!b) return null; b.setAttribute("data-probe-chip", ""); return b.textContent.trim() })
   if (chip) {
-    const SEC = () => { const el = document.querySelector("[data-settings-section]") || document.querySelector('[data-tab-panel="settings"] .rounded-xl.border.p-5'); if (!el) return { blank: true }; const cs = getComputedStyle(el); return { blank: false, o: Number(cs.opacity), y: Math.round(el.getBoundingClientRect().top), names: el.getAnimations().map((a) => a.animationName || "js") } }
+    const SEC = () => { const wrap = document.querySelector('[data-pill-panels="settings"] > [data-pill-panel]:not([aria-hidden])'); const el = wrap?.querySelector("[data-settings-section]") || document.querySelector("[data-settings-section]") || document.querySelector('[data-tab-panel="settings"] .rounded-xl.border.p-5'); if (!el) return { blank: true }; const faded = wrap || el; return { blank: false, o: Number(getComputedStyle(faded).opacity), y: Math.round(el.getBoundingClientRect().top), names: faded.getAnimations().map((a) => a.animationName || "js") } }
     const r = await recordPress(s, () => tap(s, "[data-probe-chip]", HOLD), SEC, 500)
     const names = [...new Set(r.painted.flatMap((f) => f.names || []))]
     const opac = [...new Set(r.painted.map((f) => f.o))].length
     const ys = [...new Set(r.painted.filter((f) => !f.blank).map((f) => f.y))]
     console.log(`        Settings, ${chip}: animations ${JSON.stringify(names)}, opacity steps ${opac}, section top positions ${JSON.stringify(ys)}, blank ${r.painted.filter((f) => f.blank).length}`)
     report.settingsSection = { chip, names, opac, ys }
-    expect(names.length === 1 && names[0] === "settings-panel-in" && opac >= 3 && ys.length === 1, "a Settings section settles in tone over several frames, as Website Settings does, and does not move", report.settingsSection)
+    expect(names.length <= 1 && opac >= 3 && ys.length === 1, "a Settings section fades in over several frames and does not move", report.settingsSection)
   }
   expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
   await s.p.close()

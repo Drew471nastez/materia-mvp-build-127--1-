@@ -281,7 +281,8 @@ function main() {
     check("a card, a segment, a theme and a pattern wear the mark instead of swapping classes",
       /<ChoiceMark on=\{selected\} \/>/.test(kit) && /<ChoiceMark on=\{on\} \/>/.test(kit) && !/selected \? choiceOn : choiceOff/.test(kit)
       && /<CheckMark on=\{selected\}/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
-    check("a chip's fill and a swatch's ring fade too", /<ChipFill on=\{filter === f\} \/>/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
+    /* The kinds of theme are the editor's one pill-tab row now (components/onepage/pill-tabs): one pill slides between them instead of each chip fading its own fill. */
+    check("a chip's fill and a swatch's ring fade too", /<PillTabs\s+dataRow="theme-kinds"/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
     check("a block's size and alignment are one thumb that slides", /data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && /transition-\[translate\]/.test(read("components/onepage/extra-blocks.tsx")))
     /*
       EVERY SHEET ON A PHONE IS THE SHARED ONE. The name and bio, the
@@ -297,7 +298,8 @@ function main() {
       /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true \}\}/.test(linksSrc)
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
     check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 12 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
-    check("Settings' section chips fade their fill", /<ChipFill on=\{activeSection === section\.id\} \/>/.test(read("components/onepage/tabs/settings-tab.tsx")))
+    /* Settings' sections are the editor's one pill-tab row now: the pill slides from the press, instead of each chip fading its own fill where it stands. */
+    check("Settings' section chips slide one pill", /<PillTabs\s+dataRow="settings-chips"/.test(read("components/onepage/tabs/settings-tab.tsx")) && /onPointerDown=\{press\.onPointerDown\}/.test(read("components/onepage/pill-tabs.tsx")))
     check("a link's stats are asked for once its sheet has arrived on a phone, as the notifications are", /sheet=\{\{ onOpened: \(\) => setStatsSheetArrived\(true\) \}\}/.test(linksSrc) && /!isMobileStatsViewport \|\| statsSheetArrived/.test(linksSrc))
     check("the day and time sheet sits on the keyboard", /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title=\{label\} aboveKeyboard>/.test(read("components/onepage/date-time-field.tsx")))
     check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))
@@ -326,7 +328,8 @@ function main() {
     check("the Header panel's profile picture is a circle, as the page draws it", /aspect-square h-\[88px\] w-\[88px\] shrink-0 cursor-pointer rounded-full/.test(design) && /data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full/.test(design))
     check("the Links tab's profile picture keeps its size beside a long name", /data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0/.test(read("components/onepage/tabs/links-tab.tsx")))
     const onboarding = read("components/onepage/onboarding-modal.tsx")
-    check("the onboarding's theme cards keep the creator's picture round", (onboarding.match(/data-theme-avatar="" className="w-(7 h-7|10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 2)
+    /* One card at every width now (the phone's grid and the computer's carousel were two copies of it), so one circle, sized once. */
+    check("the onboarding's theme cards keep the creator's picture round", (onboarding.match(/data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full/g) ?? []).length === 1)
   }
 
   section("+ Add")

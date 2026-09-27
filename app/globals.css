@@ -1208,6 +1208,44 @@ html.capacitor body {
     .settings-panel { animation: none; }
   }
 
+  /*
+    THE ONEPAGE ONBOARDING'S LAST STEP: two thin rings in the logo's shape
+    grow out of it and fade, 1.2s apart, while the page is built
+    (components/onepage/onboarding-modal.tsx). Transform and opacity on
+    their own layer, so the compositor runs them and nothing is painted in
+    their frames (scripts/check-onepage-onboarding.mjs traces it). The ring
+    is drawn once; only its size and its opacity change. When the page is
+    ready the pair fades out together.
+  */
+  .onepage-setup-halo {
+    transition: opacity 400ms ease-out;
+  }
+  .onepage-setup-halo-off {
+    opacity: 0;
+  }
+  .onepage-setup-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    border: 1.5px solid rgba(26, 26, 46, 0.26);
+    background: rgba(26, 26, 46, 0.035);
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: onepage-setup-ring 2400ms cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  }
+  .onepage-setup-ring-late {
+    animation-delay: 1200ms;
+  }
+  @keyframes onepage-setup-ring {
+    0% { transform: scale(1); opacity: 0; }
+    12% { opacity: 1; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .onepage-setup-ring { animation: none; opacity: 0.6; transform: scale(1.25); }
+    .onepage-setup-ring-late { display: none; }
+  }
+
   /* ── The rich text editor's own content ─────────────────────────────────
      A contentEditable inherits nothing, so headings and lists inside it
      render as plain paragraphs and the formatting somebody just applied is

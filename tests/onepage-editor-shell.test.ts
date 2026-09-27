@@ -109,7 +109,10 @@ check("the switch is one short fade on the compositor, and nothing slides",
   keeps its sliding pill; the phone's buttons change in place
   (tests/onepage-arrival.test.ts, scripts/check-onepage-tabbar.mjs).
 */
-check("the computer row's pill slides by transform, started from the press", /data-tab-pill=""/.test(editor) && /pillMoves\.current\.forEach\(\(slide\) => slide\(tab\)\)/.test(editor) && /scaleX\(\$\{from\.w \/ w\}\)/.test(editor) && /pillMoves\.current = \[desktopPill\.slideTo\]/.test(editor))
+/* The slide itself is the one every pill-tab row uses now (components/onepage/pill-tabs usePillSlide), stretching on both axes for a list as well as a row, and it starts on the button going down. */
+const pills = read("components/onepage/pill-tabs.tsx")
+check("the computer row's pill slides by transform, started from the press", /data-tab-pill=""/.test(editor) && /pillMoves\.current\.forEach\(\(slide\) => slide\(tab\)\)/.test(editor) && /usePillSlide\(activeTab\)/.test(editor)
+  && /scale\(\$\{from\.w \/ w\}, \$\{from\.h \/ h\}\)/.test(pills) && /pillMoves\.current = \[desktopPill\.slideTo\]/.test(editor) && /onPointerDown=\{desktopPress\(tab\.id\)\.onPointerDown\}/.test(editor))
 check("the panels follow a frame after the bars", /requestAnimationFrame\(\(\) => \{\s*timer = window\.setTimeout\(\(\) => startTransition\(\(\) => setPanelTab\(activeTab\)\), 0\)/.test(editor))
 
 /*
@@ -136,10 +139,15 @@ console.log("\nSettings")
 check("SEO is the share card and the Google result, as they will look", /data-og-card=""/.test(seoPanel) && /Shared link/.test(seoPanel) && /data-search-preview=""/.test(seoPanel) && /<SeoPanel pageUrl=\{pageUrl\}/.test(settings))
 check("Use my own picture opens the picker straight away, no modal", /fileInputRef\.current\?\.click\(\)/.test(seoPanel) && !/showOgImageModal/.test(seoPanel + settings) && !/Upload Social Image/.test(seoPanel + settings))
 check("the section list is words, no icons", !/icon: [A-Z]/.test(settings.slice(settings.indexOf("const SETTINGS_SECTIONS"), settings.indexOf("const SETTINGS_SECTIONS") + 600)))
-/* A section swapped in one frame; now it settles in tone as Website Settings' tabs do (scripts/check-onepage-editor-nav.mjs, links: 1 opacity step before, 13 now, top unmoved). */
-check("a section changes as Website Settings' tabs do: keyed, and the shared fade once one is pressed",
-  /<div key=\{activeSection\} data-settings-section=\{activeSection\} className=\{cn\("bg-white rounded-xl border border-gray-200 p-5", sectionEntrance && "settings-panel"\)\}>/.test(settings)
-  && (settings.match(/onClick=\{\(\) => chooseSection\(section\.id\)\}/g) ?? []).length === 2)
+/*
+  A section swapped in one frame; then it settled in tone as Website Settings' tabs do, rebuilt on
+  every press. "Laggy, buggy, direct to direct": now every section is kept (built in the idle time)
+  and a switch crossfades the two, with the pill sliding from the press and each section's scroll
+  kept (components/onepage/pill-tabs; scripts/check-onepage-pill-tabs.mjs measures it).
+*/
+check("a section changes by one kept crossfade, both rows the editor's one pill-tab row",
+  /data-settings-section=\{id\}/.test(settings) && /<PillPanels dataPanels="settings"/.test(settings)
+  && (settings.match(/<PillTabs\b/g) ?? []).length === 2 && !/key=\{activeSection\}/.test(settings) && !/const NavItem/.test(settings))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

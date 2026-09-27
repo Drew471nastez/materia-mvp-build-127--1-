@@ -51,6 +51,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { OnboardingModal } from "./onboarding-modal"
+import { usePillPress, usePillSlide } from "./pill-tabs"
 import { createClient } from "@/lib/supabase/client"
 import { SaveNotification } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -92,10 +93,7 @@ const KEPT_TABS: TabType[] = ["links", "design", "products"]
  * it is covered and is then hidden: no slide, no frame of neither.
  */
 const TAB_FADE_IN_MS = 120
-const TAB_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const TAB_FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
-/** The pill under the chosen tab of the computer's row slides to the next one on iOS's curve. */
-const PILL_MS = 240
 /**
  * The phone bar's chosen button takes its dark fill in place over this long,
  * on opacity alone, and its icon and word cross from grey to white with it.
@@ -388,76 +386,16 @@ function ShareOnePage({
   )
 }
 
-/**
- * THE PILL UNDER THE CHOSEN TAB SLIDES, ON A COMPUTER. The segmented row
- * in the header: the chosen tab's white background was its own, so a switch
- * was two backgrounds swapping in one frame. It is one pill now, drawn under the
- * words and over the grey of the tabs, moved by `transform` from under the
- * last tab to under the next one (scaled from the last one's width on the
- * way, as the Settings page's outline does), on the compositor. With no
- * tab of the row chosen (Settings) it fades away where it is. The phone's
- * bar has no pill: its buttons change in place (THE PHONE'S TAB BAR below).
- */
-function useTabPill(activeId: string, remount?: unknown) {
-  const rowRef = useRef<HTMLDivElement>(null)
-  const pillRef = useRef<HTMLSpanElement>(null)
-  const placed = useRef<{ id: string; x: number; y: number; w: number; h: number; on: boolean; el: HTMLElement } | null>(null)
-  const place = useCallback((id: string, slide: boolean) => {
-    const row = rowRef.current
-    const pill = pillRef.current
-    if (!row || !pill) return
-    const tab = row.querySelector<HTMLElement>(`[data-tab="${id}"]`)
-    /* A row drawn again (the phone's, after the preview) starts from nothing. */
-    const prev = placed.current?.el === pill ? placed.current : null
-    if (!tab || !tab.offsetWidth) {
-      if (prev?.on) {
-        placed.current = { ...prev, id, on: false }
-        pill.style.opacity = "0"
-        if (slide && !reducedMotion()) pill.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out" })
-      }
-      return
-    }
-    const x = tab.offsetLeft
-    const y = tab.offsetTop
-    const w = tab.offsetWidth
-    const h = tab.offsetHeight
-    if (prev && prev.on && prev.x === x && prev.y === y && prev.w === w && prev.h === h) return
-    /* From wherever it is drawn now, a slide in flight included. */
-    let from: { x: number; w: number } | null = null
-    if (slide && prev?.on && !reducedMotion()) {
-      const at = pill.getBoundingClientRect()
-      const box = row.getBoundingClientRect()
-      if (at.width > 0) from = { x: at.left - box.left - row.clientLeft, w: at.width }
-    }
-    pill.getAnimations().forEach((a) => a.cancel())
-    pill.style.width = `${w}px`
-    pill.style.height = `${h}px`
-    pill.style.transform = `translate3d(${x}px, ${y}px, 0)`
-    pill.style.opacity = "1"
-    placed.current = { id, x, y, w, h, on: true, el: pill }
-    if (from && (Math.abs(from.x - x) > 0.5 || Math.abs(from.w - w) > 0.5)) {
-      pill.animate(
-        [{ transform: `translate3d(${from.x}px, ${y}px, 0) scaleX(${from.w / w})` }, { transform: `translate3d(${x}px, ${y}px, 0)` }],
-        { duration: PILL_MS, easing: TAB_EASE },
-      )
-    } else if (slide && prev && !prev.on && !reducedMotion()) {
-      pill.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" })
-    }
-  }, [])
-  useLayoutEffect(() => {
-    const row = rowRef.current
-    if (!row) return
-    place(activeId, true)
-    /* A row that changes size (a font arriving, a rotation) moves the pill with it, without a slide. */
-    const resized = new ResizeObserver(() => place(placed.current?.id ?? activeId, false))
-    resized.observe(row)
-    return () => resized.disconnect()
-  }, [activeId, remount, place])
-  /* Called from the press itself, before React has rendered anything: the slide starts in the next frame. */
-  const slideTo = useCallback((id: string) => place(id, true), [place])
-  return { rowRef, pillRef, slideTo }
-}
-
+/*
+  THE PILL UNDER THE CHOSEN TAB SLIDES, ON A COMPUTER. The segmented row in
+  the header has one pill under the words, moved by transform from under the
+  last tab to under the next one (scaled from the last one's size on the
+  way), on the compositor, started from the press. It is the pill every
+  pill-tab row in the editor uses (./pill-tabs usePillSlide, usePillPress).
+  With no tab of the row chosen (Settings) it fades away where it is. The
+  phone's bar has no pill: its buttons change in place (THE PHONE'S TAB BAR
+  below).
+*/
 /**
  * A tab's icon and name, twice: in the colour it has when chosen and in the
  * colour it has when not, one over the other. A switch fades one into the
@@ -467,8 +405,8 @@ function TabFace({ on, onClass, offClass, className, children }: { on: boolean; 
   const face = "col-start-1 row-start-1 flex min-w-0 max-w-full items-center justify-center transition-opacity ease-out motion-reduce:transition-none"
   return (
     <span className={cn("relative z-[2] grid min-w-0", className)}>
-      <span className={cn(face, offClass)} style={{ opacity: on ? 0 : 1, transitionDuration: `${TAB_SELECT_MS}ms` }}>{children}</span>
-      <span aria-hidden className={cn(face, onClass)} style={{ opacity: on ? 1 : 0, transitionDuration: `${TAB_SELECT_MS}ms` }}>{children}</span>
+      <span data-tab-face="off" className={cn(face, offClass)} style={{ opacity: on ? 0 : 1, transitionDuration: `${TAB_SELECT_MS}ms` }}>{children}</span>
+      <span data-tab-face="on" aria-hidden className={cn(face, onClass)} style={{ opacity: on ? 1 : 0, transitionDuration: `${TAB_SELECT_MS}ms` }}>{children}</span>
     </span>
   )
 }
@@ -644,7 +582,7 @@ function EditorLayout() {
   const scrollMemory = useRef<Partial<Record<TabType, number>>>({})
   const shownTabRef = useRef(panels.tab)
   const activeTabRef = useRef(activeTab)
-  /* The computer row's pill slide, started from the press (see useTabPill). */
+  /* The computer row's pill slide, started from the press (see ./pill-tabs usePillSlide). */
   const pillMoves = useRef<((id: string) => void)[]>([])
   const showTab = useCallback((tab: TabType) => {
     if (activeTabRef.current === tab) return
@@ -751,7 +689,8 @@ function EditorLayout() {
     const build = () => startTransition(() => setPanels((p) => (KEPT_TABS.every((t) => p.built.includes(t)) ? p : { ...p, built: [...p.built, ...KEPT_TABS.filter((t) => !p.built.includes(t))] })))
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(build, { timeout: 4000 })
+      /* 1.5s at most: a tab pressed in the first seconds was built on the press (895 elements, a 70ms frame on a phone). */
+      const id = w.requestIdleCallback(build, { timeout: 1500 })
       return () => w.cancelIdleCallback?.(id)
     }
     const t = window.setTimeout(build, 1500)
@@ -1176,8 +1115,33 @@ function EditorLayout() {
     console.log("[OnePageEditor] Onboarding completion handled - auto-save already done by modal")
   }, [onepage?.id])
 
-  const desktopPill = useTabPill(activeTab)
+  const desktopPill = usePillSlide(activeTab)
   pillMoves.current = [desktopPill.slideTo]
+  /* The pill starts for the tab the button went down on (./pill-tabs usePillPress). */
+  const desktopPress = usePillPress(desktopPill.slideTo, activeTab)
+  /*
+    THE PHONE'S CHOSEN BUTTON CHANGES FROM THE PRESS TOO. Its fill and its
+    words crossed on the click, after the editor had rendered: 175 to 230ms
+    after the finger went down on a phone with the CPU slowed four times.
+    The finger going down now writes the opacities straight onto the fills
+    and the faces (the same in-place crossfade, no pill, nothing moving);
+    React's render then writes the same values. A finger that scrolls
+    instead, or is let go elsewhere, puts them back.
+  */
+  const phoneRowRef = useRef<HTMLDivElement>(null)
+  const phoneShow = useCallback((id: string) => {
+    const row = phoneRowRef.current
+    if (!row) return
+    for (const button of row.querySelectorAll<HTMLElement>("[data-tab]")) {
+      const on = button.getAttribute("data-tab") === id
+      const fill = button.querySelector<HTMLElement>("[data-tab-fill]")
+      if (fill) fill.style.opacity = on ? "1" : "0"
+      button.querySelectorAll<HTMLElement>("[data-tab-face]").forEach((face) => {
+        face.style.opacity = (face.getAttribute("data-tab-face") === "on") === on ? "1" : "0"
+      })
+    }
+  }, [])
+  const phonePress = usePillPress(phoneShow, activeTab)
   /*
     The same elements from one render of the editor to the next, so a tap on
     a tab (which re-renders the editor to move the pill) does not re-render
@@ -1430,6 +1394,8 @@ function EditorLayout() {
                     key={tab.id}
                     data-tab={tab.id}
                     aria-pressed={on}
+                    onPointerDown={desktopPress(tab.id).onPointerDown}
+                    onPointerCancel={desktopPress(tab.id).onPointerCancel}
                     onClick={() => handleTabChange(tab.id)}
                     className={cn(
                       "flex items-center px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
@@ -1683,7 +1649,7 @@ function EditorLayout() {
           data-onepage-tabbar=""
         >
           {/* 9px under the bar's 1px hairline: 10px over the buttons, as --op-tabbar-h counts it. */}
-          <div className="grid grid-cols-4 gap-1.5 px-3 pt-[9px] min-[340px]:gap-2 min-[340px]:px-4" data-tab-row="phone">
+          <div ref={phoneRowRef} className="grid grid-cols-4 gap-1.5 px-3 pt-[9px] min-[340px]:gap-2 min-[340px]:px-4" data-tab-row="phone">
             {[...tabs, { id: "settings" as const, label: "Settings", icon: SlidersHorizontal }].map((tab) => {
               const Icon = tab.icon
               const on = activeTab === tab.id
@@ -1693,6 +1659,8 @@ function EditorLayout() {
                   type="button"
                   data-tab={tab.id}
                   aria-pressed={on}
+                  onPointerDown={phonePress(tab.id).onPointerDown}
+                  onPointerCancel={phonePress(tab.id).onPointerCancel}
                   onClick={() => handleTabChange(tab.id)}
                   className="relative isolate flex h-[54px] min-w-0 cursor-pointer items-center justify-center rounded-[12px] border border-[#e3e4e8] bg-white px-0.5 text-[11.5px] font-medium shadow-[inset_0_-2px_0_rgba(0,0,0,0.05),0_1px_2px_rgba(15,23,42,0.07)] outline-none transition-[scale] duration-[120ms] ease-out active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
                 >

@@ -39,6 +39,7 @@ import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
 import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { PillTabs } from "@/components/onepage/pill-tabs"
 import { NATIVE_BACK_EVENT } from "@/lib/ui/native-back"
 import {
   ChoiceCard,
@@ -53,7 +54,6 @@ import {
   SettingRow,
   SwitchRow,
   CheckMark,
-  ChipFill,
   ChoiceMark,
   SwatchMark,
   choiceOff,
@@ -2768,6 +2768,13 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
 }
 
 type ThemeFilter = "all" | "light" | "dark" | "gradient" | "image"
+const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+  { id: "gradient", label: "Gradient" },
+  { id: "image", label: "Image" },
+]
 
 /** The themes of a new kind come in on a short fade in place. */
 const THEME_FILTER_FADE_MS = 140
@@ -2952,22 +2959,26 @@ function ThemeSection() {
 
   return (
     <div>
-      <div className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0" role="tablist" aria-label="Theme kind" data-theme-filters="">
-        {(["all", "light", "dark", "gradient", "image"] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            role="tab"
-            aria-selected={filter === f}
-            data-theme-filter={f}
-            onClick={() => pickFilter(f)}
-            className="relative h-9 shrink-0 cursor-pointer rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium capitalize hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]"
-          >
-            <ChipFill on={filter === f} />
-            <span className={cn("relative transition-colors duration-[180ms]", filter === f ? "text-white" : "text-[#4b5563]")}>{f === "all" ? "All" : f}</span>
-          </button>
-        ))}
-      </div>
+      {/*
+        The editor's one pill-tab row (components/onepage/pill-tabs): one dark
+        pill slides to the pressed kind from the press itself, where each chip
+        used to fade its own fill in place. The pick goes through the steady
+        filter above, so the page holds still under it.
+      */}
+      <PillTabs
+        dataRow="theme-kinds"
+        label="Theme kind"
+        items={THEME_KINDS}
+        value={filter}
+        onChange={pickFilter}
+        rowAttrs={{ "data-theme-filters": "" }}
+        itemAttr="data-theme-filter"
+        className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0"
+        itemClassName="h-9 shrink-0 rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1]"
+        pillClassName="rounded-full bg-[#1a1a2e]"
+        onClass="text-white"
+        offClass="text-[#4b5563]"
+      />
       {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
       <div ref={gridRef} className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3" data-theme-grid="">
         {filteredTemplates.map((template) => (
@@ -3938,6 +3949,14 @@ function FontPicker({
   const [query, setQuery] = useState("")
   const [family, setFamily] = useState("all")
   const listRef = useRef<HTMLDivElement>(null)
+  /* Another kind: its list fades in from the top, on opacity, rather than replacing the last in one frame. */
+  const chooseFamily = (id: string) => {
+    setFamily(id)
+    const box = listRef.current
+    if (!box) return
+    box.scrollTop = 0
+    if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) box.animate?.([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" })
+  }
   const current = fonts.find((f) => f.value === value)
   const name = value ? current?.name || familyOf(value) || value : defaultLabel || "Default"
   const withCategories = fonts.some((f) => f.category)
@@ -3967,20 +3986,19 @@ function FontPicker({
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search fonts" aria-label="Search fonts" className={cn(fieldInput, "h-11 pl-10")} />
         </label>
         {withCategories ? (
-          <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide">
-            {FONT_CATEGORIES.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setFamily(c.id)}
-                aria-pressed={family === c.id}
-                className="relative h-9 shrink-0 cursor-pointer rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]"
-              >
-                <ChipFill on={family === c.id} />
-                <span className={cn("relative transition-colors duration-[180ms]", family === c.id ? "text-white" : "text-[#4b5563]")}>{c.label}</span>
-              </button>
-            ))}
-          </div>
+          /* The editor's one pill-tab row (components/onepage/pill-tabs): the pill slides to the pressed kind from the press. */
+          <PillTabs
+            dataRow="font-kinds"
+            label="Kind of font"
+            items={FONT_CATEGORIES}
+            value={family}
+            onChange={chooseFamily}
+            className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide"
+            itemClassName="h-9 shrink-0 rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1]"
+            pillClassName="rounded-full bg-[#1a1a2e]"
+            onClass="text-white"
+            offClass="text-[#4b5563]"
+          />
         ) : null}
       </div>
       <div ref={listRef} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2">
