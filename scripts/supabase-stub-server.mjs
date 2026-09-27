@@ -11,12 +11,15 @@
  *
  * the app reads this instead: PostgREST's shape (filters by eq, neq, in,
  * ilike, is, gt/gte/lt/lte; select, order, limit; one row or a list; a count
- * in Content-Range), Auth's /user and /token for one signed in creator, and
- * nothing else. Writes are accepted and forgotten. Used by
- * scripts/check-creator-page-audit.mjs (LOCAL=1).
+ * in Content-Range), Auth's /user and /token for one signed in creator (or
+ * several people, `users`), and nothing else. Writes are accepted and
+ * forgotten. `tables` is read on every request, so a probe can change a row
+ * between two page loads. Used by scripts/check-creator-page-audit.mjs
+ * (LOCAL=1) and scripts/check-archive-lifecycle.mjs.
  *
  *   const stub = await serveSupabaseStub({ port: 54321, tables })
- *   stub.sessionCookie()   the cookie a signed in browser carries
+ *   stub.sessionCookie()        the cookie a signed in browser carries
+ *   stub.sessionCookie(userId)  the same, for one of `users`
  */
 import { createServer } from "node:http"
 
@@ -46,14 +49,18 @@ function matches(row, key, raw) {
       const re = new RegExp(`^${arg.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/[*%]/g, ".*")}$`, op === "ilike" ? "i" : "")
       return str != null && re.test(str)
     }
-    case "not": return true
+    /* `not.is.null` and the like: the filter after it, turned round. */
+    case "not": return arg ? !matches(row, key, arg) : true
     default: return true
   }
 }
 
-export async function serveSupabaseStub({ port = 54321, tables = {}, user = null } = {}) {
+export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [] } = {}) {
   const log = []
-  const token = user ? fakeJwt({ sub: user.id, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 86400, email: user.email }) : null
+  const tokenOf = (u) => fakeJwt({ sub: u.id, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 86400, email: u.email })
+  const token = user ? tokenOf(user) : null
+  /* Everybody who can be signed in, by their token and by their refresh token. */
+  const people = [...(user ? [user] : []), ...users].map((u) => ({ user: u, token: tokenOf(u), refresh: `probe-refresh-${u.id}` }))
   const server = createServer((req, res) => {
     const url = new URL(req.url, `http://127.0.0.1:${port}`)
     const send = (status, body, headers = {}) => {
@@ -65,12 +72,21 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
     const auth = req.headers.authorization || ""
 
     if (url.pathname === "/auth/v1/user") {
-      if (user && auth === `Bearer ${token}`) return send(200, user)
+      const who = people.find((p) => auth === `Bearer ${p.token}`)
+      if (who) return send(200, who.user)
       return send(401, { code: 401, error_code: "no_authorization", msg: "no user" })
     }
     if (url.pathname.startsWith("/auth/v1/token")) {
-      if (!user) return send(400, { error: "invalid_grant" })
-      return send(200, { access_token: token, token_type: "bearer", expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, refresh_token: "probe-refresh", user })
+      if (people.length === 0) return send(400, { error: "invalid_grant" })
+      let body = ""
+      req.on("data", (d) => { body += d })
+      req.on("end", () => {
+        let asked = null
+        try { asked = JSON.parse(body || "{}").refresh_token ?? null } catch { asked = null }
+        const who = people.find((p) => p.refresh === asked) ?? people[0]
+        send(200, { access_token: who.token, token_type: "bearer", expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, refresh_token: who.refresh, user: who.user })
+      })
+      return
     }
     if (url.pathname.startsWith("/auth/v1/")) return send(200, {})
     if (url.pathname.startsWith("/storage/v1/")) return send(404, { error: "not found" })
@@ -111,9 +127,10 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
     log,
     token,
     /** The cookie @supabase/ssr reads a session from, for this address. */
-    sessionCookie() {
-      if (!user) return null
-      const session = { access_token: token, token_type: "bearer", expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, refresh_token: "probe-refresh", user }
+    sessionCookie(userId) {
+      const who = userId ? people.find((p) => p.user.id === userId) : people[0]
+      if (!who) return null
+      const session = { access_token: who.token, token_type: "bearer", expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, refresh_token: who.refresh, user: who.user }
       return { name: "sb-127-auth-token", value: `base64-${b64url(JSON.stringify(session))}` }
     },
   }
