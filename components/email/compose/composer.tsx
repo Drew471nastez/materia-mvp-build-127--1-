@@ -48,8 +48,10 @@ import { useDoc } from "./use-doc"
 import { campaignKey, takeFresh } from "@/components/email/emails-cache"
 import { ComposeDialog, StatusBadge, buttonAccent, buttonPrimary, buttonSecondary, card, errorClass, helpClass, iconButton } from "./ui"
 import { PreviewLayer } from "./preview-layer"
-import { StarterList } from "./starter-list"
-import { starterDraft, type StarterId } from "@/lib/email-campaigns/starters"
+import { StarterList, type LayoutChoice } from "./starter-list"
+import { LayoutBar, LayoutDialog, type LayoutDialogState } from "./layout-bar"
+import { starterDraft } from "@/lib/email-campaigns/starters"
+import { appliedLayout, blankBlocks, detectLayout, envelopeAfter, layoutEdited, needsConfirm, readAppliedLayout, trimTrailingEmpty, type AppliedLayout } from "@/lib/email-campaigns/layouts"
 import { useMedia } from "./format-bar"
 import { SendStatus } from "./send-status"
 import { afterLayerMove } from "@/components/app/page-layer"
@@ -251,12 +253,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   /* ─── What would be saved, and what would be sent ─── */
 
   /* An empty text block at the end is where the caret waits, not part of the email. */
-  const clean = React.useMemo(() => {
-    const all = doc.blocks
-    let end = all.length
-    while (end > 1 && all[end - 1].type === "rich" && !hasRealContent([all[end - 1]])) end--
-    return all.slice(0, end)
-  }, [doc.blocks])
+  const clean = React.useMemo(() => trimTrailingEmpty(doc.blocks), [doc.blocks])
   /* What is saved: the blocks, each marked, text as the editor wrote it. */
   const bodyHtml = React.useMemo(() => storeBlocks(clean), [clean])
   const look: Brand = React.useMemo(() => brand ?? { ...DEFAULT_BRAND, name: brandName(me.name) }, [brand, me.name])
@@ -578,16 +575,70 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     }
   }, [loading])
 
-  /* ─── Starting from a layout ─── */
+  /* ─── The layout the email is on ─── */
 
-  const canStart = editable && !campaignId && !loading && !hasRealContent(clean)
-  const startFrom = (id: StarterId) => {
-    const d = starterDraft(id, { name: look.name, storeUrl: brand?.storeUrl ?? null })
-    doc.set(d.blocks)
-    if (d.subject && !subject.trim()) setSubject(d.subject)
-    if (d.previewText && !previewText.trim()) setPreviewText(d.previewText)
+  /*
+    START, SWITCH, EDIT, GO BACK TO BLANK (lib/email-campaigns/layouts.ts).
+    `layout` is what the layout wrote when it was put in, so the line above
+    the email can say "edited" and a switch knows whether it would lose
+    somebody's words. It is kept for this email in the browser (a per viewer
+    convenience: nothing about sending depends on it), and a draft reopened
+    anywhere else still knows a layout it has not been written over.
+  */
+  const [layout, setLayout] = React.useState<AppliedLayout | null>(null)
+  const [layoutDialog, setLayoutDialog] = React.useState<LayoutDialogState>(null)
+  /* Once somebody has chosen, nothing read back later overrides them. */
+  const layoutChosen = React.useRef(false)
+  const layoutKey = `sl:email-layout:${clientId.current}`
+  const edited = React.useMemo(() => (layout ? layoutEdited(layout, clean) : false), [layout, clean])
+  const hasContent = hasRealContent(clean)
+
+  React.useEffect(() => {
+    if (loading || layoutChosen.current) return
+    let stored: AppliedLayout | null = null
+    try {
+      stored = readAppliedLayout(JSON.parse(window.localStorage.getItem(layoutKey) ?? "null"))
+    } catch {
+      stored = null
+    }
+    const found = stored ?? detectLayout(clean, { name: look.name, storeUrl: brand?.storeUrl ?? null })
+    if (found) setLayout(found)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, brand])
+
+  const rememberLayout = (next: AppliedLayout | null) => {
+    try {
+      if (next) window.localStorage.setItem(layoutKey, JSON.stringify(next))
+      else window.localStorage.removeItem(layoutKey)
+    } catch {
+      /* private mode: the line reads from the email itself next time */
+    }
+  }
+
+  const applyLayout = (choice: LayoutChoice) => {
+    layoutChosen.current = true
+    const d = choice === "blank" ? null : starterDraft(choice, { name: look.name, storeUrl: brand?.storeUrl ?? null })
+    const env = envelopeAfter({ subject, previewText }, layout, d)
+    doc.set(d ? d.blocks : blankBlocks())
+    setSubject(env.subject)
+    setPreviewText(env.previewText)
+    const next = d && choice !== "blank" ? appliedLayout(choice, d) : null
+    setLayout(next)
+    rememberLayout(next)
+    setLayoutDialog(null)
+    setShowIssues(false)
     requestAnimationFrame(() => paneRef.current?.querySelector("[data-email-editor]")?.scrollIntoView({ block: "start", behavior: "smooth" }))
   }
+
+  /* A tap on a layout, or on Blank: straight in, unless it would throw away words somebody wrote. */
+  const chooseLayout = (choice: LayoutChoice) => {
+    const current: LayoutChoice = layout?.id ?? "blank"
+    if (choice === current && !edited) return setLayoutDialog(null)
+    if (needsConfirm(layout, clean)) setLayoutDialog({ mode: "confirm", choice })
+    else applyLayout(choice)
+  }
+
+  const canStart = editable && !loading && !hasContent && !layout
 
   /* ─── Drawing ─── */
 
@@ -799,11 +850,20 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                     ) : null}
                   </section>
 
+                  {layout || hasContent ? (
+                    <LayoutBar
+                      className="-mb-2"
+                      layout={layout?.id ?? null}
+                      edited={edited}
+                      onChange={() => setLayoutDialog({ mode: "pick" })}
+                      onRemove={() => chooseLayout("blank")}
+                    />
+                  ) : null}
                   <section aria-label="Email" className={cn(card, "overflow-clip", fieldError.body && "shadow-[0_0_0_2px_#d72c0d]")}>
                     <BlockEditor doc={doc} creatorId={me.creatorId} username={me.username} issues={issues} showIssues={showIssues} theme={theme} onUploadImage={uploadImage} />
                   </section>
                   {fieldError.body ? <p className={errorClass}>{fieldError.body}</p> : null}
-                  {canStart ? <StarterList onPick={startFrom} /> : null}
+                  {canStart ? <StarterList onPick={chooseLayout} /> : null}
                   {plan ? (
                     <p className={cn(helpClass, "px-1")}>
                       {plan.used.toLocaleString("en-US")} of {plan.limit.toLocaleString("en-US")} emails used this month
@@ -922,6 +982,16 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           </dl>
         )}
       </ComposeDialog>
+
+      {editable ? (
+        <LayoutDialog
+          state={layoutDialog}
+          current={layout?.id ?? "blank"}
+          onClose={() => setLayoutDialog(null)}
+          onChoose={chooseLayout}
+          onApply={applyLayout}
+        />
+      ) : null}
 
       <ScheduleDialog open={dialog === "schedule"} onClose={() => setDialog(null)} busy={scheduleBusy} error={scheduleError} onSchedule={(d) => void schedule(d)} />
 
