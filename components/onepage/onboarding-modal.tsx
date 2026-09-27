@@ -1400,7 +1400,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     {/* Avatar section - centered on mobile, left on desktop */}
                     <div className="flex flex-col items-center shrink-0">
                       <div
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200"
+                        className="w-20 h-20 sm:w-24 sm:h-24 aspect-square shrink-0 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200"
                       >
                         {avatarUrl ? (
                           <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -1662,7 +1662,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 </>
                               ) : (
                                 <>
-                                  <div className="w-7 h-7 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
+                                  {/* A circle in a card too short for everything: it keeps its size, and the card's column cannot squash it oval. */}
+                                  <div data-theme-avatar="" className="w-7 h-7 aspect-square shrink-0 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
                                     {avatarUrl ? (
                                       <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                                     ) : (
@@ -1960,7 +1961,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 ) : (
                                   /* Classic layout: circle avatar with user photo/initial */
                                   <>
-                                    <div className="w-10 h-10 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
+                                    <div data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
                                       {avatarUrl ? (
                                         <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                                       ) : (

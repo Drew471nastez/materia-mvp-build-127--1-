@@ -12,8 +12,9 @@
  * Polaris: calm, white, generous, one way of doing each thing. So these are
  * the only ways, and every panel uses them:
  *
- *   PanelHeader   a sub panel's way back: a grey circle with a chevron and
- *                 the panel's name, large. The circle is 44px on a phone.
+ *   PanelHeader   a sub panel's way back: the app's square with a little
+ *                 depth and an arrow, and the panel's name, large. 44px to
+ *                 press on a phone.
  *   SectionTitle  a heading inside a panel, with an optional line under it.
  *   NavRow        a row that opens something: a line icon, a name, a grey
  *                 line saying what is there now, and a chevron.
@@ -40,7 +41,7 @@
  * touch screen they simply appear, without the fade).
  */
 import * as React from "react"
-import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react"
+import { ArrowLeft, ChevronRight, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ColorField } from "@/components/onepage/color-picker"
@@ -49,6 +50,30 @@ import { hapticTap } from "@/lib/native-bridge"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
 
 const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+
+/*
+  THE WAY BACK IS THE APP'S SQUARE, AND A PRESS IS FELT. It was a flat grey
+  circle whose press was a shade of grey a step darker: "it needs a little
+  more depth, and when I click it, it needs to feel like I clicked it". It
+  is the square the app puts beside a primary now (components/ui/depth-button
+  iconDepth: white, a hairline, a 2px shade in its foot and a soft shadow
+  under it), with the builder's drill-in back arrow (website-builder
+  panel-back). Pressed it dips 6% and goes a step darker with the shade
+  inside it, over 120ms, on `scale` and `opacity` only: an overlay fades
+  in, the tile's own colours never change. 40px, in a 44px place to press.
+  The press is drawn by spans inside the button, as panel-back's is, so the
+  phone sheets' rule that clears a button's hover background leaves it be.
+*/
+const backTile = cn(
+  "relative grid h-10 w-10 place-items-center overflow-hidden rounded-[10px] border border-[#d9dbe0] bg-white text-[#1a1a2e]",
+  "shadow-[inset_0_-2px_0_rgba(0,0,0,0.07),0_1px_2px_rgba(15,23,42,0.08)]",
+  "transition-[scale] duration-[120ms] ease-out group-active/back:scale-[0.94] motion-reduce:transition-none motion-reduce:group-active/back:scale-100",
+  "md:h-9 md:w-9 md:rounded-[9px]",
+)
+const backShade = cn(
+  "pointer-events-none absolute inset-0 bg-[#f1f2f4] shadow-[inset_0_1px_2px_rgba(0,0,0,0.12)] opacity-0",
+  "transition-opacity duration-[120ms] ease-out group-hover/back:opacity-60 group-active/back:opacity-100",
+)
 
 export function PanelHeader({ title, onBack, backLabel = "Back", action }: { title: string; onBack?: () => void; backLabel?: string; action?: React.ReactNode }) {
   return (
@@ -59,12 +84,12 @@ export function PanelHeader({ title, onBack, backLabel = "Back", action }: { tit
           onClick={onBack}
           aria-label={backLabel}
           data-panel-back=""
-          className={cn(
-            "grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full bg-[#f1f2f4] text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e8e9ec] active:bg-[#dfe0e4] sm:h-10 sm:w-10 [-webkit-tap-highlight-color:transparent]",
-            focusRing,
-          )}
+          className="group/back -ml-0.5 grid h-11 w-11 shrink-0 cursor-pointer select-none place-items-center rounded-[12px] outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]"
         >
-          <ChevronLeft className="h-5 w-5" strokeWidth={2} />
+          <span aria-hidden data-back-tile="" className={backTile}>
+            <span data-back-shade="" className={backShade} />
+            <ArrowLeft className="relative h-5 w-5 md:h-[18px] md:w-[18px]" strokeWidth={2} />
+          </span>
         </button>
       ) : null}
       <h2 className="min-w-0 flex-1 truncate text-[24px] font-bold tracking-[-0.015em] text-[#1a1a2e] sm:text-[26px]">{title}</h2>

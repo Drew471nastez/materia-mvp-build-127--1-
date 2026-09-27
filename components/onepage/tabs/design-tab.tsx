@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
+import * as ReactModule from "react"
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition } from "react"
 import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,7 @@ import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
 import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { NATIVE_BACK_EVENT } from "@/lib/ui/native-back"
 import {
   ChoiceCard,
   ColorRow,
@@ -821,8 +823,9 @@ const SECTION_LABEL: Record<DesignSection, string> = {
  * stacked under a small heading. Now it opens on a list, as Linktree's does:
  * each row names a part of the page and says in grey what it is set to now
  * (the font's name, "Gradient, with grain"), so the page can be read before
- * anything is opened. A row opens its panel, which has a way back in a grey
- * circle and its name in large type, and the panel scrolls to its top.
+ * anything is opened. A row opens its panel, which has a way back (the
+ * app's square with a hairline and a foot, editor-kit's PanelHeader) and
+ * its name in large type, and the panel scrolls to its top.
  *
  * The open panel is kept for this visit in sessionStorage, so switching to
  * Links and back returns to it; a new visit opens on the list.
@@ -840,10 +843,27 @@ const SECTION_LABEL: Record<DesignSection, string> = {
  * lets it go back or springs it home.
  *
  * Both pages are drawn only while they move. At rest the list is kept (its
- * state, not its pixels: `display: none`), and a panel is made fresh each
- * time it opens, at its top. Transform and opacity only, on the compositor.
+ * state, not its pixels: `display: none`). Transform and opacity only, on
+ * the compositor.
+ *
+ * ONE MOTION PER PRESS. "Themes, back, Themes again, back: a double
+ * refresh." It was two motions (scripts/check-onepage-editor-nav.mjs): the
+ * page slid in with only its title, and 40 to 70ms later what was in it
+ * was built and faded in over 180ms, so every open arrived twice, and the
+ * first one showed a page with nothing in it for four frames. Now the
+ * panels are kept, as the editor keeps its tabs: each is built once, while
+ * the page is idle (or on the tap, if that comes first), and kept in
+ * React's <Activity> while another panel or the list is showing. A press
+ * shows the one it opens and starts the slide with the page already whole:
+ * one motion in, one out, nothing built or faded on the way.
  */
 type DesignPage = DesignSection | "home"
+/* React 19.2's <Activity>, as the editor's tabs use it. The installed types are 19.0's, which do not name it yet; the runtime has it. */
+const Activity = (ReactModule as unknown as {
+  Activity: React.ComponentType<{ mode: "visible" | "hidden"; children?: React.ReactNode }>
+}).Activity
+/** Every panel, in the order the list names them, which is the order they are built in while the page is idle. */
+const DESIGN_SECTIONS = Object.keys(SECTION_LABEL) as DesignSection[]
 /** iOS's push: 360ms on its own curve, the page under it moving about a quarter as far. */
 const PUSH_MS = 360
 const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -880,6 +900,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const listScroll = useRef(0)
   /* The pages moving now: `top` places the one leaving where it was on screen. */
   const [move, setMove] = useState<Move | null>(null)
+  /* The panels built so far, kept (see BUILT WHILE NOTHING ELSE IS HAPPENING below). */
+  const [built, setBuilt] = useState<DesignSection[]>(() => (section ? [section] : []))
   const scrollerOf = () => rootRef.current?.closest<HTMLElement>("[data-scroll-container]") ?? null
 
   const remember = (next: DesignSection | null) => {
@@ -903,30 +925,68 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     const screen = scroller?.clientHeight ?? 0
     setMove({ from: current ?? "home", to: next ?? "home", top: arriveAt - y, panelMin: screen + (next ? 0 : y), listMin: screen + listScroll.current })
     setSectionState(next)
+    setWarm(null)
+    /* A panel not built yet (a tap before the page was idle) is built on the tap, whole, and the slide waits for it. */
+    if (next) setBuilt((b) => (b.includes(next) ? b : [...b, next]))
     remember(next)
   }, [])
 
   /*
-    THE TAP MOVES THE PAGE AT ONCE. A panel's controls cost a frame or
-    several to build and style (Theme's eighteen cards: 40ms on a computer,
-    200ms on a phone slowed four times), and the slide used to wait for
-    them. Now the page arrives with its title and its way back, the slide
-    starts in the next frame, and what is in it is built a frame later, in
-    a render React can put aside for another tap, and fades in over the
-    page as it comes.
+    READIED WHILE THE FINGER IS DOWN. A kept panel still has to be styled
+    and laid out when it is shown (Theme: 150ms on a phone slowed four
+    times, 40ms at full speed), and the slide cannot start before that. A
+    finger rests on a row for 50 to 150ms before it lifts, so the row's
+    panel is drawn then, out of sight and taking no room, at a priority the
+    lift overtakes. By the lift it is laid out and only has to move. A
+    finger that scrolls instead lets it go.
   */
-  const [bodyFor, setBodyFor] = useState<DesignSection | null>(section)
-  useEffect(() => {
-    if (!section || bodyFor === section) return
-    let timer = 0
-    const frame = requestAnimationFrame(() => {
-      timer = window.setTimeout(() => startTransition(() => setBodyFor(section)), 0)
+  const [warm, setWarm] = useState<DesignSection | null>(null)
+  const onRowDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (sectionRef.current || animating.current.length) return
+    const id = (e.target as Element).closest("[data-nav-row]")?.getAttribute("data-nav-row")
+    if (!id || !(id in SECTION_LABEL)) return
+    const next = id as DesignSection
+    startTransition(() => {
+      setWarm(next)
+      setBuilt((b) => (b.includes(next) ? b : [...b, next]))
     })
-    return () => {
-      cancelAnimationFrame(frame)
-      window.clearTimeout(timer)
+  }
+  const onRowCancel = () => {
+    if (!sectionRef.current) startTransition(() => setWarm(null))
+  }
+
+  /*
+    BUILT WHILE NOTHING ELSE IS HAPPENING, AND KEPT. Theme's eighteen cards
+    cost 200ms to build on a phone slowed four times; built on the tap, the
+    slide waited for them, and built after it, the page arrived empty and
+    filled in (the double). So, as the editor does with its tabs, the
+    panels are built once the Design tab is on screen and the page is idle,
+    at a priority any tap overtakes, and each is kept once built.
+  */
+  useEffect(() => {
+    const build = () => startTransition(() => setBuilt((b) => (DESIGN_SECTIONS.every((s) => b.includes(s)) ? b : [...b, ...DESIGN_SECTIONS.filter((s) => !b.includes(s))])))
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(build, { timeout: 2000 })
+      return () => w.cancelIdleCallback?.(id)
     }
-  }, [section, bodyFor])
+    const t = window.setTimeout(build, 800)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  /*
+    ANDROID'S BACK IS THIS PAGE'S BACK. With a panel open the stack is
+    marked (data-native-back), and components/app/native-back-handler hands
+    the press here instead of offering to leave the app: the same pop as
+    the way back at the top of the panel, to the same place in the list.
+  */
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const onBack = () => setSection(null)
+    root.addEventListener(NATIVE_BACK_EVENT, onBack)
+    return () => root.removeEventListener(NATIVE_BACK_EVENT, onBack)
+  }, [setSection])
 
   /* The move itself, drawn before the browser paints the first frame of it. */
   const animating = useRef<Animation[]>([])
@@ -1076,6 +1136,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
 
   /* Which panel is drawn: the one open, or the one on its way out. */
   const shownSection: DesignSection | null = section ?? (move && move.from !== "home" ? move.from : null)
+  /* And, out of sight, the one a finger is resting on. */
+  const drawnSection: DesignSection | null = shownSection ?? warm
   const listCurrent = !section
   const listMoving = !!move && (move.from === "home" || move.to === "home" || !!move.peek)
   const panelMoving = !!move
@@ -1084,7 +1146,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const pageClass = "-mx-4 px-4 md:-mx-6 md:px-6 bg-white"
 
   return (
-    <div ref={rootRef} className="relative isolate" data-design-stack="">
+    <div ref={rootRef} className="relative isolate" data-design-stack="" data-native-back={section ? "" : undefined}>
       <div
         ref={listRef}
         data-design-panel="home"
@@ -1101,7 +1163,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
       >
         {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
         <PanelHeader title="Design" />
-        <nav aria-label="Design" className="flex flex-col">
+        <nav aria-label="Design" className="flex flex-col" onPointerDown={onRowDown} onPointerCancel={onRowCancel}>
           <NavRow dataKey="theme" icon={Layers} title="Theme" subtitle={templateName || "Your own"} onClick={() => setSection("theme")} />
           <NavRow dataKey="header" icon={CircleUserRound} title="Header" subtitle={`${(t.header_layout || "classic") === "hero" ? "Hero" : "Classic"} layout, ${t.title_style === "logo" ? "logo title" : "text title"}`} onClick={() => setSection("header")} />
           <NavRow
@@ -1126,66 +1188,67 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         {/* The shade the list takes under a panel: on a phone, where the list is the whole screen; on a computer it would be a grey card in a white pane. */}
         <div ref={dimRef} aria-hidden className="pointer-events-none absolute inset-0 bg-[#1a1a2e] md:hidden" style={{ opacity: 0 }} />
       </div>
-      {shownSection ? (
-        <div
-          ref={panelRef}
-          key={shownSection}
-          data-design-panel={shownSection}
-          inert={section !== shownSection}
-          className={pageClass}
-          style={{
-            ...(section === shownSection ? { position: "relative" } : leavingStyle(move ? move.top : 0)),
-            zIndex: 1,
-            /* An edge to the page while it moves over the list: a hairline and a soft shade. */
-            boxShadow: panelMoving ? "-1px 0 0 rgba(26,26,46,0.05), -16px 0 32px -12px rgba(26,26,46,0.14)" : undefined,
-            /* Moving, it covers the list under it to the bottom of the screen, however short it is. */
-            minHeight: panelMoving ? move?.panelMin : undefined,
-          }}
-        >
-          {section === shownSection ? (
-            <div
-              aria-hidden
-              data-edge-back=""
-              className="absolute -left-0 bottom-0 top-0 z-[2] w-5 md:hidden"
-              style={{ touchAction: "none" }}
-              onPointerDown={onEdgeDown}
-              onPointerMove={onEdgeMove}
-              onPointerUp={onEdgeUp}
-              onPointerCancel={onEdgeUp}
-            />
-          ) : null}
-          <PanelHeader title={SECTION_LABEL[shownSection]} onBack={() => setSection(null)} backLabel="Back to Design" />
-          {bodyFor === shownSection ? (
-            <PanelBody fade={!!move}>
-              {shownSection === "header" && <HeaderSection />}
-              {shownSection === "theme" && <ThemeSection />}
-              {shownSection === "wallpaper" && <WallpaperSection />}
-              {shownSection === "text" && <TextSection />}
-              {shownSection === "buttons" && <ButtonsSection />}
-              {shownSection === "socials" && <SocialsSection />}
-              {shownSection === "footer" && <FooterSection userPlan={userPlan} />}
-            </PanelBody>
-          ) : null}
-        </div>
-      ) : null}
+      {/*
+        The panel page: one element for every panel, always there, so what
+        slides is the page itself and never a page being made. With no panel
+        open it is not drawn. Its panels are kept in <Activity>: the one
+        showing is visible, the rest keep their state out of sight.
+      */}
+      <div
+        ref={panelRef}
+        data-design-panel={shownSection ?? undefined}
+        inert={!shownSection || section !== shownSection}
+        aria-hidden={shownSection ? undefined : true}
+        className={pageClass}
+        style={
+          shownSection
+            ? {
+                ...(section === shownSection ? { position: "relative" } : leavingStyle(move ? move.top : 0)),
+                zIndex: 1,
+                /* An edge to the page while it moves over the list: a hairline and a soft shade. */
+                boxShadow: panelMoving ? "-1px 0 0 rgba(26,26,46,0.05), -16px 0 32px -12px rgba(26,26,46,0.14)" : undefined,
+                /* Moving, it covers the list under it to the bottom of the screen, however short it is. */
+                minHeight: panelMoving ? move?.panelMin : undefined,
+              }
+            : drawnSection
+              ? /* Readied under a finger: laid out, but unseen, untouchable, and taking no room from the list's scroll. */
+                { position: "absolute", left: 0, right: 0, top: 0, height: 0, overflow: "hidden", visibility: "hidden", pointerEvents: "none", zIndex: -1 }
+              : { display: "none" }
+        }
+      >
+        {shownSection && section === shownSection ? (
+          <div
+            aria-hidden
+            data-edge-back=""
+            className="absolute -left-0 bottom-0 top-0 z-[2] w-5 md:hidden"
+            style={{ touchAction: "none" }}
+            onPointerDown={onEdgeDown}
+            onPointerMove={onEdgeMove}
+            onPointerUp={onEdgeUp}
+            onPointerCancel={onEdgeUp}
+          />
+        ) : null}
+        {drawnSection ? <PanelHeader title={SECTION_LABEL[drawnSection]} onBack={() => setSection(null)} backLabel="Back to Design" /> : null}
+        {DESIGN_SECTIONS.filter((id) => built.includes(id)).map((id) => (
+          <Activity key={id} mode={id === drawnSection ? "visible" : "hidden"}>
+            <div data-panel-body={id}>
+              {id === "header" && <HeaderSection />}
+              {id === "theme" && <ThemeSection />}
+              {id === "wallpaper" && <WallpaperSection />}
+              {id === "text" && <TextSection />}
+              {id === "buttons" && <ButtonsSection />}
+              {id === "socials" && <SocialsSection />}
+              {id === "footer" && <FooterSection userPlan={userPlan} />}
+            </div>
+          </Activity>
+        ))}
+      </div>
     </div>
   )
 }
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-}
-
-/** A panel's controls: faded in when they arrive on a page that is still sliding. */
-function PanelBody({ fade, children }: { fade: boolean; children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const fadeOnMount = useRef(fade)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el || !fadeOnMount.current || typeof el.animate !== "function" || reducedMotion()) return
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "cubic-bezier(0, 0, 0.2, 1)" })
-  }, [])
-  return <div ref={ref}>{children}</div>
 }
 
 function HeaderSection() {
@@ -2042,9 +2105,10 @@ function HeaderSection() {
             disabled={uploading}
             aria-label="Change profile image"
             data-avatar-edit
-            className="relative h-[88px] w-[88px] shrink-0 cursor-pointer rounded-2xl outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
+            className="relative aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
           >
-            <span className="absolute inset-0 overflow-hidden rounded-2xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+            {/* A circle, as the page draws it and as the theme cards do. */}
+            <span data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
           {avatarVideoUrl ? (
                 <>
                   {onepage.avatar_url ? (
@@ -2070,7 +2134,7 @@ function HeaderSection() {
                 <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.charAt(0) || "?"}</div>
               )}
             </span>
-            <span aria-hidden className="absolute -bottom-1.5 -right-1.5 grid h-9 w-9 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+            <span aria-hidden className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" strokeWidth={1.75} />}
             </span>
           </button>
@@ -2723,7 +2787,20 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
         {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} /> : null}
         {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
         <span className={cn("absolute inset-0 flex flex-col items-center px-[13%]", hero ? "pt-[30%]" : "pt-[15%]")}>
-          {hero ? null : <span className="block aspect-square w-[22%] rounded-full" style={{ background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }} />}
+          {/*
+            THE AVATAR IS A CIRCLE. It was sized by its width and an aspect
+            ratio, in a column the card's height holds: where the column ran
+            out of room (a narrow phone, Safari) the column took the height
+            back from it and it was drawn oval. It does not shrink now, and
+            its height is its width twice over: the aspect ratio, and a
+            spacer whose padding is 100% of that width, which every engine
+            has drawn square since long before aspect-ratio.
+          */}
+          {hero ? null : (
+            <span data-theme-avatar="" className="block aspect-square w-[22%] flex-none overflow-hidden rounded-full" style={{ background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }}>
+              <span aria-hidden className="block pb-[100%]" />
+            </span>
+          )}
           <span
             className="mt-[7%] block max-w-full truncate text-[14px] font-bold leading-tight"
             style={{ fontFamily: fontStack(c.title_font || c.font_family), color: c.title_color || text }}

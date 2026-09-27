@@ -63,7 +63,7 @@ function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; on
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { ColorRow, RangeRow, Switch } from "@/components/onepage/editor-kit"
-import { primaryDepth } from "@/components/ui/depth-button"
+import { accentDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import { DialogHeader } from "@/components/ui/dialog"
 import { SHEET_DIALOG_MAX_HEIGHT, SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -567,9 +567,9 @@ export function LinksTab() {
   const videoContainerRef = useRef<HTMLDivElement>(null)
   const [videoNaturalSize, setVideoNaturalSize] = useState({ width: 0, height: 0 })
 
-  // Add button animation state
-  const [addButtonClicked, setAddButtonClicked] = useState(false)
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
+  /* The sheet is up and + Add opened it (not a + between two cards, not a group's): its + is turned into an x. */
+  const addSheetFromButton = showAddModal && insertAfterId === null && addToGroupId === null
 
   /*
     REORDERING THE CARDS: components/onepage/link-reorder.ts moves them
@@ -1305,8 +1305,9 @@ export function LinksTab() {
     <div className="space-y-6" data-scroll-container="links-tab" style={{ touchAction: "manipulation" }}>
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
-        <div className="relative group cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
-          <div className="h-14 w-14 border overflow-hidden rounded-full relative bg-gray-100">
+        <div className="relative group shrink-0 cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
+          {/* A circle whatever the row beside it holds: its own width and height, never shrunk. */}
+          <div data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0 border overflow-hidden rounded-full relative bg-gray-100">
             {onepage.avatar_video_url ? (
               <>
                 {avatar_url ? (
@@ -1415,21 +1416,35 @@ export function LinksTab() {
       </div>
 
       {/* Add Button */}
+      {/*
+        + ADD IS VIOLET AGAIN, AND ITS + TURNS INTO THE SHEET'S X. "Make sure
+        it's purple how it was before": Tailwind's violet 500 until the editor
+        went near black; the app's violet primary now (depth-button accentDepth,
+        #8b5cf6, which Products' New product wears too). Only this button:
+        the rest of the editor stays ink. The + turns a quarter of the way
+        round, 45deg, while the sheet it opened is up and back as it goes, on
+        the `rotate` property over 200ms. It used to turn on a `.group`, and
+        app/globals.css takes every transform and transition inside a
+        `.group` away on a touch screen, so on a phone it never turned.
+      */}
       <button
+        type="button"
+        data-add-block=""
+        aria-expanded={addSheetFromButton}
         onClick={() => {
           setInsertAfterId(null)
-          setAddButtonClicked(true)
-          setTimeout(() => setAddButtonClicked(false), 300)
+          setAddToGroupId(null)
           setShowAddModal(true)
         }}
-        /* The page's one primary action: the app's near black, with its line of light and its press (depth-button). */
-        className={cn(primaryDepth, "group h-11 w-full gap-2 rounded-xl text-[15px]")}
+        className={cn(accentDepth, "h-11 w-full gap-2 rounded-xl text-[15px]")}
       >
         <Plus
+          aria-hidden
           className={cn(
-            "h-5 w-5 transition-transform duration-300 ease-out group-hover:rotate-90",
-            addButtonClicked && "rotate-180"
+            "h-5 w-5 shrink-0 transition-[rotate] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
+            addSheetFromButton ? "rotate-45" : "rotate-0",
           )}
+          strokeWidth={2.25}
         />
         Add
       </button>
