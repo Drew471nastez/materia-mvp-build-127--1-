@@ -467,7 +467,7 @@ try {
       const text = await page.evaluate(() => document.querySelector("#review")?.textContent || "")
       expect(/Sign in/.test(text), "a guest is asked to sign in to post", text.slice(0, 200))
       const initial = await page.evaluate(() => document.querySelector("#review [data-reviewer]")?.textContent?.trim() || "")
-      expect(initial === "G", "a guest's card shows their initial on a neutral circle", initial)
+      expect(initial === "GH", "a guest's card shows their initials on a neutral circle (AppAvatar's two letters)", initial)
       if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-guest-390-review.png"), fullPage: true })
       await page.close()
     }

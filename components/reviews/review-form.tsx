@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Star, Loader2, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AppAvatar } from "@/components/app/app-avatar"
 
 /**
  * The review card on the receipt (app/receipt/[token]/receipt-view.tsx).
@@ -53,20 +54,11 @@ const PRIMARY =
 const GREY =
   "inline-flex h-11 flex-1 items-center justify-center rounded-[10px] border border-[#d5d9e0] bg-[#f3f4f6] px-4 text-[14px] font-semibold text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(16,24,40,0.08)] transition-[background-color,box-shadow,translate] duration-150 hover:bg-[#eceef1] active:translate-y-px active:bg-[#e7e9ed] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2"
 
+/* The shared avatar (components/app/app-avatar): any host loads, a photo that fails becomes the initials. */
 function ReviewerMark({ name, avatarUrl }: { name: string | null | undefined; avatarUrl: string | null | undefined }) {
-  const [broken, setBroken] = useState(false)
-  const initial = ((name ?? "").trim().charAt(0) || "·").toUpperCase()
   return (
-    <span
-      data-reviewer=""
-      className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#eef0f3] text-[17px] font-semibold text-[#4b5563] ring-4 ring-[#f5f6f8]"
-    >
-      {avatarUrl && !broken ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
-      ) : (
-        initial
-      )}
+    <span data-reviewer="" className="inline-flex rounded-full ring-4 ring-[#f5f6f8]">
+      <AppAvatar src={avatarUrl} name={(name ?? "").trim() || "?"} alt="" size={48} />
     </span>
   )
 }

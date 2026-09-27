@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { ArrowDownToLine, ArrowRight, Check, FileText, Loader2, PlayCircle, Printer } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
 import { ReviewForm } from "@/components/reviews/review-form"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { fileKindOf, formatFileSize, formatMoney, splitFileName, type AccessState } from "@/lib/receipts/rules"
@@ -690,16 +691,8 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
 }
 
 function SellerMark({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
-  return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eef0f3] text-[13px] font-semibold text-[#4b5563] ring-1 ring-black/[0.04]">
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-      ) : (
-        (name.trim().charAt(0) || "S").toUpperCase()
-      )}
-    </span>
-  )
+  /* The shared avatar: a Google photo loads from its own host, a broken one becomes the initials. */
+  return <AppAvatar src={avatarUrl} name={name.trim() || "Seller"} alt="" size={32} className="ring-1 ring-black/[0.04]" />
 }
 
 /**
