@@ -291,7 +291,7 @@ async function throughProxy(base: string) {
     const request = new Request(url, { headers: { host: new URL(url).host, "user-agent": userAgent } }) as any
     request.nextUrl = new URL(url)
     const res: Response = await proxy(request)
-    return { status: res.status, location: res.headers.get("location"), cache: res.headers.get("cache-control") }
+    return { status: res.status, location: res.headers.get("location"), cache: res.headers.get("cache-control"), answer: res.headers.get("x-onepage-address") }
   }
   const expect = async (url: string, status: number, location: string, label: string, userAgent?: string) => {
     const got = await visit(url, userAgent)
@@ -301,6 +301,7 @@ async function throughProxy(base: string) {
 
   const danut = await expect("https://dj-danut.storelib.com/links", 307, "https://storelib.com/dj-danut", "dj-danut.storelib.com/links goes to the creator page, in one hop")
   check("temporary and never held, so it moves to the OnePage the day there is one", danut.cache === "no-store", show(danut))
+  check("and says what the lookup answered", danut.answer === "creator", show(danut))
   await expect("https://dj-danut.storelib.com/links/?utm_source=instagram&ref=bio", 307, "https://storelib.com/dj-danut?utm_source=instagram&ref=bio", "with the query kept")
   await expect("https://storelib.com/dj-danut/links", 307, "https://storelib.com/dj-danut", "storelib.com/dj-danut/links too")
   await expect("https://storelib.com/l/dj-danut", 307, "https://storelib.com/dj-danut", "storelib.com/l/dj-danut too")
@@ -313,6 +314,7 @@ async function throughProxy(base: string) {
   const andrew = await expect("https://andrewrullz.storelib.com/links", 308, "https://storelib.me/andrewrullz", "andrewrullz.storelib.com/links is exactly what it was")
   check("held for an hour at the edge, as before", andrew.cache === "public, max-age=3600", show(andrew))
   check("and cost one read", requests.length === 1, show(requests))
+  check("and says it found the page", andrew.answer === "page", show(andrew))
   await expect("https://lucadragoste.storelib.com/links?utm_source=tt", 308, "https://storelib.me/lucadragoste?utm_source=tt", "lucadragoste.storelib.com/links is exactly what it was")
   await expect("https://storelib.com/mara/links", 308, "https://storelib.me/mara", "a page under another address still answers at the username")
   await expect("https://oldmara.storelib.com/links?ref=x", 308, "https://storelib.me/mara?ref=x", "an old username goes to the new one, one hop")
@@ -324,7 +326,8 @@ async function throughProxy(base: string) {
   check("and asks nothing", requests.length === 0, show(requests))
 
   failEverything = true
-  await expect("https://dj-danut.storelib.com/links", 308, "https://storelib.me/dj-danut", "a database that fails leaves the redirect as it was")
+  const down = await expect("https://dj-danut.storelib.com/links", 308, "https://storelib.me/dj-danut", "a database that fails leaves the redirect as it was")
+  check("and says the lookup failed", down.answer === "failed", show(down))
   failEverything = false
 
   process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:9"
@@ -356,7 +359,7 @@ function history() {
 function wiring() {
   console.log("\nOne resolver, three callers")
   const proxy = code("proxy.ts")
-  check("the proxy resolves an old address before answering it", /onePage\.onePage \? await oldOnePageTarget\(onePage\.onePage, onePage, search\)/.test(proxy))
+  check("the proxy resolves an old address before answering it", /onePage\.onePage \? await oldOnePageTarget\(onePage\.onePage, onePage, search\) : null/.test(proxy))
   check("with the same resolver and lookup as the page", /resolveOnePageAddress\(name, supabaseOnePageLookup\(supabase, "id, slug"\)\)/.test(proxy))
   check("with no session: its own client, persisting nothing", /createClient\(supabaseUrl, supabaseKey, \{ auth: \{ persistSession: false/.test(proxy))
   check("and a slow database cannot hold the redirect", /ONEPAGE_LOOKUP_MS/.test(proxy) && /Promise\.race/.test(proxy))

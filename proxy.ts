@@ -213,10 +213,10 @@ async function hasLiveAiSite(slug: string): Promise<boolean> {
  */
 const ONEPAGE_LOOKUP_MS = 2500
 
-async function oldOnePageTarget(name: string, already: OldAddressRedirect, search: string): Promise<OldAddressRedirect> {
+async function oldOnePageTarget(name: string, already: OldAddressRedirect, search: string): Promise<OldAddressRedirect & { answer: string }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseKey) return already
+  if (!supabaseUrl || !supabaseKey) return { ...already, answer: "no-database" }
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } })
@@ -224,9 +224,10 @@ async function oldOnePageTarget(name: string, already: OldAddressRedirect, searc
       timer = setTimeout(() => resolve(null), ONEPAGE_LOOKUP_MS)
     })
     const address = await Promise.race([resolveOnePageAddress(name, supabaseOnePageLookup(supabase, "id, slug")), slow])
-    return address ? oldAddressRedirect(address, already, { search, mainDomain: MAIN_DOMAIN }) : already
+    if (!address) return { ...already, answer: "slow" }
+    return { ...oldAddressRedirect(address, already, { search, mainDomain: MAIN_DOMAIN }), answer: address.kind }
   } catch {
-    return already
+    return { ...already, answer: "failed" }
   } finally {
     if (timer) clearTimeout(timer)
   }
@@ -718,10 +719,18 @@ export async function proxy(request: NextRequest) {
         return NextResponse.rewrite(new URL(onePage.path, request.url))
       case "redirect": {
         /* An old address goes straight to where the page is now (oldOnePageTarget above). */
-        const { location, status } = onePage.onePage ? await oldOnePageTarget(onePage.onePage, onePage, search) : onePage
+        const target = onePage.onePage ? await oldOnePageTarget(onePage.onePage, onePage, search) : null
+        const { location, status } = target ?? onePage
         const to = NextResponse.redirect(location, { status })
         /* A permanent move may be held by the edge; a temporary one (the root, a creator with no OnePage yet) may not. */
         to.headers.set("Cache-Control", status === 307 ? "no-store" : "public, max-age=3600")
+        /*
+          What the lookup answered (page, moved, creator, missing) or why there
+          was none (failed, slow, no-database), so a redirect that looks wrong
+          on production can be read from its headers. Says nothing a visitor
+          could not learn from following it.
+        */
+        if (target) to.headers.set("X-OnePage-Address", target.answer)
         return to
       }
       case "robots":
