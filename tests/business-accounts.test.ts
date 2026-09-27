@@ -115,7 +115,8 @@ function switchScreen() {
   console.log("\nThe switch's screen: the wiring")
   const switcher = read("components/app/business-switcher.tsx")
   check("a press on the other business puts the screen up and names it, with its photo, for the new /app",
-    /setSwitching\(b\)/.test(switcher) && /switchBusiness\(b\.userId, "\/app", \{\s*arrival: b\.ready \? \{ name: b\.name, photo: b\.avatarUrl \} : undefined,\s*business: b,\s*onOpening: \(\) => screen\.current\?\.opening\(\),\s*\}\)/.test(switcher)
+    /setSwitching\(b\)/.test(switcher) && /const steps: SwitchSteps = \{\s*arrival: b\.ready \? \{ name: b\.name, photo: b\.avatarUrl \} : undefined,\s*business: b,\s*onOpening: \(\) => screen\.current\?\.opening\(\),\s*\}/.test(switcher)
+      && /await switchBusiness\(b\.userId, "\/app", steps\)/.test(switcher)
       && /<SwitchingScreen name=\{switching\.name\} photo=\{switching\.avatarUrl\} ready=\{switching\.ready\}/.test(switcher))
   check("  the list fetches the other businesses' photos at the bar's size as it opens, so the bar has the photo on the press",
     /if \(!expanded\) return\s*const size = sheet \? STILL_AVATAR\.phone : STILL_AVATAR\.desktop\s*for \(const b of businesses\) if \(!b\.current\) preloadAvatar\(b\.avatarUrl, size\)/.test(switcher))
@@ -131,7 +132,8 @@ function switchScreen() {
     /setCreating\(true\)/.test(switcher) && /await createBusiness\(\{ onOpening: \(\) => screen\.current\?\.opening\(\) \}\)/.test(switcher)
       && /\{creating && <SwitchingScreen mode="create"/.test(switcher))
   check("  its rows keep their icon and their words while it works: no spinner of their own, nothing changes width", !/Loader2/.test(switcher) && !/Setting up your new business/.test(switcher))
-  check("  a failed one takes the screen away and the menu says why, as a switch does", /catch \(e\) \{\s*setError\(e instanceof Error && e\.message \? e\.message : "The business could not be created\. Try again\."\)\s*\/\*[^*]*\*\/\s*if \(screen\.current\) screen\.current\.fail\(\)/.test(switcher))
+  check("  a failed one takes the screen away and the menu says why, as a switch does", /setError\(e instanceof Error && e\.message \? e\.message : "The business could not be created\. Try again\."\)\s*\/\*[^*]*\*\/\s*if \(screen\.current\) screen\.current\.fail\(\)/.test(switcher))
+  check("  one whose setup page never came keeps the screen up and asks for it again on Try again", /if \(e instanceof SwitchStalled\) \{\s*stalled\(e\.next, \{\}\)/.test(switcher))
   check("its two lines say what is happening, in plain words", switchLine("creating", "") === "Setting up your new business" && switchLine("starting", "") === "Opening your new business")
   const created = read("lib/businesses/switch-client.ts")
   check("making one never waits forever, and no answer in time says where to look rather than to press again",
@@ -147,19 +149,35 @@ function switchScreen() {
       && /surface=\{creating \? "plain" : "app"\}/.test(read("components/app/business-switch-screen.tsx")) && /transition-opacity ease-out motion-reduce:transition-none/.test(read("components/app/business-switch-screen.tsx")))
   check("a failed switch takes the screen away and says why in the menu", /screen\.current\.fail\(\)/.test(switcher) && /setError\(e instanceof Error && e\.message \? e\.message : SWITCH_FAILED\)/.test(switcher))
   const client = read("lib/businesses/switch-client.ts")
+  /*
+    Changed on purpose ("sometimes it gets stuck there"): the steps of a
+    switch run in lib/businesses/switch-flow, each with a limit, and the
+    session comes back in the answer's own cookies instead of through the
+    client's setSession, which had none. tests/business-switch-flow.test.ts
+    drives every wait; these hold the wiring. The order is the same: the
+    session is held (the jar is checked) before prepare() writes the screen's
+    cookie and the snapshot, and both come before the page is asked for.
+  */
+  const flow = read("lib/businesses/switch-flow.ts")
   const cookieAt = client.indexOf("document.cookie = switchCookie(steps.arrival.name")
   check("the switch leaves the cookie only once the session is held, and just before the new page is asked for",
-    cookieAt > client.indexOf("auth.setSession(session)") && cookieAt < client.indexOf("steps.onOpening?.()") && client.indexOf("steps.onOpening?.()") < client.indexOf("window.location.replace(next)"))
+    cookieAt > client.indexOf("function prepare(steps: SwitchSteps)") && flow.indexOf("return opening(deps, next)") > flow.indexOf("if (!(await deps.jarHolds(to))")
+      && flow.indexOf("deps.prepare()") < flow.indexOf('deps.onPhase?.("opening")') && flow.indexOf('deps.onPhase?.("opening")') < flow.lastIndexOf("deps.navigate(next)")
+      && /navigate: \(next\) => window\.location\.replace\(next\)/.test(client) && /if \(p === "opening"\) steps\.onOpening\?\.\(\)/.test(client))
   check("the public site's header is told who this browser is now, after the account before is cleared (saved listings and follows with it)",
-    client.indexOf("clearAuthSnapshot()") > client.indexOf("auth.setSession(session)") && client.indexOf("writeAuthSnapshot({ signedIn: true, userId: b.userId") > client.indexOf("clearAuthSnapshot()")
-      && client.indexOf("writeAuthSnapshot(") < client.indexOf("window.location.replace(next)"))
+    client.indexOf("clearAuthSnapshot()") > client.indexOf("function prepare(steps: SwitchSteps)") && client.indexOf("writeAuthSnapshot({ signedIn: true, userId: b.userId") > client.indexOf("clearAuthSnapshot()"))
   check("every failure is a sentence, and no answer in time is a failure",
-    /export const SWITCH_FAILED = "That business could not be opened\. Try again\."/.test(client) && /SWITCH_TIMEOUT_MS = 20_000/.test(client) && /abort\.abort\(\)/.test(client)
-      && /catch \{\s*throw new Error\(SWITCH_FAILED\)/.test(client))
+    /export const SWITCH_FAILED = "That business could not be opened\. Try again\."/.test(client) && /SWITCH_TIMEOUT_MS = ASK_MS/.test(client) && /export const ASK_MS = 20_000/.test(flow) && /abort\.abort\(\)/.test(flow)
+      && /throw new SwitchFailed\(outcome\.message, outcome\.retry\)/.test(client))
+  const route = read("app/api/businesses/switch/route.ts")
+  check("the switch's answer carries the session in its own cookies, only after the link is checked and the session made",
+    route.indexOf("maySwitch(group, user.id, to)") < route.indexOf("await sessionFor(to)") && route.indexOf("await sessionFor(to)") < route.indexOf("sessionCookieChunks(key, storedSessionJson(session)")
+      && /res\.cookies\.set\(\{ name: c\.name, value: c\.value, path: "\/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false \}\)/.test(route)
+      && /name: SWITCH_COOKIE, value: photo \? `\$\{name\}\\n\$\{photo\}` : name, path: "\/app", maxAge: SWITCH_COOKIE_MAX_AGE_S/.test(route) && /cleanSwitchName\(arrival\.name\)/.test(route))
   const layout = read("app/app/layout.tsx")
   check("the new /app's HTML draws the screen when the cookie came, before its session gate, on both of the layout's paths",
     /readSwitchArrival\(\(await cookies\(\)\)\.get\(SWITCH_COOKIE\)\?\.value\)/.test(layout) && (layout.match(/\{arrival\}\s*\n\s*<NativeAuthGate/g) ?? []).length === 2
-      && /__html: SWITCH_SPIN_SCRIPT/.test(layout) && /<BusinessSwitchArrival name=\{switchingTo\.name\} photo=\{switchingTo\.photo\} \/>/.test(layout))
+      && /__html: SWITCH_ARRIVAL_SCRIPT/.test(layout) && /<BusinessSwitchArrival name=\{switchingTo\.name\} photo=\{switchingTo\.photo\} \/>/.test(layout))
   const screen = read("components/app/business-switch-screen.tsx")
   /*
     Changed on purpose. The owner, on the screen halfway through a switch:
@@ -182,12 +200,21 @@ function switchScreen() {
     white begins at the bar's bottom edge instead of behind it.
   */
   const barWritten = screen.indexOf('className="absolute inset-x-0 top-0 z-10 h-[calc(68px+env(safe-area-inset-top,0px))] bg-[#111111]')
-  const whiteWritten = screen.indexOf('className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-white')
-  check("the screen is one white surface under the app's own bar: no empty rail beside it, nothing cut out of it",
+  /*
+    Changed on purpose (owner, on a phone: "a glitch, a refresh flash thing"):
+    on a phone the surface under the bar is the page's own #f8f9fa, the
+    colour the new /app's shell and its cold start are drawn on, so the
+    screen and the page it hands over to are the same surface and only the
+    page's own parts come in. From md it stays white, edge to edge, with no
+    rail (the owner's earlier "the sidebar there, it's cut").
+  */
+  const whiteWritten = screen.indexOf('className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-[#f8f9fa] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-white"')
+  check("the screen is one surface under the app's own bar, the page's own colour on a phone: no empty rail beside it, nothing cut out of it",
     !/AppColdStart/.test(screen) && /function SwitchSurface/.test(screen)
       && /<SwitchSurface header=\{<ShellHeaderStill name=\{name\} photo=\{photo\} \/>\}>\{middle\}<\/SwitchSurface>/.test(screen)
       && /data-switch-surface="" className="absolute inset-0">/.test(screen)
-      && !/w-\[240px\]|#f8f9fa/.test(screen))
+      && !/w-\[240px\]/.test(screen) && whiteWritten !== -1
+      && /data-cold-page="" className="absolute inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#f8f9fa\]/.test(read("app/app/cold-start.tsx")))
   check("  the bar written before the white, and the white beginning under it, so no frame can have one without the other",
     barWritten !== -1 && whiteWritten > barWritten)
   check("  its bar is the shell's own height and colour at each width, with the one set of corners hung from it",
@@ -235,12 +262,25 @@ function switchScreen() {
     /<span aria-hidden="true" id=\{SWITCH_SCREEN_ID\} \/>\s*<\/div>/.test(screen)
       && /SWITCH_SCREEN_ID = "business-switch-screen-ready"/.test(switchLib))
   check("  and that canvas is the screen's own two fields, at the bar's height at each width, outside every layer",
-    /html\.switch-arriving \{/.test(globals) && /#111111 calc\(68px \+ env\(safe-area-inset-top, 0px\)\)/.test(globals)
-      && /#131316 calc\(58px \+ env\(safe-area-inset-top, 0px\)\)/.test(globals)
+    /html\.switch-arriving \{/.test(globals) && /--switch-bar: #111111;\s*--switch-bar-h: calc\(68px \+ env\(safe-area-inset-top, 0px\)\);\s*--switch-field: #f8f9fa;/.test(globals)
+      && /--switch-bar: #131316;\s*--switch-bar-h: calc\(58px \+ env\(safe-area-inset-top, 0px\)\);\s*--switch-field: #ffffff;/.test(globals)
+      && /radial-gradient\(circle at 100% 100%, transparent calc\(var\(--app-top-corner\) - 0\.5px\), var\(--switch-bar\) var\(--app-top-corner\)\)/.test(globals)
       && /html\.switch-arriving body \{\s*background-color: transparent;/.test(globals)
       && /background-attachment: fixed;/.test(globals))
   check("  and it comes off again when the screen hands over",
     /document\.documentElement\.classList\.remove\(SWITCH_HTML_CLASS\)/.test(screen))
+  check("the new page's screen always ends: a timer that needs no frame, the cache bringing the page back, going away, all clear the cookie",
+    /const hard = window\.setTimeout\(end, ARRIVAL_HARD_CAP_MS\)/.test(screen) && /if \(e\.persisted\) end\(\)/.test(screen) && /if \(!over\) \{\s*over = true\s*clear\(\)/.test(screen)
+      && /takeOverFromHtml\(\)/.test(screen) && /__slSwitchGiveUp/.test(read("lib/businesses/switch-screen.ts")))
+  check("  never handed over to the cold start while the app's gate is finding the session",
+    /if \(!shell\(\) && coldStart\(\)\) await until\(\(\) => !coldStart\(\), by\)/.test(screen))
+  check("  and drawn only from a document's own HTML, never put up by a refresh of the router",
+    /const \[live\] = useState\(\(\) => typeof document === "undefined" \|\| !!document\.getElementById\(SWITCH_SCREEN_ID\)\)/.test(screen) && /if \(gone \|\| !live\) return null/.test(screen))
+  check("  the bar's photo asked for from the head, and drawn in the same frame as the bar",
+    /<link rel="preload" as="image" href=\{phone\.src\}/.test(screen) && /decoding="sync" fetchPriority="high"/.test(still))
+  check("a new page that never comes: the screen stays, says so in one line, and Try again asks again",
+    /stall: \(retry\) => setProblem\(\{ text: creating \? "Your new business did not open" : `\$\{name\} did not open`, onRetry: retry \}\)/.test(screen)
+      && />\s*Try again\s*<\/button>/.test(screen) && /openAgain\(next, steps\)\.catch\(\(\) => screen\.current\?\.stall\(again\)\)/.test(switcher))
   const onboarding = read("components/app/creator-onboarding-modal.tsx")
   const redirect = /\{isRedirecting && \(([\s\S]*?)\n      \)\}/.exec(onboarding)?.[1] ?? ""
   check("the setup's last screen, on the way to the dashboard, is the same calm spinner and one line: no purple ring, no dots",
@@ -426,7 +466,7 @@ function main() {
   check("  a press with three already says so on the press, on the same line a refusal uses, and makes no request",
     /if \(!canAdd\) \{\s*setError\(LIMIT_REACHED\)\s*return\s*\}/.test(switcher) && /if \(busy\) return/.test(switcher)
       && switcher.indexOf("setError(LIMIT_REACHED)") < switcher.indexOf("await createBusiness(")
-      && /<p role="alert"[\s\S]*?\{error\}/.test(switcher) && (switcher.match(/<p role="alert"/g) ?? []).length === 1)
+      && /<p role="alert"[\s\S]*?\{retry \? error\.replace\(\/\\s\*Try again\\\.\?\$\/, ""\) : error\}/.test(switcher) && (switcher.match(/<p role="alert"/g) ?? []).length === 1)
   check("  and the limit is still the server's and the database's to keep, not the menu's",
     /if \(!canAddBusiness\(groupIds\(group, caller\.id\)\.length\)\) return \{ error: LIMIT_REACHED, status: 409 \}/.test(read("lib/businesses/server.ts"))
       && /raise exception 'One login can have at most 3 businesses'/.test(read("supabase/sql/run-now/38_business_limit_three.sql")))
