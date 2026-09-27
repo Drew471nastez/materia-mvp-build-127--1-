@@ -314,8 +314,15 @@ function main() {
     */
     const design = read("components/onepage/tabs/design-tab.tsx")
     const card = design.slice(design.indexOf("function ThemeCard("), design.indexOf("function ThemeSection("))
-    check("a theme card's avatar never shrinks, and a spacer makes its height its width",
-      /data-theme-avatar="" className="block aspect-square w-\[22%\] flex-none overflow-hidden rounded-full"/.test(card) && /<span aria-hidden className="block pb-\[100%\]" \/>/.test(card))
+    /*
+      Still a tall pill on the owner's iPhone after the spacer (26 by 41,
+      22% of the card's height): the size is now fixed, 28px both ways, on
+      a phone and a computer, and nothing is worked out from the card.
+    */
+    check("a theme card's avatar is a fixed 28px circle that cannot be stretched or squashed",
+      /data-theme-avatar=""\s+className="block h-\[28px\] min-h-\[28px\] w-\[28px\] min-w-\[28px\] flex-none aspect-square overflow-hidden rounded-full"/.test(card) && !/w-\[22%\]/.test(card))
+    check("the layout pictures in the Header panel are circles that cannot shrink", (design.match(/data-layout-avatar="" className="(h-7 w-7|w-10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 3)
+    check("the live page's avatar keeps its own square box in the column", /data-page-avatar="" style=\{\{ width: avatarSize, height: avatarSize, aspectRatio: "1 \/ 1", flexShrink: 0/.test(read("components/onepage/public-onepage.tsx")))
     check("the Header panel's profile picture is a circle, as the page draws it", /aspect-square h-\[88px\] w-\[88px\] shrink-0 cursor-pointer rounded-full/.test(design) && /data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full/.test(design))
     check("the Links tab's profile picture keeps its size beside a long name", /data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0/.test(read("components/onepage/tabs/links-tab.tsx")))
     const onboarding = read("components/onepage/onboarding-modal.tsx")

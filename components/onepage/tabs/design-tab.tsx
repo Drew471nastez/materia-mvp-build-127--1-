@@ -2535,7 +2535,7 @@ function HeaderSection() {
               <div className="grid grid-cols-2 gap-3">
                 <ChoiceCard selected={effectiveLayout === "classic"} onClick={() => handleLayoutChange("classic")} label="Classic">
                   <div className="flex h-[76px] flex-col items-center justify-center gap-1.5 rounded-xl bg-[#f7f7f8]">
-                    <span className="h-7 w-7 rounded-full bg-[#d9dbe0]" />
+                    <span data-layout-avatar="" className="h-7 w-7 aspect-square shrink-0 rounded-full bg-[#d9dbe0]" />
                     <span className="h-1.5 w-12 rounded-full bg-[#d9dbe0]" />
                   </div>
                 </ChoiceCard>
@@ -2730,18 +2730,20 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
         {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
         <span className={cn("absolute inset-0 flex flex-col items-center px-[13%]", hero ? "pt-[30%]" : "pt-[15%]")}>
           {/*
-            THE AVATAR IS A CIRCLE. It was sized by its width and an aspect
-            ratio, in a column the card's height holds: where the column ran
-            out of room (a narrow phone, Safari) the column took the height
-            back from it and it was drawn oval. It does not shrink now, and
-            its height is its width twice over: the aspect ratio, and a
-            spacer whose padding is 100% of that width, which every engine
-            has drawn square since long before aspect-ratio.
+            THE AVATAR IS A CIRCLE. It was 22% of the card wide with an
+            aspect ratio (and then a spacer) for its height, in a column the
+            card's height holds, and on the owner's iPhone it was still drawn
+            a tall pill (26 wide, 41 high: 22% of the card's height, not its
+            width). Nothing about it is worked out from the card now: it is
+            28px by 28px, the same on a phone and a computer, and neither
+            the column nor the card can stretch or squash it.
           */}
           {hero ? null : (
-            <span data-theme-avatar="" className="block aspect-square w-[22%] flex-none overflow-hidden rounded-full" style={{ background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }}>
-              <span aria-hidden className="block pb-[100%]" />
-            </span>
+            <span
+              data-theme-avatar=""
+              className="block h-[28px] min-h-[28px] w-[28px] min-w-[28px] flex-none aspect-square overflow-hidden rounded-full"
+              style={{ background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }}
+            />
           )}
           <span
             className="mt-[7%] block max-w-full truncate text-[14px] font-bold leading-tight"
@@ -2884,7 +2886,7 @@ function ThemeSection() {
             <div className="bg-gray-900 rounded-2xl p-4 flex items-center justify-center">
               <div className="w-40 rounded-2xl overflow-hidden shadow-xl" style={{ background: pendingTemplate?.theme_config.background_type === "gradient" ? pendingTemplate?.theme_config.background_gradient : pendingTemplate?.theme_config.background_color }}>
                 <div className="p-4 flex flex-col items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-white/20" />
+                  <div data-layout-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full bg-white/20" />
                   <div className="w-16 h-2 rounded bg-white/40" />
                   <div className="w-12 h-1.5 rounded bg-white/30" />
                   <div className="flex gap-1 mt-1">
@@ -3706,7 +3708,7 @@ function WallpaperSection() {
             <div className="bg-gray-900 rounded-2xl p-4 flex items-center justify-center">
               <div className="w-40 rounded-2xl overflow-hidden shadow-xl bg-gradient-to-br from-orange-400 to-pink-500">
                 <div className="p-4 flex flex-col items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-white/20" />
+                  <div data-layout-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full bg-white/20" />
                   <div className="w-16 h-2 rounded bg-white/40" />
                   <div className="w-12 h-1.5 rounded bg-white/30" />
                   <div className="flex gap-1 mt-1">
