@@ -45,11 +45,13 @@
  */
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Check, Plus, RotateCw, X } from "lucide-react"
+import { Check, Plus, RotateCw } from "lucide-react"
 import { DirectUploader, type UploadError, type UploadStatus } from "@/lib/storage/chunked-upload"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { RowMenuButton } from "../../orders/order-parts"
 import { cn } from "@/lib/utils"
+import { saveOwnFile, type OwnFileOutcome } from "@/lib/platform/own-file"
+import { savedMessage } from "@/lib/platform/save-file"
 import type { UploadedFile } from "./editor-form"
 import { secondaryDepth } from "./editor-buttons"
 
@@ -162,6 +164,9 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
   const seqRef = useRef(0)
   /* A file this session uploaded, by its storage path: the row it came from. */
   const rows = useRef(new Map<string, { key: string; seq: number }>())
+  /* And the file that was picked for it, so Download in a browser saves that
+     rather than fetching back what was just sent (lib/platform/own-file.ts). */
+  const picked = useRef(new Map<string, File>())
   /* Transfer rate, smoothed, for the time left. */
   const rates = useRef(new Map<string, { since: number; at: number; sent: number; rate: number }>())
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
@@ -286,6 +291,7 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
           mime_type: result.mimeType,
         }
         rows.current.set(done.file_path, { key, seq })
+        picked.current.set(done.file_path, file)
         /* Both in one render: the row turns into the file in place, never gone for a frame. */
         setFiles((prev) => {
           const at = prev.findIndex((f) => (rows.current.get(f.file_path)?.seq ?? -1) > seq)
@@ -341,6 +347,9 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
     run(u.key, u.seq, u.file, u.productId)
   }, [patchNow, run])
 
+  /** The file picked in this session for a saved file, when there is one. */
+  const localOf = useCallback((f: UploadedFile): File | null => picked.current.get(f.file_path) ?? null, [])
+
   /** The row a saved file is drawn in: the upload's own, when this session uploaded it. */
   const rowKeyOf = useCallback((f: UploadedFile) => rows.current.get(f.file_path)?.key ?? f.id ?? f.file_path, [])
 
@@ -351,7 +360,7 @@ export function useFileUploads(setFiles: React.Dispatch<React.SetStateAction<Upl
   )
 
   const inFlight = uploads.filter((u) => u.status !== "complete" && u.status !== "aborted")
-  return { uploads, start, cancel, retry, rowKeyOf, seqOf, inFlight, scanOf, followScan }
+  return { uploads, start, cancel, retry, rowKeyOf, seqOf, inFlight, scanOf, followScan, localOf }
 }
 
 export type FileUploads = ReturnType<typeof useFileUploads>
@@ -396,18 +405,24 @@ type Entry =
 function FileRow({
   entry,
   scan,
+  local,
   onCancel,
   onRetry,
   onRename,
   onDelete,
+  onSaved,
 }: {
   entry: Entry
   /** The file's malware scan, when there is one to show. */
   scan?: FileScan | null
+  /** The file as it was picked in this session, when it was. */
+  local?: File | null
   onCancel: (key: string) => void
   onRetry: (key: string) => void
   onRename: (file: UploadedFile, name: string) => void
   onDelete: (file: UploadedFile) => void
+  /** A download went somewhere worth saying (the apps name where). */
+  onSaved: (outcome: OwnFileOutcome, name: string) => void
 }) {
   const check = useRef<HTMLSpanElement>(null)
   const [editing, setEditing] = useState(false)
@@ -416,6 +431,32 @@ function FileRow({
   const file = entry.kind === "file" ? entry.file : null
   const name = file ? file.file_name : upload!.file.name
   const justDone = entry.kind === "file" && entry.justDone
+
+  /*
+    DOWNLOAD SAYS WHAT IT IS DOING ON THE ROW'S OWN LINE. The menu closes on
+    the press, as every row menu here does, and the line under the name reads
+    "Preparing download" while the link is asked for, then goes back to the
+    size. A refusal replaces it in red, in the server's words, for a few
+    seconds. One line of text changing: nothing moves.
+  */
+  const [saving, setSaving] = useState<{ state: "preparing" } | { state: "error"; message: string } | null>(null)
+  const savingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (savingTimer.current) clearTimeout(savingTimer.current)
+  }, [])
+  const download = async () => {
+    if (saving?.state === "preparing") return
+    if (savingTimer.current) clearTimeout(savingTimer.current)
+    setSaving({ state: "preparing" })
+    try {
+      const outcome = await saveOwnFile({ assetId: file?.id ?? null, name, local: local ?? upload?.file ?? null })
+      setSaving(null)
+      onSaved(outcome, name)
+    } catch (err) {
+      setSaving({ state: "error", message: err instanceof Error && err.message ? err.message : "Download failed. Try again." })
+      savingTimer.current = setTimeout(() => setSaving(null), 6000)
+    }
+  }
 
   /* The check: in, held, out. Only for the row that has just finished here. */
   const was = useRef(entry.kind)
@@ -447,7 +488,9 @@ function FileRow({
   const fillOpacity = moving ? 1 : 0
 
   let meta: React.ReactNode
-  if (file && scan?.state === "blocked") {
+  if (saving?.state === "preparing") meta = <span data-file-download="preparing">Preparing download</span>
+  else if (saving?.state === "error") meta = <span data-file-download="error" role="alert" className="text-[#b42318]">{saving.message}</span>
+  else if (file && scan?.state === "blocked") {
     meta = (
       <span data-file-scan="blocked" className="text-[#b42318]">
         Blocked by the virus scan{scan.threat ? `: ${scan.threat}` : ""}. Buyers never get it.
@@ -524,9 +567,14 @@ function FileRow({
             >
               {upload.progress}%
             </span>
-            <button type="button" aria-label={`Cancel upload of ${name}`} onClick={() => onCancel(upload.key)} className={ICON_BUTTON}>
-              <X className="h-4 w-4" />
-            </button>
+            <ResponsiveActionMenu
+              title={name}
+              trigger={<RowMenuButton label={`Actions for ${name}`} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
+              items={[
+                { label: "Download", onClick: () => void download() },
+                { label: "Cancel upload", variant: "destructive", separatorBefore: true, onClick: () => onCancel(upload.key) },
+              ]}
+            />
           </>
         ) : upload && status === "error" ? (
           <>
@@ -539,15 +587,21 @@ function FileRow({
               <RotateCw className="h-3.5 w-3.5" />
               Retry
             </button>
-            <button type="button" aria-label={`Remove ${name}`} onClick={() => onCancel(upload.key)} className={ICON_BUTTON}>
-              <X className="h-4 w-4" />
-            </button>
+            <ResponsiveActionMenu
+              title={name}
+              trigger={<RowMenuButton label={`Actions for ${name}`} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
+              items={[
+                { label: "Download", onClick: () => void download() },
+                { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => onCancel(upload.key) },
+              ]}
+            />
           </>
         ) : file ? (
           <ResponsiveActionMenu
             title={file.file_name}
             trigger={<RowMenuButton label={`Actions for ${file.file_name}`} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
             items={[
+              { label: "Download", onClick: () => void download() },
               { label: "Rename", onClick: () => { setDraft(file.file_name); setEditing(true) } },
               { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => onDelete(file) },
             ]}
@@ -567,6 +621,7 @@ export function DigitalFiles({
   onPick,
   onRename,
   onDelete,
+  onNotice,
 }: {
   files: UploadedFile[]
   uploads: FileUploads
@@ -575,6 +630,8 @@ export function DigitalFiles({
   onPick: (files: FileList | null) => void
   onRename: (file: UploadedFile, name: string) => void
   onDelete: (file: UploadedFile) => void
+  /** A short notice, for where an app sent a download (the editor's toast). */
+  onNotice?: (message: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -621,6 +678,18 @@ export function DigitalFiles({
     // Only the files the editor opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* In a browser the browser shows the download; the apps hand it to the system browser, so they say where it went. */
+  const onSaved = useCallback(
+    (outcome: OwnFileOutcome, name: string) => {
+      if (outcome === "ios-download" || outcome === "android-download") {
+        const message = savedMessage(outcome, name)
+        setAnnounce(message)
+        onNotice?.(message)
+      } else if (outcome === "downloaded") setAnnounce(`${name} downloaded`)
+    },
+    [onNotice],
+  )
 
   const full = files.length + uploads.inFlight.length >= max
   const choose = () => inputRef.current?.click()
@@ -702,7 +771,17 @@ export function DigitalFiles({
         )}
       >
         {entries.map((entry) => (
-          <FileRow key={entry.key} entry={entry} scan={entry.kind === "file" ? uploads.scanOf(entry.file) : null} onCancel={uploads.cancel} onRetry={uploads.retry} onRename={onRename} onDelete={onDelete} />
+          <FileRow
+            key={entry.key}
+            entry={entry}
+            scan={entry.kind === "file" ? uploads.scanOf(entry.file) : null}
+            local={entry.kind === "file" ? uploads.localOf(entry.file) : entry.upload.file}
+            onCancel={uploads.cancel}
+            onRetry={uploads.retry}
+            onRename={onRename}
+            onDelete={onDelete}
+            onSaved={onSaved}
+          />
         ))}
         <li>
           {full ? (

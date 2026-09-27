@@ -2271,6 +2271,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     onPick={(files) => void handleFileUpload(files)}
                     onRename={(file, name) => setDigitalFiles(prev => prev.map(f => (f.file_path === file.file_path ? { ...f, file_name: name } : f)))}
                     onDelete={(file) => void handleDeleteFile(file)}
+                    onNotice={showToast}
                   />
                 </div>
               </div>
