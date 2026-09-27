@@ -32,7 +32,7 @@ import { sendSellerMessageEmail } from "@/lib/email"
 import { quotedFrom } from "@/lib/mailgun"
 import { emailButton, finalizeEmailHtml } from "@/lib/mail-document"
 import { emailImageSrc, inboxImageSrc } from "@/lib/email-campaigns/sender"
-import { newBlock, renderBlocks, type Block } from "@/lib/email-campaigns/blocks"
+import { PLAIN_THEME, newBlock, renderBlocks, type Block } from "@/lib/email-campaigns/blocks"
 import { richToEmail } from "@/lib/email-campaigns/rich"
 
 let passed = 0
@@ -233,7 +233,7 @@ async function main() {
     check("a half width one (260) at 640", /half\.webp&w=640&q=75$/.test(srcs[1] ?? ""), srcs[1])
     check("a product card's 96px picture at 256", /cover\.webp&w=256&q=75$/.test(srcs[2] ?? ""), srcs[2])
     check("each keeps its drawn width, alt and border 0", /width="520"[^>]*max-width:520px;height:auto;border:0/.test(html) && /alt="The shop"/.test(html) && /width="96" height="96"[^>]*border:0/.test(html))
-    const rich = richToEmail(`<p><img src="${STORE}/campaign/inline.jpg" alt="Inline" width="300"></p>`)
+    const rich = richToEmail(`<p><img src="${STORE}/campaign/inline.jpg" alt="Inline" width="300"></p>`, PLAIN_THEME)
     check("a picture in the text is sized by its width attribute", /inline\.jpg&amp;w=640&amp;q=75" alt="Inline" width="300"/.test(rich), rich)
   }
 

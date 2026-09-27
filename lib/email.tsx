@@ -1885,7 +1885,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
      and sized for the inbox; the initials when there is none, never a broken image. */
   const sellerAvatarSrc = emailImageSrc(sellerAvatarUrl, 32)
   const sellerAvatarHtml = sellerAvatarSrc
-    ? `<td style="width:32px;height:32px;border-radius:8px;overflow:hidden;"><img src="${escapeHtml(sellerAvatarSrc)}" alt="${escapeHtml(escapedStoreName)}" width="32" height="32" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" /></td>`
+    ? `<td style="width:32px;height:32px;border-radius:8px;overflow:hidden;"><img src="${escapeHtml(sellerAvatarSrc)}" alt="${escapeHtml(escapedStoreName)}" width="32" height="32" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;border:0;" /></td>`
     : `<td style="width:32px;height:32px;background:#e8e5e0;border-radius:8px;text-align:center;vertical-align:middle;font-weight:700;font-size:13px;color:#888;">${sellerInitials}</td>`
 
   // Send buyer refund confirmation

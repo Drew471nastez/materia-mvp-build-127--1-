@@ -541,8 +541,8 @@ async function main() {
     /* No support address: the login's address as it is now, read from auth, not the profile's older copy. */
     const db = world()
     db.tables.creators[0].support_email = null
-    db.tables.profiles.find((p: any) => p.id === SELLER_USER).email = "andrew.old@example.com"
-    db.auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === SELLER_USER ? { email: "Andrew.Now@Example.com" } : null } }) } }
+    ;(db.tables.profiles.find((p: any) => p.id === SELLER_USER) as any).email = "andrew.old@example.com"
+    ;(db as any).auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === SELLER_USER ? { email: "Andrew.Now@Example.com" } : null } }) } }
     reset(db, null)
     const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
     check("no support address: the login's current address", r.status === 200 && S.sent[0]?.to === "andrew.now@example.com", JSON.stringify(S.sent))
@@ -552,8 +552,8 @@ async function main() {
     const OWNER = "99999999-9999-4999-8999-999999999999"
     const db = world({ extra: { business_links: [{ member_id: SELLER_USER, owner_id: OWNER }] } })
     db.tables.creators[0].support_email = null
-    db.tables.profiles.find((p: any) => p.id === SELLER_USER).email = "andrew+slb-1a2b3c4d@old.example"
-    db.auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === OWNER ? { email: "andrew@new.example" } : id === SELLER_USER ? { email: "andrew+slb-1a2b3c4d@old.example" } : null } }) } }
+    ;(db.tables.profiles.find((p: any) => p.id === SELLER_USER) as any).email = "andrew+slb-1a2b3c4d@old.example"
+    ;(db as any).auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === OWNER ? { email: "andrew@new.example" } : id === SELLER_USER ? { email: "andrew+slb-1a2b3c4d@old.example" } : null } }) } }
     reset(db, null)
     const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
     check("a second business: the owner's login address as it is now, no tag", r.status === 200 && S.sent[0]?.to === "andrew@new.example", JSON.stringify(S.sent))
@@ -562,7 +562,7 @@ async function main() {
     /* Auth cannot be read: the profile's address, untagged. */
     const db = world()
     db.tables.creators[0].support_email = null
-    db.tables.profiles.find((p: any) => p.id === SELLER_USER).email = "andrew+slb-1a2b3c4d@example.com"
+    ;(db.tables.profiles.find((p: any) => p.id === SELLER_USER) as any).email = "andrew+slb-1a2b3c4d@example.com"
     reset(db, null)
     const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
     check("auth unreadable: the profile's address with the business tag taken off", r.status === 200 && S.sent[0]?.to === "andrew@example.com", JSON.stringify(S.sent))
