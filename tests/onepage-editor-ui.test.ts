@@ -170,11 +170,29 @@ function main() {
   {
     const design = read("components/onepage/tabs/design-tab.tsx")
     const kit = read("components/onepage/editor-kit.tsx")
-    /* The panel drawn is `shownSection` since panels are pushed and popped: the open one, or the one on its way out. */
-    check("Design opens on a list of rows, each opening a panel with a way back", /<NavRow\s+dataKey="wallpaper"/.test(design) && /<PanelHeader title=\{SECTION_LABEL\[shownSection\]\} onBack=/.test(design))
+    /* The panel drawn is `drawnSection`: the open one, the one on its way out, or the one readied under a finger. */
+    check("Design opens on a list of rows, each opening a panel with a way back", /<NavRow\s+dataKey="wallpaper"/.test(design) && /<PanelHeader title=\{SECTION_LABEL\[drawnSection\]\} onBack=/.test(design))
     check("the icon rail and the chip strip are gone", !/sidebarExpanded/.test(design) && !/TooltipProvider/.test(design))
     check("a picked choice is a thin dark border, not a heavy frame or a violet ring", /border-\[#1a1a2e\] shadow-\[0_0_0_0\.5px_#1a1a2e\]/.test(kit) && !/border-2 border-foreground|ring-violet-500/.test(design))
-    check("the way back is 44px on a phone", /h-11 w-11[^"]*sm:h-10 sm:w-10/.test(kit))
+    /*
+      THE WAY BACK IS THE APP'S SQUARE, AND A PRESS IS FELT. "I don't like
+      that the back icon is a circle. It needs a little more depth, and when
+      I click it, it needs to feel like I clicked it." A grey circle whose
+      press was one shade darker; now iconDepth's tile (hairline, a 2px shade
+      in its foot, a soft shadow) in a 44px place to press, dipping 6% with a
+      shade inside over 120ms, on scale and opacity only. Measured by
+      scripts/check-onepage-editor-nav.mjs (back): 44x44 to press, 40x40
+      tile, 1px #d9dbe0, pressed scale 0.94 and the shade at 1, `scale / 0.12s`.
+    */
+    const panelHeader = kit.slice(kit.indexOf("const backTile"), kit.indexOf("export function SectionTitle"))
+    check("the way back is 44px to press on a phone", /data-panel-back=""/.test(panelHeader) && /group\/back[^"]*h-11 w-11/.test(panelHeader))
+    check("the way back is a square with the app's depth, not a grey circle",
+      /rounded-\[10px\] border border-\[#d9dbe0\] bg-white/.test(panelHeader) && /shadow-\[inset_0_-2px_0_rgba\(0,0,0,0\.07\),0_1px_2px_rgba\(15,23,42,0\.08\)\]/.test(panelHeader)
+      && !/rounded-full bg-\[#f1f2f4\]/.test(panelHeader) && /<ArrowLeft /.test(panelHeader))
+    check("pressed, it dips and shades over 120ms, on scale and opacity alone, and not under reduced motion",
+      /transition-\[scale\] duration-\[120ms\]/.test(panelHeader) && /group-active\/back:scale-\[0\.94\]/.test(panelHeader)
+      && /transition-opacity duration-\[120ms\][^"]*group-active\/back:opacity-100/.test(panelHeader) && /motion-reduce:group-active\/back:scale-100/.test(panelHeader)
+      && !/transition-colors/.test(panelHeader))
     check("switches are the app's one switch, with a 44px place to press", /switchTrack\(checked\)/.test(kit) && /h-11 w-11/.test(kit) && !/theme-checkbox/.test(design))
     check("the wallpaper styles are Fill, Gradient, Image and Video", /type === "solid" \? "Fill"/.test(design))
     /*
@@ -186,7 +204,27 @@ function main() {
     check("a panel slides in over the list by transform, the list shifting under it",
       /panel\.animate\(\[\{ transform: at\(panelFrom\) \}, \{ transform: at\(panelTo\) \}\], timing\)/.test(design) && /list\.animate\(\[\{ transform: under\(panelFrom\) \}, \{ transform: under\(panelTo\) \}\], timing\)/.test(design))
     check("and back returns to the place in the list that was left", /scroller\.scrollTop = move\.to === "home" \? listScroll\.current : 0/.test(design))
-    check("the page moves on the tap, its controls built a frame later and faded in", /startTransition\(\(\) => setBodyFor\(section\)\)/.test(design) && /function PanelBody\(/.test(design))
+    /*
+      ONE MOTION PER PRESS. "Themes, back, Themes again, back: a double
+      refresh." The page slid in with only its title and its controls were
+      built a frame later and faded in: two motions for every open, and four
+      frames of an empty page on the first (scripts/check-onepage-editor-nav.mjs,
+      nav: motions [2,1,2,1] before, [1,1,1,1] now; empty panel frames 4 to 0;
+      Theme's cards built once in the whole walk, not on every open).
+    */
+    check("the panels are kept in Activity, as the editor's tabs are, and never faded in",
+      /<Activity key=\{id\} mode=\{id === drawnSection \? "visible" : "hidden"\}>/.test(design) && !/function PanelBody\(/.test(design) && !/setBodyFor/.test(design))
+    check("built while the page is idle, or whole on the tap that comes first",
+      /requestIdleCallback\(build, \{ timeout: 2000 \}\)/.test(design) && /if \(next\) setBuilt\(\(b\) => \(b\.includes\(next\) \? b : \[\.\.\.b, next\]\)\)/.test(design))
+    check("and readied under the finger, out of sight and taking no room, so the lift only moves it",
+      /onPointerDown=\{onRowDown\} onPointerCancel=\{onRowCancel\}/.test(design) && /height: 0, overflow: "hidden", visibility: "hidden", pointerEvents: "none"/.test(design))
+    /* Android's back is the panel's back: the same pop, to the same place in the list, and not "tap again to exit". */
+    const nativeBack = read("components/app/native-back-handler.tsx")
+    check("Android's back closes an open panel, the same way its back button does",
+      /data-native-back=\{section \? "" : undefined\}/.test(design) && /root\.addEventListener\(NATIVE_BACK_EVENT, onBack\)/.test(design)
+      && /const onBack = \(\) => setSection\(null\)/.test(design)
+      && /const inner = nativeBackTarget\(\)[\s\S]{0,200}inner\.dispatchEvent\(new CustomEvent\(NATIVE_BACK_EVENT\)\)/.test(nativeBack)
+      && nativeBack.indexOf("nativeBackTarget()") < nativeBack.indexOf("const isRoot = isRootRoute"))
     check("a finger from the left edge takes the panel back, on a strip that owns its touch", /data-edge-back=""/.test(design) && /touchAction: "none"/.test(design) && /onPointerMove=\{onEdgeMove\}/.test(design))
     /*
       A PICK FADES IN, THE OLD ONE OUT. The border and the check were the
@@ -223,6 +261,49 @@ function main() {
     check("a link's stats are asked for once its sheet has arrived on a phone, as the notifications are", /sheet=\{\{ onOpened: \(\) => setStatsSheetArrived\(true\) \}\}/.test(linksSrc) && /!isMobileStatsViewport \|\| statsSheetArrived/.test(linksSrc))
     check("the day and time sheet sits on the keyboard", /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title=\{label\} aboveKeyboard>/.test(read("components/onepage/date-time-field.tsx")))
     check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))
+  }
+
+  section("The creator's picture is a circle")
+  {
+    /*
+      "In the themes, the profile avatar is not a circle, it's oval." A box
+      sized by its width and an aspect ratio, in a column the card's height
+      holds, can be given less height than width by the column where it runs
+      short. scripts/check-onepage-editor-nav.mjs (avatar) measures every
+      one at 320, 390 and 1280: |width - height| 0.00px.
+    */
+    const design = read("components/onepage/tabs/design-tab.tsx")
+    const card = design.slice(design.indexOf("function ThemeCard("), design.indexOf("function ThemeSection("))
+    check("a theme card's avatar never shrinks, and a spacer makes its height its width",
+      /data-theme-avatar="" className="block aspect-square w-\[22%\] flex-none overflow-hidden rounded-full"/.test(card) && /<span aria-hidden className="block pb-\[100%\]" \/>/.test(card))
+    check("the Header panel's profile picture is a circle, as the page draws it", /aspect-square h-\[88px\] w-\[88px\] shrink-0 cursor-pointer rounded-full/.test(design) && /data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full/.test(design))
+    check("the Links tab's profile picture keeps its size beside a long name", /data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0/.test(read("components/onepage/tabs/links-tab.tsx")))
+    const onboarding = read("components/onepage/onboarding-modal.tsx")
+    check("the onboarding's theme cards keep the creator's picture round", (onboarding.match(/data-theme-avatar="" className="w-(7 h-7|10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 2)
+  }
+
+  section("+ Add")
+  {
+    /*
+      "Make sure it's purple how it was before, and the plus icon has that
+      rotating animation on click." It was bg-violet-500 until the editor
+      went near black (3058e092); it is the app's violet primary now, on
+      this button alone. The + turns 45deg into the sheet's x while the
+      sheet + Add opened is up, and back as it goes, on `rotate` over 200ms,
+      off under reduced motion. It turned on a `.group` before, which
+      app/globals.css strips of transforms and transitions on a touch
+      screen, so on a phone it never turned. Measured (add): rgb(139, 92,
+      246); open 0 to 45deg over 10 frames, close 45 to 0 over 8; reduced
+      motion one step each way.
+    */
+    const links = read("components/onepage/tabs/links-tab.tsx")
+    const add = links.slice(links.indexOf('data-add-block=""') - 40, links.indexOf('data-add-block=""') + 900)
+    check("it is the app's violet primary (accentDepth, #8b5cf6)", /className=\{cn\(accentDepth, "h-11 w-full gap-2 rounded-xl text-\[15px\]"\)\}/.test(add) && /accentDepth =[\s\S]{0,200}bg-\[#8b5cf6\]/.test(read("components/ui/depth-button.ts")))
+    check("and not inside a .group, whose transforms a touch screen loses", !/"group /.test(add) && !/\bgroup-hover:/.test(add))
+    check("its + turns 45deg while its sheet is up, over 200ms, and not under reduced motion",
+      /transition-\[rotate\] duration-200 [^"]*motion-reduce:transition-none/.test(add) && /addSheetFromButton \? "rotate-45" : "rotate-0"/.test(add)
+      && /const addSheetFromButton = showAddModal && insertAfterId === null && addToGroupId === null/.test(links))
+    check("the rest of the Links tab stays ink: this is the one violet", (links.match(/accentDepth/g) ?? []).length === 3 && !/bg-violet-500/.test(links))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

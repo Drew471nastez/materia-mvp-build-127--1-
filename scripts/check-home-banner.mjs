@@ -29,10 +29,11 @@
  *             does not scroll, while the same drag on the text, or on the
  *             globe's box outside the ball, scrolls the page; a mouse gets a
  *             hand and a closed hand; with reduced motion it does not turn
- *             by itself and the text does not slide.
- *   FADES     a change of slide, by the clock, a segment or a swipe, is a
- *             fade, the old line out before the new one in; the text never rides the
- *             finger like a carousel.
+ *             by itself and a change of slide is a jump, not a glide.
+ *   SLIDES    a change of slide, by the clock, a segment or a swipe, is the
+ *             carousel's (embla-carousel): the track follows the finger and
+ *             moves by transform, nothing on a slide fades.
+ *             scripts/check-home-banner-motion.mjs measures it frame by frame.
  *
  *   node scripts/check-home-banner.mjs
  *   SHOTS=/some/dir node scripts/check-home-banner.mjs
@@ -154,6 +155,27 @@ const turns = async (page, ms = 1500) => {
   }
   return false
 }
+/** Whether the carousel has come to rest: the slide showing starts where the carousel does. */
+const settled = (page) => page.evaluate(() => {
+  const v = document.querySelector("[data-home-banner] .home-banner-text").getBoundingClientRect()
+  const s = document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]').getBoundingClientRect()
+  return Math.abs(s.left - v.left) < 0.5
+})
+/**
+ * A real press on an element: a finger's tap on a phone, a mouse click on a
+ * computer. A synthetic click() is not one, and the carousel (rightly) eats
+ * the first click after a drag unless a press came between.
+ */
+const press = async (page, cdp, phone, selector, n = 0) => {
+  const p = await page.evaluate((sel, k) => { const r = document.querySelectorAll(sel)[k].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }, selector, n)
+  if (phone) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: p.x, y: p.y, radiusX: 4, radiusY: 4, force: 1 }] })
+    await sleep(30)
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+  } else {
+    await page.mouse.click(p.x, p.y)
+  }
+}
 /** Waits until `fn` returns something truthy, or the time runs out; returns the last value. */
 const until = async (fn, ms = 4000) => {
   const end = Date.now() + ms
@@ -173,9 +195,8 @@ async function measureSlides(page) {
     if (list.length > 1) {
       /* Focus inside the banner holds the clock, so the slide measured is the one picked, at rest. */
       await page.evaluate((n) => { const tab = document.querySelectorAll("[data-home-banner] [role=tab]")[n]; tab.focus(); tab.click() }, i)
-      await sleep(650)
-      /* And the new line has finished coming in: measured mid-way it is still a few pixels to the side. */
-      await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.animationName === "home-banner-in").map((a) => a.finished)))
+      /* And the carousel has come to rest: measured mid-way the slide is still on its way in. */
+      await until(() => settled(page), 3000)
     }
     out.push(await page.evaluate(() => {
       const b = document.querySelector("[data-home-banner]")
@@ -254,7 +275,7 @@ try {
     const list = await ids(page)
 
     const a0 = await active(page)
-    expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-stack").getAttribute("aria-live"))) === "off", "aria-live off while it plays")
+    expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-track").getAttribute("aria-live"))) === "off", "aria-live off while it plays")
     const a1 = await until(async () => { const a = await active(page); return a !== a0 ? a : null })
     expect(!!a1, "it moves on by itself", [a0, a1])
     expect(list.indexOf(a1) === (list.indexOf(a0) + 1) % list.length, "to the next one", [a0, a1])
@@ -303,40 +324,44 @@ try {
       await sleep(1100)
       expect(!(await held(page)), "and lets go after")
 
-      /* A sideways swipe on the text: left for the next, right for the one before. The clock is stopped, so only the swipe moves it. */
-      await cdp.send("Animation.setPlaybackRate", { playbackRate: 0 })
+      /*
+        A sideways swipe on the text: left for the next, right for the one before. The clock back at its own
+        speed, nine seconds a slide, so only the swipe moves it here. Not stopped: a playback rate of 0 stops
+        the page's frame clock too, and the carousel moves on its frames.
+      */
+      await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
       const swipe = async (dx) => {
-        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: t.x + (dx < 0 ? 120 : 0), y: t.y }] })
+        const x0 = t.x + (dx < 0 ? 160 : 0)
+        /* Where the slide that showed when the finger landed is, against the carousel's left edge. */
+        const shown = await active(page)
+        const track = () => page.evaluate((id) => {
+          const v = document.querySelector("[data-home-banner] .home-banner-text").getBoundingClientRect()
+          return Math.round(document.querySelector(`[data-home-banner] [data-announcement="${id}"]`).getBoundingClientRect().left - v.left)
+        }, shown)
+        const from = await track()
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x0, y: t.y }] })
         for (let i = 1; i <= 10; i++) {
-          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: t.x + (dx < 0 ? 120 : 0) + (dx * i) / 10, y: t.y + i * 0.5 }] })
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x0 + (dx * i) / 10, y: t.y + i * 0.5 }] })
           await sleep(16)
         }
-        /* Mid swipe the text stays where it is, whole: it does not ride the finger like a carousel. */
-        const mid = await page.evaluate(() => {
-          const stack = document.querySelector("[data-home-banner] .home-banner-stack")
-          const slide = stack.querySelector('.home-banner-slide[data-slide="active"]')
-          return { translate: getComputedStyle(stack).translate, opacity: getComputedStyle(stack).opacity, slide: getComputedStyle(slide).opacity }
-        })
-        followed.push(mid)
+        /* Mid swipe the slides ride the finger: the track has moved the way the finger went, by transform, and nothing has faded. */
+        const mid = await page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((c) => getComputedStyle(c).opacity))
+        followed.push({ dx, moved: (await track()) - from, opacities: mid })
         await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
-        await sleep(200)
+        await until(() => settled(page), 3000)
       }
       const followed = []
       const s0 = await active(page)
-      await swipe(-110)
+      await swipe(-150)
       const s1 = await active(page)
       expect(list.indexOf(s1) === (list.indexOf(s0) + 1) % list.length, "a swipe to the left shows the next", [s0, s1])
-      await swipe(110)
+      await swipe(150)
       expect((await active(page)) === s0, "and to the right the one before", [s1, await active(page)])
-      expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-stack").getAttribute("aria-live"))) === "polite", "a change asked for is read out")
-      expect(followed.every((m) => (m.translate === "none" || /^0px/.test(m.translate)) && m.opacity === "1"), "the text does not follow the finger: a swipe only picks the slide", followed)
-      /* The change: the old line out in 150ms, then the new one in, never both half there at once. */
-      const fade = await page.evaluate(() => {
-        const cs = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]'))
-        const out = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide:not([data-slide="active"])'))
-        return { name: cs.animationName, delay: cs.animationDelay, outProperty: out.transitionProperty, outDuration: out.transitionDuration }
-      })
-      expect(fade.name === "home-banner-in" && fade.delay === "0.11s" && /^opacity, visibility$/.test(fade.outProperty) && /^0\.16s/.test(fade.outDuration), "a slide changes by a fade alone, the old line out over 160ms and the next starting at 110ms so no frame is empty", fade)
+      expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-track").getAttribute("aria-live"))) === "polite", "a change asked for is read out")
+      expect(followed.length === 2 && followed.every((m) => Math.sign(m.moved) === Math.sign(m.dx) && Math.abs(m.moved) > 30 && m.opacities.every((o) => o === "1")),
+        "the slides ride the finger (the track moved with it, by transform) and nothing fades", followed)
+      const still = await page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((sl) => { const cs = getComputedStyle(sl); return `${cs.animationName}|${cs.opacity}` }))
+      expect(still.every((x) => x === "none|1"), "no fade and no animation on any slide: only the track moves", still)
       await cdp.send("Animation.setPlaybackRate", { playbackRate: 10 })
     } else {
       /* A mouse over it holds it. */
@@ -350,15 +375,15 @@ try {
       expect((await active(page)) !== hovA, "and it goes on when the mouse leaves")
     }
 
-    /* The segments, as tabs: a click picks a slide, the arrow keys move between them. */
-    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0 })
-    await page.evaluate(() => document.querySelectorAll("[data-home-banner] [role=tab]")[2].click())
+    /* The segments, as tabs: a click picks a slide, the arrow keys move between them. The clock at its own speed, as above. */
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+    await press(page, cdp, phone, "[data-home-banner] [role=tab]", 2)
     await sleep(80)
     expect((await active(page)) === list[2], "a segment picks its slide", await active(page))
     await page.focus('[data-home-banner] [role=tab][aria-selected="true"]')
     await page.keyboard.press("ArrowRight")
     await sleep(60)
-    const k = await page.evaluate(() => ({ active: document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]').dataset.announcement, focused: document.activeElement?.getAttribute("aria-selected"), live: document.querySelector("[data-home-banner] .home-banner-stack").getAttribute("aria-live") }))
+    const k = await page.evaluate(() => ({ active: document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]').dataset.announcement, focused: document.activeElement?.getAttribute("aria-selected"), live: document.querySelector("[data-home-banner] .home-banner-track").getAttribute("aria-live") }))
     expect(k.active === list[0] && k.focused === "true", "the right arrow moves to the next and focus follows", k)
     expect(k.live === "polite", "and it is read out")
 
@@ -371,9 +396,10 @@ try {
     })
     const cta = '[data-home-banner] .home-banner-slide[data-slide="active"] .home-banner-cta'
     const id = await active(page)
+    await until(() => settled(page), 3000)
     if (!phone) await page.hover(cta)
-    else await page.evaluate((sel) => document.querySelector(sel).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" })), cta)
-    await page.evaluate((sel) => document.querySelector(sel).click(), cta)
+    /* A finger's tap (its pointerdown fetches ahead), or a mouse's click after the hover. */
+    await press(page, cdp, phone, cta)
     const went = await page.evaluate(() => ({ linked: window.__linked, starts: window.__navStarts, prefetched: window.__prefetched }))
     expect(went.linked === HREF[id], `${id}'s button goes to ${HREF[id]}`, went.linked)
     expect(went.starts.includes(HREF[id]), "and tells the shell a navigation began", went.starts)
@@ -393,7 +419,14 @@ try {
       const banner = document.querySelector("[data-home-banner]").getBoundingClientRect()
       return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, touch: getComputedStyle(g).touchAction, text: getComputedStyle(document.querySelector(".home-banner-text")).touchAction, box: { left: box.left, top: box.top, right: Math.min(box.right, banner.right), bottom: Math.min(box.bottom, banner.bottom) } }
     })
-    expect(grip.touch === "none" && grip.text === "pan-y", "a finger on the ball is the globe's (touch-action none), the text beside it scrolls the page (pan-y)", grip)
+    expect(grip.touch === "none" && grip.text === "pan-y pinch-zoom", "a finger on the ball is the globe's (touch-action none), the text beside it scrolls the page (pan-y)", grip)
+    /* The carousel stops where the grip starts: no point is both the globe's and the carousel's. */
+    const apart = await page.evaluate(() => {
+      const v = document.querySelector("[data-home-banner] .home-banner-text").getBoundingClientRect()
+      const g = document.querySelector("[data-home-globe-grip]").getBoundingClientRect()
+      return { carouselRight: Math.round(v.right * 10) / 10, gripLeft: Math.round(g.left * 10) / 10 }
+    })
+    expect(apart.carouselRight <= apart.gripLeft + 0.5, "the carousel ends where the globe's grip begins, and never under it", apart)
     if (phone) {
       const scrollTop = () => page.evaluate(() => document.querySelector(".dashboard-scroll-container").scrollTop)
       const drag = async (x, y, dy, dx = 2) => {
@@ -503,7 +536,7 @@ try {
     await page.close()
   }
 
-  /* Reduced motion: no turning by itself, and the text changes in place. */
+  /* Reduced motion: no turning by itself, and a change of slide is a jump, not a glide. */
   {
     const { page, errors } = await open(390, "state=selling", { reduce: true })
     console.log("\nreduced motion at 390")
@@ -514,8 +547,8 @@ try {
     expect((await globeHash(page)) === g0, "the globe does not turn by itself")
     await page.evaluate(() => document.querySelectorAll("[data-home-banner] [role=tab]")[1].click())
     await sleep(30)
-    const t = await page.evaluate(() => getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"] .home-banner-title')).translate)
-    expect(t === "none" || /^0px/.test(t), "the text does not slide", t)
+    const jumped = await page.evaluate(() => document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]').dataset.announcement)
+    expect(jumped === (await ids(page))[1] && (await settled(page)), "a segment's slide is simply there, no glide", jumped)
     expect(errors.length === 0, "no errors", errors.slice(0, 3))
     await page.close()
   }

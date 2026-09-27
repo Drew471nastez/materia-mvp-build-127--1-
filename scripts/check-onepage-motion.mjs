@@ -126,13 +126,15 @@ async function open(vp, hash, { throttle = 1, at = base } = {}) {
   return { p, cdp, errors }
 }
 const center = (p, sel) => p.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
-async function press(s, phone, sel) {
+/* `hold`: how long the finger or the button stays down, as a real tap does (the Design tab readies a row's panel under it). */
+async function press(s, phone, sel, hold = 0) {
   const c = await center(s.p, sel)
   if (phone) {
     await s.cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: c.x, y: c.y }] })
+    if (hold) await sleep(hold)
     await s.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
   } else {
-    await s.p.mouse.click(c.x, c.y)
+    await s.p.mouse.click(c.x, c.y, { delay: hold })
   }
 }
 /* A picture mid-way: every animation slowed ten times, the press, a wait, the picture, back to speed. */
@@ -262,7 +264,8 @@ if (wants("push")) for (const [label, vp, phone, throttle] of [["phone-390", PHO
     const commits0 = await s.p.evaluate(() => window.__commits)
     const rec = s.p.evaluate((ms, fn) => window.__rec(ms, new Function(`return (${fn})()`)), 800, PANEL.toString())
     await sleep(40)
-    await press(s, phone, sel)
+    /* A real tap: the finger down 90ms. The Design tab readies the row's panel under it; "tap to motion" is from the lift. */
+    await press(s, phone, sel, 90)
     const { gaps, painted } = await rec
     const commits = (await s.p.evaluate(() => window.__commits)) - commits0
     const moving = new Set(painted.map((f) => `${f.listX}|${f.subX}`)).size - 1

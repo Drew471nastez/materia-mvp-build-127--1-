@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { isNativeApp } from "@/lib/native-bridge"
 import { CLOSE_EVENT } from "@/components/app/sidebar-mobile-nav"
+import { NATIVE_BACK_EVENT, nativeBackTarget } from "@/lib/ui/native-back"
 
 /**
  * NativeBackHandler
@@ -69,6 +70,19 @@ export function NativeBackHandler() {
           const menu = document.querySelector('[data-mobile-menu="open"]')
           if (menu) {
             menu.dispatchEvent(new CustomEvent(CLOSE_EVENT))
+            return
+          }
+
+          /*
+            A PANEL OPENED INSIDE THE PAGE GOES BACK BEFORE THE PAGE DOES. The
+            OnePage editor's Design panels have no history entry of their own,
+            and the editor is a root route, so back offered to leave the app
+            from inside Theme. The page marks what answers back (lib/ui/native-back)
+            and does what its own back button does.
+          */
+          const inner = nativeBackTarget()
+          if (inner) {
+            inner.dispatchEvent(new CustomEvent(NATIVE_BACK_EVENT))
             return
           }
 

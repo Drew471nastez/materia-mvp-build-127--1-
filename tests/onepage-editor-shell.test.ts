@@ -90,7 +90,18 @@ check("Links, Design and Products are kept, out of sight in React's Activity", /
 check("and built ahead while the page is idle", /requestIdleCallback\(build/.test(editor))
 check("Settings is still built each time it opens", /t === "settings" \? \(\s*<SettingsTab ref=\{settingsTabRef\} \/>/.test(editor))
 check("each tab comes back to where it was scrolled", /scrollMemory\.current\[from\] = outgoing\.scrollTop/.test(editor) && /incoming\.scrollTop = scrollMemory\.current\[to\] \?\? 0/.test(editor))
-check("the switch is transform and opacity on the compositor", /incoming\.animate\(\s*\[\{ transform: `translate3d/.test(editor) && /incoming\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(editor) && /outgoing\.animate\(/.test(editor))
+/*
+  "Even when I'm switching in the bottom tabs, make sure it's smooth and
+  clean. Direct, not so much animation." The new tab slid 12px over 220ms
+  and the old slid the other way: now one 120ms fade of the new tab over
+  the old, which stays whole under it and is hidden once covered.
+  scripts/check-onepage-editor-nav.mjs (tabs): animations moving a tab 2 to
+  0, frames with a tab off its place 12 to 16 to 0, longest 220 to 120ms,
+  no frame without a tab, Links back at 260px.
+*/
+check("the switch is one short fade on the compositor, and nothing slides",
+  /const fade = incoming\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: TAB_FADE_IN_MS, easing: TAB_FADE_EASE \}\)/.test(editor)
+  && /const TAB_FADE_IN_MS = 120/.test(editor) && !/TAB_SHIFT_PX/.test(editor) && !/outgoing\.animate\(/.test(editor) && !/incoming\.animate\(\s*\[\{ transform/.test(editor))
 check("the pill slides by transform, started from the press", /data-tab-pill=""/.test(editor) && /pillMoves\.current\.forEach\(\(slide\) => slide\(tab\)\)/.test(editor) && /scaleX\(\$\{from\.w \/ w\}\)/.test(editor))
 check("the panels follow a frame after the bars", /requestAnimationFrame\(\(\) => \{\s*timer = window\.setTimeout\(\(\) => startTransition\(\(\) => setPanelTab\(activeTab\)\), 0\)/.test(editor))
 
@@ -103,6 +114,10 @@ console.log("\nSettings")
 check("SEO is one share card", /data-og-card=""/.test(settings) && /Share preview/.test(settings))
 check("Add image opens the picker straight away, no modal", /fileInputRef\.current\?\.click\(\)/.test(settings) && !/showOgImageModal/.test(settings) && !/Upload Social Image/.test(settings))
 check("the section list is words, no icons", !/icon: [A-Z]/.test(settings.slice(settings.indexOf("const SETTINGS_SECTIONS"), settings.indexOf("const SETTINGS_SECTIONS") + 600)))
+/* A section swapped in one frame; now it settles in tone as Website Settings' tabs do (scripts/check-onepage-editor-nav.mjs, links: 1 opacity step before, 13 now, top unmoved). */
+check("a section changes as Website Settings' tabs do: keyed, and the shared fade once one is pressed",
+  /<div key=\{activeSection\} data-settings-section=\{activeSection\} className=\{cn\("bg-white rounded-xl border border-gray-200 p-5", sectionEntrance && "settings-panel"\)\}>/.test(settings)
+  && (settings.match(/onClick=\{\(\) => chooseSection\(section\.id\)\}/g) ?? []).length === 2)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

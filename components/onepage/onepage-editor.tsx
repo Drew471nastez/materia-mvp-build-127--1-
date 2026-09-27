@@ -83,19 +83,17 @@ const TAB_ORDER: TabType[] = ["links", "design", "products", "settings"]
 /** Built once and kept (see ONE TAB TO THE NEXT below); Settings is built each time. */
 const KEPT_TABS: TabType[] = ["links", "design", "products"]
 /**
- * The new tab settles over 220ms on iOS's curve, from a few pixels to the
- * side, but is fully there after 90ms: its own white covers the old tab as
- * it arrives, so the two show through each other for a few frames at most,
- * never half and half. The old one fades out under it in 70ms.
+ * A SWITCH IS A SHORT FADE AND NOTHING ELSE. "Direct, not so much
+ * animation, but smooth, normal." The new tab slid 12px over 220ms as it
+ * faded, and the old one slid the other way under it. Now the new tab only
+ * fades in, over 120ms, over the old one, which stays whole under it until
+ * it is covered and is then hidden: no slide, no frame of neither.
  */
-const TAB_IN_MS = 220
-const TAB_FADE_IN_MS = 90
+const TAB_FADE_IN_MS = 120
 const TAB_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-const TAB_OUT_MS = 70
-const TAB_OUT_EASE = "cubic-bezier(0, 0, 0.2, 1)"
-const TAB_SHIFT_PX = 12
-/** The pill under the chosen tab slides to the next one on the same curve. */
-const PILL_MS = 260
+const TAB_FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
+/** The pill under the chosen tab slides to the next one on iOS's curve. */
+const PILL_MS = 240
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -599,9 +597,8 @@ function EditorLayout() {
     its own place, and a hidden one sits in React's <Activity mode="hidden">,
     so an edit made on one tab does not re-render the other two while they
     are out of sight (they catch up at the lowest priority). A switch shows
-    the new one over the old: the new fades and slides in by a few pixels
-    from the side of the tab that was pressed, the old fades out under it,
-    both on the compositor, and the old is hidden once it has gone. Settings
+    the new one over the old: the new fades in over 120ms, on the
+    compositor, over the old one, which is hidden once it is covered. Settings
     is still built each time it is opened, because what was typed there is
     handed to the page on the way out and a kept copy would keep it too.
   */
@@ -716,19 +713,11 @@ function EditorLayout() {
       letGo()
       return
     }
-    const dir = TAB_ORDER.indexOf(to) > TAB_ORDER.indexOf(from) ? 1 : -1
-    incoming.animate(
-      [{ transform: `translate3d(${dir * TAB_SHIFT_PX}px, 0, 0)` }, { transform: "translate3d(0, 0, 0)" }],
-      { duration: TAB_IN_MS, easing: TAB_EASE },
-    )
-    incoming.animate([{ opacity: 0 }, { opacity: 1 }], { duration: TAB_FADE_IN_MS, easing: TAB_OUT_EASE })
-    const out = outgoing.animate(
-      [{ opacity: 1, transform: "translate3d(0, 0, 0)" }, { opacity: 0, transform: `translate3d(${-dir * TAB_SHIFT_PX * 0.5}px, 0, 0)` }],
-      { duration: TAB_OUT_MS, easing: TAB_OUT_EASE, fill: "forwards" },
-    )
-    out.onfinish = letGo
+    /* One animation: the new tab's white fades in over the old tab, which is let go once it is covered. */
+    const fade = incoming.animate([{ opacity: 0 }, { opacity: 1 }], { duration: TAB_FADE_IN_MS, easing: TAB_FADE_EASE })
+    fade.onfinish = letGo
     /* However the fade ends, or if a background tab draws no frames, the old tab goes. */
-    const timer = window.setTimeout(letGo, TAB_IN_MS + 200)
+    const timer = window.setTimeout(letGo, TAB_FADE_IN_MS + 200)
     return () => window.clearTimeout(timer)
   }, [panels.tab])
 
