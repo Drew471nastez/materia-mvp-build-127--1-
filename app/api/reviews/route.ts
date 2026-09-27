@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     /* Two presses at once both passed the check above; the unique index
-       (run-now part 47) lets one in and refuses the other. */
+       (run-now part 48) lets one in and refuses the other. */
     if ((error as { code?: string }).code === "23505") {
       return NextResponse.json({ error: ALREADY_REVIEWED, alreadyReviewed: true }, { status: 409 })
     }
