@@ -67,6 +67,9 @@ for (const width of [1440, 390]) {
   for (const view of VIEWS) CASES.push({ width, query: `?view=${view}${view === "creator" ? `&id=c0000001-0000-4000-8000-000000000000` : ""}`, name: `${view}-${width}` })
   CASES.push({ width, query: "?view=orders&dialog=1", name: `dialog-${width}`, dialog: true })
   CASES.push({ width, query: "?login=1", name: `login-${width}`, login: true })
+  /* The wallet panel reads itself, so it is measured in both of its states. */
+  CASES.push({ width, query: "?view=system", name: `wallets-waiting-${width}`, wallets: "waiting" })
+  CASES.push({ width, query: "?view=system&wallets=done", name: `wallets-done-${width}`, wallets: "done" })
 }
 CASES.push({ width: 390, query: "?view=overview&menu=1", name: "menu-390", menu: true })
 
@@ -138,6 +141,17 @@ for (const c of CASES) {
       dialog: dialog ? rect(dialog) : null,
       background: shell ? getComputedStyle(shell).backgroundColor : null,
       rows: document.querySelectorAll("[data-row]").length,
+      wallet: (() => {
+        const p = document.getElementById("wallet-domains")
+        if (!p) return null
+        const press = p.querySelector("header button")
+        return {
+          over: p.scrollWidth - p.clientWidth,
+          rows: p.querySelectorAll("[data-row]").length,
+          press: press ? { label: (press.textContent || "").trim(), height: Math.round(press.getBoundingClientRect().height) } : null,
+          said: (p.textContent || "").replace(/\s+/g, " ").trim(),
+        }
+      })(),
       unreadable: document.querySelectorAll("[data-unreadable]").length,
       small,
       text: (document.body.textContent || "").slice(0, 80),
@@ -171,6 +185,31 @@ for (const c of CASES) {
     else if (c.width >= 640 && Math.abs(m.dialog.left + m.dialog.width / 2 - m.vw / 2) > 2) note(c, "at a desk the confirmation is not centred")
   }
   if (m.small.length) note(c, `controls under 28px tall: ${m.small.slice(0, 4).join(", ")}`)
+  /**
+   * The wallet panel with its answer stubbed: one row per wallet the express
+   * checkout asks for, one button to press, and Stripe's own reason readable
+   * rather than cut off. It is the whole remaining step for Apple Pay, so it
+   * is measured and not looked at.
+   */
+  if (c.wallets) {
+    const w = m.wallet
+    if (!w) note(c, "the wallet panel did not render")
+    else {
+      if (w.rows !== 3) note(c, `the wallet panel shows ${w.rows} wallets, not Apple Pay, Google Pay and Link`)
+      if (!w.press) note(c, "the wallet panel has nothing to press")
+      else if (w.press.height < 32) note(c, `the wallet button is ${w.press.height}px tall`)
+      if (w.over > 1) note(c, `the wallet panel is ${w.over}px wider than itself`)
+      for (const word of ["Apple Pay", "Google Pay", "Link"]) if (!w.said.includes(word)) note(c, `the wallet panel never says ${word}`)
+      if (c.wallets === "waiting") {
+        if (w.press?.label !== "Check again") note(c, `a registered domain offers "${w.press?.label}" rather than a re-check`)
+        if (!w.said.includes("Apple could not verify")) note(c, "Stripe's own reason is not shown")
+        if (!w.said.includes("Not found")) note(c, "the association file's 404 is not shown")
+      } else {
+        if (!w.said.includes("all active")) note(c, "the finished state does not say the wallets are active")
+        if (!w.said.includes("9094 bytes")) note(c, "the association file's length is not shown")
+      }
+    }
+  }
   console.log(
     `${c.name.padEnd(16)} rows ${String(m.rows).padStart(3)}  figures ${String(m.figures.length).padStart(2)}  unreadable ${m.unreadable}  sideways ${m.scroll}px  overlaps ${m.overlaps.length}` +
       (m.dialog ? `  dialog ${Math.round(m.dialog.width)}x${Math.round(m.dialog.height)} at ${Math.round(m.dialog.left)},${Math.round(m.dialog.top)}` : ""),

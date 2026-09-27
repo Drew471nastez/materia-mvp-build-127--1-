@@ -75,6 +75,7 @@ import {
   type TriggerType,
 } from "./flow-model"
 import { brandButtons, fillFields, mergeValues, textOn, type MergeValues } from "./merge-fields"
+import { unsubscribePageFor } from "@/lib/email-variables"
 
 /* ─── Rows ───────────────────────────────────────────────────────────── */
 
@@ -159,10 +160,13 @@ export interface Brand {
 }
 
 export interface Identity {
+  /** The creator's name as their profile says it now: the From name and {{creator_name}}. */
   fromName: string
   replyTo: string
   storeUrl: string
   brand?: Brand
+  /** The profile photo as it is now (https), for the footer beside their name. Null draws their initial. */
+  avatarUrl?: string | null
 }
 
 /** The addresses a run's fields link to, read when the email is sent. */
@@ -170,6 +174,8 @@ export interface RunLinks {
   productUrl: string | null
   orderUrl: string | null
   checkoutUrl: string | null
+  /** This reader's own unsubscribe page, for a {{unsubscribe_url}} in the body. */
+  unsubscribeUrl?: string | null
 }
 
 export interface OutgoingMail {
@@ -274,10 +280,13 @@ export function prepareEmail(step: EmailStep, run: Pick<RunRow, "name" | "contex
     name: run.name,
     storeName: identity.brand?.name || identity.fromName,
     storeUrl: identity.storeUrl,
+    creatorName: identity.fromName,
     productName: run.context.product_title,
     productUrl: links.productUrl,
+    orderId: run.context.order_id,
     orderUrl: links.orderUrl,
     checkoutUrl: links.checkoutUrl,
+    unsubscribeUrl: links.unsubscribeUrl,
   })
   const accent = identity.brand?.accentColor ?? "#1a1a2e"
   const onAccent = identity.brand?.onAccent ?? textOn(accent)
@@ -589,7 +598,7 @@ async function sendStep(ctx: Ctx, flow: FlowRow, run: RunRow, step: EmailStep, s
   const links = await store.links(run)
   const begin = await store.beginSend({ runId: run.id, flowId: flow.id, creatorId: run.creator_id, stepId: step.id, email: run.email, subject: step.config.subject })
   if (!begin.go) return "why" in begin && begin.why === "sent" ? "skipped" : "interrupted"
-  const ready = prepareEmail(step, run, identity, links)
+  const ready = prepareEmail(step, run, identity, { ...links, unsubscribeUrl: standing.unsubscribeToken ? unsubscribePageFor(standing.unsubscribeToken) : null })
   const mail = mailer.compose({ step: ready.step, run, identity, standing, token: begin.token, merge: ready.merge })
   let result: { success: boolean; messageId?: string; error?: string }
   try {

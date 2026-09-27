@@ -71,7 +71,7 @@ for (const s of STARTERS) {
 console.log("\nWith no store address")
 const bare = starterDraft("announcement", { name: "", storeUrl: null })
 check("the button has no link yet, and Send says so", blockIssues(bare.blocks).some((i) => i.level === "error" && /no link/.test(i.message)))
-check("the sign off still has a name", /The team/.test(JSON.stringify(bare.blocks)))
+check("the sign off is the {{creator_name}} tag, filled with the profile's name when it is sent", /\{\{creator_name\}\}/.test(JSON.stringify(bare.blocks)) && /Maya Studio/.test(personalizeHtml(bare.blocks.map((b) => (b as { html?: string }).html ?? "").join(""), { creatorName: "Maya Studio" })))
 
 console.log("\nThe logo, as the email is sent")
 const html = buildEmail({ subject: "s", bodyHtml: "<p>x</p>", brand, kind: "marketing", unsubscribeUrl: "#" })

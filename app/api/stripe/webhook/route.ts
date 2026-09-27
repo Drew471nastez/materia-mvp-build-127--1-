@@ -594,6 +594,7 @@ export async function POST(request: Request) {
         feeCents: applicationFeeAmount,
         baseUrl,
         variantName: variantName || null,
+        sale: { couponCode: metadata.coupon_code || null, discountCents: Math.max(0, Number.parseInt(metadata.discount_cents || "0", 10) || 0) },
       })
 
       try {

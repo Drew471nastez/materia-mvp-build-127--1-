@@ -76,8 +76,8 @@ export async function POST(request: Request) {
   if (limited) return limited
 
   /* The body as the send renders it: the blocks read back out, in the brand's look as it is now. */
-  const reader = { name: sender.name, email: asked }
   const page = `${APP_URL}/unsubscribe`
+  const reader = { name: sender.name, email: asked, creatorName: sender.name, storeName: sender.brand.name, storeUrl: sender.brand.storeUrl, unsubscribeUrl: page }
   const html = personalizeHtml(renderBlocks(content.blocks, themeOf(sender.brand)), reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
   const subject = personalizeSubject(content.subject, reader)
   const result = await sendMailgunOnce({

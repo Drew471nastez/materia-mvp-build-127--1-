@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server"
 import { FlowBuilder, type BuilderData, type RunView, type StepStats } from "./builder"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorForRequest } from "@/lib/auth/request-scope"
+import { supabaseStore } from "@/lib/automations/supabase-store"
+import { createAdminClient } from "@/lib/supabase/admin"
+import type { Identity } from "@/lib/automations/engine"
 
 export const metadata: Metadata = { title: "Automation" }
 export const dynamic = "force-dynamic"
@@ -34,7 +37,7 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
   /* The same cached read of the creator the /app layout makes for this request: no second query. */
   const creatorRead = creatorForRequest(user.id)
   const count = (q: PromiseLike<{ count: number | null }>) => q.then((r) => r.count ?? 0, () => 0)
-  const [creator, flowRes, products, stats, runs, active, finished, left, failed, failedJobs, starts] = await Promise.all([
+  const [creator, flowRes, products, stats, runs, active, finished, left, failed, failedJobs, starts, look] = await Promise.all([
     creatorRead,
     supabase.from("email_flows").select("id, creator_id, name, trigger_type, trigger_config, status, steps, updated_at").eq("id", id).maybeSingle(),
     creatorRead.then(async (data): Promise<{ data: Array<{ id: string; title: string }> | null }> =>
@@ -54,6 +57,11 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
     count(supabase.from("email_flow_jobs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("state", "failed")),
     /* Whether started checkouts are recorded yet (RUN_CHECKOUT_CONTACTS.sql). */
     supabase.from("checkout_starts").select("id", { head: true }).limit(1),
+    /* The creator as a send reads them (name, store, logo, colour, photo), for the preview: the same read, not a copy. */
+    creatorRead.then(
+      (c): Promise<Identity | null> => (c ? supabaseStore(createAdminClient()).identity(c.id) : Promise.resolve(null)),
+      () => null,
+    ).catch(() => null),
   ])
 
   if (!creator) redirect("/app")
@@ -85,6 +93,7 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
     tracking,
     startsRecorded: !starts.error,
     accountEmail: user.email ?? null,
+    look: look ? { fromName: look.fromName, replyTo: "", storeUrl: look.storeUrl, brand: look.brand, avatarUrl: look.avatarUrl ?? null } : null,
   }
   return <FlowBuilder data={data} />
 }

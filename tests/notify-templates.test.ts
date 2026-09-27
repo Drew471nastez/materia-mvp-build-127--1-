@@ -159,7 +159,10 @@ function main() {
   // Money and first names
   const sent = renderEmail("PAYOUT_SENT", FULL, ctx)
   check("payout subject is specific", sent.subject === "Your payout of $120.40 is on its way", sent.subject)
-  check("customer name is the first name only", renderEmail("NEW_SALE", FULL, ctx).text.includes("Sam bought") && !renderEmail("NEW_SALE", FULL, ctx).text.includes("Rivera"))
+  /* Changed on purpose: the sale email is the creator's order notice, and the buyer is their customer, so the body names them in full
+     (tests/sale-email.test.ts); the preview line, which shows in the inbox list, keeps to the first name. */
+  const saleMail = renderEmail("NEW_SALE", FULL, ctx)
+  check("the sale preview names the customer by first name, the order by full name", saleMail.preview.startsWith("Sam bought") && !saleMail.preview.includes("Rivera") && saleMail.text.includes("Name: Sam Rivera"))
   check("security emails never show more than a masked number", !/\d{5,}/.test(renderEmail("PAYOUT_METHOD_CHANGED", { ...FULL, bankLast4: "000123456789" }, ctx).text.replace(/2026/g, "")))
   check("a full new email is masked", renderEmail("EMAIL_CHANGED", { newEmailMasked: "sam@example.com" }, ctx).text.includes("s***@example.com"))
   check("empty data leaves out fact rows", !/Amount:\s*\n/.test(renderEmail("PAYOUT_SENT", {}, ctx).text) && !renderEmail("PAYOUT_SENT", {}, ctx).text.includes("Amount:"))

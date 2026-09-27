@@ -59,6 +59,27 @@ export interface Link {
   url: string
 }
 
+/** A row of money under an order's items: "Subtotal", "Discount (SPRING)", "Total". */
+export interface SummaryRow {
+  label: string
+  value: string
+  strong?: boolean
+}
+
+/**
+ * An order drawn as a store platform draws one: a header with the number and
+ * the time, one row per item, the totals, what the seller receives, then
+ * small sections of facts (the customer, the payment).
+ */
+export interface OrderSummary {
+  title: string
+  subtitle?: string | null
+  lines: { title: string; detail?: string | null; amount: string }[]
+  totals: SummaryRow[]
+  payout?: SummaryRow[]
+  sections?: { title: string; rows: Fact[] }[]
+}
+
 /** Everything the layout draws. Plain text only; the layout escapes it. */
 export interface LayoutInput {
   family: TemplateFamily
@@ -68,7 +89,11 @@ export interface LayoutInput {
   greeting?: string | null
   paragraphs: string[]
   facts?: Fact[]
+  /** An order summary, drawn after the paragraphs (a sale). */
+  order?: OrderSummary | null
   action?: Link | null
+  /** A quiet text link under the button: "Reply to the customer". */
+  secondary?: Link | null
   /** A boxed note under the button: the security "If this was not you". */
   notice?: { title: string; text: string; link?: Link | null } | null
   /** A small grey line after everything: "You can turn these reminders off in settings." */
@@ -133,11 +158,17 @@ a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important
 .sn-logo{background-color:#ffffff!important;}
 .sn-btn{background-color:#2f2f4d!important;border:1px solid #7a7a85!important;}
 .sn-link{color:#c4b5fd!important;}
+.sn-ord{border-color:#34343c!important;}
+.sn-ord td{border-color:#34343c!important;}
+.sn-ord-head,.sn-ord-pay{background-color:#26262c!important;}
+.sn-strong{color:#fafafa!important;}
 }
 [data-ogsc] .sn-body,[data-ogsc] .sn-body p,[data-ogsc] .sn-body td{color:#e4e4e7!important;}
 [data-ogsc] .sn-h1,[data-ogsc] .sn-mark{color:#fafafa!important;}
 [data-ogsc] .sn-muted,[data-ogsc] .sn-foot,[data-ogsc] .sn-foot a{color:#a1a1aa!important;}
 [data-ogsc] .sn-link{color:#c4b5fd!important;}
+[data-ogsc] .sn-strong{color:#fafafa!important;}
+[data-ogsb] .sn-ord-head,[data-ogsb] .sn-ord-pay{background-color:#26262c!important;}
 [data-ogsb] .sn-bg{background-color:#111114!important;}
 [data-ogsb] .sn-card{background-color:#1c1c21!important;}
 [data-ogsb] .sn-notice{background-color:#26262c!important;}
@@ -157,12 +188,12 @@ function button(link: Link): string {
 </table>`
 }
 
-function factsTable(facts: Fact[]): string {
+function factsTable(facts: Fact[], labelWidth = "40%"): string {
   const rows = facts
     .map((f, i) => {
       const border = i < facts.length - 1 ? "border-bottom:1px solid #eceef1;" : ""
       return `<tr>
-<td class="sn-muted" valign="top" style="padding:11px 14px;${border}font-family:${FONT};font-size:14px;line-height:20px;color:#6b7280;width:40%;">${escapeHtml(f.label)}</td>
+<td class="sn-muted" valign="top" style="padding:11px 14px;${border}font-family:${FONT};font-size:14px;line-height:20px;color:#6b7280;width:${labelWidth};">${escapeHtml(f.label)}</td>
 <td valign="top" align="right" style="padding:11px 14px;${border}font-family:${FONT};font-size:14px;line-height:20px;color:#111827;font-weight:600;text-align:right;word-break:break-word;">${escapeHtml(f.value)}</td>
 </tr>`
     })
@@ -170,6 +201,69 @@ function factsTable(facts: Fact[]): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="sn-facts" style="width:100%;margin:4px 0 20px;border:1px solid #eceef1;border-radius:8px;border-collapse:separate;">
 ${rows}
 </table>`
+}
+
+function orderBlock(o: OrderSummary): string {
+  const cell = `font-family:${FONT};font-size:14px;line-height:20px;`
+  const head = `<tr><td class="sn-ord-head" colspan="2" style="padding:14px 16px;background-color:#f8f9fa;border-bottom:1px solid #eceef1;border-radius:8px 8px 0 0;">
+<p class="sn-strong" style="margin:0;${cell}font-size:15px;font-weight:700;color:#111827;">${escapeHtml(o.title)}</p>${
+    o.subtitle ? `\n<p class="sn-muted" style="margin:2px 0 0;${cell}font-size:13px;line-height:19px;color:#6b7280;">${escapeHtml(o.subtitle)}</p>` : ""
+  }
+</td></tr>`
+  const lines = o.lines
+    .map(
+      (l) => `<tr>
+<td valign="top" style="padding:14px 8px 14px 16px;border-bottom:1px solid #eceef1;${cell}color:#111827;word-break:break-word;">
+<span class="sn-strong" style="font-weight:600;color:#111827;">${escapeHtml(l.title)}</span>${
+        l.detail ? `<br><span class="sn-muted" style="font-size:13px;line-height:19px;color:#6b7280;">${escapeHtml(l.detail)}</span>` : ""
+      }
+</td>
+<td valign="top" align="right" style="padding:14px 16px 14px 8px;border-bottom:1px solid #eceef1;${cell}color:#111827;white-space:nowrap;text-align:right;">${escapeHtml(l.amount)}</td>
+</tr>`,
+    )
+    .join("\n")
+  const row = (r: SummaryRow, top: string, pad: string, tint = false, last = false) => {
+    const bg = tint ? "background-color:#fafbfc;" : ""
+    const cls = tint ? " sn-ord-pay" : ""
+    const left = last ? "border-radius:0 0 0 8px;" : ""
+    const right = last ? "border-radius:0 0 8px 0;" : ""
+    return `<tr>
+<td class="${r.strong ? "sn-strong" : "sn-muted"}${cls}" style="padding:${pad};${top}${bg}${left}${cell}color:${r.strong ? "#111827" : "#6b7280"};${r.strong ? "font-weight:700;" : ""}">${escapeHtml(r.label)}</td>
+<td align="right" class="sn-strong${cls}" style="padding:${pad};${top}${bg}${right}${cell}color:#111827;text-align:right;white-space:nowrap;${r.strong ? "font-weight:700;" : ""}">${escapeHtml(r.value)}</td>
+</tr>`
+  }
+  /* Totals: the strong row (Total) is set off by a line; the first and last rows get the box's breathing room. */
+  const totals = o.totals
+    .map((r, i) => {
+      const divider = Boolean(r.strong) && i > 0
+      const top = divider ? "10px" : i === 0 ? "12px" : "3px"
+      const bottom = i === o.totals.length - 1 ? "12px" : "3px"
+      return row(r, divider ? "border-top:1px solid #eceef1;" : "", `${top} 16px ${bottom}`)
+    })
+    .join("\n")
+  /* What the seller receives, on a faint tint under the totals. */
+  const payout = o.payout ?? []
+  const payoutRows = payout
+    .map((r, i) => {
+      const top = i === 0 ? "12px" : "3px"
+      const bottom = i === payout.length - 1 ? "12px" : "3px"
+      return row(r, i === 0 ? "border-top:1px solid #eceef1;" : "", `${top} 16px ${bottom}`, true, i === payout.length - 1)
+    })
+    .join("\n")
+  const box = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="sn-ord" style="width:100%;margin:4px 0 20px;border:1px solid #eceef1;border-radius:8px;border-collapse:separate;">
+${head}
+${lines}
+${totals}
+${payoutRows}
+</table>`
+  const sections = (o.sections ?? [])
+    .filter((sec) => sec.rows.length > 0)
+    .map(
+      (sec) => `<p class="sn-muted" style="margin:0 0 6px;font-family:${FONT};font-size:13px;line-height:18px;font-weight:600;color:#6b7280;">${escapeHtml(sec.title)}</p>
+${factsTable(sec.rows, "30%")}`,
+    )
+    .join("\n")
+  return box + sections
 }
 
 function noticeBox(n: NonNullable<LayoutInput["notice"]>): string {
@@ -206,7 +300,11 @@ export function renderHtml(input: LayoutInput): string {
     : ""
   const greeting = input.greeting ? P(input.greeting) : ""
   const facts = input.facts && input.facts.length > 0 ? factsTable(input.facts) : ""
+  const order = input.order ? orderBlock(input.order) : ""
   const action = input.action ? button(input.action) : ""
+  const secondary = input.secondary
+    ? `<p style="margin:14px 0 0;font-family:${FONT};font-size:14px;line-height:21px;"><a class="sn-link" href="${escapeAttr(input.secondary.url)}" style="color:#4c1d95;text-decoration:underline;font-weight:600;">${escapeHtml(input.secondary.label)}</a></p>`
+    : ""
   const fallback = input.action
     ? `<p class="sn-muted" style="margin:14px 0 0;font-family:${FONT};font-size:13px;line-height:19px;color:#6b7280;word-break:break-all;">Or open this link: <a class="sn-link" href="${escapeAttr(input.action.url)}" target="_blank" style="color:#4c1d95;text-decoration:underline;">${escapeHtml(input.action.url)}</a></p>`
     : ""
@@ -255,7 +353,7 @@ ${accent}
 <tr><td class="sn-pad sn-body" style="padding:36px 40px 36px;font-family:${FONT};font-size:16px;line-height:25px;color:#1f2937;word-break:break-word;">
 ${label}<h1 class="sn-h1" style="margin:0 0 18px;font-family:${FONT};font-size:22px;line-height:30px;font-weight:700;color:#111827;letter-spacing:-0.3px;">${escapeHtml(input.heading)}</h1>
 ${greeting}${input.paragraphs.map(P).join("\n")}
-${facts}${notice}${action}${fallback}${note}
+${facts}${order}${notice}${action}${secondary}${fallback}${note}
 </td></tr>
 </table>
 </td></tr>
@@ -279,12 +377,23 @@ export function renderText(input: LayoutInput): string {
   if (input.greeting) blocks.push(input.greeting)
   blocks.push(...input.paragraphs)
   if (input.facts && input.facts.length) blocks.push(input.facts.map((f) => `${f.label}: ${f.value}`).join("\n"))
+  if (input.order) {
+    const o = input.order
+    blocks.push([o.title, o.subtitle].filter(Boolean).join("\n"))
+    blocks.push(o.lines.map((l) => `${l.title}${l.detail ? ` (${l.detail})` : ""}: ${l.amount}`).join("\n"))
+    const money = [...o.totals, ...(o.payout ?? [])]
+    if (money.length) blocks.push(money.map((r) => `${r.label}: ${r.value}`).join("\n"))
+    for (const sec of o.sections ?? []) {
+      if (sec.rows.length) blocks.push([sec.title, ...sec.rows.map((f) => `${f.label}: ${f.value}`)].join("\n"))
+    }
+  }
   if (input.notice) {
     const lines = [input.notice.title, input.notice.text]
     if (input.notice.link) lines.push(`${input.notice.link.label}: ${input.notice.link.url}`)
     blocks.push(lines.join("\n"))
   }
   if (input.action) blocks.push(`${input.action.label}:\n${input.action.url}`)
+  if (input.secondary) blocks.push(`${input.secondary.label}: ${input.secondary.url.replace(/^mailto:/, "").replace(/\?.*$/, "")}`)
   if (input.note) blocks.push(input.note)
   const foot = ["--", "Storelib", input.reason]
   for (const l of footerLinks(input)) foot.push(`${l.label}: ${l.url}`)
