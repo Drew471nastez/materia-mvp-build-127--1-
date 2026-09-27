@@ -148,29 +148,68 @@ function main() {
   check("a finger on the ball turns and tips it and never scrolls the page: touch-action none on the round grip",
     /data-home-globe-grip=""[\s\S]{0,400}touchAction: "none"/.test(globe) && /rounded-full/.test(globe) && /\n\s*tilt = Math\.max\(TILT_MIN/.test(globe) && !/byMouse/.test(globe))
   check("the canvas takes no touches, so the rest of its box scrolls", /pointer-events:none/.test(globe))
-  check("and the banner's text still scrolls the page", /\.home-banner-text \{[^}]*touch-action: pan-y;/.test(banner))
+  check("and the banner's text still scrolls the page", /\.home-banner-text \{[^}]*touch-action: pan-y pinch-zoom;/.test(banner))
   check("grab, and grabbing while dragged", /cursor-grab/.test(globe) && /"grabbing"/.test(globe))
   check("a throw keeps its speed, up to a limit, and settles back", /MAX_SPEED/.test(globe) && /SETTLE_MS/.test(globe))
   check("reduced motion stops it turning on its own", /prefers-reduced-motion: reduce/.test(globe))
   check("drawn with WebGL, the 2D canvas where WebGL would be software", /createGlRenderer\(canvas, ball\)/.test(globe) && /create2dRenderer\(canvas, ball\)/.test(globe) && /failIfMajorPerformanceCaveat: true/.test(read("components/app/home/globe-gl.ts")))
   check("never sharper than 2x", /MAX_DPR = 2\b/.test(read("components/app/home/globe-scene.ts")) && /Math\.min\(window\.devicePixelRatio \|\| 1, MAX_DPR\)/.test(globe))
-  /* "I don't like it at all, on swipe and on the autoplay. It needs to be a fade. Not a slide like a carousel." */
-  check("a slide change is a fade and nothing moves, whatever asked for it",
-    /\.home-banner-slide \{\s*visibility: hidden;\s*opacity: 0;\s*transition: opacity 160ms[^;]*visibility 0s linear 160ms;\s*\}/.test(banner) &&
-    /\.home-banner-stack\[data-changed\] > \.home-banner-slide\[data-slide="active"\] \{\s*animation: home-banner-in 280ms cubic-bezier\(0, 0, 0\.2, 1\) 110ms both;/.test(banner) &&
-    /@keyframes home-banner-in \{\s*from \{ opacity: 0; \}\s*to \{ opacity: 1; \}/.test(banner))
-  check("no translate, no direction, no carousel left in it",
-    !/--home-banner-in|--home-banner-out|data-dir|setDir|translate3d|home-banner-move/.test(banner) &&
-    !/\btranslate:/.test(banner.slice(banner.indexOf(".home-banner-slide {"), banner.indexOf(".home-banner-eyebrow"))))
-  /* Measured at 390, processor slowed four times: out 150 / in at 160 left one 33ms frame with nothing on it. */
-  check("the next line starts while the old one is still painted but near zero, so no frame is ever empty",
-    /transition: opacity 160ms cubic-bezier\(0, 0, 0\.2, 1\)/.test(banner) && /home-banner-in 280ms cubic-bezier\(0, 0, 0\.2, 1\) 110ms both/.test(banner) &&
-    /never a frame\s*\n\s*\* {2}with NOTHING on it|there is never a frame\s*\n {2}with NOTHING on it/.test(banner))
-  check("and the slide on screen when Home opens is simply there, not faded in",
-    /data-changed=\{changed \? "" : undefined\}/.test(banner) && /const \[changed, setChanged\] = useState\(false\)/.test(banner))
-  check("and a swipe picks the slide without the text following the finger", !/setTrack|t\.style\.translate/.test(banner) && /go\(index \+ \(s\.dx < 0 \? 1 : -1\), true\)/.test(banner))
+  /*
+    Changed on purpose, after a fade, a hand rolled slide and a fade again: "Import something regular and fix it
+    from scratch. Some basic swiper: when I touch it's clean and smooth, and when it's autoplaying make sure it's
+    smooth and clean as well." scripts/check-home-banner-motion.mjs measures it frame by frame.
+  */
+  console.log("\nthe banner's slides")
+  const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> }
+  const bannerCss = banner.slice(banner.indexOf("const BANNER_CSS"))
+  const rule = (sel: string) => new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`).exec(bannerCss)?.[1] ?? ""
+  check("a carousel library moves them, embla-carousel, a dependency already",
+    /import useEmblaCarousel from "embla-carousel-react"/.test(banner) && /useEmblaCarousel\(options\)/.test(banner) && !!pkg.dependencies["embla-carousel-react"])
+  check("  looping, so the clock goes from the last slide to the first forwards",
+    /CAROUSEL_OPTIONS = \{ loop: true, align: "start", duration: 30, watchDrag: false \} as const/.test(banner))
+  /* Embla's own drag listens to touchmove with a listener that can cancel it: every scroll starting on the banner waited on the page's thread. */
+  check("  the finger reaches it by pointer events, which never hold a scroll up: no touch listener in the banner at all",
+    /root\.addEventListener\("pointerdown", down\)/.test(banner) && /root\.addEventListener\("pointermove", move\)/.test(banner) && /window\.addEventListener\("pointercancel", up\)/.test(banner)
+      && !/addEventListener\("touch/.test(banner) && !/onTouch(Start|Move)/.test(banner))
+  check("  and moves Embla's own target with Embla's own drag numbers, so a throw lands where Embla would land it",
+    /en\.scrollBody\.useFriction\(0\.3\)\.useDuration\(0\.75\)/.test(banner) && /en\.target\.add\(e\.clientX - drag\.last\)/.test(banner) && /FLICK_LOG_MS = 170/.test(banner)
+      && /speed \* \(d\.mouse \? 300 : 400\)/.test(banner) && /en\.scrollTo\.distance\(force, true\)/.test(banner))
+  check("  only once the move is sideways: until then the browser may make it the page's scroll",
+    /if \(Math\.abs\(dx\) < 4 \|\| Math\.abs\(dx\) < Math\.abs\(e\.clientY - drag\.y0\)\) return/.test(banner))
+  check("  a drag's own click does not press the button under it, and no later click is lost to it",
+    /if \(e\.timeStamp > draggedUntil\) return/.test(banner) && /draggedUntil = e\.timeStamp \+ 400/.test(banner))
+  check("  and one slide is no carousel at all", /active: count > 1/.test(banner))
+  check("every slide mounted once, side by side, keyed by its announcement: no slide rendered only when it shows",
+    /\{list\.map\(\(a, i\) => \{\s*const on = i === index/.test(banner) && /key=\{a\.id\}/.test(banner) && !/leavingId|setLeavingId|data-changed/.test(banner)
+      && /flex: 0 0 100%/.test(rule(".home-banner-slide")))
+  check("  the one showing is marked, never mounted: inert and data-slide, not aria-hidden (a :has() on <html> watches it)",
+    /inert=\{!on\}/.test(banner) && /data-slide=\{on \? "active" : "idle"\}/.test(banner) && !/aria-hidden=\{/.test(banner))
+  check("the track moves by transform alone, on its own layer; nothing on a slide fades or transitions",
+    /will-change: transform;/.test(rule(".home-banner-track")) && !/opacity|transition|animation/.test(rule(".home-banner-slide"))
+      && !/@keyframes home-banner-in|home-banner-stack/.test(banner))
+  check("one height at each width, whatever the slide: the height is set, not measured from the slide",
+    /height: 206px;/.test(rule(".home-banner-inner")) && /height: 222px; \}/.test(bannerCss) && /height: 180px; \}/.test(bannerCss) && /height: 100%;/.test(rule(".home-banner-slide")))
+  check("a sideways drag is the carousel's and a vertical one the page's", /touch-action: pan-y pinch-zoom;/.test(rule(".home-banner-text")) && /overflow: hidden;/.test(rule(".home-banner-text")))
+  check("the carousel ends where the globe's grip begins, so the two never share a finger, and fades through the room before it",
+    /right: var\(--grip-r\);/.test(rule(".home-banner-text")) && /--grip-r: calc\(var\(--gx\) \+ var\(--g\) \* 0\.424\);/.test(bannerCss)
+      && /GRIP = GLOBE_RADIUS \* 1\.06/.test(globe) && /mask-image: linear-gradient\(to right, #000 calc\(100% - var\(--fade\)\), transparent\);/.test(rule(".home-banner-text")))
+  check("the clock is the segment's fill: when it ends the carousel slides on, and nothing else times it",
+    /onAnimationEnd=\{on \? advance : undefined\}/.test(banner) && /embla\.scrollNext\(calm\.current\)/.test(banner) && !/setInterval|setTimeout/.test(banner))
+  check("  held by a finger (down to up), a mouse over it, focus, off screen and a hidden tab",
+    /setBit\(TOUCH, true\)/.test(banner) && /setBit\(TOUCH, false\)/.test(banner)
+      && /setBit\(HIDDEN, !onScreen \|\| document\.visibilityState === "hidden"\)/.test(banner) && /setBit\(HOVER, true\)/.test(banner) && /setBit\(FOCUS, true\)/.test(banner)
+      && /\.home-banner-tabs\[data-held\] \.home-banner-tab-fill \{ animation-play-state: paused; \}/.test(banner))
+  check("reduced motion: the clock and a segment jump instead of gliding, and a drag let go lands at once",
+    /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(banner) && /embla\.scrollTo\(.*, calm\.current\)/.test(banner)
+      && /if \(calm\.current\) embla\.scrollTo\(embla\.selectedScrollSnap\(\), true\)/.test(banner))
+  check("each segment a 44px target, the row inside the carousel so a swipe on it still drags",
+    /flex: 0 1 44px;/.test(rule(".home-banner-tab")) && /height: 44px;/.test(rule(".home-banner-tab")) && /--foot: 44px;/.test(rule(".home-banner-inner"))
+      && banner.indexOf('className="home-banner-tabs"') > banner.indexOf('ref={viewportRef}') && banner.indexOf('className="home-banner-tabs"') < banner.indexOf("<BannerGlobe"))
+  check("a change asked for is read out, one the clock made is not", /setLive\(asked\.current \? "polite" : "off"\)/.test(banner) && /aria-live=\{live\}/.test(banner))
   check("it is in the banner, and the banner is on Home", /<BannerGlobe/.test(banner) && /<HomeBanner /.test(dash))
-  check("the text stops where the globe's atmosphere begins: one set of numbers places both", /padding: 18px calc\(var\(--gx\) \+ var\(--g\) \* 0\.452 \+ var\(--gap\)\)/.test(banner) && /right: calc\(var\(--gx\) - var\(--g\) \/ 2\);/.test(banner))
+  check("the text stops --gap short of the globe's atmosphere: one set of numbers places both",
+    /--fade: calc\(var\(--gap\) \+ var\(--g\) \* 0\.028\);/.test(banner) && /padding: var\(--pad-t\) var\(--fade\) var\(--foot\) var\(--pad-l\);/.test(banner)
+      && /right: calc\(var\(--gx\) - var\(--g\) \/ 2\);/.test(banner))
 
   console.log("\nUpgrade to Pro")
   /* Changed on purpose: "make it how it was before... the bolt is white on a purple circle, how it was before, but more depth." */
