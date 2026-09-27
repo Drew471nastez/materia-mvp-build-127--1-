@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     .single()
 
   if (error || !data) {
-    console.error("[automations] could not create a flow:", error?.code)
+    console.error("[automations] could not create a flow:", error?.code, error?.message)
     return NextResponse.json({ error: "Could not create the flow. Try again." }, { status: 500 })
   }
   return NextResponse.json({ id: data.id, existing: false })
