@@ -28,7 +28,7 @@ import "./_mailgun-env"
 import { fakeDb } from "./_fake-db"
 import { inboxAddress, loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { sellerMessageEmail, type SellerMessage } from "@/lib/receipts/contact"
-import { sendSellerMessageEmail } from "@/lib/email"
+import { resolveCreatorIdentity, sendSellerMessageEmail } from "@/lib/email"
 import { quotedFrom } from "@/lib/mailgun"
 import { emailButton, finalizeEmailHtml } from "@/lib/mail-document"
 import { emailImageSrc, inboxImageSrc } from "@/lib/email-campaigns/sender"
@@ -110,6 +110,10 @@ async function main() {
     check("a second business: the owner's login as it is now, after they changed it", got?.to === "andrew@new.example", got)
     const noOwnerLogin = await sellerInbox(db, CREATOR, async (id) => (id === MEMBER ? logins[MEMBER] : null))
     check("owner unreadable: the business's own address with the tag taken off", noOwnerLogin?.to === "andrew@old.example", noOwnerLogin)
+    /* The receipt, the sale email and a refund read the seller through resolveCreatorIdentity: the same inbox now. */
+    const withAuth = Object.assign(db, { auth: { admin: { getUserById: async (id: string) => ({ data: { user: { email: logins[id] ?? null } } }) } } })
+    const identity = await resolveCreatorIdentity(withAuth, CREATOR)
+    check("a receipt's Reply-To for a second business is the owner's login as it is now", identity.replyTo === "andrew@new.example" && identity.sellerEmail === "andrew@new.example", identity)
   }
   {
     const db = fakeDb({ creators: [{ id: CREATOR, user_id: MEMBER, support_email: null }], profiles: [{ id: MEMBER, email: "andrew+slb-1a2b3c4d@example.com" }] }, { failWith: { business_links: { code: "42P01", message: "relation does not exist" } } })
@@ -214,7 +218,7 @@ async function main() {
   const STORE = "https://abc.supabase.co/storage/v1/object/public"
   {
     const thumb = emailImageSrc(`${STORE}/products/p1/cover.webp`, 64) ?? ""
-    check("a stored WebP thumbnail drawn at 64 is asked of the resizer at 128, absolute https", thumb.startsWith("https://storelib.com/_next/image?url=") && /&w=128&q=75$/.test(thumb), thumb)
+    check("a stored WebP thumbnail drawn at 64 is made by the inbox route at 192 (3x), absolute https", thumb === `https://storelib.com/api/email/img?u=${encodeURIComponent(`${STORE}/products/p1/cover.webp`)}&w=192`, thumb)
     check("an SVG is never the creator's picture (Gmail and Outlook do not show SVG)", emailImageSrc(`${STORE}/logos/l.svg`, 40) === null)
     check("but an SVG a creator put in the body is kept as stored, not dropped", inboxImageSrc(`${STORE}/art/a.svg`, 520) === `${STORE}/art/a.svg`)
     const own = inboxImageSrc("https://storelib.com/images/brand/cover.png", 260) ?? ""
@@ -229,12 +233,12 @@ async function main() {
     ]
     const html = renderBlocks(blocks)
     const srcs = [...html.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, "&"))
-    check("a full width campaign picture (520) is asked at 1080, not downloaded whole", /\/_next\/image\?url=[^&]*hero\.png&w=1080&q=75$/.test(srcs[0] ?? ""), srcs[0])
-    check("a half width one (260) at 640", /half\.webp&w=640&q=75$/.test(srcs[1] ?? ""), srcs[1])
-    check("a product card's 96px picture at 256", /cover\.webp&w=256&q=75$/.test(srcs[2] ?? ""), srcs[2])
+    check("a full width campaign picture (520) is asked at 1080, not downloaded whole", /\/api\/email\/img\?u=[^&]*hero\.png&w=1080$/.test(srcs[0] ?? ""), srcs[0])
+    check("a half width one (260) at 640", /half\.webp&w=640$/.test(srcs[1] ?? ""), srcs[1])
+    check("a product card's 96px picture at 192", /cover\.webp&w=192$/.test(srcs[2] ?? ""), srcs[2])
     check("each keeps its drawn width, alt and border 0", /width="520"[^>]*max-width:520px;height:auto;border:0/.test(html) && /alt="The shop"/.test(html) && /width="96" height="96"[^>]*border:0/.test(html))
     const rich = richToEmail(`<p><img src="${STORE}/campaign/inline.jpg" alt="Inline" width="300"></p>`, PLAIN_THEME)
-    check("a picture in the text is sized by its width attribute", /inline\.jpg&amp;w=640&amp;q=75" alt="Inline" width="300"/.test(rich), rich)
+    check("a picture in the text is sized by its width attribute", /inline\.jpg&amp;w=640" alt="Inline" width="300"/.test(rich), rich)
   }
 
   /* ═════════════════════════════════════════════════════════════════════ */

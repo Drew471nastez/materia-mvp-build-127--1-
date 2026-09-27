@@ -19,6 +19,7 @@ import { enrollInFlows } from "@/lib/automations/run"
 import { normalizeSteps as normalizeFlowSteps, waitMs as flowWaitMs } from "@/lib/automations/flow-model"
 import type { ContactSource } from "@/lib/contacts/contact-source"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { STORELIB_EMAIL_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
@@ -337,6 +338,16 @@ export async function resolveCreatorIdentity(
     if (!fromName) {
       if (creator?.headline?.trim()) fromName = creator.headline.trim()
       else if (creator?.slug?.trim()) fromName = creator.slug.trim()
+    }
+
+    /* The same inbox a buyer's Contact seller reaches (lib/seller-inbox): the
+       support address, else the login's address as it is now (the owner's,
+       for a second business, even after they changed it), else the profile's.
+       What was read above stays the answer when that lookup cannot run. */
+    const inbox = await sellerInbox(admin, creatorId, loginEmailFrom(admin)).catch(() => null)
+    if (inbox) {
+      replyTo = inbox.to
+      sellerEmail = inbox.to
     }
 
     /* A second business's address is the owner's with a tag (lib/businesses/email-alias):
