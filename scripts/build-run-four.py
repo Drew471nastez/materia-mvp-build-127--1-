@@ -1,4 +1,4 @@
-"""Builds supabase/sql/run-four/ from supabase/sql/run-now/, part by part, text unchanged, and copies the same four files to supabase/sql/all-last-three-days/ (the owner asked for a folder named for when the work landed: every part in run-now/ was written on 2026-09-24 to 26, so the two folders hold the same SQL). Run: python3 scripts/build-run-four.py"""
+"""Builds supabase/sql/run-four/ from supabase/sql/run-now/, part by part, text unchanged, and copies the same four files to supabase/sql/all-last-three-days/ (the owner asked for a folder named for when the work landed: every part in run-now/ was written on 2026-09-24 to 27, so the two folders hold the same SQL). Run: python3 scripts/build-run-four.py"""
 import re
 import os
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))+'/'

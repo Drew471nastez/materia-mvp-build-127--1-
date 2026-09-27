@@ -1,15 +1,14 @@
-# All the last three days, in four files
+# Everything still to run, in four files
 
-Every database change the app is waiting on from 2026-09-24 to 2026-09-26, in
-four files for the Supabase SQL editor.
+Every database change the app is waiting on, written 2026-09-24 to 2026-09-27,
+in four files for the Supabase SQL editor.
 
-That is every part in `supabase/sql/run-now/` (01 to 38, then the storage
-policies and the check). The whole `run-now/` list was written in those three
-days, so "the last three days" and "everything still to run" are the same set
-of SQL. These four files are therefore the same SQL as
-`supabase/sql/run-four/`, under the name the work landed under. Run either
-folder, not both: running the same part twice changes nothing, so no harm
-either way.
+That is every part in `supabase/sql/run-now/` (01 to 44, then the storage
+policies and the check). The whole `run-now/` list was written in that week, so
+"the last week" and "everything still to run" are the same set of SQL. These
+four files are therefore the same SQL as `supabase/sql/run-four/`, under the
+name the work first landed under. Run either folder, not both: running the same
+part twice changes nothing, so no harm either way.
 
 Both folders are written by `python3 scripts/build-run-four.py` from
 `run-now/`, part by part, text unchanged, so they cannot drift apart. Do not
@@ -46,7 +45,11 @@ from `run-now/`, changes nothing.
   Storelib conversations and pictures, Analytics speed, business accounts,
   creator badges, Ask Storelib reports, notification rules, website accounts
   and contact forms, discount code holds, orders kept with their creator,
-  customer accounts on websites, up to three businesses on one login.
+  customer accounts on websites, product variant columns, company details on
+  orders, a creator's own AI keys, up to three businesses on one login, the
+  notification engine and its admin counts, receipt email records made server
+  only, a deleted product leaving the OnePage that named it, and one home for
+  a creator's name and photo.
 - **4 of 4** the `storage.objects` policies, then the check row.
 
 ## What they change in rows you already have
