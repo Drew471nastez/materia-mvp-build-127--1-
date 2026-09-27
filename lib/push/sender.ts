@@ -1,5 +1,5 @@
 import type { Message } from "firebase-admin/messaging"
-import admin from "@/lib/firebase/admin"
+import { getFirebaseAdmin } from "@/lib/firebase/admin"
 import { createAdminClient } from "@/lib/supabase/admin"
 import webpush from "web-push"
 import { vapidKeys } from "./web-vapid"
@@ -102,6 +102,16 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   const sound = payload.sound ?? "default"
   const invalidIds: string[] = []
 
+  /*
+    THE APP, BEFORE ITS FIRST MESSAGE. "[push] Failed to send to ios device
+    — app/no-app" was every phone, every time: lib/firebase/admin became
+    initialised on first use (getFirebaseAdmin) and this file kept calling
+    admin.messaging() on the default app, which nothing had created. Asked
+    for here; without the three FIREBASE_* variables it is null, and phones
+    are skipped after the one line getFirebaseAdmin writes.
+  */
+  const firebase = tokens.some((t) => t.platform !== "web") ? getFirebaseAdmin() : null
+
   await Promise.all(
     tokens.map(async (device) => {
       const { id, token, platform } = device
@@ -112,6 +122,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         if (result === "gone") invalidIds.push(id)
         return
       }
+      if (!firebase) return
       const message: Message = {
         token,
         notification: {
@@ -141,7 +152,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       }
 
       try {
-        await admin.messaging().send(message)
+        await firebase.messaging().send(message)
         console.log(`[push] ✓ Sent to ${platform} device`)
       } catch (err: any) {
         console.error(`[push] ✗ Failed to send to ${platform} device — ${err.code ?? err.message}`)
