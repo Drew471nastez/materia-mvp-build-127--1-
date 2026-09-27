@@ -75,7 +75,8 @@ const GoalCard = memo(function GoalCard({ goal, selected, onPick }: { goal: (typ
       aria-pressed={selected}
       data-goal={goal.id}
       className={cn(
-        "relative isolate flex cursor-pointer items-start gap-3 rounded-2xl border border-[#e3e4e8] bg-white p-3.5 pb-5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] sm:p-5 sm:pb-7 [-webkit-tap-highlight-color:transparent]",
+        /* On a phone the four cards share the screen's height, so what is in each sits in its middle, as it did. */
+        "relative isolate flex cursor-pointer items-center gap-3 rounded-2xl border border-[#e3e4e8] bg-white p-3.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] sm:items-start sm:p-5 sm:pb-7 [-webkit-tap-highlight-color:transparent]",
         focusRing,
       )}
     >
