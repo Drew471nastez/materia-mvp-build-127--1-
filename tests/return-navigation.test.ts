@@ -151,7 +151,8 @@ function main() {
   */
   check(
     "a finished checkout replaces itself with the receipt rather than pushing it",
-    /router\.replace\(`\/receipt\/\$\{encodeURIComponent\((receiptToken|token)\)\}`\)/.test(checkout) &&
+    /router\.replace\(receiptHref\(receiptToken\)\)/.test(checkout) &&
+      /const receiptHref = \(receiptToken: string\) => `\/receipt\/\$\{encodeURIComponent\(receiptToken\)\}`/.test(checkout) &&
       !/router\.push\(`\/checkout\/receipt/.test(checkout),
     "a push leaves the paid checkout behind the receipt, one back away",
   )
