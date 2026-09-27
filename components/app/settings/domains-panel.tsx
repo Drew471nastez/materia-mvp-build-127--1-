@@ -48,6 +48,8 @@ import { copyText } from "@/lib/platform/copy-text"
 import { HOSTNAME_PROBLEM_TEXT, apexOf, cleanHostname, hostnameProblem, isApexHost, recordsFor, servingHost, type DnsRecord, type DomainPurpose } from "@/lib/custom-domains/hostname"
 import { REGISTRARS, hostFor, registrarById, type RecordCheck, type Registrar, type RegistrarId } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { RegistrarMark } from "@/components/app/settings/registrar-mark"
 
 export interface DomainItem {
   id: string
@@ -675,24 +677,32 @@ export function DomainsPanel({
         {waiting ? (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[13px] text-[#374151]">
             <label htmlFor={`domains-registrar-${d.id}`}>Add these at</label>
-            <select
-              id={`domains-registrar-${d.id}`}
-              value={registrar.id}
-              onChange={(e) => setRegistrarId(e.target.value as RegistrarId)}
-              data-dns-registrar=""
-              className="h-11 cursor-pointer appearance-none rounded-lg border border-[#e5e7eb] bg-white bg-no-repeat pl-3 pr-8 text-[16px] text-[#1a1a2e] outline-none transition-colors focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6] sm:h-8 sm:text-[13px]"
-              style={{
-                backgroundPosition: "right 8px center",
-                backgroundSize: "16px 16px",
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'%3E%3Cpath d='M5.5 7.5 10 12l4.5-4.5'/%3E%3C/svg%3E")`,
-              }}
-            >
-              {REGISTRARS.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.id === "other" ? "another provider" : r.name}
-                </option>
-              ))}
-            </select>
+            {/* A real list rather than the system's, so each provider shows its own mark beside its name. */}
+            <Select value={registrar.id} onValueChange={(v) => setRegistrarId(v as RegistrarId)}>
+              <SelectTrigger
+                id={`domains-registrar-${d.id}`}
+                data-dns-registrar=""
+                className="h-11 data-[size=default]:h-11 sm:data-[size=default]:h-8 w-auto min-w-[168px] cursor-pointer gap-2 rounded-lg border-[#e5e7eb] bg-white pl-3 pr-2.5 text-[14px] text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[#d1d5db] focus-visible:border-[#8b5cf6] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30 data-[state=open]:border-[#d1d5db] sm:h-8 sm:text-[13px] [&>svg:last-child]:text-[#6b7280] [&>svg:last-child]:opacity-100"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent
+                align="start"
+                className="rounded-xl border-[#e5e7eb] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_32px_-8px_rgba(17,24,39,0.18),0_2px_6px_rgba(17,24,39,0.06)]"
+              >
+                {REGISTRARS.map((r) => (
+                  <SelectItem
+                    key={r.id}
+                    value={r.id}
+                    data-registrar-option={r.id}
+                    className="h-11 cursor-pointer gap-2.5 rounded-lg pl-2.5 text-[14px] text-[#1a1a2e] focus:bg-[#f3f4f6] focus:text-[#1a1a2e] data-[state=checked]:font-medium sm:h-9 sm:text-[13px] [&>span:first-child_svg]:text-[#1a1a2e]"
+                  >
+                    <RegistrarMark id={r.id} />
+                    {r.id === "other" ? "another provider" : r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {registrar.dnsUrl ? (
               <a
                 href={registrar.dnsUrl(apex)}
@@ -700,9 +710,12 @@ export function DomainsPanel({
                 rel="noopener noreferrer"
                 data-dns-open=""
                 aria-label={`Open ${registrar.name} DNS`}
-                className="inline-flex h-11 items-center gap-1 text-[13px] font-medium text-[#7c3aed] hover:text-[#6d28d9] sm:ml-auto sm:h-8 sm:text-[12px]"
+                className="inline-flex h-11 items-center gap-1.5 text-[13px] font-medium text-[#7c3aed] hover:text-[#6d28d9] sm:ml-auto sm:h-8 sm:text-[12px]"
               >
-                Open<span className="sr-only sm:not-sr-only">{registrar.name}</span>
+                <RegistrarMark id={registrar.id} className="size-3.5" />
+                <span>
+                  Open<span className="sr-only sm:not-sr-only"> {registrar.name}</span>
+                </span>
                 <ExternalLink className="h-3 w-3" />
               </a>
             ) : null}

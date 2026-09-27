@@ -217,12 +217,6 @@ export function ProfilePhoto({
             </button>
           ) : null}
         </div>
-        {/* WHERE IT GOES, SAID ONCE, UNDER THE CONTROL THAT CHANGES IT. There
-            is one photo and no per-page override, so nobody has to work out
-            which editor owns which face (lib/account/identity). */}
-        <p className="mt-2 text-[12px] leading-snug text-[#6b7280]">
-          Shown on your creator page, your OnePage, your products and your receipts.
-        </p>
         {error ? (
           <p role="alert" className="mt-2 text-[12px] text-[#b42318]">
             {error}

@@ -452,10 +452,6 @@ export function EditProfileButton({
                   replaceLabel="Change"
                 />
               </div>
-              {/* One photo, everywhere: the banner above it is this page's own picture and stays that way. */}
-              <p className="text-xs text-muted-foreground">
-                Shown on your creator page, your OnePage, your products and your receipts.
-              </p>
             </div>
 
             <div className="space-y-2">
