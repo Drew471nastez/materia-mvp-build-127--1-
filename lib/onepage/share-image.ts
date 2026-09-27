@@ -13,6 +13,7 @@
  */
 import "server-only"
 import { safeImageUrl } from "@/lib/onepage/seo"
+import { fetchPublic } from "@/lib/api/public-fetch"
 
 export interface CardImage {
   dataUrl: string
@@ -58,48 +59,27 @@ export function imageInfo(buf: Uint8Array): { width: number; height: number; mim
  * The picture at `url`, ready for next/og, or null when it is not one it can
  * draw or it could not be fetched in time. Never throws.
  */
-export async function fetchCardImage(url: string | null | undefined, { maxBytes = 6 * 1024 * 1024, timeoutMs = 3500 } = {}): Promise<CardImage | null> {
-  let next = safeImageUrl(url)
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
+export async function fetchCardImage(url: string | null | undefined, { maxBytes = 6 * 1024 * 1024, timeoutMs = 3500 }: { maxBytes?: number; timeoutMs?: number } = {}): Promise<CardImage | null> {
+  const first = safeImageUrl(url)
+  if (!first) return null
   try {
-    for (let hop = 0; hop < 3 && next; hop++) {
-      const res = await fetch(next, { redirect: "manual", signal: controller.signal, headers: { accept: "image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.5" } })
-      if (res.status >= 300 && res.status < 400) {
-        const to = res.headers.get("location")
-        next = to ? safeImageUrl(new URL(to, next).toString()) : null
-        continue
-      }
-      if (!res.ok || !res.body) return null
-      const declared = Number(res.headers.get("content-length") || 0)
-      if (declared > maxBytes) return null
-      const reader = res.body.getReader()
-      const chunks: Uint8Array[] = []
-      let total = 0
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        total += value.byteLength
-        if (total > maxBytes) {
-          await reader.cancel().catch(() => {})
-          return null
-        }
-        chunks.push(value)
-      }
-      const buf = new Uint8Array(total)
-      let at = 0
-      for (const c of chunks) {
-        buf.set(c, at)
-        at += c.byteLength
-      }
-      const info = imageInfo(buf)
-      if (!info || !info.width || !info.height) return null
-      return { ...info, dataUrl: `data:${info.mime};base64,${Buffer.from(buf).toString("base64")}` }
-    }
-    return null
+    /*
+      THROUGH THE PLATFORM'S PUBLIC FETCH (lib/api/public-fetch), not a plain
+      fetch. A creator chooses this address, and the server asks it: a plain
+      fetch checks the name once and connects to whatever it answers next, so
+      a name that answers public to the check and private to the request
+      (DNS rebinding) would reach inside the network. fetchPublic refuses a
+      private address at the moment of connecting, and on every redirect,
+      with the size and time caps held for the whole request.
+    */
+    const res = await fetchPublic(first, { maxBytes, timeoutMs, maxRedirects: 3 })
+    if (!res.ok) return null
+    const buf = new Uint8Array(await res.arrayBuffer())
+    if (buf.byteLength === 0 || buf.byteLength > maxBytes) return null
+    const info = imageInfo(buf)
+    if (!info || !info.width || !info.height) return null
+    return { ...info, dataUrl: `data:${info.mime};base64,${Buffer.from(buf).toString("base64")}` }
   } catch {
     return null
-  } finally {
-    clearTimeout(timer)
   }
 }

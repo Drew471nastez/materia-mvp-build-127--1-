@@ -9,17 +9,23 @@ import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepa
 const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
 const TAKEN = "That page address is taken"
 
-/** Whether the owner pays for a plan: Pro (sold as "growth") or the older Pro, in a state that still entitles. */
-async function onPaidPlan(userId: string): Promise<boolean> {
+/**
+ * Whether the owner pays for a plan: Pro (sold as "growth") or the older Pro,
+ * in a state that still entitles. "unknown" when the plan could not be read:
+ * a paid setting is then neither granted (a free page would get Pro for as
+ * long as the read fails) nor refused as if unpaid (a paying creator would be
+ * told to upgrade); the save says to try again.
+ */
+async function paidPlan(userId: string): Promise<"paid" | "free" | "unknown"> {
   try {
-    const { data } = await createAdminClient().from("creators").select("subscription_plan_id, subscription_status").eq("user_id", userId).maybeSingle()
+    const { data, error } = await createAdminClient().from("creators").select("subscription_plan_id, subscription_status").eq("user_id", userId).maybeSingle()
+    if (error) return "unknown"
     const row = data as { subscription_plan_id?: string | null; subscription_status?: string | null } | null
     const plan = (row?.subscription_plan_id || "free").toLowerCase().trim()
     const status = (row?.subscription_status || "active").toLowerCase()
-    return (plan === "growth" || plan === "pro" || plan === "professional") && ["active", "trialing", "past_due"].includes(status)
+    return (plan === "growth" || plan === "pro" || plan === "professional") && ["active", "trialing", "past_due"].includes(status) ? "paid" : "free"
   } catch {
-    /* Unreadable is not a reason to refuse somebody who pays: the editor already asked. */
-    return true
+    return "unknown"
   }
 }
 
@@ -188,8 +194,10 @@ export async function PUT(request: Request) {
       const turnsOnPaid =
         (newSettings.verified_badge_enabled === true && existingSettings.verified_badge_enabled !== true) ||
         (newSettings.show_branding === false && existingSettings.show_branding !== false)
-      if (turnsOnPaid && !(await onPaidPlan(user.id))) {
-        return refuse("The verified badge and hiding the Storelib badge are part of Pro")
+      if (turnsOnPaid) {
+        const plan = await paidPlan(user.id)
+        if (plan === "unknown") return refuse("Your plan could not be checked just now. Try again in a moment.")
+        if (plan === "free") return refuse("The verified badge and hiding the Storelib badge are part of Pro")
       }
 
       updates.settings = {

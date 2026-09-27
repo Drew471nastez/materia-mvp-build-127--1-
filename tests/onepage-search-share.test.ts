@@ -331,6 +331,16 @@ async function metadataAndRoutes() {
   check("so is hiding the Storelib badge", r.res.status === 400 && r.row.settings.show_branding === true)
   r = await put({ settings: { verified_badge_enabled: true, verified_badge_type: "verified_artist" } }, "growth")
   check("both are saved on Pro", r.res.status === 200 && r.row.settings.verified_badge_enabled === true && r.row.settings.verified_badge_type === "verified_artist")
+  {
+    /* The plan cannot be read: the badge is neither granted (a free page would get Pro while the read fails) nor refused as unpaid (a paying creator told to upgrade). */
+    const db = world({ ...DRAFT, status: "published" }, "growth")
+    S.admin = new Proxy(db, { get: (t, k) => (k === "from" ? (table: string) => { if (table === "creators") throw new Error("down"); return (t as any).from(table) } : (t as any)[k]) })
+    S.server = db
+    S.user = { id: OWNER }
+    const res = await route.PUT(new Request("https://storelib.test/api/onepage", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: PAGE, settings: { verified_badge_enabled: true } }) }))
+    const body = await res.json().catch(() => ({}))
+    check("a plan that cannot be read neither grants the badge nor calls it unpaid: try again", res.status === 400 && /could not be checked/.test(body.error ?? "") && db.tables.onepages[0].settings.verified_badge_enabled === undefined, body)
+  }
   r = await put({ title: 42 })
   check("a name that is not text is refused", r.res.status === 400)
   S.user = null
