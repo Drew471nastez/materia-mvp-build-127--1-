@@ -260,15 +260,14 @@ async function recordPick(s, handle, ms = 600) {
   }
 }
 
-/* A frame from the middle of a pick, drawn with the page's animations slowed ten times. */
+/* A frame from the middle of a pick: a little way in, every animation on the page is held for the picture, then let go. */
 async function midPickShot(s, handle, name) {
-  await s.cdp.send("Animation.enable")
-  await s.cdp.send("Animation.setPlaybackRate", { playbackRate: 0.1 })
   await press(s, handle)
-  await sleep(800)
+  await sleep(s.size.touch ? 40 : 70)
+  await s.p.evaluate(() => { window.__held = document.getAnimations(); window.__held.forEach((a) => a.pause()) })
   await s.p.screenshot({ path: join(shots, name) })
-  await s.cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
-  await sleep(2200)
+  await s.p.evaluate(() => window.__held.forEach((a) => a.play()))
+  await sleep(1200)
 }
 
 const TRANSFORM_ONLY = (props) => props.every((p) => /:(opacity|scale|transform|translate)$/.test(p))
