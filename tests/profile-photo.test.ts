@@ -243,24 +243,23 @@ async function main() {
   }
 
   /* ── The screens say so ────────────────────────────────────────────────── */
-  console.log("\nOne place to change it, and it says where it goes")
+  console.log("\nOne place to change it, and no line under it explaining so (owner's call)")
   {
-    const WHERE = "Shown on your creator page, your OnePage, your products and your receipts."
+    const WHERE = /Shown on your creator page|This is your (Storelib )?profile photo\./
     const settings = readSource("components/app/settings/profile-photo.tsx")
-    check("the line under the Settings control", settings.includes(WHERE))
-    check("it is the quiet grey, not a second heading", settings.includes('className="mt-2 text-[12px] leading-snug text-[#6b7280]"'))
+    check("no line under the Settings control", !WHERE.test(settings))
     check("its buttons are 44px on a phone", settings.includes("h-11 rounded-lg px-4 text-[13px] sm:h-9"))
     check("there is no per surface override to reset", !/Use my profile photo/i.test(settings))
 
     const links = readSource("components/onepage/tabs/links-tab.tsx")
-    check("the OnePage control says it is the same photo", links.includes("This is your Storelib profile photo."))
+    check("the OnePage control carries no explanation either", !WHERE.test(links))
     check("and calls itself by the same name", links.includes(">Profile photo</SheetDialogTitle>"))
 
     const storefront = readSource("components/storefront/edit-profile-button.tsx")
-    check("so does the storefront sheet", storefront.includes(WHERE) && storefront.includes("<Label>Profile photo</Label>"))
+    check("nor the storefront sheet", !WHERE.test(storefront) && storefront.includes("<Label>Profile photo</Label>"))
 
     const builderSidebar = readSource("components/store-builder/sections-sidebar.tsx")
-    check("and the creator page builder", builderSidebar.includes("This is your profile photo."))
+    check("nor the creator page builder", !WHERE.test(builderSidebar))
   }
 
   /* ── The database part ─────────────────────────────────────────────────── */

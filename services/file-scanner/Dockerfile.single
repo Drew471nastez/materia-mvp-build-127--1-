@@ -1,0 +1,40 @@
+# ONE CONTAINER: clamd, freshclam and the API together, for hosts that run a
+# single image per service (Railway, Render, Fly.io, Cloud Run). Build with:
+#   docker build -f Dockerfile.single -t storelib-file-scanner-single .
+#
+# clamd listens on a unix socket and on 127.0.0.1:3310 only, so nothing but
+# the API inside this container can reach it. Give the service 3 GB of memory.
+FROM node:22-alpine AS node
+
+FROM clamav/clamav:1.4
+
+# The Node binary from the official Node image: both are Alpine (musl), and
+# the ClamAV image already has the C++ runtime Node links against. No
+# package download, so the build works the same everywhere.
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+
+ENV NODE_ENV=production \
+    PORT=8080 \
+    RUN_AS_USER=clamav \
+    CLAMD_SOCKET=/tmp/clamd.sock \
+    CLAMD_CONF_TCPAddr=127.0.0.1 \
+    CLAMD_CONF_StreamMaxLength=1100M \
+    CLAMD_CONF_MaxFileSize=1100M \
+    CLAMD_CONF_MaxScanSize=2000M \
+    CLAMD_CONF_MaxThreads=8 \
+    CLAMD_CONF_ReadTimeout=300 \
+    FRESHCLAM_CHECKS=12
+
+WORKDIR /app
+COPY package.json ./
+COPY src ./src
+COPY docker/start-single.sh /usr/local/bin/start-single.sh
+RUN chmod 0755 /usr/local/bin/start-single.sh
+
+EXPOSE 8080
+
+# clamd loads its signatures for about a minute after a cold start.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \
+  CMD ["node", "/app/src/healthcheck.js"]
+
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/start-single.sh"]

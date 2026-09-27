@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
@@ -69,8 +69,8 @@ const TABS = [
 
 type TabId = typeof TABS[number]["id"]
 
-/** The tab pill's glide and the words' colour: one time, one plain ease out with no overshoot. */
-const TAB_SLIDE_MS = 200
+/** The selected fill fading in on its own tab, and the words' colour: one short time, one plain ease out. */
+const TAB_FADE_MS = 150
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "notifications", "privacy"]
 
@@ -357,11 +357,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const tabNavRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const activeTabRef = useRef<HTMLButtonElement>(null)
-  /* The outline that slides from one tab to the next (see the layout effect by the tab bar's auto scroll). */
-  const tabRingRef = useRef<HTMLSpanElement>(null)
-  const [tabRingOn, setTabRingOn] = useState(false)
-  /* A tab was pressed, not opened by the address on load: only then do the outline and the new panel move. */
-  const tabPressedRef = useRef(false)
   const [panelEntrance, setPanelEntrance] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -760,58 +755,15 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   }, [activeTab])
 
   /*
-    THE SELECTED TAB'S PILL SLIDES TO THE NEXT ONE, CALMLY.
-    One pill (the grey fill and its hairline) behind the whole row, placed on
-    the selected tab by measuring it. On a press it glides from where it is
-    on screen to the new tab in 200ms on a plain ease out: no overshoot, no
-    bounce, and no stretch. It used to be an outline scaled sideways from the
-    old tab's width, so its hairline and round ends were squashed and pulled
-    as it went; now it keeps its true shape on every frame and only its
-    position and width change, together, on one curve. The words under it ease
-    from grey to ink over the same 200ms. A press during the slide starts from
-    where the pill is on screen, not where it was going.
-
-    The tab's own fill and border stay until the pill is placed, before the
-    first paint, so there is never a frame with no selection. A change in the
-    tab's size (Inter arriving after the fallback) moves it without a slide,
-    and so does a tab opened by the address on load. Nothing slides when the
-    system asks for less motion.
+    THE SELECTED TAB CHANGES IN PLACE. NOTHING TRAVELS ACROSS THE ROW.
+    The owner asked twice for a calmer switch, and the second time for no
+    slide at all. Every tab carries its own fill (grey and a hairline). The
+    pressed tab's fill fades in and grows from 96% on the spot, the old tab's
+    fades out where it is, and the words ease from grey to ink, all over
+    150ms on one ease out. Only opacity and scale move, so the compositor
+    carries it. A press also dips the tab to 97%, so the finger is answered
+    before anything else happens. Nothing moves when less motion is asked for.
   */
-  useLayoutEffect(() => {
-    const ring = tabRingRef.current
-    const tab = activeTabRef.current
-    if (!ring || !tab) return
-    const place = (slide: boolean) => {
-      const x = tab.offsetLeft
-      const w = tab.offsetWidth
-      let from: { x: number; w: number } | null = null
-      if (slide && ring.style.width && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        const at = ring.getBoundingClientRect()
-        const bar = (ring.offsetParent as HTMLElement | null)?.getBoundingClientRect()
-        if (bar && at.width > 0) from = { x: at.left - bar.left, w: at.width }
-      }
-      ring.getAnimations().forEach((a) => a.cancel())
-      ring.style.top = `${tab.offsetTop}px`
-      ring.style.height = `${tab.offsetHeight}px`
-      ring.style.width = `${w}px`
-      ring.style.translate = `${x}px 0`
-      if (from && (Math.abs(from.x - x) > 0.5 || Math.abs(from.w - w) > 0.5)) {
-        ring.animate(
-          [{ translate: `${from.x}px 0`, width: `${from.w}px` }, { translate: `${x}px 0`, width: `${w}px` }],
-          { duration: TAB_SLIDE_MS, easing: TAB_EASE },
-        )
-      }
-    }
-    place(tabPressedRef.current)
-    tabPressedRef.current = false
-    setTabRingOn(true)
-    /* Its first report is the size just placed; only a real change re-places it, so it never cuts the slide short. */
-    const resized = new ResizeObserver(() => {
-      if (ring.style.width !== `${tab.offsetWidth}px` || ring.style.height !== `${tab.offsetHeight}px`) place(false)
-    })
-    resized.observe(tab)
-    return () => resized.disconnect()
-  }, [activeTab])
 
   // fetchDomains moved above the URL params useEffect to avoid TDZ
 
@@ -857,8 +809,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       const formTop = form.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
       form.style.minHeight = `${Math.max(0, Math.ceil(scroller.scrollTop + scroller.clientHeight - formTop))}px`
     }
-    /* The outline slides and the new panel fades in, for a press only (not on load, not on a re-render). */
-    tabPressedRef.current = true
+    /* The new panel fades in, for a press only (not on load, not on a re-render). */
     setPanelEntrance(true)
     setActiveTab(newTab)
     if (newTab === "domains") fetchDomains()
@@ -1329,25 +1280,28 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   ref={activeTab === tab.id ? activeTabRef : undefined}
                   onClick={() => handleTabChange(tab.id)}
                   data-settings-tab={tab.id}
-                  style={{ transitionDuration: `${TAB_SLIDE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                  className={`relative z-[1] flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-[color,background-color] motion-reduce:transition-none whitespace-nowrap cursor-pointer border [-webkit-tap-highlight-color:transparent] ${
+                  aria-current={activeTab === tab.id ? "page" : undefined}
+                  style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
+                  className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-[color,background-color,scale] active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 whitespace-nowrap cursor-pointer border border-transparent [-webkit-tap-highlight-color:transparent] ${
                     activeTab === tab.id
-                      ? `text-[#1a1a2e] ${tabRingOn ? "bg-transparent border-transparent" : "bg-[#f3f4f6] border-[#d1d5db]"}`
-                      : "bg-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]/70 border-transparent"
+                      ? "text-[#1a1a2e]"
+                      : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]/70"
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span>{tabLabel}</span>
+                  {/* This tab's own fill: it fades in where it is, never slides over from the last tab. A tab opened by the address on load is simply on. */}
+                  <span
+                    aria-hidden
+                    data-settings-tab-fill=""
+                    style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
+                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d1d5db] bg-[#f3f4f6] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${panelEntrance ? "transition-[opacity,scale]" : "transition-none"} motion-reduce:transition-none ${
+                      activeTab === tab.id ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"
+                    }`}
+                  />
+                  <Icon className="relative h-4 w-4" />
+                  <span className="relative">{tabLabel}</span>
                 </button>
               )
             })}
-            {/* The selected tab's pill, under the words and never in the way of a press. */}
-            <span
-              ref={tabRingRef}
-              aria-hidden
-              data-settings-tab-ring=""
-              className={`pointer-events-none absolute left-0 top-0 z-0 rounded-full border border-[#d1d5db] bg-[#f3f4f6] ${tabRingOn ? "" : "invisible"}`}
-            />
           </div>
         </div>
 
@@ -1418,14 +1372,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {/* General Tab */}
           {activeTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
-              {/* Purple Announcement Bar — Connect Stripe (only after status confirmed) */}
+              {/* Purple announcement bar: Connect Stripe (only after status confirmed) */}
               {!stripeStatus.connected && (
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm transition-all duration-300">
                   <div className="flex items-center gap-3 min-w-0">
                     <Wallet className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white">
-                      <span className="sm:hidden">Get paid - Connect Stripe</span>
-                      <span className="hidden sm:inline">Get paid — Connect your payouts to receive payments.</span>
+                      <span className="sm:hidden">Connect payouts to get paid</span>
+                      <span className="hidden sm:inline">Connect your payouts to get paid for your sales.</span>
                     </p>
                   </div>
                   <button

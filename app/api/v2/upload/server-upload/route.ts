@@ -15,7 +15,9 @@ import {
 import { hasExternalScanner } from "@/lib/storage/antivirus"
 import { scanAsset } from "@/lib/storage/scan-gate"
 import { preparePublicImage } from "@/lib/storage/public-image"
-import { UPLOAD_HEADERS, productFileLimit, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { FLAGGED_UPLOAD, UPLOAD_HEADERS, productFileLimit, screenPublicBytes, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { isScannerConfigured, scanBytes, type FileScanResult } from "@/lib/security/file-scanner"
+import { recordScan } from "@/lib/security/scan-log"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -43,6 +45,13 @@ const SERVER_UPLOAD_MAX_BYTES = 25 * 1024 * 1024
  * (lib/storage/public-image.ts): checked by its bytes, at most 50 megapixels,
  * its location metadata removed, stored under a type and extension read from
  * the bytes.
+ *
+ * With Storelib's malware scanner on (lib/security/file-scanner.ts) the bytes
+ * this route already holds are scanned BEFORE anything is stored: an
+ * infected file is refused and never lands in a bucket. A product file with
+ * no verdict (scanner down or slow) is stored as "pending_scan" and waits
+ * for its verdict like any other (lib/storage/scan-gate.ts); a picture with
+ * no verdict is stored, as every public picture is (screenPublicBytes).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -107,6 +116,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: picture.error }, { status: picture.status, headers: UPLOAD_HEADERS })
       }
       const filePath = generateStoragePath(creator.id, `image.${picture.ext}`, "product-images")
+      const screened = await screenPublicBytes(admin, picture.bytes, { source: "public_image", bucket: PUBLIC_BUCKET, path: filePath })
+      if (screened.blocked) {
+        return NextResponse.json({ error: FLAGGED_UPLOAD }, { status: 400, headers: UPLOAD_HEADERS })
+      }
       const { error } = await admin.storage.from(PUBLIC_BUCKET).upload(filePath, picture.bytes, {
         contentType: picture.mime,
         cacheControl: "31536000",
@@ -139,6 +152,14 @@ export async function POST(request: NextRequest) {
     const deepScan = scanFile(fileName, contentType, readBufferHeader(buffer))
     if (!deepScan.safe) {
       return NextResponse.json({ error: deepScan.reason }, { status: 400, headers: UPLOAD_HEADERS })
+    }
+
+    /* The whole file, while it is still only in this function's memory. */
+    const service = isScannerConfigured()
+    const verdict: FileScanResult | null = service ? await scanBytes(buffer, { ref: `server-upload:${productId}`, deadlineMs: 30_000 }) : null
+    if (verdict?.status === "infected") {
+      await recordScan(admin, { source: "product_file", result: verdict, bucket: STORAGE_BUCKET, action: "refused" })
+      return NextResponse.json({ error: FLAGGED_UPLOAD, threat: verdict.threat }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
     const { data: product } = await admin
@@ -228,22 +249,44 @@ export async function POST(request: NextRequest) {
     }
 
     /* The header passed above. With no external engine that is the scan;
-       with one, the engine looks at it now. */
+       with one, the engine looks at it now. Storelib's scanner already has:
+       clean is final, anything else waits as "pending_scan" for a retry. */
     const external = hasExternalScanner()
+    const scannedClean = verdict?.status === "clean"
     const { data: completed } = await admin
       .from("digital_assets")
       .update({
         upload_status: "completed",
         file_size: file.size,
-        scan_status: external ? "pending_scan" : "clean",
-        scan_result: external ? null : { engine: "heuristic", scannedAt: new Date().toISOString() },
+        scan_status: scannedClean ? "clean" : external ? "pending_scan" : "clean",
+        scan_result: scannedClean
+          ? {
+              engine: "clamav",
+              scanDurationMs: verdict.durationMs,
+              scannedAt: new Date().toISOString(),
+              sha256: verdict.sha256,
+              signatures: verdict.engine?.signatures ?? null,
+              engineVersion: verdict.engine?.version ?? null,
+            }
+          : external
+            ? null
+            : { engine: "heuristic", scannedAt: new Date().toISOString() },
         updated_at: new Date().toISOString(),
       })
       .eq("id", assetId)
       .select("id, file_path, file_name, mime_type, file_size, storage_bucket, scan_status")
       .single()
 
-    if (external && completed) {
+    if (verdict) {
+      await recordScan(admin, {
+        source: "product_file",
+        result: verdict,
+        bucket: STORAGE_BUCKET,
+        path: filePath,
+        assetId,
+        action: scannedClean ? "kept" : "pending",
+      })
+    } else if (external && completed) {
       const status = await scanAsset(admin, completed).catch(() => "pending_scan")
       if (status === "infected") {
         return NextResponse.json({ error: "That file was flagged by the virus scan and was removed." }, { status: 400, headers: UPLOAD_HEADERS })

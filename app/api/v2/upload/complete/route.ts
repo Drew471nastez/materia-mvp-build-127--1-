@@ -12,6 +12,8 @@ import {
 import { MAX_DIGITAL_PRODUCT_FILE_SIZE, scanFile } from "@/lib/storage/security"
 import { sniff } from "@/lib/storage/file-signature"
 import { scanAsset } from "@/lib/storage/scan-gate"
+import { isScannerConfigured, scanStoredObject } from "@/lib/security/file-scanner"
+import { recordScan } from "@/lib/security/scan-log"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -34,6 +36,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  *     executable is refused even though it never passed through a function;
  *   - a picture for the public bucket is checked as a picture and loses its
  *     location metadata, at the same URL.
+ *
+ * With Storelib's malware scanner on (lib/security/file-scanner.ts), a
+ * product file is NOT scanned here: the answer goes back as soon as the file
+ * is in place, with scanStatus "pending_scan", and the editor asks
+ * /api/v2/upload/scan for the verdict while the creator carries on (Scanning,
+ * then Clean or Blocked on the file's row). Until then no buyer can download
+ * it (lib/storage/scan-gate.ts). A link page file, which is public the moment
+ * it lands, is scanned here before this answers, and removed if infected.
  *
  * Request body:
  *   { assetId?, path, bucket, fileSize?, checksum? }
@@ -81,7 +91,7 @@ export async function POST(request: NextRequest) {
     if (assetId) {
       const { data: pending } = await admin
         .from("digital_assets")
-        .select("id, file_name, file_path, file_size, mime_type, storage_bucket, upload_status")
+        .select("id, file_name, file_path, file_size, mime_type, storage_bucket, upload_status, scan_status, scan_result")
         .eq("id", assetId)
         .eq("uploaded_by", user.id)
         .maybeSingle()
@@ -123,9 +133,15 @@ export async function POST(request: NextRequest) {
         if (!verdict.safe) return discard(verdict.reason || "That file cannot be uploaded.", 400)
       }
 
+      /* The server upload route scans the bytes it holds before storing them;
+         its ClamAV verdict stands rather than being asked for again. */
+      const verdictKept =
+        pending.upload_status === "completed" &&
+        pending.scan_status === "clean" &&
+        (pending.scan_result as { engine?: unknown } | null)?.engine === "clamav"
       const updateData: Record<string, unknown> = {
         upload_status: "completed",
-        scan_status: "pending_scan",
+        scan_status: verdictKept ? "clean" : "pending_scan",
         file_size: realSize,
         updated_at: new Date().toISOString(),
       }
@@ -145,8 +161,15 @@ export async function POST(request: NextRequest) {
       }
 
       /* Scanned now rather than whenever somebody remembers to: by header
-         always, and by the configured engine when there is one. */
-      const scanStatus = await scanAsset(admin, asset).catch(() => "pending_scan")
+         always, and by the configured engine when there is one. Storelib's
+         own scanner reads the whole file, which can take a while for a big
+         one, so that verdict is asked for by the editor after this answers
+         (the header above has already refused a renamed program). */
+      const scanStatus = verdictKept
+        ? "clean"
+        : isScannerConfigured()
+          ? "pending_scan"
+          : await scanAsset(admin, asset).catch(() => "pending_scan")
 
       await updateCreatorStorageUsed(admin, creator.id)
 
@@ -202,6 +225,17 @@ export async function POST(request: NextRequest) {
       if (!head || !verdict.safe || kind?.family === "markup" || kind?.family === "executable") {
         await admin.storage.from(PUBLIC_BUCKET).remove([path]).catch(() => undefined)
         return NextResponse.json({ error: "That file cannot be shared from a link page." }, { status: 400, headers: UPLOAD_HEADERS })
+      }
+      /* Public from the moment it lands, so scanned before this answers. With
+         no verdict in time (scanner down or slow) it stays: its header passed
+         above, and there is no pending state for a public link to wait in. */
+      const size = await storedObjectSize(admin, PUBLIC_BUCKET, path)
+      const scanned = await scanStoredObject(admin, PUBLIC_BUCKET, path, { size, ref: `link-page:${path}`, deadlineMs: 45_000 })
+      const infected = scanned.status === "infected"
+      if (infected) await admin.storage.from(PUBLIC_BUCKET).remove([path]).catch(() => undefined)
+      await recordScan(admin, { source: "link_page_file", result: scanned, bucket: PUBLIC_BUCKET, path, action: infected ? "removed" : "kept" })
+      if (infected) {
+        return NextResponse.json({ error: "That file was flagged by the virus scan and was removed." }, { status: 400, headers: UPLOAD_HEADERS })
       }
     } else {
       const cleaned = await cleanStoredPublicImage(admin, PUBLIC_BUCKET, path)

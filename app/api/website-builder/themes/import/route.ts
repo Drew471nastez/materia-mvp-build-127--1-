@@ -14,6 +14,7 @@ import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
+import { screenPublicBytes } from "@/lib/storage/upload-guard"
 import { IMPORT_BUCKET, IMPORT_MAX_BYTES, IMPORT_NOT_A_PACKAGE, IMPORT_TOO_LARGE, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
 import JSZip from "jszip"
 import {
@@ -137,6 +138,17 @@ export async function POST(req: Request) {
   /* Its first four bytes, before the unzipper sees the rest. */
   if (!looksLikeZip(buf)) {
     return NextResponse.json({ error: IMPORT_NOT_A_PACKAGE }, { status: 400 })
+  }
+
+  /* The whole package through the malware scan when it is on (ClamAV looks
+     inside zips), before a file of it is unpacked or published. */
+  const screened = await screenPublicBytes(admin, buf, {
+    source: "theme_import",
+    bucket: IMPORT_BUCKET,
+    path: typeof stored === "string" ? stored : `${user.id}/form-upload.zip`,
+  })
+  if (screened.blocked) {
+    return NextResponse.json({ error: "That theme package was flagged by the virus scan and was not imported." }, { status: 400 })
   }
 
   // Load the zip

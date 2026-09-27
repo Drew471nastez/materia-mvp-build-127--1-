@@ -72,7 +72,7 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
   /* The product's reads, started now, beside the auth check (see THE PRODUCT DOES NOT WAIT, above). */
   const productReads = Promise.all([
     id ? supabase.from("products").select(PRODUCT_COLUMNS).eq("id", id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    id ? supabase.from("digital_assets").select("id, file_name, file_path, file_size, mime_type").eq("product_id", id) : Promise.resolve({ data: [] }),
+    id ? supabase.from("digital_assets").select("id, file_name, file_path, file_size, mime_type, scan_status, scan_result").eq("product_id", id) : Promise.resolve({ data: [] }),
     /* The variants table may be missing on an old database; no variants then, as before. */
     id ? supabase.from("product_variants").select(VARIANT_COLUMNS).eq("product_id", id).order("position") : Promise.resolve({ data: [], error: null }),
   ])
