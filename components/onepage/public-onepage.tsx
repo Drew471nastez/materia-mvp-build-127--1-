@@ -4789,6 +4789,18 @@ function PublicBlockRenderer({
         strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
+      /*
+        THE FIELD AND THE BUTTON BESIDE IT ARE ONE CONTROL, SO THEY MATCH.
+        Measured on a phone at 390 (scripts/check-onepage-bar.mjs): Subscribe
+        and the email box next to it were both 43px tall — a pixel under the
+        44px a thumb is given everywhere else on the page — and the box's
+        corners were a hardcoded `rounded-lg` while the button took the
+        theme's `button_border_radius`. On a theme with round buttons (Olive
+        and Riso set 999) that is a pill sitting against a square box, in one
+        row, at one height. The padding is now the one the page already used
+        from 640px (py-3, 47px tall), at every width, and the box borrows the
+        button's radius below.
+      */
       const emailButtonStyles: React.CSSProperties = {
         backgroundColor:
           theme.button_style === "outline"
@@ -5024,15 +5036,15 @@ function PublicBlockRenderer({
                         placeholder={data.placeholder || "Enter your email"}
                         required
                         disabled={isSubmitting}
-                        className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 flex-1 min-w-0"
-                        style={{ color: "#000", width: '60%' }}
+                        className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 flex-1 min-w-0"
+                        style={{ color: "#000", width: "60%", borderRadius: emailButtonStyles.borderRadius }}
                       />
                       {emailSubmitted && downloadLink ? (
                         <button
                           type="button"
                           onClick={handleDownloadClick}
                           className={cn(
-                            "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
+                            "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
                             !isInsideCarousel && "hover:opacity-90"
                           )}
                           style={emailButtonStyles}
@@ -5044,7 +5056,7 @@ function PublicBlockRenderer({
                           type="submit"
                           disabled={isSubmitting || emailSubmitted}
                           className={cn(
-                            "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
+                            "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
                             !isInsideCarousel && "hover:opacity-90"
                           )}
                           style={emailButtonStyles}
@@ -5065,15 +5077,15 @@ function PublicBlockRenderer({
                       placeholder={data.placeholder || "Enter your email"}
                       required
                       disabled={isSubmitting}
-                      className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 w-full"
-                      style={{ color: "#000" }}
+                      className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 w-full"
+                      style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
                     />
                     {emailSubmitted && downloadLink ? (
                       <button
                         type="button"
                         onClick={handleDownloadClick}
                         className={cn(
-                          "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
+                          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
                           !isInsideCarousel && "hover:opacity-90"
                         )}
                         style={emailButtonStyles}
@@ -5085,7 +5097,7 @@ function PublicBlockRenderer({
                         type="submit"
                         disabled={isSubmitting || emailSubmitted}
                         className={cn(
-                          "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
+                          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
                           !isInsideCarousel && "hover:opacity-90"
                         )}
                         style={emailButtonStyles}
@@ -5138,15 +5150,15 @@ function PublicBlockRenderer({
                 placeholder={data.placeholder || "Enter your email"}
                 required
                 disabled={isSubmitting}
-                className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 flex-1 min-w-0"
-                style={{ color: "#000", width: '60%' }}
+                className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 flex-1 min-w-0"
+                style={{ color: "#000", width: "60%", borderRadius: emailButtonStyles.borderRadius }}
               />
               {emailSubmitted && downloadLink ? (
                 <button
                   type="button"
                   onClick={handleDownloadClick}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
+                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
                   style={emailButtonStyles}
@@ -5158,7 +5170,7 @@ function PublicBlockRenderer({
                   type="submit"
                   disabled={isSubmitting || emailSubmitted}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
+                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
                   style={emailButtonStyles}
@@ -5176,15 +5188,15 @@ function PublicBlockRenderer({
                 placeholder={data.placeholder || "Enter your email"}
                 required
                 disabled={isSubmitting}
-                className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 w-full"
-                style={{ color: "#000" }}
+                className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 w-full"
+                style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
               />
               {emailSubmitted && downloadLink ? (
                 <button
                   type="button"
                   onClick={handleDownloadClick}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
+                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
                   style={emailButtonStyles}
@@ -5196,7 +5208,7 @@ function PublicBlockRenderer({
                   type="submit"
                   disabled={isSubmitting || emailSubmitted}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
+                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
                   style={emailButtonStyles}

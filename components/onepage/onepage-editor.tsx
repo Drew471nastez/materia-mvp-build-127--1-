@@ -1321,8 +1321,43 @@ function EditorLayout() {
         duration={5000}
         icon={<AlertCircle className="w-4 h-4 text-white flex-shrink-0" strokeWidth={2.5} />}
       />
-      {/* Header - ALWAYS visible with solid background */}
-      <header className="box-content flex items-center border-b bg-white h-[56px] sm:h-[60px] pt-[env(safe-area-inset-top)] md:pt-0 shrink-0 relative z-30 overflow-hidden">
+      {/*
+        ═══════════════════════════════════════════════════════════════════
+         THE WHITE BAR ON A PHONE, AND THE HOLE THAT WAS IN THE MIDDLE OF IT
+        ═══════════════════════════════════════════════════════════════════
+        Reported from a phone, of the editor in Preview: a white bar across
+        the top of a dark page, mostly empty. Measured at 390x844 with a real
+        iPhone's safe area (scripts/check-onepage-bar.mjs):
+
+          the bar          104px of white (56 of bar + 47 of safe area + 1
+                           of border), of which 72px were rows with nothing
+                           in them at all
+          across it        a 91px hole in the middle, 23% of the width, and
+                           it grows with the screen: it is the shape of the
+                           DESKTOP layout, where this half is `flex-1` to
+                           line up with the editor panel and holds the tab
+                           pill and the settings button. On a phone both are
+                           `hidden` and the tabs live in the bottom bar, so
+                           the half was sized for children that are not there
+
+        So the bar is given the height its controls actually need — 44px, a
+        phone's nav bar, against 56 for a 36px back arrow — and the hole is
+        given the one thing the phone bar never said: whether the page is
+        saved. Under 640px the save button is its icon alone (its word is
+        `hidden sm:inline`), so until now nothing on a phone said "Unsaved"
+        in words at all. The word is `md:hidden`, like the back arrow, the
+        share square and Edit: it belongs to the phone bar, and from 768px
+        the tab pill has the middle back. Nothing is taken away — the same
+        six controls, closer to their own size, with the middle no longer
+        dead.
+
+        Measured in Inter at 12px, the longest of the four words is "Saving…"
+        at 53px, and the room for it is the width of the screen less 319px.
+        So the word is there from 375px (an iPhone SE, 56px of room) up;
+        narrower than that there is no wide gap to fill and it is left out
+        rather than shortened to "Unsa…".
+      */}
+      <header className="box-content flex items-center border-b bg-white h-11 sm:h-[60px] pt-[env(safe-area-inset-top)] md:pt-0 shrink-0 relative z-30 overflow-hidden">
         {/* Left controls area - flex-1 matches editor panel below */}
         <div className="flex-1 min-w-0 h-full px-3 sm:px-4 md:px-0">
           <div className="flex items-center gap-2 sm:gap-3 h-full w-full md:max-w-xl md:mx-auto md:px-6">
@@ -1360,6 +1395,27 @@ function EditorLayout() {
                 <Redo2 className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
+
+            {/* What fills the phone bar's middle: see the note on the bar above. */}
+            <span
+              data-onepage-state=""
+              className={cn(
+                "min-w-0 flex-1 truncate text-center text-[12px] font-medium leading-none hidden min-[375px]:block md:hidden",
+                saveState === "error" && isDirty
+                  ? "text-red-600"
+                  : isDirty || saveState === "saving"
+                    ? "text-amber-600"
+                    : "text-[#6b7280]",
+              )}
+            >
+              {saveState === "saving"
+                ? "Saving…"
+                : saveState === "error" && isDirty
+                  ? "Failed"
+                  : isDirty
+                    ? "Unsaved"
+                    : "Saved"}
+            </span>
 
             {/* Tab Navigation - Desktop - Pill shaped tabs */}
             <div ref={desktopPill.rowRef} className="relative isolate hidden md:flex items-center gap-1 bg-gray-100 rounded-full p-1" data-tab-row="desktop">

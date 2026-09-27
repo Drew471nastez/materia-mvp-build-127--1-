@@ -39,6 +39,20 @@ const settings = read("components/onepage/tabs/settings-tab.tsx")
 console.log("\nFull screen on a phone")
 check("the editor starts at the top of the screen, under the header only from 768px", /fixed left-0 right-0 top-0 md:left-\[240px\] md:top-\[58px\]/.test(editor))
 check("its bar pads itself into the safe area on a phone", /box-content flex items-center border-b bg-white[^"]*pt-\[env\(safe-area-inset-top\)\] md:pt-0/.test(editor))
+/*
+  AND IT EARNS ITS SPACE. Reported of a phone: a white bar over a dark page
+  with nothing in the middle of it. Measured at 390 by scripts/check-onepage-
+  bar.mjs: 56px of bar for a 36px back arrow, and a 91px hole across the
+  middle — the shape of the DESKTOP layout, whose tab pill and settings
+  button are `hidden` here. The height is the one the controls need now, and
+  the hole carries the save state, which under 640px the save button says
+  with an icon alone. The word needs about 52px to read, so it is there from
+  375px up.
+*/
+check("the phone bar is the height its controls need, 44px, and 60 from 640", /h-11 sm:h-\[60px\] pt-\[env\(safe-area-inset-top\)\]/.test(editor))
+check("its middle says whether the page is saved, where the save button has no words",
+  /data-onepage-state=""/.test(editor) && /hidden min-\[375px\]:block md:hidden/.test(editor) &&
+  /\? "Saving…"/.test(editor) && /\? "Unsaved"/.test(editor) && /: "Saved"/.test(editor))
 check("it sets with-op-editor on <html>", /<HtmlClass name="with-op-editor" \/>/.test(editor))
 const phoneBlock = css.slice(css.indexOf("The OnePage editor, full screen on a phone"))
 check("which hides the shell chrome under 768px only", /@media \(max-width: 767px\) \{\s*html\.with-op-editor \[data-shell-chrome\] \{\s*visibility: hidden;/.test(phoneBlock))

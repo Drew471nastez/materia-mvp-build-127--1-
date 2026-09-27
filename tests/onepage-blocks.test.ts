@@ -116,6 +116,26 @@ function main() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  section("The newsletter's field and its button are one control")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /*
+      Circled on a phone screenshot: Subscribe, and the box beside it.
+      Measured at 390 by scripts/check-onepage-bar.mjs — both were 43px
+      tall, a pixel under the 44px a thumb is given everywhere else, and
+      the box's corners were a hardcoded rounded-lg against the button's
+      theme radius (999 on Olive and Riso: a pill beside a square box).
+      The padding the page already used from 640px is used at every width,
+      and the box borrows the button's radius.
+    */
+    const live = read("components/onepage/public-onepage.tsx")
+    const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
+    check("nothing in the newsletter block is 43px tall on a phone any more", !/py-2\.5 sm:py-3/.test(email) && (email.match(/py-3 text-sm bg-white\/90/g) ?? []).length === 4)
+    check("and the field wears the button's corners, whatever the theme sets",
+      !/rounded-lg text-sm bg-white\/90/.test(email) && (email.match(/borderRadius: emailButtonStyles\.borderRadius/g) ?? []).length === 4)
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   section("A sensitive link asks first, and then behaves exactly as before")
   // ═══════════════════════════════════════════════════════════════════════
   {

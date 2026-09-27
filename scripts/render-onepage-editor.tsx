@@ -75,8 +75,12 @@ if (location.pathname.startsWith("/onepage-preview")) {
   const live_theme = template
     ? { ...defaultTheme, ...template.theme_config, template_id: template.id }
     : (globalThis as any).PROBE_LIVE_THEME ? { ...defaultTheme, ...(globalThis as any).PROBE_LIVE_THEME } : theme
+  /* One header, whoever supplies it: a probe that hands its own blocks may
+     already have the one the editor gives a real page (PROBE_BLOCKS), and
+     two would draw the avatar, the name and the bio twice. */
   const header = { id: "h", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } }
-  const live = { ...onepage, theme: live_theme, blocks: [header, ...onepage.draft_blocks.filter((b) => !b.schedule)], seller_id: "seller_probe" }
+  const own = onepage.draft_blocks.filter((b) => !b.schedule && b.type !== "header")
+  const live = { ...onepage, theme: live_theme, blocks: [header, ...own], seller_id: "seller_probe" }
   createRoot(document.getElementById("app")!).render(<PublicOnePage onepage={live as any} />)
 } else {
   createRoot(document.getElementById("app")!).render(<OnePageEditor initialOnePage={onepage} />)
