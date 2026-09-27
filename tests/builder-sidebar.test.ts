@@ -101,7 +101,18 @@ function main() {
   check("and a block's the same way, its conditions reading the section's settings as well",
     /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{visibleFields\(blockSchema\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)\.map\(field => \(/.test(editor))
   check("the newer controls are drawn by the controls folder first, and Insert shop data wraps every field",
-    /const registered = renderRegisteredControl\(kind, field, raw, onChange\)/.test(editor) && /<DynamicSourceField field=\{props\.field\}/.test(editor))
+    /const registered = renderRegisteredControl\(kind, field, raw, onChange\)/.test(editor) && /<DynamicSourceField field=\{props\.field\}[^>]*label=\{label\}>/.test(editor))
+  {
+    /* "On hover it flickers ... make it how Shopify displays that": scripts/check-dynamic-source.mjs measures it. */
+    const dyn = read("components/website-builder/editor/controls/dynamic-source-field.tsx").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\{\/\*[\s\S]*?\*\/\}/g, " ")
+    check("Insert shop data is a square button at the end of the label row, named for a screen reader",
+      /export const INSERT_LABEL = "Insert shop data"/.test(dyn) && /aria-label=\{INSERT_LABEL\}/.test(dyn) && /data-dynamic-label=""/.test(dyn) && /inline-flex h-7 w-7/.test(dyn) && /<Database /.test(dyn))
+    check("and it is there at rest: nothing about it waits for a hover or fades",
+      !/group-hover\/dyn|group-focus-within\/dyn|opacity-0|transition-opacity/.test(dyn))
+    check("a connected field is a chip with the source's name and an x",
+      /data-dynamic-bound=""/.test(dyn) && /aria-label=\{`Disconnect \$\{source\?\.label \?\? bound\}`\}/.test(dyn))
+    check("sliders do not carry it", /const slider = kind === "range" && !bound/.test(dyn))
+  }
   check("Theme settings' Menus is drawn by its own editor, without a second label, in both lists of groups",
     (editor.match(/field\.type === "header" \|\| field\.type === "paragraph" \|\| field\.type === "menus" \? \(/g) ?? []).length === 2)
   check("every panel the sidebar draws has the shop's facts for those controls",

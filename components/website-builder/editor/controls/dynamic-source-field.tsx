@@ -110,7 +110,19 @@ export function DynamicSourceField({
     return () => cancelAnimationFrame(id)
   }, [open])
 
-  if (!env || !target || field.responsive || offered.length === 0) {
+  const whole = !!target && targetIsWhole(target)
+  const text = typeof value === "string" ? value : ""
+  /* A text setting that is one source and nothing else reads as connected, too. */
+  const bound = whole ? wholeSource(value) : wholeSource(text)
+  /*
+    NOT ON A SLIDER. A range takes a number source, but nobody sets a
+    padding to the number of products, and a button at the end of every
+    size and spacing label is a sidebar of buttons. A slider already
+    connected (a theme can ship one) still shows its chip and the way out.
+  */
+  const slider = kind === "range" && !bound
+
+  if (!env || !target || field.responsive || offered.length === 0 || slider) {
     return (
       <>
         {label ? <label className={FIELD_LABEL}>{label}</label> : null}
@@ -119,10 +131,6 @@ export function DynamicSourceField({
     )
   }
 
-  const whole = targetIsWhole(target)
-  const text = typeof value === "string" ? value : ""
-  /* A text setting that is one source and nothing else reads as connected, too. */
-  const bound = whole ? wholeSource(value) : wholeSource(text)
   const named = bound ? [] : whole ? [] : sourcesIn(text)
 
   const pick = (s: DynamicSource) => {
