@@ -193,19 +193,16 @@ export async function POST(request: Request) {
         console.log("[Refund] Could not resolve creator identity, using fallback:", identityErr)
       }
 
-      // Resolve seller avatar URL
+      /* The seller's one picture, as every email of theirs carries it
+         (lib/email-campaigns/sender). It used to fall back to
+         creators.avatar_url, a copy of the photo that can still hold an old one. */
       try {
-        const { data: profile } = await dbClient
-          .from("profiles")
-          .select("avatar_url")
-          .eq("id", creator.user_id)
-          .single()
-        if (profile?.avatar_url) sellerAvatarUrl = profile.avatar_url
+        const { loadBrand } = await import("@/lib/email-campaigns/brand-server")
+        const { senderPicture } = await import("@/lib/email-campaigns/sender")
+        const brand = await loadBrand(dbClient, creator.id)
+        sellerAvatarUrl = senderPicture({ photoUrl: brand.avatarUrl, logoUrl: brand.logoUrl })?.url ?? ""
       } catch {
-        // No avatar available
-      }
-      if (!sellerAvatarUrl && creator.avatar_url) {
-        sellerAvatarUrl = creator.avatar_url
+        // No picture: the email draws the initials
       }
 
       await sendRefundEmails({

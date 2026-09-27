@@ -58,7 +58,7 @@ console.log("\nOpening the link only asks")
   check("the GET reads the token and never writes", /\.eq\("unsubscribe_token", token\)/.test(answer) && !/\.update\(|\.insert\(|\.delete\(/.test(answer))
   check("still on the list, it asks; already off, it says so", /subscriber\.status === "unsubscribed" \? "already" : "confirm"/.test(answer))
   check("limited per address, and the answers are never cached or indexed", /rateLimit\(\{ bucket: "subscriber-unsubscribe-page", subjects: \[addressSubject\(request\)\]/.test(server) && /"Cache-Control": "no-store"/.test(server) && /"X-Robots-Tag": "noindex"/.test(server))
-  check("the sender is read as the creator is now", /loadBrand\(db, creatorId\)/.test(server) && /brand\.logoUrl \?\? brand\.avatarUrl/.test(server))
+  check("the sender is read as the creator is now", /loadBrand\(db, creatorId\)/.test(server) && /* Changed on purpose: the page shows the one picture the emails carry (lib/email-campaigns/sender). */ /senderPicture\(\{ photoUrl: brand\.avatarUrl, logoUrl: brand\.logoUrl \}\)/.test(server))
 }
 
 console.log("\nThe button is the POST, and the POST still does everything")

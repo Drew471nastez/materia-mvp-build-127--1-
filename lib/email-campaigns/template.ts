@@ -26,7 +26,11 @@
  *   preheader    the line after the subject in the inbox, hidden in the
  *                body, followed by spacers so the inbox does not fill the
  *                rest of the line with the first words of the email.
- *   pictures     https only, each with its alt text and a width attribute.
+ *   pictures     https only, each with its alt text and a width attribute,
+ *                sized for the inbox (./sender emailImageSrc). One picture
+ *                of the creator, never two (./sender senderPicture): their
+ *                photo in the footer, or their logo in the header when they
+ *                have no photo.
  *   footer       the creator's name and postal address, why the reader is
  *                getting it, and for marketing email a working way out. The
  *                matching List-Unsubscribe headers are the sender's job
@@ -39,6 +43,7 @@
  */
 import { DEFAULT_BRAND, httpsUrl, type Brand } from "./brand"
 import { FONT, esc } from "./rich"
+import { emailImageSrc, initialOf, senderPicture, type SenderPicture } from "./sender"
 import { decodeHtmlEntities } from "@/lib/html-entities"
 import { resolveVariables, variableKey, type ResolveOptions, type VariableValues } from "@/lib/email-variables"
 
@@ -48,7 +53,11 @@ export interface EmailFrame {
   /** Trusted email HTML: renderBlocks or richToEmail output. */
   bodyHtml: string
   brand: Brand
-  /** The creator's own photo beside their name in the footer. */
+  /**
+   * The creator's profile photo. The email carries ONE picture of the
+   * creator (./sender senderPicture): this photo beside their name in the
+   * footer, or, when there is none, the website logo in the header.
+   */
   avatarUrl?: string | null
   /** Marketing email says why it came and how to stop; a receipt does not. */
   kind: "marketing" | "transactional"
@@ -71,17 +80,24 @@ function preheader(text?: string | null): string {
   return `<div class="sl-preheader" style="display:none;font-size:1px;color:#f4f5f7;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${esc(t)}${"&#8199;&#65279;&#847; ".repeat(60)}</div>`
 }
 
-function avatar(name: string, url?: string | null): string {
-  const safe = httpsUrl(url)
-  if (safe) {
-    return `<img src="${esc(safe)}" alt="" width="28" height="28" style="display:block;width:28px;height:28px;border-radius:14px;border:0;object-fit:cover;">`
+/**
+ * The footer's mark beside the name: the photo when the email's one picture
+ * is the photo, the name's first letter when there is no picture at all, and
+ * nothing when the picture is the logo, which is already in the header.
+ */
+function avatar(name: string, picture: SenderPicture | null): string {
+  if (picture?.kind === "logo") return ""
+  const src = picture ? emailImageSrc(picture.url, 28) : null
+  if (src) {
+    return `<img src="${esc(src)}" alt="" width="28" height="28" style="display:block;width:28px;height:28px;border-radius:14px;border:0;object-fit:cover;">`
   }
-  const letter = esc((name.trim()[0] || "S").toUpperCase())
+  const letter = esc(initialOf(name))
   return `<div style="width:28px;height:28px;border-radius:14px;background-color:#e5e7eb;color:#374151;font-family:${FONT};font-size:13px;font-weight:600;line-height:28px;text-align:center;">${letter}</div>`
 }
 
-function header(brand: Brand): string {
-  const logo = httpsUrl(brand.logoUrl)
+function header(brand: Brand, picture: SenderPicture | null): string {
+  /* The logo only when it is the email's one picture: a creator with a photo is shown by the photo, in the footer. */
+  const logo = picture?.kind === "logo" ? emailImageSrc(picture.url, 200) : null
   const store = httpsUrl(brand.storeUrl)
   const inner = logo
     ? `<img class="sl-logo" src="${esc(logo)}" alt="${esc(brand.name)}" height="40" style="display:block;height:40px;width:auto;max-width:200px;border:0;outline:none;text-decoration:none;">`
@@ -116,6 +132,8 @@ export function buildEmail(f: EmailFrame): string {
   const unsubscribe = marketing ? esc(f.unsubscribeUrl || "#") : ""
   const reason = f.reason ? esc(f.reason) : marketing ? `You are getting this because you joined ${name}'s list.` : ""
   const address = brand.address ? `<br><span class="sl-address">${esc(brand.address)}</span>` : ""
+  const picture = senderPicture({ photoUrl: f.avatarUrl, logoUrl: brand.logoUrl })
+  const mark = avatar(brand.name, picture)
   const pixel = f.openPixelUrl ? `<img src="${esc(f.openPixelUrl)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;">` : ""
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -148,7 +166,7 @@ ${preheader(f.previewText)}
 <tr><td align="center" class="sl-outer" style="padding:32px 16px 40px;">
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;margin:0 auto;">
-${header(brand)}
+${header(brand, picture)}
 <tr><td class="sl-card" style="background-color:#ffffff;border:1px solid #eceef1;border-radius:12px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 <td class="sl-pad sl-body" style="padding:40px;font-family:${FONT};font-size:16px;line-height:26px;color:#1f2937;word-break:break-word;">
@@ -157,7 +175,7 @@ ${f.bodyHtml}
 </td></tr>
 <tr><td align="center" style="padding:24px 16px 4px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="padding-right:8px;vertical-align:middle;">${avatar(brand.name, f.avatarUrl)}</td>
+${mark ? `<td style="padding-right:8px;vertical-align:middle;">${mark}</td>` : ""}
 <td class="sl-name" style="vertical-align:middle;font-family:${FONT};font-size:14px;font-weight:600;color:#374151;">${name}</td>
 </tr></table>
 </td></tr>

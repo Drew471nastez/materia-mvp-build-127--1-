@@ -36,7 +36,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     .select("id")
     .single()
   if (error || !data) {
-    console.error("[automations] could not copy a flow:", error?.code)
+    console.error("[automations] could not copy a flow:", error?.code, error?.message)
     return NextResponse.json({ error: "Could not make a copy. Try again." }, { status: 500 })
   }
   return NextResponse.json({ id: data.id })

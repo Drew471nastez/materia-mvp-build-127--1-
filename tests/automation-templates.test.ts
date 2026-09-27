@@ -485,12 +485,14 @@ async function main() {
     const w = world()
     w.db.tables.store_theme_installs.length = 0
     const identity = await w.store.identity(w.creatorId)
-    check("without a website, the brand is the creator's name and picture, in the /app ink", identity.brand?.name === "Astrid Lens" && identity.brand?.logoUrl === "https://cdn.example.com/a.png" && identity.brand?.accentColor === "#1a1a2e")
+    /* Changed on purpose: the logo slot no longer falls back to the profile photo, which drew the same face twice. The photo is the footer's (lib/email-campaigns/sender). */
+    check("without a website, the brand is the creator's name, no logo, and their photo, in the /app ink", identity.brand?.name === "Astrid Lens" && identity.brand?.logoUrl === null && identity.avatarUrl === "https://cdn.example.com/a.png" && identity.brand?.accentColor === "#1a1a2e")
   }
 
   console.log("\nTransactional mail is not marketing")
   {
-    const src = read("lib/email.tsx")
+    /* The receipt's drawing moved to lib/receipts/email.ts; lib/email.tsx sends it. */
+    const src = read("lib/receipts/email.ts") + read("lib/email.tsx")
     const between = (from: string, to: string) => src.slice(src.indexOf(from), src.indexOf(to, src.indexOf(from) + from.length))
     const receipt = between("export function buyerReceiptEmailHtml", "export async function sendSellerNotificationEmail")
     check("a receipt carries no unsubscribe link and no List-Unsubscribe header", receipt.length > 500 && !/unsubscribe/i.test(receipt), receipt.match(/.{0,40}unsubscribe.{0,40}/i)?.[0])

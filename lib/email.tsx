@@ -9,6 +9,8 @@
  */
 
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
+import { emailImageSrc, senderPicture } from "@/lib/email-campaigns/sender"
+import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 import { creatorTimeZone, formatForCreator } from "@/lib/account/time-zone"
 import type { MailAttachment } from "./mailgun"
@@ -394,145 +396,9 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;")
 }
 
-/** One receipt email, whatever the payment held. Built by receiptEmailModel. */
-export interface ReceiptEmailModel {
-  firstName: string
-  sellerName: string
-  orderNumber: string
-  dateText: string
-  items: Array<{ title: string; variantName: string | null; amountText: string; note: string | null }>
-  subtotalText: string | null
-  tipText: string | null
-  totalText: string
-  refundedText: string | null
-  link: string
-  buttonLabel: string
-  supportEmail: string
-  /** Every order row the email covers: one, or each line of a basket. */
-  orderIds?: string[]
-  /**
-   * The PDF that goes with the email (lib/checkout/invoice.ts): "invoice"
-   * when a company is billed, "receipt" otherwise, and the address that
-   * draws it again, which the receipt token opens as the receipt link does.
-   */
-  document?: { kind: "invoice" | "receipt"; link: string } | null
-}
-
-/** The line under the totals that says the PDF is attached, and where to get it again. */
-function documentLine(m: ReceiptEmailModel): { html: string; text: string } | null {
-  if (!m.document) return null
-  const noun = m.document.kind === "invoice" ? "invoice" : "receipt"
-  return {
-    html: `<p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#6b7280;">Your ${noun} is attached as a PDF. <a href="${escapeHtml(m.document.link)}" style="color:#1a1a2e;text-decoration:underline;">Download it again</a></p>`,
-    text: `Your ${noun} is attached as a PDF. Download it again: ${m.document.link}`,
-  }
-}
-
-export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
-  const seller = escapeHtml(safeText(m.sellerName) || PLATFORM_BRAND_NAME)
-  const first = escapeHtml(safeName(m.firstName) || "there")
-  const link = escapeHtml(m.link)
-  const support = escapeHtml(m.supportEmail)
-  const cell = "padding:12px 0;border-top:1px solid #eef0f3;font-size:14px;color:#1a1a2e;"
-
-  const itemRows = m.items
-    .map(
-      (it) => `<tr>
-                  <td style="${cell}">
-                    <div style="font-weight:600;">${escapeHtml(safeText(it.title))}</div>
-                    ${it.variantName ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(safeText(it.variantName))}</div>` : ""}
-                    ${it.note ? `<div style="font-size:13px;color:#b91c1c;margin-top:2px;">${escapeHtml(it.note)}</div>` : ""}
-                  </td>
-                  <td style="${cell}text-align:right;white-space:nowrap;vertical-align:top;font-weight:600;">${escapeHtml(it.amountText)}</td>
-                </tr>`,
-    )
-    .join("")
-
-  const sumRow = (label: string, value: string, strong = false) => `<tr>
-                  <td style="padding:4px 0;font-size:14px;color:${strong ? "#1a1a2e" : "#6b7280"};${strong ? "font-weight:700;" : ""}">${escapeHtml(label)}</td>
-                  <td style="padding:4px 0;font-size:14px;text-align:right;color:#1a1a2e;${strong ? "font-weight:700;" : ""}">${escapeHtml(value)}</td>
-                </tr>`
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <meta name="referrer" content="no-referrer">
-  <title>Your receipt from ${seller}</title>
-</head>
-<body style="margin:0;padding:0;background:#f8f9fa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-  <table role="presentation" width="100%" style="padding:28px 12px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #eceef1;border-radius:16px;">
-          <tr>
-            <td style="padding:28px 28px 8px;">
-              <p style="margin:0;font-size:14px;color:#6b7280;">${seller}</p>
-              <h1 style="margin:6px 0 0;font-size:22px;line-height:1.3;font-weight:700;color:#1a1a2e;">Thanks for your order, ${first}</h1>
-              <p style="margin:6px 0 0;font-size:14px;color:#6b7280;">Order ${escapeHtml(m.orderNumber)} &middot; ${escapeHtml(m.dateText)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:12px 28px 0;">
-              <table role="presentation" width="100%" style="border-collapse:collapse;">
-                ${itemRows}
-              </table>
-              <table role="presentation" width="100%" style="border-collapse:collapse;border-top:1px solid #eef0f3;margin-top:4px;">
-                ${m.subtotalText ? sumRow("Subtotal", m.subtotalText) : ""}
-                ${m.tipText ? sumRow("Tip", m.tipText) : ""}
-                ${sumRow("Total", m.totalText, true)}
-                ${m.refundedText ? sumRow("Refunded", m.refundedText) : ""}
-              </table>
-              ${documentLine(m)?.html ?? ""}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:24px 28px 8px;">
-              <a href="${link}" style="display:inline-block;background:#8b5cf6;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:12px;font-size:15px;font-weight:600;">${escapeHtml(m.buttonLabel)}</a>
-              <p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#6b7280;">The button opens your receipt with the files, on any device, so keep this email. If it does not open, paste this address into your browser:</p>
-              <p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:#6b7280;word-break:break-all;">${link}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 28px 26px;">
-              <p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">Questions about the order? Reply to this email to reach ${seller}, or write to <a href="mailto:${support}" style="color:#6d28d9;text-decoration:none;">${support}</a>.</p>
-            </td>
-          </tr>
-        </table>
-        <p style="margin:14px 0 0;font-size:11px;color:#9ca3af;">Sold by ${seller} through ${PLATFORM_BRAND_NAME}</p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-}
-
-export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
-  const lines = m.items.map((it) => {
-    const name = it.variantName ? `${safeText(it.title)} (${safeText(it.variantName)})` : safeText(it.title)
-    return `  ${name}: ${it.amountText}${it.note ? ` (${it.note})` : ""}`
-  })
-  return [
-    `Hi ${safeName(m.firstName) || "there"},`,
-    "",
-    `Thanks for your order from ${safeText(m.sellerName) || PLATFORM_BRAND_NAME}.`,
-    `Order ${m.orderNumber}, ${m.dateText}`,
-    "",
-    ...lines,
-    m.subtotalText ? `Subtotal: ${m.subtotalText}` : null,
-    m.tipText ? `Tip: ${m.tipText}` : null,
-    `Total: ${m.totalText}`,
-    m.refundedText ? `Refunded: ${m.refundedText}` : null,
-    "",
-    `${m.buttonLabel}: ${m.link}`,
-    documentLine(m)?.text ?? null,
-    "",
-    "Reply to this email to reach the seller.",
-  ]
-    .filter((l): l is string => l !== null)
-    .join("\n")
-}
+/* The receipt email itself is drawn in lib/receipts/email.ts, pure, so a test and a probe draw exactly what is sent. */
+export { buyerReceiptEmailHtml, buyerReceiptEmailText }
+export type { ReceiptEmailModel }
 
 /**
  * The email model, from the same loader as the receipt page, so the two show
@@ -547,10 +413,14 @@ async function receiptEmailModel(
     buyerFirstName: string
     sellerName: string
     supportEmail: string
+    /** The seller, for their one picture as every email of theirs carries it (lib/email-campaigns/sender). */
+    creatorId?: string | null
     fallback: { productTitle: string; variantName?: string | null; amountCents?: number | null; orderId: string }
   },
 ): Promise<ReceiptEmailModel> {
   const { loadReceiptByToken } = await import("@/lib/receipts/load")
+  /* The creator's photo and logo as their campaigns read them, so the receipt shows the same one picture. */
+  const brand = params.creatorId ? await loadBrand(admin, params.creatorId).catch(() => null) : null
   const { formatMoney, orderNumberOf } = await import("@/lib/receipts/rules")
   const dateOf = (iso: string) => {
     try {
@@ -581,6 +451,8 @@ async function receiptEmailModel(
     return {
       firstName: v.buyer.firstName || params.buyerFirstName,
       sellerName: v.seller.name || params.sellerName,
+      /* Both read profiles.avatar_url; the loader's is the one to hand when the brand could not be read. */
+      sellerPicture: senderPicture({ photoUrl: brand?.avatarUrl ?? v.seller.avatarUrl, logoUrl: brand?.logoUrl }),
       orderNumber: v.number,
       dateText: dateOf(v.createdAt),
       items: v.items.map((i) => ({
@@ -588,6 +460,7 @@ async function receiptEmailModel(
         variantName: i.variantName,
         amountText: money(i.subtotalCents),
         note: notes[i.state] ?? null,
+        thumbnailUrl: i.thumbnailUrl,
       })),
       subtotalText: v.tipCents > 0 || v.items.length > 1 ? money(v.subtotalCents) : null,
       tipText: v.tipCents > 0 ? money(v.tipCents) : null,
@@ -605,6 +478,7 @@ async function receiptEmailModel(
   return {
     firstName: params.buyerFirstName,
     sellerName: params.sellerName,
+    sellerPicture: senderPicture({ photoUrl: brand?.avatarUrl, logoUrl: brand?.logoUrl }),
     orderNumber: orderNumberOf(params.fallback.orderId),
     dateText: dateOf(new Date().toISOString()),
     items: [{ title: params.fallback.productTitle, variantName: params.fallback.variantName ?? null, amountText, note: null }],
@@ -894,6 +768,7 @@ export async function sendBuyerDownloadEmail(
     buyerFirstName,
     sellerName: fromName,
     supportEmail: replyTo,
+    creatorId,
     fallback: { productTitle, variantName, amountCents: params.amountCents, orderId },
   })
   /* The PDF this email carries (lib/checkout/invoice.ts names it Invoice-… or Receipt-…). */
@@ -1935,9 +1810,11 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
   const contactEmail = sellerContactEmail || sellerEmail || DEFAULT_SUPPORT
   const baseUrl = getStableBaseUrl()
 
-  // Build seller avatar cell: actual image if available, initials fallback
-  const sellerAvatarHtml = sellerAvatarUrl
-    ? `<td style="width:32px;height:32px;border-radius:8px;overflow:hidden;"><img src="${sellerAvatarUrl}" alt="${sellerInitials}" width="32" height="32" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" /></td>`
+  /* The seller's one picture (lib/email-campaigns/sender senderPicture, read by the caller), https only
+     and sized for the inbox; the initials when there is none, never a broken image. */
+  const sellerAvatarSrc = emailImageSrc(sellerAvatarUrl, 32)
+  const sellerAvatarHtml = sellerAvatarSrc
+    ? `<td style="width:32px;height:32px;border-radius:8px;overflow:hidden;"><img src="${escapeHtml(sellerAvatarSrc)}" alt="${escapeHtml(escapedStoreName)}" width="32" height="32" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" /></td>`
     : `<td style="width:32px;height:32px;background:#e8e5e0;border-radius:8px;text-align:center;vertical-align:middle;font-weight:700;font-size:13px;color:#888;">${sellerInitials}</td>`
 
   // Send buyer refund confirmation

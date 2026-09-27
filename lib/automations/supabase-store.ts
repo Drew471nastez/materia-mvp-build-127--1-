@@ -20,7 +20,7 @@ import type { TriggerType } from "./flow-model"
 import { textOn } from "./merge-fields"
 import type { CheckoutStart, StartOutcome, StartsStore } from "./abandoned"
 import { ownerAddress } from "@/lib/businesses/email-alias"
-import { emailImageUrl } from "@/lib/email-campaigns/brand"
+import { senderPhoto } from "@/lib/email-campaigns/sender"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 type PgError = { code?: string; message?: string } | null | undefined
@@ -439,8 +439,14 @@ function httpsUrl(v: unknown): string | null {
 /**
  * The creator as their emails show them. The name and address they send
  * from, their page, and their brand: the published website's store name,
- * logo and main colour when they have a site, their profile name and
- * picture when they do not, and the /app ink when no colour was chosen.
+ * logo and main colour when they have a site, their profile name when they
+ * do not, and the /app ink when no colour was chosen.
+ *
+ * The logo is the website's logo and nothing else. It used to fall back to
+ * the profile photo, so an automated email from a creator with no website
+ * drew their face twice, square in the header and round in the footer.
+ * Which ONE picture an email shows is decided by lib/email-campaigns/sender
+ * senderPicture, from this logo and the photo below.
  */
 async function readIdentity(db: Db, creatorId: string): Promise<Identity & { handle: string | null }> {
   const replyFallback = process.env.EMAIL_REPLY_TO || "support@storelib.com"
@@ -459,12 +465,12 @@ async function readIdentity(db: Db, creatorId: string): Promise<Identity & { han
     const accent = site.color ?? "#1a1a2e"
     const brand: Brand = {
       name: site.name || fromName,
-      logoUrl: site.logo ?? emailImageUrl(profile?.avatar_url),
+      logoUrl: site.logo,
       accentColor: accent,
       onAccent: textOn(accent),
     }
     /* The photo as it is on the profile now, read on every run: a new photo is in the next email. */
-    const avatarUrl = emailImageUrl(profile?.avatar_url)
+    const avatarUrl = senderPhoto(profile?.avatar_url)
     return { fromName, replyTo, storeUrl: handle ? `${APP_URL}/${encodeURIComponent(handle)}` : APP_URL, brand, handle, avatarUrl }
   } catch {
     return fallback

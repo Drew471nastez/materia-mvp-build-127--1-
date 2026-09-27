@@ -199,6 +199,13 @@ export async function POST(request: NextRequest) {
         reason: reason || "Refunded by Storelib",
         storeName: creator?.display_name || creator?.slug || "Storelib",
         orderDate: o.created_at ?? undefined,
+        /* The seller's one picture, as every email of theirs carries it (lib/email-campaigns/sender). */
+        sellerAvatarUrl: await (async () => {
+          const { loadBrand } = await import("@/lib/email-campaigns/brand-server")
+          const { senderPicture } = await import("@/lib/email-campaigns/sender")
+          const brand = await loadBrand(admin, product.creator_id as string).catch(() => null)
+          return senderPicture({ photoUrl: brand?.avatarUrl, logoUrl: brand?.logoUrl })?.url ?? undefined
+        })(),
       })
     }
   } catch (error) {

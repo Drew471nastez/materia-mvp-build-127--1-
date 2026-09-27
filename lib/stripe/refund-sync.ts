@@ -2,6 +2,8 @@ import "server-only"
 
 import type Stripe from "stripe"
 import { sendRefundEmails } from "@/lib/email"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
+import { senderPicture } from "@/lib/email-campaigns/sender"
 import { allocateRefund, feeShare, type RefundLine } from "./refund-allocation"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { emit } from "@/lib/notify/outbox"
@@ -300,11 +302,22 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
   return result
 }
 
+/** The seller's one picture, as every email of theirs carries it (lib/email-campaigns/sender). */
+async function sellerPicture(db: Db, creatorId: string | null | undefined): Promise<string | undefined> {
+  if (!creatorId) return undefined
+  try {
+    const brand = await loadBrand(db, creatorId)
+    return senderPicture({ photoUrl: brand.avatarUrl, logoUrl: brand.logoUrl })?.url ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number }>, refund: Stripe.Refund, currency: string) {
   const first = touched[0].row
   const { data: product } = await db
     .from("products")
-    .select("title, creator:creators(display_name, username, user_id)")
+    .select("title, creator_id, creator:creators(display_name, username, user_id)")
     .eq("id", first.product_id)
     .maybeSingle()
   const creator = (product as any)?.creator
@@ -324,6 +337,7 @@ async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number
     reason: refund.reason || "requested_by_customer",
     storeName: creator?.display_name || creator?.username || "Storelib",
     orderDate: first.created_at || undefined,
+    sellerAvatarUrl: await sellerPicture(db, (product as any)?.creator_id),
   })
 }
 
