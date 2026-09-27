@@ -157,67 +157,86 @@ function main() {
   check("drawn with WebGL, the 2D canvas where WebGL would be software", /createGlRenderer\(canvas, ball\)/.test(globe) && /create2dRenderer\(canvas, ball\)/.test(globe) && /failIfMajorPerformanceCaveat: true/.test(read("components/app/home/globe-gl.ts")))
   check("never sharper than 2x", /MAX_DPR = 2\b/.test(read("components/app/home/globe-scene.ts")) && /Math\.min\(window\.devicePixelRatio \|\| 1, MAX_DPR\)/.test(globe))
   /*
-    Changed on purpose, after a fade, a hand rolled slide and a fade again: "Import something regular and fix it
-    from scratch. Some basic swiper: when I touch it's clean and smooth, and when it's autoplaying make sure it's
-    smooth and clean as well." scripts/check-home-banner-motion.mjs measures it frame by frame.
+    Changed on purpose, again, and this time back to the library the product gallery uses: "for the
+    banner with the globe, the transition thing of the announcement, make sure it's very smooth ...
+    using this actually on swipe and autoplay as well ... make it: new Swiper('.swiper', { effect:
+    'fade' })". So a change of announcement is Swiper's fade, whatever asks for it.
+    scripts/check-home-banner.mjs measures the curve, what it costs and 1, 2, 3 and 5 slides;
+    scripts/check-home-banner-motion.mjs measures it frame by frame against the carousel it replaced.
   */
   console.log("\nthe banner's slides")
   const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> }
   const bannerCss = banner.slice(banner.indexOf("const BANNER_CSS"))
   const rule = (sel: string) => new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`).exec(bannerCss)?.[1] ?? ""
-  /*
-    Changed on purpose again: "Still glitchy, not smooth, laggy and flashy on autoplay and on finger swipe on
-    phones. I want it smooth, like 200fps." Embla animated the track from the page's thread, which also draws
-    the globe; a glide is now a Web Animation the compositor runs, and nothing renders React for a change.
-  */
-  check("no carousel library, and no frame loop of the page's own: a glide is a Web Animation on the track's transform",
-    !/embla/i.test(code("components/app/home/home-banner.tsx")) && /t\.animate\(\[\{ transform: pxAt\(from, w\) \}, \{ transform: pxAt\(to, w\) \}\], \{ duration: ms, easing \}\)/.test(banner)
-      && !/requestAnimationFrame/.test(code("components/app/home/home-banner.tsx")))
-  check("  which slide shows lives in a ref and is marked on the DOM: a change renders nothing",
-    /const at = useRef\(0\)/.test(banner) && !/useState\(0\)|setSelected|setLive/.test(banner) && /tab\.toggleAttribute\("data-on", on\)/.test(banner) && /if \(s\.inert === on\) s\.inert = !on/.test(banner))
-  check("  looping by a copy of the last slide before the first and of the first after the last, never by opacity",
-    /\{looped && slide\(list\[count - 1\], count - 1, "before"\)\}/.test(banner) && /\{looped && slide\(list\[0\], 0, "after"\)\}/.test(banner)
-      && /"aria-hidden": true, "data-copy": copy, inert: true/.test(banner))
-  check("  the resting place is written before the glide starts, so the swap from a copy needs no frame of its own",
-    /t\.style\.transform = restAt\(rest\)\s*\n\s*running\?\.cancel\(\)[\s\S]{0,300}t\.animate\(/.test(banner))
-  check("  the finger reaches it by pointer events, which never hold a scroll up: no touch listener in the banner at all",
-    /root\.addEventListener\("pointerdown", down\)/.test(banner) && /root\.addEventListener\("pointermove", move\)/.test(banner) && /window\.addEventListener\("pointercancel", up\)/.test(banner)
-      && !/addEventListener\("touch/.test(banner) && !/onTouch(Start|Move)/.test(banner))
-  check("  a finger catches a glide where it is drawn, the track follows it one to one, and a throw lands at the finger's own speed",
-    /const s0 = catchGlide\(\)/.test(banner) && /track\.style\.transform = pxAt\(drag\.s, w\)/.test(banner)
-      && /const slope = \(toward \* ms\) \/ dist/.test(banner) && /VELOCITY_WINDOW_MS = 100/.test(banner) && /FLICK_SPEED = 0\.35/.test(banner))
-  check("  only once the move is sideways: until then the browser may make it the page's scroll",
-    /if \(Math\.abs\(dx\) < 4 \|\| Math\.abs\(dx\) < Math\.abs\(e\.clientY - drag\.y0\)\) return/.test(banner))
-  check("  a drag's own click does not press the button under it, and no later click is lost to it",
-    /if \(e\.timeStamp > draggedUntil\) return/.test(banner) && /draggedUntil = e\.timeStamp \+ 400/.test(banner))
-  check("  and one slide is no carousel at all", /const looped = count > 1/.test(banner) && /if \(!root \|\| !track \|\| count < 2\) return/.test(banner))
-  check("every slide mounted once, side by side, keyed by its announcement: no slide rendered only when it shows",
-    /\{list\.map\(\(a, i\) => slide\(a, i, ""\)\)\}/.test(banner) && /key=\{copy \? `\$\{copy\}-\$\{a\.id\}` : a\.id\}/.test(banner) && !/leavingId|setLeavingId|data-changed/.test(banner)
-      && /flex: 0 0 100%/.test(rule(".home-banner-slide")))
+  check("Swiper moves them, the library the product gallery already uses, and only its core and its fade",
+    /^import Swiper from "swiper"$/m.test(banner) && /import \{ EffectFade \} from "swiper\/modules"/.test(banner) && /new Swiper\(el, \{/.test(banner)
+      && !!pkg.dependencies["swiper"] && /modules: \[EffectFade\],/.test(banner) && !/from "swiper\/react"/.test(banner))
+  check("  with its two stylesheets and no more", /^import "swiper\/css"$/m.test(banner) && /^import "swiper\/css\/effect-fade"$/m.test(banner) && !/swiper-bundle|swiper\/css\/[a-z-]+"(?!\))/.test(banner.replace(/swiper\/css\/effect-fade/g, "")))
+  check("  a fade, crossing, so some text is on screen in every frame of a change",
+    /effect: "fade",/.test(banner) && /fadeEffect: \{ crossFade: true \},/.test(banner) && /speed: FADE_MS,/.test(banner) && /FADE_MS = 260/.test(banner))
+  /* Half a drag is half a dissolve, held there for as long as the thumb rests: two sentences over
+     each other and two buttons of different widths. A swipe asks for the change; Swiper draws it once. */
+  check("  and a swipe asks for that same fade rather than drawing it under the finger", /followFinger: false,/.test(banner))
+  /* Swiper's loop re-appends slides, and on /app an insertion answers the :has() rules on <html>; it also
+     will not loop two slides, which two account states have. A fade has no direction to jump back from. */
+  check("  rewind rather than loop: no node moved, and two slides work", /rewind: true,/.test(banner) && !/loop: true/.test(banner))
+  /* Swiper 14 attaches touchstart and touchmove to the document with { passive: false } whatever
+     passiveListeners says, and a blocking touchmove listener there holds up every scroll on the page. */
+  check("  and its document touch listeners taken off again, so a scroll that starts on the banner never waits",
+    /function quiet\(swiper: SwiperClass\)/.test(banner) && /document\.removeEventListener\("touchstart", handlers\.onDocumentTouchStart\)/.test(banner)
+      && /document\.removeEventListener\("touchmove", handlers\.onTouchMove\)/.test(banner) && /swiper\.el\.removeEventListener\("touchstart", handlers\.onTouchStart\)/.test(banner)
+      && !/addEventListener\("touch/.test(banner))
+  /* Chrome sends pointercancel when it takes the gesture for its scroll and Swiper 14 ignores it: the drag
+     stays open, the next one is refused and every click in the banner is cancelled from then on. */
+  check("  a gesture the browser takes for a scroll is ended here, or the banner answers one swipe and no more",
+    /window\.addEventListener\("pointercancel", cancel\)/.test(banner) && /d\.isTouched = false/.test(banner) && /s\.allowClick = true/.test(banner))
+  check("  one slide is no carousel at all: no Swiper, no segments, no clock", /if \(!el \|\| count < 2\) return/.test(banner) && /count > 1 && \(/.test(banner))
+  check("every slide mounted once, keyed by its announcement: no slide rendered only when it shows",
+    /\{list\.map\(\(a, i\) => \{\s*const on = i === index/.test(banner) && /key=\{a\.id\}/.test(banner) && !/leavingId|setLeavingId|data-changed/.test(banner)
+      && /flex: 0 0 100%/.test(rule(".home-banner .home-banner-slide")))
   check("  the one showing is marked, never mounted: inert and data-slide, not aria-hidden (a :has() on <html> watches it)",
-    /inert: i !== 0,/.test(banner) && /"data-slide": i === 0 \? "active" : "idle"/.test(banner) && !/aria-hidden=\{/.test(banner))
-  check("the track moves by transform alone, on its own layer; nothing on a slide fades or transitions",
-    /will-change: transform;/.test(rule(".home-banner-track")) && !/opacity|transition|animation/.test(rule(".home-banner-slide"))
-      && !/@keyframes home-banner-in|home-banner-stack/.test(banner))
+    /inert=\{!on\}/.test(banner) && /data-slide=\{on \? "active" : "idle"\}/.test(banner) && !/aria-hidden=\{/.test(banner))
+  /* Swiper writes the two opacities and the transition's duration; the curve is the app's ease-out, and
+     nothing else on a slide moves: no transform of ours, no animation, no mask to re-raster. */
+  check("a change is opacity and nothing else, on the app's ease-out",
+    /transition-timing-function: cubic-bezier\(0, 0, 0\.2, 1\);/.test(rule(".home-banner .home-banner-slide"))
+      && !/animation|mask-image/.test(rule(".home-banner .home-banner-slide")) && !/@keyframes home-banner-in|home-banner-stack/.test(banner)
+      && !/mask-image/.test(bannerCss))
   check("one height at each width, whatever the slide: the height is set, not measured from the slide",
-    /height: 206px;/.test(rule(".home-banner-inner")) && /height: 222px; \}/.test(bannerCss) && /height: 180px; \}/.test(bannerCss) && /height: 100%;/.test(rule(".home-banner-slide")))
-  check("a sideways drag is the carousel's and a vertical one the page's", /touch-action: pan-y pinch-zoom;/.test(rule(".home-banner-text")) && /overflow: hidden;/.test(rule(".home-banner-text")))
-  check("the carousel ends where the globe's grip begins, so the two never share a finger, and fades through the room before it, from a still layer, not a mask on the moving box",
-    /right: var\(--grip-r\);/.test(rule(".home-banner-text")) && /--grip-r: calc\(var\(--gx\) \+ var\(--g\) \* 0\.424\);/.test(bannerCss)
-      && /GRIP = GLOBE_RADIUS \* 1\.06/.test(globe) && !/mask/.test(rule(".home-banner-text"))
-      && /mask-image: linear-gradient\(to right, transparent calc\(100% - var\(--grip-r\) - var\(--fade\)\), #000 calc\(100% - var\(--grip-r\)\), transparent calc\(100% - var\(--grip-r\)\)\);/.test(rule(".home-banner-fade")))
-  check("the clock is the segment's fill: when it ends the carousel slides on, and nothing else times it",
-    /onAnimationEnd=\{onFillEnd\}/.test(banner) && /\.closest\("\[role=tab\]"\)\?\.hasAttribute\("data-on"\)/.test(banner) && /const target = Math\.round\(from\) \+ 1/.test(banner) && !/setInterval|setTimeout/.test(banner))
-  check("  held by a finger (down to up), a mouse over it, focus, off screen and a hidden tab",
+    /height: 206px;/.test(rule(".home-banner-inner")) && /height: 222px; \}/.test(bannerCss) && /height: 180px; \}/.test(bannerCss) && /height: 100%;/.test(rule(".home-banner .home-banner-slide")))
+  check("a sideways drag is Swiper's and a vertical one the page's", /touch-action: pan-y pinch-zoom;/.test(rule(".home-banner .home-banner-text")) && /overflow: hidden;/.test(rule(".home-banner .home-banner-text")))
+  /* swiper/css styles .swiper, .swiper-wrapper and .swiper-slide; these three rules name .home-banner as
+     well, so the banner's own geometry wins on specificity whatever order the stylesheets land in. */
+  check("  and the banner's own rules outrank swiper/css by name, not by order",
+    /\.home-banner \.home-banner-text \{/.test(bannerCss) && /\.home-banner \.home-banner-track \{/.test(bannerCss) && /\.home-banner \.home-banner-slide \{/.test(bannerCss))
+  check("the carousel ends where the globe's grip begins, so the two never share a finger",
+    /right: var\(--grip-r\);/.test(rule(".home-banner .home-banner-text")) && /--grip-r: calc\(var\(--gx\) \+ var\(--g\) \* 0\.424\);/.test(bannerCss)
+      && /GRIP = GLOBE_RADIUS \* 1\.06/.test(globe))
+  check("the clock is the segment's fill: when it ends Swiper fades on, and nothing else times it",
+    /onAnimationEnd=\{on \? advance : undefined\}/.test(banner) && /s\.slideNext\(\)/.test(banner) && !/setInterval|setTimeout/.test(banner)
+      && /SLIDE_MS = 9000/.test(banner) && /animationDuration: `\$\{SLIDE_MS\}ms`/.test(banner))
+  check("  held by a finger (down to up), a mouse over it, off screen and a hidden tab",
     /setBit\(TOUCH, true\)/.test(banner) && /setBit\(TOUCH, false\)/.test(banner)
-      && /setBit\(HIDDEN, !onScreen \|\| document\.visibilityState === "hidden"\)/.test(banner) && /setBit\(HOVER, true\)/.test(banner) && /setBit\(FOCUS, true\)/.test(banner)
+      && /setBit\(HIDDEN, !onScreen \|\| document\.visibilityState === "hidden"\)/.test(banner) && /setBit\(HOVER, true\)/.test(banner)
       && /\.home-banner-tabs\[data-held\] \.home-banner-tab-fill \{ animation-play-state: paused; \}/.test(banner))
-  check("reduced motion: the clock and a segment jump instead of gliding, and a drag let go lands at once",
-    /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(banner) && /if \(calm\.current \|\| ms <= 0/.test(banner))
-  check("each segment a 44px target, the row inside the carousel so a swipe on it still drags",
+  /* "Sometimes the navigation progress bugs and stops": a press leaves its focus on the segment, and
+     holding the clock for that stopped the fill for good the first time anybody picked a slide. A
+     keyboard's focus still holds it, which is what :focus-visible tells the two apart by.
+     scripts/check-home-banner.mjs walks the clock through every hold there is. */
+  check("  and by a keyboard's focus, never by the focus a press leaves behind",
+    /setBit\(FOCUS, e\.target\.matches\(":focus-visible"\)\)/.test(banner))
+  /* Changed on purpose: with reduced motion the banner does not play by itself at all (WCAG 2.2.2's
+     reading of a carousel that moves on its own), and a change asked for has no fade. */
+  check("reduced motion: nothing plays by itself, and a segment's slide is simply there",
+    /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(banner) && /setBit\(CALM, mq\.matches\)/.test(banner)
+      && /swiperRef\.current\.params\.speed = mq\.matches \? 0 : FADE_MS/.test(banner))
+  check("each segment a 44px target, the row inside the carousel so a swipe on it still changes the slide",
     /flex: 0 1 44px;/.test(rule(".home-banner-tab")) && /height: 44px;/.test(rule(".home-banner-tab")) && /--foot: 44px;/.test(rule(".home-banner-inner"))
-      && banner.indexOf('className="home-banner-tabs"') > banner.indexOf('ref={viewportRef}') && banner.indexOf('className="home-banner-tabs"') < banner.indexOf("<BannerGlobe"))
-  check("a change asked for is read out, one the clock made is not", /setAttribute\("aria-live", asked\.current \? "polite" : "off"\)/.test(banner) && /asked\.current = false/.test(banner))
+      && banner.indexOf('className="home-banner-tabs"') > banner.indexOf('ref={viewRef}') && banner.indexOf('className="home-banner-tabs"') < banner.indexOf("<BannerGlobe"))
+  /* swiper/css gives .swiper-wrapper a z-index of 1, and the segments are its next sibling: without one
+     of their own they are drawn under the slide showing, which swallows every press on a segment. */
+  check("  over the slides, because swiper/css lifts the wrapper", /z-index: 2;/.test(rule(".home-banner .home-banner-tabs")))
+  check("a change asked for is read out, one the clock made is not", /setLive\(asked\.current \? "polite" : "off"\)/.test(banner) && /aria-live=\{live\}/.test(banner))
   check("it is in the banner, and the banner is on Home", /<BannerGlobe/.test(banner) && /<HomeBanner /.test(dash))
   check("the text stops --gap short of the globe's atmosphere: one set of numbers places both",
     /--fade: calc\(var\(--gap\) \+ var\(--g\) \* 0\.028\);/.test(banner) && /padding: var\(--pad-t\) var\(--fade\) var\(--foot\) var\(--pad-l\);/.test(banner)

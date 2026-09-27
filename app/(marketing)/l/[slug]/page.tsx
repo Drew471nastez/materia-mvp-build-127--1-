@@ -1,20 +1,17 @@
 import { notFound, permanentRedirect } from "next/navigation"
-import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { headers } from "next/headers"
-import { getLinksInternalPath, getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { getLinksInternalPath } from "@/lib/url-helpers"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { onePageIndexable } from "@/lib/seo/indexing"
-import { isBanned } from "@/lib/seo/bans"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
-import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
-import { publicOnePage } from "@/lib/onepage/public-shape"
+import { findPublishedOnePage, onePageOwner, publishedOnePageSeo, publishedShape } from "@/lib/onepage/published-page"
+import { onePageMetadataFrom } from "@/lib/onepage/seo"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
-import { typedSeoTitle } from "@/lib/account/identity"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -28,114 +25,23 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-/**
- * ===========================================================================
- *  WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
- * ===========================================================================
- * The page had no canonical, no og:url and no robots rule of its own, so every
- * OnePage was indexable at every address it answers on, a link farm's page of
- * outbound links included, while the sitemap was careful to list only the ones
- * whose owner has earned a creator page (lib/seo/sitemaps.ts). This answers
- * the questions both need, once per request (React `cache`), for the metadata
- * and the page alike:
- *
- *   handle      the owner's username, which the page is canonical under:
- *               storelib.com/<handle>/links, or /links on their connected
- *               domain, where the proxy serves the same page
- *   indexable   the sitemap's own rule, lib/seo/indexing.ts onePageIndexable
- *   banned      an operator banned the owner: the page is not served at all,
- *               as their products are not (lib/seo/bans.ts)
- *
- * The creator row is read whole (`*`), the way the product page reads it, so
- * a column one database has and another does not cannot fail the read.
- */
-const onePageOwner = cache(async (sellerId: string | null, creatorId: string | null, ownerId: string | null) => {
-  const supabase = createAdminClient()
-  const effective = sellerId || creatorId || null
-  const { data: creator } = effective
-    ? await supabase.from("creators").select("*").eq("id", effective).maybeSingle()
-    : ownerId
-      ? await supabase.from("creators").select("*").eq("user_id", ownerId).maybeSingle()
-      : { data: null }
-  const row = creator as { id?: string; user_id?: string | null; banned_at?: string | null } | null
-  // profiles.avatar_url and profiles.display_name are the single source of
-  // truth: Settings and Store Builder both sync to them, and every copy of
-  // them follows a change (lib/account/profile-follow).
-  const userId = ownerId || row?.user_id || null
-  const { data: profile } = userId
-    ? await supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle()
-    : { data: null }
-  const id = row?.id ?? effective
-  const [products, domain] = await Promise.all([
-    id
-      ? supabase.from("products").select("id", { count: "exact", head: true }).eq("creator_id", id).eq("status", "published")
-      : Promise.resolve({ count: 0 }),
-    id ? activeDomainOf(id) : Promise.resolve(null),
-  ])
-  const handle = (profile as { username?: string | null } | null)?.username || null
-  return {
-    handle,
-    banned: isBanned(row),
-    avatarUrl: (profile as { avatar_url?: string | null } | null)?.avatar_url || null,
-    displayName: (profile as { display_name?: string | null } | null)?.display_name || null,
-    publishedProducts: products.count ?? 0,
-    canonical: handle ? (domain ? getLinksUrlWithCustomDomain(handle, domain) : getLinksShareUrl(handle)) : null,
-  }
-})
+/*
+  ===========================================================================
+   WHAT THE PAGE SAYS TO GOOGLE AND TO A CHAT APP IS WHAT THE EDITOR SHOWED
+  ===========================================================================
+  The page's own name, bio, photo and theme give the title, the description
+  and the share image; a field the creator typed over in Settings replaces
+  only that one (lib/onepage/seo resolveOnePageSeo). The editor's previews
+  call the same function on the draft, so the card it draws is the card a
+  chat app draws. The image is drawn in the page's theme at
+  /<slug>/links/share.png, and its address carries a fingerprint of what it
+  is drawn from, so an edit gives it a new address and nothing old is
+  shown from a cache.
 
-/**
- * ===========================================================================
- *  ONE READ OF THE PAGE, FOR THE TAB AND FOR THE BODY
- * ===========================================================================
- * The metadata and the page each found the row with a lookup of their own,
- * and each built the name and the picture their own way: the body through
- * lib/onepage/public-shape, the tab with a chain that went on to the creator
- * page header when the page had no picture. So the page could draw one face
- * and the tab, the icon beside it and the share card another.
- *
- * Now the row is found once per request (React `cache`) and both read the
- * name and the picture from the same shape (`publishedShape`): what the page
- * body draws is what the tab title, the favicon, the apple touch icon and
- * the share card show. The only thing the tab adds is a Meta title the
- * creator typed.
- */
-const findPublishedOnePage = cache(async (slug: string) => {
-  const supabase = createAdminClient()
-  const { data: bySlug } = await supabase.from("onepages").select("*").eq("slug", slug).eq("status", "published").maybeSingle()
-  if (bySlug) return bySlug
-
-  /* By username, for username.storelib.com/links and /<handle>/links, where the proxy passes the handle as the slug. */
-  const { data: profile } = await supabase.from("profiles").select("id, username").ilike("username", slug).maybeSingle()
-  if (!profile) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", profile.id).maybeSingle()
-  if (creator) {
-    const { data: bySeller } = await supabase.from("onepages").select("*").eq("seller_id", creator.id).eq("status", "published").maybeSingle()
-    if (bySeller) return bySeller
-    const { data: byCreator } = await supabase.from("onepages").select("*").eq("creator_id", creator.id).eq("status", "published").maybeSingle()
-    if (byCreator) return byCreator
-  }
-  const { data: byOwner } = await supabase.from("onepages").select("*").eq("owner_id", profile.id).eq("status", "published").maybeSingle()
-  return byOwner ?? null
-})
-
-type Owner = Awaited<ReturnType<typeof onePageOwner>>
-
-/** The shape the page is drawn from, with the owner's live name and photo to fall back on. */
-function publishedShape(
-  onepage: Parameters<typeof publicOnePage>[0],
-  owner: Owner,
-  extra: { customDomain?: string | null; sellerId?: string | null } = {},
-) {
-  return publicOnePage(onepage, {
-    source: "published",
-    displayName: owner.displayName,
-    /* The live photo, for a page that has no picture of its own, and for one
-       whose copy is still the picture a sign in provider sent (lib/account/identity). */
-    liveAvatarUrl: owner.avatarUrl,
-    ...extra,
-  })
-}
-
+  The row, the owner and the name and face are read once per request
+  (lib/onepage/published-page), from the same shape the body is drawn from,
+  so they cannot differ; a page that shows no picture has no icon of its own.
+*/
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
 
@@ -144,86 +50,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: slug || "Page Not Found" }
   }
 
-  const settings = onepage.settings as any
-  const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
-
-  // The owner's live profile, with the handle and the indexing answer beside it (onePageOwner above).
+  // The owner's live profile, with the handle and the indexing answer beside it.
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
+  const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug)
 
-  /*
-    ===========================================================================
-     THE NAME AND THE FACE IN THE TAB ARE THE ONES ON THE PAGE
-    ===========================================================================
-    Read from the same shape the body is drawn from (publishedShape), so they
-    cannot differ. A page that shows no picture has no icon of its own: the
-    creator page header's photo used to stand in here, which is how the tab
-    could show an old face beside a page that drew none.
-  */
-  const drawn = publishedShape(onepage, owner)
-  const displayName = drawn.title || owner.handle || "Creator"
-  /* A Meta title that is only the page's name again is what the SEO card
-     filled its box with, not something anybody typed (typedSeoTitle). */
-  const seoTitle = typedSeoTitle(settings?.seo_title, displayName) ?? undefined
-  // For browser tab: let the root layout template add "| Storelib"
-  const pageTitle = seoTitle || displayName
-  const ogTitle = seoTitle?.replace(/ \| Storelib$/i, "") || displayName
-  const description = settings?.seo_description || drawn.bio || undefined
-
-  const faviconUrl = drawn.avatar_url
-  /* The sitemap's rule, so a page it does not list does not ask to be listed. */
+  /* The sitemap's rule, so a page it does not list does not ask to be listed.
+     Not listed means not indexed, and not followed: the links are the whole
+     page, and on a farm's page they are what it was made for. */
   const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
 
-  // The share card's picture: the creator's own social image when they set
-  // one, else the same face the page shows.
-  const socialImageUrl = settings?.social_image_url || faviconUrl || undefined
-
-  /*
-    The address it is shared at: <creator page domain>/links, or
-    storelib.com/<handle>/links under the owner's own handle, which is the
-    one the sitemap lists (onePageOwner). The address it was reached at when
-    there is no handle to name.
-  */
-  const pageHost = await primaryHostFor(effectiveSellerId, "creator_page")
-  const pageAddress = owner.canonical ?? getLinksShareUrl(slug, pageHost)
-
-  return {
-    title: pageTitle,
-    description,
-    /*
-      ONE ADDRESS. The same page answers at storelib.com/<handle>/links, at
-      /l/<slug>, and at /links on a connected domain; the canonical names the
-      one the creator gives out, and the share card says the same.
-    */
-    alternates: { canonical: pageAddress },
-    openGraph: {
-      url: pageAddress,
-      title: ogTitle,
-      description,
-      type: "profile",
-      ...(owner.handle ? { username: owner.handle } : {}),
-      images: socialImageUrl ? [socialImageUrl] : undefined,
-    },
-    twitter: {
-      card: socialImageUrl ? "summary_large_image" : "summary",
-      title: ogTitle,
-      description,
-      images: socialImageUrl ? [socialImageUrl] : undefined,
-    },
-    /*
-      Not listed means not indexed, and not followed: the links are the
-      whole page, and on a farm's page they are what it was made for. The
-      creator page makes the same call (app/(marketing)/u/[username]).
-    */
-    robots: indexable
-      ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
-      : { index: false, follow: false, googleBot: { index: false, follow: false } },
-    ...(faviconUrl && {
-      icons: {
-        icon: faviconUrl,
-        apple: faviconUrl,
-      },
-    }),
-  }
+  return onePageMetadataFrom(seo, { handle: owner.handle, indexable, icon: drawn.avatar_url }) as Metadata
 }
 
 export default async function PublicOnePageRoute({ params }: Props) {

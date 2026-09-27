@@ -197,6 +197,8 @@ export function describeSaveFailure(status: number | null, serverMessage: string
   if (status === null) return "No connection. Nothing was saved"
   if (status === 401) return "You are signed out. Sign in to save"
   if (status === 400 && /slug/i.test(serverMessage || "")) return "That page address is taken"
+  /* The editor's own route words a refusal as a sentence to show (app/api/onepage, lib/onepage/settings-rules). */
+  if (status === 400 && serverMessage && serverMessage.length <= 120 && !/[{}<>]/.test(serverMessage)) return serverMessage
   return "Couldn't save. Try again"
 }
 

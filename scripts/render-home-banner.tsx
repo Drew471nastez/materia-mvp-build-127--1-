@@ -8,6 +8,7 @@
  *   ?state=firstsale  the first sale yesterday, website live, Free
  *   ?state=selling    forty sales in 30 days on Free, website live, no domain
  *   ?state=milestone  Pro, $1,000 in sales passed this week, no domain yet
+ *   ?state=five       Free, a first sale and $1,000 passed this week: five announcements
  *   ?state=quiet      Free, everything done, nothing new
  *   ?state=pro        Pro, everything done, a domain, automations, subscribers
  *
@@ -60,6 +61,10 @@ const FIXTURES: Record<string, Fixture> = {
   selling: { product: true, payouts: true, site: true, domain: false, plan: "free", sales: Array.from({ length: 40 }, (_, i) => 1 + (i % 29) + i / 40), price: 4500 },
   /* Pro, no domain yet, and $1,000 in sales passed three days ago: 38 older sales of $25, then 4 this week. */
   milestone: { product: true, payouts: true, site: true, domain: false, plan: "growth", sales: [...Array.from({ length: 38 }, (_, i) => 9 + i), 3, 2.5, 2, 1], price: 2500 },
+  /* Five announcements, the most the banner ever shows (lib/home/announcements MAX_ANNOUNCEMENTS):
+     Free, the website live, the first sale four days ago and $1,000 passed since, no domain, no
+     automations, no subscribers. scripts/check-home-banner.mjs measures the fade at 1, 2, 3 and 5. */
+  five: { product: true, payouts: true, site: true, domain: false, plan: "free", sales: Array.from({ length: 40 }, (_, i) => 1 + (i % 4) * 0.8), price: 5000 },
   /* Free with everything done and nothing new: only the plan's own facts are left to say. */
   quiet: { product: true, payouts: true, site: true, domain: true, plan: "free", sales: Array.from({ length: 6 }, (_, i) => 40 + i * 5), price: 1900 },
   pro: { product: true, payouts: true, site: true, domain: true, plan: "growth", sales: Array.from({ length: 30 }, (_, i) => 2 + i * 3), price: 3900 },
@@ -152,6 +157,32 @@ const facts: ProgressFacts = {
   ...salesFrom(orders as OrderRow[]),
 }
 
+
+/*
+  THE ANNOUNCEMENTS CHANGING UNDER THE BANNER, on demand. In the app the list
+  changes when Home's facts do: it asks /api/home/progress again when it comes
+  back into view (components/app/home/use-home-progress). `window.__shorten()`
+  answers that read with the same account plus subscribers and automations,
+  which takes the last two announcements away and leaves the ones before them
+  where they were. For scripts/check-home-banner.mjs.
+*/
+{
+  type W = Window & { __shorten?: () => number; __nextFacts?: ProgressFacts }
+  const w = window as unknown as W
+  const realFetch = window.fetch.bind(window)
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url.includes("/api/home/progress") && w.__nextFacts) {
+      return new Response(JSON.stringify({ facts: w.__nextFacts }), { headers: { "content-type": "application/json" } })
+    }
+    return realFetch(input, init)
+  }) as typeof fetch
+  w.__shorten = () => {
+    w.__nextFacts = { ...facts, subscribers: 180, automationsOn: 2 }
+    document.dispatchEvent(new Event("visibilitychange"))
+    return 3
+  }
+}
 
 createRoot(document.getElementById("app")!).render(
   createElement(Boundary, null, createElement(LanguageProvider, null, createElement(DashboardClient, {

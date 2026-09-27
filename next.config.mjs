@@ -53,6 +53,8 @@ const nextConfig = {
     '/api/checkout/confirm-payment': ['./lib/checkout/fonts/**'],
     '/api/checkout/cart/complete': ['./lib/checkout/fonts/**'],
     '/api/stripe/webhook': ['./lib/checkout/fonts/**'],
+    /* The OnePage share image draws its words in the same Inter, read by path. */
+    '/*/links/share.png': ['./lib/checkout/fonts/**'],
   },
   typescript: {
     ignoreBuildErrors: true,

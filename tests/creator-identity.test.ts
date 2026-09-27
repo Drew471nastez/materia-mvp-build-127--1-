@@ -231,14 +231,16 @@ async function main() {
   /* ── The files that must keep reading it this way ──────────────────────── */
   console.log("\nEvery public surface reads the one resolver")
   {
-    const onepage = readCode("app/(marketing)/l/[slug]/page.tsx")
-    check("the OnePage metadata builds its title and icon from the shape the body is drawn from", onepage.includes("const drawn = publishedShape(onepage, owner)") && onepage.includes("const faviconUrl = drawn.avatar_url"))
+    /* The page, and the loader its metadata and share image read (lib/onepage/published-page), as one. */
+    const onepage = readCode("app/(marketing)/l/[slug]/page.tsx") + readCode("lib/onepage/published-page.ts")
+    const seoLib = readCode("lib/onepage/seo.ts")
+    check("the OnePage metadata builds its title and icon from the shape the body is drawn from", onepage.includes("const drawn = publishedShape(onepage, owner)") && onepage.includes("icon: drawn.avatar_url") && onepage.includes("name: drawn.title"))
     check("and the body is drawn from that same shape", onepage.includes("const transformedOnepage = publishedShape(onepage, owner"))
     check("and reads the live display name", onepage.includes("display_name") && onepage.includes("owner.displayName"))
     check("it no longer starts the title from the published copy alone", !/const displayName = profile\?\.title \|\| onepage\.title \|\| "Creator"/.test(onepage))
     check("it no longer starts the icon from the published copy alone", !/faviconUrl = profile\?\.avatar_url \|\| onepage\.avatar_url/.test(onepage))
-    check("a Meta title that is only the name again does not win", onepage.includes("typedSeoTitle(settings?.seo_title"))
-    check("the share card takes the same face", /socialImageUrl = settings\?\.social_image_url \|\| faviconUrl/.test(onepage))
+    check("a Meta title that is only the name again does not win", seoLib.includes("overrideOf(settings.seo_title, autoT, SEO_TITLE_MAX, [name, plainName])"))
+    check("the share card takes the same face", onepage.includes("avatarUrl: drawn.avatar_url") && seoLib.includes("shareCardModel({ name, avatarUrl: input.avatarUrl"))
 
     const shape = readCode("lib/onepage/public-shape.ts")
     check("the page body reads the same resolver", shape.includes("creatorName({") && shape.includes("creatorPhoto({"))
@@ -265,8 +267,10 @@ async function main() {
     check("the storefront's Edit profile moves them as well", creatorProfile.includes("followProfileIdentity"))
     check("and clears the caches the public pages read the profile through", creatorProfile.includes("revalidateTag(creatorTag(user.id)"))
 
-    const seoTab = readCode("components/onepage/tabs/settings-tab.tsx")
-    check("the SEO card never saves the name it was only showing", !/seo_title: metaTitle,/.test(seoTab) && seoTab.includes("typedSeoTitle(metaTitle"))
+    /* The box is empty while it follows the page, and shows the page's value only as its placeholder: only typed words are saved. */
+    const seoTab = readCode("components/onepage/tabs/settings-tab.tsx") + readCode("components/onepage/seo-panel.tsx")
+    check("the SEO card never saves the name it was only showing",
+      !/seo_title: metaTitle,/.test(seoTab) && seoTab.includes('placeholder: field.auto ? field.value : ""') && seoTab.includes('onChange(e.target.value === "" ? null : e.target.value)'))
 
     const sql = readCode("supabase/sql/run-now/44_profile_identity_follows.sql")
     check("the database keeps the copies in step for every other writer", sql.includes("CREATE TRIGGER profiles_identity_follows"))

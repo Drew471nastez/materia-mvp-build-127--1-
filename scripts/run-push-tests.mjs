@@ -141,6 +141,7 @@ const SUITES = [
   "tests/purchase-verify.test.ts",
   "tests/receipt-download.test.ts",
   "tests/receipt-actions.test.ts",
+  "tests/onepage-search-share.test.ts",
   "tests/policy-pages.test.ts",
   "tests/footer-complete.test.ts",
   "tests/section-responsive.test.ts",
@@ -382,7 +383,8 @@ try {
   const compiled = walk(out)
   for (const suite of SUITES) {
     const wanted = basename(suite).replace(/\.ts$/, ".js")
-    const entry = compiled.find((f) => f.endsWith(wanted))
+    /* By its whole name: page-seo.test.js is also the end of onepage-seo.test.js. */
+    const entry = compiled.find((f) => basename(f) === wanted)
     if (!entry) throw new Error(`compiled test not found for ${suite}`)
     console.log(`\n──────── ${suite} ────────`)
     try {

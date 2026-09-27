@@ -102,9 +102,10 @@ function main() {
       !on({ type: "text", data: { content: "a" } }) && on({ type: "text", data: { content: "Hi there" } }) &&
       !on({ type: "image", data: { images: [] } }))
     /* Moved on purpose to lib/onepage/public-shape.ts, which the route calls with the published copy. */
-    const page = read("app/(marketing)/l/[slug]/page.tsx")
+    /* The route reads it through lib/onepage/published-page, which its metadata and share image share. */
+    const page = read("app/(marketing)/l/[slug]/page.tsx") + read("lib/onepage/published-page.ts")
     check("a block that has not started is not sent to the browser at all",
-      /publicOnePage\(onepage, \{\s*source: "published"/.test(page) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(read("lib/onepage/public-shape.ts")))
+      /publicOnePage\(onepage, \{\s*source: "published"/.test(page) && /publishedShape\(onepage, owner, \{/.test(page) &&/blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(read("lib/onepage/public-shape.ts")))
 
     const module = read("components/onepage/extra-blocks.tsx")
     check("the blocks take the page's own button look", /export function themeButtonStyle\(theme: OnePageTheme\)/.test(module) && (module.match(/themeButtonStyle\(look\.theme\)/g) ?? []).length >= 3)

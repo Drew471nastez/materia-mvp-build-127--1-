@@ -248,16 +248,18 @@ async function main() {
 
   console.log("\nSettings")
   {
-    const settings = code("components/onepage/tabs/settings-tab.tsx")
+    /* The SEO section and its picture writes are components/onepage/seo-panel.tsx now. */
+    const settings = code("components/onepage/tabs/settings-tab.tsx") + code("components/onepage/seo-panel.tsx")
     check(
       "no request sends the whole page as this tab last saw it",
       !/JSON\.stringify\(\{ \.\.\.onepage/.test(settings),
       "it carried the archived blocks the editor opened with, and put archived blocks back",
     )
-    check("the image writes send only the id and their settings", (settings.match(/JSON\.stringify\(\{ id: onepage\.id, settings: /g) ?? []).length === 2)
+    check("the image writes send only the id and their settings", (settings.match(/JSON\.stringify\(\{ id: onepage\.id, settings: /g) ?? []).length === 1 && /const writeImage = async \(imageSettings/.test(settings) && (settings.match(/await writeImage\(|void writeImage\(/g) ?? []).length === 2)
     check("the fields are not refilled on every change to the page", !/\}, \[onepage\]\)/.test(settings) && /\}, \[fromPageKey\]\)/.test(settings))
     check("a field somebody typed in is left alone", /if \(!typedIn\) setField\[key\]\(incoming\)/.test(settings))
-    check("\"Saved!\" only after a save that worked", /const result = await save\(\)\s*\n\s*if \(result\.ok\) \{/.test(settings))
+    /* No "Saved!" of its own any more: the words beside Save are the page's own save state, "All changes saved" only when nothing is left unsaved. */
+    check("\"saved\" only after a save that worked", /: unsaved \? "Unsaved changes" : "All changes saved"/.test(settings) && /const failed = saveState === "error" && unsaved/.test(settings) && !/Saved!/.test(settings))
     check("saveAllSettings makes no request of its own", !/const handleSaveAllSettings = async \(\) => \{[\s\S]*?fetch\(/.test(settings.slice(settings.indexOf("const handleSaveAllSettings"), settings.indexOf("useImperativeHandle"))))
   }
 

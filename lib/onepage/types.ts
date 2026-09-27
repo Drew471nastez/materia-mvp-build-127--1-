@@ -64,6 +64,9 @@ export interface OnePageSettings {
   show_branding: boolean
   seo_title?: string | null
   seo_description?: string | null
+  /* The title and description a shared link shows, when not the search ones (lib/onepage/seo). */
+  social_title?: string | null
+  social_description?: string | null
   social_image_url?: string | null
   social_image_position_x?: number | null
   social_image_position_y?: number | null

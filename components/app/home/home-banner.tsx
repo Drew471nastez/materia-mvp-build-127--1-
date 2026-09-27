@@ -15,94 +15,183 @@
  * with the step the card names next leading. Only this store's things:
  * connect payouts, a first sale, what Pro would really have saved.
  *
- * THE SLIDES MOVE ON THE COMPOSITOR, ONE TRACK, NO LIBRARY. "Still
- * glitchy, not smooth, laggy and flashy on autoplay and on finger swipe on
- * phones. I want it smooth, like 200fps." embla-carousel (the version
- * before this) animated the track from a requestAnimationFrame loop on the
- * page's thread: every frame of a glide was a script writing a transform,
- * and Home's thread also draws the globe every frame. On a slowed phone the
- * glide then moved in steps of a third of the banner (124px in one frame,
- * 168px across the loop, measured by scripts/check-home-banner-motion.mjs),
- * and its select event re-rendered the banner as each glide began.
+ * THE SLIDES ARE SWIPER'S, AND A CHANGE IS ITS FADE. "For the banner with
+ * the globe, the transition thing of the announcement, make sure it's very
+ * smooth ... using this actually on swipe and autoplay as well ... make it:
+ * new Swiper('.swiper', { effect: 'fade' }) ... make sure it feels smooth,
+ * clean, non laggy the whole thing there, doesn't cause lag."
  *
- * Now a glide is one Web Animation on the track's `transform`, which the
- * browser hands to the compositor: it runs on its own thread at the
- * screen's rate whatever the page's thread is doing, and nothing in React
- * renders for it. Which slide is showing lives in a ref, and the few
- * attributes that say so (inert, data-slide, the segment's data-on) are set
- * on the DOM directly, so a change renders nothing.
+ * So one announcement dissolves into the next, and the clock, a segment, an
+ * arrow key and a finger all ask Swiper for that same fade (SWIPER_OPTIONS).
+ * Swiper 14 is already a dependency (components/product/media-swiper). Only
+ * the core, EffectFade and their two stylesheets come in here: no Autoplay
+ * (THE CLOCK below is the autoplay and the indicator in one animation, and a
+ * second timer beside it could only disagree), no Navigation (the segments
+ * are the control; the banner has no arrows), no A11y and no Keyboard, both
+ * of which would write over the aria this file sets by hand and put another
+ * listener on the document.
  *
- *   THE LOOP. The track holds a copy of the last slide before the first and
- *   a copy of the first after the last (aria-hidden, inert). From the last
- *   slide the clock glides on to the copy of the first, and at the end the
- *   track's resting place is the real first, which looks exactly the same:
- *   the resting transform is written before the glide starts and the glide
- *   names both of its ends, so the swap needs no frame of its own. No
- *   opacity, no jump back, no slide ever moved in the DOM.
+ * WHAT COMING BACK TO SWIPER COST, MEASURED RATHER THAN ASSUMED. Three
+ * things had sent this file to embla-carousel before, and each one is now a
+ * number from scripts/check-home-banner.mjs:
  *
- *   THE FINGER. Pointer events on the viewport, with touch-action pan-y: up
- *   or down is the page's scroll at once (a pointercancel here), sideways is
- *   the carousel's. A finger landing on a slide mid glide catches it where
- *   it is drawn. The track follows the finger one to one by transform, and
- *   on release the speed of the last VELOCITY_WINDOW_MS picks the slide (a
- *   flick always goes on one), and the landing glide starts at the finger's
- *   own speed (its curve's first slope is the throw), so the hand off has no
- *   kink. The drag's own click is not a press on the button under it.
+ *   ITS LOOP RE-APPENDS SLIDES, and on /app a DOM insertion restyles the
+ *   whole page through the :has() rules on <html> in globals.css. So there
+ *   is no loop here: `rewind`. With a fade nothing travels sideways, so "on
+ *   to the next" and "back to the first" look the same, and rewind moves no
+ *   node, needs no duplicate, and reads the same for the clock, a swipe and
+ *   the segments. Swiper adds and removes nothing: the probe counts 0 nodes
+ *   added or removed inside the banner over a whole run, and a change of
+ *   slide recalculates the slides it writes opacity on, not the document.
  *
- *   Every slide is mounted once and stays mounted, in one row; the banner
- *   has one height at each width whatever the slide says. The slides hold
- *   words only, so there is no picture to decode before one slides in.
+ *   IT WILL NOT LOOP TWO SLIDES, which two account states have. Rewind has
+ *   no such floor: 1, 2, 3 and 5 announcements are each measured, and one
+ *   slide is not a carousel at all (no Swiper, no segments, no clock).
  *
- *   THE FADE at the text's right edge is a still layer of the banner's own
- *   background laid over the track, not a mask on the moving part, so no
- *   frame of a glide has to redraw a mask.
+ *   ITS TOUCH LISTENERS ARE THE DOCUMENT'S AND CAN CANCEL A SCROLL. Swiper
+ *   14 attaches touchstart and touchmove to `document` with
+ *   { passive: false } whatever `passiveListeners` says (that parameter is
+ *   dead in 14: shared/swiper-core.mjs sets it and never reads it), and a
+ *   blocking touchmove listener on the document holds up every scroll on
+ *   the page. QUIET, below, takes those three off again and leaves Swiper's
+ *   pointer listeners, which cannot hold a scroll up, so the browser decides
+ *   the first move (touch-action: pan-y on the viewport): up or down is the
+ *   page's scroll, at once, and sideways is the fade's.
+ *
+ *   Every slide is mounted once and stays mounted; Swiper stacks them with
+ *   one transform each and crossfades them by opacity alone, so the banner
+ *   has one height at each width whatever the slide says and nothing about a
+ *   change touches layout.
  *
  * THE CLOCK is SLIDE_MS a slide, drawn in the slide's own segment under the
- * text: a CSS animation on `transform`, and the carousel moves on when it
- * ends, so no timer runs. It waits while a mouse is over the banner, while
- * focus is inside it, while a finger is on it, while it is off screen and
- * while the tab is hidden, and goes on after. The segments pick a slide
- * (arrow keys move between them), each a 44px target. Screen readers hear a
- * change they asked for and none they did not (aria-live off while it plays
- * by itself). With reduced motion the clock still turns the slides, and a
- * change is simply there: no glide, no momentum.
+ * text: a CSS animation on `transform`, and Swiper fades on when it ends, so
+ * no timer runs. It waits while a mouse is over the banner, while a
+ * keyboard's focus is inside it, while a finger is on it, while it is off
+ * screen and while the tab is hidden, and goes on after. (A press leaves its
+ * focus behind too, and holding for that stopped the fill for good the first
+ * time anybody picked a slide: see the section's onFocus.) The segments pick a slide (arrow keys
+ * move between them), each a 44px target. Screen readers hear a change they
+ * asked for and none they did not (aria-live off while it plays by itself).
+ * With reduced motion nothing plays by itself and a change asked for is
+ * simply there: no fade, no momentum.
  *
  * THE GLOBE (components/app/home/globe) has its own column and never moves
  * with the slides: the text's right padding and the globe's place are one
  * set of numbers, per banner width (container queries on the banner, so the
  * sidebar cannot throw them out), and the text column ends where the
- * globe's atmosphere begins. The carousel stops where the globe's grip
- * starts, so the two never share a finger: on the ball it is the globe's,
- * on the text the carousel's.
+ * globe's atmosphere begins. Swiper stops where the globe's grip starts, so
+ * the two never share a finger: on the ball it is the globe's, on the text
+ * Swiper's.
  *
  * THE BACKGROUND is light grey, painted once; nothing in it moves.
  *
  * Buttons go where the sidebar's rows go and the same way
  * (components/app/app-link).
  */
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type AnimationEvent, type KeyboardEvent, type ReactNode } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import Swiper from "swiper"
+import type { Swiper as SwiperClass, SwiperOptions } from "swiper/types"
+import { EffectFade } from "swiper/modules"
 import { AppLink } from "@/components/app/app-link"
 import { announcementsFor, fromFacts, type Announcement, type SalesSummary } from "@/lib/home/announcements"
 import type { ProgressFacts } from "@/lib/home/progress"
 import { BannerGlobe } from "./globe"
 
+/* Swiper's own two, and no more: the core's layout and the fade. */
+import "swiper/css"
+import "swiper/css/effect-fade"
+
 /** How long a slide stays, in ms. */
 export const SLIDE_MS = 9000
+/**
+ * How long the fade takes, in ms. The two slides cross early (the curve
+ * below is steep at its start, so the one coming in passes the one going out
+ * inside the first 60ms) and the rest is the tail settling, which is what
+ * reads as smooth rather than as a cut.
+ */
+export const FADE_MS = 260
 
-/** The clock's glide to the next slide, and a segment's: a calm half second, on one curve. */
-export const GLIDE_MS = 560
-export const GLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"
-/** A throw's landing is never quicker or slower than these. */
-const THROW_MIN_MS = 220
-const THROW_MAX_MS = 480
-/** How far ahead a throw is carried, in ms of its speed, when choosing the slide it lands on. */
-const THROW_PROJECT_MS = 240
-/** A throw at least this fast (px per ms) goes on to the next slide, however short the drag. */
-const FLICK_SPEED = 0.35
-/** Only the finger's last moves count toward a throw's speed. */
-const VELOCITY_WINDOW_MS = 100
-/** A drag let go this long after the finger stopped is no throw at all. */
-const STOPPED_MS = 60
+/**
+ * new Swiper(el, SWIPER_OPTIONS), which is the owner's snippet plus the
+ * decisions that belong to this banner:
+ *
+ *   effect fade, crossFade   The announcement going out loses exactly the
+ *                            opacity the one coming in gains, so some text
+ *                            is on screen in every frame of a change and the
+ *                            two are never both readable. Without crossFade
+ *                            Swiper leaves the old slide at full opacity
+ *                            under the new one, which for text is two
+ *                            sentences printed over each other.
+ *   rewind, not loop         No DOM move, no duplicate slide, and two slides
+ *                            work (see the header).
+ *   resistanceRatio 0.05     A drag past the first or the last slide moves
+ *                            a third of a pixel: the text does not dim at an
+ *                            edge, and Swiper still rewinds on release. At a
+ *                            flat 0 it moves nothing at all, and nothing is
+ *                            what onTouchEnd reads it as
+ *                            (`currentTranslate === startTranslate` returns
+ *                            before it can rewind), so a swipe on the last
+ *                            slide did nothing whatever.
+ *   followFinger false       A SWIPE ASKS FOR THE CHANGE; IT DOES NOT DRAW
+ *                            IT. There is nothing travelling under the finger
+ *                            for a fade to keep up with, and half a drag is
+ *                            half a dissolve: two sentences printed over each
+ *                            other and two buttons of different widths lying
+ *                            one on the other, held there for as long as the
+ *                            thumb rests. Swiper reads the swipe exactly as
+ *                            before (direction, distance, the rewind at
+ *                            either end) and draws the one fade when the
+ *                            finger lifts, so a swipe, a segment and the
+ *                            clock all show the same 260ms.
+ *   touchRatio 2             And a shorter swipe is enough to mean it.
+ *   touchEventsTarget        The whole viewport, so a swipe that begins on
+ *                            the segments changes the slide too.
+ *   touchStartPreventDefault A finger down on the banner is the button's to
+ *                            answer (it fetches its page ahead) and the
+ *                            browser's to route; Swiper must not eat it.
+ *   preventClicks            The click that ends a drag does not press the
+ *                            button under the finger. Swiper's own answer to
+ *                            the problem, on its own click listener.
+ */
+export const SWIPER_OPTIONS: SwiperOptions = {
+  effect: "fade",
+  fadeEffect: { crossFade: true },
+  speed: FADE_MS,
+  rewind: true,
+  resistance: true,
+  resistanceRatio: 0.05,
+  followFinger: false,
+  touchRatio: 2,
+  touchEventsTarget: "container",
+  touchStartPreventDefault: false,
+  preventClicks: true,
+  preventClicksPropagation: true,
+  modules: [EffectFade],
+}
+
+/**
+ * QUIET: SWIPER'S DOCUMENT TOUCH LISTENERS, TAKEN OFF AGAIN.
+ *
+ * attachEvents (shared/swiper-core.mjs) puts `touchstart` and `touchmove` on
+ * the document with { passive: false }, and `touchstart` on the element, and
+ * it does that whatever `passiveListeners` is set to. A blocking touchmove
+ * listener on the document is a promise to the browser that the page may
+ * cancel any scroll, so every scroll anywhere waits for the page's thread
+ * before it can start.
+ *
+ * Swiper reads a gesture from pointer events just as well: touchstart only
+ * records the touch's identifier, and while that identifier is unset (the
+ * listener gone) onTouchMove and onTouchEnd take the pointer path
+ * (core/events/onTouchMove: `if (e.type === 'pointermove') { if
+ * (data.touchId !== null) return }`). Pointer events cannot cancel a scroll,
+ * so the browser starts one the moment a move is vertical.
+ */
+function quiet(swiper: SwiperClass) {
+  const handlers = swiper as unknown as { onTouchStart: EventListener; onTouchMove: EventListener; onDocumentTouchStart: EventListener }
+  document.removeEventListener("touchstart", handlers.onDocumentTouchStart)
+  document.removeEventListener("touchmove", handlers.onTouchMove)
+  swiper.el.removeEventListener("touchstart", handlers.onTouchStart)
+}
 
 export interface HomeBannerProps {
   /** What the account has done, as Getting started reads it (lib/home/progress). Read only. */
@@ -130,44 +219,27 @@ const HOVER = 1
 const FOCUS = 2
 const TOUCH = 4
 const HIDDEN = 8
-
-/**
- * WHERE THE TRACK STANDS is counted in SLOTS: slot 0 is the first thing in
- * the track. With more than one slide the track is [copy of the last, the
- * slides, copy of the first], so slide i sits in slot i + 1; with one it is
- * just the slide, in slot 0. At rest the transform is a percentage of the
- * track's own width (one slide), so a resize never leaves it between two.
- */
-const restAt = (slot: number) => `translate3d(${-slot * 100}%, 0, 0)`
-const pxAt = (slot: number, width: number) => `translate3d(${(-slot * width).toFixed(2)}px, 0, 0)`
+/** Reduced motion holds it too: nothing plays by itself, and a change asked for is instant. */
+const CALM = 16
 
 function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?: () => void; onGuide?: () => void }) {
   const count = list.length
-  const looped = count > 1
-  const rootRef = useRef<HTMLElement>(null)
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const tabsRef = useRef<HTMLDivElement | null>(null)
-  /* The slide showing, and its id, which a new list keeps it by. Never React state: a change renders nothing. */
-  const at = useRef(0)
-  const shownId = useRef<string | undefined>(list[0]?.id)
-  /* The glide running, if one is. */
-  const glideRef = useRef<Animation | null>(null)
+  const [selected, setSelected] = useState(0)
+  const index = Math.min(selected, Math.max(0, count - 1))
   /* A change the reader asked for is read out; one the clock made is not. */
+  const [live, setLive] = useState<"off" | "polite">("off")
   const asked = useRef(false)
-  /* Reduced motion, read live: a change is a jump rather than a glide. */
+  /* Reduced motion, read live: a change asked for is simply there. */
   const calm = useRef(false)
-  /* For the handlers, which outlive a render. */
-  const shape = useRef({ count, looped, list })
-  shape.current = { count, looped, list }
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
-    const sync = () => { calm.current = mq.matches }
-    sync()
-    mq.addEventListener("change", sync)
-    return () => mq.removeEventListener("change", sync)
-  }, [])
+  const rootRef = useRef<HTMLElement>(null)
+  const viewRef = useRef<HTMLDivElement | null>(null)
+  const swiperRef = useRef<SwiperClass | null>(null)
+  const tabsRef = useRef<HTMLDivElement | null>(null)
+  /* For Swiper's handlers, which outlive a render: which announcement is showing. */
+  const shown = useRef(list[index]?.id)
+  shown.current = list[index]?.id
+  /* A new Swiper only when the announcements themselves change, never on a render. */
+  const ids = list.map((a) => a.id).join(" ")
 
   /*
     WHY THE CLOCK IS HELD LIVES OUTSIDE REACT. A hover, a focus, a finger
@@ -210,233 +282,127 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
     }
   }, [setBit])
 
-  /* ── Slots, and the track ───────────────────────────────────────────── */
-  const slotOf = useCallback((i: number) => (shape.current.looped ? i + 1 : i), [])
-  /** The slide a slot shows: a copy's slot is the slide it copies. */
-  const slideAt = useCallback((slot: number) => {
-    const { count: n, looped: loops } = shape.current
-    if (!loops) return Math.max(0, Math.min(n - 1, Math.round(slot)))
-    return (((Math.round(slot) - 1) % n) + n) % n
-  }, [])
-  /** The same picture, nearer the middle: a place over a copy is the same place over the slide it copies. */
-  const inRange = useCallback((slot: number) => {
-    const { count: n, looped: loops } = shape.current
-    if (!loops) return slot
-    if (slot > n + 0.5) return slot - n
-    if (slot < 0.5) return slot + n
-    return slot
-  }, [])
-  /* The viewport's exact width, fractions and all: a slot at rest is 100% of it, and a glide's px must end on the same place. */
-  const width = () => viewportRef.current?.getBoundingClientRect().width || 1
-  /** Where the track is drawn now, in slots, a glide's current frame included. */
-  const standing = useCallback((): number => {
-    const t = trackRef.current
-    if (!t) return 0
-    const m = new DOMMatrixReadOnly(getComputedStyle(t).transform)
-    return -m.m41 / width()
-  }, [])
-  /** Stop a glide where it is drawn: its frame is written as the track's own transform first, so nothing jumps. */
-  const catchGlide = useCallback((): number => {
-    const t = trackRef.current
-    const slot = inRange(standing())
-    const running = glideRef.current
-    glideRef.current = null
-    if (t) t.style.transform = pxAt(slot, width())
-    running?.cancel()
-    return slot
-  }, [inRange, standing])
-
+  /* ── Swiper ──────────────────────────────────────────────────────────── */
   /*
-    THE MARKS: which slide shows (inert on the others, data-slide) and which
-    segment runs the clock (data-on, aria-selected, the tab stop). On the DOM
-    directly. data-slide rather than data-state and inert rather than
-    aria-hidden: either of those changing makes a :has() on <html> in
-    globals.css restyle the whole page.
+    ONE SWIPER FOR AS LONG AS THE ANNOUNCEMENTS ARE THE SAME. A slide is
+    never mounted or unmounted by a change of slide, so nothing is inserted
+    while it plays; when the announcements themselves change (a count
+    arriving, a sale coming in) React replaces the slides and Swiper is built
+    again over the new ones, on the announcement that was showing.
   */
-  const mark = useCallback((i: number) => {
-    const root = rootRef.current
-    if (!root) return
-    at.current = i
-    shownId.current = shape.current.list[i]?.id
-    root.querySelectorAll<HTMLElement>(".home-banner-slide[data-announcement]").forEach((s, k) => {
-      const on = k === i
-      if (s.inert === on) s.inert = !on
-      if (s.dataset.slide !== (on ? "active" : "idle")) s.dataset.slide = on ? "active" : "idle"
+  useEffect(() => {
+    const el = viewRef.current
+    if (!el || count < 2) return
+    const at = Math.max(0, list.findIndex((a) => a.id === shown.current))
+    const swiper = new Swiper(el, {
+      ...SWIPER_OPTIONS,
+      initialSlide: at,
+      /* Reduced motion: the change is instant, and every call below reads this. */
+      speed: calm.current ? 0 : FADE_MS,
+      on: {
+        slideChange(s) {
+          setSelected(s.activeIndex)
+          setLive(asked.current ? "polite" : "off")
+        },
+      },
     })
-    tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]").forEach((tab, k) => {
-      const on = k === i
-      tab.setAttribute("aria-selected", on ? "true" : "false")
-      tab.tabIndex = on ? 0 : -1
-      tab.toggleAttribute("data-on", on)
-    })
-    trackRef.current?.setAttribute("aria-live", asked.current ? "polite" : "off")
-  }, [])
-
-  /**
-   * Glide from `from` to `to` (slots) over `ms` on `easing`, on the
-   * compositor. The resting transform, at the real slide `to` shows, is
-   * written first; the animation names both its ends, so the moment it ends
-   * the resting place is already there and is the same picture.
-   */
-  const glide = useCallback((from: number, to: number, ms: number, easing: string) => {
-    const t = trackRef.current
-    if (!t) return
-    const running = glideRef.current
-    glideRef.current = null
-    const rest = slotOf(slideAt(to))
-    t.style.transform = restAt(rest)
-    running?.cancel()
-    const w = width()
-    if (calm.current || ms <= 0 || Math.abs(to - from) * w < 0.5 || typeof t.animate !== "function") return
-    const a = t.animate([{ transform: pxAt(from, w) }, { transform: pxAt(to, w) }], { duration: ms, easing })
-    glideRef.current = a
-    a.onfinish = () => {
-      if (glideRef.current === a) glideRef.current = null
+    quiet(swiper)
+    swiperRef.current = swiper
+    setSelected(at)
+    return () => {
+      swiperRef.current = null
+      /* The DOM is React's: Swiper takes its own classes and inline styles back off it. */
+      swiper.destroy(true, true)
     }
-  }, [slideAt, slotOf])
+    /* `ids` stands in for the list, which is a new array on every render. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids, count])
 
-  /* The list, first and whenever it changes: the slide showing stays the one showing, at rest. */
-  useLayoutEffect(() => {
-    const kept = list.findIndex((a) => a.id === shownId.current)
-    const i = kept >= 0 ? kept : Math.min(at.current, Math.max(0, count - 1))
-    const running = glideRef.current
-    glideRef.current = null
-    running?.cancel()
-    if (trackRef.current) trackRef.current.style.transform = restAt(slotOf(i))
-    mark(i)
-  }, [list, count, mark, slotOf])
-
-  /** A segment, an arrow key: to that slide, round the loop when that is the one step. */
-  const go = useCallback((to: number) => {
-    const { count: n, looped: loops } = shape.current
-    if (!loops) return
-    asked.current = true
-    const from = catchGlide()
-    const now = at.current
-    const target = now === n - 1 && to === 0 ? n + 1 : now === 0 && to === n - 1 ? 0 : slotOf(to)
-    mark(to)
-    glide(from, target, GLIDE_MS, GLIDE_EASE)
-  }, [catchGlide, glide, mark, slotOf])
-  /** The clock: the showing segment's fill ended. On to the next, forwards, the last to the first by its copy. */
-  const advance = useCallback(() => {
-    if (!shape.current.looped) return
-    asked.current = false
-    const from = catchGlide()
-    const target = Math.round(from) + 1
-    mark(slideAt(target))
-    glide(from, target, GLIDE_MS, GLIDE_EASE)
-  }, [catchGlide, glide, mark, slideAt])
-  const onFillEnd = (e: AnimationEvent<HTMLDivElement>) => {
-    if (!/^home-banner-fill/.test(e.animationName)) return
-    if (!(e.target as Element).closest("[role=tab]")?.hasAttribute("data-on")) return
-    advance()
-  }
+  /* Reduced motion: nothing plays by itself, and a change asked for has no fade. */
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const sync = () => {
+      calm.current = mq.matches
+      setBit(CALM, mq.matches)
+      if (swiperRef.current) swiperRef.current.params.speed = mq.matches ? 0 : FADE_MS
+    }
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
+  }, [setBit])
 
   /* ── The finger ─────────────────────────────────────────────────────── */
-  useEffect(() => {
-    const root = viewportRef.current
-    const track = trackRef.current
-    if (!root || !track || count < 2) return
-    type Drag = { id: number; mouse: boolean; x0: number; y0: number; s0: number; s: number; on: boolean; moves: { t: number; x: number }[] }
-    let drag: Drag | null = null
-    /* A drag ends in a click where the mouse comes up; that click is the drag's, not the button's under it. */
-    let draggedUntil = -1
+  /*
+    SWIPER'S OWN DRAG, MINUS THE LISTENERS THAT HOLD A SCROLL UP (QUIET,
+    above). What is left here is the two things Swiper does not do for this
+    banner:
 
-    const down = (e: PointerEvent) => {
-      if (drag || (e.pointerType === "mouse" && e.button !== 0)) return
-      /* A finger landing on a slide on its way catches it where it is drawn. */
-      const s0 = catchGlide()
-      drag = { id: e.pointerId, mouse: e.pointerType === "mouse", x0: e.clientX, y0: e.clientY, s0, s: s0, on: false, moves: [{ t: e.timeStamp, x: e.clientX }] }
+      THE CLOCK WAITS WHILE A FINGER IS DOWN. Swiper's touchStart and
+      touchEnd cannot be used for that pair: on the gesture that matters, the
+      one the browser takes for its scroll, Chrome sends pointercancel and
+      Swiper 14 ignores pointercancel unless it takes itself for Safari or a
+      webview (core/events/onTouchEnd), so the touchEnd to match would never
+      come and the clock would stay held.
+
+      AND THE DRAG IT LEFT OPEN IS CLOSED. That same ignored pointercancel
+      leaves isTouched and isMoved set, and the next finger down is refused
+      (`if (data.isTouched && data.isMoved) return`), which is a banner that
+      answers one swipe and then no more. So the cancel is ended here and the
+      slide showing settles back.
+  */
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root || count < 2) return
+    const down = () => {
       asked.current = true
       setBit(TOUCH, true)
     }
-    const move = (e: PointerEvent) => {
-      if (!drag || e.pointerId !== drag.id) return
-      const dx = e.clientX - drag.x0
-      if (!drag.on) {
-        /* Not until the move is sideways: until then the browser may still make it the page's scroll. */
-        if (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(e.clientY - drag.y0)) return
-        drag.on = true
-        if (drag.mouse) root.setPointerCapture(e.pointerId)
-      }
-      const w = width()
-      /* One to one, and never past the copies at either end. */
-      drag.s = Math.max(0, Math.min(count + 1, drag.s0 - dx / w))
-      track.style.transform = pxAt(drag.s, w)
-      drag.moves.push({ t: e.timeStamp, x: e.clientX })
-      while (drag.moves.length > 2 && e.timeStamp - drag.moves[0].t > VELOCITY_WINDOW_MS) drag.moves.shift()
-    }
-    const up = (e: PointerEvent) => {
-      if (!drag || e.pointerId !== drag.id) return
-      const d = drag
-      drag = null
-      if (d.mouse && root.hasPointerCapture(e.pointerId)) root.releasePointerCapture(e.pointerId)
+    const up = () => setBit(TOUCH, false)
+    const cancel = (e: PointerEvent) => {
       setBit(TOUCH, false)
-      const w = width()
-      /* The throw: the finger's speed over its last moves, none if it had stopped or the browser took the move. */
-      const first = d.moves[0]
-      const last = d.moves[d.moves.length - 1]
-      const live = e.type === "pointerup" && d.on && e.timeStamp - last.t <= STOPPED_MS && last.t > first.t
-      const vx = live ? (last.x - first.x) / (last.t - first.t) : 0
-      const v = -vx / w
-      const base = Math.round(d.s0)
-      let target = Math.round(d.s + v * THROW_PROJECT_MS)
-      if (Math.abs(vx) >= FLICK_SPEED && Math.sign(d.s - d.s0) === Math.sign(v)) target = base + Math.sign(v)
-      target = Math.max(base - 1, Math.min(base + 1, Math.max(0, Math.min(count + 1, target))))
-      if (d.on && Math.abs(last.x - d.x0) > 10) draggedUntil = e.timeStamp + 400
-      const i = slideAt(target)
-      if (i !== at.current) mark(i)
-      /*
-        THE LANDING STARTS AT THE FINGER'S SPEED. An ease out whose first
-        slope is the throw: slope = speed toward the slide x duration /
-        distance, and the curve's first control point is (0.25, 0.25 x
-        slope). A soft let go lands on the plain curve.
-      */
-      const dist = Math.abs(target - d.s) * w
-      const toward = vx === 0 ? 0 : -vx * Math.sign(target - d.s)
-      let ms: number
-      let easing: string
-      if (toward > 0.05 && dist > 1) {
-        ms = Math.max(THROW_MIN_MS, Math.min(THROW_MAX_MS, (2.4 * dist) / toward))
-        const slope = (toward * ms) / dist
-        easing = `cubic-bezier(0.25, ${Math.min(1, 0.25 * slope).toFixed(3)}, 0.3, 1)`
-      } else {
-        ms = Math.max(THROW_MIN_MS, Math.min(THROW_MAX_MS, 240 + (200 * dist) / w))
-        easing = "cubic-bezier(0.25, 0.8, 0.3, 1)"
-      }
-      glide(d.s, target, ms, easing)
+      const s = swiperRef.current
+      if (!s || s.destroyed) return
+      const d = s.touchEventsData
+      if (!d.isTouched && !d.isMoved) return
+      d.isTouched = false
+      d.isMoved = false
+      d.startMoving = false
+      if (d.pointerId === e.pointerId) d.pointerId = null
+      /* And the click after it is nobody's: left false, Swiper's own click listener would
+         cancel every press on a segment or a button from here on. */
+      s.allowClick = true
+      s.slideTo(s.activeIndex)
     }
-    const click = (e: MouseEvent) => {
-      if (e.timeStamp > draggedUntil) return
-      draggedUntil = -1
-      e.preventDefault()
-      e.stopPropagation()
-    }
-    /* A link or a picture dragged by the mouse would start the browser's own drag and cancel this one. */
-    const noNativeDrag = (e: DragEvent) => e.preventDefault()
-
     root.addEventListener("pointerdown", down)
-    root.addEventListener("pointermove", move)
-    /* On the window: a mouse let go outside the banner before a drag began still ends it. */
+    /* On the window: a finger or a mouse let go outside the banner still ends it. */
     window.addEventListener("pointerup", up)
-    window.addEventListener("pointercancel", up)
-    root.addEventListener("click", click, true)
-    root.addEventListener("dragstart", noNativeDrag)
+    window.addEventListener("pointercancel", cancel)
     return () => {
       root.removeEventListener("pointerdown", down)
-      root.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
-      window.removeEventListener("pointercancel", up)
-      root.removeEventListener("click", click, true)
-      root.removeEventListener("dragstart", noNativeDrag)
-      if (drag) setBit(TOUCH, false)
+      window.removeEventListener("pointercancel", cancel)
+      setBit(TOUCH, false)
     }
-  }, [count, catchGlide, glide, mark, setBit, slideAt])
+  }, [count, setBit])
+
+  /** A segment, an arrow key: a fade straight to that slide. */
+  const go = useCallback((to: number) => {
+    const s = swiperRef.current
+    if (!s || count < 2) return
+    asked.current = true
+    s.slideTo(((to % count) + count) % count)
+  }, [count])
+  /** The clock: the showing segment's fill ended. `rewind` carries the last slide on to the first. */
+  const advance = useCallback(() => {
+    const s = swiperRef.current
+    if (!s || count < 2) return
+    asked.current = false
+    s.slideNext()
+  }, [count])
 
   /* ── The segments, as tabs ──────────────────────────────────────────── */
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const i = at.current
-    const keys: Record<string, number> = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: count - 1 }
+    const keys: Record<string, number> = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: count - 1 }
     if (!(e.key in keys)) return
     e.preventDefault()
     const to = ((keys[e.key] % count) + count) % count
@@ -444,47 +410,6 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
     const tab = tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[to]
     tab?.focus()
   }
-
-  /*
-    A slide as drawn. The marks (inert, data-slide) are the first slide's
-    here and then only ever set by `mark`: these values never change between
-    renders, so React never writes over what mark has set.
-  */
-  const slide = (a: Announcement, i: number, copy: "" | "before" | "after"): ReactNode => (
-    <div
-      key={copy ? `${copy}-${a.id}` : a.id}
-      {...(copy
-        ? { "aria-hidden": true, "data-copy": copy, inert: true }
-        : {
-            id: `home-banner-slide-${a.id}`,
-            role: count > 1 ? "tabpanel" : "group",
-            "aria-roledescription": "slide",
-            "aria-label": `${i + 1} of ${count}`,
-            inert: i !== 0,
-            "data-slide": i === 0 ? "active" : "idle",
-            "data-announcement": a.id,
-          })}
-      className="home-banner-slide"
-    >
-      <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
-      {/* "5 hours ago" is worked out on the server and again in the browser a moment later; across an
-          hour's boundary the two differ by a word, which the next render settles. Not a reason to
-          throw the server's page away. */}
-      <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
-      <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
-      <div className="home-banner-cta-row">
-        {(a.action === "share" && onShare) || (a.action === "guide" && onGuide) ? (
-          <button type="button" className="home-banner-cta" onClick={a.action === "share" ? onShare : onGuide}>
-            {a.cta}
-          </button>
-        ) : (
-          <AppLink href={a.href} className="home-banner-cta">
-            {a.cta}
-          </AppLink>
-        )}
-      </div>
-    </div>
-  )
 
   return (
     <section
@@ -495,7 +420,15 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
       className="home-banner relative isolate overflow-hidden rounded-2xl"
       onPointerEnter={(e) => e.pointerType === "mouse" && setBit(HOVER, true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && setBit(HOVER, false)}
-      onFocus={() => setBit(FOCUS, true)}
+      /*
+        A KEYBOARD'S FOCUS HOLDS THE CLOCK; A FINGER'S DOES NOT. Pressing a
+        segment leaves the focus on it, and holding the clock for that meant
+        the fill stopped for good the first time anybody picked a slide,
+        which is what "sometimes the navigation progress bugs and stops"
+        was. :focus-visible is the browser's own answer to which of the two
+        it was: true for Tab and the arrow keys, false for a press.
+      */
+      onFocus={(e) => setBit(FOCUS, e.target.matches(":focus-visible"))}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setBit(FOCUS, false)
       }}
@@ -503,45 +436,86 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
       <style href="home-banner" precedence="default">{BANNER_CSS}</style>
       <div aria-hidden="true" className="home-banner-bg" />
       <div className="home-banner-inner" data-count={count}>
-        {/* The viewport: its first child is the track, and the track's children are the slides, with a copy at each end when they loop. */}
-        <div ref={viewportRef} className="home-banner-text">
-          <div ref={trackRef} className="home-banner-track" aria-live="off" style={{ transform: restAt(looped ? 1 : 0) }}>
-            {looped && slide(list[count - 1], count - 1, "before")}
-            {list.map((a, i) => slide(a, i, ""))}
-            {looped && slide(list[0], 0, "after")}
+        {/* Swiper's three: the viewport it is given, the wrapper it finds, and the slides in it. */}
+        <div ref={viewRef} className="home-banner-text swiper">
+          <div className="home-banner-track swiper-wrapper" aria-live={live}>
+            {list.map((a, i) => {
+              const on = i === index
+              return (
+                <div
+                  key={a.id}
+                  id={`home-banner-slide-${a.id}`}
+                  role={count > 1 ? "tabpanel" : "group"}
+                  aria-roledescription="slide"
+                  aria-label={`${i + 1} of ${count}`}
+                  /* Not aria-hidden, and data-slide rather than data-state: either attribute changing
+                     anywhere makes a :has() on <html> in globals.css (the nav pill's dialog rule, the
+                     cookie banner's) restyle the whole page. inert keeps the slides beside the one
+                     showing out of the tab order and the accessibility tree, and lets a finger on
+                     them through to Swiper. */
+                  inert={!on}
+                  data-slide={on ? "active" : "idle"}
+                  data-announcement={a.id}
+                  className="home-banner-slide swiper-slide"
+                >
+                  <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
+                  {/* "5 hours ago" is worked out on the server and again in the browser a moment later; across an
+                      hour's boundary the two differ by a word, which the next render settles. Not a reason to
+                      throw the server's page away. */}
+                  <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
+                  <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
+                  <div className="home-banner-cta-row">
+                    {(a.action === "share" && onShare) || (a.action === "guide" && onGuide) ? (
+                      <button type="button" className="home-banner-cta" onClick={a.action === "share" ? onShare : onGuide}>
+                        {a.cta}
+                      </button>
+                    ) : (
+                      <AppLink href={a.href} className="home-banner-cta">
+                        {a.cta}
+                      </AppLink>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {count > 1 && (
-            <div ref={tabsAt} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey} onAnimationEnd={onFillEnd}>
-              {list.map((a, i) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={i === 0}
-                  aria-controls={`home-banner-slide-${a.id}`}
-                  aria-label={a.title}
-                  tabIndex={i === 0 ? 0 : -1}
-                  className="home-banner-tab"
-                  data-on={i === 0 ? "" : undefined}
-                  onClick={() => go(i)}
-                >
-                  <span className="home-banner-tab-track">
-                    {/*
-                      EVERY SEGMENT KEEPS ITS FILL, and the showing one runs it (data-on, set by mark).
-                      Mounting a new fill for each slide was a DOM insertion, and any
-                      insertion on /app makes the :has() rules on <html> in globals.css
-                      restyle the whole page. An attribute change costs a handful.
-                    */}
-                    <span className="home-banner-tab-fill" style={{ animationDuration: `${SLIDE_MS}ms` }} />
-                  </span>
-                </button>
-              ))}
+            <div ref={tabsAt} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey}>
+              {list.map((a, i) => {
+                const on = i === index
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    aria-controls={`home-banner-slide-${a.id}`}
+                    aria-label={a.title}
+                    tabIndex={on ? 0 : -1}
+                    className="home-banner-tab"
+                    data-on={on ? "" : undefined}
+                    onClick={() => go(i)}
+                  >
+                    <span className="home-banner-tab-track">
+                      {/*
+                        EVERY SEGMENT KEEPS ITS FILL, and the showing one runs it (data-on).
+                        Mounting a new fill for each slide was a DOM insertion, and any
+                        insertion on /app makes the :has() rules on <html> in globals.css
+                        restyle the whole page. An attribute change costs a handful.
+                      */}
+                      <span
+                        className="home-banner-tab-fill"
+                        style={{ animationDuration: `${SLIDE_MS}ms` }}
+                        onAnimationEnd={on ? advance : undefined}
+                      />
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
-        {/* The fade into the globe's room: the banner's own background over the track's right edge, still. */}
-        <div aria-hidden="true" className="home-banner-fade" />
 
         <BannerGlobe className="home-banner-globe" />
       </div>
@@ -650,15 +624,19 @@ const BANNER_CSS = `
 }
 
 /*
-  THE CAROUSEL. Its viewport runs from the banner's left edge to the globe's
-  grip, and no further: the globe is drawn see-through, and text sliding
-  under it read as a smudge across the ball. A slide leaves by the banner's
-  own edge on the left; on the right it fades through --fade, room the text
-  never rests in, so nothing is cut by a hard line in the air. pan-y: a
-  vertical move is the page's scroll, a sideways one is the carousel's. Not
+  SWIPER'S VIEWPORT runs from the banner's left edge to the globe's grip, and
+  no further: the globe is drawn see-through, and a finger meant for the ball
+  must not be read as a swipe. Nothing travels sideways any more, so there is
+  no mask over the right hand edge: --fade is the text's own padding, room it
+  never writes in, and the globe's atmosphere begins after it. pan-y: a
+  vertical move is the page's scroll, a sideways one is Swiper's. Not
   selectable, or a mouse dragging the slides paints a text selection.
+
+  These three rules name .home-banner as well, so they are a step more
+  specific than the .swiper, .swiper-wrapper and .swiper-slide rules in
+  swiper/css whatever order the two stylesheets land in.
 */
-.home-banner-text {
+.home-banner .home-banner-text {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -671,37 +649,26 @@ const BANNER_CSS = `
   -webkit-touch-callout: none;
 }
 /*
-  THE FADE, AS A STILL LAYER. It was a mask on the viewport, and a mask on
-  the box the track moves in is part of every frame of a glide. Now it is
-  the banner's own background (the same two gradients as .home-banner-bg,
-  over the same box, so it lines up exactly), shown only across --fade
-  before the viewport's right edge: clear at its start, whole at the edge,
-  nothing past it. Painted once; the track moves under it.
+  The wrapper never moves: the fade sets virtualTranslate, so Swiper leaves
+  it where it is and writes one transform per slide instead, which stacks
+  them all on the same spot. The slides are laid out once, side by side, and
+  never mounted, unmounted or re-keyed by a change.
 */
-.home-banner-fade {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(60% 120% at 12% 0%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%),
-    linear-gradient(180deg, #f6f7f9 0%, #f1f2f5 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent calc(100% - var(--grip-r) - var(--fade)), #000 calc(100% - var(--grip-r)), transparent calc(100% - var(--grip-r)));
-  mask-image: linear-gradient(to right, transparent calc(100% - var(--grip-r) - var(--fade)), #000 calc(100% - var(--grip-r)), transparent calc(100% - var(--grip-r)));
-}
-/*
-  The track moves by translate3d and nothing else: a Web Animation the
-  compositor runs, or the finger's own transform. It is kept on its own
-  layer all the time (will-change), so no glide starts by rasterising it
-  again. The slides are laid out once, side by side, and never mounted,
-  unmounted or re-keyed by a change.
-*/
-.home-banner-track {
+.home-banner .home-banner-track {
   display: flex;
   height: 100%;
-  will-change: transform;
   backface-visibility: hidden;
 }
-.home-banner-slide {
+/*
+  A CHANGE IS OPACITY AND NOTHING ELSE. Swiper writes the two slides'
+  opacity and their transition's duration (FADE_MS, or 0 for a drag and for
+  reduced motion); the curve is this one, the app's ease-out. It is steep at
+  its start, so the slide coming in passes the one going out inside the first
+  quarter of the change and the rest of the time is the tail: there is no
+  frame with no text on it (what the two lose and gain is the same, so the
+  pair always add to one) and no frame with two readable sentences.
+*/
+.home-banner .home-banner-slide {
   flex: 0 0 100%;
   min-width: 0;
   height: 100%;
@@ -709,6 +676,7 @@ const BANNER_CSS = `
   flex-direction: column;
   align-items: flex-start;
   padding: var(--pad-t) var(--fade) var(--foot) var(--pad-l);
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
 }
 .home-banner-slide > * {
   /* Never squeezed: a title or a line clipped to fit would be a sentence cut in half. */
@@ -791,19 +759,23 @@ const BANNER_CSS = `
 }
 
 /*
-  THE SEGMENTS stay where they are while the slides move: inside the
-  viewport, so a swipe that starts on them drags the slides too, and over
+  THE SEGMENTS stay where they are while the slides fade: inside the
+  viewport, so a swipe that starts on them changes the slide too, and over
   the track. Each is a 44px square target with its 30px bar in the middle,
   the first bar lined up with the text; with more slides than 44px each
   allows before the globe, they share the room.
 */
-.home-banner-tabs {
+.home-banner .home-banner-tabs {
   position: absolute;
   left: calc(var(--pad-l) - 7px);
   right: calc(var(--fade) - 7px);
   bottom: 0;
   height: var(--foot);
   display: flex;
+  /* Over the slides, because swiper/css gives .swiper-wrapper a z-index of 1 and the
+     segments are its next sibling: without this they are drawn under the slide showing,
+     which has nothing to see through it and swallows every press on a segment. */
+  z-index: 2;
 }
 .home-banner-tab {
   display: flex;
@@ -847,8 +819,9 @@ const BANNER_CSS = `
   to { transform: scaleX(1); }
 }
 
-/* Reduced motion keeps the clock and loses the movement: the segment only marks which slide is
-   showing, and the carousel jumps rather than glides (calm, in the view). */
+/* Reduced motion: nothing plays by itself (CALM holds the clock, so this fill never ends and
+   never asks for the next slide), the segment only marks which slide is showing, and a change
+   asked for is simply there, with no fade (speed 0, calm in the view). */
 @keyframes home-banner-fill-still {
   from { transform: scaleX(1); }
   to { transform: scaleX(1); }

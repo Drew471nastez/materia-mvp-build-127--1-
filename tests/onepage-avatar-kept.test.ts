@@ -109,13 +109,16 @@ async function main() {
   console.log("\nThe tab, the icon and the share card show what the page shows")
   {
     const route = readCode("app/(marketing)/l/[slug]/page.tsx")
+    /* The loader and the tags the metadata and the share image both read (lib/onepage/published-page, lib/onepage/seo). */
+    const loader = readCode("lib/onepage/published-page.ts")
+    const seoLib = readCode("lib/onepage/seo.ts")
     check("one lookup serves the metadata and the page", (route.match(/await findPublishedOnePage\(slug\)/g) ?? []).length === 2)
-    check("the metadata reads the shape the body is drawn from", route.includes("const drawn = publishedShape(onepage, owner)"))
+    check("the metadata reads the shape the body is drawn from", loader.includes("const drawn = publishedShape(onepage, owner)") && route.includes("publishedOnePageSeo(onepage, owner, slug)"))
     check("the body is drawn from that shape", route.includes("const transformedOnepage = publishedShape(onepage, owner"))
-    check("the favicon is the picture the page draws", route.includes("const faviconUrl = drawn.avatar_url"))
-    check("the apple touch icon is the same one", /icon: faviconUrl,\s*apple: faviconUrl/.test(route))
-    check("the share card falls back to it too", route.includes("settings?.social_image_url || faviconUrl"))
-    check("the tab title is the page's name unless a Meta title was typed", route.includes("typedSeoTitle(settings?.seo_title, displayName)") && route.includes("const displayName = drawn.title"))
+    check("the favicon is the picture the page draws", route.includes("icon: drawn.avatar_url"))
+    check("the apple touch icon is the same one", /icons: \{ icon: extra\.icon, apple: extra\.icon \}/.test(seoLib))
+    check("the share card falls back to it too", loader.includes("avatarUrl: drawn.avatar_url") && seoLib.includes("avatarUrl: safeImageUrl(avatarUrl)"))
+    check("the tab title is the page's name unless a Meta title was typed", loader.includes("name: drawn.title") && seoLib.includes("title: { absolute: seo.title.value }") && seoLib.includes("overrideOf(settings.seo_title, autoT"))
     check("nothing else stands in for a page with no picture", !route.includes("headerSettings") && !route.includes("store_builder_configs"))
 
     const page = readCode("components/onepage/public-onepage.tsx")
