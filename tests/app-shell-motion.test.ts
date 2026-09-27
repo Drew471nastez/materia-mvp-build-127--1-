@@ -12,6 +12,7 @@
  *   scripts/check-page-layer.mjs       the editor over the shell on a phone, in it from md, its bar under the header
  *   scripts/check-scrollbar-stable.mjs the page's box and the scrollbar track never move or come and go while the real pages swap (1280, 1440, 1920)
  *   scripts/check-app-avatar.mjs       no initials before a photo; one fade; none on the way back
+ *   scripts/check-checkout-avatar.mjs  the checkout bar's creator photo: never a broken picture, any host, initials on failure
  *
  * What is held here is the logic those rest on (the navigation record, the
  * way back) and the lines that would undo them without anything else
@@ -721,6 +722,17 @@ section("Avatars")
   check("so does Settings, without the purple gradient behind the initials",
     /<ProfilePhoto\s+userId=\{profile\.id\}\s+src=\{avatarUrl \|\| null\}/.test(settings) && /<AppAvatar src=\{src \|\| null\}/.test(photo)
       && !/from-\[#8b5cf6\] to-\[#a78bfa\]/.test(settings))
+  check("a photo that failed before hydration (a page drawn on the server) ends on the initials, not an empty circle",
+    /\} else if \(img\.complete\) \{[\s\S]{0,900}img\.decode\(\)\.then\([\s\S]{0,200}setFailed\(url\)/.test(avatar))
+  check("a provider's photo loaded from its own host sends no referrer", /referrerPolicy=\{optimized \? undefined : "no-referrer"\}/.test(avatar))
+  /*
+    The checkout bar drew the creator with next/image, and the optimizer
+    refuses any host outside next.config's remotePatterns: a creator whose
+    photo is Google's got the browser's broken picture icon there.
+  */
+  const checkout = code("app/checkout/checkout-client.tsx")
+  check("the checkout bar draws the creator with it, never through next/image",
+    /<AppAvatar\s+src=\{creator\.avatar_url\}\s+name=\{creator\.name\}/.test(checkout) && !/<Image[^>]*avatar/.test(checkout))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -25,7 +25,6 @@
  */
 
 import * as React from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ChevronDown } from "lucide-react"
@@ -46,6 +45,7 @@ import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } fro
 import { PaidOverlay, holdPaidScreen } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
 import { HtmlClass } from "@/components/platform/html-class"
+import { AppAvatar } from "@/components/app/app-avatar"
 
 interface CheckoutPageClientProps {
   product: {
@@ -1026,12 +1026,27 @@ export default function CheckoutPageClient({
   }
 
   /* The creator, as the bar's name and Back's label. */
-  const initials = creator.name.trim().charAt(0).toUpperCase() || "S"
   const backLabel = backTo && siteHost ? `Back to ${siteHost}` : "Back"
+  /*
+    THE CREATOR'S PHOTO, DRAWN THE WAY THE APP DRAWS EVERY AVATAR. It was a
+    next/image, which sends every photo through /_next/image, and the
+    optimizer refuses any host that is not in next.config's remotePatterns:
+    a creator whose photo is the one Google sent at sign up
+    (lh3.googleusercontent.com) got a 400 and the browser's broken picture
+    icon here, while the receipt, drawing the same address as a plain <img>,
+    showed it. AppAvatar sends only hosts the optimizer accepts through it
+    and loads any other as it is, fades the photo in when it arrives, and
+    draws the initials when there is none or it fails. The name is already
+    written beside it, so the picture says nothing more (alt="").
+  */
   const creatorFace = (
-    <span className="relative grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e5e7eb] text-[12px] font-semibold text-[#4b5563] shadow-[0_0_0_1px_rgba(17,17,19,0.06),0_1px_2px_rgba(17,17,19,0.08)]">
-      {creator.avatar_url ? <Image src={creator.avatar_url} alt="" fill sizes="28px" className="object-cover" /> : initials}
-    </span>
+    <AppAvatar
+      src={creator.avatar_url}
+      name={creator.name}
+      alt=""
+      size={28}
+      className="shadow-[0_0_0_1px_rgba(17,17,19,0.06),0_1px_2px_rgba(17,17,19,0.08)]"
+    />
   )
 
   return (

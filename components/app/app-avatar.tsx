@@ -87,10 +87,13 @@ export function AppAvatar({
   className,
   style,
   sizedByClass = false,
+  alt,
 }: {
   src?: string | null
   /** For the initials and the picture's description. */
   name: string
+  /** The picture's description when it is not the name: "" where the name is already written beside it. */
+  alt?: string
   /** The size it is drawn at, in CSS pixels: the picture is asked for at this. */
   size: number
   tone?: keyof typeof GROUND
@@ -120,6 +123,28 @@ export function AppAvatar({
     if (img.complete && img.naturalWidth > 0) {
       shown.add(url)
       setLoaded(true)
+    } else if (img.complete) {
+      /*
+        FAILED BEFORE REACT WAS LISTENING. A page drawn on the server (the
+        checkout) has the <img> in its HTML, so a photo that 404s can fail
+        before hydration attaches onError, and React never hears of it: the
+        circle stayed an empty tint instead of the initials. A finished
+        image with no width is either broken or an SVG with no size of its
+        own, and decode() tells them apart.
+      */
+      let current = true
+      img.decode().then(
+        () => {
+          shown.add(url)
+          if (current) setLoaded(true)
+        },
+        () => {
+          if (current) setFailed(url)
+        },
+      )
+      return () => {
+        current = false
+      }
     }
   }, [url, loaded])
 
@@ -141,10 +166,12 @@ export function AppAvatar({
           src={optimized ? optimizedImageUrl(url, size) : url}
           srcSet={optimized ? optimizedSrcSet(url, [...new Set([sizeStep(size), sizeStep(size * 2)])]) || undefined : undefined}
           sizes={optimized ? widthPx : undefined}
-          alt={name}
+          alt={alt ?? name}
           width={size}
           height={size}
           decoding="async"
+          /* A provider's photo (Google's) is loaded from its own host: no referrer, which it can refuse on. */
+          referrerPolicy={optimized ? undefined : "no-referrer"}
           draggable={false}
           onLoad={() => {
             shown.add(url)
