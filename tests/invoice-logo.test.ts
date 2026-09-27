@@ -5,8 +5,8 @@
  * "[Invoice] Logo fetch/convert failed: Error: Cannot find module 'sharp'":
  * the route turned an SVG into a PNG with `sharp`, which is not a dependency
  * of this project and so not in the function. Since d19ff6b3 the mark is a
- * PNG (public/apple-icon.png) that pdfkit draws as it is, and nothing here
- * asks for sharp.
+ * PNG that pdfkit draws as it is (lib/brand/logo STORELIB_LOGO_PNG since the
+ * new logo), and nothing here asks for sharp.
  *
  * The real route handler runs here, with the database, the session and
  * Stripe as stand-ins and pdfkit real: once with the mark served, once with
@@ -20,6 +20,7 @@ import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { build } from "esbuild"
 import { fakeDb } from "./_fake-db"
+import { STORELIB_LOGO_PNG } from "@/lib/brand/logo"
 
 let passed = 0
 let failed = 0
@@ -66,7 +67,7 @@ async function bundleRoute(entry: string): Promise<string> {
   return pathToFileURL(out).href
 }
 
-const PNG = readFileSync(join(process.cwd(), "public/apple-icon.png"))
+const PNG = readFileSync(join(process.cwd(), "public", STORELIB_LOGO_PNG))
 const images = (pdf: Buffer) => (pdf.toString("latin1").match(/\/Subtype \/Image/g) ?? []).length
 
 async function main() {
@@ -92,7 +93,7 @@ async function main() {
   {
     const { res, pdf } = await ask("png")
     check("200, a PDF", res.status === 200 && res.headers.get("content-type") === "application/pdf" && pdf.subarray(0, 5).toString() === "%PDF-", res.status)
-    check("the mark was fetched from the site, as a PNG", requests.some((r) => r.endsWith("/apple-icon.png")), requests)
+    check("the mark was fetched from the site, as a PNG", requests.some((r) => r.endsWith(STORELIB_LOGO_PNG)), requests)
     /* Two image objects for one mark: the picture and its transparency (the PNG is RGBA). */
     check("and drawn: the PDF holds the picture", images(pdf) >= 1, images(pdf))
   }
