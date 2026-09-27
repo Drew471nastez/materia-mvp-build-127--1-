@@ -171,8 +171,19 @@ export function isNativePlatform() { return false }
     fontFiles.set(name, file)
     return `url(${name})`
   })
+  /*
+    SWIPER'S OWN TWO STYLESHEETS, which the banner imports and this bundle
+    drops (the .css loader is "empty" here, because a probe takes its CSS
+    from the build or from globals.css, not from the JavaScript). They are
+    put AFTER the app's, the worse order for the banner: its own rules have
+    to win on specificity rather than on order, which is what they are
+    written to do.
+  */
+  const swiperCss = ["swiper.css", "modules/effect-fade.css"]
+    .map((f) => readFileSync(join(root, "node_modules/swiper", f), "utf8"))
+    .join("\n")
   const html = `<!doctype html><html class="light app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<style>${faces}</style><style>${await appCss(root)}</style><style>${shell}</style>` +
+    `<style>${faces}</style><style>${await appCss(root)}</style><style>${swiperCss}</style><style>${shell}</style>` +
     `</head><body><div class="probe-top"></div><div class="probe-rail"></div><main class="probe-main"><div class="app-content-scroll"><div id="app"></div></div></main>` +
     `<script>window.process={env:{NODE_ENV:"production"}};window.__err=[];addEventListener("error",function(e){window.__err.push(String(e.message))})</script><script>${script}</script></body></html>`
 

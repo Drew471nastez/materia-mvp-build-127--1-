@@ -30,16 +30,32 @@
  *             globe's box outside the ball, scrolls the page; a mouse gets a
  *             hand and a closed hand; with reduced motion it does not turn
  *             by itself and a change of slide is a jump, not a glide.
- *   SLIDES    a change of slide, by the clock, a segment or a swipe, is the
- *             carousel's (embla-carousel): the track follows the finger and
- *             moves by transform, nothing on a slide fades.
- *             scripts/check-home-banner-motion.mjs measures it frame by frame.
+ *   FADES     a change of slide, by the clock, a segment or a swipe, is
+ *             Swiper's fade (effect: "fade", crossFade): the two slides
+ *             cross by opacity alone, nothing moves sideways, some text is
+ *             on screen in every frame and the button stays on the same
+ *             line. Sampled every frame, and drawn to a screenshot mid fade.
+ *   COSTS     what one change costs the browser: how many elements have
+ *             their style recalculated and for how long, against an idle
+ *             window and against one node inserted inside the banner, which
+ *             is what Swiper's loop would do on every step and what the
+ *             :has() rules on <html> answer page wide.
+ *   WAITS     how long a touchmove waits on the page's thread for a flick
+ *             that starts on the banner, against one that starts below it,
+ *             and against the same page with a blocking touchmove listener
+ *             on the document, which is what Swiper attaches by default.
+ *   COUNTS    1, 2, 3 and 5 announcements: one slide has no controls and
+ *             never plays; two, three and five each fade on by themselves,
+ *             come back round to the first, and answer a swipe.
+ *             scripts/check-home-banner-motion.mjs measures the same change
+ *             frame by frame, before and after.
  *
  *   node scripts/check-home-banner.mjs
  *   SHOTS=/some/dir node scripts/check-home-banner.mjs
  */
-import { existsSync, mkdirSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { createHash } from "node:crypto"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { homeProbePage } from "./home-probe-page.mjs"
@@ -60,6 +76,7 @@ const EXPECT = {
   milestone: ["milestone", "domain", "automations", "newsletter"],
   quiet: ["pro-offer"],
   pro: ["all-set"],
+  five: ["first-sale", "milestone", "upgrade-saving", "automations", "newsletter"],
 }
 const HREF = {
   payouts: "/app/payouts",
@@ -91,10 +108,10 @@ const expect = (ok, what, got = "") => {
 }
 
 /** A page at a width: a phone below 768 (touch, 3x), a computer above (mouse, 2x). */
-async function open(width, query, { reduce = false, force2d = false } = {}) {
+async function open(width, query, { reduce = false, force2d = false, height = null } = {}) {
   const page = await browser.newPage()
   const phone = width < 768
-  await page.setViewport({ width, height: phone ? 844 : 1000, deviceScaleFactor: phone ? 3 : 2, isMobile: phone, hasTouch: phone })
+  await page.setViewport({ width, height: height ?? (phone ? 844 : 1000), deviceScaleFactor: phone ? 3 : 2, isMobile: phone, hasTouch: phone })
   if (reduce) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
   await page.evaluateOnNewDocument((twoD) => {
     /* The globe's own frames, timed: its frame callback is called tick. */
@@ -155,11 +172,19 @@ const turns = async (page, ms = 1500) => {
   }
   return false
 }
-/** Whether the carousel has come to rest: the slide showing starts where the carousel does. */
+/**
+ * Whether the fade has landed: the slide showing is whole and every other one
+ * is gone. With effect: "fade" every slide sits in the same place (Swiper
+ * gives each one a transform of its own offset and leaves the wrapper still,
+ * virtualTranslate), so where a slide is says nothing about whether it is
+ * showing; its opacity says everything.
+ */
 const settled = (page) => page.evaluate(() => {
-  const v = document.querySelector("[data-home-banner] .home-banner-text").getBoundingClientRect()
-  const s = document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]').getBoundingClientRect()
-  return Math.abs(s.left - v.left) < 0.5
+  const slides = [...document.querySelectorAll("[data-home-banner] .home-banner-slide")]
+  return slides.every((s) => {
+    const op = parseFloat(getComputedStyle(s).opacity)
+    return s.dataset.slide === "active" ? op > 0.99 : op < 0.01
+  })
 })
 /**
  * A real press on an element: a finger's tap on a phone, a mouse click on a
@@ -185,6 +210,142 @@ const until = async (fn, ms = 4000) => {
     v = await fn()
   }
   return v
+}
+
+/** The viewport's height at a width: a phone's screen, or a laptop's. */
+const viewH = (width) => (width < 768 ? 844 : 900)
+
+/**
+ * The page's own instruments for a fade: every frame's opacities and where the
+ * titles and the buttons are, the clock brought to its last moments, and how
+ * long each touchmove waited before the page ran it (a passive listener, which
+ * changes nothing about how the page scrolls).
+ */
+function instrumentFade() {
+  const banner = document.querySelector("[data-home-banner]")
+  window.__frames = []
+  window.__delays = []
+  window.__follow = []
+  /* Passive, so nothing about how the page scrolls changes: it only writes down when the page
+     saw each move and how far the page had scrolled by then. __block is the other kind, for
+     the comparison: the kind Swiper attaches to the document itself. */
+  const scroller = document.querySelector(".dashboard-scroll-container")
+  document.addEventListener("touchmove", (e) => {
+    window.__delays.push(+(performance.now() - e.timeStamp).toFixed(1))
+    window.__follow.push(scroller.scrollTop)
+  }, { passive: true, capture: true })
+  window.__block = () => {}
+  window.__sample = () => {
+    const b = banner.getBoundingClientRect()
+    const s = [...banner.querySelectorAll(".home-banner-slide")].map((sl) => {
+      const t = sl.querySelector(".home-banner-title").getBoundingClientRect()
+      const c = sl.querySelector(".home-banner-cta").getBoundingClientRect()
+      const cs = getComputedStyle(sl)
+      return {
+        id: sl.dataset.announcement,
+        op: +parseFloat(cs.opacity).toFixed(3),
+        dur: cs.transitionDuration,
+        x: Math.round((t.left - b.left) * 10) / 10,
+        y: Math.round((c.top - b.top) * 10) / 10,
+      }
+    })
+    return { t: performance.now(), h: Math.round(b.height * 10) / 10, s }
+  }
+  window.__watch = (ms) => new Promise((done) => {
+    window.__frames = []
+    const end = performance.now() + ms
+    const f = () => {
+      window.__frames.push(window.__sample())
+      if (performance.now() < end) requestAnimationFrame(f)
+      else done(window.__frames)
+    }
+    requestAnimationFrame(f)
+  })
+  /** The showing segment's fill, brought to `lead` ms before its end: the clock's own change, now. */
+  window.__ripen = (lead) => {
+    const a = document.getAnimations().find((x) => /^home-banner-fill/.test(x.animationName) && x.effect?.target?.closest("[data-on]"))
+    if (!a) return false
+    a.currentTime = Math.max(0, a.effect.getTiming().duration - lead)
+    return true
+  }
+}
+
+/**
+ * THE MIDDLE OF A CHANGE, STOOD STILL. A swipe does not draw the fade here
+ * (followFinger is off: it asks for the change and Swiper draws the one fade
+ * when the finger lifts), so the only way to stand in the middle of one is to
+ * slow the browser's animation clock right down, let the banner's own clock
+ * start a change, and watch for the moment the two announcements are level.
+ */
+async function midFade(page, cdp) {
+  await page.evaluate(() => { const t = document.querySelectorAll("[data-home-banner] [role=tab]")[0]; t.focus(); t.click() })
+  await sleep(500)
+  await page.evaluate(() => document.activeElement?.blur())
+  await sleep(300)
+  const box = await page.evaluate(() => {
+    const b = document.querySelector("[data-home-banner]").getBoundingClientRect()
+    const c = document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"] .home-banner-cta').getBoundingClientRect()
+    return { b: { x: b.left, y: b.top, width: b.width, height: b.height }, c: { left: c.left, top: c.top, width: c.width, height: c.height } }
+  })
+  const rest = await inkOf(page, box.c)
+  await cdp.send("Animation.enable")
+  await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.04 })
+  const ops = () => page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((s) => +parseFloat(getComputedStyle(s).opacity).toFixed(3)))
+  await page.evaluate(() => window.__ripen(40))
+  let at = await ops()
+  const end = Date.now() + 12000
+  while (Date.now() < end && Math.max(...at) > 0.62) at = await ops()
+  return { ops: at, cta: box.c, clip: box.b, rest: rest.rgb }
+}
+/** The animation clock back to its own speed. */
+const fullSpeed = (cdp) => cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+
+/**
+ * What a rectangle of the page actually comes to, in pixels: a screenshot of
+ * it, handed back to the browser to decode, averaged. The button is sampled
+ * inside its left padding, clear of the white letters on it.
+ */
+async function inkOf(page, cta) {
+  const clip = { x: cta.left + 3, y: cta.top + cta.height / 2 - 3, width: 6, height: 6 }
+  const shot = await page.screenshot({ clip, captureBeyondViewport: false, encoding: "base64" })
+  return page.evaluate(async (data) => {
+    const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob())
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const ctx = canvas.getContext("2d")
+    ctx.drawImage(bitmap, 0, 0)
+    const { data: px } = ctx.getImageData(0, 0, bitmap.width, bitmap.height)
+    let r = 0, g = 0, b = 0
+    for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; b += px[i + 2] }
+    const n = px.length / 4
+    const [R, G, B] = [r / n, g / n, b / n].map(Math.round)
+    return { rgb: `rgb(${R}, ${G}, ${B})`, lum: Math.round(0.2126 * R + 0.7152 * G + 0.0722 * B) }
+  }, shot)
+}
+
+/**
+ * What the browser did while `fn` ran: how many elements had their style
+ * recalculated, and how long style and layout took. From the browser's own
+ * trace, which is the only place the element count is written down.
+ */
+async function traced(page, fn) {
+  const dir = mkdtempSync(join(tmpdir(), "home-banner-trace-"))
+  const file = join(dir, "trace.json")
+  await page.tracing.start({ path: file, categories: ["devtools.timeline", "disabled-by-default-devtools.timeline"] })
+  await fn()
+  await page.tracing.stop()
+  const events = JSON.parse(readFileSync(file, "utf8")).traceEvents ?? []
+  rmSync(dir, { recursive: true, force: true })
+  const of = (name) => events.filter((e) => e.name === name && e.ph === "X")
+  const recalcs = of("UpdateLayoutTree")
+  const layouts = of("Layout")
+  const ms = (list) => +(list.reduce((n, e) => n + (e.dur ?? 0), 0) / 1000).toFixed(1)
+  return {
+    recalcs: recalcs.length,
+    elements: recalcs.reduce((n, e) => n + (e.args?.elementCount ?? 0), 0),
+    styleMs: ms(recalcs),
+    layouts: layouts.length,
+    layoutMs: ms(layouts),
+  }
 }
 
 /** Every slide of the banner at this width: where things are. */
@@ -217,9 +378,14 @@ async function measureSlides(page) {
       }
       const cut = [slide.querySelector(".home-banner-title"), slide.querySelector(".home-banner-line")].filter((el) => el.scrollHeight > el.clientHeight + 1).map((el) => el.className)
       const scroller = document.querySelector(".dashboard-scroll-container")
+      const cta = slide.querySelector(".home-banner-cta").getBoundingClientRect()
       return {
         id: slide.dataset.announcement,
         height: Math.round(br.height),
+        /* The button's line, against the banner's own top, so every slide can be held to one: the
+           fade crosses the two buttons over each other and a pixel out reads as a jump. */
+        ctaY: Math.round((cta.top - br.top) * 10) / 10,
+        ctaH: Math.round(cta.height * 10) / 10,
         overlap: rects.filter((x) => inCircle(x.r)).map((x) => x.what),
         outside: rects.filter((x) => x.r.bottom > br.bottom - 1 || x.r.right > br.right - 1 || x.r.left < br.left + 1 || x.r.top < br.top + 1).map((x) => x.what),
         cut,
@@ -250,6 +416,8 @@ try {
       const slides = await measureSlides(page)
       const heights = [...new Set(slides.map((s) => s.height))]
       expect(heights.length === 1, `one height for all ${slides.length} slides (${heights[0]}px)`, heights)
+      const lines = [...new Set(slides.map((x) => `${x.ctaY}+${x.ctaH}`))]
+      expect(lines.length === 1, `the button on one line on every slide (${lines[0]}px down, tall)`, lines)
       for (const s of slides) {
         expect(s.overlap.length === 0, `${s.id}: nothing inside the globe's circle`, s.overlap)
         expect(s.cut.length === 0, `${s.id}: no title or line cut short`, s.cut)
@@ -327,26 +495,30 @@ try {
       /*
         A sideways swipe on the text: left for the next, right for the one before. The clock back at its own
         speed, nine seconds a slide, so only the swipe moves it here. Not stopped: a playback rate of 0 stops
-        the page's frame clock too, and the carousel moves on its frames.
+        the page's frame clock too, and Swiper's fade runs on the page's frames.
       */
       await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
       const swipe = async (dx) => {
         const x0 = t.x + (dx < 0 ? 160 : 0)
-        /* Where the slide that showed when the finger landed is, against the carousel's left edge. */
-        const shown = await active(page)
-        const track = () => page.evaluate((id) => {
-          const v = document.querySelector("[data-home-banner] .home-banner-text").getBoundingClientRect()
-          return Math.round(document.querySelector(`[data-home-banner] [data-announcement="${id}"]`).getBoundingClientRect().left - v.left)
-        }, shown)
-        const from = await track()
+        /* Where every slide is, and how opaque, before the finger lands. */
+        const look = () => page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")]
+          .map((c) => ({ id: c.dataset.announcement, op: +parseFloat(getComputedStyle(c).opacity).toFixed(3), x: Math.round(c.getBoundingClientRect().left) })))
+        const from = await look()
         await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x0, y: t.y }] })
         for (let i = 1; i <= 10; i++) {
           await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x0 + (dx * i) / 10, y: t.y + i * 0.5 }] })
           await sleep(16)
         }
-        /* Mid swipe the slides ride the finger: the track has moved the way the finger went, by transform, and nothing has faded. */
-        const mid = await page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((c) => getComputedStyle(c).opacity))
-        followed.push({ dx, moved: (await track()) - from, opacities: mid })
+        /* Mid swipe nothing has happened yet: a swipe asks for the change (followFinger is off) and
+           Swiper draws the one fade when the finger lifts. Nothing fades under the thumb, nothing moves. */
+        const mid = await look()
+        const was = from.find((f) => f.op > 0.99)
+        followed.push({
+          dx,
+          faded: +(was.op - mid.find((m) => m.id === was.id).op).toFixed(3),
+          gained: +Math.max(...mid.map((m) => m.op - (from.find((f) => f.id === m.id)?.op ?? 0))).toFixed(3),
+          moved: Math.max(...mid.map((m) => Math.abs(m.x - from.find((f) => f.id === m.id).x))),
+        })
         await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
         await until(() => settled(page), 3000)
       }
@@ -358,10 +530,10 @@ try {
       await swipe(150)
       expect((await active(page)) === s0, "and to the right the one before", [s1, await active(page)])
       expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-track").getAttribute("aria-live"))) === "polite", "a change asked for is read out")
-      expect(followed.length === 2 && followed.every((m) => Math.sign(m.moved) === Math.sign(m.dx) && Math.abs(m.moved) > 30 && m.opacities.every((o) => o === "1")),
-        "the slides ride the finger (the track moved with it, by transform) and nothing fades", followed)
-      const still = await page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((sl) => { const cs = getComputedStyle(sl); return `${cs.animationName}|${cs.opacity}` }))
-      expect(still.every((x) => x === "none|1"), "no fade and no animation on any slide: only the track moves", still)
+      expect(followed.length === 2 && followed.every((m) => m.faded === 0 && m.gained === 0 && m.moved === 0),
+        "a swipe asks for the change and nothing is drawn under the finger: the fade is the one that follows it", followed)
+      const still = await page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((sl) => { const cs = getComputedStyle(sl); return `${cs.animationName}|${cs.transitionProperty}` }))
+      expect(still.every((x) => x === "none|opacity"), "and a change is a transition on opacity and nothing else, never an animation", still)
       await cdp.send("Animation.setPlaybackRate", { playbackRate: 10 })
     } else {
       /* A mouse over it holds it. */
@@ -563,6 +735,269 @@ try {
     expect(renderer === "2d", "the 2D renderer takes over", renderer)
     expect(await turns(page), "and the globe turns")
     if (SHOTS) await (await page.$("[data-home-banner]")).screenshot({ path: join(SHOTS, "banner-2d-390.png") })
+    expect(errors.length === 0, "no errors", errors.slice(0, 3))
+    await page.close()
+  }
+
+  /* ── FADES, COSTS and WAITS ────────────────────────────────────────────
+     One change of slide, sampled every frame; what it costs the browser;
+     and, on a phone, what a scroll that starts on the banner waits for. */
+  for (const width of [390, 1440]) {
+    const { page, phone, errors } = await open(width, "state=five", { height: viewH(width) })
+    console.log(`\nthe fade at ${width}`)
+    const cdp = await page.createCDPSession()
+    await toBanner(page)
+    if (!phone) await page.mouse.move(5, 895)
+    await sleep(400)
+    await page.evaluate(instrumentFade)
+    const list = await ids(page)
+    expect(list.length === 5, "five announcements to fade between", list)
+
+    /*
+      THE CLOCK'S OWN CHANGE, sampled frame by frame with the browser's
+      animation clock at a tenth of its speed. The curve is the same one
+      either way; what the tenth buys is samples, because this machine draws
+      the banner and a software WebGL globe at anything from four to twenty
+      frames a second, and a 260ms fade can fall between two of them. How many
+      frames a change is drawn in on a real screen is not this probe's claim
+      (its duration is, below, from the CSS); what is on screen through the
+      whole of the curve is.
+    */
+    await cdp.send("Animation.enable")
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.1 })
+    expect(await page.evaluate(() => window.__ripen(200)), "the clock is running")
+    const frames = await page.evaluate(() => window.__watch(4200))
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+    const read = (fs) => {
+      let empty = 0, two = 0, moved = 0, changing = 0, dimmest = 1
+      const lines = new Set()
+      const heights = new Set()
+      for (let i = 0; i < fs.length; i++) {
+        const f = fs[i]
+        heights.add(f.h)
+        for (const sl of f.s) lines.add(`${sl.y}`)
+        const most = Math.max(...f.s.map((x) => x.op))
+        dimmest = Math.min(dimmest, most)
+        if (most < 0.2) empty++
+        if (f.s.filter((x) => x.op > 0.9).length >= 2) two++
+        if (i > 0) {
+          const prev = fs[i - 1]
+          moved = Math.max(moved, ...f.s.map((x, k) => Math.abs(x.x - prev.s[k].x)))
+          if (f.s.some((x, k) => Math.abs(x.op - prev.s[k].op) > 0.005)) changing++
+        }
+      }
+      return { frames: fs.length, empty, two, moved, changing, dimmest: +dimmest.toFixed(3), lines: [...lines], heights: [...heights] }
+    }
+    const fade = read(frames)
+    console.log(`        ${fade.frames} frames (the page drew ${Math.round((fade.frames * 1000) / 4200)} a second while it was watched): ${fade.changing} of them fading, the dimmest frame's clearest slide at ${fade.dimmest}, ${fade.empty} with nothing on them, ${fade.two} with two readable, slides moved ${fade.moved}px, button lines ${JSON.stringify(fade.lines)}, banner heights ${JSON.stringify(fade.heights)}`)
+    expect(fade.empty === 0 && fade.dimmest > 0.45, "some text on screen in every frame of a change", fade.dimmest)
+    expect(fade.two === 0, "and never two announcements readable at once", fade.two)
+    /* More than one frame, which is all this machine's frame rate can prove: it draws the
+       banner and a software WebGL globe at around 10 frames a second under three probes at
+       once, so the number of frames a 260ms fade is drawn in is the machine's, not the fade's.
+       What the fade is written to be is pinned beside it, from the CSS: 260ms on opacity. */
+    expect(fade.changing >= 4, "a fade over several frames, not a cut", fade.changing)
+    const curve = await page.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide'))
+      const seen = [...new Set(window.__frames.flatMap((f) => f.s.map((x) => x.dur)))]
+      return { property: cs.transitionProperty, easing: cs.transitionTimingFunction, durations: seen }
+    })
+    expect(curve.property === "opacity" && curve.durations.includes("0.26s"),
+      `the change is 0.26s on ${curve.property}, ${curve.easing}`, curve)
+    expect(fade.moved === 0, "and nothing moves sideways: opacity only", fade.moved)
+    expect(fade.lines.length === 1, "the button stays on its line through the change", fade.lines)
+    expect(fade.heights.length === 1, "and the banner keeps one height", fade.heights)
+
+    /*
+      THE MIDDLE OF A CHANGE, AND THE BUTTON'S PIXELS IN IT. Both
+      announcements are part there for those few frames, which is what a
+      crossfade is; the button is two buttons then, one over the other, and
+      this is what the pair come to against the #16161a it rests at.
+    */
+    const half = await midFade(page, cdp)
+    const ink = await inkOf(page, half.cta)
+    console.log(`        half way through a change: opacities ${JSON.stringify(half.ops)}; the button's pixels ${ink.rgb} (at rest ${half.rest})`)
+    expect(half.ops.filter((o) => o > 0.2).length === 2, "half way through, both announcements are part there", half.ops)
+    expect(ink.lum < 110, "and the button is still a dark pill, not a grey one", ink.rgb)
+    if (SHOTS) await page.screenshot({ path: join(SHOTS, `banner-mid-fade-${width}.png`), clip: half.clip, captureBeyondViewport: false })
+    await fullSpeed(cdp)
+    await until(() => settled(page), 3000)
+    if (!phone) await page.mouse.move(5, 895)
+    await sleep(400)
+
+    /*
+      WHAT A CHANGE COSTS, against an idle window of the same length and
+      against one node inserted inside the banner. The insertion is what
+      Swiper's loop does on every step, and what the :has() rules on <html>
+      in globals.css answer over the whole document.
+    */
+    const WINDOW = 400
+    const idle = await traced(page, () => sleep(WINDOW))
+    const changed = await traced(page, async () => {
+      await page.evaluate(() => window.__ripen(30))
+      await sleep(WINDOW)
+    })
+    const inserted = await traced(page, async () => {
+      await page.evaluate(() => new Promise((done) => {
+        const span = document.createElement("span")
+        document.querySelector("[data-home-banner] .home-banner-inner").appendChild(span)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          span.remove()
+          requestAnimationFrame(() => requestAnimationFrame(done))
+        }))
+      }))
+      await sleep(WINDOW - 120)
+    })
+    const line = (x) => `${x.recalcs} recalcs of ${x.elements} elements in ${x.styleMs}ms, ${x.layouts} layouts in ${x.layoutMs}ms`
+    console.log(`        ${WINDOW}ms idle:  ${line(idle)}`)
+    console.log(`        a change:     ${line(changed)}   (${changed.elements - idle.elements} elements over idle)`)
+    console.log(`        a node in and out of the banner: ${line(inserted)}   (${inserted.elements - idle.elements} elements over idle)`)
+    /*
+      The document is 900 odd elements here. Neither number is anywhere near it: on today's
+      globals.css (three `html:has()` rules left, none of them watching for a plain element)
+      Chromium answers an insertion inside the banner locally, so the page wide restyle that
+      sent this file away from Swiper's loop no longer happens. Rewind moves no node either
+      way, and what is pinned is the size of a change: a change of slide restyles a handful of
+      elements, not the page.
+    */
+    expect(changed.elements - idle.elements < 250, "a change of slide restyles a handful of elements, not the page", changed.elements - idle.elements)
+    expect(changed.layouts === 0 && changed.layoutMs <= idle.layoutMs + 1, "and lays nothing out at all", { change: changed.layoutMs, idle: idle.layoutMs })
+
+    /*
+      WAITS. First the thing that does not depend on this machine's mood: what
+      listeners the document is left with. Swiper attaches touchstart and
+      touchmove to the document with { passive: false }, and a blocking
+      touchmove listener there is a promise that the page may cancel any
+      scroll, so every scroll waits for the page's thread. The banner takes
+      those off again (QUIET in components/app/home/home-banner).
+    */
+    const listeners = await (async () => {
+      const { result } = await cdp.send("Runtime.evaluate", { expression: "document" })
+      const { listeners: all } = await cdp.send("DOMDebugger.getEventListeners", { objectId: result.objectId })
+      return all.filter((l) => /^touch/.test(l.type)).map((l) => `${l.type}${l.passive ? " passive" : " BLOCKING"}`)
+    })()
+    console.log(`        the document's touch listeners: ${listeners.length ? listeners.join(", ") : "none"}`)
+    expect(!listeners.some((l) => /BLOCKING/.test(l)), "no blocking touch listener on the document", listeners)
+
+    /*
+      Then what a scroll actually does. How long a touchmove waited before the
+      page ran it is the same either way: this probe's own listener has the
+      event dispatched to the page whatever else is attached. What a blocking
+      listener changes is whether the scroll may begin before that dispatch,
+      so what is measured beside the wait is HOW FAR THE PAGE HAD ALREADY
+      FOLLOWED THE FINGER by the time the last move of the flick reached it.
+      Three flicks, each of the same 240px: one starting on the banner, one
+      starting on the page below it, and one on the banner with the listener
+      Swiper attaches by default put back on the document. They are taken in
+      turn, five rounds of the three, because this machine's load drifts and
+      three runs one after the other would measure the drift.
+    */
+    if (phone) {
+      const flick = async (onBanner, blocked) => {
+        await toBanner(page)
+        await sleep(280)
+        if (blocked) await page.evaluate(() => document.addEventListener("touchmove", window.__block, { passive: false }))
+        const at = await page.evaluate((top) => {
+          window.__delays = []
+          window.__follow = []
+          const b = document.querySelector("[data-home-banner]").getBoundingClientRect()
+          return { x: 60, y: top ? b.top + b.height / 2 : b.bottom + 90 }
+        }, onBanner)
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: at.x, y: at.y, radiusX: 11, radiusY: 11, force: 1 }] })
+        const t0 = Date.now()
+        for (let i = 1; i <= 16; i++) {
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: at.x + 2, y: Math.round(at.y - (240 * i) / 16), radiusX: 11, radiusY: 11, force: 1 }] })
+          const wait = t0 + i * 16 - Date.now()
+          if (wait > 0) await sleep(wait)
+        }
+        const got = await page.evaluate(() => ({ delays: window.__delays, follow: window.__follow }))
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+        await sleep(650)
+        if (blocked) await page.evaluate(() => document.removeEventListener("touchmove", window.__block))
+        /* How far the page had come by the last move the page saw, against the 240px the finger went. */
+        const followed = got.follow.length ? Math.round(got.follow[got.follow.length - 1] - got.follow[0]) : 0
+        return { delays: got.delays, followed }
+      }
+      const runs = { banner: { delays: [], followed: [] }, below: { delays: [], followed: [] }, blocked: { delays: [], followed: [] } }
+      for (let k = 0; k < 5; k++) {
+        const order = ["banner", "below", "blocked"]
+        order.push(...order.splice(0, k % 3))
+        for (const which of order) {
+          const r = await flick(which !== "below", which === "blocked")
+          runs[which].delays.push(...r.delays)
+          runs[which].followed.push(r.followed)
+        }
+      }
+      const q = (a2, pc) => { const so = [...a2].sort((x, y) => x - y); return so.length ? +so[Math.min(so.length - 1, Math.floor(so.length * pc))].toFixed(1) : 0 }
+      const of = (r) => ({ n: r.delays.length, p50: q(r.delays, 0.5), p95: q(r.delays, 0.95), max: +Math.max(0, ...r.delays).toFixed(1), followed: q(r.followed, 0.5) })
+      const onBanner = of(runs.banner)
+      const below = of(runs.below)
+      const blocked = of(runs.blocked)
+      const say = (x) => `waited p50 ${x.p50}ms, p95 ${x.p95}ms, longest ${x.max}ms over ${x.n} touchmoves; the page had followed the finger by ${x.followed}px of 240 when the last move arrived`
+      console.log(`        a flick that starts on the banner: ${say(onBanner)}`)
+      console.log(`        one that starts below it:          ${say(below)}`)
+      console.log(`        on the banner, with Swiper's own blocking touchmove listener on the document: ${say(blocked)}`)
+      expect(onBanner.p50 <= below.p50 * 1.6 + 12, "a scroll that starts on the banner waits no longer than one that starts under it", { banner: onBanner.p50, below: below.p50 })
+      expect(onBanner.followed >= below.followed * 0.8, "and follows the finger as closely", { banner: onBanner.followed, below: below.followed })
+      /* The blocked run is printed, not held to: what it costs shows in the tail (the longest
+         wait, and the 95th) and the tail here is this machine's load as much as the listener's.
+         What is pinned instead is the listener itself, above: there is none of that kind. */
+    }
+    expect(errors.length === 0, "no errors", errors.slice(0, 3))
+    await page.close()
+  }
+
+  /* ── COUNTS: one, two, three and five announcements ────────────────────
+     One slide is not a carousel: no segments, no Swiper, no clock. Two, the
+     count Swiper's loop cannot do at all, fade on by themselves like the
+     rest, and every count comes back round to the first. */
+  for (const [state, want] of [["quiet", 1], ["product", 2], ["selling", 3], ["five", 5]]) {
+    const { page, errors } = await open(390, `state=${state}`)
+    console.log(`\n${want} announcement${want > 1 ? "s" : ""} (${state}) at 390`)
+    const cdp = await page.createCDPSession()
+    await toBanner(page)
+    await sleep(300)
+    await page.evaluate(instrumentFade)
+    const list = await ids(page)
+    expect(list.length === want, `${want} of them`, list)
+    const controls = await page.evaluate(() => ({
+      tabs: document.querySelectorAll("[data-home-banner] [role=tab]").length,
+      swiper: document.querySelector("[data-home-banner] .home-banner-text").classList.contains("swiper-initialized"),
+      clock: document.getAnimations().filter((a) => /^home-banner-fill/.test(a.animationName)).length,
+    }))
+    if (want === 1) {
+      expect(controls.tabs === 0 && !controls.swiper && controls.clock === 0, "no segments, no Swiper, no clock", controls)
+      const only = await active(page)
+      await sleep(1200)
+      expect((await active(page)) === only, "and it never changes by itself", only)
+    } else {
+      expect(controls.tabs === want && controls.swiper, `${want} segments and a Swiper`, controls)
+      /* Round the whole way by the clock, and on past the last one to the first. */
+      const seen = [await active(page)]
+      for (let k = 0; k < want; k++) {
+        expect(await page.evaluate(() => window.__ripen(60)), "the clock is running")
+        await until(async () => (await active(page)) !== seen[seen.length - 1], 3000)
+        seen.push(await active(page))
+      }
+      expect(JSON.stringify(seen) === JSON.stringify([...list, list[0]]), "the clock fades through all of them and round to the first", seen)
+      /* And a finger: left for the next, from the last round to the first. */
+      const from = await active(page)
+      /* Two thirds of the way across the viewport, which is the width Swiper measures a swipe against. */
+      const at = await page.evaluate(() => {
+        const b = document.querySelector("[data-home-banner]").getBoundingClientRect()
+        const v = document.querySelector("[data-home-banner] .home-banner-text").getBoundingClientRect()
+        return { x: v.right - 14, y: b.top + 70, dx: -v.width * 0.66 }
+      })
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: at.x, y: at.y, radiusX: 8, radiusY: 8, force: 1 }] })
+      for (let i = 1; i <= 12; i++) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: at.x + (at.dx * i) / 12, y: at.y + i * 0.4, radiusX: 8, radiusY: 8, force: 1 }] })
+        await sleep(16)
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+      await until(() => settled(page), 3000)
+      const to = await active(page)
+      expect(list.indexOf(to) === (list.indexOf(from) + 1) % want, "a swipe shows the next, and the last shows the first", [from, to])
+    }
     expect(errors.length === 0, "no errors", errors.slice(0, 3))
     await page.close()
   }

@@ -9,14 +9,18 @@
  * The real Home (scripts/render-home-banner.tsx) twice in the same browser:
  * BEFORE, with the banner as it was at BASE (taken from git and swapped in
  * for components/app/home/home-banner, everything else this checkout's),
- * and NOW. On a phone, 390x844 at 3x, touch, the processor slowed four
- * times; on a computer, 1280x900, a mouse, full speed. For each:
+ * and NOW. BASE is the carousel this replaced, embla-carousel, which moved
+ * the slides sideways; NOW is Swiper's fade. On a phone, 390x844 at 3x,
+ * touch, the processor slowed four times; on a computer, 1280x900, a mouse,
+ * full speed. For each:
  *
  *   AUTOPLAY   the clock's own change (the segment's fill brought to its
  *              last moments, then left to end): frame gaps from the page's
  *              frame loop, the longest frame, and, sampled every frame in a
  *              second pass, any frame with no slide's title on screen, any
- *              frame with two titles whole and readable at once.
+ *              frame with two titles whole and readable at once. BEFORE the
+ *              titles travelled across the banner; NOW they cross by opacity
+ *              and the largest step is 0px.
  *   SWIPE      a finger (a mouse at 1280) across the text, a move every
  *              16ms, let go: the same numbers, whether the page scrolled
  *              under a sideways swipe (it must not) and whether the slide
@@ -31,8 +35,9 @@
  *   STILL      layout shift over the whole run (0), the banner's height
  *              (one value), and DOM nodes added or removed inside the
  *              banner (0: every slide mounted once).
- *   REDUCED    with prefers-reduced-motion, the clock's change and a swipe
- *              let go land in one frame: no frames in between.
+ *   REDUCED    with prefers-reduced-motion nothing plays by itself at all
+ *              (the clock is held), and a swipe let go lands in one frame:
+ *              no frames in between, no fade.
  *
  *   node scripts/check-home-banner-motion.mjs
  *   BASE=<commit> ONLY=now|before SHOTS=/dir node scripts/check-home-banner-motion.mjs
@@ -44,7 +49,7 @@ import puppeteer from "puppeteer-core"
 import { homeProbePage } from "./home-probe-page.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
-const BASE = process.env.BASE ?? "8bb435d9"
+const BASE = process.env.BASE ?? "52ba82af"
 const ONLY = process.env.ONLY ?? null
 const SHOTS = process.env.SHOTS ?? null
 const STATE = process.env.STATE ?? "selling"
@@ -167,6 +172,8 @@ function read(rec, bannerW) {
   const steps = xs.slice(1).map((x, i) => x - xs[i]).filter((d) => Math.abs(d) > 0.5 && Math.abs(d) < bannerW * 0.5)
   const way = Math.sign(steps.reduce((a, d) => a + d, 0))
   out.backSteps = steps.filter((d) => Math.sign(d) === -way).length
+  /* And, for a change that is opacity alone, whether the track moved at all. */
+  out.trackSteps = steps.length
   /* TRACE_X=1: the track's x frame by frame, when it stepped back. */
   if (process.env.TRACE_X && out.backSteps) console.log(`    track x: ${xs.map((x) => Math.round(x)).join(" ")}`)
   if (rec.frames[0]?.s) {
@@ -593,20 +600,24 @@ for (const r of results.filter((x) => x.which === "now")) {
   console.log(`\nNOW at ${r.width}`)
   expect(r.autoMoved && r.autoSampled.empty === 0, "the clock moves on with no frame empty of text", r.autoSampled)
   expect(r.autoSampled.two === 0, "and never two titles whole on screen at once", r.autoSampled.two)
-  /* Over time, not by frame count: the page's thread samples a compositor glide at its own rate, which a busy machine slows. */
-  expect(r.autoSampled.changingFrames >= 3 && r.autoSampled.motionMs >= 300, "and it is a glide over several frames and 300ms or more, not a cut", { frames: r.autoSampled.changingFrames, ms: r.autoSampled.motionMs })
-  expect(r.autoSampled.jumpOfWidth < 0.34, "no frame steps more than a third of the banner", r.autoSampled.jumpOfWidth)
-  expect(r.autoSampled.backSteps === 0 && r.swipeSampled.backSteps === 0 && r.loop.backSteps === 0, "the track only goes one way through a change: autoplay, swipe and loop", [r.autoSampled.backSteps, r.swipeSampled.backSteps, r.loop.backSteps])
-  if (r.blocked) expect(r.blocked.distinct >= 3, "with the page's thread blocked mid glide, the slides go on moving: the glide is the compositor's", r.blocked)
+  /* Over time, not by frame count: the page's thread samples a change the compositor runs at its own
+     rate, which a busy machine slows. How long the fade is written to take is pinned from the CSS in
+     scripts/check-home-banner.mjs, at 260ms. */
+  expect(r.autoSampled.changingFrames >= 2 && r.autoSampled.motionMs >= 100, "and it is a fade over several frames, not a cut", { frames: r.autoSampled.changingFrames, ms: r.autoSampled.motionMs })
+  expect(r.autoSampled.jumpPx === 0 && r.autoSampled.trackSteps === 0, "and nothing moves at all: the change is opacity alone", { titles: r.autoSampled.jumpPx, track: r.autoSampled.trackSteps })
+  if (r.blocked) expect(r.blocked.distinct >= 3, "with the page's thread blocked mid change, the fade goes on: it is the compositor's", r.blocked)
   expect(r.swipeChanged && r.swipeSampled.empty === 0, "a swipe changes the slide, never an empty frame", { changed: r.swipeChanged, empty: r.swipeSampled.empty })
   expect(r.swipeScrolledPage === 0, "a sideways swipe does not scroll the page", r.swipeScrolledPage)
   if (r.verticalScrolled !== undefined) expect(r.verticalScrolled > 60 && !r.verticalSlidesMoved, "a vertical swipe that starts on the banner scrolls the page and leaves the slides", { scrolled: r.verticalScrolled, moved: r.verticalSlidesMoved })
   if (r.globeTookBall !== undefined) expect(r.globeTookBall && !r.ballMovedSlides && !r.textSwipeGrippedGlobe, "the ball is the globe's and the text the carousel's: neither takes the other's finger", { globe: r.globeTookBall, slidesMoved: r.ballMovedSlides, textGrabbedGlobe: r.textSwipeGrippedGlobe })
-  expect(r.loopReachedFirst && r.loop.empty === 0 && r.loop.jumpOfWidth < 0.34, "from the last slide the clock goes on to the first, forwards, with no jump", r.loop)
+  expect(r.loopReachedFirst && r.loop.empty === 0 && r.loop.jumpPx === 0, "from the last slide the clock comes round to the first, with nothing moving", r.loop)
   expect(r.shift === 0, "no layout shift", r.shift)
   expect([r.autoSampled, r.swipeSampled, r.loop].every((x) => x.heights.length === 1), "the banner keeps one height", [r.autoSampled.heights, r.swipeSampled.heights, r.loop.heights])
   expect(r.mutations === 0, "no DOM node added or removed in the banner: every slide mounted once", r.mutations)
-  expect(r.reducedAutoMoved && r.reducedAuto.changingFrames <= 1, "reduced motion: the clock's change is one frame", r.reducedAuto.changingFrames)
+  /* Changed on purpose: with reduced motion the banner no longer plays by itself at all. The
+     clock is held (CALM in components/app/home/home-banner), so the segment's fill never ends
+     and never asks for the next slide; the segments still pick one, and that change is instant. */
+  expect(!r.reducedAutoMoved && r.reducedAuto.changingFrames === 0, "reduced motion: it does not play by itself", r.reducedAuto)
   expect(r.reducedSwipeChanged && r.reducedRelease.changingFrames <= 1, "reduced motion: a swipe let go lands at once, no momentum", r.reducedRelease.changingFrames)
   expect(r.errors.length === 0, "no errors", r.errors)
 }
