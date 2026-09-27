@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
+import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 
 // LIVE Stripe Price IDs
 const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
@@ -98,6 +99,11 @@ export async function POST(request: Request) {
       sessionId: checkoutSession.id,
     })
   } catch (error: any) {
+    const refusal = stripeRefusal(error)
+    if (refusal) {
+      logStripeRefusal("billing/subscription/create", refusal)
+      return NextResponse.json({ error: refusal.error, code: refusal.code }, { status: refusal.status })
+    }
     console.error("Error in POST /api/billing/subscription/create:", error)
     return NextResponse.json(
       { error: error.message || "Failed to create subscription" },

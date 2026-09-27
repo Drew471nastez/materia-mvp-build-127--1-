@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
+import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 
 function tryCreateAdminClient() {
   try {
@@ -92,6 +93,12 @@ export async function POST() {
 
     return NextResponse.json({ url: accountLink.url })
   } catch (error: any) {
+    /* An account Stripe rejected, Storelib's or this creator's: said plainly, once in the log (lib/stripe/refusal). */
+    const refusal = stripeRefusal(error)
+    if (refusal) {
+      logStripeRefusal("connect/start", refusal)
+      return NextResponse.json({ error: refusal.error, code: refusal.code }, { status: refusal.status })
+    }
     console.error("[Stripe Connect Start Error]", error)
     const msg = error?.message || ""
     if (msg.includes("platform-profile") || msg.includes("responsibilities") || msg.includes("managing losses")) {
