@@ -2767,13 +2767,116 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
   )
 }
 
+type ThemeFilter = "all" | "light" | "dark" | "gradient" | "image"
+
+/** The themes of a new kind come in on a short fade in place. */
+const THEME_FILTER_FADE_MS = 140
+
+/** The box that scrolls the Theme page: the editor's tab panel. */
+function scrollBoxOf(el: HTMLElement): HTMLElement | null {
+  for (let n = el.parentElement; n; n = n.parentElement) {
+    const y = getComputedStyle(n).overflowY
+    if (y === "auto" || y === "scroll") return n
+  }
+  return null
+}
+
+/**
+ * A PICK OF A KIND MOVES NOTHING BUT THE PICK. "When I click between the
+ * pills... make sure they don't shift layout on click or glitch, because
+ * they do." The pills never changed size; what moved them was the list
+ * under them. All is eighteen themes and Image is two, so a pick shortened
+ * the page by a thousand pixels, the panel could no longer be scrolled as
+ * far as it was, the browser pulled it back, and the pills (and everything
+ * else on screen) jumped down by however far the page had been scrolled.
+ *
+ * Now, in the commit that draws the new kind and before it is painted, the
+ * grid is held at least as tall as it takes for the panel to stay exactly
+ * where it was (and no taller: at the top of the page nothing is held), and
+ * the panel's scroll is put back. The hold is let go as the panel is
+ * scrolled up past what it needs, so the space under a short kind shrinks
+ * away rather than stay. The themes come in on a short opacity fade; with
+ * reduced motion they are simply there. scripts/check-onepage-tabbar.mjs
+ * measures every pill and the row before and after each pick, and the
+ * layout shift.
+ */
+function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => void) {
+  const gridRef = useRef<HTMLDivElement>(null)
+  const pending = useRef<{ box: HTMLElement; top: number } | null>(null)
+  const held = useRef<{ box: HTMLElement; rest: number; natural: number; min: number } | null>(null)
+
+  const pickFilter = useCallback((f: ThemeFilter) => {
+    if (f === filter) return
+    const grid = gridRef.current
+    const box = grid ? scrollBoxOf(grid) : null
+    pending.current = box ? { box, top: box.scrollTop } : null
+    setFilter(f)
+  }, [filter, setFilter])
+
+  useLayoutEffect(() => {
+    const grid = gridRef.current
+    const at = pending.current
+    pending.current = null
+    if (!grid || !at) return
+    grid.style.minHeight = ""
+    const natural = grid.offsetHeight
+    const rest = at.box.scrollHeight - natural
+    const need = Math.ceil(at.top + at.box.clientHeight - rest)
+    if (need > natural) {
+      grid.style.minHeight = `${need}px`
+      held.current = { box: at.box, rest, natural, min: need }
+    } else {
+      held.current = null
+    }
+    if (at.box.scrollTop !== at.top) at.box.scrollTop = at.top
+    grid.getAnimations?.().forEach((a) => a.cancel())
+    if (typeof grid.animate === "function" && !reducedMotion()) {
+      grid.animate([{ opacity: 0 }, { opacity: 1 }], { duration: THEME_FILTER_FADE_MS, easing: "ease-out" })
+    }
+  }, [filter])
+
+  /* Scrolled back up, the hold is needed less: it shrinks with the scroll, never under what is on screen. */
+  useEffect(() => {
+    const hold = held.current
+    const grid = gridRef.current
+    if (!hold || !grid) return
+    let frame = 0
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        const h = held.current
+        if (!h) return
+        const need = Math.ceil(h.box.scrollTop + h.box.clientHeight - h.rest)
+        if (need >= h.min) return
+        if (need <= h.natural) {
+          grid.style.minHeight = ""
+          held.current = null
+          h.box.removeEventListener("scroll", onScroll)
+          return
+        }
+        h.min = need
+        grid.style.minHeight = `${need}px`
+      })
+    }
+    hold.box.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      hold.box.removeEventListener("scroll", onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [filter])
+
+  return { gridRef, pickFilter }
+}
+
 function ThemeSection() {
   const { onepage, updateTheme, updateSettings, updateBlock } = useOnePage()
   /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
   const sheetPhone = usePhone()
-  const [filter, setFilter] = useState<"all" | "light" | "dark" | "gradient" | "image">("all")
+  const [filter, setFilter] = useState<ThemeFilter>("all")
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useState<typeof THEME_TEMPLATES[0] | null>(null)
+  const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
 
   if (!onepage) return null
   const { theme, draft_blocks } = onepage
@@ -2847,14 +2950,15 @@ function ThemeSection() {
 
   return (
     <div>
-      <div className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0" role="tablist" aria-label="Theme kind">
+      <div className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0" role="tablist" aria-label="Theme kind" data-theme-filters="">
         {(["all", "light", "dark", "gradient", "image"] as const).map((f) => (
           <button
             key={f}
             type="button"
             role="tab"
             aria-selected={filter === f}
-            onClick={() => setFilter(f)}
+            data-theme-filter={f}
+            onClick={() => pickFilter(f)}
             className="relative h-9 shrink-0 cursor-pointer rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium capitalize hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]"
           >
             <ChipFill on={filter === f} />
@@ -2863,7 +2967,7 @@ function ThemeSection() {
         ))}
       </div>
       {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div ref={gridRef} className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3" data-theme-grid="">
         {filteredTemplates.map((template) => (
           <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} onPick={() => handleApplyTemplate(template)} />
         ))}
