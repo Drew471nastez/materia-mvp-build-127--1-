@@ -25,8 +25,10 @@ const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
  */
 const SITES_DOMAIN = process.env.NEXT_PUBLIC_SITES_HOST || MAIN_DOMAIN
 
-// Domains that should NOT be treated as seller subdomains
-const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost", MCP_HOST_LABEL]
+// Domains that should NOT be treated as seller subdomains. "domains" is the
+// name creators point their own domains at (domains.storelib.com), so a
+// visit to it directly lands on storelib.com, never on someone's site.
+const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost", "domains", MCP_HOST_LABEL]
 
 /**
  * Platform flows that belong to the apex, wherever they are asked for. These

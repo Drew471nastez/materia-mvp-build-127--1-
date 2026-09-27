@@ -7,7 +7,7 @@
  * One component for both Domains screens: Settings on /app (light) and
  * Website Settings in the builder (dark).
  *
- *   1  Add the records. They are the ones Vercel recommended for this domain
+ *   1  Add the records. They are the ones app/api/domains sent for this domain
  *      (app/api/domains keeps them on the row). The provider picker rewrites
  *      the Name column the way that provider wants it typed (Porkbun leaves
  *      @ empty), names its TTL, and links to its DNS page for the domain.
@@ -170,7 +170,7 @@ export interface DnsCheckResult {
 export interface DnsSetupProps {
   /** The domain as stored: maralind.com, or links.maralind.com. */
   domain: string
-  /** The records Vercel recommended for it (app/api/domains). */
+  /** The records it needs (app/api/domains). */
   records: DnsRecord[]
   /** One per record, from the last check this page made; null before one. */
   checks: RecordCheck[] | null

@@ -2,8 +2,8 @@
  * ===========================================================================
  *  WHERE TO ADD THE RECORDS, WHAT A CHECK FOUND, AND WHAT TO FIX
  * ===========================================================================
- * The records themselves are Vercel's (lib/custom-domains/hostname.ts reads
- * them from its recommendation). This file is the help around them:
+ * The records themselves come from lib/custom-domains/hostname.ts. This file
+ * is the help around them:
  *
  *   registrars    how each one spells the name field, what it calls the
  *                 TTL left alone, and a link to its DNS page for the domain
@@ -105,9 +105,6 @@ export function hostFor(registrar: Registrar, record: Pick<DnsRecord, "name">): 
 
 /* ── What a check saw ────────────────────────────────────────────────── */
 
-/** Vercel's address for a bare domain. 76.76.21.21 is the older one and still answers. */
-export const VERCEL_IPS = ["216.150.1.1", "76.76.21.21"] as const
-
 export type RecordState = "found" | "missing" | "conflict"
 
 export interface RecordCheck {
@@ -127,12 +124,6 @@ export interface RecordAnswers {
 
 const tidy = (v: string) => v.trim().toLowerCase().replace(/\.$/, "")
 
-/** A CNAME target that is Vercel's, whichever of its spellings. */
-export function isVercelTarget(target: string, recommended: string): boolean {
-  const t = tidy(target)
-  return t === tidy(recommended) || t === "cname.vercel-dns.com" || t === "cname.storelib.com" || /\.vercel-dns(-\d+)?\.com$/.test(t)
-}
-
 /** The full name a record sits at: "www" under maralind.com is www.maralind.com. */
 export function recordFqdn(name: string, apex: string): string {
   return name === "@" || name === "" ? apex : `${name}.${apex}`
@@ -141,15 +132,26 @@ export function recordFqdn(name: string, apex: string): string {
 /**
  * One record against what DNS answered at its name.
  *
- *   A      found when a Vercel address is there and nothing else is;
+ *   A      found when an accepted address is there and nothing else is;
  *          a conflict when anything else is, since browsers pick at random
- *   CNAME  found when it names Vercel, or its name answers with Vercel's
- *          addresses (a provider that flattens); a conflict when it names
- *          or answers with anything else
+ *   CNAME  found when it names the record's value or another name the
+ *          caller accepts, or its name answers with accepted addresses (a
+ *          provider that flattens); a conflict when it names or answers
+ *          with anything else
+ *
+ * WHAT IS ACCEPTED COMES FROM THE CALLER. app/api/domains/verify passes the
+ * addresses and the older CNAMEs from lib/custom-domains/targets.ts, which
+ * is server only, so this file (which the Domains screens import) names
+ * nothing but the values a creator is shown.
  *   TXT    found when the value is there. Other values may sit beside it
  *          (one per connected name), so they are not in the way
  */
-export function readRecord(record: DnsRecord, answers: RecordAnswers, acceptedIps: readonly string[] = VERCEL_IPS): RecordCheck {
+export function readRecord(
+  record: DnsRecord,
+  answers: RecordAnswers,
+  acceptedIps: readonly string[] = [],
+  acceptsCname: (target: string) => boolean = () => false,
+): RecordCheck {
   const base = { type: record.type, name: record.name }
   const ips = new Set([record.type === "A" ? tidy(record.value) : "", ...acceptedIps.map(tidy)].filter(Boolean))
   const a = answers.a.map(tidy)
@@ -160,7 +162,7 @@ export function readRecord(record: DnsRecord, answers: RecordAnswers, acceptedIp
   }
   if (record.type === "CNAME") {
     const cnames = answers.cname.map(tidy)
-    if (cnames.some((c) => isVercelTarget(c, record.value))) return { ...base, state: "found", seen: [] }
+    if (cnames.some((c) => c === tidy(record.value) || acceptsCname(c))) return { ...base, state: "found", seen: [] }
     if (cnames.length) return { ...base, state: "conflict", seen: cnames }
     if (a.length === 0) return { ...base, state: "missing", seen: [] }
     const others = a.filter((ip) => !ips.has(ip))

@@ -74,7 +74,7 @@ console.log("\nA domain, added in place")
   const domains = read("components/website-builder/website-settings/domains.tsx")
   check("it is added with the same route the account page uses", /fetch\("\/api\/domains", \{\s*method: "POST"/.test(domains))
   check("replacing a connected domain is said, and asked, before anything is sent", /This replaces/.test(domains) && /if \(current && current\.domain !== clean && !confirming\)/.test(domains) && /For 30 days/.test(domains))
-  check("a waiting domain shows the records to set and can be checked", /216\.150\.1\.1/.test(domains) && /cname\.vercel-dns\.com/.test(domains) && /\/api\/domains\/verify/.test(domains))
+  check("a waiting domain shows the records to set and can be checked", /DEFAULT_A/.test(domains) && /CNAME_TARGET/.test(domains) && !/vercel-dns/i.test(domains) && /\/api\/domains\/verify/.test(domains))
   const route = read("app/api/domains/route.ts")
   check("and the route is the signed-in creator's own", /auth\.getUser\(\)/.test(route) && /creator_id/.test(route))
 }

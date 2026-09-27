@@ -110,7 +110,7 @@ setTimeout(() => { window.__ran = true }, 50)
 if (!scripts.after) fail("this checkout's panel did not bundle")
 
 /* ── The fixture and the API it talks to ───────────────────────────────── */
-const RECORDS = [{ type: "A", name: "@", value: "216.150.1.1" }, { type: "CNAME", name: "www", value: "cname.vercel-dns.com" }, { type: "TXT", name: "_vercel", value: "vc-domain-verify=maralind.com,7f3c9a1d2e4b6f8a0c1e3d5b7a9f2c4e6d8b0a1c" }]
+const RECORDS = [{ type: "A", name: "@", value: "216.150.1.1" }, { type: "CNAME", name: "www", value: "domains.storelib.com" }, { type: "TXT", name: "_vercel", value: "vc-domain-verify=maralind.com,7f3c9a1d2e4b6f8a0c1e3d5b7a9f2c4e6d8b0a1c" }]
 const domainIn = (status) => ({ id: "d1", domain: "maralind.com", purpose: "website", is_primary: true, status, ssl_status: status === "active" ? "active" : "pending", created_at: "2026-09-20T10:00:00Z", host: "www.maralind.com", apex: true, records: RECORDS })
 const listOf = (domains) => ({ domains, schema: "current", purposes: ["website", "creator_page"], primary: { website: domains.some((d) => d.status === "active") ? "www.maralind.com" : null, creator_page: null } })
 const initial = { empty: () => [], pending: () => [domainIn("pending")], connected: () => [domainIn("active")] }

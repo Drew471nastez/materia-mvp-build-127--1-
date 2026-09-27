@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react"
 import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { DnsSetup, type DnsCheckResult } from "@/components/domains/dns-setup"
-import type { DnsRecord } from "@/lib/custom-domains/hostname"
+import { CNAME_TARGET, DEFAULT_A, type DnsRecord } from "@/lib/custom-domains/hostname"
 import type { RecordCheck } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
 import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
@@ -17,7 +17,7 @@ interface DomainRow {
   ssl_status?: string | null
   verified_at?: string | null
   verification_token?: string | null
-  /** From app/api/domains: what it is for, where it is served, and the records Vercel asked for. */
+  /** From app/api/domains: what it is for, where it is served, and the records it needs. */
   purpose?: string | null
   host?: string | null
   apex?: boolean | null
@@ -25,14 +25,14 @@ interface DomainRow {
 }
 
 /**
- * The records a domain needs: the ones Vercel recommended (app/api/domains), else its documented defaults.
+ * The records a domain needs: the ones app/api/domains sent, else the defaults in lib/custom-domains/hostname.
  * Drawn by the same three steps as Settings › Domains (components/domains/dns-setup.tsx).
  */
 function recordsFor(d: DomainRow): DnsRecord[] {
   if (d.records && d.records.length > 0) return d.records as DnsRecord[]
   return [
-    { type: "A", name: "@", value: "216.150.1.1" },
-    { type: "CNAME", name: "www", value: "cname.vercel-dns.com" },
+    { type: "A", name: "@", value: DEFAULT_A },
+    { type: "CNAME", name: "www", value: CNAME_TARGET },
     ...(d.verification_token ? [{ type: "TXT" as const, name: "_storelib", value: d.verification_token }] : []),
   ]
 }

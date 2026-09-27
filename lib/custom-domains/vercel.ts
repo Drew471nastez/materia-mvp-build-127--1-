@@ -20,7 +20,8 @@ import "server-only"
  * Moved here from app/api/domains/route.ts and its verify route, which each
  * carried a copy (and a route file may export only its handlers).
  */
-import { DEFAULT_A, DEFAULT_CNAME, vercelHostsFor } from "./hostname"
+import { DEFAULT_A, vercelHostsFor } from "./hostname"
+import { HOST_DEFAULT_CNAME } from "./targets"
 
 const API = "https://api.vercel.com"
 
@@ -110,7 +111,7 @@ export async function addDomainHosts(domain: string): Promise<AddResult> {
         if (mine.verified === false && Array.isArray(mine.verification)) challenges.push(...mine.verification)
         continue
       }
-      return { ok: false, error: "This domain is connected to another Vercel project. Remove it there first, then try again.", challenges }
+      return { ok: false, error: "This domain is connected to another site. Remove it there first, then try again.", challenges }
     }
     if (res.status === 0) {
       /* Vercel did not answer. Saved anyway; Check again registers it. */
@@ -118,7 +119,7 @@ export async function addDomainHosts(domain: string): Promise<AddResult> {
     }
     const message = String(res.data?.error?.message || "")
     console.error("[vercel-domains] add refused:", host.name, code, message)
-    if (code === "invalid_domain" || /invalid/i.test(message)) return { ok: false, error: "Vercel says that is not a valid domain.", challenges }
+    if (code === "invalid_domain" || /invalid/i.test(message)) return { ok: false, error: "That is not a valid domain. It should look like yourname.com.", challenges }
     if (code === "forbidden" || res.status === 403) return { ok: false, error: "Storelib could not register the domain right now. Try again in a few minutes.", challenges }
     return { ok: false, error: message || "Storelib could not register the domain right now.", challenges }
   }
@@ -161,11 +162,13 @@ export interface Recommended {
 /**
  * The records Vercel recommends for this project, and any TXT challenge it
  * is waiting on. The CNAME can be project specific
- * (`<hash>.vercel-dns-017.com`) and the A record has changed before, so the
- * Domains tab shows what Vercel says rather than a constant.
+ * (`<hash>.vercel-dns-017.com`) and the A record has changed before. The
+ * address is shown as Vercel says it; the CNAME a creator sees is always
+ * domains.storelib.com (lib/custom-domains/hostname.ts), and this one is
+ * only read by the check, which accepts it too.
  */
 export async function recommendedRecords(domain: string): Promise<Recommended> {
-  const fallback: Recommended = { ipv4: DEFAULT_A, cname: DEFAULT_CNAME, challenges: [], misconfigured: null }
+  const fallback: Recommended = { ipv4: DEFAULT_A, cname: HOST_DEFAULT_CNAME, challenges: [], misconfigured: null }
   if (!vercelConfigured()) return fallback
   const { project } = env()
   const hosts = vercelHostsFor(domain)
@@ -184,7 +187,7 @@ export async function recommendedRecords(domain: string): Promise<Recommended> {
     return typeof v === "string" && v ? v.replace(/\.$/, "") : null
   }
   const ipv4 = pick(apexConfig?.data?.recommendedIPv4) || pick(config.data?.recommendedIPv4) || DEFAULT_A
-  const cname = pick(config.data?.recommendedCNAME) || DEFAULT_CNAME
+  const cname = pick(config.data?.recommendedCNAME) || HOST_DEFAULT_CNAME
   const challenges = projectDomain?.verified === false && Array.isArray(projectDomain.verification) ? projectDomain.verification : []
   const misconfigured = config.ok ? config.data?.misconfigured === true : null
   return { ipv4, cname, challenges, misconfigured }
