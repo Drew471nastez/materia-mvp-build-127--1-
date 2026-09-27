@@ -109,6 +109,8 @@ function instrument() {
     const loop = (t) => {
       if (!rec.on) return
       const f = { t }
+      const track = banner.querySelector(".home-banner-track")
+      if (track) f.tx = new DOMMatrixReadOnly(getComputedStyle(track).transform).m41
       if (rec.sample) {
         f.s = w.__slides()
         rec.heights.add(Math.round(banner.getBoundingClientRect().height * 10) / 10)
@@ -155,8 +157,20 @@ function read(rec, bannerW) {
     longFrames: rec.loaf.filter((d) => d > 50).length,
     longWhat: rec.loafWhat,
   }
+  /*
+    THE TRACK ONLY EVER GOES ONE WAY in a change: its x, frame by frame,
+    against the way it mostly went. A step of more than half the banner is
+    the loop's own swap from a copy to the slide it copies (the same picture,
+    which `jump` below checks on screen), not a step back.
+  */
+  const xs = rec.frames.map((f) => f.tx).filter((x) => typeof x === "number")
+  const steps = xs.slice(1).map((x, i) => x - xs[i]).filter((d) => Math.abs(d) > 0.5 && Math.abs(d) < bannerW * 0.5)
+  const way = Math.sign(steps.reduce((a, d) => a + d, 0))
+  out.backSteps = steps.filter((d) => Math.sign(d) === -way).length
+  /* TRACE_X=1: the track's x frame by frame, when it stepped back. */
+  if (process.env.TRACE_X && out.backSteps) console.log(`    track x: ${xs.map((x) => Math.round(x)).join(" ")}`)
   if (rec.frames[0]?.s) {
-    let empty = 0, two = 0, jump = 0, moving = 0
+    let empty = 0, two = 0, jump = 0, moving = 0, firstMove = null, lastMove = null
     for (let i = 0; i < rec.frames.length; i++) {
       const s = rec.frames[i].s
       const shown = s.map((x) => x.frac * x.op)
@@ -166,11 +180,21 @@ function read(rec, bannerW) {
         const prev = rec.frames[i - 1].s
         /* A title on screen in both frames: how far it went in one. (One off screen may be moved round the loop; that is not seen.) */
         const d = Math.max(...s.map((x, k) => (x.frac > 0 && prev[k].frac > 0 ? Math.abs(x.x - prev[k].x) : 0)))
-        jump = Math.max(jump, d)
-        if (d > 0.5 || s.some((x, k) => Math.abs(x.op - prev[k].op) > 0.01)) moving++
+        /*
+          Per 60Hz frame of time, not per frame this thread happened to see: a glide the
+          compositor runs goes on between two late frames of the page's thread, and a busy
+          machine makes those 200ms apart. A cut is a cut however it is sampled.
+        */
+        const dt = rec.frames[i].t - rec.frames[i - 1].t
+        jump = Math.max(jump, (d * 16.7) / Math.max(16.7, dt))
+        if (d > 0.5 || s.some((x, k) => Math.abs(x.op - prev[k].op) > 0.01)) {
+          moving++
+          firstMove ??= rec.frames[i - 1].t
+          lastMove = rec.frames[i].t
+        }
       }
     }
-    Object.assign(out, { empty, two, jumpPx: Math.round(jump), jumpOfWidth: +(jump / bannerW).toFixed(2), changingFrames: moving, heights: rec.heights })
+    Object.assign(out, { empty, two, jumpPx: Math.round(jump), jumpOfWidth: +(jump / bannerW).toFixed(2), changingFrames: moving, motionMs: firstMove === null ? 0 : Math.round(lastMove - firstMove), heights: rec.heights })
     /* TRACE=1: every frame's titles (left edge against the banner, share on screen) when one of them jumped. */
     if (process.env.TRACE && jump / bannerW > 0.34) console.log(rec.frames.map((f) => f.s.map((x) => `${Math.round(x.x)}:${x.frac.toFixed(2)}`).join(" ")).join("\n"))
   }
@@ -223,7 +247,7 @@ async function open(base, width, { reduce = false } = {}) {
 const info = (page) => page.evaluate(() => {
   const b = document.querySelector("[data-home-banner]").getBoundingClientRect()
   const active = document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]')?.dataset.announcement
-  const ids = [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((s) => s.dataset.announcement)
+  const ids = [...document.querySelectorAll("[data-home-banner] .home-banner-slide[data-announcement]")].map((s) => s.dataset.announcement)
   return { left: b.left, top: b.top, width: b.width, height: b.height, active, ids, scrollTop: document.querySelector(".dashboard-scroll-container").scrollTop }
 })
 
@@ -274,6 +298,110 @@ async function tapTab(ctx, n) {
     await page.mouse.click(p.x, p.y)
     await page.mouse.move(5, 895)
   }
+}
+
+/*
+  THE COMPOSITOR'S OWN ACCOUNT. The page's frame loop above is the page's
+  thread, which also draws the globe; a glide the compositor runs goes on
+  when that thread is late. So each change is also traced, and Chrome's
+  PipelineReporter says of every frame the screen got whether it was
+  presented whole, presented without the page thread's part (the globe's
+  newest picture), or dropped. With SHOTS, the screen itself is recorded
+  (a screencast: the frames as drawn, not as the page's thread saw them).
+*/
+async function compositorFrames(ctx, act, ms, shotsAs = null) {
+  const { page, cdp } = ctx
+  const pictures = []
+  const onFrame = (f) => {
+    pictures.push(f.data)
+    cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+  }
+  if (shotsAs) {
+    cdp.on("Page.screencastFrame", onFrame)
+    await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 })
+  } else {
+    await page.tracing.start({ categories: ["benchmark", "cc", "viz"] })
+  }
+  await act()
+  await sleep(ms)
+  if (shotsAs) {
+    await cdp.send("Page.stopScreencast")
+    cdp.off("Page.screencastFrame", onFrame)
+    pictures.forEach((data, i) => writeFileSync(join(SHOTS, `${shotsAs}-${String(i).padStart(3, "0")}.png`), Buffer.from(data, "base64")))
+    return { pictures: pictures.length }
+  }
+  const trace = JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8")).traceEvents
+  const out = { whole: 0, partial: 0, dropped: 0 }
+  for (const e of trace) {
+    const f = e.name === "PipelineReporter" && e.ph === "b" ? e.args?.frame_reporter : null
+    if (!f) continue
+    if (f.state === "STATE_PRESENTED_ALL") out.whole++
+    else if (f.state === "STATE_PRESENTED_PARTIAL") out.partial++
+    else if (f.state === "STATE_DROPPED") out.dropped++
+  }
+  return out
+}
+
+/*
+  THE PAGE'S THREAD BLOCKED MID GLIDE. The clearest test of whether a glide
+  is the compositor's: the clock's change starts, and 30ms in, the page's
+  thread is held busy for BLOCK_MS (a long task, as a slow phone has). The
+  screen is recorded meanwhile, and the pictures drawn while the thread was
+  blocked are compared over the slide's text alone (the globe is drawn by
+  that thread and stands still): a glide run by the page's own frame loop
+  freezes, one run by the compositor goes on moving.
+*/
+const BLOCK_MS = 450
+async function blockedGlide(ctx, clock, bannerTop) {
+  const { page, cdp } = ctx
+  const frames = []
+  const onFrame = (f) => {
+    frames.push({ at: f.metadata.timestamp * 1000, data: f.data })
+    cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+  }
+  cdp.on("Page.screencastFrame", onFrame)
+  await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 })
+  await page.evaluate((ms) => {
+    window.__blocked = null
+    const onEnd = (e) => {
+      if (!/^home-banner-fill/.test(e.animationName)) return
+      document.removeEventListener("animationend", onEnd)
+      setTimeout(() => {
+        const t = performance.now()
+        while (performance.now() - t < ms) { /* a long task */ }
+        window.__blocked = [performance.timeOrigin + t, performance.timeOrigin + performance.now()]
+      }, 30)
+    }
+    document.addEventListener("animationend", onEnd)
+  }, BLOCK_MS)
+  await clock()
+  await sleep(1400)
+  await cdp.send("Page.stopScreencast")
+  cdp.off("Page.screencastFrame", onFrame)
+  const [from, to] = (await page.evaluate(() => window.__blocked)) ?? [0, 0]
+  const inside = frames.filter((f) => f.at > from + 20 && f.at < to)
+  /* The text's own pixels in each picture, summed in bands: two pictures with the text in the same place sum the same. */
+  const look = await browser.newPage()
+  const sums = await look.evaluate(async (datas, top) => {
+    const out = []
+    for (const d of datas) {
+      const img = new Image()
+      img.src = `data:image/png;base64,${d}`
+      await img.decode()
+      const c = document.createElement("canvas")
+      c.width = img.width
+      c.height = img.height
+      const g = c.getContext("2d")
+      g.drawImage(img, 0, 0)
+      const px = g.getImageData(0, top + 20, Math.min(200, img.width), 110).data
+      let sum = 0
+      for (let i = 0; i < px.length; i += 4) sum += px[i]
+      out.push(sum)
+    }
+    return out
+  }, inside.map((f) => f.data), Math.round(bannerTop))
+  await look.close()
+  return { blockedMs: Math.round(to - from), pictures: inside.length, distinct: new Set(sums).size }
 }
 
 async function measure(which, base, width) {
@@ -332,6 +460,25 @@ async function measure(which, base, width) {
     await swipeGesture(ctx, { x: b.left + W * 0.52, y: at.y }, -W * 0.44, 0, { hold: () => shot("mid-swipe") })
     await sleep(1400)
     await shot("rest")
+  }
+
+  /* THE COMPOSITOR: one clock change and one throw, traced; with SHOTS, the same again on camera. */
+  if (phone) {
+    await sleep(600)
+    r.blocked = await blockedGlide(ctx, clock, (await info(page)).top)
+    await sleep(800)
+    r.compositor = { auto: await compositorFrames(ctx, clock, 1100) }
+    await sleep(600)
+    b = await info(page)
+    r.compositor.swipe = await compositorFrames(ctx, () => swipeGesture(ctx, { x: b.left + W * 0.52, y: at.y }, -W * 0.44, 0), 900)
+    if (SHOTS) {
+      await sleep(600)
+      await compositorFrames(ctx, clock, 1000, `cast-${which}-${width}-auto`)
+      await sleep(600)
+      b = await info(page)
+      await compositorFrames(ctx, () => swipeGesture(ctx, { x: b.left + W * 0.52, y: at.y }, -W * 0.44, 0), 800, `cast-${which}-${width}-swipe`)
+    }
+    await sleep(600)
   }
 
   /* SCROLL: a vertical swipe starting on the text. */
@@ -411,7 +558,7 @@ try {
   for (const which of ONLY ? [ONLY] : ["before", "now"]) {
     const served = await serve(which)
     try {
-      for (const width of [390, 1280]) results.push(await measure(which, served.base, width))
+      for (const width of (process.env.WIDTHS ?? "390,1280").split(",").map(Number)) results.push(await measure(which, served.base, width))
     } finally {
       served.close()
     }
@@ -421,7 +568,7 @@ try {
 }
 
 const line = (x) => `${x.frames} frames, gaps p50 ${x.gapP50}ms p95 ${x.gapP95}ms, longest ${x.gapMax}ms${x.each ? ` (each run: ${x.each.join(", ")})` : ""}, ${x.over25} over 25ms, ${x.longFrames} long frames${x.longWhat.length && process.env.WHY ? ` (${x.longWhat.join("; ")})` : ""}`
-const seen = (x) => `${x.empty} empty frames, ${x.two} with two titles readable, largest step ${x.jumpPx}px (${x.jumpOfWidth} of the banner), ${x.changingFrames} frames in motion, banner heights ${JSON.stringify(x.heights)}`
+const seen = (x) => `${x.backSteps} steps against the way it goes, ${x.empty} empty frames, ${x.two} with two titles readable, largest step ${x.jumpPx}px per 60Hz frame (${x.jumpOfWidth} of the banner), ${x.changingFrames} frames in motion over ${x.motionMs}ms, banner heights ${JSON.stringify(x.heights)}`
 for (const r of results) {
   console.log(`\n${r.which === "before" ? `BEFORE (${BASE})` : "NOW"} at ${r.width}${r.width < 768 ? ", touch, CPU 4x" : ", mouse"}`)
   console.log(`  at rest   ${line(r.rest)}`)
@@ -429,6 +576,8 @@ for (const r of results) {
   console.log(`            ${seen(r.autoSampled)}; moved on: ${r.autoMoved}`)
   console.log(`  swipe     ${line(r.swipeTiming)}`)
   console.log(`            ${seen(r.swipeSampled)}; changed slide: ${r.swipeChanged}; page scrolled ${r.swipeScrolledPage}px`)
+  if (r.blocked) console.log(`  blocked   the page's thread held ${r.blocked.blockedMs}ms mid glide: ${r.blocked.pictures} pictures drawn meanwhile, ${r.blocked.distinct} different places of the text`)
+  if (r.compositor) console.log(`  compositor frames (whole / without the page thread's part / dropped): clock ${r.compositor.auto.whole}/${r.compositor.auto.partial}/${r.compositor.auto.dropped}, throw ${r.compositor.swipe.whole}/${r.compositor.swipe.partial}/${r.compositor.swipe.dropped}`)
   if (r.verticalScrolled !== undefined) console.log(`  vertical  swipe starting on the banner scrolled the page ${r.verticalScrolled}px; slides moved: ${r.verticalSlidesMoved}`)
   if (r.globeTookBall !== undefined) console.log(`  globe     a sideways drag on the ball: the globe took it ${r.globeTookBall}, the slides moved ${r.ballMovedSlides}; a swipe on the text grabbed the globe ${r.textSwipeGrippedGlobe}`)
   console.log(`  loop      last to first: ${r.loopReachedFirst} (from ${JSON.stringify(r.loopStart)}); ${seen(r.loop)}`)
@@ -444,8 +593,11 @@ for (const r of results.filter((x) => x.which === "now")) {
   console.log(`\nNOW at ${r.width}`)
   expect(r.autoMoved && r.autoSampled.empty === 0, "the clock moves on with no frame empty of text", r.autoSampled)
   expect(r.autoSampled.two === 0, "and never two titles whole on screen at once", r.autoSampled.two)
-  expect(r.autoSampled.changingFrames >= 8, "and it is a glide over several frames, not a cut", r.autoSampled.changingFrames)
+  /* Over time, not by frame count: the page's thread samples a compositor glide at its own rate, which a busy machine slows. */
+  expect(r.autoSampled.changingFrames >= 3 && r.autoSampled.motionMs >= 300, "and it is a glide over several frames and 300ms or more, not a cut", { frames: r.autoSampled.changingFrames, ms: r.autoSampled.motionMs })
   expect(r.autoSampled.jumpOfWidth < 0.34, "no frame steps more than a third of the banner", r.autoSampled.jumpOfWidth)
+  expect(r.autoSampled.backSteps === 0 && r.swipeSampled.backSteps === 0 && r.loop.backSteps === 0, "the track only goes one way through a change: autoplay, swipe and loop", [r.autoSampled.backSteps, r.swipeSampled.backSteps, r.loop.backSteps])
+  if (r.blocked) expect(r.blocked.distinct >= 3, "with the page's thread blocked mid glide, the slides go on moving: the glide is the compositor's", r.blocked)
   expect(r.swipeChanged && r.swipeSampled.empty === 0, "a swipe changes the slide, never an empty frame", { changed: r.swipeChanged, empty: r.swipeSampled.empty })
   expect(r.swipeScrolledPage === 0, "a sideways swipe does not scroll the page", r.swipeScrolledPage)
   if (r.verticalScrolled !== undefined) expect(r.verticalScrolled > 60 && !r.verticalSlidesMoved, "a vertical swipe that starts on the banner scrolls the page and leaves the slides", { scrolled: r.verticalScrolled, moved: r.verticalSlidesMoved })

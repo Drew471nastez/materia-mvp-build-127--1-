@@ -15,36 +15,47 @@
  * with the step the card names next leading. Only this store's things:
  * connect payouts, a first sale, what Pro would really have saved.
  *
- * THE SLIDES ARE A CAROUSEL FROM A LIBRARY, embla-carousel. "Import
- * something regular and fix it from scratch. Some basic swiper: when I touch
- * it's clean and smooth, and when it's autoplaying make sure it's smooth and
- * clean as well." Before this the change was timed by hand in CSS (a fade,
- * then a hand rolled slide, then a fade again), and every version had a
- * frame where it blocked or flashed.
+ * THE SLIDES MOVE ON THE COMPOSITOR, ONE TRACK, NO LIBRARY. "Still
+ * glitchy, not smooth, laggy and flashy on autoplay and on finger swipe on
+ * phones. I want it smooth, like 200fps." embla-carousel (the version
+ * before this) animated the track from a requestAnimationFrame loop on the
+ * page's thread: every frame of a glide was a script writing a transform,
+ * and Home's thread also draws the globe every frame. On a slowed phone the
+ * glide then moved in steps of a third of the banner (124px in one frame,
+ * 168px across the loop, measured by scripts/check-home-banner-motion.mjs),
+ * and its select event re-rendered the banner as each glide began.
  *
- * Embla rather than Swiper, which the product gallery uses: Embla loops by
- * moving slides with transform and never moves a DOM node, where Swiper's
- * loop re-appends slides (on /app a DOM insertion restyles the whole page
- * through the :has() rules on <html>) and will not loop two slides at all,
- * which two account states have. Swiper also listens to touchmove on the
- * whole document with a listener that can cancel it, which makes every
- * scroll on the page wait for the page's thread. Embla is headless, so the
- * look stays ours.
+ * Now a glide is one Web Animation on the track's `transform`, which the
+ * browser hands to the compositor: it runs on its own thread at the
+ * screen's rate whatever the page's thread is doing, and nothing in React
+ * renders for it. Which slide is showing lives in a ref, and the few
+ * attributes that say so (inert, data-slide, the segment's data-on) are set
+ * on the DOM directly, so a change renders nothing.
  *
- *   A finger drags the slides one to one and a flick carries on with
- *   momentum to the next or the one before, snapping into place: Embla's
- *   physics, handed the finger by pointer events (THE FINGER, below). The
- *   browser decides on the first move (touch-action: pan-y on the
- *   viewport): up or down is the page's scroll, at once, and sideways is
- *   the carousel's, so a scroll that starts on the banner still scrolls the
- *   page and a swipe never does.
+ *   THE LOOP. The track holds a copy of the last slide before the first and
+ *   a copy of the first after the last (aria-hidden, inert). From the last
+ *   slide the clock glides on to the copy of the first, and at the end the
+ *   track's resting place is the real first, which looks exactly the same:
+ *   the resting transform is written before the glide starts and the glide
+ *   names both of its ends, so the swap needs no frame of its own. No
+ *   opacity, no jump back, no slide ever moved in the DOM.
  *
- *   The clock slides to the next the same way, and from the last to the
- *   first it carries on forwards: a loop has no end to jump back from.
+ *   THE FINGER. Pointer events on the viewport, with touch-action pan-y: up
+ *   or down is the page's scroll at once (a pointercancel here), sideways is
+ *   the carousel's. A finger landing on a slide mid glide catches it where
+ *   it is drawn. The track follows the finger one to one by transform, and
+ *   on release the speed of the last VELOCITY_WINDOW_MS picks the slide (a
+ *   flick always goes on one), and the landing glide starts at the finger's
+ *   own speed (its curve's first slope is the throw), so the hand off has no
+ *   kink. The drag's own click is not a press on the button under it.
  *
- *   Every slide is mounted once and stays mounted, in one row; the track
- *   moves by transform alone, on its own compositor layer, and the banner
- *   has one height at each width whatever the slide says.
+ *   Every slide is mounted once and stays mounted, in one row; the banner
+ *   has one height at each width whatever the slide says. The slides hold
+ *   words only, so there is no picture to decode before one slides in.
+ *
+ *   THE FADE at the text's right edge is a still layer of the banner's own
+ *   background laid over the track, not a mask on the moving part, so no
+ *   frame of a glide has to redraw a mask.
  *
  * THE CLOCK is SLIDE_MS a slide, drawn in the slide's own segment under the
  * text: a CSS animation on `transform`, and the carousel moves on when it
@@ -69,8 +80,7 @@
  * Buttons go where the sidebar's rows go and the same way
  * (components/app/app-link).
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
-import useEmblaCarousel from "embla-carousel-react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type AnimationEvent, type KeyboardEvent, type ReactNode } from "react"
 import { AppLink } from "@/components/app/app-link"
 import { announcementsFor, fromFacts, type Announcement, type SalesSummary } from "@/lib/home/announcements"
 import type { ProgressFacts } from "@/lib/home/progress"
@@ -79,19 +89,20 @@ import { BannerGlobe } from "./globe"
 /** How long a slide stays, in ms. */
 export const SLIDE_MS = 9000
 
-/**
- * The carousel's settings. `loop`, so the clock goes from the last slide to
- * the first forwards. `duration` is Embla's own unit (higher is slower, 25
- * its default): 30 is a calm glide that lands in about half a second.
- * `watchDrag: false`: the finger is handed to Embla by pointer events below
- * (see THE FINGER), because Embla's own touch listeners hold the page's
- * scroll up.
- */
-export const CAROUSEL_OPTIONS = { loop: true, align: "start", duration: 30, watchDrag: false } as const
-/** Embla's own window for measuring a throw (DragTracker logInterval). */
-const FLICK_LOG_MS = 170
-
-type EmblaApi = NonNullable<ReturnType<typeof useEmblaCarousel>[1]>
+/** The clock's glide to the next slide, and a segment's: a calm half second, on one curve. */
+export const GLIDE_MS = 560
+export const GLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"
+/** A throw's landing is never quicker or slower than these. */
+const THROW_MIN_MS = 220
+const THROW_MAX_MS = 480
+/** How far ahead a throw is carried, in ms of its speed, when choosing the slide it lands on. */
+const THROW_PROJECT_MS = 240
+/** A throw at least this fast (px per ms) goes on to the next slide, however short the drag. */
+const FLICK_SPEED = 0.35
+/** Only the finger's last moves count toward a throw's speed. */
+const VELOCITY_WINDOW_MS = 100
+/** A drag let go this long after the finger stopped is no throw at all. */
+const STOPPED_MS = 60
 
 export interface HomeBannerProps {
   /** What the account has done, as Getting started reads it (lib/home/progress). Read only. */
@@ -120,23 +131,35 @@ const FOCUS = 2
 const TOUCH = 4
 const HIDDEN = 8
 
+/**
+ * WHERE THE TRACK STANDS is counted in SLOTS: slot 0 is the first thing in
+ * the track. With more than one slide the track is [copy of the last, the
+ * slides, copy of the first], so slide i sits in slot i + 1; with one it is
+ * just the slide, in slot 0. At rest the transform is a percentage of the
+ * track's own width (one slide), so a resize never leaves it between two.
+ */
+const restAt = (slot: number) => `translate3d(${-slot * 100}%, 0, 0)`
+const pxAt = (slot: number, width: number) => `translate3d(${(-slot * width).toFixed(2)}px, 0, 0)`
+
 function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?: () => void; onGuide?: () => void }) {
   const count = list.length
-  /* One slide is not a carousel: nothing to drag, nothing to loop. */
-  const options = useMemo(() => ({ ...CAROUSEL_OPTIONS, active: count > 1 }), [count])
-  const [viewportRef, embla] = useEmblaCarousel(options)
-  const [selected, setSelected] = useState(0)
-  const index = Math.min(selected, Math.max(0, count - 1))
+  const looped = count > 1
+  const rootRef = useRef<HTMLElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement | null>(null)
+  /* The slide showing, and its id, which a new list keeps it by. Never React state: a change renders nothing. */
+  const at = useRef(0)
+  const shownId = useRef<string | undefined>(list[0]?.id)
+  /* The glide running, if one is. */
+  const glideRef = useRef<Animation | null>(null)
   /* A change the reader asked for is read out; one the clock made is not. */
-  const [live, setLive] = useState<"off" | "polite">("off")
   const asked = useRef(false)
   /* Reduced motion, read live: a change is a jump rather than a glide. */
   const calm = useRef(false)
-  const rootRef = useRef<HTMLElement>(null)
-  const tabsRef = useRef<HTMLDivElement | null>(null)
-  /* For the carousel's handlers, which outlive a render. */
-  const shown = useRef({ list, id: list[index]?.id })
-  shown.current = { list, id: list[index]?.id }
+  /* For the handlers, which outlive a render. */
+  const shape = useRef({ count, looped, list })
+  shape.current = { count, looped, list }
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -187,55 +210,143 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
     }
   }, [setBit])
 
-  /* ── The carousel's events ───────────────────────────────────────────── */
-  useEffect(() => {
-    if (!embla) return
-    const onSelect = (api: EmblaApi) => {
-      setSelected(api.selectedScrollSnap())
-      setLive(asked.current ? "polite" : "off")
+  /* ── Slots, and the track ───────────────────────────────────────────── */
+  const slotOf = useCallback((i: number) => (shape.current.looped ? i + 1 : i), [])
+  /** The slide a slot shows: a copy's slot is the slide it copies. */
+  const slideAt = useCallback((slot: number) => {
+    const { count: n, looped: loops } = shape.current
+    if (!loops) return Math.max(0, Math.min(n - 1, Math.round(slot)))
+    return (((Math.round(slot) - 1) % n) + n) % n
+  }, [])
+  /** The same picture, nearer the middle: a place over a copy is the same place over the slide it copies. */
+  const inRange = useCallback((slot: number) => {
+    const { count: n, looped: loops } = shape.current
+    if (!loops) return slot
+    if (slot > n + 0.5) return slot - n
+    if (slot < 0.5) return slot + n
+    return slot
+  }, [])
+  /* The viewport's exact width, fractions and all: a slot at rest is 100% of it, and a glide's px must end on the same place. */
+  const width = () => viewportRef.current?.getBoundingClientRect().width || 1
+  /** Where the track is drawn now, in slots, a glide's current frame included. */
+  const standing = useCallback((): number => {
+    const t = trackRef.current
+    if (!t) return 0
+    const m = new DOMMatrixReadOnly(getComputedStyle(t).transform)
+    return -m.m41 / width()
+  }, [])
+  /** Stop a glide where it is drawn: its frame is written as the track's own transform first, so nothing jumps. */
+  const catchGlide = useCallback((): number => {
+    const t = trackRef.current
+    const slot = inRange(standing())
+    const running = glideRef.current
+    glideRef.current = null
+    if (t) t.style.transform = pxAt(slot, width())
+    running?.cancel()
+    return slot
+  }, [inRange, standing])
+
+  /*
+    THE MARKS: which slide shows (inert on the others, data-slide) and which
+    segment runs the clock (data-on, aria-selected, the tab stop). On the DOM
+    directly. data-slide rather than data-state and inert rather than
+    aria-hidden: either of those changing makes a :has() on <html> in
+    globals.css restyle the whole page.
+  */
+  const mark = useCallback((i: number) => {
+    const root = rootRef.current
+    if (!root) return
+    at.current = i
+    shownId.current = shape.current.list[i]?.id
+    root.querySelectorAll<HTMLElement>(".home-banner-slide[data-announcement]").forEach((s, k) => {
+      const on = k === i
+      if (s.inert === on) s.inert = !on
+      if (s.dataset.slide !== (on ? "active" : "idle")) s.dataset.slide = on ? "active" : "idle"
+    })
+    tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]").forEach((tab, k) => {
+      const on = k === i
+      tab.setAttribute("aria-selected", on ? "true" : "false")
+      tab.tabIndex = on ? 0 : -1
+      tab.toggleAttribute("data-on", on)
+    })
+    trackRef.current?.setAttribute("aria-live", asked.current ? "polite" : "off")
+  }, [])
+
+  /**
+   * Glide from `from` to `to` (slots) over `ms` on `easing`, on the
+   * compositor. The resting transform, at the real slide `to` shows, is
+   * written first; the animation names both its ends, so the moment it ends
+   * the resting place is already there and is the same picture.
+   */
+  const glide = useCallback((from: number, to: number, ms: number, easing: string) => {
+    const t = trackRef.current
+    if (!t) return
+    const running = glideRef.current
+    glideRef.current = null
+    const rest = slotOf(slideAt(to))
+    t.style.transform = restAt(rest)
+    running?.cancel()
+    const w = width()
+    if (calm.current || ms <= 0 || Math.abs(to - from) * w < 0.5 || typeof t.animate !== "function") return
+    const a = t.animate([{ transform: pxAt(from, w) }, { transform: pxAt(to, w) }], { duration: ms, easing })
+    glideRef.current = a
+    a.onfinish = () => {
+      if (glideRef.current === a) glideRef.current = null
     }
-    /* The list changed under it (a count arriving, a sale coming in): the slide showing stays the one showing. */
-    const onReInit = (api: EmblaApi) => {
-      const at = shown.current.list.findIndex((a) => a.id === shown.current.id)
-      if (at >= 0 && at !== api.selectedScrollSnap()) api.scrollTo(at, true)
-      setSelected(api.selectedScrollSnap())
-    }
-    embla.on("select", onSelect).on("reInit", onReInit)
-    return () => {
-      embla.off("select", onSelect).off("reInit", onReInit)
-    }
-  }, [embla])
+  }, [slideAt, slotOf])
+
+  /* The list, first and whenever it changes: the slide showing stays the one showing, at rest. */
+  useLayoutEffect(() => {
+    const kept = list.findIndex((a) => a.id === shownId.current)
+    const i = kept >= 0 ? kept : Math.min(at.current, Math.max(0, count - 1))
+    const running = glideRef.current
+    glideRef.current = null
+    running?.cancel()
+    if (trackRef.current) trackRef.current.style.transform = restAt(slotOf(i))
+    mark(i)
+  }, [list, count, mark, slotOf])
+
+  /** A segment, an arrow key: to that slide, round the loop when that is the one step. */
+  const go = useCallback((to: number) => {
+    const { count: n, looped: loops } = shape.current
+    if (!loops) return
+    asked.current = true
+    const from = catchGlide()
+    const now = at.current
+    const target = now === n - 1 && to === 0 ? n + 1 : now === 0 && to === n - 1 ? 0 : slotOf(to)
+    mark(to)
+    glide(from, target, GLIDE_MS, GLIDE_EASE)
+  }, [catchGlide, glide, mark, slotOf])
+  /** The clock: the showing segment's fill ended. On to the next, forwards, the last to the first by its copy. */
+  const advance = useCallback(() => {
+    if (!shape.current.looped) return
+    asked.current = false
+    const from = catchGlide()
+    const target = Math.round(from) + 1
+    mark(slideAt(target))
+    glide(from, target, GLIDE_MS, GLIDE_EASE)
+  }, [catchGlide, glide, mark, slideAt])
+  const onFillEnd = (e: AnimationEvent<HTMLDivElement>) => {
+    if (!/^home-banner-fill/.test(e.animationName)) return
+    if (!(e.target as Element).closest("[role=tab]")?.hasAttribute("data-on")) return
+    advance()
+  }
 
   /* ── The finger ─────────────────────────────────────────────────────── */
-  /*
-    EMBLA'S PHYSICS, FED BY POINTER EVENTS. Embla's own drag listens to
-    touchmove with a listener that may cancel it, and a listener like that
-    on the banner makes every scroll that starts there wait for the page's
-    thread before it can begin: measured with scripts/check-home-scroll.mjs
-    (BANNER_BASE), flicks starting on the banner had touchmoves waiting 133ms
-    at the 95th percentile against 65ms, and 199 of 303 frames presented
-    against 234 of 251. So Embla's drag is off (watchDrag:
-    false) and this hands it the pointer's moves instead, the way its own
-    drag does (@embla-carousel DragHandler and DragTracker, 8.5.1): the same
-    target, friction, snap and flick force, so a throw lands where Embla
-    would land it. Pointer events never hold a scroll up: pan-y lets the
-    browser take a vertical move at once (a pointercancel here), and a
-    sideways one comes here.
-  */
   useEffect(() => {
-    if (!embla || count < 2) return
-    const root = embla.rootNode()
-    let drag: { id: number; mouse: boolean; x0: number; y0: number; last: number; on: boolean; from: PointerEvent; prev: PointerEvent } | null = null
+    const root = viewportRef.current
+    const track = trackRef.current
+    if (!root || !track || count < 2) return
+    type Drag = { id: number; mouse: boolean; x0: number; y0: number; s0: number; s: number; on: boolean; moves: { t: number; x: number }[] }
+    let drag: Drag | null = null
     /* A drag ends in a click where the mouse comes up; that click is the drag's, not the button's under it. */
     let draggedUntil = -1
 
     const down = (e: PointerEvent) => {
       if (drag || (e.pointerType === "mouse" && e.button !== 0)) return
-      const en = embla.internalEngine()
       /* A finger landing on a slide on its way catches it where it is drawn. */
-      en.scrollBody.useFriction(0).useDuration(0)
-      en.target.set(en.location)
-      drag = { id: e.pointerId, mouse: e.pointerType === "mouse", x0: e.clientX, y0: e.clientY, last: e.clientX, on: false, from: e, prev: e }
+      const s0 = catchGlide()
+      drag = { id: e.pointerId, mouse: e.pointerType === "mouse", x0: e.clientX, y0: e.clientY, s0, s: s0, on: false, moves: [{ t: e.timeStamp, x: e.clientX }] }
       asked.current = true
       setBit(TOUCH, true)
     }
@@ -248,38 +359,52 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
         drag.on = true
         if (drag.mouse) root.setPointerCapture(e.pointerId)
       }
-      const en = embla.internalEngine()
-      en.scrollBody.useFriction(0.3).useDuration(0.75)
-      en.animation.start()
-      en.target.add(e.clientX - drag.last)
-      drag.last = e.clientX
-      /* The throw is measured over the last FLICK_LOG_MS of the drag. */
-      if (e.timeStamp - drag.from.timeStamp > FLICK_LOG_MS) drag.from = e
-      drag.prev = e
+      const w = width()
+      /* One to one, and never past the copies at either end. */
+      drag.s = Math.max(0, Math.min(count + 1, drag.s0 - dx / w))
+      track.style.transform = pxAt(drag.s, w)
+      drag.moves.push({ t: e.timeStamp, x: e.clientX })
+      while (drag.moves.length > 2 && e.timeStamp - drag.moves[0].t > VELOCITY_WINDOW_MS) drag.moves.shift()
     }
     const up = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
       const d = drag
       drag = null
       if (d.mouse && root.hasPointerCapture(e.pointerId)) root.releasePointerCapture(e.pointerId)
-      const en = embla.internalEngine()
-      /* How hard it was thrown: none when the finger stopped before letting go, or the browser took the move. */
-      const time = e.timeStamp - d.from.timeStamp
-      const speed = time > 0 ? (d.prev.clientX - d.from.clientX) / time : 0
-      const flick = e.type === "pointerup" && d.on && e.timeStamp - d.prev.timeStamp <= FLICK_LOG_MS && Math.abs(speed) > 0.1
-      const raw = flick ? speed * (d.mouse ? 300 : 400) : 0
-      /* A throw past a fifth of the width goes to the next slide, a softer one lands on the nearest. */
-      const nearest = en.scrollTarget.byDistance(raw, true).distance
-      const force = Math.abs(raw) < Math.min(225, Math.max(50, en.percentOfView.measure(20)))
-        ? nearest
-        : en.scrollTarget.byIndex(en.index.add(Math.sign(raw) * -1).get(), 0).distance
-      const factor = raw === 0 || force === 0 || Math.abs(raw) <= Math.abs(force) ? 0 : Math.abs((Math.abs(raw) - Math.abs(force)) / raw)
-      en.scrollBody.useDuration(25 - 10 * factor).useFriction(0.68 + factor / 50)
-      en.scrollTo.distance(force, true)
-      if (d.on && Math.abs(d.last - d.x0) > 10) draggedUntil = e.timeStamp + 400
       setBit(TOUCH, false)
-      /* Reduced motion: the drag followed the finger, and the rest of the way is a jump, not a glide. */
-      if (calm.current) embla.scrollTo(embla.selectedScrollSnap(), true)
+      const w = width()
+      /* The throw: the finger's speed over its last moves, none if it had stopped or the browser took the move. */
+      const first = d.moves[0]
+      const last = d.moves[d.moves.length - 1]
+      const live = e.type === "pointerup" && d.on && e.timeStamp - last.t <= STOPPED_MS && last.t > first.t
+      const vx = live ? (last.x - first.x) / (last.t - first.t) : 0
+      const v = -vx / w
+      const base = Math.round(d.s0)
+      let target = Math.round(d.s + v * THROW_PROJECT_MS)
+      if (Math.abs(vx) >= FLICK_SPEED && Math.sign(d.s - d.s0) === Math.sign(v)) target = base + Math.sign(v)
+      target = Math.max(base - 1, Math.min(base + 1, Math.max(0, Math.min(count + 1, target))))
+      if (d.on && Math.abs(last.x - d.x0) > 10) draggedUntil = e.timeStamp + 400
+      const i = slideAt(target)
+      if (i !== at.current) mark(i)
+      /*
+        THE LANDING STARTS AT THE FINGER'S SPEED. An ease out whose first
+        slope is the throw: slope = speed toward the slide x duration /
+        distance, and the curve's first control point is (0.25, 0.25 x
+        slope). A soft let go lands on the plain curve.
+      */
+      const dist = Math.abs(target - d.s) * w
+      const toward = vx === 0 ? 0 : -vx * Math.sign(target - d.s)
+      let ms: number
+      let easing: string
+      if (toward > 0.05 && dist > 1) {
+        ms = Math.max(THROW_MIN_MS, Math.min(THROW_MAX_MS, (2.4 * dist) / toward))
+        const slope = (toward * ms) / dist
+        easing = `cubic-bezier(0.25, ${Math.min(1, 0.25 * slope).toFixed(3)}, 0.3, 1)`
+      } else {
+        ms = Math.max(THROW_MIN_MS, Math.min(THROW_MAX_MS, 240 + (200 * dist) / w))
+        easing = "cubic-bezier(0.25, 0.8, 0.3, 1)"
+      }
+      glide(d.s, target, ms, easing)
     }
     const click = (e: MouseEvent) => {
       if (e.timeStamp > draggedUntil) return
@@ -306,24 +431,12 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
       root.removeEventListener("dragstart", noNativeDrag)
       if (drag) setBit(TOUCH, false)
     }
-  }, [embla, count, setBit])
-
-  /** A segment, an arrow key: to that slide, the shorter way round. */
-  const go = useCallback((to: number) => {
-    if (!embla || count < 2) return
-    asked.current = true
-    embla.scrollTo(((to % count) + count) % count, calm.current)
-  }, [embla, count])
-  /** The clock: the showing segment's fill ended. */
-  const advance = useCallback(() => {
-    if (!embla || count < 2) return
-    asked.current = false
-    embla.scrollNext(calm.current)
-  }, [embla, count])
+  }, [count, catchGlide, glide, mark, setBit, slideAt])
 
   /* ── The segments, as tabs ──────────────────────────────────────────── */
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const keys: Record<string, number> = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: count - 1 }
+    const i = at.current
+    const keys: Record<string, number> = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: count - 1 }
     if (!(e.key in keys)) return
     e.preventDefault()
     const to = ((keys[e.key] % count) + count) % count
@@ -331,6 +444,47 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
     const tab = tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[to]
     tab?.focus()
   }
+
+  /*
+    A slide as drawn. The marks (inert, data-slide) are the first slide's
+    here and then only ever set by `mark`: these values never change between
+    renders, so React never writes over what mark has set.
+  */
+  const slide = (a: Announcement, i: number, copy: "" | "before" | "after"): ReactNode => (
+    <div
+      key={copy ? `${copy}-${a.id}` : a.id}
+      {...(copy
+        ? { "aria-hidden": true, "data-copy": copy, inert: true }
+        : {
+            id: `home-banner-slide-${a.id}`,
+            role: count > 1 ? "tabpanel" : "group",
+            "aria-roledescription": "slide",
+            "aria-label": `${i + 1} of ${count}`,
+            inert: i !== 0,
+            "data-slide": i === 0 ? "active" : "idle",
+            "data-announcement": a.id,
+          })}
+      className="home-banner-slide"
+    >
+      <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
+      {/* "5 hours ago" is worked out on the server and again in the browser a moment later; across an
+          hour's boundary the two differ by a word, which the next render settles. Not a reason to
+          throw the server's page away. */}
+      <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
+      <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
+      <div className="home-banner-cta-row">
+        {(a.action === "share" && onShare) || (a.action === "guide" && onGuide) ? (
+          <button type="button" className="home-banner-cta" onClick={a.action === "share" ? onShare : onGuide}>
+            {a.cta}
+          </button>
+        ) : (
+          <AppLink href={a.href} className="home-banner-cta">
+            {a.cta}
+          </AppLink>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <section
@@ -349,86 +503,45 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
       <style href="home-banner" precedence="default">{BANNER_CSS}</style>
       <div aria-hidden="true" className="home-banner-bg" />
       <div className="home-banner-inner" data-count={count}>
-        {/* Embla's viewport: its first child is the track, and the track's children are the slides. */}
+        {/* The viewport: its first child is the track, and the track's children are the slides, with a copy at each end when they loop. */}
         <div ref={viewportRef} className="home-banner-text">
-          <div className="home-banner-track" aria-live={live}>
-            {list.map((a, i) => {
-              const on = i === index
-              return (
-                <div
-                  key={a.id}
-                  id={`home-banner-slide-${a.id}`}
-                  role={count > 1 ? "tabpanel" : "group"}
-                  aria-roledescription="slide"
-                  aria-label={`${i + 1} of ${count}`}
-                  /* Not aria-hidden, and data-slide rather than data-state: either attribute changing
-                     anywhere makes a :has() on <html> in globals.css (the nav pill's dialog rule, the
-                     cookie banner's) restyle the whole page. inert keeps the slides beside the one
-                     showing out of the tab order and the accessibility tree, and lets a finger on
-                     them through to the track. */
-                  inert={!on}
-                  data-slide={on ? "active" : "idle"}
-                  data-announcement={a.id}
-                  className="home-banner-slide"
-                >
-                  <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
-                  {/* "5 hours ago" is worked out on the server and again in the browser a moment later; across an
-                      hour's boundary the two differ by a word, which the next render settles. Not a reason to
-                      throw the server's page away. */}
-                  <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
-                  <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
-                  <div className="home-banner-cta-row">
-                    {(a.action === "share" && onShare) || (a.action === "guide" && onGuide) ? (
-                      <button type="button" className="home-banner-cta" onClick={a.action === "share" ? onShare : onGuide}>
-                        {a.cta}
-                      </button>
-                    ) : (
-                      <AppLink href={a.href} className="home-banner-cta">
-                        {a.cta}
-                      </AppLink>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+          <div ref={trackRef} className="home-banner-track" aria-live="off" style={{ transform: restAt(looped ? 1 : 0) }}>
+            {looped && slide(list[count - 1], count - 1, "before")}
+            {list.map((a, i) => slide(a, i, ""))}
+            {looped && slide(list[0], 0, "after")}
           </div>
 
           {count > 1 && (
-            <div ref={tabsAt} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey}>
-              {list.map((a, i) => {
-                const on = i === index
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={on}
-                    aria-controls={`home-banner-slide-${a.id}`}
-                    aria-label={a.title}
-                    tabIndex={on ? 0 : -1}
-                    className="home-banner-tab"
-                    data-on={on ? "" : undefined}
-                    onClick={() => go(i)}
-                  >
-                    <span className="home-banner-tab-track">
-                      {/*
-                        EVERY SEGMENT KEEPS ITS FILL, and the showing one runs it (data-on).
-                        Mounting a new fill for each slide was a DOM insertion, and any
-                        insertion on /app makes the :has() rules on <html> in globals.css
-                        restyle the whole page. An attribute change costs a handful.
-                      */}
-                      <span
-                        className="home-banner-tab-fill"
-                        style={{ animationDuration: `${SLIDE_MS}ms` }}
-                        onAnimationEnd={on ? advance : undefined}
-                      />
-                    </span>
-                  </button>
-                )
-              })}
+            <div ref={tabsAt} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey} onAnimationEnd={onFillEnd}>
+              {list.map((a, i) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === 0}
+                  aria-controls={`home-banner-slide-${a.id}`}
+                  aria-label={a.title}
+                  tabIndex={i === 0 ? 0 : -1}
+                  className="home-banner-tab"
+                  data-on={i === 0 ? "" : undefined}
+                  onClick={() => go(i)}
+                >
+                  <span className="home-banner-tab-track">
+                    {/*
+                      EVERY SEGMENT KEEPS ITS FILL, and the showing one runs it (data-on, set by mark).
+                      Mounting a new fill for each slide was a DOM insertion, and any
+                      insertion on /app makes the :has() rules on <html> in globals.css
+                      restyle the whole page. An attribute change costs a handful.
+                    */}
+                    <span className="home-banner-tab-fill" style={{ animationDuration: `${SLIDE_MS}ms` }} />
+                  </span>
+                </button>
+              ))}
             </div>
           )}
         </div>
+        {/* The fade into the globe's room: the banner's own background over the track's right edge, still. */}
+        <div aria-hidden="true" className="home-banner-fade" />
 
         <BannerGlobe className="home-banner-globe" />
       </div>
@@ -537,13 +650,12 @@ const BANNER_CSS = `
 }
 
 /*
-  THE CAROUSEL (embla-carousel). Its viewport runs from the banner's left
-  edge to the globe's grip, and no further: the globe is drawn see-through,
-  and text sliding under it read as a smudge across the ball. A slide
-  leaves by the banner's own edge on the left; on the right it fades
-  through --fade, room the text never rests in, so nothing is cut by a hard
-  line in the air. The mask is still; only the track moves. pan-y: a
-  vertical move is the page's scroll, a sideways one is Embla's. Not
+  THE CAROUSEL. Its viewport runs from the banner's left edge to the globe's
+  grip, and no further: the globe is drawn see-through, and text sliding
+  under it read as a smudge across the ball. A slide leaves by the banner's
+  own edge on the left; on the right it fades through --fade, room the text
+  never rests in, so nothing is cut by a hard line in the air. pan-y: a
+  vertical move is the page's scroll, a sideways one is the carousel's. Not
   selectable, or a mouse dragging the slides paints a text selection.
 */
 .home-banner-text {
@@ -557,13 +669,30 @@ const BANNER_CSS = `
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent);
-  mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent);
 }
 /*
-  The track is moved by Embla with translate3d and nothing else; its own
-  layer, so a frame of a move is the compositor's and never a repaint of the
-  text. The slides are laid out once, side by side, and never mounted,
+  THE FADE, AS A STILL LAYER. It was a mask on the viewport, and a mask on
+  the box the track moves in is part of every frame of a glide. Now it is
+  the banner's own background (the same two gradients as .home-banner-bg,
+  over the same box, so it lines up exactly), shown only across --fade
+  before the viewport's right edge: clear at its start, whole at the edge,
+  nothing past it. Painted once; the track moves under it.
+*/
+.home-banner-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 120% at 12% 0%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #f6f7f9 0%, #f1f2f5 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent calc(100% - var(--grip-r) - var(--fade)), #000 calc(100% - var(--grip-r)), transparent calc(100% - var(--grip-r)));
+  mask-image: linear-gradient(to right, transparent calc(100% - var(--grip-r) - var(--fade)), #000 calc(100% - var(--grip-r)), transparent calc(100% - var(--grip-r)));
+}
+/*
+  The track moves by translate3d and nothing else: a Web Animation the
+  compositor runs, or the finger's own transform. It is kept on its own
+  layer all the time (will-change), so no glide starts by rasterising it
+  again. The slides are laid out once, side by side, and never mounted,
   unmounted or re-keyed by a change.
 */
 .home-banner-track {
