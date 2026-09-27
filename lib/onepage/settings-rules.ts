@@ -103,11 +103,11 @@ export function checkProfileText(title: unknown, bio: unknown): Checked<{ title?
   const out: { title?: string; bio?: string } = {}
   if (title !== undefined) {
     if (title !== null && typeof title !== "string") return { ok: false, error: "The page name must be text" }
-    out.title = (title ?? "").slice(0, 200)
+    out.title = typeof title === "string" ? title.slice(0, 200) : ""
   }
   if (bio !== undefined) {
     if (bio !== null && typeof bio !== "string") return { ok: false, error: "The bio must be text" }
-    out.bio = (bio ?? "").slice(0, 2000)
+    out.bio = typeof bio === "string" ? bio.slice(0, 2000) : ""
   }
   return { ok: true, value: out }
 }
