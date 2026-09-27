@@ -209,10 +209,14 @@ export default async function PublicOnePageRoute({ params }: Props) {
     and a live one is drawn from the product. This route is force-dynamic, so
     it happens the moment the creator presses delete, with nothing to purge
     and nothing to run. lib/onepage/live-products.ts.
+
+    Asked by the seller the shape names, the field the editor's preview
+    frame asks by too (components/onepage/preview-document.tsx), so both
+    read the same products for the same page. tests/onepage-preview-parity.test.ts.
   */
   transformedOnepage.blocks = await withLiveProducts(
     adminSupabase as unknown as ProductsDb,
-    resolvedCreatorId ?? "",
+    transformedOnepage.seller_id ?? "",
     transformedOnepage.blocks,
   )
 
