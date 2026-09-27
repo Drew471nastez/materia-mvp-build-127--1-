@@ -10,8 +10,8 @@ import { hasConsent } from "@/lib/consent/client"
 import { getStoredAttribution } from "@/lib/analytics-utils"
 import { landingSearch, recentPaths } from "@/lib/navigation/in-app-history"
 import { getMainDomain } from "@/lib/url-helpers"
-import { describeCheckout, describePage, type FirstTouch, type OriginInput } from "./checkout-origin"
-import type { OrderOrigin } from "./order-source"
+import { checkoutTouches, currentTouches } from "@/lib/attribution/browser"
+import { describeCheckout, describePage, type CarriedOrigin, type FirstTouch, type OriginInput } from "./checkout-origin"
 
 /** The visit's first address, as Analytics kept it: only with analytics consent. */
 function firstTouch(): FirstTouch | null {
@@ -45,22 +45,44 @@ function input(): OriginInput | null {
   }
 }
 
-/** On the checkout page: where this checkout began. */
-export function checkoutOrigin(): OrderOrigin | null {
+/**
+ * The visit's touches ride along as `touches` (lib/attribution): the route
+ * that records the order or the sign-up reads them from there, and the
+ * origin's own checks (cleanOrigin) never keep them in `source_detail`.
+ */
+function withTouches(origin: CarriedOrigin | null, touches: string): CarriedOrigin | null {
+  if (!touches) return origin
+  return { ...(origin ?? {}), touches }
+}
+
+/** On the checkout page: where this checkout began, and the touches for the creator whose product it is. */
+export function checkoutOrigin(creatorId?: string | null): CarriedOrigin | null {
+  let origin: CarriedOrigin | null = null
   try {
     const i = input()
-    return i ? describeCheckout(i) : null
+    origin = i ? describeCheckout(i) : null
   } catch {
-    return null
+    origin = null
+  }
+  try {
+    return withTouches(origin, checkoutTouches(creatorId))
+  } catch {
+    return origin
   }
 }
 
-/** On any other page: this page, and where its visit came from. */
-export function pageOrigin(): OrderOrigin | null {
+/** On any other page: this page, where its visit came from, and its touches. */
+export function pageOrigin(): CarriedOrigin | null {
+  let origin: CarriedOrigin | null = null
   try {
     const i = input()
-    return i ? describePage(i) : null
+    origin = i ? describePage(i) : null
   } catch {
-    return null
+    origin = null
+  }
+  try {
+    return withTouches(origin, currentTouches())
+  } catch {
+    return origin
   }
 }

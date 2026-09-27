@@ -34,6 +34,7 @@ import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
+import { attributionFromMetadata, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
 import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
@@ -213,7 +214,13 @@ export async function fulfilPaymentIntent(
   }
 
   const origin = orderOriginFrom(m, opts.request)
-  await tagOrderSource(admin, order.id, orderSourceFrom(m, opts.request), origin)
+  const source = orderSourceFrom(m, opts.request)
+  await tagOrderSource(admin, order.id, source, origin)
+  /* First and last touch and the property, from what stripe-session checked
+     and put on the payment; the property follows `source` (lib/attribution).
+     Only this caller made the row, and the write is once anyway. */
+  const attribution = attributionFromMetadata(m, { source, origin })
+  await recordOrderAttribution(admin, order.id, attribution)
 
   /* Everything after the order is recorded is allowed to fail on its own:
      the buyer paid and the order exists, whatever an email server says. */
@@ -252,6 +259,7 @@ export async function fulfilPaymentIntent(
       source: contactSourceOfOrder(origin, productId),
     }),
   )
+  await recordContactAttribution(admin, creatorId, buyerEmail, attribution)
   await step("entitlement", () => grant(admin, { buyerId, email: buyerEmail, orderId: order.id, creatorId, productId, variantId }))
   await step("sales count", async () => {
     await admin.rpc("increment_product_sales", { p_product_id: productId })

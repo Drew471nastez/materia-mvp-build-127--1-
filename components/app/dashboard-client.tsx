@@ -70,10 +70,9 @@ import { MorphLines } from "@/components/app/morph-lines"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
-import { clicksByBucket, homeAllTime, homeFigures, homeFromReports, homeQuestion, homeSpans, type HomeMetric } from "@/lib/analytics/home-figures"
+import { homeAllTime, homeFigures, homeFromReports, homeQuestion, homeSpans, type HomeMetric } from "@/lib/analytics/home-figures"
 import type { Reports } from "@/lib/analytics/reports"
 import { NOW_STEP_MS, askReport, keptAnswer, questionOf, reportNow } from "@/lib/analytics/report-cache"
-import { KEYSET_PAGE, keysetFrom, readByKeyset } from "@/lib/analytics/keyset"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -87,7 +86,8 @@ interface SetupStep {
 
 interface ChartDataPoint {
   label: string
-  value: number
+  /* Null on the conversion line where the bucket had no visitors: drawn on the floor, read as "No visitors". */
+  value: number | null
   secondaryValue?: number
   refunds?: number
 }
@@ -233,13 +233,14 @@ export function DashboardTrendChart({
   const datesKey = displayChartData.map((d) => d.label).join("\u0000")
   const frameData = useMemo(() => (datesKey ? datesKey.split("\u0000").map((label) => ({ label })) : []), [datesKey])
 
-  const formatValue = useCallback((val: number) => {
+  const formatValue = useCallback((val: number | null) => {
+    if (val === null) return "No visitors"
     if (openKPIModal === "revenue") return `$${val.toFixed(2)}`
     if (openKPIModal === "conversion") return `${val}%`
     return val.toLocaleString()
   }, [openKPIModal])
 
-  const metricLabel = openKPIModal === "views" ? t("dashboard.views")
+  const metricLabel = openKPIModal === "views" ? t("dashboard.visitors")
     : openKPIModal === "orders" ? t("dashboard.orders")
     : openKPIModal === "revenue" ? t("dashboard.revenue")
     : t("dashboard.conversionRate")
@@ -254,7 +255,7 @@ export function DashboardTrendChart({
   )
   const scrubRows = useMemo<ScrubRow[]>(
     () => [
-      { label: metricLabel, value: (i) => formatValue(displayChartData[i]?.value ?? 0), mark: "line", tone: "value", color: "#8b5cf6" },
+      { label: metricLabel, value: (i) => formatValue(displayChartData[i] ? displayChartData[i].value : 0), mark: "line", tone: "value", color: "#8b5cf6" },
       ...(openKPIModal === "orders"
         ? [{ value: (i: number) => { const r = displayChartData[i]?.refunds ?? 0; return r > 0 ? `${r} refunded` : null }, mark: null, tone: "note" } as ScrubRow]
         : []),
@@ -368,7 +369,7 @@ const SAMPLE_CHART: Record<string, ChartDataPoint[]> = {
 /** The week on the floor while the first line is on its way: the frame, no numbers. */
 const WAITING_CHART: ChartDataPoint[] = SAMPLE_DAYS.map((d) => ({ label: d, value: 0 }))
 const SAMPLE_KPI = {
-  periodViews: 452, totalViews: 1660, prevPeriodViews: 380,
+  periodVisitors: 452, periodPageViews: 1240, prevPeriodVisitors: 380,
   periodOrders: 28, totalOrders: 95, prevPeriodOrders: 22,
   periodRevenue: 34500, totalRevenue: 125000, prevPeriodRevenue: 28900,
   conversionRate: 6.2, prevConversionRate: 5.8,
@@ -385,7 +386,6 @@ interface HomeAnswer {
   allTime: { views?: number; orders?: number; salesCents?: number } | null
   window: { start: number; end: number }
   previous: { start: number; end: number } | null
-  clicks: number[]
 }
 /** A realtime order row: only which creator and product it is for is read. */
 type LiveOrder = { product_id?: string | null; creator_id?: string | null }
@@ -776,13 +776,15 @@ export function DashboardClient({
 
   /* Before the first answer: the period's buckets, every figure zero, drawn soft. */
   const figures = useMemo(() => {
-    if (homeAnswer?.reports) return homeFromReports(homeAnswer.reports, clicksByBucket(homeAnswer.clicks, homeAnswer.window, homeAnswer.previous, dashTimeZone))
+    if (homeAnswer?.reports) return homeFromReports(homeAnswer.reports)
     const { window, previous } = homeSpans(period, dashTimeZone, Date.now())
-    return homeFigures({ orders: [], views: [], clicks: [], window, previous, timeZone: dashTimeZone })
+    return homeFigures({ orders: [], views: [], window, previous, timeZone: dashTimeZone })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homeAnswer, periodKey, dashTimeZone])
   /* All time, under each figure, as Analytics counts it (analytics_all_time). */
   const totals = homeAllTime(homeAnswer?.allTime)
+  /* Page views ever, only to know whether this store has had any activity at all (the sample toggle below). */
+  const everViewed = (homeAnswer?.allTime?.views ?? 0) > 0
   const analyticsData = { ...figures, ...totals }
   /** Every metric's series for the period. Null until the period's answer is in. */
   const chartSeries: Record<HomeMetric, ChartDataPoint[]> | null = homeAnswer ? figures.series : null
@@ -791,7 +793,7 @@ export function DashboardClient({
 
   // ── Sample data overlay ────────────────────────────────────────────────────
   // True once any real metric exists — toggle and badge disappear permanently
-  const hasRealData = analyticsData.totalViews > 0 || analyticsData.totalOrders > 0 || analyticsData.totalRevenue > 0
+  const hasRealData = everViewed || analyticsData.periodVisitors > 0 || analyticsData.totalOrders > 0 || analyticsData.totalRevenue > 0
   const displayAnalytics = showSampleData && !hasRealData ? { ...analyticsData, ...SAMPLE_KPI } : analyticsData
   const displayChartData = showSampleData && !hasRealData && openKPIModal
     ? (SAMPLE_CHART[openKPIModal] ?? chartData)
@@ -891,92 +893,60 @@ export function DashboardClient({
    * =========================================================================
    * This fetched on every tab: tapping Revenue asked Supabase again, then
    * redrew, so a tap was a wait and a line that appeared rather than one
-   * that moved. The period is asked for once (the Analytics answer, and the
-   * link taps beside it), and the four figures and every metric's series
-   * are worked out from it (`figures` above). A tab picks one of four series
-   * the page already holds, and the chart morphs to it.
+   * that moved. The period is asked for once, and the four figures and every
+   * metric's series are worked out from it (`figures` above). A tab picks one
+   * of four series the page already holds, and the chart morphs to it.
    *
    * The figures are the Analytics answer for the period and the one just
    * before (homeQuestion), asked through lib/analytics/report-cache: the
    * figures line is drawn as soon as the server has counted it, a question
    * already on its way (the sidebar's prefetch) is joined rather than asked
    * again, and the last answer kept for this person is drawn at once while
-   * the new one comes. The link taps are the one read left in the browser,
-   * every one of the period's, a page at a time (lib/analytics/keyset): a
-   * single read stopped at the thousandth.
+   * the new one comes. Link clicks are in that answer too, counted on the
+   * server as `link_click`. They were read here, in the browser, as
+   * `event_type = 'click'`, a name nothing has ever written: that read found
+   * nothing, a thousand rows at a time.
    *
    * A newer period's answer wins: a slow reply for the period before is
    * dropped rather than drawn over the new one.
    */
   const chartRequestRef = useRef(0)
-  /* The link taps last read for a question, so a kept answer is drawn with its own. */
-  const clicksKept = useRef(new Map<string, number[]>())
   const fetchPeriodEvents = async () => {
     const request = ++chartRequestRef.current
     setIsChartLoading(true)
     const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)))
     askPastKept.current = false
     const question = questionOf(key)
-    const answerOf = (answer: Record<string, unknown>, clicks: number[]): HomeAnswer => ({
+    const answerOf = (answer: Record<string, unknown>): HomeAnswer => ({
       reports: (answer.reports as Reports | undefined) ?? null,
       allTime: (answer.allTime as HomeAnswer["allTime"] | undefined) ?? null,
       window: span,
       previous,
-      clicks,
     })
     const kept = keptAnswer(question, viewerId)
-    if (kept) setHomeAnswer(answerOf(kept.answer, clicksKept.current.get(question) ?? []))
+    if (kept) setHomeAnswer(answerOf(kept.answer))
     /* A period answered before is drawn from what was kept, sharp, and asked again quietly behind it.
        Otherwise the figures go soft, and a chart already drawn for another period stays, blurred,
        until this one's numbers land (First load: isRefreshing is already true, seeded in useState). */
     setIsRefreshing(!kept)
     setChartStale(!kept)
     try {
-      const supabase = createClient()
-      const iso = (ms: number) => new Date(ms).toISOString()
-      const clicksRead = readByKeyset<{ id: string; created_at: string }>(
-        (after) =>
-          keysetFrom(
-            supabase.from("analytics_events").select("id, created_at").eq("creator_id", creatorId).eq("event_type", "click").lt("created_at", iso(span.end)),
-            iso(span.start),
-            after,
-          )
-            .order("created_at", { ascending: true })
-            .order("id", { ascending: true })
-            .limit(KEYSET_PAGE),
-        50_000,
-      )
-        .then((read) => read.rows.map((e) => Date.parse(e.created_at)))
-        /* Taps that cannot be read are a missing second line, not a failed page. */
-        .catch(() => [] as number[])
       const answer = await new Promise<Record<string, unknown>>((resolve, reject) => {
         const asked = askReport(key, (quick) => resolve(quick))
         asked.promise.then(resolve, reject).finally(asked.release)
       })
       if (request !== chartRequestRef.current) return
-      /*
-        THE ANSWER IS DRAWN THE MOMENT IT LANDS. It used to wait for the link
-        taps as well, which the browser reads a thousand at a time, one round
-        trip after another: on a busy store the period's figures sat
-        finished in memory while the taps were paged through, and a tab or a
-        new period looked slow to load. The taps are drawn nowhere but the
-        views' second value, so they join the answer when they arrive.
-      */
-      setHomeAnswer(answerOf(answer, clicksKept.current.get(question) ?? []))
+      /* THE ANSWER IS DRAWN THE MOMENT IT LANDS: the quick first part has every figure Home shows. */
+      setHomeAnswer(answerOf(answer))
       setChartStale(false)
       setIsChartLoading(false)
-      void clicksRead.then((clicks) => {
-        clicksKept.current.set(question, clicks)
-        if (request !== chartRequestRef.current || clicks.length === 0) return
-        setHomeAnswer((prev) => (prev && prev.window === span ? { ...prev, clicks } : prev))
-      })
     } catch (error) {
       console.error("Error fetching the period's figures:", error)
       if (request === chartRequestRef.current) {
         setIsChartLoading(false)
         setChartStale(false)
         /* Nothing to draw, rather than a skeleton that waits for ever. */
-        setHomeAnswer((prev) => prev ?? answerOf({}, []))
+        setHomeAnswer((prev) => prev ?? answerOf({}))
       }
     } finally {
       if (request === chartRequestRef.current) {
@@ -1243,10 +1213,10 @@ export function DashboardClient({
               soft={isRefreshing && figuresReady}
               loading={!figuresReady}
               sample={showSampleData && !hasRealData}
-              label={t("dashboard.views")}
-              value={formatCompactNumber(displayAnalytics.periodViews)}
-              change={<PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />}
-              foot={`${formatCompactNumber(displayAnalytics.totalViews)} ${t("dashboard.allTime")}`}
+              label={t("dashboard.visitors")}
+              value={formatCompactNumber(displayAnalytics.periodVisitors)}
+              change={<PercentChangeIndicator current={displayAnalytics.periodVisitors} previous={displayAnalytics.prevPeriodVisitors} />}
+              foot={`${formatCompactNumber(displayAnalytics.periodPageViews)} ${t("dashboard.pageViews")}`}
               onSelect={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
             />
             <MetricTab
@@ -1283,9 +1253,9 @@ export function DashboardClient({
               loading={!figuresReady}
               sample={showSampleData && !hasRealData}
               label={t("dashboard.conversionRate")}
-              value={`${Math.round(displayAnalytics.conversionRate)}%`}
-              change={<PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />}
-              foot={t("dashboard.viewsToOrders")}
+              value={displayAnalytics.conversionRate === null ? "–" : `${Math.round(displayAnalytics.conversionRate)}%`}
+              change={displayAnalytics.conversionRate === null || displayAnalytics.prevConversionRate === null ? null : <PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />}
+              foot={t("dashboard.ordersPerVisitor")}
               onSelect={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
             />
 

@@ -54,7 +54,8 @@ export interface ReportQuestion {
   end: number
   compare: { start: number; end: number } | null
   product: string
-  mode: "store" | "onepage"
+  /** Which of the creator's places: "all", "creator_page", "onepage" or "website:<id>" (lib/analytics/properties). */
+  property: string
   timeZone: string
 }
 
@@ -65,7 +66,7 @@ export function reportKey(q: ReportQuestion): string {
     end: new Date(q.end).toISOString(),
     tz: q.timeZone,
     product: q.product,
-    mode: q.mode,
+    property: q.property,
   })
   if (q.compare) {
     p.set("cstart", new Date(q.compare.start).toISOString())
@@ -93,7 +94,8 @@ export interface Kept {
   answer: { viewer?: string; [k: string]: unknown }
 }
 
-const STORE = "storelib.analytics.answers.v1"
+/* v2: the answer counts visitors and every place (lib/analytics/reports); a v1 answer is another shape and is not shown. */
+const STORE = "storelib.analytics.answers.v2"
 const MAX_KEPT = 8
 let memory: Map<string, Kept> | null = null
 
@@ -226,8 +228,8 @@ async function read(key: string, signal: AbortSignal, onFigures: (figures: Line)
 let warmedAt = 0
 
 /**
- * THE PAGE AS IT WILL OPEN: the last 7 days against the 7 before, the
- * store, every product, in the viewer's zone, fetched ahead and kept. At most
+ * THE PAGE AS IT WILL OPEN: the last 7 days against the 7 before, every
+ * place, every product, in the viewer's zone, fetched ahead and kept. At most
  * once a minute, and not at all while a recent answer is kept or one is on
  * its way, so a pointer resting on the sidebar asks nothing more.
  */
@@ -243,7 +245,7 @@ export function warmAnalytics() {
       end: Math.max(span.end, span.start + 1),
       compare: compareBounds(period, PREVIOUS_PERIOD, timeZone, now),
       product: "all",
-      mode: "store",
+      property: "all",
       timeZone,
     })
     const k = kept().get(questionOf(key))

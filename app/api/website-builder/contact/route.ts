@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, emailSubject } from "@/lib/api/rate-limit"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { recordSignupAttribution } from "@/lib/attribution/server"
 import { triggerEmailFlows } from "@/lib/email"
 import { buildMailgunFromHeader, sendMailgunEmail } from "@/lib/mailgun"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -81,7 +82,11 @@ export async function POST(req: NextRequest) {
     },
     brand: (creatorId) => siteBrandName(db, creatorId),
     loginEmail: loginEmailFrom(db),
-    recordSource: (creatorId, email, detail) => recordContactSource(db, creatorId, email, detail as never),
+    recordSource: async (creatorId, email, detail) => {
+      await recordContactSource(db, creatorId, email, detail as never)
+      /* The website and the visit's touches, onto the same contact (lib/attribution). */
+      await recordSignupAttribution(db, { creatorId, email, source: detail as never, sent })
+    },
   })
 
   return NextResponse.json(reply.body, { status: reply.status, headers: { "Cache-Control": "no-store" } })

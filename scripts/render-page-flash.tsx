@@ -181,7 +181,7 @@ function Page() {
         })) as never} />
       )
     case "analytics":
-      return <div style={{ height: "100%" }}><AnalyticsClient creatorId="c1" userId="u1" products={PRODUCTS} /></div>
+      return <div style={{ height: "100%" }}><AnalyticsClient creatorId="c1" userId="u1" products={PRODUCTS} properties={{ onePageId: null, websites: [], defaultWebsite: null }} /></div>
     case "emails":
       return <Emails />
     case "customers":

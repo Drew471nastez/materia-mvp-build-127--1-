@@ -440,8 +440,9 @@ section("Every chart reads one layer")
  * the same by construction, and scripts/check-chart-feel.mjs measures it.
  */
 {
-  check("the home page's chart, the Analytics chart and the report cards all draw <ChartScrub>",
-    /<ChartScrub\b/.test(DASHBOARD) && /<ChartScrub\b/.test(ANALYTICS) && /<ChartScrub\b/.test(REPORTS))
+  /* Changed on purpose: the report cards are lists and the funnel now; the one chart on Analytics is the figures' chart. */
+  check("the home page's chart and the Analytics chart draw <ChartScrub>, and the report cards draw no chart of their own",
+    /<ChartScrub\b/.test(DASHBOARD) && /<ChartScrub\b/.test(ANALYTICS) && !/<ChartScrub\b|recharts/.test(REPORTS))
   check("and none of them keeps a gesture of its own",
     [DASHBOARD, ANALYTICS, REPORTS].every((src) => !/addEventListener\("touch|onPointerMove=|useChartScrub|touchStartHandler|tooltipActiveRef/.test(src)))
   check("the old hook and the old glide are gone, so nothing can read a pointer the old way",
@@ -462,7 +463,7 @@ section("Every chart reads one layer")
 }
 
 // ===========================================================================
-section("Switching Store and One page redraws once, not twice")
+section("Switching the place redraws once, not twice")
 // ===========================================================================
 /**
  * The two modes plot different series — Views/Orders/Revenue against
@@ -482,9 +483,15 @@ section("Switching Store and One page redraws once, not twice")
  */
 {
   const page = stripComments(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"))
+  /*
+    Changed on purpose: there is no Store and One page switch any more. Every
+    place (All, the creator page, the OnePage, a website) is drawn with the
+    same four series, so a switch never swaps the chart's lines, only their
+    numbers, and the chart is always given the one set.
+  */
   check(
-    "the chart is given the mode its data belongs to",
-    /analyticsMode=\{trendMode\}/.test(page) && !/analyticsMode=\{analyticsMode\}/.test(page),
+    "the chart is given the one set of series every place is drawn with",
+    /analyticsMode="store"/.test(page) && !/analyticsMode=\{analyticsMode\}/.test(page) && !/setAnalyticsMode|setMode\(/.test(page),
   )
   /*
     The mode and the series are now both read off the one answer from the
@@ -492,13 +499,12 @@ section("Switching Store and One page redraws once, not twice")
     `answer`, and so is the mode it is drawn in.
   */
   check(
-    "and that mode is the mode of the answer the series is drawn from",
-    /const trendMode: AnalyticsMode = answer\?\.mode \?\? analyticsMode/.test(page) &&
-      /const trendData = useMemo<TrendData\[\]>\(\(\) => \{\s*if \(!answer\) return \[\]/.test(page),
+    "and the series is drawn from the answer on screen, so it moves with its own numbers",
+    /const answer = reportsState\.data/.test(page) && /const trendData = useMemo<AnalyticsChartData\[\]>\(\(\) => \{\s*if \(!answer\) return \[\]/.test(page),
   )
   check(
-    "the tabs still answer the tap immediately",
-    /analyticsMode === mode \? "bg-white/.test(page),
+    "the filter answers the tap immediately: the place is set at once, and the address after",
+    /setPropertyState\(/.test(page) && /window\.history\.replaceState\(/.test(page),
   )
 }
 

@@ -37,6 +37,7 @@
  */
 
 import { detectClientAppFromUA, hostIs } from "@/lib/analytics/sources"
+import { CARRY_PARAM } from "@/lib/attribution/touch"
 import {
   FROM_LABEL,
   SOURCE_PARAM,
@@ -49,6 +50,14 @@ import {
   type OrderOrigin,
 } from "./order-source"
 import { isOnePageHost } from "@/lib/onepage/address"
+
+/**
+ * A page's account of itself as it travels: the origin, and the visit's
+ * touches encoded by lib/attribution/touch encodeTouches, which only
+ * lib/attribution reads. cleanOrigin drops `touches`, so it never reaches
+ * `source_detail`.
+ */
+export type CarriedOrigin = OrderOrigin & { touches?: string }
 
 export interface FirstTouch {
   referrerDomain?: string | null
@@ -273,7 +282,7 @@ function pageAddress(page: string | null | undefined): URL | null {
  */
 export function checkoutHrefWithOrigin(
   href: string,
-  here: OrderOrigin | null,
+  here: CarriedOrigin | null,
   /**
    * The address of the page the link is on, when it is a creator's website.
    * Checkout sends the buyer back to it after paying (`return`) and Back goes
@@ -297,6 +306,9 @@ export function checkoutHrefWithOrigin(
     ["ref", here?.from],
     ["utm_source", here?.utm_source],
     ["utm_campaign", here?.utm_campaign],
+    /* The visit's touches, which checkout on storelib.com cannot read from
+       this site's storage (lib/attribution/browser). */
+    [CARRY_PARAM, here?.touches],
   ]
   let changed = false
   for (const [key, value] of add) {

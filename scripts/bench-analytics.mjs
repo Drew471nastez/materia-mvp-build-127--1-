@@ -1,11 +1,11 @@
 /**
- * Runs scripts/analytics-speed.ts: how long the Analytics page's answer takes
- * on a synthetic busy store, before and after, and that the database counts
- * every figure as Node does. Compiled the way scripts/run-push-tests.mjs
+ * Runs scripts/analytics-speed.ts: how long analytics_report takes on a busy
+ * creator, with and without the daily rollup, and that the answers agree with
+ * each other and with Node. Compiled the way scripts/run-push-tests.mjs
  * compiles the suites.
  *
  *   node scripts/bench-analytics.mjs
- *   EVENTS=200000 ANALYTICS_BENCH_PG="-h /tmp/pg -p 5432 -U postgres" node scripts/bench-analytics.mjs
+ *   VISITS=200000 ANALYTICS_BENCH_PG="-h /tmp/pgs -U storelib" node scripts/bench-analytics.mjs
  */
 import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync, readdirSync, statSync, symlinkSync, existsSync, unlinkSync } from "node:fs"

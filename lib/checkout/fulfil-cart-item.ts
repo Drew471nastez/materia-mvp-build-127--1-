@@ -24,6 +24,7 @@ import "server-only"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
+import { recordContactAttribution, recordOrderAttribution, type Attribution } from "@/lib/attribution/server"
 import { recordCustomer } from "./fulfil-payment"
 import { lineTotalCents } from "./cart-items"
 
@@ -64,6 +65,8 @@ export interface FulfilContext {
   }
   /** Which website, and where its visit came from (lib/orders/order-source). */
   origin?: OrderOrigin | null
+  /** First and last touch and the property, the same on every line (lib/attribution). */
+  attribution?: Attribution | null
 }
 
 export interface FulfilledLine {
@@ -120,6 +123,7 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
   }
   /* A basket is only ever filled on a creator's website. */
   await tagOrderSource(ctx.admin, order.id, "website", ctx.origin)
+  await recordOrderAttribution(ctx.admin, order.id, ctx.attribution)
 
   if (ctx.buyerId) {
     let q = ctx.admin
@@ -181,4 +185,5 @@ export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: n
     bought: true,
     source: contactSourceOfOrder(ctx.origin, firstProductId),
   })
+  await recordContactAttribution(ctx.admin, ctx.creatorId, email, ctx.attribution)
 }

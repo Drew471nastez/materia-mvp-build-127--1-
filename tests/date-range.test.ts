@@ -224,7 +224,7 @@ function main() {
       && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/analytics/analytics-client.tsx"))
       && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/orders/orders-client.tsx")))
   check("analytics hides percentages with No comparison, and names what they compare with",
-    /against === null\) return null/.test(read("app/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/app/analytics/analytics-client.tsx")))
+    /against === null(?: \|\| [a-z]+ === null)*\) return null/.test(read("app/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/app/analytics/analytics-client.tsx")))
   /* The line and its comparison are drawn by components/app/morph-lines, which the chart hands the period before. */
   check("and draws the comparison as a dashed line under the chart's own",
     /strokeDasharray="5 4"/.test(read("components/app/morph-lines.tsx")) && /compared=\{comparedLine\}/.test(read("components/app/analytics-chart.tsx")))

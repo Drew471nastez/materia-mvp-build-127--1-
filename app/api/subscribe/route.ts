@@ -4,6 +4,7 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { triggerEmailFlows } from "@/lib/email"
 import { randomUUID } from "node:crypto"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { recordSignupAttribution } from "@/lib/attribution/server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
       }
 
       await recordContactSource(adminSupabase, resolvedCreatorId, normalizedEmail, origin)
+      await recordSignupAttribution(adminSupabase, { creatorId: resolvedCreatorId, email: normalizedEmail, source: origin, sent: body.origin })
 
       /* Joining again is joining: the welcome goes, as it did the first time. */
       try {
@@ -227,6 +229,8 @@ export async function POST(request: NextRequest) {
     }
 
     await recordContactSource(adminSupabase, resolvedCreatorId, normalizedEmail, origin)
+    /* The property and the visit's touches, onto the same contact (lib/attribution). */
+    await recordSignupAttribution(adminSupabase, { creatorId: resolvedCreatorId, email: normalizedEmail, source: origin, sent: body.origin })
 
     /**
      * THE CREATOR'S WELCOME EMAIL. This route wrote the subscriber and

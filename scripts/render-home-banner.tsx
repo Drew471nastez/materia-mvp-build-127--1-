@@ -23,7 +23,7 @@ import { LanguageProvider } from "@/lib/i18n/context"
 import { NO_FACTS, salesFrom, type ProgressFacts } from "@/lib/home/progress"
 import { salesSummary } from "@/lib/home/announcements"
 import type { OrderRow } from "@/lib/orders/order-view"
-import { buildReports, tallyVisits, type ViewRow } from "@/lib/analytics/reports"
+import { buildReports, wireFromRows, type StepRow, type ViewRow } from "@/lib/analytics/reports"
 
 class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -123,17 +123,19 @@ if (params.get("reports")) {
     const cs = q.get("cstart")
     const previous = cs ? { start: Date.parse(cs), end: Date.parse(q.get("cend")!) } : null
     const timeZone = q.get("tz") || "UTC"
-    const steps = views.filter((_, i) => i % 7 === 0).map((v) => ({ event_type: "buy_click", session_id: v.session_id, created_at: v.created_at }))
+    const steps: StepRow[] = views.filter((_, i) => i % 7 === 0).map((v) => ({ event_type: "checkout_start", session_id: v.session_id, created_at: v.created_at }))
     const base = { orders: orders as OrderRow[], window: span, previous, timeZone, mainDomain: "storelib.com", productTitles: { "product-0": "Preset pack" } }
-    const allTime = { views: views.length, orders: orders.length, salesCents: orders.reduce((a, o) => a + o.amount_cents, 0) }
-    const tallied = tallyVisits({ views, steps, window: span, previous, timeZone })
-    const quick = { cur: { ...tallied.cur, steps: undefined, groups: undefined }, prev: { ...tallied.prev, steps: undefined, groups: undefined } }
+    const allTime = { orders: orders.length, salesCents: orders.reduce((a, o) => a + o.amount_cents, 0) }
+    /* As the server streams it: the figures first (analytics_report's quick part), then everything. */
+    const wire = wireFromRows({ views, steps, window: span, previous, timeZone, selector: { type: "all" }, defaultWebsite: null, product: null, mainDomain: "storelib.com" })
+    const only = (x: typeof wire.cur) => ({ visitors: x.visitors, views: x.views, visitor_buckets: x.visitor_buckets, view_buckets: x.view_buckets, clicks: x.clicks, click_buckets: x.click_buckets })
+    const quick = { cur: only(wire.cur), prev: only(wire.prev) }
     const enc = new TextEncoder()
     const body = new ReadableStream({
       async start(c) {
-        c.enqueue(enc.encode(JSON.stringify({ part: "figures", reports: buildReports({ ...base, visits: quick as never }), allTime, truncated: false }) + "\n"))
+        c.enqueue(enc.encode(JSON.stringify({ part: "figures", reports: buildReports({ ...base, wire: quick }), allTime, truncated: false }) + "\n"))
         await new Promise((r) => setTimeout(r, w.__listsMs))
-        c.enqueue(enc.encode(JSON.stringify({ part: "all", reports: buildReports({ ...base, views, steps }), allTime, truncated: false, viewer: "probe-viewer" }) + "\n"))
+        c.enqueue(enc.encode(JSON.stringify({ part: "all", reports: buildReports({ ...base, wire }), allTime, truncated: false, viewer: "probe-viewer" }) + "\n"))
         c.close()
       },
     })

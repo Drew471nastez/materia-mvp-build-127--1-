@@ -2,6 +2,8 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { CaptureTouch } from "@/components/attribution/capture-touch"
+import { TrackView } from "@/components/analytics/track-view"
 import { headers } from "next/headers"
 import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
 import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
@@ -290,6 +292,13 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
     <>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
       <PublicOnePage onepage={transformedOnepage} />
+      {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
+      <CaptureTouch creatorId={resolvedCreatorId} property="onepage" />
+      {/* The OnePage in Analytics, as one property among the creator's, by the
+          same rules as every other page (lib/analytics/collect). The count
+          above, in onepage_views, is the OnePage editor's and is unchanged.
+          Its links report their own clicks, with the block they came from. */}
+      {resolvedCreatorId && <TrackView creatorId={resolvedCreatorId} links={false} />}
     </>
   )
 }

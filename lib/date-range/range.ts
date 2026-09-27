@@ -107,13 +107,22 @@ export function ordered(a: Ymd, b: Ymd): DateRange {
 
 /* ── the creator's clock ───────────────────────────────────────────────── */
 
+/* One formatter per zone: making one costs far more than using it, and the chart's days ask per row. */
+const wallFormats = new Map<string, Intl.DateTimeFormat>()
+
 function wallClock(ms: number, timeZone: string): number {
   let p: Intl.DateTimeFormatPart[]
   try {
-    p = new Intl.DateTimeFormat("en-US", {
-      timeZone, year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
-    }).formatToParts(new Date(ms))
+    let f = wallFormats.get(timeZone)
+    if (!f) {
+      f = new Intl.DateTimeFormat("en-US", {
+        timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+      })
+      if (wallFormats.size > 50) wallFormats.clear()
+      wallFormats.set(timeZone, f)
+    }
+    p = f.formatToParts(new Date(ms))
   } catch {
     return ms
   }

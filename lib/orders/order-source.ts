@@ -138,7 +138,7 @@ export function cleanHost(value: unknown): string | undefined {
  * dropped whole: a campaign is not a place for an address, and one that
  * holds one is not recorded.
  */
-function cleanUtm(value: unknown): string | undefined {
+export function cleanUtm(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined
   const v = value.trim().slice(0, 80)
   if (!v || v.includes("@")) return undefined

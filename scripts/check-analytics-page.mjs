@@ -25,6 +25,14 @@
  *                 far the line jumped in the frame after the tap against the
  *                 largest step of an ordinary morph frame
  *
+ * Then, at 390 and 1280, the page as the creator reads it: the property
+ * filter beside the date range (a sheet on a phone, a popover otherwise, and
+ * nothing for a creator with one place), every card in its order with no
+ * text or box out of its card and no sideways scroll, the filter read from
+ * the address (?property=, and the old ?mode=onepage), each card's empty
+ * state, and the Website and OnePage summary lines. SHOTS=<dir> keeps a
+ * screenshot of each, named analytics-*.
+ *
  *   node scripts/check-analytics-page.mjs
  *   EXPECT=clean node scripts/check-analytics-page.mjs   (fails on any spurious one)
  *
@@ -285,24 +293,33 @@ try {
       expect(d.cls < 0.005, "nothing moves but text the new numbers change the width of", d.cls)
     }
 
-    /* 6. Store to One page and back. */
-    for (const mode of [/one ?page/i, /store/i]) {
+    /*
+      6. THE PROPERTY FILTER, beside the date range: the OnePage and back to
+      All pages. The choice is written to the address (?property=) without a
+      navigation, the chart morphs, and All's answer from seconds ago is kept.
+    */
+    for (const [row, param] of [["onepage", "onepage"], ["all", null]]) {
       const before = await state(p)
-      await p.evaluate((src) => {
-        const re = new RegExp(src, "i")
-        const buttons = [...document.querySelectorAll("button")].filter((b) => re.test(b.textContent.trim()) && b.offsetParent !== null)
-        buttons[0].click()
-      }, mode.source)
+      await p.evaluate(() => document.querySelector("button[data-property-picker]").click())
+      await sleep(500)
+      await p.evaluate((r) => document.querySelector(`[data-property-list] [data-row="${r}"]`).click(), row)
       await sleep(1400)
       const d = delta(before, await state(p))
-      console.log(`  mode ${mode.source}:`, JSON.stringify(d), d.cls > 0 ? JSON.stringify(await why(p, before)) : "")
-      expect(d.router === 0, `${mode.source}: no navigation, which would reload the page under its skeleton`, d.router)
-      /* Back to the store within seconds: its answer is kept and fresh (lib/analytics/report-cache), so nothing is asked. */
-      const reads = /store/.test(mode.source) ? 0 : 1
-      expect(d.requests === reads, `${mode.source}: ${reads ? "one read" : "no read: the answer from seconds ago is kept"}`, d.requests)
-      expect(d.svgMounts === 0 && d.placeholders === 0, `${mode.source}: the chart morphs, it is not redrawn from nothing`, [d.svgMounts, d.placeholders])
-      expect(d.skeletons === 0, `${mode.source}: no skeleton flashes in the cards on a quick answer`, d.skeletons)
-      expect(d.cls < 0.005, `${mode.source}: nothing moves but text the new numbers change the width of`, d.cls)
+      const after = await p.evaluate(() => ({ param: new URL(location.href).searchParams.get("property"), label: document.querySelector("button[data-property-picker]").textContent.trim(), asked: (window.__fetches.at(-1) || {}).url || "", open: !!document.querySelector("[data-property-list]") }))
+      console.log(`  property ${row}:`, JSON.stringify({ ...d, ...after, asked: undefined }), d.cls > 0 ? JSON.stringify(await why(p, before)) : "")
+      expect(after.param === param && !after.open, `${row}: the address says ?property=${param ?? "(none)"} and the list is closed`, after)
+      expect(after.label === (row === "all" ? "All pages" : "OnePage"), `${row}: the button names it`, after.label)
+      expect(d.router === 0, `${row}: no navigation, which would reload the page under its skeleton`, d.router)
+      /* Back to All within seconds: its answer is kept and fresh (lib/analytics/report-cache), so nothing is asked. */
+      const reads = row === "all" ? 0 : 1
+      expect(d.requests === reads && (reads === 0 || /[?&]property=onepage/.test(after.asked)), `${row}: ${reads ? "one read, for the OnePage" : "no read: the answer from seconds ago is kept"}`, d.requests)
+      expect(d.svgMounts === 0 && d.placeholders === 0, `${row}: the chart morphs, it is not redrawn from nothing`, [d.svgMounts, d.placeholders])
+      expect(d.skeletons === 0, `${row}: no skeleton flashes in the cards on a quick answer`, d.skeletons)
+      expect(d.cls < 0.005, `${row}: nothing moves but text the new numbers change the width of`, d.cls)
+      if (row === "onepage") {
+        const title = await p.evaluate(() => document.querySelector('[data-card="pages"] h3')?.textContent)
+        expect(title === "Top links", "the OnePage's second card is its most clicked links", title)
+      }
     }
 
     /*
@@ -413,19 +430,20 @@ try {
       const mid = await p.evaluate(() => ({
         figuresSoft: document.querySelectorAll("[role=tablist][aria-label=Metric] .blur-\\[2px\\]").length,
         chartSoft: !!document.querySelector(".opacity-40.blur-\\[1\\.5px\\]"),
-        listsSoft: [...document.querySelectorAll("section")].filter((c) => c.classList.contains("opacity-60")).length,
+        listsSoft: document.querySelector("[data-analytics-cards]").classList.contains("opacity-60") ? document.querySelectorAll("section[data-card]").length : 0,
+        cards: document.querySelectorAll("section[data-card]").length,
         shapes: document.querySelectorAll("section [data-shimmer]").length,
         views: document.querySelector('[data-tab="views"]').textContent,
       }))
       await sleep(1500)
       const end = await p.evaluate(() => ({
-        listsSoft: [...document.querySelectorAll("section")].filter((c) => c.classList.contains("opacity-60")).length,
+        listsSoft: document.querySelector("[data-analytics-cards]").classList.contains("opacity-60") ? 1 : 0,
         shapes: document.querySelectorAll("section [data-shimmer]").length,
       }))
       const d = delta(before, await state(p))
       console.log("  figures first:", JSON.stringify({ mid, end, ...d }))
       expect(mid.figuresSoft === 0 && !mid.chartSoft, "the new figures and the chart are on screen, sharp, before the lists", mid)
-      expect(mid.listsSoft === 6 && mid.shapes === 0, "the funnel and the five list cards keep the last ones, softened, not shapes", [mid.listsSoft, mid.shapes])
+      expect(mid.listsSoft === mid.cards && mid.cards === 7 && mid.shapes === 0, "every card below the chart keeps the last numbers, softened, not shapes", [mid.listsSoft, mid.cards, mid.shapes])
       expect(end.listsSoft === 0 && end.shapes === 0, "and fill in when the rest lands", end)
       expect(d.requests === 1 && d.svgMounts === 0 && d.placeholders === 0, "one read, the chart morphing, no placeholder", [d.requests, d.svgMounts, d.placeholders])
       expect(d.cls < 0.005, "nothing moves but text the new numbers change the width of", d.cls)
@@ -502,7 +520,7 @@ try {
         }
       }
       for (const [what, find] of [
-        ["a report card's title", () => [...document.querySelectorAll("section h3")].find((h) => h.textContent === "Sessions over time")],
+        ["a report card's title", () => [...document.querySelectorAll("section h3")].find((h) => h.textContent === "Top products")],
         ["the change beside a figure", () => document.querySelector("[role=tablist][aria-label=Metric] [data-hover-note]")],
       ]) {
         const box = await p.evaluate((src) => {
@@ -555,12 +573,13 @@ try {
     {
       const shots = process.env.SHOTS
       const openPicker = (label) => p.evaluate((re) => [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => new RegExp(re).test(b.textContent))?.click(), label)
-      const rows = () => p.evaluate(() => [...document.querySelectorAll("[data-row]")].filter((r) => r.offsetParent !== null).map((r) => r.getAttribute("data-row")))
+      /* The date range's phone sheet is kept built between opens (BottomSheet keepMounted): its rows at rest are not on screen. */
+      const rows = () => p.evaluate(() => [...document.querySelectorAll("[data-row]")].filter((r) => r.offsetParent !== null && !r.closest("[data-app-sheet-rest]")).map((r) => r.getAttribute("data-row")))
       await p.evaluate(() => window.scrollTo(0, 0))
       await openPicker("Last 30 days")
       await sleep(500)
       const periodRows = await rows()
-      if (shots) { mkdirSync(shots, { recursive: true }); await p.screenshot({ path: join(shots, `period-${vp.hasTouch ? "phone" : "desktop"}.png`) }) }
+      if (shots) { mkdirSync(shots, { recursive: true }); await p.screenshot({ path: join(shots, `analytics-period-${vp.hasTouch ? "phone" : "desktop"}.png`) }) }
       expect(periodRows.join() === "today,yesterday,last_7_days,last_30_days,last_90_days,last_12_months,month_to_date,all_time,custom",
         "the period picker lists the eight periods and Custom range, and nothing else", periodRows)
       await p.keyboard.press("Escape")
@@ -583,9 +602,9 @@ try {
         sheet: !!document.querySelector('[data-app-sheet="open"] [data-product-picker], [data-app-sheet="open"][data-product-picker]'),
         popover: !!document.querySelector('[data-slot="popover-content"][data-product-picker]'),
         search: !!document.querySelector("[data-product-search]"),
-        checked: [...document.querySelectorAll("[data-row][data-checked]")].map((r) => r.getAttribute("data-row")),
+        checked: [...document.querySelectorAll("[data-row][data-checked]")].filter((r) => !r.closest("[data-app-sheet-rest]")).map((r) => r.getAttribute("data-row")),
       }))
-      if (shots) await p.screenshot({ path: join(shots, `product-${vp.hasTouch ? "phone" : "desktop"}.png`) })
+      if (shots) await p.screenshot({ path: join(shots, `analytics-product-${vp.hasTouch ? "phone" : "desktop"}.png`) })
       expect(productRows.join() === "all,p1,p2,p3,p4", "the product list is All products and each product", productRows)
       expect(where.checked.join() === "all", "with a check on the one showing", where.checked)
       expect(vp.hasTouch ? where.sheet && !where.popover : where.popover && !where.sheet, vp.hasTouch ? "in the shared sheet on a phone" : "in the date picker's popover on a computer", where)
@@ -643,11 +662,164 @@ try {
     await p.keyboard.type("course")
     await sleep(200)
     const narrowed = await p.evaluate(() => [...document.querySelectorAll("[data-product-picker] [data-row]")].map((r) => r.textContent.trim()))
-    if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, `product-search-${name}.png`) })
+    if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, `analytics-product-search-${name}.png`) })
     console.log(`\n${name}, fourteen products:`, JSON.stringify({ ...first, narrowed }))
     expect(first.search && first.rows === 15, `${name}: a search field above All products and the fourteen`, first)
     expect(vp.hasTouch ? !first.focused : first.focused, vp.hasTouch ? `${name}: the search is not focused, so the keyboard does not cover the list` : `${name}: the search has focus, so typing narrows at once`, first.focused)
     expect(narrowed.length > 0 && narrowed.every((t) => /course/i.test(t)), `${name}: typing narrows the list to the products that match`, narrowed)
+    await p.close()
+  }
+
+  /*
+    10. THE PAGE AS THE CREATOR READS IT, at 390 and 1280: the controls row,
+    the property filter, every card in order and inside its own box, the
+    filter from the address, the empty states and the summary lines.
+  */
+  const shots = process.env.SHOTS
+  if (shots) mkdirSync(shots, { recursive: true })
+  const CARDS = ["traffic", "pages", "products", "funnel", "subscribers", "countries", "devices"]
+  /* The page scrolls inside its own box, not the window: the whole of it is a window as tall as that box's content. */
+  const tall = async (p, vp, file) => {
+    const h = await p.evaluate(() => Math.max(document.querySelector(".page-scroll")?.scrollHeight ?? 0, innerHeight))
+    await p.setViewport({ ...vp, height: Math.min(h, 6000) })
+    await sleep(400)
+    await p.screenshot({ path: join(shots, file) })
+    await p.setViewport(vp)
+    await sleep(200)
+  }
+  /** Everything in a card that pokes out of it, and anything wider than the page. */
+  const overflow = (p) => p.evaluate(() => {
+    const out = []
+    for (const card of document.querySelectorAll("section[data-card]")) {
+      const c = card.getBoundingClientRect()
+      for (const el of card.querySelectorAll("*")) {
+        const r = el.getBoundingClientRect()
+        if (r.width === 0 || r.height === 0) continue
+        if (getComputedStyle(el).position === "fixed") continue
+        if (r.left < c.left - 1 || r.right > c.right + 1) out.push(`${card.getAttribute("data-card")}: ${el.tagName.toLowerCase()} '${(el.textContent || "").trim().slice(0, 30)}' ${Math.round(r.left)}..${Math.round(r.right)} of ${Math.round(c.left)}..${Math.round(c.right)}`)
+      }
+    }
+    return { outside: out.slice(0, 5), pageWidth: document.documentElement.scrollWidth, viewport: innerWidth }
+  })
+  for (const [name, vp] of [["desktop", { width: 1280, height: 900 }], ["phone", { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true }]]) {
+    console.log(`\n${name}, the page as the creator reads it`)
+    const p = await browser.newPage()
+    await p.setViewport(vp)
+    const errors = []
+    p.on("pageerror", (e) => errors.push(String(e.message || e)))
+    await p.goto(origin, { waitUntil: "load" })
+    await p.waitForSelector("[data-chart-loading='false'] .recharts-surface", { timeout: 15000 })
+    await p.waitForFunction(() => !document.querySelector("section [data-shimmer]"), { timeout: 15000 })
+    await sleep(700)
+
+    /* The controls: the property filter is the date range's button, beside it. */
+    const controls = await p.evaluate(() => {
+      const row = document.querySelector("[data-analytics-controls]")
+      const date = [...row.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => /Last 7 days/.test(b.textContent))
+      const prop = row.querySelector("button[data-property-picker]")
+      if (!date || !prop) return null
+      const a = date.getBoundingClientRect(), b = prop.getBoundingClientRect()
+      const ds = getComputedStyle(date), ps = getComputedStyle(prop)
+      return {
+        label: prop.textContent.trim(), sameRow: Math.abs(a.top - b.top) < 2, gap: Math.round(b.left - a.right),
+        same: a.height === b.height && ds.borderRadius === ps.borderRadius && ds.fontSize === ps.fontSize && ds.backgroundColor === ps.backgroundColor && ds.borderTopColor === ps.borderTopColor,
+        leadingIcon: prop.firstElementChild?.tagName.toLowerCase() === "svg", inside: b.right <= innerWidth,
+      }
+    })
+    console.log("  controls:", JSON.stringify(controls))
+    expect(controls && controls.label === "All pages" && controls.same && !controls.leadingIcon, "the property filter is the date range's button: same height, corners, type and colours, no icon in front", controls)
+    expect(controls && controls.sameRow && controls.gap >= 4 && controls.gap <= 12 && controls.inside, "beside the date range, on its row, inside the screen", controls)
+
+    await p.evaluate(() => document.querySelector("button[data-property-picker]").click())
+    await sleep(500)
+    const list = await p.evaluate(() => ({
+      rows: [...document.querySelectorAll("[data-property-list] [data-row]")].map((r) => `${r.getAttribute("data-row").replace(/:.*/, "")}=${r.textContent.trim()}`),
+      sheet: !!document.querySelector('[data-app-sheet="open"] [data-property-list]'),
+      popover: !!document.querySelector('[data-slot="popover-content"][data-property-list]'),
+      checked: [...document.querySelectorAll("[data-property-list] [data-row][data-checked]")].map((r) => r.getAttribute("data-row")),
+    }))
+    if (shots) await p.screenshot({ path: join(shots, `analytics-property-${name}.png`) })
+    console.log("  the filter's list:", JSON.stringify(list))
+    expect(list.rows.join("|") === "all=All pages|creator_page=Creator page|onepage=OnePage|website=StudioWebsite|website=Print shopWebsite", "All pages, the creator page, the OnePage, and each website by its name", list.rows)
+    expect(list.checked.join() === "all", "with a check on the one showing", list.checked)
+    expect(vp.hasTouch ? list.sheet && !list.popover : list.popover && !list.sheet, vp.hasTouch ? "in the shared bottom sheet on a phone" : "in the date picker's popover on a computer", list)
+    await p.keyboard.press("Escape")
+    await sleep(500)
+
+    /* The cards, in their order, each with something in it, nothing out of its box. */
+    const cards = await p.evaluate(() => [...document.querySelectorAll("section[data-card]")].map((c) => ({ card: c.getAttribute("data-card"), title: c.querySelector("h3")?.textContent, rows: c.querySelectorAll("li, [data-funnel] > *, [data-figure]").length, top: Math.round(c.getBoundingClientRect().top), h: Math.round(c.getBoundingClientRect().height) })))
+    console.log("  cards:", JSON.stringify(cards.map((c) => `${c.card}:${c.rows}`)))
+    expect(cards.map((c) => c.card).join() === CARDS.join(), "the cards: sources, top pages, top products, funnel, subscribers, countries, devices", cards.map((c) => c.card))
+    expect(cards.every((c) => c.rows > 0), "every card has its rows", cards.filter((c) => c.rows === 0).map((c) => c.card))
+    const o = await overflow(p)
+    expect(o.outside.length === 0, "nothing sticks out of its card", o.outside)
+    expect(o.pageWidth <= o.viewport, "no sideways scroll", o.pageWidth)
+    const pages = await p.evaluate(() => [...document.querySelectorAll('[data-card="pages"] li')].slice(0, 3).map((li) => li.textContent.replace(/\s+/g, " ").trim()))
+    expect(pages.length === 3 && pages.every((t) => /\/|OnePage/.test(t)) && pages.some((t) => /Creator page|Studio|Print shop|OnePage/.test(t)), "top pages name the path and, under All, the place it is on", pages)
+    const funnel = await p.evaluate(() => document.querySelector('[data-card="funnel"]').textContent.replace(/\s+/g, " "))
+    expect(/Visitors/.test(funnel) && /Viewed a product/.test(funnel) && /Started checkout/.test(funnel) && /Ordered/.test(funnel), "the funnel's four steps", funnel.slice(0, 160))
+    if (shots) {
+      await p.screenshot({ path: join(shots, `analytics-${name}-top.png`) })
+      await tall(p, vp, `analytics-${name}-full.png`)
+    }
+
+    /* The filter from the address: a link from the Website screen, and the old OnePage view's. */
+    for (const [q, label, card] of [[`?property=website:00000000-0000-4000-8000-0000000000b1`, "Studio", "Top pages"], ["?mode=onepage", "OnePage", "Top links"]]) {
+      const before = await p.evaluate(() => window.__fetches.length)
+      await p.goto(`${origin}/${q}`, { waitUntil: "load" })
+      await p.waitForSelector("[data-chart-loading='false'] .recharts-surface", { timeout: 15000 })
+      await p.waitForFunction(() => !document.querySelector("section [data-shimmer]"), { timeout: 15000 })
+      await sleep(500)
+      const got = await p.evaluate(() => ({ label: document.querySelector("button[data-property-picker]")?.textContent.trim(), asked: window.__fetches.map((f) => new URL(f.url, location.href).searchParams.get("property")), address: location.search, pages: document.querySelector('[data-card="pages"] h3')?.textContent }))
+      console.log(`  ${q}:`, JSON.stringify(got), before)
+      expect(got.label === label && got.pages === card, `${q}: the filter reads ${label} and the second card is ${card}`, got)
+      expect(got.asked.every((x) => x === (label === "OnePage" ? "onepage" : "website:00000000-0000-4000-8000-0000000000b1")), `${q}: every read is for that place only`, got.asked)
+      if (q.includes("mode")) expect(got.address === "?property=onepage", "the old ?mode=onepage is rewritten to ?property=onepage", got.address)
+      if (shots && q.includes("mode")) await tall(p, vp, `analytics-onepage-${name}.png`)
+    }
+
+    /* A creator with only a creator page: nothing to choose, so no filter. */
+    await p.goto(`${origin}/?places=one`, { waitUntil: "load" })
+    await p.waitForSelector("[data-chart-loading='false'] .recharts-surface", { timeout: 15000 })
+    await sleep(500)
+    const one = await p.evaluate(() => ({ filter: !!document.querySelector("button[data-property-picker]"), date: [...document.querySelectorAll("[data-analytics-controls] button[aria-haspopup=dialog]")].length }))
+    expect(!one.filter && one.date >= 2, "a creator with one place gets no property filter", one)
+
+    /* A creator with nothing yet: each card says what to do, and no number is made up. */
+    await p.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+    await p.goto(`${origin}/?empty=1`, { waitUntil: "load" })
+    await p.waitForSelector("[data-chart-loading='false']", { timeout: 15000 })
+    await p.waitForFunction(() => !document.querySelector("section [data-shimmer]"), { timeout: 15000 })
+    await sleep(600)
+    const empties = await p.evaluate(() => [...document.querySelectorAll("section[data-card]")].map((c) => [c.getAttribute("data-card"), c.querySelector("[data-empty]")?.textContent.trim() ?? null]))
+    const conversion = await p.evaluate(() => document.querySelector('[data-tab="conversion"]')?.textContent.replace(/\s+/g, " ").trim())
+    console.log("  nothing yet:", JSON.stringify(empties), conversion)
+    expect(empties.length === 7 && empties.every(([, t]) => !!t && !/\d/.test(t)), "every card's empty state is one line with no invented number", empties)
+    expect(/–/.test(conversion || "") && !/0(\.0+)?%/.test(conversion || ""), "conversion with no visitors is a dash, not 0%", conversion)
+    if (shots) await tall(p, vp, `analytics-empty-${name}.png`)
+    const oe = await overflow(p)
+    expect(oe.outside.length === 0 && oe.pageWidth <= oe.viewport, "and nothing sticks out, even empty", oe)
+
+    /* The summary lines on the Website screen and in the OnePage editor. */
+    await p.goto(`${origin}/?view=summary`, { waitUntil: "load" })
+    await p.waitForFunction(() => document.querySelectorAll("[data-analytics-summary-link]").length === 2, { timeout: 15000 })
+    await sleep(400)
+    const lines = await p.evaluate(() => [...document.querySelectorAll("[data-analytics-summary]")].map((el) => ({ place: el.getAttribute("data-analytics-summary"), text: el.textContent.replace(/\s+/g, " ").trim(), href: el.querySelector("a")?.getAttribute("href"), right: Math.round(el.getBoundingClientRect().right) })))
+    console.log("  summaries:", JSON.stringify(lines))
+    expect(/^Last 30 days ?\d[\d,]* visitors? · \d[\d,]* orders?$/.test(lines[0]?.text) && lines[0].href === "/app/analytics?range=last_30_days&property=website%3A00000000-0000-4000-8000-0000000000b1",
+      "the Website screen: Last 30 days, its visitors and orders, opening Analytics filtered to it", lines[0])
+    expect(/^Last 30 days: \d[\d,]* visitors? · \d[\d,]* orders?$/.test(lines[1]?.text) && lines[1].href === "/app/analytics?range=last_30_days&property=onepage", "the OnePage editor: the same line, opening Analytics on the OnePage", lines[1])
+    const asked = await p.evaluate(() => window.__fetches.filter((f) => /api\/analytics\/summary/.test(f.url)).length)
+    expect(asked === 2, "one small read each", asked)
+    if (shots) await p.screenshot({ path: join(shots, `analytics-summary-${name}.png`) })
+    await p.goto(`${origin}/?view=summary&empty=1`, { waitUntil: "load" })
+    await p.evaluate(() => sessionStorage.clear())
+    await p.goto(`${origin}/?view=summary&empty=1`, { waitUntil: "load" })
+    await p.waitForFunction(() => [...document.querySelectorAll("[data-analytics-summary]")].every((el) => /No visits yet/.test(el.textContent)), { timeout: 15000 }).catch(() => {})
+    const none = await p.evaluate(() => [...document.querySelectorAll("[data-analytics-summary]")].map((el) => el.textContent.replace(/\s+/g, " ").trim()))
+    expect(none.length === 2 && /No visits yet$/.test(none[0]) && none[1] === "No visits yet", "before anybody came: No visits yet", none)
+
+    expect(errors.length === 0, "no errors in the page", errors.slice(0, 3))
     await p.close()
   }
 } finally {

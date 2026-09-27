@@ -18,6 +18,7 @@ import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
+import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 
 /**
  * POST /api/checkout/stripe-session
@@ -159,11 +160,16 @@ export async function POST(request: Request) {
   /* Where the checkout began: the page's account, every field checked, or
      what its address says. Words and hosts only (lib/orders/order-source). */
   const origin = originOf(body.origin, request)
+  const channel = channelOf(origin, orderSourceFromRequest(request))
+  /* Where the buyer came from, first and last touch, and the property the
+     purchase came through, checked for this creator (lib/attribution).
+     Read for nothing but that record: never the price or the product. */
+  const attribution = await attributionForCheckout(admin, { creatorId: creator.id, source: channel, origin, sent: body.origin })
 
   /* Built once. The retry below used to rebuild it by hand and left out the
      email opt-in, and a buyer who said no was then subscribed. */
   const metadata: Record<string, string> = {
-    [SOURCE_METADATA_KEY]: channelOf(origin, orderSourceFromRequest(request)),
+    [SOURCE_METADATA_KEY]: channel,
     [ORIGIN_METADATA_KEY]: encodeOrigin(origin),
     product_id: product.id,
     product_slug: String(product.slug || "").slice(0, 200),
@@ -204,6 +210,8 @@ export async function POST(request: Request) {
     agreed_at: new Date().toISOString(),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
   }
+  /* Last, and only while Stripe's 50 keys allow: the payment never waits on it. */
+  Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
   const params: Stripe.PaymentIntentCreateParams = {
     amount: totals.totalCents,
@@ -262,8 +270,10 @@ export async function POST(request: Request) {
         optedIn,
         source,
       })
+      await recordCheckoutStartAttribution(admin, started, attribution)
       if (optedIn) {
         await recordCheckoutContactAndWelcome(admin, { creatorId: creator.id, email, name: `${firstName} ${lastName}`.trim(), basis: "ticked", bought: false, source })
+        await recordContactAttribution(admin, creator.id, email, attribution)
       }
     })
     return NextResponse.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, amountCents: intent.amount })

@@ -112,9 +112,10 @@ export async function renderAccountPage(
         sections={sections}
         storefront={{ creatorId: site.creatorId, installId: site.installId }}
       />
-      {/* The contact page is a page of the website like any other, and a
-          visit to it counts in Analytics. The account pages are private. */}
-      {key === "contact" && <TrackView type="store" creatorId={site.creatorId} />}
+      {/* The contact page and the wishlist are pages of the website like any
+          other, and a visit to either counts in Analytics, with its path. The
+          account pages (sign in, orders, profile) are private. */}
+      {(key === "contact" || key === "wishlist") && <TrackView type="store" creatorId={site.creatorId} />}
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )
