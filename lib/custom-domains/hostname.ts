@@ -55,13 +55,14 @@ const TWO_LABEL_SUFFIXES = new Set([
  */
 const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/
 
-/** Hosts that belong to the platform or to nobody, and can never be a creator's. */
+/**
+ * Hosts that belong to the platform or to nobody, and can never be a
+ * creator's. The hosting provider's own names are added on the server
+ * (HOST_RESERVED_SUFFIXES in lib/custom-domains/targets.ts), so this list,
+ * which the Domains screen also reads, names no provider.
+ */
 const RESERVED_SUFFIXES = [
   "storelib.com",
-  "vercel.app",
-  "vercel.com",
-  "vercel-dns.com",
-  "now.sh",
   "supabase.co",
   "supabase.in",
   "localhost",
@@ -150,7 +151,7 @@ export function servingHost(domain: string): string {
   return isApexHost(bare) ? `www.${bare}` : bare
 }
 
-/** Every host that has to be on the Vercel project for a domain to answer. */
+/** Every host that has to be on the hosting project for a domain to answer. */
 export function vercelHostsFor(domain: string): { name: string; redirect?: string }[] {
   const bare = domain.replace(/^www\./, "")
   if (!isApexHost(bare)) return [{ name: bare }]
@@ -158,11 +159,11 @@ export function vercelHostsFor(domain: string): { name: string; redirect?: strin
 }
 
 /** What is wrong with a cleaned hostname, or null when it can be connected. */
-export function hostnameProblem(host: string, mainDomain = "storelib.com"): HostnameProblem | null {
+export function hostnameProblem(host: string, mainDomain = "storelib.com", moreReserved: readonly string[] = []): HostnameProblem | null {
   if (!host) return "empty"
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":")) return "ip"
   if (!HOSTNAME.test(host)) return "invalid"
-  const reserved = [...RESERVED_SUFFIXES, mainDomain.toLowerCase()]
+  const reserved = [...RESERVED_SUFFIXES, ...moreReserved, mainDomain.toLowerCase()]
   if (reserved.some((r) => host === r || host.endsWith(`.${r}`))) return "reserved"
   if (RESERVED_EXACT.some((r) => host === r || host.endsWith(`.${r}`))) return "reserved"
   /* A registrable name needs a label of its own in front of the suffix. */
@@ -175,16 +176,27 @@ export function hostnameProblem(host: string, mainDomain = "storelib.com"): Host
 
 export interface DnsRecord {
   type: "A" | "CNAME" | "TXT"
-  /** As a registrar's form asks for it: "@", "www", "links", "_vercel". */
+  /** As a registrar's form asks for it: "@", "www", "links". */
   name: string
   value: string
   /** Why this one is needed, when it is not obvious. */
   note?: string
 }
 
-/** Vercel's documented defaults, used until Vercel has told us the project's own. */
+/**
+ * THE ADDRESSES A CREATOR POINTS THEIR DOMAIN AT, IN STORELIB'S NAME.
+ *
+ * CNAME_TARGET is ours: domains.storelib.com is a CNAME in storelib.com's own
+ * DNS to the host that serves the sites, so a creator's registrar only ever
+ * shows a storelib.com name. The A record for a bare domain has to be an
+ * address, and DEFAULT_A is the one that answers for it.
+ *
+ * The names domains connected earlier were told to use are still read as
+ * right by the check. They live in lib/custom-domains/targets.ts, which only
+ * the server imports, so no page a creator loads carries them.
+ */
+export const CNAME_TARGET = "domains.storelib.com"
 export const DEFAULT_A = "216.150.1.1"
-export const DEFAULT_CNAME = "cname.vercel-dns.com"
 
 /** A record's name relative to the apex, the way registrars ask for it. */
 export function recordName(fqdn: string, apex: string): string {
@@ -193,23 +205,30 @@ export function recordName(fqdn: string, apex: string): string {
   return bare.endsWith(`.${apex}`) ? bare.slice(0, -(apex.length + 1)) : bare
 }
 
-/** The records a domain needs, from Vercel's recommendation when there is one. */
+/** Why a TXT record is there, in words that name no one but the creator. */
+export const TXT_NOTE = "Proves the domain is yours. Needed when the domain was connected to another site before."
+
+/**
+ * The records a domain needs. The A record's address comes from the host's
+ * recommendation when there is one; the CNAME is always CNAME_TARGET, since
+ * it leads to the same place as whatever the host recommends. A TXT
+ * challenge is listed under the exact name it has to be added at.
+ */
 export function recordsFor(
   domain: string,
   recommended?: { ipv4?: string | null; cname?: string | null; challenges?: { type: string; domain: string; value: string }[] } | null,
 ): DnsRecord[] {
   const bare = domain.replace(/^www\./, "")
   const apex = apexOf(bare)
-  const cname = (recommended?.cname || DEFAULT_CNAME).replace(/\.$/, "")
   const out: DnsRecord[] = isApexHost(bare)
     ? [
         { type: "A", name: "@", value: recommended?.ipv4 || DEFAULT_A },
-        { type: "CNAME", name: "www", value: cname },
+        { type: "CNAME", name: "www", value: CNAME_TARGET },
       ]
-    : [{ type: "CNAME", name: recordName(bare, apex), value: cname }]
+    : [{ type: "CNAME", name: recordName(bare, apex), value: CNAME_TARGET }]
   for (const c of recommended?.challenges ?? []) {
     if (c.type?.toUpperCase() !== "TXT" || !c.domain || !c.value) continue
-    out.push({ type: "TXT", name: recordName(c.domain, apex), value: c.value, note: "Proves the domain is yours. Vercel asks for it when the domain was used elsewhere." })
+    out.push({ type: "TXT", name: recordName(c.domain, apex), value: c.value, note: TXT_NOTE })
   }
   return out
 }

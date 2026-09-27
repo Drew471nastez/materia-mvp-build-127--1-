@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { GLOBE_STEP, landDots, toSphere } from "../components/app/home/globe-land"
 import { OFFERED_PLANS } from "../lib/billing/plans"
+import { stripComments } from "./_source"
 
 let passed = 0
 let failed = 0
@@ -22,6 +23,7 @@ function check(label: string, ok: boolean, detail?: string) {
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const code = (p: string) => stripComments(read(p))
 
 const dash = read("components/app/dashboard-client.tsx")
 const cards = read("components/app/home/home-cards.tsx")
@@ -163,49 +165,59 @@ function main() {
   const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> }
   const bannerCss = banner.slice(banner.indexOf("const BANNER_CSS"))
   const rule = (sel: string) => new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`).exec(bannerCss)?.[1] ?? ""
-  check("a carousel library moves them, embla-carousel, a dependency already",
-    /import useEmblaCarousel from "embla-carousel-react"/.test(banner) && /useEmblaCarousel\(options\)/.test(banner) && !!pkg.dependencies["embla-carousel-react"])
-  check("  looping, so the clock goes from the last slide to the first forwards",
-    /CAROUSEL_OPTIONS = \{ loop: true, align: "start", duration: 30, watchDrag: false \} as const/.test(banner))
-  /* Embla's own drag listens to touchmove with a listener that can cancel it: every scroll starting on the banner waited on the page's thread. */
+  /*
+    Changed on purpose again: "Still glitchy, not smooth, laggy and flashy on autoplay and on finger swipe on
+    phones. I want it smooth, like 200fps." Embla animated the track from the page's thread, which also draws
+    the globe; a glide is now a Web Animation the compositor runs, and nothing renders React for a change.
+  */
+  check("no carousel library, and no frame loop of the page's own: a glide is a Web Animation on the track's transform",
+    !/embla/i.test(code("components/app/home/home-banner.tsx")) && /t\.animate\(\[\{ transform: pxAt\(from, w\) \}, \{ transform: pxAt\(to, w\) \}\], \{ duration: ms, easing \}\)/.test(banner)
+      && !/requestAnimationFrame/.test(code("components/app/home/home-banner.tsx")))
+  check("  which slide shows lives in a ref and is marked on the DOM: a change renders nothing",
+    /const at = useRef\(0\)/.test(banner) && !/useState\(0\)|setSelected|setLive/.test(banner) && /tab\.toggleAttribute\("data-on", on\)/.test(banner) && /if \(s\.inert === on\) s\.inert = !on/.test(banner))
+  check("  looping by a copy of the last slide before the first and of the first after the last, never by opacity",
+    /\{looped && slide\(list\[count - 1\], count - 1, "before"\)\}/.test(banner) && /\{looped && slide\(list\[0\], 0, "after"\)\}/.test(banner)
+      && /"aria-hidden": true, "data-copy": copy, inert: true/.test(banner))
+  check("  the resting place is written before the glide starts, so the swap from a copy needs no frame of its own",
+    /t\.style\.transform = restAt\(rest\)\s*\n\s*running\?\.cancel\(\)[\s\S]{0,300}t\.animate\(/.test(banner))
   check("  the finger reaches it by pointer events, which never hold a scroll up: no touch listener in the banner at all",
     /root\.addEventListener\("pointerdown", down\)/.test(banner) && /root\.addEventListener\("pointermove", move\)/.test(banner) && /window\.addEventListener\("pointercancel", up\)/.test(banner)
       && !/addEventListener\("touch/.test(banner) && !/onTouch(Start|Move)/.test(banner))
-  check("  and moves Embla's own target with Embla's own drag numbers, so a throw lands where Embla would land it",
-    /en\.scrollBody\.useFriction\(0\.3\)\.useDuration\(0\.75\)/.test(banner) && /en\.target\.add\(e\.clientX - drag\.last\)/.test(banner) && /FLICK_LOG_MS = 170/.test(banner)
-      && /speed \* \(d\.mouse \? 300 : 400\)/.test(banner) && /en\.scrollTo\.distance\(force, true\)/.test(banner))
+  check("  a finger catches a glide where it is drawn, the track follows it one to one, and a throw lands at the finger's own speed",
+    /const s0 = catchGlide\(\)/.test(banner) && /track\.style\.transform = pxAt\(drag\.s, w\)/.test(banner)
+      && /const slope = \(toward \* ms\) \/ dist/.test(banner) && /VELOCITY_WINDOW_MS = 100/.test(banner) && /FLICK_SPEED = 0\.35/.test(banner))
   check("  only once the move is sideways: until then the browser may make it the page's scroll",
     /if \(Math\.abs\(dx\) < 4 \|\| Math\.abs\(dx\) < Math\.abs\(e\.clientY - drag\.y0\)\) return/.test(banner))
   check("  a drag's own click does not press the button under it, and no later click is lost to it",
     /if \(e\.timeStamp > draggedUntil\) return/.test(banner) && /draggedUntil = e\.timeStamp \+ 400/.test(banner))
-  check("  and one slide is no carousel at all", /active: count > 1/.test(banner))
+  check("  and one slide is no carousel at all", /const looped = count > 1/.test(banner) && /if \(!root \|\| !track \|\| count < 2\) return/.test(banner))
   check("every slide mounted once, side by side, keyed by its announcement: no slide rendered only when it shows",
-    /\{list\.map\(\(a, i\) => \{\s*const on = i === index/.test(banner) && /key=\{a\.id\}/.test(banner) && !/leavingId|setLeavingId|data-changed/.test(banner)
+    /\{list\.map\(\(a, i\) => slide\(a, i, ""\)\)\}/.test(banner) && /key=\{copy \? `\$\{copy\}-\$\{a\.id\}` : a\.id\}/.test(banner) && !/leavingId|setLeavingId|data-changed/.test(banner)
       && /flex: 0 0 100%/.test(rule(".home-banner-slide")))
   check("  the one showing is marked, never mounted: inert and data-slide, not aria-hidden (a :has() on <html> watches it)",
-    /inert=\{!on\}/.test(banner) && /data-slide=\{on \? "active" : "idle"\}/.test(banner) && !/aria-hidden=\{/.test(banner))
+    /inert: i !== 0,/.test(banner) && /"data-slide": i === 0 \? "active" : "idle"/.test(banner) && !/aria-hidden=\{/.test(banner))
   check("the track moves by transform alone, on its own layer; nothing on a slide fades or transitions",
     /will-change: transform;/.test(rule(".home-banner-track")) && !/opacity|transition|animation/.test(rule(".home-banner-slide"))
       && !/@keyframes home-banner-in|home-banner-stack/.test(banner))
   check("one height at each width, whatever the slide: the height is set, not measured from the slide",
     /height: 206px;/.test(rule(".home-banner-inner")) && /height: 222px; \}/.test(bannerCss) && /height: 180px; \}/.test(bannerCss) && /height: 100%;/.test(rule(".home-banner-slide")))
   check("a sideways drag is the carousel's and a vertical one the page's", /touch-action: pan-y pinch-zoom;/.test(rule(".home-banner-text")) && /overflow: hidden;/.test(rule(".home-banner-text")))
-  check("the carousel ends where the globe's grip begins, so the two never share a finger, and fades through the room before it",
+  check("the carousel ends where the globe's grip begins, so the two never share a finger, and fades through the room before it, from a still layer, not a mask on the moving box",
     /right: var\(--grip-r\);/.test(rule(".home-banner-text")) && /--grip-r: calc\(var\(--gx\) \+ var\(--g\) \* 0\.424\);/.test(bannerCss)
-      && /GRIP = GLOBE_RADIUS \* 1\.06/.test(globe) && /mask-image: linear-gradient\(to right, #000 calc\(100% - var\(--fade\)\), transparent\);/.test(rule(".home-banner-text")))
+      && /GRIP = GLOBE_RADIUS \* 1\.06/.test(globe) && !/mask/.test(rule(".home-banner-text"))
+      && /mask-image: linear-gradient\(to right, transparent calc\(100% - var\(--grip-r\) - var\(--fade\)\), #000 calc\(100% - var\(--grip-r\)\), transparent calc\(100% - var\(--grip-r\)\)\);/.test(rule(".home-banner-fade")))
   check("the clock is the segment's fill: when it ends the carousel slides on, and nothing else times it",
-    /onAnimationEnd=\{on \? advance : undefined\}/.test(banner) && /embla\.scrollNext\(calm\.current\)/.test(banner) && !/setInterval|setTimeout/.test(banner))
+    /onAnimationEnd=\{onFillEnd\}/.test(banner) && /\.closest\("\[role=tab\]"\)\?\.hasAttribute\("data-on"\)/.test(banner) && /const target = Math\.round\(from\) \+ 1/.test(banner) && !/setInterval|setTimeout/.test(banner))
   check("  held by a finger (down to up), a mouse over it, focus, off screen and a hidden tab",
     /setBit\(TOUCH, true\)/.test(banner) && /setBit\(TOUCH, false\)/.test(banner)
       && /setBit\(HIDDEN, !onScreen \|\| document\.visibilityState === "hidden"\)/.test(banner) && /setBit\(HOVER, true\)/.test(banner) && /setBit\(FOCUS, true\)/.test(banner)
       && /\.home-banner-tabs\[data-held\] \.home-banner-tab-fill \{ animation-play-state: paused; \}/.test(banner))
   check("reduced motion: the clock and a segment jump instead of gliding, and a drag let go lands at once",
-    /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(banner) && /embla\.scrollTo\(.*, calm\.current\)/.test(banner)
-      && /if \(calm\.current\) embla\.scrollTo\(embla\.selectedScrollSnap\(\), true\)/.test(banner))
+    /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(banner) && /if \(calm\.current \|\| ms <= 0/.test(banner))
   check("each segment a 44px target, the row inside the carousel so a swipe on it still drags",
     /flex: 0 1 44px;/.test(rule(".home-banner-tab")) && /height: 44px;/.test(rule(".home-banner-tab")) && /--foot: 44px;/.test(rule(".home-banner-inner"))
       && banner.indexOf('className="home-banner-tabs"') > banner.indexOf('ref={viewportRef}') && banner.indexOf('className="home-banner-tabs"') < banner.indexOf("<BannerGlobe"))
-  check("a change asked for is read out, one the clock made is not", /setLive\(asked\.current \? "polite" : "off"\)/.test(banner) && /aria-live=\{live\}/.test(banner))
+  check("a change asked for is read out, one the clock made is not", /setAttribute\("aria-live", asked\.current \? "polite" : "off"\)/.test(banner) && /asked\.current = false/.test(banner))
   check("it is in the banner, and the banner is on Home", /<BannerGlobe/.test(banner) && /<HomeBanner /.test(dash))
   check("the text stops --gap short of the globe's atmosphere: one set of numbers places both",
     /--fade: calc\(var\(--gap\) \+ var\(--g\) \* 0\.028\);/.test(banner) && /padding: var\(--pad-t\) var\(--fade\) var\(--foot\) var\(--pad-l\);/.test(banner)

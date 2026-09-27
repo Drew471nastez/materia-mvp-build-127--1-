@@ -19,12 +19,13 @@ export const HANDLE_MIN = 3
 export const HANDLE_MAX = 40
 
 /**
- * Names that are the platform's own, or would read as it. The first six are
- * the subdomains the proxy never treats as a site (proxy.ts), the rest are
- * names a visitor could mistake for Storelib speaking.
+ * Names that are the platform's own, or would read as it. The first seven,
+ * and mcp, are the subdomains the proxy never treats as a site (proxy.ts);
+ * "domains" is where creators point their own domains. The rest are names a
+ * visitor could mistake for Storelib speaking.
  */
 export const RESERVED_HANDLES = new Set([
-  "www", "app", "api", "admin", "dashboard", "localhost",
+  "www", "app", "api", "admin", "dashboard", "localhost", "domains",
   "mcp", "mail", "email", "cdn", "static", "assets", "media", "images", "files",
   "help", "support", "status", "docs", "developers", "blog", "news",
   "storelib", "official", "security", "billing", "payments", "checkout", "login", "signup", "account",

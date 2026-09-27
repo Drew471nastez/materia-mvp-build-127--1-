@@ -125,9 +125,24 @@ check("no page or loading boundary under app/app/products draws an outline of th
       && /router\.prefetch\(href, \{ kind: "full" \} as never\)/.test(read("lib/ui/app-navigation.ts"))
       && (listSrc.match(/onPointerDown=\{\(\) => api\.current\?\.warm\(product\.id\)\}\s*onFocus=\{\(\) => api\.current\?\.warm\(product\.id\)\}/g) ?? []).length === 2
       && /resting\.current = setTimeout\(\(\) => warm\(id\), WARM_REST_MS\)/.test(listSrc) && /const WARM_REST_MS = 50/.test(listSrc))
-  check("and New product and the first three rows are fetched ahead once the list is idle, once per visit",
-    /const WARM_AHEAD = 3/.test(listSrc) && /whenIdle\(\(\) => \{\s*warmNew\(\)\s*for \(const id of firstShown\.current\) warm\(id\)/.test(listSrc)
-      && /warmEditor\(router, "\/app\/products\/new"\)/.test(listSrc) && /requestIdleCallback\(task, \{ timeout \}\)/.test(ret))
+  check("and New product and the first three rows are fetched ahead once the list is idle, one after another on a fresh session, not in one burst",
+    /const WARM_AHEAD = 3/.test(listSrc) && /whenIdle\(\(\) => \{\s*stop = warmInTurn\(\[warmNew, \.\.\.firstShown\.current\.map\(\(id\) => \(\) => warm\(id\)\)\], \(\) => createClient\(\)\.auth\.getSession\(\)\)/.test(listSrc)
+      && /warmEditor\(router, "\/app\/products\/new"\)/.test(listSrc) && /requestIdleCallback\(task, \{ timeout \}\)/.test(ret)
+      && /fresh\(\)\.then\(start, start\)/.test(ret) && /timer = setTimeout\(\(\) => next\(i \+ 1\), WARM_GAP_MS\)/.test(ret))
+  check("and a product fetched ahead is asked for again after a minute, so a list left open or refreshed still opens warm",
+    /const WARM_AGAIN_MS = 60_000/.test(listSrc) && /Date\.now\(\) - at < WARM_AGAIN_MS/.test(listSrc) && !/warmed\.current\.has\(/.test(listSrc))
+}
+
+/* "Sometimes it loads for 5 seconds, then the page appears with a delay, very abruptly." */
+{
+  const load = code("app/app/products/load-editor.ts")
+  check("the editor's product reads start beside the auth check, not after it",
+    load.indexOf("const productReads = Promise.all(") > -1 && load.indexOf("const productReads = Promise.all(") < load.indexOf("await currentUserForRequest()")
+      && /await Promise\.all\(\[\s*creatorForRequest\(user\.id\),\s*profileForRequest\(user\.id\),\s*productReads,\s*\]\)/.test(load))
+  check("and a slow load says where its time went", /console\.warn\(`\[editor-load\] \$\{Math\.round\(took\)\}ms: auth/.test(load) && /const SLOW_LOAD_MS = 800/.test(load))
+  const layer = code("components/app/page-layer.tsx")
+  check("where the layer rises by hand, a slow editor still rises when it lands instead of appearing in one frame",
+    /getAppNavigation\(\) !== null && Date\.now\(\) - pressedAt \+ STILL_CAP_MS <= STILL_WAIT_MAX_MS/.test(layer) && /const STILL_WAIT_MAX_MS = 8000/.test(layer))
 }
 
 console.log("\nNo section tabs; one bar at the top below lg")

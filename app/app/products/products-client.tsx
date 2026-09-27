@@ -16,7 +16,7 @@ import { quietDepth } from "./new/editor-buttons"
 import { accentDepth } from "@/components/ui/depth-button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
-import { isReturning, listShown, openEditor, takeEdited, warmEditor, whenIdle } from "./list-return"
+import { isReturning, listShown, openEditor, takeEdited, warmEditor, warmInTurn, whenIdle } from "./list-return"
 import { holdLanding } from "@/lib/ui/app-navigation"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
@@ -195,6 +195,14 @@ const THUMB_BOX: Record<ThumbSize, number> = { phone: 50, table: 48 }
 const WARM_REST_MS = 50
 /** How many of the first rows are fetched ahead once the list is idle. */
 const WARM_AHEAD = 3
+/**
+ * A product fetched ahead is asked for again after this. The router keeps a
+ * page for five minutes (staleTimes), and a refresh after a save drops them
+ * all, so a list left open longer, or refreshed, found its hover and its
+ * finger going down doing nothing while the press waited for the server.
+ * Asking again for a page the router still holds costs nothing.
+ */
+const WARM_AGAIN_MS = 60_000
 
 /** How many rows a page holds before the footer's arrows take over. */
 const PAGE_SIZE = 50
@@ -747,30 +755,38 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     if (notice) showNotification(notice)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the copy the list first drew
   }, [])
-  const warmed = useRef(new Set<string>())
+  const warmed = useRef(new Map<string, number>())
+  /* Once a minute at most per product (WARM_AGAIN_MS), not once per visit. */
+  const due = (key: string) => {
+    const at = warmed.current.get(key)
+    if (at !== undefined && Date.now() - at < WARM_AGAIN_MS) return false
+    warmed.current.set(key, Date.now())
+    return true
+  }
   const warm = (id: string) => {
-    if (warmed.current.has(id)) return
-    warmed.current.add(id)
+    if (!due(id)) return
     warmEditor(router, `/app/products/${id}`)
   }
   const resting = useRef<ReturnType<typeof setTimeout> | null>(null)
   /* New product the same way: its page is the empty editor, read on the server. */
   const warmNew = () => {
-    if (warmed.current.has("new")) return
-    warmed.current.add("new")
+    if (!due("new")) return
     warmEditor(router, "/app/products/new")
   }
   const firstShown = useRef<string[]>([])
   firstShown.current = pageProducts.slice(0, WARM_AHEAD).map((p) => p.id)
-  useEffect(
-    () =>
-      whenIdle(() => {
-        warmNew()
-        for (const id of firstShown.current) warm(id)
-      }),
+  /* One after another on a fresh session, not all at once (./list-return warmInTurn). */
+  useEffect(() => {
+    let stop: (() => void) | null = null
+    const cancelIdle = whenIdle(() => {
+      stop = warmInTurn([warmNew, ...firstShown.current.map((id) => () => warm(id))], () => createClient().auth.getSession())
+    })
+    return () => {
+      cancelIdle()
+      stop?.()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, with the rows shown when the browser is idle
-    [],
-  )
+  }, [])
 
   /*
     OPENING THE EDITOR RAISES IT from the bottom over the list (../list-return,

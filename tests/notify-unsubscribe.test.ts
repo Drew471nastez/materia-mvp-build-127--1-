@@ -160,7 +160,7 @@ async function main() {
   console.log("\nThe page")
   {
     const off = page({ kind: "off", emails: "sale emails", token: "t.k", preferencesUrl: "https://storelib.com/app/settings?tab=privacy#notifications" })
-    check("it says which emails were turned off", /<h1>Sale emails are off<\/h1>/.test(off))
+    check("it says which emails were turned off", /<h1[^>]*>Sale emails are off<\/h1>/.test(off))
     check("with one button to turn them back on, posting the token", /name="action" value="resubscribe"/.test(off) && /Turn them back on/.test(off) && /name="token" value="t\.k"/.test(off))
     check("and a link to every setting", /href="https:\/\/storelib\.com\/app\/settings\?tab=privacy#notifications">All notification settings/.test(off))
     check("no address anywhere on it", !/@/.test(off.replace(/@media/g, "")))
@@ -171,6 +171,13 @@ async function main() {
     check("a broken link has no button", pageWords({ kind: "invalid", preferencesUrl: "/" }).button === undefined)
     const words = CATEGORY_INFO.filter((c) => !c.required).map((c) => pageWords({ kind: "off", emails: c.emails, token: "t", preferencesUrl: "/" }).title)
     check("every optional category reads as a sentence", words.every((w) => /^[A-Z][a-z].* are off$/.test(w)), words)
+    const confirm = page({ kind: "confirm", emails: "sale emails", token: "t.k", preferencesUrl: "https://storelib.com/app/settings?tab=notifications" })
+    check("the question is the shared card, drawn with the Storelib mark and name", /class="sender"[\s\S]*<svg class="mark"[\s\S]*<p class="sender-name">Storelib<\/p>/.test(confirm))
+    check("its button is the primary, a plain form POST that works with no JavaScript", /<form method="post" action="\/api\/notify\/unsubscribe">[\s\S]*name="action" value="unsubscribe"[\s\S]*class="btn btn-primary">Turn them off</.test(confirm) && !/<script/i.test(confirm))
+    check("after it, turning them back on is the quieter secondary", /class="btn btn-secondary">Turn them back on</.test(off))
+    check("the result is announced; the question is not", /role="status" aria-live="polite"/.test(off) && !/aria-live/.test(confirm) && /role="alert"/.test(page({ kind: "error", preferencesUrl: "/" })))
+    check("every state draws, with the settings link and no button where there is nothing to do", (["invalid", "limited", "error"] as const).every((kind) => { const p = page({ kind, preferencesUrl: "/s" }); return /All notification settings/.test(p) && !/<form/.test(p) }))
+    check("dark when the device is dark, from nothing but its own styles", /@media \(prefers-color-scheme: dark\)/.test(off) && /name="color-scheme" content="light dark"/.test(off) && !/<link[^>]+stylesheet|src="http/i.test(off))
     const copy = [off, ...words].join(" ")
     check("plain words, no dashes", !copy.includes("—") && !/\b(unlock|seamless|effortless)\b/i.test(copy))
   }

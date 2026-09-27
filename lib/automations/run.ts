@@ -77,6 +77,8 @@ export function mailerFor(db: ReturnType<typeof createAdminClient>): Mailer {
         body: trackLinks(step.config.body, token),
         fromName: identity.fromName,
         brand: brandOfIdentity(identity),
+        /* The creator's photo as their profile has it now (supabase-store readIdentity, read each run). */
+        avatarUrl: identity.avatarUrl ?? null,
         unsubscribeToken: standing.unsubscribeToken,
         because: standing.status ?? null,
         /* The same address openPixel (./tracking) writes, as the layout's own pixel. */

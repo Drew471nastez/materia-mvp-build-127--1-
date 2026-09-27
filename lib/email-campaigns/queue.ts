@@ -172,7 +172,8 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
     name,
     from: `${name} <${fromAddress()}>`,
     replyTo,
-    avatarUrl: typeof profile?.avatar_url === "string" && /^https:\/\//.test(profile.avatar_url) ? profile.avatar_url : null,
+    /* The photo on this business's profile as it is now, read when the send starts (brand-server loadBrand). */
+    avatarUrl: brand.avatarUrl,
     username: profile?.username ?? null,
     accountEmail: normalizeAddress(profile?.email),
     planId: creator.subscription_plan_id ?? null,
@@ -221,9 +222,9 @@ export function prepareContent(input: { subject?: unknown; preview_text?: unknow
  * The email as a reader with no name on file gets it, with no tracking: for
  * the email's own page and the copy kept when a send starts.
  */
-export function previewEmail(content: Pick<PreparedContent, "subject" | "previewText" | "blocks">, sender: Pick<Sender, "brand" | "avatarUrl">): string {
-  const reader = { name: null, email: null }
+export function previewEmail(content: Pick<PreparedContent, "subject" | "previewText" | "blocks">, sender: Pick<Sender, "brand" | "avatarUrl"> & { name?: string }): string {
   const page = `${APP_URL}/unsubscribe`
+  const reader = { name: null, email: null, creatorName: sender.name ?? sender.brand.name, storeName: sender.brand.name, storeUrl: sender.brand.storeUrl, unsubscribeUrl: page }
   const body = personalizeHtml(renderBlocks(content.blocks, themeOf(sender.brand)), reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
   return buildEmail({
     subject: personalizeSubject(content.subject, reader),
@@ -781,8 +782,9 @@ async function stillSubscribed(db: Db, creatorId: string, rows: Claimed[]): Prom
  * counter, the open pixel, and a Message-Id fixed to this recipient row.
  */
 export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsubscribeToken: string | null) {
-  const reader = { name: row.name, email: row.email }
   const page = unsubscribeToken ? unsubscribeUrlFor(unsubscribeToken) : `${APP_URL}/unsubscribe`
+  /* The reader, and the creator as the send read them when it started (loadSender): never a copy from when the email was written. */
+  const reader = { name: row.name, email: row.email, creatorName: frame.sender.name, storeName: frame.sender.brand.name, storeUrl: frame.sender.brand.storeUrl, unsubscribeUrl: page }
   const oneClick = unsubscribeToken ? `${APP_URL}/api/email/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}` : ""
   const personal = personalizeHtml(frame.body, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
   const subject = personalizeSubject(frame.subject, reader)

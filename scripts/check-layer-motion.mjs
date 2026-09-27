@@ -781,6 +781,59 @@ async function handTrip(p, cdp, label, { isNew }) {
   await sleep(250)
 }
 
+/*
+  A SLOW EDITOR, BY HAND. "Sometimes it loads for 5 seconds, then the page
+  appears with a delay, very abruptly." With the editor SLOW_EDITOR_MS away,
+  every frame from the press is sampled: the layer must arrive at the bottom
+  edge and rise (frames part way up), never be first seen already in place.
+*/
+const SLOW_EDITOR_MS = 2500
+async function slowHandTrip(p, label) {
+  console.log(`  -- products list -> a product ${SLOW_EDITOR_MS}ms away, with no view transitions`)
+  await scrollListTo(p, 0)
+  await p.evaluate((ms) => {
+    window.__slowMs = ms
+    const rows = [...document.querySelectorAll("[data-row]:not([hidden])")].filter((r) => {
+      const b = r.getBoundingClientRect()
+      return b.height > 0 && b.top > 200 && b.bottom < innerHeight - 120
+    })
+    rows[0]?.querySelector("a[data-row-link]")?.setAttribute("data-probe-slow", "")
+  }, SLOW_EDITOR_MS)
+  await p.evaluate(() => {
+    window.__slow = []
+    const t0 = performance.now()
+    const tick = () => {
+      const layer = document.querySelector("[data-page-layer]")
+      let y = null
+      if (layer) {
+        const r = layer.getBoundingClientRect()
+        y = Math.round(r.top)
+      }
+      window.__slow.push({ t: Math.round(performance.now() - t0), y })
+      if (performance.now() - t0 < 5000) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+  const box = await p.$eval("a[data-probe-slow]", (el) => {
+    const b = el.getBoundingClientRect()
+    return { x: b.left + Math.min(b.width / 2, 60), y: b.top + b.height / 2 }
+  })
+  await p.touchscreen.tap(box.x, box.y)
+  await sleep(5300)
+  const frames = await p.evaluate(() => window.__slow)
+  const seen = frames.filter((f) => f.y !== null)
+  const first = seen[0]
+  const partWay = seen.filter((f) => f.y > 2).length
+  const ys = seen.map((f) => f.y)
+  const falling = ys.some((y, i) => i > 0 && y > ys[i - 1] + 1)
+  console.log(`  slow editor ${label}: first seen at ${first?.t}ms, ${first?.y}px from its place; ${partWay} frames part way up; y ${ys.slice(0, 12).join(" ")}...`)
+  expect(!!first && first.t >= SLOW_EDITOR_MS - 50, `${label}: the list stays while the editor is on its way (${first?.t}ms)`, first)
+  expect(!!first && first.y > 100 && partWay >= 5 && !falling, `${label}: the slow editor rises from the bottom edge when it lands, not in one frame`, { first, partWay, falling })
+  await p.evaluate(() => { window.__slowMs = 0 })
+  await p.tap(EDITOR_BACK).catch(() => {})
+  await sleep(1200)
+}
+
 const COMPOSER_BACK = "button[aria-label='Back to emails']"
 
 async function emailsTrip(p, cdp, label) {
@@ -1107,6 +1160,7 @@ try {
     expect(none !== "function", "this engine has no view transitions to make the move with", none)
     await handTrip(p, cdp, "390", { isNew: false })
     await handTrip(p, cdp, "390", { isNew: true })
+    await slowHandTrip(p, "390 by hand")
     if (errors.length) expect(false, "nothing threw", errors)
     await p.close()
   }

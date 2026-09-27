@@ -372,7 +372,9 @@ async function main() {
     check("and nobody else's", runsOf(w, flowId).find((r) => r.email === "bo@example.com")?.status === "active")
     check("and ending them again changes nothing", (await exitContactRuns(w.db, w.creatorId, "ada@example.com", "Unsubscribed.")) === 0)
     const route = read("app/api/email/unsubscribe/route.ts")
-    check("the unsubscribe link and the one-click unsubscribe both end them", (route.match(/await endAutomations\(adminSupabase, subscriber\)/g) ?? []).length === 2 && /exitContactRuns\(db, subscriber\.creator_id, subscriber\.email, "Unsubscribed\."\)/.test(route))
+    /* Opening the link only asks now (mail scanners open links); the page's button, the one-click and JSON are all the one POST. */
+    const post = route.slice(route.indexOf("export async function POST("))
+    check("every unsubscribe (the page's button, one-click, JSON) ends them", (post.match(/await endAutomations\(adminSupabase, subscriber\)/g) ?? []).length === 1 && /exitContactRuns\(db, subscriber\.creator_id, subscriber\.email, "Unsubscribed\."\)/.test(route))
   }
   {
     /* A welcome ends for an address with no contact row, so a read that failed must not look like one. */

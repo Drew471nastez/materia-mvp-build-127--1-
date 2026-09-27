@@ -11,7 +11,9 @@
  *
  * A field with nothing to fill it gets its fallback, never an empty space or
  * the braces themselves: "Hi there," rather than "Hi ,". A creator can give a
- * word field their own: {{first_name|friend}}.
+ * word field their own: {{first_name|friend}}. The filling itself is the one
+ * resolver campaigns use too (lib/email-variables), so both read the same
+ * tags, the same older spellings and the same bracket placeholders.
  *
  * FILLED BEFORE FRAMING. The engine (lib/automations/engine.ts sendStep)
  * hands the email's frame a step whose fields are already filled, and the
@@ -22,17 +24,9 @@
  */
 
 import type { TriggerType } from "./flow-model"
+import { orderNumberOf, resolveVariables, variableKey, APP_ORIGIN, type VariableKey } from "@/lib/email-variables"
 
-export type MergeKey =
-  | "first_name"
-  | "name"
-  | "store_name"
-  | "store_url"
-  | "product_name"
-  | "product_url"
-  | "order_url"
-  | "review_url"
-  | "checkout_url"
+export type MergeKey = Exclude<VariableKey, "email" | "last_name" | "library_url">
 
 export interface MergeField {
   key: MergeKey
@@ -50,27 +44,33 @@ const ORDERS: TriggerType[] = ["purchase", "first_purchase"]
 const PRODUCTS: TriggerType[] = ["purchase", "first_purchase", "abandoned_checkout"]
 
 export const MERGE_FIELDS: MergeField[] = [
-  { key: "first_name", label: "First name", says: "Their first name, or “there”", link: false },
-  { key: "name", label: "Full name", says: "Their full name, or “there”", link: false },
-  { key: "store_name", label: "Store name", says: "Your store’s name", link: false },
+  { key: "first_name", label: "First name", says: "Their first name, or “there” after Hi", link: false },
+  { key: "name", label: "Full name", says: "Their full name, or “there” after Hi", link: false },
+  { key: "creator_name", label: "Your name", says: "Your name as it is on your profile when the email is sent", link: false },
+  { key: "store_name", label: "Store name", says: "Your store’s name as it is when the email is sent", link: false },
   { key: "store_url", label: "Your Storelib page", says: "The address of your Storelib page", link: true },
   { key: "product_name", label: "Product name", says: "What they bought or left at checkout", link: false, only: PRODUCTS },
   { key: "product_url", label: "Product page", says: "The product’s page", link: true, only: PRODUCTS },
+  { key: "order_number", label: "Order number", says: "Their order’s number, as on the receipt", link: false, only: ORDERS },
   { key: "order_url", label: "Their order", says: "Their order page, with the download", link: true, only: ORDERS },
+  { key: "download_url", label: "Download link", says: "Where they download what they bought", link: true, only: ORDERS },
   { key: "review_url", label: "Leave a review", says: "Their order page, open at the review form", link: true, only: ORDERS },
   { key: "checkout_url", label: "Back to checkout", says: "Checkout for the product they left", link: true, only: ["abandoned_checkout"] },
+  { key: "unsubscribe_url", label: "Unsubscribe link", says: "Their own unsubscribe page", link: true },
+  { key: "current_year", label: "Year", says: "This year, as a number", link: false },
 ]
 
 const BY_KEY = new Map(MERGE_FIELDS.map((f) => [f.key, f]))
 
-/** The older names, still read: {{customer_name}} is {{name}}. */
-const ALIASES: Record<string, MergeKey> = { customer_name: "name" }
-
-const FIELD = /\{\{\s*([a-z_]+)\s*(?:\|\s*([^}]{0,40}?)\s*)?\}\}/gi
+/**
+ * A field by any name it is written with: {{customer_name}} is {{name}},
+ * {{your_name}} is {{creator_name}} (lib/email-variables ALIASES).
+ */
+const FIELD = /\{\{\s*([A-Za-z][\w .-]{0,40}?)\s*(?:\|\s*([^{}|]{0,60}?)\s*)?\}\}/g
 
 export function mergeField(key: string): MergeField | null {
-  const k = (ALIASES[key.toLowerCase()] ?? key.toLowerCase()) as MergeKey
-  return BY_KEY.get(k) ?? null
+  const k = variableKey(key)
+  return k ? (BY_KEY.get(k as MergeKey) ?? null) : null
 }
 
 /** The fields this trigger can fill, in the order the builder lists them. */
@@ -81,7 +81,7 @@ export function fieldsFor(trigger: TriggerType): MergeField[] {
 /** Every field written in `text`, as written. */
 export function fieldsIn(text: string): string[] {
   const out: string[] = []
-  for (const m of text.matchAll(FIELD)) out.push(m[1].toLowerCase())
+  for (const m of text.matchAll(FIELD)) out.push(m[1].trim().toLowerCase())
   return out
 }
 
@@ -106,10 +106,15 @@ export interface MergeInput {
   name?: string | null
   storeName: string
   storeUrl: string
+  /** The creator's own name for signing off: their profile's display name, read when the email is sent. */
+  creatorName?: string | null
   productName?: string | null
   productUrl?: string | null
+  orderId?: string | null
   orderUrl?: string | null
   checkoutUrl?: string | null
+  unsubscribeUrl?: string | null
+  now?: Date
 }
 
 export function mergeValues(input: MergeInput): MergeValues {
@@ -117,45 +122,36 @@ export function mergeValues(input: MergeInput): MergeValues {
   const first = name.split(" ")[0] ?? ""
   const orderUrl = input.orderUrl || ""
   const productUrl = input.productUrl || input.storeUrl
+  const creator = (input.creatorName ?? "").trim()
   return {
     first_name: first,
     name,
-    store_name: input.storeName,
+    creator_name: creator || input.storeName,
+    store_name: input.storeName || creator,
     store_url: input.storeUrl,
     product_name: (input.productName ?? "").trim(),
     product_url: productUrl,
+    order_number: orderNumberOf(input.orderId),
     order_url: orderUrl || productUrl,
+    download_url: orderUrl || `${APP_ORIGIN}/library`,
     review_url: orderUrl ? `${orderUrl}#review` : productUrl,
     checkout_url: input.checkoutUrl || productUrl,
+    unsubscribe_url: input.unsubscribeUrl || "",
+    current_year: String((input.now ?? new Date()).getFullYear()),
   }
 }
 
-/** For a word with nothing to say. A link with nothing to say is the creator's page. */
-const FALLBACK: Partial<Record<MergeKey, string>> = {
-  first_name: "there",
-  name: "there",
-  product_name: "your order",
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
-}
-
 /**
- * Every field in `content` replaced. `html` escapes each value for markup (a
- * body); `text` leaves it as it is (a subject, a preview line). A field that
- * does not exist is left as written: turning on refuses those
- * (flow-model problemsOf), so one only reaches here from a test send.
+ * Every field in `content` replaced, through the one resolver every email a
+ * creator sends is filled by (lib/email-variables resolveVariables): the
+ * tags, their older spellings, and the bracket placeholders an older preset
+ * left in a saved flow ("[Your name]"). `html` escapes each value for markup
+ * (a body); `text` leaves it as it is (a subject, a preview line). A field
+ * nobody knows is removed and the sentence tidied: turning on refuses those
+ * (flow-model problemsOf), but a flow saved before the check still sends.
  */
 export function fillFields(content: string, values: MergeValues, mode: "html" | "text"): string {
-  return content.replace(FIELD, (whole, rawKey: string, own: string | undefined) => {
-    const f = mergeField(rawKey)
-    if (!f) return whole
-    let value = values[f.key]?.trim() || ""
-    if (!value && own && !f.link) value = own.trim()
-    if (!value) value = f.link ? values.store_url : FALLBACK[f.key] ?? ""
-    return mode === "text" ? value.replace(/[\r\n]+/g, " ") : escapeHtml(value)
-  })
+  return resolveVariables(content, values, mode)
 }
 
 /**

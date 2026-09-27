@@ -392,9 +392,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: "table", head: ["Type", "Name", "Value"], rows: [
         ["A", "@", "216.150.1.1"],
-        ["CNAME", "www", "cname.vercel-dns.com"],
+        ["CNAME", "www", "domains.storelib.com"],
         ["TXT", "_storelib", "The code shown next to your domain"],
       ] },
+      { type: "p", text: "Connecting a subdomain such as shop.yourname.com instead? It needs one record: a CNAME on shop with the value domains.storelib.com." },
       { type: "p", text: "The domain shows Waiting for DNS until the records are found, then Securing while its HTTPS certificate is issued, then Connected. DNS changes can take from a few minutes to a day to reach everyone." },
       { type: "note", text: "If the domain stays on Waiting for DNS, check the records for typos and remove any other A record on @, which would send visitors elsewhere." },
     ],

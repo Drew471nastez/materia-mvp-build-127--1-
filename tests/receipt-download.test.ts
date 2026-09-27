@@ -393,8 +393,9 @@ function main() {
       /\.select\("\*, product:products\(title, creator_id\)"\)/.test(resend) && /\.select\("\*, product:products\(title, creator_id\)"\)/.test(code("app/api/receipt/update-email/route.ts")))
     check("an address with markup in it is refused", /\[\^\\s@<>"'`\(\),;:\\\\\[\\\]\]\+@/.test(read("app/api/receipt/update-email/route.ts")))
     const email = read("lib/email.tsx")
+    /* The sale email is drawn by lib/notify/templates, which escapes every value (tests/sale-email.test.ts renders hostile names). */
     check("the seller's sale email escapes everything a person typed",
-      /const buyerEmail = escapeHtml\(safeText\(params\.buyerEmail\)\)/.test(email) && /const productTitle = escapeHtml\(safeText\(params\.productTitle\)\)/.test(email))
+      /renderEmail\(first \? "FIRST_SALE" : "NEW_SALE", sale\.data/.test(email) && !/function sellerEmailHtml/.test(email))
     check("the download route and the account checks read whole orders, so the refund amount is there to read",
       /accessStateOf\(o\)/.test(read("lib/receipts/rules.ts")) && /canDeliver\(line\)/.test(read("app/api/purchases/claim/route.ts"))
         && /canDeliver\(order\)/.test(read("app/api/purchases/verify/route.ts")))

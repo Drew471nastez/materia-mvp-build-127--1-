@@ -13,7 +13,7 @@
  * domain behaves, and the plan that includes it.
  * Measured on screen by scripts/check-domains-flow.mjs.
  */
-import { readFileSync, existsSync } from "node:fs"
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import {
   apexOf,
@@ -25,6 +25,7 @@ import {
   storedRecords,
   vercelHostsFor,
 } from "@/lib/custom-domains/hostname"
+import { brandRecord, HOST_RESERVED_SUFFIXES, isServingCname, SERVING_IPS } from "@/lib/custom-domains/targets"
 import { creatorPageHostFrom, creatorPageHostFromRows } from "@/lib/custom-domains/client"
 import { REGISTRARS, fixesFor, hostFor, readRecord, recordFqdn, registrarById, type RecordCheck } from "@/lib/custom-domains/dns-help"
 import { siteGate, siteLimits } from "@/lib/sites/plan"
@@ -53,7 +54,8 @@ check("nothing typed is nothing", cleanHostname("   ") === "" && cleanHostname(n
 console.log("\nWhat is refused")
 check("storelib.com and every name under it", hostnameProblem("storelib.com") === "reserved" && hostnameProblem("andrew.storelib.com") === "reserved" && hostnameProblem("a.b.storelib.com") === "reserved")
 check("a lookalike is not storelib.com", hostnameProblem("storelib.com.ro") === null && hostnameProblem("mystorelib.com") === null)
-check("the platform's own hosts", ["x.vercel.app", "vercel.com", "cname.vercel-dns.com", "abc.supabase.co"].every((h) => hostnameProblem(h) === "reserved"))
+check("the platform's own hosts", hostnameProblem("abc.supabase.co") === "reserved" && ["x.vercel.app", "vercel.com", "cname.vercel-dns.com"].every((h) => hostnameProblem(h, "storelib.com", HOST_RESERVED_SUFFIXES) === "reserved"))
+check("and domains.storelib.com, the name creators point at", hostnameProblem("domains.storelib.com") === "reserved")
 check("names that belong to nobody", ["localhost", "shop.local", "a.test", "example.com", "x.example.org", "printer.internal"].every((h) => hostnameProblem(h) !== null))
 check("an address, not a name", hostnameProblem("76.76.21.21") === "ip")
 check("a word with no dot, and a suffix on its own", hostnameProblem("maralind") === "invalid" && hostnameProblem("co.uk") === "invalid")
@@ -74,17 +76,21 @@ check("a subdomain puts itself, and never a www in front of it", JSON.stringify(
 console.log("\nThe records to add")
 {
   const apex = recordsFor("maralind.com")
-  check("an apex: A on @ and CNAME on www, Vercel's documented values by default",
-    apex.length === 2 && apex[0].type === "A" && apex[0].name === "@" && apex[0].value === "216.150.1.1" && apex[1].type === "CNAME" && apex[1].name === "www" && apex[1].value === "cname.vercel-dns.com")
+  check("an apex: A on @ and CNAME on www to domains.storelib.com",
+    apex.length === 2 && apex[0].type === "A" && apex[0].name === "@" && apex[0].value === "216.150.1.1" && apex[1].type === "CNAME" && apex[1].name === "www" && apex[1].value === "domains.storelib.com")
   const sub = recordsFor("links.maralind.co.uk")
-  check("a subdomain: one CNAME, named relative to its apex", sub.length === 1 && sub[0].type === "CNAME" && sub[0].name === "links")
+  check("a subdomain: one CNAME to domains.storelib.com, named relative to its apex", sub.length === 1 && sub[0].type === "CNAME" && sub[0].name === "links" && sub[0].value === "domains.storelib.com")
   const vercel = recordsFor("maralind.com", {
     ipv4: "216.198.79.1",
     cname: "d1d4fc829fe7bc7c.vercel-dns-017.com.",
     challenges: [{ type: "TXT", domain: "_vercel.maralind.com", value: "vc-domain-verify=maralind.com,abc" }],
   })
-  check("Vercel's recommendation wins, and a TXT challenge is listed by name",
-    vercel[0].value === "216.198.79.1" && vercel[1].value === "d1d4fc829fe7bc7c.vercel-dns-017.com" && vercel[2]?.type === "TXT" && vercel[2].name === "_vercel" && vercel[2].value.startsWith("vc-domain-verify"))
+  check("the host's address wins, its CNAME never shows, and a TXT challenge is listed by the name to add",
+    vercel[0].value === "216.198.79.1" && vercel[1].value === "domains.storelib.com" && vercel[2]?.type === "TXT" && vercel[2].name === "_vercel" && vercel[2].value.startsWith("vc-domain-verify") && !/vercel/i.test(vercel[2].note ?? ""))
+  const saved = [{ type: "A" as const, name: "@", value: "216.150.1.1" }, { type: "CNAME" as const, name: "www", value: "d1d4fc829fe7bc7c.vercel-dns-017.com" }, { type: "CNAME" as const, name: "shop", value: "cname.vercel-dns.com." }, { type: "TXT" as const, name: "_vercel", value: "vc", note: "Vercel asks for it." }].map(brandRecord)
+  check("a row saved before shows domains.storelib.com and a note that names no one",
+    saved[0].value === "216.150.1.1" && saved[1].value === "domains.storelib.com" && saved[2].value === "domains.storelib.com" && !/vercel/i.test(saved[3].note ?? ""), JSON.stringify(saved))
+  check("the store reads every saved row through it", /storedRecords\(row\.dns_records\)\?\.map\(brandRecord\)/.test(code("lib/custom-domains/store.ts")))
   check("stored records are used only when they are well formed", storedRecords(apex) !== null && storedRecords([{ type: "MX", name: "@", value: "x" }]) === null && storedRecords(null) === null)
 }
 
@@ -144,7 +150,7 @@ console.log("\nOnly the owner, on the server")
     (route.match(/\.eq\("creator_id", creatorId\)/g) ?? []).length >= 3 && /\.update\(\{ is_primary: true \}\)\.eq\("id", row\.id\)\.eq\("creator_id", creatorId\)/.test(store) && /listCreatorDomains\(admin, creatorId\)[\s\S]*rows\.find\(\(r\) => r\.id === domainId\)/.test(code("app/api/domains/verify/route.ts")))
   check("adding is rate limited per person and per address", /bucket: "domain-add"/.test(route) && /subjects: \[`user:\$\{userId\}`, addressSubject\(request\)\]/.test(route))
   check("checking is rate limited too", /bucket: "domain-verify"/.test(code("app/api/domains/verify/route.ts")))
-  check("the name is validated on the server, not only in the form", /const problem = hostnameProblem\(cleanDomain, getMainDomain\(\)\)/.test(route))
+  check("the name is validated on the server, not only in the form", /const problem = hostnameProblem\(cleanDomain, getMainDomain\(\), HOST_RESERVED_SUFFIXES\)/.test(route))
   check("a domain another account holds, or held until recently, is refused",
     /This domain is connected to another Storelib account/.test(route) && /from\("domain_redirects"\)[\s\S]{0,200}\.gt\("keep_until"/.test(route))
   check("the plan is checked on the server", /siteGate\(await creatorSitePlan\(creatorId\), "customDomain"\)/.test(route))
@@ -260,14 +266,20 @@ console.log("\nWhat a check reads, record by record")
 {
   const [a, www] = recordsFor("maralind.com")
   const none = { a: [], cname: [], txt: [] }
-  check("A: missing, found, and another address in its place", readRecord(a, none).state === "missing" && readRecord(a, { ...none, a: ["216.150.1.1"] }).state === "found" && readRecord(a, { ...none, a: ["76.76.21.21"] }).state === "found")
-  const old = readRecord(a, { ...none, a: ["216.150.1.1", "34.1.2.3"] })
+  check("A: missing, found, and the older address still counts", readRecord(a, none).state === "missing" && readRecord(a, { ...none, a: ["216.150.1.1"] }, SERVING_IPS).state === "found" && readRecord(a, { ...none, a: ["76.76.21.21"] }, SERVING_IPS).state === "found")
+  const old = readRecord(a, { ...none, a: ["216.150.1.1", "34.1.2.3"] }, SERVING_IPS)
   check("A beside an old host is a conflict, naming the old one", old.state === "conflict" && old.seen.join() === "34.1.2.3", JSON.stringify(old))
   check("A: the project's own recommended address counts", readRecord({ type: "A", name: "@", value: "216.198.79.1" }, { ...none, a: ["216.198.79.1"] }, ["216.198.79.1", "216.150.1.1"]).state === "found")
-  check("CNAME: Vercel's own target, in any of its spellings", readRecord(www, { ...none, cname: ["d1d4fc829fe7bc7c.vercel-dns-017.com."] }).state === "found" && readRecord(www, { ...none, cname: ["cname.vercel-dns.com"] }).state === "found")
+  const accepts = (t: string) => isServingCname(t, "d1d4fc829fe7bc7c.vercel-dns-017.com")
+  check("CNAME: domains.storelib.com is found", readRecord(www, { ...none, cname: ["domains.storelib.com."] }).state === "found")
+  check("CNAME: a domain set up before, on the host's own name in any spelling, is still found",
+    readRecord(www, { ...none, cname: ["d1d4fc829fe7bc7c.vercel-dns-017.com."] }, SERVING_IPS, accepts).state === "found" && readRecord(www, { ...none, cname: ["cname.vercel-dns.com"] }, SERVING_IPS, accepts).state === "found" && readRecord(www, { ...none, cname: ["cname.storelib.com"] }, SERVING_IPS, accepts).state === "found")
+  check("the route reads the same way, both for the status and for each record",
+    /cnames\.some\(\(r\) => isServingCname\(r, recommended\.cname\)\)/.test(code("app/api/domains/verify/route.ts")) && /readRecord\(r, \{ a, cname, txt \}, acceptedIps, \(t\) => isServingCname\(t, recommendedCname\)\)/.test(code("app/api/domains/verify/route.ts")))
   const parked = readRecord(www, { ...none, cname: ["parkingpage.namecheap.com"] })
   check("CNAME at a parking page is a conflict", parked.state === "conflict" && parked.seen[0] === "parkingpage.namecheap.com")
-  check("CNAME flattened to Vercel's addresses is found", readRecord(www, { ...none, a: ["216.150.1.1"] }).state === "found")
+  check("CNAME flattened to our addresses is found", readRecord(www, { ...none, a: ["216.150.1.1"] }, SERVING_IPS).state === "found")
+  check("and the addresses domains.storelib.com answers with are read at check time", /\[CNAME_TARGET, \.\.\.LEGACY_CNAMES\]\.map\(\(h\) => orEmpty\(resolve4\(h\)\)\)/.test(code("app/api/domains/verify/route.ts")))
   const txt = { type: "TXT" as const, name: "_vercel", value: "vc-domain-verify=maralind.com,abc" }
   check("TXT: found when its value is there, other values beside it are fine", readRecord(txt, { ...none, txt: ["vc-domain-verify=other.maralind.com,zzz", "vc-domain-verify=maralind.com,abc"] }).state === "found" && readRecord(txt, { ...none, txt: ["x"] }).state === "missing")
 }
@@ -281,7 +293,7 @@ console.log("\nThe fixes, after a check that did not pass")
   const oldHost: RecordCheck[] = [{ type: "A", name: "@", state: "conflict", seen: ["34.1.2.3"] }, { type: "CNAME", name: "www", state: "missing", seen: [] }]
   const lines = fixesFor(records, oldHost, { warnings: ["maralind.com has 2 A records, including 34.1.2.3. Remove the extra ones.", "maralind.com has IPv6 (AAAA) records (::1). Remove every AAAA record for it."] })
   check("an old A record is named, the missing CNAME asked for, and the route's own A line not said twice",
-    lines[0] === "Delete the A record 34.1.2.3 on @. Only 216.150.1.1 should be there." && lines[1] === "No CNAME record on www yet. Add it with the value cname.vercel-dns.com." && lines.filter((l) => /A records/.test(l) && !/AAAA/.test(l)).length === 0 && lines.some((l) => /AAAA/.test(l)), JSON.stringify(lines))
+    lines[0] === "Delete the A record 34.1.2.3 on @. Only 216.150.1.1 should be there." && lines[1] === "No CNAME record on www yet. Add it with the value domains.storelib.com." && lines.filter((l) => /A records/.test(l) && !/AAAA/.test(l)).length === 0 && lines.some((l) => /AAAA/.test(l)), JSON.stringify(lines))
   const proxied = fixesFor(records, [{ type: "A", name: "@", state: "conflict", seen: ["104.21.3.4"] }, { type: "CNAME", name: "www", state: "conflict", seen: ["172.67.1.1"] }])
   check("Cloudflare's proxy is said first, instead of blaming each record", proxied.length === 1 && /Cloudflare's proxy is on/.test(proxied[0]), JSON.stringify(proxied))
   check("the route's blocking issues come before the records", fixesFor(records, at("missing"), { issues: ["A CAA record blocks it."] })[0] === "A CAA record blocks it.")
@@ -291,7 +303,7 @@ console.log("\nThe fixes, after a check that did not pass")
 console.log("\nCheck DNS answers per record, beside what it always answered")
 {
   const verify = code("app/api/domains/verify/route.ts")
-  check("it reads each record at its own name with the shared reading", /const checks = await checkRecords\(records, apexOf\(domain\), expectedIps\)/.test(verify) && /readRecord\(r, \{ a, cname, txt \}, acceptedIps\)/.test(verify))
+  check("it reads each record at its own name with the shared reading", /const checks = await checkRecords\(records, apexOf\(domain\), expectedIps, recommended\.cname\)/.test(verify) && /readRecord\(r, \{ a, cname, txt \}, acceptedIps,/.test(verify))
   check("the waiting answer keeps records, found, hints, warnings and issues, and adds checks and fixes",
     /hints,\s*records,\s*found: \{ aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified \},\s*warnings,\s*issues,\s*checks,\s*fixes,/.test(verify))
   check("the status still moves on the same rule", /const dnsVerified = apex \? aRecordVerified \|\| cnameVerified \|\| txtVerified : cnameVerified \|\| aRecordVerified/.test(verify))
@@ -309,11 +321,50 @@ console.log("\nThe DNS set up, on both screens")
   check("the provider is remembered on this device, and storage failing is fine", /localStorage\.getItem\(REGISTRAR_KEY\)/.test(setup) && (setup.match(/try \{/g) ?? []).length >= 2)
   check("no violet in it", !/#(8b5cf6|7c3aed|6d28d9|a78bfa|ede9fe|f5f3ff)/i.test(setup))
   const panel = code("components/app/settings/domains-panel.tsx")
-  check("Settings draws the records Vercel recommended, each with its check", /const records = d\.records && d\.records\.length > 0 \? d\.records : recordsFor\(d\.domain\)/.test(panel) && /result\?\.checks\?\.find\(\(c\) => c\.type === r\.type && c\.name === r\.name\)/.test(panel))
+  check("Settings draws the records the route sent, each with its check", /const records = d\.records && d\.records\.length > 0 \? d\.records : recordsFor\(d\.domain\)/.test(panel) && /result\?\.checks\?\.find\(\(c\) => c\.type === r\.type && c\.name === r\.name\)/.test(panel))
   check("named for the provider it was bought at, on the same key the builder remembers it by", /hostFor\(registrar, r\)/.test(panel) && /const REGISTRAR_KEY = "storelib:domain-registrar"/.test(panel) && /REGISTRAR_KEY = "storelib:domain-registrar"/.test(code("components/domains/dns-setup.tsx")))
   check("each domain not yet connected has its records on its own row, and what to fix after a check that did not pass", /\{recordsOf\(d, !dnsDone\)\}/.test(panel) && /result\.tone === "bad" && \(result\.message \|\| result\.fixes\.length > 0\)/.test(panel))
   const site = code("components/website-builder/website-settings/domains.tsx")
   check("Website Settings › Domains uses the same set up, dark", /<DnsSetup[\s\S]{0,800}tone="dark"/.test(site) && !/function DnsRecord\(/.test(site))
+}
+
+console.log("\nThe DNS values a creator sees are Storelib's, never the host's")
+{
+  /*
+   * Every file a creator's browser can load or read: pages and components,
+   * the help centre, the developer docs, and the lib files the Domains
+   * screens import. None may show vercel-dns, whether as a value, in a link
+   * or in words; the older names live in lib/custom-domains/targets.ts,
+   * which only the server reads.
+   */
+  const walk = (dir: string): string[] => {
+    if (!existsSync(join(process.cwd(), dir))) return []
+    return readdirSync(join(process.cwd(), dir)).flatMap((name) => {
+      const rel = `${dir}/${name}`
+      if (statSync(join(process.cwd(), rel)).isDirectory()) return rel === "app/api" ? [] : walk(rel)
+      return /\.(tsx?|mdx?|json|html)$/.test(name) ? [rel] : []
+    })
+  }
+  const userFacing = [
+    ...walk("app"),
+    ...walk("components"),
+    ...walk("content"),
+    ...walk("lib/help"),
+    "lib/custom-domains/hostname.ts",
+    "lib/custom-domains/dns-help.ts",
+    "lib/custom-domains/client.ts",
+  ]
+  const showing = userFacing.filter((f) => /vercel-dns/i.test(read(f)))
+  check("no page, component, help article or doc shows vercel-dns", showing.length === 0, showing.join(", "))
+  const domainScreens = ["components/app/settings/domains-panel.tsx", "components/domains/dns-setup.tsx", "components/website-builder/website-settings/domains.tsx", "lib/custom-domains/hostname.ts", "lib/custom-domains/dns-help.ts", "lib/help/articles.ts"]
+  check("and the Domains screens and their help say Vercel nowhere in what they draw", domainScreens.every((f) => !/vercel/i.test(code(f).replace(/vercelHostsFor/g, ""))), domainScreens.filter((f) => /vercel/i.test(code(f).replace(/vercelHostsFor/g, ""))).join(", "))
+  const clientFiles = userFacing.filter((f) => /\.tsx?$/.test(f) && /^["']use client["']/m.test(read(f)))
+  check("no client file imports the older names", clientFiles.length > 20 && clientFiles.every((f) => !/custom-domains\/targets/.test(read(f))))
+  const routeMessages = ["app/api/domains/route.ts", "app/api/domains/verify/route.ts", "app/api/domains/check/route.ts", "lib/custom-domains/vercel.ts"]
+    .flatMap((f) => code(f).match(/(["'`])(?:(?!\1)[^\\\n]|\\.)*\1/g) ?? [])
+    .filter((lit) => /\s/.test(lit) && /vercel/i.test(lit) && !/\[vercel-domains\]/.test(lit))
+  check("the domain routes send no message that names the host", routeMessages.length === 0, routeMessages.join(" | "))
+  check("domains is never a creator's site address", /EXCLUDED_SUBDOMAINS = \[[^\]]*"domains"/.test(code("proxy.ts")))
 }
 
 console.log("\nGet a domain, and how domains work")

@@ -15,14 +15,21 @@
 import "server-only"
 
 import { APP_URL } from "@/lib/email-automation"
-import { addressLine, brandName, DEFAULT_BRAND, hexColor, httpsUrl, type Brand } from "./brand"
+import { addressLine, brandName, DEFAULT_BRAND, emailImageUrl, hexColor, httpsUrl, type Brand } from "./brand"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
 export interface BrandExtras {
-  /** The creator's own photo, for the footer beside their name. */
+  /**
+   * The creator's own photo, for the footer beside their name: this
+   * business's profile photo as it is now (profiles.avatar_url, the one photo
+   * the app shows everywhere, lib/account/avatar). A second business is its
+   * own profile, so its own photo.
+   */
   avatarUrl: string | null
+  /** The name to sign with: the profile's display name, else the username. */
+  creatorName: string
 }
 
 async function quietly<T>(fn: () => Promise<T>): Promise<T | null> {
@@ -38,7 +45,7 @@ export async function loadBrand(db: Db, creatorId: string): Promise<Brand & Bran
     const { data } = await db.from("creators").select("id, user_id, slug, headline").eq("id", creatorId).maybeSingle()
     return data as { user_id?: string; slug?: string | null; headline?: string | null } | null
   })
-  if (!creator) return { ...DEFAULT_BRAND, avatarUrl: null }
+  if (!creator) return { ...DEFAULT_BRAND, avatarUrl: null, creatorName: DEFAULT_BRAND.name }
 
   const [profile, colour, site] = await Promise.all([
     quietly(async () => {
@@ -88,6 +95,7 @@ export async function loadBrand(db: Db, creatorId: string): Promise<Brand & Bran
           country: profile.country,
         })
       : null,
-    avatarUrl: httpsUrl(profile?.avatar_url),
+    avatarUrl: emailImageUrl(profile?.avatar_url),
+    creatorName: brandName(profile?.display_name, profile?.username, creator.headline, creator.slug),
   }
 }

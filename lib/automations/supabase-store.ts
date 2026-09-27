@@ -20,6 +20,7 @@ import type { TriggerType } from "./flow-model"
 import { textOn } from "./merge-fields"
 import type { CheckoutStart, StartOutcome, StartsStore } from "./abandoned"
 import { ownerAddress } from "@/lib/businesses/email-alias"
+import { emailImageUrl } from "@/lib/email-campaigns/brand"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 type PgError = { code?: string; message?: string } | null | undefined
@@ -323,7 +324,7 @@ export function supabaseStore(db: Db): Store {
 
     async identity(creatorId) {
       const found = await identityOf(creatorId)
-      return { fromName: found.fromName, replyTo: found.replyTo, storeUrl: found.storeUrl, brand: found.brand }
+      return { fromName: found.fromName, replyTo: found.replyTo, storeUrl: found.storeUrl, brand: found.brand, avatarUrl: found.avatarUrl ?? null }
     },
 
     async firstOrder(creatorId, email, orderId) {
@@ -444,7 +445,7 @@ function httpsUrl(v: unknown): string | null {
 async function readIdentity(db: Db, creatorId: string): Promise<Identity & { handle: string | null }> {
   const replyFallback = process.env.EMAIL_REPLY_TO || "support@storelib.com"
   const plain = (name: string): Brand => ({ name, logoUrl: null, accentColor: "#1a1a2e", onAccent: "#ffffff" })
-  const fallback = { fromName: "Storelib", replyTo: replyFallback, storeUrl: APP_URL, brand: plain("Storelib"), handle: null }
+  const fallback = { fromName: "Storelib", replyTo: replyFallback, storeUrl: APP_URL, brand: plain("Storelib"), handle: null, avatarUrl: null }
   try {
     const { data: creator } = await db.from("creators").select("slug, headline, support_email, user_id").eq("id", creatorId).maybeSingle()
     if (!creator) return fallback
@@ -458,11 +459,13 @@ async function readIdentity(db: Db, creatorId: string): Promise<Identity & { han
     const accent = site.color ?? "#1a1a2e"
     const brand: Brand = {
       name: site.name || fromName,
-      logoUrl: site.logo ?? httpsUrl(profile?.avatar_url),
+      logoUrl: site.logo ?? emailImageUrl(profile?.avatar_url),
       accentColor: accent,
       onAccent: textOn(accent),
     }
-    return { fromName, replyTo, storeUrl: handle ? `${APP_URL}/${encodeURIComponent(handle)}` : APP_URL, brand, handle }
+    /* The photo as it is on the profile now, read on every run: a new photo is in the next email. */
+    const avatarUrl = emailImageUrl(profile?.avatar_url)
+    return { fromName, replyTo, storeUrl: handle ? `${APP_URL}/${encodeURIComponent(handle)}` : APP_URL, brand, handle, avatarUrl }
   } catch {
     return fallback
   }

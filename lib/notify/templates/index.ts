@@ -13,7 +13,7 @@
  */
 import type { InAppContent, NotificationType, RenderedEmail, TemplateContext } from "../types"
 import { CATALOG, DATA_KEYS, Data, factsOf, type Audience, type Message } from "./catalog"
-import { actionUrl, canonicalOrigin, cleanText, sameSiteUrl } from "./escape"
+import { actionUrl, canonicalOrigin, cleanText, mailtoUrl, sameSiteUrl } from "./escape"
 import { renderHtml, renderText, type LayoutInput } from "./layout"
 
 export { DATA_KEYS, PATHS, formatMoney, formatDate } from "./catalog"
@@ -50,15 +50,19 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
     return url ? { label: l.label, url } : null
   }
   const noticeLink = m.notice?.link ? link(m.notice.link) : null
+  /* The one link that is not Storelib's: a mailto to the buyer, on a creator's own sale email, when the address is a plain one. */
+  const replyUrl = m.reply && m.audience === "creator" ? mailtoUrl(m.reply.email, m.reply.subject) : null
   const input: LayoutInput = {
     family: m.family,
     subject: cleanText(m.subject, 90),
     preview: cleanText(m.preview, 140),
     heading: m.heading,
-    greeting: greeting(ctx),
+    greeting: m.greet === false ? null : greeting(ctx),
     paragraphs: m.paragraphs.filter((p) => p && p.trim()),
     facts: factsOf(m),
+    order: m.order ?? null,
     action: link(m.action),
+    secondary: replyUrl && m.reply ? { label: m.reply.label, url: replyUrl } : null,
     notice: m.notice ? { title: m.notice.title, text: m.notice.text, link: noticeLink } : null,
     note: m.note ?? null,
     reason: reasonLine(m),

@@ -16,7 +16,8 @@ import "server-only"
  *   is_primary   one per creator and purpose. The address canonicals and
  *                share links name; every other domain of that purpose
  *                answers with a redirect to it.
- *   dns_records  the records Vercel last recommended for it
+ *   dns_records  the records last shown for it (read through brandRecord,
+ *                so a row saved before domains.storelib.com shows it too)
  *
  * THE MIGRATION MAY NOT HAVE RUN. Every read here asks for the new columns
  * and, when the database says one does not exist, asks again without them
@@ -35,6 +36,7 @@ import {
   type DnsRecord,
   type DomainPurpose,
 } from "./hostname"
+import { brandRecord } from "./targets"
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -116,7 +118,7 @@ export function toView(row: DomainRow, schema: Schema): DomainView {
     is_primary: schema === "legacy" ? true : row.is_primary === true,
     host: servingHost(row.domain),
     apex: isApexHost(row.domain),
-    records: storedRecords(row.dns_records) ?? recordsFor(row.domain),
+    records: storedRecords(row.dns_records)?.map(brandRecord) ?? recordsFor(row.domain),
   }
 }
 

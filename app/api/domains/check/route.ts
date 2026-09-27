@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { domainOwner } from "@/lib/custom-domains/owner"
 import { HOSTNAME_PROBLEM_TEXT, cleanHostname, hostnameProblem } from "@/lib/custom-domains/hostname"
+import { HOST_RESERVED_SUFFIXES } from "@/lib/custom-domains/targets"
 import { getMainDomain } from "@/lib/url-helpers"
 
 // POST - Can this domain be connected? Read only: the same rules POST /api/domains applies.
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
 
     const { domain } = (await request.json().catch(() => ({}))) as { domain?: unknown }
     const cleanDomain = cleanHostname(domain)
-    const problem = hostnameProblem(cleanDomain, getMainDomain())
+    const problem = hostnameProblem(cleanDomain, getMainDomain(), HOST_RESERVED_SUFFIXES)
     if (problem) return NextResponse.json({ available: false, error: HOSTNAME_PROBLEM_TEXT[problem] })
 
     const { data: existingDomain } = await owner.admin

@@ -6,6 +6,7 @@ import { flushSync } from "react-dom"
 import { cn } from "@/lib/utils"
 import { HtmlClassScript } from "@/components/platform/html-class"
 import { routerStartCount } from "@/lib/ui/router-starts"
+import { getAppNavigation } from "@/lib/ui/app-navigation"
 
 /**
  * ===========================================================================
@@ -346,6 +347,17 @@ export function afterLayerMove(fn: () => void): () => void {
 
 /** A still never outlives this, whatever happens to the navigation it was taken for. */
 const STILL_CAP_MS = 1200
+/**
+ * ...UNLESS THAT NAVIGATION IS PLAINLY STILL ON ITS WAY. A rising layer's
+ * still is hidden until the editor mounts, and the rise is only played if it
+ * is still wanted then. At 1200ms it used to be given up whatever the router
+ * was doing, so an editor that took longer to come (a slow answer from the
+ * server) was simply there when it came, in one frame: "then the page
+ * appears with a delay, very abruptly". While the app's navigation record
+ * (lib/ui/app-navigation) says the press is still underway, the wait is
+ * renewed, up to this long in all; the record itself gives up at 10s.
+ */
+const STILL_WAIT_MAX_MS = 8000
 
 /* The boxes a clone would start at the top of, named so the copy can be put back where the original stands. */
 const STILL_SCROLLERS = "[data-page-layer-scroll],.page-scroll,.app-content-scroll,.orders-pane,.orders-list,.dashboard-scroll-container,.sales-scroll-container"
@@ -520,9 +532,17 @@ function raiseByHand(navigate: () => void) {
   }
   const want: { still: HTMLElement | null; cap: number } = { still: null, cap: 0 }
   rising = want
-  want.cap = window.setTimeout(() => {
-    if (rising === want) endRise(want)
-  }, STILL_CAP_MS)
+  const pressedAt = Date.now()
+  const hold = () => {
+    if (rising !== want) return
+    /* Still coming: wait on, so it rises when it lands rather than appearing in one frame. */
+    if (getAppNavigation() !== null && Date.now() - pressedAt + STILL_CAP_MS <= STILL_WAIT_MAX_MS) {
+      want.cap = window.setTimeout(hold, STILL_CAP_MS)
+      return
+    }
+    endRise(want)
+  }
+  want.cap = window.setTimeout(hold, STILL_CAP_MS)
   afterNextPaint(() => {
     /* Already mounted, or given up on, in the frame we waited: nothing to hold. */
     if (rising !== want) return

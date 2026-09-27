@@ -29,6 +29,7 @@ import {
   type DomainRow,
   type Schema,
 } from "@/lib/custom-domains/store"
+import { HOST_RESERVED_SUFFIXES } from "@/lib/custom-domains/targets"
 import { addDomainHosts, recommendedRecords, removeDomainHosts, vercelConfigured } from "@/lib/custom-domains/vercel"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { siteGate } from "@/lib/sites/plan"
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => ({}))) as { domain?: unknown; purpose?: unknown; replace?: unknown }
     const cleanDomain = cleanHostname(body.domain)
-    const problem = hostnameProblem(cleanDomain, getMainDomain())
+    const problem = hostnameProblem(cleanDomain, getMainDomain(), HOST_RESERVED_SUFFIXES)
     if (problem) {
       return NextResponse.json({ error: HOSTNAME_PROBLEM_TEXT[problem], problem }, { status: 400 })
     }

@@ -4,10 +4,11 @@ import dns from "dns"
 import { promisify } from "util"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { domainOwner } from "@/lib/custom-domains/owner"
-import { apexOf, isApexHost, recordsFor, servingHost, vercelHostsFor } from "@/lib/custom-domains/hostname"
+import { CNAME_TARGET, apexOf, isApexHost, recordsFor, servingHost, vercelHostsFor } from "@/lib/custom-domains/hostname"
 import { creatorDomainsTag, listCreatorDomains, purposeOf, saveRecords, syncOnepageDomain } from "@/lib/custom-domains/store"
 import { addDomainHosts, httpsAnswers, recommendedRecords, verifyProjectDomain } from "@/lib/custom-domains/vercel"
 import { fixesFor, readRecord, recordFqdn, type RecordCheck } from "@/lib/custom-domains/dns-help"
+import { LEGACY_CNAMES, SERVING_IPS, isServingCname } from "@/lib/custom-domains/targets"
 
 /**
  * ===========================================================================
@@ -52,11 +53,18 @@ try {
   // Not available
 }
 
-// Vercel's official A record IPs for custom domains.
-// 216.150.1.1 is the new recommended IP (Vercel's anycast expansion, 2025+).
-// 76.76.21.21 is the legacy IP — still functional but Vercel marks it as
-// "DNS Change Recommended". Accept both so existing sellers stay verified.
-const VERCEL_IPS = ["216.150.1.1", "76.76.21.21"]
+/**
+ * THE ADDRESSES THAT COUNT AS OURS. The fixed ones (lib/custom-domains/targets.ts:
+ * the address shown today and the older 76.76.21.21 that domains connected
+ * before were given), plus whatever domains.storelib.com and the older
+ * CNAMEs answer with right now. A registrar that flattens a CNAME (Cloudflare
+ * at the apex, some others on www) stores those answers as A records, and
+ * they move, so they are read at check time rather than written down.
+ */
+async function servingIps(recommendedIpv4: string): Promise<string[]> {
+  const chased = await Promise.all([CNAME_TARGET, ...LEGACY_CNAMES].map((h) => orEmpty(resolve4(h))))
+  return Array.from(new Set([recommendedIpv4, ...SERVING_IPS, ...chased.flat()].filter(Boolean)))
+}
 
 /**
  * Check if an IP belongs to Cloudflare's known ranges.
@@ -97,7 +105,7 @@ async function orEmpty<T>(p: Promise<T[]>): Promise<T[]> {
 }
 
 /** What DNS answers at each record's own name, read against the value it should hold. */
-async function checkRecords(records: ReturnType<typeof recordsFor>, apex: string, acceptedIps: string[]): Promise<RecordCheck[]> {
+async function checkRecords(records: ReturnType<typeof recordsFor>, apex: string, acceptedIps: string[], recommendedCname: string): Promise<RecordCheck[]> {
   return Promise.all(
     records.map(async (r) => {
       const at = recordFqdn(r.name, apex)
@@ -106,14 +114,9 @@ async function checkRecords(records: ReturnType<typeof recordsFor>, apex: string
         r.type === "CNAME" ? orEmpty(resolveCname(at)) : Promise.resolve([] as string[]),
         r.type === "TXT" ? orEmpty(resolveTxt(at)).then((rows) => rows.map((x) => x.join(""))) : Promise.resolve([] as string[]),
       ])
-      return readRecord(r, { a, cname, txt }, acceptedIps)
+      return readRecord(r, { a, cname, txt }, acceptedIps, (t) => isServingCname(t, recommendedCname))
     }),
   )
-}
-
-const pointsAtVercel = (target: string, recommended: string) => {
-  const lower = target.toLowerCase().replace(/\.$/, "")
-  return lower === recommended.toLowerCase() || lower === "cname.vercel-dns.com" || lower === "cname.storelib.com" || /\.vercel-dns(-\d+)?\.com$/.test(lower)
 }
 
 export async function POST(request: Request) {
@@ -148,7 +151,7 @@ export async function POST(request: Request) {
     const warnings: string[] = []
     const issues: string[] = []
 
-    /* 1 and 2: on the project, and what Vercel wants now. */
+    /* 1 and 2: on the project, and what the host recommends now. Creators are shown domains.storelib.com either way. */
     const registered = await addDomainHosts(domain)
     const challenged = registered.challenges.length > 0
     if (challenged) {
@@ -201,7 +204,7 @@ export async function POST(request: Request) {
     // ============================================================
     await admin.from("custom_domains").update({ status: "verifying" }).eq("id", domainId).eq("creator_id", creatorId)
 
-    const expectedIps = Array.from(new Set([recommended.ipv4, ...VERCEL_IPS]))
+    const expectedIps = await servingIps(recommended.ipv4)
     let txtVerified = false
     let cnameVerified = false
     let aRecordVerified = false
@@ -219,7 +222,7 @@ export async function POST(request: Request) {
         if (!aRecordVerified) {
           issues.push("The domain goes through Cloudflare's proxy (the orange cloud), which stops the certificate from being issued. In Cloudflare, press the orange cloud next to the record so it turns grey (DNS only).")
         } else {
-          warnings.push("The domain has both Cloudflare proxy addresses and the Vercel address. Remove the proxied records or switch them to DNS only.")
+          warnings.push("The domain has both Cloudflare proxy addresses and the address from the list. Remove the proxied records or switch them to DNS only.")
         }
       }
     } catch {
@@ -239,7 +242,7 @@ export async function POST(request: Request) {
     const cnameHost = apex ? `www.${domain}` : domain
     try {
       const cnames = await resolveCname(cnameHost)
-      cnameVerified = cnames.some((r) => pointsAtVercel(r, recommended.cname))
+      cnameVerified = cnames.some((r) => isServingCname(r, recommended.cname))
     } catch {
       /* An apex cannot usually hold a CNAME; its A record answers for it. */
     }
@@ -277,11 +280,11 @@ export async function POST(request: Request) {
       }
     }
 
-    /* Right enough to serve: the serving host resolves to Vercel. */
+    /* Right enough to serve: the serving host resolves to us. */
     const dnsVerified = apex ? aRecordVerified || cnameVerified || txtVerified : cnameVerified || aRecordVerified
 
     /* Record by record, for the status beside each one and the fixes under them. Reads only. */
-    const checks = await checkRecords(records, apexOf(domain), expectedIps)
+    const checks = await checkRecords(records, apexOf(domain), expectedIps, recommended.cname)
     const fixes = fixesFor(records, checks, { issues, warnings })
 
     if (!dnsVerified || waitingOnTxt) {
@@ -289,10 +292,10 @@ export async function POST(request: Request) {
       const hints: string[] = []
       if (!aRecordVerified && !cnameVerified) {
         hints.push(apex
-          ? `Add an A record on @ pointing to ${recommended.ipv4}, and a CNAME on www pointing to ${recommended.cname}.`
-          : `Add a CNAME on ${records[0]?.name ?? domain} pointing to ${recommended.cname}.`)
+          ? `Add an A record on @ pointing to ${recommended.ipv4}, and a CNAME on www pointing to ${CNAME_TARGET}.`
+          : `Add a CNAME on ${records[0]?.name ?? domain} pointing to ${CNAME_TARGET}.`)
       }
-      if (waitingOnTxt) hints.push("Add the TXT record in the list. Vercel needs it before it serves the domain.")
+      if (waitingOnTxt) hints.push("Add the TXT record in the list. The domain is served once it shows up.")
       return NextResponse.json({
         verified: false,
         status: "pending",
@@ -360,17 +363,17 @@ async function runDiagnostics(domain: string, warnings: string[], issues: string
   // Check for Cloudflare proxy on apex
   try {
     const aRecords = await resolve4(domain)
-    if (aRecords.some((ip) => isCloudflareIP(ip)) && !aRecords.some((ip) => VERCEL_IPS.includes(ip))) {
+    if (aRecords.some((ip) => isCloudflareIP(ip)) && !aRecords.some((ip) => SERVING_IPS.includes(ip))) {
       issues.push(
         "Your domain is proxied through Cloudflare (orange cloud). Switch to DNS-only mode (grey cloud) in Cloudflare to allow SSL certificate provisioning."
       )
     }
     // Check for conflicting records
     if (aRecords.length > 1) {
-      const nonVercel = aRecords.filter((ip) => !VERCEL_IPS.includes(ip))
-      if (nonVercel.length > 0) {
+      const others = aRecords.filter((ip) => !SERVING_IPS.includes(ip))
+      if (others.length > 0) {
         warnings.push(
-          `Conflicting A records detected (${nonVercel.join(", ")}). Remove non-Vercel A records.`
+          `Conflicting A records detected (${others.join(", ")}). Keep only the A record from the list and remove the others.`
         )
       }
     }

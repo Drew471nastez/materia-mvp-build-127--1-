@@ -23,6 +23,8 @@
  * both draw with the same numbers.
  */
 
+import { APP_ORIGIN } from "@/lib/email-variables"
+
 export const DEFAULT_ACCENT = "#1a1a2e"
 export const INK = "#111827"
 export const CARD = "#ffffff"
@@ -116,6 +118,20 @@ export function httpsUrl(value: unknown): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * A profile photo or a logo as an email can show it: an https address, with
+ * a path on our own site ("/avatars/a.png") made whole, and never the old
+ * placeholder picture (lib/account/avatar profileAvatar). Null draws the
+ * name's initial instead.
+ */
+export function emailImageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const v = value.trim()
+  if (!v || /placeholder\.svg/i.test(v)) return null
+  if (v.startsWith("/") && !v.startsWith("//")) return httpsUrl(`${APP_ORIGIN}${v}`)
+  return httpsUrl(v)
 }
 
 /**
