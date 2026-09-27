@@ -21,6 +21,7 @@ import { buildMailgunFromHeader, sendMailgunEmail } from "@/lib/mailgun"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteBrandName } from "@/lib/site-accounts/brand"
 import { handleContact } from "@/lib/site-contact/handle"
+import { loginEmailFrom } from "@/lib/seller-inbox"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
       return { site: detail?.site ?? null, detail }
     },
     brand: (creatorId) => siteBrandName(db, creatorId),
+    loginEmail: loginEmailFrom(db),
     recordSource: (creatorId, email, detail) => recordContactSource(db, creatorId, email, detail as never),
   })
 

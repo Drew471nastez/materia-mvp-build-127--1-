@@ -14,9 +14,10 @@
  * message written there would never be seen. Email is where the seller
  * already gets every sale.
  *
- * This file is only the words and the markup, with no imports, so the test
- * suite can check it as it is.
+ * This file is only the words and the markup (and the shared button, a pure
+ * helper), so the test suite can check it as it is.
  */
+import { emailButton } from "@/lib/mail-document"
 
 /** How long a message may be. A question, not a document. */
 export const CONTACT_MAX_CHARS = 2000
@@ -64,7 +65,10 @@ export function sellerMessageEmail(m: SellerMessage): { subject: string; fromNam
   const subject = headerSafe(`Order ${m.orderNumber}: a message from ${who}`)
   const fromName = headerSafe(`${who} via Storelib`).replace(/[<>"]/g, "")
 
-  const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;font-family:Inter,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
+  /* The line an inbox shows after the subject: the first words of the message, not "Order 1042 ·". */
+  const preview = headerSafe(m.message).slice(0, 110)
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>${escape(subject)}</title></head><body style="margin:0;background:#f5f6f8;font-family:Inter,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
+<div style="display:none;font-size:1px;color:#f5f6f8;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escape(preview)}${"&#8199;&#65279;&#847; ".repeat(30)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;"><tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e7ec;border-radius:16px;">
 <tr><td style="padding:28px 28px 8px;">
@@ -78,7 +82,7 @@ export function sellerMessageEmail(m: SellerMessage): { subject: string; fromNam
 Reply to this email and it goes to ${escape(m.buyerEmail)}.
 </td></tr>
 <tr><td style="padding:20px 28px 28px;">
-<a href="${escape(m.orderLink)}" style="display:inline-block;background:#1a1a2e;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 16px;border-radius:10px;">Open the order</a>
+${emailButton({ href: escape(m.orderLink), label: "Open the order", fill: "#1a1a2e", padding: "10px 16px", radius: 10, text: "font-size:14px;font-weight:600;" })}
 </td></tr>
 </table>
 <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">Sent from the receipt page on Storelib.</p>

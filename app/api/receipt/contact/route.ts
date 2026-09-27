@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { sendSellerMessageEmail, resolveSellerEmail } from "@/lib/email"
+import { sendSellerMessageEmail } from "@/lib/email"
+import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { rateLimit, addressSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid, orderNumberOf } from "@/lib/receipts/rules"
 import { CONTACT_MAX_CHARS, cleanMessage } from "@/lib/receipts/contact"
@@ -13,12 +14,18 @@ export const runtime = "nodejs"
  *
  * The receipt token is the credential, as it is for every other button on
  * the page, so a guest can write too. The message goes to the seller's own
- * inbox (resolveSellerEmail, never shown to the buyer) with Reply-To the
- * address on the order, never one named in the request: the seller's reply
- * lands with the person who paid.
+ * inbox (lib/seller-inbox: their support address, else their login's
+ * address as it is now, the owner's for a second business; never shown to
+ * the buyer) with Reply-To the address on the order, never one named in the
+ * request: the seller's reply lands with the person who paid. A seller with
+ * no address at all is said to be so; the message is never sent to
+ * Storelib's support inbox in their place.
  *
  * How often: the rate limiter by caller and by order, and five a day per
  * order, recorded in security_events without the message or an address.
+ * Every send is a row in email_logs (seller_message), as the receipt and the
+ * sale email are, once supabase/sql/run-now part "email_logs_seller_message"
+ * has run; before it the row is refused and the message goes all the same.
  */
 
 const MAX_PER_DAY = 5
@@ -89,7 +96,15 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
-    const to = await resolveSellerEmail(admin, creatorId)
+    const inbox = await sellerInbox(admin, creatorId, loginEmailFrom(admin))
+    if (!inbox) {
+      console.warn("[receipt/contact] the seller has no address to write to; order", order.id)
+      return NextResponse.json(
+        { success: false, error: "This seller has no email address to write to yet, so the message was not sent." },
+        { status: 409 },
+      )
+    }
+    const to = inbox.to
     const result = await sendSellerMessageEmail(admin, {
       to,
       message: {
@@ -107,8 +122,19 @@ export async function POST(request: NextRequest) {
       event_type: "seller_contacted",
       ip: callerAddress(request) || "unknown",
       user_agent: request.headers.get("user-agent") || "unknown",
-      metadata: { success: result.success, length: message.length },
+      metadata: { success: result.success, length: message.length, via: inbox.via },
     })
+    /* The same record every order email has. The address is a column, never a log line. */
+    const { error: logError } = await admin.from("email_logs").insert({
+      order_id: order.id,
+      email_type: "seller_message",
+      recipient_email: to,
+      status: result.success ? "sent" : "failed",
+      attempt: 1,
+      error_message: result.success ? null : String(result.error || "Failed to send").slice(0, 500),
+      provider: "mailgun",
+    })
+    if (logError) console.warn("[receipt/contact] email_logs row not written:", logError.code || "unknown")
 
     if (!result.success) {
       return NextResponse.json({ success: false, error: "The message did not go out. Try again in a minute." }, { status: 502 })

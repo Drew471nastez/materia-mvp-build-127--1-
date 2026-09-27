@@ -3,6 +3,7 @@ import { randomBytes } from "crypto"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
+import { emailButton } from "@/lib/mail-document"
 
 export const runtime = "nodejs"
 
@@ -76,9 +77,7 @@ export async function POST(request: Request) {
               </p>
 
               <div style="text-align: center; margin-bottom: 24px;">
-                <a href="${resetUrl}" style="display: inline-block; background: #2563eb; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-                  Reset Password
-                </a>
+                ${emailButton({ href: resetUrl, label: "Reset Password", fill: "#2563eb", padding: "12px 32px", radius: 8, text: "font-weight: 600;", align: "center" })}
               </div>
 
               <p style="color: #999; font-size: 14px; margin-bottom: 16px;">
