@@ -9,13 +9,13 @@
  * shown to nobody but its creator, and sold to nobody.
  *
  * WHY A QUERY ONLY NEEDS THE STATUS. Archive writes both marks at once
- * (lib/products/archive.ts), publishing clears the flag, and run-now part 46
+ * (lib/products/archive.ts), publishing clears the flag, and run-now part 47
  * keeps the two in step in the database, so a row that says "published" is
  * never archived. Every public read therefore filters on the status alone,
  * `.eq("status", "published")`, which every database has, and `publicOnly`
  * below is that filter by name. Rows already read are checked with
  * `isPubliclyVisible`, which also looks at the flag, so a database that has
- * not run part 46 is still right in memory.
+ * not run part 47 is still right in memory.
  *
  * WHAT IS NEVER FILTERED BY THIS. What a buyer already has: their library,
  * their downloads, their receipt, their course. Those read the product by

@@ -22,7 +22,7 @@
  *      not. A new public page that forgets fails here, before it ships.
  *   4. The fixes around it: the email capture route, the storelib.com
  *      wishlist, the buyer's pages, the OnePage preview, the caches, the
- *      admin's delete, and run-now part 46.
+ *      admin's delete, and run-now part 47.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { join } from "node:path"
@@ -383,9 +383,9 @@ async function main() {
     check("and refuses when somebody does", /if \(hasSales\) \{\s*return NextResponse\.json\(/.test(seo))
   }
 
-  console.log("\n  run-now part 46")
+  console.log("\n  run-now part 47")
   {
-    const file = "supabase/sql/run-now/46_products_archived_never_published.sql"
+    const file = "supabase/sql/run-now/47_products_archived_never_published.sql"
     const sql = read(file)
     const lines = sql.trimEnd().split("\n")
     check("a header, then one statement per line", lines[0].startsWith("/*") && lines[0].endsWith("*/") && lines.slice(1).every((l) => /;$/.test(l.trim())))
@@ -398,9 +398,9 @@ async function main() {
     check("safe to run twice", /DROP TRIGGER IF EXISTS products_keep_archive_in_step ON public\.products;/.test(sql) && /CREATE OR REPLACE FUNCTION public\.products_keep_archive_in_step\(\)/.test(sql))
     check("skips itself where there is no flag column", /column_name = 'archived'\) THEN RAISE NOTICE/.test(sql))
     check("deletes nothing", !/\bdelete\b|\btruncate\b/i.test(sql.split("\n").slice(1).join("\n")))
-    check("the check after has its column", /as p46_products_archived_never_published/.test(read("supabase/sql/run-now/99_check_after.sql")))
-    check("the README names it", /\| `46_products_archived_never_published\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
-    check("and the four files carry it", /-- part 46_products_archived_never_published\.sql/.test(read("supabase/sql/run-four/3_of_4_latest.sql")))
+    check("the check after has its column", /as p47_products_archived_never_published/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("the README names it", /\| `47_products_archived_never_published\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
+    check("and the four files carry it", /-- part 47_products_archived_never_published\.sql/.test(read("supabase/sql/run-four/3_of_4_latest.sql")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
