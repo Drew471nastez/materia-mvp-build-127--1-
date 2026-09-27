@@ -5,6 +5,7 @@ import { recordAdminAction } from "@/lib/admin/audit"
 import { UUID_RE } from "@/lib/admin/platform-metrics"
 import { plainReason } from "@/lib/admin/plain-reason"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { purgeProductCaches, refreshPublishedSite } from "@/lib/products/forget-product"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
   if (body.confirm !== productId) return NextResponse.json({ error: "Confirm this from the dialog." }, { status: 400 })
 
   const admin = createAdminClient()
-  const { data: product, error: readError } = await admin.from("products").select("id, title, status, creator_id").eq("id", productId).maybeSingle()
+  const { data: product, error: readError } = await admin.from("products").select("id, title, slug, status, creator_id").eq("id", productId).maybeSingle()
   if (readError) return adminFailure("product read", readError, "The product could not be read. Nothing was changed.")
   if (!product) return NextResponse.json({ error: "No product has that id." }, { status: 404 })
 
@@ -61,6 +62,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: plainReason(error, "products") }, { status: error.code === "23514" ? 409 : 500 })
   }
   if (!changed || changed.length === 0) return NextResponse.json({ error: "It changed while this was open. Nothing was done." }, { status: 409 })
+
+  /* Off every page now, or back on them: what was cached of it goes, as it does for the creator's own archive (lib/products/forget-product). */
+  if (product.creator_id) {
+    purgeProductCaches({ creatorId: product.creator_id, productId, slug: product.slug ?? null })
+    await refreshPublishedSite(product.creator_id)
+  }
 
   const recorded = await recordAdminAction(admin, {
     action: action === "unpublish" ? "unpublish_product" : "republish_product",

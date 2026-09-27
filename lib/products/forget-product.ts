@@ -26,9 +26,10 @@ import "server-only"
  * creator owns. It drops cache entries and takes a deleted product's blocks
  * off the creator's own page, and nothing else.
  *
- * ARCHIVE AND UNPUBLISH take the first half only: the caches are purged, the
- * blocks are left alone, and the page hides the block while the product is
- * away and draws it again the moment it is published. A block deleted on an
+ * ARCHIVE AND UNPUBLISH take the first half only: the caches are purged
+ * (the built website's pages too, `refreshPublishedSite`), the blocks are
+ * left alone, and the page hides the block while the product is away and
+ * draws it again the moment it is published. A block deleted on an
  * unpublish would not come back.
  */
 import { revalidatePath, revalidateTag } from "next/cache"
@@ -102,6 +103,23 @@ export async function forgetProductOnPages(admin: Admin, creatorId: string, prod
   } catch (e) {
     console.error("[forget-product] onepage cleanup failed:", (e as Error).message)
     return 0
+  }
+}
+
+/**
+ * The built website's rendered pages and the data under them, for any
+ * change to what a visitor may see: a delete, and an archive, a restore, an
+ * unpublish or a publish too. The website's pages are held for a minute and
+ * its picked products are read inside them, so the tags above alone could
+ * leave an archived product on a website section until the minute ran out.
+ * Best effort, like the rest of this file.
+ */
+export async function refreshPublishedSite(creatorId: string): Promise<void> {
+  if (!creatorId) return
+  try {
+    await revalidatePublishedSite(creatorId)
+  } catch (e) {
+    console.error("[forget-product] site purge failed:", (e as Error).message)
   }
 }
 

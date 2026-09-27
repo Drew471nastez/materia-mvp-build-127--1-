@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { forgetDeletedProduct, purgeProductCaches } from "@/lib/products/forget-product"
+import { forgetDeletedProduct, purgeProductCaches, refreshPublishedSite } from "@/lib/products/forget-product"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
 
   if (row?.id) {
     purgeProductCaches({ creatorId, productId: row.id, slug, handle })
+    await refreshPublishedSite(creatorId)
     return NextResponse.json({ ok: true, deleted: false }, { status: 202 })
   }
 

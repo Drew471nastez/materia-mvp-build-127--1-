@@ -29,14 +29,25 @@
  *                      opens in a new tab instead, and the editor stays
  *   nothing kept       what the page remembers in the browser (a form sent,
  *                      a product bought) is kept for this frame only
+ *   its products, now  a product block is resolved against the product row,
+ *                      as the live page does on every render
+ *                      (lib/onepage/live-products.ts): an archived,
+ *                      unpublished or deleted product is not drawn, and a
+ *                      live one shows its current title, price and picture.
+ *                      The editor's own copy of the block cannot say that.
+ *                      Read with the creator's session, which sees their own
+ *                      products whatever their status; a read that fails
+ *                      leaves the blocks as they are.
  *
  * The messages come only from the page that framed this one, on this
  * origin: a page elsewhere cannot frame this address at all (proxy.ts), and
  * one that could would have nothing to show.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { answersForBlocks, productIdsInBlocks, resolveProductBlocks, type ProductAnswers, type ProductsDb } from "@/lib/onepage/live-products"
+import { createClient } from "@/lib/supabase/client"
 import { ExtraBlockPreviewContext } from "@/components/onepage/extra-blocks"
 import { ONEPAGE_PREVIEW_CHANNEL, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import type { PublicOnePageData } from "@/lib/onepage/public-shape"
@@ -106,9 +117,53 @@ function sandboxWrites() {
   )
 }
 
+/** How long the first drawing waits for the product answers before it draws the blocks as they are. */
+const ANSWER_WAIT_MS = 1000
+
 export function OnePagePreviewDocument() {
-  const [page, setPage] = useState<PublicOnePageData | null>(null)
+  /* The page as the editor sent it; `page` below is what is drawn. */
+  const [sent, setSent] = useState<PublicOnePageData | null>(null)
   const drawn = useRef(false)
+
+  /*
+    WHAT THE CATALOGUE SAYS ABOUT THE PRODUCTS THE PAGE NAMES. Asked again
+    only when the page names a product it has not asked about, so typing in
+    the editor does not read the database on every key.
+  */
+  const [answers, setAnswers] = useState<ProductAnswers>(() => new Map())
+  const asked = useRef(new Set<string>())
+  const [waited, setWaited] = useState(false)
+  const sellerId = sent?.seller_id ?? null
+  const blocks = sent?.blocks
+  useEffect(() => {
+    if (!sellerId || !blocks) return
+    const fresh = productIdsInBlocks(blocks).filter((id) => !asked.current.has(id))
+    if (fresh.length === 0) return
+    for (const id of fresh) asked.current.add(id)
+    let db: ProductsDb
+    try {
+      db = createClient() as unknown as ProductsDb
+    } catch {
+      return
+    }
+    answersForBlocks(db, sellerId, blocks)
+      .then((got) => {
+        if (got.size > 0) setAnswers((prev) => new Map([...prev, ...got]))
+      })
+      .catch(() => {
+        /* Fail open: the blocks stay as the editor has them. */
+      })
+  }, [sellerId, blocks])
+  useEffect(() => {
+    if (!sent || waited) return
+    const t = window.setTimeout(() => setWaited(true), ANSWER_WAIT_MS)
+    return () => window.clearTimeout(t)
+  }, [sent, waited])
+
+  /* Held back only until the first answers are in, or a second has gone, so an archived product does not flash in and out. */
+  const unanswered = !!sent?.seller_id && productIdsInBlocks(sent.blocks).some((id) => !answers.has(id))
+  const page = useMemo(() => (sent ? { ...sent, blocks: resolveProductBlocks(sent.blocks, answers) } : null), [sent, answers])
+  const ready = !!page && (waited || !unanswered)
 
   useLayoutEffect(() => {
     sandboxWrites()
@@ -121,7 +176,7 @@ export function OnePagePreviewDocument() {
       if (e.origin !== window.location.origin || e.source !== parent) return
       const data = e.data as PreviewMessage | null
       if (!data || data.channel !== ONEPAGE_PREVIEW_CHANNEL || data.kind !== "page") return
-      setPage(data.page)
+      setSent(data.page)
     }
     window.addEventListener("message", onMessage)
     /* Here, and ready for the page: the editor answers with it. */
@@ -131,7 +186,7 @@ export function OnePagePreviewDocument() {
 
   /* Drawn once, with its fonts: the editor's loader can go (components/onepage/onepage-editor). */
   useEffect(() => {
-    if (!page || drawn.current) return
+    if (!ready || drawn.current) return
     drawn.current = true
     let done = false
     const say = () => {
@@ -144,9 +199,9 @@ export function OnePagePreviewDocument() {
     const cap = window.setTimeout(say, 1200)
     fonts.then(() => requestAnimationFrame(() => requestAnimationFrame(say)))
     return () => window.clearTimeout(cap)
-  }, [page])
+  }, [ready])
 
-  if (!page) return null
+  if (!page || !ready) return null
   return (
     /* The editor's, so a map waits for the typing to stop (components/onepage/extra-blocks). */
     <ExtraBlockPreviewContext.Provider value={true}>
