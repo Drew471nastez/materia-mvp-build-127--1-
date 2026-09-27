@@ -217,7 +217,7 @@ function describedFromThePage() {
   check("a group's products count, the ones it draws only", s(groupPage) === "Shop Inside from Mara Lee.")
   const carousel = [{ id: "g", type: "group", enabled: true, sort_order: 0, data: { layout: "carousel", children: [{ ...product("p1", "Shown"), enabled: true }, { ...product("p2", "Unset"), enabled: undefined }] } }]
   check("a carousel draws only the children switched on", s(carousel) === "Shop Shown from Mara Lee.")
-  const long = s(["Risograph Print Number One", "Risograph Print Number Two", "Risograph Print Number Three", "Risograph Print Four"].map((t, i) => product(`p${i}`, t, { sort_order: i })).concat([socialRow([["instagram", "@m"], ["tiktok", "@m"], ["youtube", "@m"], ["threads", "@m"], ["pinterest", "@m"]], { sort_order: 9 })]))
+  const long = s([...["Risograph Print Number One", "Risograph Print Number Two", "Risograph Print Number Three", "Risograph Print Four"].map((t, i) => product(`p${i}`, t, { sort_order: i })), socialRow([["instagram", "@m"], ["tiktok", "@m"], ["youtube", "@m"], ["threads", "@m"], ["pinterest", "@m"]], { sort_order: 9 })])
   check("held to 155, by naming fewer rather than cutting", textLength(long) <= SEO_AUTO_DESCRIPTION_MAX && !long.includes("…") && long.startsWith("Shop 4 products from Mara Lee"), long)
   const every = [
     s([product("p1", "A")]),
@@ -254,7 +254,8 @@ function describedFromThePage() {
   console.log("\nThe bio, tidied and cut")
   check("lines become sentences, decorations and addresses go", tidyBio("Photographer\n• London\n\nBookings: mara@example.com\nPrints &amp; zines") === "Photographer. London. Bookings. Prints & zines", tidyBio("Photographer\n• London\n\nBookings: mara@example.com\nPrints &amp; zines"))
   check("markup lines too", tidyBio("<p>Prints</p><p>Zines</p>") === "Prints. Zines")
-  check("invisible and control characters go", tidyBio("Pri​nts\u0007 and zines") === "Pri nts and. zines")
+  const ls = String.fromCharCode(0x2028), zw = String.fromCharCode(0x200b), bell = String.fromCharCode(7)
+  check("invisible and control characters go", tidyBio(`Pri${zw}nts${bell} and${ls}zines`) === "Pri nts and. zines")
   const early = cutAtWord("I print risographs in Leeds. Every print is pulled by hand on recycled paper, signed and numbered, and posted on Fridays to anywhere in the world with a note.", 155)
   check("a sentence that ends early is not where it stops: too little would be left", early.endsWith("…") && early.length > 100, early)
   const cut = cutAtWord("Prints, posters and a newsletter for people who like paper, ink, and the smell of a studio in the morning; also zines, totes and the occasional shirt (and more", 155)
