@@ -2843,7 +2843,7 @@ function ThemeChatPanel({
             them, each blurring the page a little less than the one inside it
             and taking a touch of the saturation out. Their blurs stack (a
             ring's backdrop is the ring outside it, already drawn), so the
-            softening runs from about 4px at the pill's hairline to nothing
+            softening runs from about 3px at the pill's hairline to nothing
             at the outer edge; the mask on each feathers its own edge away
             where masks reach backdrop filters, and where they do not the
             five radii are still a staircase and not a cut. SOFTEN_RINGS in
@@ -2875,7 +2875,7 @@ function ThemeChatPanel({
           {/*
             The pill's two faces: near solid white over the canvas, plain
             white as the conversation's input row. Folded it is 95% white
-            over a light 10px blur, so it reads over a dark page as well as
+            over a light 7px blur, so it reads over a dark page as well as
             a white one; a hairline of ink for its edge; and three soft
             shadows of the page's own ink (close, middle, far) for depth.
             Nothing outside it is lighter than the page: no glow.
@@ -2883,7 +2883,7 @@ function ThemeChatPanel({
           <span
             aria-hidden
             data-ask-glass=""
-            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#1a1a2e]/[0.08] bg-white/[0.95] shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)] backdrop-blur-[10px] backdrop-saturate-[1.2]"
+            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#1a1a2e]/[0.08] bg-white/[0.95] shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)] backdrop-blur-[7px] backdrop-saturate-[1.2]"
             style={appear(!expanded && !pillAway, 280, 200)}
           />
           <span

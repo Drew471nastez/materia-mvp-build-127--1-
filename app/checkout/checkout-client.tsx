@@ -43,7 +43,7 @@ import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, Secti
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
 import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
-import { PaidOverlay } from "./parts/success"
+import { PaidOverlay, holdPaidScreen } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
 import { HtmlClass } from "@/components/platform/html-class"
 
@@ -82,6 +82,17 @@ interface CheckoutPageClientProps {
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TIP_MAX_CENTS = 100_000
 const MIN_CHARGE_CENTS = 50
+/** Which way out of the checkout was pressed. */
+type Way = "back" | "shop" | "creator"
+/** The longest the old frame is held while the page behind draws: see leaveWithFade. */
+const LEAVE_HOLD_MS = 400
+/** How long the press is answered live (Back pressed, the page easing back) before that picture is taken. */
+const CAPTURE_AFTER_MS = 64
+/** When React draws a press that the page has already shown (see startGoing). */
+const GOING_STATE_MS = 120
+/** How long "Payment complete" is on screen before the receipt, long enough to be read. */
+const PAID_SCREEN_MS = 1100
+const receiptHref = (receiptToken: string) => `/receipt/${encodeURIComponent(receiptToken)}`
 
 /** Names and email survive a reload and a trip to the product page, for this tab only. */
 function remembered(key: string): string {
@@ -263,28 +274,54 @@ export default function CheckoutPageClient({
     when it is the same site, is returned to with history.back(), which is
     instant. With nothing behind (a shared checkout link), the product page
     REPLACES the checkout rather than stacking on it. And the press is
-    answered on the same frame: the control shows a spinner and the page
-    dims, whatever the network does.
+    answered on the next frame, whatever the network does.
   */
   /*
     WHICH WAY OUT was pressed: Back, Continue shopping, or the creator. The
-    page answers each the same way, and only when it needs to: the arrow
-    turns into a spinner and the page dims only 250ms after the press, so a
-    Back through history (under a tenth of a second) shows nothing at all
-    and a slow fetch still says it is on its way. No white sheet, no flash.
+    control that was pressed stays pressed from the next frame and the page
+    eases back a shade (to 80% over 100ms), so the press is seen to have
+    landed whatever comes next. The arrow turns into a spinner only when
+    the wait is long (about 370ms: startGoing's GOING_STATE_MS, then the
+    spinner's own 250ms), so a Back through history never shows it and a
+    slow fetch still says it is on its way. No white sheet, no flash.
   */
-  const [going, setGoing] = React.useState<null | "back" | "shop" | "creator">(null)
+  const [going, setGoing] = React.useState<null | Way>(null)
   const leaving = going === "back"
+  const pageRef = React.useRef<HTMLDivElement>(null)
+  const goingLater = React.useRef(0)
+  /*
+    The press is answered in the page itself, inside the click: the
+    attribute that holds Back pressed and eases the page back is set on the
+    element there and then. React's own render of it (the spinner that
+    shows only after 250ms, the reset below) waits GOING_STATE_MS, past the
+    first frames and the picture leaveWithFade takes: filmed with the whole
+    checkout re-rendered inside the click, the first frame after it came
+    40 to 60ms late.
+  */
+  const startGoing = (way: Way) => {
+    pageRef.current?.setAttribute("data-leaving", way)
+    window.clearTimeout(goingLater.current)
+    goingLater.current = window.setTimeout(() => setGoing(way), GOING_STATE_MS)
+  }
+  /** Pressed already, whether or not React has drawn it yet: a second press does nothing. */
+  const alreadyGoing = () => !!going || !!pageRef.current?.hasAttribute("data-leaving")
   React.useEffect(() => {
     if (!going) return
     const t = window.setTimeout(() => setGoing(null), 8000)
     return () => window.clearTimeout(t)
   }, [going])
-  /* A page brought back from the browser's cache is not still leaving. */
+  /* A page brought back from the browser's cache is not still leaving, and a render of the press still waiting is dropped. */
   React.useEffect(() => {
-    const reset = () => setGoing(null)
+    const reset = () => {
+      window.clearTimeout(goingLater.current)
+      pageRef.current?.removeAttribute("data-leaving")
+      setGoing(null)
+    }
     window.addEventListener("pageshow", reset)
-    return () => window.removeEventListener("pageshow", reset)
+    return () => {
+      window.removeEventListener("pageshow", reset)
+      window.clearTimeout(goingLater.current)
+    }
   }, [])
   /** The product page as a path on this site, or null when it is on another (a creator's website). */
   const ownPath = (href: string): string | null => {
@@ -330,42 +367,78 @@ export default function CheckoutPageClient({
 
   /*
     ═══════════════════════════════════════════════════════════════════════
-     LEAVING IS A CROSS-FADE, NOT A CUT
+     LEAVING IS A CROSS-FADE, AND IT NEVER HOLDS THE PAGE
     ═══════════════════════════════════════════════════════════════════════
-    history.back() brings the product page back in well under a tenth of a
-    second, and it used to arrive as a hard cut from one page to the other.
-    Where the browser has View Transitions, the way out is wrapped in one:
-    the checkout as it is, fading into the page Back lands on, over 240ms
-    (globals.css, html[data-checkout-motion]). The transition waits until the
-    checkout has actually left the screen, and gives up after 1.2 seconds so
-    a slow page is never held frozen; with reduced motion, or no support,
-    it is the plain navigation it always was.
+    "I click back, nothing happens, and it takes me back abruptly after 5
+    seconds." Measured on storelib.com (a product, its checkout, Back, at
+    1280 wide): with the view transition taken out the product page was on
+    screen 164ms after the press; with it, 4,050ms. The page behind was
+    never slow. The transition was: its update waited for the checkout to
+    leave by polling on requestAnimationFrame, and while a view transition
+    waits for its update the browser draws nothing, so no animation frame
+    ever came. The poll never ran, nor its own 1.2 second limit, and
+    Chrome gave up on the transition after its fixed 4 seconds with the old
+    frame frozen on screen the whole time.
+
+    Now the way out starts on the press, before the transition and not
+    inside it, so the page behind is being drawn from the first moment.
+    The press is answered on the next frame (Back held pressed, the page
+    easing back to 80% over 100ms), and that is shown live for at least
+    three frames and CAPTURE_AFTER_MS before the old frame is captured.
+    The transition then only waits for the checkout to be gone, which a
+    MutationObserver sees without needing a frame, and never longer than
+    LEAVE_HOLD_MS on a timer, which needs none either. A page behind that
+    is slower than that gets the live checkout back, with its spinner,
+    until it lands: never a frozen picture. If the page behind is already
+    there before the capture, there is nothing to fade and no transition
+    is started. With reduced motion, or no support, it is the plain
+    navigation with the same answer to the press.
+
+    It was also never a cross-fade. Every root picture in this app is
+    `animation: none` (globals.css, the page layers), and the checkout's
+    rule only changed the duration of an animation that was not there, so
+    the pages swapped in one frame. globals.css now names the fade in full.
+    scripts/check-checkout-motion.mjs films it and times every frame.
   */
   const leaveWithFade = (go: () => void) => {
+    go()
     const doc = document as Document & { startViewTransition?: (cb: () => Promise<void>) => { finished: Promise<void> } }
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    if (!doc.startViewTransition || reduced) return go()
+    if (!doc.startViewTransition || reduced) return
+    const beginFade = doc.startViewTransition.bind(doc)
     const html = document.documentElement
-    html.setAttribute("data-checkout-motion", "leave")
-    try {
-      const t = doc.startViewTransition(
-        () =>
-          new Promise<void>((resolve) => {
-            go()
-            const start = performance.now()
-            const tick = () => {
-              const gone = !document.querySelector('[data-page="checkout"]')
-              if (gone || performance.now() - start > 1200) resolve()
-              else requestAnimationFrame(tick)
-            }
-            requestAnimationFrame(tick)
-          }),
-      )
-      t.finished.finally(() => html.removeAttribute("data-checkout-motion"))
-    } catch {
-      html.removeAttribute("data-checkout-motion")
-      go()
+    const gone = () => !document.querySelector('[data-page="checkout"]')
+    const landed = () =>
+      new Promise<void>((resolve) => {
+        if (gone()) return resolve()
+        let cap = 0
+        const watch = new MutationObserver(() => {
+          if (gone()) done()
+        })
+        const done = () => {
+          watch.disconnect()
+          window.clearTimeout(cap)
+          resolve()
+        }
+        watch.observe(document.body, { childList: true, subtree: true })
+        cap = window.setTimeout(done, LEAVE_HOLD_MS)
+      })
+    const pressed = performance.now()
+    let frames = 0
+    const capture = (now: number) => {
+      /* Both: on a slow phone three frames can take far longer than 64ms, and the fade must have started on screen. */
+      if (++frames < 3 || now - pressed < CAPTURE_AFTER_MS) return void requestAnimationFrame(capture)
+      if (gone()) return
+      html.setAttribute("data-checkout-motion", "leave")
+      try {
+        beginFade(landed)
+          .finished.catch(() => {})
+          .finally(() => html.removeAttribute("data-checkout-motion"))
+      } catch {
+        html.removeAttribute("data-checkout-motion")
+      }
     }
+    requestAnimationFrame(capture)
   }
 
   /**
@@ -377,8 +450,8 @@ export default function CheckoutPageClient({
   const goShopping = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!plainClick(e)) return
     e.preventDefault()
-    if (going) return
-    setGoing("shop")
+    if (alreadyGoing()) return
+    startGoing("shop")
     if (canReturnTo(shopUrl)) {
       leaveWithFade(() => window.history.back())
       return
@@ -395,8 +468,8 @@ export default function CheckoutPageClient({
     /* A new tab, a new window, a context menu: the browser's. */
     if (!plainClick(e)) return
     e.preventDefault()
-    if (going) return
-    setGoing("back")
+    if (alreadyGoing()) return
+    startGoing("back")
     const cameFrom = (() => {
       try {
         return document.referrer ? new URL(document.referrer).origin : null
@@ -411,8 +484,14 @@ export default function CheckoutPageClient({
         return null
       }
     })()
-    if (canReturnInApp() || (cameFrom !== null && cameFrom === target && window.history.length > 1)) {
+    /* The page behind is one of ours in this tab: the router draws it, and the cross-fade can wait for it. */
+    if (canReturnInApp()) {
       leaveWithFade(() => window.history.back())
+      return
+    }
+    /* The page behind is another document (a creator's website): the browser's own Back, from its cache when it can. */
+    if (cameFrom !== null && cameFrom === target && window.history.length > 1) {
+      window.history.back()
       return
     }
     const path = ownPath(productUrl)
@@ -422,10 +501,27 @@ export default function CheckoutPageClient({
     }
     leaveWithFade(() => router.replace(path))
   }
+  /** Back from a bank's page with a payment that went through: the page opens on "Finishing your order". */
+  const [arriving, setArriving] = React.useState(() => {
+    /* Known from the address, so the very first frame (the server's) is
+       already "Finishing your order", never the form with Pay on it. */
+    const status = searchParams.get("redirect_status")
+    return !!searchParams.get("payment_intent") && !!searchParams.get("payment_intent_client_secret") && status !== "failed" && status !== "processing" && status !== "pending"
+  })
   /**
    * AFTER PAYING: the creator's website when the link asked for it and the
    * server agreed, else the receipt. The receipt is emailed either way, and
    * its address never travels to the website: it is a credential.
+   *
+   * ONE SCREEN FROM PAID TO THE RECEIPT. "After finishing the checkout,
+   * paid or free, the transition must be smooth and clean." It was three:
+   * the check, then (the moment the receipt was asked for) the checkout and
+   * its overlay taken down for the receipt's loading page, which waits
+   * 200ms before it shows anything, so a bare grey page, then its skeleton,
+   * then the receipt. Now the receipt is fetched while the check draws, and
+   * the paid screen is held over the page (holdPaidScreen) until the
+   * receipt itself is drawn under it, then fades off it. Nothing in
+   * between is ever seen.
    */
   const afterPaid = React.useCallback(
     (receiptToken: string) => {
@@ -433,9 +529,26 @@ export default function CheckoutPageClient({
         window.location.replace(paidReturnUrl(returnTo))
         return
       }
-      router.replace(`/receipt/${encodeURIComponent(receiptToken)}`)
+      holdPaidScreen()
+      router.replace(receiptHref(receiptToken))
     },
     [returnTo, router],
+  )
+  /** Paid, with the receipt's token: the check on screen, the receipt asked for now, and opened once the check has been seen. */
+  const showPaid = React.useCallback(
+    (receiptToken: string, paidState: { total: number; free: boolean }) => {
+      setPaid(paidState)
+      setArriving(false)
+      if (!returnTo) {
+        try {
+          router.prefetch(receiptHref(receiptToken), { kind: "full" } as never)
+        } catch {
+          /* then it is fetched when it is opened, under the same held screen */
+        }
+      }
+      window.setTimeout(() => afterPaid(receiptToken), PAID_SCREEN_MS)
+    },
+    [afterPaid, returnTo, router],
   )
 
   /* ── After paying: the order, then the receipt ───────────────────── */
@@ -461,9 +574,7 @@ export default function CheckoutPageClient({
           () => null,
         )
         if (res?.ok && res.data.receiptToken) {
-          const token = res.data.receiptToken
-          setPaid({ total: res.data.amountCents ?? 0, free: false })
-          window.setTimeout(() => afterPaid(token), 1100)
+          showPaid(res.data.receiptToken, { total: res.data.amountCents ?? 0, free: false })
           return
         }
         /* A refusal is an answer; only a failure to answer is retried. */
@@ -475,7 +586,7 @@ export default function CheckoutPageClient({
       setSettled(true)
       throw new Error(last)
     },
-    [afterPaid],
+    [showPaid],
   )
 
   /* Arriving with a payment in the address: back from a bank's page, or a
@@ -503,7 +614,10 @@ export default function CheckoutPageClient({
     }
     setBusy(true)
     finish(piId, secret)
-      .catch((e: Error) => setError(e.message))
+      .catch((e: Error) => {
+        setArriving(false)
+        setError(e.message)
+      })
       .finally(() => setBusy(false))
     // Once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -658,9 +772,7 @@ export default function CheckoutPageClient({
       delete body.business
       const res = await postJson<{ receiptToken?: string }>("/api/checkout/process", body)
       if (!res.ok || !res.data.receiptToken) throw new Error(res.data.error || "The order could not be finished. Try again.")
-      const token = res.data.receiptToken
-      setPaid({ total: 0, free: true })
-      window.setTimeout(() => afterPaid(token), 1100)
+      showPaid(res.data.receiptToken, { total: 0, free: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : "The order could not be finished. Try again.")
     } finally {
@@ -792,8 +904,8 @@ export default function CheckoutPageClient({
           isPwyw={pwywNow}
           promo={discount(suffix)}
         />
-        <div className="mt-2">{tip(suffix)}</div>
-        <div className="mt-3">
+        <div className="mt-5">{tip(suffix)}</div>
+        <div className="mt-5">
           <Totals part="bottom" subtotal={subtotal} discountCents={discountCents} total={total} />
         </div>
       </div>
@@ -923,31 +1035,38 @@ export default function CheckoutPageClient({
   )
 
   return (
+    <>
     <div
+      ref={pageRef}
       data-page="checkout"
-      data-leaving={going ? "" : undefined}
+      data-leaving={going ?? undefined}
       /* Under the paid check, nothing behind it can be reached. */
       inert={!!paid}
       className={cn(
-        "relative min-h-screen bg-white transition-opacity duration-200 lg:bg-[#f6f7f8]",
-        /* Dimmed only if the next page is slow to come: a quick one never shows it. */
-        going && "pointer-events-none opacity-70 delay-[250ms]",
+        "group/page relative min-h-screen bg-white transition-opacity duration-100 lg:bg-[#f8f9fa]",
+        /* The press answered on the next frame: the page eases back a shade as it goes. */
+        "data-[leaving]:pointer-events-none data-[leaving]:opacity-80",
       )}
     >
       <HtmlClass name="with-page-checkout" />
       {/*
         THE SPLIT, WITH DEPTH. The grey half is the order, the white half is
         the form, and the white half sits over the grey on a long soft shadow,
-        the way Stripe Checkout's two halves read as a sheet on a desk.
+        the way Stripe Checkout's two halves read as a sheet on a desk. "Too
+        much depth shadow" on the split: shorter and fainter than it was
+        (-12px 32px at 0.16), so the halves meet on a hint of depth rather
+        than a ridge. The grey is the app's own #f8f9fa, a shade lighter than
+        before, still clearly apart from the white.
       */}
-      <div aria-hidden className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-12px_0_32px_-16px_rgba(17,24,39,0.16)] lg:block" />
+      <div aria-hidden className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-8px_0_24px_-14px_rgba(17,24,39,0.11)] lg:block" />
 
       {/*
         ═══════════════════════════════════════════════════════════════════
          THE BAR ACROSS THE TOP
         ═══════════════════════════════════════════════════════════════════
         White, on a hairline and one soft shadow, just enough to sit over
-        both halves of the page. Back on the left as a quiet rounded square
+        both halves of the page (a touch less deep than it was: the shadow
+        under the hairline was 6px 16px at 0.12). Back on the left as a quiet rounded square
         with a faint lip (no circle, no raised disc), with a 44px target
         around its 36px face; the creator beside it, which opens their page; Continue
         shopping on the right, which goes to the product. Its edges line up
@@ -959,7 +1078,7 @@ export default function CheckoutPageClient({
       */}
       <header
         data-checkout-bar=""
-        className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.06),0_6px_16px_-12px_rgba(17,17,19,0.12)]"
+        className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.055),0_4px_12px_-10px_rgba(17,17,19,0.09)]"
       >
         <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-1.5 px-4 sm:px-7 lg:h-16 lg:px-[60px]">
           <ReturnLink
@@ -972,7 +1091,11 @@ export default function CheckoutPageClient({
           >
             <span
               data-back-face=""
-              className="relative grid h-9 w-9 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04),0_1px_3px_-1px_rgba(17,17,19,0.06)] transition-[scale,background-color] duration-150 ease-out group-hover/back:bg-[#f7f7f8] group-active/back:scale-[0.94] group-active/back:bg-[#f1f2f4] group-focus-visible/back:outline-2 group-focus-visible/back:outline-offset-2 group-focus-visible/back:outline-[#1a1a2e] motion-reduce:transition-none"
+              className={cn(
+                "relative grid h-9 w-9 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04),0_1px_3px_-1px_rgba(17,17,19,0.06)] transition-[scale,background-color] duration-150 ease-out group-hover/back:bg-[#f7f7f8] group-active/back:scale-[0.94] group-active/back:bg-[#f1f2f4] group-focus-visible/back:outline-2 group-focus-visible/back:outline-offset-2 group-focus-visible/back:outline-[#1a1a2e] motion-reduce:transition-none",
+                /* Pressed, and it stays pressed until the page behind is here. */
+                "group-data-[leaving=back]/page:scale-[0.94] group-data-[leaving=back]/page:bg-[#f1f2f4]",
+              )}
             >
               <ArrowLeft
                 aria-hidden
@@ -992,7 +1115,7 @@ export default function CheckoutPageClient({
             <ReturnLink
               href={creatorHref}
               onClick={(e) => {
-                if (plainClick(e)) setGoing("creator")
+                if (plainClick(e)) startGoing("creator")
               }}
               data-creator-link=""
               className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-[14px] font-medium text-[#1a1a2e] outline-none transition-[opacity] duration-150 hover:bg-black/[0.035] focus-visible:outline-2 focus-visible:outline-[#1a1a2e]/40 active:opacity-70 [-webkit-tap-highlight-color:transparent]"
@@ -1014,7 +1137,12 @@ export default function CheckoutPageClient({
             data-continue=""
             className="group/shop ml-auto mr-1 grid min-h-[44px] shrink-0 place-items-center outline-none [-webkit-tap-highlight-color:transparent]"
           >
-            <span className="inline-flex h-9 items-center rounded-[9px] border border-[#e1e3e7] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04)] transition-[scale] duration-150 ease-out group-hover/shop:border-[#d2d5da] group-hover/shop:bg-[#fafafb] group-active/shop:scale-[0.97] group-active/shop:bg-[#f3f4f6] group-focus-visible/shop:outline-2 group-focus-visible/shop:outline-offset-2 group-focus-visible/shop:outline-[#1a1a2e] motion-reduce:transition-none">
+            <span
+              className={cn(
+                "inline-flex h-9 items-center rounded-[9px] border border-[#e1e3e7] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04)] transition-[scale] duration-150 ease-out group-hover/shop:border-[#d2d5da] group-hover/shop:bg-[#fafafb] group-active/shop:scale-[0.97] group-active/shop:bg-[#f3f4f6] group-focus-visible/shop:outline-2 group-focus-visible/shop:outline-offset-2 group-focus-visible/shop:outline-[#1a1a2e] motion-reduce:transition-none",
+                "group-data-[leaving=shop]/page:scale-[0.97] group-data-[leaving=shop]/page:bg-[#f3f4f6]",
+              )}
+            >
               Continue shopping
             </span>
           </Link>
@@ -1026,7 +1154,7 @@ export default function CheckoutPageClient({
         <section
           aria-label="Order summary"
           data-summary=""
-          className="checkout-enter border-b border-black/[0.06] bg-[#f6f7f8] px-5 pb-6 pt-6 sm:px-8 lg:border-b-0 lg:bg-transparent lg:px-16 lg:pb-16 lg:pt-12"
+          className="checkout-enter border-b border-black/[0.06] bg-[#f8f9fa] px-5 pb-6 pt-6 sm:px-8 lg:border-b-0 lg:bg-transparent lg:px-16 lg:pb-16 lg:pt-12"
         >
           <div className="mx-auto w-full max-w-[440px] lg:ml-auto lg:mr-0 lg:sticky lg:top-12">
             <div>
@@ -1075,7 +1203,14 @@ export default function CheckoutPageClient({
         </main>
       </div>
 
-      <PaidOverlay show={!!paid} total={paid?.total ?? 0} free={!!paid?.free} returningTo={returnTo ? returnHostLabel(returnTo) : null} />
     </div>
+    {/* Beside the page, not in it: the page is inert once paid, and an inert status would never be read out. */}
+    <PaidOverlay
+      state={paid ? "paid" : arriving ? "finishing" : null}
+      total={paid?.total ?? 0}
+      free={!!paid?.free}
+      returningTo={returnTo ? returnHostLabel(returnTo) : null}
+    />
+    </>
   )
 }

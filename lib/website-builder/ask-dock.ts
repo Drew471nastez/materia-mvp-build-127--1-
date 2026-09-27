@@ -58,10 +58,16 @@ export const SLIDE_MS = 320
     THE STAIRCASE   five rings, each a little wider than the last and each
                     blurring a little less. Backdrop filters stack: a ring's
                     backdrop is what the ring outside it already drew, so
-                    the blur adds up in quadrature towards the pill — 0.9,
-                    1.3, 1.8, 2.7, 4.3px at the five edges, the last of them
-                    near the 5px the old band was approved at — and is gone
-                    by the outer edge. No mask is involved, so this much
+                    the blur adds up in quadrature towards the pill (0.7,
+                    1.0, 1.3, 1.9, 2.8px at the five edges) and is gone by
+                    the outer edge.
+
+                    IT WAS 4.3px AT THE PILL, AND THAT WAS TOO STRONG. "Has
+                    too much blur, reduce its strength a little bit": over
+                    a dark product photo the old ramp pulled the light parts
+                    of the picture into white streaks round the pill. Every
+                    ring now blurs about a third less, so the page still
+                    softens into the pill but keeps its shapes. No mask is involved, so this much
                     survives in any engine, and a step between two rings is
                     a step between two blur radii, not between blurred and
                     sharp.
@@ -71,10 +77,9 @@ export const SLIDE_MS = 320
                     thing a screen can hold is a stripe every other pixel,
                     and keeping each ring's edge from taking more than about
                     a third of that at once means σ can only grow by so much
-                    per ring. Five is what it takes to get from nothing to
-                    4.3px that way, and under a pixel the rasteriser rounds
-                    the ring away to nothing at all, so 0.9 is where it
-                    starts. scripts/check-ask-ai.mjs measures it
+                    per ring. Five keeps every step well inside that, and
+                    the outermost two start at 0.7px so the ramp begins
+                    below what a single step can show. scripts/check-ask-ai.mjs measures it
                     with the masks taken off, which is what WebKit does.
     THE FEATHER     on top of that, each ring carries a mask that ramps its
                     own outer `fade` px away to nothing. Where masks reach
@@ -109,11 +114,11 @@ export interface SoftenRing {
   fade: number
 }
 export const SOFTEN_RINGS: SoftenRing[] = [
-  { reach: 24, blur: 0.9, saturate: 0.995, fade: 11 },
-  { reach: 19, blur: 0.9, saturate: 0.992, fade: 10 },
-  { reach: 14, blur: 1.3, saturate: 0.988, fade: 9 },
-  { reach: 9, blur: 2, saturate: 0.984, fade: 8 },
-  { reach: 5, blur: 3.3, saturate: 0.98, fade: 7 },
+  { reach: 24, blur: 0.7, saturate: 0.995, fade: 11 },
+  { reach: 19, blur: 0.7, saturate: 0.992, fade: 10 },
+  { reach: 14, blur: 0.9, saturate: 0.988, fade: 9 },
+  { reach: 9, blur: 1.3, saturate: 0.984, fade: 8 },
+  { reach: 5, blur: 2.1, saturate: 0.98, fade: 7 },
 ]
 /** The folded pill's corner radius (`rounded-[27px]`), which the rings grow out of. */
 export const PILL_RADIUS = 27

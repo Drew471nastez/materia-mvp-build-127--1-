@@ -6239,14 +6239,17 @@ html.pop-in-flight #platform-header-root {
   .checkout-shimmer-soft { animation: none; }
 }
 
-/* Leaving the checkout: the page as it was fades into the page Back lands on (checkout-client leaveWithFade). */
-html[data-checkout-motion]::view-transition-old(root),
+/* Leaving the checkout (checkout-client leaveWithFade): the page Back lands on fades in over the
+   checkout as it was, over 240ms, once it is there; the transition waits for it, never longer than
+   400ms. Spelled out in full because every root picture is `animation: none` by default here (the
+   page layers above), which is why this was only ever a swap when it said a duration alone. The old
+   picture holds still under the new one, so it is a true cross-fade, never a dip through white. */
+@keyframes checkout-arrive { from { opacity: 0; } }
+html[data-checkout-motion]::view-transition-old(root) { animation: none; }
 html[data-checkout-motion]::view-transition-new(root) {
-  animation-duration: 240ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation: checkout-arrive 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  html[data-checkout-motion]::view-transition-old(root),
   html[data-checkout-motion]::view-transition-new(root) { animation: none; }
 }
 
@@ -6274,6 +6277,16 @@ html[data-checkout-motion]::view-transition-new(root) {
   animation: checkout-paid-draw 300ms cubic-bezier(0.65, 0, 0.35, 1) 520ms forwards;
 }
 .checkout-paid-text { animation: checkout-rise 240ms ease-out 560ms both; }
+/* Back from a bank's page, the order still being saved: an arc that turns in the same circle the check is drawn in. */
+.checkout-paid-wait { transform-origin: 32px 32px; animation: spin 0.9s linear infinite; }
+/* The paid screen held over the change of page (checkout parts/success holdPaidScreen): as it
+   stood, check drawn, nothing playing again, and then off the receipt on its opacity alone. */
+.checkout-paid-held,
+.checkout-paid-held * { animation: none !important; }
+.checkout-paid-held .checkout-paid-ring,
+.checkout-paid-held .checkout-paid-check { stroke-dashoffset: 0; }
+.checkout-paid-held { transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.checkout-paid-held.checkout-paid-release { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .checkout-enter,
@@ -6283,6 +6296,7 @@ html[data-checkout-motion]::view-transition-new(root) {
   .checkout-paid-text { animation: none; }
   .checkout-paid-ring,
   .checkout-paid-check { animation: none; stroke-dashoffset: 0; }
+  .checkout-paid-held { transition: none; }
 }
 
 /* ── The trend charts' axis numbers (components/app/chart-morph) ────────────
