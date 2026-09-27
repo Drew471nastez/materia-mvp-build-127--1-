@@ -847,6 +847,7 @@ export async function sendReceiptCopyEmail(
     buyerFirstName: params.buyerFirstName,
     sellerName: fromName,
     supportEmail: replyTo,
+    creatorId: params.creatorId,
     fallback: { productTitle: params.productTitle, variantName: params.variantName, amountCents: params.amountCents, orderId: params.orderId },
   })
   const firstTitle = model.items[0]?.title ?? params.productTitle
