@@ -258,6 +258,7 @@ async function throughSupabase(base: string) {
   check("mara: the page saved under another address, by the account", is(await r("mara"), "page", { page: "op-mara", via: "username" }))
   check("any case", is(await r("LucaDragoste"), "page", { page: "op-luca" }) && is(await r("Dj-Danut"), "creator", { username: "dj-danut" }))
   check("a renamed account and a renamed page are moved", is(await r("oldmara"), "moved", { name: "mara" }) && is(await r("mara-old"), "moved", { name: "mara-lind" }))
+  check("an old page address in any case (the history holds it lower case)", is(await r("Mara-OLD"), "moved", { name: "mara-lind", via: "slug" }))
   check("two published rows are one page, not an error read as none", is(await r("twice"), "page"))
   check("a draft is not served", is(await r("draftie"), "creator", { username: "draftie" }))
   check("_ is sent literal: a_b is not axb", is(await r("a_b"), "missing"))
@@ -331,6 +332,25 @@ async function throughProxy(base: string) {
   process.env.NEXT_PUBLIC_SUPABASE_URL = base
 }
 
+/* ─── The page address history, in the database ───────────────────────── */
+
+function history() {
+  console.log("\nThe database keeps a page's old addresses (SQL part 58)")
+  const part = code("supabase/sql/run-now/58_onepage_old_addresses.sql")
+  const lines = part.trimEnd().split("\n")
+  check("a /* */ header saying what it does, then one statement per line", /^\/\*[^\n]*\*\/$/.test(lines[0]) && lines.slice(1).every((l) => /;$/.test(l.trim())) && !/^--/m.test(part))
+  check("safe to run twice", /CREATE TABLE IF NOT EXISTS public\.onepage_slug_history/.test(part) && /CREATE INDEX IF NOT EXISTS/.test(part) && /CREATE OR REPLACE FUNCTION public\.onepages_keep_old_slug\(\)/.test(part) && /DROP TRIGGER IF EXISTS onepages_keep_old_slug ON public\.onepages; CREATE TRIGGER onepages_keep_old_slug AFTER UPDATE OF slug ON public\.onepages/.test(part))
+  check("nothing where there is no onepages table", (part.match(/IF to_regclass\('public\.onepages'\) IS NULL/g) ?? []).length === 2)
+  check("it keeps the old address in lower case, and only a real change (not a change of case)", /lower\(OLD\.slug\) IS DISTINCT FROM lower\(NEW\.slug\)/.test(part) && /VALUES \(OLD\.id, lower\(btrim\(OLD\.slug\)\)/.test(part))
+  check("it never stops a save", /EXCEPTION WHEN OTHERS THEN RAISE WARNING 'onepages_keep_old_slug skipped/.test(part))
+  check("server only: row level security on, no policy, nothing for anon or a signed in user", /ENABLE ROW LEVEL SECURITY/.test(part) && !/CREATE POLICY/.test(part) && /REVOKE ALL ON public\.onepage_slug_history FROM anon, authenticated/.test(part) && /REVOKE ALL ON FUNCTION public\.onepages_keep_old_slug\(\) FROM PUBLIC, anon, authenticated/.test(part))
+  check("the check after names it", /as p58_onepage_old_addresses;?\s*$/.test(code("supabase/sql/run-now/99_check_after.sql")))
+  check("the README lists it", /\| `58_onepage_old_addresses\.sql` \|/.test(code("supabase/sql/run-now/README.md")))
+  check("and the bundles carry it", /-- part 58_onepage_old_addresses\.sql/.test(code("supabase/sql/run-four/3_of_4_latest.sql")) && /-- part 58_onepage_old_addresses\.sql/.test(code("supabase/sql/all-in-three/2_of_3_latest.sql")))
+  const lookup = code("lib/onepage/address-lookup.ts")
+  check("the lookup reads it by the lower cased name, which the index answers", /\.from\("onepage_slug_history"\)[\s\S]{0,300}\.eq\("old_slug", name\.toLowerCase\(\)\)/.test(lookup))
+}
+
 /* ─── The wiring ──────────────────────────────────────────────────────── */
 
 function wiring() {
@@ -373,6 +393,7 @@ async function main() {
     server.close()
   }
   wiring()
+  history()
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

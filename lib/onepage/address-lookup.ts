@@ -96,7 +96,8 @@ export function supabaseOnePageLookup<Row = Record<string, unknown>>(supabase: S
         (await supabase
           .from("onepage_slug_history")
           .select("onepage_id")
-          .ilike("old_slug", exactIlike(name))
+          /* Written in lower case by its trigger, so an exact match on the lower cased name is any case, and uses the index. */
+          .eq("old_slug", name.toLowerCase())
           .order("changed_at", { ascending: false })
           .limit(1)
           .maybeSingle()) as Answer<{ onepage_id: string | null }>,
