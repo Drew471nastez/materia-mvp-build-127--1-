@@ -39,12 +39,41 @@ import { profileAvatar } from "./avatar"
  * row is a leftover by definition — it is the Google photo that kept coming
  * back in the top bar — and it follows the profile without asking whether
  * somebody chose it, because nobody did.
+ *
+ * ONLY THE ACCOUNT PICTURE, NOT EVERY PICTURE ON THE SAME HOST. This used to
+ * match any address on googleusercontent.com, fbcdn.net or pbs.twimg.com,
+ * and those hosts also serve pictures a person chooses on purpose: Google
+ * Photos and Blogger images, Instagram and Facebook posts, tweets. A picture
+ * like that set as a OnePage photo was passed over and the page drew
+ * something else. The shapes below are the ones a sign in hands over:
+ *
+ *   Google    lh3.googleusercontent.com/a/..., /a-/..., and the older
+ *             /-xxxx/AAAAAAAAAAI/... account photo
+ *   Facebook  graph.facebook.com/<id>/picture, platform-lookaside.fbsbx.com
+ *             /platform/profilepic
+ *   X         pbs.twimg.com/profile_images/...
+ *   GitHub    avatars.githubusercontent.com (only ever an account picture)
+ *   Discord   cdn.discordapp.com/avatars/...
+ *   LinkedIn  media.licdn.com/dms/image/.../profile-displayphoto...
+ *
+ * An address the person uploaded is always in Storelib's own storage, so it
+ * can never look like any of these.
  */
-const PROVIDER_HOSTS =
-  /^https?:\/\/(?:[a-z0-9-]+\.)*(?:googleusercontent\.com|ggpht\.com|graph\.facebook\.com|fbcdn\.net|pbs\.twimg\.com|avatars\.githubusercontent\.com|cdn\.discordapp\.com|media-exp\d?\.licdn\.com|licdn\.com)\//i
+const PROVIDER_PHOTO = [
+  /^https?:\/\/(?:[a-z0-9-]+\.)*googleusercontent\.com\/(?:a|a-)\//i,
+  /^https?:\/\/(?:[a-z0-9-]+\.)*googleusercontent\.com\/-[^/]+\/AAAAAAAAAAI\//i,
+  /^https?:\/\/graph\.facebook\.com\/(?:v[\d.]+\/)?[^/]+\/picture(?:[/?]|$)/i,
+  /^https?:\/\/platform-lookaside\.fbsbx\.com\/platform\/profilepic\//i,
+  /^https?:\/\/pbs\.twimg\.com\/profile_images\//i,
+  /^https?:\/\/avatars\.githubusercontent\.com\//i,
+  /^https?:\/\/cdn\.discordapp\.com\/avatars\//i,
+  /^https?:\/\/media(?:-exp\d)?\.licdn\.com\/dms\/image\/[^?]*profile-displayphoto/i,
+]
 
 export function providerPhoto(url: unknown): boolean {
-  return typeof url === "string" && PROVIDER_HOSTS.test(url.trim())
+  if (typeof url !== "string") return false
+  const value = url.trim()
+  return PROVIDER_PHOTO.some((shape) => shape.test(value))
 }
 
 /** Trimmed text, or null for anything that is not text worth storing. */
@@ -114,17 +143,28 @@ export function followsProfile(stored: unknown, before: unknown, after: unknown)
 }
 
 /**
- * The same for a copy of the photo, plus the provider rule above: a Google
- * picture in a copy is never something its owner chose, so it follows
- * whatever the profile now says, a removal included.
+ * The same for a copy of the photo, with two differences.
+ *
+ *   EXACTLY THE SAME ADDRESS. Two addresses that differ only in case are two
+ *   files, so a photo copy follows only when it is the very address the
+ *   profile held, never a case insensitive match.
+ *
+ *   A PROVIDER'S PICTURE. A Google picture in a copy is never something its
+ *   owner chose, so it follows whatever the profile now says, a removal
+ *   included.
+ *
+ * Anything else, a photo uploaded in the OnePage editor above all, is a
+ * choice and is left exactly as it is: an upload there goes to its own file
+ * (onepage-assets), so it is never the profile's address.
  */
 export function followsProfilePhoto(stored: unknown, before: unknown, after: unknown): string | null | undefined {
   const now = text(stored)
-  if (now !== null && providerPhoto(now)) {
-    const next = text(after)
-    return next === now ? undefined : next
-  }
-  return followsProfile(stored, before, after)
+  if (now === null) return undefined
+  const next = text(after)
+  if (now === next) return undefined
+  if (providerPhoto(now)) return next
+  const was = text(before)
+  return was !== null && now === was ? next : undefined
 }
 
 /**

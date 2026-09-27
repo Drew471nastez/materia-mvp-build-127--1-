@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { saveProfilePhoto, type PhotoClient } from "@/lib/account/avatar-save"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
-import { sweepReplacedAvatar } from "@/lib/account/avatar-files"
 import { creatorTag } from "@/lib/commerce/product-page-cache"
 
 export const runtime = "nodejs"
@@ -73,10 +72,15 @@ export async function POST(request: NextRequest) {
     photo: { before: saved.previous, after: url },
   })
 
-  /* And the file itself, once no row names it (lib/account/avatar-files). */
-  if (saved.previous && saved.previous !== url) {
-    await sweepReplacedAvatar(user.id, saved.previous, saved.creatorId ?? followed.creatorId)
-  }
+  /*
+    THE FILE THAT WAS REPLACED IS KEPT. A change here used to delete the old
+    photo from storage once the rows it re-read no longer named it. Those
+    rows were not all of them: a product page header, a website, an email
+    already sent, a second OnePage, an editor still open in another tab and
+    its undo steps all point at a photo without being in that list, and a
+    deleted file cannot be brought back. A photo somebody uploaded is never
+    removed because another one replaced it.
+  */
 
   /* The public creator page reads the profile and its header through a
      cache shared between visitors (lib/commerce/product-page-cache): it
@@ -84,6 +88,7 @@ export async function POST(request: NextRequest) {
   try {
     revalidateTag(creatorTag(user.id), "max")
     if (saved.creatorId) revalidateTag(creatorTag(saved.creatorId), "max")
+    else if (followed.creatorId) revalidateTag(creatorTag(followed.creatorId), "max")
   } catch {
     /* Outside a request that can revalidate: the cache's own minute does it. */
   }

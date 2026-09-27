@@ -49,7 +49,7 @@ export type PhotoSaved =
       url: string | null
       creatorId: string | null
       pagesFollowed: number
-      /** The photo this one replaced, so the caller can clear the copies of it and sweep the file. */
+      /** The photo this one replaced, so the caller can move the copies that still hold it. The file itself is kept. */
       previous: string | null
     }
   | { ok: false; status: number; error: string }
@@ -67,8 +67,8 @@ export async function saveProfilePhoto(
 
   /* 1b. The photo being replaced, read BEFORE it is overwritten. Every other
      row that holds a copy of it follows this change (lib/account/profile-follow),
-     and the file itself is swept when nothing points at it any more; both need
-     to know which address is going away. */
+     which needs to know which address is going away. The file itself is
+     never deleted (app/api/account/avatar). */
   const { data: before } = await supabase.from("profiles").select("avatar_url").eq(
     "id",
     user.id,
