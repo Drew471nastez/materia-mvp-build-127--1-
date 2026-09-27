@@ -301,7 +301,17 @@ export function BannerGlobe({ className }: { className?: string }) {
         launch(now)
         nextArc = now + 1100 + Math.random() * 1300
       }
-      paint()
+      /*
+        NOT WHILE THE PROGRAMS ARE STILL BEING BUILT. Asking whether one linked
+        is what waits for the compiler, and a browser that cannot answer without
+        waiting (no KHR_parallel_shader_compile, which is Safari and the
+        Capacitor web view) makes the frame that asks a long one: 135ms on a 390
+        phone with the processor slowed four times, against 0.4ms for every
+        frame after it (scripts/check-home-globe-cost.mjs). That first draw is
+        `warm`'s, in a task of its own while the page is idle; the loop draws
+        from the frame after, with the still ball on screen the whole time.
+      */
+      if (!renderer?.pending()) paint()
       /* The graphics card could not build the globe's programs: the 2D canvas takes over, as if WebGL had never been there. */
       if (renderer?.failed()) fallBack()
       if (canRun() && (!reduced || busy())) frame = requestAnimationFrame(tick)
@@ -454,6 +464,8 @@ export function BannerGlobe({ className }: { className?: string }) {
       if (renderer?.restore()) {
         lost = false
         renderer.resize(size, dpr)
+        /* Its programs are being built again, and the loop draws nothing until they are ready: this is what pays for them. */
+        warm()
         wake()
         return
       }
@@ -502,22 +514,30 @@ export function BannerGlobe({ className }: { className?: string }) {
     }
 
     /*
-      THE FIRST FRAME IS DRAWN AHEAD. The first draw after the programs are
-      built is the dear one (the driver finishes its work on first use): on a
-      phone it landed as the globe scrolled into view, a 45ms frame in the
-      middle of the swipe. So it is drawn once as soon as the programs are
-      ready, while the page is idle, whether or not the globe is on screen.
+      THE FIRST FRAME IS DRAWN AHEAD, IN A TASK OF ITS OWN. The first draw
+      after the programs are built is the dear one: the driver finishes its
+      work on first use, and where the browser cannot say whether a program
+      linked without waiting for it, asking is the wait itself. On a phone it
+      landed as the globe scrolled into view, a 45ms frame in the middle of the
+      swipe; on Home, where the globe is on screen from the start, it was the
+      loop's own first frame, 135ms of it (scripts/check-home-globe-cost.mjs).
+      So it is drawn here, off the frame loop, whether or not the globe is on
+      screen and whether or not the loop is already running: the loop draws
+      nothing until the programs are ready (`tick`), so this is the one draw
+      that pays for them, and it is not a frame anybody is waiting on.
     */
     let warmTimer = 0
     const idle = (fn: () => void) => {
       const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
-      if (w.requestIdleCallback) w.requestIdleCallback(fn, { timeout: 600 })
+      /* Soon, because the globe is on screen and showing only its still ball until this runs, but never inside a frame. */
+      if (w.requestIdleCallback) w.requestIdleCallback(fn, { timeout: 200 })
       else warmTimer = window.setTimeout(fn, 120)
     }
     /* A draw is also what asks whether the programs are ready (globe-gl settle), so it draws until they are. */
     const warm = () => {
       idle(() => {
-        if (!renderer || lost || frame) return
+        /* Nothing left to pay ahead: the programs are ready and the loop has the globe. */
+        if (!renderer || lost || (frame && !renderer.pending())) return
         paint()
         if (renderer.pending()) warmTimer = window.setTimeout(warm, 80)
       })
