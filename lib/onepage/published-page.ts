@@ -18,7 +18,8 @@ import { isBanned } from "@/lib/seo/bans"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import { publicOnePage } from "@/lib/onepage/public-shape"
 import { resolveOnePageSeo, type ResolvedOnePageSeo } from "@/lib/onepage/seo"
-import { exactIlike } from "@/lib/onepage/username"
+import { resolveOnePageAddress, type OnePageAddress } from "@/lib/onepage/resolve-address"
+import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 
 /**
  * WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
@@ -68,36 +69,31 @@ export const onePageOwner = cache(async (sellerId: string | null, creatorId: str
 export type OnePageOwner = Awaited<ReturnType<typeof onePageOwner>>
 
 /**
+ * WHERE A NAME LEADS, READ ONCE PER REQUEST (lib/onepage/resolve-address):
+ * the page at that address, the page of the account with that username, the
+ * creator page of an account with no OnePage, or the address a renamed page
+ * or account has now. The page, its metadata and its share image all read
+ * this one answer. A read that fails is a name that leads nowhere, which is
+ * what it was before: the page's own not found.
+ */
+export const resolveOnePage = cache(async (slug: string): Promise<OnePageAddress<any>> => {
+  try {
+    return await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*"))
+  } catch {
+    return { kind: "missing" }
+  }
+})
+
+/**
  * ONE READ OF THE PAGE, FOR THE TAB, THE BODY AND THE SHARE IMAGE: by its
- * slug, then by the owner whose username the slug is (storelib.me/<name>,
- * which the proxy serves from /<name>/links with the name as the slug).
+ * address in any case, then by the owner whose username the name is
+ * (storelib.me/<name>, which the proxy serves from /<name>/links with the
+ * name as the slug). Both lookups are lib/onepage/address-lookup's, the
+ * same ones the proxy asks for an old address.
  */
 export const findPublishedOnePage = cache(async (slug: string) => {
-  const supabase = createAdminClient()
-  const { data: bySlug } = await supabase.from("onepages").select("*").eq("slug", slug).eq("status", "published").maybeSingle()
-  if (bySlug) return bySlug
-
-  /*
-    IN ANY CASE. storelib.me sends /{Name} to /{name}, so a page saved with a
-    capital in its address before addresses were lower cased is still found.
-    `_` and `%` are literal here (exactIlike): an ILIKE pattern would read
-    `a_b` as "a, any character, b" and could answer with somebody else's page.
-  */
-  const { data: byAnyCase } = await supabase
-    .from("onepages").select("*").ilike("slug", exactIlike(slug)).eq("status", "published").limit(1).maybeSingle()
-  if (byAnyCase) return byAnyCase
-
-  const { data: profile } = await supabase.from("profiles").select("id, username").ilike("username", exactIlike(slug)).maybeSingle()
-  if (!profile) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", profile.id).maybeSingle()
-  if (creator) {
-    const { data: bySeller } = await supabase.from("onepages").select("*").eq("seller_id", creator.id).eq("status", "published").maybeSingle()
-    if (bySeller) return bySeller
-    const { data: byCreator } = await supabase.from("onepages").select("*").eq("creator_id", creator.id).eq("status", "published").maybeSingle()
-    if (byCreator) return byCreator
-  }
-  const { data: byOwner } = await supabase.from("onepages").select("*").eq("owner_id", profile.id).eq("status", "published").maybeSingle()
-  return byOwner ?? null
+  const address = await resolveOnePage(slug)
+  return address.kind === "page" ? address.page : null
 })
 
 /** The shape the page is drawn from, with the owner's live name and photo to fall back on. */

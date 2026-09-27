@@ -1,16 +1,17 @@
-import { notFound, permanentRedirect } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { headers } from "next/headers"
-import { getLinksInternalPath } from "@/lib/url-helpers"
+import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
 import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
-import { exactIlike, isResolvableOnePageName } from "@/lib/onepage/username"
+import { isResolvableOnePageName } from "@/lib/onepage/username"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { onePageIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
-import { findPublishedOnePage, onePageOwner, publishedOnePageSeo, publishedShape } from "@/lib/onepage/published-page"
+import { findPublishedOnePage, onePageOwner, publishedOnePageSeo, publishedShape, resolveOnePage } from "@/lib/onepage/published-page"
+import { creatorPageUrl } from "@/lib/onepage/resolve-address"
 import { onePageMetadataFrom } from "@/lib/onepage/seo"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import crypto from "crypto"
@@ -24,6 +25,18 @@ export const dynamic = "force-dynamic"
 
 interface Props {
   params: Promise<{ slug: string }>
+  /* Absent when a caller only has the name (the metadata, /{handle}/links before it passed them on). */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+/** `?a=1&b=2` from the page's search params, or "". */
+function queryOf(params: Record<string, string | string[] | undefined> | undefined): string {
+  const q = new URLSearchParams()
+  for (const [key, value] of Object.entries(params ?? {})) {
+    for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) q.append(key, v)
+  }
+  const text = q.toString()
+  return text ? `?${text}` : ""
 }
 
 /*
@@ -66,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return onePageMetadataFrom(seo, { handle: owner.handle, indexable, icon: drawn.avatar_url }) as Metadata
 }
 
-export default async function PublicOnePageRoute({ params }: Props) {
+export default async function PublicOnePageRoute({ params, searchParams }: Props) {
   const { slug } = await params
 
   /*
@@ -79,32 +92,34 @@ export default async function PublicOnePageRoute({ params }: Props) {
 
   const adminSupabase = createAdminClient()
 
-  /* The same row the metadata read, held for the request (findPublishedOnePage). */
-  const onepage = await findPublishedOnePage(slug)
+  /* The same answer the metadata read, held for the request (lib/onepage/published-page). */
+  const address = await resolveOnePage(slug)
 
-  if (!onepage) {
-    // Check username history — maybe this slug was an old username
-    const { data: historyRecord } = await adminSupabase
-      .from("username_history")
-      .select("new_username")
-      .ilike("old_username", exactIlike(slug))
-      .order("changed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (historyRecord?.new_username) {
+  if (address.kind !== "page") {
+    /* The query the visitor came with (utm, ref) goes with them. */
+    const query = queryOf(await searchParams)
+    if (address.kind === "moved") {
       /*
-        Their page, at the address it has now. Permanent (308), so a search
-        engine moves what it knows there. On storelib.me that is
-        storelib.me/{handle} in one step; on storelib.com it is the route,
-        which the proxy sends on to storelib.me (and the native app keeps).
+        A renamed account or page: their page, at the address it has now.
+        Permanent (308), so a search engine moves what it knows there. On
+        storelib.me that is storelib.me/{name} in one step; on storelib.com
+        it is the route, which the proxy sends on to storelib.me (and the
+        native app keeps).
       */
       const onOnePageHost = isOnePageHost((await headers()).get("host"))
-      permanentRedirect(onOnePageHost ? onePageUrl(historyRecord.new_username) : getLinksInternalPath(historyRecord.new_username))
+      permanentRedirect(`${onOnePageHost ? onePageUrl(address.name) : getLinksInternalPath(address.name)}${query}`)
     }
-
+    if (address.kind === "creator") {
+      /*
+        The account is real and has no published OnePage: its creator page,
+        rather than a 404 for a link the Share card handed out. Temporary
+        (307), so the address moves to the OnePage the day they make one.
+      */
+      redirect(`${creatorPageUrl(address.username, getMainDomain())}${query}`)
+    }
     notFound()
   }
+  const onepage = address.page
 
   /*
     An operator banned the owner: the page goes the way their products went,

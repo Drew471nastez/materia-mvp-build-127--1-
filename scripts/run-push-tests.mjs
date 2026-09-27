@@ -153,6 +153,7 @@ const SUITES = [
   "tests/contact-seller.test.ts",
   "tests/onepage-search-share.test.ts",
   "tests/onepage-host.test.ts",
+  "tests/onepage-old-links.test.ts",
   "tests/policy-pages.test.ts",
   "tests/footer-complete.test.ts",
   "tests/section-responsive.test.ts",

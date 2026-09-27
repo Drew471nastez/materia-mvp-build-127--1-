@@ -120,7 +120,8 @@ async function main() {
     /* The loader and the tags the metadata and the share image both read (lib/onepage/published-page, lib/onepage/seo). */
     const loader = readCode("lib/onepage/published-page.ts")
     const seoLib = readCode("lib/onepage/seo.ts")
-    check("one lookup serves the metadata and the page", (route.match(/await findPublishedOnePage\(slug\)/g) ?? []).length === 2)
+    /* The page asks resolveOnePage now, which also says where a name with no page leads (lib/onepage/resolve-address); findPublishedOnePage, which the metadata asks, is that same cached answer, so it is still one lookup. */
+    check("one lookup serves the metadata and the page", (route.match(/await findPublishedOnePage\(slug\)/g) ?? []).length === 1 && (route.match(/await resolveOnePage\(slug\)/g) ?? []).length === 1 && /export const resolveOnePage = cache\(/.test(loader) && /const address = await resolveOnePage\(slug\)\n  return address\.kind === "page" \? address\.page : null/.test(loader))
     check("the metadata reads the shape the body is drawn from", loader.includes("const drawn = publishedShape(onepage, owner)") && route.includes("publishedOnePageSeo(onepage, owner, slug)"))
     check("the body is drawn from that shape", route.includes("const transformedOnepage = publishedShape(onepage, owner"))
     check("the favicon is the picture the page draws", route.includes("icon: drawn.avatar_url"))
