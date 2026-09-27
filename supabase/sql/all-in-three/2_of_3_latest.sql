@@ -1010,5 +1010,9 @@ ALTER TABLE public.file_scans ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.file_scans FROM anon, authenticated;
 DO $do$ BEGIN IF to_regclass('public.digital_assets') IS NOT NULL THEN ALTER TABLE public.digital_assets ADD COLUMN IF NOT EXISTS scan_status text DEFAULT 'pending_scan'; ALTER TABLE public.digital_assets ADD COLUMN IF NOT EXISTS scan_result jsonb; IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'digital_assets' AND column_name = 'updated_at') THEN CREATE INDEX IF NOT EXISTS digital_assets_scan_waiting_idx ON public.digital_assets (updated_at) WHERE scan_status IN ('pending_scan', 'scanning'); END IF; END IF; END $do$;
 
+-- part 56_email_logs_seller_message.sql
+/* A buyer's message to the seller, from the receipt's Contact seller (app/api/receipt/contact), is an email like the receipt and the sale email, and is recorded the same way: a row in email_logs with email_type 'seller_message', sent or failed, beside the order. The check on email_type listed only buyer_download, seller_notification and receipt_resend, so that row was refused. The check is rebuilt with the fourth name, NOT VALID, so rows already stored are not read again and it cannot fail on old data. Nothing where there is no email_logs table. Needs nothing else. Until it runs, the message is sent exactly as before and the route notes in its log that the row was not written. */
+DO $$ BEGIN IF to_regclass('public.email_logs') IS NULL THEN RAISE NOTICE 'email_logs seller_message: there is no email_logs table, nothing to do.'; ELSE ALTER TABLE public.email_logs DROP CONSTRAINT IF EXISTS email_logs_email_type_check; ALTER TABLE public.email_logs ADD CONSTRAINT email_logs_email_type_check CHECK (email_type IN ('buyer_download', 'seller_notification', 'receipt_resend', 'seller_message')) NOT VALID; END IF; END $$;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;
