@@ -215,10 +215,16 @@ function main() {
   check("the clock is the segment's fill: when it ends Swiper fades on, and nothing else times it",
     /onAnimationEnd=\{on \? advance : undefined\}/.test(banner) && /s\.slideNext\(\)/.test(banner) && !/setInterval|setTimeout/.test(banner)
       && /SLIDE_MS = 9000/.test(banner) && /animationDuration: `\$\{SLIDE_MS\}ms`/.test(banner))
-  check("  held by a finger (down to up), a mouse over it, focus, off screen and a hidden tab",
+  check("  held by a finger (down to up), a mouse over it, off screen and a hidden tab",
     /setBit\(TOUCH, true\)/.test(banner) && /setBit\(TOUCH, false\)/.test(banner)
-      && /setBit\(HIDDEN, !onScreen \|\| document\.visibilityState === "hidden"\)/.test(banner) && /setBit\(HOVER, true\)/.test(banner) && /setBit\(FOCUS, true\)/.test(banner)
+      && /setBit\(HIDDEN, !onScreen \|\| document\.visibilityState === "hidden"\)/.test(banner) && /setBit\(HOVER, true\)/.test(banner)
       && /\.home-banner-tabs\[data-held\] \.home-banner-tab-fill \{ animation-play-state: paused; \}/.test(banner))
+  /* "Sometimes the navigation progress bugs and stops": a press leaves its focus on the segment, and
+     holding the clock for that stopped the fill for good the first time anybody picked a slide. A
+     keyboard's focus still holds it, which is what :focus-visible tells the two apart by.
+     scripts/check-home-banner.mjs walks the clock through every hold there is. */
+  check("  and by a keyboard's focus, never by the focus a press leaves behind",
+    /setBit\(FOCUS, e\.target\.matches\(":focus-visible"\)\)/.test(banner))
   /* Changed on purpose: with reduced motion the banner does not play by itself at all (WCAG 2.2.2's
      reading of a carousel that moves on its own), and a change asked for has no fade. */
   check("reduced motion: nothing plays by itself, and a segment's slide is simply there",

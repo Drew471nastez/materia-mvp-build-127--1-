@@ -158,6 +158,32 @@ const facts: ProgressFacts = {
 }
 
 
+/*
+  THE ANNOUNCEMENTS CHANGING UNDER THE BANNER, on demand. In the app the list
+  changes when Home's facts do: it asks /api/home/progress again when it comes
+  back into view (components/app/home/use-home-progress). `window.__shorten()`
+  answers that read with the same account plus subscribers and automations,
+  which takes the last two announcements away and leaves the ones before them
+  where they were. For scripts/check-home-banner.mjs.
+*/
+{
+  type W = Window & { __shorten?: () => number; __nextFacts?: ProgressFacts }
+  const w = window as unknown as W
+  const realFetch = window.fetch.bind(window)
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url.includes("/api/home/progress") && w.__nextFacts) {
+      return new Response(JSON.stringify({ facts: w.__nextFacts }), { headers: { "content-type": "application/json" } })
+    }
+    return realFetch(input, init)
+  }) as typeof fetch
+  w.__shorten = () => {
+    w.__nextFacts = { ...facts, subscribers: 180, automationsOn: 2 }
+    document.dispatchEvent(new Event("visibilitychange"))
+    return 3
+  }
+}
+
 createRoot(document.getElementById("app")!).render(
   createElement(Boundary, null, createElement(LanguageProvider, null, createElement(DashboardClient, {
     creatorId: "00000000-0000-4000-8000-000000000000",

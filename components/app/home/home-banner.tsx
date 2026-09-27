@@ -65,9 +65,11 @@
  *
  * THE CLOCK is SLIDE_MS a slide, drawn in the slide's own segment under the
  * text: a CSS animation on `transform`, and Swiper fades on when it ends, so
- * no timer runs. It waits while a mouse is over the banner, while focus is
- * inside it, while a finger is on it, while it is off screen and while the
- * tab is hidden, and goes on after. The segments pick a slide (arrow keys
+ * no timer runs. It waits while a mouse is over the banner, while a
+ * keyboard's focus is inside it, while a finger is on it, while it is off
+ * screen and while the tab is hidden, and goes on after. (A press leaves its
+ * focus behind too, and holding for that stopped the fill for good the first
+ * time anybody picked a slide: see the section's onFocus.) The segments pick a slide (arrow keys
  * move between them), each a 44px target. Screen readers hear a change they
  * asked for and none they did not (aria-live off while it plays by itself).
  * With reduced motion nothing plays by itself and a change asked for is
@@ -418,7 +420,15 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
       className="home-banner relative isolate overflow-hidden rounded-2xl"
       onPointerEnter={(e) => e.pointerType === "mouse" && setBit(HOVER, true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && setBit(HOVER, false)}
-      onFocus={() => setBit(FOCUS, true)}
+      /*
+        A KEYBOARD'S FOCUS HOLDS THE CLOCK; A FINGER'S DOES NOT. Pressing a
+        segment leaves the focus on it, and holding the clock for that meant
+        the fill stopped for good the first time anybody picked a slide,
+        which is what "sometimes the navigation progress bugs and stops"
+        was. :focus-visible is the browser's own answer to which of the two
+        it was: true for Tab and the arrow keys, false for a press.
+      */
+      onFocus={(e) => setBit(FOCUS, e.target.matches(":focus-visible"))}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setBit(FOCUS, false)
       }}

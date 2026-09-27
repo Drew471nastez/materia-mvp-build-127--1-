@@ -348,6 +348,40 @@ async function traced(page, fn) {
   }
 }
 
+
+/**
+ * THE CLOCK, READ FROM THE PAGE. The fill under the text is one CSS
+ * animation: where it is (`t`, in its own milliseconds), whether it is
+ * running or paused, which segment it is in, and whether that segment is the
+ * showing slide's. A stall is `t` standing still while nothing holds it; a
+ * disagreement is `sync` false.
+ */
+function clockInstruments() {
+  window.__clock = () => {
+    const banner = document.querySelector("[data-home-banner]")
+    const tabs = banner.querySelector("[role=tablist]")
+    const marks = [...banner.querySelectorAll("[role=tab]")]
+    const onIndex = marks.findIndex((t) => t.hasAttribute("data-on"))
+    const fill = marks[onIndex]?.querySelector(".home-banner-tab-fill") ?? null
+    const anims = document.getAnimations().filter((a) => /^home-banner-fill/.test(a.animationName))
+    const mine = anims.find((a) => a.effect?.target === fill) ?? null
+    const ids = [...banner.querySelectorAll("[data-announcement]")].map((s) => s.dataset.announcement)
+    const active = banner.querySelector('.home-banner-slide[data-slide="active"]')?.dataset.announcement ?? null
+    return {
+      held: tabs ? tabs.hasAttribute("data-held") : null,
+      onIndex,
+      /* What the bar is actually drawn at: a paused fill keeps this, whatever its own clock says. */
+      scale: fill ? getComputedStyle(fill).transform : null,
+      t: mine ? Math.round(Number(mine.currentTime)) : null,
+      state: mine ? mine.playState : null,
+      running: anims.length,
+      fills: marks.length,
+      active,
+      sync: onIndex >= 0 && ids[onIndex] === active,
+    }
+  }
+}
+
 /** Every slide of the banner at this width: where things are. */
 async function measureSlides(page) {
   const list = await ids(page)
@@ -530,7 +564,8 @@ try {
       await swipe(150)
       expect((await active(page)) === s0, "and to the right the one before", [s1, await active(page)])
       expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-track").getAttribute("aria-live"))) === "polite", "a change asked for is read out")
-      expect(followed.length === 2 && followed.every((m) => m.faded === 0 && m.gained === 0 && m.moved === 0),
+      /* Nothing beyond a thousandth, which is the tail of the fade before it still settling. */
+      expect(followed.length === 2 && followed.every((m) => Math.abs(m.faded) < 0.02 && Math.abs(m.gained) < 0.02 && m.moved === 0),
         "a swipe asks for the change and nothing is drawn under the finger: the fade is the one that follows it", followed)
       const still = await page.evaluate(() => [...document.querySelectorAll("[data-home-banner] .home-banner-slide")].map((sl) => { const cs = getComputedStyle(sl); return `${cs.animationName}|${cs.transitionProperty}` }))
       expect(still.every((x) => x === "none|opacity"), "and a change is a transition on opacity and nothing else, never an animation", still)
@@ -721,6 +756,17 @@ try {
     await sleep(30)
     const jumped = await page.evaluate(() => document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]').dataset.announcement)
     expect(jumped === (await ids(page))[1] && (await settled(page)), "a segment's slide is simply there, no glide", jumped)
+    /* And nothing plays by itself: the clock is held, so the segment marks the slide rather than timing it. */
+    await page.evaluate(clockInstruments)
+    const calm = await page.evaluate(() => {
+      const c = window.__clock()
+      const fill = document.querySelector("[data-home-banner] .home-banner-tab[data-on] .home-banner-tab-fill")
+      return { ...c, scale: getComputedStyle(fill).transform }
+    })
+    await sleep(700)
+    const later = await page.evaluate(() => ({ ...window.__clock(), active: document.querySelector('[data-home-banner] [data-slide="active"]')?.dataset.announcement }))
+    expect(calm.held && later.active === jumped, "nothing plays by itself with reduced motion", { calm, later })
+    expect(/matrix\(1, 0, 0, 1, 0, 0\)|none/.test(calm.scale), "and the segment of the slide showing is full, not filling", calm.scale)
     expect(errors.length === 0, "no errors", errors.slice(0, 3))
     await page.close()
   }
@@ -861,7 +907,9 @@ try {
       elements, not the page.
     */
     expect(changed.elements - idle.elements < 250, "a change of slide restyles a handful of elements, not the page", changed.elements - idle.elements)
-    expect(changed.layouts === 0 && changed.layoutMs <= idle.layoutMs + 1, "and lays nothing out at all", { change: changed.layoutMs, idle: idle.layoutMs })
+    /* Not that the page lays nothing out for 400ms (the globe sizes its canvas, the scroller measures
+       itself), but that a change of slide adds no layout of its own: opacity is not a layout. */
+    expect(changed.layoutMs <= idle.layoutMs + 1, "and lays nothing out that an idle page does not", { change: changed.layoutMs, idle: idle.layoutMs })
 
     /*
       WAITS. First the thing that does not depend on this machine's mood: what
@@ -998,6 +1046,221 @@ try {
       const to = await active(page)
       expect(list.indexOf(to) === (list.indexOf(from) + 1) % want, "a swipe shows the next, and the last shows the first", [from, to])
     }
+    expect(errors.length === 0, "no errors", errors.slice(0, 3))
+    await page.close()
+  }
+
+  /* ── THE CLOCK: it never stalls, and the fill never disagrees with the slide ──
+     "Sometimes the navigation progress bugs and stops." Every way the clock
+     is held or let go, and every way a slide is changed, the fill under the
+     text is held to two things: it runs whenever the banner is playing, and
+     the segment it runs in is the segment of the slide on screen. */
+  for (const width of [390, 1440]) {
+    const { page, phone, errors } = await open(width, "state=five", { height: viewH(width) })
+    console.log(`\nthe clock at ${width}`)
+    const cdp = await page.createCDPSession()
+    await cdp.send("Animation.enable")
+    /* Ten times its own speed: a slide lasts 0.9s here, so a stall shows in a second rather than in nine. */
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 10 })
+    await toBanner(page)
+    if (!phone) await page.mouse.move(5, 895)
+    await sleep(400)
+    await page.evaluate(clockInstruments)
+
+    /** The clock now: whether it is held, where the fill is, and whether it is the showing slide's. */
+    const clock = () => page.evaluate(() => window.__clock())
+    /**
+     * Whether the clock is going: the fill advancing, or a slide changing
+     * (which starts the next segment's fill at nothing). Waited for rather
+     * than sampled twice, because this machine can leave the page without a
+     * frame for a few hundred milliseconds, and an animation's own time only
+     * moves when the page draws.
+     */
+    const runs = async (ms = 1600) => {
+      const a = await clock()
+      const b = await until(async () => {
+        const c = await clock()
+        return c.scale !== a.scale || c.t > a.t || c.onIndex !== a.onIndex || c.active !== a.active ? c : null
+      }, ms)
+      return { moved: !!b, a, b: b ?? (await clock()) }
+    }
+    /**
+     * Whether it is held: the bar stops where it is and stays there. The
+     * attribute goes on before the browser draws with it, so this waits for
+     * the bar itself to stop (up to a second and a half on a machine drawing
+     * a software globe) and then holds it to standing still.
+     */
+    const holds = async () => {
+      await until(async () => (await clock()).held, 2000)
+      let a = await clock()
+      for (let k = 0; k < 14; k++) {
+        await sleep(120)
+        const b = await clock()
+        if (b.held && b.scale === a.scale && b.onIndex === a.onIndex) {
+          await sleep(400)
+          const c = await clock()
+          return { still: !!c.held && c.scale === b.scale && c.onIndex === b.onIndex, a: b, b: c }
+        }
+        a = b
+      }
+      return { still: false, a, b: await clock() }
+    }
+    const inSync = async (what) => {
+      const c = await clock()
+      expect(c.sync, `${what}: the fill runs in the showing slide's segment`, c)
+      return c
+    }
+
+    expect((await runs()).moved, "it runs by itself", await clock())
+    await inSync("at rest")
+
+    /* A HIDDEN TAB, and back. */
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true })
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    const hidden = await holds()
+    expect(hidden.still, "a hidden tab holds it", hidden)
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true })
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    const back = await runs()
+    expect(back.moved && !back.b.held, "and it goes on when the tab comes back", back)
+
+    /* OFF SCREEN, and back. */
+    const view = page.viewport()
+    await page.setViewport({ ...view, height: 360 })
+    await page.evaluate(() => { const s = document.querySelector(".dashboard-scroll-container"); const b = document.querySelector("[data-home-banner]"); s.scrollTop = b.offsetTop > 700 ? 0 : 99999 })
+    await sleep(300)
+    const gone = await holds()
+    expect(gone.still, "off screen it waits", gone)
+    await page.setViewport(view)
+    await toBanner(page)
+    await sleep(300)
+    const seen = await runs()
+    expect(seen.moved && !seen.b.held, "and it goes on when it comes back", seen)
+    await inSync("after it comes back")
+
+    /* HOVER, or a finger resting on it. */
+    const spot = await page.evaluate(() => { const b = document.querySelector("[data-home-banner]").getBoundingClientRect(); return { x: b.left + 60, y: b.top + 40 } })
+    if (phone) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: spot.x, y: spot.y, radiusX: 8, radiusY: 8, force: 1 }] })
+      const down = await holds()
+      expect(down.still, "a finger on it holds it", down)
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+      const up = await runs()
+      expect(up.moved && !up.b.held, "and it goes on when the finger lifts", up)
+    } else {
+      await page.mouse.move(spot.x, spot.y)
+      const over = await holds()
+      expect(over.still, "a mouse over it holds it", over)
+      await page.mouse.move(5, 895)
+      const away = await runs()
+      expect(away.moved && !away.b.held, "and it goes on when the mouse leaves", away)
+    }
+
+    /* FOCUS, by the keyboard, and away again. */
+    await page.evaluate(() => document.querySelectorAll("[data-home-banner] [role=tab]")[0].focus())
+    await page.keyboard.press("ArrowRight")
+    await sleep(120)
+    const key = await holds()
+    expect(key.still, "focus from the keyboard holds it", key)
+    await inSync("with the keyboard's focus in it")
+    await page.evaluate(() => document.activeElement?.blur())
+    const left = await runs()
+    expect(left.moved && !left.b.held, "and it goes on when focus leaves", left)
+
+    /*
+      A SEGMENT PRESSED MID FILL. A press leaves focus on the segment, and
+      focus that came from a finger or a mouse must not hold the clock, or
+      the fill stops for good the first time anybody picks a slide.
+    */
+    await press(page, cdp, phone, "[data-home-banner] [role=tab]", 3)
+    /* A mouse that stays where it pressed is a mouse over the banner, which holds the clock on purpose. */
+    if (!phone) await page.mouse.move(5, 895)
+    await sleep(120)
+    /* Read at once: at ten times its speed the fill is a second of its own for every tenth of one here. */
+    const fresh = await clock()
+    expect(fresh.onIndex === 3, "a segment pressed mid fill: the fill moves to that segment", fresh)
+    expect(fresh.t !== null && fresh.t < 4000, "and starts from nothing, not where the last one was", fresh.t)
+    const tapped = await runs()
+    expect(tapped.moved && !tapped.b.held, "and the clock goes on, where the press's own focus used to stop it for good", tapped)
+    await inSync("after a segment is pressed")
+
+    /* THE BUTTON PRESSED, which is where a finger lands most often. */
+    if (!phone) {
+      await page.mouse.click(spot.x + 10, spot.y + 60)
+      await page.mouse.move(5, 895)
+      await sleep(160)
+      const afterCta = await runs()
+      expect(afterCta.moved && !afterCta.b.held, "the banner clicked with a mouse: the clock goes on", afterCta)
+    }
+
+    /* A SWIPE MID FILL. */
+    if (phone) {
+      const at = await page.evaluate(() => {
+        const b = document.querySelector("[data-home-banner]").getBoundingClientRect()
+        const v = document.querySelector("[data-home-banner] .home-banner-text").getBoundingClientRect()
+        return { x: v.right - 14, y: b.top + 70, dx: -v.width * 0.66 }
+      })
+      const was = (await clock()).active
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: at.x, y: at.y, radiusX: 8, radiusY: 8, force: 1 }] })
+      for (let i = 1; i <= 12; i++) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: at.x + (at.dx * i) / 12, y: at.y + i * 0.4, radiusX: 8, radiusY: 8, force: 1 }] })
+        await sleep(16)
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+      await until(() => settled(page), 3000)
+      await sleep(160)
+      const swiped = await runs()
+      expect(swiped.moved && !swiped.b.held, "a swipe mid fill: the clock goes on", swiped)
+      expect(swiped.b.active !== was, "on the slide the swipe asked for", { was, now: swiped.b.active })
+      await inSync("after a swipe")
+    }
+
+    /* ROUND AND ROUND: the fill and the slide stay together for a whole turn. */
+    const ids5 = await ids(page)
+    const seenPairs = []
+    for (let k = 0; k < ids5.length + 1; k++) {
+      const before = (await clock()).active
+      await until(async () => (await clock()).active !== before, 4000)
+      await sleep(80)
+      const c = await clock()
+      seenPairs.push(`${c.active}${c.sync ? "" : " OUT OF STEP"}`)
+    }
+    expect(seenPairs.every((x) => !/OUT OF STEP/.test(x)), "a whole turn by itself, the fill always in the showing slide's segment", seenPairs)
+    const still = await runs()
+    expect(still.moved, "and it is still running at the end of it", still)
+
+    expect(errors.length === 0, "no errors", errors.slice(0, 3))
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+    await page.close()
+  }
+
+  /* The list changing under it: the clock goes on, in the segment of the slide still showing. */
+  {
+    const { page, errors } = await open(390, "state=five")
+    console.log("\nthe announcements change under it, at 390")
+    const cdp = await page.createCDPSession()
+    await cdp.send("Animation.enable")
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 10 })
+    await toBanner(page)
+    await sleep(300)
+    await page.evaluate(clockInstruments)
+    await press(page, cdp, true, "[data-home-banner] [role=tab]", 2)
+    await sleep(200)
+    const was = await page.evaluate(() => window.__clock())
+    /* Two announcements go: the page hands the banner a shorter list, as a sale coming in would. */
+    const shorter = await page.evaluate(() => window.__shorten?.(3) ?? null)
+    await sleep(300)
+    const now = await page.evaluate(() => window.__clock())
+    expect(shorter === 3 && now.fills === 3, "the banner takes a shorter list", { shorter, fills: now.fills })
+    expect(now.active === was.active && now.sync, "the slide showing stays, and the fill is in its segment", { was: was.active, now: now.active, sync: now.sync })
+    const after = await page.evaluate(() => window.__clock())
+    await sleep(300)
+    const later = await page.evaluate(() => window.__clock())
+    expect(later.t > after.t || later.active !== after.active, "and the clock goes on", { after, later })
     expect(errors.length === 0, "no errors", errors.slice(0, 3))
     await page.close()
   }
