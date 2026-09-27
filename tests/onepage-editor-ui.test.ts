@@ -326,7 +326,8 @@ function main() {
     check("the Header panel's profile picture is a circle, as the page draws it", /aspect-square h-\[88px\] w-\[88px\] shrink-0 cursor-pointer rounded-full/.test(design) && /data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full/.test(design))
     check("the Links tab's profile picture keeps its size beside a long name", /data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0/.test(read("components/onepage/tabs/links-tab.tsx")))
     const onboarding = read("components/onepage/onboarding-modal.tsx")
-    check("the onboarding's theme cards keep the creator's picture round", (onboarding.match(/data-theme-avatar="" className="w-(7 h-7|10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 2)
+    /* One card at every width now (the phone's grid and the computer's carousel were two copies of it), so one circle, sized once. */
+    check("the onboarding's theme cards keep the creator's picture round", (onboarding.match(/data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full/g) ?? []).length === 1)
   }
 
   section("+ Add")

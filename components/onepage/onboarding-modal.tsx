@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { createPortal } from "react-dom"
+import { useState, useEffect, useRef, useCallback, memo } from "react"
+import { createPortal, preload } from "react-dom"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useOnePage } from "@/lib/onepage/context"
@@ -11,7 +11,6 @@ import {
   Check,
   X,
   ChevronLeft,
-  ChevronRight,
   Instagram,
   Youtube,
   Loader2,
@@ -21,14 +20,200 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/native-bridge"
 import { THEME_TEMPLATES } from "./tabs/design-tab"
 import { getOnePageDomain } from "@/lib/onepage/address"
+import { CardMark, CheckMark, ChoiceMark } from "./choice-marks"
+import { WallpaperPattern } from "./wallpaper-layers"
 
-// Goal icon image URLs
-const GOAL_ICON_URLS = {
-  general: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20de121sign.svg",
-  artist: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/12115.svg",
-  digital: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/12551.svg",
-  business: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/53112.svg",
+type Goal = "general" | "artist" | "digital" | "business"
+
+/*
+  THE GOAL PICTURES ARE THE APP'S OWN, AT THE SIZE THEY ARE DRAWN. They were
+  four SVGs from Supabase storage, each a 1000px square wrapping a PNG in a
+  mask and a colour filter: 645KB and four requests to another origin for
+  four 48px tiles, each hidden until it arrived, so on a phone on a slow
+  network the step sat with grey boxes for four and a half seconds. They are
+  the same pictures now as WebP at 48, 96 and 144px (1x, 2x, 3x; 4.7KB for
+  the 2x set), served from public/images/onepage-goals and fetched while the
+  first step is on screen, so the goal step arrives with them drawn.
+  scripts/check-onepage-onboarding.mjs measures it.
+*/
+const GOALS: readonly { id: Goal; title: string; text: string }[] = [
+  { id: "general", title: "General", text: "Links, socials and products, a bit of each." },
+  { id: "artist", title: "Artist & Creator", text: "Show my work and where to find me." },
+  { id: "digital", title: "Digital Products", text: "Sell my digital products." },
+  { id: "business", title: "Business", text: "Bring customers to my business." },
+]
+const goalIcon = (id: Goal, px: 48 | 96 | 144) => `/images/onepage-goals/${id}-${px}.webp`
+const goalIconSet = (id: Goal) => `${goalIcon(id, 48)} 1x, ${goalIcon(id, 96)} 2x, ${goalIcon(id, 144)} 3x`
+
+/*
+  The two photo templates, as a 300 by 400 WebP of the photo (9 and 7KB). The
+  cards drew the photos themselves: a 1920px Unsplash JPEG at quality 95
+  (632KB) and a 278KB one from storage, for a card 160px wide.
+*/
+const TEMPLATE_THUMBS: Record<string, string> = {
+  nature: "/images/onepage-themes/nature.webp",
+  fusion: "/images/onepage-themes/fusion.webp",
 }
+
+const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+
+/*
+  A PICK FADES IN AND THE LAST ONE OUT. The goal card's own border and grey
+  changed class on a pick: in, the colours faded over 150ms (a repaint every
+  frame); out, the card got its hover border class back, and on a touch
+  screen app/globals.css zeroes the transition of anything with a hover
+  border, so the old pick snapped off in one frame. The pick is the editor's
+  own mark now (./choice-marks CardMark: the dark border and the grey under
+  the words, faded and scaled in and out on opacity and scale, 180ms); the
+  card itself never changes, and its words keep their weight.
+*/
+const GoalCard = memo(function GoalCard({ goal, selected, onPick }: { goal: (typeof GOALS)[number]; selected: boolean; onPick: (id: Goal) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(goal.id)}
+      aria-pressed={selected}
+      data-goal={goal.id}
+      className={cn(
+        "relative isolate flex cursor-pointer items-start gap-3 rounded-2xl border border-[#e3e4e8] bg-white p-3.5 pb-5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] sm:p-5 sm:pb-7 [-webkit-tap-highlight-color:transparent]",
+        focusRing,
+      )}
+    >
+      <CardMark on={selected} tint="#f9fafb" />
+      <span className="min-w-0 flex-1 pr-1">
+        <h3 className="text-base font-semibold text-[#1a1a2e]">{goal.title}</h3>
+        <span className="mt-1 block text-sm text-gray-500">{goal.text}</span>
+      </span>
+      {/* The box is the picture's size before it arrives, in the grey it sits on. */}
+      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[9px] bg-[#f1f2f4]">
+        <img
+          src={goalIcon(goal.id, 48)}
+          srcSet={goalIconSet(goal.id)}
+          width={48}
+          height={48}
+          alt=""
+          decoding="async"
+          draggable={false}
+          className="block h-full w-full"
+        />
+      </span>
+    </button>
+  )
+})
+
+/*
+  A TEMPLATE, ONE CARD AT EVERY WIDTH, picked as a Design tab theme is: the
+  thin dark border round the card and the small ink check in the corner of
+  its picture, both faded and scaled in (./choice-marks), the last pick's
+  faded out. The picture is the page the template makes, with the creator's
+  own photo in it, and the texture drawn by the live page's own layer
+  (./wallpaper-layers). Memoised: a pick draws the two cards that changed,
+  not all eighteen.
+*/
+const TemplateCard = memo(function TemplateCard({
+  template,
+  selected,
+  onPick,
+  avatarUrl,
+  initial,
+}: {
+  template: (typeof THEME_TEMPLATES)[number]
+  selected: boolean
+  onPick: (id: string) => void
+  avatarUrl: string | null
+  initial: string
+}) {
+  const c = template.theme_config as (typeof THEME_TEMPLATES)[number]["theme_config"] & Record<string, any>
+  const image = c.background_type === "image" ? TEMPLATE_THUMBS[template.id] || c.background_image_url || null : null
+  const hero = (template as any).profile_layout === "hero" || c.header_layout === "hero"
+  const pattern = c.background_pattern && c.background_pattern !== "none" && !image ? c.background_pattern : null
+  const text = c.text_color || "#111111"
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(template.id)}
+      aria-pressed={selected}
+      aria-label={`${template.name} template`}
+      data-template-card={template.id}
+      className={cn(
+        "relative flex cursor-pointer flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]",
+        focusRing,
+      )}
+    >
+      <ChoiceMark on={selected} />
+      <span className="relative block aspect-[3/4] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+        {image ? (
+          <>
+            <img src={image} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+            <span className="absolute inset-0 bg-black/40" />
+          </>
+        ) : (
+          <span className="absolute inset-0" style={{ background: c.background_type === "gradient" && c.background_gradient ? c.background_gradient : c.background_color }} />
+        )}
+        {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} /> : null}
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
+          {hero ? (
+            /* Hero: the photo across the top, fading into the page. */
+            <>
+              <span className="absolute left-0 right-0 top-0 h-[55%] overflow-hidden">
+                {avatarUrl ? (
+                  <>
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                    <span className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${c.background_color} 100%)` }} />
+                  </>
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-lg font-bold" style={{ backgroundColor: `${text}20`, color: text }}>
+                    {initial}
+                  </span>
+                )}
+              </span>
+              <span className="relative mb-4 mt-auto flex flex-col items-center gap-1">
+                <span className="block h-2 w-16 rounded" style={{ backgroundColor: `${text}50` }} />
+                <span className="block h-1 w-12 rounded" style={{ backgroundColor: `${text}30` }} />
+              </span>
+            </>
+          ) : (
+            <>
+              {/* A circle whatever the card's height: it keeps its size, and the column cannot squash it oval. */}
+              <span data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full relative overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${text}30` }}>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xs font-bold" style={{ color: text }}>
+                    {initial}
+                  </span>
+                )}
+              </span>
+              <span className="block h-2 w-16 rounded" style={{ backgroundColor: `${text}50` }} />
+              <span className="block h-1 w-12 rounded" style={{ backgroundColor: `${text}30` }} />
+            </>
+          )}
+          <span
+            className="relative mt-2 block h-6 w-full max-w-[80px]"
+            style={{
+              background: c.button_style === "outline" ? "transparent" : c.button_color,
+              borderStyle: "solid",
+              borderWidth: c.button_style === "outline" ? Math.max(1.5, c.button_border_width || 0) : c.button_border_width || 0,
+              borderColor: c.button_border_color || c.button_color,
+              borderRadius: `${Math.min(c.button_border_radius ?? 8, 12)}px`,
+            }}
+          />
+        </span>
+        <CheckMark on={selected} className="right-1.5 top-1.5" />
+      </span>
+      <span data-template-name="" className="block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium text-[#1a1a2e]">
+        {template.name}
+      </span>
+    </button>
+  )
+})
+
+/* What the last step says, in order. All three are drawn, one over the other (see Step 5). */
+const SETUP_WORDS = [
+  ["setting-up", "Setting up your OnePage"],
+  ["just-a-moment", "Almost there"],
+  ["ready", "Your OnePage is ready."],
+] as const
 
 /* The themes are the Design tab's own list, not a copy of it that drifts: the onboarding offers what the tab offers. */
 
@@ -298,7 +483,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     const saved = getSavedProgress()
     return saved?.selectedGoal || null
   })
-  const [loadedGoalIcons, setLoadedGoalIcons] = useState<Set<string>>(new Set())
 
   // Step 3 state - initialize from saved progress
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
@@ -320,9 +504,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     const saved = getSavedProgress()
     return saved?.selectedTemplate || "default"
   })
-  const [carouselIndex, setCarouselIndex] = useState(0)
-  const [carouselAnimating, setCarouselAnimating] = useState(false)
-  const [carouselDirection, setCarouselDirection] = useState<"left" | "right">("right")
 
   // Step 5 state
   const [isSettingUp, setIsSettingUp] = useState(false)
@@ -332,6 +513,28 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   // Track if setup has already run (prevents double execution)
   const hasCompletedRef = useRef(false)
+
+  /*
+    The goal pictures are asked for while the first step is read, and the two
+    photo templates' pictures from the socials step on, in the browser's idle
+    time and at low priority, so each step arrives with its pictures drawn.
+    For the goals, the size this screen will draw (the srcset picks it).
+  */
+  const fetchTemplatesAhead = currentStep >= 3
+  useEffect(() => {
+    if (!open) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const run = () => {
+      for (const goal of GOALS) preload(goalIcon(goal.id, 48), { as: "image", imageSrcSet: goalIconSet(goal.id), fetchPriority: "low" })
+      if (fetchTemplatesAhead) for (const src of Object.values(TEMPLATE_THUMBS)) preload(src, { as: "image", fetchPriority: "low" })
+    }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(run, { timeout: 600 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(run, 150)
+    return () => window.clearTimeout(id)
+  }, [open, fetchTemplatesAhead])
 
   // Save progress to localStorage whenever relevant state changes
   const saveProgress = useCallback(() => {
@@ -1061,38 +1264,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   // Progress bar width
   const progressWidth = (currentStep / 5) * 100
 
-  // Template carousel - show 4 per page
-  const templatesPerPage = 4
-  const maxCarouselIndex = Math.ceil(THEME_TEMPLATES.length / templatesPerPage) - 1
-
-  const visibleTemplates = THEME_TEMPLATES.slice(
-    carouselIndex * templatesPerPage,
-    (carouselIndex + 1) * templatesPerPage
-  )
-
-  // Carousel navigation with smooth animation
-  const handleCarouselPrev = () => {
-    if (carouselIndex > 0 && !carouselAnimating) {
-      setCarouselAnimating(true)
-      setCarouselDirection("left")
-      setTimeout(() => {
-        setCarouselIndex(carouselIndex - 1)
-        setTimeout(() => setCarouselAnimating(false), 50)
-      }, 150)
-    }
-  }
-
-  const handleCarouselNext = () => {
-    if (carouselIndex < maxCarouselIndex && !carouselAnimating) {
-      setCarouselAnimating(true)
-      setCarouselDirection("right")
-      setTimeout(() => {
-        setCarouselIndex(carouselIndex + 1)
-        setTimeout(() => setCarouselAnimating(false), 50)
-      }, 150)
-    }
-  }
-
   // CRITICAL: Check completion AFTER all hooks but BEFORE rendering
   // Check both database AND localStorage
   const isCompletedInDb = onepage?.onboarding_completed === true
@@ -1100,16 +1271,27 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     ? localStorage.getItem(`onepage_onboarding_done_${onepage.id}`) === "true"
     : false
   
-  if (isCompletedInDb || isCompletedInLocalStorage) {
+  /*
+    Unless it was finished here, just now: the last step marks the page done
+    (in the database and in localStorage) a moment before it says "Your
+    OnePage is ready." and throws the confetti, and this check used to take
+    the whole modal away in that same render, so neither was ever seen. It
+    closes when onComplete says so, four seconds later.
+  */
+  const finishingHere = currentStep === 5 && (isSettingUp || setupComplete)
+  if ((isCompletedInDb || isCompletedInLocalStorage) && !finishingHere) {
     return null
   }
+
+  const setupWords = setupComplete ? "ready" : setupPhase === "just-a-moment" ? "just-a-moment" : "setting-up"
 
   return (
     <>
       <Dialog open={open} onOpenChange={() => {}}>
         <DialogContent
           className={cn(
-            "p-0 gap-0 overflow-hidden border-0",
+            // outline-none: when the pressed Next leaves (the last step has no buttons) focus falls to the modal, which drew a blue frame round the screen
+            "p-0 gap-0 overflow-hidden border-0 outline-none",
             nativeFullScreen
               ? // The app: the whole screen at every width (see nativeFullScreen above)
                 "fixed inset-0 top-0 left-0 w-screen h-[100dvh] max-w-none translate-x-0 translate-y-0 rounded-none"
@@ -1149,7 +1331,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             </div>
 
             <div className={cn(
-              "flex-1 min-h-0 overflow-y-auto transition-all duration-200 px-4 sm:px-12 pt-3 sm:pt-6",
+              "flex-1 min-h-0 overflow-y-auto transition-[opacity,translate] duration-200 px-4 sm:px-12 pt-3 sm:pt-6",
               // Add bottom padding on mobile for steps with inputs to prevent clipping
               (currentStep === 1 || currentStep === 3) && "max-sm:pb-4",
               currentStep === 2 && "max-sm:pb-2",
@@ -1253,142 +1435,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     </p>
                   </div>
 
-                  <div className="w-full max-w-[600px] grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 overflow-y-auto max-sm:flex-1 max-sm:pb-2">
-                    {/* General */}
-                    <button
-                      onClick={() => setSelectedGoal("general")}
-                      className={cn(
-                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
-                        selectedGoal === "general"
-                          ? "border-black bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      )}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 pr-3">
-                          <h3 className="font-semibold text-base">General</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Links, socials and products, a bit of each.
-                          </p>
-                        </div>
-                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
-                          {!loadedGoalIcons.has("general") && (
-                            <div className="w-full h-full bg-gray-200 animate-pulse" />
-                          )}
-                          <img
-                            src={GOAL_ICON_URLS.general}
-                            alt="General"
-                            className={cn(
-                              "w-full h-full object-cover",
-                              !loadedGoalIcons.has("general") && "hidden"
-                            )}
-                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("general"))}
-                          />
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Artist & Creator */}
-                    <button
-                      onClick={() => setSelectedGoal("artist")}
-                      className={cn(
-                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
-                        selectedGoal === "artist"
-                          ? "border-black bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      )}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 pr-3">
-                          <h3 className="font-semibold text-base">Artist & Creator</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Show my work and where to find me.
-                          </p>
-                        </div>
-                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
-                          {!loadedGoalIcons.has("artist") && (
-                            <div className="w-full h-full bg-gray-200 animate-pulse" />
-                          )}
-                          <img
-                            src={GOAL_ICON_URLS.artist}
-                            alt="Artist"
-                            className={cn(
-                              "w-full h-full object-cover",
-                              !loadedGoalIcons.has("artist") && "hidden"
-                            )}
-                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("artist"))}
-                          />
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Digital Products */}
-                    <button
-                      onClick={() => setSelectedGoal("digital")}
-                      className={cn(
-                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
-                        selectedGoal === "digital"
-                          ? "border-black bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      )}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 pr-3">
-                          <h3 className="font-semibold text-base">Digital Products</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Sell my digital products.
-                          </p>
-                        </div>
-                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
-                          {!loadedGoalIcons.has("digital") && (
-                            <div className="w-full h-full bg-gray-200 animate-pulse" />
-                          )}
-                          <img
-                            src={GOAL_ICON_URLS.digital}
-                            alt="Digital"
-                            className={cn(
-                              "w-full h-full object-cover",
-                              !loadedGoalIcons.has("digital") && "hidden"
-                            )}
-                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("digital"))}
-                          />
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Business */}
-                    <button
-                      onClick={() => setSelectedGoal("business")}
-                      className={cn(
-                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
-                        selectedGoal === "business"
-                          ? "border-black bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      )}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 pr-3">
-                          <h3 className="font-semibold text-base">Business</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Bring customers to my business.
-                          </p>
-                        </div>
-                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
-                          {!loadedGoalIcons.has("business") && (
-                            <div className="w-full h-full bg-gray-200 animate-pulse" />
-                          )}
-                          <img
-                            src={GOAL_ICON_URLS.business}
-                            alt="Business"
-                            className={cn(
-                              "w-full h-full object-cover",
-                              !loadedGoalIcons.has("business") && "hidden"
-                            )}
-                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("business"))}
-                          />
-                        </div>
-                      </div>
-                    </button>
+                  {/* p-0.5: room for a picked card's 2px border, which is drawn outside it */}
+                  <div className="w-full max-w-[604px] grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 overflow-y-auto p-0.5 max-sm:flex-1 max-sm:pb-2">
+                    {GOALS.map((goal) => (
+                      <GoalCard key={goal.id} goal={goal} selected={selectedGoal === goal.id} onPick={setSelectedGoal} />
+                    ))}
                   </div>
                 </div>
               )}
@@ -1480,7 +1531,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 4: Template Selection */}
               {currentStep === 4 && (
                 <div className="flex flex-col items-center h-full">
-                  <div className="text-center mb-3 sm:mb-6 shrink-0">
+                  <div className="text-center mb-3 sm:mb-5 shrink-0">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
                       Choose a template
                     </h1>
@@ -1489,560 +1540,27 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     </p>
                   </div>
 
-                  {/* Mobile: Grid layout with scroll */}
-                  <div className="sm:hidden w-full flex-1 min-h-0 overflow-y-auto px-2 py-2">
-                    <div className="grid grid-cols-2 gap-3 pb-4 px-1">
-                      {THEME_TEMPLATES.map((template) => {
-                        const isSelected = selectedTemplate === template.id
-                        const bgStyle = template.theme_config.background_type === "gradient"
-                          ? { background: template.theme_config.background_gradient }
-                          : template.theme_config.background_type === "image"
-                          ? {
-                              backgroundImage: `url(${template.theme_config.background_image_url})`,
-                              backgroundSize: "cover",
-                              backgroundPosition: "center",
-                            }
-                          : { background: template.theme_config.background_color }
-                        const isImageBg = template.theme_config.background_type === "image"
-                        const isHeroLayout = (template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero"
-                        const hasPattern = template.theme_config.background_pattern && template.theme_config.background_pattern !== "none"
-                        const patternColor = template.theme_config.pattern_color || "#ffffff"
-                        // Increased opacity for better visibility in thumbnails
-                        const patternOpacity = template.theme_config.pattern_opacity === "high" ? 0.7 : template.theme_config.pattern_opacity === "medium" ? 0.5 : 0.35
-
-                        return (
-                          <button
-                            key={template.id}
-                            onClick={() => setSelectedTemplate(template.id)}
-                            className={cn(
-                              "aspect-[3/4] rounded-xl overflow-hidden relative transition-all duration-300",
-                              isSelected ? "ring-2 ring-[#1a1a2e] ring-offset-2" : ""
-                            )}
-                          >
-                            {isImageBg && (
-                              <div
-                                className="absolute inset-0 z-0"
-                                style={{
-                                  backgroundImage: `url(${template.theme_config.background_image_url})`,
-                                  backgroundSize: "cover",
-                                  backgroundPosition: "center",
-                                }}
-                              />
-                            )}
-                            <div
-                              className="w-full h-full p-2 flex flex-col items-center justify-center gap-1.5 relative"
-                              style={isImageBg ? {} : bgStyle}
-                            >
-                              {isImageBg && (
-                                <div className="absolute inset-0 bg-black/50 z-[1]" />
-                              )}
-                              {/* Pattern overlay for mobile - all pattern types */}
-                              {hasPattern && template.theme_config.background_pattern === "grid" && (
-                                <div
-                                  className="absolute inset-0 pointer-events-none z-[2]"
-                                  style={{
-                                    backgroundImage: `linear-gradient(${patternColor} 1px, transparent 1px), linear-gradient(90deg, ${patternColor} 1px, transparent 1px)`,
-                                    backgroundSize: "16px 16px",
-                                    opacity: patternOpacity
-                                  }}
-                                />
-                              )}
-                              {hasPattern && template.theme_config.background_pattern === "stars" && (
-                                <div
-                                  className="absolute inset-0 pointer-events-none z-[2] overflow-hidden"
-                                  style={{ opacity: patternOpacity }}
-                                >
-                                  <style>{`
-                                    @keyframes starTwinkle1m${template.id} {
-                                      0%, 100% { opacity: 0.2; }
-                                      50% { opacity: 0.8; }
-                                    }
-                                    @keyframes starTwinkle2m${template.id} {
-                                      0%, 100% { opacity: 0.4; }
-                                      50% { opacity: 1; }
-                                    }
-                                    @keyframes starTwinkle3m${template.id} {
-                                      0%, 100% { opacity: 0.3; }
-                                      50% { opacity: 0.7; }
-                                    }
-                                    .star-m-${template.id} {
-                                      position: absolute;
-                                      border-radius: 50%;
-                                      background: ${patternColor};
-                                    }
-                                    .star-m1-${template.id} { animation: starTwinkle1m${template.id} 3s ease-in-out infinite; }
-                                    .star-m2-${template.id} { animation: starTwinkle2m${template.id} 4s ease-in-out infinite; animation-delay: 0.5s; }
-                                    .star-m3-${template.id} { animation: starTwinkle3m${template.id} 5s ease-in-out infinite; animation-delay: 1s; }
-                                  `}</style>
-                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '8%', left: '15%' }} />
-                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1px', height: '1px', top: '15%', left: '45%' }} />
-                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '10%', left: '75%' }} />
-                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1px', height: '1px', top: '25%', left: '25%' }} />
-                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '30%', left: '60%' }} />
-                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1px', height: '1px', top: '22%', left: '85%' }} />
-                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '40%', left: '10%' }} />
-                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1px', height: '1px', top: '45%', left: '50%' }} />
-                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '38%', left: '80%' }} />
-                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1px', height: '1px', top: '55%', left: '20%' }} />
-                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '60%', left: '55%' }} />
-                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1px', height: '1px', top: '52%', left: '90%' }} />
-                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '70%', left: '35%' }} />
-                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1px', height: '1px', top: '75%', left: '70%' }} />
-                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '68%', left: '5%' }} />
-                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1px', height: '1px', top: '85%', left: '40%' }} />
-                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '90%', left: '65%' }} />
-                                </div>
-                              )}
-                              {hasPattern && template.theme_config.background_pattern === "waves" && (
-                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" xmlns="http://www.w3.org/2000/svg" style={{ opacity: patternOpacity }}>
-                                  <defs>
-                                    <pattern id={`waves-mobile-${template.id}`} width="40" height="20" patternUnits="userSpaceOnUse">
-                                      <path d="M0 10 Q10 0, 20 10 T40 10" fill="none" stroke={patternColor} strokeWidth="1.5" />
-                                    </pattern>
-                                  </defs>
-                                  <rect width="100%" height="100%" fill={`url(#waves-mobile-${template.id})`} />
-                                </svg>
-                              )}
-                              {hasPattern && template.theme_config.background_pattern === "zigzag" && (
-                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" xmlns="http://www.w3.org/2000/svg" style={{ opacity: patternOpacity }}>
-                                  <defs>
-                                    <pattern id={`zigzag-mobile-${template.id}`} width="20" height="12" patternUnits="userSpaceOnUse">
-                                      <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
-                                    </pattern>
-                                  </defs>
-                                  <rect width="100%" height="100%" fill={`url(#zigzag-mobile-${template.id})`} />
-                                </svg>
-                              )}
-                              {hasPattern && template.theme_config.background_pattern === "organic" && (
-                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" style={{ opacity: patternOpacity }}>
-                                  <defs>
-                                    <pattern id={`organic-mobile-${template.id}`} width="200" height="200" patternUnits="userSpaceOnUse">
-                                      <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={patternColor} opacity="0.5" />
-                                      <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={patternColor} opacity="0.45" />
-                                      <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={patternColor} opacity="0.48" />
-                                      <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={patternColor} opacity="0.4" />
-                                    </pattern>
-                                  </defs>
-                                  <rect width="100%" height="100%" fill={`url(#organic-mobile-${template.id})`} />
-                                </svg>
-                              )}
-                              {hasPattern && template.theme_config.background_pattern === "morph" && (
-                                <div
-                                  className="absolute inset-0 pointer-events-none z-[2]"
-                                  style={{
-                                    backgroundImage: `radial-gradient(ellipse at 20% 30%, ${patternColor} 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, ${patternColor} 0%, transparent 50%)`,
-                                    opacity: patternOpacity
-                                  }}
-                                />
-                              )}
-                              {/* Neon glow effect */}
-                              {template.id === "neon" && (
-                                <div className="absolute inset-0 pointer-events-none overflow-hidden z-[2]">
-                                  <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.15) 0%, transparent 50%)" }} />
-                                </div>
-                              )}
-                              {isHeroLayout ? (
-                                /* Hero layout for mobile: full height like phone preview */
-                                <>
-                                  <div className="absolute top-0 left-0 right-0 h-[55%] z-10 overflow-hidden">
-                                    {avatarUrl ? (
-                                      <>
-                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                        {/* Fade gradient overlay */}
-                                        <div
-                                          className="absolute inset-0 pointer-events-none"
-                                          style={{
-                                            background: `linear-gradient(to bottom, transparent 40%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
-                                          }}
-                                        />
-                                      </>
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
-                                        <span className="text-sm font-bold" style={{ color: template.theme_config.text_color }}>
-                                          {displayName.charAt(0).toUpperCase() || "A"}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="mt-auto mb-2 flex flex-col items-center gap-0.5 relative z-10">
-                                    <div className="w-10 h-1.5 rounded" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
-                                    <div className="w-8 h-1 rounded" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  {/* A circle in a card too short for everything: it keeps its size, and the card's column cannot squash it oval. */}
-                                  <div data-theme-avatar="" className="w-7 h-7 aspect-square shrink-0 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
-                                    {avatarUrl ? (
-                                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                      <span className="text-[8px] font-bold" style={{ color: template.theme_config.text_color }}>
-                                        {displayName.charAt(0).toUpperCase() || "A"}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="w-10 h-1.5 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
-                                  <div className="w-8 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
-                                </>
-                              )}
-                              <div
-                                className="mt-1 w-full max-w-[50px] h-4 relative z-10"
-                                style={{
-                                  background: template.theme_config.button_color,
-                                  borderWidth: template.theme_config.button_border_width || 0,
-                                  borderColor: template.theme_config.button_border_color,
-                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                                }}
-                              />
-                            </div>
-                            {isSelected && (
-                              <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center z-20">
-                                <Check className="w-3 h-3 text-white" />
-                              </div>
-                            )}
-                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/50 to-transparent p-1.5 z-10">
-                              <p
-                                className="text-white text-[10px] font-medium text-center"
-                                style={{ fontFamily: template.theme_config.font_family }}
-                              >
-                                {template.name}
-                              </p>
-                            </div>
-                          </button>
-                        )
-                      })}
+                  {/*
+                    ONE GRID AT EVERY WIDTH. The phone had a grid and the
+                    computer a carousel of four with arrows and dots, two
+                    copies of every card that drifted apart (the carousel
+                    went blank for 150ms on every page). Now it is one list
+                    of equal cards that scrolls, two across on a phone and
+                    five on a computer. p-1: room for a picked card's border.
+                  */}
+                  <div className="w-full max-w-[760px] flex-1 min-h-0 overflow-y-auto overscroll-contain p-1 pb-4">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                      {THEME_TEMPLATES.map((template) => (
+                        <TemplateCard
+                          key={template.id}
+                          template={template}
+                          selected={selectedTemplate === template.id}
+                          onPick={setSelectedTemplate}
+                          avatarUrl={avatarUrl}
+                          initial={displayName.charAt(0).toUpperCase() || "A"}
+                        />
+                      ))}
                     </div>
-                  </div>
-
-                  {/* Desktop: Carousel - with padding to prevent overflow */}
-                  <div className="hidden sm:block relative w-full max-w-[700px] px-8">
-                    {/* Left arrow */}
-                    <button
-                      onClick={handleCarouselPrev}
-                      disabled={carouselIndex === 0}
-                      className={cn(
-                        "absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all duration-200",
-                        carouselIndex === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 hover:shadow-xl"
-                      )}
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-
-                    {/* Templates container with overflow hidden and padding for ring-offset */}
-                    <div className="overflow-hidden px-1 py-4">
-                      <div
-                        className={cn(
-                          "flex gap-3 transition-all duration-300 ease-out",
-                          carouselAnimating && carouselDirection === "right" && "opacity-0 translate-x-8",
-                          carouselAnimating && carouselDirection === "left" && "opacity-0 -translate-x-8"
-                        )}
-                      >
-                        {visibleTemplates.map((template) => {
-                          const isSelected = selectedTemplate === template.id
-
-                          // Get pattern SVG based on theme
-                          const getPatternOverlay = () => {
-                            const pattern = template.theme_config.background_pattern
-                            const patternColor = template.theme_config.pattern_color || "#ffffff"
-                            // Increased opacity for better visibility in thumbnails
-                            const opacity = template.theme_config.pattern_opacity === "high" ? 0.7 :
-                                           template.theme_config.pattern_opacity === "medium" ? 0.5 : 0.35
-
-                            // Special handling for Neon theme - show cyan glow effect
-                            if (template.id === "neon") {
-                              return (
-                                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                                  <div
-                                    className="absolute inset-0"
-                                    style={{
-                                      background: "radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.15) 0%, transparent 50%)"
-                                    }}
-                                  />
-                                  <div
-                                    className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[2px]"
-                                    style={{
-                                      background: "linear-gradient(90deg, transparent, #22d3ee, transparent)",
-                                      boxShadow: "0 0 20px 2px rgba(34, 211, 238, 0.5)"
-                                    }}
-                                  />
-                                </div>
-                              )
-                            }
-
-                            if (!pattern || pattern === "none") return null
-
-                            if (pattern === "grid") {
-                              return (
-                                <div
-                                  className="absolute inset-0 pointer-events-none"
-                                  style={{
-                                    backgroundImage: `linear-gradient(${patternColor} 1px, transparent 1px), linear-gradient(90deg, ${patternColor} 1px, transparent 1px)`,
-                                    backgroundSize: "20px 20px",
-                                    opacity
-                                  }}
-                                />
-                              )
-                            }
-                            if (pattern === "stars") {
-                              return (
-                                <div
-                                  className="absolute inset-0 pointer-events-none overflow-hidden"
-                                  style={{ opacity }}
-                                >
-                                  <style>{`
-                                    @keyframes starTwinkle1d${template.id} {
-                                      0%, 100% { opacity: 0.2; }
-                                      50% { opacity: 0.8; }
-                                    }
-                                    @keyframes starTwinkle2d${template.id} {
-                                      0%, 100% { opacity: 0.4; }
-                                      50% { opacity: 1; }
-                                    }
-                                    @keyframes starTwinkle3d${template.id} {
-                                      0%, 100% { opacity: 0.3; }
-                                      50% { opacity: 0.7; }
-                                    }
-                                    .star-d-${template.id} {
-                                      position: absolute;
-                                      border-radius: 50%;
-                                      background: ${patternColor};
-                                    }
-                                    .star-d1-${template.id} { animation: starTwinkle1d${template.id} 3s ease-in-out infinite; }
-                                    .star-d2-${template.id} { animation: starTwinkle2d${template.id} 4s ease-in-out infinite; animation-delay: 0.5s; }
-                                    .star-d3-${template.id} { animation: starTwinkle3d${template.id} 5s ease-in-out infinite; animation-delay: 1s; }
-                                  `}</style>
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '5%', left: '10%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '12%', left: '30%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '8%', left: '55%' }} />
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '15%', left: '75%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '10%', left: '90%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '25%', left: '15%' }} />
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '30%', left: '45%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '22%', left: '65%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '35%', left: '85%' }} />
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '40%', left: '5%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '45%', left: '35%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '42%', left: '60%' }} />
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '50%', left: '80%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '55%', left: '20%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '58%', left: '50%' }} />
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '62%', left: '70%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '65%', left: '92%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '70%', left: '8%' }} />
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '75%', left: '40%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '78%', left: '58%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '82%', left: '78%' }} />
-                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '88%', left: '25%' }} />
-                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '92%', left: '55%' }} />
-                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '95%', left: '88%' }} />
-                                </div>
-                              )
-                            }
-                            if (pattern === "waves") {
-                              return (
-                                <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" style={{ opacity }}>
-                                  <defs>
-                                    <pattern id={`waves-desktop-${template.id}`} width="40" height="20" patternUnits="userSpaceOnUse">
-                                      <path d="M0 10 Q10 0, 20 10 T40 10" fill="none" stroke={patternColor} strokeWidth="1.5" />
-                                    </pattern>
-                                  </defs>
-                                  <rect width="100%" height="100%" fill={`url(#waves-desktop-${template.id})`} />
-                                </svg>
-                              )
-                            }
-                            if (pattern === "zigzag") {
-                              return (
-                                <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" style={{ opacity }}>
-                                  <defs>
-                                    <pattern id={`zigzag-desktop-${template.id}`} width="20" height="12" patternUnits="userSpaceOnUse">
-                                      <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
-                                    </pattern>
-                                  </defs>
-                                  <rect width="100%" height="100%" fill={`url(#zigzag-desktop-${template.id})`} />
-                                </svg>
-                              )
-                            }
-                            if (pattern === "organic") {
-                              return (
-                                <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" style={{ opacity }}>
-                                  <defs>
-                                    <pattern id={`organic-desktop-${template.id}`} width="200" height="200" patternUnits="userSpaceOnUse">
-                                      <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={patternColor} opacity="0.5" />
-                                      <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={patternColor} opacity="0.45" />
-                                      <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={patternColor} opacity="0.48" />
-                                      <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={patternColor} opacity="0.4" />
-                                    </pattern>
-                                  </defs>
-                                  <rect width="100%" height="100%" fill={`url(#organic-desktop-${template.id})`} />
-                                </svg>
-                              )
-                            }
-                            if (pattern === "morph") {
-                              return (
-                                <div
-                                  className="absolute inset-0 pointer-events-none"
-                                  style={{
-                                    backgroundImage: `radial-gradient(ellipse at 20% 30%, ${patternColor} 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, ${patternColor} 0%, transparent 50%)`,
-                                    opacity
-                                  }}
-                                />
-                              )
-                            }
-                            return null
-                          }
-
-                          const bgStyle = template.theme_config.background_type === "gradient"
-                            ? { background: template.theme_config.background_gradient }
-                            : template.theme_config.background_type === "image"
-                            ? {
-                                backgroundImage: `url(${template.theme_config.background_image_url})`,
-                                backgroundSize: "cover",
-                                backgroundPosition: "center",
-                              }
-                            : { background: template.theme_config.background_color }
-
-                          // Check if this is an image-type background
-                          const isImageBg = template.theme_config.background_type === "image"
-
-                          return (
-                            <button
-                              key={template.id}
-                              onClick={() => setSelectedTemplate(template.id)}
-                              className={cn(
-                                "flex-1 min-w-[140px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-all duration-300",
-                                isSelected ? "ring-2 ring-[#1a1a2e] ring-offset-2" : ""
-                              )}
-                            >
-                              {/* Background layer for image themes */}
-                              {isImageBg && (
-                                <div
-                                  className="absolute inset-0 z-0"
-                                  style={{
-                                    backgroundImage: `url(${template.theme_config.background_image_url})`,
-                                    backgroundSize: "cover",
-                                    backgroundPosition: "center",
-                                  }}
-                                />
-                              )}
-
-                              {/* Template preview */}
-                              <div
-                                className="w-full h-full p-3 flex flex-col items-center justify-center gap-2 relative"
-                                style={isImageBg ? {} : bgStyle}
-                              >
-                                {/* Dark overlay for image backgrounds so content is visible */}
-                                {isImageBg && (
-                                  <div className="absolute inset-0 bg-black/50 z-[1]" />
-                                )}
-
-                                {/* Pattern overlay */}
-                                {getPatternOverlay()}
-
-                                {/* Check if hero layout */}
-                                {((template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero") ? (
-                                  /* Hero layout: full height header like phone preview with fade */
-                                  <>
-                                    <div className="absolute top-0 left-0 right-0 h-[55%] z-10 overflow-hidden">
-                                      {avatarUrl ? (
-                                        <>
-                                          <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                          {/* Fade gradient overlay like phone preview */}
-                                          <div
-                                            className="absolute inset-0 pointer-events-none"
-                                            style={{
-                                              background: `linear-gradient(to bottom, transparent 40%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
-                                            }}
-                                          />
-                                        </>
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
-                                          <span className="text-lg font-bold" style={{ color: template.theme_config.text_color }}>
-                                            {displayName.charAt(0).toUpperCase() || "A"}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="mt-auto mb-4 flex flex-col items-center gap-1 relative z-10">
-                                      <div className="w-16 h-2 rounded" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
-                                      <div className="w-12 h-1 rounded" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
-                                    </div>
-                                  </>
-                                ) : (
-                                  /* Classic layout: circle avatar with user photo/initial */
-                                  <>
-                                    <div data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
-                                      {avatarUrl ? (
-                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                      ) : (
-                                        <span className="text-xs font-bold" style={{ color: template.theme_config.text_color }}>
-                                          {displayName.charAt(0).toUpperCase() || "A"}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="w-16 h-2 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
-                                    <div className="w-12 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
-                                  </>
-                                )}
-
-                                {/* Button preview */}
-                                <div
-                                  className="w-full max-w-[80px] h-6 mt-2 relative z-10"
-                                  style={{
-                                    background: template.theme_config.button_color,
-                                    borderWidth: template.theme_config.button_border_width || 0,
-                                    borderColor: template.theme_config.button_border_color,
-                                    borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                                  }}
-                                />
-                              </div>
-
-                              {/* Selected checkmark */}
-                              {isSelected && (
-                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center z-20">
-                                  <Check className="w-3 h-3 text-white" />
-                                </div>
-                              )}
-
-                              {/* Template name with font preview */}
-                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/50 to-transparent p-2 z-10">
-                                <p
-                                  className="text-white text-[10px] font-medium text-center"
-                                  style={{ fontFamily: template.theme_config.font_family }}
-                                >
-                                  {template.name}
-                                </p>
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Right arrow */}
-                    <button
-                      onClick={handleCarouselNext}
-                      disabled={carouselIndex >= maxCarouselIndex}
-                      className={cn(
-                        "absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all duration-200",
-                        carouselIndex >= maxCarouselIndex ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 hover:shadow-xl"
-                      )}
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Pagination dots - desktop only */}
-                  <div className="hidden sm:flex justify-center gap-1.5 mt-4">
-                    {Array.from({ length: maxCarouselIndex + 1 }).map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setCarouselIndex(i)}
-                        className={cn(
-                          "w-2 h-2 rounded-full transition-colors",
-                          i === carouselIndex ? "bg-[#1a1a2e]" : "bg-gray-300 hover:bg-gray-400"
-                        )}
-                      />
-                    ))}
                   </div>
                 </div>
               )}
@@ -2050,45 +1568,62 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 5: Setup - centered content */}
               {currentStep === 5 && (
                 <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[350px] px-4 pt-6 sm:pt-0">
-                  {/* Logo with pulse effect */}
-                  <div className="relative mb-4 sm:mb-6 mt-4 sm:mt-0">
-                    {isSettingUp && (
-                      <>
-                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-[7px] bg-[#1a1a2e]/30 animate-ping" />
-                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-[7px] bg-[#1a1a2e]/20 animate-pulse" />
-                      </>
-                    )}
+                  {/*
+                    THE LOGO, WITH TWO RINGS LEAVING IT WHILE THE PAGE IS
+                    BUILT. It had a dark square behind it that doubled in
+                    size and vanished once a second (Tailwind's ping) under a
+                    second one breathing, a grey block pulsing behind the
+                    logo. Two thin rings in the logo's own shape now grow out
+                    of it and fade, one after the other (app/globals.css
+                    .onepage-setup-ring: transform and opacity, on the
+                    compositor). When it is done they fade away and a green
+                    check arrives on the logo's corner.
+                  */}
+                  <div data-setup-mark="" className="relative mb-6 mt-4 sm:mb-7 sm:mt-0 grid h-16 w-16 sm:h-20 sm:w-20 place-items-center">
+                    <span aria-hidden className={cn("onepage-setup-halo pointer-events-none absolute inset-0", !isSettingUp && "onepage-setup-halo-off")}>
+                      <span className="onepage-setup-ring" />
+                      <span className="onepage-setup-ring onepage-setup-ring-late" />
+                    </span>
                     <StorelibLogo size={80} fluid className="relative h-16 w-16 sm:h-20 sm:w-20" />
+                    <span
+                      aria-hidden
+                      data-setup-done=""
+                      className={cn(
+                        "absolute -bottom-2 -right-2 grid h-7 w-7 place-items-center rounded-full bg-[#16a34a] text-white shadow-[0_0_0_3px_#fff] transition-[opacity,scale] duration-300 ease-out",
+                        setupComplete ? "scale-100 opacity-100" : "scale-50 opacity-0",
+                      )}
+                    >
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </span>
                   </div>
 
-                  {/* Title - centered */}
-                  <div className="text-center">
-                    {isSettingUp && setupPhase === "setting-up" ? (
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
-                        <h1 className="text-lg sm:text-2xl font-bold">
-                          Setting up your OnePage
+                  {/*
+                    THE WORDS CROSS, THEY DO NOT JUMP. Each line was mounted
+                    in place of the last, so a change was the old words gone
+                    in one frame and the new ones faded up from nothing. All
+                    three lines are drawn now, one over the other in a single
+                    grid cell, so the cell is always as tall and as wide as
+                    the longest of them; a change fades the old line out and
+                    the new one in, 100ms behind it. 21px on a phone and 27px
+                    on a computer, 3px up from 18 and 24.
+                  */}
+                  <div data-setup-words="" className="grid text-center" role="status" aria-live="polite">
+                    {SETUP_WORDS.map(([key, words]) => {
+                      const shown = setupWords === key
+                      return (
+                        <h1
+                          key={key}
+                          aria-hidden={!shown}
+                          className={cn(
+                            "col-start-1 row-start-1 text-[21px] sm:text-[27px] font-bold leading-tight text-[#1a1a2e] transition-opacity ease-out motion-reduce:transition-none",
+                            shown ? "opacity-100 duration-[260ms] delay-100" : "opacity-0 duration-[180ms]",
+                          )}
+                        >
+                          {words}
                         </h1>
-                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#1a1a2e] animate-spin" />
-                      </div>
-                    ) : isSettingUp && setupPhase === "just-a-moment" ? (
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in duration-300">
-                        <h1 className="text-lg sm:text-2xl font-bold">
-                          Almost there
-                        </h1>
-                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#1a1a2e] animate-spin" />
-                      </div>
-                    ) : setupComplete ? (
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in zoom-in duration-500">
-                        <h1 className="text-lg sm:text-2xl font-bold">
-                          Your OnePage is ready.
-                        </h1>
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
-                          <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                        </div>
-                      </div>
-                    ) : null}
+                      )
+                    })}
                   </div>
-
                 </div>
               )}
             </div>

@@ -14,11 +14,26 @@
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { extname, join, normalize } from "node:path"
 import { appCss, interFaces } from "./probe-css.mjs"
 
-export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", blocks = null, theme = {}, liveTheme = null, fail = (m) => { throw new Error(m) } } = {}) {
+/* The file types a probe page asks this server for, beside the page itself. */
+const STATIC_TYPES = { ".webp": "image/webp", ".avif": "image/avif", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".gif": "image/gif" }
+
+/**
+ * `statics` maps an address prefix to a folder: `/images/` is the app's own
+ * public/images, as the live site serves it, and a probe can add more
+ * (`{ "/__remote/": dir }`, to serve a copy of a file that lives elsewhere).
+ *
+ * `throttle` ({ latency, bytesPerSecond }) serves those files as a slow
+ * phone network would: each waits `latency` ms before its first byte, and
+ * all of them share one pipe of `bytesPerSecond`. It is done here rather than
+ * with the browser's own network throttling because the page itself (the
+ * whole bundle, inline) would crawl through that too, and the probe measures
+ * the files, not the harness.
+ */
+export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, fail = (m) => { throw new Error(m) } } = {}) {
   const dir = join(root, `.onepage-probe-${process.pid}`)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/app/onepage"
@@ -36,7 +51,9 @@ export default function Image({ src, alt, fill, priority, unoptimized, sizes, qu
 `)
   /* One answer for every query: an empty list (the Products tab maps it) that also says onboarding is done (the editor reads that off a single row). */
   writeFileSync(join(dir, "supabase.js"), `const result = { data: Object.assign([], { onboarding_completed: true }), error: null }
-const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(result) : q, apply: () => q })
+/* A harness that sets globalThis.PROBE_EMPTY_READS gets nothing back instead (the onboarding: every name is free). */
+const nothing = { data: null, error: null }
+const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(globalThis.PROBE_EMPTY_READS ? nothing : result) : q, apply: () => q })
 /* A probe that names a catalogue (window.PROBE_PRODUCTS) gets it back from a read of products, the read lib/onepage/live-products makes. */
 const rows = (list) => { const r = { data: list, error: null }; const p = new Proxy(function () {}, { get: (_, k) => k === "then" ? (res) => res(r) : p, apply: () => p }); return p }
 export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: (table) => (table === "products" && Array.isArray(globalThis.PROBE_PRODUCTS) ? rows(globalThis.PROBE_PRODUCTS) : q), storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this } }), removeChannel() {} } }
@@ -63,7 +80,32 @@ export function createClient() { return { auth: { getUser: async () => ({ data: 
   const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<style>${interFaces(root)}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
     `</head><body><div id="app"></div><script>${devtoolsHook}${globals}</script><script>${bundle}</script></body></html>`
+  const folders = { "/images/": join(root, "public/images"), ...statics }
+  /* One pipe for every throttled file: the time the next chunk may leave. */
+  let pipeFreeAt = 0
+  const sendThrottled = async (res, body) => {
+    await new Promise((r) => setTimeout(r, throttle.latency))
+    for (let at = 0; at < body.length; at += 4096) {
+      const chunk = body.subarray(at, at + 4096)
+      const now = Date.now()
+      const leave = Math.max(now, pipeFreeAt)
+      pipeFreeAt = leave + (chunk.length / throttle.bytesPerSecond) * 1000
+      if (leave > now) await new Promise((r) => setTimeout(r, leave - now))
+      res.write(chunk)
+    }
+    res.end()
+  }
   const server = createServer((req, res) => {
+    const path = decodeURIComponent(req.url.split("?")[0])
+    for (const [prefix, dir] of Object.entries(folders)) {
+      if (!path.startsWith(prefix)) continue
+      const file = normalize(join(dir, path.slice(prefix.length)))
+      if (!file.startsWith(normalize(dir)) || !existsSync(file) || !statSync(file).isFile()) { res.writeHead(404); return res.end() }
+      const body = readFileSync(file)
+      res.writeHead(200, { "content-type": STATIC_TYPES[extname(file).toLowerCase()] || "application/octet-stream", "content-length": body.length, "cache-control": "public, max-age=31536000, immutable" })
+      if (throttle) return void sendThrottled(res, body)
+      return res.end(body)
+    }
     /* /onepage-preview is the editor preview's own frame (components/onepage/live-preview). */
     if (req.url === "/" || req.url.startsWith("/app") || req.url.startsWith("/onepage-preview")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
     res.writeHead(200, { "content-type": "application/json" })
