@@ -16,6 +16,7 @@
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js"
+import { isScannerConfigured } from "@/lib/security/file-scanner-core"
 import { STORAGE_BUCKET } from "./plans"
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -28,6 +29,10 @@ export interface ScanResult {
   threatName?: string
   scanDurationMs?: number
   scannedAt: string
+  /** From the Storelib file scanner (lib/security/file-scanner.ts). */
+  sha256?: string
+  signatures?: number | null
+  engineVersion?: string | null
 }
 
 // ── Configuration ──────────────────────────────────────────────────
@@ -48,9 +53,26 @@ const SCAN_TIMEOUT_MS = 60_000
 /**
  * Whether a real antivirus engine is configured. Without one the scan is the
  * header heuristic in security.ts, which is fast enough to run inline.
+ *
+ * The Storelib file scanner (CLAMAV_SERVICE_URL and CLAMAV_SERVICE_SECRET,
+ * lib/security/file-scanner.ts) is the engine Storelib runs; the other three
+ * are older options kept working for anyone who set one.
  */
 export function hasExternalScanner(): boolean {
-  return Boolean(process.env.CLAMAV_REST_URL || process.env.CLOUDMERSIVE_API_KEY || process.env.VIRUSTOTAL_API_KEY)
+  return Boolean(isScannerConfigured() || process.env.CLAMAV_REST_URL || process.env.CLOUDMERSIVE_API_KEY || process.env.VIRUSTOTAL_API_KEY)
+}
+
+/** The scan's own details, for scan_result: never the file, only what was found and by what. */
+function resultDetails(scanResult: ScanResult) {
+  return {
+    engine: scanResult.engine,
+    threatName: scanResult.threatName,
+    scanDurationMs: scanResult.scanDurationMs,
+    scannedAt: scanResult.scannedAt,
+    ...(scanResult.sha256 ? { sha256: scanResult.sha256 } : {}),
+    ...(scanResult.signatures != null ? { signatures: scanResult.signatures } : {}),
+    ...(scanResult.engineVersion ? { engineVersion: scanResult.engineVersion } : {}),
+  }
 }
 
 // ── Scan Backends ──────────────────────────────────────────────────
@@ -350,12 +372,7 @@ export async function updateAssetScanStatus(
     .from("digital_assets")
     .update({
       scan_status: scanResult.status,
-      scan_result: {
-        engine: scanResult.engine,
-        threatName: scanResult.threatName,
-        scanDurationMs: scanResult.scanDurationMs,
-        scannedAt: scanResult.scannedAt,
-      },
+      scan_result: resultDetails(scanResult),
       updated_at: new Date().toISOString(),
     })
     .eq("id", assetId)
@@ -453,13 +470,7 @@ export async function handleInfectedFile(
     .update({
       scan_status: "infected",
       upload_status: "quarantined",
-      scan_result: {
-        engine: scanResult.engine,
-        threatName: scanResult.threatName,
-        scanDurationMs: scanResult.scanDurationMs,
-        scannedAt: scanResult.scannedAt,
-        action: "deleted",
-      },
+      scan_result: { ...resultDetails(scanResult), action: "deleted" },
       updated_at: new Date().toISOString(),
     })
     .eq("id", assetId)

@@ -22,12 +22,15 @@ import "server-only"
  *                          by its magic bytes before anything is marked done.
  *   cleanStoredPublicImage the same picture rules as a server upload
  *                          (lib/storage/public-image.ts), applied to one that
- *                          went up by signed URL.
+ *                          went up by signed URL, and the malware scan when it
+ *                          is on (screenPublicBytes).
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NextResponse } from "next/server"
 
 import { rateLimit, type RateWindow } from "@/lib/api/rate-limit"
+import { scanBytes } from "@/lib/security/file-scanner"
+import { recordScan, type ScanSource } from "@/lib/security/scan-log"
 import { getPlanLimits } from "./plans"
 import { preparePublicImage, PUBLIC_IMAGE_MAX_BYTES } from "./public-image"
 
@@ -151,6 +154,37 @@ export async function readStoredHead(
 }
 
 /**
+ * ===========================================================================
+ *  THE MALWARE SCAN FOR A PUBLIC FILE THAT PASSES THROUGH A ROUTE
+ * ===========================================================================
+ * Pictures and small files that a route holds in memory anyway: scanned
+ * before they are stored (or, for one already stored, before the route says
+ * it is done). Infected is refused. No verdict (scanner off, down or slow)
+ * lets the file through: it has already passed the picture checks or the
+ * header check, it is public the moment it is stored so there is no pending
+ * state to hold it in, and a profile photo that cannot be saved because a
+ * scanner is restarting is a broken app, not a safer one. Every outcome is
+ * in the scan log.
+ *
+ * Twelve seconds at most: a picture is scanned in well under one.
+ */
+export async function screenPublicBytes(
+  admin: SupabaseClient,
+  bytes: Uint8Array,
+  where: { source: ScanSource; bucket: string; path: string; logClean?: boolean },
+): Promise<{ blocked: boolean; threat?: string }> {
+  const result = await scanBytes(bytes, { ref: `${where.bucket}/${where.path}`, deadlineMs: 12_000, retries: 1 })
+  const blocked = result.status === "infected"
+  if (result.status !== "clean" || where.logClean !== false) {
+    await recordScan(admin, { source: where.source, bucket: where.bucket, path: where.path, result, action: blocked ? "refused" : "kept" })
+  }
+  return blocked ? { blocked, threat: result.threat } : { blocked }
+}
+
+/** What a creator is told when a file they uploaded was flagged. */
+export const FLAGGED_UPLOAD = "That file was flagged by the virus scan and was not saved."
+
+/**
  * A picture that went to a public bucket by signed URL, made to follow the
  * same rules as one sent through the server: refused and removed if it is not
  * a picture or is too large, and rewritten without its metadata when it had
@@ -173,6 +207,12 @@ export async function cleanStoredPublicImage(
   if (!checked.ok) {
     await admin.storage.from(bucket).remove([path]).catch(() => undefined)
     return checked
+  }
+  /* The bytes that will be served, stripped or not. */
+  const screened = await screenPublicBytes(admin, checked.bytes, { source: "public_image", bucket, path })
+  if (screened.blocked) {
+    await admin.storage.from(bucket).remove([path]).catch(() => undefined)
+    return { ok: false, error: FLAGGED_UPLOAD, status: 400 }
   }
   if (checked.stripped) {
     const { error: upErr } = await admin.storage.from(bucket).upload(path, checked.bytes, {

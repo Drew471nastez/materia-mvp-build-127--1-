@@ -28,20 +28,19 @@
  *                    than 160ms, where the 140ms fade from 0.4 it replaced
  *                    was there by 134 to 153ms), over by 260ms, and never
  *                    moving (transform none on every frame)
- *   THE PILL         the selected tab's pill, frame by frame: it slides
- *                    (three or more frames between the two tabs), ends
- *                    exactly on the new tab, is never scaled (no stretch),
- *                    never passes where it is going (no overshoot, in
- *                    position or width), and is declared as 200ms on a
- *                    plain ease out ("more normal, regular, clean and
- *                    smooth"). SETTINGS_SHOTS adds it photographed part way,
- *                    slowed twenty times.
+ *   THE FILL         every tab's own fill, frame by frame ("not that
+ *                    slide"): no fill ever leaves its own tab (centre within
+ *                    1px of its tab's centre on every frame), the new one
+ *                    fades in over two or more frames and ends fully on,
+ *                    every other ends fully off, and the fade is declared
+ *                    as 150ms on a plain ease out. SETTINGS_SHOTS adds it
+ *                    photographed part way, slowed twenty times.
  *   NOT ON LOAD      the first paint, and a tab opened by ?tab= on load, are
  *                    simply there: no fade, no slide
  *   NOT ON RE-RENDER typing in General's Name field repaints the form, and
  *                    the panel must not fade again
  *   REDUCED MOTION   with the system asking for less, every frame after a
- *                    press is at full opacity and the outline jumps
+ *                    press is at full opacity and the fill is simply on
  *
  *   node scripts/check-settings-tabs.mjs
  *   SETTINGS_SHOTS=/some/dir node scripts/check-settings-tabs.mjs
@@ -127,12 +126,17 @@ const RECORDER = () => {
     const first = panel?.firstElementChild?.firstElementChild ?? panel?.firstElementChild
     const s = document.querySelector(".app-content-scroll")
     const fr = first?.getBoundingClientRect()
-    const ring = document.querySelector("[data-settings-tab-ring]")
-    const row = ring?.parentElement?.getBoundingClientRect()
     const tabName = panel?.getAttribute("data-settings-panel") ?? null
-    const tabEl = tabName ? bar?.querySelectorAll("button")[order.indexOf(tabName)] : null
-    const rr = ring?.getBoundingClientRect()
-    const tr = tabEl?.getBoundingClientRect()
+    const buttons = bar ? [...bar.querySelectorAll("button")] : []
+    const fills = buttons.map((b) => b.querySelector("[data-settings-tab-fill]"))
+    const sel = tabName ? order.indexOf(tabName) : -1
+    /* How far any fill's centre is from its own tab's centre: a slide shows here, a fade or a scale in place does not. */
+    const travel = Math.max(0, ...fills.map((f, i) => {
+      if (!f) return 999
+      const a = f.getBoundingClientRect(), t = buttons[i].getBoundingClientRect()
+      return Math.abs((a.left + a.width / 2) - (t.left + t.width / 2))
+    }))
+    const fillTiming = (() => { const f = fills[sel]; const a = f?.getAnimations().find((x) => x.transitionProperty === "opacity"); if (!a) return null; const t = a.effect.getTiming(); return `${t.duration} ${t.easing}` })()
     const cs = panel ? getComputedStyle(panel) : null
     window.__rec.push({
       t,
@@ -143,15 +147,11 @@ const RECORDER = () => {
       opacity: cs ? Number(cs.opacity) : null,
       moved: cs ? (cs.transform !== "none" || (cs.translate && cs.translate !== "none")) : false,
       anims: panel ? panel.getAnimations().length : 0,
-      ringVisible: ring ? getComputedStyle(ring).visibility === "visible" : false,
-      ringX: rr && row ? Math.round((rr.left - row.left) * 10) / 10 : null,
-      ringW: rr ? Math.round(rr.width * 10) / 10 : null,
-      ringAnims: ring ? ring.getAnimations().length : 0,
-      ringTiming: ring && ring.getAnimations()[0] ? (() => { const t = ring.getAnimations()[0].effect.getTiming(); return `${t.duration} ${t.easing}` })() : null,
-      /* Stretch: anything but a plain move and a true width (a scale squashes the hairline and the round ends). */
-      ringStretch: ring ? (() => { const c = getComputedStyle(ring); return (c.transform !== "none" && !/^matrix\(1, 0, 0, 1,/.test(c.transform)) || (c.scale && c.scale !== "none") })() : false,
-      tabX: tr && row ? Math.round((tr.left - row.left) * 10) / 10 : null,
-      tabW: tr ? Math.round(tr.width * 10) / 10 : null,
+      travel: Math.round(travel * 10) / 10,
+      selOpacity: sel >= 0 && fills[sel] ? Number(getComputedStyle(fills[sel]).opacity) : null,
+      otherMax: Math.max(0, ...fills.filter((_, i) => i !== sel).map((f) => (f ? Number(getComputedStyle(f).opacity) : 0))),
+      fillAnims: fills.reduce((n, f) => n + (f ? f.getAnimations().length : 0), 0),
+      fillTiming,
       scroll: s ? s.scrollTop : null,
       gutter: s ? s.offsetWidth - s.clientWidth : null,
     })
@@ -197,30 +197,19 @@ async function press(page, errors, tab) {
   /* A frame with no panel under the tabs, or one so faint it reads as none. */
   const blank = rec.filter((r) => r.tab === null || (r.opacity != null && r.opacity < 0.15)).length
   const gutterChanged = settled && before ? settled.gutter !== before.gutter : false
-  /* The fade and the outline, frame by frame, in ms from the press. */
-  const curve = mine.map((r) => [Math.round(r.t - t0), Math.round(r.opacity * 1000) / 1000, r.ringX])
+  /* The panel's fade and the new tab's fill, frame by frame, in ms from the press. */
+  const curve = mine.map((r) => [Math.round(r.t - t0), Math.round(r.opacity * 1000) / 1000, r.selOpacity])
   const full = mine.find((r) => r.opacity >= 0.999)
   const fading = mine.filter((r) => r.opacity >= 0.2 && r.opacity < 0.999).length
   const minOpacity = mine.length ? Math.min(...mine.map((r) => r.opacity)) : null
   const rose = mine.some((r) => r.moved)
-  const between = (x) => x != null && before.ringX != null && settled?.ringX != null && Math.min(before.ringX, settled.ringX) + 0.5 < x && x < Math.max(before.ringX, settled.ringX) - 0.5
-  const slideFrames = rec.filter((r) => between(r.ringX)).length
-  const ringOnTab = settled ? Math.abs(settled.ringX - settled.tabX) <= 0.5 && Math.abs(settled.ringW - settled.tabW) <= 0.5 && settled.ringVisible : false
-  const ringDone = rec.find((r, i) => i > 0 && r.ringAnims === 0 && rec[i - 1].ringAnims > 0)
-  /* A calm slide: never scaled, and never past where it is going (no overshoot, no bounce back). */
-  const stretched = rec.filter((r) => r.ringStretch).length
-  const lo = Math.min(before.ringX ?? 0, settled?.ringX ?? 0) - 0.5
-  const hi = Math.max(before.ringX ?? 0, settled?.ringX ?? 0) + 0.5
-  const overshoot = rec.filter((r) => r.ringX != null && (r.ringX < lo || r.ringX > hi)).length
-  const wLo = Math.min(before.ringW ?? 0, settled?.ringW ?? 0) - 0.5
-  const wHi = Math.max(before.ringW ?? 0, settled?.ringW ?? 0) + 0.5
-  const widthOut = rec.filter((r) => r.ringW != null && (r.ringW < wLo || r.ringW > wHi)).length
+  const travel = Math.max(0, ...rec.map((r) => r.travel))
+  const fillFrames = mine.filter((r) => r.selOpacity != null && r.selOpacity > 0.02 && r.selOpacity < 0.98).length
+  const fillOn = settled ? settled.selOpacity >= 0.999 && settled.otherMax <= 0.001 : false
   return {
     tab, barMoved, contentMoved, leftMoved, blank, shift: Math.round(shift * 10000) / 10000, gutterChanged, scroll: [before.scroll, settled?.scroll],
-    visibleAt: full ? Math.round(full.t - t0) : null, fading, minOpacity, rose, slideFrames, ringOnTab, slideEndsAt: ringDone ? Math.round(ringDone.t - t0) : null,
-    stretched, overshoot, widthOut,
-    /* The slide itself, from its first frame to its last: the click's own render is not part of it. */
-    slideTiming: rec.find((r) => r.ringTiming)?.ringTiming ?? null,
+    visibleAt: full ? Math.round(full.t - t0) : null, fading, minOpacity, rose, travel, fillFrames, fillOn,
+    fillTiming: rec.find((r) => r.fillTiming)?.fillTiming ?? null,
     curve,
   }
 }
@@ -235,8 +224,8 @@ for (const [label, viewport] of [
     frames: window.__rec.filter((r) => r.tab).length,
     minOpacity: Math.min(...window.__rec.filter((r) => r.tab).map((r) => r.opacity)),
     anims: Math.max(0, ...window.__rec.map((r) => r.anims)),
-    ringAnims: Math.max(0, ...window.__rec.map((r) => r.ringAnims)),
-    ringOnTab: (() => { const r = window.__rec[window.__rec.length - 1]; return Math.abs(r.ringX - r.tabX) <= 0.5 && Math.abs(r.ringW - r.tabW) <= 0.5 && r.ringVisible })(),
+    fillAnims: Math.max(0, ...window.__rec.map((r) => r.fillAnims)),
+    fillOn: (() => { const r = window.__rec[window.__rec.length - 1]; return r.selOpacity >= 0.999 && r.otherMax <= 0.001 })(),
   }))
   await wait(300)
   const fromTop = []
@@ -259,7 +248,7 @@ for (const [label, viewport] of [
     const f = window.__rec.filter((r) => r.t >= t1)
     return { frames: f.length, minOpacity: Math.min(...f.map((r) => r.opacity)), anims: Math.max(0, ...f.map((r) => r.anims)), name: document.querySelector("#firstName").value }
   }, t1)
-  /* The pill part way, slowed twenty times, so a person can look at it: its hairline and round ends keep their shape. */
+  /* The fill part way, slowed twenty times, so a person can look at it: it grows in place, nothing crosses the row. */
   if (process.env.SETTINGS_SHOTS) {
     const cdp = await page.createCDPSession()
     await cdp.send("Animation.enable")
@@ -280,21 +269,21 @@ for (const [label, viewport] of [
     tab: document.querySelector("[data-settings-panel]").getAttribute("data-settings-panel"),
     minOpacity: Math.min(...window.__rec.filter((r) => r.tab).map((r) => r.opacity)),
     anims: Math.max(0, ...window.__rec.map((r) => r.anims)),
-    ringAnims: Math.max(0, ...window.__rec.map((r) => r.ringAnims)),
+    fillAnims: Math.max(0, ...window.__rec.map((r) => r.fillAnims)),
   }))
   await deep.page.close()
 
-  /* Less motion: a press changes the tab at full opacity, and the outline jumps. */
+  /* Less motion: a press changes the tab at full opacity, and the fill is simply on. */
   const calm = await openPage(viewport, { reduced: true })
   const reduced = await press(calm.page, calm.errors, "security")
-  const reducedRing = await calm.page.evaluate(() => Math.max(0, ...window.__rec.map((r) => r.ringAnims)))
+  const reducedRing = reduced.fillFrames
   await calm.page.close()
 
   const first = fromTop[0]
   report[label] = {
     load, onLoad, rerender,
-    firstPress: { tab: first.tab, visibleAt: first.visibleAt, fading: first.fading, minOpacity: first.minOpacity, slideFrames: first.slideFrames, slideEndsAt: first.slideEndsAt, curve: first.curve.slice(0, 16) },
-    reduced: { minOpacity: reduced.minOpacity, fading: reduced.fading, ringAnims: reducedRing, ringOnTab: reduced.ringOnTab },
+    firstPress: { tab: first.tab, visibleAt: first.visibleAt, fading: first.fading, minOpacity: first.minOpacity, travel: first.travel, fillFrames: first.fillFrames, fillTiming: first.fillTiming, curve: first.curve.slice(0, 16) },
+    reduced: { minOpacity: reduced.minOpacity, fading: reduced.fading, fillFrames: reducedRing, fillOn: reduced.fillOn },
     presses: [...fromTop, ...fromScrolled].map(({ curve, ...r }) => r),
     scrolledTo: tallest,
     errors: [...errors, ...deep.errors, ...calm.errors].slice(0, 3),
@@ -313,25 +302,24 @@ for (const [label, viewport] of [
     if (r.visibleAt == null || r.visibleAt > 260) problems.push(`${at} fully there only at ${r.visibleAt}ms`)
     /* The one before this was fully there by 134 to 153ms, from 0.4: over before it was seen. */
     else if (r.visibleAt < 160) problems.push(`${at} fully there at ${r.visibleAt}ms, as direct as before`)
-    if (r.slideFrames < 3) problems.push(`${at} the outline slid over ${r.slideFrames} frames`)
-    if (!r.ringOnTab) problems.push(`${at} the outline did not end on the tab`)
-    if (r.stretched) problems.push(`${at} the pill was scaled (stretched) on ${r.stretched} frames`)
-    if (r.overshoot || r.widthOut) problems.push(`${at} the pill went past where it was going (${r.overshoot} frames in position, ${r.widthOut} in width)`)
-    /* The slide's own timing, as declared (frame times on a busy machine say more about the machine): 200ms on a plain ease out that never passes 1. */
-    if (r.slideTiming && !/^200 cubic-bezier\(0\.33, 1, 0\.68, 1\)$/.test(r.slideTiming)) problems.push(`${at} the pill slides on ${r.slideTiming}, not 200ms on a plain ease out`)
+    if (r.travel > 1) problems.push(`${at} a tab's fill left its own tab by ${r.travel}px: that is a slide`)
+    if (r.fillFrames < 2) problems.push(`${at} the new tab's fill faded over ${r.fillFrames} frames: a cut, not a fade`)
+    if (!r.fillOn) problems.push(`${at} the fill did not end on the new tab alone`)
+    /* The fade's own timing, as declared (frame times on a busy machine say more about the machine). */
+    if (r.fillTiming && !/^150 cubic-bezier\(0\.33, 1, 0\.68, 1\)$/.test(r.fillTiming)) problems.push(`${at} the fill fades on ${r.fillTiming}, not 150ms on a plain ease out`)
   }
   const at = `at ${label}:`
   if (load.minOpacity < 1 || load.anims) problems.push(`${at} the first paint faded (min opacity ${load.minOpacity}, ${load.anims} animations)`)
-  if (load.ringAnims) problems.push(`${at} the outline slid on load`)
-  if (!load.ringOnTab) problems.push(`${at} the outline is not on the selected tab after load`)
-  if (onLoad.tab !== "security" || onLoad.minOpacity < 1 || onLoad.anims || onLoad.ringAnims) problems.push(`${at} ?tab=security on load: ${JSON.stringify(onLoad)}`)
+  if (load.fillAnims) problems.push(`${at} a tab's fill faded on load`)
+  if (!load.fillOn) problems.push(`${at} the fill is not on the selected tab alone after load`)
+  if (onLoad.tab !== "security" || onLoad.minOpacity < 1 || onLoad.anims || onLoad.fillAnims) problems.push(`${at} ?tab=security on load: ${JSON.stringify(onLoad)}`)
   if (rerender.minOpacity < 1 || rerender.anims) problems.push(`${at} a re-render faded the panel again: ${JSON.stringify(rerender)}`)
-  if (reduced.minOpacity < 1 || reducedRing) problems.push(`${at} with reduced motion: min opacity ${reduced.minOpacity}, outline animations ${reducedRing}`)
-  if (!reduced.ringOnTab) problems.push(`${at} with reduced motion the outline did not land on the tab`)
+  if (reduced.minOpacity < 1 || reducedRing) problems.push(`${at} with reduced motion: min opacity ${reduced.minOpacity}, fill fading over ${reducedRing} frames`)
+  if (!reduced.fillOn) problems.push(`${at} with reduced motion the fill did not land on the tab`)
 }
 
 await browser.close()
 server.close()
 console.log(JSON.stringify(report, null, 1))
 if (problems.length) fail(problems.join("\n"))
-console.log("ok: the tab bar and the content hold still, the new tab fades in over 200ms, the outline slides, and neither happens on load, on a re-render or with reduced motion, at 390 and 1280")
+console.log("ok: the tab bar and the content hold still, the new tab fades in over 200ms, each tab's fill fades in place and nothing slides, and neither happens on load, on a re-render or with reduced motion, at 390 and 1280")

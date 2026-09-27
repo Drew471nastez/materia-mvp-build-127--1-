@@ -71,6 +71,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/strip-image-metadata", schedule: "10 * * * *", what: "Removes location data from new public photos" },
   { path: "/api/cron/notifications", schedule: "25 * * * *", what: "Works out every creator's notifications and pushes the urgent ones" },
   { path: "/api/cron/notify", schedule: "*/5 * * * *", what: "Sends due notification emails and bell notices, and retries the ones that failed" },
+  { path: "/api/cron/scan-files", schedule: "*/10 * * * *", what: "Scans product files still waiting for the malware scanner, ten a run" },
 ] as const
 
 /**
@@ -88,6 +89,8 @@ export const ENV_CHECKS: { name: string; group: string }[] = [
   { name: "PRICE_PRO_MONTHLY", group: "Payments" },
   { name: "PRICE_GROWTH_MONTHLY", group: "Payments" },
   { name: "MAILGUN_API_KEY", group: "Email" },
+  { name: "CLAMAV_SERVICE_URL", group: "Malware scanner" },
+  { name: "CLAMAV_SERVICE_SECRET", group: "Malware scanner" },
   { name: "MAILGUN_DOMAIN", group: "Email" },
   { name: "MAILGUN_WEBHOOK_SIGNING_KEY", group: "Email" },
   { name: "EMAIL_FROM", group: "Email" },

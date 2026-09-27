@@ -53,7 +53,7 @@ function main() {
   check("a program renamed to a PDF is refused by its first bytes", scanFile("guide.pdf", "application/pdf", mz).safe === false)
   check("an executable's name is refused outright", scanFile("setup.exe", "application/octet-stream", null).safe === false && scanFile("invoice.pdf.exe", "application/octet-stream", null).safe === false)
   check("the upload's first bytes are read back from storage and scanned before it counts as complete",
-    /const head = await readStoredHead\(admin, bucket, pending\.file_path\)/.test(complete) && /scanFile\(pending\.file_name/.test(complete) && /scan_status: "pending_scan"/.test(complete))
+    /const head = await readStoredHead\(admin, bucket, pending\.file_path\)/.test(complete) && /scanFile\(pending\.file_name/.test(complete) && /scan_status: (verdictKept \? "clean" : )?"pending_scan"/.test(complete))
   const gate = read("lib/storage/scan-gate.ts")
   check("downloads wait for the scan, and an engine is switched on by one setting", /gateDownload/.test(gate) && /CLAMAV_REST_URL \|\| process\.env\.CLOUDMERSIVE_API_KEY \|\| process\.env\.VIRUSTOTAL_API_KEY/.test(read("lib/storage/antivirus.ts")))
 

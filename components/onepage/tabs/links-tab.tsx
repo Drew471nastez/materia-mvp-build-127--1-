@@ -3187,10 +3187,6 @@ export function LinksTab() {
             <SheetDialogTitle className="text-lg font-semibold text-center">Profile photo</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
-            {/* One photo, and this is the same one: no creator has to work out which editor owns which face. */}
-            <p className="text-[13px] leading-snug text-[#6b7280]">
-              This is your Storelib profile photo. Changing it here changes it on your creator page, your products and your receipts too.
-            </p>
             <button onClick={() => { setShowAvatarEditModal(false); setShowAvatarUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><ImageIcon className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">Select image or GIF</p></div>
