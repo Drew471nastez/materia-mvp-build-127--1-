@@ -25,7 +25,7 @@
  *   BEFORE_DIR=<dir> SHOTS_DIR=<dir> node scripts/check-email-weight.mjs
  */
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 
@@ -241,6 +241,9 @@ try {
   console.error(e)
   broken++
 }
+
+/* The fetched pictures go; the report and the samples stay for a look. */
+for (const f of existsSync(work) ? readdirSync(work) : []) if (/^img-\d+\.bin$|^samples\.cjs$|^server-only\.js$/.test(f)) rmSync(join(work, f), { force: true })
 
 console.log(broken ? `\n${broken} check(s) failed` : "\nall checks passed")
 process.exit(broken ? 1 : 0)
