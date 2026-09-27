@@ -205,6 +205,31 @@ function main() {
       /panel\.animate\(\[\{ transform: at\(panelFrom\) \}, \{ transform: at\(panelTo\) \}\], timing\)/.test(design) && /list\.animate\(\[\{ transform: under\(panelFrom\) \}, \{ transform: under\(panelTo\) \}\], timing\)/.test(design))
     check("and back returns to the place in the list that was left", /scroller\.scrollTop = move\.to === "home" \? listScroll\.current : 0/.test(design))
     /*
+      "When I switch and navigate, there are glitchy, buggy page
+      transitions." Recorded at 1280 on a computer: Theme stood in from the
+      right as a box over a list cut off at the left, and back showed Theme
+      whole again for two frames once the move had ended.
+      scripts/check-onepage-design-push.mjs, every row in and back at
+      1280x800 on CPU/4 with scrollbars that take room: pages 576px in a
+      630px column -> exactly the column; overlap up to 576px -> the list's
+      edge on the panel's edge in every frame; the page leaving drawn at
+      rest after the move, 1 frame -> 0; the column scrollable sideways by
+      549px -> 0; the column 630 -> 620px in a move's first frame -> never
+      changes.
+    */
+    const editorSrc = read("components/onepage/onepage-editor.tsx")
+    check("each page is the column: the editor gives Design the whole column, and the stack cuts sideways at its edges",
+      /t === "design" \? null : "p-4 md:p-6 pb-24 md:pb-6"/.test(editorSrc) && /t === "settings" \? "max-w-2xl" : t === "design" \? null : "max-w-xl"/.test(editorSrc)
+      && /style=\{\{ overflowX: "clip" \}\} data-design-stack=""/.test(design) && /const readingClass = "mx-auto w-full max-w-xl p-4 pb-24 md:p-6 md:pb-6"/.test(design))
+    check("on a computer the pages go side by side, the list all the way out, with no shade or shadow",
+      /const SIDE_QUERY = "\(min-width: 768px\)"/.test(design) && /const shift = side \? 1 : UNDER_SHIFT/.test(design) && /if \(dim && !side\)/.test(design)
+      && /panelMoving && "max-md:shadow-/.test(design))
+    check("the last frame is held until React has drawn the page at rest, and let go before that is painted",
+      /fill: "both"/.test(design) && /if \(!move\) \{\s*animating\.current\.forEach\(\(a\) => a\.cancel\(\)\)/.test(design))
+    check("the page leaving is cut at the bottom of the screen, so a move never makes the column scroll",
+      /\.\.\.leavingStyle\(move!\.top\), height: move!\.listMin, overflow: "clip"/.test(design) && /\.\.\.leavingStyle\(move \? move\.top : 0\), height: move\?\.panelMin, overflow: "clip"/.test(design))
+    check("the tab boxes keep the scrollbar's room, so a move never changes the column's width", /scrollbarGutter: "stable"/.test(editorSrc))
+    /*
       ONE MOTION PER PRESS. "Themes, back, Themes again, back: a double
       refresh." The page slid in with only its title and its controls were
       built a frame later and faded in: two motions for every open, and four
