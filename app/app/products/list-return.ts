@@ -156,6 +156,52 @@ export function warmEditor(router: Router, href: string) {
 }
 
 /**
+ * THE WAY IN FOR SEVERAL PRODUCTS, ONE AFTER ANOTHER, ON A FRESH SESSION.
+ *
+ * The list used to fetch New product and its first three rows ahead all at
+ * once. Each of those is a request that asks Supabase who is signed in, in
+ * the proxy and again in the page. When the list was drawn from the router's
+ * copy (kept five minutes) and the session had expired in the meantime, all
+ * of them arrived with the same old token and every one tried to renew it
+ * with the same refresh token at the same moment. That is when the auth
+ * service stops answering: the production logs show "[proxy] auth
+ * undetermined on /app/products/new: timed out" inside exactly such a burst,
+ * and a request that times out there waits 3s, retries, and waits 3s again,
+ * which is the five seconds a press on a product could sit on the list.
+ *
+ * So the session is made fresh in the browser first (`fresh`, one renewal if
+ * it is due, nothing if it is not), and the pages are then asked for one at
+ * a time, WARM_GAP_MS apart, each carrying the fresh cookie. Returns the
+ * cancel, for an unmount before it finished.
+ */
+export const WARM_GAP_MS = 250
+/** The longest the fresh session is waited for; past it the pages are asked for anyway. */
+const FRESH_WAIT_MS = 2000
+
+export function warmInTurn(warm: Array<() => void>, fresh: () => Promise<unknown>): () => void {
+  let cancelled = false
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const next = (i: number) => {
+    if (cancelled || i >= warm.length) return
+    warm[i]()
+    timer = setTimeout(() => next(i + 1), WARM_GAP_MS)
+  }
+  let started = false
+  const start = () => {
+    if (started || cancelled) return
+    started = true
+    next(0)
+  }
+  const cap = setTimeout(start, FRESH_WAIT_MS)
+  fresh().then(start, start).finally(() => clearTimeout(cap))
+  return () => {
+    cancelled = true
+    clearTimeout(cap)
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/**
  * Run `task` once the browser is idle (a frame with nothing else to do), or
  * after `timeout` at the latest; at once where idle callbacks do not exist.
  * Returns the cancel, for an unmount before it ran.

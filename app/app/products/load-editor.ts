@@ -15,6 +15,20 @@ import type { EditorAssetRow, EditorCreator, EditorProductRow, EditorVariantRow,
  * creator afterwards rather than filtered by a creator id the first read has
  * not returned yet, and a product that is not theirs is treated as missing,
  * files and variants dropped with it.
+ *
+ * THE PRODUCT DOES NOT WAIT FOR THE AUTH CHECK. Its three reads (the row,
+ * its files, its variants) need no user id: row-level security reads the
+ * session from the request's own cookie. So they go out at the same moment
+ * as the auth check rather than after it, and only the creator and the
+ * profile, which are looked up by the user's id, wait for it. Nothing read is
+ * used before the check has said who this is, and for a signed out request
+ * all of it is dropped. The page then costs one auth round trip plus one
+ * read, not an auth round trip and then all the reads.
+ *
+ * TIMED. Each phase is measured, and a load slower than SLOW_LOAD_MS says so
+ * in the function's log with where the time went ("[editor-load] 5120ms:
+ * auth 4870, reads 250"), so a slow open can be read off production rather
+ * than guessed at.
  */
 
 export type EditorLoad =
@@ -44,23 +58,36 @@ const PRODUCT_COLUMNS =
 const missingColumn = (error: { code?: string; message?: string } | null | undefined) =>
   !!error && (error.code === "42703" || error.code === "PGRST204" || /column .* does not exist/i.test(error.message ?? ""))
 
+/** A load slower than this is written to the log with its phases. */
+const SLOW_LOAD_MS = 800
+
 /** A product id is a uuid; anything else is not looked up. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function loadProductEditor(productId: string | null): Promise<EditorLoad> {
-  const { user } = await currentUserForRequest()
-  if (!user) return { state: "signed-out" }
-  const supabase = await createClient()
+  const began = performance.now()
   const id = productId && UUID.test(productId) ? productId : null
+  const supabase = await createClient()
 
-  /* The creator and profiles rows through the request's own copies (lib/auth/request-scope): on a full load the /app layout has already asked for both, and the editor now shares those answers instead of asking again. */
-  const [creatorRow, profileRow, productRes, assetsRes, variantsRes] = await Promise.all([
-    creatorForRequest(user.id),
-    profileForRequest(user.id),
+  /* The product's reads, started now, beside the auth check (see THE PRODUCT DOES NOT WAIT, above). */
+  const productReads = Promise.all([
     id ? supabase.from("products").select(PRODUCT_COLUMNS).eq("id", id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     id ? supabase.from("digital_assets").select("id, file_name, file_path, file_size, mime_type").eq("product_id", id) : Promise.resolve({ data: [] }),
     /* The variants table may be missing on an old database; no variants then, as before. */
     id ? supabase.from("product_variants").select(VARIANT_COLUMNS).eq("product_id", id).order("position") : Promise.resolve({ data: [], error: null }),
+  ])
+  /* Never an unhandled rejection when the check below returns first. */
+  productReads.catch(() => {})
+
+  const { user } = await currentUserForRequest()
+  const authed = performance.now()
+  if (!user) return { state: "signed-out" }
+
+  /* The creator and profiles rows through the request's own copies (lib/auth/request-scope): on a full load the /app layout has already asked for both, and the editor now shares those answers instead of asking again. */
+  const [creatorRow, profileRow, [productRes, assetsRes, variantsRes]] = await Promise.all([
+    creatorForRequest(user.id),
+    profileForRequest(user.id),
+    productReads,
   ])
 
   /* The two fallbacks, only when the first read was refused for a column, and together. */
@@ -70,6 +97,11 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
       ? supabase.from("product_variants").select(VARIANT_COLUMNS_BASIC).eq("product_id", id).order("position")
       : variantsRes,
   ])
+
+  const took = performance.now() - began
+  if (took > SLOW_LOAD_MS) {
+    console.warn(`[editor-load] ${Math.round(took)}ms: auth ${Math.round(authed - began)}, reads ${Math.round(performance.now() - authed)}${id ? "" : " (new)"}`)
+  }
 
   if (!creatorRow) return { state: "no-creator" }
   /* Only what the editor reads goes to the browser, not the whole shell row. */
