@@ -67,6 +67,19 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
   const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, markDirty, getLatestOnePage } = useOnePage()
   const router = useRouter()
   const [activeSection, setActiveSection] = useState("basic")
+  /*
+    A SECTION CHANGES AS WEBSITE SETTINGS' TABS DO. It swapped in a single
+    frame. Now the section is one keyed element that settles in tone
+    (app/globals.css .settings-panel: 0.2 to 1 over 200ms, opacity alone,
+    nothing moves), put on only once a section has been pressed, so opening
+    Settings is simply there.
+  */
+  const [sectionEntrance, setSectionEntrance] = useState(false)
+  const chooseSection = (id: string) => {
+    if (id === activeSection) return
+    setSectionEntrance(true)
+    setActiveSection(id)
+  }
   const [copied, setCopied] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [localSaveState, setLocalSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -446,7 +459,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
     return (
       <button
-        onClick={() => setActiveSection(section.id)}
+        onClick={() => chooseSection(section.id)}
         aria-current={isActive ? "page" : undefined}
         className={cn(
           "w-full flex items-center px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors text-left cursor-pointer",
@@ -1096,7 +1109,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
           {SETTINGS_SECTIONS.map((section) => (
             <button
               key={section.id}
-              onClick={() => setActiveSection(section.id)}
+              onClick={() => chooseSection(section.id)}
               aria-pressed={activeSection === section.id}
               className="relative px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap cursor-pointer bg-white ring-1 ring-[#e5e7eb] [-webkit-tap-highlight-color:transparent]"
             >
@@ -1110,7 +1123,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
       {/* Content Area */}
       <div className="flex-1 min-w-0">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div key={activeSection} data-settings-section={activeSection} className={cn("bg-white rounded-xl border border-gray-200 p-5", sectionEntrance && "settings-panel")}>
           {activeSection === "basic" && renderBasicInfo()}
           {activeSection === "seo" && renderSeo()}
           {activeSection === "subscribe" && renderSubscribe()}
