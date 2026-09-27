@@ -93,7 +93,7 @@ function main() {
     check("and so does the live page", cases.test(live))
     check("the preview and the live page leave out blocks by one rule (the live page's, and the page is built by one function for both)",
       framed && /const isBlockVisible = \(block: any\): boolean => isBlockShown\(block\)/.test(live) &&
-      /publicOnePageFromDraft\(onepage as never\)/.test(read("components/onepage/live-preview.tsx")))
+      /publicOnePageFromDraft\(onepage as never, \{ displayName: owner\.displayName, liveAvatarUrl: owner\.avatarUrl \}\)/.test(read("components/onepage/live-preview.tsx")))
     const on = (block: any) => isBlockShown({ enabled: true, ...block }, NOW)
     check("a link with no address, or only https://, is not on the page", !on({ type: "link_button", data: { url: "https://" } }) && !on({ type: "link_button", data: { url: "" } }) && on({ type: "link_button", data: { url: "https://storelib.com" } }))
     check("nor is a block that is off, off schedule, a one letter text or an image with no picture",

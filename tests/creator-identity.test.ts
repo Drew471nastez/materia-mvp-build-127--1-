@@ -38,7 +38,6 @@ import {
   typedSeoTitle,
 } from "../lib/account/identity"
 import { followProfileIdentity, type FollowClient } from "../lib/account/profile-follow"
-import { ownAvatarPath, photosStillNamed } from "../lib/account/avatar-files"
 
 let passed = 0
 let failed = 0
@@ -188,7 +187,6 @@ async function main() {
     check("the creator page header follows", ((w.configs[0].published_config as Row).headerSettings as Row).avatarUrl === NEW_PHOTO)
     check("the name is not touched by a photo change", page.title === "Zarra Bianco")
     check("the creator id comes back for the caches", followed.creatorId === "creator-1")
-    check("the old address is reported, for the storage sweep", followed.dropped.includes(OLD_PHOTO))
 
     const icon = creatorPhoto({ published: (page.published_profile as Row).avatar_url, own: page.avatar_url, live: NEW_PHOTO })
     check("the icon is the new photo", icon === NEW_PHOTO, icon)
@@ -221,33 +219,21 @@ async function main() {
     check("and the live profile photo", photo === NEW_PHOTO)
   }
 
-  /* ── The replaced file stops being served ──────────────────────────────── */
-  console.log("\nThe photo that was replaced is removed from storage, unless a row still names it")
+  /* ── The replaced file is kept ──────────────────────────────────────────── */
+  console.log("\nThe photo that was replaced stays in storage")
   {
-    const base = "https://proj.supabase.co"
-    check("a path inside the person's own folder is found", ownAvatarPath(OLD_PHOTO, "user-1", base) === "user-1/avatar-1700000000000.jpg")
-    check("somebody else's folder is not", ownAvatarPath(OLD_PHOTO, "user-2", base) === null)
-    check("a picture outside the avatars bucket is not", ownAvatarPath("https://proj.supabase.co/storage/v1/object/public/covers/user-1/a.jpg", "user-1", base) === null)
-    check("a Google address is not", ownAvatarPath(GOOGLE, "user-1", base) === null)
-
-    const named = photosStillNamed({
-      profile: { avatar_url: NEW_PHOTO },
-      onepage: { avatar_url: null, published_profile: { avatar_url: OLD_PHOTO } },
-      creator: { avatar_url: null },
-      configs: [{ draft_config: { headerSettings: { avatarUrl: "" } }, published_config: null }],
-    })
-    check("a copy that still names the old photo keeps it alive", named.has(OLD_PHOTO))
-    check("and the new one is named too", named.has(NEW_PHOTO))
-    const none = photosStillNamed({ profile: { avatar_url: NEW_PHOTO }, onepage: { avatar_url: null, published_profile: { avatar_url: null } } })
-    check("with nothing pointing at it, it can go", !none.has(OLD_PHOTO))
+    const { existsSync } = await import("node:fs")
+    check("there is no sweep module any more", !existsSync("lib/account/avatar-files.ts"))
+    const photoRoute = readCode("app/api/account/avatar/route.ts")
+    check("the photo route removes no file", !/\.remove\(/.test(photoRoute) && !photoRoute.includes("sweepReplacedAvatar"))
   }
 
   /* ── The files that must keep reading it this way ──────────────────────── */
   console.log("\nEvery public surface reads the one resolver")
   {
     const onepage = readCode("app/(marketing)/l/[slug]/page.tsx")
-    check("the OnePage metadata builds its title with creatorName", onepage.includes("creatorName({"))
-    check("and its icon with creatorPhoto", onepage.includes("creatorPhoto({"))
+    check("the OnePage metadata builds its title and icon from the shape the body is drawn from", onepage.includes("const drawn = publishedShape(onepage, owner)") && onepage.includes("const faviconUrl = drawn.avatar_url"))
+    check("and the body is drawn from that same shape", onepage.includes("const transformedOnepage = publishedShape(onepage, owner"))
     check("and reads the live display name", onepage.includes("display_name") && onepage.includes("owner.displayName"))
     check("it no longer starts the title from the published copy alone", !/const displayName = profile\?\.title \|\| onepage\.title \|\| "Creator"/.test(onepage))
     check("it no longer starts the icon from the published copy alone", !/faviconUrl = profile\?\.avatar_url \|\| onepage\.avatar_url/.test(onepage))
@@ -273,7 +259,7 @@ async function main() {
 
     const photoRoute = readCode("app/api/account/avatar/route.ts")
     check("saving a photo moves the copies", photoRoute.includes("followProfileIdentity"))
-    check("and sweeps the file it replaced", photoRoute.includes("sweepReplacedAvatar"))
+    check("and deletes no file", !photoRoute.includes("sweepReplacedAvatar") && !/\.remove\(/.test(photoRoute))
 
     const creatorProfile = readCode("app/api/creator-profile/route.ts")
     check("the storefront's Edit profile moves them as well", creatorProfile.includes("followProfileIdentity"))

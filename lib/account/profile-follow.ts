@@ -62,8 +62,6 @@ export interface Followed {
   creators: number
   configs: number
   creatorId: string | null
-  /** Photos the copies no longer point at, for the storage sweep in the avatar route. */
-  dropped: string[]
 }
 
 /** Merges one field into a JSON column, and only when there is a JSON column. */
@@ -78,18 +76,13 @@ function withField(json: unknown, key: string, value: string | null): Row | null
  * runs, and a copy that did not move is one the next save moves.
  */
 export async function followProfileIdentity(client: FollowClient, userId: string, change: ProfileChange): Promise<Followed> {
-  const done: Followed = { onepages: 0, creators: 0, configs: 0, creatorId: null, dropped: [] }
+  const done: Followed = { onepages: 0, creators: 0, configs: 0, creatorId: null }
   const name = change.name
   const photo = change.photo
   if (!name && !photo) return done
 
   const nameFollows = (stored: unknown) => (name ? followsProfile(stored, name.before, name.after) : undefined)
-  const photoFollows = (stored: unknown) => {
-    if (!photo) return undefined
-    const next = followsProfilePhoto(stored, photo.before, photo.after)
-    if (next !== undefined && typeof stored === "string" && stored.trim() !== "") done.dropped.push(stored.trim())
-    return next
-  }
+  const photoFollows = (stored: unknown) => (photo ? followsProfilePhoto(stored, photo.before, photo.after) : undefined)
 
   /* ── The OnePage: its draft, its published copy, and its SEO title ───── */
   try {

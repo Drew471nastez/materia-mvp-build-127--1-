@@ -282,13 +282,17 @@ function main() {
     console.log("\n  every screen that deletes or hides a product says so")
 
     const list = strip(read("app/app/products/products-client.tsx"))
+    /* A delete is the server's now, which forgets the product once the row is really gone (tests/product-delete.test.ts). */
+    const deleteRoute = strip(read("app/api/products/delete/route.ts"))
     check("the products list, after a delete",
-      /await forgetProduct\(productToDelete\.id, productToDelete\.slug\)/.test(list) &&
-        list.indexOf("await forgetProduct(productToDelete.id") > list.indexOf('throw new Error("Nothing was deleted")'))
+      /await deleteProduct\(product\.id\)/.test(list) &&
+        /if \(result\.kind === "deleted"\) \{\s*await forgetDeletedProduct\(admin, /.test(deleteRoute) &&
+        deleteRoute.indexOf("forgetDeletedProduct(admin") > deleteRoute.indexOf('if (result.kind === "failed")'))
     check("and after archiving or restoring", /await forgetProduct\(product\.id, product\.slug\)/.test(list))
     const edit = strip(read("components/app/product-edit-form.tsx"))
     check("the product editor, after a delete", (edit.match(/await forgetProduct\(/g) ?? []).length === 2)
-    check("the course editor", /await forgetProduct\(/.test(read("components/app/course-edit-form.tsx")))
+    check("the course editor, through the same delete", /await deleteProduct\(product\.id\)/.test(read("components/app/course-edit-form.tsx")))
+    check("the product editor's delete and publish switch", /await deleteProduct\(productId\)/.test(read("app/app/products/new/product-editor.tsx")) && /await forgetProduct\(productId, slug\)/.test(read("app/app/products/new/product-editor.tsx")))
     check("the course builder's publish switch", /await forgetProduct\(/.test(read("components/app/course-builder.tsx")))
     check("and an admin deleting one from the console",
       /forgetDeletedProduct\(supabase, \{/.test(read("app/api/admin/blog/seo-metrics/route.ts")))

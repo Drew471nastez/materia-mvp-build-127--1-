@@ -1,6 +1,8 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
+import { forgetProduct } from "@/lib/products/forget-client"
+import { deleteProduct, deleteQuestion, leaveNotice, previewProductDelete, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -1603,6 +1605,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       if (updateError) throw updateError
 
       announceChange({ product: productId })
+      /* Off the page or back on it: what is cached of it is dropped either way (app/api/products/forget). */
+      await forgetProduct(productId, slug)
       setIsPublished(!isPublished)
       setNotificationMessage(isPublished ? "Product unpublished" : "Product is live")
       setShowNotification(true)
@@ -1615,6 +1619,51 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     } finally {
       setIsLoading(false)
     }
+  }
+
+  /*
+    DELETE, FROM THE MORE MENU. Asked first, in the editor's own sheet, in
+    words that say what the press will do: a product somebody bought,
+    claimed or was given is archived, never deleted, so no buyer loses it.
+    Then done on the server (app/api/products/delete, by the session's own
+    creator), which answers with what the database did. Deleted, or
+    archived: either way it has
+    left the store, so the editor goes back to the list, which shows the
+    line and no longer shows the product (lib/products/delete-client). Not
+    done: the editor stays, with the product as it was, and says why.
+  */
+  const [deleting, setDeleting] = useState(false)
+  const handleDeleteProduct = async () => {
+    if (!productId || deleting || leaving || leavingRef.current) return
+    /* Which it will be, so the question is true before the press: a product with sales is archived, never deleted. */
+    setDeleting(true)
+    const kind = await previewProductDelete(productId)
+    setDeleting(false)
+    const sure = await ask({ ...deleteQuestion(savedTitle, kind), cancel: "Cancel" })
+    if (!sure) return
+    setDeleting(true)
+    try {
+      const result = await deleteProduct(productId)
+      if (result.outcome === "deleted") {
+        if (isPublished && slug) announceChange({ removedProduct: slug })
+        rememberDeleted(productId)
+        leaveNotice("Product deleted")
+      } else {
+        announceChange({ product: productId })
+        rememberStatus(productId, result)
+        leaveNotice(result.message)
+      }
+    } catch (err) {
+      setDeleting(false)
+      showToast(err instanceof Error && err.message ? err.message : "Could not delete the product")
+      return
+    }
+    /* Nothing left to save: the way out asks nothing. */
+    setHasUnsavedChanges(false)
+    leavingRef.current = true
+    startTransition(() => setLeaving(true))
+    startNavigationLoading(PRODUCTS_HREF)
+    returnToProducts(router, null)
   }
 
   // Handle redirect to live product page
@@ -1684,14 +1733,18 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       title={savedTitle.trim() || "Product"}
       align="end"
       trigger={
-        <button type="button" aria-label="More actions" className={barIconButton}>
-          <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />
+        <button type="button" aria-label={deleting ? "Deleting" : "More actions"} aria-busy={deleting || undefined} disabled={deleting} className={barIconButton}>
+          {deleting ? <ActivitySpinner size={18} label="Deleting" className="text-[#4b5563]" /> : <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />}
         </button>
       }
       items={[
-        ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
-        { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
-      ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item))}
+        ...[
+          ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
+          { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
+        ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item)),
+        /* Last and apart, as on the Products list's own row menu. */
+        { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => void handleDeleteProduct() },
+      ]}
     />
   ) : null
 
