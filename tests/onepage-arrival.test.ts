@@ -149,13 +149,15 @@ async function main() {
       /data-tab-fill=""/.test(bar) && /style=\{\{ opacity: on \? 1 : 0, transitionDuration: `\$\{TAB_SELECT_MS\}ms` \}\}/.test(bar) && /const TAB_SELECT_MS = 140/.test(editor))
     check("a press scales it a little, and reduced motion swaps at once", /active:scale-\[0\.96\]/.test(bar) && /motion-reduce:transition-none/.test(bar) && /motion-reduce:active:scale-100/.test(bar))
     check("the word's line holds Inter's whole height, not 1em", /truncate text-center leading-\[1\.3\]" data-tab-word=""/.test(bar) && !/leading-none/.test(bar))
-    check("the computer's segmented row keeps its sliding pill", /const desktopPill = useTabPill\(activeTab\)/.test(editor) && /pillMoves\.current = \[desktopPill\.slideTo\]/.test(editor))
+    /* The slide is the one every pill-tab row in the editor shares now (components/onepage/pill-tabs usePillSlide). */
+    check("the computer's segmented row keeps its sliding pill", /const desktopPill = usePillSlide\(activeTab\)/.test(editor) && /pillMoves\.current = \[desktopPill\.slideTo\]/.test(editor))
   }
 
   console.log("\nA pick of a Theme kind moves nothing but the pick")
   {
     const design = code("components/onepage/tabs/design-tab.tsx")
-    check("the pills pick through the steady filter", /onClick=\{\(\) => pickFilter\(f\)\}/.test(design) && /const \{ gridRef, pickFilter \} = useSteadyFilter\(filter, setFilter\)/.test(design))
+    /* The kinds are the editor's one pill-tab row now (components/onepage/pill-tabs PillTabs, the pill sliding from the press); a pick still goes through the steady filter. */
+    check("the pills pick through the steady filter", /onChange=\{pickFilter\}/.test(design) && /itemAttr="data-theme-filter"/.test(design) && /const \{ gridRef, pickFilter \} = useSteadyFilter\(filter, setFilter\)/.test(design))
     check("the rest of the panel is measured before the change, the scroll put back after it",
       /rest: box\.scrollHeight - grid\.offsetHeight/.test(design) && /if \(at\.top > 0 && need > natural\) \{\s*grid\.style\.minHeight = `\$\{need\}px`/.test(design) && /if \(at\.box\.scrollTop !== at\.top\) at\.box\.scrollTop = at\.top/.test(design))
     check("the grid never stretches its rows to the held height", /grid grid-cols-2 content-start gap-3 sm:grid-cols-3/.test(design))

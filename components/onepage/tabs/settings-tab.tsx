@@ -2,9 +2,9 @@
 
 import { useOnePage } from "@/lib/onepage/context"
 import { cn } from "@/lib/utils"
-import { ChipFill } from "@/components/onepage/choice-marks"
+import { PillPanels, PillTabs } from "@/components/onepage/pill-tabs"
 import { Copy, Check, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react"
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
@@ -22,7 +22,70 @@ const SETTINGS_SECTIONS = [
   { id: "share", label: "Share" },
   { id: "verified", label: "Verified badge" },
   { id: "billing", label: "Billing" },
-]
+] as const
+type SectionId = (typeof SETTINGS_SECTIONS)[number]["id"]
+
+/*
+  THE SECTIONS, AND WHICH ONE IS SHOWN. The choice lives here and not in
+  SettingsTab, so a press re-renders the two rows and the panels' frame and
+  nothing else: each section is made by SettingsTab and handed in, the same
+  element from one press to the next, so React leaves it alone. The rows are
+  the editor's one pill-tab row (components/onepage/pill-tabs PillTabs: the
+  pill slides from the press) and the sections are kept, crossfaded and
+  each scrolled where it was left (PillPanels). It was a list on a computer
+  declared inside SettingsTab's render, so every press threw its six buttons
+  away and made them again, and one keyed section rebuilt on each press.
+*/
+function SettingsSections({ panels }: { panels: Record<SectionId, ReactNode> }) {
+  const [active, setActive] = useState<SectionId>("basic")
+  return (
+    <div className="flex flex-col md:flex-row gap-6">
+      {/* A list on a computer, beside the section and staying in view */}
+      <div className="hidden md:block w-48 flex-shrink-0">
+        <div className="sticky top-0">
+          <PillTabs
+            dataRow="settings-list"
+            label="Settings"
+            items={SETTINGS_SECTIONS}
+            value={active}
+            onChange={setActive}
+            align="start"
+            className="flex flex-col gap-1"
+            itemClassName="w-full rounded-lg px-3 py-2 text-[13.5px] font-medium hover:bg-white/70"
+            pillClassName="rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_#e5e7eb]"
+            onClass="text-[#1a1a2e]"
+            offClass="text-[#6b7280]"
+          />
+        </div>
+      </div>
+
+      {/*
+        Chips on a phone, in a row that scrolls sideways, held at the top of
+        the tab as a section is scrolled (as the list is on a computer), so
+        another section is one press away from anywhere in this one, and
+        each keeps its own place.
+      */}
+      <div className="md:hidden sticky top-0 z-20 -mx-4 -mt-4 px-4 pt-4 pb-2 mb-2 bg-white">
+        <PillTabs
+          dataRow="settings-chips"
+          label="Settings"
+          items={SETTINGS_SECTIONS}
+          value={active}
+          onChange={setActive}
+          className="flex gap-2 overflow-x-auto p-px pb-1 no-scrollbar"
+          itemClassName="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap bg-white ring-1 ring-[#e5e7eb]"
+          pillClassName="rounded-full bg-[#1a1a2e]"
+          onClass="text-white"
+          offClass="text-[#4b5563]"
+        />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <PillPanels dataPanels="settings" value={active} panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} />
+      </div>
+    </div>
+  )
+}
 
 const BADGE_LABELS: Record<(typeof BADGE_TYPES)[number], string> = {
   verified_creator: "Verified Creator",
@@ -77,20 +140,6 @@ export interface SettingsTabProps {
 export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function SettingsTab({ pageUrl: givenUrl, onSave, userPlan: givenPlan }, ref) {
   const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, isDirty, markDirty } = useOnePage()
   const router = useRouter()
-  const [activeSection, setActiveSection] = useState("basic")
-  /*
-    A SECTION CHANGES AS WEBSITE SETTINGS' TABS DO. It swapped in a single
-    frame. Now the section is one keyed element that settles in tone
-    (app/globals.css .settings-panel: 0.2 to 1 over 200ms, opacity alone,
-    nothing moves), put on only once a section has been pressed, so opening
-    Settings is simply there.
-  */
-  const [sectionEntrance, setSectionEntrance] = useState(false)
-  const chooseSection = (id: string) => {
-    if (id === activeSection) return
-    setSectionEntrance(true)
-    setActiveSection(id)
-  }
   const [copied, setCopied] = useState(false)
   const [localSaving, setLocalSaving] = useState(false)
 
@@ -262,25 +311,6 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
       {sub ? <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{sub}</p> : null}
     </div>
   )
-
-  // Sidebar navigation item component
-  const NavItem = ({ section }: { section: (typeof SETTINGS_SECTIONS)[0] }) => {
-    const isActive = activeSection === section.id
-    return (
-      <button
-        onClick={() => chooseSection(section.id)}
-        aria-current={isActive ? "page" : undefined}
-        className={cn(
-          "w-full flex items-center px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors text-left cursor-pointer",
-          isActive
-            ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-[#e5e7eb]"
-            : "text-[#6b7280] hover:bg-white/70 hover:text-[#1a1a2e]",
-        )}
-      >
-        {section.label}
-      </button>
-    )
-  }
 
   const onePageDomain = getOnePageDomain()
 
@@ -501,46 +531,25 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     </div>
   )
 
+  /* Each section in its own card, made here and handed to SettingsSections, which only shows one. */
+  const card = (id: SectionId, body: ReactNode) => (
+    <div data-settings-section={id} className="bg-white rounded-xl border border-gray-200 p-5">
+      {body}
+    </div>
+  )
+
   return (
-    <div className="flex flex-col md:flex-row gap-6">
-      {/* Sidebar Navigation - Hidden on mobile, shown inline */}
-      <div className="hidden md:block w-48 flex-shrink-0">
-        <nav className="space-y-1 sticky top-0">
-          {SETTINGS_SECTIONS.map((section) => (
-            <NavItem key={section.id} section={section} />
-          ))}
-        </nav>
-      </div>
-
-      {/* Mobile Navigation - Horizontal scroll */}
-      <div className="md:hidden -mx-4 px-4 mb-4">
-        <div className="flex gap-2 overflow-x-auto p-px pb-1 no-scrollbar">
-          {SETTINGS_SECTIONS.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => chooseSection(section.id)}
-              aria-pressed={activeSection === section.id}
-              className="relative px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap cursor-pointer bg-white ring-1 ring-[#e5e7eb] [-webkit-tap-highlight-color:transparent]"
-            >
-              {/* The chosen chip's dark fill fades in as the last one's fades out (components/onepage/choice-marks). */}
-              <ChipFill on={activeSection === section.id} />
-              <span className={cn("relative transition-colors duration-[180ms]", activeSection === section.id ? "text-white" : "text-[#4b5563]")}>{section.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1 min-w-0">
-        <div key={activeSection} data-settings-section={activeSection} className={cn("bg-white rounded-xl border border-gray-200 p-5", sectionEntrance && "settings-panel")}>
-          {activeSection === "basic" && renderBasicInfo()}
-          {activeSection === "seo" && <SeoPanel pageUrl={pageUrl} footer={saveRow} />}
-          {activeSection === "subscribe" && renderToggleSection("subscribe")}
-          {activeSection === "share" && renderToggleSection("share")}
-          {activeSection === "verified" && renderVerified()}
-          {activeSection === "billing" && renderBilling()}
-        </div>
-      </div>
+    <>
+      <SettingsSections
+        panels={{
+          basic: card("basic", renderBasicInfo()),
+          seo: card("seo", <SeoPanel pageUrl={pageUrl} footer={saveRow} />),
+          subscribe: card("subscribe", renderToggleSection("subscribe")),
+          share: card("share", renderToggleSection("share")),
+          verified: card("verified", renderVerified()),
+          billing: card("billing", renderBilling()),
+        }}
+      />
 
       {/* Add custom scrollbar hiding CSS */}
       <style dangerouslySetInnerHTML={{ __html: `
@@ -552,6 +561,6 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           scrollbar-width: none;
         }
       `}} />
-    </div>
+    </>
   )
 })
