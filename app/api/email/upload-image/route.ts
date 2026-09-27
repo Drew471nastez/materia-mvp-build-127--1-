@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { preparePublicImage } from "@/lib/storage/public-image"
-import { UPLOAD_HEADERS, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { FLAGGED_UPLOAD, UPLOAD_HEADERS, screenPublicBytes, uploadRateLimit } from "@/lib/storage/upload-guard"
 
 const BUCKET_NAME = "email-images"
 
@@ -50,6 +50,10 @@ export async function POST(request: NextRequest) {
     }
 
     const fileName = `${creator.id}/${Date.now()}-${crypto.randomUUID().replace(/-/g, "")}.${picture.ext}`
+    const screened = await screenPublicBytes(adminSupabase, picture.bytes, { source: "public_image", bucket: BUCKET_NAME, path: fileName })
+    if (screened.blocked) {
+      return NextResponse.json({ error: FLAGGED_UPLOAD }, { status: 400, headers: UPLOAD_HEADERS })
+    }
     const upload = () =>
       adminSupabase.storage.from(BUCKET_NAME).upload(fileName, picture.bytes, {
         contentType: picture.mime,

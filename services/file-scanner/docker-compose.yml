@@ -1,0 +1,89 @@
+# Storelib file scanner: the API and ClamAV (clamd + freshclam).
+#
+#   cp .env.example .env    # then set CLAMAV_SERVICE_SECRET
+#   docker compose up -d --build
+#   curl http://localhost:8080/health
+#
+# clamd's port 3310 is NOT published: the clamav service has no `ports:`, so
+# only containers on the private `scanner` network (the API) can reach it.
+# Only the API's port is published.
+name: storelib-file-scanner
+
+services:
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    environment:
+      # freshclam checks for new signatures this many times a day.
+      FRESHCLAM_CHECKS: "12"
+      # clamd limits, written into clamd.conf by the image at start.
+      CLAMD_CONF_StreamMaxLength: "1100M"
+      CLAMD_CONF_MaxFileSize: "1100M"
+      CLAMD_CONF_MaxScanSize: "2000M"
+      CLAMD_CONF_MaxThreads: "8"
+      CLAMD_CONF_ReadTimeout: "300"
+    volumes:
+      # Signatures survive restarts, so a restart does not download 300 MB again.
+      - clamav-db:/var/lib/clamav
+    networks:
+      - scanner
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # First start downloads the signatures; clamd then loads them (about a minute).
+      start_period: 6m
+    deploy:
+      resources:
+        limits:
+          # clamd holds the signatures in memory (about 1.3 GB) and briefly
+          # twice that while it reloads them after an update.
+          memory: 3g
+
+  api:
+    build: .
+    image: storelib-file-scanner:latest
+    restart: unless-stopped
+    depends_on:
+      clamav:
+        condition: service_healthy
+    environment:
+      CLAMAV_SERVICE_SECRET: ${CLAMAV_SERVICE_SECRET:?Set CLAMAV_SERVICE_SECRET in .env (openssl rand -hex 32)}
+      CLAMD_HOST: clamav
+      CLAMD_PORT: "3310"
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-1073741824}
+      SCAN_TIMEOUT_MS: ${SCAN_TIMEOUT_MS:-120000}
+      MAX_CONCURRENT_SCANS: ${MAX_CONCURRENT_SCANS:-4}
+      MAX_QUEUED_SCANS: ${MAX_QUEUED_SCANS:-32}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-120}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-30}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    networks:
+      - scanner
+    # Nothing on disk: a read only root and no Linux capabilities.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "node", "src/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  clamav-db:
+
+networks:
+  scanner:

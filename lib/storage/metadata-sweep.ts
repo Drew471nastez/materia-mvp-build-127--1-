@@ -22,15 +22,28 @@ import "server-only"
  * An image already clean is downloaded and left alone, so a run costs one
  * download per recent picture; the windows overlap so a missed hour is
  * caught by the next.
+ *
+ * The same pass is the malware scan for those uploads, since it already
+ * holds each picture's bytes: with Storelib's scanner on
+ * (lib/security/file-scanner.ts) every picture it reads is scanned, and one
+ * that is infected is deleted from storage (its URL stops working) and
+ * logged. A picture already scanned is scanned again on the next overlapping
+ * run; ClamAV answers a picture in milliseconds, so that is cheaper than
+ * keeping a list. Only a flagged picture or a failed scan is written to the
+ * scan log from here, not the hundreds of clean ones an hour.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { stripImageMetadata } from "@/lib/images/metadata"
+import { isScannerConfigured } from "@/lib/security/file-scanner"
 import { isPublicImage } from "./file-signature"
+import { screenPublicBytes } from "./upload-guard"
 
 export interface SweepSummary {
   checked: number
   stripped: number
+  /** Pictures the malware scan flagged and removed. */
+  removed: number
   errors: string[]
 }
 
@@ -38,7 +51,8 @@ export async function sweepImageMetadata(
   admin: SupabaseClient,
   options: { sinceMinutes?: number; limit?: number } = {},
 ): Promise<SweepSummary> {
-  const summary: SweepSummary = { checked: 0, stripped: 0, errors: [] }
+  const summary: SweepSummary = { checked: 0, stripped: 0, removed: 0, errors: [] }
+  const scanning = isScannerConfigured()
   const { data, error } = await admin.rpc("storage_recent_public_images", {
     p_since_minutes: Math.max(1, Math.min(options.sinceMinutes ?? 150, 60 * 24 * 30)),
     p_limit: Math.max(1, Math.min(options.limit ?? 200, 1000)),
@@ -54,6 +68,15 @@ export async function sweepImageMetadata(
       if (downloadError || !blob) continue
       summary.checked++
       const bytes = new Uint8Array(await blob.arrayBuffer())
+      if (scanning) {
+        const screened = await screenPublicBytes(admin, bytes, { source: "image_sweep", bucket: o.bucket_id, path: o.name, logClean: false })
+        if (screened.blocked) {
+          const { error: removeError } = await admin.storage.from(o.bucket_id).remove([o.name])
+          if (removeError) summary.errors.push(`${o.bucket_id}/${o.name}: flagged but not removed: ${removeError.message}`)
+          else summary.removed++
+          continue
+        }
+      }
       const kind = isPublicImage(bytes)
       if (!kind?.mime) continue
       const clean = stripImageMetadata(bytes)
