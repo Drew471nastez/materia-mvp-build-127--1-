@@ -29,6 +29,7 @@ import { build } from "esbuild"
 import { fakeDb } from "./_fake-db"
 import { checkReviewInput, guestReviewerName, reviewerOf, summarize } from "../lib/reviews/rules"
 import { REVIEW_REMINDER_DAYS, REVIEW_REQUEST_DAYS, reviewRequestBlock, soldOnStorelib, type ReviewRequestFacts } from "../lib/reviews/request-rules"
+import type { ReviewRequestFactsRow } from "../lib/notify/store"
 import { emailChannel } from "../lib/notify/channels/email"
 import { runWork, type EngineDeps } from "../lib/notify/engine"
 import { handle } from "../lib/notify/orchestrator"
@@ -38,6 +39,7 @@ import { renderEmail } from "../lib/notify/templates"
 import { signReviewWith, signWith, verifyReviewWith, verifyWith } from "../lib/notify/unsubscribe"
 import type { ChannelResult, DomainEvent, OutgoingEmail } from "../lib/notify/types"
 import { MemoryNotifyStore } from "./notify-memory-store"
+import { readCode, readSource } from "./_source"
 
 let passed = 0
 let failed = 0
@@ -84,6 +86,14 @@ function rules() {
   check("an account's review is named by the profile", reviewerOf({ buyer: { display_name: "Ghita N", avatar_url: "https://x/a.png" }, reviewer_name: "G" }).name === "Ghita N")
   check("a guest's by the first name they bought with", reviewerOf({ buyer: null, reviewer_name: "Ana" }).name === "Ana")
   check("and nobody's is a verified buyer, never an address", reviewerOf({ buyer: null, reviewer_name: null }).name === "Verified buyer" && guestReviewerName("ana@example.com") === null && guestReviewerName("  Ana  ") === "Ana")
+  /*
+    THE CIRCLE IS DRAWN FROM `avatarName`, NOT THE NAME. "Verified buyer" is
+    the words a card writes when nobody gave a name; its initials, "VB",
+    would read in a circle as a person called V. B. So the avatar is handed
+    nothing and draws its person glyph instead.
+  */
+  check("a named reviewer's circle is drawn from that name", reviewerOf({ buyer: { display_name: "Ghita N" }, reviewer_name: null }).avatarName === "Ghita N" && reviewerOf({ buyer: null, reviewer_name: "Ana" }).named)
+  check("  and a nameless one's is drawn from nothing, so it is a person and not VB", reviewerOf({ buyer: null, reviewer_name: null }).avatarName === "" && !reviewerOf({ buyer: null, reviewer_name: null }).named)
   const s = summarize([5, 5, 4, 1])
   check("the rating is the average to one decimal, with a count per star", s.count === 4 && s.average === 3.8 && s.stars[5] === 2 && s.stars[1] === 1 && s.stars[3] === 0, s)
 }
@@ -155,12 +165,15 @@ class FakeProvider {
   }
 }
 
-function world(orderFacts: ReviewRequestFacts = facts()) {
+/* The product's stored thumbnail, as products.thumbnail_url holds one. */
+const THUMB = "https://abc.supabase.co/storage/v1/object/public/products/notion-budget.png"
+
+function world(orderFacts: ReviewRequestFacts = facts(), extra: Partial<ReviewRequestFactsRow> = {}) {
   const store = new MemoryNotifyStore()
   store.clock.now = bought
   store.creators.set(CREATOR, SELLER_USER)
   store.users.set(SELLER_USER, { email: "seller@example.com", name: "Seller" })
-  store.reviewFacts.set(ORDER, { ...orderFacts, creatorName: "Maria Studio", productSlug: "notion-budget" })
+  store.reviewFacts.set(ORDER, { ...orderFacts, creatorName: "Maria Studio", productSlug: "notion-budget", productImage: THUMB, creatorSupportEmail: "hello@mariastudio.com", ...extra })
   const provider = new FakeProvider()
   const deps: EngineDeps = {
     store,
@@ -237,8 +250,22 @@ async function engine() {
     const html = first[0]?.html ?? ""
     check("five stars, each opening the receipt's review card with that many chosen", [1, 2, 3, 4, 5].every((n) => html.includes(`https://storelib.com/receipt/${TOKEN}?rate=${n}#review`)))
     check("and one button to write it", html.includes(`https://storelib.com/receipt/${TOKEN}#review`) && /Write a review/.test(html))
+    check("every star is written out in the plain text part too", [1, 2, 3, 4, 5].every((n) => (first[0]?.text ?? "").includes(`${n} star`) && (first[0]?.text ?? "").includes(`?rate=${n}#review`)))
+    check("the product card: its picture from Storelib's own address, with the title as alt text", /<img[^>]+src="https:\/\/storelib\.com\/[^"]*"[^>]*alt="Notion Budget"/.test(html) || /<img[^>]+alt="Notion Budget"[^>]*src="https:\/\/storelib\.com\//.test(html), (html.match(/<img[^>]*alt="Notion Budget"[^>]*>/) ?? [])[0])
+    check("the card names the product and who made it", /Notion Budget/.test(html) && /by Maria Studio/.test(html) && (first[0]?.text ?? "").includes("by Maria Studio"))
+    check("the button is Storelib's near black, and nothing in the email is purple", /bgcolor="#1a1a2e"/.test(html) && !/#(8b5cf6|7c3aed|6d28d9|4c1d95|c4b5fd|2f2f4d|a78bfa)/i.test(html), (html.match(/#(8b5cf6|7c3aed|6d28d9|4c1d95|c4b5fd|2f2f4d|a78bfa)/i) ?? [])[0])
+    check("no external stylesheet, script or event handler", !/<link\b|<script\b|\son[a-z]+=|javascript:/i.test(html))
+    check("the footer says the link turns review emails off, not everything", /Turn off review emails/.test(html) && (first[0]?.text ?? "").includes("Turn off review emails"))
+    check("nothing about the order but the product: no address, no amount, no order number", !/ana@example\.com/.test(html) && !/\$12\.00|1200/.test(html))
+
+    /* THE SENDER. The owner: "the email should be from the business seller, not Storelib." */
+    check("the buyer sees the seller's name, sent from Storelib's own address", first[0]?.fromName === "Maria Studio via Storelib", first[0]?.fromName)
+    check("a reply reaches the seller's support inbox", first[0]?.replyTo === "hello@mariastudio.com", first[0]?.replyTo)
     check("with an unsubscribe link and the one click header, both for this order", /api\/notify\/unsubscribe\?token=/.test(html) && !!first[0]?.headers?.["List-Unsubscribe"] && first[0]?.headers?.["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click")
     check("no em dash in what it says", !/—/.test(first[0]?.text ?? "") && !/—/.test(first[0]?.subject ?? ""))
+    /* Recorded where the engine's email is recorded: one delivery row, by type, on the email channel. */
+    const sentRows = w.store.deliveries.filter((d) => d.channel === "email" && d.status === "sent")
+    check("the email is recorded once, as a REVIEW_REQUEST email delivery", sentRows.length === 1 && sentRows[0].type === "REVIEW_REQUEST", sentRows.map((d) => [d.type, d.status]))
     w.at(14)
     await w.run()
     check("at fourteen days, one reminder", w.asks().length === 2 && !!w.asks()[1].tags?.includes("REVIEW_REMINDER"))
@@ -248,6 +275,24 @@ async function engine() {
     w.at(40)
     await w.run()
     check("and never a third, however often the event and the worker run", w.asks().length === 2 && w.store.jobs.filter((j) => j.type.startsWith("REVIEW_")).length === 2)
+  }
+  {
+    /* A seller with no published support address and no picture: Storelib's own reply-to, and the letter tile. */
+    const w = world(facts(), { creatorSupportEmail: null, productImage: null })
+    await w.raise()
+    w.at(7)
+    await w.run()
+    const m = w.asks()[0]
+    check("no support address: the name is still the seller's, the reply falls back to Storelib's", m?.fromName === "Maria Studio via Storelib" && !m?.replyTo, [m?.fromName, m?.replyTo])
+    check("no picture: a letter tile, never a broken image", !/<img[^>]*alt="Notion Budget"/.test(m?.html ?? "") && /class="sn-tile"/.test(m?.html ?? ""))
+  }
+  {
+    /* A seller Storelib has no name for: the email is plainly from Storelib, as every platform email is. */
+    const w = world(facts(), { creatorName: null })
+    await w.raise()
+    w.at(7)
+    await w.run()
+    check("no seller name: the email comes from Storelib", !w.asks()[0]?.fromName && !w.asks()[0]?.replyTo, w.asks()[0]?.fromName)
   }
   {
     const w = world()
@@ -510,9 +555,56 @@ async function routes() {
   }
 }
 
+/* ── The face on a review ──────────────────────────────────────────────── */
+
+/* readCode for every "it is not there": a comment naming the old bug must not satisfy it (tests/_source). */
+const source = readSource
+const code = readCode
+
+/**
+ * "The user that left the review may be signed out, another account, so he
+ * doesn't have an account image at all, but it still needs to display
+ * something." Every surface that draws a reviewer draws the photo, else the
+ * initials, else a plain person. Measured at
+ * scripts/check-reviews.mjs (`view=reviewers`, both themes); pinned here so
+ * a "?" cannot come back through the source.
+ */
+function faces() {
+  realLog("\nThe face on a review")
+  const avatar = source("components/app/app-avatar.tsx")
+  check("no name means no letters, and the avatar draws a person instead of a \"?\"",
+    /if \(!words\.length\) return ""/.test(avatar) && /export function AvatarMark/.test(avatar) && /<svg aria-hidden="true" viewBox="0 0 24 24"/.test(avatar) && !/return "\?"/.test(code("components/app/app-avatar.tsx")))
+  check("  the review surfaces keep the mark under a photo that has not arrived, so no circle is ever blank",
+    /markWhileLoading\?: boolean/.test(avatar) && /\{!photo \|\| \(markWhileLoading && !loaded\) \? <AvatarMark name=\{name\} size=\{size\} \/> : null\}/.test(avatar))
+  check("  and a page with its own theme gets a circle mixed from its own text colour",
+    /theme: "bg-foreground\/\[0\.10\] text-foreground"/.test(avatar))
+
+  const panel = source("components/storefront/reviews-panel.tsx")
+  check("the creator page's review drew `(buyerName || \"?\")[0]`: it is the shared avatar now",
+    !/\|\| "\?"/.test(code("components/storefront/reviews-panel.tsx")) && /<AppAvatar/.test(panel) && /tone="theme"/.test(panel) && /markWhileLoading/.test(panel) && /UNNAMED_REVIEWER/.test(panel))
+  const creatorPage = source("app/(marketing)/u/[username]/page.tsx")
+  check("  and it asks for the guest's name, which is why those reviews had none to draw",
+    /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage) && /missingColumn\(res\.error\)/.test(creatorPage) && /const author = reviewerOf\(review\)/.test(creatorPage))
+
+  const card = source("components/reviews/review-card.tsx")
+  check("the product page's review card draws the page's own colours in the circle",
+    /name=\{avatarName\}/.test(card) && /markWhileLoading/.test(card) && /backgroundColor: `\$\{textColor\}1f`, color: textColor/.test(card))
+  const form = source("components/reviews/review-form.tsx")
+  check("Leave a review is handed the name it has, empty when there is none, never a \"?\"",
+    /name=\{\(name \?\? ""\)\.trim\(\)\} alt="" size=\{48\} markWhileLoading/.test(form) && !/\|\| "\?"/.test(code("components/reviews/review-form.tsx")))
+  const seller = source("app/app/reviews/reviews-client.tsx")
+  check("the seller's Reviews list draws the same face", /name=\{avatarName\} alt="" size=\{36\} markWhileLoading/.test(seller))
+
+  /* On a dark product page the bars were darker than the track they run in. */
+  const breakdown = source("components/reviews/reviews-rating-breakdown.tsx")
+  check("the rating bars follow the page's text colour rather than Storelib's near black",
+    /const bar = starColor \|\| accentColor \|\| textColor \|\| "#1a1a2e"/.test(breakdown))
+}
+
 async function main() {
   process.env.NOTIFY_UNSUBSCRIBE_SECRET = KEY
   rules()
+  faces()
   emailRules()
   await engine()
   links()

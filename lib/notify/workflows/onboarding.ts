@@ -12,6 +12,10 @@
  *   day_3   FIRST_PRODUCT_REMINDER_2    still no product
  *           PAYMENT_SETUP_REMINDER_2    still not connected
  *
+ * The same event also starts the store setup sequence on days 5 and 12
+ * (workflows/unfinished.ts), after these, so the specific nudges lead and
+ * the one about the rest of Getting started follows.
+ *
  * The product reminders' conditions are exclusive (no product, a draft that
  * is not ready, a ready draft), so at most one of them sends on day 1. Each
  * reminder expires two days after its run time: a nudge a week late reads

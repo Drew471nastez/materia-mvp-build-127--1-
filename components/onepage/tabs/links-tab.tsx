@@ -1,6 +1,7 @@
 "use client"
 
 import { hapticTap } from "@/lib/native-bridge"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useLinkReorder } from "@/components/onepage/link-reorder"
 
 import { useOnePage } from "@/lib/onepage/context"
@@ -1028,6 +1029,7 @@ export function LinksTab() {
         .upload(fileName, file, { upsert: true })
 
       if (uploadError) throw uploadError
+      confirmUpload('onepage-assets', fileName)
 
       const { data: { publicUrl } } = supabase.storage
         .from('onepage-assets')
@@ -2856,6 +2858,7 @@ export function LinksTab() {
                               xhr.timeout = 600000
                               xhr.send(xhrForm)
                             })
+                            confirmUpload(uploadBucket, signedData.path)
                             uploaded = true
                           } catch (xhrErr: unknown) {
                             lastError = xhrErr instanceof Error ? xhrErr.message : String(xhrErr)
@@ -2887,6 +2890,7 @@ export function LinksTab() {
                               })
                             clearInterval(progressInterval)
                             if (tusError) throw tusError
+                            confirmUpload(uploadBucket, signedData.path)
                             setUploadProgress(100)
                             url = signedData.publicUrl
                             uploaded = true
@@ -3572,6 +3576,7 @@ export function LinksTab() {
                         const fileName = `${user.id}/avatar-${Date.now()}.png`
                         const { error } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true, contentType: "image/png" })
                         if (error) throw error
+                        confirmUpload("avatars", fileName)
 
                         const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName)
                         const saved = await fetch("/api/account/avatar", {
@@ -3887,6 +3892,7 @@ export function LinksTab() {
                         const fileName = `${user.id}/avatar-video-${Date.now()}.${tempVideoFile.name.split('.').pop()}`
                         const { error } = await supabase.storage.from("onepage-assets").upload(fileName, tempVideoFile, { upsert: true })
                         if (error) throw error
+                        confirmUpload("onepage-assets", fileName)
 
                         const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
                         updateProfile({
@@ -4702,6 +4708,7 @@ function BlockEditor({
         .upload(fileName, file, { upsert: true })
 
       if (uploadError) throw uploadError
+      confirmUpload('onepage-assets', fileName)
 
       const { data: { publicUrl } } = supabase.storage
         .from('onepage-assets')
@@ -4738,6 +4745,7 @@ function BlockEditor({
         .upload(fileName, file, { upsert: true })
 
       if (uploadError) throw uploadError
+      confirmUpload('onepage-assets', fileName)
 
       const { data: { publicUrl } } = supabase.storage
         .from('onepage-assets')

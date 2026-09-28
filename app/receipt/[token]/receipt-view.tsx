@@ -473,15 +473,18 @@ export function ReceiptView({
         {/* Who it is from, and a way to keep a copy. */}
         <div className="flex items-center justify-between gap-3">
           {storeHref ? (
-            /* The seller's page. A soft grey pill fades in behind the photo
-               and name on hover, sinks a pixel on a press, and rings on
-               keyboard focus. The negative margin keeps the photo where it
-               was, on the page's edge. */
+            /* The seller's page, in a tab of its own: the buyer came here for
+               the receipt and the files, and a look at the shop must not take
+               that away. A soft grey pill fades in behind the photo and name
+               on hover, sinks a pixel on a press, and rings on keyboard
+               focus. The negative margin keeps the photo where it was, on the
+               page's edge. */
             <a
               href={storeHref}
               data-seller-link=""
+              target="_blank"
+              rel="noopener noreferrer"
               className="-ml-2 flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-full py-1.5 pl-2 pr-3.5 transition-[background-color,box-shadow,translate] duration-150 ease-out hover:bg-[#eaecf0] active:translate-y-px active:bg-[#e3e6ea] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:min-h-[40px]"
-              rel="noreferrer"
             >
               <SellerMark name={receipt.seller.name} avatarUrl={receipt.seller.avatarUrl} />
               <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{receipt.seller.name}</span>

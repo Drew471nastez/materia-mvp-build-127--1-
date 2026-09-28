@@ -37,15 +37,39 @@ export type PropertySelector =
 
 export const ALL: PropertySelector = { type: "all" }
 
+/**
+ * ===========================================================================
+ *  WHAT THE FILTER IS SET TO WHEN NOBODY HAS SET IT
+ * ===========================================================================
+ * "In Analytics, as default it needs to be set to all pages in that thing, a
+ * default, but people can change it."
+ *
+ * All pages, and it is written down here rather than being what is left over
+ * when every other branch of parseProperty fails. Analytics is a page about
+ * the whole business: a creator who has not asked for one of their places
+ * wants the total, and All is the only selector that is right for every
+ * creator, whatever they have (a creator page, a OnePage, none, one or five
+ * websites) and whatever they had yesterday. A live website as the default
+ * would change under a creator who publishes another one, and the creator
+ * page as the default would leave a website's visits out of the first number
+ * anybody sees.
+ *
+ * A creator's own choice overrides it and is kept exactly where it was: in
+ * the address, as ?property=, written by the page itself. So a place chosen
+ * survives a reload, a link opens on the place it names, and a place the
+ * address asks for that this creator cannot have opens here instead.
+ */
+export const DEFAULT_PROPERTY: PropertySelector = ALL
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** The address's `property` as a selector. Anything unreadable is All; whether a website is the creator's is the server's question. */
+/** The address's `property` as a selector. Anything unreadable is the default; whether a website is the creator's is the server's question. */
 export function parseProperty(raw: string | null | undefined): PropertySelector {
   const v = (raw || "").trim()
   if (v === "creator_page" || v === "onepage") return { type: v }
   const m = /^website:(.+)$/.exec(v)
   if (m && UUID.test(m[1])) return { type: "website", id: m[1].toLowerCase() }
-  return ALL
+  return DEFAULT_PROPERTY
 }
 
 /** The selector as the address writes it; All is no parameter at all. */
@@ -82,9 +106,12 @@ export interface PropertyOption {
   label: string
 }
 
+/** What the default is called, on the button and at the top of the list. */
+export const DEFAULT_PROPERTY_LABEL = "All pages"
+
 /** The filter's rows, in the order they are listed. Just "All pages" when there is nothing to choose between. */
 export function propertyOptions(p: CreatorProperties): PropertyOption[] {
-  const rows: PropertyOption[] = [{ value: ALL, label: "All pages" }, { value: { type: "creator_page" }, label: "Creator page" }]
+  const rows: PropertyOption[] = [{ value: DEFAULT_PROPERTY, label: DEFAULT_PROPERTY_LABEL }, { value: { type: "creator_page" }, label: "Creator page" }]
   if (p.onePageId) rows.push({ value: { type: "onepage" }, label: "OnePage" })
   for (const w of p.websites) rows.push({ value: { type: "website", id: w.id }, label: p.websites.length === 1 ? "Website" : w.name || "Website" })
   return rows.length > 2 ? rows : [rows[0]]
@@ -92,7 +119,7 @@ export function propertyOptions(p: CreatorProperties): PropertyOption[] {
 
 /** The name of what is chosen, for a button or a heading. */
 export function propertyLabel(p: CreatorProperties, s: PropertySelector): string {
-  return propertyOptions(p).find((o) => sameProperty(o.value, s))?.label ?? "All pages"
+  return propertyOptions(p).find((o) => sameProperty(o.value, s))?.label ?? DEFAULT_PROPERTY_LABEL
 }
 
 /**

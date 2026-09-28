@@ -2,7 +2,7 @@
 
 import { Bell, ChevronDown, Compass, Search, Settings } from "lucide-react"
 import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
-import { avatarSource, initialsOf } from "@/components/app/app-avatar"
+import { AvatarMark, avatarSource } from "@/components/app/app-avatar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 /**
@@ -53,9 +53,7 @@ function StillAvatar({ name, photo, size, className }: { name: string; photo: st
         // eslint-disable-next-line @next/next/no-img-element
         <img {...source} alt="" width={size} height={size} decoding="sync" fetchPriority="high" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <span aria-hidden="true" className="font-medium leading-none" style={{ fontSize: Math.max(9, Math.round(size * 0.38)) }}>
-          {initialsOf(name)}
-        </span>
+        <AvatarMark name={name} size={size} />
       )}
     </span>
   )

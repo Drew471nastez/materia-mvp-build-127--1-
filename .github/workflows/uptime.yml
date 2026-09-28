@@ -1,0 +1,42 @@
+# From outside Vercel, every 15 minutes: is Storelib up, can it reach its
+# database, and has every scheduled job run and worked (/api/health). A
+# failure fails this run, which GitHub emails, and posts to ALERT_WEBHOOK_URL.
+# docs/operations/release-safety.md.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://storelib.com' }}
+      ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+    steps:
+      - name: Ask the site
+        id: ask
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o body.json -w '%{http_code}' --max-time 20 "$SITE_URL/api/health")
+            [ "$code" = "200" ] && break
+            sleep 20
+          done
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Status $code" >> "$GITHUB_STEP_SUMMARY"
+          head -c 3000 body.json >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+          [ "$code" = "200" ]
+      - name: Tell the owner
+        if: failure() && env.ALERT_WEBHOOK_URL != ''
+        run: |
+          body=$(head -c 600 body.json 2>/dev/null | tr -d '"\\\n')
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\":\"Storelib health check failed (HTTP ${{ steps.ask.outputs.code }}): ${body} ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            "$ALERT_WEBHOOK_URL"

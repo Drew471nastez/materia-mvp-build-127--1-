@@ -57,7 +57,7 @@ export function reviewDate(iso?: string | null): string {
 const tint = (color: string | undefined, alpha: string, fallback: string) => (color ? `${color}${alpha}` : fallback)
 
 export function ReviewCard({ review, isMobile = false, textColor, starColor, cardBorderColor }: ReviewCardProps) {
-  const { name, avatarUrl } = reviewerOf(review)
+  const { name, avatarUrl, avatarName } = reviewerOf(review)
   const body = useRef<HTMLParagraphElement>(null)
   const [long, setLong] = useState(false)
   const [open, setOpen] = useState(false)
@@ -75,7 +75,22 @@ export function ReviewCard({ review, isMobile = false, textColor, starColor, car
       style={{ borderColor: cardBorderColor || "#eef0f3" }}
     >
       <div className="flex items-center gap-3">
-        <AppAvatar src={avatarUrl} name={name} alt="" size={isMobile ? 36 : 40} />
+        {/*
+          THE CIRCLE TAKES THE PAGE'S OWN COLOURS. A product page can set its
+          text colour, and on a dark one the /app grey circle was a bright
+          patch with grey letters in it. The tint of the page's text on the
+          page's text reads on a white page and on a near black one, which is
+          the theme in 17.png. `markWhileLoading`: the letters are there from
+          the first frame, so a slow or refused photo is never a blank ring.
+        */}
+        <AppAvatar
+          src={avatarUrl}
+          name={avatarName}
+          alt=""
+          size={isMobile ? 36 : 40}
+          markWhileLoading
+          style={textColor ? { backgroundColor: `${textColor}1f`, color: textColor } : undefined}
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold leading-5" style={{ color: textColor || "#1a1a2e" }}>
             {name}

@@ -161,7 +161,11 @@ async function main() {
   check("stored under a public URL, markup and programs become downloads", safeStoredContentType("image/svg+xml", SVG) === "application/octet-stream" && safeStoredContentType("text/html", null) === "application/octet-stream" && safeStoredContentType("application/pdf", EXE) === "application/octet-stream")
   check("and a real media type is kept", safeStoredContentType("application/octet-stream", PDF) === "application/pdf")
   check("a renamed executable is refused by the scanner", !scanFile("invoice.pdf", "application/pdf", EXE).safe)
-  check("a script behind a document's name is refused", !scanFile("notes.txt", "text/plain", bytes("#!/bin/bash\nrm -rf /")).safe)
+  /* A .pdf, not a .txt: a text file whose first line happens to start with
+     "#!" is ordinary writing, and refusing those refused real writing
+     (lib/security/uploads/policy.ts SHEBANG_IS_A_DISGUISE). */
+  check("a script behind a document's name is refused", !scanFile("invoice.pdf", "application/pdf", bytes("#!/bin/bash\nrm -rf /")).safe)
+  check("but a .txt that starts with one is ordinary writing", scanFile("notes.txt", "text/plain", bytes("#!/bin/bash\necho hi")).safe)
 
   /* ================================================================ */
   console.log("\nPictures: size, pixels and metadata\n")
@@ -316,12 +320,14 @@ async function main() {
   const dl = code("app/api/download/[assetId]/route.ts")
   check("the download route scans before the first buyer gets a file", /gateDownload\(admin, asset, \{ isCreator: decision\.via === "creator" \}\)/.test(dl))
   const v2 = code("app/api/v2/download/[token]/route.ts")
-  check("the v2 door is rate limited and gated the same way", /bucket: "download"/.test(v2) && /gateDownload\(/.test(v2) && /serveTokenDownload\(/.test(v2))
+  check("the v2 door is rate limited and gated the same way", /downloadRateLimit\(request, /.test(v2) && /purchaseRateLimit\(request, /.test(v2) && /gateDownload\(/.test(v2) && /serveTokenDownload\(/.test(v2))
   for (const r of ["app/api/onepage/download/route.ts", "app/api/onepage/download/[token]/route.ts"]) {
     check(`${r} answers through the shared token door`, /serveTokenDownload\(/.test(code(r)))
   }
   const tokenDoor = code("lib/storage/token-download.ts")
-  check("a token link is rate limited per address and per token", /subjects: \[addressSubject\(request\), `token:\$\{token\}`\]/.test(tokenDoor))
+  check("a token link is rate limited per address, per link, and per signed in buyer",
+    /subjects: \[addressSubject\(request\), `token:\$\{token\}`, userId \? `user:\$\{userId\}` : null\]/.test(tokenDoor)
+    && /windows: userId \? \[\.\.\.TOKEN_DOWNLOAD_WINDOWS, \.\.\.DOWNLOAD_USER_WINDOWS\] : TOKEN_DOWNLOAD_WINDOWS/.test(tokenDoor))
   check("it only sends finished, scanned files", /upload_status\.is\.null,upload_status\.eq\.completed/.test(tokenDoor) && /gateDownload\(admin, asset, \{ isCreator: false \}\)/.test(tokenDoor))
   check("it never sends a storage path in place of a link", !/signed\?\.url \|\| asset\.file_path/.test(tokenDoor) && !/\|\| asset\.file_path/.test(v2))
   check("the download count cannot be raced past its limit", /\.eq\("download_count", record\.download_count\)/.test(tokenDoor))

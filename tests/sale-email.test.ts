@@ -71,8 +71,16 @@ async function main() {
     check("basket: the first product and how many more", b.subject === "You sold Brand Workbook and 2 more for $76.50", b.subject)
     const f = renderEmail("FIRST_SALE", SINGLE, ctx)
     check("first sale: its own subject and heading", f.subject === "Your first sale: Lightroom Presets Vol 2 for $29.00" && f.text.startsWith("You made your first sale"), f.subject)
+    /* Changed on purpose: the owner asked for "You've made a sale" even when the product is free, so a free
+       claim gets the same subject and heading as a paid one, and only the money reads differently. */
     const free = renderEmail("NEW_SALE", { ...SINGLE, amountCents: 0, feeCents: 0, lines: [{ title: "Free Guide", amountCents: 0 }] }, ctx)
-    check("a free claim says so, and shows no fee or earnings", free.subject === "New free order: Free Guide" && !free.text.includes("You receive") && !free.text.includes("Storelib fee"), free.subject)
+    check("a free claim is a sale too: the same subject, no fee and no earnings", free.subject === "You sold Free Guide" && !free.text.includes("You receive") && !free.text.includes("Storelib fee"), free.subject)
+    check("a free claim's heading says a sale was made", free.text.startsWith("You made a sale") && free.html.includes("You made a sale"), free.text.slice(0, 40))
+    check("a free claim's amount reads Free, never $0.00", free.text.includes("Total: Free") && !/\$0\.00/.test(free.text + free.html), free.text.match(/Total[^\n]*/)?.[0])
+    check("a free claim's one line reads Free", free.text.includes("Free Guide: Free"), free.text.match(/Free Guide[^\n]*/)?.[0])
+    check("a free claim's preview names the buyer and says it was free", free.preview === "Sam got Free Guide for free.", free.preview)
+    const freeFirst = renderEmail("FIRST_SALE", { ...SINGLE, amountCents: 0, feeCents: 0, lines: [{ title: "Free Guide", amountCents: 0 }] }, ctx)
+    check("the first sale drawn free keeps its heading and prints no $0.00", freeFirst.text.startsWith("You made your first sale") && !/\$0\.00/.test(freeFirst.text + freeFirst.html), freeFirst.subject)
     const long = renderEmail("NEW_SALE", { ...SINGLE, lines: [{ title: "The Complete Wedding Photography Business Masterclass Bundle 2026 Edition", amountCents: 129900 }], amountCents: 129900 }, ctx)
     check("a long title is cut so the subject fits in 60 characters", long.subject.length <= 60 && long.subject.startsWith("You sold The Complete") && long.subject.endsWith("for $1,299.00"), long.subject)
     for (const [label, m] of [["single", e], ["basket", b], ["first", f], ["free", free], ["long", long]] as const) {
@@ -84,7 +92,8 @@ async function main() {
   console.log("\nsale email: the order in it")
   {
     const e = renderEmail("NEW_SALE", SINGLE, ctx)
-    check("heading and one line", e.text.startsWith("You have a new order\n\nSam Rivera bought Lightroom Presets Vol 2 from your store."))
+    /* Changed on purpose with the free wording above: one heading for every sale, paid or free. */
+    check("heading and one line", e.text.startsWith("You made a sale\n\nSam Rivera bought Lightroom Presets Vol 2 from your store."))
     check("order number and the creator's time", e.text.includes("Order #1042\nThursday, October 1, 2026 at 9:40 AM GMT+3"))
     check("the line with its option", e.text.includes("Lightroom Presets Vol 2 (Mobile): $29.00"))
     check("total, fee and what the seller receives", e.text.includes("Total paid: $29.00\nStorelib fee: −$1.45\nYou receive: $27.55"))
@@ -119,7 +128,8 @@ async function main() {
     check("fee unknown: no fee and no earnings are guessed", !noFee.text.includes("Storelib fee") && !noFee.text.includes("You receive"))
     check("fee unknown: the preview says the total reaches the balance", noFee.preview === "Sam bought Lightroom Presets Vol 2. $29.00 goes to your balance.", noFee.preview)
     const none = renderEmail("NEW_SALE", { amountCents: 500 }, ctx)
-    check("nothing but an amount: a plain subject and no customer section", none.subject === "New order for $5.00" && !none.text.includes("Customer") && !none.html.includes("mailto:"), none.subject)
+    /* Changed on purpose: the fallback subject says a sale was made, as the rest of the email now does. */
+    check("nothing but an amount: a plain subject and no customer section", none.subject === "You made a sale for $5.00" && !none.text.includes("Customer") && !none.html.includes("mailto:"), none.subject)
   }
 
   console.log("\nsale email: hostile input")
@@ -208,7 +218,7 @@ async function main() {
       const form = sent[0]
       check("from Storelib, reply to support, to the creator", /^Storelib <.+@.+>$/.test(String(form.get("from"))) && form.get("h:Reply-To") === "support@storelib.com" && form.get("to") === "ana@example.com", [form.get("from"), form.get("h:Reply-To"), form.get("to")])
       check("subject, plain text part and the new_sale tag", form.get("subject") === "You sold Brand Workbook and 1 more for $62.10" && String(form.get("text")).includes("Order #1003") && form.getAll("o:tag").includes("new_sale"), form.get("subject"))
-      check("the HTML is the Storelib layout", String(form.get("html")).includes("You have a new order") && String(form.get("html")).includes("max-width:600px"))
+      check("the HTML is the Storelib layout", String(form.get("html")).includes("You made a sale") && String(form.get("html")).includes("max-width:600px"))
       check("the log says sent and both lines are marked told", db.tables.email_logs.filter((l: any) => l.status === "sent").map((l: any) => l.order_id).sort().join() === "b-1,b-2" && db.tables.orders.filter((o: any) => o.seller_notified_at).length === 2)
       const r2 = await sendSellerNotificationEmail(db, { ...params, orderId: "b-2" })
       check("the second line's call sends nothing: the basket was one email", r2.success && sent.length === 1)
@@ -218,6 +228,14 @@ async function main() {
       const off = fakeDb({ products: [{ id: "p1", title: "Guide", creator_id: "c3" }], orders: [row("o-1", "p1", 1900, 95, t0, null)], creators: [{ id: "c3", user_id: "u3" }], profiles: [], notification_preferences: [{ user_id: "u3", category: "sales", channel: "email", enabled: false }] })
       const r4 = await sendSellerNotificationEmail(off, { ...params, orderId: "o-1", creatorId: "c3", sale: undefined })
       check("sales emails turned off: skipped, nothing sent", r4.skipped === true && sent.length === 1)
+
+      /* A free claim (checkout/quick-free passes amountCents 0) still mails the seller, and still says a sale. */
+      const freeStore = fakeDb({ products: [{ id: "p1", title: "Starter Pack", creator_id: "c5" }], orders: [row("free-1", "p1", 0, 0, t0, null)], creators: [{ id: "c5", user_id: "u5" }], profiles: [] })
+      const rFree = await sendSellerNotificationEmail(freeStore, { ...params, orderId: "free-1", creatorId: "c5", productTitle: "Starter Pack", amountCents: 0, feeCents: 0, sale: undefined })
+      const fFree = sent[sent.length - 1]
+      check("a free claim still sends the seller's email", rFree.success === true && rFree.skipped !== true && String(fFree.get("subject")) === "You sold Starter Pack", [rFree, fFree.get("subject")])
+      check("and it says a sale was made, with Free in place of $0.00", String(fFree.get("text")).includes("You made a sale") && String(fFree.get("text")).includes("Total: Free") && !String(fFree.get("text")).includes("$0.00"))
+      check("a free claim is logged as one seller notification", freeStore.tables.email_logs.filter((l: any) => l.order_id === "free-1" && l.email_type === "seller_notification" && l.status === "sent").length === 1)
 
       const business = fakeDb({ products: [{ id: "p1", title: "Guide", creator_id: "c4" }], orders: [row("o-2", "p1", 1900, 95, t0, null)], creators: [{ id: "c4", user_id: "u4" }], profiles: [] })
       await sendSellerNotificationEmail(business, { ...params, orderId: "o-2", creatorId: "c4", sellerEmail: "owner+slb-1a2b3c4d@example.com", sale: undefined })

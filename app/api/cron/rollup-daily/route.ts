@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { ROLLUP } from "@/lib/analytics/events"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * CRON: Refresh daily analytics rollups for yesterday.
@@ -53,8 +54,9 @@ import { ROLLUP } from "@/lib/analytics/events"
  * never rolled up (as many as BACKFILL_BUDGET_MS allows), so the first night
  * after the part runs fills the year, without anybody running `?from=`.
  */
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
 export async function GET(request: Request) {
-  return POST(request)
+  return recordCronRun("/api/cron/rollup-daily", request, () => POST(request))
 }
 
 /* As long as the other crons may run: the first night after part 61 fills a year of days. */

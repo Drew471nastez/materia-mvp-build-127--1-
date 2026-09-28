@@ -36,7 +36,13 @@ export function ReviewsRatingBreakdown({
   cardBorderColor,
 }: ReviewsRatingBreakdownProps) {
   if (reviewsCount === 0) return null
-  const bar = starColor || accentColor || "#1a1a2e"
+  /*
+    THE BAR FOLLOWS THE PAGE'S TEXT when the page sets one. The near black
+    fallback is Storelib's, and on a product page with a dark theme it was
+    darker than the track behind it: five bars you could not see, reading as
+    an indigo smudge. A page that names its text colour gets its bars in it.
+  */
+  const bar = starColor || accentColor || textColor || "#1a1a2e"
   /* The bars count the reviews the breakdown read; until it arrives, the total the page already had. */
   const counted = [1, 2, 3, 4, 5].reduce((n, r) => n + (starBreakdown[r as 1] || 0), 0)
   const total = counted || reviewsCount

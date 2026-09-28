@@ -170,6 +170,38 @@ function main() {
   check("in-app keeps a relative Storelib path", renderInApp("PAYOUT_FAILED", FULL, ctx).actionUrl === "/app/settings?tab=payments")
   check("receipt links to the buyer's receipt", renderEmail("PURCHASE_CONFIRMATION", FULL, ctx).text.includes(`${BASE}/receipt/rt_abc`))
 
+  /* WHOSE NAME IS IN THE INBOX. Only the seller's own ask names the seller; every platform email stays Storelib's. */
+  const NAMED: NotificationType[] = ["REVIEW_REQUEST", "REVIEW_REMINDER"]
+  for (const type of NOTIFICATION_TYPES) {
+    const e = renderEmail(type, { ...FULL, creatorSupportEmail: "hello@anastudio.com" }, ctx)
+    if (NAMED.includes(type)) {
+      check(`${type} is sent under the seller's name, replying to their support inbox`, e.fromName === "Ana Lopez" && e.replyTo === "hello@anastudio.com", [e.fromName, e.replyTo])
+    } else {
+      check(`${type} comes from Storelib`, !e.fromName && !e.replyTo, [e.fromName, e.replyTo])
+    }
+  }
+  const noSupport = renderEmail("REVIEW_REQUEST", { ...FULL, creatorSupportEmail: "not an address" }, ctx)
+  check("a reply-to that is not a plain address is dropped, not repaired", noSupport.fromName === "Ana Lopez" && !noSupport.replyTo, noSupport.replyTo)
+  const evilName = renderEmail("REVIEW_REQUEST", { ...FULL, creatorName: 'Ana" <spoof@evil.io>' }, ctx)
+  check("a seller name cannot carry an address into the From header", !/[<>"]/.test(evilName.fromName ?? ""), evilName.fromName)
+
+  /* THE REVIEW EMAIL'S OWN PARTS: the product card, five star links, one button, a footer that says what it turns off. */
+  const ask = renderEmail("REVIEW_REQUEST", { ...FULL, productImage: "https://cdn.example.com/presets.png" }, ctxUnsub)
+  check("the stars are five links, each opening the receipt at that rating", [1, 2, 3, 4, 5].every((n) => ask.html.includes(`${BASE}/receipt/rt_abc?rate=${n}#review`) && ask.text.includes(`${BASE}/receipt/rt_abc?rate=${n}#review`)))
+  check("the product card carries the picture with the title as its alt text", /<img[^>]*alt="Lightroom Presets Vol 2"/.test(ask.html) && /src="https:\/\//.test(ask.html))
+  check("the card names the creator under the title", ask.html.includes("by Ana Lopez") && ask.text.includes("by Ana Lopez"))
+  check("one button, near black", (ask.html.match(/class="sn-btn"/g) ?? []).length === 1 && ask.html.includes('bgcolor="#1a1a2e"'))
+  check("the footer link says it turns review emails off", ask.text.includes(`Turn off review emails: ${ctxUnsub.unsubscribeUrl}`) && !ask.text.includes("Unsubscribe:"))
+  const noPicture = renderEmail("REVIEW_REQUEST", { ...FULL, productImage: "http://cdn.example.com/x.png" }, ctx)
+  check("a picture that is not https is left out, and the letter tile is drawn", !/<img[^>]*alt="Lightroom/.test(noPicture.html) && noPicture.html.includes('class="sn-tile"'))
+
+  /* No purple anywhere in a notification email: the owner's rule for the whole product. */
+  for (const type of NOTIFICATION_TYPES) {
+    const e = renderEmail(type, FULL, ctxUnsub)
+    const purple = e.html.match(/#(8b5cf6|7c3aed|6d28d9|5b21b6|4c1d95|a78bfa|c4b5fd|ddd6fe|ede9fe|f5f3ff|2f2f4d)/i)
+    check(`${type} has no purple`, !purple, purple?.[0])
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     for (const f of failures) console.log(`  - ${f}`)

@@ -278,12 +278,22 @@ export type CronCheck = {
 
 export type SchemaCheck = { table: string; present: boolean | null; missingColumns: string[]; reason: string | null }
 
+/** One run-now part against the database's own record of what ran (run-now part 67). */
+/** One kind of error the app hit, counted (run-now part 68, lib/observability/report). */
+export type ErrorGroup = { fingerprint: string; source: string; where: string; message: string; count: number; firstSeen: string; lastSeen: string }
+
+export type SqlPartCheck = { part: string; file: string; state: "applied" | "missing" | "changed" | "unknown"; appliedAt: string | null }
+
 export type SystemPayload = Base & {
   crons: CronCheck[]
   /** `optional`: not set is normal (an extra switched off), shown as Off, never as a problem. */
   env: { name: string; set: boolean; group: string; optional?: boolean }[]
   rateLimit: { rows: Figure; oldest: string | null }
   schema: SchemaCheck[]
+  /** Every run-now part, applied, missing, or changed since it ran. */
+  sqlParts: SqlPartCheck[]
+  /** The kinds of error seen in the last 7 days, newest first; null before part 68 or when unread. */
+  errors: ErrorGroup[] | null
 }
 
 export type ViewId =

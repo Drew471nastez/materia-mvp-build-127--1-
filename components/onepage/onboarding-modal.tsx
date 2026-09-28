@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, memo } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createPortal, preload } from "react-dom"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
@@ -837,6 +838,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         .upload(fileName, blob, { upsert: true })
 
       if (uploadError) throw uploadError
+      confirmUpload("avatars", fileName)
 
       const { data: { publicUrl } } = supabase.storage
         .from("avatars")

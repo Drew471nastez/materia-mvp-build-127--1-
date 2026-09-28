@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runStorageCleanup } from "@/lib/storage/cleanup"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * GET /api/cron/storage-cleanup
@@ -25,7 +26,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
-export async function GET(request: Request) {
+async function runJob(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
 
@@ -46,10 +47,18 @@ export async function GET(request: Request) {
       const { data, error } = await createAdminClient().rpc("storelib_purge_deleted_rows", {})
       if (error && error.code !== "PGRST202") console.error("[storage-cleanup] deleted rows not purged:", error.message)
       deletedRowsForgotten = typeof data === "number" ? data : 0
+      /* Scheduled job runs after 30 days, errors unseen for 90 (run-now part 68). */
+      const ops = await createAdminClient().rpc("storelib_purge_ops_logs", {})
+      if (ops.error && ops.error.code !== "PGRST202") console.error("[storage-cleanup] job and error logs not purged:", ops.error.message)
     }
     return NextResponse.json({ ...summary, deletedRowsForgotten }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("[storage-cleanup]", error)
     return NextResponse.json({ error: "Cleanup failed" }, { status: 500 })
   }
+}
+
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
+export async function GET(request: Request) {
+  return recordCronRun("/api/cron/storage-cleanup", request, () => runJob(request))
 }

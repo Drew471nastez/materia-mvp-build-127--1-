@@ -9,6 +9,7 @@ import { maskEmail } from "@/lib/privacy/mask-email"
 import { runDueJobs } from "@/lib/automations/run"
 import { runCampaignQueue } from "@/lib/email-campaigns/queue"
 import { runAbandonedSweep } from "@/lib/automations/abandoned-run"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * ===========================================================================
@@ -126,7 +127,7 @@ function errorText(err: unknown): string {
   return raw.replace(/[^\s@<>"']+@[^\s@<>"']+/g, "(address)").slice(0, 300)
 }
 
-export async function GET(request: Request) {
+async function runJob(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) {
     console.log("[cron/scheduled-emails] Unauthorized request")
@@ -316,4 +317,9 @@ async function drainLegacyQueue(deadline: number): Promise<{ sent: number; faile
 // Also support POST for manual triggers
 export async function POST(request: Request) {
   return GET(request)
+}
+
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
+export async function GET(request: Request) {
+  return recordCronRun("/api/cron/process-scheduled-emails", request, () => runJob(request))
 }

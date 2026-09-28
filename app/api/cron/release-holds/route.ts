@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { notifyPayoutAvailable } from "@/lib/push/notifications"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { releaseDueHolds } from "@/lib/payments/ledger"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * GET /api/cron/release-holds
@@ -21,7 +22,7 @@ import { releaseDueHolds } from "@/lib/payments/ledger"
  * Protected by CRON_SECRET bearer token.
  * Schedule: daily at 6:00 AM UTC (configured in vercel.json)
  */
-export async function GET(request: Request) {
+async function runJob(request: Request) {
   try {
     // Verify cron secret
     /* Was compared against `Bearer ${process.env.CRON_SECRET}`, which with
@@ -182,4 +183,9 @@ export async function GET(request: Request) {
       { status: 500 },
     )
   }
+}
+
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
+export async function GET(request: Request) {
+  return recordCronRun("/api/cron/release-holds", request, () => runJob(request))
 }

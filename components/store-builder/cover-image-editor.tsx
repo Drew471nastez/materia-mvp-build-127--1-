@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -62,6 +63,7 @@ export function CoverImageEditor({
         .upload(filePath, file, { cacheControl: "3600", upsert: true })
 
       if (uploadError) throw uploadError
+      confirmUpload(bucket, filePath)
 
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
       setImageUrl(urlData.publicUrl)

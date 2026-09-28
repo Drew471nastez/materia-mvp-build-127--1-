@@ -22,6 +22,7 @@
  * nothing, and nothing throws into the caller. Database error text is never
  * logged or returned; codes only.
  */
+import type { ProgressFacts } from "@/lib/home/progress"
 import type { ReviewRequestFacts } from "@/lib/reviews/request-rules"
 import type {
   Channel,
@@ -222,6 +223,17 @@ export interface PaymentFact {
   payoutsEnabled: boolean
   detailsSubmitted: boolean
   status: string | null
+  /**
+   * What Stripe is still asking this account for, as Stripe's own keys
+   * ("individual.verification.document"), from creators.stripe_requirements,
+   * which only the account.updated webhook writes. Null when the column is
+   * not there (supabase/sql/run-now/63 has not been run) or no webhook has
+   * been handled since it was: nothing is known, so the verification
+   * reminders do not fire.
+   */
+  requirements: string[] | null
+  /** The date Stripe gave for them, when it gave one. */
+  requirementsDueBy: string | null
 }
 
 export interface NotifyStore {
@@ -275,6 +287,13 @@ export interface NotifyStore {
   /* conditions */
   products(creatorId: string): Promise<ProductFact[] | null>
   payments(creatorId: string): Promise<PaymentFact | null>
+  /**
+   * How far Getting started has got, by the rules Home's card uses
+   * (lib/home/progress.ts), so a reminder about it and the card can never
+   * disagree. Null when it could not be read, or when this login has no
+   * creator row.
+   */
+  setupProgress(userId: string): Promise<ProgressFacts | null>
   payoutStatus(payoutId: string): Promise<string | null | undefined>
   disputeClosed(disputeId: string): Promise<boolean | null>
   domainStatus(domainId: string): Promise<{ status: string | null; sslStatus: string | null } | null | undefined>
@@ -286,6 +305,10 @@ export interface NotifyStore {
 export type ReviewRequestFactsRow = ReviewRequestFacts & {
   creatorName: string | null
   productSlug: string | null
+  /** products.thumbnail_url as stored: the picture the review email shows. Null draws a letter tile. */
+  productImage: string | null
+  /** creators.support_email: where a reply to the review email goes. Null leaves Storelib's. */
+  creatorSupportEmail: string | null
 }
 
 /** Either kind of handle the public functions accept. */
@@ -755,12 +778,32 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         return null
       }
       const c = data as Record<string, unknown>
+      /* select *, so a database without part 63's columns simply reads nothing here. */
+      const asked = Array.isArray(c.stripe_requirements) ? c.stripe_requirements.filter((r): r is string => typeof r === "string" && r.length > 0).slice(0, 30) : null
       return {
         stripeAccountId: typeof c.stripe_account_id === "string" ? c.stripe_account_id : null,
         chargesEnabled: c.charges_enabled === true,
         payoutsEnabled: c.payouts_enabled === true,
         detailsSubmitted: c.details_submitted === true,
         status: typeof c.stripe_onboarding_status === "string" ? c.stripe_onboarding_status : null,
+        requirements: asked,
+        requirementsDueBy: typeof c.stripe_requirements_due_at === "string" ? c.stripe_requirements_due_at : null,
+      }
+    },
+
+    /*
+     * Home's own reads (lib/home/progress-server), imported here and not at
+     * the top of the file, because they are server only and this module is
+     * also compiled for the tests. One read of eight small queries, and only
+     * when a setup reminder is due.
+     */
+    async setupProgress(userId) {
+      try {
+        const { readProgressFacts } = await import("@/lib/home/progress-server")
+        return await readProgressFacts(db, { userId })
+      } catch (error) {
+        fail("read setup progress", error as PgError)
+        return null
       }
     },
 
@@ -784,7 +827,7 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
     },
 
     async reviewRequestFacts(orderId) {
-      const none: ReviewRequestFactsRow = { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null }
+      const none: ReviewRequestFactsRow = { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null, productImage: null, creatorSupportEmail: null }
       if (!/^[0-9a-f-]{36}$/i.test(orderId)) return none
       const { data: order, error } = await db.from("orders").select("*").eq("id", orderId).maybeSingle()
       if (error) {
@@ -794,7 +837,7 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
       if (!order) return none
       const o = order as Record<string, any>
       const [{ data: product, error: productError }, reviewed, suppressed] = await Promise.all([
-        db.from("products").select("id, title, slug, status, creator_id").eq("id", o.product_id).maybeSingle(),
+        db.from("products").select("id, title, slug, status, creator_id, thumbnail_url").eq("id", o.product_id).maybeSingle(),
         (async () => {
           /* On this order, by the buyer's account, or on another order of theirs for the same product by the same address. */
           const byOrder = await db.from("reviews").select("id").eq("order_id", o.id).limit(1)
@@ -826,15 +869,19 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         fail("read a review request", productError ?? { code: "reviews" })
         return null
       }
-      const p = product as { id: string; title: string | null; slug: string | null; status: string | null; creator_id: string | null } | null
+      const p = product as { id: string; title: string | null; slug: string | null; status: string | null; creator_id: string | null; thumbnail_url?: string | null } | null
       let sellerUserId: string | null = null
       let creatorName: string | null = null
+      let creatorSupportEmail: string | null = null
       if (p?.creator_id) {
-        const { data: creator } = await db.from("creators").select("user_id, display_name, slug").eq("id", p.creator_id).maybeSingle()
+        const { data: creator } = await db.from("creators").select("user_id, display_name, slug, support_email").eq("id", p.creator_id).maybeSingle()
         sellerUserId = (creator as { user_id?: string | null } | null)?.user_id ?? null
         const { data: profile } = sellerUserId ? await db.from("profiles").select("display_name, username").eq("id", sellerUserId).maybeSingle() : { data: null }
-        const c = creator as { display_name?: string | null; slug?: string | null } | null
+        const c = creator as { display_name?: string | null; slug?: string | null; support_email?: string | null } | null
+        /* The name the buyer already knows the seller by, the same order lib/email.tsx resolveCreatorIdentity uses. */
         creatorName = (profile as { display_name?: string | null } | null)?.display_name || c?.display_name || (profile as { username?: string | null } | null)?.username || c?.slug || null
+        /* Only the address the seller published for support: never their login, which they did not give a buyer. */
+        creatorSupportEmail = clip(c?.support_email ?? null, 200)
       }
       return {
         order: {
@@ -856,6 +903,8 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         suppressed,
         creatorName,
         productSlug: p?.slug ?? null,
+        productImage: clip(p?.thumbnail_url ?? null, 1000),
+        creatorSupportEmail,
       }
     },
 

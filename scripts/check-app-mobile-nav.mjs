@@ -1462,6 +1462,63 @@ const READ_MENU = `(() => {
 const open = await ev(READ_MENU)
 await shoot("open.png")
 
+/*
+ * ===========================================================================
+ *  IS EACH GLYPH IN THE MIDDLE OF ITS OWN CIRCLE
+ * ===========================================================================
+ * "In the pill shape circle of the navigation bar, make sure the settings
+ * button icon sits there correctly centred in the white circle."
+ *
+ * Every check above reads a BOX, and the boxes were already centred: the
+ * glyph span measured zero off the middle of its button on every phone. What
+ * was off was the drawing INSIDE it. Solar's IconBase writes its `size` prop
+ * into the inline style as width and height, after the style it is handed, so
+ * a 22px glyph was drawn in a 21px box and `inset: 0` hung the extra pixel
+ * off the right and the bottom. Measured at 390: the gear, Orders, Products
+ * and Analytics all a whole pixel down and to the right of their circle's
+ * middle; the menu glyph, which is three divs and never went through
+ * IconBase, on it. Beside an X that was centred, the gear was the one that
+ * got reported.
+ *
+ * So this reads the PHOTOGRAPH: the box the ink occupies, against the middle
+ * of the round white button it sits in. The square it reads is inside the
+ * circle, because the corners of the button's own box fall outside the round
+ * shape, where the drop shadow is, and a shadow is dark enough to count as
+ * ink.
+ *
+ * Half a pixel is the floor, not slack: a 21px glyph cannot be centred in a
+ * 60px circle on a whole-pixel grid, and the engine paints a box that starts
+ * on a half pixel at the next whole one. Every glyph of that size is off by
+ * the same half pixel in the same direction, which is why none of them reads
+ * as the odd one out. On a 360px phone, where the glyph is 20px in a 56px
+ * circle, they are all exactly on it.
+ */
+const CIRCLES = `(() => {
+  const r = (el, label) => { if (!el) return null; const b = el.getBoundingClientRect(); return { label, x: b.left, y: b.top, w: b.width, h: b.height, cx: b.left + b.width / 2, cy: b.top + b.height / 2 } }
+  return [
+    r(document.querySelector('[data-app-nav-pill] button[aria-label="Settings"]'), "Settings"),
+    r(document.querySelector('[data-app-nav-pill] button[aria-label="Close menu"]'), "Close menu"),
+    ...[...document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')].map((a) => r(a, a.getAttribute("aria-label"))),
+  ].filter(Boolean)
+})()`
+const centred = []
+for (const c of await ev(CIRCLES)) {
+  const side = Math.round(Math.min(c.w, c.h) * 0.62)
+  const clip = { x: Math.round(c.cx - side / 2), y: Math.round(c.cy - side / 2), width: side, height: side }
+  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { ...clip, scale: 1 }, captureBeyondViewport: false })
+  const png = decodePng(Buffer.from(data, "base64"))
+  const ink = inkBox(png, 190)
+  const k = png.width / clip.width
+  centred.push({
+    label: c.label,
+    dx: ink ? Math.round((clip.x + (ink.left + ink.right + 1) / 2 / k - c.cx) * 100) / 100 : null,
+    dy: ink ? Math.round((clip.y + (ink.top + ink.bottom + 1) / 2 / k - c.cy) * 100) / 100 : null,
+  })
+}
+console.log("  centring    how far each glyph's ink sits from the middle of its own circle, in CSS pixels")
+for (const c of centred) console.log(`              ${c.label.padEnd(12)} ${c.dx === null ? "no ink" : `${c.dx >= 0 ? "+" : ""}${c.dx} x ${c.dy >= 0 ? "+" : ""}${c.dy} y`}`)
+console.log("")
+
 /* ── a group, opened and closed, one frame at a time ─────────────────────── */
 const GROUP = `(async () => {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -2038,6 +2095,13 @@ must(boxDippedTo >= 0.99, "while the box around them stays solid the whole way t
   `the faintest an icon went was ${boxDippedTo}`)
 must(swapAtMs <= 40, "and it starts filling on the frame the finger lands, not after one",
   `the fill did not start until ${swapAtMs}ms after the finger landed`)
+
+for (const c of centred) {
+  must(c.dx !== null, `${c.label}'s glyph is drawn at all`, "no ink found inside its circle")
+  must(Math.abs(c.dx) <= 0.5 && Math.abs(c.dy) <= 0.5,
+    `${c.label}'s glyph sits in the middle of its circle, to half a pixel`,
+    `its ink is ${c.dx} x ${c.dy} off centre: a glyph drawn bigger than the box it is given hangs the difference off its right and its bottom`)
+}
 
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")

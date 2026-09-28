@@ -1,6 +1,7 @@
 "use client"
 
 import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -234,6 +235,7 @@ export function BuyerSettings({ userId, email: initialEmail, displayName: initia
         .upload(path, uploadBlob, { upsert: true, contentType: uploadBlob.type || "image/jpeg" })
 
       if (uploadError) throw uploadError
+      confirmUpload("avatars", path)
 
       const { data: { publicUrl } } = supabase.storage
         .from("avatars")

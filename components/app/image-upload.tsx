@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useState, useRef, useCallback, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -331,6 +332,10 @@ export function ImageUpload({
                 throw uploadError
               }
 
+              /* A signed upload URL cannot limit what went through it, so the
+                 server reads the bytes it got and checks them
+                 (lib/storage/confirm-upload.ts). Nothing here waits. */
+              confirmUpload(bucket, path)
               setProgress(100)
               console.log("[v0] Video upload successful via signed URL, URL:", publicUrl)
               onChange(publicUrl)
@@ -428,6 +433,7 @@ export function ImageUpload({
               throw uploadError
             }
           }
+          confirmUpload(bucket, filePath)
 
           setProgress(70)
 

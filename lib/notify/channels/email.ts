@@ -13,6 +13,12 @@
  *              no HTML from a creator, a buyer or a payload is ever placed
  *              in the email as HTML.
  *   subject    one line, no line breaks, at most 200 characters
+ *   from       Storelib, unless the template named a sender: a review
+ *              request is the seller's ask, so it goes out as "<Seller> via
+ *              Storelib" with Reply-To their support inbox. Only the display
+ *              name and Reply-To change; the address it is sent from is
+ *              Storelib's verified one on every email, because a creator's
+ *              own domain is not ours to sign for.
  *   headers    List-Unsubscribe and List-Unsubscribe-Post (RFC 8058) on
  *              optional and marketing email only; required service email
  *              has no way out, by design
@@ -88,11 +94,15 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
     }
     headers["X-Storelib-Notification"] = entry.type
     const domain = o.messageDomain || "storelib.com"
+    /* The seller's name in front of Storelib's address, so the buyer sees who is asking. */
+    const fromName = rendered.fromName ? `${rendered.fromName} via Storelib` : undefined
     return o.provider.send({
       to,
       subject,
       html: rendered.html,
       text: rendered.text,
+      fromName,
+      replyTo: rendered.replyTo ?? undefined,
       headers,
       tags: [entry.type],
       variables: { delivery_id: deliveryId, job_id: job.id },

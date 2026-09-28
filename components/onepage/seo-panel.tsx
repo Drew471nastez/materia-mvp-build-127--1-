@@ -28,6 +28,7 @@
  * editor, so the previews, undo and the editor's Save all see them.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Loader2, Plus } from "lucide-react"
 import { useOnePage } from "@/lib/onepage/context"
 import { publicOnePageFromDraft } from "@/lib/onepage/public-shape"
@@ -282,6 +283,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
       const path = `${user.id}/og-image-${Date.now()}.${ext}`
       const { error } = await supabase.storage.from("onepage-assets").upload(path, body, { upsert: true, contentType: jpeg ? "image/jpeg" : file.type })
       if (error) throw error
+      confirmUpload("onepage-assets", path)
       const {
         data: { publicUrl },
       } = supabase.storage.from("onepage-assets").getPublicUrl(path)

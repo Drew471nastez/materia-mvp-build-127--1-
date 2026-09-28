@@ -109,8 +109,14 @@ export const NOTIFICATION_TYPES = [
   "FINISH_PRODUCT_REMINDER",
   "PUBLISH_PRODUCT_REMINDER",
   "FIRST_PRODUCT_PUBLISHED",
+  /* Getting started with steps still open, the same steps Home's card shows (lib/home/progress.ts). */
+  "STORE_SETUP_UNFINISHED",
+  "STORE_SETUP_UNFINISHED_2",
   "PAYMENT_SETUP_REMINDER",
   "PAYMENT_SETUP_REMINDER_2",
+  /* Started and left unfinished, rather than never started (lib/notify/workflows/unfinished.ts). */
+  "PAYOUT_SETUP_UNFINISHED",
+  "PAYOUT_SETUP_UNFINISHED_2",
   "PAYMENT_SETUP_COMPLETED",
   "PAYMENT_VERIFICATION_REQUIRED",
   "PAYMENT_SETUP_FAILED",
@@ -120,6 +126,9 @@ export const NOTIFICATION_TYPES = [
   "PAYOUT_SENT",
   "PAYOUT_FAILED",
   "PAYOUT_ACTION_REQUIRED",
+  /* Stripe asked for identity or business details and is still waiting (lib/notify/workflows/unfinished.ts). */
+  "VERIFICATION_REMINDER",
+  "VERIFICATION_REMINDER_2",
   "PAYOUT_RESTRICTED",
   "FIRST_SALE",
   "NEW_SALE",
@@ -197,6 +206,10 @@ export type ConditionName =
   | "has_ready_unpublished_product"
   | "payment_setup_incomplete"
   | "payment_setup_action_required"
+  /** Getting started has a step left that has a page to finish it on (lib/home/progress.ts). */
+  | "store_setup_unfinished"
+  /** Stripe is still asking this account for details (creators.stripe_requirements, written by the webhook). */
+  | "verification_still_needed"
   | "payout_still_failed"
   | "dispute_still_open"
   | "domain_still_failing"
@@ -284,6 +297,13 @@ export interface OutgoingEmail {
   text: string
   /** Storelib <notifications@...>, from configuration. */
   from?: string
+  /**
+   * A display name to put in front of the configured address, for an email
+   * sent on a seller's behalf ("Loudlib via Storelib <notifications@...>").
+   * The address itself is Storelib's verified one either way, so nothing
+   * about the envelope or the signing changes.
+   */
+  fromName?: string
   replyTo?: string
   headers?: Record<string, string>
   tags?: string[]
@@ -306,6 +326,14 @@ export interface RenderedEmail {
   preview: string
   html: string
   text: string
+  /**
+   * The name the inbox shows instead of "Storelib": the seller's, on the
+   * review request emails they are asking for. Null on every other email,
+   * which comes from Storelib. The address sent from never changes.
+   */
+  fromName?: string | null
+  /** Where a reply goes: the seller's support inbox when they have one. Null leaves Storelib's. */
+  replyTo?: string | null
 }
 
 export interface TemplateContext {

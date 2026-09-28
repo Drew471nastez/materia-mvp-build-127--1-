@@ -7,6 +7,7 @@ import { storelibPusher } from "@/lib/notifications/push-sender"
 import { supabaseSnapshots } from "@/lib/notifications/snapshot"
 import { supabaseNotificationStore } from "@/lib/notifications/supabase-store"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * GET /api/cron/notifications
@@ -36,7 +37,7 @@ const RUN_BUDGET_MS = 240_000
 /** The notification worker's share, after the evaluation, inside maxDuration. */
 const NOTIFY_BUDGET_MS = 20_000
 
-export async function GET(request: Request) {
+async function runJob(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
 
@@ -63,4 +64,9 @@ export async function GET(request: Request) {
     console.error("[cron/notifications] the run failed")
     return NextResponse.json({ error: "Run failed" }, { status: 500 })
   }
+}
+
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
+export async function GET(request: Request) {
+  return recordCronRun("/api/cron/notifications", request, () => runJob(request))
 }

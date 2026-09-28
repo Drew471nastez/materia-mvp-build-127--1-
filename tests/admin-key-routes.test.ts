@@ -79,6 +79,7 @@ const PROOFS: [string, RegExp][] = [
 const PUBLIC_BY_DESIGN: Record<string, string> = {
   // Sign-up and password recovery: the caller has no session yet, by definition.
   "auth/account-origin/route.ts": "answers how an email address signed up, before there is a session",
+  "health/route.ts": "the uptime check: answers whether the database and the scheduled jobs are working, names jobs and ages, never data",
   "auth/unconfirmed-account/route.ts": "the login page's way to /signup/verify: answers an id only when Supabase says the password is right and the address is unconfirmed, rate limited",
   "auth/complete-reset-password/route.ts": "carries the reset token, which is the credential",
   "auth/confirm-email/route.ts": "carries the confirmation token",

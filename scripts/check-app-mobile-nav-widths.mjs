@@ -117,7 +117,21 @@ const READ = `(() => {
   const settings = document.querySelector('[data-app-nav-pill] button[aria-label="Settings"]')
   const settingsShown = Number(getComputedStyle(settings).opacity) > 0.5
   const tabs = [...nav.querySelectorAll("a[aria-label]")].map((a) => ({ label: a.getAttribute("aria-label"), ...box(a) }))
-  const icon = box(nav.querySelector('a[aria-label] [data-part="outline"]'))
+  /*
+    EVERY glyph, not the first one. This read the first tab's outline, which
+    is Home — one of the hand-drawn icons, whose size is an svg ATTRIBUTE
+    that a style beats, so it was the only glyph in the pill that was
+    already the size of the box it was given. The four Solar ones were drawn
+    at their own size prop instead (22px in a 21px box) and hung the extra
+    pixel off their right and their bottom. The gear beside the bar is one of
+    those, and it is measured here too.
+  */
+  const glyphs = [...document.querySelectorAll('[data-app-nav-pill] [data-part="outline"]')]
+    /* The settings circle is drawn at 0.6 with the menu shut, so its glyph is
+       a size nobody sees; it is measured in the state it is shown in. */
+    .filter((el) => settingsShown || !el.closest('button[aria-label="Settings"]'))
+    .map((el) => ({ label: el.closest("[aria-label]")?.getAttribute("aria-label") ?? "?", ...box(el) }))
+  const icon = glyphs[0]
   const lens = box(nav.querySelector("[data-app-nav-lens]"))
   const menuGlyph = box(menu.querySelector("span"))
   const parts = [["bar", box(nav)], ["menu", box(menu)]]
@@ -135,7 +149,7 @@ const READ = `(() => {
   const scroller = document.querySelector(".app-content-scroll")
   const menuScroll = document.querySelector("[data-mobile-menu] .overflow-y-auto")
   return {
-    vw, bar: box(nav), menu: box(menu), settings: settingsShown ? box(settings) : null, tabs, icon, lens, menuGlyph,
+    vw, bar: box(nav), menu: box(menu), settings: settingsShown ? box(settings) : null, tabs, icon, glyphs, lens, menuGlyph,
     gap: r2(box(menu).l - box(nav).r),
     marginL: r2(left), marginR: r2(vw - right), sum: r2(left + (right - left) + (vw - right)),
     overlap: r2(overlap), offscreen,
@@ -216,7 +230,13 @@ try {
       must(m.menu.w >= 44 && Math.abs(m.menu.w - m.menu.h) < 0.05, `${tag} ${state}: the menu button is ${m.menu.w}x${m.menu.h}`)
       must(Math.abs(m.menu.h - m.bar.h) < 0.05, `${tag} ${state}: the menu button (${m.menu.h}) and the bar (${m.bar.h}) differ in height`)
       must(Math.abs(m.lens.w - m.lens.h) < 0.05, `${tag} ${state}: the lens is ${m.lens.w}x${m.lens.h}, not a circle`)
-      must(m.icon.w >= 18, `${tag} ${state}: the icons are ${m.icon.w}px`)
+      must(m.glyphs.every((g) => g.w >= 18), `${tag} ${state}: the icons are ${m.glyphs.map((g) => g.w).join(", ")}px`)
+      /* EVERY glyph the box it was given, the gear included, and square. A
+         glyph drawn larger than its box does not sit in the middle of the
+         circle around it — see the centring section of
+         scripts/check-app-mobile-nav.mjs. */
+      must(m.glyphs.every((g) => Math.abs(g.w - m.glyphs[0].w) < 0.05 && Math.abs(g.h - g.w) < 0.05),
+        `${tag} ${state}: the glyphs are not one square size: ${m.glyphs.map((g) => `${g.label} ${g.w}x${g.h}`).join(", ")}`)
     }
     must(open.settings && Math.abs(open.settings.w - open.settings.h) < 0.05 && Math.abs(open.settings.w - open.menu.w) < 0.05,
       `${tag}: the settings circle is ${open.settings?.w}x${open.settings?.h} beside a ${open.menu.w}px menu button`)
@@ -226,7 +246,7 @@ try {
     /* At or above 390 the pill is at its full size: 4% under BEFORE, on whole pixels. */
     if (w >= 390) {
       for (const [what, got, want] of [["bar's height", shut.bar.h, AFTER.bar], ["bar's width", shut.bar.w, AFTER.barW], ["menu button", shut.menu.w, AFTER.bar],
-        ["lens", shut.lens.w, AFTER.dot], ["icons", shut.icon.w, AFTER.icon], ["gap", shut.gap, AFTER.gap]]) {
+        ["lens", shut.lens.w, AFTER.dot], ["icons", Math.max(...shut.glyphs.map((g) => g.w)), AFTER.icon], ["gap", shut.gap, AFTER.gap]]) {
         must(Math.abs(got - want) < 0.05, `${tag}: the ${what} is ${got}px, not ${want}`)
       }
     }

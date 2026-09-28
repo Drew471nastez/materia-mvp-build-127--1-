@@ -40,8 +40,11 @@ export function notifyLog(level: LogLevel, msg: string, fields: Record<string, u
   } catch {
     text = JSON.stringify({ level, area: "notify", msg: "unloggable line" })
   }
-  if (level === "error") console.error(text)
-  else if (level === "warn") console.warn(text)
+  if (level === "error") {
+    console.error(text)
+    /* Counted and told once, like every other error (lib/observability/report). The line is already masked. */
+    void import("@/lib/observability/report").then(({ reportError }) => reportError({ source: "notify", where: `notify: ${String(line.msg).slice(0, 120)}`, error: new Error(String(line.error ?? line.reason ?? line.msg)) })).catch(() => undefined)
+  } else if (level === "warn") console.warn(text)
   else if (level === "debug") {
     if (process.env.NOTIFY_DEBUG === "1") console.log(text)
   } else console.log(text)

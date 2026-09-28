@@ -86,11 +86,27 @@ const shortDate = (iso?: string | null) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
-/* The shared avatar (components/app/app-avatar): any host loads, a photo that fails becomes the initials. */
+/**
+ * THE CIRCLE OVER "LEAVE A REVIEW", WHICH IS NEVER EMPTY.
+ *
+ * The shared avatar (components/app/app-avatar): any host loads, a photo that
+ * fails becomes the initials. Two things were wrong with it here.
+ *
+ *   It was handed "?" for a person with no name, and drew a question mark at
+ *   somebody about to write about their own purchase. Now it is handed the
+ *   name it has, empty when there is none, and the avatar draws the initials
+ *   or a plain person.
+ *
+ *   While a photo was on its way the circle was a bare tint, which on this
+ *   card is one large empty ring under the heading. A signed in buyer whose
+ *   photo is on a slow host, or one the host refuses, sat like that.
+ *   `markWhileLoading` puts the letters there from the first frame and the
+ *   photo fades over them.
+ */
 function ReviewerMark({ name, avatarUrl }: { name: string | null | undefined; avatarUrl: string | null | undefined }) {
   return (
     <span data-reviewer="" className="inline-flex rounded-full ring-4 ring-[#f5f6f8]">
-      <AppAvatar src={avatarUrl} name={(name ?? "").trim() || "?"} alt="" size={48} />
+      <AppAvatar src={avatarUrl} name={(name ?? "").trim()} alt="" size={48} markWhileLoading />
     </span>
   )
 }

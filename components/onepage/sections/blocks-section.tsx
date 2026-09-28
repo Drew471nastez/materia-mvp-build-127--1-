@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useOnePage } from "@/lib/onepage/context"
 import type { OnePageBlock, OnePageBlockType, LinkButtonBlockData, TextBlockData, EmailCaptureBlockData, ImageBlockData, DividerBlockData, HeaderBlockData } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
@@ -420,7 +421,7 @@ async function uploadDigitalFile(
     throw new Error(err.error || "Failed to get signed upload URL")
   }
 
-  const { signedUrl, token, path, publicUrl } = await signedRes.json()
+  const { signedUrl, token, path, publicUrl, bucket } = await signedRes.json()
 
   // Step 3: Upload directly to Supabase Storage using signed URL
   // Use XMLHttpRequest for progress tracking
@@ -470,6 +471,9 @@ async function uploadDigitalFile(
     xhr.send(file)
   })
 
+  /* The bytes are there now, so the server reads them and checks them
+     (lib/storage/confirm-upload.ts). Nothing here waits for it. */
+  confirmUpload(bucket || "lead-form-files-v2", path)
   onProgress(100)
 
   return {

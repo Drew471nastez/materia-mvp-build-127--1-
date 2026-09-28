@@ -27,6 +27,7 @@ import type {
   ReviewRequestFactsRow,
   SuppressionScope,
 } from "../lib/notify/store"
+import type { ProgressFacts } from "../lib/home/progress"
 import type { Channel, PreferenceCategory } from "../lib/notify/types"
 
 type Delivery = DeliveryRow & { updated_at: string; delivered_at?: string; opened_at?: string; clicked_at?: string; complained_at?: string; unsubscribed_at?: string; failed_at?: string; correlation_id: string | null }
@@ -50,6 +51,8 @@ export class MemoryNotifyStore implements NotifyStore {
   payoutStatuses = new Map<string, string | null>()
   closedDisputes = new Set<string>()
   domains = new Map<string, { status: string | null; sslStatus: string | null }>()
+  /** Per login: how far Getting started has got (lib/home/progress.ts), for the setup reminders. */
+  setupFacts = new Map<string, ProgressFacts>()
   /** Per order: what the review request rule reads (lib/reviews/request-rules). */
   reviewFacts = new Map<string, ReviewRequestFactsRow>()
   /** Set to make a read fail, as a database outage would. */
@@ -377,7 +380,13 @@ export class MemoryNotifyStore implements NotifyStore {
 
   async payments(creatorId: string) {
     if (this.failReads) return null
-    return this.paymentFacts.get(creatorId) ?? { stripeAccountId: null, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, status: null }
+    /* requirements null is what a database without part 63's column answers: nothing is known. */
+    return this.paymentFacts.get(creatorId) ?? { stripeAccountId: null, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, status: null, requirements: null, requirementsDueBy: null }
+  }
+
+  async setupProgress(userId: string) {
+    if (this.failReads) return null
+    return this.setupFacts.get(userId) ?? null
   }
 
   async payoutStatus(payoutId: string) {
@@ -398,7 +407,7 @@ export class MemoryNotifyStore implements NotifyStore {
   async reviewRequestFacts(orderId: string) {
     if (this.failReads) return null
     const facts = this.reviewFacts.get(orderId)
-    if (!facts) return { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null }
+    if (!facts) return { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null, productImage: null, creatorSupportEmail: null }
     /* The address's review request unsubscribe, as the real store reads it from email_suppressions. */
     const email = facts.order?.buyer_email?.toLowerCase() ?? ""
     return { ...facts, suppressed: [...facts.suppressed, ...(await this.suppressions(email))] }

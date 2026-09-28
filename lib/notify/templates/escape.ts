@@ -73,6 +73,15 @@ export function safeHttpUrl(value: unknown): string | null {
   }
 }
 
+/**
+ * A picture an inbox may fetch: an absolute https address and nothing else,
+ * so no email ever asks for one over http, from a data: URI or from a path.
+ */
+export function safeImageUrl(value: unknown): string | null {
+  const safe = safeHttpUrl(value)
+  return safe && safe.startsWith("https://") ? safe : null
+}
+
 /** The canonical origin, from ctx.baseUrl. Falls back to https://storelib.com when it is not a usable address. */
 export function canonicalOrigin(baseUrl: unknown): string {
   const safe = safeHttpUrl(baseUrl)

@@ -47,6 +47,13 @@ export const DAY_MS = 24 * HOUR_MS
 export const WORKFLOWS = {
   onboardingProduct: "onboarding_product",
   onboardingPayment: "onboarding_payment",
+  /* Payout setup begun and left unfinished (unfinished.ts). Its own name, so connecting Stripe can cancel it and the
+     "you have not started" reminders together, and so starting can cancel those without cancelling itself. */
+  payoutSetup: "payout_setup",
+  /* Getting started with steps left (unfinished.ts). */
+  storeSetup: "store_setup",
+  /* Stripe still asking for details (unfinished.ts). */
+  verification: "verification",
 } as const
 
 const SECRET_KEY = /token|secret|password|authorization|signature|api[_-]?key|iban|account[_-]?number|routing|cvc/i

@@ -41,12 +41,51 @@ const GROUND = {
   dark: "bg-[#2a2a30] text-white/85",
   /** On a white or grey surface. */
   light: "bg-[#eceef1] text-[#4b5563]",
+  /**
+   * On a surface whose colours belong to somebody else's theme: a creator
+   * page or a storefront, which may be dark. A tenth of the theme's own text
+   * colour for the circle and the whole of it for the letters, so the circle
+   * sits a step off whatever surface it lands on and the letters carry, on a
+   * white page and on a near black one, with neither side guessing. Not
+   * `bg-muted`: that is mixed from the page background, and a card of its own
+   * colour left the circle invisible on it.
+   */
+  theme: "bg-foreground/[0.10] text-foreground",
 } as const
 
+/**
+ * The letters in the circle. EMPTY, NOT "?", when there is no name: a
+ * question mark is a thing drawn at somebody, and a review written by a guest
+ * who never typed a name is not a mystery to be flagged. <AvatarMark> draws
+ * the person glyph instead.
+ */
 export function initialsOf(name: string | null | undefined) {
   const words = (name || "").trim().split(/\s+/).filter(Boolean)
-  if (!words.length) return "?"
+  if (!words.length) return ""
   return (words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0].slice(0, 2)).toUpperCase()
+}
+
+/**
+ * WHAT A CIRCLE WITH NO PHOTO HOLDS: the initials of whoever it stands for,
+ * and when there is no name at all a plain person, at the weight of the
+ * letters it replaces. Never a "?" and never nothing.
+ */
+export function AvatarMark({ name, size }: { name: string | null | undefined; size: number }) {
+  const initials = initialsOf(name)
+  if (!initials) {
+    const px = Math.max(12, Math.round(size * 0.56))
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" width={px} height={px} fill="currentColor" className="opacity-80">
+        <path d="M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Z" />
+        <path d="M12 14.1c-3.5 0-6.6 1.8-6.6 4.1V20h13.2v-1.8c0-2.3-3.1-4.1-6.6-4.1Z" />
+      </svg>
+    )
+  }
+  return (
+    <span aria-hidden="true" className="font-medium leading-none" style={{ fontSize: Math.max(9, Math.round(size * 0.38)) }}>
+      {initials}
+    </span>
+  )
 }
 
 /**
@@ -88,6 +127,7 @@ export function AppAvatar({
   style,
   sizedByClass = false,
   alt,
+  markWhileLoading = false,
 }: {
   src?: string | null
   /** For the initials and the picture's description. */
@@ -102,6 +142,19 @@ export function AppAvatar({
   style?: React.CSSProperties
   /** The size comes from `className` (it changes at a breakpoint); `size` is still what the picture is asked for at. */
   sizedByClass?: boolean
+  /**
+   * DRAW THE MARK UNDER THE PHOTO TOO, so the circle is never blank.
+   *
+   * The /app shell deliberately shows nothing while a photo is on its way:
+   * "when the user profile avatar loads, it first shows the initials and then
+   * the image loads abruptly", and the person there always has a photo a
+   * moment later. A review card is the other case. Its photo is somebody
+   * else's, from a host that may be slow or may refuse, and the card has one
+   * avatar in it: an empty ring is the whole card looking broken. So the
+   * review surfaces pass this and get the initials at once, with the photo
+   * fading over them when it arrives.
+   */
+  markWhileLoading?: boolean
 }) {
   const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
   const [failed, setFailed] = useState<string | null>(null)
@@ -159,6 +212,7 @@ export function AppAvatar({
       className={cn("relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full", GROUND[tone], className)}
       style={sizedByClass ? style : { width: widthPx, height: widthPx, ...style }}
     >
+      {!photo || (markWhileLoading && !loaded) ? <AvatarMark name={name} size={size} /> : null}
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -181,11 +235,7 @@ export function AppAvatar({
           className="absolute inset-0 h-full w-full object-cover"
           style={{ opacity: loaded ? 1 : 0, transition: fade ? "opacity 150ms ease-out" : undefined }}
         />
-      ) : (
-        <span aria-hidden="true" className="font-medium leading-none" style={{ fontSize: Math.max(9, Math.round(size * 0.38)) }}>
-          {initialsOf(name)}
-        </span>
-      )}
+      ) : null}
     </span>
   )
 }

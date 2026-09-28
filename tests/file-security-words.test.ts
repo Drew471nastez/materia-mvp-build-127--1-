@@ -71,12 +71,33 @@ const CREATOR_AND_BUYER_UI = [
   "app/app/products/new/file-uploads.tsx",
   "components/app/file-upload.tsx",
   "components/download-button.tsx",
+  "lib/storage/upload-state.ts",
+  "lib/storage/confirm-upload.ts",
+  /* Every uploader that writes straight into a public bucket. */
+  "components/app/image-upload.tsx",
+  "components/app/gallery-upload.tsx",
+  "components/app/draggable-gallery-upload.tsx",
+  "components/app/settings/profile-photo.tsx",
+  "components/app/creator-onboarding-modal.tsx",
+  "components/shared/square-image-cropper.tsx",
+  "components/shared/onepage-avatar-picker.tsx",
+  "components/store-builder/cover-image-editor.tsx",
+  "components/website-builder/editor/image-picker.tsx",
+  "components/onepage/seo-panel.tsx",
+  "components/onepage/profile-section.tsx",
+  "components/onepage/sections/profile-section.tsx",
+  "components/onepage/blocks-section.tsx",
+  "components/onepage/sections/blocks-section.tsx",
+  "lib/rich-text/upload-image.ts",
   ...walk("app/receipt"),
   ...walk("app/library").filter((p) => /download|file/i.test(p)),
 ]
 
 const ROUTES_THEY_CALL = [
   ...walk("app/api/v2/upload"),
+  "app/api/storage/uploaded/route.ts",
+  "lib/security/uploads/direct.ts",
+  "lib/storage/download-limits.ts",
   ...walk("app/api/download"),
   ...walk("app/api/v2/download"),
   "app/api/onepage/upload-file/route.ts",
@@ -113,6 +134,25 @@ function main() {
   for (const file of ROUTES_THEY_CALL) {
     const hits = errorMessages(file).filter((m) => BANNED.test(m) || /internal server error|stack|exception/i.test(m))
     check(`${file}: every error is a plain sentence`, hits.length === 0, hits)
+  }
+
+  console.log("\nOne state machine, one delayed rule, in every uploader\n")
+  {
+    const shared = readFileSync("lib/storage/upload-state.ts", "utf8")
+    check("the delay is one number, and it is about 300ms", /export const CHECKING_DELAY_MS = 300\b/.test(shared))
+    check("the words are there once", /export const CHECKING_LABEL = "Checking file…"/.test(shared) && /export const REFUSED_FILE = "We couldn't accept this file\. Try another file\."/.test(shared))
+    for (const file of ["app/app/products/new/file-uploads.tsx", "components/app/file-upload.tsx"]) {
+      const src = stripComments(readFileSync(file, "utf8"))
+      check(`${file} takes the rule from lib/storage/upload-state`, /from "@\/lib\/storage\/upload-state"/.test(src), src.slice(0, 200))
+      check(`${file} keeps no timer of its own for it`, !/setTimeout\([^)]*setChecking/.test(src))
+      check(`${file} says "Checking file…" only through the shared word`, !/"Checking file…"|'Checking file…'/.test(src))
+    }
+  }
+
+  console.log("\nNothing a creator sees pops up, asks or explains\n")
+  for (const file of CREATOR_AND_BUYER_UI) {
+    const src = stripComments(readFileSync(file, "utf8"))
+    check(`${file} asks nobody to confirm anything about a file`, !/window\.confirm|confirm\(["'`]/.test(src), file)
   }
 
   console.log("\nThe admin page is the one place the internals are named\n")

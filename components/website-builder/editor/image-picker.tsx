@@ -36,6 +36,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { ImageIcon, RefreshCw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -171,6 +172,7 @@ export function WbImagePicker({
         contentType: file.type,
       })
       if (uploadError) throw uploadError
+      confirmUpload(bucket, filePath)
 
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
       onChange(urlData.publicUrl)

@@ -8,7 +8,8 @@ import { logSecurityEvent } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { DOWNLOAD_TRY_AGAIN } from "@/lib/security/uploads/policy"
 import { serveTokenDownload } from "@/lib/storage/token-download"
-import { rateLimit, addressSubject, callerAddress } from "@/lib/api/rate-limit"
+import { callerAddress } from "@/lib/api/rate-limit"
+import { downloadRateLimit, purchaseRateLimit } from "@/lib/storage/download-limits"
 import { resolveDownloadAccess } from "@/lib/receipts/download-access"
 import { DENY_MESSAGES, isUuid } from "@/lib/receipts/rules"
 
@@ -16,12 +17,6 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const NO_STORE = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" }
-
-/** The same windows as /api/download/[assetId]. */
-const DOWNLOAD_WINDOWS = [
-  { limit: 30, seconds: 60 },
-  { limit: 300, seconds: 3600 },
-] as const
 
 /**
  * GET /api/v2/download/[token]
@@ -56,7 +51,15 @@ export async function GET(
       return handleAssetDownload(request, admin, assetId, receiptToken || token)
     }
 
-    return serveTokenDownload(request, admin, token, { bundles: true })
+    let userId: string | null = null
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      userId = user?.id ?? null
+    } catch {
+      /* A guest opening a link from their email has no session. */
+    }
+    return serveTokenDownload(request, admin, token, { bundles: true, userId })
   } catch (error) {
     console.error("[v2/download] Error:", error)
     return NextResponse.json({ error: DOWNLOAD_TRY_AGAIN }, { status: 500, headers: NO_STORE })
@@ -78,15 +81,6 @@ async function handleAssetDownload(
     return NextResponse.json({ error: "Asset not found" }, { status: 404, headers: NO_STORE })
   }
 
-  const limited = await rateLimit({
-    bucket: "download",
-    subjects: [addressSubject(request)],
-    windows: DOWNLOAD_WINDOWS,
-    message: "That is a lot of downloads at once. Wait a minute and try again.",
-  })
-  if (limited) runAfterResponse(() => logSecurityEvent(createAdminClient(), { event: "rate_limit", outcome: "limited", code: "download", assetId, ip: callerAddress(request) }))
-  if (limited) return limited
-
   let userId: string | null = null
   try {
     const supabase = await createClient()
@@ -95,6 +89,11 @@ async function handleAssetDownload(
   } catch {
     // A guest with a receipt has no session
   }
+
+  /* The address and, when somebody is signed in, the account
+     (lib/storage/download-limits.ts). */
+  const limited = await downloadRateLimit(request, { userId, assetId })
+  if (limited) return limited
 
   const { asset, decision, orderId, entitlementId } = await resolveDownloadAccess(admin, {
     assetId,
@@ -115,6 +114,10 @@ async function handleAssetDownload(
   if (!asset.file_path) {
     return NextResponse.json({ error: DOWNLOAD_TRY_AGAIN }, { status: 404, headers: NO_STORE })
   }
+
+  /* And the order or entitlement this download is against. */
+  const byPurchase = await purchaseRateLimit(request, { orderId, entitlementId, token: receiptOrToken, userId, assetId: asset.id })
+  if (byPurchase) return byPurchase
 
   const gate = await gateDownload(admin, asset, { isCreator: decision.via === "creator" })
   if (!gate.ok) {

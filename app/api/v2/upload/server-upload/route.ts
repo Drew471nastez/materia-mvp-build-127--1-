@@ -13,6 +13,7 @@ import {
 import { preparePublicImage } from "@/lib/storage/public-image"
 import { UPLOAD_HEADERS, productFileLimit, screenInBackground, uploadRateLimit } from "@/lib/storage/upload-guard"
 import { inspectUpload } from "@/lib/security/uploads/inspect"
+import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { afterProductUpload, builtinResult, runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { sha256Of } from "@/lib/security/uploads/stored"
@@ -150,6 +151,8 @@ export async function POST(request: NextRequest) {
       head: bytes.subarray(0, 8192),
       tail: { bytes: bytes.subarray(Math.max(0, bytes.byteLength - 70_000)), start: Math.max(0, bytes.byteLength - 70_000) },
       readRange: async (a, b) => bytes.subarray(a, b + 1),
+      /* An archive's declared sizes tested, not believed (lib/security/uploads/zip.ts). */
+      inflate: nodeInflateRaw,
       context: "product_file",
     })
     if (!verdict.ok) {

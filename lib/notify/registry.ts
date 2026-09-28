@@ -37,10 +37,17 @@ const ENTRIES: Record<NotificationType, Entry> = {
   FINISH_PRODUCT_REMINDER: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 3 * DAY, condition: "has_unfinished_draft" }),
   PUBLISH_PRODUCT_REMINDER: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 3 * DAY, condition: "has_ready_unpublished_product" }),
   FIRST_PRODUCT_PUBLISHED: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "success", defaultOn: true, cooldownSeconds: 0 }),
+  /* Getting started with steps left. Lifecycle: useful, and nobody has to get it. The condition reads the same steps Home's card shows, so a step finished in between ends the nudge. */
+  STORE_SETUP_UNFINISHED: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 5 * DAY, condition: "store_setup_unfinished" }),
+  STORE_SETUP_UNFINISHED_2: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 5 * DAY, condition: "store_setup_unfinished" }),
 
   /* ── Getting paid ─────────────────────────────────────────────────── */
   PAYMENT_SETUP_REMINDER: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 20 * HOUR, condition: "payment_setup_incomplete" }),
   PAYMENT_SETUP_REMINDER_2: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 20 * HOUR, condition: "payment_setup_incomplete" }),
+  /* Payout setup begun and left unfinished, or a product live with no way to be paid. Lifecycle, like the two reminders above, and on the same condition, so whichever sequence is running stops the moment Stripe is connected.
+     The bell already says this as a critical stop the moment a paid product goes live with no payouts (lib/notifications/rules/payments payouts_not_connected); this is the quieter line two days later, and the email. */
+  PAYOUT_SETUP_UNFINISHED: E({ category: "lifecycle", priority: "normal", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 20 * HOUR, condition: "payment_setup_incomplete" }),
+  PAYOUT_SETUP_UNFINISHED_2: E({ category: "lifecycle", priority: "normal", requirement: "optional_product", recipient: "creator", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 20 * HOUR, condition: "payment_setup_incomplete" }),
   PAYMENT_SETUP_COMPLETED: E({ category: "payouts_and_payments", priority: "normal", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "success", defaultOn: true, cooldownSeconds: HOUR }),
   PAYMENT_VERIFICATION_REQUIRED: E({ category: "payouts_and_payments", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY }),
   PAYMENT_SETUP_FAILED: E({ category: "payouts_and_payments", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY }),
@@ -50,6 +57,14 @@ const ENTRIES: Record<NotificationType, Entry> = {
   PAYOUT_SENT: E({ category: "payouts_and_payments", priority: "normal", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
   PAYOUT_FAILED: E({ category: "payouts_and_payments", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: 0, condition: "payout_still_failed" }),
   PAYOUT_ACTION_REQUIRED: E({ category: "payouts_and_payments", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY }),
+  /*
+     Stripe asked for details (an identity document, a date of birth, a company number) and is still waiting. Required
+     service, not lifecycle: payouts pause when this is not done, so it is not something to unsubscribe from, and it is
+     not held back by the optional daily cap. The condition reads what Stripe still asks for, so the moment the account
+     is cleared the rest of the sequence is skipped.
+  */
+  VERIFICATION_REMINDER: E({ category: "payouts_and_payments", priority: "important", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY, condition: "verification_still_needed" }),
+  VERIFICATION_REMINDER_2: E({ category: "payouts_and_payments", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY, condition: "verification_still_needed" }),
   PAYOUT_RESTRICTED: E({ category: "payouts_and_payments", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY }),
 
   /* ── Sales ────────────────────────────────────────────────────────── */
