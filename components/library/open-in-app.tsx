@@ -92,15 +92,22 @@ export function OpenInApp({ phone }: { phone: Phone | null }) {
       data-open-in-app={phone}
       data-state={state}
       style={{ transitionDuration: `${FOLD_MS}ms`, transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}
-      className={`grid transition-[grid-template-rows,opacity,margin-bottom] motion-reduce:transition-none [html.capacitor_&]:hidden ${
-        folding ? "mb-0 grid-rows-[0fr] opacity-0" : "mb-4 grid-rows-[1fr] opacity-100"
+      /*
+        IT SITS UNDER THE LIBRARY NOW (app/library/layout.tsx), so its room
+        is above it and it folds away upward: the margin that closes when it
+        is dismissed is the top one, and the card rises into place from
+        below rather than dropping in from above. At the top of the page
+        both were the other way round.
+      */
+      className={`grid transition-[grid-template-rows,opacity,margin-top] motion-reduce:transition-none [html.capacitor_&]:hidden ${
+        folding ? "mt-0 grid-rows-[0fr] opacity-0" : "mt-6 grid-rows-[1fr] opacity-100"
       }`}
     >
       <div className="min-h-0 overflow-hidden">
         <aside
           aria-label="Storelib app"
           data-open-in-app-banner=""
-          className="flex h-[60px] items-center gap-2.5 rounded-2xl border border-[#e4e7ec]/80 bg-white pl-1 pr-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)] duration-300 animate-in fade-in-0 slide-in-from-top-1 motion-reduce:animate-none"
+          className="flex h-[60px] items-center gap-2.5 rounded-2xl border border-[#e4e7ec]/80 bg-white pl-1 pr-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)] duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
         >
           <button
             type="button"

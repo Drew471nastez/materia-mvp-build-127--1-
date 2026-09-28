@@ -405,8 +405,16 @@ function screenCases() {
   check("the way back puts the list's scroll back, and the browser's own back is not faded", /history\.scrollRestoration = "manual"/.test(panel) && /jump\(scrolls\.get\(p\.href\) \?\? 0\)/.test(panel) && /traversal\.current/.test(panel))
   check("every loading.tsx draws the same shape the stage does", ["app/library/loading.tsx", "app/library/courses/loading.tsx", "app/library/memberships/loading.tsx", "app/library/wishlist/loading.tsx", "app/library/products/[id]/loading.tsx"].every((f) => /data-library-skeleton/.test(read(f)) && /Skeleton/.test(read(f))))
   const banner = read("components/library/open-in-app.tsx")
-  check("Open in app is a banner at the top with the Storelib icon, known on the server so nothing moves",
-    /<OpenInApp phone=\{bannerFor\} \/>/.test(layout) && layout.indexOf("<OpenInApp") < layout.indexOf("<LibraryPanel") && /<StorelibLogo size=\{40\}/.test(banner) && /h-\[60px\]/.test(banner) && /APP_BANNER_COOKIE/.test(banner) && /\[html\.capacitor_&\]:hidden/.test(banner))
+  /*
+    THE BANNER IS UNDER THE LIBRARY, NOT OVER IT. It used to be the first
+    thing in the layout, and this check held it there; the owner asked for
+    the opposite ("do not use the banner above the library, use it under,
+    at the page"), so the order is the other way round and the card's room
+    and entrance follow it: a top margin that folds away, rising from below.
+  */
+  check("Open in app is a banner under the library with the Storelib icon, known on the server so nothing moves",
+    /<OpenInApp phone=\{bannerFor\} \/>/.test(layout) && layout.indexOf("<OpenInApp") > layout.indexOf("<LibraryPanel") && /<StorelibLogo size=\{40\}/.test(banner) && /h-\[60px\]/.test(banner) && /APP_BANNER_COOKIE/.test(banner) && /\[html\.capacitor_&\]:hidden/.test(banner))
+  check("  and it folds upward from the foot, not downward from the top", /mt-0 grid-rows-\[0fr\]/.test(banner) && /mt-6 grid-rows-\[1fr\]/.test(banner) && /slide-in-from-bottom-1/.test(banner) && !/slide-in-from-top-1/.test(banner))
   const row = read("components/library/product-row.tsx")
   check("no stars and no Rate it on a product row", !/RateStars|rate-stars|\?rate=|<Stars/.test(row))
   check("More's review rows go to the Reviews tab focused on that product", /\/library\/reviews\?product=\$\{encodeURIComponent\(item\.productId\)\}/.test(row))

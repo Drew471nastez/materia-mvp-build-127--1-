@@ -492,13 +492,18 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
             aria-labelledby={`${ids}-title`}
             placeholder="Search products and creators"
             /* A rounded rectangle, not a pill: "a normal rounded rectangle,
-               about 12px". The dark outline of image 27 stays, with a little
-               depth under it: a faint shade pressed in along the top edge
-               and a soft shadow below, so the field sits in the screen
-               rather than being drawn on it. 16px type, so iOS does not zoom
-               to it. Focus darkens the outline and adds a soft ring; its
-               size never changes. */
-            className="h-[50px] w-full rounded-[12px] border-[1.5px] border-[#1a1a2e]/85 bg-white pl-[42px] pr-12 text-[16px] text-[#1a1a2e] shadow-[inset_0_1px_2px_rgba(16,18,27,0.08),0_1px_2px_rgba(16,18,27,0.06),0_4px_12px_-6px_rgba(16,18,27,0.12)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#6b7280] focus:border-[#1a1a2e] focus:shadow-[inset_0_1px_2px_rgba(16,18,27,0.08),0_0_0_3px_rgba(26,26,46,0.08),0_4px_12px_-6px_rgba(16,18,27,0.12)] [&::-webkit-search-cancel-button]:appearance-none"
+               about 12px". 16px type, so iOS does not zoom to it.
+
+               AND IT WEARS STORELIB'S FIELD, NOT A BLACK FRAME. It had a
+               1.5px near-black outline with a shade pressed in along the
+               top: "should not have the black bar around it, should be
+               matching more the Storelib UI". Every other field on the way
+               here is a hairline over a soft shadow, the search on Explore
+               that opens this one included (components/explore/explore-hero),
+               so this is that same border and that same shadow. Focus
+               darkens the hairline, which is the affordance without the
+               frame; its size never changes. */
+            className="h-[50px] w-full rounded-[12px] border border-neutral-200/80 bg-white pl-[42px] pr-12 text-[16px] text-[#1a1a2e] shadow-[0_1px_3px_rgba(15,23,42,0.045),0_9px_27px_-16px_rgba(15,23,42,0.315)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#6b7280] focus:border-neutral-300 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {draft ? (
             <button

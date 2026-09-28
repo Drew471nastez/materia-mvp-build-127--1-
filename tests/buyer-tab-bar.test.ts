@@ -113,7 +113,7 @@ console.log("\nThe search screen")
 const search = code("components/search/search-screen.tsx")
 const page = code("components/search/search-page.tsx")
 check("one screen: the tab bar's overlay and /explore/search both draw components/search/search-screen", /<SearchScreen ref=\{screen\}/.test(overlay) && /<SearchScreen autoFocus/.test(page) && /<SearchPage \/>/.test(read("app/(marketing)/explore/search/page.tsx")) && !existsSync(join(process.cwd(), "components/explore/search-screen.tsx")))
-check("image 27: a big Search title, an X to close, a rounded field under them", /text-\[30px\] font-bold[^"]*"[^>]*>\s*Search\s*</.test(search) && /aria-label="Close search"/.test(search) && /rounded-\[12px\] border-\[1\.5px\]/.test(search))
+check("image 27: a big Search title, an X to close, a rounded field under them", /text-\[30px\] font-bold[^"]*"[^>]*>\s*Search\s*</.test(search) && /aria-label="Close search"/.test(search) && /rounded-\[12px\] border border-neutral-200\/80/.test(search))
 check("Enter and See all results go to Explore's results", /exploreResultsHref = \(q: string\) => `\/explore\?q=\$\{encodeURIComponent\(q\.trim\(\)\)\}`/.test(search) && /See all results for/.test(search))
 check("products, creators and categories as you type, debounced, a stale answer dropped", /quickSearch\(createClient\(\), term\)/.test(search) && /DEBOUNCE_MS\)/.test(search) && /if \(n !== ask\.current\) return/.test(search))
 check("a combobox: arrows walk the rows, Enter opens the lit one, Escape closes", /role="combobox"/.test(search) && /aria-activedescendant=/.test(search) && /e\.key === "ArrowDown"/.test(search) && /e\.key === "Escape"/.test(search))
@@ -121,7 +121,18 @@ check("recent searches and a no results state", /data-search-section="recent"/.t
 check("16px type, so iOS does not zoom to it", /text-\[16px\]/.test(search))
 check("and the categories that have a page, as the other way in", /CATEGORY_NAV\.filter\(\(c\) => hasCategoryPage\(c\.id\)\)/.test(search))
 /* The owner's iPhone round: a rectangle with depth, categories that open, bigger products, a calm wait. */
-check("the field is a 12px rounded rectangle, not a pill, with a little depth (a shade pressed in at the top, a soft shadow under)", /rounded-\[12px\]/.test(search) && !/rounded-full border-\[1\.5px\]/.test(search) && /shadow-\[inset_0_1px_2px_rgba\(16,18,27,0\.08\)/.test(search))
+/*
+  AND IT WEARS STORELIB'S FIELD, NOT A BLACK FRAME. The rectangle had a
+  1.5px near-black outline with a shade pressed in along its top edge, and
+  this check held both there. "Should not have the black bar around it,
+  should be matching more the Storelib UI": it is now the hairline and the
+  soft shadow every other field on the site has, the search on Explore that
+  opens this screen included (components/explore/explore-hero), and focus
+  darkens the hairline instead of adding a ring.
+*/
+check("the field is a 12px rounded rectangle, not a pill, and wears the same hairline and shadow as Explore's own search", /rounded-\[12px\]/.test(search) && !/h-\[50px\] w-full rounded-full/.test(search) && !/border-\[1\.5px\]/.test(search) && !/inset_0_1px_2px/.test(search) && /border border-neutral-200\/80/.test(search) && /shadow-\[0_1px_3px_rgba\(15,23,42,0\.045\),0_9px_27px_-16px_rgba\(15,23,42,0\.315\)\]/.test(search) && /focus:border-neutral-300/.test(search))
+const hero = code("components/explore/explore-hero.tsx")
+check("  the same two, read off Explore's field, so the pair cannot drift", /border border-neutral-200\/80/.test(hero) && /shadow-\[0_1px_3px_rgba\(15,23,42,0\.045\),0_9px_27px_-16px_rgba\(15,23,42,0\.315\)\]/.test(hero))
 check("a category opens its subcategories in the screen, pushed in on the category sheet's own timing, with a back row", /import \{ BROWSE_DIM, BROWSE_EASE, BROWSE_PARALLAX, BROWSE_SLIDE_MS \} from "@\/components\/explore\/category-browser"/.test(search) && /if \(row\.kind === "category" && row\.opens\) \{\s*drillIn\(row\.opens\)/.test(search) && /data-search-back=""/.test(search) && /translate3d\(\$\{BROWSE_PARALLAX\}, 0, 0\)/.test(search) && /`All \$\{c\.label\}`/.test(search))
 check("and a level is drawn on the tap, never the press (WebKit's one tap rule)", !/onPointerDown/.test(search))
 check("categories 600, subcategories 500, on a card with a little depth", /const GROUP_WEIGHT = "font-semibold"/.test(search) && /const ITEM_WEIGHT = "font-medium"/.test(search) && /const GROUPED =\s*"mx-1 overflow-hidden rounded-2xl bg-white divide-y/.test(search))
