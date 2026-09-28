@@ -1001,8 +1001,28 @@ function main() {
   check("the pill's icons do not dim under a finger in the native shell",
     /html\.capacitor \[data-app-nav-pill\] nav a:active \{\s*opacity: 1;\s*\}/.test(read("app/globals.css")))
   check("and each glyph is on a layer of its own for good, the solid drawn at its matched size rather than scaled",
-    /willChange: "opacity"/.test(nav) && /size=\{layer \? size \* FILL_MATCH : size\}/.test(nav)
+    /willChange: "opacity"/.test(nav) && /\.\.\.\(noSize \? \{\} : \{ size: layer \? size \* FILL_MATCH : size \}\)/.test(nav)
       && /<NavIcon icon=\{item\.icon\} active=\{on\} color="currentColor" box=\{GLYPH_BOX\} layer \/>/.test(nav))
+  /*
+    "In the pill shape circle of the navigation bar, make sure the settings
+    button icon sits there correctly centred in the white circle."
+
+    A glyph with a box gets no `size` at all. Solar's IconBase writes its
+    `size` prop into the inline style as width and height, AFTER the style it
+    is handed, so `width: 100%` lost and every Solar glyph was drawn at 22px
+    inside a box of --app-nav-glyph: 21px on a 390px phone, 19 on a 320.
+    `inset: 0` on an absolutely positioned element that carries its own width
+    resolves to left and top, so all of that extra hung off the RIGHT and the
+    BOTTOM and the ink sat a whole pixel down and across from the middle of
+    its circle. The hand-drawn icons put `size` on the svg's width ATTRIBUTE,
+    which a style beats, so those were right all along: the gear, alone in a
+    white circle next to a menu glyph made of divs, is the one it got
+    reported on. scripts/check-app-mobile-nav.mjs photographs every glyph
+    against the middle of its own circle.
+  */
+  check("a glyph with a box is drawn at the box, never at a size prop that would override it",
+    /const noSize = box != null/.test(nav) && /\{\.\.\.\(noSize \? \{\} : \{ size \}\)\}/.test(nav)
+      && /glyph sits in the middle of its circle, to half a pixel/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("all of it measured in the probe: tracking, landing, stretch, and the icons holding still",
     /THE GLASS UNDER A FINGER, EVERY FRAME, IN THE NATIVE SHELL/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /no icon moves, not by half a pixel/.test(read("scripts/check-app-mobile-nav.mjs")))
