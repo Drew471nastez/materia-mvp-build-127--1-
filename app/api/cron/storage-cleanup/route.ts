@@ -40,7 +40,14 @@ export async function GET(request: Request) {
       limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
     })
     if (summary.errors.length > 0) console.error("[storage-cleanup]", summary.errors.join("; "))
-    return NextResponse.json(summary, { headers: { "Cache-Control": "no-store" } })
+    /* Copies of deleted rows older than 90 days (run-now part 66, docs/operations/backups.md). Missing before part 66: nothing to forget. */
+    let deletedRowsForgotten = 0
+    if (url.searchParams.get("dry") !== "1") {
+      const { data, error } = await createAdminClient().rpc("storelib_purge_deleted_rows", {})
+      if (error && error.code !== "PGRST202") console.error("[storage-cleanup] deleted rows not purged:", error.message)
+      deletedRowsForgotten = typeof data === "number" ? data : 0
+    }
+    return NextResponse.json({ ...summary, deletedRowsForgotten }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("[storage-cleanup]", error)
     return NextResponse.json({ error: "Cleanup failed" }, { status: 500 })
