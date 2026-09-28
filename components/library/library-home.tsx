@@ -59,9 +59,21 @@ function CreatorActions({ creator, stacked = false }: { creator: LibraryCreator;
 
 /** A phone's row of sellers: All, then each with their face and how many. */
 function CreatorChips({ creators, chosen, onChoose }: { creators: LibraryCreator[]; chosen: string | null; onChoose: (key: string | null) => void }) {
+  /*
+    A CHOSEN SELLER IS NOT A BLACK SLAB. It filled with near black and
+    turned its label white, which on a row of pale pills reads as a button
+    just pressed rather than a filter that is on, and it fought the face
+    inside it: "when I select a pill shaped creator, make sure it is not
+    black selected there". It wears the same grey fill and hairline the
+    library's own tabs wear for the one you are on
+    (components/library/library-tabs), so both rows of pills on this screen
+    say "chosen" the same way.
+  */
   const chip = (active: boolean) =>
     `inline-flex h-9 shrink-0 items-center gap-2 rounded-full border pl-1.5 pr-3 text-[13px] font-medium transition-colors duration-150 ${
-      active ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e4e7ec] bg-white text-[#374151] hover:border-[#d0d4db]"
+      active
+        ? "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
+        : "border-[#e4e7ec] bg-white text-[#374151] hover:border-[#d0d4db]"
     }`
   return (
     <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide lg:hidden" data-creator-chips="">
@@ -76,7 +88,8 @@ function CreatorChips({ creators, chosen, onChoose }: { creators: LibraryCreator
             <button key={key} type="button" onClick={() => onChoose(active ? null : key)} aria-pressed={active} className={chip(active)}>
               <AppAvatar src={c.avatarUrl} name={c.name} alt="" size={24} markWhileLoading />
               <span className="max-w-[140px] truncate">{c.name}</span>
-              <span className={`tabular-nums ${active ? "text-white/70" : "text-[#9ca3af]"}`}>{c.count}</span>
+              {/* The count reads on the grey fill now, not on black. */}
+              <span className={`tabular-nums ${active ? "text-[#6b7280]" : "text-[#9ca3af]"}`}>{c.count}</span>
             </button>
           )
         })}
