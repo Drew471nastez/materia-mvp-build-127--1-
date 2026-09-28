@@ -367,7 +367,7 @@ function main() {
      address never changes. The tab helper stays for the surfaces that still
      use it (a OnePage, a course attachment); these pins keep it honest. */
   check("a browser download opens no tab and no window", !/openDownloadTab|window\.open\(/.test(browserPath))
-  check("it asks for the address first, then saves in place", browserPath.indexOf("await resolveTarget(target)") > -1 && browserPath.indexOf("await resolveTarget(target)") < browserPath.indexOf("saveInPlace(url)"))
+  check("it asks for the address first, then saves in place", browserPath.indexOf("await resolveTarget(target)") > -1 && browserPath.indexOf("await resolveTarget(target)") < browserPath.indexOf("saveInPlace(url, fileName)"))
   const inPlace = button.slice(button.indexOf("export function saveInPlace("), button.indexOf("/* ─── The app"))
   check("in a hidden frame on this page, left long enough to finish",
     /document\.createElement\("iframe"\)/.test(inPlace) && /data-download-frame/.test(inPlace) && /visibility:hidden/.test(inPlace) && /frame\.remove\(\), 60_000/.test(inPlace))
