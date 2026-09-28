@@ -498,6 +498,18 @@ export const TAP_PULSE_MS = 420
  * this is 54px of the screen that has to be able to refuse a horizontal
  * gesture, because a horizontal gesture is what the bar is for.
  */
+/**
+ * A gesture that has left the bar vertically was never for the bar.
+ *
+ * The whole strip answers a press, which is what a tab bar does, but a finger
+ * that lands on it and then travels 80px up the screen was trying to scroll,
+ * or to reach the card above, and navigating on the lift would be a page
+ * change nobody asked for. Sideways has no such limit: sideways is the
+ * gesture. At module scope because the press that misses the bar entirely is
+ * held to the same reach (A PRESS THAT FELL THROUGH THE BAR, below).
+ */
+const ESCAPED = 72
+
 export function useSlide(count: number, onPick: (index: number) => void, onPress?: (index: number) => void) {
   const [at, setAt] = useState<number | null>(null)
   /* Whether the gesture that just ended was a drag, which is what decides
@@ -713,16 +725,6 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
   /* `slotNearest`, which read a slot back out of the circle's own position, went
      with the projection: the finger's position is the only thing that picks now. */
 
-  /**
-   * A gesture that has left the bar vertically was never for the bar.
-   *
-   * The whole strip answers a press, which is what a tab bar does, but a
-   * finger that lands on it and then travels 80px up the screen was trying
-   * to scroll, or to reach the card above, and navigating on the lift would
-   * be a page change nobody asked for. Sideways has no such limit: sideways
-   * is the gesture.
-   */
-  const ESCAPED = 72
   const escaped = (clientY: number): boolean => {
     const box = barRef.current?.getBoundingClientRect()
     if (!box) return false
@@ -839,6 +841,9 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
     bounce,
     at,
     motion,
+    /* Whether a finger is on the bar right now, as a ref: read from a window
+       listener, which runs before this component could be told anything. */
+    down: activeRef,
     handlers: {
       onPointerDown: (e: React.PointerEvent) => {
         /* Keeps the moves coming even when the finger leaves the bar, which
@@ -922,11 +927,40 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
  *              with no slot, null with none underway
  *   nav        the navigation underway, or null: a pick stops being
  *              remembered once a navigation that is not it ends
- *   onPick     a slot was chosen (the finger lifted on it, or Enter)
+ *   onPick     a slot was chosen (the finger lifted on it, or Enter). It
+ *              may REFUSE: `false`, or a promise of one, means the pick did
+ *              not happen and nothing moves — not the lens, not the route.
+ *              The /app pill refuses while the page it is leaving is asking
+ *              whether its unsaved work may be thrown away
+ *              (lib/ui/leave-guard); a bar with nothing to ask returns
+ *              nothing and every pick is taken, as it always was.
  *   onPress    a finger landed on a slot: the head start for its page
  *   give       whether the tapped icon gives a little (TAP_PULSE); the
  *              buyer's bar asks for none
+ *   onSwallowed  a press this bar had to take back off the screen (A PRESS
+ *              THAT FELL THROUGH THE BAR, below), before the rest of the
+ *              gesture: the caller's chance to give the screen back
  */
+/**
+ * Is the document a photograph right now? A running view transition draws the
+ * page as pictures and hit tests none of it, which is the whole of why a tap
+ * on a tab can reach nothing (see below). React says so on the document while
+ * one of its own runs, and it says so from the moment the pictures are taken,
+ * which is earlier than any mark a page puts up for itself.
+ */
+function screenIsAPicture(): boolean {
+  if (typeof document === "undefined") return false
+  return !!(document as Document & { __reactViewTransition?: unknown }).__reactViewTransition
+}
+
+/**
+ * A click this long after a pick is not that pick's own click: the gesture
+ * that picked was over, and this one is a press the pointer handlers never
+ * answered. Generous, because a click follows its pointerup by a frame or
+ * two and a slow phone can stretch that.
+ */
+const CLICK_AFTER_PICK_MS = 400
+
 export function useTabLens({
   count,
   current,
@@ -935,15 +969,17 @@ export function useTabLens({
   onPick,
   onPress,
   give = true,
+  onSwallowed,
 }: {
   count: number
   current: number
   heading: number | null
   nav: unknown
-  onPick: (index: number) => void
+  onPick: (index: number) => void | boolean | Promise<boolean>
   onPress?: (index: number) => void
   /** Whether a tapped icon gives a little (TAP_PULSE). The buyer's bar turns it off. */
   give?: boolean
+  onSwallowed?: () => void
 }) {
   /**
    * ═══════════════════════════════════════════════════════════════════════
@@ -979,11 +1015,45 @@ export function useTabLens({
     return () => window.clearTimeout(t)
   }, [pending, current, heading, nav])
 
+  /* When the last pick was made, so a click the gesture already answered is
+     not answered a second time (THE LINK IS THE LAST WAY IN, below). */
+  const pickedAt = useRef(0)
+  /*
+    A PICK THE CALLER REFUSED IS NOT A PICK. The lens moves to the slot the
+    finger chose and stays there until the page arrives, which is right for a
+    pick that is going to happen and wrong for one that is not: a tab over the
+    product editor asks before it throws unsaved work away, and the lens
+    sliding over to Home and back again while the question is on the screen
+    answers it before the reader does. So the slot is remembered only once the
+    caller has taken the pick.
+  */
   const pick = (index: number) => {
     if (index < 0 || index >= count) return
-    answered.current = false
-    setPending(index)
-    onPick(index)
+    pickedAt.current = performance.now()
+    const take = () => {
+      answered.current = false
+      setPending(index)
+    }
+    const taken = onPick(index)
+    if (taken === false) return
+    if (taken && typeof (taken as Promise<boolean>).then === "function") {
+      void (taken as Promise<boolean>).then((yes) => { if (yes) take() })
+      return
+    }
+    take()
+  }
+
+  /**
+   * THE LINK IS THE LAST WAY IN. Each tab is a real link whose click this
+   * bar prevents, because the POINTER gesture is what decides. A gesture the
+   * browser took back — a pointercancel, because the system claimed it or
+   * the content under the finger changed — never reaches the lift that picks,
+   * and that tap did nothing at all. The click still arrives, so it picks
+   * when the gesture did not, which is also how Enter and Space on a focused
+   * link work (`detail === 0`, a click no pointer made).
+   */
+  const pickFromClick = (index: number, detail: number) => {
+    if (detail === 0 || performance.now() - pickedAt.current > CLICK_AFTER_PICK_MS) pick(index)
   }
 
   /* The page under the finger starts coming the moment it lands, not when it
@@ -1001,6 +1071,173 @@ export function useTabLens({
     if (give) pulse(index)
     onPress?.(index)
   })
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  A PRESS THAT FELL THROUGH THE BAR IS STILL THE BAR'S
+   * ═══════════════════════════════════════════════════════════════════════
+   * "Sometimes when I'm on the add new product page, or on the edit product
+   * page, the mobile bottom navigation pill, when I click it, doesn't work
+   * sometimes to navigate."
+   *
+   * The handlers above only run when the browser hit tests the press onto the
+   * bar, and while a VIEW TRANSITION is running it hit tests nothing at all:
+   * the document is a photograph and the whole of it is untouchable, the bar
+   * included. Measured against the real product editor rising over the real
+   * list (scripts/check-pill-nav-from-editor.mjs): from 166ms after the press
+   * on a product to 730ms, document.elementFromPoint at the centre of a tab —
+   * and at the middle of the screen — is <html>, and every event of a tap in
+   * that window is dispatched on <html>. 20 of 20 taps mid-rise went nowhere.
+   *
+   * So the bar also answers a press that FELL THROUGH it. Three ways in, all
+   * on the window in the capture phase, because nothing in the page is going
+   * to see these:
+   *
+   *   a press that landed on nothing inside the bar's box, and its lift;
+   *
+   *   a lift, for a gesture that started ON the bar while the screen was
+   *   still live and ended inside the transition: the browser takes the
+   *   pointer capture back when the bar stops being painted, the bar ends
+   *   the gesture as though the system had claimed it, and the lift that
+   *   follows is dropped. While the bar still holds the press it answers it
+   *   itself, projection and all; once it has let go, this does;
+   *
+   *   a cancel the MACHINE sent. The bar is `touch-action: none`, so the
+   *   browser never takes a gesture on it for a scroll; a cancel of a gesture
+   *   the bar has already let go of, while a transition runs, is the
+   *   transition taking the tap away, and it is answered like a lift. A
+   *   cancel anywhere else ends the gesture as it always did.
+   *
+   * WHAT COUNTS AS "FELL THROUGH": the press's target CONTAINS the bar, so
+   * nothing inside that element — the bar included — took it. <html> is what
+   * a press on a photograph hits, and an engine that lands on <body> or on
+   * the shell's own box says the same thing. Anything drawn OVER the bar on
+   * purpose (a sheet's scrim) is a sibling, never an ancestor, and its press
+   * is its own. And only while the bar is a bar: whatever turns its pointer
+   * events or its visibility off in the stylesheet is read here rather than
+   * kept as a second copy of when a sheet is up.
+   */
+  const rescue = useRef({ pick, pickFromClick, geometry: slide.geometry, letGo: slide.handlers.onPointerCancel, onSwallowed })
+  rescue.current = { pick, pickFromClick, geometry: slide.geometry, letGo: slide.handlers.onPointerCancel, onSwallowed }
+  useEffect(() => {
+    /*
+      STRICTLY AN ANCESTOR. `Node.contains` counts the node itself, and a
+      gesture the bar has captured reports the BAR as the target of every
+      event in it: a flick released over Products would have been read here as
+      a press that fell through, and answered with the slot under the finger
+      instead of the one the drag was heading for (scripts/check-app-mobile-nav
+      flicks past a slot and watches where it goes). A gesture that started on
+      the bar is answered by `began` below, not by this.
+    */
+    const fellThrough = (e: PointerEvent, bar: HTMLElement) =>
+      e.target instanceof Node && e.target !== bar && e.target.contains(bar)
+    /** The bar, when a press that reached nothing belongs to it; nothing otherwise. */
+    const barFor = (e: PointerEvent): HTMLElement | undefined => {
+      const bar = slide.barRef.current
+      if (!bar || !bar.isConnected) return
+      /* It reached the bar after all: its own handlers have it. */
+      if (e.target instanceof Node && bar.contains(e.target)) return
+      if (!fellThrough(e, bar)) return
+      const style = window.getComputedStyle(bar)
+      if (style.pointerEvents === "none" || style.visibility === "hidden") return
+      return bar
+    }
+    const boxOf = (bar: HTMLElement) => bar.getBoundingClientRect()
+    /** The slot a point is over, the way the bar's own slotAt reads it. */
+    const slotOf = (bar: HTMLElement, clientX: number): number => {
+      const box = boxOf(bar)
+      const pad = rescue.current.geometry?.pad ?? 0
+      const inner = Math.max(1, box.width - pad * 2)
+      const x = clientX - box.left - pad
+      return Math.max(0, Math.min(count - 1, Math.floor((x / inner) * count)))
+    }
+    /* The bar's own rule for a gesture that left it: sideways is the gesture, 72px up or down is not. */
+    const inReach = (e: PointerEvent, bar: HTMLElement) => {
+      const box = boxOf(bar)
+      return e.clientY >= box.top - ESCAPED && e.clientY <= box.bottom + ESCAPED
+    }
+    /* A press that fell through, ours from the moment it landed. */
+    let held: number | null = null
+    /*
+      And a press that landed ON the bar, which is the bar's — until the bar
+      lets go of it without answering. It captures the pointer, and a captured
+      gesture keeps being delivered even while the document is a photograph;
+      but the browser takes the capture back when the element it is on stops
+      being painted, which is exactly what a transition does, and the bar
+      then ends the gesture as though the system had claimed it
+      (onLostPointerCapture). The lift that follows reaches the bar's own
+      handler and is dropped, because the bar no longer believes a finger is
+      on it. So: while the bar still has the press it answers it, drag
+      projection and all; once it has let go, this does.
+    */
+    let began: number | null = null
+    const down = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return
+      const onBar = slide.barRef.current
+      if (onBar?.isConnected && e.target instanceof Node && onBar.contains(e.target)) { began = e.pointerId; return }
+      const bar = barFor(e)
+      if (!bar) return
+      const box = boxOf(bar)
+      if (box.width <= 0 || e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) return
+      held = e.pointerId
+      hapticTap("light")
+      /* The screen comes back under the finger on this frame rather than when whatever is moving ends. */
+      rescue.current.onSwallowed?.()
+    }
+    /** Did this gesture start on the bar and get let go of before it was answered? */
+    const abandoned = (e: PointerEvent) => began === e.pointerId && !slide.down.current
+    const up = (e: PointerEvent) => {
+      const mine = held === e.pointerId
+      const ours = !mine && abandoned(e)
+      held = null
+      if (began === e.pointerId) began = null
+      if (!mine && !ours) return
+      const bar = slide.barRef.current
+      if (!bar || !bar.isConnected) return
+      if (!inReach(e, bar)) return
+      rescue.current.pick(slotOf(bar, e.clientX))
+    }
+    const lose = (e: PointerEvent) => {
+      const mine = held === e.pointerId
+      /* A cancel the MACHINE sent, not the reader: only while the screen is a picture. */
+      const ours = !mine && abandoned(e) && screenIsAPicture()
+      held = null
+      if (began === e.pointerId) began = null
+      if (!mine && !ours) return
+      const bar = slide.barRef.current
+      if (!bar || !bar.isConnected) return
+      if (!inReach(e, bar)) return
+      rescue.current.pick(slotOf(bar, e.clientX))
+    }
+    /*
+      AND THE CLICK, WHICH FALLS THROUGH TOO. A tap the transition swallowed
+      whole sends its click past the bar as well, so the tab's own link never
+      sees it either and the last way in is shut with the rest. Held to the
+      same rule as the link's (pickFromClick): it picks only when the pointer
+      gesture did not, so a tap the bar has already answered is not answered
+      twice.
+    */
+    const clicked = (e: MouseEvent) => {
+      const bar = slide.barRef.current
+      if (!bar || !bar.isConnected) return
+      if (!(e.target instanceof Node) || e.target === bar || !e.target.contains(bar)) return
+      const style = window.getComputedStyle(bar)
+      if (style.pointerEvents === "none" || style.visibility === "hidden") return
+      const box = boxOf(bar)
+      if (box.width <= 0 || e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) return
+      rescue.current.pickFromClick(slotOf(bar, e.clientX), e.detail)
+    }
+    window.addEventListener("pointerdown", down, true)
+    window.addEventListener("pointerup", up, true)
+    window.addEventListener("pointercancel", lose, true)
+    window.addEventListener("click", clicked, true)
+    return () => {
+      window.removeEventListener("pointerdown", down, true)
+      window.removeEventListener("pointerup", up, true)
+      window.removeEventListener("pointercancel", lose, true)
+      window.removeEventListener("click", clicked, true)
+    }
+  }, [count, slide.barRef, slide.down])
   /* Under the finger while one is down, then on the slot that was picked,
      then on the page being opened, then on the page you are actually on. The
      third is what answers a press anywhere else (a menu row, a link in the
@@ -1095,6 +1332,7 @@ export function useTabLens({
   return {
     slide,
     pick,
+    pickFromClick,
     /** Forget a pick: something other than a tab is taking the page elsewhere. */
     release: () => setPending(null),
     linkRefs,

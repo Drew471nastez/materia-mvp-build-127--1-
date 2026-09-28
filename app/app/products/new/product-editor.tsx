@@ -61,6 +61,7 @@ import { LeaveButton, PRESS_CONTENT_OUT, PRESS_SPINNER_IN, SAVED_CHECK_MS, SaveB
 import { StatusBadge, iconButton } from "../../orders/order-parts"
 import { PRODUCTS_HREF, returnToProducts, useListOrigin, warmProducts } from "../list-return"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { askBeforeLeaving } from "@/lib/ui/leave-guard"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
@@ -1393,17 +1394,39 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       window.removeEventListener("pageshow", reset)
     }
   }, [leaving])
+  /*
+    ONE QUESTION, WHICHEVER DOOR IS USED. True when there is nothing to
+    lose, or when the question has been answered Discard; false for Keep
+    editing. Cancel asks it, and so does the nav pill, which is one tap from
+    anywhere in this page and used to walk straight out with the edits
+    (lib/ui/leave-guard). `useCallback` so the guard below is registered
+    once per answer rather than on every keystroke.
+  */
+  const askToDiscard = useCallback(async (): Promise<boolean> => {
+    if (!hasUnsavedChanges) return true
+    const leave = await ask(
+      productId
+        ? { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
+        : { title: "Discard this product?", body: "It has not been saved yet, so nothing you added will be kept.", confirm: "Discard", cancel: "Keep editing" },
+    )
+    if (leave) setHasUnsavedChanges(false)
+    return leave
+  }, [ask, hasUnsavedChanges, productId])
+
+  /*
+    THE PILL IS A DOOR TOO. "Sometimes when I'm on the add new product page
+    the mobile bottom navigation pill doesn't work" was one bug; a tab that
+    DOES work and takes half an hour of typing with it would be the next
+    one. So while this editor is on the screen it says it has something to
+    lose, and the pill asks it the same question Cancel asks before it goes.
+  */
+  useEffect(() => askBeforeLeaving(askToDiscard), [askToDiscard])
+
   const handleCancel = async () => {
     if (leaving || leavingRef.current) return
-    if (hasUnsavedChanges) {
-      const leave = await ask(
-        productId
-          ? { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
-          : { title: "Discard this product?", body: "It has not been saved yet, so nothing you added will be kept.", confirm: "Discard", cancel: "Keep editing" },
-      )
-      if (!leave) return
-      setHasUnsavedChanges(false)
-    }
+    /* Nothing to lose: no await at all, so the press is answered on its own
+       frame and the drop is measured as it was (scripts/check-layer-motion.mjs). */
+    if (hasUnsavedChanges && !(await askToDiscard())) return
     /* The editor draws its leaving state when it can; the button has already answered (LeaveButton). */
     leavingRef.current = true
     window.setTimeout(() => {

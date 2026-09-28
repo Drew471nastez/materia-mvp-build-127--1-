@@ -165,7 +165,18 @@ check("a screen reader still hears Saving and Saved, from a hidden polite line o
     && editor.indexOf("data-editor-announce") < editor.indexOf('data-editor-bar=""'))
 check("Cancel at the start, the more button and Save at the end", /flex h-14 max-w-\[760px\] items-center justify-between/.test(barSource) && barSource.indexOf("handleCancel") < barSource.indexOf("{moreMenu}") && barSource.indexOf("{moreMenu}") < barSource.indexOf("<SaveButton"))
 check("whether the product is live or a draft heads the more menu", /const moreMenu = productId \? \(/.test(editor) && /section: isPublished \? "Live on your page" : "Draft, hidden from your page"/.test(editor))
-check("the unsaved tracking still drives the leave question", /if \(hasUnsavedChanges\) \{\s*const leave = await ask\(/.test(editor) && /title: "Discard changes\?"/.test(editor) && /confirm: "Discard", cancel: "Keep editing"/.test(editor))
+/*
+  The question moved into one callback, and it is asked through a door more
+  than Cancel: the nav pill is one tap from anywhere in this page and used to
+  walk out of it with the edits (lib/ui/leave-guard, tests/app-mobile-nav).
+  So: one question, in one place, asked by Cancel and left here for the pill.
+*/
+check("the unsaved tracking still drives the leave question, and every door out asks the same one",
+  /const askToDiscard = useCallback\(async \(\): Promise<boolean> => \{\s*if \(!hasUnsavedChanges\) return true/.test(editor)
+    && /title: "Discard changes\?"/.test(editor) && /confirm: "Discard", cancel: "Keep editing"/.test(editor)
+    && /if \(hasUnsavedChanges && !\(await askToDiscard\(\)\)\) return/.test(editor)
+    && /useEffect\(\(\) => askBeforeLeaving\(askToDiscard\), \[askToDiscard\]\)/.test(editor)
+    && (editor.match(/title: "Discard changes\?"/g) ?? []).length === 1)
 
 /* "On desktop large screens ... too narrow ... the Save and Cancel ... better to be at the bottom ... match the Storelib UI more." */
 console.log("\nFrom lg: a page header, two columns, and Save at the foot")
@@ -518,8 +529,19 @@ check("  the page under a rising layer stays: React's hiding of the root's pictu
   iOS curve, fading a little. scripts/check-editor-close.mjs samples every frame of it, both engines, new and saved
   product, with and without a change to discard, and with the list slow to come.
 */
+/*
+  `skipTransition` used to appear nowhere in this file, and that stood for
+  "the way back is not a view transition it takes and then lets go of". It is
+  still not: the way back starts no transition at all. The one skip in the
+  file now is endLayerMove's, which ends a rise REACT started when a press on
+  the nav pill has to be answered at once (A PICTURE TAKES NO PRESSES). So
+  the claim is the same one, said about the way back rather than the file.
+*/
 check("the way back drops the layer at the commit that brings the page under it, in every engine, however long that takes",
-  /if \(motion === "leave"\) dropLayer\(navigate\)/.test(layer) && !/doc\.startViewTransition\(\(\) => \{/.test(layer) && !/skipTransition\(\)/.test(layer)
+  /if \(motion === "leave"\) dropLayer\(navigate\)/.test(layer) && !/doc\.startViewTransition\(\(\) => \{/.test(layer)
+    && !/skipTransition\(\)/.test(layer.slice(layer.indexOf("function dropLayer"), layer.indexOf("export function endLayerMove")))
+    && (layer.match(/skipTransition\(\)/g) ?? []).length === 1
+    && layer.indexOf("skipTransition()") > layer.indexOf("export function endLayerMove")
     && /if \(!dropAtCommit\(\)\) markReactMotion\("leave"\)/.test(layer)
     && /want\.still = layer \? layerStill\(layer\) : null\s*if \(want\.still\) want\.still\.style\.visibility = "hidden"/.test(layer)
     && /still\.style\.visibility = ""\s*let over = false/.test(layer)

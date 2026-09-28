@@ -496,14 +496,23 @@ function moveByHand(el: HTMLElement, up: boolean, ms: number) {
   return a
 }
 
-/* The rise a press asked for, waiting for the layer it opens to mount. */
-let rising: { still: HTMLElement | null; cap: number } | null = null
+/* The rise a press asked for, waiting for the layer it opens to mount. `sent` once its navigation has gone. */
+type Rise = { still: HTMLElement | null; cap: number; sent: boolean }
+let rising: Rise | null = null
 /* A drop of our own is running (dropAtCommit): a second press must not start another. */
 let dropping = false
+/*
+  The move this file is playing right now, on the layer coming in or on the
+  still going back, so a press that must be answered at once can finish it
+  where it stands (endLayerMove). One at a time: a rise is over before a drop
+  can be asked for.
+*/
+let handMove: Animation | null = null
 
-function endRise(want: { still: HTMLElement | null; cap: number }) {
+function endRise(want: Rise) {
   window.clearTimeout(want.cap)
   want.still?.remove()
+  handMove = null
   if (rising === want) rising = null
   const html = document.documentElement
   /* Only our own mark: a React transition may have taken over this commit and set "enter" for itself. */
@@ -525,7 +534,7 @@ function raiseByHand(navigate: () => void) {
     navigate()
     return
   }
-  const want: { still: HTMLElement | null; cap: number } = { still: null, cap: 0 }
+  const want: Rise = { still: null, cap: 0, sent: false }
   rising = want
   const pressedAt = Date.now()
   const hold = () => {
@@ -550,6 +559,7 @@ function raiseByHand(navigate: () => void) {
     html.dataset.layerHand = ""
     setMotionVars(html)
     want.still = pageStill()
+    want.sent = true
     navigate()
   })
 }
@@ -567,6 +577,7 @@ function riseByHand(layer: HTMLElement | null) {
   /* The list has gone in this commit; its copy takes its place before the frame is painted. */
   if (want.still) want.still.style.visibility = ""
   const move = moveByHand(layer, true, LAYER_MOTION_MS)
+  handMove = move
   const done = () => endRise(want)
   move.finished.then(done, done)
 }
@@ -639,8 +650,9 @@ function markReactMotion(kind: "enter" | "leave"): boolean {
 /** How far the dropping layer fades: a little, so it reads as going away, never as a crossfade. */
 export const LAYER_LEAVE_FADE = 0.85
 
-/* A way back that has started and whose commit has not come yet. */
-let dropWant: { cap: number; still: HTMLElement | null } | null = null
+/* A way back that has started and whose commit has not come yet. `sent` once its navigation has gone. */
+type Drop = { cap: number; still: HTMLElement | null; sent: boolean }
+let dropWant: Drop | null = null
 
 /** React draws the layer's own exit again, after a way back of ours. */
 function endManual() {
@@ -663,7 +675,7 @@ function dropLayer(navigate: () => void) {
   flushSync(() => {
     for (const change of changes) change()
   })
-  const want: { cap: number; still: HTMLElement | null } = { cap: 0, still: null }
+  const want: Drop = { cap: 0, still: null, sent: false }
   dropWant = want
   /* A press that never became a navigation: the layer is React's again. */
   want.cap = window.setTimeout(() => {
@@ -681,11 +693,13 @@ function dropLayer(navigate: () => void) {
     uncovers it (dropAtCommit).
   */
   afterNextPaint(() => {
-    if (dropWant === want) {
-      const layer = document.querySelector<HTMLElement>("[data-page-layer]")
-      want.still = layer ? layerStill(layer) : null
-      if (want.still) want.still.style.visibility = "hidden"
-    }
+    /* Ended in the frame we waited by a press that navigates somewhere else
+       instead (endLayerMove): this way back is off, and its navigation with it. */
+    if (dropWant !== want) return
+    const layer = document.querySelector<HTMLElement>("[data-page-layer]")
+    want.still = layer ? layerStill(layer) : null
+    if (want.still) want.still.style.visibility = "hidden"
+    want.sent = true
     navigate()
   })
 }
@@ -720,6 +734,7 @@ function dropAtCommit(): boolean {
     if (over) return
     over = true
     dropping = false
+    handMove = null
     window.clearTimeout(cap)
     still.remove()
     if (html.dataset.layerHand !== undefined && html.dataset.layerMotion === "leave") {
@@ -731,8 +746,113 @@ function dropAtCommit(): boolean {
   }
   const cap = window.setTimeout(done, LAYER_LEAVE_MS + STILL_CAP_MS)
   const move = moveByHand(still, false, LAYER_LEAVE_MS)
+  handMove = move
   move.finished.then(done, done)
   return true
+}
+
+/**
+ * "AbortError: Transition was skipped" IS NOT AN ERROR HERE. Skipping a view
+ * transition rejects every promise it handed out, and whoever holds one that
+ * nobody answers gets an "Uncaught (in promise)" in the console and a line in
+ * the error log. So for a moment around a skip of our own, that one rejection
+ * — an AbortError saying the transition was skipped — is expected and is
+ * marked handled. Only that one, and only for a second: anything else, and
+ * anything later, is reported as it always was.
+ */
+const SKIP_EXPECTED_MS = 1000
+function expectSkipRejections() {
+  if (typeof window === "undefined") return
+  const swallow = (e: PromiseRejectionEvent) => {
+    const reason = e.reason as { name?: string; message?: string } | null | undefined
+    if (reason?.name === "AbortError" && /transition was skipped/i.test(String(reason.message ?? ""))) e.preventDefault()
+  }
+  window.addEventListener("unhandledrejection", swallow)
+  window.setTimeout(() => window.removeEventListener("unhandledrejection", swallow), SKIP_EXPECTED_MS)
+}
+
+/**
+ * ===========================================================================
+ *  A PICTURE TAKES NO PRESSES, AND THE WHOLE SCREEN IS THE PICTURE
+ * ===========================================================================
+ * "Sometimes when I'm on the add new product page, or on the edit product
+ * page, the mobile bottom navigation pill, when I click it, doesn't work
+ * sometimes to navigate." Intermittent, and this is why.
+ *
+ * While a view transition runs, the browser paints its photographs and hit
+ * tests NOTHING in the document under them. Not the moving layer, not the
+ * pill over it, not the page behind: the whole document. Measured on the
+ * real rise (scripts/check-pill-nav-from-editor.mjs, which taps the pill
+ * with the editor opening): from 166ms after the press on a product to
+ * 730ms, document.elementFromPoint at the centre of a pill tab, and at the
+ * middle of the screen, is <html>. A tap inside that half second fires its
+ * pointerdown, its pointerup and its click on <html>; the pill hears none of
+ * them and nothing happens at all. The window is the rise's own 360ms plus
+ * the wait for the new page's first frames (FRAMES_FLOW_CAP_MS), which is
+ * why it is "sometimes", and why a slow phone loses more of them.
+ *
+ * And a move played by hand has a window of its own: raiseByHand answers the
+ * press, paints that frame, and starts the navigation on the NEXT one. A tap
+ * that lands in between goes first and the editor is then pushed over the
+ * page it asked for.
+ *
+ * So a control that must always answer ends the move before it navigates,
+ * and this is that ending. It runs to completion in the press's own task:
+ *
+ *   a rise or a drop this file asked for whose navigation has not gone yet
+ *   is dropped whole, and that navigation is NEVER SENT — the press that
+ *   ended it is the one that navigates;
+ *
+ *   a move this file is playing is finished where it stands, so nothing of
+ *   it is left over the page that comes next;
+ *
+ *   a view transition React is running is skipped, which hands the document
+ *   back to the finger on the spot.
+ *
+ * Safe to call when nothing is moving, which is most of the time.
+ */
+export function endLayerMove() {
+  if (typeof document === "undefined") return
+  /* Read before endRise below, which lets go of it. */
+  const playing = handMove
+  const rise = rising
+  if (rise) {
+    /* Asked for, not sent: the still and the mark go and the editor is never pushed. */
+    endRise(rise)
+  }
+  const drop = dropWant
+  if (drop && !drop.sent) {
+    dropWant = null
+    window.clearTimeout(drop.cap)
+    drop.still?.remove()
+    endManual()
+  }
+  if (playing) {
+    handMove = null
+    /* `finish` runs the move's own end (endRise, or the drop's done), which clears the mark and the still. */
+    try { playing.finish() } catch { playing.cancel() }
+  }
+  const move = (document as WithViewTransitions).__reactViewTransition
+  if (move && typeof move.skipTransition === "function") {
+    /*
+      A SKIPPED TRANSITION REJECTS EVERY PROMISE IT HANDED OUT, with an
+      AbortError. React keeps some of those to itself and does not always
+      settle them, and an unsettled rejection is an "Uncaught (in promise)"
+      in the console and a line in the error log on every tap that ends a
+      move. So each one is answered here before the skip: they are answers
+      nobody was waiting for either way.
+    */
+    for (const name of ["ready", "finished", "updateCallbackDone"] as const) {
+      const promise = (move as unknown as Record<string, unknown>)[name]
+      if (promise && typeof (promise as Promise<unknown>).then === "function") {
+        (promise as Promise<unknown>).then(() => {}, () => {})
+      }
+    }
+    /* React keeps promises of its own from the transition, which this file
+       cannot reach: the ones it never settles are answered here instead. */
+    expectSkipRejections()
+    try { move.skipTransition() } catch { /* a transition already over skips nothing */ }
+  }
 }
 
 /**

@@ -36,9 +36,11 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
+import { endLayerMove } from "@/components/app/page-layer"
 import { hapticTap } from "@/lib/native-bridge"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
 import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath } from "@/lib/ui/app-navigation"
+import { mayLeave } from "@/lib/ui/leave-guard"
 import {
   isRouteActive,
   type NavIconPair,
@@ -818,24 +820,54 @@ export function MobileNavPill({
   /*
     THE LENS, THE PICK AND THE PULSE are the shared tab bar's
     (components/nav/tab-lens.tsx useTabLens), so the buyer bar outside /app
-    answers a finger exactly as this one does. What is this pill's own is
-    where a pick goes and which page gets its head start.
+    answers a finger exactly as this one does — including a press the screen
+    swallowed, which is that file's A PRESS THAT FELL THROUGH THE BAR. What is
+    this pill's own is where a pick goes, which page gets its head start, and
+    what has to happen before a pick can go anywhere at all: this bar floats
+    over pages that MOVE, and over one that holds work.
   */
-  const { slide, pick, release, linkRefs, marked, shown, arriving, filling } = useTabLens({
+  const { slide, pick, pickFromClick, release, linkRefs, marked, shown, arriving, filling } = useTabLens({
     count: items.length,
     current,
     heading,
     nav,
+    /*
+      A PICK ENDS WHATEVER IS MOVING, AND ASKS THE PAGE IT IS LEAVING.
+
+      A layer rising or dropping holds the screen: a view transition draws the
+      whole document as a photograph that takes no presses, and a move played
+      by hand starts its navigation a frame after the press that asked for it.
+      Both are the bug the owner reported — a tab tapped over the product
+      editor that does nothing — and both are ended here rather than waited
+      out, so the press that landed navigates (components/app/page-layer.tsx
+      endLayerMove, which has the measurements).
+
+      And the product editor holds work nobody typed twice: Cancel asks before
+      it throws it away, and a tab is another door out of the same page
+      (lib/ui/leave-guard). Refusing the pick is what keeps the bar still while
+      the question is on the screen: Keep editing leaves the lens exactly where
+      it was.
+    */
     onPick: (index) => {
       const item = items[index]
-      if (!item) return
-      onNavigate(item.href)
-      onCloseMenu()
+      if (!item) return false
+      const go = () => {
+        endLayerMove()
+        onNavigate(item.href)
+        onCloseMenu()
+        return true
+      }
+      const may = mayLeave(item.href)
+      if (may === true) return go()
+      return may.then((yes) => (yes ? go() : false))
     },
     onPress: (index) => {
       const item = items[index]
       if (item && index !== current) onPrefetch?.(item.href)
     },
+    /* A press the screen swallowed: whatever is moving ends now, so the rest
+       of the gesture — and every other control — is live again at once. */
+    onSwallowed: endLayerMove,
   })
 
   return (
@@ -1005,7 +1037,10 @@ export function MobileNavPill({
                 */
                 onClick={(e) => {
                   e.preventDefault()
-                  if (e.detail === 0) pick(i)
+                  /* ...and it is also the last way in, for a keyboard and for
+                     a gesture the browser took back before the lift that
+                     picks (tab-lens, THE LINK IS THE LAST WAY IN). */
+                  pickFromClick(i, e.detail)
                 }}
                 draggable={false}
                 className="absolute flex items-center justify-center"
@@ -1054,9 +1089,17 @@ export function MobileNavPill({
           tabIndex={menuOpen ? 0 : -1}
           onClick={() => {
             hapticTap("light")
-            release()
-            onNavigate("/app/settings")
-            onCloseMenu()
+            /* The same two questions a tab asks, for the same reasons (the
+               pick above): the page it is leaving, and the move on the screen. */
+            const go = () => {
+              release()
+              endLayerMove()
+              onNavigate("/app/settings")
+              onCloseMenu()
+            }
+            const may = mayLeave("/app/settings")
+            if (may === true) go()
+            else void may.then((yes) => { if (yes) go() })
           }}
           className={cn(
             "absolute flex items-center justify-center rounded-full",

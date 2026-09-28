@@ -82,3 +82,86 @@ export function watchLeaveGuard() {
     guard.onHeld(to)
   })
 }
+
+/**
+ * ===========================================================================
+ *  AND THE SAME WORK, WHEN A CONTROL IN THE APP LEAVES THE PAGE
+ * ===========================================================================
+ * Everything above holds the BROWSER'S Back. A page holding work can also be
+ * left by something inside the app, and on a phone the nearest of those is
+ * the nav pill: four tabs across the bottom of the screen, one tap from
+ * anywhere in the product editor. The editor's own Cancel asks before unsaved
+ * changes are thrown away; a tab went straight through with them.
+ *
+ * So the page on the screen leaves a QUESTION here — its own question, in its
+ * own words — and the pill asks it before it navigates
+ * (components/app/sidebar-mobile-nav.tsx). The shell never learns what
+ * "unsaved" means for a page, and a page never learns what the pill is.
+ *
+ * A module variable, where the guard above is on the window: that one is read
+ * by instrumentation-client.ts, which is bundled on its own, and this one is
+ * only ever set and read inside the app's own bundle.
+ *
+ * WHY `true` AND NOT A PROMISE WHEN NOTHING ASKS. A press on a tab is
+ * answered on its own frame, and a promise costs it one: the navigation would
+ * start in a microtask after the press's task, behind whatever React does in
+ * between. Almost every page has no question, so `mayLeave` says so with a
+ * value the caller can act on in the press itself.
+ *
+ * One question at a time, which is what the screen is: the layer over the
+ * page is the page you are looking at. A second one replaces the first, and
+ * each page only ever takes its own away.
+ */
+
+/** Answers whether the page on the screen may be left for `href`. */
+type LeaveQuestion = (href: string) => boolean | Promise<boolean>
+
+let question: LeaveQuestion | null = null
+
+/**
+ * The page on the screen has something to lose, and this is what it asks.
+ * Returns the remove, for the page's own unmount.
+ */
+export function askBeforeLeaving(ask: LeaveQuestion): () => void {
+  question = ask
+  return () => {
+    if (question === ask) question = null
+  }
+}
+
+/** Is a page asking before it is left? */
+export function pageAsksBeforeLeaving(): boolean {
+  return question !== null
+}
+
+/**
+ * May the page on the screen be left for `href`? `true` when nothing asks, so
+ * the caller navigates in the press's own task; otherwise the answer, once
+ * the page has it.
+ *
+ * THE QUESTION GOES UP AFTER THE TAP THAT ASKED FOR IT. The pill picks on the
+ * pointer's LIFT, and a tap's click comes after that. A sheet put up inside
+ * the lift is on the screen, full width, by the time that click is
+ * dispatched, and the click lands on its scrim: the question appeared and
+ * dismissed itself in the same gesture, which answered Keep editing and left
+ * the tap doing nothing (4 of 4 taps, scripts/check-pill-nav-from-editor.mjs).
+ * So the page is asked in the task after the gesture, by which time every
+ * event of the tap has been delivered. Nobody is kept waiting by that: the
+ * answer is a promise either way.
+ */
+export function mayLeave(href: string): true | Promise<boolean> {
+  const ask = question
+  if (!ask) return true
+  return new Promise<boolean>((resolve) => {
+    const put = () => {
+      try {
+        Promise.resolve(ask(href)).then(resolve, () => resolve(true))
+      } catch {
+        /* A page whose question threw does not get to hold the app. */
+        resolve(true)
+      }
+    }
+    if (typeof setTimeout === "function") setTimeout(put, 0)
+    else put()
+  })
+}

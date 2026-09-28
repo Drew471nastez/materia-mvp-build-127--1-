@@ -14,6 +14,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { askBeforeLeaving, pageAsksBeforeLeaving, mayLeave } from "@/lib/ui/leave-guard"
 
 let passed = 0
 let failed = 0
@@ -24,7 +25,7 @@ function check(label: string, ok: boolean, detail?: string) {
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
-function main() {
+async function main() {
   /*
     NEGATIVE ASSERTIONS READ CODE, NOT PROSE.
 
@@ -927,8 +928,13 @@ function main() {
   check("the hamburger's lines have a little more air between them",
     /style=\{line\(open \? 8\.2 : 3\.2\)\}/.test(nav) && /style=\{line\(open \? 8\.2 : 13\.2\)\}/.test(nav) && /height: gx\(1\.6\)/.test(nav),
     "at 1.6px of stroke, 4px apart leaves 2.4px of air and reads as a stack rather than three lines")
+  /* Widened, not weakened: the click still picks for a keyboard (`detail === 0`,
+     a click no pointer made), and now also for a pointer gesture the browser
+     took back before the lift that picks. The rule moved into the shared bar
+     with the rest of the touch — see A TAP THAT LANDS WHILE A LAYER IS MOVING
+     below — so the link hands the click to it and it decides. */
   check("keyboard activation still works, although the pointer decides",
-    /if \(e\.detail === 0\) pick\(i\)/.test(nav))
+    /pickFromClick\(i, e\.detail\)/.test(nav) && /if \(detail === 0 \|\| /.test(nav) && /\) pick\(index\)/.test(nav))
   check("all of it driven in the probe, not asserted from the source",
     /a finger sliding along the bar drags the circle with it/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /haptic ticks/.test(read("scripts/check-app-mobile-nav.mjs")))
@@ -1060,7 +1066,166 @@ function main() {
         && !/\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\)/.test(css))
   }
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A TAP THAT LANDS WHILE A LAYER IS MOVING
+    ═══════════════════════════════════════════════════════════════════════
+    "Sometimes when I'm on the add new product page, or on the edit product
+    page, the mobile bottom navigation pill, when I click it, doesn't work
+    sometimes to navigate."
+
+    Two windows, both measured with the real editor rising over the real list
+    (scripts/check-pill-nav-from-editor.mjs):
+
+      A VIEW TRANSITION HIT TESTS NOTHING. While one runs the browser paints
+      its photographs and the document under them takes no presses at all —
+      not the layer, not the pill over it, not the page behind.
+      document.elementFromPoint at the centre of a tab is <html> from 166ms
+      after the press on a product to 730ms, and every event of a tap in
+      that half second (pointerdown, pointerup, click) is dispatched on
+      <html>. Before this, 20 of 20 taps mid-rise went nowhere at all.
+
+      AND A MOVE PLAYED BY HAND STARTS ITS NAVIGATION A FRAME LATE
+      (page-layer raiseByHand, so the press's own frame is painted first). A
+      tap in that gap went first and the editor was pushed over the page it
+      asked for.
+
+    So the pill ends the move before it navigates, and the bar answers a press
+    that reached nothing inside its own box. WHICH FILE EACH HALF IS IN
+    matters: a press finding the bar is the shared bar's business
+    (components/nav/tab-lens.tsx), so the buyer bar is not left with the bug
+    the pill had, and what to DO about a moving layer or a page holding work
+    is the pill's. So these are read per file, not from the two together.
+  */
+  console.log("\n  a tap while a layer moves")
+
+  const layer = read("components/app/page-layer.tsx")
+  /* The shared touch, and the pill alone: `nav` above is the two joined. */
+  const lens = read("components/nav/tab-lens.tsx")
+  const pill = read("components/app/sidebar-mobile-nav.tsx")
+  check("a move can be ended where it stands, in the press's own task",
+    /export function endLayerMove\(\)/.test(layer) && /A PICTURE TAKES NO PRESSES/.test(layer))
+  check("and a rise or a drop it ends before the navigation went never sends that navigation",
+    /if \(rising !== want\) return/.test(strip(layer))
+      && /if \(dropWant !== want\) return/.test(strip(layer))
+      && /if \(drop && !drop\.sent\)/.test(strip(layer))
+      && /want\.sent = true/.test(strip(layer)),
+    "without this the editor is pushed over the page the tap asked for, a frame later")
+  check("a view transition is skipped rather than waited out",
+    /move\.skipTransition\(\)/.test(strip(layer)) && /__reactViewTransition/.test(strip(layer)))
+  check("and a move this file is playing is finished rather than left over the next page",
+    /handMove = move/.test(strip(layer)) && /playing\.finish\(\)/.test(strip(layer)))
+
+  check("every pick ends whatever is moving before it navigates",
+    /onPick: \(index\) => \{[\s\S]*?endLayerMove\(\)[\s\S]*?onNavigate\(item\.href\)/.test(pill))
+  check("and so does the settings circle, which is the same door",
+    /endLayerMove\(\)\s*\n\s*onNavigate\("\/app\/settings"\)/.test(pill))
+  check("and a press the screen swallowed puts the screen back before the rest of the gesture",
+    /onSwallowed: endLayerMove/.test(pill) && /rescue\.current\.onSwallowed\?\.\(\)/.test(strip(lens)))
+
+  /* In the shared bar, so the buyer bar is not left with the bug the pill had. */
+  check("a press that reached NOTHING inside the bar's box is the bar's press",
+    /e\.target instanceof Node && e\.target !== bar && e\.target\.contains\(bar\)/.test(strip(lens))
+      && /window\.addEventListener\("pointerdown", down, true\)/.test(strip(lens))
+      && /window\.addEventListener\("pointerup", up, true\)/.test(strip(lens)),
+    "the press that would end the move is the press the move swallowed")
+  check("a lift, or a cancel the move sent, for a press the bar has let go of is taken the same way",
+    /const abandoned = \(e: PointerEvent\) => began === e\.pointerId && !slide\.down\.current/.test(strip(lens))
+      && /const ours = !mine && abandoned\(e\)/.test(strip(lens))
+      && /const ours = !mine && abandoned\(e\) && screenIsAPicture\(\)/.test(strip(lens))
+      && /function screenIsAPicture\(\)/.test(strip(lens))
+      && /down: activeRef/.test(strip(lens)),
+    "a transition takes the bar's pointer capture back, the bar ends the gesture, and the lift is dropped")
+  check("and while the bar still holds the press it answers it itself, projection and all",
+    /if \(onBar\?\.isConnected && e\.target instanceof Node && onBar\.contains\(e\.target\)\) \{ began = e\.pointerId; return \}/.test(strip(lens)),
+    "otherwise a flick lands on the slot the finger was over, not the one it was heading for")
+  /* `contains` counts the node itself, and a captured gesture reports the bar
+     as its own target: until this was strict, a flick was read here as a press
+     that fell through and answered with the slot under the finger at the lift,
+     rather than by the bar's own handlers. Where a flick lands is what
+     check-app-mobile-nav measures. */
+  check("and not the bar itself, which is what a gesture it has captured reports",
+    /e\.target !== bar && e\.target\.contains\(bar\)/.test(strip(lens))
+      && /the slot the finger was over, with no momentum carried past it/.test(read("scripts/check-app-mobile-nav.mjs")))
+  check("and nothing else: a scrim over the bar is a sibling, and a sheet turns the bar off in the stylesheet",
+    /style\.pointerEvents === "none" \|\| style\.visibility === "hidden"/.test(strip(lens))
+      && /bar\.contains\(e\.target\)/.test(strip(lens)),
+    "reading the bar's own answer rather than holding a second copy of when a sheet is up")
+  check("and the click falls through with the rest, so the last way in is not shut with them",
+    /window\.addEventListener\("click", clicked, true\)/.test(strip(lens))
+      && /rescue\.current\.pickFromClick\(slotOf\(bar, e\.clientX\), e\.detail\)/.test(strip(lens)),
+    "a tap the transition swallowed whole sends its click past the bar too")
+  check("and the tab's own link picks when the gesture did not, so a press the browser took back still navigates",
+    /if \(detail === 0 \|\| performance\.now\(\) - pickedAt\.current > CLICK_AFTER_PICK_MS\) pick\(index\)/.test(strip(lens))
+      && /pickedAt\.current = performance\.now\(\)/.test(strip(lens))
+      && /pickFromClick\(i, e\.detail\)/.test(pill),
+    "a pointercancel never reaches the lift that picks, and the tap did nothing at all")
+  check("and the pill keeps no copy of any of it",
+    !/addEventListener\("pointer/.test(strip(pill)) && !/CLICK_AFTER_PICK_MS/.test(strip(pill)) && !/function useSlide/.test(strip(pill)),
+    "two copies of the touch drift apart the first time either is tuned")
+  check("a pick the caller refuses moves nothing, not even the lens",
+    /const taken = onPick\(index\)/.test(strip(lens)) && /if \(taken === false\) return/.test(strip(lens))
+      && /void \(taken as Promise<boolean>\)\.then\(\(yes\) => \{ if \(yes\) take\(\) \}\)/.test(strip(lens))
+      && /if \(may === true\) return go\(\)/.test(pill),
+    "the lens sliding to Home and back again answers the question before the reader does")
+  check("with all of it driven against the real editor, tab by tab, at several moments of the rise",
+    /A TAP ON THE PILL, WITH THE PRODUCT EDITOR OPEN, ALWAYS NAVIGATES/.test(read("scripts/check-pill-nav-from-editor.mjs"))
+      && /elementFromPoint/.test(read("scripts/check-pill-nav-from-editor.mjs")))
+
+  /*
+    AND A TAB IS A DOOR OUT OF A PAGE HOLDING WORK. Cancel asks before the
+    editor's unsaved changes are thrown away; the pill was one tap from
+    anywhere in that page and went straight through with them. One question
+    now, the editor's own, asked through lib/ui/leave-guard.
+  */
+  console.log("\n  and the page it is leaving is asked first")
+
+  const editor = read("app/app/products/new/product-editor.tsx")
+  check("the editor says it has something to lose while it is on the screen",
+    /useEffect\(\(\) => askBeforeLeaving\(askToDiscard\), \[askToDiscard\]\)/.test(editor))
+  check("and Cancel and the pill ask the same question, in one place",
+    /const askToDiscard = useCallback\(async \(\): Promise<boolean> =>/.test(editor)
+      && /if \(hasUnsavedChanges && !\(await askToDiscard\(\)\)\) return/.test(editor)
+      && (editor.match(/title: "Discard changes\?"/g) ?? []).length === 1,
+    "two copies of it would drift apart")
+  check("the pill asks before anything moves, so Keep editing leaves the bar as it was",
+    /const may = mayLeave\(item\.href\)/.test(pill)
+      && /return may\.then\(\(yes\) => \(yes \? go\(\) : false\)\)/.test(pill)
+      && /const may = mayLeave\("\/app\/settings"\)/.test(pill))
+
+  /*
+    The guard itself, run rather than read: one page at a time, a page that
+    does not ask costs the press nothing, and a question that throws never
+    holds the app.
+  */
+  {
+    const asked: string[] = []
+    check("nothing asks by default, and the answer is the value `true`, not a promise",
+      mayLeave("/app/orders") === true && !pageAsksBeforeLeaving())
+    const remove = askBeforeLeaving((href) => { asked.push(href); return false })
+    const no = mayLeave("/app/orders")
+    check("a page that guards turns the press into a promise", pageAsksBeforeLeaving() && no !== true)
+    /*
+      AND THE QUESTION GOES UP IN THE NEXT TASK, not inside the lift that
+      asked for it: a sheet put up inside the pointer's lift is dismissed by
+      the same tap's click, which answered Keep editing every time.
+    */
+    check("and the question is not put up inside the gesture that asked for it", asked.length === 0)
+    check("its no is the answer", (await no) === false && asked[0] === "/app/orders")
+    const second = askBeforeLeaving(() => true)
+    check("one guard at a time: the page on the screen is the one that is asked",
+      (await mayLeave("/app")) === true)
+    /* The one that has gone cannot take the guard away from the one that is there. */
+    remove()
+    check("and a page that has gone never removes the page that is there's guard", pageAsksBeforeLeaving())
+    second()
+    check("the page that is there does", !pageAsksBeforeLeaving())
+    const remove3 = askBeforeLeaving(() => { throw new Error("no") })
+    check("a question that throws does not hold the app", (await mayLeave("/app")) === true)
+    remove3()
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
-main()
+void main()
