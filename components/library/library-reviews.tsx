@@ -9,6 +9,7 @@ import { ReviewComposer } from "@/components/reviews/review-composer"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import type { LibraryItem, LibraryReview } from "@/lib/library/library-view"
 import { CARD, SECONDARY, SMALL, VIOLET, shortDate } from "./library-ui"
+import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
@@ -104,7 +105,7 @@ function Waiting({ item, error, onWrite }: { item: LibraryItem; error: string | 
         </div>
         <div className="col-span-2 mt-2 flex items-center justify-between gap-2 sm:col-span-1 sm:mt-0 sm:justify-end sm:gap-3">
           <StartStars title={item.title} onPick={onWrite} />
-          <button type="button" onClick={() => onWrite(0)} data-review-write="" className={`${SECONDARY} ${SMALL} whitespace-nowrap`}>
+          <button type="button" onClick={() => onWrite(0)} data-review-write="" className={cn(SECONDARY, SMALL, "whitespace-nowrap")}>
             Leave a review
           </button>
         </div>
@@ -189,7 +190,7 @@ function Reviewed({
               <p className="text-[14px] font-medium text-[#1a1a2e]">Delete your review?</p>
               <p className="mt-0.5 text-[13px] text-[#6b7280]">It comes off the product page and out of its rating. You can write a new one later.</p>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-                <button type="button" onClick={onKeep} className={`${SECONDARY} ${SMALL}`}>
+                <button type="button" onClick={onKeep} className={cn(SECONDARY, SMALL)}>
                   Keep it
                 </button>
                 <button

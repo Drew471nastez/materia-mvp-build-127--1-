@@ -265,8 +265,11 @@ try {
         idleFill: getComputedStyle(document.querySelector('[data-library-tab="Courses"] [data-library-tab-fill]')).opacity,
         fade: document.querySelector("[data-library-tabs]")?.getAttribute("data-fade"),
         refunded: [...document.querySelectorAll("[data-library-item]")].filter((r) => /Refunded/.test(r.textContent)).length,
+        /* A row's own actions are SMALL: 36px, not the 40px a concatenated class string drew. */
+        rowActions: [...new Set([...document.querySelectorAll("[data-row-actions] a, [data-row-actions] button[data-row-download]")].filter((el) => el.getBoundingClientRect().height > 0).map((el) => Math.round(el.getBoundingClientRect().height)))],
       }
     })
+    expect(m.rowActions.length > 0 && m.rowActions.every((h) => h === 36), "a row's own buttons are the small size, 36px", m.rowActions)
     expect(m.h1 === "Library", "the heading is Library", m.h1)
     expect(m.tabs.map((t) => t[0]).join() === "Products,Courses,Memberships,Reviews,Receipts,Wishlist" && m.tabs[0][1] === "page", "six tabs, Products current", m.tabs)
     expect(m.pills.every((p) => p.h === 36 && p.radius >= 18 && p.border === "1px") && !m.underline, "the tabs are separate pills, 36px, fully round, no underline", m.pills[0])

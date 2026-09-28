@@ -12,6 +12,7 @@ import { contactOf, productPageOf, storeOf } from "./creator-links"
 import { LibraryFileRow } from "./file-row"
 import { useStoreLinkProps } from "./use-store-link"
 import { ICON_BUTTON, PRIMARY, SECONDARY, SMALL, shortDate } from "./library-ui"
+import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
@@ -70,7 +71,7 @@ function OneFileButton({ item, className }: { item: LibraryItem; className: stri
   }
   return (
     <>
-      <button type="button" onClick={go} disabled={busy} aria-busy={busy || undefined} data-row-download="" className={`${PRIMARY} ${SMALL} tabular-nums ${className}`}>
+      <button type="button" onClick={go} disabled={busy} aria-busy={busy || undefined} data-row-download="" className={cn(PRIMARY, SMALL, `tabular-nums ${className}`)}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />}
         {busy ? (pct !== null ? `${pct}%` : "Preparing") : "Download"}
       </button>
@@ -118,7 +119,7 @@ export function ProductRow({
   const primary =
     item.state !== "open" ? (
       item.receiptToken ? (
-        <Link href={`/receipt/${encodeURIComponent(item.receiptToken)}`} className={`${SECONDARY} ${SMALL} flex-1 sm:flex-none sm:min-w-[120px]`}>
+        <Link href={`/receipt/${encodeURIComponent(item.receiptToken)}`} className={cn(SECONDARY, SMALL, "flex-1 sm:flex-none sm:min-w-[120px]")}>
           Receipt
         </Link>
       ) : null
@@ -130,14 +131,14 @@ export function ProductRow({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-row-files=""
-        className={`${SECONDARY} ${SMALL} flex-1 sm:flex-none sm:min-w-[120px]`}
+        className={cn(SECONDARY, SMALL, "flex-1 sm:flex-none sm:min-w-[120px]")}
       >
         <FileText className="h-3.5 w-3.5" aria-hidden />
         {item.files.length} files
         <ChevronDown className={`h-3.5 w-3.5 transition-[rotate] duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
     ) : (
-      <Link href={href} className={`${SECONDARY} ${SMALL} flex-1 sm:flex-none sm:min-w-[120px]`}>
+      <Link href={href} className={cn(SECONDARY, SMALL, "flex-1 sm:flex-none sm:min-w-[120px]")}>
         Open
       </Link>
     )
