@@ -17,8 +17,10 @@ import { PublicWishlistShell } from "@/components/wishlist/public-wishlist-shell
 import { ShellHeaderStill } from "@/components/app/shell-header-still"
 import { OfflineGuard } from "@/components/app/offline-guard"
 
-/* Every size the product draws the logo at (grep "<StorelibLogo size="). */
-export const SIZES = [12, 15, 16, 18, 24, 27, 28, 31, 32, 34, 37, 38, 40, 42, 44, 46, 56, 68, 80]
+/* Every size the product draws the logo at (grep "<StorelibLogo size=", and
+   HEADER_LOGO in components/platform/platform-header-client.tsx). The header
+   sizes are 5% under what they were: 25.65, 30.4, 36.1, 39.9 and 41.8. */
+export const SIZES = [12, 15, 16, 18, 24, 25.65, 28, 30.4, 31, 32, 34, 36.1, 37, 39.9, 40, 41.8, 46, 56, 68, 80]
 
 const mount = (id: string, node: ReactNode) => {
   const el = document.getElementById(id)

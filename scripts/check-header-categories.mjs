@@ -158,22 +158,23 @@ console.log("\n  phone 390")
     if (!panel) return null
     const b = panel.getBoundingClientRect()
     const rows = [...panel.querySelectorAll("[data-browse-level=root] [data-browse-row]")]
-    return { top: Math.round(b.top), h: Math.round(b.height), rows: rows.length, rowH: Math.round(rows[1]?.getBoundingClientRect().height ?? 0), lucide: panel.querySelectorAll("[data-browse-level] [data-browse-row] svg.lucide").length, signIn: /Sign in/.test(panel.textContent), library: /My Library/.test(panel.textContent), libraryUnderButtons: (() => { const lib = [...panel.querySelectorAll("a")].find((a) => a.textContent.trim() === "My Library"); const disc = [...panel.querySelectorAll("a")].find((a) => a.textContent.trim() === "Discover"); const first = panel.querySelector("[data-browse-group]"); return !!lib && !!disc && !!first && lib.getBoundingClientRect().top > disc.getBoundingClientRect().bottom && lib.getBoundingClientRect().bottom <= first.getBoundingClientRect().top + 1 })() }
+    return { top: Math.round(b.top), h: Math.round(b.height), rows: rows.length, rowH: Math.round(rows[1]?.getBoundingClientRect().height ?? 0), lucide: panel.querySelectorAll("[data-browse-level] [data-browse-row] svg.lucide").length, signIn: /Sign up/.test(panel.textContent) && /Log in/.test(panel.textContent), library: /My Library/.test(panel.textContent), libraryUnderButtons: (() => { const lib = [...panel.querySelectorAll("a")].find((a) => a.textContent.trim() === "My Library"); const disc = panel.querySelector("[data-menu-sell]"); const first = panel.querySelector("[data-browse-group]"); return !!lib && !!disc && !!first && lib.getBoundingClientRect().top > disc.getBoundingClientRect().bottom && lib.getBoundingClientRect().bottom <= first.getBoundingClientRect().top + 1 })() }
   })
   await p.screenshot({ path: join(shots, "header-390-open.png") })
   expect(s && s.rows === 12, "the menu sheet lists the categories", s)
   expect(s && s.rowH >= 47 && s.rowH <= 50 && s.lucide <= 1, "48px plain rows", s && { rowH: s.rowH, lucide: s.lucide })
-  expect(s && s.signIn && s.library, "sign in and My Library are still in it", s && { signIn: s.signIn, library: s.library })
-  expect(s && s.libraryUnderButtons, "My Library sits under Sign in and Discover, above the categories", s?.libraryUnderButtons)
+  /* Changed on purpose: the owner asked for Sign up, Log in and Sell on Storelib here, and no Discover on Explore. */
+  expect(s && s.signIn && s.library, "Sign up, Log in and My Library are in it", s && { signIn: s.signIn, library: s.library })
+  expect(s && s.libraryUnderButtons, "My Library sits under Sign up, Log in and Sell on Storelib, above the categories", s?.libraryUnderButtons)
   /* "A bit more space between the drag pill and the buttons", and their labels at 550, not 500. */
   const top = await p.evaluate(() => {
     const pill = document.querySelector("[data-app-sheet] [data-sheet-handle] > div").getBoundingClientRect()
-    const signIn = document.querySelector("[data-app-sheet] [data-menu-sign-in]")
+    const signIn = document.querySelector("[data-app-sheet] [data-menu-sign-up]")
     const discover = document.querySelector("[data-app-sheet] [data-menu-discover]")
-    return { gap: Math.round(signIn.getBoundingClientRect().top - pill.bottom), signIn: getComputedStyle(signIn).fontWeight, discover: getComputedStyle(discover).fontWeight }
+    return { gap: Math.round(signIn.getBoundingClientRect().top - pill.bottom), signIn: getComputedStyle(signIn).fontWeight, discover: discover ? "present" : "absent" }
   })
-  expect(top.gap >= 14 && top.gap <= 20, "16px or so between the drag pill and Sign in", top.gap)
-  expect(top.signIn === "550" && top.discover === "550", "Sign in and Discover are labelled at 550", top)
+  expect(top.gap >= 14 && top.gap <= 20, "16px or so between the drag pill and Sign up", top.gap)
+  expect(top.signIn === "550" && top.discover === "absent", "Sign up is labelled at 550, and there is no Discover on Explore", top)
   await p.evaluate(() => {
     window.__slide = []
     const sub = document.querySelector("[data-app-sheet] [data-browse-level=sub]")

@@ -108,7 +108,8 @@ export function ShellHeaderStill({ name, photo }: { name: string; photo: string 
             </div>
             <div className="h-5 w-px bg-white/15" />
             <span data-still="logo" className="flex shrink-0 items-center gap-2.5">
-              <StorelibLogo size={27} alt="" />
+              {/* The top bar's number (components/app/sidebar.tsx), 5% under the 27px it was. */}
+              <StorelibLogo size={25.65} alt="" />
               <span className="text-[15px] font-semibold text-white">Storelib</span>
             </span>
           </div>

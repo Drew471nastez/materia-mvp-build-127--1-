@@ -109,8 +109,7 @@ export async function MarketingHeader() {
                 </Button>
                 <Button size="sm" asChild>
                   <Link href="/signup" className="whitespace-nowrap">
-                    <span className="hidden xs:inline">Start selling</span>
-                    <span className="xs:hidden">Sign up</span>
+                    Sign up
                   </Link>
                 </Button>
               </>
