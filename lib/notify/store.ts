@@ -22,6 +22,7 @@
  * nothing, and nothing throws into the caller. Database error text is never
  * logged or returned; codes only.
  */
+import type { ProgressFacts } from "@/lib/home/progress"
 import type { ReviewRequestFacts } from "@/lib/reviews/request-rules"
 import type {
   Channel,
@@ -222,6 +223,17 @@ export interface PaymentFact {
   payoutsEnabled: boolean
   detailsSubmitted: boolean
   status: string | null
+  /**
+   * What Stripe is still asking this account for, as Stripe's own keys
+   * ("individual.verification.document"), from creators.stripe_requirements,
+   * which only the account.updated webhook writes. Null when the column is
+   * not there (supabase/sql/run-now/63 has not been run) or no webhook has
+   * been handled since it was: nothing is known, so the verification
+   * reminders do not fire.
+   */
+  requirements: string[] | null
+  /** The date Stripe gave for them, when it gave one. */
+  requirementsDueBy: string | null
 }
 
 export interface NotifyStore {
@@ -275,6 +287,13 @@ export interface NotifyStore {
   /* conditions */
   products(creatorId: string): Promise<ProductFact[] | null>
   payments(creatorId: string): Promise<PaymentFact | null>
+  /**
+   * How far Getting started has got, by the rules Home's card uses
+   * (lib/home/progress.ts), so a reminder about it and the card can never
+   * disagree. Null when it could not be read, or when this login has no
+   * creator row.
+   */
+  setupProgress(userId: string): Promise<ProgressFacts | null>
   payoutStatus(payoutId: string): Promise<string | null | undefined>
   disputeClosed(disputeId: string): Promise<boolean | null>
   domainStatus(domainId: string): Promise<{ status: string | null; sslStatus: string | null } | null | undefined>
@@ -759,12 +778,32 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         return null
       }
       const c = data as Record<string, unknown>
+      /* select *, so a database without part 63's columns simply reads nothing here. */
+      const asked = Array.isArray(c.stripe_requirements) ? c.stripe_requirements.filter((r): r is string => typeof r === "string" && r.length > 0).slice(0, 30) : null
       return {
         stripeAccountId: typeof c.stripe_account_id === "string" ? c.stripe_account_id : null,
         chargesEnabled: c.charges_enabled === true,
         payoutsEnabled: c.payouts_enabled === true,
         detailsSubmitted: c.details_submitted === true,
         status: typeof c.stripe_onboarding_status === "string" ? c.stripe_onboarding_status : null,
+        requirements: asked,
+        requirementsDueBy: typeof c.stripe_requirements_due_at === "string" ? c.stripe_requirements_due_at : null,
+      }
+    },
+
+    /*
+     * Home's own reads (lib/home/progress-server), imported here and not at
+     * the top of the file, because they are server only and this module is
+     * also compiled for the tests. One read of eight small queries, and only
+     * when a setup reminder is due.
+     */
+    async setupProgress(userId) {
+      try {
+        const { readProgressFacts } = await import("@/lib/home/progress-server")
+        return await readProgressFacts(db, { userId })
+      } catch (error) {
+        fail("read setup progress", error as PgError)
+        return null
       }
     },
 

@@ -78,6 +78,10 @@ export const LIMIT_ORDER: readonly Category[] = ["problem", "milestone", "next_s
 export const EMAILED_ELSEWHERE: Record<string, string> = {
   stripe_restricted: "PAYOUT_ACTION_REQUIRED, lib/notify (payout.action_required from account.updated, when payouts go off)",
   stripe_requirements_due: "PAYOUT_ACTION_REQUIRED, lib/notify (payout.action_required from account.updated)",
+  /* The bell keeps this one as the critical stop (a paid product live and checkout refusing a card). The email is
+     the engine's quieter lifecycle sequence two and seven days on, under the same condition, so there is one
+     payouts nudge and not a second system beside it. */
+  payouts_not_connected: "PAYOUT_SETUP_UNFINISHED, lib/notify (payment_setup.started, or a first product live with no payouts)",
   payout_failed: "PAYOUT_FAILED, lib/notify (payout.failed)",
   dispute_opened: "DISPUTE_CREATED, lib/notify (dispute.created)",
   sales_milestone: "FIRST_SALE, lib/notify (sale.first_created, the first sale only)",

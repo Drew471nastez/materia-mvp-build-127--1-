@@ -1151,10 +1151,25 @@ async function handleStripeEvent(request: Request) {
         const currentlyDue: string[] = requirements.currently_due || []
         const due = [...new Set([...pastDue, ...currentlyDue])].sort()
         const paused = previousPayoutsEnabled && !payoutsEnabled
+        const deadline = typeof requirements.current_deadline === "number" ? requirements.current_deadline : null
+
+        /* What Stripe is still asking this account for, kept on the creator
+           row. A reminder two or seven days from now reads it again there
+           (lib/notify/conditions.ts verification_still_needed) instead of
+           trusting what a webhook said last week, and an account Stripe has
+           since cleared writes an empty list here, which ends the sequence.
+           Its own update, and a failure is only logged: where
+           supabase/sql/run-now/63 has not been run these columns do not
+           exist, and the sync above must not fail with them. */
+        const recorded = await supabaseAdmin
+          .from("creators")
+          .update({ stripe_requirements: due, stripe_requirements_due_at: deadline ? new Date(deadline * 1000).toISOString() : null, stripe_requirements_updated_at: new Date().toISOString() })
+          .eq("id", creator.id)
+        if (recorded.error) console.log("[Connect] Requirements not recorded:", recorded.error.code)
+
         if (paused || (due.length > 0 && detailsSubmitted)) {
           /* Paused is one transition, this event. Requirements are keyed by
              what is asked and by when, so the same list is told once. */
-          const deadline = typeof requirements.current_deadline === "number" ? requirements.current_deadline : null
           const asked = createHash("sha256").update(`${due.join(",")}|${deadline ?? ""}`).digest("hex").slice(0, 16)
           await emit({
             name: "payout.action_required",

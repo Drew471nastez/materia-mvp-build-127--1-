@@ -42,8 +42,12 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   FINISH_PRODUCT_REMINDER: ["productTitle", "productId"],
   PUBLISH_PRODUCT_REMINDER: ["productTitle", "productId"],
   FIRST_PRODUCT_PUBLISHED: ["productTitle", "productId", "paymentsReady"],
+  STORE_SETUP_UNFINISHED: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "stepsLeft"],
+  STORE_SETUP_UNFINISHED_2: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "stepsLeft"],
   PAYMENT_SETUP_REMINDER: [],
   PAYMENT_SETUP_REMINDER_2: [],
+  PAYOUT_SETUP_UNFINISHED: ["started", "productTitle"],
+  PAYOUT_SETUP_UNFINISHED_2: ["started"],
   PAYMENT_SETUP_COMPLETED: [],
   PAYMENT_VERIFICATION_REQUIRED: ["reason", "dueBy"],
   PAYMENT_SETUP_FAILED: ["reason"],
@@ -53,6 +57,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PAYOUT_SENT: ["payoutId", "amountCents", "currency", "arrivalDate", "bankLast4"],
   PAYOUT_FAILED: ["payoutId", "amountCents", "currency", "reason", "bankLast4"],
   PAYOUT_ACTION_REQUIRED: ["reason", "dueBy"],
+  VERIFICATION_REMINDER: ["requirements", "requirementCount", "identity", "dueBy"],
+  VERIFICATION_REMINDER_2: ["requirements", "requirementCount", "identity", "dueBy"],
   PAYOUT_RESTRICTED: ["reason"],
   FIRST_SALE: ["productTitle", "productId", "amountCents", "currency", "orderId", "orderNumber", "customerName", ...SALE_KEYS],
   NEW_SALE: ["productTitle", "productId", "amountCents", "currency", "orderId", "orderNumber", "customerName", "occurredAt", ...SALE_KEYS],
@@ -231,6 +237,11 @@ export class Data {
     const s = this.text(key, 8).replace(/\D/g, "")
     return s.length === 4 ? s : ""
   }
+  /** A whole number of zero or more (a count of steps), or null when it is missing or not a number. */
+  count(key: string): number | null {
+    const v = this.raw?.[key]
+    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : null
+  }
   bool(key: string): boolean | null {
     const v = this.raw?.[key]
     return typeof v === "boolean" ? v : null
@@ -298,6 +309,17 @@ const join = (...parts: (string | false | null | undefined)[]) => parts.filter(B
 
 const REMINDER_NOTE = "This is a reminder to help you get set up. You can turn these reminders off in your notification settings."
 const LAST_REMINDER_NOTE = "This is the last reminder about this. You can turn these reminders off in your notification settings."
+
+/** "Publish your website" inside a sentence. A label that starts with a proper noun keeps its capital. */
+const lower = (label: string) => (/^[A-Z][a-z]+ /.test(label) ? label.charAt(0).toLowerCase() + label.slice(1) : label)
+
+const plural = (n: number, word: string) => (n === 1 ? word : `${word}s`)
+
+/** The page that finishes the next setup step, checked to be a Storelib app path before it is used. */
+const setupPath = (d: Data): string => {
+  const path = d.text("stepPath", 120)
+  return /^\/app(\/|\?|$)/.test(path) ? path : PATHS.home
+}
 
 const NOT_YOU = {
   title: "If this was not you",
@@ -609,6 +631,54 @@ export const CATALOG: Record<NotificationType, Entry> = {
     }
   },
 
+  /*
+     The steps are Home's Getting started card, read again when the email is due (conditions.ts
+     store_setup_unfinished), so the count here and the count on the card are the same number, and the
+     button goes to the page that finishes the next one. With no step in the data it is a plain nudge to Home.
+  */
+  STORE_SETUP_UNFINISHED: (d) => {
+    const step = d.text("stepLabel", 60)
+    const left = d.count("stepsLeft")
+    const done = d.count("stepsDone")
+    const total = d.count("stepsTotal")
+    const path = setupPath(d)
+    return {
+      family: "lifecycle",
+      audience: "creator",
+      subject: left ? `You have ${left} ${plural(left, "step")} left to set up your store` : "Finish setting up your store",
+      preview: step ? `Next: ${lower(step)}.` : "A few steps are still open.",
+      heading: "Finish setting up your store",
+      paragraphs: [
+        done !== null && total ? `You have ${done} of ${total} steps done. The rest are what make your store ready for buyers.` : "Your store is not set up yet, and the last steps are what make it ready for buyers.",
+        step ? `The next one is to ${lower(step)}.` : "",
+      ],
+      action: { label: step || "Open your setup", path },
+      note: REMINDER_NOTE,
+      inApp: { title: "Finish setting up your store", body: step ? `Next: ${lower(step)}.` : "A few setup steps are still open.", actionLabel: "Open setup", actionPath: path },
+    }
+  },
+
+  STORE_SETUP_UNFINISHED_2: (d) => {
+    const step = d.text("stepLabel", 60)
+    const done = d.count("stepsDone")
+    const total = d.count("stepsTotal")
+    const path = setupPath(d)
+    return {
+      family: "lifecycle",
+      audience: "creator",
+      subject: "Your store setup is still not finished",
+      preview: step ? `One step left to look at: ${lower(step)}.` : "The last steps are still open.",
+      heading: "Your store is still not set up",
+      paragraphs: [
+        done !== null && total ? `You are ${done} of ${total} steps through setting up your store, and it has been that way for a week.` : "Your store setup has been unfinished for a week.",
+        step ? `The next step is to ${lower(step)}. It takes a few minutes.` : "Finishing the last steps takes a few minutes.",
+      ],
+      action: { label: step || "Open your setup", path },
+      note: LAST_REMINDER_NOTE,
+      inApp: { title: "Your store setup is still open", body: step ? `Next: ${lower(step)}.` : "The last setup steps are still open.", actionLabel: "Open setup", actionPath: path },
+    }
+  },
+
   PAYMENT_SETUP_REMINDER: () => ({
     family: "lifecycle",
     audience: "creator",
@@ -637,6 +707,47 @@ export const CATALOG: Record<NotificationType, Entry> = {
     action: { label: "Finish payment setup", path: PATHS.payments },
     note: LAST_REMINDER_NOTE,
     inApp: { title: "Payments are not set up", body: "Finish setup so your sales can pay out.", actionLabel: "Finish setup", actionPath: PATHS.payments },
+  }),
+
+  /*
+     Begun and left unfinished, or a product live with no way to be paid for it. Two different sentences for
+     two different people; everything after them is the same, because the thing to do is the same.
+  */
+  PAYOUT_SETUP_UNFINISHED: (d) => {
+    const started = d.bool("started") !== false
+    return {
+      family: "lifecycle",
+      audience: "creator",
+      subject: started ? "Your payout setup is not finished" : "Your product is live and payments are not on",
+      preview: "You cannot be paid until this is done.",
+      heading: "Finish setting up your payouts",
+      paragraphs: [
+        started
+          ? "You started setting up payments and stopped before it was done. Until it is finished, Storelib cannot pay you for a sale."
+          : "Your product is live, but payments are not set up, so a sale has nowhere to pay out to.",
+        started
+          ? "Stripe kept what you already entered, so you carry on from where you left off. It usually takes a few minutes."
+          : "Stripe handles this part and it usually takes a few minutes. You only do it once.",
+      ],
+      action: { label: "Finish payout setup", path: PATHS.payments },
+      note: REMINDER_NOTE,
+      inApp: { title: "Finish your payout setup", body: "You cannot be paid for a sale until payments are set up.", actionLabel: "Finish setup", actionPath: PATHS.payments },
+    }
+  },
+
+  PAYOUT_SETUP_UNFINISHED_2: () => ({
+    family: "lifecycle",
+    audience: "creator",
+    subject: "Payments are still not set up",
+    preview: "This is the last reminder about your payouts.",
+    heading: "Your payouts are still waiting on you",
+    paragraphs: [
+      "Payment setup is still unfinished, so anything you sell has nowhere to pay out to.",
+      "It is the one step between your store and your bank account. Finish it when you have a few minutes.",
+    ],
+    action: { label: "Finish payout setup", path: PATHS.payments },
+    note: LAST_REMINDER_NOTE,
+    inApp: { title: "Payments are still not set up", body: "Your sales cannot pay out until setup is finished.", actionLabel: "Finish setup", actionPath: PATHS.payments },
   }),
 
   PAYMENT_SETUP_COMPLETED: () => ({
@@ -789,6 +900,51 @@ export const CATALOG: Record<NotificationType, Entry> = {
       facts: [["What is needed", d.readable("reason")], ["Due by", due]],
       action: { label: "Review payout details", path: PATHS.payments },
       inApp: { title: "Payouts need your attention", body: "Stripe needs more information before your next payout.", actionLabel: "Review", actionPath: PATHS.payments },
+    }
+  },
+
+  /*
+     Stripe asked for details and is still waiting. What it asks for is read again from the account when each of
+     these is due (conditions.ts verification_still_needed), so the email names what is outstanding today, not
+     what was outstanding when the webhook arrived. No unsubscribe line: payouts pause when this is not answered.
+  */
+  VERIFICATION_REMINDER: (d) => {
+    const due = d.date("dueBy")
+    const identity = d.bool("identity") === true
+    return {
+      family: "action_required",
+      audience: "creator",
+      subject: identity ? "Stripe still needs to confirm your identity" : "Stripe still needs a few of your details",
+      preview: due ? `Payouts pause if this is not done by ${due}.` : "Payouts can pause until this is done.",
+      heading: identity ? "Confirm your identity to keep payouts going" : "Stripe is still waiting on your details",
+      paragraphs: [
+        "Stripe asked for more information about you or your business, and it has not had it yet. This is a normal check on every account that takes money.",
+        identity ? "You will need a photo of your ID. The name and date of birth on it have to match what you entered." : "",
+        due ? `If it is not done by ${due}, your payouts are paused.` : "Until it is done, your payouts can be paused.",
+      ],
+      facts: [["What is needed", d.text("requirements", 120)], ["Due by", due]],
+      action: { label: "Confirm your details", path: PATHS.payments },
+      inApp: { title: identity ? "Confirm your identity" : "Stripe needs a few details", body: due ? `Stripe is still waiting. The date it gave is ${due}.` : "Stripe is still waiting for the details it asked for.", actionLabel: "Confirm details", actionPath: PATHS.payments },
+    }
+  },
+
+  VERIFICATION_REMINDER_2: (d) => {
+    const due = d.date("dueBy")
+    const identity = d.bool("identity") === true
+    return {
+      family: "action_required",
+      audience: "creator",
+      subject: "Last reminder: Stripe needs your details",
+      preview: "Your payouts can be held until it has them.",
+      heading: "Stripe is still waiting on you",
+      paragraphs: [
+        "A week ago Stripe asked for more information about your account, and it still has not had it. Payouts can be held at any time until it does.",
+        identity ? "It needs a photo of your ID, and the details on it to match what you entered." : "Everything it needs is listed on your payments page.",
+      ],
+      facts: [["What is needed", d.text("requirements", 120)], ["Due by", due]],
+      action: { label: "Confirm your details", path: PATHS.payments },
+      note: "This is the last reminder about this check. Your payments page always shows what is still needed.",
+      inApp: { title: "Payouts are about to be held", body: "Stripe has still not had the details it asked for.", actionLabel: "Confirm details", actionPath: PATHS.payments },
     }
   },
 

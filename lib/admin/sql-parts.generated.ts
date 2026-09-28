@@ -68,5 +68,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "66", file: "66_deleted_rows_kept.sql", sha256: "8360d280e70a0d23896c61c02a4c7f631988513ef2540a055483c430261f1f64" },
   { part: "67", file: "67_applied_parts.sql", sha256: "08d9290e042ca7e3d9b63c2efcbcb5f0e3115a656b5f43202451fdc925e1bf06" },
   { part: "68", file: "68_errors_and_job_runs.sql", sha256: "728471bf45c353e66c251814848c70ae05d2f959652c6cf350cf36852ec5b476" },
+  { part: "69", file: "69_stripe_requirements.sql", sha256: "bffe5658dcf65f1dfda09ff1b45cc2814862aad1a97ad618e78ea47622599ab3" },
   { part: "90", file: "90_storage_policies_needs_owner.sql", sha256: "ddc22cfc130759fbfacb45536938c90e20f1aec09c5d3ee4db92f4450a763149" },
 ]

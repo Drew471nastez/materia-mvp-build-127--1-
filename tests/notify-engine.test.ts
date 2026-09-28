@@ -13,7 +13,9 @@
  *
  * Run with:  npm run test:push
  */
+import { NO_FACTS, setupSteps } from "../lib/home/progress"
 import { emailChannel } from "../lib/notify/channels/email"
+import { nextNudgeStep, readableRequirements } from "../lib/notify/conditions"
 import { inAppChannel } from "../lib/notify/channels/in-app"
 import { runWork, retryDelayMs, type EngineDeps } from "../lib/notify/engine"
 import { handle } from "../lib/notify/orchestrator"
@@ -172,7 +174,10 @@ async function main() {
     await w.run()
     check("the first product published is celebrated", w.job("FIRST_PRODUCT_PUBLISHED")?.state === "sent")
     check("the pending product reminders are cancelled", ["FIRST_PRODUCT_REMINDER", "FIRST_PRODUCT_REMINDER_2", "FINISH_PRODUCT_REMINDER", "PUBLISH_PRODUCT_REMINDER"].every((t) => w.job(t).state === "cancelled" && w.job(t).skip_reason === "WORKFLOW_CANCELLED"))
-    check("the payment reminders are not", w.job("PAYMENT_SETUP_REMINDER").state === "pending")
+    /* Changed on purpose: a first product live with no way to be paid is a sharper thing to say than "set up payments",
+       so the generic reminders give way to the payout setup sequence (lib/notify/workflows/unfinished.ts). One
+       sequence about payments at a time, and the person is still nudged. */
+    check("the payment reminders give way to the payout setup sequence rather than being dropped", w.job("PAYMENT_SETUP_REMINDER").state === "cancelled" && w.job("PAYOUT_SETUP_UNFINISHED").state === "pending" && w.job("PAYOUT_SETUP_UNFINISHED_2").state === "pending")
     w.later(4 * DAY)
     const before = w.provider.sent.length
     await w.run()
@@ -185,7 +190,7 @@ async function main() {
     await w.raise({ name: "store.created", key: "store.created:c1" })
     await w.run()
     /* Payments done, and the event lost: only the condition can stop the reminder. */
-    w.store.paymentFacts.set(CREATOR, { stripeAccountId: "acct_1", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, status: "connected" })
+    w.store.paymentFacts.set(CREATOR, { stripeAccountId: "acct_1", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, status: "connected", requirements: [], requirementsDueBy: null })
     w.store.productFacts.set(CREATOR, [{ id: "p9", status: "draft", type: "digital", title: "Half done", archived: false, hasFile: false }])
     w.later(DAY + MIN)
     await w.run()
@@ -247,6 +252,126 @@ async function main() {
     check("allowed() says the same", await allowed(w.store, USER, REGISTRY.PASSWORD_CHANGED, "email"))
     await setPreference(w.store, USER, "lifecycle", "email", false, "unsubscribe_link")
     check("and an optional one follows the row", !(await allowed(w.store, USER, REGISTRY.FIRST_PRODUCT_REMINDER, "email")))
+  }
+
+
+  realLog("\nStarted and not finished: what each moment plans")
+  {
+    const keys = (r: ReturnType<typeof handle>, prefix: string) => r.jobs.filter((j) => j.type.startsWith(prefix)).map((j) => `${j.idempotencyKey}@${Date.parse(j.runAt) - ctx.now}`).sort()
+    const started = handle(ev("payment_setup.started"), ctx)
+    check("starting Stripe and stopping plans a day 2 and a day 7 reminder, nothing now", started.jobs.length === 2 && started.jobs.every((j) => Date.parse(j.runAt) > ctx.now) && started.jobs.some((j) => j.type === "PAYOUT_SETUP_UNFINISHED" && Date.parse(j.runAt) === ctx.now + 2 * DAY) && started.jobs.some((j) => j.type === "PAYOUT_SETUP_UNFINISHED_2" && Date.parse(j.runAt) === ctx.now + 7 * DAY))
+    check("and cancels the reminders written for somebody who never started", started.cancel.some((c) => c.workflow === "onboarding_payment" && c.recipientUserId === USER))
+    check("each one expires two days after its day", started.jobs.every((j) => Date.parse(j.expiresAt ?? "") === Date.parse(j.runAt) + 2 * DAY))
+    const live = handle(ev("product.first_published", { productId: "p1", productTitle: "Guide", paymentsReady: false }), ctx)
+    check("a first product live with no way to be paid plans the very same two keys, so it is one sequence and not two", JSON.stringify(keys(live, "PAYOUT_SETUP")) === JSON.stringify(keys(started, "PAYOUT_SETUP")))
+    check("the two read differently though: one was begun, the other was not", started.jobs[0].data.started === true && live.jobs.find((j) => j.type === "PAYOUT_SETUP_UNFINISHED")?.data.started === false)
+    const paid = handle(ev("product.first_published", { productId: "p1", paymentsReady: true }), ctx)
+    check("a first product live with payouts already on plans no payout nudge", !paid.jobs.some((j) => j.type.startsWith("PAYOUT_SETUP")))
+    const created = handle(ev("store.created"), ctx)
+    check("a new store is nudged about the rest of its setup on day 5 and day 12, after the product and payment ones", created.jobs.some((j) => j.type === "STORE_SETUP_UNFINISHED" && Date.parse(j.runAt) === ctx.now + 5 * DAY) && created.jobs.some((j) => j.type === "STORE_SETUP_UNFINISHED_2" && Date.parse(j.runAt) === ctx.now + 12 * DAY))
+    const asked = handle(ev("payout.action_required", { reason: "requirements_due", requirementCount: 2 }), ctx)
+    check("Stripe asking for details plans two follow ups, day 2 and day 7", asked.jobs.some((j) => j.type === "VERIFICATION_REMINDER" && Date.parse(j.runAt) === ctx.now + 2 * DAY) && asked.jobs.some((j) => j.type === "VERIFICATION_REMINDER_2" && Date.parse(j.runAt) === ctx.now + 7 * DAY))
+    const again = handle({ ...ev("payout.action_required", { reason: "requirements_due" }), key: "stripe_requirements:acct:9" }, ctx)
+    check("Stripe saying it again is the same two keys, so it is told once however often the webhook repeats", JSON.stringify(keys(again, "VERIFICATION")) === JSON.stringify(keys(asked, "VERIFICATION")))
+    check("no sequence is longer than two: a first reminder, one more, then nothing", ["PAYOUT_SETUP", "STORE_SETUP_UNFINISHED", "VERIFICATION"].every((p) => [started, created, asked].flatMap((r) => r.jobs).filter((j) => j.type.startsWith(p)).length <= 2))
+  }
+
+  realLog("\nThe payout setup nudge waits, goes once, and stops when it is done")
+  {
+    const w = world()
+    await w.raise({ name: "store.created", key: "store.created:c1" })
+    await w.run()
+    await w.raise({ name: "payment_setup.started", key: "payment_setup.started:c1:1", entityType: "payment_setup", entityId: CREATOR })
+    await w.run()
+    check("the reminders for somebody who never started are cancelled: one payments sequence at a time", w.job("PAYMENT_SETUP_REMINDER").state === "cancelled" && w.job("PAYMENT_SETUP_REMINDER_2").state === "cancelled")
+    check("and nothing is sent at the moment they stop", w.provider.sent.length === 1 && w.job("PAYOUT_SETUP_UNFINISHED").state === "pending")
+    w.later(DAY + MIN)
+    await w.run()
+    check("nor a day later", w.emailsOf("PAYOUT_SETUP_UNFINISHED").length === 0)
+    w.later(DAY + MIN)
+    await Promise.all([w.run("a"), w.run("b")])
+    await w.run("c")
+    check("two days in it goes, once, however many workers run at once", w.emailsOf("PAYOUT_SETUP_UNFINISHED").length === 1 && w.job("PAYOUT_SETUP_UNFINISHED").state === "sent")
+    const mail = w.emailsOf("PAYOUT_SETUP_UNFINISHED")[0]
+    check("it says they cannot be paid and links to the page that finishes it", /cannot pay you/.test(mail?.text ?? "") && (mail?.text ?? "").includes("https://storelib.com/app/settings?tab=payments"))
+    check("it is optional mail and carries the unsubscribe header", !!mail?.headers?.["List-Unsubscribe"])
+    w.store.paymentFacts.set(CREATOR, { stripeAccountId: "acct_1", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, status: "connected", requirements: [], requirementsDueBy: null })
+    await w.raise({ name: "payment_setup.completed", key: "payment_setup.completed:c1:1" })
+    await w.run()
+    check("connecting cancels the rest of the sequence", w.job("PAYOUT_SETUP_UNFINISHED_2").state === "cancelled" && w.job("PAYOUT_SETUP_UNFINISHED_2").skip_reason === "WORKFLOW_CANCELLED")
+    w.later(6 * DAY)
+    await w.run()
+    check("and a week later nothing else goes", w.emailsOf("PAYOUT_SETUP_UNFINISHED_2").length === 0)
+
+    /* The same sequence, with the task done quietly: no event, only the condition. */
+    const v = world()
+    await v.raise({ name: "payment_setup.started", key: "payment_setup.started:c1:1" })
+    await v.run()
+    v.store.paymentFacts.set(CREATOR, { stripeAccountId: "acct_1", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, status: "connected", requirements: null, requirementsDueBy: null })
+    v.later(2 * DAY + MIN)
+    await v.run()
+    check("payments connected with no event at all: the nudge is skipped when it comes due", v.job("PAYOUT_SETUP_UNFINISHED").state === "skipped" && v.job("PAYOUT_SETUP_UNFINISHED").skip_reason === "CONDITION_NO_LONGER_TRUE" && v.emailsOf("PAYOUT_SETUP_UNFINISHED").length === 0)
+  }
+
+  realLog("\nThe store setup nudge names the next step and counts the same as Home")
+  {
+    const w = world()
+    /* A store with a product and payments done, so those reminders skip themselves: what is left is the website and the domain. */
+    w.store.productFacts.set(CREATOR, [{ id: "p1", status: "published", type: "digital", title: "Guide", archived: false, hasFile: true }])
+    w.store.paymentFacts.set(CREATOR, { stripeAccountId: "acct_1", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, status: "connected", requirements: null, requirementsDueBy: null })
+    w.store.setupFacts.set(USER, { ...NO_FACTS, products: 1, publishedProducts: 1, paymentsReady: true, guideOpened: true, sales: 1 })
+    await w.raise({ name: "store.created", key: "store.created:c1" })
+    await w.run()
+    w.later(4 * DAY)
+    await w.run()
+    check("four days in, nothing about the setup yet", w.emailsOf("STORE_SETUP_UNFINISHED").length === 0)
+    w.later(DAY + MIN)
+    await w.run()
+    const mail = w.emailsOf("STORE_SETUP_UNFINISHED")[0]
+    check("day 5: one email, counting the steps the way Home's card does", w.job("STORE_SETUP_UNFINISHED").state === "sent" && /5 of 7 steps done/.test(mail?.text ?? ""), mail?.subject)
+    check("it names the next step and links to the page that finishes it", /publish your website/.test(mail?.text ?? "") && (mail?.text ?? "").includes("https://storelib.com/app/website-builder"))
+    check("and the bell says the same", w.store.bell.some((b) => b.type === "STORE_SETUP_UNFINISHED" && b.actionUrl === "/app/website-builder"))
+    w.store.setupFacts.set(USER, { ...NO_FACTS, products: 1, publishedProducts: 1, paymentsReady: true, guideOpened: true, sales: 1, websiteLive: true, domainConnected: true, creatorPageDomain: true })
+    w.later(7 * DAY)
+    await w.run()
+    check("setup finished in between: the second one is skipped, not sent", w.job("STORE_SETUP_UNFINISHED_2").skip_reason === "CONDITION_NO_LONGER_TRUE" && w.emailsOf("STORE_SETUP_UNFINISHED_2").length === 0)
+
+    const steps = setupSteps({ ...NO_FACTS, guideOpened: true })
+    check("the step to nudge about is never the product or the payments one: those have their own emails", nextNudgeStep(steps)?.id === "store")
+    check("and never one with no page to finish it on", setupSteps(NO_FACTS).filter((s) => !s.done && !s.href).every((s) => nextNudgeStep(setupSteps(NO_FACTS))?.id !== s.id))
+    check("nothing is nudged once every step is done", nextNudgeStep(setupSteps({ ...NO_FACTS, products: 1, paymentsReady: true, websiteLive: true, domainConnected: true, sales: 1, guideOpened: true })) === null)
+  }
+
+  realLog("\nStripe asking for an identity document is followed up twice, then left alone")
+  {
+    const w = world()
+    await w.raise({ name: "payout.action_required", key: "stripe_requirements:acct_1:a", entityType: "payment_setup", entityId: CREATOR, payload: { reason: "requirements_due", requirementCount: 2 } })
+    await w.raise({ name: "payout.action_required", key: "stripe_requirements:acct_1:b", entityType: "payment_setup", entityId: CREATOR, payload: { reason: "requirements_due", requirementCount: 2 } })
+    await w.run()
+    check("the notice itself goes once, as before", w.emailsOf("PAYOUT_ACTION_REQUIRED").length === 1)
+    check("and the two follow ups are one pair, however many times Stripe says it", w.jobsOf("VERIFICATION_REMINDER").length === 1 && w.jobsOf("VERIFICATION_REMINDER_2").length === 1)
+    w.later(2 * DAY + MIN)
+    await w.run()
+    check("with nothing recorded from Stripe (run-now part 63 not run): skipped, never guessed", w.job("VERIFICATION_REMINDER").skip_reason === "CONDITION_NO_LONGER_TRUE" && w.emailsOf("VERIFICATION_REMINDER").length === 0)
+
+    const v = world()
+    v.store.paymentFacts.set(CREATOR, { stripeAccountId: "acct_1", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, status: "connected", requirements: ["individual.verification.document", "individual.id_number"], requirementsDueBy: "2026-10-20T12:00:00Z" })
+    await v.raise({ name: "payout.action_required", key: "stripe_requirements:acct_1:a", entityType: "payment_setup", entityId: CREATOR, payload: { reason: "requirements_due", requirementCount: 2 } })
+    await v.run()
+    v.later(2 * DAY + MIN)
+    await v.run()
+    const mail = v.emailsOf("VERIFICATION_REMINDER")[0]
+    check("two days later, with the ask still open, the reminder goes", v.job("VERIFICATION_REMINDER").state === "sent" && !!mail)
+    check("it names what Stripe still wants and the date it gave", /Photo ID/.test(mail?.text ?? "") && /October 20, 2026/.test(mail?.text ?? ""))
+    check("it is service mail: no unsubscribe link, whatever the lifecycle preference says", !mail?.headers?.["List-Unsubscribe"] && !/Unsubscribe/.test(mail?.text ?? ""))
+    v.store.paymentFacts.set(CREATOR, { stripeAccountId: "acct_1", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, status: "connected", requirements: [], requirementsDueBy: null })
+    v.later(5 * DAY)
+    await v.run()
+    check("Stripe satisfied in between: the last one is skipped", v.job("VERIFICATION_REMINDER_2").skip_reason === "CONDITION_NO_LONGER_TRUE" && v.emailsOf("VERIFICATION_REMINDER_2").length === 0)
+
+    check("Stripe's keys read as words a person knows, at most three of them", readableRequirements(["individual.verification.document", "individual.id_number", "company.tax_id", "external_account"]) === "Photo ID, ID number, Tax ID")
+    check("and a date of birth asked for in three keys is said once", readableRequirements(["individual.dob.day", "individual.dob.month", "individual.dob.year"]) === "Date of birth")
+    check("and nothing at all when Stripe named nothing", readableRequirements([]) === "")
   }
 
   realLog("\nThe provider says try later")

@@ -44,6 +44,33 @@ business action
   `CONDITION_NO_LONGER_TRUE`. Completing the task also cancels the pending
   jobs of that workflow.
 
+## Started and not finished
+
+`workflows/unfinished.ts` holds the three sequences for something a creator
+began and left. Each is a first reminder, one more about a week later, and
+then nothing:
+
+| What was left | Started by | Days | Stops when |
+| --- | --- | --- | --- |
+| Payouts not connected | `payment_setup.started`, or `product.first_published` with `paymentsReady` false | 2, 7 | `payment_setup_incomplete` is false, or `payment_setup.completed` cancels the workflow |
+| Getting started part way through | `store.created` | 5, 12 | every step with a page to finish it on is done (`store_setup_unfinished`, the steps in `lib/home/progress.ts`) |
+| Stripe asking for identity or business details | `payout.action_required` | 2, 7 | Stripe stops asking (`verification_still_needed`, `creators.stripe_requirements`) |
+
+Nothing goes out at the moment somebody stops: people come back on their own
+within a day. The keys are the type, the person, the creator and the step,
+with no timestamp, so a sequence begun from two different moments is one set
+of jobs and is said once per account. Starting Stripe cancels the "you have
+not set up payments" reminders, so there is one payments sequence at a time.
+
+The payout and setup nudges are lifecycle (optional, unsubscribe link, one a
+day). The verification reminders are required service, like every other
+notice about money that cannot reach somebody.
+
+What Stripe is still asking for is kept on the creator row by the
+`account.updated` webhook (`supabase/sql/run-now/63`). Until that part is
+run the column is not there, nothing is recorded, and the two verification
+reminders are planned and then skipped when they come due.
+
 ## Tables (run-now part 40)
 
 - `notification_events`: outbox. `event_key` unique. `processed_at`,
@@ -61,6 +88,10 @@ business action
   a complaint or an unsubscribe), reason, source, timestamps.
 - `mailgun_webhook_events`: the event id of every webhook handled, so a retry
   is a no-op.
+- `creators.stripe_requirements`, `stripe_requirements_due_at`,
+  `stripe_requirements_updated_at` (run-now part 63): what Stripe last asked
+  this account for, written only by the `account.updated` webhook, read by
+  the `verification_still_needed` condition.
 - In app: the existing `seller_notifications` table (the bell already reads
   it), with `expires_at` added and the engine's rows keyed by `dedupe_key`.
 

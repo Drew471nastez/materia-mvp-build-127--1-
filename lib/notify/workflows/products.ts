@@ -6,6 +6,10 @@
  * FIRST_PRODUCT_PUBLISHED in app and by email, and every pending product
  * reminder of the onboarding workflow is cancelled.
  *
+ * When that first product goes live with no way to be paid for it
+ * (paymentsReady false), the payout setup sequence starts as well
+ * (workflows/unfinished.ts).
+ *
  * product.created, product.published after the first, product.updated and
  * product.deleted plan nothing: the reminders' conditions read the products
  * again when they are due, so a product created or deleted in between is

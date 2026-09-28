@@ -22,10 +22,11 @@ import { products } from "./workflows/products"
 import { sales } from "./workflows/sales"
 import { security } from "./workflows/security"
 import { subscriptions } from "./workflows/subscriptions"
+import { unfinished } from "./workflows/unfinished"
 
 export type { CancelRequest, WorkflowContext }
 
-export const WORKFLOW_LIST: readonly Workflow[] = [onboarding, products, payments, payouts, sales, customer, subscriptions, domains, security]
+export const WORKFLOW_LIST: readonly Workflow[] = [onboarding, unfinished, products, payments, payouts, sales, customer, subscriptions, domains, security]
 
 export interface HandleResult {
   jobs: PlannedJob[]
