@@ -164,6 +164,32 @@ for (const [label, viewport] of [
   }
 }
 
+/* A SETUP BEGUN AND NOT FINISHED: back on the plan step it was left on, with what was typed still there. */
+for (const [label, viewport] of [["390", { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }], ["1440", { width: 1440, height: 900 }]]) {
+  const page = await browser.newPage()
+  const errors = []
+  page.on("pageerror", (e) => errors.push(String(e)))
+  await page.setViewport(viewport)
+  await page.goto(`${base}/?resume=1`)
+  await page.waitForFunction(() => window.__ran === true, { timeout: 15000 })
+  await page.evaluate(() => window.__swap())
+  await page.waitForFunction(() => { const d = document.querySelector('[role="dialog"]'); return d && parseFloat(getComputedStyle(d).opacity) >= 0.999 }, { timeout: 8000 }).catch(() => {})
+  await wait(600)
+  const plan = await page.evaluate(() => /Free|Growth|Pro/.test(document.querySelector('[role="dialog"]')?.textContent || "") && !document.querySelector('[role="dialog"] input[type="text"]'))
+  if (!plan) problems.push(`resume at ${label}: did not open on the plan step`)
+  /* Back once: step three, then the first step with the store name typed last time. */
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() => { const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => /^Back$/i.test((x.getAttribute("aria-label") || x.textContent || "").trim())); b?.click() })
+    await wait(450)
+  }
+  const name = await page.evaluate(() => document.querySelector('[role="dialog"] input[type="text"]')?.value ?? null)
+  if (name !== "Maya Prints") problems.push(`resume at ${label}: step one shows ${JSON.stringify(name)}, not the store name typed before`)
+  if (errors.length) problems.push(`resume at ${label}: page errors: ${errors.join(" | ")}`)
+  report[`resume-${label}`] = { plan, name }
+  if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `sell-resume-${label}.png`) })
+  await page.close()
+}
+
 await browser.close()
 server.close()
 console.log(JSON.stringify(report, null, 2))

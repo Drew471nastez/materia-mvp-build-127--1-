@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
 import { switchBusiness, type SwitchedTo } from "@/lib/businesses/switch-client"
+import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 
 /**
  * ===========================================================================
@@ -21,6 +22,7 @@ export function SellOnboarding({
   leaveHref,
   resumePlan,
   firstBusiness,
+  resume = null,
 }: {
   /** Where the way out goes: the page they came from, else Discover. */
   leaveHref: string
@@ -28,6 +30,8 @@ export function SellOnboarding({
   resumePlan: "growth" | "pro" | null
   /** A second business being set up (lib/businesses): its way back is to the first one, not out. */
   firstBusiness: SwitchedTo | null
+  /** A setup begun and not finished: what was typed, and the step to open on (lib/account/onboarding-resume). */
+  resume?: OnboardingResume | null
 }) {
   /* Opened after the first paint, so the dialog's own fade runs from the spinner rather than popping in with the HTML. */
   const [open, setOpen] = useState(false)
@@ -61,6 +65,7 @@ export function SellOnboarding({
         open={open}
         onClose={() => {}}
         resumeFromStripe={resumePlan ? { planId: resumePlan } : null}
+        resume={resumePlan ? null : resume}
         switchBack={switchBack}
         leave={{ label: "Not now", href: leaveHref }}
       />

@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { currentUserForRequest, profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest, currentUserForRequest, profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
+import { onboardingResume, type OnboardingResume } from "@/lib/account/onboarding-resume"
+import { createClient } from "@/lib/supabase/server"
 import { BUYER_HOME, safeNext, sellDecision } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
 import { listBusinesses } from "@/lib/businesses/server"
@@ -89,5 +91,28 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
   const tier = one("tier")
   const resumePlan = one("stripe_success") === "1" && (tier === "growth" || tier === "pro") ? tier : null
 
-  return <SellOnboarding leaveHref={leaveHref} resumePlan={resumePlan} firstBusiness={firstBusiness} />
+  /*
+    A SETUP BEGUN AND NOT FINISHED (lib/account/onboarding-resume). The
+    creator row the plan step wrote is read back, so the store name, bio and
+    category are there again and the setup opens on the plan step it was
+    left on, not on an empty step one. The row is the one the access check
+    above already read (cached for this request); only its category is
+    asked for on top, and only when there is a row.
+  */
+  let resume: OnboardingResume | null = null
+  if (access.state === "started") {
+    try {
+      const creator = await creatorForRequest(userId)
+      let niche: unknown = null
+      if (creator) {
+        const { data } = await (await createClient()).from("creators").select("niche_tags").eq("user_id", userId).maybeSingle()
+        niche = (data as { niche_tags?: unknown } | null)?.niche_tags ?? null
+      }
+      resume = onboardingResume({ creator: creator ? { ...creator, niche_tags: niche } : null, profile })
+    } catch {
+      /* Nothing read back is the fresh setup it was before. */
+    }
+  }
+
+  return <SellOnboarding leaveHref={leaveHref} resumePlan={resumePlan} firstBusiness={firstBusiness} resume={resume} />
 }
