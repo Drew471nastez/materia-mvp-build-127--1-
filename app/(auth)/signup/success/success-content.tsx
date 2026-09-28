@@ -158,7 +158,7 @@ export function SuccessContent() {
     }
 
     // Listen for auth state changes (handles delayed session after OAuth).
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string) => {
       try {
         if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
       } catch {}
