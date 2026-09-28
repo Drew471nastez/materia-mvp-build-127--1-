@@ -1,5 +1,6 @@
 /**
- * The real buyer tab bar, the real search screen and the real account page,
+ * The real buyer tab bar, the real search screen and the real profile
+ * (scripts/account-hub-demo.tsx),
  * in a shell shaped like the buyer's side of storelib.com: the black header,
  * a light page, the dark footer, and the bar mounted after it the way the
  * layouts mount it. The router is the probe's stub (scripts/check-buyer-tab-
@@ -13,7 +14,7 @@ import { usePathname } from "next/navigation"
 
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { SearchScreen } from "@/components/explore/search-screen"
-import { AccountPage } from "@/components/account/account-page"
+import { AccountDemo } from "./account-hub-demo"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
 import { LocaleProvider } from "@/components/locale-provider"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
@@ -74,37 +75,13 @@ function Product() {
   )
 }
 
-const WISHLIST = {
-  count: 7,
-  items: [1, 2, 3, 4].map((i) => ({ id: `w${i}`, title: `Saved ${i}`, thumbnail: THUMB, href: `/maria/saved-${i}` })),
-}
-
-function Account() {
-  const signedIn = (window as unknown as { __signedIn?: boolean }).__signedIn
-  return (
-    <AccountPage
-      userId="u1"
-      email="alex@example.com"
-      name={signedIn ? "Alex Morgan" : ""}
-      avatarUrl={null}
-      createdAt="2025-03-14T10:00:00Z"
-      hasPassword={!(window as unknown as { __oauthOnly?: boolean }).__oauthOnly}
-      via="Google"
-      isSeller={!!(window as unknown as { __seller?: boolean }).__seller}
-      newsletter={false}
-      personalized={true}
-      wishlist={WISHLIST}
-    />
-  )
-}
-
 function Page() {
   const path = usePathname() || "/explore"
   const body =
     path === "/explore/search" ? <SearchScreen />
       : path.startsWith("/explore") ? <Explore />
         : path.startsWith("/library") ? <Library />
-          : path.startsWith("/account") ? <Account />
+          : path.startsWith("/account") ? <AccountDemo />
             : path.split("/").filter(Boolean).length === 2 ? <Product />
               : <p className="p-6">Elsewhere: {path}</p>
   return (
