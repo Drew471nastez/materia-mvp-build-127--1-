@@ -433,6 +433,19 @@ export function isSellerPage(pathname: string, host?: string): boolean {
   )
 }
 
+/**
+ * A CREATOR'S PRODUCT, as against their page. Both are seller surfaces
+ * (isSellerPage above) and most things treat them alike, but one carries its
+ * own buy bar at the foot of the screen and the other does not, which is
+ * what decides whether Storelib's phone tab bar can sit under it
+ * (lib/nav/buyer-tabs.ts). Every spelling a product has: the `/p/` and `/l/`
+ * prefixes a saved link still arrives on, and the bare `/<handle>/<slug>`.
+ */
+export function isSellerProductPath(pathname: string, host?: string): boolean {
+  if (pathname.startsWith("/p/") || pathname.startsWith("/l/")) return true
+  return productFromPath(pathname, host) !== null
+}
+
 /** The path split into segments, with empty ones dropped. */
 function segmentsOf(pathname: string): string[] {
   return pathname.split("?")[0].split("#")[0].split("/").filter(Boolean)

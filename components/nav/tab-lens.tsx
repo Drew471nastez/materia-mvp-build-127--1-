@@ -240,12 +240,16 @@ const CATCH_UP = 0.6
  */
 const SPRING = { stiffness: 520, damping: 34 }
 /**
- * WHICH SLOT A RELEASE MEANS. A finger that lets go while still moving
- * means the slot it is moving towards, not the one it happens to be over:
- * the release is projected PROJECT_MS ahead at the speed it had. A finger
- * that stopped first lands where it stopped.
+ * WHICH SLOT A RELEASE MEANS: the one under the finger, and only that.
+ *
+ * A release used to be projected PROJECT_MS ahead at the speed it had, so a
+ * finger that let go while still moving opened the tab it was heading for
+ * rather than the one it was over. On a scroller that is right; on a row of
+ * four targets it meant a quick flick opened the tab PAST the one you
+ * stopped on. The projection is gone (see onPointerUp): what you are
+ * pointing at when you lift is what opens. The glass still springs across
+ * on its own curve, so letting go still feels thrown.
  */
-const PROJECT_MS = 90
 /**
  * LIQUID, LIKE A DROP OF GLASS. It stretches along the way it is moving, by
  * how fast it is moving, and rounds off as it slows: up to STRETCH_MAX wider
@@ -706,9 +710,8 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
     const x = clientX - box.left - pad
     return Math.max(0, Math.min(count - 1, Math.floor((x / inner) * count)))
   }
-  /** The slot whose resting place is nearest a left edge of the circle. */
-  const slotNearest = (left: number): number =>
-    Math.max(0, Math.min(count - 1, Math.round((left - leftForSlot(0)) / (geoRef.current.slot || 1))))
+  /* `slotNearest`, which read a slot back out of the circle's own position, went
+     with the projection: the finger's position is the only thing that picks now. */
 
   /**
    * A gesture that has left the bar vertically was never for the bar.
@@ -863,12 +866,24 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
       onPointerUp: (e: React.PointerEvent) => {
         if (!activeRef.current) return
         const dragged = movedRef.current
-        /* A tap picks the slot it landed on. A drag picks the slot its
-           circle is heading for: where it is, PROJECT_MS on at the speed it
-           has, so a finger let go mid slide lands where it was going. */
-        const picked = dragged && posRef.current != null
-          ? slotNearest(posRef.current + speedRef.current * PROJECT_MS)
-          : slotAt(e.clientX)
+        /*
+          IT LANDS ON THE TAB UNDER THE FINGER, AND ONLY THAT.
+          ────────────────────────────────────────────────────
+          A drag used to pick the slot the circle was HEADING for: where it
+          stood, projected PROJECT_MS on at the speed it had. That reads
+          well on a scroller, where momentum is the point, but this is a
+          row of four targets, and it meant a quick flick opened the tab
+          PAST the one you stopped on. "When I drop it, it lands on that
+          thing I want to click."
+
+          So the pick is the slot the finger is over when it lifts, for a
+          drag exactly as for a tap: what you are pointing at is what
+          opens, every time, however fast you got there. The glass still
+          springs over on its own curve, so letting go still feels thrown
+          rather than cut; only the choice is no longer a guess about
+          where you were going.
+        */
+        const picked = slotAt(e.clientX)
         const away = escaped(e.clientY)
         end()
         if (away) return

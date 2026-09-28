@@ -61,18 +61,32 @@ export function isBuyerPath(pathname: string): boolean {
 /**
  * Whether the bar belongs on this page.
  *
- * `sellerSurface` is a creator's page or product (lib/url-helpers
- * isSellerPage, or a creator's subdomain), and `customDomain` is a creator's
- * own domain, where nothing of Storelib's is drawn at all.
+ * A CREATOR'S STORE PAGE KEEPS THE BAR; THEIR PRODUCT DOES NOT. It was taken
+ * off both, because on a product the page's own buy bar already stands at
+ * the foot of it and a second row under that is two navigations stacked over
+ * the thing being sold. But a creator's store page has no buy bar, and
+ * opening one from the library then left no way back to it. So:
+ *
+ *   sellerProduct   a product, however its address is spelled. Never the
+ *                   bar: the buy bar is already there.
+ *   sellerStore     a creator's own page, on storelib.com. The bar, so the
+ *                   library and Explore stay one press away.
+ *   sellerSite      their subdomain. That is their site rather than
+ *                   Storelib browsing, so nothing of ours goes over it.
+ *   customDomain    their own domain, where none of this is drawn at all.
  */
 export function buyerTabsBelongOn(
   pathname: string,
-  where: { sellerSurface?: boolean; customDomain?: boolean } = {},
+  /* `sellerSurface` is taken but not read here: it is what lights Home on the bar
+     (buyerTabFor below), and callers hand this the whole answer from useBuyerTabsWhere. */
+  where: { sellerSurface?: boolean; sellerProduct?: boolean; sellerStore?: boolean; sellerSite?: boolean; customDomain?: boolean } = {},
 ): boolean {
   if (where.customDomain) return false
   /* /account/continue is a redirect, never a page anybody sees. */
   if (under(pathname, "/account/continue")) return false
-  if (where.sellerSurface) return false
+  if (where.sellerSite) return false
+  if (where.sellerProduct) return false
+  if (where.sellerStore) return true
   return isBuyerPath(pathname)
 }
 
@@ -88,6 +102,7 @@ export function buyerTabFor(pathname: string, where: { query?: boolean; sellerSu
   if (under(pathname, "/explore")) return where.query ? 1 : 0
   if (under(pathname, "/library") || under(pathname, "/wishlist")) return 2
   if (under(pathname, "/account")) return 3
+  /* A creator's page or product is where Home led, so Home stays lit on it. */
   if (where.sellerSurface) return 0
   return -1
 }

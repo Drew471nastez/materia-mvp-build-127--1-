@@ -20,6 +20,7 @@
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { BUYER_TABS, SEARCH_HREF, SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
+import { isSellerProductPath } from "../lib/url-helpers"
 import { RESERVED_ROOT_SEGMENTS } from "../lib/routes/reserved-segments"
 
 let passed = 0
@@ -42,9 +43,24 @@ const on = ["/explore", "/explore/design", SEARCH_HREF, "/library", "/library/pr
 for (const p of on) check(`on ${p}`, buyerTabsBelongOn(p))
 const off = ["/", "/app", "/app/products", "/admin", "/checkout", "/checkout/abc", "/login", "/signup", "/reset-password", "/receipt/tok", "/purchase/x", "/creator-page", "/website-builder", "/blog", "/pricing", "/sell", "/account/continue", "/w/someone"]
 for (const p of off) check(`not on ${p}`, !buyerTabsBelongOn(p))
-check("a creator's page or product never has the bar: it is their shop, and its own buy bar is already there",
-  !buyerTabsBelongOn("/maria/preset-pack", { sellerSurface: true }) && !buyerTabsBelongOn("/maria", { sellerSurface: true }))
-check("never on a creator's own domain, whatever the path", !buyerTabsBelongOn("/explore", { customDomain: true }) && !buyerTabsBelongOn("/", { customDomain: true, sellerSurface: true }))
+/*
+  A CREATOR'S PRODUCT HAS NO BAR; THEIR PAGE DOES. The bar came off both,
+  because on a product the page's own buy bar already stands at the foot and
+  a second row under it is two navigations over the thing being sold. A
+  creator's page has no buy bar, and opening one from the library left no
+  way back, so the two are told apart now: the product by its address, the
+  page by being a seller surface that is not one.
+*/
+check("a creator's product never has the bar: its own buy bar is already there",
+  !buyerTabsBelongOn("/maria/preset-pack", { sellerSurface: true, sellerProduct: true }) && !buyerTabsBelongOn("/p/preset-pack", { sellerSurface: true, sellerProduct: true }))
+check("  but their page keeps it, so the library is one press away",
+  buyerTabsBelongOn("/maria", { sellerSurface: true, sellerStore: true }) && buyerTabsBelongOn("/u/maria", { sellerSurface: true, sellerStore: true }))
+check("  and never on their own subdomain: that is their site, not Storelib browsing",
+  !buyerTabsBelongOn("/", { sellerSurface: true, sellerSite: true }) && !buyerTabsBelongOn("/preset-pack", { sellerSurface: true, sellerSite: true, sellerProduct: true }))
+check("never on a creator's own domain, whatever the path", !buyerTabsBelongOn("/explore", { customDomain: true }) && !buyerTabsBelongOn("/", { customDomain: true, sellerStore: true }))
+/* Which address is a product, read the way the bar reads it. */
+check("a product is known by its address, in every spelling it has",
+  isSellerProductPath("/maria/preset-pack") && isSellerProductPath("/p/preset-pack") && isSellerProductPath("/l/abc") && !isSellerProductPath("/maria") && !isSellerProductPath("/u/maria") && !isSellerProductPath("/explore"))
 
 console.log("\nWhich tab a page belongs to")
 const cases: Array<[string, { query?: boolean; sellerSurface?: boolean }, number]> = [
@@ -92,8 +108,11 @@ check("its hooks are never behind a return: the question is asked where it is mo
    the product opens: nothing is carried between pages and nothing blinks. */
 const where = code("lib/nav/use-buyer-tabs-where.ts")
 check("where the bar is comes from the address, and only the host waits for an effect",
-  /return \{ sellerSurface: host\.subdomain \|\| isSellerPage\(pathname\), customDomain: host\.customDomain \}/.test(where)
+  /const surface = isSellerPage\(pathname\)/.test(where) && /const product = isSellerProductPath\(pathname\)/.test(where)
+    && /sellerSurface: host\.subdomain \|\| surface/.test(where) && /customDomain: host\.customDomain/.test(where)
     && !/forPath/.test(where) && !/isDiscoverMode/.test(where))
+check("  and a creator's page counts as their store only on storelib.com",
+  /sellerStore: surface && !product && !host\.subdomain && !host\.customDomain/.test(where))
 check("the native shell's press dimming is taken off its icons, as on the pill", /html\.capacitor \[data-buyer-tab-bar\] nav a:active/.test(read("app/globals.css")))
 
 console.log("\nNothing ends under it, and nothing fights it")

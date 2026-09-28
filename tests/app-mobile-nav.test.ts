@@ -496,13 +496,24 @@ function main() {
     /width: "var\(--app-nav-dot\)",\s*\n\s*height: "var\(--app-nav-dot\)",/.test(nav)
       && /--app-nav-dot: calc\(var\(--app-nav-bar\) - var\(--app-nav-pad\) \* 2\);/.test(css))
   check("a tap is a drag of zero length, so the two can never disagree",
-    !/onClick=\{\(\) => pick\(/.test(nav) && /: slotAt\(e\.clientX\)/.test(nav))
-  /* "Accurate when I land on something": a finger let go while still moving
-     means the slot it was heading for. The probe flicks from Home and lets
-     go past Products at speed: it lands on Analytics, 0px off its centre. */
-  check("and a drag let go at speed picks the slot it was heading for",
-    /const PROJECT_MS = 90/.test(nav)
-      && /\? slotNearest\(posRef\.current \+ speedRef\.current \* PROJECT_MS\)/.test(nav))
+    !/onClick=\{\(\) => pick\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
+  /*
+    AND A DRAG PICKS THE SLOT UNDER THE FINGER, NOT THE ONE IT WAS HEADING
+    FOR. This check asked for the opposite, and the reasoning was "accurate
+    when I land on something": a release was projected PROJECT_MS ahead at
+    the speed it had, so a finger let go mid slide opened where it was
+    going. On a scroller that is right. On a row of four targets it meant a
+    quick flick opened the tab PAST the one you stopped on, which is what
+    came back: "when I drop it, it lands on that thing I want to click".
+
+    So the projection is gone, and slotNearest with it, which existed only
+    to read a slot back out of the circle's own position. What you point at
+    when you lift is what opens, for a drag exactly as for a tap. The glass
+    still springs across on its own curve, so letting go still feels thrown
+    rather than cut.
+  */
+  check("and a drag picks the slot under the finger, carrying no momentum past it",
+    !/PROJECT_MS \*/.test(nav) && !/slotNearest\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
   check("and it ticks once per slot crossed, not once per frame",
     /if \(lastRef\.current !== next\) \{[\s\S]{0,1600}?hapticTap\(first \? "light" : "soft"\)/.test(nav))
   /*

@@ -15,7 +15,7 @@
  * drawn on it. The address alone settles the rest, on the first render, and
  * the host has the last word a moment later, as it does for the header.
  *
- * A CREATOR'S PAGE OR PRODUCT NEVER HAS THE BAR, however it was reached
+ * A CREATOR'S PRODUCT NEVER HAS THE BAR, however it was reached
  * (lib/nav/buyer-tabs.ts): the page's own buy bar is already at the foot of
  * it. That is read from the address, so the bar is gone on the frame the
  * product opens and there is nothing to flicker.
@@ -28,9 +28,19 @@
 import { useEffect, useState } from "react"
 
 import { buyerTabsBelongOn } from "@/lib/nav/buyer-tabs"
-import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
+import { extractUsernameFromHost, isCustomDomain, isSellerPage, isSellerProductPath } from "@/lib/url-helpers"
 
-export type BuyerTabsWhere = { sellerSurface: boolean; customDomain: boolean }
+export type BuyerTabsWhere = {
+  /** A creator's page or product either way: what keeps Home lit on the bar. */
+  sellerSurface: boolean
+  /** One of their products, which carries its own buy bar at the foot. */
+  sellerProduct: boolean
+  /** Their page on storelib.com, which does not. */
+  sellerStore: boolean
+  /** Their own subdomain: their site, rather than Storelib browsing. */
+  sellerSite: boolean
+  customDomain: boolean
+}
 
 export function useBuyerTabsWhere(pathname: string): BuyerTabsWhere {
   const [host, setHost] = useState<{ subdomain: boolean; customDomain: boolean }>({ subdomain: false, customDomain: false })
@@ -39,7 +49,16 @@ export function useBuyerTabsWhere(pathname: string): BuyerTabsWhere {
     const next = { subdomain: extractUsernameFromHost(h) !== null, customDomain: isCustomDomain(h) }
     setHost((w) => (w.subdomain === next.subdomain && w.customDomain === next.customDomain ? w : next))
   }, [])
-  return { sellerSurface: host.subdomain || isSellerPage(pathname), customDomain: host.customDomain }
+  const surface = isSellerPage(pathname)
+  const product = isSellerProductPath(pathname)
+  return {
+    sellerSurface: host.subdomain || surface,
+    sellerProduct: product,
+    /* Their page, not one of their products, and on storelib.com rather than a host of their own. */
+    sellerStore: surface && !product && !host.subdomain && !host.customDomain,
+    sellerSite: host.subdomain,
+    customDomain: host.customDomain,
+  }
 }
 
 /** The same question, answered: true where the bar is drawn. */

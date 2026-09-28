@@ -1347,10 +1347,16 @@ await ev('window.__routeDelay = 0; globalThis.__goto("/app"); true')
 await sleep(1700)
 
 /*
- * AND LET GO WHILE IT IS STILL MOVING. A flick from Home towards the end
- * of the bar, released a little past Products at speed: the release carries
- * its speed into the spring and picks the slot it was heading for, and the
- * spring ends on that slot's exact centre.
+ * AND LET GO WHILE IT IS STILL MOVING. A flick from Home towards the end of
+ * the bar, released 18px past the centre of Products and still moving fast.
+ *
+ * IT LANDS ON PRODUCTS, the slot the finger is over, not the one its speed
+ * was carrying it towards. The release used to be projected 90ms ahead at
+ * the speed it had, which on a scroller is right and on a row of four
+ * targets meant a quick flick opened the tab PAST the one you stopped on:
+ * this same gesture went to Analytics. "When I drop it, it lands on that
+ * thing I want to click." The spring still carries the glass across on its
+ * own curve, so the release has no seam; only the choice of slot changed.
  */
 await ev('window.__routeDelay = 220; window.__went = null; window.__glassFrames = []; true')
 await ev(`(() => {
@@ -2186,10 +2192,10 @@ console.log(`              the drop's own shape: ${glass.squash.widest}x at its 
 must(glass.squash.narrowest < 0.998 && glass.squash.narrowest >= 0.97 && glass.squash.last === 1,
   "and when the finger stops it runs on into a slight squash and settles round, like a drop, not a stamp",
   `narrowest ${glass.squash.narrowest}x after the finger stopped, ${glass.squash.last}x at rest`)
-console.log(`  a flick     released at speed past Products: went to ${flick.went}, landed on slot ${flick.landedSlot + 1} ${flick.landedOffPx}px off its centre`)
+console.log(`  a flick     released at speed 18px past Products\u0027 centre: went to ${flick.went}, landed on slot ${flick.landedSlot + 1} ${flick.landedOffPx}px off its centre`)
 console.log(`              ${flick.pastSlotPx}px past it, still after ${flick.settledMs}ms, widest ${flick.widest}x, biggest step after the lift ${flick.stepAfter}px\n`)
 must(flick.landedOffPx <= 0.5, "a flick lands on a slot's exact centre too", `${flick.landedOffPx}px off it`)
-must(flick.went === "/app/analytics" && flick.landedSlot === 3, "the slot it was heading for, not the one it was over",
+must(flick.went === "/app/products" && flick.landedSlot === 2, "the slot the finger was over, with no momentum carried past it",
   `it went to ${flick.went}, slot ${flick.landedSlot + 1}`)
 must(flick.widest <= 1.13, "stretched no more than about 1.12 however fast", `${flick.widest}x`)
 must(flick.settledMs <= 600, "and it is still within about half a second", `it was still moving ${flick.settledMs}ms after the lift`)
