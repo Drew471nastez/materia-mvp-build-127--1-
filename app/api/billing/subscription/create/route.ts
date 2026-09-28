@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     // Get creator record
-    const { data: creator, error: creatorError } = await supabase
+    const { data: creator, error: creatorError } = await createAdminClient()
       .from("creators")
       .select("id, stripe_customer_id, subscription_plan_id, slug, username")
       .eq("user_id", user.id)

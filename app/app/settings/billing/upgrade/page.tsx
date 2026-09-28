@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { pageUser } from "@/lib/auth/page-user"
@@ -70,7 +71,7 @@ export default async function UpgradePage() {
   let cancelAtPeriodEnd = false
 
   try {
-    const { data: creator } = await supabase
+    const { data: creator } = await createAdminClient()
       .from("creators")
       .select("id, subscription_plan_id, subscription_status, stripe_customer_id")
       .eq("user_id", user.id)

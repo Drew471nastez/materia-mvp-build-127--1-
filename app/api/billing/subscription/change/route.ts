@@ -140,7 +140,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
       }
 
-      const { data: creator } = await supabase
+      const { data: creator } = await createAdminClient()
         .from("creators")
         .select("id, subscription_plan_id")
         .eq("user_id", user.id)
@@ -237,7 +237,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: creator } = await supabase
+    const { data: creator } = await createAdminClient()
       .from("creators")
       .select("id, subscription_plan_id")
       .eq("user_id", user.id)
@@ -337,7 +337,7 @@ export async function POST(request: Request) {
         })
         .eq("id", subscriptionRecord.id)
 
-      await supabase
+      await createAdminClient()
         .from("creators")
         .update({ subscription_plan_id: newPlanId, subscription_status: updatedSubscription.status })
         .eq("id", creator.id)

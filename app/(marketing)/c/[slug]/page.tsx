@@ -1,5 +1,6 @@
 import { permanentRedirect, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 interface CreatorPageProps {
   params: Promise<{ slug: string }>
@@ -11,7 +12,7 @@ export async function generateMetadata({ params }: CreatorPageProps) {
 
   const { data: creator } = await supabase
     .from("creators")
-    .select("*, profile:profiles!creators_user_id_fkey(*)")
+    .select(CREATOR_WITH_PROFILE)
     .eq("slug", slug)
     .single()
 
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }: CreatorPageProps) {
   }
 
   return {
-    title: creator.profile?.display_name || "Creator",
+    title: (creator.profile as unknown as { display_name?: string | null } | null)?.display_name || "Creator",
     description: creator.headline || creator.bio || "Check out this creator on Storelib",
   }
 }

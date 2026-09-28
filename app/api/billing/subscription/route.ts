@@ -83,7 +83,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: creator, error: creatorError } = await supabase
+    const { data: creator, error: creatorError } = await createAdminClient()
       .from("creators")
       .select("id, subscription_plan_id, subscription_status, stripe_customer_id, slug, username")
       .eq("user_id", user.id)
@@ -203,7 +203,7 @@ export async function GET() {
 
         // Sync to DB (non-blocking)
         try {
-          await supabase
+          await createAdminClient()
             .from("creators")
             .update({
               stripe_customer_id: stripeCustomerId,
@@ -275,7 +275,7 @@ export async function GET() {
         staleStatus: creator.subscription_status,
       })
       try {
-        await supabase
+        await createAdminClient()
           .from("creators")
           .update({
             subscription_plan_id: "free",

@@ -25,6 +25,8 @@
 import { cache } from "react"
 
 import { createClient } from "@/lib/supabase/server"
+import { readPublicRow } from "@/lib/security/public-rows"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
 
 /**
@@ -37,24 +39,13 @@ import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./produc
  * query the layout and the page each ran separately.
  */
 export const loadProfileByUsername = cache(async (username: string) => {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .ilike("username", username)
-    .maybeSingle()
-  return data ?? null
+  /* Every public column, never a private one (lib/security/public-rows). */
+  return readPublicRow(await createClient(), "profiles", (q) => q.ilike("username", username))
 })
 
 /** The creator row for a profile, shared with the product page's cache. */
 export const loadCreatorForUser = cache(async (userId: string) => {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("creators")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle()
-  return data ?? null
+  return readPublicRow(await createClient(), "creators", (q) => q.eq("user_id", userId))
 })
 
 /**
@@ -97,3 +88,15 @@ export async function loadShopThemePreset(username: string): Promise<string> {
 
 /** Re-exported so a caller needs one import, not two. */
 export { cachedCreator, cachedCreatorProfile }
+
+/**
+ * The creator's sign in address, for the one place a page may show it: the
+ * Contact link stands in with it when the creator typed no contact address,
+ * and only for a visitor who has bought from them (app/(marketing)/u/[username]).
+ * A private column since run-now part 63, so it is read by the server here
+ * and never travels with the profile row.
+ */
+export const loadAccountEmail = cache(async (userId: string): Promise<string | null> => {
+  const { data } = await createAdminClient().from("profiles").select("email").eq("id", userId).maybeSingle()
+  return (data?.email as string | null | undefined) ?? null
+})

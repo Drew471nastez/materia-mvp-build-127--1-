@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     // Get creator profile
-    const { data: creator, error: creatorError } = await supabase
+    const { data: creator, error: creatorError } = await createAdminClient()
       .from("creators")
       .select("*")
       .eq("user_id", user.id)

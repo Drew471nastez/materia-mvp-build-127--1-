@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { fillOwnedProducts } from "@/lib/library/owned-products"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 type EntitlementRow = {
   id: string
@@ -68,8 +69,8 @@ export async function getLibraryDownloads(
         product_id,
         created_at,
         product:products(*),
-        creator:creators(*, profile:profiles!creators_user_id_fkey(*))
-      `)
+        creator:creators(${CREATOR_WITH_PROFILE})
+      ` as const)
       .eq("buyer_id", userId)
       .order("created_at", { ascending: false }),
     admin

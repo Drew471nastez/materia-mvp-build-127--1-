@@ -2,6 +2,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Users, ArrowRight } from "lucide-react"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 export default async function DashboardCommunitiesPage() {
   const supabase = await createClient()
@@ -15,7 +16,7 @@ export default async function DashboardCommunitiesPage() {
     .select(
       `
       *,
-      creator:creators(*, profile:profiles!creators_user_id_fkey(*))
+      creator:creators(${CREATOR_WITH_PROFILE})
     `,
     )
     .eq("buyer_id", user!.id)

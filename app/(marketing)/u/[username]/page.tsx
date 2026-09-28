@@ -2,7 +2,7 @@ import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
-import { loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
+import { loadAccountEmail, loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -888,7 +888,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * typed it into, which is the only place it can be both visible and
      * unambiguous.
      */
-    const resolvedContactEmail = headerSettings.contactEmail || profile.email || undefined
+    const resolvedContactEmail = headerSettings.contactEmail || (await loadAccountEmail(profile.id)) || undefined
     /*
       NO EXCEPTION FOR THE OWNER, which is #204's call and stands: an
       owner-only preview of a hidden thing showed them a Contact link no

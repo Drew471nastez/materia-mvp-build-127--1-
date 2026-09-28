@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
@@ -74,7 +75,7 @@ export default async function OnePageEditorPage() {
   */
   const [creatorRead, pageRead] = await Promise.all([
     readTwice((signal) =>
-      supabase.from("creators").select("*").eq("user_id", user.id).abortSignal(signal).maybeSingle(),
+      createAdminClient().from("creators").select("*").eq("user_id", user.id).abortSignal(signal).maybeSingle(),
     ),
     readTwice((signal) =>
       supabase.from("onepages").select("*").eq("owner_id", user.id).abortSignal(signal).maybeSingle(),

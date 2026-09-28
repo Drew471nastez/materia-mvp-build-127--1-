@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { GraduationCap, PlayCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 export default async function DashboardCoursesPage() {
   const supabase = await createClient()
@@ -19,7 +20,7 @@ export default async function DashboardCoursesPage() {
       `
       *,
       product:products(*),
-      creator:creators(*, profile:profiles!creators_user_id_fkey(*))
+      creator:creators(${CREATOR_WITH_PROFILE})
     `,
     )
     .eq("buyer_id", user!.id)

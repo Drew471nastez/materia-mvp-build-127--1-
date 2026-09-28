@@ -165,8 +165,12 @@ section("Settings: six trips to three")
      Storelib's newsletter. That table is closed to browsers (RLS on, no
      policies), so it is read with the service role, by the signed in
      person's own address, in the same batch. */
-  check("on the caller's own client, but for the newsletter row",
-    (src.match(/createAdminClient\(\)/g) ?? []).length === 1 && /readNewsletter\(createAdminClient\(\), user\.email, user\.user_metadata\?\.storelib_newsletter === true\)/.test(src) && /\.from\("newsletter|storelib_newsletter"\)/.test(src) === false)
+  /* The account's own profile and creator rows too, since run-now part 63 made
+     some of their columns private: read with the service role, by the signed
+     in person's own id and nobody else's. */
+  const serverReads = [...src.matchAll(/createAdminClient\(\)\s*\.from\("(profiles|creators)"\)[\s\S]{0,120}?\.(eq\([^)]*\)|upsert\()/g)].map((m) => m[0])
+  check("on the caller's own client, but for the newsletter row and the account's own rows",
+    serverReads.length >= 2 && serverReads.every((r) => /\.eq\("(id|user_id)", user\.id\)|\.upsert\(/.test(r)) && /readNewsletter\(createAdminClient\(\), user\.email, user\.user_metadata\?\.storelib_newsletter === true\)/.test(src) && /\.from\("newsletter|storelib_newsletter"\)/.test(src) === false)
 }
 
 section("Payouts: its questions asked together")

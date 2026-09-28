@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Pin, MoreHorizontal, Trash2, Users } from "lucide-react"
 import type { CommunityPost, Profile } from "@/lib/types"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 interface CommunityFeedProps {
   creatorId: string
@@ -36,7 +37,7 @@ export function CommunityFeed({ creatorId, userId, posts: initialPosts, isCreato
         author_id: userId,
         content: newPost,
       })
-      .select("*, author:profiles!community_posts_author_id_fkey(*)")
+      .select(`*, author:profiles!community_posts_author_id_fkey(${PROFILE_CARD})` as const)
       .single()
 
     if (error) {

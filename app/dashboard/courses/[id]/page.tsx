@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { fillOwnedProduct } from "@/lib/library/owned-products"
 import { CoursePlayer } from "@/components/dashboard/course-player"
 import { pageUser } from "@/lib/auth/page-user"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 interface CourseAccessPageProps {
   params: Promise<{ id: string }>
@@ -27,7 +28,7 @@ export default async function CourseAccessPage({ params, searchParams }: CourseA
       `
       *,
       product:products(*),
-      creator:creators(*, profile:profiles!creators_user_id_fkey(*))
+      creator:creators(${CREATOR_WITH_PROFILE})
     `,
     )
     .eq("buyer_id", user.id)

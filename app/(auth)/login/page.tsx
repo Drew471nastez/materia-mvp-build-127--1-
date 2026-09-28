@@ -470,11 +470,15 @@ function LoginFormContent() {
         // Handle specific error messages
         if (error.message.includes("Email not confirmed")) {
           // User hasn't verified email — redirect to our custom verify page
-          const { data: userData } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("email", trimmedEmail)
-            .single()
+          /* The id, from the server, which asks for the password too (app/api/auth/unconfirmed-account). */
+          const userData = await fetch("/api/auth/unconfirmed-account", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword }),
+          })
+            .then((r) => (r.ok ? (r.json() as Promise<{ userId?: string }>) : null))
+            .then((j) => (j?.userId ? { id: j.userId } : null))
+            .catch(() => null)
 
           if (userData) {
             navigateWithFallback(

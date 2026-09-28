@@ -1,6 +1,6 @@
 import "server-only"
 import Stripe from "stripe"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -51,9 +51,8 @@ export async function getOrCreateStripeCustomer({
     },
   })
 
-  // Persist the new customer ID
-  const supabase = await createClient()
-  await supabase
+  // Persist the new customer ID. A server owned column: only the service role may write it (run-now part 63).
+  await createAdminClient()
     .from("creators")
     .update({ stripe_customer_id: customer.id })
     .eq("id", creatorId)

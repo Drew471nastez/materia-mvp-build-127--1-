@@ -162,7 +162,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       const user = auth.user
       if (!user || !live) return
       const [{ data: profile }, { data: creator }] = await Promise.all([
-        supabase.from("profiles").select("display_name, username, avatar_url, email").eq("id", user.id).maybeSingle(),
+        supabase.from("profiles").select("display_name, username, avatar_url").eq("id", user.id).maybeSingle(),
         supabase.from("creators").select("id, support_email").eq("user_id", user.id).maybeSingle(),
       ])
       if (!live) return
@@ -171,8 +171,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
         name: (profile?.display_name || profile?.username || "").trim() || "You",
         username: profile?.username ?? null,
         avatarUrl: profile?.avatar_url ?? null,
-        email: user.email ?? profile?.email ?? null,
-        replyTo: (creator?.support_email || profile?.email || user.email || "").trim().toLowerCase() || null,
+        email: user.email ?? null,
+        replyTo: (creator?.support_email || user.email || "").trim().toLowerCase() || null,
       })))
     })()
     fetch("/api/email/audience", { cache: "no-store" })

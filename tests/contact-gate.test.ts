@@ -133,7 +133,7 @@ async function main() {
      * was the thing they did not want — and it is not this change's to
      * reverse. What changed is the audience: buyers rather than everyone.
      */
-    check("the account address still stands in", /headerSettings\.contactEmail \|\| profile\.email/.test(page))
+    check("the account address still stands in", /headerSettings\.contactEmail \|\| \(await loadAccountEmail\(profile\.id\)\)/.test(page))
     check("but it goes through the same gate", !/publicContactEmail = resolvedContactEmail(?! \?)/.test(page))
   }
 

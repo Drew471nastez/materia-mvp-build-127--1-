@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
@@ -26,10 +27,10 @@ export async function POST() {
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
+    const { data: creator } = await createAdminClient().from("creators").select("*").eq("user_id", user.id).single()
     if (!creator) return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
 
-    const { data: profile } = await supabase.from("profiles").select("email, country").eq("id", user.id).maybeSingle()
+    const { data: profile } = await createAdminClient().from("profiles").select("email, country").eq("id", user.id).maybeSingle()
 
     let accountId = (creator as any).stripe_account_id || null
 

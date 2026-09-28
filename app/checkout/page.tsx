@@ -38,7 +38,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     one after another, and the skeleton stood on screen for all of them.
   */
   const [creatorRead, variantRead, userRead, variantsRead] = await Promise.all([
-    supabase.from("creators").select("*").eq("id", product.creator_id).single(),
+    supabase.from("creators").select("id, user_id, slug").eq("id", product.creator_id).single(),
     variantId
       ? supabase
           .from("product_variants")
