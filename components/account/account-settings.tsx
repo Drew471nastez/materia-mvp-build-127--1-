@@ -13,7 +13,7 @@
  *
  * So the shape is that, and every part of it is Storelib's own:
  *
- *   THE TOP ROW    a round X back to the profile, and Settings in the
+ *   THE TOP ROW    a round chevron back to the profile, and Settings in the
  *                  library's heading (24px, 28 from sm), so the two screens
  *                  are visibly the same product. Not sticky: the site
  *                  header above it already is, and two bars stuck to the
@@ -51,8 +51,8 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useRef, useState } from "react"
-import { Loader2, X } from "lucide-react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { ChevronLeft, Loader2 } from "lucide-react"
 
 import {
   EmailChangeFlow,
@@ -714,26 +714,36 @@ export function AccountSettings({
   return (
     <div data-account-page="" data-account-settings="">
       <div className="flex items-center gap-2.5" data-account-settings-top="">
+        {/*
+          A WAY BACK, NOT A WAY OUT. This was an X, which says "close this,
+          you are done" about a screen you reached from your own profile and
+          return to. A chevron says where it goes, which is the one thing an
+          X never says: "make sure the thing there is not an X, it is a back
+          icon basically". The address it goes to has not changed.
+        */}
         <Link
           href="/account"
           prefetch={true}
-          aria-label="Close settings"
+          aria-label="Back to profile"
           data-account-settings-close=""
           className={cn(secondaryDepth, "h-10 w-10 rounded-full p-0")}
         >
-          <X className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
+          <ChevronLeft className="h-[20px] w-[20px]" strokeWidth={2} aria-hidden="true" />
         </Link>
         <h1 className="min-w-0 truncate text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Settings</h1>
       </div>
 
       <SectionPills active={section} onPick={setSection} />
 
-      {/* The section that arrives fades in where it is: no slide, the switch /app Settings uses. */}
-      <div
-        key={section}
-        data-account-panel={section}
-        className="mt-5 space-y-4 duration-200 animate-in fade-in-0 motion-reduce:animate-none sm:space-y-5"
-      >
+      {/*
+        ONE SECTION DISSOLVES INTO THE NEXT. It used to fade the arriving
+        section in from nothing while the one leaving was taken away in the
+        same frame, so the eye saw the old screen vanish and a new one
+        brighten into the gap: "not so direct, smooth clean". Now the one
+        leaving fades out first and the next fades in behind it
+        (SectionSwap), which is one dissolve rather than a cut and a fade.
+      */}
+      <SectionSwap section={section}>
         {section === "profile" ? (
           <ProfileSection userId={userId} name={name} bio={bio ?? ""} bioSupported={bioSupported !== false} avatarUrl={avatarUrl ?? null} />
         ) : null}
@@ -745,7 +755,62 @@ export function AccountSettings({
           </>
         ) : null}
         {section === "preferences" ? <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} /> : null}
-      </div>
+      </SectionSwap>
+    </div>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE SECTION LEAVING GOES BEFORE THE ONE ARRIVING COMES
+ * ===========================================================================
+ * The pills answer the press at once, as they always did; only what is
+ * under them takes these few frames. What is on screen is held and faded
+ * to nothing over OUT_MS, then the section picked is put in and brought up
+ * over IN_MS. The whole move is under a quarter of a second, and because
+ * the two never overlap the page's height is never fought over by two
+ * sections of different lengths, which is what a true cross fade would
+ * cost here and what made the first attempt at this jump.
+ *
+ * Under reduced motion, and where a browser cannot animate, the section
+ * simply changes: no wait, no fade.
+ */
+const SWAP_OUT_MS = 100
+const SWAP_IN_MS = 150
+
+function SectionSwap({ section, children }: { section: SectionKey; children: React.ReactNode }) {
+  /* What is drawn: behind the pills' own state, so it lags by exactly one fade. */
+  const [drawn, setDrawn] = useState(section)
+  const [held, setHeld] = useState<React.ReactNode>(children)
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (section === drawn) { setHeld(children); return }
+    const el = ref.current
+    const still = !el || typeof el.animate !== "function" || (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+    if (still) { setDrawn(section); setHeld(children); return }
+    let done = false
+    const land = () => { if (!done) { done = true; setDrawn(section); setHeld(children) } }
+    const out = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_OUT_MS, easing: "ease-in", fill: "both" })
+    out.onfinish = land
+    /* A fade that never finishes (a tab in the background, a cancel) still lands. */
+    window.setTimeout(land, SWAP_OUT_MS + 160)
+    return () => { out.cancel() }
+    /* `children` is a new element every render; the section is what decides a move. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section])
+
+  /* Brought up from nothing on the frame the new section is first painted. */
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof el.animate !== "function") return
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { el.style.opacity = "1"; return }
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_IN_MS, easing: "ease-out", fill: "both" })
+  }, [drawn])
+
+  return (
+    <div ref={ref} data-account-panel={drawn} data-account-panel-swap="" className="mt-5 space-y-4 sm:space-y-5">
+      {held}
     </div>
   )
 }

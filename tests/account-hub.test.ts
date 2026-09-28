@@ -81,7 +81,20 @@ console.log("\nThe hub: the person, and the page under them")
   check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\}>\{children\}<\/AccountHub>/.test(layout))
   check("photo, name, @username when there is one, the bio, when they joined", /<AccountAvatar\b/.test(hub) && /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{identity\.username\}/.test(hub) && /Joined \{identity\.memberSince\}/.test(hub) && /data-account-bio=""/.test(hub))
   check("centred: the person in one column", /data-account-profile="" className="flex flex-col items-center text-center"/.test(hub))
-  check("the photo is large: 96px on a phone, 112 from 768px", /className="h-24 w-24 md:h-28 md:w-28"/.test(hub))
+  /*
+    A LITTLE BIGGER, WITH A LITTLE MORE SKY. It was 96 and 112, and this
+    check held it there; the owner asked for "a bit bigger just, and 2%
+    more vertical space between the header at the top and the profile
+    avatar", so it is 104 and 120 over 2vh of room.
+  */
+  check("the photo is large: 104px on a phone, 120 from 768px, with 2vh of room over it", /h-\[104px\] w-\[104px\]/.test(hub) && /md:h-\[120px\] md:w-\[120px\]/.test(hub) && /className="mt-\[2vh\]"/.test(hub))
+  check("  and it wears a white ring and a soft shadow, like a creator's circle", /ring-\[3px\] ring-white/.test(hub) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\),0_8px_24px_-10px_rgba\(16,24,40,0\.28\)\]/.test(hub))
+  /*
+    AND IT OPENS. The same dialog the creator page uses, so the whole
+    photograph is there uncropped, Escape and the ground close it, and
+    focus comes back to the circle.
+  */
+  check("the photo opens full size in the creator page's own lightbox", /import \{ AvatarLightbox \} from "@\/components\/storefront\/avatar-lightbox"/.test(hub) && /<AvatarLightbox src=\{shown\} name=\{identity\.name\}>/.test(hub) && /cursor-zoom-in/.test(hub))
   check("when they joined is written on the server in UTC, so both renders agree", /timeZone: "UTC"/.test(layout) && /memberSince: memberSince\(user\.created_at\)/.test(layout))
   check("Edit profile goes to Settings, prefetched in full", /href="\/account\/settings"\s+prefetch=\{true\}/.test(hub) && /data-account-edit=""/.test(hub))
   /* Two pills reading Overview and Settings, right under a button that went to Settings, were one journey drawn twice. Settings has section pills of its own now. */
@@ -99,7 +112,34 @@ console.log("\nNo light bar of the profile's own: one header on the screen")
   check("and nothing else draws one in its place", !/data-account-bar/.test(settings))
   check("the skeleton reserves no room for one either", !/52px/.test(skeleton) && /pt-6 pb-10/.test(skeleton))
   /* Settings' own top row is a row in the page, not a second bar stuck to the top of a phone. */
-  check("Settings' top row is the X out and the word Settings, and never sticky", /data-account-settings-top=""/.test(settings) && /data-account-settings-close=""/.test(settings) && !/sticky/.test(settings))
+  /*
+    A WAY BACK, NOT A WAY OUT. The round control was an X, which says "you
+    are done here" about a screen reached from the profile and returned to.
+    "Make sure the thing there is not an X, it is a back icon basically."
+  */
+  check("Settings' top row is the way back and the word Settings, and never sticky", /data-account-settings-top=""/.test(settings) && /data-account-settings-close=""/.test(settings) && !/sticky/.test(settings))
+  check("  and it is a chevron that says where it goes, not an X", /<ChevronLeft className="h-\[20px\] w-\[20px\]"/.test(settings) && /aria-label="Back to profile"/.test(settings) && !/<X /.test(settings))
+  /*
+    ONE SECTION DISSOLVES INTO THE NEXT: the one leaving fades out, then
+    the one picked fades in behind it. It used to fade the arriving one up
+    while the other was taken away in the same frame, which the eye reads
+    as a cut ("not so direct, smooth clean").
+  */
+  check("the sections dissolve rather than cut", /function SectionSwap/.test(settings) && /const SWAP_OUT_MS = \d+/.test(settings) && /const SWAP_IN_MS = \d+/.test(settings) && /<SectionSwap section=\{section\}>/.test(settings))
+  check("  the whole move is under a quarter of a second", (Number(settings.match(/SWAP_OUT_MS = (\d+)/)?.[1] ?? 0) + Number(settings.match(/SWAP_IN_MS = (\d+)/)?.[1] ?? 0)) <= 250)
+  check("  a fade that never finishes still lands, and reduced motion just changes", /window\.setTimeout\(land, SWAP_OUT_MS \+ 160\)/.test(settings) && /prefers-reduced-motion: reduce/.test(settings))
+  /* "The photo icon there is too big in the profile avatar circle in the settings." */
+  const avatarPhoto = code("components/account/account-photo.tsx")
+  check("the camera badge is a badge, not a second button", /h-\[26px\] w-\[26px\][^"]*ring-\[2\.5px\]/.test(avatarPhoto) && /<Camera className="h-\[13px\] w-\[13px\]"/.test(avatarPhoto))
+  /*
+    AND A PHOTO JUST CHANGED SHOWS AT ONCE IN THE BLACK BAR. Settings
+    already announced it to the shell's copy; the public header asked the
+    database once on mount and kept that answer, so the old picture stayed
+    up there until a full reload.
+  */
+  const header = code("components/platform/platform-header-client.tsx")
+  check("the site header reads the shell's copy, so a new photo is there without a reload", /import \{ useShellAvatar \} from "@\/lib\/account\/avatar-store"/.test(header) && /useShellAvatar\(profile \? profile\.avatar_url : cachedAvatarUrl\)/.test(header))
+  check("  and Settings is what announces it, on a save and on a remove", (avatarPhoto.match(/announceAvatar\(/g) ?? []).length >= 2)
 }
 
 console.log("\nOne face per screen")
@@ -108,7 +148,8 @@ console.log("\nOne face per screen")
   const photo = code("components/account/account-photo.tsx")
   const settings = code("components/account/account-settings.tsx")
   /* "the settings tab opens with the same two profile pictures there, it looks ugly": the hub bows out on Settings, so its one circle is Settings' own. */
-  check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar src=\{shown\} name=\{identity\.name\} size=\{112\}/.test(hub) && !/useAccountPhoto/.test(hub))
+  /* It opens the picture now, which is a viewer, not a photo control: still no picker and no camera here. */
+  check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar\s+src=\{shown\}\s+name=\{identity\.name\}\s+size=\{120\}/.test(hub) && !/useAccountPhoto/.test(hub) && !/photo=\{/.test(hub) && !/editable/.test(hub))
   check("Settings' circle is the control: pressed, it opens the picker", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(settings) && /useAccountPhoto\(userId/.test(settings) && /\{editable && photo \? \(\s*<button[\s\S]{0,120}onClick=\{photo\.pick\}/.test(photo))
   check("Change photo and Remove sit beside it, and the picker is drawn once", /data-photo-change=""/.test(settings) && /data-photo-remove=""/.test(settings) && (settings.match(/\{photo\.input\}/g) ?? []).length === 1)
   check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && /fetch\("\/api\/account\/avatar"/.test(photo) && /announceAvatar\(publicUrl\)/.test(photo) && /announceAvatar\(null\)/.test(photo))

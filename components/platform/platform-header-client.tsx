@@ -27,6 +27,7 @@ import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
@@ -1162,7 +1163,17 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   // fallback to the Google picture, so a photo removed in Settings stays removed.
   // cachedAvatarUrl seeds from localStorage so the correct avatar shows on the FIRST render
   // (before the async profile fetch resolves), preventing the placeholder flash.
-  const avatarUrl = (profile ? profile.avatar_url : cachedAvatarUrl) || undefined
+  /*
+    AND A PHOTO JUST CHANGED IS THIS ONE, WITHOUT A RELOAD. Everything in
+    /app already reads the shell's copy (lib/account/avatar-store), which
+    Settings writes the moment it saves or removes a picture, in this tab
+    and in every other one. This header did not: it asked the database once
+    on mount and then kept that answer, so changing your photo in Settings
+    left the old one in the black bar until the next full load. It reads
+    the same copy now, and falls back to what it fetched, so "it updates
+    the profile image in realtime, in the top bar and in the header".
+  */
+  const avatarUrl = useShellAvatar(profile ? profile.avatar_url : cachedAvatarUrl) || undefined
 
   const displayName =
     profile?.display_name ||
