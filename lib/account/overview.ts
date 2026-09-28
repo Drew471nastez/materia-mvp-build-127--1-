@@ -42,10 +42,36 @@ export interface OverviewPurchase {
   href: string
 }
 
+/**
+ * THE WAY INTO SELLING, ONE OF THREE (lib/account/seller-access.ts):
+ *
+ *   "seller"   Dashboard, to /app. Only an account whose onboarding is
+ *              finished; the owner: "The Dashboard thing in the profile page
+ *              should not appear if I'm not a seller; then it should show
+ *              Become a seller."
+ *   "started"  Finish setting up your store, to /sell, which opens the
+ *              onboarding again where it was left.
+ *   "none"     Become a seller, to /sell, which starts it for this same
+ *              account, keeping everything bought and saved.
+ */
+export interface SellingEntry {
+  key: "dashboard" | "finish" | "become"
+  href: "/app" | "/sell"
+  title: string
+  detail: string
+}
+
+export function sellingEntry(state: SellerState): SellingEntry {
+  if (state === "seller") return { key: "dashboard", href: "/app", title: "Dashboard", detail: "Your store, products and sales." }
+  if (state === "started") return { key: "finish", href: "/sell", title: "Finish setting up your store", detail: "Pick up seller setup where you left it." }
+  return { key: "become", href: "/sell", title: "Become a seller", detail: "Sell on Storelib with this same account." }
+}
+
 export interface AccountOverviewData {
   facts: OverviewFact[]
   recent: OverviewPurchase[]
   seller: SellerState
+  selling: SellingEntry
 }
 
 /** The courses as lib/courses/load.ts loadMyCourses returns them, the part this needs. */
@@ -121,5 +147,5 @@ export function accountOverview({ items, courses, memberships, wishlist, seller 
       href: `/library/products/${i.productId}`,
     }))
 
-  return { facts, recent, seller }
+  return { facts, recent, seller, selling: sellingEntry(seller) }
 }

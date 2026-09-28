@@ -7,7 +7,13 @@
  *
  *   LAYOUT    Overview and Settings at 360, 390, 430 and 1280: nothing
  *             sideways, every control a thumb's size on a phone, no field
- *             on Overview, the name field on Settings
+ *             on Overview, the name field on Settings; one photo on the
+ *             screen (never Settings' second one), the photo, name, button
+ *             and tabs on the centre line; on a phone no black header and
+ *             the profile's light bar at the top, edge to edge, its
+ *             hairline only once scrolled; at 1280 the header and no bar
+ *   SELLING   Dashboard, Finish setting up your store, Become a seller,
+ *             for the three states, and a Dashboard link only for a seller
  *   SWITCH    Overview to Settings and back, pressed, at 1x and at 4x CPU
  *             throttle, sampled on every animation frame: the pressed tab's fill
  *             answers before the page arrives and is full within its
@@ -124,6 +130,24 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       edit: getComputedStyle(document.querySelector("[data-account-edit]")).visibility,
       cards: [...document.querySelectorAll("[data-account-card]")].map((c) => c.getAttribute("data-account-card")),
       nameClipped: (() => { const h = document.querySelector("h1"); return h.scrollWidth > h.clientWidth })(),
+      /* Every circle drawn with a face or initials in it, on the whole page. */
+      avatars: [...document.querySelectorAll("[data-app-avatar], [data-account-avatar], [data-profile-photo]")].filter((el) => {
+        const r = el.getBoundingClientRect()
+        return r.width > 24 && getComputedStyle(el).visibility !== "hidden" && !el.parentElement.closest("[data-account-avatar]")
+      }).length,
+      photoActions: getComputedStyle(document.querySelector("[data-account-photo-actions]")).visibility,
+      camera: +getComputedStyle(document.querySelector("[data-account-avatar-camera]")).opacity,
+      avatarEdit: !!document.querySelector("[data-account-avatar-edit]"),
+      centre: (() => {
+        const mid = (el) => { const r = el.getBoundingClientRect(); return Math.round((r.left + r.right) / 2) }
+        return { page: Math.round(innerWidth / 2), avatar: mid(document.querySelector("[data-account-avatar]")), name: mid(document.querySelector("h1")), tabs: mid(document.querySelector("[data-account-tabs] > div")), edit: mid(document.querySelector("[data-account-actions]")) }
+      })(),
+      bar: (() => {
+        const b = document.querySelector("[data-account-bar]")
+        const r = b.getBoundingClientRect()
+        return { shown: getComputedStyle(b).display !== "none", top: Math.round(r.top), left: Math.round(r.left), width: Math.round(r.width), height: Math.round(r.height), title: document.querySelector("[data-account-bar-title]").textContent, bg: getComputedStyle(b).backgroundColor, line: +getComputedStyle(document.querySelector("[data-account-bar-line]")).opacity }
+      })(),
+      blackHeader: (() => { const h = document.querySelector("[data-probe-header]"); return !!h && getComputedStyle(h).display !== "none" })(),
     }
   })
 
@@ -139,6 +163,12 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(l.h1 === "Alex Morgan" && l.tabs.join() === (settings ? "overview,settings*" : "overview*,settings"), `${path}: the person, then the tab it is`, { h1: l.h1, tabs: l.tabs })
       if (settings) expect(l.fields.includes("name") && l.edit === "hidden" && l.cards.join() === "profile,email,preferences,log-out,delete", "Settings: the name field and the account's cards; Edit profile has gone", { fields: l.fields, cards: l.cards })
       else expect(l.fields.length === 0 && l.edit === "visible" && l.cards.join() === "library,recent,selling", "Overview: nothing to type, Edit profile there", { fields: l.fields, cards: l.cards })
+      expect(l.avatars === 1, `${path}: one photo on the screen, never two`, l.avatars)
+      if (settings) expect(l.photoActions === "visible" && l.camera === 1 && l.avatarEdit, "Settings: the big photo is the control, Change photo where Edit profile was", { actions: l.photoActions, camera: l.camera, edit: l.avatarEdit })
+      else expect(l.photoActions === "hidden" && l.camera === 0 && !l.avatarEdit, "Overview: the photo is only a photo", { actions: l.photoActions, camera: l.camera })
+      const off = Object.entries(l.centre).filter(([k, v]) => k !== "page" && Math.abs(v - l.centre.page) > 1)
+      expect(off.length === 0, `${path}: photo, name, the button and the tabs on the page's centre line`, l.centre)
+      expect(!l.blackHeader && l.bar.shown && l.bar.top === 0 && l.bar.left === 0 && l.bar.width === w && l.bar.height === 52 && l.bar.title === (settings ? "Settings" : "Profile") && l.bar.line === 0, `${path}: no black header; the light bar edge to edge at the top, titled, no hairline at rest`, l.bar)
       if (w === 390 || w === 360) await p.screenshot({ path: join(shots, `${settings ? "settings" : "overview"}-${w}.png`), fullPage: true })
       expect(errors.length === 0, "no errors", errors)
       await p.close()
@@ -151,12 +181,39 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.screenshot({ path: join(shots, "overview-360-long-empty.png"), fullPage: true })
     await p.close()
   }
+  console.log("\nselling, phone 390")
+  for (const [state, key, title] of [["seller", "dashboard", "Dashboard"], ["started", "finish", "Finish setting up your store"], ["none", "become", "Become a seller"]]) {
+    const { p } = await open(phone(390), "/account", { __seller: state })
+    const got = await p.evaluate(() => {
+      const row = document.querySelector("[data-account-selling]")
+      return { key: row.getAttribute("data-account-selling"), href: row.getAttribute("href"), title: row.querySelector("p").textContent, dashboards: document.querySelectorAll('a[href="/app"]').length }
+    })
+    expect(got.key === key && got.title === title && got.href === (state === "seller" ? "/app" : "/sell") && got.dashboards === (state === "seller" ? 1 : 0), `${state}: ${title}, and a Dashboard link only for a seller`, got)
+    if (state !== "seller") await p.screenshot({ path: join(shots, `selling-${state}-390.png`), clip: await p.evaluate(() => { const r = document.querySelector("[data-account-card=selling]").getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: r.height + 16 } }) })
+    await p.close()
+  }
+  console.log("\nthe bar, scrolled, phone 390")
+  {
+    const { p } = await open(phone(390), "/account/settings", { __photo: true })
+    await p.evaluate(() => window.scrollTo(0, 400))
+    await sleep(400)
+    const bar = await p.evaluate(() => ({ top: Math.round(document.querySelector("[data-account-bar]").getBoundingClientRect().top), line: +getComputedStyle(document.querySelector("[data-account-bar-line]")).opacity, scrolled: document.querySelector("[data-account-bar]").hasAttribute("data-scrolled") }))
+    expect(bar.top === 0 && bar.line === 1 && bar.scrolled, "it stays at the top, and its hairline shows once the page is under it", bar)
+    await p.screenshot({ path: join(shots, "settings-390-scrolled.png") })
+    await p.evaluate(() => window.scrollTo(0, 0))
+    await sleep(400)
+    expect((await p.evaluate(() => +getComputedStyle(document.querySelector("[data-account-bar-line]")).opacity)) === 0, "and hides again at the top")
+    await p.screenshot({ path: join(shots, "settings-390-photo.png") })
+    await p.close()
+  }
   console.log("\ndesktop 1280")
   for (const path of ["/account", "/account/settings"]) {
     const { p, errors } = await open(DESK, path, { __seller: true })
     const l = await layout(p)
     const col = await p.evaluate(() => Math.round(document.querySelector("[data-probe-account-column]").getBoundingClientRect().width))
     expect(l.sideways <= 0 && col === 720, `${path}: one 720px column, nothing sideways`, { col, sideways: l.sideways })
+    expect(l.blackHeader && !l.bar.shown && l.avatars === 1, `${path}: the site header, not the phone's bar, and one photo`, { header: l.blackHeader, bar: l.bar.shown, avatars: l.avatars })
+    expect(Object.entries(l.centre).every(([k, v]) => k === "page" || Math.abs(v - l.centre.page) <= 1), `${path}: centred in the column`, l.centre)
     if (!path.endsWith("settings")) expect(await p.evaluate(() => !!document.querySelector('a[href="/app"][data-account-row="dashboard"]')), "a seller gets Dashboard")
     await p.screenshot({ path: join(shots, `${path.endsWith("settings") ? "settings" : "overview"}-1280.png`), fullPage: true })
     expect(errors.length === 0, "no errors", errors)

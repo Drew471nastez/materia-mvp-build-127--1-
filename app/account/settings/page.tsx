@@ -61,7 +61,6 @@ export default async function AccountSettingsRoute() {
       userId={user.id}
       email={user.email || ""}
       name={profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || ""}
-      avatarUrl={profile?.avatar_url || null}
       createdAt={user.created_at}
       hasPassword={hasPassword}
       via={via}
