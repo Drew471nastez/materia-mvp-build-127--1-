@@ -78,7 +78,7 @@ export default async function UpgradePage() {
       .maybeSingle()
 
     if (!creator) {
-      redirect("/signup/success")
+      redirect("/sell")
     }
 
     // Fetch plans

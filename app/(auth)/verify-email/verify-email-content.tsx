@@ -8,6 +8,8 @@ import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { AuthLogo } from "@/components/auth/auth-logo"
+import { continueHref, readCarry } from "@/lib/auth/continue"
+import { getMainDomain } from "@/lib/url-helpers"
 
 export default function VerifyEmailContent() {
   const [verificationCode, setVerificationCode] = useState("")
@@ -127,11 +129,14 @@ export default function VerifyEmailContent() {
         return
       }
 
-      // After verification, always go to the role chooser.
-      // /signup/success decides creator → /app or buyer → /library.
+      /*
+        On through /auth/continue (lib/auth/continue.ts), with Sell on
+        Storelib and the return page if they came with them: a plain
+        signup lands on Discover, Sell on Storelib goes into seller
+        onboarding. A hard navigation, so the server reads the fresh row.
+      */
       setTimeout(() => {
-        router.push("/signup/success")
-        router.refresh()
+        window.location.replace(continueHref(readCarry(searchParams, getMainDomain())))
       }, 1500)
     } catch (err) {
       console.error("[VerifyEmail] Error verifying code:", err)

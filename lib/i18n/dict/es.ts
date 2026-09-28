@@ -141,6 +141,7 @@ export const esDict: Record<string, string> = {
   "auth.setting_new_password_for": "Estableciendo nueva contraseña para",
   "auth.signing_you_in": "Iniciando tu sesión...",
   "auth.signup_subtitle": "¡Regístrate gratis!",
+  "auth.signup_subtitle_sell": "Crea tu cuenta y luego configura tu tienda.",
   "auth.signup_title": "Únete a Storelib",
   "auth.spam_junk_folder": "carpeta de spam o correo no deseado",
   "auth.switch_later": "Puedes cambiar más adelante.",

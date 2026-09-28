@@ -429,7 +429,8 @@ function main() {
     )
     check(
       "the platform checks a return target before following it",
-      /safeReturnTarget/.test(read("app/(auth)/login/page.tsx")) &&
+      /* Changed on purpose: the login page reads `next` with readCarry (lib/auth/continue.ts), which checks it with safeReturnTarget. */
+      /readCarry\(searchParams, getMainDomain\(\)\)/.test(read("app/(auth)/login/page.tsx")) && /safeReturnTarget\(raw, \{ mainDomain \}\)/.test(read("lib/auth/continue.ts")) &&
         /safeReturnTarget/.test(read("app/account/continue/route.ts")),
       "an unchecked one turns sign-in into an open redirect",
     )

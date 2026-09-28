@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { sameOriginPath } from "@/lib/auth/continue"
 
 /**
  * GET /app/auth/callback?bridge_token=<uuid>&next=<path>
@@ -32,7 +33,8 @@ import { NextResponse } from "next/server"
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const bridgeToken = searchParams.get("bridge_token")
-  const next = searchParams.get("next") || "/app"
+  /* A path on this site only: `${canonicalUrl}${next}` with "@evil.com" in it is another host (lib/auth/continue.ts). */
+  const next = sameOriginPath(searchParams.get("next"), "/app")
   const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
 
   // ── Web fallback: no bridge token ───────────────────────────────────────

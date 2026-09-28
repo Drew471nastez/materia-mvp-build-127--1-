@@ -27,6 +27,7 @@
 
 import { useEffect, useState, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
+import { sameOriginPath } from "@/lib/auth/continue"
 
 function AppCallbackContent() {
   const searchParams = useSearchParams()
@@ -44,7 +45,8 @@ function AppCallbackContent() {
     try {
       const token        = searchParams.get("token")
       const refreshToken = searchParams.get("refresh_token")
-      const next         = searchParams.get("next") || "/app"
+      /* A path on this site only: it is followed with location.replace below, where "javascript:" would run (lib/auth/continue.ts). */
+      const next         = sameOriginPath(searchParams.get("next"), "/app")
       const isNativeParam = searchParams.get("native") === "true"
 
       console.log("[app-callback] Bridge page mounted")

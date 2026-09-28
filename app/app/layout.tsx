@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { Toaster } from "@/components/ui/toaster"
@@ -139,15 +140,17 @@ export default async function AppLayout({
     redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
   }
 
-  // Gate 2: role must be selected (creator OR buyer with welcome_completed)
-  const roleSelected = gateCheck.is_creator === true || gateCheck.welcome_completed === true
-  if (!roleSelected) {
-    redirect("/signup/success")
-  }
-
-  // No creator record or onboarding not completed - redirect to welcome selection
-  if (!creator || creator.onboarding_completed !== true) {
-    redirect("/signup/success")
+  /*
+    Gate 2: SELLER ACCESS (lib/account/seller-access.ts). /app is the seller
+    side of an account. A buyer, or somebody whose seller setup was begun
+    and not finished, who opens it (a link, a bookmark, Dashboard remembered
+    from somewhere) is sent to /sell, which opens seller onboarding, rather
+    than being shown a dashboard with no creator behind it. From the rows
+    already read above, so it costs nothing. The old "role must be selected"
+    gate went with the creator or buyer question it was about.
+  */
+  if (!creator || !hasSellerAccess(sellerAccessFrom({ creator, profile: gateCheck }))) {
+    redirect("/sell")
   }
 
   /*

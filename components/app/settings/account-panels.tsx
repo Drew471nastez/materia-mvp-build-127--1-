@@ -122,7 +122,7 @@ export function Switch({
  * fails. Presses made while a save is in flight are not lost and not sent
  * twice: the last value asked for is saved once the first save returns.
  */
-function useSavedSwitch(initial: boolean, save: (value: boolean) => Promise<void>) {
+export function useSavedSwitch(initial: boolean, save: (value: boolean) => Promise<void>) {
   const [value, setValue] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -191,7 +191,7 @@ export function Saved({ at }: { at: number }) {
   )
 }
 
-function PrivacyRow({
+export function PrivacyRow({
   id,
   title,
   detail,
@@ -213,7 +213,7 @@ function PrivacyRow({
   )
 }
 
-async function savePreference(body: Record<string, boolean>) {
+export async function savePreference(body: Record<string, boolean>) {
   let res: Response
   try {
     res = await fetch("/api/account/preferences", {
@@ -434,7 +434,13 @@ function BrowserNotificationsRow() {
 
 /* ─────────────────────────────── Password ─────────────────────────────── */
 
-function PasswordCard({ email }: { email: string }) {
+/*
+ * `hasPassword` false is an account that signs in with Google or Apple only
+ * and has never had a password. Supabase sets one the same way it changes
+ * one, so the card is the same card, asking to SET rather than change; the
+ * buyer's account page (components/account/account-page.tsx) passes it.
+ */
+export function PasswordCard({ email, hasPassword = true, via }: { email: string; hasPassword?: boolean; via?: string }) {
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [nonce, setNonce] = useState("")
@@ -528,7 +534,9 @@ function PasswordCard({ email }: { email: string }) {
         Password
       </h3>
       <p className="mt-1 text-[13px] leading-[1.45] text-[#6b7280]">
-        Changing it signs you out on your other devices.
+        {hasPassword
+          ? "Changing it signs you out on your other devices."
+          : `You sign in with ${via || "another account"}. Set a password to sign in with your email too.`}
       </p>
 
       {!open ? (
@@ -543,12 +551,14 @@ function PasswordCard({ email }: { email: string }) {
             className={OPEN_STEP}
             data-password-open=""
           >
-            Change password
+            {hasPassword ? "Change password" : "Set a password"}
           </button>
+          {hasPassword ? (
           <button type="button" onClick={sendReset} disabled={resetBusy} className={TEXT_ACTION} data-password-reset="">
             {resetBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             Email me a reset link
           </button>
+          ) : null}
         </div>
       ) : (
       <>
@@ -573,7 +583,7 @@ function PasswordCard({ email }: { email: string }) {
         {/* For password managers: which account this password belongs to. */}
         <input type="email" autoComplete="username" value={email} readOnly hidden />
         <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">New password</span>
+          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{hasPassword ? "New password" : "Password"}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -585,7 +595,7 @@ function PasswordCard({ email }: { email: string }) {
           />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">Confirm new password</span>
+          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{hasPassword ? "Confirm new password" : "Confirm password"}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -613,7 +623,7 @@ function PasswordCard({ email }: { email: string }) {
         <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-center">
           <button type="button" onClick={() => void change()} disabled={busy || !password || !confirm || (step === "reauth" && !nonce)} className={INK} data-password-submit="">
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            {step === "reauth" ? "Confirm and change" : "Change password"}
+            {step === "reauth" ? "Confirm and change" : hasPassword ? "Change password" : "Set password"}
           </button>
           <button type="button" onClick={cancel} disabled={busy} className={OPEN_STEP} data-password-cancel="">
             Cancel
@@ -625,7 +635,7 @@ function PasswordCard({ email }: { email: string }) {
       )}
 
       {error && <Note tone="error">{error}</Note>}
-      {done && <Note tone="ok">Password changed. Your other devices were signed out.</Note>}
+      {done && <Note tone="ok">{hasPassword ? "Password changed. Your other devices were signed out." : "Password set. You can now sign in with your email and this password."}</Note>}
       {resetNote && <Note tone={resetNote.tone}>{resetNote.text}</Note>}
     </section>
   )

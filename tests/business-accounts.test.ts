@@ -138,12 +138,14 @@ function switchScreen() {
   const created = read("lib/businesses/switch-client.ts")
   check("making one never waits forever, and no answer in time says where to look rather than to press again",
     /post\("\/api\/businesses", \{\}, CREATE_TIMEOUT_MS\)/.test(created) && /CREATE_TIMEOUT_MS = 30_000/.test(created) && /CREATE_NO_ANSWER/.test(created) && /"\/signup\/success\?action=become-creator&business=new", steps\)/.test(created))
-  const success = read("app/(auth)/signup/success/page.tsx")
+  /* Changed on purpose: the page is a server component now (the creator or buyer question is gone and every other arrival is redirected), and its New business screen is ./success-content.tsx. */
+  const successPage = read("app/(auth)/signup/success/page.tsx")
+  const success = read("app/(auth)/signup/success/success-content.tsx")
   check("the setup page's first HTML is that screen for a new business, read from the address on the server",
-    /use\(searchParams\)\.business === "new"/.test(success) && /<Suspense fallback=\{newBusiness \? <NewBusinessScreen \/> : <AuthResolvingScreen \/>\}>/.test(success))
+    /query\.get\("business"\) === "new"/.test(successPage) && /<Suspense fallback=\{<NewBusinessScreen \/>\}>/.test(successPage))
   check("  kept while the session is found, fading out under the setup's first step, never the welcome choice",
     /if \(newBusiness && \(!settled \|\| showCreatorOnboarding\)\)/.test(success) && /<NewBusinessScreen leaving=\{settled && showCreatorOnboarding\} \/>/.test(success)
-      && success.indexOf("if (newBusiness && (!settled") < success.indexOf("return <AuthResolvingScreen />"))
+      && !/handleChoice|setHoveredCard/.test(success))
   check("  the same surface, spinner and line as the menu's screen, fading on opacity only",
     /export function NewBusinessScreen\(\{ leaving = false \}/.test(read("components/app/business-switch-screen.tsx")) && /<Screen step="starting" name="" ready=\{false\} surface="plain" leaving=\{leaving\} \/>/.test(read("components/app/business-switch-screen.tsx"))
       && /surface=\{creating \? "plain" : "app"\}/.test(read("components/app/business-switch-screen.tsx")) && /transition-opacity ease-out motion-reduce:transition-none/.test(read("components/app/business-switch-screen.tsx")))
@@ -484,7 +486,7 @@ function main() {
   check("Settings on the phone's sheet only: on a desktop the rail beside it has Settings",
     !/"\/app\/settings"/.test(desktopMenu) && /"\/app\/settings"/.test(phoneMenu) && /href="\/app\/settings"/.test(read("components/app/sidebar-desktop-nav.tsx")))
   check("a second business goes straight into onboarding with its way back",
-    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/page.tsx")) && /* Changed on purpose: the way back is one value both of the page's paths hand the onboarding, and it carries the switch's screen into /app. */ /const switchBack = firstBusiness\s*\?\s*\{ name: firstBusiness\.name, onSwitch: \(\) => switchBusiness\(firstBusiness\.userId, "\/app", \{ arrival: \{ name: firstBusiness\.name, photo: firstBusiness\.avatarUrl \}, business: firstBusiness \}\) \}/.test(read("app/(auth)/signup/success/page.tsx")) && (read("app/(auth)/signup/success/page.tsx").match(/switchBack=\{switchBack\}/g) ?? []).length === 2 && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
+    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/success-content.tsx")) && /* Changed on purpose: the way back is one value both of the page's paths hand the onboarding, and it carries the switch's screen into /app. */ /const switchBack = firstBusiness\s*\?\s*\{ name: firstBusiness\.name, onSwitch: \(\) => switchBusiness\(firstBusiness\.userId, "\/app", \{ arrival: \{ name: firstBusiness\.name, photo: firstBusiness\.avatarUrl \}, business: firstBusiness \}\) \}/.test(read("app/(auth)/signup/success/success-content.tsx")) && /* Changed on purpose: one path now, the chooser's is gone. */ (read("app/(auth)/signup/success/success-content.tsx").match(/switchBack=\{switchBack\}/g) ?? []).length === 1 && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
   check("the onboarding is the whole screen in the app", /setNativeFullScreen\(isNativeApp\(\)\)/.test(read("components/app/creator-onboarding-modal.tsx")))
   const del = read("app/api/auth/delete-account/route.ts")
   /* Changed on purpose: a login can have two businesses besides its first, so deleting it deletes each of them. */
