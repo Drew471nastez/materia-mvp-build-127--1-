@@ -549,11 +549,13 @@ function LessonSheet({ open, onClose, children }: { open: boolean; onClose: () =
   }, [open, mounted])
   if (!mounted) return null
   return (
-    <div className="fixed inset-0 z-[80] lg:hidden" role="dialog" aria-modal="true" aria-label="Lessons" data-lesson-sheet={shown ? "open" : "closed"}>
+    /* Above the phone's tab bar, never over it (--buyer-tabs-h, app/globals.css): the bar stays a way out. */
+    <div className="fixed inset-x-0 top-0 z-[80] lg:hidden" style={{ bottom: "var(--buyer-tabs-h, 0px)" }} role="dialog" aria-modal="true" aria-label="Lessons" data-lesson-sheet={shown ? "open" : "closed"}>
       <div className={`absolute inset-0 bg-black/40 transition-opacity duration-200 motion-reduce:transition-none ${shown ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
       <div
-        className={`absolute inset-x-0 bottom-0 flex max-h-[82svh] flex-col rounded-t-2xl bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-[translate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${shown ? "translate-y-0" : "translate-y-full"}`}
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        className={`absolute inset-x-0 bottom-0 flex max-h-[calc(82svh-var(--buyer-tabs-h,0px))] flex-col rounded-t-2xl bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-[translate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${shown ? "translate-y-0" : "translate-y-full"}`}
+        /* The home indicator's inset is under the tab bar when there is one; only without it does the sheet keep its own. */
+        style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom, 0px) - var(--buyer-tabs-h, 0px))" }}
         onTransitionEnd={() => !open && setMounted(false)}
       >
         <div className="relative flex shrink-0 justify-center pb-1 pt-2.5">

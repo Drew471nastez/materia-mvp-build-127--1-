@@ -8,7 +8,8 @@
  *
  *   LAYOUT    nothing scrolls sideways; the video is 16:9, edge to edge on a
  *             phone; the lessons sit beside it on a computer and in a sheet
- *             from "Lessons" on a phone
+ *             from "All lessons" on a phone,
+ *             standing on the buyer's tab bar (--buyer-tabs-h)
  *   RESUME    the lesson opens at the second it was left (12s), and says so
  *   PLAY      it plays inline (playsinline), the played bar moves, the
  *             buffered bar is drawn
@@ -130,7 +131,7 @@ async function open(vp, mode, expiresIn = 3_600_000) {
       localStorage.clear()
     } catch {}
   })
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><script>window.__MODE=${JSON.stringify(mode)};${fetchStub(expiresIn)}</script></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><script>window.__MODE=${JSON.stringify(mode)};document.documentElement.dataset.buyerTabs="shown";${fetchStub(expiresIn)}</script></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   await p.setRequestInterception(true)
   p.on("request", (r) => {
     const u = new URL(r.url())
@@ -293,7 +294,8 @@ for (const [label, vp] of [
       const s = document.querySelector("[data-lesson-sheet] > div:last-child").getBoundingClientRect()
       return { bottom: Math.round(s.bottom), height: Math.round(s.height), rows: document.querySelectorAll("[data-lesson-sheet] [data-lesson-row]").length }
     })
-    expect(sheet.bottom === 844 && sheet.height <= 844 * 0.83 && sheet.rows === 8, "SHEET: anchored to the bottom, under 83% tall, every lesson in it", sheet)
+    /* The buyer's tab bar is 56px on a phone (--buyer-tabs-h): the sheet stands on it. */
+    expect(sheet.bottom === 844 - 56 && sheet.height <= 844 * 0.83 && sheet.rows === 8, "SHEET: stands on the tab bar, under 83% tall, every lesson in it", sheet)
     await p.screenshot({ path: join(shots, `${label}-player-sheet.png`) })
     await p.tap("[data-lesson-sheet] button[aria-label=Close]")
     await sleep(450)
