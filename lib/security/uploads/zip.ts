@@ -91,6 +91,14 @@ export interface EndRecord {
   zip64: boolean
   /** Where the end record itself sits in the file, so a glued-on prefix can be measured. */
   recordAt: number
+  /**
+   * The record is the last thing in the file, as the format says it must be.
+   * Four bytes of a large video will now and then happen to be the same four
+   * bytes an end record starts with, and this is what tells those apart from
+   * a real archive: a chance match almost never also ends exactly at the end
+   * of the file.
+   */
+  atEndOfFile: boolean
 }
 
 /**
@@ -121,7 +129,7 @@ export function findEndRecord(tail: Uint8Array, tailStart: number): EndRecord | 
       directoryOffset = u64(tail, recordAt + 48)
       zip64 = true
     }
-    return { directoryOffset, directorySize, entries, zip64, recordAt: tailStart + i }
+    return { directoryOffset, directorySize, entries, zip64, recordAt: tailStart + i, atEndOfFile: i + 22 + commentLength === tail.length }
   }
   return null
 }
@@ -303,6 +311,8 @@ export async function readZipDirectory(input: {
   read?: RangeReader
   limits: ArchiveLimits
   deadline: number
+  /** The first bytes are a ZIP's own. Settles it on its own. */
+  looksLikeZip?: boolean
 }): Promise<ZipReadResult> {
   let tail = input.tail ?? null
   if (!tail || (tail.start > 0 && tail.bytes.length < Math.min(ZIP_TAIL_BYTES, input.size))) {
@@ -315,8 +325,18 @@ export async function readZipDirectory(input: {
   }
   const end = findEndRecord(tail.bytes, tail.start)
   if (!end) return { ok: false, reason: "not_a_zip", detail: "no end of central directory record", isZip: false }
+  /*
+    IS IT AN ARCHIVE, OR FOUR BYTES THAT LOOK LIKE ONE? A large video or
+    sample pack has tens of thousands of positions in its last 64 KB, and one
+    of them can happen to hold the four bytes an end record starts with. A
+    real archive's end record is the LAST thing in the file, and a file whose
+    first bytes are an archive's is one too. Without either, this is a chance
+    match: the checks below are not run on it and, more to the point, it is
+    not refused for failing them.
+  */
+  const certain = end.atEndOfFile || input.looksLikeZip === true
   if (end.directorySize > input.limits.maxDirectoryBytes) {
-    return { ok: false, reason: "directory_too_large", detail: `directory is ${end.directorySize} bytes`, declaredEntries: end.entries, isZip: true }
+    return { ok: false, reason: "directory_too_large", detail: `directory is ${end.directorySize} bytes`, declaredEntries: end.entries, isZip: certain }
   }
   /* Where the list is, and where it is if something is glued in front. */
   const glued = end.recordAt - end.directorySize - end.directoryOffset
@@ -332,7 +352,7 @@ export async function readZipDirectory(input: {
       bytes = tail.bytes.subarray(from, from + end.directorySize)
     } else if (input.read && end.directorySize > 0) {
       if (Date.now() > input.deadline) {
-        return { ok: false, reason: "too_slow", detail: "no time left to read the list", declaredEntries: end.entries, isZip: true }
+        return { ok: false, reason: "too_slow", detail: "no time left to read the list", declaredEntries: end.entries, isZip: certain }
       }
       bytes = await input.read(at, at + end.directorySize - 1)
     }
@@ -349,11 +369,11 @@ export async function readZipDirectory(input: {
     return { ok: true, dir: { entries: [], prefixBytes: 0, declaredEntries: 0, zip64: end.zip64, directoryOffset: end.directoryOffset, directorySize: 0 } }
   }
   if (!readAnything) {
-    return { ok: false, reason: "bad_directory", detail: "the list could not be read", declaredEntries: end.entries, isZip: true }
+    return { ok: false, reason: "bad_directory", detail: "the list could not be read", declaredEntries: end.entries, isZip: certain }
   }
   /* An end record with a list that holds no record at all is not a list. */
   if (entries.length === 0 && end.entries > 0) {
-    return { ok: false, reason: "bad_directory", detail: `${end.entries} entries promised, none readable`, declaredEntries: end.entries, isZip: true }
+    return { ok: false, reason: "bad_directory", detail: `${end.entries} entries promised, none readable`, declaredEntries: end.entries, isZip: certain }
   }
   return {
     ok: true,

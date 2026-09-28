@@ -229,6 +229,21 @@ async function main() {
     check("a list larger than the ceiling is refused, not waved through", !v.ok && (v.code === "zip_directory_unreadable" || v.code === "zip_too_many_entries"), { ok: v.ok, code: v.code, detail: v.detail })
     check("and the creator reads one calm sentence", v.userMessage === "We couldn't accept this file. Try another file.", v.userMessage)
 
+    /* FOUR BYTES THAT HAPPEN TO LOOK LIKE ONE. A big video has tens of
+       thousands of places in its last 64 KB where the end record's own four
+       bytes can turn up by chance, and refusing those would refuse real
+       files. A chance match does not also end exactly at the end of the
+       file, which is what tells them apart. */
+    const video = new Uint8Array(200_000)
+    video.set(MP4, 0)
+    /* An end record's signature, claiming a 90 MB list, a long way from the end. */
+    video.set([0x50, 0x4b, 0x05, 0x06], 120_000)
+    new DataView(video.buffer).setUint32(120_000 + 12, 90 * 1024 * 1024, true)
+    const chance = await inspectUpload(whole(video, "lesson-04.mp4", "product_file", "video/mp4"))
+    check("a video with those four bytes somewhere inside is still accepted", chance.ok, { ok: chance.ok, code: chance.code, detail: chance.detail })
+    const sameInAudio = await inspectUpload(whole(video, "stem.wav"))
+    check("and so is any other large file", sameInAudio.ok, { ok: sameInAudio.ok, code: sameInAudio.code })
+
     /* The same, but storage would not answer at all: kept, and written down. */
     const outage = await inspectUpload({ fileName: "pack.zip", size: 900_000_000, head: real.subarray(0, 64), context: "product_file", readRange: async () => null })
     check("a storage outage still accepts the file, with a note for the admin", outage.ok && outage.notes.some((n) => n.code === "zip_not_inspected"), outage)

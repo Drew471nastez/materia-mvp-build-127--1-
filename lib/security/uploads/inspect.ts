@@ -355,7 +355,14 @@ export async function inspectUpload(input: InspectInput): Promise<UploadVerdict>
     const limits = ARCHIVE_LIMITS[theme ? "theme" : "product"]
     const deadline = Date.now() + (input.budgetMs ?? 2500)
     const notes = [...first.notes]
-    const read: ZipReadResult = await readZipDirectory({ size: input.size, tail: input.tail, read: input.readRange, limits, deadline }).catch(
+    const read: ZipReadResult = await readZipDirectory({
+      size: input.size,
+      tail: input.tail,
+      read: input.readRange,
+      limits,
+      deadline,
+      looksLikeZip: first.detectedType === "application/zip",
+    }).catch(
       (e: unknown): ZipReadResult => ({ ok: false, reason: "read_failed", detail: e instanceof Error ? e.message : "read failed", isZip: false }),
     )
     if (read.ok === false) {
@@ -375,7 +382,7 @@ export async function inspectUpload(input: InspectInput): Promise<UploadVerdict>
         return refused("zip_directory_unreadable", "not_accepted", `${failed.reason}: ${failed.detail}`, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context)
       }
       /* Not an archive at all: the other checks are the whole answer. */
-      if (failed.reason === "not_a_zip") {
+      if (failed.reason === "not_a_zip" || failed.reason === "bad_directory" || failed.reason === "directory_too_large") {
         if (theme) return refused("not_a_zip", "unsupported_type", failed.detail, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context)
         return first
       }
