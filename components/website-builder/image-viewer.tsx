@@ -20,6 +20,7 @@
 
 import * as React from "react"
 import { Check, ChevronLeft, ChevronRight, Copy, Download, X } from "lucide-react"
+import { anchorCanSave, clickDownloadLink, openDownloadTab, showBlockedDownload } from "@/lib/platform/download-tab"
 
 export interface ViewableImage {
   id: string
@@ -101,14 +102,23 @@ export function ImageViewer({
     }
   }, [image])
 
+  /*
+   * A data: URL is bytes the page already holds and an anchor saves it. An
+   * https one is another origin, where `download` is ignored and the click
+   * was an ordinary navigation: the editor was replaced by the picture.
+   * That one goes to a tab of its own (lib/platform/download-tab).
+   */
   const save = React.useCallback(() => {
     if (!image) return
-    const link = document.createElement("a")
-    link.href = image.url
-    link.download = image.name || "image"
-    document.body.append(link)
-    link.click()
-    link.remove()
+    const name = image.name || "image"
+    if (anchorCanSave(image.url)) {
+      clickDownloadLink(image.url, name)
+      return
+    }
+    const tab = openDownloadTab()
+    if (tab?.point(image.url)) return
+    tab?.close()
+    showBlockedDownload(image.url, name)
   }, [image])
 
   if (!image) return null

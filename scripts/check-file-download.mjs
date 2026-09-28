@@ -23,7 +23,20 @@
  *         in the Android app the Browser plugin opens it and the toast says
  *         Downloads.
  *
+ *   THE PAGE      storage is served from a SECOND PORT here, which is a
+ *         second origin, exactly as Supabase is in production. An anchor's
+ *         `download` is ignored there, so the file goes to a tab of its own
+ *         (lib/platform/download-tab): the editor's address never changes,
+ *         the file list is still drawn, and one tab is asked for. The same
+ *         press is run with storage answering something the browser can
+ *         draw rather than an attachment, which is the shape that used to
+ *         replace the editor, and with the tab refused, where the file
+ *         arrives in a notice instead. A link on our own origin still saves
+ *         through the anchor, and the tab opened before the request is
+ *         closed again with nothing left behind.
+ *
  *   node scripts/check-file-download.mjs        (SHOTS_DIR=dir for pictures)
+ *   ONLY=stays node scripts/check-file-download.mjs   just the section above
  */
 import { createServer } from "node:http"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
@@ -115,8 +128,38 @@ await build({
 const js = readFileSync(join(stubs, "app.js"), "utf8")
 const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script src="/app.js"></script></body></html>`
 
-/* The owner route and storage, stood in. */
-const state = { mode: "ok", api: [], signed: [] }
+/*
+ * The owner route and storage, stood in.
+ *   mode         "ok" or "flagged" (what the owner route answers)
+ *   storage      "cross" (the second origin, as in production) or "same"
+ *   disposition  what storage answers with: an attachment, or something the
+ *                browser draws, which is the shape that lost the page
+ */
+const state = { mode: "ok", storage: "cross", disposition: "attachment", api: [], signed: [] }
+const serveSignedFile = (url, res) => {
+  const download = url.searchParams.get("download") ?? ""
+  state.signed.push(download)
+  const enc = encodeURIComponent(download)
+  if (state.disposition === "inline") {
+    /* No attachment header at all: the browser decides, and a PDF is drawn. */
+    res.writeHead(200, { "content-type": "application/pdf" })
+    return res.end("%PDF-1.4\n%probe\n")
+  }
+  /* What Supabase Storage answers a signed URL with download=<name>. */
+  res.writeHead(200, { "content-type": "application/zip", "content-disposition": `attachment; filename=${enc}; filename*=UTF-8''${enc};` })
+  res.end(Buffer.alloc(2048, 7))
+}
+/* Storage on its own port: a different port is a different origin, which is
+   what makes an anchor's `download` useless, exactly as in production. */
+const fileServer = createServer((req, res) => {
+  const url = new URL(req.url, "http://x")
+  if (url.pathname.startsWith("/storage/v1/object/sign/")) return void serveSignedFile(url, res)
+  res.writeHead(404, { "content-type": "text/plain" })
+  res.end("no")
+})
+await new Promise((r) => fileServer.listen(0, "127.0.0.1", r))
+const storageOrigin = `http://127.0.0.1:${fileServer.address().port}`
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, "http://x")
   if (url.pathname === "/app.js") {
@@ -142,20 +185,13 @@ const server = createServer((req, res) => {
         res.writeHead(403, { "content-type": "application/json", "cache-control": "no-store" })
         return res.end(JSON.stringify({ error: "The virus scan flagged this file, so it cannot be downloaded." }))
       }
-      const origin = `http://${req.headers.host}`
+      const origin = state.storage === "same" ? `http://${req.headers.host}` : storageOrigin
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" })
       res.end(JSON.stringify({ success: true, downloadUrl: `${origin}/storage/v1/object/sign/digital-products/${api[1]}?token=t0k&download=${encodeURIComponent(name)}`, fileName: name, expiresIn: 120 }))
     }
     return void setTimeout(answer, 450)
   }
-  if (url.pathname.startsWith("/storage/v1/object/sign/")) {
-    const download = url.searchParams.get("download") ?? ""
-    state.signed.push(download)
-    const enc = encodeURIComponent(download)
-    /* What Supabase Storage answers a signed URL with download=<name>. */
-    res.writeHead(200, { "content-type": "application/zip", "content-disposition": `attachment; filename=${enc}; filename*=UTF-8''${enc};` })
-    return res.end(Buffer.alloc(2048, 7))
-  }
+  if (url.pathname.startsWith("/storage/v1/object/sign/")) return void serveSignedFile(url, res)
   res.writeHead(200, { "content-type": "text/html" })
   res.end(html)
 })
@@ -210,6 +246,17 @@ async function pick(p, label, phone) {
     await handle.click()
   }
 }
+/*
+ * The tab a file went to shuts itself ten seconds after the download starts
+ * (lib/platform/download-tab closeOnceSaved). A probe does not sit through
+ * that: it closes what is left and brings the page back to the front,
+ * because a page in the background answers a click slowly or not at all.
+ */
+const settle = async (page) => {
+  for (const other of await browser.pages()) if (other !== page) await other.close()
+  await page.bringToFront()
+  await sleep(150)
+}
 const waitFor = async (fn, ms = 4000) => {
   const t0 = Date.now()
   while (Date.now() - t0 < ms) {
@@ -219,9 +266,12 @@ const waitFor = async (fn, ms = 4000) => {
   return false
 }
 
+/* A run of one section, for comparing this against the code before a fix. */
+const ONLY = process.env.ONLY || ""
+
 try {
   /* ── Desktop ────────────────────────────────────────────────────── */
-  {
+  if (ONLY !== "stays") {
     console.log("\ndesktop 1440")
     const p = await browser.newPage()
     const errors = []
@@ -252,6 +302,8 @@ try {
     expect(JSON.stringify(before) === JSON.stringify(after), "no row moved or changed height", { before, after })
     expect((await rowOf(p, FIRST)).meta === "45.8 MB", "and the line is the size again", (await rowOf(p, FIRST)).meta)
 
+    await settle(p)
+
     /* Renamed with & # and an accent: the name reaches the browser whole. */
     await openMenu(p, SECOND, false)
     await pick(p, "Rename", false)
@@ -269,6 +321,7 @@ try {
     await pick(p, "Download", false)
     await waitFor(async () => downloads.length > 0)
     expect(state.api[0]?.name === odd && downloads[0]?.name === odd, "a renamed file with & # + and an accent saves under that name, whole", { asked: state.api[0]?.name, saved: downloads[0]?.name })
+    await settle(p)
 
     /* A refusal. */
     state.mode = "flagged"
@@ -298,12 +351,146 @@ try {
     await pick(p, "Download", false)
     await waitFor(async () => downloads.length > 0)
     expect(downloads[0]?.name === "fresh-mix.wav" && downloads[0]?.url.startsWith("blob:") && state.api.length === 0, "it saves the picked file from the page, with no request", { downloads, api: state.api.length })
+    await settle(p)
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()
   }
 
+  /* ── The editor stays put, whatever storage answers ─────────────── */
+  /*
+   * The owner's other report, the same shape as the receipt's: an anchor's
+   * `download` is ignored on storage's origin, so following the signed link
+   * in place was an ordinary navigation and the editor was replaced by the
+   * file whenever the attachment header did not arrive.
+   */
+  for (const [label, viewport] of [["1440", { width: 1440, height: 900 }], ["390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
+    const phone = label === "390"
+    console.log(`\nthe editor stays put at ${label}`)
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setViewport(viewport)
+    await p.goto(origin, { waitUntil: "load" })
+    await p.waitForSelector("[data-file-row]")
+    await sleep(700)
+
+    /* 1. Storage on another origin, answering as it does in production. */
+    state.storage = "cross"
+    state.disposition = "attachment"
+    state.api.length = 0
+    state.signed.length = 0
+    downloads.length = 0
+    let tabs = []
+    let onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
+    browser.on("targetcreated", onTarget)
+    let url0 = p.url()
+    let before = await rowsGeometry(p)
+    await openMenu(p, FIRST, phone)
+    await pick(p, "Download", phone)
+    await waitFor(async () => downloads.length > 0)
+    await sleep(400)
+    browser.off("targetcreated", onTarget)
+    expect(p.url() === url0, `${label}: the editor's address never changed`, `${url0} -> ${p.url()}`)
+    expect((await p.$$("[data-file-row]")).length >= 2, `${label}: the file list is still drawn`)
+    expect(JSON.stringify(before) === JSON.stringify(await rowsGeometry(p)), `${label}: and no row moved`)
+    expect(tabs.length === 1, `${label}: one tab of its own was asked for`, tabs)
+    expect(state.signed[0] === FIRST && downloads[0]?.name === FIRST, `${label}: storage was asked with the name and the file saved under it`, { signed: state.signed, downloads })
+    /* The tab does not stay: it holds a line while the file is on its way and shuts itself once the download has it. */
+    let held = null
+    for (let i = 0; i < 12 && !held?.mark; i++) {
+      for (const other of await browser.pages()) {
+        if (other === p || held?.mark) continue
+        held = await other.evaluate(() => ({ mark: !!document.querySelector("[data-storelib-download]"), text: document.body?.textContent || "" })).catch(() => null)
+      }
+      if (!held?.mark) await sleep(150)
+    }
+    expect(!!held?.mark && /Your download is starting/.test(held.text), `${label}: that tab says what it is rather than sitting blank`, held)
+    await settle(p)
+
+    /* 2. The same press with a file the browser would rather draw. */
+    state.disposition = "inline"
+    state.api.length = 0
+    downloads.length = 0
+    tabs = []
+    onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
+    browser.on("targetcreated", onTarget)
+    url0 = p.url()
+    await openMenu(p, FIRST, phone)
+    await pick(p, "Download", phone)
+    await sleep(1800)
+    browser.off("targetcreated", onTarget)
+    expect(p.url() === url0, `${label}: a drawable answer did not take the editor with it`, `${url0} -> ${p.url()}`)
+    expect((await p.$$("[data-file-row]")).length >= 2, `${label}: the file list is still there`)
+    expect(tabs.length === 1, `${label}: it was drawn in a tab of its own`, tabs)
+    await settle(p)
+    state.disposition = "attachment"
+
+    /* 3. A browser with pop-ups blocked outright. */
+    await p.evaluate(() => { window.open = () => null })
+    state.api.length = 0
+    downloads.length = 0
+    tabs = []
+    onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
+    browser.on("targetcreated", onTarget)
+    url0 = p.url()
+    await openMenu(p, FIRST, phone)
+    await pick(p, "Download", phone)
+    await sleep(1600)
+    browser.off("targetcreated", onTarget)
+    expect(p.url() === url0, `${label}: the refused tab did not move the editor either`, `${url0} -> ${p.url()}`)
+    expect(tabs.length === 0, `${label}: and nothing was opened behind it`, tabs)
+    const notice = await p.evaluate(() => {
+      const box = document.querySelector("[data-download-blocked]")
+      if (!box) return null
+      const a = box.querySelector("[data-download-blocked-link]")
+      const r = a ? a.getBoundingClientRect() : null
+      return {
+        text: box.textContent || "",
+        href: a ? a.getAttribute("href") : "",
+        download: a ? a.getAttribute("download") : "",
+        target: a ? a.getAttribute("target") : "",
+        rel: a ? a.getAttribute("rel") : "",
+        onScreen: !!r && r.width > 0 && r.height >= 32 && r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth,
+      }
+    })
+    expect(!!notice, `${label}: the creator is shown a notice, not nothing`, "none")
+    expect(!!notice && notice.href.startsWith(storageOrigin) && notice.target === "_blank" && notice.rel === "noopener noreferrer" && notice.download === FIRST,
+      `${label}: with the file on it, in a tab of its own`, notice)
+    expect(!!notice && notice.onScreen && new RegExp(`Save ${FIRST}`).test(notice.text), `${label}: on the screen, naming the file`, notice)
+    const toast = await p.evaluate(() => document.body.innerText)
+    expect(/Your file is ready\. Press Save\./.test(toast), `${label}: and the editor's toast points at it`, (toast.match(/[^\n]*Press Save[^\n]*/) ?? [""])[0])
+    await p.screenshot({ path: join(shots, `file-download-${label}-tab-refused.png`) })
+    await settle(p)
+
+    /* 4. And our own origin still saves through the anchor. The tab is
+          opened before the request, so there is no way to know the origin
+          in time to skip it: it is opened and closed again, and nothing is
+          left behind. */
+    await p.reload({ waitUntil: "load" })
+    await p.waitForSelector("[data-file-row]")
+    await sleep(600)
+    state.storage = "same"
+    downloads.length = 0
+    tabs = []
+    onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
+    browser.on("targetcreated", onTarget)
+    url0 = p.url()
+    await openMenu(p, FIRST, phone)
+    await pick(p, "Download", phone)
+    await waitFor(async () => downloads.length > 0)
+    await sleep(300)
+    browser.off("targetcreated", onTarget)
+    const leftOver = (await browser.pages()).filter((x) => x !== p).length
+    expect(downloads[0]?.name === FIRST && p.url() === url0 && leftOver === 0,
+      `${label}: a link on our own origin saves through the anchor, and the tab opened for it is closed again`, { tabs, leftOver, downloads })
+    await settle(p)
+    state.storage = "cross"
+    expect(errors.length === 0, `${label}: no errors on the page`, errors)
+    await p.close()
+  }
+
   /* ── Phone browser, then the two apps ───────────────────────────── */
-  for (const run of [
+  for (const run of ONLY === "stays" ? [] : [
     { name: "phone browser 390", platform: null },
     { name: "iOS app 390 (no Browser plugin)", platform: "ios", browserMode: "missing" },
     { name: "Android app 390", platform: "android", browserMode: "ok" },
@@ -368,6 +555,7 @@ try {
 } finally {
   await browser.close()
   server.close()
+  fileServer.close()
   if (!process.env.KEEP) {
     for (const f of readdirSync(stubs)) if (f !== "shots") rmSync(join(stubs, f), { recursive: true, force: true })
   }

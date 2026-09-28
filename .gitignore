@@ -103,3 +103,9 @@ tsconfig.*.generated.json
 .button-probe/
 .parity-probe/
 .claude/worktrees/
+
+# Where the download probes let Chromium save the files it really downloads
+# (scripts/check-receipt.mjs, scripts/check-onepage-download.mjs). Removed on
+# the way out; left behind by a run that stopped early.
+.receipt-downloads/
+.onepage-downloads/

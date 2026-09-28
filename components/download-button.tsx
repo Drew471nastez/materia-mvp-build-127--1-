@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Download, Loader2, AlertCircle } from "lucide-react"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openInSystemBrowser } from "@/lib/platform/save-file"
+import { SAVE_FROM_NOTICE, anchorCanSave, clickDownloadLink, openDownloadTab, showBlockedDownload } from "@/lib/platform/download-tab"
 
 interface DownloadButtonProps {
   assetId: string
@@ -27,122 +28,6 @@ export interface DownloadResult {
   openedIn?: "viewer" | "browser" | "tab" | "notice"
   /** Set only when the tab was refused: the address the notice offers. */
   blockedUrl?: string
-}
-
-/** What the buyer reads when the browser refused the tab. */
-const TAB_REFUSED = "This browser stopped the new tab from opening."
-
-/**
- * A tab of its own for this click, opened before anything is awaited.
- *
- * A pop-up blocker lets through a window opened inside the click itself and
- * refuses one opened after an await, and the signed address takes a request
- * to fetch. So the tab is opened empty here, while the press is still the
- * thing running, and pointed at the file once the address arrives.
- *
- * Not `window.open(url, "_blank", "noopener")`: with that feature set the
- * answer is null in every browser, and there would be no tab left to point
- * anywhere. The way back is cut on the tab itself instead, which is the
- * same protection.
- */
-function openBlankTab(): Window | null {
-  try {
-    const tab = window.open("", "_blank")
-    if (tab) {
-      try {
-        tab.opener = null
-      } catch {
-        /* Some browsers cut it themselves and refuse the write. */
-      }
-    }
-    return tab
-  } catch {
-    return null
-  }
-}
-
-/** Our own origin, where `download` on an anchor is obeyed. */
-function isSameOrigin(url: string): boolean {
-  try {
-    return new URL(url, window.location.href).origin === window.location.origin
-  } catch {
-    return false
-  }
-}
-
-/** A same-origin file: an ordinary anchor click, no tab needed. */
-function clickDownloadLink(url: string, filename: string): void {
-  const link = document.createElement("a")
-  link.href = url
-  link.download = filename
-  link.style.display = "none"
-  link.rel = "noopener noreferrer"
-  document.body.appendChild(link)
-  link.click()
-  setTimeout(() => link.remove(), 300)
-}
-
-/**
- * The tab was refused, so the file is put where the buyer can press it.
- *
- * It lives outside React because every caller of this helper shares it, from
- * the receipt to the library grid, and none of them may lose the page the
- * buyer is on. Nothing here navigates that page.
- */
-function showBlockedDownload(url: string, filename: string): void {
-  document.querySelector("[data-download-blocked]")?.remove()
-
-  const holder = document.createElement("div")
-  holder.setAttribute("data-download-blocked", "")
-  holder.className = "fixed inset-x-0 bottom-0 z-[120] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] print:hidden"
-
-  const card = document.createElement("div")
-  card.className =
-    "mx-auto flex max-w-[420px] flex-col gap-2 rounded-2xl border border-[#e4e7ec] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_-8px_rgba(16,24,40,0.24)]"
-  holder.appendChild(card)
-
-  const title = document.createElement("p")
-  title.className = "text-[14px] font-semibold text-[#1a1a2e]"
-  title.textContent = TAB_REFUSED
-  card.appendChild(title)
-
-  const note = document.createElement("p")
-  note.className = "text-[13px] leading-snug text-[#6b7280]"
-  note.textContent = "Your file is ready. Press Save to keep it. This page stays where it is."
-  card.appendChild(note)
-
-  const row = document.createElement("div")
-  row.className = "mt-1 flex items-center gap-2"
-  card.appendChild(row)
-
-  const link = document.createElement("a")
-  link.setAttribute("data-download-blocked-link", "")
-  link.href = url
-  link.download = filename
-  link.target = "_blank"
-  link.rel = "noopener noreferrer"
-  link.className =
-    "inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-[#0f0f1c] bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white"
-  const label = document.createElement("span")
-  label.className = "truncate"
-  label.textContent = `Save ${filename}`
-  link.appendChild(label)
-  row.appendChild(link)
-
-  const close = document.createElement("button")
-  close.type = "button"
-  close.className =
-    "inline-flex h-9 shrink-0 items-center justify-center rounded-[10px] border border-[#d5d9e0] bg-[#f3f4f6] px-3 text-[13px] font-semibold text-[#1a1a2e]"
-  close.textContent = "Close"
-  row.appendChild(close)
-
-  const remove = () => holder.remove()
-  close.addEventListener("click", remove)
-  link.addEventListener("click", () => setTimeout(remove, 400))
-  /* The signed address lives five minutes; the notice goes when it does. */
-  setTimeout(remove, 5 * 60 * 1000)
-
-  document.body.appendChild(holder)
 }
 
 /**
@@ -174,16 +59,9 @@ export async function downloadEntitledFile(
   options?: { receiptToken?: string | null },
 ): Promise<DownloadResult> {
   /* Opened first, before the await below: a tab asked for after a request
-     has come back is a pop-up, and blockers eat it. */
+     has come back is a pop-up, and blockers eat it (lib/platform/download-tab). */
   const native = isNativeApp()
-  const tab = native ? null : openBlankTab()
-  const closeTab = () => {
-    try {
-      tab?.close()
-    } catch {
-      /* Already gone. */
-    }
-  }
+  const tab = native ? null : openDownloadTab()
 
   try {
     let apiUrl = `/api/download/${encodeURIComponent(assetId)}`
@@ -205,7 +83,7 @@ export async function downloadEntitledFile(
     const data = await response.json().catch(() => ({}) as Record<string, any>)
 
     if (!response.ok || !data.success || typeof data.downloadUrl !== "string") {
-      closeTab()
+      tab?.close()
       return {
         success: false,
         error: data.error || "This file isn't available right now. Try again in a minute.",
@@ -225,29 +103,22 @@ export async function downloadEntitledFile(
       return { success: true, openedIn: "viewer" }
     }
 
-    if (isSameOrigin(data.downloadUrl)) {
+    if (anchorCanSave(data.downloadUrl)) {
       /* `download` is obeyed here, so the file saves without leaving. */
-      closeTab()
+      tab?.close()
       clickDownloadLink(data.downloadUrl, filename)
       return { success: true, openedIn: "browser" }
     }
 
-    if (tab && !tab.closed) {
-      try {
-        /* replace, so the empty page is not left in that tab's history. */
-        tab.location.replace(data.downloadUrl)
-        return { success: true, openedIn: "tab" }
-      } catch {
-        closeTab()
-      }
-    }
+    if (tab?.point(data.downloadUrl)) return { success: true, openedIn: "tab" }
+    tab?.close()
 
     showBlockedDownload(data.downloadUrl, filename)
     /* The notice already names what happened; the row that shows this does
        not repeat it, it points at the thing to press. */
-    return { success: false, error: "Your file is ready below. Press Save to keep it.", blockedUrl: data.downloadUrl, openedIn: "notice" }
+    return { success: false, error: SAVE_FROM_NOTICE, blockedUrl: data.downloadUrl, openedIn: "notice" }
   } catch (err) {
-    closeTab()
+    tab?.close()
     if (err instanceof DOMException && err.name === "AbortError") {
       return { success: false, error: "That took too long. Check your connection and try again." }
     }

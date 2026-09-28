@@ -332,21 +332,28 @@ function main() {
      anchor's `download` is ignored across origins: the click became an
      ordinary navigation, the PDF drew itself in the tab, and the receipt
      under it was gone (the owner's report). The file now goes to a tab of
-     its own, opened empty inside the press so no pop-up blocker eats it. */
-  /* The code alone: the note above openBlankTab quotes the form that does
-     not work, and a guard is about what runs. */
+     its own, opened empty inside the press so no pop-up blocker eats it.
+
+     Changed on purpose again: the same shape was needed by the creator's
+     own file menu and by a public OnePage, so it moved into one module and
+     these pins follow it there. The button's own pins stay on the button. */
+  const shared = code("lib/platform/download-tab.ts")
   const button = code("components/download-button.tsx")
-  check("the tab is opened inside the press, before the request", /const tab = native \? null : openBlankTab\(\)/.test(button)
+  check("the tab is opened without the noopener feature, which would answer null and leave no tab",
+    /window\.open\("", "_blank"\)/.test(shared) && /tab\.opener = null/.test(shared) && !/window\.open\([^)]*"noopener"/.test(shared))
+  check("it is pointed at the file with replace, so the empty page is not in its history",
+    /tab\.location\.replace\(url\)/.test(shared))
+  check("an anchor is kept for an address it really saves: our own origin, a blob, a data URL",
+    /\^\(blob\|data\):/.test(shared) && /new URL\(url, window\.location\.href\)\.origin === window\.location\.origin/.test(shared) && /link\.download = filename/.test(shared))
+  check("a refused tab gets a notice with the address, never nothing",
+    /data-download-blocked-link/.test(shared) && /link\.target = "_blank"/.test(shared) && /link\.rel = "noopener noreferrer"/.test(shared))
+  check("the tab is opened inside the press, before the request", /const tab = native \? null : openDownloadTab\(\)/.test(button)
     && button.indexOf("const tab = native") < button.indexOf("await fetch(apiUrl"))
-  check("and without the noopener feature, which would answer null and leave no tab",
-    /window\.open\("", "_blank"\)/.test(button) && /tab\.opener = null/.test(button) && !/window\.open\([^)]*"noopener"/.test(button))
   check("the file goes to that tab, never to the page the buyer is on",
-    /tab\.location\.replace\(data\.downloadUrl\)/.test(button) && !/link\.href = data\.downloadUrl/.test(button))
-  check("our own origin still saves through an anchor with download",
-    /isSameOrigin\(data\.downloadUrl\)/.test(button) && /link\.download = filename/.test(button))
-  check("a refused request closes the tab again", /closeTab\(\)\s*\n\s*return \{\s*\n\s*success: false/.test(button))
-  check("a browser that refuses the tab reads a notice with a link, never nothing",
-    /showBlockedDownload\(data\.downloadUrl, filename\)/.test(button) && /data-download-blocked-link/.test(button) && /blockedUrl: data\.downloadUrl/.test(button))
+    /tab\?\.point\(data\.downloadUrl\)/.test(button) && !/link\.href = data\.downloadUrl/.test(button))
+  check("our own origin still saves through an anchor", /anchorCanSave\(data\.downloadUrl\)/.test(button) && /clickDownloadLink\(data\.downloadUrl, filename\)/.test(button))
+  check("a refused request closes the tab again", /tab\?\.close\(\)\s*\n\s*return \{\s*\n\s*success: false/.test(button))
+  check("and a refused tab hands the buyer the notice", /showBlockedDownload\(data\.downloadUrl, filename\)/.test(button) && /blockedUrl: data\.downloadUrl/.test(button))
   check("the app still opens the system browser", /await openInSystemBrowser\(data\.downloadUrl\)/.test(button))
 
   const legacy = [

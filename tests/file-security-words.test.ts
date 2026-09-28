@@ -71,6 +71,8 @@ const CREATOR_AND_BUYER_UI = [
   "app/app/products/new/file-uploads.tsx",
   "components/app/file-upload.tsx",
   "components/download-button.tsx",
+  /* The notice a refused tab shows, and the sentences on it. */
+  "lib/platform/download-tab.ts",
   "lib/storage/upload-state.ts",
   "lib/storage/confirm-upload.ts",
   /* Every uploader that writes straight into a public bucket. */

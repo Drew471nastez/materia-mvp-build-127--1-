@@ -30,6 +30,9 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContex
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
+import { downloadEntitledFile } from "@/components/download-button"
+import { anchorCanSave, clickDownloadLink, openDownloadTab, showBlockedDownload } from "@/lib/platform/download-tab"
+import { openInSystemBrowser } from "@/lib/platform/save-file"
 import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
@@ -1568,24 +1571,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     }
   }, [quickCheckoutModalData])
 
+  /*
+   * The shared button's helper, not a request and a window.open of our own.
+   * That window was asked for AFTER the await, which is what a pop-up
+   * blocker eats, and the iOS build has no Browser plugin to call. The
+   * helper opens the tab inside the press, points it at the file when the
+   * address arrives, keeps the visitor on this page either way, and hands
+   * the file over in a notice if the tab is refused
+   * (components/download-button, lib/platform/download-tab).
+   */
   const handleQuickCheckoutDownload = useCallback(async (asset: DigitalAsset) => {
     if (!quickCheckoutReceiptToken) return
-
-    try {
-      const response = await fetch(`/api/download/${asset.id}?receipt=${quickCheckoutReceiptToken}`)
-      const result = await response.json()
-
-      if (result.downloadUrl) {
-        if (isNativeApp()) {
-          const { Browser } = await import("@capacitor/browser")
-          await Browser.open({ url: result.downloadUrl })
-        } else {
-          window.open(result.downloadUrl, '_blank')
-        }
-      }
-    } catch (error) {
-      console.error('Download failed:', error)
-    }
+    await downloadEntitledFile(asset.id, { receiptToken: quickCheckoutReceiptToken })
   }, [quickCheckoutReceiptToken])
 
   // Download function for already purchased products
@@ -1593,22 +1590,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     const purchase = purchasedProducts[productId]
     if (!purchase || !purchase.receiptToken || !purchase.assets?.length) return
 
-    // Download the first asset
+    // Download the first asset, through the same helper as the receipt.
     const asset = purchase.assets[0]
-    try {
-      const response = await fetch(`/api/download/${asset.id}?receipt=${purchase.receiptToken}`)
-      const result = await response.json()
-      if (result.downloadUrl) {
-        if (isNativeApp()) {
-          const { Browser } = await import("@capacitor/browser")
-          await Browser.open({ url: result.downloadUrl })
-        } else {
-          window.open(result.downloadUrl, '_blank')
-        }
-      }
-    } catch (error) {
-      console.error('Download failed:', error)
-    }
+    await downloadEntitledFile(asset.id, { receiptToken: purchase.receiptToken })
   }, [purchasedProducts])
 
   const quickCheckoutModalContextValue = { openQuickCheckoutModal, purchasedProducts, downloadPurchasedAsset }
@@ -4971,38 +4955,38 @@ function PublicBlockRenderer({
         }
       }
 
-      // Handle download click - triggers direct download
-      const handleDownloadClick = async () => {
+      /*
+       * The lead magnet, once the address has been given. The file sits on
+       * storage, another origin, where an anchor's `download` is ignored:
+       * this used to be a plain anchor click, so a file the browser could
+       * draw replaced the creator's page with itself and the visitor was
+       * gone. It goes to a tab of its own now (lib/platform/download-tab),
+       * and the page stays. `download=` is still asked for, so storage
+       * sends it as an attachment and most of the time no tab is left over.
+       */
+      const handleDownloadClick = () => {
         if (!downloadLink) return
-
-        try {
-          // For Supabase storage URLs, append ?download= to force Content-Disposition: attachment
-          let downloadUrl = downloadLink
-          if (downloadUrl.includes('/storage/v1/object/public/')) {
-            const separator = downloadUrl.includes('?') ? '&' : '?'
-            downloadUrl = `${downloadUrl}${separator}download=${encodeURIComponent(data.digital_product_title || 'download')}`
-          }
-
-          // In Capacitor: open in the in-app browser (SFSafariViewController / Custom Chrome Tab)
-          // so the file downloads inside the app without jumping to system Safari/Chrome.
-          if (isNativeApp()) {
-            const { Browser } = await import("@capacitor/browser")
-            await Browser.open({ url: downloadUrl })
-            return
-          }
-
-          // Web browser: use <a download> to trigger native download
-          const link = document.createElement('a')
-          link.href = downloadUrl
-          link.download = data.digital_product_title || 'download'
-          link.rel = 'noopener noreferrer'
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-        } catch (error) {
-          // Fallback to window.open
-          window.open(downloadLink, '_blank')
+        const name = data.digital_product_title || 'download'
+        let downloadUrl = downloadLink
+        if (downloadUrl.includes('/storage/v1/object/public/')) {
+          const separator = downloadUrl.includes('?') ? '&' : '?'
+          downloadUrl = `${downloadUrl}${separator}download=${encodeURIComponent(name)}`
         }
+
+        // In Capacitor: the system browser sheet, and no tab of our own.
+        if (isNativeApp()) {
+          void openInSystemBrowser(downloadUrl)
+          return
+        }
+
+        if (anchorCanSave(downloadUrl)) {
+          clickDownloadLink(downloadUrl, name)
+          return
+        }
+        const tab = openDownloadTab()
+        if (tab?.point(downloadUrl)) return
+        tab?.close()
+        showBlockedDownload(downloadUrl, name)
       }
 
       // Pro layout with thumbnail

@@ -123,7 +123,7 @@ export async function serveTokenDownload(
   if (options.bundles && files.length >= BUNDLE_THRESHOLD && product.creator_id) {
     const bundle = await ensureProductBundle(admin, product.id, product.title || "Download", product.creator_id)
     if (bundle) {
-      const zipUrl = await getBundleSignedUrl(admin, bundle.zipPath, SIGNED_DOWNLOAD_SECONDS)
+      const zipUrl = await getBundleSignedUrl(admin, bundle.zipPath, SIGNED_DOWNLOAD_SECONDS, bundle.zipFileName)
       if (zipUrl) {
         await logDownloadEvent(admin, { assetId: files[0].id, downloadToken: token, ip, userAgent }).catch(() => {})
         return NextResponse.redirect(zipUrl, { headers: HEADERS })
