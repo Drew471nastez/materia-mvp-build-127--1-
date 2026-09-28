@@ -41,6 +41,8 @@ import { questionOf, reportKey, reportNow } from "../lib/analytics/report-cache"
 import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "../lib/analytics/chart-scale"
 import {
   ALL,
+  DEFAULT_PROPERTY,
+  DEFAULT_PROPERTY_LABEL,
   counts,
   isSignup,
   orderProperty,
@@ -136,6 +138,22 @@ console.log("\nAnalytics reports: channels")
 
 console.log("\nThe property filter: which place, and only the creator's own")
 {
+  /*
+    "In Analytics, as default it needs to be set to all pages in that thing, a
+    default, but people can change it." The default is a declared thing
+    (DEFAULT_PROPERTY) rather than what is left when every other branch of
+    parseProperty fails, it is All pages, and it is the name at the top of the
+    filter's list. The page reads it in propertyFromAddress
+    (app/app/analytics/analytics-client) and scripts/check-analytics-page
+    loads the page with no property, an empty one, a word that is not a place
+    and a website the creator does not have, and reads the button, the read
+    and the address for each.
+  */
+  check("the filter's default is a declared All pages, not a fall-through",
+    DEFAULT_PROPERTY.type === "all" && DEFAULT_PROPERTY_LABEL === "All pages"
+      && propertyOptions(PLACES)[0].label === DEFAULT_PROPERTY_LABEL
+      && /DEFAULT_PROPERTY/.test(read("app/app/analytics/analytics-client.tsx"))
+      && /default, nothing in the address|the filter reads/.test(read("scripts/check-analytics-page.mjs")))
   check("no parameter is All", parseProperty(null).type === "all" && propertyParam(ALL) === null)
   check("the creator page and the OnePage by name", parseProperty("creator_page").type === "creator_page" && parseProperty("onepage").type === "onepage")
   const w = parseProperty(`website:${W2.toUpperCase()}`)

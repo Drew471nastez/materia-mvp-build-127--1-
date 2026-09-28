@@ -13,13 +13,18 @@
  * chart and the cards under it are the same object, so they agree, and
  * Home draws the same answer for All.
  *
- * ONE FILTER. All pages, the creator page, the OnePage or a website
- * (components/app/property-picker), listing only the places the creator has
- * and drawn only when there is more than one. It lives in the address as
+ * ONE FILTER, AND IT STARTS ON ALL PAGES. All pages, the creator page, the
+ * OnePage or a website (components/app/property-picker), listing only the
+ * places the creator has and drawn only when there is more than one.
+ *
+ * The default is All pages and it is declared, not inferred: DEFAULT_PROPERTY
+ * in lib/analytics/properties, which is what an address with no property, an
+ * unreadable one, or one this creator cannot have all resolve to. A creator's
+ * own choice overrides it and is kept exactly where it was, in the address as
  * `?property=` beside the period, so a link can open the page already
- * filtered (the Website and OnePage screens' summary lines do), and a
- * reload or a return keeps it. The old OnePage view (`?mode=onepage`) is
- * the OnePage property.
+ * filtered (the Website and OnePage screens' summary lines do), and a reload
+ * or a return keeps it. The old OnePage view (`?mode=onepage`) is the OnePage
+ * property.
  *
  * THERE IS NO COMPARISON CONTROL. Every percentage is against the period
  * just before, the same number of days ending the day before
@@ -38,7 +43,7 @@ import { PropertyPicker } from "@/components/app/property-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
-import { ALL, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
+import { DEFAULT_PROPERTY, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
 import { reportNow } from "@/lib/analytics/report-cache"
 import { AnalyticsChartWithTooltip, CHART_COLORS, type AnalyticsChartData } from "@/components/app/analytics-chart"
@@ -168,12 +173,21 @@ function changeOf(f: Figure) {
   return <PercentChangeIndicator current={f.value} previous={f.previous} />
 }
 
-/** The property in the address, read once: `?property=`, or the old OnePage view's `?mode=onepage`. */
+/**
+ * The property in the address, read once: `?property=`, or the old OnePage
+ * view's `?mode=onepage`.
+ *
+ * Nothing in the address means the page's own default, All pages
+ * (DEFAULT_PROPERTY, and the reasoning is beside it in
+ * lib/analytics/properties). So does anything the address asks for that
+ * cannot be honoured: a word that is not a place, or a place this creator
+ * does not have (a website since deleted, a OnePage never made, somebody
+ * else's link). The page never opens on a place nobody chose.
+ */
 function propertyFromAddress(params: URLSearchParams, properties: CreatorProperties): PropertySelector {
   const raw = params.get("property") ?? (params.get("mode") === "onepage" ? "onepage" : null)
   const p = parseProperty(raw)
-  /* A place the creator does not have (a website since deleted, an old link) opens on All. */
-  return ownsProperty(properties, p) ? p : ALL
+  return ownsProperty(properties, p) ? p : DEFAULT_PROPERTY
 }
 
 export function AnalyticsClient({ products, userId, properties }: AnalyticsClientProps) {

@@ -778,6 +778,48 @@ try {
       if (shots && q.includes("mode")) await tall(p, vp, `analytics-onepage-${name}.png`)
     }
 
+    /*
+      THE DEFAULT. "In Analytics, as default it needs to be set to all pages
+      in that thing, a default, but people can change it."
+
+      All pages is what the page opens on when nobody has asked for anything
+      else, and also when the address asks for something it cannot honour: a
+      word that is not a place, or a place this creator does not have (a
+      website since deleted, somebody else's link). Each of those is loaded
+      here and three things are read: the button's name, what the page asked
+      the server for, and what it left in the address. A page that opened on
+      a place nobody chose would read one of the other names, ask for that
+      place, and leave it in the address for the next visit to find.
+    */
+    for (const [q, why] of [
+      ["", "nothing in the address"],
+      ["?property=", "an empty property"],
+      ["?property=the-shop", "a word that is not a place"],
+      ["?property=website:00000000-0000-4000-8000-00000000ffff", "a website this creator does not have"],
+      ["?property=onepage&mode=onepage", "both, saying the same thing"],
+    ]) {
+      /* The last answer is kept for the tab (lib/analytics/report-cache), and
+         an answer from memory is not a read: cleared, so each of these really
+         does ask, and what it asks for can be read. */
+      await p.evaluate(() => sessionStorage.clear())
+      await p.goto(`${origin}/${q}`, { waitUntil: "load" })
+      await p.waitForSelector("[data-chart-loading='false'] .recharts-surface", { timeout: 15000 })
+      await sleep(400)
+      const got = await p.evaluate(() => ({
+        label: document.querySelector("button[data-property-picker]")?.textContent.trim(),
+        asked: [...new Set(window.__fetches.filter((f) => /api\/analytics\/reports/.test(f.url)).map((f) => new URL(f.url, location.href).searchParams.get("property")))],
+        address: new URL(location.href).searchParams.get("property"),
+      }))
+      const onePage = q.includes("onepage")
+      console.log(`  default, ${why}:`, JSON.stringify(got))
+      expect(got.label === (onePage ? "OnePage" : "All pages"),
+        `${why}: the filter reads ${onePage ? "OnePage" : "All pages"}`, got.label)
+      expect(got.asked.length > 0 && got.asked.every((x) => x === (onePage ? "onepage" : "all")),
+        `  and every read is for ${onePage ? "the OnePage" : "all of them"}`, got.asked)
+      expect(got.address === (onePage ? "onepage" : null),
+        `  and the address ${onePage ? "says ?property=onepage" : "names no place for the next visit to find"}`, got.address)
+    }
+
     /* A creator with only a creator page: nothing to choose, so no filter. */
     await p.goto(`${origin}/?places=one`, { waitUntil: "load" })
     await p.waitForSelector("[data-chart-loading='false'] .recharts-surface", { timeout: 15000 })
