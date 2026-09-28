@@ -356,13 +356,24 @@ function main() {
     /\^\(blob\|data\):/.test(shared) && /new URL\(url, window\.location\.href\)\.origin === window\.location\.origin/.test(shared) && /link\.download = filename/.test(shared))
   check("a refused tab gets a notice with the address, never nothing",
     /data-download-blocked-link/.test(shared) && /link\.target = "_blank"/.test(shared) && /link\.rel = "noopener noreferrer"/.test(shared))
-  check("the tab is opened inside the press, before the request", /const tab = openDownloadTab\(\)/.test(browserPath)
-    && browserPath.indexOf("const tab = openDownloadTab()") < browserPath.indexOf("await resolveTarget(target)"))
-  check("the file goes to that tab, never to the page the buyer is on",
-    /tab\?\.point\(url\)/.test(browserPath) && !/location\.href = url/.test(browserPath))
+  /* Changed on purpose a fourth time: the owner pressed Download and got a
+     blank about:blank tab, "taking me to other sites". The file now saves
+     where the button is: the address is asked for first (the button says
+     Preparing), then storage's attachment is fetched in a hidden frame on
+     the page (an iPhone's browser takes it in the tab itself, where an
+     attachment never replaces the page). No tab, no window.open, no pop-up.
+     scripts/check-buyer-library.mjs presses Download against a real
+     attachment in Chromium: a download begins, no target is created and the
+     address never changes. The tab helper stays for the surfaces that still
+     use it (a OnePage, a course attachment); these pins keep it honest. */
+  check("a browser download opens no tab and no window", !/openDownloadTab|window\.open\(/.test(browserPath))
+  check("it asks for the address first, then saves in place", browserPath.indexOf("await resolveTarget(target)") > -1 && browserPath.indexOf("await resolveTarget(target)") < browserPath.indexOf("saveInPlace(url)"))
+  const inPlace = button.slice(button.indexOf("export function saveInPlace("), button.indexOf("/* ─── The app"))
+  check("in a hidden frame on this page, left long enough to finish",
+    /document\.createElement\("iframe"\)/.test(inPlace) && /data-download-frame/.test(inPlace) && /visibility:hidden/.test(inPlace) && /frame\.remove\(\), 60_000/.test(inPlace))
+  check("an iPhone's browser takes it in the tab itself, where an attachment keeps the page", /isIosWebKit\(\)[\s\S]{0,80}window\.location\.assign\(url\)/.test(inPlace))
   check("our own origin still saves through an anchor", /anchorCanSave\(url\)/.test(browserPath) && /clickDownloadLink\(url, fileName\)/.test(browserPath))
-  check("a refused request closes the tab again", /if \("failed" in resolved\) \{\s*\n\s*tab\?\.close\(\)\s*\n\s*return resolved\.failed/.test(browserPath))
-  check("and a refused tab hands the buyer the notice", /showBlockedDownload\(url, fileName\)/.test(browserPath) && /blockedUrl: url/.test(browserPath))
+  check("a refused request is handed back to the button, nothing opened", /if \("failed" in resolved\) return resolved\.failed/.test(browserPath))
   check("the app still opens the system browser when nothing better is there", /await openInSystemBrowser\(file\.url\)/.test(button))
   check("the button is a thin call into that one path", /return downloadFile\(\{ assetId, receiptToken/.test(code("components/download-button.tsx")))
 

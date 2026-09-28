@@ -13,10 +13,10 @@
  * with the file's size and type. An invoice (or any file our own origin
  * serves with a token in its address) is passed as `url` and skips that.
  *
- * IN A BROWSER nothing changed: the file goes to a tab of its own, opened
- * inside the press, or through an anchor when the address is ours, and a
- * refused tab gets the notice (lib/platform/download-tab.ts). The browser's
- * own download manager streams it and shows its progress.
+ * IN A BROWSER the file saves where the button is: an anchor when the
+ * address is ours, a hidden frame for storage's attachment, never a new tab
+ * (downloadInBrowser below says why). The browser's own download manager
+ * streams it and shows its progress.
  *
  * IN THE APP, where WKWebView and Android's WebView drop an anchor download
  * on the floor, in this order (lib/downloads/native.ts has the why):
@@ -35,7 +35,7 @@
  * Files, so a button that awaits it can say "Preparing" for exactly as
  * long as there is something to wait for.
  */
-import { SAVE_FROM_NOTICE, anchorCanSave, clickDownloadLink, openDownloadTab, showBlockedDownload } from "@/lib/platform/download-tab"
+import { anchorCanSave, clickDownloadLink } from "@/lib/platform/download-tab"
 import { openInSystemBrowser } from "@/lib/platform/save-file"
 import {
   IN_PAGE_LIMIT,
@@ -64,8 +64,8 @@ export interface DownloadResult {
   /**
    * Where the file went. "app": the app's own downloader. "share": held by
    * the page, waiting for Save to Files. "viewer": the system browser. The
-   * rest are a browser's: "browser" an anchor, "tab" a tab, "notice" a
-   * refused tab's notice.
+   * rest are a browser's: "browser", saved in place. "tab" and "notice" were
+   * the old new-tab route's and are no longer answered.
    */
   openedIn?: "app" | "share" | "viewer" | "browser" | "tab" | "notice"
   /** Set only when the tab was refused: the address the notice offers. */
@@ -155,38 +155,124 @@ export async function downloadFile(target: DownloadTarget): Promise<DownloadResu
   return downloadInApp(key, platform, resolved)
 }
 
-/* ─── A browser: the tab, the anchor, or the notice ──────────────────── */
+/* ─── A browser: saved where the button is ─────────────────────────── */
 
+/**
+ * THE FILE SAVES, AND THE PAGE STAYS. NO TAB, NO about:blank.
+ *
+ * This used to open an empty tab inside the press (window.open("", "_blank"),
+ * so a pop-up blocker would let it through) and point it at the file once
+ * the signed address came back. The owner pressed Download and got exactly
+ * that: a blank tab called about:blank, "taking me to other sites". Big
+ * stores do not do that. The press asks for the address with the button
+ * saying Preparing, and then the file is fetched where the buyer already is:
+ *
+ *   an address on our own origin (an invoice) through `<a download>`, which
+ *   the browser obeys there;
+ *
+ *   storage's signed address, on another origin, in a hidden frame. Every
+ *   such address is signed as an attachment (lib/storage/download.ts
+ *   asAttachment: `download=` on every one, so storage answers with
+ *   Content-Disposition: attachment), and an attachment that arrives in a
+ *   frame goes straight to the browser's downloads. Nothing is opened, the
+ *   address bar never changes, and a pop-up blocker has nothing to block,
+ *   because there is no pop-up.
+ *
+ *   on an iPhone or iPad's browser, the same address in this tab instead.
+ *   WebKit on iOS does not always take a download from a frame, and in the
+ *   tab itself an attachment is offered with Safari's own Download sheet
+ *   while the page stays where it is.
+ *
+ * The frame is left for a minute (taking it away before the answer arrives
+ * would cancel the download) and then removed.
+ */
 async function downloadInBrowser(target: DownloadTarget): Promise<DownloadResult> {
   if (!("assetId" in target)) {
-    /* Our own address, answered as an attachment: the anchor saves it in place. */
     const url = new URL(target.url, window.location.href).toString()
     if (anchorCanSave(url)) {
       clickDownloadLink(url, target.fileName)
       return { success: true, openedIn: "browser" }
     }
   }
-  /* Opened first, before the await below: a tab asked for after a request
-     has come back is a pop-up, and blockers eat it (lib/platform/download-tab). */
-  const tab = openDownloadTab()
   const resolved = await resolveTarget(target)
-  if ("failed" in resolved) {
-    tab?.close()
-    return resolved.failed
-  }
+  if ("failed" in resolved) return resolved.failed
   const { url, fileName } = resolved
   if (anchorCanSave(url)) {
-    /* `download` is obeyed here, so the file saves without leaving. */
-    tab?.close()
     clickDownloadLink(url, fileName)
     return { success: true, openedIn: "browser" }
   }
-  if (tab?.point(url)) return { success: true, openedIn: "tab" }
-  tab?.close()
-  showBlockedDownload(url, fileName)
-  /* The notice already names what happened; the row that shows this does
-     not repeat it, it points at the thing to press. */
-  return { success: false, error: SAVE_FROM_NOTICE, blockedUrl: url, openedIn: "notice" }
+  saveInPlace(url, fileName)
+  return { success: true, openedIn: "browser" }
+}
+
+/** iPhone and iPad browsers, the iPad included when it says it is a Mac. */
+function isIosWebKit(): boolean {
+  const nav = typeof navigator !== "undefined" ? navigator : null
+  if (!nav) return false
+  const ua = nav.userAgent || ""
+  return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (nav.maxTouchPoints || 0) > 1)
+}
+
+/** Storage's attachment, fetched without leaving the page. */
+export function saveInPlace(url: string, fileName = "Your file"): void {
+  if (isIosWebKit()) {
+    window.location.assign(url)
+    return
+  }
+  const frame = document.createElement("iframe")
+  frame.setAttribute("data-download-frame", "")
+  frame.setAttribute("aria-hidden", "true")
+  frame.tabIndex = -1
+  frame.style.cssText = "position:fixed;width:0;height:0;border:0;visibility:hidden;pointer-events:none"
+  /*
+    A frame that LOADS was drawn, not saved: an attachment never fires load.
+    Every address storage signs is an attachment, so this is an old link or
+    an error page. The receipt is not given up for it; a small note with an
+    Open link is put where it can be pressed, a press the browser treats as
+    the buyer's own and opens beside the page.
+  */
+  frame.addEventListener("load", () => {
+    frame.remove()
+    showOpenNotice(url, fileName)
+  }, { once: true })
+  frame.src = url
+  document.body.appendChild(frame)
+  window.setTimeout(() => frame.remove(), 60_000)
+}
+
+/** The one line shown when a file came back to be viewed rather than saved. */
+function showOpenNotice(url: string, fileName: string): void {
+  document.querySelector("[data-download-open]")?.remove()
+  const holder = document.createElement("div")
+  holder.setAttribute("data-download-open", "")
+  holder.setAttribute("role", "status")
+  holder.className = "fixed inset-x-0 bottom-0 z-[120] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] print:hidden"
+  const card = document.createElement("div")
+  card.className =
+    "mx-auto flex max-w-[420px] items-center gap-3 rounded-2xl border border-[#e4e7ec] bg-white py-2.5 pl-4 pr-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_-8px_rgba(16,24,40,0.24)]"
+  holder.appendChild(card)
+  const text = document.createElement("p")
+  text.className = "min-w-0 flex-1 truncate text-[13.5px] text-[#1a1a2e]"
+  text.textContent = `${fileName} is ready to open.`
+  card.appendChild(text)
+  const link = document.createElement("a")
+  link.href = url
+  link.target = "_blank"
+  link.rel = "noopener noreferrer"
+  link.className = "inline-flex h-9 shrink-0 items-center rounded-[10px] border border-[#0f0f1c] bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white"
+  link.textContent = "Open"
+  card.appendChild(link)
+  const close = document.createElement("button")
+  close.type = "button"
+  close.setAttribute("aria-label", "Close")
+  close.className = "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[18px] leading-none text-[#9ca3af]"
+  close.textContent = "\u00d7"
+  card.appendChild(close)
+  const remove = () => holder.remove()
+  close.addEventListener("click", remove)
+  link.addEventListener("click", () => setTimeout(remove, 300))
+  setTimeout(remove, 5 * 60 * 1000)
+  document.body.appendChild(holder)
 }
 
 /* ─── The app ─────────────────────────────────────────────────────────── */
