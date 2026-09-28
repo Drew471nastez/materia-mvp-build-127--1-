@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
+import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 
@@ -84,6 +85,11 @@ export default async function MarketingLayout({
           <ConditionalFooter />
         </Suspense>
       </div>
+
+      {/* The phone's Home, Search, Library and Profile bar, on the pages of
+          this layout that are Storelib's own buyer pages. It decides which
+          those are, and brings the room it takes at the end of the page. */}
+      <BuyerTabBar />
     </div>
   )
 }

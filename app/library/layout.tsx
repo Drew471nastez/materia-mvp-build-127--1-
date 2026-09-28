@@ -7,6 +7,7 @@ import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-sco
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
+import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { LibraryTabs } from "@/components/library/library-tabs"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
@@ -137,6 +138,11 @@ export default async function LibraryLayout({
           <ConditionalFooter />
         </Suspense>
       </div>
+
+      {/* The phone's Home, Search, Library and Profile bar, on the pages of
+          this layout that are Storelib's own buyer pages. It decides which
+          those are, and brings the room it takes at the end of the page. */}
+      <BuyerTabBar />
     </div>
     </NativeAuthGate>
   )
