@@ -1,0 +1,5 @@
+/* Which SQL parts this database has run, recorded by the database itself. Every run-now part was run by hand in the SQL editor and nothing kept a record, so nobody could say which of them a database had, and the code carried workarounds for columns that "may not exist here". public.storelib_applied_parts holds one row per part: its number, its file, the SHA-256 of the text that ran, when and by which role. The files built from run-now (run-four, all-in-three) write that row right after each part, so running them is the record; the admin's Health view compares it with the parts in the repository (lib/admin/sql-parts.generated.ts) and names any part missing, or changed since it ran. Server and editor only. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.storelib_applied_parts (part text PRIMARY KEY, file text NOT NULL, sha256 text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now(), applied_by text NOT NULL DEFAULT current_user);
+ALTER TABLE public.storelib_applied_parts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.storelib_applied_parts FROM anon, authenticated;
+notify pgrst, 'reload schema';

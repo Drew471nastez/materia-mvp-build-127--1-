@@ -89,7 +89,8 @@ const three = ["1_of_3_core_library_checkout.sql", "2_of_3_latest.sql", "3_of_3_
 check("part 61 places old page views in one statement", backfill.length === 1 && /^DO \$\$/.test(backfill[0]))
 check("  which is in no file that alters orders", [...four, ...three].filter((f) => f.includes(backfill[0])).every((f) => !/ALTER TABLE public\.orders\b/.test(f)), "")
 check("  and runs first in the last file, before the storage policies and the check", [four[3], three[2]].every((f) => {
-  const body = f.split("\n").filter((l) => l.trim() && !l.startsWith("--") && !/^set local /.test(l))
+  /* The record of which parts ran (part 67) is made first in every file: a table of its own, no lock on anything else. */
+  const body = f.split("\n").filter((l) => l.trim() && !l.startsWith("--") && !/^set local /.test(l) && !l.includes("public.storelib_applied_parts"))
   return body[0] === backfill[0]
 }))
 check("  once in each set of files", four.filter((f) => f.includes(backfill[0])).length === 1 && three.filter((f) => f.includes(backfill[0])).length === 1)
