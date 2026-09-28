@@ -68,13 +68,12 @@ const productTypeOptions = [
   {
     id: "course",
     type: "product",
-    title: "eCourse",
-    description: "Create and sell your online course",
+    title: "Video course",
+    description: "Lessons, a player and each buyer's progress",
     icon: GraduationCap,
     color: QUICK_TILE,
-    badge: "eCourse",
+    badge: "Course",
     badgeColor: "bg-gray-100 text-gray-600",
-    comingSoon: true,
   },
   {
     id: "email_capture",

@@ -37,7 +37,7 @@ const FIELD =
   "w-full rounded-xl border border-gray-200 bg-white px-3 text-[16px] text-[#1a1a2e] outline-none transition-shadow placeholder:text-[#9ca3af] focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15 sm:text-sm"
 const SMALL = cn(secondaryDepth, "h-8 shrink-0 rounded-lg px-3 text-[13px]")
 
-type Uploading = { percent: number; name: string; stop: () => void }
+type Uploading = { percent: number; name: string; sent: number; total: number; retrying: boolean; stop: () => void }
 
 function bytes(n: number | null): string {
   if (!n) return ""
@@ -76,6 +76,23 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
     }
   }, [productId])
 
+  /*
+    A VIDEO GOING UP IS NOT LEFT BY ACCIDENT. The bytes go from this page, so
+    closing the tab or reloading stops them; the browser asks first while
+    one is on its way. Leaving the editor inside the app keeps the page, so
+    an upload under way finishes and is attached to its lesson all the same.
+  */
+  const uploading = Object.keys(uploads).length > 0
+  useEffect(() => {
+    if (!uploading) return
+    const hold = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", hold)
+    return () => window.removeEventListener("beforeunload", hold)
+  }, [uploading])
+
   const count = tree ? tree.modules.reduce((n, m) => n + m.lessons.length, 0) : 0
   useEffect(() => {
     onLessonCount(count)
@@ -106,7 +123,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
       if (!id) return
       const key = `${lessonId}:${kind}:${kind === "attachment" ? file.name : ""}`
       const controller = new AbortController()
-      setUploads((u) => ({ ...u, [key]: { percent: 0, name: file.name, stop: () => controller.abort() } }))
+      setUploads((u) => ({ ...u, [key]: { percent: 0, name: file.name, sent: 0, total: file.size, retrying: false, stop: () => controller.abort() } }))
       const length = kind === "video" ? videoLength(file) : Promise.resolve(null)
       try {
         let next = await uploadLessonFile({
@@ -115,7 +132,8 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
           kind,
           file,
           signal: controller.signal,
-          onProgress: (percent) => setUploads((u) => (u[key] ? { ...u, [key]: { ...u[key], percent } } : u)),
+          onProgress: (percent, sent) => setUploads((u) => (u[key] && (u[key].percent !== percent || u[key].retrying) ? { ...u, [key]: { ...u[key], percent, sent, retrying: false } } : u)),
+          onRetry: () => setUploads((u) => (u[key] ? { ...u, [key]: { ...u[key], retrying: true } } : u)),
         })
         const seconds = await length
         if (seconds) next = await manageCourse({ action: "update-lesson", productId: id, lessonId, durationSeconds: seconds }).catch(() => next)
@@ -331,7 +349,7 @@ function LessonRow(props: {
   const { lesson: l, act } = props
   const videoUp = props.uploads[`${l.id}:video:`]
   const external = externalVideo(l.externalUrl)
-  const what = videoUp ? `Uploading ${videoUp.percent}%` : l.video ? "Video" : external ? (external.provider === "youtube" ? "YouTube" : "Vimeo") : "Text"
+  const what = videoUp ? (videoUp.retrying ? "Reconnecting" : `Uploading ${videoUp.percent}%`) : l.video ? "Video" : external ? (external.provider === "youtube" ? "YouTube" : "Vimeo") : "Text"
   return (
     <li data-lesson={l.id}>
       <button type="button" onClick={props.onToggle} aria-expanded={props.open} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#fafafb] sm:px-4">
@@ -403,7 +421,7 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
       <div className="space-y-1.5">
         <p className="text-sm font-medium text-gray-700">Video</p>
         {videoUp ? (
-          <Progress name={videoUp.name} percent={videoUp.percent} onStop={videoUp.stop} />
+          <Progress up={videoUp} />
         ) : l.video ? (
           <div className="flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5">
             <Film className="h-4 w-4 shrink-0 text-[#6b7280]" />
@@ -499,7 +517,7 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
             ))}
             {fileUps.map(([k, u]) => (
               <li key={k} className="px-3 py-2">
-                <Progress name={u.name} percent={u.percent} onStop={u.stop} bare />
+                <Progress up={u} bare />
               </li>
             ))}
           </ul>
@@ -585,13 +603,17 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
   )
 }
 
-function Progress({ name, percent, onStop, bare }: { name: string; percent: number; onStop: () => void; bare?: boolean }) {
+/** A file on its way: its name, how much of how much has gone, and a way to stop it. A dropped connection says it is being tried again. */
+function Progress({ up, bare }: { up: Uploading; bare?: boolean }) {
+  const { name, percent, stop: onStop } = up
   return (
-    <div className={cn("flex items-center gap-3", !bare && "rounded-xl border border-gray-200 px-3 py-2.5")}>
+    <div className={cn("flex items-center gap-3", !bare && "rounded-xl border border-gray-200 px-3 py-2.5")} data-upload-progress="">
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline justify-between gap-2">
           <span className="truncate text-[13px] font-medium text-[#1a1a2e]">{name}</span>
-          <span className="shrink-0 text-[12px] tabular-nums text-[#6b7280]">{percent}%</span>
+          <span className="shrink-0 text-[12px] tabular-nums text-[#6b7280]">
+            {up.retrying ? "Connection lost, trying again" : up.total >= 5 * 1024 * 1024 ? `${bytes(up.sent) || "0 KB"} of ${bytes(up.total)}` : `${percent}%`}
+          </span>
         </span>
         <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
           <span className="block h-full rounded-full bg-[#8b5cf6] transition-[width] duration-200" style={{ width: `${percent}%` }} />

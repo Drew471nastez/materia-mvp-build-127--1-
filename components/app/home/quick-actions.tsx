@@ -1,9 +1,12 @@
 "use client"
 
+import type React from "react"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
 import { AppLink } from "@/components/app/app-link"
 import { useLanguage } from "@/lib/i18n"
+import { asksInPlace, useNewProductChooser } from "@/app/app/products/new/kind-chooser"
+import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
 
 /**
  * ===========================================================================
@@ -41,8 +44,11 @@ const ACTIONS = [
 
 export function QuickActions() {
   const { t } = useLanguage()
+  /* Create product asks what is being sold first, over Home (app/app/products/new/kind-chooser). */
+  const newProduct = useNewProductChooser()
   return (
     <div className="grid gap-4 md:grid-cols-2">
+      {newProduct.chooser}
       {ACTIONS.map((a) => {
         const title = a.title ? t(a.title) : "Add Custom Domain"
         const body = a.body ? t(a.body) : "Connect your own domain to your store"
@@ -51,6 +57,18 @@ export function QuickActions() {
             key={a.href}
             href={a.href}
             data-quick-action=""
+            {...(a.href === NEW_PRODUCT_HREF
+              ? {
+                  onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
+                    if (!asksInPlace(e)) return
+                    e.preventDefault()
+                    newProduct.open()
+                  },
+                  onMouseEnter: newProduct.warm,
+                  onFocus: newProduct.warm,
+                  onPointerDown: newProduct.warm,
+                }
+              : null)}
             className="group flex items-center gap-5 rounded-2xl border border-[#e5e7eb]/60 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] [-webkit-tap-highlight-color:transparent]"
           >
             <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f3f4f6]">

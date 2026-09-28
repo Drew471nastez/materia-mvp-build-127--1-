@@ -65,6 +65,35 @@ export const DEFAULT_FAQS: FAQItem[] = [
   { id: "default-3", question: "How long do I have access?", answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.", isDefault: true },
 ]
 
+/*
+  A COURSE IS NOT A DOWNLOAD. A new course used to open with the digital
+  product's lines ("Instant download access", "download immediately on the
+  download page"), which are not true of lessons that play in the library.
+  So a course starts with its own, and a switch between the two kinds swaps
+  them while they are still the untouched defaults (swapDefaults).
+*/
+export const COURSE_WHATS_INCLUDED = ["Every lesson, to watch at your own pace", "Your place kept in each lesson", "Lifetime access"]
+
+export const COURSE_FAQS: FAQItem[] = [
+  { id: "default-1", question: "How do I watch the course?", answer: "After checkout the course is in your library. Lessons play in your browser and in the Storelib app, and each one picks up where you left off.", isDefault: true },
+  DEFAULT_FAQS[1],
+  { id: "default-3", question: "How long do I have access?", answer: "For good. Every lesson stays in your library, including the ones added later.", isDefault: true },
+]
+
+function sameList<T>(a: T[], b: T[], key: (x: T) => string): boolean {
+  return a.length === b.length && a.every((x, i) => key(x) === key(b[i]))
+}
+
+/** The new product's lists for a kind; for a switch of kind, the other kind's defaults become this one's, and anything the creator wrote stays. */
+export function swapDefaults(kind: "digital" | "course", whatsIncluded: string[], faqs: FAQItem[]): { whatsIncluded: string[]; faqs: FAQItem[] } {
+  const [from, fromFaqs, to, toFaqs] = kind === "course" ? [DEFAULT_WHATS_INCLUDED, DEFAULT_FAQS, COURSE_WHATS_INCLUDED, COURSE_FAQS] : [COURSE_WHATS_INCLUDED, COURSE_FAQS, DEFAULT_WHATS_INCLUDED, DEFAULT_FAQS]
+  const faqKey = (f: FAQItem) => `${f.question}\n${f.answer}`
+  return {
+    whatsIncluded: sameList(whatsIncluded, from, (x) => x) ? to : whatsIncluded,
+    faqs: sameList(faqs, fromFaqs, faqKey) ? toFaqs : faqs,
+  }
+}
+
 /* ── The rows the server reads ─────────────────────────────────────────── */
 
 export interface EditorProductRow {
@@ -216,8 +245,9 @@ export interface EditorForm {
   faqs: FAQItem[]
 }
 
-export function initialForm(loaded: LoadedProduct | null): EditorForm {
+export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "course" = "digital"): EditorForm {
   if (!loaded) {
+    const course = startAs === "course"
     return {
       productId: null,
       title: "",
@@ -225,7 +255,7 @@ export function initialForm(loaded: LoadedProduct | null): EditorForm {
       price: "",
       compareAtPrice: "",
       slug: "",
-      productType: "digital",
+      productType: startAs,
       isPublished: false,
       showSalesBadge: true,
       refundPolicyEnabled: false,
@@ -241,8 +271,8 @@ export function initialForm(loaded: LoadedProduct | null): EditorForm {
       mediaItems: [],
       digitalFiles: [],
       variants: [],
-      whatsIncluded: DEFAULT_WHATS_INCLUDED,
-      faqs: DEFAULT_FAQS,
+      whatsIncluded: course ? COURSE_WHATS_INCLUDED : DEFAULT_WHATS_INCLUDED,
+      faqs: course ? COURSE_FAQS : DEFAULT_FAQS,
     }
   }
   const { product, assets, variants } = loaded

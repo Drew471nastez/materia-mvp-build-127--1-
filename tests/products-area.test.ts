@@ -94,7 +94,8 @@ const css = read("app/globals.css")
 check("it reads no search parameter to find its product", !/useSearchParams/.test(editor))
 check("it fetches no creator and no product on mount", !/\.from\("creators"\)/.test(editor) && !/\.from\("products"\)\s*\.select\("\*"\)/.test(editor) && !/\.from\("product_variants"\)\s*\.select\(`/.test(editor))
 check("it is not held back behind a timer", !/setIsPageReady|isPageReady/.test(editor) && !/setTimeout\(forceScrollTop/.test(editor))
-check("its fields start from the server's rows", /useState\(\(\) => initialForm\(loaded\)\)/.test(editor))
+/* Changed on purpose: a new product starts as the kind the question before it picked (app/app/products/new/kind-chooser), so the form takes that too. */
+check("its fields start from the server's rows", /useState\(\(\) => initialForm\(loaded, startAs\)\)/.test(editor))
 const idPage = code("app/app/products/[id]/page.tsx")
 check("/app/products/<id> draws the editor with the product, not a redirect", /loadProductEditor\(id\)/.test(idPage) && /<ProductEditor/.test(idPage) && !/new\?edit=/.test(idPage))
 const loader = code("app/app/products/load-editor.ts")
@@ -127,7 +128,8 @@ check("no page or loading boundary under app/app/products draws an outline of th
       && /resting\.current = setTimeout\(\(\) => warm\(id\), WARM_REST_MS\)/.test(listSrc) && /const WARM_REST_MS = 50/.test(listSrc))
   check("and New product and the first three rows are fetched ahead once the list is idle, one after another on a fresh session, not in one burst",
     /const WARM_AHEAD = 3/.test(listSrc) && /whenIdle\(\(\) => \{\s*stop = warmInTurn\(\[warmNew, \.\.\.firstShown\.current\.map\(\(id\) => \(\) => warm\(id\)\)\], \(\) => createClient\(\)\.auth\.getSession\(\)\)/.test(listSrc)
-      && /warmEditor\(router, "\/app\/products\/new"\)/.test(listSrc) && /requestIdleCallback\(task, \{ timeout \}\)/.test(ret)
+      /* Changed on purpose: New product asks what is being sold first, so what is fetched ahead is the two editors it can open (kind-chooser warmKinds). */
+      && /newProduct\.warm\(\)/.test(listSrc) && /prefetchAppPage\(router, editorHref\("digital"\)\)\s*prefetchAppPage\(router, editorHref\("course"\)\)/.test(code("app/app/products/new/kind-chooser.tsx")) && /requestIdleCallback\(task, \{ timeout \}\)/.test(ret)
       && /fresh\(\)\.then\(start, start\)/.test(ret) && /timer = setTimeout\(\(\) => next\(i \+ 1\), WARM_GAP_MS\)/.test(ret))
   check("and a product fetched ahead is asked for again after a minute, so a list left open or refreshed still opens warm",
     /const WARM_AGAIN_MS = 60_000/.test(listSrc) && /Date\.now\(\) - at < WARM_AGAIN_MS/.test(listSrc) && !/warmed\.current\.has\(/.test(listSrc))
@@ -155,7 +157,7 @@ check("no fixed Save and Cancel strip over a phone's foot", !/fixed bottom-0 lef
 check("the top bar is sticky at the top below lg and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30 [^"]* lg:hidden"/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} leaving=\{leaving\} asks=\{hasUnsavedChanges\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
 const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('data-editor-page=""'))
-check("the bar names no product: the name is in the title field", barSource.length > 0 && !/savedTitle|\{title\}|"Untitled product"/.test(barSource) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
+check("the bar names no product: the name is in the title field", barSource.length > 0 && !/savedTitle|\{title\}|"Untitled product"/.test(barSource) && /<h1 className="sr-only">\{productId \? "Edit product" : productType === "course" \? "New course" : "New product"\}<\/h1>/.test(barSource))
 /* "Get rid of the Unsaved and the Live badge or New product thing in the bar." (the top bar; the desktop foot bar says it, below) */
 check("nothing is written in the middle of the top bar: no Unsaved changes, Saved, Live, Draft or New product", !/data-editor-state|saveState|statusBadge/.test(barSource) && !/Unsaved changes|"Live"|"Draft"/.test(barSource) && !/grid-cols-\[1fr_auto_1fr\]/.test(barSource))
 check("a screen reader still hears Saving and Saved, from a hidden polite line outside both bars, so it is there at every width",
@@ -173,7 +175,7 @@ check("the page container is the /app one: app-gutter (10px on a phone, 32px fro
     && /--app-gutter: 11px/.test(css) && /--app-gutter: 32px/.test(css))
 check("a page header from lg only: back to Products (which asks first), the name, the status badge, the more menu",
   /className="mb-5 hidden min-h-9 items-center gap-2 lg:flex"/.test(headSource) && /aria-label="Back to products"/.test(headSource) && /onClick=\{\(\) => void handleCancel\(\)\}/.test(headSource)
-    && /text-\[24px\] font-bold leading-9 text-\[#1a1a2e\] sm:text-\[28px\]/.test(headSource) && /productId \? savedTitle\.trim\(\) \|\| "Untitled" : "New product"/.test(headSource)
+    && /text-\[24px\] font-bold leading-9 text-\[#1a1a2e\] sm:text-\[28px\]/.test(headSource) && /productId \? savedTitle\.trim\(\) \|\| "Untitled" : productType === "course" \? "New course" : "New product"/.test(headSource)
     && /\{statusBadge\}/.test(headSource) && /\{moreMenu\}/.test(headSource))
 const mainAt = editor.indexOf('data-editor-main=""')
 const sideAt = editor.indexOf('data-editor-side=""')
@@ -181,8 +183,12 @@ const at = (s: string) => editor.indexOf(s)
 check("two columns from lg, the main one two thirds", /lg:grid lg:grid-cols-\[minmax\(0,2fr\)_minmax\(272px,1fr\)\] lg:items-start/.test(editor) && mainAt > 0 && sideAt > mainAt)
 /* Changed on purpose: the owner moved the category into the main column, a field above the description, "at every width". */
 check("the product itself in the main column: title, pictures, category, description, included, files, variants, pricing, questions",
-  [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("sectionRefs.current.category = el"), at("<RichTextEditor"), at("What's Included</h2>"), at("sectionRefs.current.files = el"), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
+  [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("sectionRefs.current.category = el"), at("<RichTextEditor"), at("What's Included</h2>"), at('{productType === "course" ? null : filesCard}'), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
     .every((i, n, all) => i > mainAt && i < sideAt && (n === 0 || i > all[n - 1])))
+/* "Course -> product editor in course mode with the Lessons card first": a course's lessons sit right under its title, before the pictures. */
+check("a course's Lessons card comes first, right under the title; a digital product's files keep their place",
+  at("sectionRefs.current.about = el") < at('{productType === "course" ? filesCard : null}') && at('{productType === "course" ? filesCard : null}') < at("sectionRefs.current.media = el")
+    && at("sectionRefs.current.files = el") > 0 && at("sectionRefs.current.files = el") < mainAt && /const filesCard = \(/.test(editor))
 check("how it is shown and found beside it: status (lg only), settings, search",
   [at('data-editor-status=""'), at(">Settings</h2>"), at(">Search engine listing</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
     && /data-editor-status="" className=\{cn\(CARD, "hidden lg:block"\)\}/.test(editor))
@@ -479,8 +485,10 @@ check("but only on a return: a fresh visit from the sidebar or the pill starts a
     && /useState<Sort>\(resumed\?\.sort \?\? "newest"\)/.test(list) && /useState\(resumed\?\.page \?\? 1\)/.test(list) && /useState\(resumed\?\.search \?\? ""\)/.test(list)
     && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
 check("the row you came back from is tinted as the list comes back, after the layer's drop", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_LEAVE_MS/.test(list))
+/* Changed on purpose: New product asks what is being sold first (app/app/products/new/kind-chooser), and the editor its answer opens rises with the same layer move. */
 check("rows and New product open the editor with the layer's move; a press with a modifier is left to the link",
-  /openEditor\(router, href, id !== "new"\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 2
+  /openEditor\(router, href, id !== "new"\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{askNew\}/g) ?? []).length === 2
+    && /if \(href\.startsWith\(NEW_PRODUCT_HREF\)\) openEditor\(router, href, true\)/.test(code("app/app/products/new/kind-chooser.tsx")) && /!e\.metaKey && !e\.ctrlKey && !e\.shiftKey && !e\.altKey/.test(code("app/app/products/new/kind-chooser.tsx"))
     && (list.match(/onClick=\{\(e\) => api\.current\?\.open\(product\.id\)\(e\)\}/g) ?? []).length === 2 && /open: openFromLink,/.test(list))
 
 const layer = code("components/app/page-layer.tsx")
