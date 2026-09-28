@@ -18,6 +18,7 @@ import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
 import { reportError } from "@/lib/observability/report"
+import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
 
 export const runtime = "nodejs"
 
@@ -161,6 +162,17 @@ async function handleStripeEvent(request: Request) {
   }
 
   console.log("[Webhook] Event type:", event.type)
+
+  /*
+    A BUYER'S MEMBERSHIP OF A CREATOR, first. Its subscription and invoices
+    are Storelib's own, like a creator's plan, and carry metadata.kind
+    "membership"; lib/memberships/webhook.ts answers them and nothing below
+    sees them. Anything else it answers null for, and goes on as before.
+  */
+  if (isMembershipEventType(event.type)) {
+    const answered = await handleMembershipEvent(supabaseAdmin, event)
+    if (answered) return answered
+  }
 
   // ============================================================================
   // checkout.session.completed

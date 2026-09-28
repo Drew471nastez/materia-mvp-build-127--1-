@@ -71,6 +71,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/strip-image-metadata", schedule: "10 * * * *", what: "Removes location data from new public photos" },
   { path: "/api/cron/notifications", schedule: "25 * * * *", what: "Works out every creator's notifications and pushes the urgent ones" },
   { path: "/api/cron/notify", schedule: "*/5 * * * *", what: "Sends due notification emails and bell notices, and retries the ones that failed" },
+  { path: "/api/cron/memberships", schedule: "7,22,37,52 * * * *", what: "Membership renewal reminders, half started checkouts closed, and creators' updates emailed to members" },
 ] as const
 
 /**

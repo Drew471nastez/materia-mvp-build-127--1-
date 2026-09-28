@@ -104,6 +104,20 @@ const ENTRIES: Record<NotificationType, Entry> = {
   */
   REVIEW_REQUEST: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 0, condition: "review_still_wanted" }),
   REVIEW_REMINDER: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 0, condition: "review_still_wanted" }),
+
+  /* ── A buyer's membership of a creator ────────────────────────────── */
+  /*
+    Billing notices about a subscription the member pays for: required, like a receipt, so no unsubscribe link and no
+    daily cap. Each is keyed by the membership and the period or invoice it is about (lib/notify/workflows/memberships.ts),
+    so a webhook Stripe delivers twice, or a reminder run that comes round again, sends one. The creator's own updates to
+    members are not these: those are the creator's email, with its own way out (lib/memberships/update-email.ts).
+  */
+  MEMBERSHIP_STARTED: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "customer", channels: ["email"], template: "receipt", defaultOn: true, cooldownSeconds: 0 }),
+  MEMBERSHIP_RENEWED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "receipt", defaultOn: true, cooldownSeconds: 0 }),
+  MEMBERSHIP_RENEWAL_REMINDER: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
+  MEMBERSHIP_PAYMENT_FAILED: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "customer", channels: ["email"], template: "action_required", defaultOn: true, cooldownSeconds: 12 * HOUR }),
+  MEMBERSHIP_CANCELED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
+  MEMBERSHIP_ENDED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
 }
 
 export const REGISTRY: Record<NotificationType, RegistryEntry> = Object.fromEntries(

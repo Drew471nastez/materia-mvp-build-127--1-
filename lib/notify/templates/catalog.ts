@@ -33,6 +33,16 @@ const SALE_KEYS = [
   "customerEmail", "customerCountry", "paymentMethod", "cardBrand", "cardLast4",
 ] as const
 
+/**
+ * What a membership notice reads (lib/memberships/notify.ts fills them):
+ * the membership's id for its page, its name and creator, the price in
+ * cents with its interval ("month" or "year"), the dates it is about, and
+ * the card's last four digits when a payment failed.
+ */
+const MEMBERSHIP_KEYS = [
+  "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4",
+] as const
+
 /** The data keys each template reads. Workflows fill these; every one is optional. */
 export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   WELCOME_TO_STORELIB: ["storeName"],
@@ -78,6 +88,12 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   CUSTOMER_REFUND_PROCESSED: ["productTitle", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken"],
   REVIEW_REQUEST: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId"],
   REVIEW_REMINDER: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId"],
+  MEMBERSHIP_STARTED: [...MEMBERSHIP_KEYS],
+  MEMBERSHIP_RENEWED: [...MEMBERSHIP_KEYS],
+  MEMBERSHIP_RENEWAL_REMINDER: [...MEMBERSHIP_KEYS],
+  MEMBERSHIP_PAYMENT_FAILED: [...MEMBERSHIP_KEYS],
+  MEMBERSHIP_CANCELED: [...MEMBERSHIP_KEYS],
+  MEMBERSHIP_ENDED: [...MEMBERSHIP_KEYS],
 }
 
 /* ── Canonical paths ───────────────────────────────────────────────────── */
@@ -114,6 +130,9 @@ export const PATHS = {
   review: (token: string, rate?: number) => `/receipt/${token}${rate ? `?rate=${rate}` : ""}#review`,
   library: "/library",
   libraryProduct: (id: string) => `/library/products/${id}`,
+  /** A member's page for one membership: its posts, what it includes, and Manage. */
+  memberships: "/library/memberships",
+  membership: (id: string) => (id ? `/library/memberships/${id}` : "/library/memberships"),
 } as const
 
 /* ── Reading data ──────────────────────────────────────────────────────── */
@@ -1240,6 +1259,134 @@ export const CATALOG: Record<NotificationType, Entry> = {
 
   REVIEW_REQUEST: (d) => reviewAsk(d, false),
   REVIEW_REMINDER: (d) => reviewAsk(d, true),
+
+  /* ── A buyer's membership ───────────────────────────────────────────── */
+  MEMBERSHIP_STARTED: (d) => {
+    const m = membershipOf(d)
+    const trial = d.date("trialEnd")
+    return {
+      family: "receipt",
+      audience: "customer",
+      subject: fitSubject("You are a member of ", m.title, "") || "Your membership has started",
+      preview: trial ? `Your free trial runs until ${trial}.` : "Here is what you pay and when.",
+      heading: m.title ? `Welcome to ${m.title}` : "Welcome, you are a member",
+      paragraphs: [
+        trial
+          ? join("Your free trial runs until", `${trial}.`, m.price ? `After that it is ${m.price}, and you can cancel before then at no cost.` : "You can cancel before then at no cost.")
+          : join("Thanks for joining.", m.price ? `You pay ${m.price}, and it renews by itself until you cancel.` : "It renews by itself until you cancel."),
+        join("Posts from", m.creator || "the creator", "and everything the membership includes are on your membership page."),
+      ],
+      facts: [["Membership", m.title], ["By", m.creator], ["Price", m.price], [trial ? "First payment" : "Next payment", trial || m.next]],
+      action: { label: "Open your membership", path: m.path },
+      note: "You can cancel any time from your membership page. You keep access until the end of the period you paid for.",
+      inApp: { title: "You are a member", body: m.title ? `Welcome to ${m.title}.` : "Your membership has started.", actionLabel: "Open", actionPath: m.path },
+    }
+  },
+
+  MEMBERSHIP_RENEWED: (d) => {
+    const m = membershipOf(d)
+    const paid = d.money()
+    return {
+      family: "receipt",
+      audience: "customer",
+      subject: paid ? fitSubject(`${paid} for `, m.title, "") || "Your membership renewed" : "Your membership renewed",
+      preview: m.next ? `Next payment ${m.next}.` : "Thanks for staying a member.",
+      heading: "Your membership renewed",
+      paragraphs: [join("We charged", paid || "your card", m.title ? `for ${m.title}` : "for your membership", m.creator ? `by ${m.creator}.` : "."), m.next ? `Your next payment is on ${m.next}.` : ""].filter(Boolean),
+      facts: [["Membership", m.title], ["Amount", paid], ["Card", ending(d.last4("cardLast4"))], ["Next payment", m.next]],
+      action: { label: "Open your membership", path: m.path },
+      inApp: { title: "Membership renewed", body: paid ? `${paid} for ${m.title || "your membership"}.` : "Your membership renewed.", actionLabel: "Open", actionPath: m.path },
+    }
+  },
+
+  MEMBERSHIP_RENEWAL_REMINDER: (d) => {
+    const m = membershipOf(d)
+    return {
+      family: "transaction",
+      audience: "customer",
+      subject: m.next ? fitSubject("", m.title, ` renews on ${d.date("periodEnd", true)}`) || "Your membership renews soon" : "Your membership renews soon",
+      preview: m.price ? `${m.price}, to the card you saved.` : "To the card you saved.",
+      heading: m.next ? `Your membership renews on ${m.next}` : "Your membership renews soon",
+      paragraphs: [
+        join(m.title || "Your membership", m.creator ? `by ${m.creator}` : "", "renews", m.next ? `on ${m.next}` : "soon", m.price ? `for ${m.price}.` : "."),
+        "Nothing to do if you want to stay. To stop it, cancel before then from your membership page and you keep access until that date.",
+      ],
+      facts: [["Membership", m.title], ["Price", m.price], ["Renews on", m.next]],
+      action: { label: "Manage your membership", path: m.path },
+      inApp: { title: "Renews soon", body: m.next ? `${m.title || "Your membership"} renews on ${m.next}.` : "Your membership renews soon.", actionLabel: "Manage", actionPath: m.path },
+    }
+  },
+
+  MEMBERSHIP_PAYMENT_FAILED: (d) => {
+    const m = membershipOf(d)
+    const amount = d.money()
+    const grace = d.date("graceEndsAt")
+    const last4 = d.last4("cardLast4")
+    return {
+      family: "action_required",
+      audience: "customer",
+      subject: fitSubject("Your payment for ", m.title, " did not go through") || "Your membership payment did not go through",
+      preview: grace ? `Update your card by ${grace} to keep access.` : "Update your card to keep access.",
+      heading: "Your payment did not go through",
+      paragraphs: [
+        join("We tried to charge", amount || "your card", last4 ? `to the card ending in ${last4}` : "", m.title ? `for ${m.title},` : "for your membership,", "and the bank declined it."),
+        grace ? `You keep access until ${grace}. Update your card before then and we will try again right away.` : "Update your card and we will try again right away.",
+      ],
+      facts: [["Membership", m.title], ["Amount", amount], ["Card", ending(last4)]],
+      action: { label: "Update your card", path: `${m.path}?fix=card` },
+      inApp: { title: "Membership payment failed", body: "Update your card to keep access.", actionLabel: "Update", actionPath: `${m.path}?fix=card` },
+    }
+  },
+
+  MEMBERSHIP_CANCELED: (d) => {
+    const m = membershipOf(d)
+    const ends = d.date("endsAt") || m.next
+    return {
+      family: "transaction",
+      audience: "customer",
+      subject: fitSubject("", m.title, " is cancelled") || "Your membership is cancelled",
+      preview: ends ? `You keep access until ${ends}.` : "You will not be charged again.",
+      heading: "Your membership is cancelled",
+      paragraphs: [
+        join("You will not be charged again", m.title ? `for ${m.title}.` : "."),
+        ends ? `You keep access to everything until ${ends}. Changed your mind? Resume it from your membership page before then.` : "Changed your mind? Resume it from your membership page.",
+      ],
+      facts: [["Membership", m.title], ["Access until", ends]],
+      action: { label: "Open your membership", path: m.path },
+      inApp: { title: "Membership cancelled", body: ends ? `Access until ${ends}.` : "You will not be charged again.", actionLabel: "Open", actionPath: m.path },
+    }
+  },
+
+  MEMBERSHIP_ENDED: (d) => {
+    const m = membershipOf(d)
+    return {
+      family: "base",
+      audience: "customer",
+      subject: fitSubject("Your membership of ", m.title, " has ended") || "Your membership has ended",
+      preview: "You can join again whenever you like.",
+      heading: "Your membership has ended",
+      paragraphs: [
+        join(m.title ? `Your membership of ${m.title}` : "Your membership", "has ended and you will not be charged again."),
+        "Your receipts stay in your library, and you can join again whenever you like.",
+      ],
+      facts: [["Membership", m.title], ["By", m.creator]],
+      action: { label: "See your memberships", path: PATHS.memberships },
+      inApp: { title: "Membership ended", body: m.title ? `${m.title} has ended.` : "Your membership has ended.", actionLabel: "Open", actionPath: PATHS.memberships },
+    }
+  },
+}
+
+/** What every membership notice says the same way: its name, who by, the price with its interval, the next date and its page. */
+function membershipOf(d: Data): { title: string; creator: string; price: string; next: string; path: string } {
+  const amount = d.money()
+  const interval = d.text("interval", 8) === "year" ? "year" : "month"
+  return {
+    title: d.text("membershipTitle", 60),
+    creator: d.text("creatorName", 40),
+    price: amount ? `${amount} a ${interval}` : "",
+    next: d.date("periodEnd"),
+    path: PATHS.membership(d.id("membershipId")),
+  }
 }
 
 /* ── Asking for a review ───────────────────────────────────────────────── */

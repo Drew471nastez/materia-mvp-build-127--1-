@@ -6,13 +6,14 @@ import CheckoutPageClient from "./checkout-client"
 import { CheckoutSkeleton } from "./checkout-skeleton"
 import { getProductUrl } from "@/lib/url-helpers"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
+import MembershipCheckout from "./membership-checkout"
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string }>
+  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice, return: returnTo, cancel, site } = await searchParams
+  const { productId, variantId, customPrice, return: returnTo, cancel, site, interval } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -30,6 +31,9 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   if (error || !product) {
     notFound()
   }
+
+  /* A membership is joined, not bought once: its own checkout (./membership-checkout.tsx). */
+  if (product.type === "membership") return membershipCheckoutContent({ product, interval })
 
   /*
     EVERYTHING ELSE AT ONCE. The creator, the option asked for, who is
@@ -179,6 +183,43 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         /* What the server will charge for it: a pay-what-you-want option's minimum. */
         priceCents: v.pay_what_you_want ? v.pwyw_min_price_cents || 0 : v.price_cents,
       }))}
+    />
+  )
+}
+
+/**
+ * THE MEMBERSHIP CHECKOUT'S DATA: the creator, who is signed in, and the
+ * plan (its prices, trial and what members get). The plan is read with the
+ * visitor's own client: row level security lets anybody read the plan of a
+ * published membership, and nothing else of it (run-now part 75). A plan
+ * that cannot be read (part 75 not run yet) draws the page with Join
+ * switched off and a sentence saying so.
+ */
+async function membershipCheckoutContent({ product, interval }: { product: Record<string, any>; interval?: string }) {
+  const supabase = await createClient()
+  const [creatorRead, userRead, planRead] = await Promise.all([
+    supabase.from("creators").select("id, user_id, slug").eq("id", product.creator_id).single(),
+    supabase.auth.getUser(),
+    supabase.from("membership_plans").select("monthly_price_cents, yearly_price_cents, trial_days, benefits").eq("product_id", product.id).maybeSingle(),
+  ])
+  const creator = creatorRead.data
+  const user = userRead.data.user
+  const { data: profile } = creator ? await supabase.from("profiles").select("display_name, avatar_url, username").eq("id", creator.user_id).single() : { data: null }
+  const plan = planRead.data as { monthly_price_cents: number | null; yearly_price_cents: number | null; trial_days: number | null; benefits: unknown } | null
+  return (
+    <MembershipCheckout
+      product={{ id: product.id, title: product.title, slug: product.slug, thumbnail_url: product.thumbnail_url ?? null }}
+      creator={{ id: creator?.id || "", name: profile?.display_name || "Creator", avatar_url: profile?.avatar_url || null, username: profile?.username || creator?.slug || "" }}
+      plan={{
+        monthlyPriceCents: plan?.monthly_price_cents ?? null,
+        yearlyPriceCents: plan?.yearly_price_cents ?? null,
+        trialDays: plan?.trial_days ?? 0,
+        benefits: Array.isArray(plan?.benefits) ? (plan!.benefits as unknown[]).filter((b): b is string => typeof b === "string") : [],
+      }}
+      userEmail={user?.email || null}
+      isLoggedIn={!!user}
+      initialInterval={interval === "year" ? "year" : interval === "month" ? "month" : undefined}
+      unavailable={!!planRead.error || !plan}
     />
   )
 }

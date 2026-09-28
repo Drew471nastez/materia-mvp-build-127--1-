@@ -33,6 +33,7 @@ import { Check, ArrowRight, CheckCircle, ChevronRight, Star, Heart } from "lucid
 import { BuyButton } from "@/components/checkout/buy-button"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
 import { ViewInLibraryButton } from "@/components/checkout/view-in-library-button"
+import { membershipForProductPage } from "@/lib/memberships/product-page"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { DiscoverBackBreadcrumb } from "@/components/product/discover-back-breadcrumb"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -532,6 +533,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     // ignore auth errors
   }
 
+  /* A membership (lib/memberships): its price is per month or year, and a member is shown theirs instead of Join. */
+  const membershipInfo = product.type === "membership" ? await membershipForProductPage(product.id, user) : null
+
   // ---------------------------------------------------------------------------
   // Course modules (only if course)
   // ---------------------------------------------------------------------------
@@ -827,12 +831,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     }).format(cents / 100)
   }
   /* The price under the title: free, pay what you want, or a price and its saving, by the rule every card uses. */
-  const headerPrice = listPrice({
+  const listed = listPrice({
     price_cents: product.price_cents,
     compare_at_cents: product.compare_at_cents,
     pay_what_you_want: (product as { pay_what_you_want?: boolean | null }).pay_what_you_want ?? null,
     pwyw_min_price_cents: (product as { pwyw_min_price_cents?: number | null }).pwyw_min_price_cents ?? null,
   }, formatPrice)
+  /* A membership's price is "$9/month" (or "/year" when it has only a yearly one). */
+  const headerPrice = membershipInfo && product.price_cents > 0 ? { ...listed, main: `${listed.main}/${membershipInfo.interval}` } : listed
 
   // Check if the logged-in user is the creator of this product
 
@@ -1132,6 +1138,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 payWhatYouWant={(product as any).pay_what_you_want || false}
                 pwywMinPriceCents={(product as any).pwyw_min_price_cents || null}
                 pwywSuggestedPriceCents={(product as any).pwyw_suggested_price_cents || null}
+                membership={membershipInfo}
                 purchasedExtraContent={
                   <>
                     <ViewInLibraryButton
@@ -1497,6 +1504,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             payWhatYouWant={(product as any).pay_what_you_want || false}
             pwywMinPriceCents={(product as any).pwyw_min_price_cents || null}
             pwywSuggestedPriceCents={(product as any).pwyw_suggested_price_cents || null}
+            membership={membershipInfo}
             purchasedExtraContent={
               <>
                 <ViewInLibraryButton
