@@ -4541,7 +4541,10 @@ html.capacitor [tabindex="0"]:active {
    icon exactly as you let go, which the browser probes never saw because
    they have no `html.capacitor`. Only colour and opacity of their own change
    on these icons, and only as the tab changes. */
-html.capacitor [data-app-nav-pill] nav a:active,
+html.capacitor [data-app-nav-pill] nav a:active {
+  opacity: 1;
+}
+/* The buyer's tab bar answers a finger the same way (components/nav/buyer-tab-bar.tsx). */
 html.capacitor [data-buyer-tab-bar] nav a:active {
   opacity: 1;
 }

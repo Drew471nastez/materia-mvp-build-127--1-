@@ -32,13 +32,25 @@ export default async function AccountRoute() {
   const [profile, creator, newsletter, personalized, saved] = await Promise.all([
     profileForRequest(user.id),
     creatorForRequest(user.id),
-    readNewsletter(createAdminClient(), user.email, user.user_metadata?.storelib_newsletter === true).catch(() => false),
     (async () => {
-      const { data } = await supabase.from("profiles").select("personalized_recommendations").eq("id", user.id).maybeSingle()
-      const column = (data as { personalized_recommendations?: boolean } | null)?.personalized_recommendations
-      /* A column not there yet reads the choice kept on the account, and on without one (app/api/account/preferences). */
-      return typeof column === "boolean" ? column : user.user_metadata?.personalized_recommendations !== false
-    })().catch(() => true),
+      try {
+        return await readNewsletter(createAdminClient(), user.email, user.user_metadata?.storelib_newsletter === true)
+      } catch {
+        return false
+      }
+    })(),
+    /* Read as the preferences route reads it (app/api/account/preferences):
+       the column is private, so the service role, for this person's own row. */
+    (async () => {
+      try {
+        const { data } = await createAdminClient().from("profiles").select("personalized_recommendations").eq("id", user.id).maybeSingle()
+        const column = (data as { personalized_recommendations?: boolean } | null)?.personalized_recommendations
+        /* A column not there yet reads the choice kept on the account, and on without one. */
+        return typeof column === "boolean" ? column : user.user_metadata?.personalized_recommendations !== false
+      } catch {
+        return true
+      }
+    })(),
     /* Only what is still on sale, as the wishlist itself lists it (app/api/wishlist). */
     supabase
       .from("wishlist_items")
