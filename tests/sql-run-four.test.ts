@@ -95,5 +95,27 @@ check("  and runs first in the last file, before the storage policies and the ch
 }))
 check("  once in each set of files", four.filter((f) => f.includes(backfill[0])).length === 1 && three.filter((f) => f.includes(backfill[0])).length === 1)
 
+console.log("\nThe oldest email_events shape does not stop the files")
+/*
+  Part 46 upgrades email_events from its oldest shape (recipient_email,
+  required, and no creator_id; supabase/migrations/20260202), but parts 20
+  and 21 run before it in the same file and named creator_id outright, so on
+  that shape the whole paste stopped at part 20 with "column creator_id does
+  not exist" and part 46 never ran. scripts/sql-harness/run.sh (legacy
+  scenario) builds that shape and runs both files twice.
+*/
+const p20 = read(`${RN}/20_saved_cards_bounces_and_exec_sql.sql`)
+const p21 = read(`${RN}/21_email_sending.sql`)
+check("part 20 relaxes creator_id only where the column is there and required", p20.includes("if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'email_events' and column_name = 'creator_id' and is_nullable = 'NO') then alter table public.email_events alter column creator_id drop not null; end if;"))
+check("  and its migration says the same", read("supabase/migrations/20260930_saved_cards_bounces_and_exec_sql.sql").includes(p20.split("\n")[2]))
+const addCol = p21.indexOf("ALTER TABLE public.email_events ADD COLUMN IF NOT EXISTS creator_id uuid")
+check("part 21 gives email_events a creator_id before its policy reads one", addCol > 0 && addCol < p21.indexOf('CREATE POLICY "Creators read their own email events"'))
+const harness = read("scripts/sql-harness/run.sh")
+check("the harness runs each file as one query, as the SQL editor does, and with psql -1", harness.includes("simple_query.py") && harness.includes("-1 -v ON_ERROR_STOP=1"))
+check("  twice, comparing schema and every row after the second run", /fingerprint "\$db" "\$fp-after-second"/.test(harness))
+check("  on the oldest shape too", /recipient_email text not null/.test(read("scripts/sql-harness/legacy.sql")) && !/creator_id/.test(read("scripts/sql-harness/legacy.sql").split("create table public.email_events")[1].split(");")[0]))
+const baseFiles = read("scripts/sql-harness/base-files.txt").split("\n").filter((l) => l.trim() && !l.startsWith("#"))
+check("every file the harness builds its base from is in the repository", baseFiles.length > 100 && baseFiles.every((f) => { try { read(f); return true } catch { return false } }), baseFiles.filter((f) => { try { read(f); return false } catch { return true } }).join(", "))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

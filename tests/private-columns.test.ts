@@ -53,6 +53,17 @@ for (const c of ["role", "spam_state", "is_official", "is_verified", "is_staff"]
 }
 check("profiles.email follows the sign in email", sql.includes("storelib_sign_in_email((newj ->> 'id')::uuid)"))
 check("the check after says whether part 63 holds", readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8").includes("as p63_private_columns"))
+/*
+  THE CHECK'S OWN LIST IS BOTH OF PART 63's LISTS. p63_private_columns reads
+  false when any column the public key cannot read is missing from the list
+  written into 99_check_after. Part 69 put stripe_requirements and its two
+  dates on the creator list and the check was not told, so p63 read false
+  on a database where part 63 held (found by scripts/sql-harness/run.sh).
+*/
+const p63 = readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8").match(/not \(a\.attname::text = any \(ARRAY\[([^\]]*)\]\)\)\) as p63_private_columns/)
+const p63List = p63 ? p63[1].split(",").map((s) => s.trim().replace(/'/g, "")) : []
+const bothLists = [...listed("creators"), ...listed("profiles")]
+check("the check after names every private column of both lists, and nothing else", p63List.length > 0 && JSON.stringify([...p63List].sort()) === JSON.stringify([...new Set(bothLists)].sort()), p63List.filter((c) => !bothLists.includes(c)).concat(bothLists.filter((c) => !p63List.includes(c))).join(","))
 
 for (const c of CREATOR_CARD.split(",").map((s) => s.trim())) check(`the creator card names public ${c}`, !(PRIVATE_CREATOR_COLUMNS as readonly string[]).includes(c))
 for (const c of PROFILE_CARD.split(",").map((s) => s.trim())) check(`the profile card names public ${c}`, !(PRIVATE_PROFILE_COLUMNS as readonly string[]).includes(c))

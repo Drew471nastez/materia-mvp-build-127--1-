@@ -38,4 +38,5 @@ ALTER TABLE public.email_events ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.email_events FROM anon;
 DROP POLICY IF EXISTS "Anyone can insert events via tracking" ON public.email_events;
 DROP POLICY IF EXISTS "Creators read their own email events" ON public.email_events;
+ALTER TABLE public.email_events ADD COLUMN IF NOT EXISTS creator_id uuid REFERENCES public.creators(id) ON DELETE CASCADE;
 CREATE POLICY "Creators read their own email events" ON public.email_events FOR SELECT TO authenticated USING (creator_id IN (SELECT id FROM public.creators WHERE user_id = auth.uid()));

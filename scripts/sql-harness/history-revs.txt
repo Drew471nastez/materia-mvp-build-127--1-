@@ -1,0 +1,47 @@
+# WHAT PRODUCTION MAY HAVE RUN BEFORE TODAY'S TWO FILES, oldest first: the
+# RUN_*.sql files of 23 to 25 September, then five builds of run-four as the
+# owner was given them. One "<git revision> <path>" per line; run.sh's
+# history scenario runs each as the SQL editor would, then today's files.
+HEAD supabase/sql/RUN_STORELIB_NEWSLETTER.sql
+HEAD supabase/sql/RUN_AGENT_CONNECTIONS.sql
+HEAD supabase/sql/RUN_GITHUB_SYNC.sql
+HEAD supabase/sql/RUN_AGENT_ACCESS_INDEXES.sql
+HEAD supabase/sql/RUN_REFUND_LEDGER_ONCE.sql
+HEAD supabase/sql/RUN_ORDER_SOURCE.sql
+HEAD supabase/sql/RUN_RATE_LIMITS.sql
+HEAD supabase/sql/RUN_EVENT_AND_EMAIL_TYPES.sql
+HEAD supabase/sql/RUN_SITE_VITALS.sql
+HEAD supabase/sql/RUN_WEBSITE_ADDRESSES.sql
+HEAD supabase/sql/RUN_ADMIN_CONSOLE.sql
+HEAD supabase/sql/RUN_COUPONS.sql
+HEAD supabase/sql/RUN_EMAIL_AUTOMATIONS.sql
+HEAD supabase/sql/RUN_AGENT_MCP.sql
+HEAD supabase/sql/RUN_THEME_LIBRARY_LIMIT.sql
+HEAD supabase/sql/RUN_PRODUCT_ARCHIVE_STATUS.sql
+HEAD supabase/sql/RUN_EMAIL_SENDING.sql
+HEAD supabase/sql/RUN_ACCOUNT_PRIVACY.sql
+HEAD supabase/sql/RUN_CHECKOUT_CONTACTS.sql
+HEAD supabase/sql/RUN_UPLOAD_SAFETY.sql
+HEAD supabase/sql/RUN_SAFETY_ROUND.sql
+HEAD supabase/sql/RUN_THEME_CHAT_CONVERSATIONS.sql
+HEAD supabase/sql/RUN_CREATOR_BADGES.sql
+a76cf64e supabase/sql/run-four/1_of_4_core.sql
+a76cf64e supabase/sql/run-four/2_of_4_library_checkout_uploads.sql
+a76cf64e supabase/sql/run-four/3_of_4_latest.sql
+a76cf64e supabase/sql/run-four/4_of_4_storage_policies_and_check.sql
+eb4d4b01 supabase/sql/run-four/1_of_4_core.sql
+eb4d4b01 supabase/sql/run-four/2_of_4_library_checkout_uploads.sql
+eb4d4b01 supabase/sql/run-four/3_of_4_latest.sql
+eb4d4b01 supabase/sql/run-four/4_of_4_storage_policies_and_check.sql
+76f3bc11 supabase/sql/run-four/1_of_4_core.sql
+76f3bc11 supabase/sql/run-four/2_of_4_library_checkout_uploads.sql
+76f3bc11 supabase/sql/run-four/3_of_4_latest.sql
+76f3bc11 supabase/sql/run-four/4_of_4_storage_policies_and_check.sql
+6c155fba supabase/sql/run-four/1_of_4_core.sql
+6c155fba supabase/sql/run-four/2_of_4_library_checkout_uploads.sql
+6c155fba supabase/sql/run-four/3_of_4_latest.sql
+6c155fba supabase/sql/run-four/4_of_4_storage_policies_and_check.sql
+9cfbbd89 supabase/sql/run-four/1_of_4_core.sql
+9cfbbd89 supabase/sql/run-four/2_of_4_library_checkout_uploads.sql
+9cfbbd89 supabase/sql/run-four/3_of_4_latest.sql
+9cfbbd89 supabase/sql/run-four/4_of_4_storage_policies_and_check.sql
