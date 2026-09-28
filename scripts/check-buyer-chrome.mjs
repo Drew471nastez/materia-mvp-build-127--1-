@@ -326,13 +326,14 @@ try {
       await sleep(300)
       const end = await p.evaluate(READ)
       await p.screenshot({ path: join(shots, `${path.slice(1).replace(/\//g, "-")}-buyer-${width}-end.png`) })
+      /* The profile has the site header, as the library does: one bar, never
+         its own second one under it ("the profile page needs to have the
+         header on it"). */
+      expect(s.header && s.bar, `${path}: the header and the tab bar`, { header: s.header, bar: s.bar })
       if (own) {
-        /* The profile draws its own light bar here: no black header, from the very first frame, and the tab bar stays. */
-        const first = await p.evaluate(() => window.__headerEver)
-        expect(!s.header && s.headerH === 0 && s.bar, `${path}: no black header on a phone, the tab bar stays`, { header: s.header, headerH: s.headerH, bar: s.bar })
-        expect(first === 0, `${path}: and it never had a box, not even for a frame before hiding`, first)
+        const bars = await p.evaluate(() => document.querySelectorAll("[data-account-phone-bar]").length)
+        expect(bars === 0, `${path}: and no second bar of its own under it`, bars)
       } else {
-        expect(s.header && s.bar, `${path}: the header and the tab bar`, { header: s.header, bar: s.bar })
         expect(!s.library && s.controls.includes("Wishlist") && s.controls.includes("Open profile menu"), `${path}: no Library icon; the heart and the photo`, s.controls)
       }
       expect(!s.strip && !d.strip, `${path}: no "Search for anything" bar, at the top or scrolled`, [s.strip, d.strip])
@@ -810,9 +811,20 @@ try {
     expect(firstGone >= 0 && after.leave[firstGone].path === litPath && fade.length >= 1, "it fades only after the new page is in place (no flash of the old one), over frames", { around: after.leave.slice(Math.max(0, firstGone - 1), firstGone + 3), fading: fade.length })
     await p.screenshot({ path: join(shots, "search-after-result.png") })
 
-    /* Again, from the product page browsed from Storelib: recent searches. */
+    /*
+      The product a result opened is the creator's shop: no tab bar on it
+      (lib/nav/buyer-tabs.ts), and its own buy bar is the thing at its foot.
+      So the rest of the search checks open the screen again from Explore,
+      which is where the bar lives.
+    */
+    const onProduct = await p.evaluate(() => document.querySelectorAll("[data-buyer-tab-bar]").length)
+    expect(onProduct === 0, "the product a result opened has no tab bar: it is the creator's page", onProduct)
+    /* Back to Explore inside this same document (the stub listens for
+       popstate), so what was just searched is still in this page's recents. */
+    await p.evaluate(() => { history.pushState({ __NA: true }, "", "/explore"); window.dispatchEvent(new PopStateEvent("popstate")) })
+    await sleep(300)
     const slot2 = await p.evaluate(() => { const r = document.querySelector('[data-buyer-tab="search"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null })
-    expect(!!slot2, "the product, opened from search, keeps the tab bar (discover mode)", slot2)
+    expect(!!slot2, "back on Explore, the bar is there to open the screen again", slot2)
     if (slot2) {
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
       await touch("touchStart", slot2.x, slot2.y)
