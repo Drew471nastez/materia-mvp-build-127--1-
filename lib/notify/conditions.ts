@@ -135,6 +135,9 @@ export async function checkCondition(store: NotifyStore, name: ConditionName, jo
         if (f.product?.title) facts.productTitle = f.product.title.trim().slice(0, 200)
         facts.receiptToken = f.order?.receipt_token ?? null
         if (f.creatorName) facts.creatorName = f.creatorName.slice(0, 80)
+        /* The picture and the reply address the email uses: the product as it is now, and the seller's published support inbox. */
+        facts.productImage = f.productImage ?? null
+        facts.creatorSupportEmail = f.creatorSupportEmail ?? null
         facts.orderId = f.order?.id ?? null
       }
       return true

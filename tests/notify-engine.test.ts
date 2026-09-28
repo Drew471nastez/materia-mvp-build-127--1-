@@ -387,6 +387,12 @@ async function main() {
   {
     check("from MAILGUN_FROM_NAME and MAILGUN_FROM_EMAIL", notifyFrom({ MAILGUN_FROM_NAME: "Storelib", MAILGUN_FROM_EMAIL: "notifications@mg.storelib.com" }) === "Storelib <notifications@mg.storelib.com>")
     check("else EMAIL_FROM", /@/.test(notifyFrom({})))
+    /* A review request goes out under the seller's name, from Storelib's own address either way. */
+    const env = { MAILGUN_FROM_NAME: "Storelib", MAILGUN_FROM_EMAIL: "notifications@mg.storelib.com" }
+    check("a named sender replaces the name and keeps the address", notifyFrom(env, "Loudlib via Storelib") === '"Loudlib via Storelib" <notifications@mg.storelib.com>', notifyFrom(env, "Loudlib via Storelib"))
+    check("a name with a comma or a quote cannot split the header", notifyFrom(env, 'A, B" <x@y.z>') === '"A, B x@y.z" <notifications@mg.storelib.com>', notifyFrom(env, 'A, B" <x@y.z>'))
+    check("a name with a line break is one line", !/[\r\n]/.test(notifyFrom(env, "A\r\nBcc: x@y.z")))
+    check("no name given: Storelib, as before", notifyFrom(env, null) === "Storelib <notifications@mg.storelib.com>" && notifyFrom(env, "  ") === "Storelib <notifications@mg.storelib.com>")
     check("a timeout is unknown, never retry", resultOf({ success: false, timedOut: true } as never).status === "unknown")
     check("a 429 or 5xx is retry", resultOf({ success: false, status: 429 } as never).status === "retry" && resultOf({ success: false, status: 502 } as never).status === "retry")
     check("a 400 about the address is a permanent failure", (() => {

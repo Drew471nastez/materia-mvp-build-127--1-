@@ -28,8 +28,11 @@
  *               media query; the query only trims the padding.
  *   styles      inline. <style> adds dark mode and phone padding only.
  *   dark mode   color-scheme light dark, a dark palette for Apple Mail and
- *               Outlook.com ([data-ogsc]); the button keeps its dark fill and
- *               white text, which survives a forced inversion either way.
+ *               Outlook.com ([data-ogsc]). The button turns over: near black
+ *               with white words on the light card, near white with black
+ *               words on the dark one. Measured, because a dark button on a
+ *               dark card came out at 1.19:1 against it, which is a button
+ *               nobody can see (scripts/check-notify-emails.mjs).
  *   preheader   hidden, followed by spacers.
  *   button      a padded table cell around a link, so the whole button is a
  *               target and it renders without images or VML.
@@ -84,6 +87,14 @@ export interface OrderSummary {
   sections?: { title: string; rows: Fact[] }[]
 }
 
+/** One thing the email is about: a picture, a name, and a line under it. */
+export interface Media {
+  title: string
+  subtitle?: string | null
+  /** An absolute https address, already sized for an inbox. Null draws the letter tile. */
+  imageUrl?: string | null
+}
+
 /** Everything the layout draws. Plain text only; the layout escapes it. */
 export interface LayoutInput {
   family: TemplateFamily
@@ -93,6 +104,13 @@ export interface LayoutInput {
   greeting?: string | null
   paragraphs: string[]
   facts?: Fact[]
+  /**
+   * What the email is about, drawn as one small card under the heading: the
+   * product a review is asked about, by its picture, its name and who made
+   * it. No picture draws a tile with the title's first letter, never a
+   * broken image.
+   */
+  media?: Media | null
   /** An order summary, drawn after the paragraphs (a sale). */
   order?: OrderSummary | null
   action?: Link | null
@@ -108,6 +126,8 @@ export interface LayoutInput {
   reason: string
   homeUrl: string
   unsubscribeUrl?: string | null
+  /** What the unsubscribe link says, when it turns off one kind of email rather than all of them. */
+  unsubscribeLabel?: string | null
   preferencesUrl?: string | null
 }
 
@@ -150,6 +170,7 @@ a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important
 .sn-head{padding:0 6px 16px!important;}
 .sn-h1{font-size:20px!important;line-height:28px!important;}
 .sn-btn a{display:block!important;}
+.sn-media-pad{padding:12px 14px!important;}
 .sn-btn-wrap{width:100%!important;}
 }
 @media (prefers-color-scheme: dark){
@@ -161,8 +182,11 @@ a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important
 .sn-facts{border-color:#34343c!important;}
 .sn-facts td{border-color:#34343c!important;}
 .sn-notice{background-color:#26262c!important;border-color:#34343c!important;}
-.sn-btn{background-color:#2f2f4d!important;border:1px solid #7a7a85!important;}
-.sn-link{color:#c4b5fd!important;}
+.sn-btn{background-color:#fafafa!important;}
+.sn-btn a{color:#111114!important;}
+.sn-link{color:#e4e4e7!important;}
+.sn-media{border-color:#34343c!important;}
+.sn-tile{background-color:#34343c!important;color:#d4d4d8!important;}
 .sn-ord{border-color:#34343c!important;}
 .sn-ord td{border-color:#34343c!important;}
 .sn-ord-head,.sn-ord-pay{background-color:#26262c!important;}
@@ -171,13 +195,16 @@ a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important
 [data-ogsc] .sn-body,[data-ogsc] .sn-body p,[data-ogsc] .sn-body td{color:#e4e4e7!important;}
 [data-ogsc] .sn-h1,[data-ogsc] .sn-mark{color:#fafafa!important;}
 [data-ogsc] .sn-muted,[data-ogsc] .sn-foot,[data-ogsc] .sn-foot a{color:#a1a1aa!important;}
-[data-ogsc] .sn-link{color:#c4b5fd!important;}
+[data-ogsc] .sn-link{color:#e4e4e7!important;}
+[data-ogsc] .sn-media{border-color:#34343c!important;}
+[data-ogsb] .sn-tile{background-color:#34343c!important;}
 [data-ogsc] .sn-strong{color:#fafafa!important;}
 [data-ogsb] .sn-ord-head,[data-ogsb] .sn-ord-pay{background-color:#26262c!important;}
 [data-ogsb] .sn-bg{background-color:#111114!important;}
 [data-ogsb] .sn-card{background-color:#1c1c21!important;}
 [data-ogsb] .sn-notice{background-color:#26262c!important;}
-[data-ogsb] .sn-btn{border:1px solid #7a7a85!important;}`
+[data-ogsb] .sn-btn{background-color:#fafafa!important;}
+[data-ogsc] .sn-btn a{color:#111114!important;}`
 
 function preheader(text: string): string {
   const t = text.replace(/\s+/g, " ").trim()
@@ -205,6 +232,36 @@ function factsTable(facts: Fact[], labelWidth = "40%"): string {
     .join("\n")
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="sn-facts" style="width:100%;margin:4px 0 20px;border:1px solid #eceef1;border-radius:8px;border-collapse:separate;">
 ${rows}
+</table>`
+}
+
+/** The drawn size of the picture on the media card, in CSS pixels. */
+export const MEDIA_PX = 64
+
+/**
+ * WHAT THE EMAIL IS ABOUT, IN ONE ROW. A picture on the left at a fixed
+ * 64px, the name and the maker on the right. Two cells of one table, so
+ * Outlook on Windows draws it as a row and a phone still fits it. A picture
+ * that is missing, an SVG, or one an inbox blocks leaves the letter tile,
+ * which is drawn with a table cell rather than an image and so is always
+ * there.
+ */
+function mediaBlock(m: Media): string {
+  const cell = `font-family:${FONT};`
+  const initial = (Array.from(m.title.trim())[0] || "\u2022").toUpperCase()
+  const picture = m.imageUrl
+    ? `<img src="${escapeAttr(m.imageUrl)}" alt="${escapeAttr(m.title)}" width="${MEDIA_PX}" height="${MEDIA_PX}" class="sn-pic" style="display:block;width:${MEDIA_PX}px;height:${MEDIA_PX}px;object-fit:cover;border:1px solid #e6e8ec;border-radius:10px;background-color:#f3f4f6;">`
+    : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td class="sn-tile" width="${MEDIA_PX}" height="${MEDIA_PX}" align="center" valign="middle" bgcolor="#f3f4f6" style="width:${MEDIA_PX}px;height:${MEDIA_PX}px;background-color:#f3f4f6;border:1px solid #e6e8ec;border-radius:10px;${cell}font-size:24px;line-height:${MEDIA_PX}px;font-weight:700;color:#9ca3af;text-align:center;">${escapeHtml(initial)}</td></tr></table>`
+  const subtitle = m.subtitle
+    ? `\n<p class="sn-muted" style="margin:3px 0 0;${cell}font-size:14px;line-height:20px;color:#6b7280;">${escapeHtml(m.subtitle)}</p>`
+    : ""
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="sn-media" style="width:100%;margin:2px 0 22px;border:1px solid #eceef1;border-radius:10px;border-collapse:separate;">
+<tr>
+<td class="sn-media-pad" width="${MEDIA_PX + 2}" valign="middle" style="width:${MEDIA_PX + 2}px;padding:14px 0 14px 14px;">${picture}</td>
+<td class="sn-media-pad" valign="middle" style="padding:14px 16px;">
+<p class="sn-strong" style="margin:0;${cell}font-size:16px;line-height:23px;font-weight:700;color:#111827;word-break:break-word;">${escapeHtml(m.title)}</p>${subtitle}
+</td>
+</tr>
 </table>`
 }
 
@@ -273,7 +330,7 @@ ${factsTable(sec.rows, "30%")}`,
 
 function noticeBox(n: NonNullable<LayoutInput["notice"]>): string {
   const link = n.link
-    ? `<p style="margin:8px 0 0;font-family:${FONT};font-size:14px;line-height:21px;"><a class="sn-link" href="${escapeAttr(n.link.url)}" target="_blank" style="color:#4c1d95;text-decoration:underline;font-weight:600;">${escapeHtml(n.link.label)}</a></p>`
+    ? `<p style="margin:8px 0 0;font-family:${FONT};font-size:14px;line-height:21px;"><a class="sn-link" href="${escapeAttr(n.link.url)}" target="_blank" style="color:#1a1a2e;text-decoration:underline;font-weight:600;">${escapeHtml(n.link.label)}</a></p>`
     : ""
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:4px 0 20px;">
 <tr><td class="sn-notice" style="padding:16px 18px;background-color:#f8f9fa;border:1px solid #eceef1;border-radius:8px;">
@@ -288,7 +345,8 @@ function footerLinks(input: LayoutInput): Link[] {
   if (!showsUnsubscribe(input.family, input.unsubscribeUrl)) return []
   const links: Link[] = []
   if (input.preferencesUrl) links.push({ label: "Notification settings", url: input.preferencesUrl })
-  links.push({ label: "Unsubscribe", url: input.unsubscribeUrl as string })
+  /* A buyer's link turns off one kind of email, so it says which one rather than "Unsubscribe". */
+  links.push({ label: input.unsubscribeLabel || "Unsubscribe", url: input.unsubscribeUrl as string })
   return links
 }
 
@@ -305,6 +363,7 @@ export function renderHtml(input: LayoutInput): string {
     : ""
   const greeting = input.greeting ? P(input.greeting) : ""
   const facts = input.facts && input.facts.length > 0 ? factsTable(input.facts) : ""
+  const media = input.media && input.media.title ? mediaBlock(input.media) : ""
   const order = input.order ? orderBlock(input.order) : ""
   const action = input.action ? button(input.action) : ""
   /* Big enough to press on a phone (44px cells), amber like the stars on the page, plain text characters so they draw with images off. */
@@ -319,10 +378,10 @@ export function renderHtml(input: LayoutInput): string {
 <p class="sn-muted" style="margin:0 0 20px;font-family:${FONT};font-size:13px;line-height:19px;color:#6b7280;">${escapeHtml(input.rate.label)}</p>`
       : ""
   const secondary = input.secondary
-    ? `<p style="margin:14px 0 0;font-family:${FONT};font-size:14px;line-height:21px;"><a class="sn-link" href="${escapeAttr(input.secondary.url)}" style="color:#4c1d95;text-decoration:underline;font-weight:600;">${escapeHtml(input.secondary.label)}</a></p>`
+    ? `<p style="margin:14px 0 0;font-family:${FONT};font-size:14px;line-height:21px;"><a class="sn-link" href="${escapeAttr(input.secondary.url)}" style="color:#1a1a2e;text-decoration:underline;font-weight:600;">${escapeHtml(input.secondary.label)}</a></p>`
     : ""
   const fallback = input.action
-    ? `<p class="sn-muted" style="margin:14px 0 0;font-family:${FONT};font-size:13px;line-height:19px;color:#6b7280;word-break:break-all;">Or open this link: <a class="sn-link" href="${escapeAttr(input.action.url)}" target="_blank" style="color:#4c1d95;text-decoration:underline;">${escapeHtml(input.action.url)}</a></p>`
+    ? `<p class="sn-muted" style="margin:14px 0 0;font-family:${FONT};font-size:13px;line-height:19px;color:#6b7280;word-break:break-all;">Or open this link: <a class="sn-link" href="${escapeAttr(input.action.url)}" target="_blank" style="color:#1a1a2e;text-decoration:underline;">${escapeHtml(input.action.url)}</a></p>`
     : ""
   const notice = input.notice ? noticeBox(input.notice) : ""
   const note = input.note
@@ -368,7 +427,7 @@ ${preheader(input.preview)}
 ${accent}
 <tr><td class="sn-pad sn-body" style="padding:36px 40px 36px;font-family:${FONT};font-size:16px;line-height:25px;color:#1f2937;word-break:break-word;">
 ${label}<h1 class="sn-h1" style="margin:0 0 18px;font-family:${FONT};font-size:22px;line-height:30px;font-weight:700;color:#111827;letter-spacing:-0.3px;">${escapeHtml(input.heading)}</h1>
-${greeting}${input.paragraphs.map(P).join("\n")}
+${greeting}${media}${input.paragraphs.map(P).join("\n")}
 ${facts}${order}${notice}${rate}${action}${secondary}${fallback}${note}
 </td></tr>
 </table>
@@ -391,6 +450,7 @@ export function renderText(input: LayoutInput): string {
   const blocks: string[] = []
   blocks.push(style.label ? `${style.label}: ${input.heading}` : input.heading)
   if (input.greeting) blocks.push(input.greeting)
+  if (input.media && input.media.title) blocks.push([input.media.title, input.media.subtitle].filter(Boolean).join("\n"))
   blocks.push(...input.paragraphs)
   if (input.facts && input.facts.length) blocks.push(input.facts.map((f) => `${f.label}: ${f.value}`).join("\n"))
   if (input.order) {
@@ -407,6 +467,9 @@ export function renderText(input: LayoutInput): string {
     const lines = [input.notice.title, input.notice.text]
     if (input.notice.link) lines.push(`${input.notice.link.label}: ${input.notice.link.url}`)
     blocks.push(lines.join("\n"))
+  }
+  if (input.rate && input.rate.links.length) {
+    blocks.push([input.rate.label, ...input.rate.links.map((l) => `${l.label}: ${l.url}`)].join("\n"))
   }
   if (input.action) blocks.push(`${input.action.label}:\n${input.action.url}`)
   if (input.secondary) blocks.push(`${input.secondary.label}: ${input.secondary.url.replace(/^mailto:/, "").replace(/\?.*$/, "")}`)

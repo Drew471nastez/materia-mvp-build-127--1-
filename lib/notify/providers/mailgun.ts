@@ -12,7 +12,8 @@ import "server-only"
  *   region     MAILGUN_BASE_URL, as lib/mailgun.ts reads it (EU by default,
  *              https://api.mailgun.net for US)
  *   from       MAILGUN_FROM_NAME <MAILGUN_FROM_EMAIL> when both are set,
- *              else EMAIL_FROM
+ *              else EMAIL_FROM. A message that named a sender ("Loudlib via
+ *              Storelib") replaces the NAME only; the address stays Storelib's.
  *   reply-to   EMAIL_REPLY_TO
  *   o:tag      the notification type
  *   v:*        delivery_id and job_id, back on every webhook event
@@ -27,12 +28,31 @@ import type { ChannelResult, EmailProvider, OutgoingEmail } from "../types"
 
 type SendOnce = typeof sendMailgunOnce
 
-export function notifyFrom(env: Record<string, string | undefined> = process.env): string {
-  const name = (env.MAILGUN_FROM_NAME || "").replace(/[<>"\r\n]/g, "").trim()
+/**
+ * The From header. The ADDRESS is always Storelib's configured one: a
+ * creator's own domain cannot be sent from without their DNS, and changing
+ * the envelope sender would break the signing that keeps these out of spam.
+ * Only the display name in front of it moves, and only when a template asked
+ * for one (a review request, which is the seller's ask). A name from a
+ * creator's profile is quoted, so a comma or a full stop in it cannot split
+ * the header into two addresses.
+ */
+export function notifyFrom(env: Record<string, string | undefined> = process.env, displayName?: string | null): string {
+  const configured = (env.MAILGUN_FROM_NAME || "").replace(/[<>"\r\n]/g, "").trim()
   const email = (env.MAILGUN_FROM_EMAIL || "").replace(/[<>"\s]/g, "").trim()
-  if (name && email && email.includes("@")) return `${name} <${email}>`
-  if (email && email.includes("@")) return `Storelib <${email}>`
+  const asked = typeof displayName === "string" ? displayName.replace(/[<>"\\\r\n]/g, "").replace(/\s+/g, " ").trim().slice(0, 78) : ""
+  const address = email && email.includes("@") ? email : addressOf(EMAIL_FROM)
+  if (asked && address) return `"${asked}" <${address}>`
+  if (configured && address) return `${configured} <${address}>`
+  if (address) return `Storelib <${address}>`
   return EMAIL_FROM
+}
+
+/** Just the address out of "Name <a@b>", or the value when it is already bare. */
+function addressOf(from: string): string {
+  const match = /<([^<>]+)>/.exec(from || "")
+  const value = (match ? match[1] : from || "").trim()
+  return value.includes("@") ? value : ""
 }
 
 export function resultOf(answer: MailgunOnceResult): ChannelResult {
@@ -65,7 +85,7 @@ export class MailgunEmailProvider implements EmailProvider {
       subject: email.subject,
       html: email.html,
       text: email.text,
-      from: email.from || notifyFrom(),
+      from: email.from || notifyFrom(process.env, email.fromName),
       replyTo: email.replyTo || EMAIL_REPLY_TO,
       headers: email.headers,
       tags: email.tags,

@@ -284,6 +284,13 @@ export interface OutgoingEmail {
   text: string
   /** Storelib <notifications@...>, from configuration. */
   from?: string
+  /**
+   * A display name to put in front of the configured address, for an email
+   * sent on a seller's behalf ("Loudlib via Storelib <notifications@...>").
+   * The address itself is Storelib's verified one either way, so nothing
+   * about the envelope or the signing changes.
+   */
+  fromName?: string
   replyTo?: string
   headers?: Record<string, string>
   tags?: string[]
@@ -306,6 +313,14 @@ export interface RenderedEmail {
   preview: string
   html: string
   text: string
+  /**
+   * The name the inbox shows instead of "Storelib": the seller's, on the
+   * review request emails they are asking for. Null on every other email,
+   * which comes from Storelib. The address sent from never changes.
+   */
+  fromName?: string | null
+  /** Where a reply goes: the seller's support inbox when they have one. Null leaves Storelib's. */
+  replyTo?: string | null
 }
 
 export interface TemplateContext {

@@ -70,8 +70,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PURCHASE_CONFIRMATION: ["productTitle", "productId", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken", "occurredAt"],
   DIGITAL_PRODUCT_ACCESS: ["productTitle", "productId", "storeName", "creatorName", "receiptToken"],
   CUSTOMER_REFUND_PROCESSED: ["productTitle", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken"],
-  REVIEW_REQUEST: ["productTitle", "productId", "creatorName", "receiptToken", "orderId"],
-  REVIEW_REMINDER: ["productTitle", "productId", "creatorName", "receiptToken", "orderId"],
+  REVIEW_REQUEST: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId"],
+  REVIEW_REMINDER: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId"],
 }
 
 /* ── Canonical paths ───────────────────────────────────────────────────── */
@@ -260,6 +260,12 @@ export interface Message {
   paragraphs: string[]
   /** Rows with an empty value are dropped. */
   facts?: [string, string][]
+  /**
+   * The one thing the email is about, drawn as a small card under the
+   * heading: the product's picture, its name and who made it. `imageUrl` is
+   * the stored address as it is; index.ts checks it and sizes it for an inbox.
+   */
+  media?: { title: string; subtitle?: string | null; imageUrl?: string | null } | null
   /** A sale's order summary (layout.ts OrderSummary). */
   order?: OrderSummary | null
   action?: { label: string; path: string } | null
@@ -271,6 +277,17 @@ export interface Message {
   greet?: boolean
   notice?: { title: string; text: string; link?: { label: string; path: string } | null } | null
   note?: string | null
+  /**
+   * WHOSE NAME IS IN THE INBOX. Left out, the email comes from Storelib, as
+   * every platform email does (a receipt, a security notice, a bill). A
+   * review request is the seller's ask, so it names the seller: index.ts
+   * hands this to the channel, which puts the name in front of Storelib's
+   * own verified address and points Reply-To at the seller's support inbox.
+   * The address it is sent from never changes.
+   */
+  sender?: { name: string; replyTo?: string | null } | null
+  /** What the footer's unsubscribe link says, when it turns off one kind of email only. */
+  unsubscribeLabel?: string | null
   inApp: { title: string; body: string; actionLabel?: string | null; actionPath?: string | null }
 }
 
@@ -1067,9 +1084,15 @@ export const CATALOG: Record<NotificationType, Entry> = {
 /**
  * The buyer, a week after buying on Storelib and once more a week later
  * (lib/reviews/request-rules). Short, and it asks rather than assumes: it
- * cannot know whether they liked it. Each star opens the review card on
- * their receipt with that many chosen; no sign in, the receipt link is the
- * proof of purchase.
+ * cannot know whether they liked it.
+ *
+ * What it shows: the product by its picture, its name and who made it; five
+ * stars that each open the review card on their receipt with that many
+ * chosen; one button to write it. No sign in either way, the receipt link is
+ * the proof of purchase. It carries nothing about the order but the product,
+ * so it can say nothing about any other buyer.
+ *
+ * It comes from the seller by name, not from Storelib: see Message.sender.
  */
 function reviewAsk(d: Data, reminder: boolean): Message {
   const title = d.text("productTitle", 60)
@@ -1088,13 +1111,15 @@ function reviewAsk(d: Data, reminder: boolean): Message {
       : fitSubject("How is ", title, "?") || "How is your purchase?",
     preview: reminder ? "One line and a rating is plenty." : "A few honest words help other buyers decide.",
     heading: reminder ? `Would you review ${what}?` : `How is ${what}?`,
+    /* The product itself, so the reader knows which purchase this is before reading a word. */
+    media: title ? { title, subtitle: creator ? `by ${creator}` : null, imageUrl: d.text("productImage", 500) } : null,
     paragraphs: reminder
       ? [
-          `Two weeks ago you bought ${what}${from}. If you have used it, a rating and a line or two is all it takes.`,
+          `Two weeks ago you bought ${what}${title ? "" : from}. If you have used it, a rating and a line or two is all it takes.`,
           "Good or bad, an honest review helps the next buyer.",
         ]
       : [
-          `You bought ${what}${from} a week ago. If you have had a chance to use it, how was it?`,
+          `You bought ${what}${title ? "" : from} a week ago. If you have had a chance to use it, how was it?`,
           `Your review helps other buyers decide, and tells ${creator || "the seller"} what works.`,
         ],
     rate,
@@ -1102,6 +1127,9 @@ function reviewAsk(d: Data, reminder: boolean): Message {
     note: reminder
       ? "This is the last email about reviewing this purchase."
       : "If something is not working, your receipt has the seller's contact details. We will ask once more next week if you have not reviewed it.",
+    /* The ask is the seller's, so their name is what the inbox shows. */
+    sender: creator ? { name: creator, replyTo: d.text("creatorSupportEmail", 200) } : null,
+    unsubscribeLabel: "Turn off review emails",
     greet: false,
     inApp: { title: reminder ? "Review your purchase" : "How was your purchase?", body: title ? `Tell other buyers about ${title}.` : "Tell other buyers about it.", actionLabel: action?.label ?? null, actionPath: action?.path ?? null },
   }

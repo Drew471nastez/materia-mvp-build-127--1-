@@ -286,6 +286,10 @@ export interface NotifyStore {
 export type ReviewRequestFactsRow = ReviewRequestFacts & {
   creatorName: string | null
   productSlug: string | null
+  /** products.thumbnail_url as stored: the picture the review email shows. Null draws a letter tile. */
+  productImage: string | null
+  /** creators.support_email: where a reply to the review email goes. Null leaves Storelib's. */
+  creatorSupportEmail: string | null
 }
 
 /** Either kind of handle the public functions accept. */
@@ -784,7 +788,7 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
     },
 
     async reviewRequestFacts(orderId) {
-      const none: ReviewRequestFactsRow = { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null }
+      const none: ReviewRequestFactsRow = { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null, productImage: null, creatorSupportEmail: null }
       if (!/^[0-9a-f-]{36}$/i.test(orderId)) return none
       const { data: order, error } = await db.from("orders").select("*").eq("id", orderId).maybeSingle()
       if (error) {
@@ -794,7 +798,7 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
       if (!order) return none
       const o = order as Record<string, any>
       const [{ data: product, error: productError }, reviewed, suppressed] = await Promise.all([
-        db.from("products").select("id, title, slug, status, creator_id").eq("id", o.product_id).maybeSingle(),
+        db.from("products").select("id, title, slug, status, creator_id, thumbnail_url").eq("id", o.product_id).maybeSingle(),
         (async () => {
           /* On this order, by the buyer's account, or on another order of theirs for the same product by the same address. */
           const byOrder = await db.from("reviews").select("id").eq("order_id", o.id).limit(1)
@@ -826,15 +830,19 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         fail("read a review request", productError ?? { code: "reviews" })
         return null
       }
-      const p = product as { id: string; title: string | null; slug: string | null; status: string | null; creator_id: string | null } | null
+      const p = product as { id: string; title: string | null; slug: string | null; status: string | null; creator_id: string | null; thumbnail_url?: string | null } | null
       let sellerUserId: string | null = null
       let creatorName: string | null = null
+      let creatorSupportEmail: string | null = null
       if (p?.creator_id) {
-        const { data: creator } = await db.from("creators").select("user_id, display_name, slug").eq("id", p.creator_id).maybeSingle()
+        const { data: creator } = await db.from("creators").select("user_id, display_name, slug, support_email").eq("id", p.creator_id).maybeSingle()
         sellerUserId = (creator as { user_id?: string | null } | null)?.user_id ?? null
         const { data: profile } = sellerUserId ? await db.from("profiles").select("display_name, username").eq("id", sellerUserId).maybeSingle() : { data: null }
-        const c = creator as { display_name?: string | null; slug?: string | null } | null
+        const c = creator as { display_name?: string | null; slug?: string | null; support_email?: string | null } | null
+        /* The name the buyer already knows the seller by, the same order lib/email.tsx resolveCreatorIdentity uses. */
         creatorName = (profile as { display_name?: string | null } | null)?.display_name || c?.display_name || (profile as { username?: string | null } | null)?.username || c?.slug || null
+        /* Only the address the seller published for support: never their login, which they did not give a buyer. */
+        creatorSupportEmail = clip(c?.support_email ?? null, 200)
       }
       return {
         order: {
@@ -856,6 +864,8 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         suppressed,
         creatorName,
         productSlug: p?.slug ?? null,
+        productImage: clip(p?.thumbnail_url ?? null, 1000),
+        creatorSupportEmail,
       }
     },
 
