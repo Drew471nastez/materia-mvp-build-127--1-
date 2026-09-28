@@ -9,10 +9,15 @@ import "server-only"
  * request through one short signed URL:
  *
  *   the first 8 KB        always (the file's signature)
- *   the last ~64 KB       only for a ZIP (its table of contents), read at the
- *                         same time as the first bytes when the name already
- *                         says ZIP, so a 10 GB archive costs two small reads
+ *   the last ~64 KB       always, at the same time as the first bytes. A ZIP
+ *                         is whatever has an end of central directory record
+ *                         there, whatever it is called, so a 10 GB archive
+ *                         costs two small reads and nothing skips the check
+ *                         by being named .pdf
  *   the directory         only when a ZIP's directory is longer than that
+ *   a few entries' starts only when it is a ZIP, 128 KB of packed data from
+ *                         at most four of them, unpacked under a hard ceiling
+ *                         so its declared sizes are tested, not believed
  *
  * and, in the background after an upload, the SHA-256 of the whole file,
  * streamed through a hash a chunk at a time and never held in memory.
@@ -21,13 +26,13 @@ import { createHash } from "node:crypto"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { extensionOf } from "./filename"
 import { HEAD_BYTES, inspectUpload, type UploadVerdict } from "./inspect"
 import type { UploadContext } from "./policy"
+import { nodeInflateRaw } from "./zip-inflate"
 import { ZIP_TAIL_BYTES } from "./zip"
 
-/** Extensions that are ZIPs inside: read the end with the start. */
-const ZIP_LIKE = new Set(["zip", "docx", "xlsx", "pptx", "epub", "sketch", "procreate", "afpackage", "apk", "aab", "ipa", "jar", "odt", "ods", "odp", "xd", "fig", "brushset", "swatches", "cbz", "unitypackage", "storelibtheme"])
+/** The longest one Range read may take before it is given up on. */
+export const READ_TIMEOUT_MS = 25_000
 
 export interface StoredReader {
   read(start: number, endInclusive: number): Promise<Uint8Array | null>
@@ -48,8 +53,11 @@ export function storedReader(admin: SupabaseClient, bucket: string, path: string
       const href = await url()
       if (!href || endInclusive < start) return null
       const want = endInclusive - start + 1
+      /* A read that never answers must not hold a route open: the largest of
+         these (an archive's list) is tens of megabytes, which is seconds. */
+      const stop = AbortSignal.timeout(READ_TIMEOUT_MS)
       try {
-        const res = await fetch(href, { headers: { Range: `bytes=${start}-${endInclusive}` }, cache: "no-store" })
+        const res = await fetch(href, { headers: { Range: `bytes=${start}-${endInclusive}` }, cache: "no-store", signal: stop })
         /* A server that ignored the range would send the whole file: only acceptable from the start. */
         if (!res.body || (res.status !== 206 && !(res.status === 200 && start === 0))) {
           res.body?.cancel().catch(() => {})
@@ -86,7 +94,15 @@ export async function inspectStoredObject(
   const reader = storedReader(admin, where.bucket, where.path)
   const size = file.size
   const tailStart = Math.max(0, size - ZIP_TAIL_BYTES)
-  const wantsTail = size > HEAD_BYTES && (ZIP_LIKE.has(extensionOf(file.fileName)) || /zip/i.test(file.declaredMime ?? ""))
+  /*
+    THE END IS READ FOR EVERY FILE, NOT ONLY ONE NAMED LIKE AN ARCHIVE. A ZIP
+    is whatever has an end of central directory record at its end, whatever
+    its name and whatever its first bytes say, so deciding from the name was
+    how an archive dressed as a PDF skipped every ZIP check. It costs one more
+    small Range read, made at the same time as the first bytes, so nothing
+    waits any longer than before.
+  */
+  const wantsTail = size > HEAD_BYTES
   const [head, early] = await Promise.all([
     size > 0 ? reader.read(0, Math.min(size, HEAD_BYTES) - 1) : Promise.resolve(new Uint8Array(0)),
     wantsTail ? reader.read(tailStart, size - 1) : Promise.resolve(null),
@@ -98,6 +114,8 @@ export async function inspectStoredObject(
     head,
     tail: early ? { bytes: early, start: tailStart } : size <= HEAD_BYTES && head ? { bytes: head, start: 0 } : null,
     readRange: (a, b) => reader.read(a, b),
+    /* So an archive's declared sizes are tested, not believed (zip.ts). */
+    inflate: nodeInflateRaw,
     context: file.context,
     budgetMs: file.budgetMs,
   })

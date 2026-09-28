@@ -6,6 +6,7 @@ import { safeStoredContentType } from "@/lib/storage/file-signature"
 import { preparePublicImage } from "@/lib/storage/public-image"
 import { UPLOAD_HEADERS, screenInBackground, uploadRateLimit } from "@/lib/storage/upload-guard"
 import { inspectUpload } from "@/lib/security/uploads/inspect"
+import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 
@@ -87,6 +88,8 @@ export async function POST(request: NextRequest) {
         head: bytes.subarray(0, 8192),
         tail: { bytes: bytes.subarray(Math.max(0, bytes.byteLength - 70_000)), start: Math.max(0, bytes.byteLength - 70_000) },
         readRange: async (a, b) => bytes.subarray(a, b + 1),
+        /* An archive's declared sizes tested, not believed (lib/security/uploads/zip.ts). */
+        inflate: nodeInflateRaw,
         context: "link_page_file",
       })
       runAfterResponse(() => logUploadVerdict(adminSupabase, verdict, { context: "link_page_file", userId: user.id, creatorId: creator.id, bucket: BUCKET_NAME, bytes: bytes.byteLength }))

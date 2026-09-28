@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { adminFailure, requireAdmin } from "@/lib/admin/gate"
 import { logSecurityEvent, recentSecurityEvents, securityCounts } from "@/lib/security/uploads/audit"
 import { inspectUpload, type UploadVerdict } from "@/lib/security/uploads/inspect"
+import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
 import { ARCHIVE_LIMITS, formatLimit, MAX_UPLOAD_BYTES, UPLOAD_CONTEXTS, type UploadContext } from "@/lib/security/uploads/policy"
 import { activeProviders, providerStatus, type ProviderVerdict } from "@/lib/security/uploads/providers"
 import { SAMPLES } from "@/lib/security/uploads/samples"
@@ -159,6 +160,8 @@ export async function POST(request: NextRequest) {
         head: b.subarray(0, 8192),
         tail: { bytes: b.subarray(Math.max(0, b.byteLength - 70_000)), start: Math.max(0, b.byteLength - 70_000) },
         readRange: async (s, e) => b.subarray(s, e + 1),
+        /* An archive's declared sizes tested, not believed (lib/security/uploads/zip.ts). */
+        inflate: nodeInflateRaw,
         context,
       })
     }

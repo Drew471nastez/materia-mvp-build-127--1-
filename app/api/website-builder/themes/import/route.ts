@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import { screenInBackground } from "@/lib/storage/upload-guard"
 import { inspectHead, inspectUpload } from "@/lib/security/uploads/inspect"
+import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { IMPORT_BUCKET, IMPORT_MAX_BYTES, IMPORT_NOT_A_PACKAGE, IMPORT_TOO_LARGE, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
@@ -163,6 +164,8 @@ export async function POST(req: Request) {
     head: packageBytes.subarray(0, 8192),
     tail: { bytes: packageBytes.subarray(Math.max(0, packageBytes.byteLength - 70_000)), start: Math.max(0, packageBytes.byteLength - 70_000) },
     readRange: async (a, b) => packageBytes.subarray(a, b + 1),
+    /* An archive's declared sizes tested, not believed (lib/security/uploads/zip.ts). */
+    inflate: nodeInflateRaw,
     context: "theme_package",
   })
   if (!verdict.ok) {
