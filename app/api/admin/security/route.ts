@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { SWEEP_HASH_MAX_BYTES } from "@/lib/security/uploads/pipeline"
 
 import { adminFailure, requireAdmin } from "@/lib/admin/gate"
 import { logSecurityEvent, recentSecurityEvents, securityCounts } from "@/lib/security/uploads/audit"
@@ -83,6 +84,8 @@ export async function GET(request: NextRequest) {
             "Scripts and web pages behind a document's name",
             "EICAR test file",
             "ZIP contents: bombs, ../ paths, launchers inside",
+            "An archive's declared sizes tested by unpacking a little of it",
+            "Files a browser sent straight to a public bucket, read back from storage",
             "Name cleaned for storage and download",
             "Size limit per kind of upload",
           ],
@@ -90,6 +93,11 @@ export async function GET(request: NextRequest) {
           limits: Object.fromEntries(Object.entries(MAX_UPLOAD_BYTES).map(([k, v]) => [k, formatLimit(v)])),
           archive: { entries: ARCHIVE_LIMITS.product.maxEntries, unpacked: formatLimit(ARCHIVE_LIMITS.product.maxTotalUncompressed), ratio: ARCHIVE_LIMITS.product.maxEntryRatio },
           signedUrlSeconds: SIGNED_DOWNLOAD_SECONDS,
+          /* Said plainly because it is a deliberate limit, not an oversight:
+             a fingerprint of a file over this size would mean reading the
+             whole of it back out of storage every time, and nothing in
+             Storelib uses one to decide anything (lib/security/uploads/pipeline.ts). */
+          fingerprintMaxBytes: formatLimit(SWEEP_HASH_MAX_BYTES),
         },
         counts,
         files: { blocked, unchecked, checked },

@@ -47,7 +47,7 @@
  */
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Check, Plus, RotateCw } from "lucide-react"
+import { Check, Plus, RotateCw, X } from "lucide-react"
 import { DirectUploader, type UploadError, type UploadStatus } from "@/lib/storage/chunked-upload"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { RowMenuButton } from "../../orders/order-parts"
@@ -55,6 +55,7 @@ import { cn } from "@/lib/utils"
 import { ownFileNotice, saveOwnFile, type OwnFileOutcome } from "@/lib/platform/own-file"
 import type { UploadedFile } from "./editor-form"
 import { secondaryDepth } from "./editor-buttons"
+import { CHECKING_LABEL, REFUSED_FILE, useUploadChecking } from "@/lib/storage/upload-state"
 
 /** How long a finished upload keeps its check before it is an ordinary file row. */
 export const SETTLE_MS = 1400
@@ -80,17 +81,17 @@ export interface FileUpload {
 
 /**
  * The "Checking file…" line waits this long before it shows: the check is
- * usually over sooner, and a word that flashes for a frame is noise.
+ * usually over sooner, and a word that flashes for a frame is noise. The rule
+ * and the words live in lib/storage/upload-state.ts, so the uploader on the
+ * product edit page behaves identically; they are re-exported here because
+ * this file is where the rest of this list's parts are.
  */
-export const CHECKING_DELAY_MS = 300
+export { CHECKING_DELAY_MS, CHECKING_LABEL, REFUSED_FILE } from "@/lib/storage/upload-state"
 
 /** A saved file the checks refused (scan_status), which buyers never get. */
 export function isRefusedFile(f: Pick<UploadedFile, "scan_status">): boolean {
   return f.scan_status === "blocked" || f.scan_status === "infected" || f.scan_status === "quarantined"
 }
-
-/** The one sentence a refused file's row says. */
-export const REFUSED_FILE = "We couldn't accept this file. Try another file."
 
 /* ── words and numbers ───────────────────────────────────────────────── */
 
@@ -429,16 +430,9 @@ function FileRow({
   const fill = upload ? (status === "error" ? 0 : upload.progress / 100) : justDone ? 1 : 0
   const fillOpacity = moving ? 1 : 0
 
-  /* "Checking file…" only once the check has taken longer than a blink. */
-  const [checking, setChecking] = useState(false)
-  useEffect(() => {
-    if (status !== "completing") {
-      setChecking(false)
-      return
-    }
-    const t = setTimeout(() => setChecking(true), CHECKING_DELAY_MS)
-    return () => clearTimeout(t)
-  }, [status])
+  /* "Checking file…" only once the check has taken longer than a blink, by
+     the one rule every uploader follows (lib/storage/upload-state.ts). */
+  const checking = useUploadChecking(status)
 
   const refusedFile = !!file && isRefusedFile(file)
   let meta: React.ReactNode
@@ -448,7 +442,7 @@ function FileRow({
   else if (file) meta = formatBytes(file.file_size)
   else if (status === "error") meta = <span className="text-[#b42318]">{upload!.error}</span>
   else if (status === "paused") meta = "Paused, waiting for a connection"
-  else if (status === "completing" && checking) meta = "Checking file…"
+  else if (status === "completing" && checking) meta = CHECKING_LABEL
   else if ((status === "uploading" || status === "completing") && upload!.sent > 0) {
     meta = formatSent(upload!.sent, upload!.total) + (status === "uploading" && upload!.secondsLeft != null ? ` · ${formatLeft(upload!.secondsLeft)}` : "")
   } else meta = `Uploading… · ${formatBytes(upload!.total)}`

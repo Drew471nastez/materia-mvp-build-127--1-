@@ -243,7 +243,12 @@ function declaredSize(file: JSZip.JSZipObject): number {
  * and the caller treats the second as the error it already had for a file
  * that is too large.
  */
-export type CappedRead = { ok: true; bytes: Uint8Array } | { ok: false; reason: "too_large" | "unreadable" }
+export interface CappedRead {
+  /** The entry's bytes, or null when `reason` says why not. */
+  bytes: Uint8Array | null
+  /** "" when it was read. One flat shape, so a caller reads one field. */
+  reason: "" | "too_large" | "unreadable"
+}
 
 export function readEntryCapped(file: JSZip.JSZipObject, cap: number): Promise<CappedRead> {
   return new Promise((resolve) => {
@@ -267,33 +272,33 @@ export function readEntryCapped(file: JSZip.JSZipObject, cap: number): Promise<C
     try {
       stream = file.nodeStream("nodebuffer") as NodeJS.ReadableStream & { destroy?: () => void }
     } catch {
-      resolve({ ok: false, reason: "unreadable" })
+      resolve({ bytes: null, reason: "unreadable" })
       return
     }
     stream.on("data", (chunk: Buffer) => {
       if (done) return
       total += chunk.length
       if (total > cap) {
-        finish({ ok: false, reason: "too_large" })
+        finish({ bytes: null, reason: "too_large" })
         return
       }
       chunks.push(chunk)
     })
-    stream.on("error", () => finish({ ok: false, reason: "unreadable" }))
+    stream.on("error", () => finish({ bytes: null, reason: "unreadable" }))
     stream.on("end", () => {
       if (done) return
       const out = new Uint8Array(Buffer.concat(chunks, total))
       done = true
-      resolve({ ok: true, bytes: out })
+      resolve({ bytes: out, reason: "" })
     })
   })
 }
 
 /** The same, as text, for a source file. */
-export async function readEntryTextCapped(file: JSZip.JSZipObject, cap: number): Promise<{ ok: true; text: string } | { ok: false; reason: "too_large" | "unreadable" }> {
+export async function readEntryTextCapped(file: JSZip.JSZipObject, cap: number): Promise<{ text: string; reason: CappedRead["reason"] }> {
   const read = await readEntryCapped(file, cap)
-  if (!read.ok) return read
-  return { ok: true, text: new TextDecoder("utf-8", { fatal: false }).decode(read.bytes) }
+  if (!read.bytes) return { text: "", reason: read.reason || "unreadable" }
+  return { text: new TextDecoder("utf-8", { fatal: false }).decode(read.bytes), reason: "" }
 }
 
 /** The most a package may become once unpacked. */
@@ -335,7 +340,7 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
   if (!themeFile) return { ok: false, errors: [err("A package needs a theme.json")] }
   let theme: ThemeManifest
   const themeText = await readEntryTextCapped(themeFile, LIMITS.sourceBytes)
-  if (!themeText.ok) return { ok: false, errors: [err(themeText.reason === "too_large" ? `theme.json is over ${Math.round(LIMITS.sourceBytes / 1024)} KB` : "theme.json could not be read", "theme.json")] }
+  if (themeText.reason) return { ok: false, errors: [err(themeText.reason === "too_large" ? `theme.json is over ${Math.round(LIMITS.sourceBytes / 1024)} KB` : "theme.json could not be read", "theme.json")] }
   try { theme = JSON.parse(themeText.text) } catch { return { ok: false, errors: [err("theme.json is not valid JSON", "theme.json")] } }
   if (theme.format !== THEME_FORMAT) return { ok: false, errors: [err(`theme.json format is "${String(theme.format)}", not "${THEME_FORMAT}"`, "theme.json")] }
   const min = Number(theme.engine?.min ?? 1)
@@ -346,7 +351,7 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
   if (!manifestFile) return { ok: false, errors: [err("A package needs a manifest.json")] }
   let manifest: PackageManifest
   const manifestText = await readEntryTextCapped(manifestFile, LIMITS.sourceBytes)
-  if (!manifestText.ok) return { ok: false, errors: [err(manifestText.reason === "too_large" ? `manifest.json is over ${Math.round(LIMITS.sourceBytes / 1024)} KB` : "manifest.json could not be read", "manifest.json")] }
+  if (manifestText.reason) return { ok: false, errors: [err(manifestText.reason === "too_large" ? `manifest.json is over ${Math.round(LIMITS.sourceBytes / 1024)} KB` : "manifest.json could not be read", "manifest.json")] }
   try { manifest = JSON.parse(manifestText.text) } catch { return { ok: false, errors: [err("manifest.json is not valid JSON", "manifest.json")] } }
   if (!manifest.files || typeof manifest.files !== "object") return { ok: false, errors: [err("manifest.json has no files", "manifest.json")] }
 
@@ -357,7 +362,7 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
     if (f.name.startsWith("assets/")) {
       /* Counted as it inflates, so a header that lies cannot fill the heap. */
       const read = await readEntryCapped(f, LIMITS.assetBytes)
-      if (!read.ok) { errors.push(err(read.reason === "too_large" ? `${f.name} is over ${LIMITS.assetBytes / 1024 / 1024} MB` : `${f.name} could not be read`, f.name)); continue }
+      if (!read.bytes) { errors.push(err(read.reason === "too_large" ? `${f.name} is over ${LIMITS.assetBytes / 1024 / 1024} MB` : `${f.name} could not be read`, f.name)); continue }
       const data = read.bytes
       const hash = f.name.slice("assets/".length).split(".")[0]
       const rec = manifest.assets?.[hash]
@@ -368,7 +373,7 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
       continue
     }
     const read = await readEntryTextCapped(f, LIMITS.sourceBytes)
-    if (!read.ok) { errors.push(err(read.reason === "too_large" ? `${f.name} is over ${LIMITS.sourceBytes / 1024} KB` : `${f.name} could not be read`, f.name)); continue }
+    if (read.reason) { errors.push(err(read.reason === "too_large" ? `${f.name} is over ${LIMITS.sourceBytes / 1024} KB` : `${f.name} could not be read`, f.name)); continue }
     const text = read.text
     const rec = manifest.files[f.name]
     if (!rec) { errors.push(err(`${f.name} is not in the manifest`, f.name)); continue }
@@ -428,7 +433,7 @@ async function readLegacy(zip: JSZip, opts: ReadOptions): Promise<Result<ReadPac
     pages?: { page_key: string; sections: unknown }[]; image_map?: Record<string, string>; theme_pack?: unknown; exported_at?: string
   }
   const legacyText = await readEntryTextCapped(zip.file("manifest.json")!, LIMITS.sourceBytes)
-  if (!legacyText.ok) return { ok: false, errors: [err(legacyText.reason === "too_large" ? `manifest.json is over ${Math.round(LIMITS.sourceBytes / 1024)} KB` : "manifest.json could not be read", "manifest.json")] }
+  if (legacyText.reason) return { ok: false, errors: [err(legacyText.reason === "too_large" ? `manifest.json is over ${Math.round(LIMITS.sourceBytes / 1024)} KB` : "manifest.json could not be read", "manifest.json")] }
   try { legacy = JSON.parse(legacyText.text) } catch { return { ok: false, errors: [err("manifest.json is not valid JSON", "manifest.json")] } }
   if (legacy.format !== "storelib-theme/v1" && legacy.format !== "storelib-theme/v2") return { ok: false, errors: [err(`manifest.json format "${String(legacy.format)}" is not one this engine reads`, "manifest.json")] }
 
@@ -441,7 +446,7 @@ async function readLegacy(zip: JSZip, opts: ReadOptions): Promise<Result<ReadPac
     images.forEach((_, f) => { if (!f.dir) list.push(f) })
     for (const f of list) {
       const read = await readEntryCapped(f, LIMITS.assetBytes)
-      if (!read.ok) return { ok: false, errors: [err(read.reason === "too_large" ? `${f.name} is over ${LIMITS.assetBytes / 1024 / 1024} MB` : `${f.name} could not be read`, f.name)] }
+      if (!read.bytes) return { ok: false, errors: [err(read.reason === "too_large" ? `${f.name} is over ${LIMITS.assetBytes / 1024 / 1024} MB` : `${f.name} could not be read`, f.name)] }
       const data = read.bytes
       const ext = (f.name.split(".").pop() ?? "bin").toLowerCase()
       const hash = sha256(data)

@@ -40,17 +40,17 @@ export async function resolveDownloadAccess(
 ): Promise<DownloadAccessResult> {
   /* "*" on purpose: scan_status and storage_bucket arrived in later
      migrations, and this row never leaves the server. */
-  const { data: row, error } = await admin
-    .from("digital_assets")
-    .select("*")
-    .eq("id", input.assetId)
-    /* A row an upload prepared and never finished is not a file anybody
-       bought: it may hold a path whose bytes were refused and removed, or
-       never arrived at all. Older rows have no upload_status, and those are
-       real files from before the column, so they still count. */
-    .or("upload_status.is.null,upload_status.eq.completed")
-    .maybeSingle()
+  const { data: row, error } = await admin.from("digital_assets").select("*").eq("id", input.assetId).maybeSingle()
   if (error || !row || !row.product_id) return NOT_FOUND
+  /*
+    A ROW AN UPLOAD PREPARED AND NEVER FINISHED IS NOT A FILE ANYBODY BOUGHT.
+    It may name a path whose bytes were refused and removed, or one that never
+    arrived. Read here rather than in the query, because the column arrived in
+    a later migration and a row from before it has none: those are real files,
+    and they still count.
+  */
+  const uploadState = typeof row.upload_status === "string" ? row.upload_status : ""
+  if (uploadState && uploadState !== "completed") return NOT_FOUND
 
   const { data: product } = await admin.from("products").select("id, creator_id").eq("id", row.product_id).maybeSingle()
 

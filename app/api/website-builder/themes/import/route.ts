@@ -388,7 +388,7 @@ export async function POST(req: Request) {
            size an archive declares is written by whoever made it
            (lib/storelib-theme/package.ts readEntryCapped). */
         const read = await readEntryCapped(entry.file, MAX_BYTES[type.kind])
-        if (!read.ok) continue
+        if (!read.bytes) continue
         const data = read.bytes
         if (!packageFileAllowed(entry.name, data, type.kind)) continue
         const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`
