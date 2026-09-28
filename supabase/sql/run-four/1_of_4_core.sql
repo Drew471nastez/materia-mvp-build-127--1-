@@ -8,6 +8,10 @@
 -- Built from supabase/sql/run-now/ (one statement per line, text unchanged).
 
 set local statement_timeout = 0;
+-- the record of which parts ran (part 67)
+CREATE TABLE IF NOT EXISTS public.storelib_applied_parts (part text PRIMARY KEY, file text NOT NULL, sha256 text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now(), applied_by text NOT NULL DEFAULT current_user);
+ALTER TABLE public.storelib_applied_parts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.storelib_applied_parts FROM anon, authenticated;
 
 -- part 01_rate_limits_and_newsletter.sql
 /* Rate limit counter for the open forms, and the storelib.com footer newsletter table. Server only. */
@@ -18,6 +22,7 @@ ALTER TABLE rate_limit_hits ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS public.storelib_newsletter ( id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, email text NOT NULL UNIQUE, source text NOT NULL DEFAULT 'footer', consent_text text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), unsubscribed_at timestamptz, CONSTRAINT storelib_newsletter_email_len CHECK (char_length(email) BETWEEN 3 AND 254), CONSTRAINT storelib_newsletter_email_lower CHECK (email = lower(email)) );
 ALTER TABLE public.storelib_newsletter ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.storelib_newsletter FROM anon, authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('01', '01_rate_limits_and_newsletter.sql', '70d91d046d73a2cba376c8836ce23e28ab0d201f373316fb26cf5ed6a489e382') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 02_agent_connections_and_github.sql
 /* Agent connections (Claude Code, Codex), their activity log, GitHub sync, and the indexes on them. */
@@ -52,10 +57,12 @@ CREATE POLICY "Creators read their own GitHub events" ON theme_github_events FOR
 CREATE INDEX IF NOT EXISTS idx_theme_agent_tokens_creator ON theme_agent_tokens (creator_id);
 CREATE INDEX IF NOT EXISTS idx_theme_agent_activity_token ON theme_agent_activity (token_id) WHERE token_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_theme_github_links_creator ON theme_github_links (creator_id);
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('02', '02_agent_connections_and_github.sql', '144eb90c36f0635a9d37fdbc316db1ec83696a5440b4d9e075c3e6027e333270') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 03_refund_recorded_once.sql
 /* A Stripe refund is recorded on an order once. If the old webhook ever recorded the same refund twice, this skips itself with a warning instead of failing, and p03 in the check reads false; see README. */
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM public.ledger_events WHERE event_type = 'refund' AND stripe_refund_id IS NOT NULL GROUP BY stripe_refund_id, order_id HAVING count(*) > 1) THEN RAISE WARNING 'part 03 skipped: ledger_events holds the same refund twice on an order, so the refund-once index was not created. Nothing else depends on it. Send the result of: select stripe_refund_id, order_id, count(*) from public.ledger_events where event_type = ''refund'' and stripe_refund_id is not null group by 1, 2 having count(*) > 1;'; ELSE CREATE UNIQUE INDEX IF NOT EXISTS ledger_events_refund_once ON public.ledger_events (stripe_refund_id, order_id) WHERE event_type = 'refund' AND stripe_refund_id IS NOT NULL; END IF; END $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('03', '03_refund_recorded_once.sql', 'f10d649c49b91c0c1ff1a14d5d09eb53eb9bdfab4261e359d7b9f935e0ca6e19') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 04_event_and_email_types.sql
 /* Tracking events and receipt email records the database was refusing. Old rows are not rechecked. */
@@ -63,6 +70,7 @@ alter table public.analytics_events drop constraint if exists analytics_events_e
 alter table public.analytics_events add constraint analytics_events_event_type_check check (event_type in ( 'view', 'purchase', 'session_start', 'store_view', 'product_view', 'add_to_cart', 'checkout_start', 'buy_click', 'checkout_complete', 'download' )) not valid;
 alter table public.email_logs drop constraint if exists email_logs_email_type_check;
 alter table public.email_logs add constraint email_logs_email_type_check check (email_type in ('buyer_download', 'seller_notification', 'receipt_resend')) not valid;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('04', '04_event_and_email_types.sql', '740f4f4b1ca760779682f04c5c41d0ec8e99fe0a16c3e1a0de49035cd3b58a30') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 05_order_source.sql
 /* Where an order came from (Storelib or a website) and the detail. Marks old basket orders as website. */
@@ -71,6 +79,7 @@ alter table public.orders add column if not exists source_detail jsonb;
 alter table public.orders drop constraint if exists orders_source_check;
 alter table public.orders add constraint orders_source_check check (source is null or source in ('storelib', 'website'));
 update public.orders o set source = 'website' where o.source is null and o.stripe_session_id is not null and exists ( select 1 from public.orders other where other.stripe_session_id = o.stripe_session_id and other.id <> o.id );
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('05', '05_order_source.sql', '36c18cc0fdd8caddfea9a15a2d0b1b5ee965dce914d145552b1665b090cd3b8f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 06_site_vitals.sql
 /* Website speed as visitors measured it: the table and its two functions. */
@@ -87,6 +96,7 @@ grant execute on function public.record_site_vital(uuid, uuid, text, integer, in
 create or replace function public.site_vitals_summary( p_install uuid, p_from date, p_to date ) returns table (metric text, device text, p75 double precision, samples bigint) language sql stable security invoker set search_path = public as $$ with v as ( select device, lcp_ms, inp_ms, cls from public.site_web_vitals where install_id = p_install and day between p_from and p_to ) select 'lcp', v.device, percentile_disc(0.75) within group (order by v.lcp_ms)::double precision, count(v.lcp_ms) from v group by grouping sets ((v.device), ()) union all select 'inp', v.device, percentile_disc(0.75) within group (order by v.inp_ms)::double precision, count(v.inp_ms) from v group by grouping sets ((v.device), ()) union all select 'cls', v.device, percentile_disc(0.75) within group (order by v.cls)::double precision, count(v.cls) from v group by grouping sets ((v.device), ()); $$;
 revoke all on function public.site_vitals_summary(uuid, date, date) from public, anon;
 grant execute on function public.site_vitals_summary(uuid, date, date) to authenticated, service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('06', '06_site_vitals.sql', 'a2ce702548c5127ca5f5b3f9a73342252b482b7cac213c10fd14a2313c310568') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 07_website_addresses.sql
 /* A website's own storelib.com address, apart from the username, and the names it used before. */
@@ -102,6 +112,7 @@ revoke all on public.website_address_history from anon, authenticated;
 create or replace function public.website_handle_taken(p_handle text, p_creator uuid default null) returns boolean language sql stable security definer set search_path = public as $$ select exists (select 1 from public.website_addresses where handle = lower(p_handle) and (p_creator is null or creator_id <> p_creator)) or exists (select 1 from public.website_address_history where handle = lower(p_handle) and (p_creator is null or creator_id <> p_creator)); $$;
 revoke all on function public.website_handle_taken(text, uuid) from public;
 grant execute on function public.website_handle_taken(text, uuid) to authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('07', '07_website_addresses.sql', '781c5b021754b97739942085754b799f4c44c9dd0ae80f9880d5192d8388bc69') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 08_coupons_admin_archive.sql
 /* Coupon minimums, the admin console tables and totals, then archived products taken off the page. */
@@ -136,6 +147,7 @@ grant execute on function public.admin_order_totals(timestamptz) to service_role
 grant execute on function public.admin_creator_sales(uuid[], timestamptz, int) to service_role;
 grant execute on function public.admin_daily_sales(int) to service_role;
 update public.products set status = 'archived' where archived is true and status = 'published';
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('08', '08_coupons_admin_archive.sql', '526b4c42fa9fed7862fcaf5f8e439d9d6879806bdf8edcd0616b2ad04f956972') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 09_email_automation_tables.sql
 /* Email automations: runs, jobs and sends tables, their checks, indexes and read policies. */
@@ -176,6 +188,7 @@ CREATE POLICY "Creators read their own flow sends" ON public.email_flow_sends FO
 GRANT ALL ON public.email_flow_runs TO service_role;
 GRANT ALL ON public.email_flow_jobs TO service_role;
 GRANT ALL ON public.email_flow_sends TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('09', '09_email_automation_tables.sql', 'a58c3921a88d2ba5c88e10290c47093048ee1dedac0e079264397dfa2edda3fa') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 10_email_automation_functions.sql
 /* Email automations: enrolling, claiming jobs, health and per step numbers. Needs part 09. */
@@ -194,6 +207,7 @@ GRANT EXECUTE ON FUNCTION public.email_flow_step_stats(uuid) TO authenticated, s
 CREATE OR REPLACE FUNCTION public.email_flow_totals() RETURNS TABLE (flow_id uuid, sent bigint, opened bigint, clicked bigint, failed bigint, in_progress bigint) LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$ SELECT f.id, (SELECT count(*) FROM public.email_flow_sends s WHERE s.flow_id = f.id AND s.status = 'sent'), (SELECT count(*) FROM public.email_flow_sends s WHERE s.flow_id = f.id AND s.opened_at IS NOT NULL), (SELECT count(*) FROM public.email_flow_sends s WHERE s.flow_id = f.id AND s.clicked_at IS NOT NULL), (SELECT count(*) FROM public.email_flow_jobs j WHERE j.flow_id = f.id AND j.state = 'failed'), (SELECT count(*) FROM public.email_flow_runs r WHERE r.flow_id = f.id AND r.status = 'active') FROM public.email_flows f; $$;
 REVOKE ALL ON FUNCTION public.email_flow_totals() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.email_flow_totals() TO authenticated, service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('10', '10_email_automation_functions.sql', '70235850df5c3e9ad08f6bdf5a7c229899060deb379dd88d5237a64c08ce4027') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 4 ran. Next file.' as done;

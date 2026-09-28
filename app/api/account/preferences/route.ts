@@ -47,7 +47,7 @@ export async function GET() {
 
   const meta = (current.user.user_metadata ?? {}) as { personalized_recommendations?: boolean; storelib_newsletter?: boolean }
   const [{ data: profile }, newsletter] = await Promise.all([
-    supabase.from("profiles").select("personalized_recommendations").eq("id", current.user.id).maybeSingle(),
+    createAdminClient().from("profiles").select("personalized_recommendations").eq("id", current.user.id).maybeSingle(),
     readNewsletter(createAdminClient(), current.user.email, meta.storelib_newsletter === true),
   ])
   const column = (profile as { personalized_recommendations?: boolean } | null)?.personalized_recommendations

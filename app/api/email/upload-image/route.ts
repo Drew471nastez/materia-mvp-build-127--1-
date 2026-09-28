@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
-    const { data: creator } = await supabase.from("creators").select("id, subscription_plan_id").eq("user_id", user.id).single()
+    const { data: creator } = await createAdminClient().from("creators").select("id, subscription_plan_id").eq("user_id", user.id).single()
 
     if (!creator) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404, headers: UPLOAD_HEADERS })

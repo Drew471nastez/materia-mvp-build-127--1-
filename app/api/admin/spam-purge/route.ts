@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { adminFailure } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
-import { deleteAllUserData } from "@/app/api/auth/delete-account/route"
+import { deleteAccount } from "@/lib/account/delete-account"
 import { scoreSignup, handleSignature, BLOCK_SCORE } from "@/lib/security/spam-signals"
 
 export const runtime = "nodejs"
@@ -270,13 +270,15 @@ export async function POST(req: NextRequest) {
   let removed = 0
 
   /**
-   * Sequential on purpose. deleteAllUserData walks storage buckets and a dozen
+   * Sequential on purpose. deleteAccount walks storage buckets and a dozen
    * tables per account; firing 360 of those at once is how a service-role key
    * gets rate-limited halfway through and leaves half-cleared accounts behind.
    */
   for (const c of candidates) {
     try {
-      await deleteAllUserData(admin, c.id)
+      /* Removed, or retired when anything under it is somebody's record (lib/account/delete-account). */
+      const outcome = await deleteAccount(admin, c.id, "spam_purge")
+      if (!outcome.ok) throw new Error(outcome.failures.join("; "))
       removed++
       await recordAdminAction(admin, { action: "spam_purge", targetType: "account", targetId: c.id, targetLabel: c.username, detail: { score: c.score, signature: c.signature } })
     } catch (e: unknown) {

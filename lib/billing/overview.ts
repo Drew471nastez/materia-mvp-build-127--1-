@@ -15,6 +15,7 @@ import "server-only"
  * navigation happens.
  */
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 
 const FREE_PLAN = {
@@ -107,7 +108,7 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
   let invoices: any[] = []
   let paymentMethod: any = null
 
-  const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle()
+  const { data: creator } = await createAdminClient().from("creators").select("*").eq("user_id", user.id).maybeSingle()
 
   if (!creator) return null
 
@@ -264,7 +265,7 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
 
         // Sync to DB (non-blocking, don't let DB errors break billing page)
         try {
-          await supabase
+          await createAdminClient()
             .from("creators")
             .update({
               stripe_customer_id: stripeCustomerId,
@@ -273,7 +274,7 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
             })
             .eq("id", creator.id)
 
-          await supabase
+          await createAdminClient()
             .from("subscriptions")
             .upsert({
               creator_id: creator.id,
@@ -365,7 +366,7 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
     if (!subscription) {
       currentPlan = FREE_PLAN
       try {
-        await supabase
+        await createAdminClient()
           .from("creators")
           .update({ subscription_plan_id: "free", subscription_status: "active" })
           .eq("id", creator.id)

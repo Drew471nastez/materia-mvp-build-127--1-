@@ -61,7 +61,7 @@ console.log("\nThe editor's page always ends somewhere")
   const page = code("app/app/onepage/page.tsx")
   check("a session the server could not confirm is recovered in the browser, not drawn as nothing", /if \(!user\) return <SessionRecovery \/>/.test(page) && !/if \(!user\) return null/.test(page))
   /* Bounded and asked at once since tests/onepage-arrival.test.ts: still maybeSingle, still twice before giving up. */
-  check("the creator is read with maybeSingle, twice before giving up", /readTwice\(\(signal\) =>\s*supabase\.from\("creators"\)\.select\("\*"\)\.eq\("user_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\)/.test(page))
+  check("the creator is read with maybeSingle, twice before giving up", /readTwice\(\(signal\) =>\s*createAdminClient\(\)\.from\("creators"\)\.select\("\*"\)\.eq\("user_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\)/.test(page))
   check("a failed read is an error on the editor's own address, not a trip to onboarding", /if \(creatorError\) \{[\s\S]{0,120}throw new Error/.test(page) && /if \(!creator\) redirect\("\/onboarding"\)/.test(page) && !/creatorError \|\| !creator/.test(page))
   check("a failed read of the page makes no new page over it", /readTwice\(\(signal\) =>\s*supabase\.from\("onepages"\)\.select\("\*"\)\.eq\("owner_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\)/.test(page) && /if \(fetchError\) \{[\s\S]{0,120}throw new Error/.test(page) && !/fetchError\.code !== "PGRST116"/.test(page))
   check("and no page at all is an error with a Try again, not a spinner for ever", /if \(!onepage\) \{[\s\S]{0,120}throw new Error\("The OnePage could not be made"\)/.test(page))

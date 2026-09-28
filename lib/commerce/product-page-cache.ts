@@ -51,6 +51,7 @@
  */
 import { unstable_cache } from "next/cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
+import { readPublicRow } from "@/lib/security/public-rows"
 
 /** The backstop, in seconds. Tag invalidation is the fast path. */
 export const PRODUCT_CACHE_TTL = 60
@@ -91,9 +92,8 @@ export const cachedProductBySlug = (slug: string) =>
 export const cachedCreator = (creatorId: string) =>
   unstable_cache(
     async () => {
-      const supabase = createPublicReadClient()
-      const { data } = await supabase.from("creators").select("*").eq("id", creatorId).maybeSingle()
-      return data ?? null
+      /* Every public column, never a private one (lib/security/public-rows). */
+      return readPublicRow(createPublicReadClient(), "creators", (q) => q.eq("id", creatorId))
     },
     ["creator", creatorId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(creatorId)] },
@@ -102,9 +102,7 @@ export const cachedCreator = (creatorId: string) =>
 export const cachedCreatorProfile = (userId: string) =>
   unstable_cache(
     async () => {
-      const supabase = createPublicReadClient()
-      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
-      return data ?? null
+      return readPublicRow(createPublicReadClient(), "profiles", (q) => q.eq("id", userId))
     },
     ["creator-profile", userId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(userId)] },

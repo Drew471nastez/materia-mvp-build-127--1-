@@ -2088,7 +2088,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     a feature being explained.
                   */}
                   <p className="text-[13px] text-[#9ca3af] mt-1">
-                    Deleting your account will permanently remove all your data, including products, customers, and sales history.
+                    Your store, products, customers and details are removed. People who bought from you keep what they bought, and your sales and payout records are kept.
                     {otherStores > 0 &&
                       (otherStores === 1
                         ? " The other store on this login goes with it."

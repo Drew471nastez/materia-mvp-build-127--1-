@@ -82,7 +82,8 @@ function main() {
   const NEVER = ["entitlements", "orders", "purchases", "download_tokens"]
 
   for (const table of CACHEABLE) {
-    check(`${table} is cached`, new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer))
+    /* creators and profiles are read through their public views since run-now part 63 (lib/security/public-rows). */
+    check(`${table} is cached`, new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer) || new RegExp(`readPublicRow\\([^,]+, "${table}"`).test(cacheLayer))
   }
   for (const table of NEVER) {
     check(`${table} is NOT cached`, !new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer), "this would be one visitor's rows served to another")

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { deleteAllUserData } from "@/app/api/auth/delete-account/route"
+import { deleteAccount } from "@/lib/account/delete-account"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { recordAdminAction } from "@/lib/admin/audit"
 import { maskEmail } from "@/lib/privacy/mask-email"
@@ -66,8 +66,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No account has that id" }, { status: 404 })
     }
 
-    // Delete all user data and the auth user
-    await deleteAllUserData(adminSupabase, targetUserId)
+    /* The data and the sign in account; retired, not wiped, when anything under it is somebody's record (lib/account/delete-account). */
+    const outcome = await deleteAccount(adminSupabase, targetUserId, "admin")
+    if (!outcome.ok) {
+      return NextResponse.json({ error: `The account could not be fully deleted: ${outcome.failures.slice(0, 3).join("; ")}` }, { status: 500 })
+    }
     await recordAdminAction(adminSupabase, {
       action: "delete_account",
       targetType: "account",

@@ -16,6 +16,7 @@ import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
+import { noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
 
 export const runtime = "nodejs"
 
@@ -72,7 +73,47 @@ function payoutMethodFacts(ext: any): Record<string, unknown> {
   }
 }
 
+/**
+ * EVERY STRIPE EVENT, HANDLED ONCE. Stripe delivers an event again whenever
+ * an answer is slow or lost, and it can deliver one twice even after a 200.
+ * The handlers below are each idempotent on their own records; this is the
+ * layer in front of all of them: an event the webhook already finished
+ * (public.stripe_webhook_events, run-now part 64) is answered 200 and
+ * nothing runs again. An event that failed is recorded with its error and
+ * runs again on the next delivery. The id is read from the body before the
+ * signature is checked, but only to skip an event that a signed delivery
+ * already finished; nothing is written for a delivery until the handler,
+ * which checks the signature, has answered 200.
+ */
 export async function POST(request: Request) {
+  const body = await request.text()
+  let eventId: string | null = null
+  let eventType = ""
+  let account: string | null = null
+  try {
+    const parsed = JSON.parse(body) as { id?: unknown; type?: unknown; account?: unknown }
+    eventId = typeof parsed.id === "string" && parsed.id.startsWith("evt_") ? parsed.id : null
+    eventType = typeof parsed.type === "string" ? parsed.type : ""
+    account = typeof parsed.account === "string" ? parsed.account : null
+  } catch {
+    /* Not JSON: the handler refuses it. */
+  }
+  if (eventId && (await stripeEventHandled(supabaseAdmin, eventId))) {
+    return NextResponse.json({ received: true, duplicate: true })
+  }
+  let answer: Response
+  try {
+    answer = await handleStripeEvent(new Request(request.url, { method: "POST", headers: request.headers, body }))
+  } catch (error) {
+    if (eventId) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: error instanceof Error ? error.message : String(error) })
+    throw error
+  }
+  if (eventId && answer.status === 200) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: true })
+  else if (eventId && answer.status >= 500) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
+  return answer
+}
+
+async function handleStripeEvent(request: Request) {
   console.log("[Webhook] Received")
 
   const body = await request.text()
@@ -462,17 +503,35 @@ export async function POST(request: Request) {
           holdUntil.setDate(holdUntil.getDate() + 3)
         }
 
-        // Ensure ledger exists
-        await supabaseAdmin
-          .from("seller_ledger")
-          .upsert({ creator_id: creatorId }, { onConflict: "creator_id" })
+        /* Once per order, in one locked step (lib/payments/ledger), under the key the
+           PaymentIntent path writes too. The code below is the path before run-now part 64. */
+        const posted = await postLedger(supabaseAdmin, {
+          creatorId,
+          key: `sale:${order.id}`,
+          op: "sale",
+          amountCents: netSeller,
+          event: {
+            event_type: "sale",
+            amount_cents: totalAmount,
+            net_seller_cents: netSeller,
+            fee_cents: applicationFeeAmount,
+            currency: "usd",
+            order_id: order.id,
+            hold_until: holdUntil.toISOString(),
+            description: `Sale: $${(totalAmount / 100).toFixed(2)} (net $${(netSeller / 100).toFixed(2)})`,
+            add_lifetime_earnings: totalAmount,
+            add_lifetime_fees: applicationFeeAmount,
+          },
+        })
 
-        // Load current ledger
-        const { data: ledger } = await supabaseAdmin
-          .from("seller_ledger")
-          .select("*")
-          .eq("creator_id", creatorId)
-          .single()
+        if (posted.unavailable) {
+          await supabaseAdmin
+            .from("seller_ledger")
+            .upsert({ creator_id: creatorId }, { onConflict: "creator_id" })
+        }
+        const { data: ledger } = posted.unavailable
+          ? await supabaseAdmin.from("seller_ledger").select("*").eq("creator_id", creatorId).single()
+          : { data: null }
 
         if (ledger) {
           let actualPending = netSeller
@@ -1315,7 +1374,31 @@ export async function POST(request: Request) {
 
         const usdAmount = cashoutEvent?.amount_cents || payout.amount
 
-        if (event.type === "payout.paid") {
+        /* Once per payout and outcome, in one locked step (lib/payments/ledger): Stripe
+           delivering payout.paid twice no longer pays it out twice on the balance. */
+        const returned = event.type === "payout.failed" || event.type === "payout.canceled"
+        const posted = event.type === "payout.paid" || returned
+          ? await postLedger(supabaseAdmin, {
+              creatorId: creator.id,
+              key: `payout:${payout.id}:${returned ? "cashout_failed" : "cashout_completed"}`,
+              op: returned ? "payout_returned" : "payout_paid",
+              amountCents: usdAmount,
+              event: {
+                event_type: returned ? "cashout_failed" : "cashout_completed",
+                amount_cents: usdAmount,
+                net_seller_cents: usdAmount,
+                currency: "usd",
+                stripe_payout_id: payout.id,
+                description: returned
+                  ? `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: $${(usdAmount / 100).toFixed(2)} returned to available`
+                  : `Cashout completed: $${(usdAmount / 100).toFixed(2)} arrived at bank`,
+              },
+            })
+          : { unavailable: true as const }
+
+        if (!posted.unavailable) {
+          /* Written in the database. */
+        } else if (event.type === "payout.paid") {
           await supabaseAdmin
             .from("seller_ledger")
             .update({
@@ -1481,11 +1564,25 @@ export async function POST(request: Request) {
         // Include the dispute fee in the total deduction
         const totalDeduction = disputeAmountCents + disputeFeeCents
 
-        const { data: ledger } = await supabaseAdmin
-          .from("seller_ledger")
-          .select("*")
-          .eq("creator_id", creator.id)
-          .single()
+        /* Once per dispute, in one locked step (lib/payments/ledger). Below: before run-now part 64. */
+        const posted = await postLedger(supabaseAdmin, {
+          creatorId: creator.id,
+          key: `dispute:${dispute.id}:dispute_created`,
+          op: "debit_available_first",
+          amountCents: totalDeduction,
+          event: {
+            event_type: "dispute_created",
+            amount_cents: totalDeduction,
+            net_seller_cents: totalDeduction,
+            fee_cents: disputeFeeCents,
+            currency: (dispute.currency || "usd").toLowerCase(),
+            stripe_dispute_id: dispute.id,
+            description: `Dispute opened: $${(disputeAmountCents / 100).toFixed(2)} held + $${(disputeFeeCents / 100).toFixed(2)} fee`,
+          },
+        })
+        const { data: ledger } = posted.unavailable
+          ? await supabaseAdmin.from("seller_ledger").select("*").eq("creator_id", creator.id).single()
+          : { data: null }
 
         if (ledger) {
           let remaining = totalDeduction
@@ -1613,11 +1710,23 @@ export async function POST(request: Request) {
           // When dispute is won, Stripe returns both the disputed amount AND the fee
           const totalRestored = disputeAmountCents + disputeFeeCents
 
-          const { data: ledger } = await supabaseAdmin
-            .from("seller_ledger")
-            .select("*")
-            .eq("creator_id", creator.id)
-            .single()
+          /* Once per dispute, in one locked step (lib/payments/ledger). Below: before run-now part 64. */
+          const posted = await postLedger(supabaseAdmin, {
+            creatorId: creator.id,
+            key: `dispute:${dispute.id}:dispute_closed`,
+            op: "credit_available",
+            amountCents: totalRestored,
+            event: {
+              event_type: "dispute_closed",
+              amount_cents: totalRestored,
+              currency: (dispute.currency || "usd").toLowerCase(),
+              stripe_dispute_id: dispute.id,
+              description: `Dispute won: $${(totalRestored / 100).toFixed(2)} restored (incl. fee)`,
+            },
+          })
+          const { data: ledger } = posted.unavailable
+            ? await supabaseAdmin.from("seller_ledger").select("*").eq("creator_id", creator.id).single()
+            : { data: null }
 
           if (ledger) {
             // Restore funds — first absorb any negative balance, rest goes to available

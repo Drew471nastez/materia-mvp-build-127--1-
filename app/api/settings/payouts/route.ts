@@ -72,7 +72,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: creator, error: creatorError } = await supabase
+    const { data: creator, error: creatorError } = await createAdminClient()
       .from("creators")
       .select("payout_schedule, payout_threshold, instant_payouts_enabled")
       .eq("user_id", user.id)

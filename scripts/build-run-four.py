@@ -7,7 +7,7 @@ OUT=ROOT+'supabase/sql/run-four/'
 GROUPS=[
  ('1_of_4_core.sql','1 of 4','Rate limits, newsletter, agent connections and GitHub, refunds recorded once, event and email types, order source, site speed, website addresses, coupons and the admin console, email automations.',['01','02','03','04','05','06','07','08','09','10']),
  ('2_of_4_library_checkout_uploads.sql','2 of 4','Agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',['11','12','13','14','15','16','17','18','19']),
- ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator\'s own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator\'s name and photo, the website builder agent\'s document and questions, an archived product never also published, one review per buyer per product, reviews complete (guest reviews, seller replies, reports, ratings from published reviews), one profile photo everywhere, one OnePage address in any case, the malware scan log, email records for a buyer\'s message to the seller, the picture a shared OnePage link shows, a OnePage\'s old addresses followed, the file security log, where a sale or a sign-up came from, and Analytics counted the same way on every page.',None),
+ ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator\'s own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator\'s name and photo, the website builder agent\'s document and questions, an archived product never also published, one review per buyer per product, reviews complete (guest reviews, seller replies, reports, ratings from published reviews), one profile photo everywhere, one OnePage address in any case, the malware scan log, email records for a buyer\'s message to the seller, the picture a shared OnePage link shows, a OnePage\'s old addresses followed, the file security log, where a sale or a sign-up came from, Analytics counted the same way on every page, and money rows (orders, library, ledger, payouts, plans) written by the server only, and private columns of accounts and creators kept private with server owned ones guarded, the seller balance changed once per event in one locked step, and a deleted account that keeps its buyers\' purchases and the money records, a copy of every deleted row kept for 90 days, and the record of which parts ran.',None),
 ]
 parts={f[:2]:f for f in os.listdir(RN) if re.match(r'\d\d_.*\.sql$',f)}
 # File 3 takes every part from 20 up to 89, so a new part lands there without editing this list.
@@ -34,14 +34,26 @@ def last_alone(p):
     lines=[l for l in open(RN+parts[p]).read().rstrip('\n').split('\n')[1:] if LAST_ALONE[p] in l]
     assert len(lines)==1, (p, len(lines))
     return lines[0]
+import hashlib
+# EVERY PART RECORDS ITSELF (run-now part 67). The table first, in every file,
+# in part 67's own words, then after each part one row: which part, from which
+# file, the SHA-256 of its text. Running the files is the record; the admin's
+# Health view compares it with lib/admin/sql-parts.generated.ts, written below.
+_p67=[l for l in open(RN+'67_applied_parts.sql').read().rstrip('\n').split('\n')[1:] if l.strip() and l.strip()!="notify pgrst, 'reload schema';"]
+BOOTSTRAP=_p67
+def part_sha(p):
+    return hashlib.sha256(open(RN+parts[p],'rb').read()).hexdigest()
+def record(p):
+    return (f"INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('{p}', '{parts[p]}', '{part_sha(p)}') "
+            "ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;")
 def body(p):
     lines=open(RN+parts[p]).read().rstrip('\n').split('\n')
     alone=last_alone(p)
     head=lines[0]; rest=[l for l in lines[1:] if l.strip() and l.strip()!="notify pgrst, 'reload schema';" and l!=alone]
-    return head, rest
+    return head, rest+[record(p)]
 used=set()
 for name,label,what,ps in GROUPS:
-    out=[f"-- STORELIB DATABASE, FILE {label}", f"-- {what}", HOW, "", "set local statement_timeout = 0;", ""]
+    out=[f"-- STORELIB DATABASE, FILE {label}", f"-- {what}", HOW, "", "set local statement_timeout = 0;", "-- the record of which parts ran (part 67)"]+BOOTSTRAP+[""]
     for p in ps:
         head,rest=body(p); used.add(p)
         out.append(f"-- part {parts[p]}")
@@ -65,12 +77,12 @@ chk_stmt=[l for l in chk if l.strip() and not l.startswith('/*') and not l.start
 assert len(chk_stmt)==1
 out=["-- STORELIB DATABASE, FILE 4 of 4",
      "-- Old page views placed on the property they were seen on (the last step of part 61), the storage.objects policies (seven consolidated ones), then one row of true or false, one column per part.",
-     HOW, "", "set local statement_timeout = 0;", ""]
+     HOW, "", "set local statement_timeout = 0;", "-- the record of which parts ran (part 67)"]+BOOTSTRAP+[""]
 for p in sorted(LAST_ALONE):
     out+=[f"-- part {parts[p]}, its last step, here on its own so that no order waits for it (see README.md): old page views placed on the property they were seen on. About a minute per million page views; a second run changes nothing.",
           last_alone(p), ""]
 out+=["-- part 90_storage_policies_needs_owner.sql, with a first step that skips it (a notice, not an error) when this role does not own storage.objects",
-     p90[0], do, "",
+     p90[0], do, record('90'), "",
      "-- part 99_check_after.sql: every column should read true. p90_storage_policies reads false if the step above was skipped; see README.",
      chk_stmt[0]]
 open(OUT+'4_of_4_storage_policies_and_check.sql','w').write("\n".join(out)+"\n")
@@ -95,7 +107,7 @@ GROUPS3=[
  ('2_of_3_latest.sql','2 of 3',GROUPS[2][2],sorted(p for p in parts if '20'<=p<='89')),
 ]
 for name,label,what,ps in GROUPS3:
-    out=[f"-- STORELIB DATABASE, FILE {label}", f"-- {what}", HOW.replace('Run the four files','Run the three files'), "", "set local statement_timeout = 0;", ""]
+    out=[f"-- STORELIB DATABASE, FILE {label}", f"-- {what}", HOW.replace('Run the four files','Run the three files'), "", "set local statement_timeout = 0;", "-- the record of which parts ran (part 67)"]+BOOTSTRAP+[""]
     for q in ps:
         head,rest=body(q)
         out.append(f"-- part {parts[q]}")
@@ -127,3 +139,15 @@ for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-thre
     if _fixed!=_text:
         open(_path,'w').write(_fixed)
         print('readme:', _folder, _span)
+
+
+# THE PARTS THE ADMIN COMPARES WITH (lib/admin/views/system.ts): every
+# numbered part and the SHA-256 of its text, the same figure record() writes
+# into the database when it runs.
+_gen=["/* Generated by scripts/build-run-four.py from supabase/sql/run-now. Do not edit. */",
+      "export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: string }> = ["]
+for _p in sorted(p for p in parts if p.isdigit() and ('01'<=p<'90' or p=='90')):
+    _gen.append(f'  {{ part: "{_p}", file: "{parts[_p]}", sha256: "{part_sha(_p)}" }},')
+_gen.append("]")
+open(ROOT+'lib/admin/sql-parts.generated.ts','w').write("\n".join(_gen)+"\n")
+print('generated: lib/admin/sql-parts.generated.ts', len(_gen)-3)

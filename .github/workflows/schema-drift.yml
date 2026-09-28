@@ -1,0 +1,61 @@
+# Every night the LIVE database's structure is written into the repository
+# (scripts/db/snapshot-schema.sh). When it differs from what is committed,
+# this opens (or updates) one pull request showing exactly what changed in
+# production: a column added by hand in the SQL editor, a policy dropped, a
+# part not run. Merging it keeps supabase/schema/ the truth. supabase/README.md.
+#
+# Needs the SUPABASE_DB_URL secret (the backups use the same one) and, in the
+# repository's Settings, Actions, General: "Allow GitHub Actions to create and
+# approve pull requests".
+name: Live schema snapshot
+
+on:
+  schedule:
+    - cron: "7 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configured?
+        id: ready
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "The schema snapshot is not configured yet: set the SUPABASE_DB_URL secret (supabase/README.md)." >> "$GITHUB_STEP_SUMMARY"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Postgres 17 client
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+      - name: Write the live schema
+        if: steps.ready.outputs.ok == 'true'
+        run: PG_BIN=/usr/lib/postgresql/17/bin scripts/db/snapshot-schema.sh
+      - name: Open a pull request when production differs
+        if: steps.ready.outputs.ok == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: schema/live-snapshot
+          delete-branch: true
+          add-paths: supabase/schema/**
+          commit-message: "The live database's structure, as it is tonight"
+          title: "The live database changed"
+          body: |
+            The structure of the production database no longer matches `supabase/schema/`.
+            The diff below is what changed in production (by hand in the SQL editor, a part run or not run, a policy added or dropped).
+
+            If it is expected, merge this so the repository matches production again.
+            If it is not, find out who changed what before merging. The admin's Health view says which run-now parts have run.

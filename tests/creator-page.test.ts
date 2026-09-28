@@ -661,7 +661,7 @@ function main() {
     */
     check(
       "the typed address wins and the account's only stands in",
-      page.includes("const resolvedContactEmail = headerSettings.contactEmail || profile.email || undefined"),
+      page.includes("const resolvedContactEmail = headerSettings.contactEmail || (await loadAccountEmail(profile.id)) || undefined"),
     )
     check("and the login address is never written as the contact address", !/contactEmail\s*=\s*(user|profile)\.email/.test(api))
   }
@@ -1045,7 +1045,7 @@ function main() {
     check(
       "the page fetches the account email for the contact default",
       page.includes("await loadProfileByUsername(username)") &&
-        /\.from\("profiles"\)\s*\.select\("\*"\)/.test(read("lib/commerce/creator-page-data.ts")),
+        /createAdminClient\(\)\.from\("profiles"\)\.select\("email"\)\.eq\("id", userId\)/.test(read("lib/commerce/creator-page-data.ts")),
     )
     /*
       THE CLIENT HEADER NEVER SEES THE ACCOUNT ROWS. It was handed the whole
@@ -1058,8 +1058,8 @@ function main() {
       !/creator=\{creator\}/.test(page) && !/profile=\{profile\}/.test(page) &&
         (page.match(/creator=\{headerCreator\}/g) ?? []).length === 2,
     )
-    check("and the contact link falls back to it", page.includes("headerSettings.contactEmail || profile.email || undefined"))
-    check("and the About editor opens on the same value", page.includes("headerSettings.contactEmail || profile.email ||"))
+    check("and the contact link falls back to it", page.includes("headerSettings.contactEmail || (await loadAccountEmail(profile.id)) || undefined"))
+    check("and the About editor opens on the same value", page.includes("headerSettings.contactEmail || (await loadAccountEmail(profile.id)) ||"))
   }
 
   /* ------------------------------------------------------------------ */
@@ -1277,8 +1277,8 @@ function main() {
      */
     check(
       "and it is resolved once for the whole page",
-      /const resolvedContactEmail = headerSettings\.contactEmail \|\| profile\.email \|\| undefined/.test(page) &&
-        (page.match(/headerSettings\.contactEmail \|\| profile\.email/g) ?? []).length === 1,
+      /const resolvedContactEmail = headerSettings\.contactEmail \|\| \(await loadAccountEmail\(profile\.id\)\) \|\| undefined/.test(page) &&
+        (page.match(/headerSettings\.contactEmail \|\| \(await loadAccountEmail/g) ?? []).length === 1,
     )
     /**
      * About is a locked default section — hideable, not deletable — so this

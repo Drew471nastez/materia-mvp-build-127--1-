@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 
 function safeTimestamp(ts: any): string {
@@ -93,7 +94,7 @@ export async function POST() {
     )
 
     // Update subscription in database
-    await supabase
+    await createAdminClient()
       .from("subscriptions")
       .update({
         cancel_at_period_end: true,

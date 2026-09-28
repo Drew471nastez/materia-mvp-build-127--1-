@@ -1,18 +1,20 @@
 import "server-only"
 
-import type { CronCheck, SchemaCheck, SystemPayload } from "../types"
+import type { CronCheck, SchemaCheck, SqlPartCheck, SystemPayload } from "../types"
 import { Reader, isoDaysAgo, isoMinutesAgo } from "../platform-metrics"
 import { plainReason } from "../plain-reason"
 import { CRON_JOBS, ENV_CHECKS, EXPECTED_FUNCTIONS, EXPECTED_SCHEMA } from "../schema-expectations"
+import { SQL_PARTS } from "../sql-parts.generated"
 
 const HOUR = 60 * 60 * 1000
 
 export async function system(r: Reader): Promise<Omit<SystemPayload, "problems" | "notices">> {
-  const [crons, rateRows, rateOldest, schema] = await Promise.all([
+  const [crons, rateRows, rateOldest, schema, sqlParts] = await Promise.all([
     cronChecks(r),
     r.count("rate limit rows", "rate_limit_hits"),
     r.rows<{ created_at: string }>("rate limit oldest", "rate_limit_hits", "created_at", (q) => q.order("created_at", { ascending: true }).limit(1)),
     schemaChecks(r),
+    sqlPartChecks(r),
   ])
 
   return {
@@ -20,7 +22,25 @@ export async function system(r: Reader): Promise<Omit<SystemPayload, "problems" 
     env: ENV_CHECKS.map((e) => ({ name: e.name, group: e.group, set: typeof process.env[e.name] === "string" && process.env[e.name]!.length > 0, ...(e.optional ? { optional: true } : {}) })),
     rateLimit: { rows: rateRows, oldest: rateOldest?.[0]?.created_at ?? null },
     schema,
+    sqlParts,
   }
+}
+
+/**
+ * Every part in the repository against the database's own record of what it
+ * ran (public.storelib_applied_parts, run-now part 67). Missing: never run
+ * here. Changed: run, but the text in the repository is not the text that
+ * ran, so it wants running again. Before part 67 there is no record at all,
+ * and every part says unknown rather than guessing.
+ */
+async function sqlPartChecks(r: Reader): Promise<SqlPartCheck[]> {
+  const ran = await r.rows<{ part: string; sha256: string; applied_at: string }>("sql parts", "storelib_applied_parts", "part, sha256, applied_at", (q) => q.limit(500))
+  const byPart = new Map((ran ?? []).map((row) => [row.part, row]))
+  return SQL_PARTS.map((p) => {
+    const row = byPart.get(p.part)
+    const state: SqlPartCheck["state"] = ran === null ? "unknown" : !row ? "missing" : row.sha256 === p.sha256 ? "applied" : "changed"
+    return { part: p.part, file: p.file, state, appliedAt: row?.applied_at ?? null }
+  })
 }
 
 /**

@@ -7,6 +7,7 @@ import { senderPicture } from "@/lib/email-campaigns/sender"
 import { allocateRefund, feeShare, type RefundLine } from "./refund-allocation"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { emit } from "@/lib/notify/outbox"
+import { postLedger } from "@/lib/payments/ledger"
 
 /**
  * ===========================================================================
@@ -39,7 +40,7 @@ import { emit } from "@/lib/notify/outbox"
  * retried or repeated event changes nothing.
  */
 
-type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 interface OrderRow extends RefundLine {
   product_id: string | null
@@ -154,6 +155,28 @@ async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents
     which that sale's release would then pay out again.
   */
   const held = Array.isArray(sale) && sale.length > 0 && !sale[0].released_at
+
+  /* One locked step in the database (lib/payments/ledger), once per refund and row:
+     where the money comes from is decided against the balance as it is at that
+     moment, not as it was read a moment earlier. Below: before run-now part 64. */
+  const posted = await postLedger(db, {
+    creatorId,
+    key: `refund:${refund.id}:${row.id}`,
+    op: held ? "debit_pending_first" : "debit_available_first",
+    amountCents: net,
+    event: {
+      event_type: "refund",
+      amount_cents: cents,
+      net_seller_cents: net,
+      fee_cents: fee,
+      currency,
+      order_id: row.id,
+      stripe_refund_id: refund.id,
+      description: `Refund: $${(cents / 100).toFixed(2)}`,
+      add_lifetime_refunds: cents,
+    },
+  })
+  if (posted.unavailable === false) return posted.applied ? "recorded" : "duplicate"
 
   const { data: ledger } = await db.from("seller_ledger").select("*").eq("creator_id", creatorId).maybeSingle()
   let fromPending = 0

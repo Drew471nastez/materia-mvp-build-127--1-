@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
 import { readInterests } from "@/lib/explore/read-interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
@@ -71,7 +72,8 @@ async function personalizationOn(
   userId: string,
   kept?: boolean,
 ): Promise<boolean> {
-  const { data: pref } = await supabase
+  /* The viewer's own setting, a private column: read by the server for this signed in id (lib/security/public-columns). */
+  const { data: pref } = await createAdminClient()
     .from("profiles")
     .select("personalized_recommendations")
     .eq("id", userId)

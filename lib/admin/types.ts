@@ -278,12 +278,17 @@ export type CronCheck = {
 
 export type SchemaCheck = { table: string; present: boolean | null; missingColumns: string[]; reason: string | null }
 
+/** One run-now part against the database's own record of what ran (run-now part 67). */
+export type SqlPartCheck = { part: string; file: string; state: "applied" | "missing" | "changed" | "unknown"; appliedAt: string | null }
+
 export type SystemPayload = Base & {
   crons: CronCheck[]
   /** `optional`: not set is normal (an extra switched off), shown as Off, never as a problem. */
   env: { name: string; set: boolean; group: string; optional?: boolean }[]
   rateLimit: { rows: Figure; oldest: string | null }
   schema: SchemaCheck[]
+  /** Every run-now part, applied, missing, or changed since it ran. */
+  sqlParts: SqlPartCheck[]
 }
 
 export type ViewId =

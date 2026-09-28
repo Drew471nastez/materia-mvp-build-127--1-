@@ -617,7 +617,7 @@ check(
      * GET is the default verb and has to stay incapable of acting — an
      * operator reads the whole batch before agreeing to any of it.
      */
-    return !/\.update\(|\.delete\(|\.insert\(|deleteAllUserData/.test(get)
+    return !/\.update\(|\.delete\(|\.insert\(|deleteAllUserData|deleteAccount\(/.test(get)
   })(),
 )
 

@@ -488,7 +488,7 @@ function main() {
   check("the onboarding is the whole screen in the app", /setNativeFullScreen\(isNativeApp\(\)\)/.test(read("components/app/creator-onboarding-modal.tsx")))
   const del = read("app/api/auth/delete-account/route.ts")
   /* Changed on purpose: a login can have two businesses besides its first, so deleting it deletes each of them. */
-  check("deleting a login deletes every business it made first", /if \(group\?\.ownerId === user\.id\) \{\s*for \(const memberId of group\.memberIds\) \{[\s\S]*?deleteAllUserData\(adminSupabase, memberId\)[\s\S]*?deleteUser\(memberId\)/.test(del) && del.indexOf("deleteUser(memberId)") < del.indexOf("deleteUser(user.id)"))
+  check("deleting a login deletes every business it made first", /if \(group\?\.ownerId === user\.id\) \{[\s\S]*?for \(const memberId of group\.memberIds\) \{\s*const member = await deleteAccount\(adminSupabase, memberId, "business_owner"\)/.test(del) && del.indexOf('deleteAccount(adminSupabase, memberId, "business_owner")') < del.indexOf('deleteAccount(adminSupabase, user.id, "self")'))
   check("deleting one of those businesses signs its owner back in", /group && group\.ownerId !== user\.id \? await sessionFor\(group\.ownerId\)/.test(del) && /data\.firstBusiness\?\.session/.test(read("components/app/settings-form-new.tsx")))
   /*
     Deleting a business is Settings' own delete, nothing new beside it. The
@@ -505,7 +505,7 @@ function main() {
   const settingsForm = read("components/app/settings-form-new.tsx")
   check("  deleting the login's first account is still one plain Delete account, with no section of its own",
     !/data-settings-card="businesses"/.test(read("components/app/settings/account-panels.tsx")) && /Removes your store, products, customers and sales history for good\./.test(read("components/app/settings/account-panels.tsx"))
-      && /Deleting your account will permanently remove all your data, including products, customers, and sales history\./.test(settingsForm))
+      && /Your store, products, customers and details are removed\. People who bought from you keep what they bought, and your sales and payout records are kept\./.test(settingsForm))
   check("  but it does say what else it removes, because the other stores of the login go with it",
     /otherStores > 0 &&/.test(settingsForm) && /The other store on this login goes with it\./.test(settingsForm) && /The other \$\{countWord\(otherStores\)\} stores on this login go with it\./.test(settingsForm)
       && /otherStores: group && group\.ownerId === user\.id \? groupIds\(group, user\.id\)\.length - 1 : 0/.test(read("app/app/settings/_server.ts")))

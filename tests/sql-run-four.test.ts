@@ -35,6 +35,26 @@ for (const p of parts) {
   check(`${p}: named in the file that carries it`, four.some((f) => f.includes(`-- part ${p}`)))
 }
 
+console.log("\nEvery part's note is copied whole too, in every folder the owner might run")
+/*
+  The checks above skip each part's first line, its note. Part 62's note was
+  edited after the files were built, so file 2 carried the old note without
+  the characters that close it. Postgres answered "unterminated /* comment" and ran
+  nothing from file 2 on. A note left open is the whole file lost, so every
+  note is checked word for word, in every folder, and every line a file
+  opens as a comment closes on that line.
+*/
+const allInThree = readdirSync(join(process.cwd(), "supabase/sql/all-in-three")).filter((f) => f.endsWith(".sql")).sort().map((f) => read(`supabase/sql/all-in-three/${f}`))
+const threeLines = new Set(allInThree.join("\n").split("\n"))
+for (const p of parts) {
+  const note = read(`${RN}/${p}`).split("\n")[0]
+  check(`${p}: its note, word for word, in run-four and all-in-three`, lines.has(note) && threeLines.has(note), note.slice(-80))
+}
+const unclosed = [...four, ...allInThree].flatMap((f) => f.split("\n")).filter((l) => l.startsWith("/*") && !l.trimEnd().endsWith("*/"))
+check("no line opens a comment it does not close", unclosed.length === 0, unclosed.map((l) => l.slice(0, 100)).join(" | "))
+for (const dir of ["supabase/sql/all-last-three-days", "supabase/sql/all-last-14-days"])
+  check(`${dir} holds the same four files as run-four`, FILES.every((f, i) => read(`${dir}/${f}`) === four[i]))
+
 console.log("\nThe order, and what each file ends with")
 const order = parts.map((p) => all.indexOf(`-- part ${p}`))
 check("the parts run in their numbered order", order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1])))
@@ -69,7 +89,8 @@ const three = ["1_of_3_core_library_checkout.sql", "2_of_3_latest.sql", "3_of_3_
 check("part 61 places old page views in one statement", backfill.length === 1 && /^DO \$\$/.test(backfill[0]))
 check("  which is in no file that alters orders", [...four, ...three].filter((f) => f.includes(backfill[0])).every((f) => !/ALTER TABLE public\.orders\b/.test(f)), "")
 check("  and runs first in the last file, before the storage policies and the check", [four[3], three[2]].every((f) => {
-  const body = f.split("\n").filter((l) => l.trim() && !l.startsWith("--") && !/^set local /.test(l))
+  /* The record of which parts ran (part 67) is made first in every file: a table of its own, no lock on anything else. */
+  const body = f.split("\n").filter((l) => l.trim() && !l.startsWith("--") && !/^set local /.test(l) && !l.includes("public.storelib_applied_parts"))
   return body[0] === backfill[0]
 }))
 check("  once in each set of files", four.filter((f) => f.includes(backfill[0])).length === 1 && three.filter((f) => f.includes(backfill[0])).length === 1)

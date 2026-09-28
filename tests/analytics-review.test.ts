@@ -30,7 +30,7 @@ import { bucketStarts } from "../lib/analytics/buckets"
 import { homeFromReports } from "../lib/analytics/home-figures"
 import { groupOrders, startOfDay, type OrderRow } from "../lib/orders/order-view"
 import { readMetrics } from "../lib/orders/metrics"
-import { toOrderRow } from "../lib/orders/load-rows"
+import { readCreatorOrders, toOrderRow } from "../lib/orders/load-rows"
 import { midnightOf } from "../lib/date-range/range"
 
 let passed = 0
@@ -188,6 +188,74 @@ async function main() {
     check("  and the check after reads false while the policy is there", /policyname = 'Allow insert analytics'\) as p61_analytics_one_pipeline/.test(after))
     const routes = ["app/api/track-view/route.ts", "app/api/track-event/route.ts", "app/api/onepage/track/route.ts"]
     check("  every tracking route writes with the service key", routes.every((r) => /createAdminClient\(\)/.test(readFileSync(join(process.cwd(), r), "utf8"))))
+  }
+
+  console.log("\nThe Orders page keeps a deleted product's sales, as Analytics does")
+  {
+    /*
+      The Orders page read orders through the creator's current products, so a
+      sale of a product deleted after part 32 (the order keeps its creator and
+      loses its product) was counted by Analytics and missing from Orders.
+      Both now read by the order's creator, through the product only until
+      part 32 has run.
+    */
+    const products = [{ id: P1, creator_id: CREATOR, title: "Guide", type: "digital" }]
+    const orders = [
+      { id: "o1", creator_id: CREATOR, product_id: P1, amount_cents: 1000, status: "completed", created_at: "2026-09-02T10:00:00.000Z" },
+      { id: "o2", creator_id: CREATOR, product_id: null, amount_cents: 2500, status: "completed", created_at: "2026-09-03T10:00:00.000Z" },
+      { id: "o3", creator_id: "someone-else", product_id: "p-other", amount_cents: 9900, status: "completed", created_at: "2026-09-04T10:00:00.000Z" },
+    ]
+    const fake = (hasCreatorColumn: boolean) => {
+      const asked: string[] = []
+      const admin = {
+        from(table: string) {
+          const filters: Array<[string, unknown]> = []
+          let select = ""
+          const q: any = {
+            select(cols: string) { select = cols; return q },
+            eq(col: string, v: unknown) { filters.push([col, v]); return q },
+            order() { return q },
+            range(from: number, to: number) { return q.then ? q._run(from, to) : q },
+            _run(from: number, to: number) {
+              asked.push(`${table} ${select} ${filters.map(([c]) => c).join(",")}`)
+              if (table === "orders" && !hasCreatorColumn && filters.some(([c]) => c === "creator_id"))
+                return Promise.resolve({ data: null, error: { message: "column orders.creator_id does not exist" } })
+              const rows: Row[] = table === "products" ? products : orders.map((o) => (hasCreatorColumn ? o : { ...o, creator_id: undefined }))
+              const pass = (r: any) => filters.every(([c, v]) => c === "products.creator_id"
+                ? products.some((p) => p.id === r.product_id && p.creator_id === v)
+                : r[c] === v)
+              const data = rows.filter(pass).map((r: any) => (select.includes("products!inner") ? { ...r, products: { creator_id: CREATOR } } : r))
+              return Promise.resolve({ data: data.slice(from, to + 1), error: null })
+            },
+            then(resolve: any, reject: any) { return q._run(0, 999).then(resolve, reject) },
+          }
+          return q
+        },
+      }
+      return { admin, asked }
+    }
+    const after32 = fake(true)
+    const read = await readCreatorOrders(after32.admin, CREATOR)
+    check("after part 32 the deleted product's sale is on the Orders page", read.rows.some((r) => r.id === "o2" && r.product === null), read.rows)
+    check("  with the kept product's sale, and nobody else's", read.rows.map((r) => r.id).sort().join() === "o1,o2", read.rows.map((r) => r.id))
+    check("  read by the order's creator, not a list of product ids", after32.asked.some((a) => /^orders \* creator_id$/.test(a)), after32.asked)
+    const before32 = fake(false)
+    const old = await readCreatorOrders(before32.admin, CREATOR)
+    check("before part 32 it still reads, through the product", old.rows.map((r) => r.id).join() === "o1" && before32.asked.some((a) => /products!inner/.test(a)), { rows: old.rows.map((r) => r.id), asked: before32.asked })
+    check("  and the embedded product is not left on the row", old.rows.every((r) => !("products" in (r as object))))
+  }
+
+  console.log("\nThe all time line reads a missing status as the Orders page does")
+  {
+    /*
+      toOrderRow and the reports read an order with no status as unfinished,
+      so not a sale. analytics_all_time (Home's totals) counted it as one.
+      The last definition, part 61, is the one the database keeps.
+    */
+    const part = readFileSync(join(process.cwd(), "supabase/sql/run-now/61_analytics_one_pipeline.sql"), "utf8")
+    const allTime = part.split("\n").find((l) => l.startsWith("CREATE OR REPLACE FUNCTION public.analytics_all_time")) ?? ""
+    check("no status is unfinished, so not a sale", /bool_or\(coalesce\(status, 'pending'\) = 'pending'\) AS any_pending/.test(allTime) && !/coalesce\(status = 'pending', false\)/.test(allTime))
+    check("  as the Orders page reads it", toOrderRow({ id: "x", status: null }, undefined).status === "pending")
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

@@ -28,6 +28,7 @@
  */
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { readPublicRow } from "@/lib/security/public-rows"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import {
   cachedCreator,
@@ -127,17 +128,13 @@ export const loadProductBySlug = cache(async (slug: string): Promise<ProductLook
 export const loadCreator = cache(async (creatorId: string) => {
   const shared = await cachedCreator(creatorId)
   if (shared) return shared
-  const supabase = await createClient()
-  const { data } = await supabase.from("creators").select("*").eq("id", creatorId).maybeSingle()
-  return data
+  return readPublicRow(await createClient(), "creators", (q) => q.eq("id", creatorId))
 })
 
 export const loadCreatorProfile = cache(async (userId: string) => {
   const shared = await cachedCreatorProfile(userId)
   if (shared) return shared
-  const supabase = await createClient()
-  const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
-  return data
+  return readPublicRow(await createClient(), "profiles", (q) => q.eq("id", userId))
 })
 
 /**

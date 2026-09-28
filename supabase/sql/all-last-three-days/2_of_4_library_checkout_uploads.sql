@@ -8,6 +8,10 @@
 -- Built from supabase/sql/run-now/ (one statement per line, text unchanged).
 
 set local statement_timeout = 0;
+-- the record of which parts ran (part 67)
+CREATE TABLE IF NOT EXISTS public.storelib_applied_parts (part text PRIMARY KEY, file text NOT NULL, sha256 text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now(), applied_by text NOT NULL DEFAULT current_user);
+ALTER TABLE public.storelib_applied_parts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.storelib_applied_parts FROM anon, authenticated;
 
 -- part 11_agent_mcp.sql
 /* MCP page tools: page actions in the agent log and the builder's selected section. Needs part 02. */
@@ -19,6 +23,7 @@ alter table public.theme_editor_focus enable row level security;
 revoke insert, update, delete on public.theme_editor_focus from anon, authenticated;
 drop policy if exists "Creators read their own editor focus" on public.theme_editor_focus;
 create policy "Creators read their own editor focus" on public.theme_editor_focus for select to authenticated using (install_id in (select i.id from public.store_theme_installs i join public.creators c on c.id = i.creator_id where c.user_id = (select auth.uid())));
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('11', '11_agent_mcp.sql', 'fa49943a9fba7109dfdd808c8ebc07fc80e795e42059db01ee0f1fc4f869aa89') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 12_library_limit_and_privacy.sql
 /* Five websites per library, enforced by the database; the privacy switch and code attempt counters. */
@@ -29,6 +34,7 @@ alter table public.profiles add column if not exists personalized_recommendation
 alter table public.email_change_codes add column if not exists current_email_code text;
 alter table public.email_change_codes add column if not exists attempts integer not null default 0;
 alter table public.account_delete_codes add column if not exists attempts integer not null default 0;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('12', '12_library_limit_and_privacy.sql', '879795e645abd46b7400e2357703132ae1d3f08445673d24180bcb8b50679eae') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 13_checkout_contacts.sql
 /* Buyers kept as contacts, one contact per address, and started checkouts for the checkout reminder. */
@@ -48,6 +54,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.checkout_starts FROM anon, authenticated
 DROP POLICY IF EXISTS "Creators read their own started checkouts" ON public.checkout_starts;
 CREATE POLICY "Creators read their own started checkouts" ON public.checkout_starts FOR SELECT USING (creator_id IN (SELECT id FROM public.creators WHERE user_id = (SELECT auth.uid())));
 GRANT ALL ON public.checkout_starts TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('13', '13_checkout_contacts.sql', '099dcff04fd36187ce649e5bbe09a81661a733ae0d0bdb3e4851fd7dc77b669b') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 14_product_bundles.sql
 /* The product_bundles table the download ZIPs are cached in (missing in production). */
@@ -65,6 +72,7 @@ CREATE OR REPLACE TRIGGER update_product_bundles_updated_at BEFORE UPDATE ON pub
 COMMENT ON TABLE public.product_bundles IS 'Cached ZIP bundles for digital products with ≥6 files';
 COMMENT ON COLUMN public.product_bundles.files_hash IS 'Sorted file IDs + product title — used to detect when regeneration is needed';
 COMMENT ON COLUMN public.product_bundles.variant_id IS 'NULL = product-level bundle; set = variant-specific bundle';
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('14', '14_product_bundles.sql', '4e441a42a276cfca8ac806c5fed0751229a19a85ccd1b0456955196db84fa970') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 15_upload_functions.sql
 /* Storage safety, functions: the two open functions closed, path ownership checks, usage counts pending uploads. */
@@ -83,15 +91,18 @@ grant execute on function public.storage_reserved_upload(text, text) to authenti
 create or replace function public.get_creator_storage_usage(p_creator_id uuid) returns bigint language plpgsql stable security definer set search_path = public as $$ begin if to_regclass('public.digital_assets') is null then return 0; end if; return ( select coalesce(sum(da.file_size), 0)::bigint from public.digital_assets da join public.products p on da.product_id = p.id where p.creator_id = p_creator_id and coalesce(da.upload_status, 'completed') in ('pending', 'completed') ); end; $$;
 revoke all on function public.get_creator_storage_usage(uuid) from public, anon, authenticated;
 grant execute on function public.get_creator_storage_usage(uuid) to service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('15', '15_upload_functions.sql', 'f5b08383da01d9a5d9a0eacf4e0b7eba4e7cf9d9f545d82b9274efa272dd8a4d') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 16_storage_buckets.sql
 /* Storage safety, buckets: paid file buckets private, picture buckets take pictures only, size limits. */
 do $$ declare private_buckets text[] := array['digital-products', 'product-files', 'digital-assets']; image_types text[] := array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']; video_types text[] := array['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg', 'video/3gpp', 'video/ogg', 'video/x-matroska', 'video/avi', 'video/mov']; lead_types text[] := array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'video/*', 'audio/*', 'font/*', 'application/pdf', 'application/zip', 'application/x-zip-compressed', 'application/epub+zip', 'application/x-mobipocket-ebook', 'application/octet-stream', 'text/plain', 'text/csv', 'text/markdown', 'application/rtf', 'application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet', 'application/vnd.rar', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/gzip', 'application/x-tar', 'application/json', 'image/vnd.adobe.photoshop', 'application/postscript', 'application/illustrator', 'model/stl', 'model/obj', 'model/gltf-binary', 'application/x-blender']; b text; begin foreach b in array private_buckets loop update storage.buckets set public = false where id = b; end loop; insert into storage.buckets (id, name, public) values ('digital-products', 'digital-products', false) on conflict (id) do update set public = false; foreach b in array array['product-images', 'avatars', 'covers', 'store-builder-images', 'onepage-assets', 'lead-form-files-v2', 'product-videos', 'email-images'] loop insert into storage.buckets (id, name, public) values (b, b, true) on conflict (id) do nothing; end loop; update storage.buckets set public = true, allowed_mime_types = image_types, file_size_limit = 26214400 where id in ('product-images', 'avatars', 'covers'); update storage.buckets set public = true, allowed_mime_types = image_types, file_size_limit = 5242880 where id = 'email-images'; update storage.buckets set public = true, allowed_mime_types = image_types || video_types where id in ('store-builder-images', 'onepage-assets', 'product-videos'); update storage.buckets set allowed_mime_types = lead_types where id in ('lead-form-files-v2', 'lead-form-files'); end; $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('16', '16_storage_buckets.sql', '22dc10df4aa98793eda1d8b9f9324509ec9fb22309cdef9a94fbbe6ea4edb1f3') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 17_digital_assets_server_only.sql
 /* Storage safety: digital_assets written by the server only (reading unchanged), and its indexes. */
 do $$ declare pol record; role_list text; begin if to_regclass('public.digital_assets') is null then raise notice 'skipping digital_assets: the table does not exist here'; return; end if; alter table public.digital_assets enable row level security; for pol in select policyname, roles, cmd, qual from pg_policies where schemaname = 'public' and tablename = 'digital_assets' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL') and not (roles <@ array['service_role']::name[]) loop execute format('drop policy %I on public.digital_assets', pol.policyname); raise notice 'dropped digital_assets policy "%" (%)', pol.policyname, pol.cmd; if pol.cmd = 'ALL' and pol.qual is not null then select string_agg(quote_ident(r), ', ') into role_list from unnest(pol.roles) as r; if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'digital_assets' and policyname = left(pol.policyname, 55) || ' (read)') then execute format('drop policy %I on public.digital_assets', left(pol.policyname, 55) || ' (read)'); end if; execute format('create policy %I on public.digital_assets for select to %s using (%s)', left(pol.policyname, 55) || ' (read)', role_list, pol.qual); end if; end loop; if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'digital_assets' and policyname = 'Creators can view their digital_assets') then create policy "Creators can view their digital_assets" on public.digital_assets for select to authenticated using (product_id in ( select p.id from public.products p join public.creators c on p.creator_id = c.id where c.user_id = auth.uid() )); end if; if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'digital_assets' and policyname = 'Service role full access digital_assets') then create policy "Service role full access digital_assets" on public.digital_assets for all to service_role using (true) with check (true); end if; end; $$;
 do $$ begin if to_regclass('public.digital_assets') is not null then create index if not exists idx_digital_assets_file_path on public.digital_assets (file_path); create index if not exists idx_digital_assets_pending on public.digital_assets (created_at) where upload_status in ('pending', 'failed'); create index if not exists idx_digital_assets_product_status on public.digital_assets (product_id, upload_status); end if; if to_regclass('public.product_bundles') is not null then create index if not exists idx_product_bundles_zip_path on public.product_bundles (zip_path); end if; end; $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('17', '17_digital_assets_server_only.sql', '8baf25f1304796e1ccd9ab15378fea32cf1818b02fc9655f6bf5ab14c0a73693') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 18_storage_cleanup_functions.sql
 /* Storage cleanup: what no row refers to any more, and recent browser uploads for the metadata sweep. */
@@ -104,6 +115,7 @@ grant execute on function public.storage_cleanup_candidates(integer, integer) to
 create or replace function public.storage_recent_public_images(p_since_minutes integer default 150, p_limit integer default 200) returns table (bucket_id text, name text, size bigint, mimetype text) language sql stable security definer set search_path = public, storage as $$ select o.bucket_id::text, o.name::text, coalesce((o.metadata->>'size')::bigint, 0), coalesce(o.metadata->>'mimetype', '') from storage.objects o where o.bucket_id in ('avatars', 'covers', 'product-images', 'store-builder-images', 'onepage-assets', 'lead-form-files-v2', 'product-videos') and o.created_at > now() - make_interval(mins => greatest(p_since_minutes, 1)) and lower(coalesce(o.metadata->>'mimetype', '')) in ('image/jpeg', 'image/jpg', 'image/png', 'image/webp') and coalesce((o.metadata->>'size')::bigint, 0) between 1 and 26214400 order by o.created_at limit greatest(p_limit, 1); $$;
 revoke all on function public.storage_recent_public_images(integer, integer) from public, anon, authenticated;
 grant execute on function public.storage_recent_public_images(integer, integer) to service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('18', '18_storage_cleanup_functions.sql', 'b6a93512a8d3e5dc9ed326a855675d204cd12c5b7e52ec0a0d6b784f1cfe62ea') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 19_variant_policies.sql
 /* Product variants read policies split so a visitor skips the creator check. Same access, faster product page. */
@@ -123,6 +135,7 @@ CREATE INDEX IF NOT EXISTS idx_product_variants_product ON public.product_varian
 CREATE INDEX IF NOT EXISTS idx_product_variant_files_variant ON public.product_variant_files (variant_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_product_created ON public.reviews (product_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_courses_product ON public.courses (product_id);
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('19', '19_variant_policies.sql', 'ce4d91e39a581aa3aba795347fe0c21ca0264dd0100e3c5c2cc88c57794fa7c4') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 4 ran. Next file.' as done;

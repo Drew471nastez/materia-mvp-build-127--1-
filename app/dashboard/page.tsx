@@ -6,6 +6,7 @@ import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, GraduationCap, Users, ArrowRight, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 interface DashboardOverviewProps {
   searchParams: Promise<{ purchase?: string; already_owned?: string }>
@@ -26,7 +27,7 @@ export default async function DashboardOverview({ searchParams }: DashboardOverv
       `
       *,
       product:products(*),
-      creator:creators(*, profile:profiles!creators_user_id_fkey(*))
+      creator:creators(${CREATOR_WITH_PROFILE})
     `,
     )
     .eq("buyer_id", user!.id)

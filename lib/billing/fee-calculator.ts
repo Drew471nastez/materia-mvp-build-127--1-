@@ -98,20 +98,20 @@ export function computeApplicationFee({
 //
 // @param amountCents  Total charge (product + tip)
 // @param creatorId    Creator row ID
-// @param supabase     Admin Supabase client
+// @param admin        The service role client: the plan is a private column (run-now part 63)
 // ────────────────────────────────────────────────────────────────
 
 export async function calculatePlatformFee(
   amountCents: number,
   creatorId: string,
-  supabase: SupabaseClient,
+  admin: SupabaseClient,
 ): Promise<FeeCalculation> {
   let effectivePlan: SellerPlan = "free"
 
   try {
     // Only need the plan ID and subscription status — we do NOT use
     // fee_percent from the database; we resolve it from the ID.
-    const { data: creator, error } = await supabase
+    const { data: creator, error } = await admin
       .from("creators")
       .select("subscription_plan_id, subscription_status")
       .eq("id", creatorId)

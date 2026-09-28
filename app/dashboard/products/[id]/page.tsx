@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, FileIcon, ExternalLink } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { pageUser } from "@/lib/auth/page-user"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -37,8 +38,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
     .select(`
       *,
       product:products(*),
-      creator:creators(*, profile:profiles!creators_user_id_fkey(*))
-    `)
+      creator:creators(${CREATOR_WITH_PROFILE})
+    ` as const)
     .eq("buyer_id", user.id)
     .eq("product_id", id)
     .single()

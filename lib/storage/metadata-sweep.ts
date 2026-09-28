@@ -130,7 +130,7 @@ export interface DirectSweepSummary {
  * end, and one that is refused is deleted and logged.
  *
  * Costs two Range reads per file, never a download, and stops inside its own
- * budget. Before supabase/sql/run-now/62_public_upload_safety.sql has run the
+ * budget. Before supabase/sql/run-now/68_public_upload_safety.sql has run the
  * list is not there, which is said once and then ignored.
  */
 export async function sweepDirectUploads(
@@ -144,7 +144,7 @@ export async function sweepDirectUploads(
     p_limit: Math.max(1, Math.min(options.limit ?? 200, 1000)),
   })
   if (error) {
-    /* Part 62 has not run: nothing to read, and nothing to say twice. */
+    /* Part 68 has not run: nothing to read, and nothing to say twice. */
     if (!/storage_recent_public_objects/.test(error.message ?? "")) summary.errors.push(error.message)
     return summary
   }

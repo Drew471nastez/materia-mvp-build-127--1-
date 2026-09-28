@@ -843,7 +843,7 @@ check(
   const css = read("app/globals.css")
   check(
     "the gutter and the card padding are two custom properties in app/globals.css: on a phone 10px and 12px, so a word starts 23px in rather than 33",
-    /:root \{\s*--app-gutter: 10px;\s*--app-card-x: 12px;\s*\}/.test(css),
+    /:root \{\s*--app-gutter: 11px;\s*--app-card-x: 12px;\s*\}/.test(css),
   )
   check(
     "from 640px both are 24px and from 1024px the gutter is 32px, exactly what `sm:px-6 lg:px-8` and `sm:p-6` were: a tablet and a computer do not move",

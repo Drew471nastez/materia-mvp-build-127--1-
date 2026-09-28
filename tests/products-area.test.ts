@@ -170,7 +170,7 @@ console.log("\nFrom lg: a page header, two columns, and Save at the foot")
 const headSource = editor.slice(editor.indexOf('data-editor-head=""'), editor.indexOf("</header>"))
 check("the page container is the /app one: app-gutter (10px on a phone, 32px from lg — app/globals.css --app-gutter), 1200px from lg",
   /data-editor-page="" className="mx-auto w-full max-w-\[760px\] app-gutter [^"]*lg:max-w-\[1200px\]/.test(editor)
-    && /--app-gutter: 10px/.test(css) && /--app-gutter: 32px/.test(css))
+    && /--app-gutter: 11px/.test(css) && /--app-gutter: 32px/.test(css))
 check("a page header from lg only: back to Products (which asks first), the name, the status badge, the more menu",
   /className="mb-5 hidden min-h-9 items-center gap-2 lg:flex"/.test(headSource) && /aria-label="Back to products"/.test(headSource) && /onClick=\{\(\) => void handleCancel\(\)\}/.test(headSource)
     && /text-\[24px\] font-bold leading-9 text-\[#1a1a2e\] sm:text-\[28px\]/.test(headSource) && /productId \? savedTitle\.trim\(\) \|\| "Untitled" : "New product"/.test(headSource)

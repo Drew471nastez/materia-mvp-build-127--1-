@@ -224,7 +224,7 @@ function staticPage(W) {
     `every block sits on the same two gutters (${r.cards.length} measured)`,
     lopsided.length ? lopsided.map((c) => `${c.left}/${c.right}`).join(", ") : r.cards.length < 3 ? "fewer blocks than expected" : "",
   )
-  /* The floor is the /app gutter at this width (--app-gutter, app/globals.css): 10px on a phone, 32 from 1024. */
+  /* The floor is the /app gutter at this width (--app-gutter, app/globals.css): 11px on a phone, 32 from 1024. */
   const floor = W >= 1024 ? 32 : W >= 640 ? 24 : 10
   expect(r.pad.left === r.pad.right && r.pad.left >= floor, `and those gutters are equal, and at least the ${floor}px /app gutter (${r.pad.left}/${r.pad.right}px)`)
   /**

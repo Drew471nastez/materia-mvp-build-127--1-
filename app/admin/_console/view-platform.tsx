@@ -379,6 +379,8 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
         ) : null}
       </Panel>
 
+      <SqlPartsPanel parts={data.sqlParts} />
+
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Panel title="Configuration" meta="Set or not set. Values never leave the server.">
           <div className="grid gap-x-6 px-4 py-2 sm:grid-cols-2">
@@ -415,5 +417,41 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
         </Panel>
       </div>
     </div>
+  )
+}
+
+/**
+ * Which SQL parts this database has run, from its own record (run-now part
+ * 67). The parts that want attention first; a database that is up to date
+ * shows one line.
+ */
+function SqlPartsPanel({ parts }: { parts: SystemPayload["sqlParts"] }) {
+  const unknown = parts.every((p) => p.state === "unknown")
+  const open = parts.filter((p) => p.state === "missing" || p.state === "changed")
+  const applied = parts.filter((p) => p.state === "applied").length
+  const meta = unknown ? "No record yet" : open.length ? `${open.length} to run` : `All ${applied} run`
+  return (
+    <Panel title="Database updates" meta={meta}>
+      {unknown ? (
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">This database keeps no record of its SQL yet. Run the files in supabase/sql/run-four in the Supabase SQL editor; from then on each part writes down that it ran.</p>
+      ) : open.length === 0 ? (
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Every part in the repository has run here, as written.</p>
+      ) : (
+        <>
+          <DataList
+            label="Database updates"
+            rows={open}
+            rowKey={(r) => r.part}
+            empty=""
+            columns={[
+              { key: "file", label: "Part", width: "minmax(0,2fr)", phone: "primary", render: (r) => r.file },
+              { key: "state", label: "State", width: "120px", phone: "end", render: (r) => <Status value={r.state === "missing" ? "failed" : "late"} label={r.state === "missing" ? "Not run" : "Changed since"} /> },
+              { key: "when", label: "Ran", width: "100px", align: "right", render: (r) => (r.appliedAt ? ago(r.appliedAt) : "Never") },
+            ]}
+          />
+          <p className="border-t border-white/[0.08] px-4 py-2.5 text-[12px] text-[#9b9ba6]">Run the files in supabase/sql/run-four in order in the Supabase SQL editor, then open this page again.</p>
+        </>
+      )}
+    </Panel>
   )
 }

@@ -31,8 +31,8 @@ export async function loadSettingsData() {
   if (!user) return null
 
   const [{ data: profile }, { data: creator }, { data: onepage }, newsletter, group] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-    supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle(),
+    createAdminClient().from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    createAdminClient().from("creators").select("*").eq("user_id", user.id).maybeSingle(),
     /* The share pill: whether the OnePage is live, and the platforms it links to. */
     supabase
       .from("onepages")
@@ -102,7 +102,7 @@ export async function loadSettingsData() {
 
   let finalProfile = profile
   if (!finalProfile) {
-    const { data: newProfile } = await supabase
+    const { data: newProfile } = await createAdminClient()
       .from("profiles")
       .upsert({
         id: user.id,
