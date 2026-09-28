@@ -1,25 +1,29 @@
 /**
  * ===========================================================================
- *  THE BUYER'S PROFILE, MEASURED AND PHOTOGRAPHED
+ *  THE BUYER'S PROFILE AND ITS SETTINGS, MEASURED AND PHOTOGRAPHED
  * ===========================================================================
- * The real hub (components/account/account-hub.tsx) with the real Overview
- * and Settings, rendered by scripts/render-account-hub.tsx.
+ * The real profile (components/account/account-hub.tsx) with the real
+ * Overview and the real Settings, rendered by
+ * scripts/render-account-hub.tsx in a shell shaped like the layout.
  *
- *   LAYOUT    Overview and Settings at 360, 390, 430 and 1280: nothing
- *             sideways, every control a thumb's size on a phone, no field
- *             on Overview, the name field on Settings; one photo on the
- *             screen (never Settings' second one), the photo, name, button
- *             and tabs on the centre line; on a phone no black header and
- *             the profile's light bar at the top, edge to edge, its
- *             hairline only once scrolled; at 1280 the header and no bar
- *   SELLING   Dashboard, Finish setting up your store, Become a seller,
- *             for the three states, and a Dashboard link only for a seller
- *   SWITCH    Overview to Settings and back, pressed, at 1x and at 4x CPU
- *             throttle, sampled on every animation frame: the pressed tab's fill
- *             answers before the page arrives and is full within its
- *             150ms; the old one fades where it is; the header and the tabs
- *             never move; the panel is never empty and never under 20%, and
- *             settles from 20% to 100% over its 200ms
+ *   ONE HEADER      the site header draws at 360, 390, 430 and 1280, and
+ *                   the profile draws no bar of its own at any of them:
+ *                   "The profile page reached from Explore needs to have
+ *                   the header on it", one bar and never two stacked. The
+ *                   column starts the library's 24px under it.
+ *   ONE FACE        one avatar on each screen: the profile's on /account,
+ *                   Settings' own on /account/settings, never both.
+ *   LAYOUT          nothing sideways, nothing off the edge, every control
+ *                   36px or taller, the person on the centre line.
+ *   SETTINGS        the top row (a round X out and the word Settings), the
+ *                   three section pills, and each section's fields: the
+ *                   pressed pill's fill answers at once and is full within
+ *                   its 150ms while the old one fades where it is.
+ *   FIELDS          the name and the bio, the bio's counter following what
+ *                   is typed, and no bio field at all where the column has
+ *                   not been added yet.
+ *   SELLING         Dashboard, Finish setting up your store, Become a
+ *                   seller, and a Dashboard link only for a seller.
  *
  * Pictures go to SHOTS_DIR (or a temp folder), and are meant to be looked at.
  *
@@ -46,6 +50,9 @@ const expect = (ok, what, got) => {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const URL_BASE = "https://storelib.com/__account_hub_probe"
+
+/** The library's room under the header (app/library/layout.tsx py-6). */
+const HEADER_GAP = 24
 
 try {
   writeFileSync(join(stubs, "navigation.js"), `import { useSyncExternalStore } from "react"
@@ -116,19 +123,22 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   }
 
   const layout = (p) => p.evaluate(() => {
-    const hub = document.querySelector("[data-account-hub]")
-    const controls = [...hub.querySelectorAll("a, button, input")].filter((el) => {
+    const column = document.querySelector("[data-probe-account-column]")
+    const controls = [...column.querySelectorAll("a, button, input, textarea")].filter((el) => {
       const r = el.getBoundingClientRect()
       return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden"
     })
+    const header = document.querySelector("[data-probe-header]")
+    const top = column.firstElementChild.getBoundingClientRect()
+    const mid = (el) => { const r = el.getBoundingClientRect(); return Math.round((r.left + r.right) / 2) }
+    const profile = document.querySelector("[data-account-profile]")
     return {
       sideways: document.documentElement.scrollWidth - innerWidth,
       out: controls.filter((el) => { const r = el.getBoundingClientRect(); return r.left < -0.5 || r.right > innerWidth + 0.5 }).map((el) => el.textContent.trim().slice(0, 20)),
-      small: controls.filter((el) => el.tagName !== "INPUT" && el.getBoundingClientRect().height < 40 && !el.closest("[data-settings-privacy-row], [role=switch]")).map((el) => `${el.textContent.trim().slice(0, 24)} ${Math.round(el.getBoundingClientRect().height)}`),
-      fields: [...hub.querySelectorAll("input")].map((i) => i.getAttribute("data-account-name") !== null ? "name" : i.type),
+      /* 36px is the library pill's height, and the floor for anything a thumb has to hit. */
+      small: controls.filter((el) => el.getBoundingClientRect().height < 35.5).map((el) => `${el.textContent.trim().slice(0, 24) || el.tagName} ${Math.round(el.getBoundingClientRect().height)}`),
+      fields: [...column.querySelectorAll("input:not([type=hidden]):not([hidden]), textarea")].filter((el) => el.offsetParent !== null).map((i) => (i.getAttribute("data-account-name") !== null ? "name" : i.getAttribute("data-account-bio-field") !== null ? "bio" : i.type || i.tagName.toLowerCase())),
       h1: document.querySelector("h1")?.textContent,
-      tabs: [...document.querySelectorAll("[data-account-tab]")].map((t) => `${t.getAttribute("data-account-tab")}${t.getAttribute("aria-current") ? "*" : ""}`),
-      edit: getComputedStyle(document.querySelector("[data-account-edit]")).visibility,
       cards: [...document.querySelectorAll("[data-account-card]")].map((c) => c.getAttribute("data-account-card")),
       nameClipped: (() => { const h = document.querySelector("h1"); return h.scrollWidth > h.clientWidth })(),
       /* Every circle drawn with a face or initials in it, on the whole page. */
@@ -136,23 +146,21 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const r = el.getBoundingClientRect()
         return r.width > 24 && getComputedStyle(el).visibility !== "hidden" && !el.parentElement.closest("[data-account-avatar]")
       }).length,
-      photoActions: getComputedStyle(document.querySelector("[data-account-photo-actions]")).visibility,
-      camera: +getComputedStyle(document.querySelector("[data-account-avatar-camera]")).opacity,
-      avatarEdit: !!document.querySelector("[data-account-avatar-edit]"),
-      centre: (() => {
-        const mid = (el) => { const r = el.getBoundingClientRect(); return Math.round((r.left + r.right) / 2) }
-        return { page: Math.round(innerWidth / 2), avatar: mid(document.querySelector("[data-account-avatar]")), name: mid(document.querySelector("h1")), tabs: mid(document.querySelector("[data-account-tabs] > div")), edit: mid(document.querySelector("[data-account-actions]")) }
-      })(),
-      bar: (() => {
-        const b = document.querySelector("[data-account-bar]")
-        const r = b.getBoundingClientRect()
-        return { shown: getComputedStyle(b).display !== "none", top: Math.round(r.top), left: Math.round(r.left), width: Math.round(r.width), height: Math.round(r.height), title: document.querySelector("[data-account-bar-title]").textContent, bg: getComputedStyle(b).backgroundColor, line: +getComputedStyle(document.querySelector("[data-account-bar-line]")).opacity }
-      })(),
-      blackHeader: (() => { const h = document.querySelector("[data-probe-header]"); return !!h && getComputedStyle(h).display !== "none" })(),
+      /* The site header, and anything the profile might still be drawing over it. */
+      headers: header && getComputedStyle(header).display !== "none" ? 1 : 0,
+      ownBar: !!document.querySelector("[data-account-bar]"),
+      gap: Math.round(top.top - header.getBoundingClientRect().bottom),
+      hasProfile: !!profile,
+      edit: !!document.querySelector("[data-account-edit]"),
+      sections: [...document.querySelectorAll("[data-account-section]")].map((t) => `${t.getAttribute("data-account-section")}${t.getAttribute("aria-current") ? "*" : ""}`),
+      pillHeight: (() => { const t = document.querySelector("[data-account-section]"); return t ? Math.round(t.getBoundingClientRect().height) : null })(),
+      centre: profile
+        ? { page: Math.round(innerWidth / 2), avatar: mid(document.querySelector("[data-account-avatar]")), name: mid(document.querySelector("h1")), edit: mid(document.querySelector("[data-account-edit]")) }
+        : null,
     }
   })
 
-  /* ── LAYOUT ─────────────────────────────────────────────────────────── */
+  /* ── ONE HEADER, ONE FACE, AND THE LAYOUT ───────────────────────────── */
   for (const w of [360, 390, 430]) {
     console.log(`\nphone ${w}`)
     for (const path of ["/account", "/account/settings"]) {
@@ -160,168 +168,159 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const l = await layout(p)
       const settings = path.endsWith("settings")
       expect(l.sideways <= 0 && l.out.length === 0, `${path}: nothing sideways, nothing off the edge`, { sideways: l.sideways, out: l.out })
-      expect(l.small.length === 0, `${path}: every control a thumb's size`, l.small)
-      expect(l.h1 === "Alex Morgan" && l.tabs.join() === (settings ? "overview,settings*" : "overview*,settings"), `${path}: the person, then the tab it is`, { h1: l.h1, tabs: l.tabs })
-      if (settings) expect(l.fields.includes("name") && l.edit === "hidden" && l.cards.join() === "profile,email,preferences,log-out,delete", "Settings: the name field and the account's cards; Edit profile has gone", { fields: l.fields, cards: l.cards })
-      else expect(l.fields.length === 0 && l.edit === "visible" && l.cards.join() === "library,recent,selling", "Overview: nothing to type, Edit profile there", { fields: l.fields, cards: l.cards })
-      expect(l.avatars === 1, `${path}: one photo on the screen, never two`, l.avatars)
-      if (settings) expect(l.photoActions === "visible" && l.camera === 1 && l.avatarEdit, "Settings: the big photo is the control, Change photo where Edit profile was", { actions: l.photoActions, camera: l.camera, edit: l.avatarEdit })
-      else expect(l.photoActions === "hidden" && l.camera === 0 && !l.avatarEdit, "Overview: the photo is only a photo", { actions: l.photoActions, camera: l.camera })
-      const off = Object.entries(l.centre).filter(([k, v]) => k !== "page" && Math.abs(v - l.centre.page) > 1)
-      expect(off.length === 0, `${path}: photo, name, the button and the tabs on the page's centre line`, l.centre)
-      expect(!l.blackHeader && l.bar.shown && l.bar.top === 0 && l.bar.left === 0 && l.bar.width === w && l.bar.height === 52 && l.bar.title === (settings ? "Settings" : "Profile") && l.bar.line === 0, `${path}: no black header; the light bar edge to edge at the top, titled, no hairline at rest`, l.bar)
+      expect(l.small.length === 0, `${path}: every control 36px or taller`, l.small)
+      expect(l.headers === 1 && !l.ownBar, `${path}: the site header, and no bar of the profile's own over it`, { headers: l.headers, ownBar: l.ownBar })
+      expect(l.gap === HEADER_GAP, `${path}: the library's ${HEADER_GAP}px under the header`, l.gap)
+      expect(l.avatars === 1, `${path}: one face on the screen, never two`, l.avatars)
+      if (settings) {
+        expect(l.h1 === "Settings" && (await p.evaluate(() => !!document.querySelector("[data-account-settings-close]"))), "Settings: the X out and the word Settings", l.h1)
+        expect(l.sections.join() === "profile*,account,preferences" && l.pillHeight === 36, "Settings: three section pills, Profile lit, the library's 36px pill", { sections: l.sections, pillHeight: l.pillHeight })
+        expect(l.fields.join() === "name,bio" && l.cards.join() === "profile", "Settings opens on the profile's own fields", { fields: l.fields, cards: l.cards })
+        expect(!l.hasProfile, "and the profile header is not drawn here, so there is one face and one heading")
+      } else {
+        expect(l.h1 === "Alex Morgan" && l.hasProfile && l.edit, "the person, and Edit profile under them", { h1: l.h1, edit: l.edit })
+        expect(l.fields.length === 0 && l.cards.join() === "library", "the profile has nothing to type and one card of facts", { fields: l.fields, cards: l.cards })
+        expect(await p.evaluate(() => !!document.querySelector("[data-account-bio]")), "the bio under the name")
+        const off = Object.entries(l.centre).filter(([k, v]) => k !== "page" && Math.abs(v - l.centre.page) > 1)
+        expect(off.length === 0, "photo, name and the button on the page's centre line", l.centre)
+      }
       if (w === 390 || w === 360) await p.screenshot({ path: join(shots, `${settings ? "settings" : "overview"}-${w}.png`), fullPage: true })
       expect(errors.length === 0, "no errors", errors)
       await p.close()
     }
   }
   {
-    const { p } = await open(phone(360), "/account", { __longName: true, __emptyLibrary: true })
+    const { p } = await open(phone(360), "/account", { __longName: true, __emptyLibrary: true, __bio: false, __username: false })
     const l = await layout(p)
-    expect(l.sideways <= 0 && l.out.length === 0, "a long name and an empty library at 360: nothing sideways", l)
+    expect(l.sideways <= 0 && l.out.length === 0 && l.avatars === 1, "a long name, no bio, no handle and an empty library at 360: nothing sideways, one face", { sideways: l.sideways, out: l.out })
     await p.screenshot({ path: join(shots, "overview-360-long-empty.png"), fullPage: true })
     await p.close()
   }
+
+  /* ── SETTINGS: ITS SECTIONS ─────────────────────────────────────────── */
+  console.log("\nthe sections, phone 390")
+  {
+    const { p, errors } = await open(phone(390), "/account/settings", { __photo: true })
+    await p.screenshot({ path: join(shots, "settings-profile-390.png"), fullPage: true })
+
+    /* The pressed pill's fill, sampled on every frame. */
+    await p.evaluate(() => {
+      window.__frames = []
+      let t0 = null
+      const fill = (k) => { const cs = getComputedStyle(document.querySelector(`[data-account-section="${k}"] [data-account-section-fill]`)); return { o: +cs.opacity, s: cs.scale } }
+      const read = (ts) => {
+        if (t0 === null) t0 = ts
+        window.__frames.push({ t: Math.round(ts - t0), profile: fill("profile"), account: fill("account") })
+        if (ts - t0 < 600) requestAnimationFrame(read)
+      }
+      requestAnimationFrame((ts) => { read(ts); document.querySelector('[data-account-section="account"]').click() })
+    })
+    await sleep(900)
+    const frames = await p.evaluate(() => window.__frames)
+    const started = frames.findIndex((f) => f.account.o > 0.02)
+    const full = frames.find((f) => f.account.o >= 0.999)
+    console.log(`    account fill: ${frames.slice(0, 14).map((f) => `${f.t}:${f.account.o.toFixed(2)}`).join(" ")}`)
+    expect(started >= 0 && full && full.t - frames[Math.max(0, started - 1)].t <= 170, "the pressed pill's fill is full within its 150ms", full && { started: frames[Math.max(0, started - 1)].t, full: full.t })
+    expect(frames.at(-1).profile.o === 0 && frames.at(-1).account.o === 1, "the old pill's fill is gone, the new one on", { from: frames.at(-1).profile.o, to: frames.at(-1).account.o })
+
+    const acc = await layout(p)
+    /* The password card is /app Settings' own and stamps itself data-settings-card. */
+    const passwordCard = await p.evaluate(() => !!document.querySelector('[data-settings-card="password"]'))
+    expect(acc.cards.join() === "email,leave" && passwordCard && acc.sections.join() === "profile,account*,preferences", "Account: email, password, and leaving in one panel", { cards: acc.cards, passwordCard, sections: acc.sections })
+    expect(acc.avatars === 0 && acc.small.length === 0 && acc.out.length === 0 && acc.sideways <= 0, "Account: no second face, nothing small or off the edge", { avatars: acc.avatars, small: acc.small, out: acc.out })
+    await p.screenshot({ path: join(shots, "settings-account-390.png"), fullPage: true })
+
+    /* Every flow that was there is still reachable. */
+    const flows = await p.evaluate(() => ({
+      email: !!document.querySelector("[data-change-email]"),
+      password: !!document.querySelector("[data-password-open]"),
+      logout: !!document.querySelector("[data-account-logout]"),
+      everywhere: !!document.querySelector("[data-account-logout-all]"),
+      del: !!document.querySelector("[data-account-delete]"),
+    }))
+    expect(Object.values(flows).every(Boolean), "change email, set or change password, log out, log out everywhere, delete", flows)
+    await p.evaluate(() => document.querySelector("[data-account-delete]").click())
+    await sleep(200)
+    expect(await p.evaluate(() => document.body.textContent.includes("6 digit code")), "deleting still asks for a code")
+
+    await p.evaluate(() => document.querySelector('[data-account-section="preferences"]').click())
+    await sleep(350)
+    const pref = await layout(p)
+    const switches = await p.evaluate(() => document.querySelectorAll("[data-settings-switch]").length)
+    expect(pref.cards.join() === "preferences" && switches === 2, "Preferences: language, and the two switches", { cards: pref.cards, switches })
+    expect(pref.small.length === 0 && pref.out.length === 0, "Preferences: nothing small, nothing off the edge", { small: pref.small, out: pref.out })
+    await p.screenshot({ path: join(shots, "settings-preferences-390.png"), fullPage: true })
+    expect(errors.length === 0, "no errors", errors)
+    await p.close()
+  }
+
+  /* ── THE FIELDS ─────────────────────────────────────────────────────── */
+  console.log("\nthe fields, phone 390")
+  {
+    const { p } = await open(phone(390), "/account/settings")
+    const counter = () => p.evaluate(() => document.querySelector("[data-account-counter]").textContent)
+    const start = await counter()
+    expect(/^\d+\/240$/.test(start) && start !== "0/240", "the bio's counter starts on what is already written", start)
+    await p.click("[data-account-bio-field]")
+    await p.keyboard.type("!!")
+    await sleep(150)
+    const after = await counter()
+    expect(Number(after.split("/")[0]) === Number(start.split("/")[0]) + 2, "and follows what is typed", { start, after })
+    expect(await p.evaluate(() => !document.querySelector("[data-account-save]").disabled), "Save changes wakes up once something has changed")
+    await p.screenshot({ path: join(shots, "settings-fields-390.png") })
+    await p.close()
+  }
+  {
+    const { p } = await open(phone(390), "/account/settings", { __noBioColumn: true })
+    const l = await layout(p)
+    expect(l.fields.join() === "name" && !(await p.evaluate(() => !!document.querySelector("[data-account-counter]"))), "no profiles.bio column: no bio field and no counter, just the name", l.fields)
+    await p.close()
+  }
+
+  /* ── THE WAY IN AND THE WAY OUT ─────────────────────────────────────── */
+  console.log("\nEdit profile, and the X back")
+  {
+    const { p } = await open(phone(390), "/account")
+    await p.evaluate(() => document.querySelector("[data-account-edit]").click())
+    await sleep(500)
+    const l = await layout(p)
+    expect(l.h1 === "Settings" && l.sections.join() === "profile*,account,preferences" && l.avatars === 1, "Edit profile opens Settings on the profile's fields, with one face", { h1: l.h1, sections: l.sections, avatars: l.avatars })
+    await p.evaluate(() => document.querySelector("[data-account-settings-close]").click())
+    await sleep(500)
+    const back = await layout(p)
+    expect(back.h1 === "Alex Morgan" && back.hasProfile, "and the X closes back to the profile", back.h1)
+    await p.close()
+  }
+
+  /* ── SELLING ────────────────────────────────────────────────────────── */
   console.log("\nselling, phone 390")
   for (const [state, key, title] of [["seller", "dashboard", "Dashboard"], ["started", "finish", "Finish setting up your store"], ["none", "become", "Become a seller"]]) {
     const { p } = await open(phone(390), "/account", { __seller: state })
     const got = await p.evaluate(() => {
       const row = document.querySelector("[data-account-selling]")
-      return { key: row.getAttribute("data-account-selling"), href: row.getAttribute("href"), title: row.querySelector("p").textContent, dashboards: document.querySelectorAll('a[href="/app"]').length }
+      return { key: row.getAttribute("data-account-selling"), href: row.getAttribute("href"), title: row.querySelector("span span").textContent, dashboards: document.querySelectorAll('a[href="/app"]').length }
     })
     expect(got.key === key && got.title === title && got.href === (state === "seller" ? "/app" : "/sell") && got.dashboards === (state === "seller" ? 1 : 0), `${state}: ${title}, and a Dashboard link only for a seller`, got)
-    if (state !== "seller") await p.screenshot({ path: join(shots, `selling-${state}-390.png`), clip: await p.evaluate(() => { const r = document.querySelector("[data-account-card=selling]").getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: r.height + 16 } }) })
+    if (state !== "seller") await p.screenshot({ path: join(shots, `selling-${state}-390.png`), clip: await p.evaluate(() => { const r = document.querySelector("[data-account-selling]").getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: r.height + 16 } }) })
     await p.close()
   }
-  console.log("\nthe bar, scrolled, phone 390")
-  {
-    const { p } = await open(phone(390), "/account/settings", { __photo: true })
-    await p.evaluate(() => window.scrollTo(0, 400))
-    await sleep(400)
-    const bar = await p.evaluate(() => ({ top: Math.round(document.querySelector("[data-account-bar]").getBoundingClientRect().top), line: +getComputedStyle(document.querySelector("[data-account-bar-line]")).opacity, scrolled: document.querySelector("[data-account-bar]").hasAttribute("data-scrolled") }))
-    expect(bar.top === 0 && bar.line === 1 && bar.scrolled, "it stays at the top, and its hairline shows once the page is under it", bar)
-    await p.screenshot({ path: join(shots, "settings-390-scrolled.png") })
-    await p.evaluate(() => window.scrollTo(0, 0))
-    await sleep(400)
-    expect((await p.evaluate(() => +getComputedStyle(document.querySelector("[data-account-bar-line]")).opacity)) === 0, "and hides again at the top")
-    await p.screenshot({ path: join(shots, "settings-390-photo.png") })
-    await p.close()
-  }
+
+  /* ── DESKTOP ────────────────────────────────────────────────────────── */
   console.log("\ndesktop 1280")
   for (const path of ["/account", "/account/settings"]) {
     const { p, errors } = await open(DESK, path, { __seller: true })
     const l = await layout(p)
     const col = await p.evaluate(() => Math.round(document.querySelector("[data-probe-account-column]").getBoundingClientRect().width))
     expect(l.sideways <= 0 && col === 720, `${path}: one 720px column, nothing sideways`, { col, sideways: l.sideways })
-    expect(l.blackHeader && !l.bar.shown && l.avatars === 1, `${path}: the site header, not the phone's bar, and one photo`, { header: l.blackHeader, bar: l.bar.shown, avatars: l.avatars })
-    expect(Object.entries(l.centre).every(([k, v]) => k === "page" || Math.abs(v - l.centre.page) <= 1), `${path}: centred in the column`, l.centre)
+    expect(l.headers === 1 && !l.ownBar && l.avatars === 1 && l.gap === HEADER_GAP, `${path}: the site header, one face, the library's gap`, { headers: l.headers, bar: l.ownBar, avatars: l.avatars, gap: l.gap })
+    expect(l.small.length === 0, `${path}: every control 36px or taller`, l.small)
     if (!path.endsWith("settings")) expect(await p.evaluate(() => !!document.querySelector('a[href="/app"][data-account-row="dashboard"]')), "a seller gets Dashboard")
     await p.screenshot({ path: join(shots, `${path.endsWith("settings") ? "settings" : "overview"}-1280.png`), fullPage: true })
     expect(errors.length === 0, "no errors", errors)
     await p.close()
   }
 
-  /* ── SWITCH ─────────────────────────────────────────────────────────── */
-  const sampleSwitch = async (p, to, label) => {
-    await p.evaluate((to) => {
-      window.__frames = []
-      /* Each sample is stamped with its frame's own time (the rAF argument),
-         which is the time the frame's styles are computed for. A frame that
-         ran late behind the arriving page's render is still stamped with
-         when it began, so a long frame is not read as a slow fade. */
-      let t0 = null
-      const read = (ts) => {
-        if (t0 === null) t0 = ts
-
-        const tab = (k) => document.querySelector(`[data-account-tab="${k}"]`)
-        const fill = (k) => { const cs = getComputedStyle(tab(k).querySelector("[data-account-tab-fill]")); return { o: +cs.opacity, s: cs.scale } }
-        const panel = document.querySelector("[data-account-panel]")
-        window.__frames.push({
-          t: Math.round(ts - t0),
-          path: panel.getAttribute("data-account-panel"),
-          overview: fill("overview"),
-          settings: fill("settings"),
-          panelO: +getComputedStyle(panel).opacity,
-          panelH: Math.round(panel.getBoundingClientRect().height),
-          headerTop: document.querySelector("[data-account-profile]").getBoundingClientRect().top,
-          tabsTop: document.querySelector("[data-account-tabs]").getBoundingClientRect().top,
-          tabsLeft: tab("settings").getBoundingClientRect().left,
-        })
-        if (ts - t0 < 1100) requestAnimationFrame(read)
-      }
-      requestAnimationFrame((ts) => {
-        read(ts)
-        document.querySelector(`[data-account-tab="${to}"]`).click()
-      })
-    }, to)
-    await sleep(1900)
-    const frames = await p.evaluate(() => window.__frames)
-    const arrived = await p.evaluate(() => window.__arrivedAt)
-    return { frames, arrived }
-  }
-
-  for (const rate of [1, 4]) {
-    console.log(`\nthe switch, phone 390, CPU ${rate}x`)
-    const { p, errors } = await open(phone(390), "/account")
-    const cdp = await p.createCDPSession()
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate })
-    /* A prefetched page still has to be rendered: 90ms of a phone's time, stretched with the CPU. */
-    await p.evaluate((ms) => { window.__navMs = ms }, 90 * rate)
-    for (const [to, from] of [["settings", "overview"], ["overview", "settings"]]) {
-      const { frames } = await sampleSwitch(p, to, `${from} to ${to}`)
-      const arriveIdx = frames.findIndex((f) => f.path === to)
-      const before = frames.slice(1, Math.max(1, arriveIdx))
-      const first = frames.findIndex((f) => f[to].o > 0.05 && f[to].o < 0.999 || f[to].o >= 0.999)
-      const full = frames.find((f) => f[to].o >= 0.999)
-      const top = (k) => Math.max(...frames.map((f) => f[k])) - Math.min(...frames.map((f) => f[k]))
-      const panelMin = Math.min(...frames.map((f) => f.panelO))
-      const empty = frames.filter((f) => f.panelH < 40)
-      const settle = frames.slice(arriveIdx).map((f) => Math.round(f.panelO * 100) / 100)
-      const done = frames.slice(arriveIdx).find((f) => f.panelO >= 0.999)
-      console.log(`  ${from} to ${to}: ${frames.length} frames, page arrived at frame ${arriveIdx} (${frames[arriveIdx]?.t}ms)`)
-      console.log(`    ${to} fill: ${frames.slice(0, 12).map((f) => `${f.t}:${f[to].o.toFixed(2)}`).join(" ")}`)
-      console.log(`    ${from} fill: ${frames.slice(0, 12).map((f) => `${f.t}:${f[from].o.toFixed(2)}`).join(" ")}`)
-      console.log(`    panel opacity from arrival: ${settle.slice(0, 14).join(" ")}`)
-      expect(arriveIdx > 1 && before.some((f) => f[to].o > 0.05), "the pressed tab's fill is on its way before the page arrives", { arriveIdx, first, sample: before.map((f) => +f[to].o.toFixed(2)) })
-      const started = frames[Math.max(0, first - 1)]
-      const gap = Math.max(...frames.slice(1).map((f, i) => f.t - frames[i].t))
-      const rising = frames.every((f, i) => i === 0 || f[to].o >= frames[i - 1][to].o - 0.001)
-      console.log(`    longest frame: ${gap}ms`)
-      expect(rising, "the fill only ever rises: no flicker")
-      /* The timings are asserted at 1x. At 4x the frame that first draws the
-         new page is itself long (styling and laying out a whole page), and
-         a fade is only sampled either side of it. */
-      if (rate === 1) expect(full && full.t - started.t <= 150 + 20, "and full within its 150ms of the frame it started on", full && { started: started.t, full: full.t })
-      expect(frames.at(-1)[from].o === 0 && frames.at(-1)[to].o === 1, "the old tab's fill is gone, the new one on", { from: frames.at(-1)[from].o, to: frames.at(-1)[to].o })
-      expect(top("headerTop") < 0.5 && top("tabsTop") < 0.5 && top("tabsLeft") < 0.5, "the header and the tabs never move", { header: top("headerTop"), tabs: top("tabsTop"), left: top("tabsLeft") })
-      expect(panelMin >= 0.19 && empty.length === 0, "the panel is never empty and never under 20%", { panelMin, empty: empty.length })
-      /* From the last frame at 20%: an animation's clock starts on the frame that first paints it. */
-      const lastLow = frames.slice(arriveIdx).filter((f) => f.panelO <= 0.21).at(-1)
-      const took = done && lastLow && done.t - lastLow.t
-      expect(settle[0] <= 0.25 && took >= 150 && took <= (rate === 1 ? 260 : 300), "the arriving page settles from 20% to 100% over about 200ms", { first: settle[0], took })
-      if (rate === 1) await p.screenshot({ path: join(shots, `switch-to-${to}-390.png`) })
-    }
-    /* A press on the tab you are on goes nowhere. */
-    await p.evaluate(() => { window.__links = []; document.querySelector('[data-account-tab="overview"]').click() })
-    await sleep(300)
-    expect((await p.evaluate(() => document.querySelector("[data-account-panel]").getAttribute("data-account-panel"))) === "overview", "a press on the tab you are on keeps you there")
-    /* Edit profile is the same switch. */
-    await p.evaluate(() => document.querySelector("[data-account-edit]").click())
-    await sleep(700)
-    const l = await layout(p)
-    expect(l.tabs.join() === "overview,settings*" && l.edit === "hidden", "Edit profile opens Settings", l.tabs)
-    expect(errors.length === 0, "no errors", errors)
-    await p.close()
-  }
-  console.log("\nless motion")
-  {
-    const { p } = await open(phone(390), "/account")
-    await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
-    const { frames } = await sampleSwitch(p, "settings", "reduced")
-    expect(Math.min(...frames.map((f) => f.panelO)) === 1 && !frames.some((f) => f.settings.o > 0 && f.settings.o < 1), "no fades at all", { panelMin: Math.min(...frames.map((f) => f.panelO)) })
-    await p.close()
-  }
-  /* SWEEP: both tabs at six widths (scripts/sweep-measure.mjs). */
+  /* SWEEP: both screens at six widths (scripts/sweep-measure.mjs). */
   console.log("\nsweep at six widths")
   {
     const paths = { overview: "/account", settings: "/account/settings" }
@@ -330,7 +329,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       p.errors = errors
       return p
     }, { shots })
-    expect(problems.length === 0, "the account's two tabs read clean at every width", problems)
+    expect(problems.length === 0, "the profile and its settings read clean at every width", problems)
   }
   await browser.close()
 } finally {

@@ -7,7 +7,8 @@
  *
  * Globals a probe may set before load: __signedIn, __seller (true, or
  * "seller", "started", "none"), __oauthOnly, __emptyLibrary, __username
- * (false for none), __longName, __photo (a picture for the avatar).
+ * (false for none), __longName, __photo (a picture for the avatar), __bio
+ * (false for none), __noBioColumn (profiles.bio not added yet).
  */
 import React from "react"
 import { usePathname } from "next/navigation"
@@ -76,14 +77,19 @@ export function AccountDemo() {
   const long = !!flag("__longName")
   const username = flag("__username") === false ? null : "alexmorgan"
   const name = long ? "Alexandra Montgomery-Richardson" : "Alex Morgan"
+  const bio = flag("__bio") === false ? "" : "Buying presets and brushes for retouching work. Mostly film looks."
+  const avatarUrl = flag("__photo") ? PHOTO : null
   return (
-    <div className="mx-auto w-full max-w-[720px] pb-10 md:pt-10" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-probe-account-column="">
-      <AccountHub identity={{ userId: "u1", name, username, avatarUrl: flag("__photo") ? PHOTO : null, memberSince: "March 2025" }}>
+    <div className="mx-auto w-full max-w-[720px] pt-6 pb-10" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-probe-account-column="">
+      <AccountHub identity={{ userId: "u1", name, username, avatarUrl, memberSince: "March 2025", bio }}>
         {path.startsWith("/account/settings") ? (
           <AccountSettings
             userId="u1"
             email="alex@example.com"
             name={name}
+            bio={bio}
+            bioSupported={!flag("__noBioColumn")}
+            avatarUrl={avatarUrl}
             createdAt="2025-03-14T10:00:00Z"
             hasPassword={!flag("__oauthOnly")}
             via="Google"

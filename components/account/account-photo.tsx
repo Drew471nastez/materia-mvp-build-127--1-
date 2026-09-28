@@ -174,9 +174,9 @@ export function useAccountPhoto(userId: string, onChanged: () => void): AccountP
 }
 
 /**
- * The big circle. On Overview it is a picture; with `editable` (Settings)
- * a press on it opens the picker and a small camera sits on its edge, faded
- * and grown in place, so nothing around it moves when the tab changes.
+ * The circle. On the profile it is a picture and is handed no `photo` at
+ * all; in Settings' Profile section it is the control, with a small camera
+ * on its edge and a press on it opening the picker.
  */
 export function AccountAvatar({
   src,
@@ -188,16 +188,16 @@ export function AccountAvatar({
 }: {
   src: string | null
   name: string
-  photo: AccountPhoto
-  editable: boolean
+  photo?: AccountPhoto
+  editable?: boolean
   className: string
   size: number
 }) {
-  const uploading = photo.busy === "upload"
+  const uploading = photo?.busy === "upload"
   return (
     <div className={cn("relative shrink-0 rounded-full", className)} data-account-avatar="">
       <AppAvatar src={src} name={name || "You"} alt="" size={size} sizedByClass className="h-full w-full" />
-      {photo.preview ? (
+      {photo?.preview ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={photo.preview}
@@ -218,7 +218,7 @@ export function AccountAvatar({
           <circle cx="36" cy="36" r="35" fill="none" stroke="#1a1a2e" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="54 166" />
         </svg>
       ) : null}
-      {editable ? (
+      {editable && photo ? (
         <button
           type="button"
           onClick={photo.pick}
@@ -228,7 +228,7 @@ export function AccountAvatar({
           className="absolute inset-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2 disabled:cursor-default [-webkit-tap-highlight-color:transparent]"
         />
       ) : null}
-      {/* The camera: only on Settings, where the photo is the control. */}
+      {/* The camera: only where the photo is the control. */}
       <span
         aria-hidden="true"
         data-account-avatar-camera=""

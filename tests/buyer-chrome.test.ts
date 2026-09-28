@@ -71,9 +71,11 @@ console.log("\nThe header's menu sheet opens smoothly")
 console.log("\nThe header on /account")
 const cond = code("components/marketing/conditional-header.tsx")
 check("/account is a known platform path, so the header draws there on the first paint", /p === "\/account" \|\|\s*p\.startsWith\("\/account\/"\)/.test(cond))
-/* "/account on phones: do not render the black site header" (the profile draws a light bar of its own). Decided on the server from the path, hidden by CSS below md, so there is no flash of it. */
-check("on a phone the header is not drawn on /account and under it; from md it is, as a box that is not a box", /return \(p === "\/account" \|\| p\.startsWith\("\/account\/"\)\) && !p\.startsWith\("\/account\/continue"\)/.test(cond) && /if \(hidesHeaderOnPhone\(pathname\)\) \{\s*return \(\s*<div data-header-phone="hidden" className="hidden md:contents">/.test(cond))
-check("decided from the path the server renders with, not after hydration", !/hidesHeaderOnPhone\([^)]*\)[^\n]*useEffect/.test(cond) && !/matchMedia/.test(cond))
+/* "The profile page reached from Explore needs to have the header on it." The rule that kept it off /account on a phone is gone, and so is the light bar the profile drew instead. */
+check("nothing hides the header on a phone any more: no rule, no wrapper", !/hidesHeaderOnPhone/.test(cond) && !/data-header-phone/.test(cond))
+check("the header is returned plainly, whatever the width", /if \(!showPlatformHeader\) return null/.test(cond) && /\n  return header\n\}/.test(cond))
+check("and the profile draws no bar of its own, so there is never a second one", !/data-account-bar/.test(code("components/account/account-hub.tsx")))
+check("decided from the path the server renders with, not after hydration", !/matchMedia/.test(cond))
 check("and the account layout mounts it, as the library's does", /<ConditionalHeader initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} \/>/.test(read("app/account/layout.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -70,22 +70,14 @@ function isKnownPlatformPath(p: string): boolean {
   )
 }
 
-/**
- * THE PROFILE DRAWS ITS OWN TOP BAR ON A PHONE. "/account on phones: do not
- * render the black site header." The profile has a light bar of its own
- * there; on a computer it keeps this header, and the tab bar stays on the
- * phone either way (it is not part of this).
- *
- * Decided from the path, which the server knows, and hidden by the width in
- * CSS, which needs no script: so the first paint on a phone already has no
- * black band, and there is no frame in which it is drawn and then taken
- * away. The wrapper is `display: contents` from md up, so it is no box at
- * all there and the header's `position: sticky` still sticks to the page.
- */
-export function hidesHeaderOnPhone(p: string): boolean {
-  /* Not /account/continue, which is a redirect and never a page (the same rule as isKnownPlatformPath). */
-  return (p === "/account" || p.startsWith("/account/")) && !p.startsWith("/account/continue")
-}
+/*
+  NO RULE THAT HIDES THIS HEADER ON A PHONE ANY MORE. /account used to draw
+  a light bar of its own there and this header was kept off it; the owner
+  reversed that: "The profile page reached from Explore needs to have the
+  header on it." So the profile carries the site header at every width,
+  exactly as /library does, and the light bar it drew for itself is gone
+  (components/account/account-hub.tsx). One header, never two stacked.
+*/
 
 export function ConditionalHeader({
   initialWishlistCount = 0,
@@ -193,12 +185,5 @@ export function ConditionalHeader({
       <PlatformHeaderClient initialWishlistCount={initialWishlistCount} />
     </Suspense>
   )
-  if (hidesHeaderOnPhone(pathname)) {
-    return (
-      <div data-header-phone="hidden" className="hidden md:contents">
-        {header}
-      </div>
-    )
-  }
   return header
 }

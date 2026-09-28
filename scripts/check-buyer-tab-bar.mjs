@@ -337,15 +337,17 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       cards: [...document.querySelectorAll("[data-account-card]")].map((c) => c.getAttribute("data-account-card")),
       sideways: document.documentElement.scrollWidth - innerWidth,
       h1: document.querySelector("h1")?.textContent,
-      tabs: [...document.querySelectorAll("[data-account-tab]")].map((t) => `${t.getAttribute("data-account-tab")}${t.getAttribute("aria-current") ? "*" : ""}`),
+      edit: !!document.querySelector("[data-account-edit]"),
+      purchases: document.querySelector("[data-account-purchases]")?.textContent ?? null,
       facts: [...document.querySelectorAll("[data-account-fact]")].map((r) => r.getAttribute("data-account-fact")),
       fields: document.querySelectorAll("[data-account-hub] input").length,
       sell: !!document.querySelector('a[href="/sell"]'),
       smallTargets: [...document.querySelectorAll("[data-account-hub] button, [data-account-hub] a")].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 40 }).map((el) => `${el.textContent.trim().slice(0, 20)} ${Math.round(el.getBoundingClientRect().height)}`),
     }))
-    expect(page.h1 === "Alex Morgan" && page.tabs.join() === "overview*,settings", "ACCOUNT: a profile, headed by the person, on Overview", { h1: page.h1, tabs: page.tabs })
-    expect(page.cards.join() === "library,recent,selling" && page.fields === 0, "the library in facts, recent purchases, selling; nothing to type", page)
-    expect(page.facts.join() === "purchases,courses,memberships,reviews,wishlist" && page.sell, "purchases, courses, memberships, reviews, wishlist, and Become a seller", page.facts)
+    expect(page.h1 === "Alex Morgan" && page.edit, "ACCOUNT: a profile, headed by the person, with Edit profile", { h1: page.h1, edit: page.edit })
+    expect(page.cards.join() === "library" && page.fields === 0, "one card: the newest purchases and what else they have; nothing to type", page)
+    /* Purchases is the card's own subline now, so the rows under it are the rest. */
+    expect(page.purchases === "4 purchases" && page.facts.join() === "courses,memberships,reviews,wishlist" && page.sell, "4 purchases, then courses, memberships, reviews, wishlist, and Become a seller", { purchases: page.purchases, facts: page.facts })
     expect(page.sideways <= 0, "nothing scrolls sideways at 390", page.sideways)
     expect(page.smallTargets.length === 0, "every control is a thumb's size", page.smallTargets)
     await p.screenshot({ path: join(shots, "account-390.png"), fullPage: true })

@@ -58,7 +58,7 @@ console.log("\nEvery page under /account sends signed out people to sign in with
   check("and the layout does not redirect for them (it cannot know which page it is)", !/redirect\(/.test(code("app/account/layout.tsx")))
 }
 
-console.log("\nThe header, as on the library")
+console.log("\nThe header, as on the library, at every width")
 {
   const layout = code("app/account/layout.tsx")
   const library = code("app/library/layout.tsx")
@@ -69,50 +69,72 @@ console.log("\nThe header, as on the library")
   const footer = code("components/marketing/conditional-footer.tsx")
   check("and the header draws on /account and its pages (it was not on the list, so it drew nothing there)", /\(\(p === "\/account" \|\| p\.startsWith\("\/account\/"\)\) && !p\.startsWith\("\/account\/continue"\)\)/.test(header))
   check("the footer too", /\(\(pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)\) && !pathname\.startsWith\("\/account\/continue"\)\)/.test(footer))
+  /* "The profile page reached from Explore needs to have the header on it." The rule that kept it off a phone, and the wrapper that applied it, are both gone. */
+  check("nothing hides it on a phone any more: no rule, no wrapper", !/hidesHeaderOnPhone/.test(header) && !/data-header-phone/.test(header))
+  check("the column starts the library's py-6 under it, not a phone bar's room", /className="mx-auto w-full max-w-\[720px\] pt-6 pb-10"/.test(layout) && /px-4 py-6 sm:px-6 lg:px-8/.test(library))
 }
 
-console.log("\nThe hub: the person, the tabs, the page under them")
+console.log("\nThe hub: the person, and the page under them")
 {
   const hub = code("components/account/account-hub.tsx")
   const layout = code("app/account/layout.tsx")
-  check("in the layout, so the header and tabs stay put while the page changes", /<AccountHub identity=\{identity\}>\{children\}<\/AccountHub>/.test(layout))
-  check("photo, name, @username when there is one, member since", /<AccountAvatar\b/.test(hub) && /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{identity\.username\}/.test(hub) && /Member since \{identity\.memberSince\}/.test(hub))
-  check("centred: the person in one column, the tabs centred under them", /data-account-profile="" className="flex flex-col items-center[^"]*text-center/.test(hub) && /data-account-tabs="" className="[^"]*flex justify-center/.test(hub))
+  check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\}>\{children\}<\/AccountHub>/.test(layout))
+  check("photo, name, @username when there is one, the bio, when they joined", /<AccountAvatar\b/.test(hub) && /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{identity\.username\}/.test(hub) && /Joined \{identity\.memberSince\}/.test(hub) && /data-account-bio=""/.test(hub))
+  check("centred: the person in one column", /data-account-profile="" className="flex flex-col items-center text-center"/.test(hub))
   check("the photo is large: 96px on a phone, 112 from 768px", /className="h-24 w-24 md:h-28 md:w-28"/.test(hub))
-  check("member since is written on the server in UTC, so both renders agree", /timeZone: "UTC"/.test(layout) && /memberSince: memberSince\(user\.created_at\)/.test(layout))
-  check("Edit profile goes to Settings", /href="\/account\/settings"[\s\S]{0,200}data-account-edit=""/.test(hub))
-  check("the tabs are links to their routes, prefetched in full", /href=\{tab\.href\}\s+prefetch=\{true\}/.test(hub))
-  check("/app Settings' switch: each tab's own fill fades and grows in place over 150ms, one ease out", /const TAB_FADE_MS = 150/.test(hub) && /const TAB_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(hub) && /on \? "scale-100 opacity-100" : "scale-\[0\.96\] opacity-0"/.test(hub))
-  check("and it is the same numbers as /app Settings", /const TAB_FADE_MS = 150/.test(read("components/app/settings-form-new.tsx")) && /const TAB_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(read("components/app/settings-form-new.tsx")))
-  check("the pressed tab lights at once, before its page arrives", /setPressed\(i\)/.test(hub) && /const active = pressed \?\? routeTab/.test(hub))
-  check("the page settles in from 20% over 200ms, before its first paint, and not with less motion", /useLayoutEffect\(/.test(hub) && /const PANEL_MS = 200/.test(hub) && /const PANEL_FROM = 0\.2/.test(hub) && /prefers-reduced-motion: reduce/.test(hub))
-  check("only the compositor's properties move", !/transition-\[[^\]]*(width|height|left|top|padding|margin)/.test(hub))
+  check("when they joined is written on the server in UTC, so both renders agree", /timeZone: "UTC"/.test(layout) && /memberSince: memberSince\(user\.created_at\)/.test(layout))
+  check("Edit profile goes to Settings, prefetched in full", /href="\/account\/settings"\s+prefetch=\{true\}/.test(hub) && /data-account-edit=""/.test(hub))
+  /* Two pills reading Overview and Settings, right under a button that went to Settings, were one journey drawn twice. Settings has section pills of its own now. */
+  check("no Overview / Settings pill row any more", !/data-account-tab\b/.test(hub) && !/ACCOUNT_TABS\.map/.test(hub))
+  check("and Settings is its own screen: the hub draws none of the person there", /const onSettings = accountTabFor\(pathname\) === 1/.test(hub) && /if \(onSettings\) return <>\{children\}<\/>/.test(hub))
+  check("the bio reaches the hub from the layout's own read of profiles.bio", /async function readBio\(userId: string\)/.test(layout) && /select\("bio"\)/.test(layout))
 }
 
-console.log("\nOn a phone, a light bar of the profile's own instead of the black header")
+console.log("\nNo light bar of the profile's own: one header on the screen")
 {
   const hub = code("components/account/account-hub.tsx")
-  const layout = code("app/account/layout.tsx")
-  check("only below 768px, the width the site header is hidden at on /account", /data-account-bar=""[\s\S]{0,120}className="sticky top-0 z-30 bg-\[#fafafa\] md:hidden"/.test(hub))
-  check("under the status bar's safe area", /paddingTop: "env\(safe-area-inset-top, 0px\)"/.test(hub))
-  check("the page's title in the middle: Profile, or Settings", /overview: "Profile", settings: "Settings"/.test(hub) && /justify-center/.test(hub))
-  check("a hairline only once the page has scrolled under it", /setScrolled\(window\.scrollY > 2\)/.test(hub) && /scrolled \? "opacity-100" : "opacity-0"/.test(hub) && /\{ passive: true \}/.test(hub))
-  check("edge to edge: it steps out of the column by the column's own gutter, written once", /marginLeft: `calc\(-1 \* \$\{ACCOUNT_GUTTER_LEFT\}\)`/.test(hub) && /paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT/.test(layout))
-  check("and the column has no top padding on a phone, the bar is the top", /className="mx-auto w-full max-w-\[720px\] pb-10 md:pt-10"/.test(layout))
+  const settings = code("components/account/account-settings.tsx")
+  const skeleton = code("components/account/account-skeleton.tsx")
+  check("the phone bar and its hairline are gone from the hub", !/data-account-bar/.test(hub) && !/PhoneBar/.test(hub) && !/setScrolled/.test(hub))
+  check("and nothing else draws one in its place", !/data-account-bar/.test(settings))
+  check("the skeleton reserves no room for one either", !/52px/.test(skeleton) && /pt-6 pb-10/.test(skeleton))
+  /* Settings' own top row is a row in the page, not a second bar stuck to the top of a phone. */
+  check("Settings' top row is the X out and the word Settings, and never sticky", /data-account-settings-top=""/.test(settings) && /data-account-settings-close=""/.test(settings) && !/sticky/.test(settings))
 }
 
-console.log("\nOne photo on the screen")
+console.log("\nOne face per screen")
 {
   const hub = code("components/account/account-hub.tsx")
   const photo = code("components/account/account-photo.tsx")
   const settings = code("components/account/account-settings.tsx")
-  check("Settings draws no photo of its own (image 29: the same face twice)", !/<AppAvatar\b|<ProfilePhoto\b|<AccountAvatar\b|avatarUrl|useShellAvatar/.test(settings))
-  check("the big photo is the control on Settings only: pressed, it opens the picker", /editable=\{editing\}/.test(hub) && /const editing = routeTab === settings/.test(hub) && /\{editable \? \(\s*<button[\s\S]{0,120}onClick=\{photo\.pick\}/.test(photo))
-  check("Change photo and Remove take Edit profile's place, in the same cell, so nothing moves", (hub.match(/\[grid-area:1\/1\]/g) ?? []).length === 2 && /data-photo-change=""/.test(hub) && /data-photo-remove=""/.test(hub))
+  /* "the settings tab opens with the same two profile pictures there, it looks ugly": the hub bows out on Settings, so its one circle is Settings' own. */
+  check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar src=\{shown\} name=\{identity\.name\} size=\{112\}/.test(hub) && !/useAccountPhoto/.test(hub))
+  check("Settings' circle is the control: pressed, it opens the picker", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(settings) && /useAccountPhoto\(userId/.test(settings) && /\{editable && photo \? \(\s*<button[\s\S]{0,120}onClick=\{photo\.pick\}/.test(photo))
+  check("Change photo and Remove sit beside it, and the picker is drawn once", /data-photo-change=""/.test(settings) && /data-photo-remove=""/.test(settings) && (settings.match(/\{photo\.input\}/g) ?? []).length === 1)
   check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && /fetch\("\/api\/account\/avatar"/.test(photo) && /announceAvatar\(publicUrl\)/.test(photo) && /announceAvatar\(null\)/.test(photo))
   check("the camera only fades and grows, on the compositor", /transition-\[opacity,scale\]/.test(photo) && /editable \? "scale-100 opacity-100" : "scale-75 opacity-0"/.test(photo))
-  check("the layout hands the hub whose photo it is", /userId: user\.id,/.test(code("app/account/layout.tsx")))
+  check("the layout hands the hub whose photo it is, and the settings route hands it the same one", /userId: user\.id,/.test(code("app/account/layout.tsx")) && /avatarUrl=\{profile\?\.avatar_url \|\| null\}/.test(code("app/account/settings/page.tsx")))
 }
+
+console.log("\nSettings: the Skool shape, in Storelib's own parts")
+{
+  const settings = code("components/account/account-settings.tsx")
+  const library = code("components/library/library-tabs.tsx")
+  check("three sections, Profile first, so Edit profile lands on the profile's fields", /\{ key: "profile", label: "Profile" \}/.test(settings) && /\{ key: "account", label: "Account" \}/.test(settings) && /\{ key: "preferences", label: "Preferences" \}/.test(settings) && /useState<SectionKey>\("profile"\)/.test(settings))
+  check("the pills are the library's pills: 36px, white on a hairline, the chosen one on #e2e4e8", /h-9 shrink-0 cursor-pointer select-none items-center whitespace-nowrap rounded-full border bg-white px-3\.5 text-\[14px\]/.test(settings) && /bg-\[#e2e4e8\]/.test(settings) && /bg-\[#e2e4e8\]/.test(library))
+  check("switching the same way, 150ms on one ease out, fading and growing in place", /const PILL_FADE_MS = 150/.test(settings) && /const PILL_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(settings) && /on \? "scale-100 opacity-100" : "scale-\[0\.96\] opacity-0"/.test(settings) && /const TAB_FADE_MS = 150/.test(library))
+  check("only the compositor's properties move", !/transition-\[[^\]]*(width|height|left|top|padding|margin)/.test(settings))
+  check("the fields are /app Settings' fields: a hairline box, violet on focus, 16px on a phone so iOS does not zoom", /focus:border-\[#8b5cf6\] focus:ring-2 focus:ring-\[#8b5cf6\]\/20/.test(settings) && /text-\[16px\] sm:text-\[14px\]/.test(settings))
+  check("a label over each field and a line of help under it", /htmlFor="account-name"/.test(settings) && /htmlFor="account-bio"/.test(settings) && /const HELP = /.test(settings))
+  check("the bio has a counter, and the name only once its end is in sight", /<Counter used=\{bio\.length\} max=\{BIO_MAX\}/.test(settings) && /name\.length > NAME_MAX - 20 \? <Counter/.test(settings))
+  check("no bio field where profiles.bio has not been added yet", /\{bioSupported \? \(/.test(settings) && /if \(bioSupported\) patch\.bio = nextBio \|\| null/.test(settings))
+  check("the settings route says whether the column is there, from PostgREST's own answer", /PGRST204/.test(code("app/account/settings/page.tsx")) && /42703/.test(code("app/account/settings/page.tsx")))
+  /* Every flow that was on the page before is still on it, and still the shared one. */
+  check("the email change, the password card and the preference switches are /app Settings' own", /EmailChangeFlow,/.test(settings) && /PasswordCard,/.test(settings) && /useSavedSwitch,/.test(settings) && /from "@\/components\/app\/settings\/account-panels"/.test(settings))
+  check("log out here, log out everywhere, and deleting behind a 6 digit code", /signOut\(\{ scope \}\)/.test(settings) && /logOut\("global"\)/.test(settings) && /"\/api\/auth\/delete-account"/.test(settings) && /action: "send-code"/.test(settings) && /action: "verify", code/.test(settings))
+  check("the name still tells the rest of Storelib it changed", /\/api\/account\/profile-changed/.test(settings) && /writeAuthSnapshot\(\{ \.\.\.snap, displayName: nextName \}\)/.test(settings))
+}
+
 
 console.log("\nSelling: Dashboard only with seller access")
 {
@@ -156,6 +178,11 @@ console.log("\nThe overview has nothing to type")
   check("a read that fails leaves its fact out, not the page", /orNull\(\(\) => loadLibrary/.test(route))
   check("the slow part streams in under the header, behind a deferred skeleton", /<Suspense fallback=\{<OverviewSkeleton \/>\}>/.test(route) && /skeleton-deferred/.test(read("components/account/account-skeleton.tsx")))
   check("seller access is lib/account/seller-access's answer", /sellerAccessForRequest\(user\.id\)/.test(route))
+  /* It was three white cards of the same size, the first a list of five rows each with its own grey icon square. CLAUDE.md names that. */
+  check("one card of facts, and selling on its own: no third card, no stack of the same box", (overview.match(/data-account-card=/g) ?? []).length === 1 && /data-account-card="library"/.test(overview) && /data-account-selling=/.test(overview))
+  check("no icon beside every label: the only marks left are the covers' placeholder and the chevrons", !/FACT_ICON|GraduationCap|BadgeCheck|LayoutDashboard|Store\b|Heart|Star\b/.test(overview))
+  check("the purchase count is the card's subline, not a row saying Purchases as well", /data-account-purchases=""/.test(overview) && /facts\.filter\(\(f\) => f\.key !== "purchases"\)/.test(overview))
+  check("Storelib's card: white, rounded-2xl, the #e5e7eb hairline and a soft shadow", /bg-white rounded-2xl app-card-x[^"]*shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] border border-\[#e5e7eb\]\/60/.test(overview))
 }
 
 console.log("\nThe overview's facts")

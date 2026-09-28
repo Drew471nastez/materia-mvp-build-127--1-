@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { headers } from "next/headers"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { createClient } from "@/lib/supabase/server"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
@@ -22,6 +23,23 @@ async function isCapacitorWebView(): Promise<boolean> {
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
 }
 
+/**
+ * THE LINE THEY WROTE ABOUT THEMSELVES (profiles.bio). Its own read, beside
+ * the profile's rather than after it, because the shell's select is shared
+ * with every other page and does not carry it (lib/auth/request-scope.ts).
+ * Nothing where the column has not been added yet
+ * (supabase/sql/RUN_PROFILE_COVER_BIO.sql): the profile simply has no bio.
+ */
+async function readBio(userId: string): Promise<string | null> {
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase.from("profiles").select("bio").eq("id", userId).maybeSingle()
+    return ((data as { bio?: string | null } | null)?.bio || "").trim() || null
+  } catch {
+    return null
+  }
+}
+
 /** "March 2025", in UTC, so the server's words and the browser's are the same words. */
 function memberSince(createdAt: string | undefined): string {
   const d = new Date(createdAt || "")
@@ -38,13 +56,15 @@ function memberSince(createdAt: string | undefined): string {
  *
  * The platform header, a main column, the footer and the phone's tab bar,
  * as /library draws them, so moving between Library and Profile on the tab
- * bar is one page changing and not two sites. On a phone the black header
- * is not drawn here ("on the profile page we don't need the black bar
- * header to show, especially on mobile"): the profile has a light bar of
- * its own at the top of the column instead. Inside the column, the person
- * (photo, name, @username, member since) centred, and the tabs, which stay
- * put while the page under them changes (components/account/
- * account-hub.tsx).
+ * bar is one page changing and not two sites. THE HEADER IS HERE AT EVERY
+ * WIDTH now: "The profile page reached from Explore needs to have the
+ * header on it." The light bar the profile used to draw for itself on a
+ * phone is gone with the rule that hid the real one, so there is one bar
+ * and not two, and the column starts the library's 24px under it.
+ *
+ * Inside the column, the person (photo, name, @username, the bio, when
+ * they joined) centred, with Edit profile under them; Settings is its own
+ * screen and draws none of that (components/account/account-hub.tsx).
  *
  * SIGNED OUT, EACH PAGE SENDS TO SIGN IN WITH ITS OWN ADDRESS. A layout is
  * not told which of its pages is being opened, so it cannot say where to
@@ -72,8 +92,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
   /* Signed out for certain: the page's own redirect (see above). */
   if (!user && !isNative && current.state !== "indeterminate") return <>{children}</>
 
-  /* Cached for the request: the settings page reads the same row. */
-  const profile = user ? await profileForRequest(user.id) : null
+  /* Cached for the request: the settings page reads the same row. The bio is one more read beside it, not after it. */
+  const [profile, bio] = user ? await Promise.all([profileForRequest(user.id), readBio(user.id)]) : [null, null]
   const identity: AccountIdentity | null = user
     ? {
         userId: user.id,
@@ -81,6 +101,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
         username: profile?.username || null,
         avatarUrl: profile?.avatar_url || null,
         memberSince: memberSince(user.created_at),
+        bio,
       }
     : null
 
@@ -89,9 +110,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <LibraryBgFix />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
       <main className="flex-1">
-        {/* No top padding on a phone: the profile's own bar is the top there (components/account/account-hub.tsx). */}
+        {/* The library's own room under the header (app/library/layout.tsx py-6), so the two screens start at the same height. */}
         <div
-          className="mx-auto w-full max-w-[720px] pb-10 md:pt-10"
+          className="mx-auto w-full max-w-[720px] pt-6 pb-10"
           style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }}
         >
           {identity ? <AccountHub identity={identity}>{children}</AccountHub> : children}
