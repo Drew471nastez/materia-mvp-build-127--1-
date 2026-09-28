@@ -571,7 +571,7 @@ export function ReceiptView({
                       e.preventDefault()
                       void downloadFile({ url: e.currentTarget.getAttribute("href") || "", fileName: `Invoice ${receipt.number}.pdf` })
                     }}
-                    className={`${TEXT_LINK} inline-flex min-h-[32px] items-center gap-1.5 print:hidden`}
+                    className={`${TEXT_LINK} -my-0.5 inline-flex min-h-9 items-center gap-1.5 print:hidden`}
                   >
                     <FileText className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
                     Download invoice (PDF)
@@ -683,7 +683,7 @@ export function ReceiptView({
                   setChanging(true)
                   setEmailNote(null)
                 }}
-                className="mt-1 min-h-[32px] text-[13px] text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
+                className="-mb-0.5 mt-0.5 min-h-9 text-[13px] text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
               >
                 {accountEmail ? "Send a copy to another email" : "Wrong address?"}
               </button>

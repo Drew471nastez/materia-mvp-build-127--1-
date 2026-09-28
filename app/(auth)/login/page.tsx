@@ -829,7 +829,8 @@ function LoginFormContent() {
           </div>
 
           <div className="mt-4 text-center">
-            <Link href={withCarry("/request", carry)} className="text-[13px] text-neutral-400 hover:text-neutral-600">
+            {/* A 36px press on a phone, where it sits alone on its line; the margin takes the padding back so nothing moves. */}
+            <Link href={withCarry("/request", carry)} className="-my-2.5 inline-block py-2.5 text-[13px] text-neutral-400 hover:text-neutral-600">
               Forgot password?
             </Link>
           </div>

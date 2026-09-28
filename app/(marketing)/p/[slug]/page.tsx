@@ -1236,7 +1236,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <SmartLink href={creatorStoreUrl} className="creator-link flex min-w-0 items-center gap-3" target="_blank" rel="noopener noreferrer">
+                  {/* 36px to press (a phone's floor), drawn at the same place: the extra 2px each side are taken back by the margin. */}
+                  <SmartLink href={creatorStoreUrl} className="creator-link -my-0.5 flex min-w-0 items-center gap-3 py-0.5" target="_blank" rel="noopener noreferrer">
                     <AppAvatar
                       src={creatorAvatarUrl}
                       name={(creatorProfile?.display_name || "").trim()}
@@ -1281,7 +1282,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   productSlug={product.slug}
                   creatorUsername={creatorUsername}
                   pageHost={pageHost}
-                  className="shrink-0 h-8 w-8"
+                  className="-m-0.5 shrink-0 h-9 w-9"
                   iconSize="h-4 w-4"
                 />
               </div>

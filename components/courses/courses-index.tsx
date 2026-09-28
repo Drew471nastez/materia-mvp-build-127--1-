@@ -166,7 +166,7 @@ function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => 
           <div className="mt-1 flex min-w-0 items-center gap-1.5">
             <AppAvatar src={course.creator.avatarUrl} name={course.creator.name} size={18} alt="" />
             {onCreator ? (
-              <button type="button" onClick={onCreator} className="truncate text-[13px] text-[#6b7280] hover:text-[#1a1a2e]" title={`Only ${course.creator.name}`}>
+              <button type="button" onClick={onCreator} className="-my-2 truncate py-2 text-[13px] text-[#6b7280] hover:text-[#1a1a2e]" title={`Only ${course.creator.name}`}>
                 {course.creator.name}
               </button>
             ) : (
