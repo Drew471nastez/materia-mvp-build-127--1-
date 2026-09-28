@@ -169,9 +169,30 @@ export function editorHref(
  * layer (`before:`) on a fine pointer only, and the focus ring is an outline,
  * drawn outside the picture where nothing covers it. `translateZ(0)` with
  * `isolate` keeps Safari clipping the crossfading picture to the corners.
+ *
+ * ── AND A FINGER LEAVES NOTHING GREY ON IT ───────────────────────────────
+ * "On a mobile device, if I touch the website cover, make sure there is no
+ * grey thing over it, it looks bad."
+ *
+ * It was not this file's hover, which a finger cannot reach. It was the
+ * native shell's press: html.capacitor fades ANY button to 72% for as long
+ * as it is held (app/globals.css), which on a control reads as the control
+ * going quiet and on a photograph reads as the picture washing out into the
+ * white card behind it. Measured with :active forced in the shell, opacity
+ * 0.72 over the whole 16:10 tile; the website's black hero came out grey.
+ *
+ * `data-picture-press` is the opt out, and the rule that answers it in
+ * globals.css says why. What is left is a press the FRAME answers: the
+ * hairline deepens from 8% to 22% while a finger is down, on the edge, over
+ * nothing anybody is looking at. Not a tint over the picture, because a tint
+ * over the picture is the grey thing that was complained about, whatever its
+ * alpha. The page's loading bar starts on the same press.
+ *
+ * The browser's own tap highlight is already off: Tailwind's preflight sets
+ * -webkit-tap-highlight-color: transparent on html, and it inherits.
  */
 const COVER_FRAME =
-  "relative block aspect-[16/10] w-full select-none overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [transform:translateZ(0)] [&_img]:[-webkit-user-drag:none] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-6px_rgba(15,23,42,0.08),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] before:pointer-events-none before:absolute before:inset-0 before:z-20 before:bg-[#1a1a2e]/0 before:transition-colors before:duration-200 pointer-fine:hover:before:bg-[#1a1a2e]/[0.04] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/35"
+  "relative block aspect-[16/10] w-full select-none overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [transform:translateZ(0)] [&_img]:[-webkit-user-drag:none] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-6px_rgba(15,23,42,0.08),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] after:transition-shadow after:duration-150 active:after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.22)] before:pointer-events-none before:absolute before:inset-0 before:z-20 before:bg-[#1a1a2e]/0 before:transition-colors before:duration-200 pointer-fine:hover:before:bg-[#1a1a2e]/[0.04] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/35"
 
 /** "2 days ago" without the "ago", for a meta line that already reads as time. */
 function since(iso: string | null | undefined): string | null {
@@ -1186,6 +1207,7 @@ export function WebsiteBuilderClient({
                       onClick={() => go(editorHref(username, live.id))}
                       aria-label={`Edit ${live.name}`}
                       data-cover=""
+                      data-picture-press=""
                       className={COVER_FRAME}
                     >
                       <WebsiteCover install={live} eager preparing={!!preparing[live.id]} />
@@ -1404,7 +1426,11 @@ export function WebsiteBuilderClient({
                       <tr
                         key={i.id}
                         data-install-row={i.id}
-                        className="transition-colors duration-150 hover:bg-[#fafbfc]"
+                        /* On a fine pointer only: a tap turns :hover on in
+                           several mobile engines and leaves it on until
+                           something else is tapped, so the row you opened
+                           stayed shaded behind you. */
+                        className="transition-colors duration-150 pointer-fine:hover:bg-[#fafbfc]"
                       >
                         <td className="p-3 sm:px-4">
                           {/* The whole cell opens the editor: on a phone it is
@@ -1665,7 +1691,8 @@ function ExploreRow({
   return (
     <div
       data-explore-row=""
-      className="flex items-center gap-3 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-colors duration-150 hover:bg-[#fcfcfd] sm:gap-4"
+      /* pointer-fine, for the reason on the library row above. */
+      className="flex items-center gap-3 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-colors duration-150 pointer-fine:hover:bg-[#fcfcfd] sm:gap-4"
     >
       <button type="button" onClick={onOpen} aria-label={`Preview ${def.name}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4">
         <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-32">
