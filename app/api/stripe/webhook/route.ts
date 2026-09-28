@@ -19,6 +19,7 @@ import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
 import { reportError } from "@/lib/observability/report"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
+import { subscriptionIdOf } from "@/lib/memberships/sync"
 
 export const runtime = "nodejs"
 
@@ -993,8 +994,12 @@ async function handleStripeEvent(request: Request) {
     const invoice = event.data.object as Stripe.Invoice & { subscription?: string; period_start?: number; period_end?: number }
 
     console.log("[Invoice] Paid:", invoice.id)
+    /* NEWER STRIPE API VERSIONS MOVED THE SUBSCRIPTION ONTO invoice.parent.
+       Read it from either place, so a plan renewal is never mistaken for a
+       one-off invoice whichever version the webhook endpoint sends. */
+    const subscriptionId = subscriptionIdOf(invoice)
 
-    if (!invoice.subscription) {
+    if (!subscriptionId) {
       return NextResponse.json({ received: true, message: "Not a subscription invoice" })
     }
 
@@ -1002,7 +1007,7 @@ async function handleStripeEvent(request: Request) {
       const { data: subscription } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
-        .eq("stripe_subscription_id", invoice.subscription as string)
+        .eq("stripe_subscription_id", subscriptionId)
         .maybeSingle()
 
       if (!subscription) {
@@ -1032,10 +1037,10 @@ async function handleStripeEvent(request: Request) {
           name: "subscription.renewed",
           key: `invoice:${invoice.id}:paid`,
           entityType: "subscription",
-          entityId: invoice.subscription as string,
+          entityId: subscriptionId,
           correlationId: event.id,
           payload: {
-            subscriptionId: invoice.subscription,
+            subscriptionId,
             invoiceId: invoice.id,
             amountCents: invoice.amount_paid,
             currency: (invoice.currency || "usd").toLowerCase(),
@@ -1054,8 +1059,12 @@ async function handleStripeEvent(request: Request) {
     const invoice = event.data.object as Stripe.Invoice & { subscription?: string; period_start?: number; period_end?: number }
 
     console.log("[Invoice] Payment failed:", invoice.id)
+    /* NEWER STRIPE API VERSIONS MOVED THE SUBSCRIPTION ONTO invoice.parent.
+       Read it from either place, so a plan renewal is never mistaken for a
+       one-off invoice whichever version the webhook endpoint sends. */
+    const subscriptionId = subscriptionIdOf(invoice)
 
-    if (!invoice.subscription) {
+    if (!subscriptionId) {
       return NextResponse.json({ received: true, message: "Not a subscription invoice" })
     }
 
@@ -1063,7 +1072,7 @@ async function handleStripeEvent(request: Request) {
       const { data: subscription } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
-        .eq("stripe_subscription_id", invoice.subscription as string)
+        .eq("stripe_subscription_id", subscriptionId)
         .maybeSingle()
 
       if (!subscription) {
@@ -1076,7 +1085,7 @@ async function handleStripeEvent(request: Request) {
           status: "past_due",
           updated_at: new Date().toISOString(),
         })
-        .eq("stripe_subscription_id", invoice.subscription as string)
+        .eq("stripe_subscription_id", subscriptionId)
 
       await supabaseAdmin
         .from("creators")
@@ -1090,10 +1099,10 @@ async function handleStripeEvent(request: Request) {
         name: "subscription.payment_failed",
         key: `invoice:${invoice.id}:failed:${(invoice as any).attempt_count ?? event.id}`,
         entityType: "subscription",
-        entityId: invoice.subscription as string,
+        entityId: subscriptionId,
         correlationId: event.id,
         payload: {
-          subscriptionId: invoice.subscription,
+          subscriptionId,
           invoiceId: invoice.id,
           amountCents: invoice.amount_due,
           currency: (invoice.currency || "usd").toLowerCase(),
