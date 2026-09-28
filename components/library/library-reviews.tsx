@@ -465,7 +465,21 @@ export function LibraryReviews({ items, focus = null }: { items: LibraryItem[]; 
       >
         {draft && drafted ? (
           <div data-review-sheet="" className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 sm:p-0">
-            <div className="flex items-center gap-3 pr-8">
+            {/*
+              THE PRODUCT STAYS ON SCREEN WHILE YOU TYPE. The sheet is at
+              most three quarters of the VISUAL viewport, which is what is
+              left once the keyboard is up, so on a phone the picture,
+              "Leave a review" and the creator's name scrolled away under
+              the top edge the moment the field took focus, and you were
+              left writing about something the screen no longer named.
+
+              It is pinned to the top of the sheet's own scroller instead,
+              on the sheet's white, with the gutter painted through
+              (-mx-4 px-4) so nothing shows past its edges as the stars and
+              the field pass under it. From sm there is no keyboard taking
+              the room, so it sits where it always did.
+            */}
+            <div data-review-sheet-head="" className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-white px-4 pb-2 pr-8 pt-1 sm:static sm:mx-0 sm:px-0 sm:pb-0 sm:pt-0">
               <Thumb src={drafted.thumbnailUrl} size={40} />
               <div className="min-w-0">
                 <SheetDialogTitle className="text-[17px] font-semibold leading-snug text-[#1a1a2e]">{draft.mode === "edit" ? "Edit your review" : "Leave a review"}</SheetDialogTitle>

@@ -2,7 +2,6 @@
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
-import { AnalyticsSummaryLine } from "@/components/app/analytics-summary-line"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./live-preview"
 import { DesignTab } from "./tabs/design-tab"
@@ -1567,13 +1566,16 @@ function EditorLayout() {
                   ) : (
                     <Activity mode={shown ? "visible" : "hidden"}>
                       {t === "design" && designPanel}
-                      {t === "links" && (
-                        <>
-                          {/* A quiet line over the links: the last 30 days, opening Analytics on the OnePage. */}
-                          <AnalyticsSummaryLine property="onepage" className="mb-3" />
-                          {linksPanel}
-                        </>
-                      )}
+                      {/*
+                        NO ANALYTICS LINE OVER THE LINKS. It sat above the
+                        profile picture, the first thing on the tab the
+                        editor opens on, and it is a reading rather than
+                        anything to edit: "I still don't like the analytics
+                        text thing showing above the profile avatar, get rid
+                        of it". The numbers are on Analytics, where they are
+                        looked at on purpose.
+                      */}
+                      {t === "links" && linksPanel}
                       {t === "products" && productsPanel}
                     </Activity>
                   )}

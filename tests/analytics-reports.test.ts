@@ -464,9 +464,18 @@ console.log("\nThe summaries on the Website and OnePage screens")
     /\.eq\("user_id", user\.id\)/.test(route) && route.indexOf("ownsProperty(properties, selector)") > 0 && route.indexOf("ownsProperty(properties, selector)") < route.indexOf("countVisits(admin"))
   check("  counted as Analytics counts, kept a minute", /part: "figures" as const/.test(route) && /salesFor\(orders\.rows, selector, properties\.defaultWebsite\)/.test(route) && /const CACHE_MS = 60_000/.test(route) && /private, max-age=/.test(route))
   const line = read("components/app/analytics-summary-line.tsx")
-  check("  and on screen in the website builder and the OnePage editor",
+  /*
+    THE WEBSITE BUILDER KEEPS ITS LINE; THE ONEPAGE EDITOR NO LONGER HAS
+    ONE. In the editor it sat above the profile picture, the first thing on
+    the tab it opens on, and it is a reading rather than anything to edit:
+    "I still don't like the analytics text thing showing above the profile
+    avatar, get rid of it". The numbers are on Analytics, where they are
+    looked at on purpose, and the line this check covers still goes there.
+  */
+  check("  and on screen in the website builder",
     /<AnalyticsSummaryFact property=\{`website:\$\{live\.id\}`\} \/>/.test(read("app/app/website-builder/website-builder-client.tsx"))
-      && /<AnalyticsSummaryLine property="onepage"/.test(read("components/onepage/onepage-editor.tsx")) && /summaryText\(/.test(line) && /data-analytics-summary-link/.test(line))
+      && /summaryText\(/.test(line) && /data-analytics-summary-link/.test(line))
+  check("  and nowhere over the OnePage editor's links", !/AnalyticsSummaryLine/.test(read("components/onepage/onepage-editor.tsx")))
 }
 
 console.log("\nHome is Analytics under All")

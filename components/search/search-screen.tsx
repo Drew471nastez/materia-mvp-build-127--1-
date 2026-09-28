@@ -464,7 +464,16 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
         </div>
         <form
           role="search"
-          className="relative mx-auto mt-3 w-full max-w-[720px] pb-1"
+          /*
+            ROOM UNDER IT FOR ITS OWN SHADOW. The field's soft shadow falls
+            about eleven pixels below it, and it had four of padding with
+            four more of margin under that before the rows begin: the rows'
+            pane is opaque white and painted straight over the rest of it,
+            which sliced the bottom edge of the field flat ("the search
+            input gets cut"). Twelve here clears the whole shadow before
+            anything else is painted.
+          */
+          className="relative mx-auto mt-3 w-full max-w-[720px] pb-3"
           onSubmit={(e) => {
             e.preventDefault()
             submit()
