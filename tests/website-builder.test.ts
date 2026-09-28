@@ -25,6 +25,7 @@
  * Run with:  npm run test:push
  */
 import { isPackagedCover } from "@/lib/website-builder/cover-take"
+import { tamperBase64url } from "./tamper"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
@@ -813,7 +814,7 @@ section("The cover")
     check("  not once its two minutes are up", readCoverPass(good, now + 3 * 60 * 1000) === null)
     check("  not with another install's id put in its place", readCoverPass(`${B}.${exp}.${sig}`, now) === null)
     check("  not with its time pushed back", readCoverPass(`${id}.${(now + 60 * 60 * 1000).toString(36)}.${sig}`, now) === null)
-    check("  not with its signature altered", readCoverPass(`${id}.${exp}.${sig.slice(0, -2)}AA`, now) === null)
+    check("  not with its signature altered", readCoverPass(`${id}.${exp}.${tamperBase64url(sig)}`, now) === null)
     check("  and not for anything that is not a pass at all",
       readCoverPass("", now) === null && readCoverPass("../../etc", now) === null && readCoverPass("a.b.c.d", now) === null)
     if (had === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY
