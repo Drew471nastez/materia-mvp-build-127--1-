@@ -18,6 +18,19 @@
  * the icon cross fade and the little give on a tap, and this bar and the
  * pill both use it.
  *
+ * NO BUMP ON A TAP. "I don't really like the bump when I click an icon." So
+ * this bar asks the lens for no give (`give: false`): the icon you press does
+ * not squeeze and spring back, and the glass does not grow in from a smaller
+ * size either. What a press does here is colour only: the icon fills on the
+ * frame the finger lands and the glass lights under it. The slide keeps its
+ * lift and stretch, because that is a finger dragging the glass, not a tap.
+ *
+ * AND A TAB IS ALREADY ON ITS WAY BEFORE IT IS PRESSED. Once the page has
+ * settled, the other tabs' pages are prefetched while the phone is idle, so
+ * a tap lands on a page the router already has (or at least its loading
+ * shape, app/library/loading.tsx and the rest, which appear only when a page
+ * is slow). The press still asks again, for a page that went stale.
+ *
  * WHAT THE GLASS DOES HERE. On the pill the lens always sits on the tab you
  * are on, because the pill is glass and the lens is a clearer piece of it.
  * A white bar with a grey stone resting on it is a badge, so here the lens
@@ -231,7 +244,7 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
-  const { slide, pick, linkRefs, marked, shown, arriving, filling } = useTabLens({
+  const { slide, pick, linkRefs, shown, arriving, filling } = useTabLens({
     count: BUYER_TABS.length,
     current,
     heading: toward,
@@ -263,7 +276,31 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
       /* Search is a screen already in the page: nothing to fetch. */
       if (index !== current && BUYER_TABS[index]?.key !== "search") router.prefetch(hrefOf(index))
     },
+    /* No squeeze on a tap: see NO BUMP ON A TAP above. */
+    give: false,
   })
+
+  /*
+    THE OTHER TABS' PAGES, FETCHED WHILE NOTHING ELSE IS HAPPENING. Once per
+    set of addresses (signing in changes Profile's), on a phone only, where
+    the bar is drawn, and never for the page you are on or for Search, which
+    is a screen already in the page.
+  */
+  const prefetchKey = BUYER_TABS.map((_, i) => hrefOf(i)).join(" ")
+  useEffect(() => {
+    if (!window.matchMedia?.("(max-width: 767px)").matches) return
+    const hrefs = BUYER_TABS.flatMap((tab, i) => (tab.key === "search" || i === current ? [] : [hrefOf(i)]))
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+    const cancelIdle = (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback
+    const run = () => { for (const href of hrefs) router.prefetch(href) }
+    if (idle && cancelIdle) {
+      const id = idle(run, { timeout: 1500 })
+      return () => cancelIdle(id)
+    }
+    const t = window.setTimeout(run, 400)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefetchKey, current, router])
 
   /* A finger is on the bar: the only time the glass is there. */
   const lit = slide.pressed || slide.following
@@ -346,8 +383,10 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
               height: LENS_H,
               top: `calc((var(--buyer-tabs-bar) - ${LENS_H}px) / 2)`,
               left: 0,
-              scale: String(marked < 0 ? 0.55 : slide.following ? LIFT : 1),
-              opacity: marked < 0 ? 0 : 1,
+              /* Only a drag lifts it. A tap never changes its size: on a
+                 page with no tab of its own it used to grow in from 55%
+                 under the finger, which was a bump of its own. */
+              scale: String(slide.following ? LIFT : 1),
               backgroundColor: arriving ? ARRIVING_FILL : lit ? LENS_FILL : ARRIVING_FILL,
               backdropFilter: LENS_GLASS,
               WebkitBackdropFilter: LENS_GLASS,
@@ -355,7 +394,7 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
               /* On the instant a finger lands, off over the ink's curve;
                  emptied for the frame it changes slot and filled back
                  (the pill's rules, components/nav/tab-lens.tsx). */
-              transition: `${NO_TRAVEL}, ${LIFT_EASE}, transform 0s, opacity 220ms ease-out, ${arriving || (lit && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
+              transition: `${NO_TRAVEL}, ${LIFT_EASE}, transform 0s, ${arriving || (lit && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
               willChange: "translate, scale, transform",
             }}
           >

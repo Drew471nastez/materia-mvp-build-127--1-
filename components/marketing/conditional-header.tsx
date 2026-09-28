@@ -70,6 +70,22 @@ function isKnownPlatformPath(p: string): boolean {
   )
 }
 
+/**
+ * THE PROFILE DRAWS ITS OWN TOP BAR ON A PHONE. "/account on phones: do not
+ * render the black site header." The profile has a light bar of its own
+ * there; on a computer it keeps this header, and the tab bar stays on the
+ * phone either way (it is not part of this).
+ *
+ * Decided from the path, which the server knows, and hidden by the width in
+ * CSS, which needs no script: so the first paint on a phone already has no
+ * black band, and there is no frame in which it is drawn and then taken
+ * away. The wrapper is `display: contents` from md up, so it is no box at
+ * all there and the header's `position: sticky` still sticks to the page.
+ */
+export function hidesHeaderOnPhone(p: string): boolean {
+  return p === "/account" || p.startsWith("/account/")
+}
+
 export function ConditionalHeader({
   initialWishlistCount = 0,
   onPlatformDomain = false,
@@ -171,9 +187,17 @@ export function ConditionalHeader({
   // PlatformHeaderClient calls useSearchParams(), which requires a Suspense boundary
   // for SSR streaming (Next.js 16 build requirement).  The black-bar fallback keeps
   // the layout stable — no gap above content while the client hydrates.
-  return (
+  const header = (
     <Suspense fallback={<HeaderPlaceholder />}>
       <PlatformHeaderClient initialWishlistCount={initialWishlistCount} />
     </Suspense>
   )
+  if (hidesHeaderOnPhone(pathname)) {
+    return (
+      <div data-header-phone="hidden" className="hidden md:contents">
+        {header}
+      </div>
+    )
+  }
+  return header
 }

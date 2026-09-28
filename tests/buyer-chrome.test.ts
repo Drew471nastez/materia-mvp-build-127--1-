@@ -59,9 +59,21 @@ check("the heart and the photo stay (the photo opens the account sheet)", /aria-
 check("the menu sheet drops My Library and its search link there", /\{!tabsHere && \(\s*<div className="border-b border-\[#eef0f2\] pb-1">\s*<MenuRow href="\/library"/.test(header) && /isDiscoverProductContext && !tabsHere/.test(header))
 check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && \(/.test(header) && /const isOwnPages = pathname === "\/library" \|\| pathname\.startsWith\("\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
 
+console.log("\nThe header's menu sheet opens smoothly")
+{
+  const src = read("components/platform/platform-header-client.tsx")
+  /* "The animation when I open it needs to be smooth and clean": built ahead and kept on a phone, so the tap is only the slide. */
+  check("the menu sheet is kept on a phone, and its category list starts from the top again once it has slid away",
+    /onClosed=\{\(\) => setMenuRound\(\(n\) => n \+ 1\)\}\s*keepMounted=\{belowMd\}/.test(src) && /<CategoryBrowser\s*key=\{menuRound\}/.test(src) && /onClosed=\{onClosed\}/.test(src))
+  check("the menu button's lines move by opacity and scale only, never width", /transition-\[opacity,scale\]/.test(src) && !/transition-all duration-200 ease-out \$\{\s*isOpen \? "opacity-60 w-4"/.test(src) && !/opacity-60 w-4/.test(src))
+}
+
 console.log("\nThe header on /account")
 const cond = code("components/marketing/conditional-header.tsx")
 check("/account is a known platform path, so the header draws there on the first paint", /p === "\/account" \|\|\s*p\.startsWith\("\/account\/"\)/.test(cond))
+/* "/account on phones: do not render the black site header" (the profile draws a light bar of its own). Decided on the server from the path, hidden by CSS below md, so there is no flash of it. */
+check("on a phone the header is not drawn on /account and under it; from md it is, as a box that is not a box", /export function hidesHeaderOnPhone\(p: string\): boolean \{\s*return p === "\/account" \|\| p\.startsWith\("\/account\/"\)/.test(cond) && /if \(hidesHeaderOnPhone\(pathname\)\) \{\s*return \(\s*<div data-header-phone="hidden" className="hidden md:contents">/.test(cond))
+check("decided from the path the server renders with, not after hydration", !/hidesHeaderOnPhone\([^)]*\)[^\n]*useEffect/.test(cond) && !/matchMedia/.test(cond))
 check("and the account layout mounts it, as the library's does", /<ConditionalHeader initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} \/>/.test(read("app/account/layout.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

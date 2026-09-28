@@ -10,9 +10,13 @@
  *             56px, white, a shadow along its top; Home, Search, Library,
  *             Profile in that order; the page you are on is the filled icon
  *   ROOM      the last line of the page ends above the bar, not under it
+ *   IDLE      the other tabs' pages are prefetched once the page is idle
  *   PRESS     the glass comes up under the finger on the frame it lands,
- *             on the slot it landed on; the icon gives a little; the page
- *             changes and the tab it went to fills; the glass clears
+ *             on the slot it landed on; the icon starts filling on the
+ *             press; NOTHING SCALES: every element of the tab and the glass
+ *             sampled each frame at 4x CPU throttle keeps scale 1 and no
+ *             transform (no bump); the page changes and the tab it went to
+ *             fills; the glass clears
  *   SLIDE     the glass follows the finger one to one, lifts and stretches,
  *             and the slot it is let go over is where the page goes
  *   KEYBOARD  the bar slides away while a field has the focus, and back
@@ -148,7 +152,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   })
   const alpha = (rgba) => { const m = /rgba?\(([^)]+)\)/.exec(rgba || ""); if (!m) return 1; const parts = m[1].split(",").map((s) => +s.trim()); return parts.length === 4 ? parts[3] : 1 }
   const touch = (cdp, type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, radiusX: 10, radiusY: 10, force: 1 }] })
-  const shotBar = (p, name) => p.screenshot({ path: join(shots, name), clip: { x: 0, y: 844 - 120, width: 390, height: 120 } })
+    /* Not beyond the viewport: that resizes the page for the capture, and a frame sampled meanwhile sees the bar somewhere else. */
+  const shotBar = (p, name) => p.screenshot({ path: join(shots, name), clip: { x: 0, y: 844 - 120, width: 390, height: 120 }, captureBeyondViewport: false })
 
   /* ── BAR ─────────────────────────────────────────────────────────────── */
   console.log("\nphone 390, /explore, signed out")
@@ -162,6 +167,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(s.lens.state === "clear" && alpha(s.lens.bg) === 0, "no glass at rest", s.lens)
     expect(s.html === "shown" && s.h === 56, "it tells the page how tall it is", { html: s.html, h: s.h })
     await shotBar(p, "phone-rest-explore.png")
+    /* ── IDLE ── */
+    await sleep(1200)
+    const warm = await p.evaluate(() => (window.__router || []).filter(([k]) => k === "prefetch").map(([, h]) => h))
+    expect(warm.includes("/library") && warm.some((h) => h.startsWith("/login")) && !warm.includes("/explore") && !warm.some((h) => /search/.test(h)), "IDLE: the other tabs' pages are prefetched while the phone is idle (not this page, not Search)", warm)
 
     /* ── ROOM ── */
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
@@ -176,24 +185,58 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const cdp = await p.createCDPSession()
     const lib = s.slots[2]
     await p.evaluate(() => { window.__router = [] })
+    /* Every frame of the press, at 4x CPU throttle: the scale and transform of the tab, everything in it, and the glass. */
+    const slow = await p.createCDPSession()
+    await slow.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+    await p.evaluate(() => {
+      window.__press = []
+      const tab = document.querySelector('[data-buyer-tab="library"]')
+      const lens = document.querySelector("[data-buyer-tabs-lens]")
+      const els = [tab, ...tab.querySelectorAll("*")]
+      const glyph = tab.firstElementChild
+      const t0 = performance.now()
+      const tick = () => {
+        const cs = els.map((e) => getComputedStyle(e))
+        const lc = getComputedStyle(lens)
+        const g = glyph.getBoundingClientRect()
+        window.__press.push({
+          t: Math.round(performance.now() - t0),
+          scaled: cs.filter((c) => (c.scale !== "none" && c.scale !== "1") || c.transform !== "none").map((c) => [c.scale, c.transform]),
+          lens: [lc.scale, lc.transform],
+          bg: lc.backgroundColor,
+          box: [Math.round(g.width * 100) / 100, Math.round(g.height * 100) / 100, Math.round(g.left * 100) / 100, Math.round(g.top * 100) / 100],
+          ink: +getComputedStyle(tab.querySelector('[data-part="ink"]')).opacity,
+          anims: els.reduce((n, e) => n + e.getAnimations().filter((a) => a.id === "tap").length, 0),
+        })
+        if (performance.now() - t0 < 1600) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
     await touch(cdp, "touchStart", lib.x + 9, lib.y)
     await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
     const down = await barState(p)
-    const pulse = await p.evaluate(() => [...document.querySelectorAll('[data-buyer-tab="library"] *')].some((el) => el.getAnimations().some((a) => a.id === "tap")))
     await shotBar(p, "phone-press-library.png")
     await sleep(40)
     await touch(cdp, "touchEnd")
+    await sleep(1800)
+    await slow.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    const press = await p.evaluate(() => window.__press)
+    if (process.env.PROBE_VERBOSE) console.log(JSON.stringify(press))
     expect(down.lens.state === "lit" && Math.abs(down.lens.cx - lib.x) < 1, "PRESS: the glass is under the finger on the slot it landed on, on its centre", { state: down.lens.state, off: Math.round((down.lens.cx - lib.x) * 100) / 100 })
-    expect(pulse, "and the icon gives a little under it")
-    await sleep(60)
-    const mid = await barState(p)
+    expect(down.inks[2] > 0, "the icon starts filling on the press, before the page changes", down.inks)
+    const bumps = press.filter((f) => f.scaled.length > 0 || f.anims > 0 || f.lens[0] !== "1" || f.lens[1] !== "none")
+    const boxes = new Set(press.map((f) => f.box.join()))
+    expect(press.length >= 10 && bumps.length === 0 && boxes.size === 1, "NO BUMP: over every frame of the tap, nothing in the tab and not the glass is scaled or transformed, and the icon's box never changes", { frames: press.length, bumped: bumps.slice(0, 3), boxes: [...boxes] })
+    const glassAlphas = press.map((f) => alpha(f.bg))
+    const peak = Math.max(...glassAlphas)
+    const easing = glassAlphas.slice(glassAlphas.indexOf(peak)).filter((a) => a > 0.02 && a < peak - 0.02)
+    expect(peak > 0.5 && easing.length >= 2 && glassAlphas[glassAlphas.length - 1] === 0, "let go, the glass clears over the ink's curve rather than vanishing", { peak, between: easing.length, last: glassAlphas[glassAlphas.length - 1] })
     await shotBar(p, "phone-release-library.png")
-    await sleep(500)
     const after = await barState(p)
     const log = await p.evaluate(() => window.__router)
     expect(log.some(([k, h]) => k === "push" && h === "/library"), "the press opens the library", log)
     expect(log.some(([k, h]) => k === "prefetch" && h === "/library"), "and asked for it the moment the finger landed", log.filter(([k]) => k === "prefetch"))
-    expect(mid.lens.state === "clear" && alpha(mid.lens.bg) > 0.1, "let go, the glass clears over the ink's curve rather than vanishing", { alpha: alpha(mid.lens.bg) })
+
     expect(after.current === 2 && after.inks[2] === 1 && after.inks[0] === 0 && alpha(after.lens.bg) === 0, "the page arrives, Library fills, and the glass is gone", { current: after.current, inks: after.inks, alpha: alpha(after.lens.bg) })
     await shotBar(p, "phone-rest-library.png")
 
@@ -246,7 +289,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.screenshot({ path: join(shots, "phone-search-focused.png") })
     /* The X: Back pops the screen's entry and the screen goes. */
     await p.evaluate(() => document.querySelector("[data-search-close]").click())
-    await sleep(500)
+    await sleep(700)
     const shut = await p.evaluate(() => ({
       overlay: document.querySelector("[data-search-overlay]")?.getAttribute("data-search-overlay"),
       visibility: getComputedStyle(document.querySelector("[data-search-overlay]")).visibility,

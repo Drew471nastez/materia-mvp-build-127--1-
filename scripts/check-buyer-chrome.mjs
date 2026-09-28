@@ -19,6 +19,16 @@
  *             at a phone's width and a computer's.
  *   ICONS     the tab bar at 1x, 2x and 3x with each tab on: Search keeps its
  *             glass, Profile is a person.
+ *   ACCOUNT   on a phone /account and /account/* have no black header
+ *             (the profile draws its own light bar), from the first frame;
+ *             the tab bar stays; on a computer the header is there.
+ *   BADGE     the wishlist count's white figures, found pixel by pixel in
+ *             screenshots, centred on the red disc within 0.5px, for 1, 5,
+ *             9, 12 and 99+, at 1x, 2x and 3x, on a phone and a computer.
+ *   MENU      the header's menu sheet at 360, 390 and 430: frame by frame at
+ *             4x CPU throttle, it starts moving within two frames of the
+ *             tap, only rises (no jump back, no step over a fifth of its
+ *             height), the backdrop only darkens, and it closes the same way.
  *   SEARCH    the tab bar's Search opens a full screen search over the page:
  *             the field has the focus from the press, the header is covered,
  *             the page holds still; it arrives and leaves on opacity and
@@ -36,12 +46,23 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
+import sharp from "sharp"
 import { appCss, interFaces } from "./probe-css.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 const css = await appCss(root)
-const faces = interFaces(root)
+/*
+  Inter, served from the storelib.com origin the page is on: a page at an
+  https address may not load a file:// font, so without this every picture
+  and every measurement here was in the fallback face.
+*/
+const fontFiles = new Map()
+const faces = interFaces(root).replace(/url\(file:\/\/([^)]+)\)/g, (_, path) => {
+  const name = path.split("/").pop()
+  fontFiles.set(name, path)
+  return `url(https://storelib.com/__font/${name})`
+})
 const stubs = join(root, ".buyer-chrome-probe")
 mkdirSync(stubs, { recursive: true })
 const shots = process.env.SHOTS_DIR || join(mkdtempSync(join(tmpdir(), "storelib-buyer-chrome-")), "shots")
@@ -52,6 +73,8 @@ const expect = (ok, what, got) => {
   if (!ok) broken++
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+/* PROBE_ONLY=badge,menu runs only those parts: header, desktop, icons, badge, menu, search, page. */
+const only = (part) => !process.env.PROBE_ONLY || process.env.PROBE_ONLY.split(",").includes(part)
 const ORIGIN = "https://storelib.com"
 
 const thumb = (hue) => "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="hsl(${hue},70%,78%)"/><circle cx="48" cy="44" r="20" fill="hsl(${hue},55%,45%)"/></svg>`)
@@ -206,6 +229,10 @@ async function open(vp, address, who, { consent = false } = {}) {
   p.on("request", (r) => {
     const u = r.url()
     if (u.startsWith(ORIGIN) && r.resourceType() === "document") return r.respond({ status: 200, contentType: "text/html", body: html })
+    if (u.startsWith(ORIGIN + "/__font/")) {
+      const file = fontFiles.get(u.split("/").pop())
+      if (file && existsSync(file)) return r.respond({ status: 200, contentType: "font/woff2", headers: { "access-control-allow-origin": "*" }, body: readFileSync(file) })
+    }
     /* The logo and anything else under public/, from this checkout. */
     if (u.startsWith(ORIGIN + "/")) {
       const file = join(root, "public", decodeURIComponent(new URL(u).pathname))
@@ -217,6 +244,14 @@ async function open(vp, address, who, { consent = false } = {}) {
   if (consent) await p.setCookie({ name: "storelib_consent", value: `2.p1.a0.m0.${Math.floor(Date.now() / 1000)}`, url: ORIGIN })
   const [path, search] = address.split("?")
   await p.evaluateOnNewDocument((path, search, who) => {
+    /* The tallest the header has ever been drawn on this page, every frame from the first. */
+    window.__headerEver = 0
+    const watch = () => {
+      const h = document.getElementById("platform-header-root")?.getBoundingClientRect().height || 0
+      if (h > window.__headerEver) window.__headerEver = h
+      if (performance.now() < 4000) requestAnimationFrame(watch)
+    }
+    requestAnimationFrame(watch)
     window.__nav = { path, search: search ? "?" + search : "" }
     window.__who = who
     try {
@@ -225,7 +260,7 @@ async function open(vp, address, who, { consent = false } = {}) {
     } catch {}
   }, path, search || "", who)
   await p.goto(ORIGIN + address, { waitUntil: "load" })
-  await p.evaluate(() => document.fonts.ready)
+  await p.evaluate(() => Promise.all([document.fonts.load("400 16px Inter"), document.fonts.load("600 16px Inter")]).catch(() => {}).then(() => document.fonts.ready))
   await sleep(600)
   return { p, errors }
 }
@@ -252,7 +287,7 @@ const READ = () => {
 
 try {
   /* ── HEADER, STRIP AND FOOTER ON A PHONE ───────────────────────────────── */
-  for (const width of [360, 390, 430]) {
+  if (only("header")) for (const width of [360, 390, 430]) {
     console.log(`\nphone ${width}`)
     for (const who of ["buyer", "guest"]) {
       const { p, errors } = await open(PHONE(width), "/explore", who)
@@ -279,8 +314,9 @@ try {
       expect(errors.length === 0, `${tag} no errors`, errors)
       await p.close()
     }
-    for (const path of ["/library", "/account"]) {
+    for (const path of ["/library", "/account", "/account/settings"]) {
       const { p, errors } = await open(PHONE(width), path, "buyer")
+      const own = path.startsWith("/account")
       const s = await p.evaluate(READ)
       await p.screenshot({ path: join(shots, `${path.slice(1)}-buyer-${width}-top.png`), clip: { x: 0, y: 0, width, height: 190 } })
       await p.evaluate(() => window.scrollTo(0, 900))
@@ -290,9 +326,16 @@ try {
       await sleep(300)
       const end = await p.evaluate(READ)
       await p.screenshot({ path: join(shots, `${path.slice(1)}-buyer-${width}-end.png`) })
-      expect(s.header && s.bar, `${path}: the header and the tab bar`, { header: s.header, bar: s.bar })
+      if (own) {
+        /* The profile draws its own light bar here: no black header, from the very first frame, and the tab bar stays. */
+        const first = await p.evaluate(() => window.__headerEver)
+        expect(!s.header && s.headerH === 0 && s.bar, `${path}: no black header on a phone, the tab bar stays`, { header: s.header, headerH: s.headerH, bar: s.bar })
+        expect(first === 0, `${path}: and it never had a box, not even for a frame before hiding`, first)
+      } else {
+        expect(s.header && s.bar, `${path}: the header and the tab bar`, { header: s.header, bar: s.bar })
+        expect(!s.library && s.controls.includes("Wishlist") && s.controls.includes("Open profile menu"), `${path}: no Library icon; the heart and the photo`, s.controls)
+      }
       expect(!s.strip && !d.strip, `${path}: no "Search for anything" bar, at the top or scrolled`, [s.strip, d.strip])
-      expect(!s.library && s.controls.includes("Wishlist") && s.controls.includes("Open profile menu"), `${path}: no Library icon; the heart and the photo`, s.controls)
       expect(!end.footer, `${path}: no black footer`, end.footer)
       expect(errors.length === 0, `${path}: no errors`, errors)
       await p.close()
@@ -311,8 +354,8 @@ try {
   }
 
   /* ── A COMPUTER ────────────────────────────────────────────────────────── */
-  console.log("\ndesktop 1280")
-  for (const [path, who, footer] of [["/explore", "buyer", false], ["/explore", "guest", true], ["/library", "buyer", false], ["/account", "buyer", false], ["/", "buyer", true], ["/", "guest", true]]) {
+  if (only("desktop")) console.log("\ndesktop 1280")
+  if (only("desktop")) for (const [path, who, footer] of [["/explore", "buyer", false], ["/explore", "guest", true], ["/library", "buyer", false], ["/account", "buyer", false], ["/account/settings", "buyer", false], ["/", "buyer", true], ["/", "guest", true]]) {
     const { p, errors } = await open(DESK, path, who)
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
     await sleep(300)
@@ -327,8 +370,8 @@ try {
   }
 
   /* ── ICONS AT 1x, 2x, 3x ───────────────────────────────────────────────── */
-  console.log("\nthe tab bar's icons")
-  for (const dpr of [1, 2, 3]) {
+  if (only("icons")) console.log("\nthe tab bar's icons")
+  if (only("icons")) for (const dpr of [1, 2, 3]) {
     for (const [address, tab] of [["/explore", 0], ["/explore?q=drum", 1], ["/library", 2], ["/account", 3]]) {
       const { p } = await open(PHONE(390, dpr), address, "buyer")
       const s = await p.evaluate(() => {
@@ -347,9 +390,209 @@ try {
     }
   }
 
+  /* ── BADGE: the count centred on its disc, measured in pixels ─────────── */
+  if (only("badge")) console.log("\nthe wishlist badge")
+  if (only("badge")) {
+    /*
+      The disc is the badge's own box. The figures are found in the pixels:
+      inside the disc (2px in from its edge, clear of the ring and anything
+      behind it), whatever is lighter than the red by more than half the way
+      to white. Their box's centre against the disc's, in CSS pixels.
+    */
+    const inkOf = async (p, dpr) => {
+      const r = await p.evaluate(() => {
+        const b = [...document.querySelectorAll("[data-count-badge]")].find((e) => e.getBoundingClientRect().width > 0)
+        if (!b) return null
+        const x = b.getBoundingClientRect()
+        const t = b.firstElementChild.getBoundingClientRect()
+        return { x: x.left, y: x.top, w: x.width, h: x.height, text: b.textContent, font: getComputedStyle(b.firstElementChild).fontFamily.split(",")[0], tb: [t.top - x.top, t.height] }
+      })
+      if (process.env.PROBE_VERBOSE) console.log(JSON.stringify(r))
+      if (!r) return null
+      const pad = 3
+      const clip = { x: Math.floor(r.x) - pad, y: Math.floor(r.y) - pad, width: Math.ceil(r.w) + pad * 2 + 1, height: Math.ceil(r.h) + pad * 2 + 1 }
+      const buf = await p.screenshot({ clip, captureBeyondViewport: false })
+      const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true })
+      /* The disc in image pixels, and a test for "inside it, 2px in". */
+      const dx0 = (r.x - clip.x) * dpr, dy0 = (r.y - clip.y) * dpr, dw = r.w * dpr, dh = r.h * dpr
+      const rad = dh / 2, inset = 2 * dpr
+      const inside = (px, py) => {
+        const cx = Math.min(Math.max(px, dx0 + rad), dx0 + dw - rad)
+        const cy = dy0 + rad
+        return Math.hypot(px - cx, py - cy) <= rad - inset
+      }
+      /*
+        Each pixel's share of white: 0 on the red (its green channel), 1 on
+        white. An edge is placed inside its pixel by how much of that pixel
+        the ink covers, so a 1x image is read to a fraction of a pixel rather
+        than rounded to a whole one.
+      */
+      /* The red itself: the least green pixel inside the disc. */
+      let red = 255
+      for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) {
+        if (inside(x + 0.5, y + 0.5)) red = Math.min(red, data[(y * info.width + x) * info.channels + 1])
+      }
+      const cols = new Float64Array(info.width), rows = new Float64Array(info.height)
+      let n = 0
+      for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) {
+        if (!inside(x + 0.5, y + 0.5)) continue
+        const i = (y * info.width + x) * info.channels
+        const w = Math.max(0, Math.min(1, (data[i + 1] - red) / (255 - red)))
+        if (w < 0.1) continue
+        n++
+        cols[x] = Math.max(cols[x], w)
+        rows[y] = Math.max(rows[y], w)
+      }
+      if (!n) return { text: r.text, n }
+      const span = (a) => {
+        let lo = a.findIndex((v) => v > 0), hi = a.length - 1
+        while (hi > 0 && !(a[hi] > 0)) hi--
+        return [lo + (1 - a[lo]), hi + a[hi]]
+      }
+      const [x0, x1] = span(Array.from(cols)), [y0, y1] = span(Array.from(rows))
+      const ink = { cx: (x0 + x1) / 2 / dpr + clip.x, cy: (y0 + y1) / 2 / dpr + clip.y }
+      const disc = { cx: r.x + r.w / 2, cy: r.y + r.h / 2 }
+      return { text: r.text, w: r.w, h: r.h, dx: Math.round((ink.cx - disc.cx) * 100) / 100, dy: Math.round((ink.cy - disc.cy) * 100) / 100, n, clip }
+    }
+    for (const [vp, where] of [[(dpr) => PHONE(390, dpr), "phone"], [(dpr) => ({ ...DESK, deviceScaleFactor: dpr }), "computer"]]) {
+      for (const dpr of [1, 2, 3]) {
+        const { p, errors } = await open(vp(dpr), "/explore", "buyer")
+        const worst = { dx: 0, dy: 0 }
+        const all = []
+        for (const count of [1, 5, 9, 12, 100]) {
+          await p.evaluate((count) => window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count } })), count)
+          await sleep(120)
+          const m = await inkOf(p, dpr)
+          all.push(m)
+          if (m && m.n) {
+            worst.dx = Math.max(worst.dx, Math.abs(m.dx))
+            worst.dy = Math.max(worst.dy, Math.abs(m.dy))
+          }
+          if (m?.clip) await p.screenshot({ path: join(shots, `badge-${where}-${dpr}x-${m.text.replace("+", "plus")}.png`), clip: { ...m.clip, x: m.clip.x - 14, width: m.clip.width + 18, y: m.clip.y, height: m.clip.height + 10 }, captureBeyondViewport: false })
+        }
+        const texts = all.map((m) => m?.text).join()
+        expect(texts === "1,5,9,12,99+" && all.every((m) => m && m.n > 0 && m.h === 18), `BADGE ${where} @${dpr}x: 1, 5, 9, 12 and 99+ on an 18px disc`, all.map((m) => m && { t: m.text, w: m.w, h: m.h }))
+        expect(worst.dx <= 0.5 && worst.dy <= 0.5, `BADGE ${where} @${dpr}x: the figures are centred on the disc within 0.5px`, all.map((m) => m && `${m.text}: ${m.dx}, ${m.dy}`))
+        /*
+          AND IN ANOTHER FONT. Centring the figures rather than the line is
+          what makes this hold before Inter has loaded, or on a system face:
+          the same counts drawn in the system serif, whose line box puts the
+          figures somewhere else entirely.
+        */
+        await p.addStyleTag({ content: '[data-count-badge] *{font-family:serif !important}' })
+        const other = []
+        for (const count of [5, 12, 100]) {
+          await p.evaluate((count) => window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count } })), count)
+          await sleep(120)
+          other.push(await inkOf(p, dpr))
+        }
+        const off = Math.max(...other.map((m) => (m && m.n ? Math.max(Math.abs(m.dx), Math.abs(m.dy)) : 99)))
+        /* A serif's figures are not quite its cap height, so this one is allowed a little more. */
+        expect(off <= 0.75, `BADGE ${where} @${dpr}x: and in a serif fallback, still within 0.75px (the old badge was 0.8 to 1.9px high in Inter)`, other.map((m) => m && `${m.text}: ${m.dx}, ${m.dy}`))
+        expect(errors.length === 0, `BADGE ${where} @${dpr}x: no errors`, errors)
+        await p.close()
+      }
+    }
+  }
+
+  /* ── MENU: the header's menu sheet, frame by frame ───────────────────── */
+  if (only("menu")) console.log("\nthe header's menu sheet")
+  if (only("menu")) for (const width of [360, 390, 430]) {
+    const { p, errors } = await open(PHONE(width), "/explore", "buyer")
+    await sleep(1200)
+    const cdp = await p.createCDPSession()
+    const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, radiusX: 8, radiusY: 8, force: 1 }] })
+    const btn = await p.evaluate(() => { const b = document.querySelector('[aria-label="Open categories"]'); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+    const kept = await p.evaluate(() => [...document.querySelectorAll("[data-sheet-root]")].some((r) => r.querySelector("[data-category-browser]")))
+    if (!process.env.PROBE_UNKEPT) expect(kept, `MENU ${width}: the menu sheet is already in the page before the tap (built ahead, kept)`, kept)
+    /* Every frame: where the menu's panel is, how dark the backdrop is, and anything that held the main thread. */
+    const film = (ms) => p.evaluate((ms) => {
+      window.__film = []
+      window.__long = []
+      try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long.push(Math.round(e.duration)) }).observe({ type: "longtask" }) } catch {}
+      const t0 = performance.now()
+      const tick = () => {
+        const root = [...document.querySelectorAll("[data-sheet-root]")].find((r) => r.querySelector("[data-category-browser]"))
+        const panel = root?.querySelector("[data-sheet-panel]")
+        const scrim = root?.firstElementChild
+        const r = panel?.getBoundingClientRect()
+        window.__film.push({ t: Math.round(performance.now() - t0), top: r ? Math.round(r.top * 10) / 10 : null, h: r ? Math.round(r.height) : null, dim: scrim ? +(+getComputedStyle(scrim).opacity).toFixed(3) : null, state: root?.getAttribute("data-app-sheet") ?? null, vis: root ? getComputedStyle(root).visibility : null })
+        if (performance.now() - t0 < ms) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, ms)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+    await film(1400)
+    await sleep(60)
+    const tapAt = await p.evaluate(() => performance.now())
+    await touch("touchStart", btn.x, btn.y)
+    await sleep(30)
+    await touch("touchEnd")
+    await sleep(110)
+    await p.screenshot({ path: join(shots, `menu-${width}-opening.png`), captureBeyondViewport: false })
+    await sleep(1500)
+    const opening = await p.evaluate(() => ({ film: window.__film, long: window.__long, t0: performance.timeOrigin }))
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    await p.screenshot({ path: join(shots, `menu-${width}-open.png`) })
+    const f = opening.film
+    const rest = f[f.length - 1]
+    const startIdx = f.findIndex((x) => x.state === "open")
+    const moving = f.slice(startIdx).filter((x) => x.top != null && x.top > rest.top + 0.5 && x.top < 844)
+    const firstMove = f.slice(startIdx).find((x) => x.top != null && x.top < 844 - 0.5)
+    const firstShown = startIdx >= 0 ? f[startIdx] : null
+    const rises = f.slice(startIdx).every((x, i, a) => i === 0 || x.top == null || a[i - 1].top == null || x.top <= a[i - 1].top + 0.5)
+    const darkens = f.slice(startIdx).every((x, i, a) => i === 0 || x.dim == null || a[i - 1].dim == null || x.dim >= a[i - 1].dim - 0.002)
+    const steps = f.slice(startIdx).map((x, i, a) => (i === 0 || x.top == null || a[i - 1].top == null ? 0 : a[i - 1].top - x.top))
+    const bigStep = Math.max(...steps) / (rest.h || 1)
+    if (process.env.PROBE_VERBOSE) console.log(JSON.stringify({ f, long: opening.long }))
+    expect(rest.state === "open" && rest.top < 844 - 200 && rest.dim > 0.9, `MENU ${width}: open, resting, the backdrop dimmed`, rest)
+    expect(moving.length >= 5 && rises && darkens, `MENU ${width}: it rises over several frames, only ever up, while the backdrop only darkens`, { moving: moving.length, rises, darkens })
+    expect(bigStep < 0.2, `MENU ${width}: no frame jumps more than a fifth of its height (at 4x CPU throttle)`, { biggest: Math.round(bigStep * 100) / 100 })
+    expect(firstShown && firstMove && firstMove.t - firstShown.t <= 40, `MENU ${width}: it is moving within two frames of being shown`, { shown: firstShown?.t, moving: firstMove?.t })
+    expect(Math.max(0, ...opening.long) < 120, `MENU ${width}: the tap holds the main thread under 120ms at 4x CPU throttle`, opening.long)
+
+    /* Weights in the menu's category list: categories 600, then a category's subcategories 500. */
+    const weights = await p.evaluate(async () => {
+      const root = [...document.querySelectorAll("[data-sheet-root]")].find((r) => r.querySelector("[data-category-browser]"))
+      const groups = [...root.querySelectorAll("[data-browse-level=root] [data-browse-group]")].map((b) => getComputedStyle(b).fontWeight)
+      const opener = root.querySelector("[data-browse-level=root] [data-browse-group][aria-haspopup]")
+      opener.click()
+      await new Promise((r) => setTimeout(r, 500))
+      const items = [...root.querySelectorAll("[data-browse-level=sub] [data-browse-option]")].map((b) => getComputedStyle(b).fontWeight)
+      return { groups: [...new Set(groups)], items: [...new Set(items)] }
+    })
+    await p.screenshot({ path: join(shots, `menu-${width}-sub.png`) })
+    expect(weights.groups.join() === "600" && weights.items.join() === "500", `MENU ${width}: categories 600, subcategories 500`, weights)
+
+    /* Closing: a tap on the backdrop. */
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+    await film(1200)
+    await sleep(40)
+    await touch("touchStart", width / 2, 60)
+    await touch("touchEnd")
+    await sleep(1300)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    const closing = await p.evaluate(() => window.__film)
+    const c0 = closing.findIndex((x) => x.state === "closing")
+    const out = closing.slice(Math.max(0, c0))
+    const falls = out.every((x, i, a) => i === 0 || x.top == null || a[i - 1].top == null || x.top >= a[i - 1].top - 0.5)
+    const lightens = out.every((x, i, a) => i === 0 || x.dim == null || a[i - 1].dim == null || x.dim <= a[i - 1].dim + 0.002)
+    const outMoving = out.filter((x) => x.dim != null && x.dim > 0.02 && x.dim < 0.98)
+    const last = closing[closing.length - 1]
+    expect(c0 >= 0 && falls && lightens && outMoving.length >= 3 && last.dim === 0, `MENU ${width}: a tap outside closes it over several frames, only falling, the backdrop only lightening`, { frames: outMoving.length, falls, lightens, last })
+    /* Opened again, it starts from the first level. */
+    await touch("touchStart", btn.x, btn.y)
+    await touch("touchEnd")
+    await sleep(700)
+    const again = await p.evaluate(() => { const root = [...document.querySelectorAll("[data-sheet-root]")].find((r) => r.querySelector("[data-category-browser]")); return { sub: root.querySelector("[data-browse-level=sub]")?.getAttribute("aria-hidden") } })
+    expect(again.sub === "true", `MENU ${width}: opened again, it is back on the first level`, again)
+    expect(errors.length === 0, `MENU ${width}: no errors`, errors)
+    await p.close()
+  }
+
   /* ── SEARCH, FULL SCREEN ───────────────────────────────────────────────── */
-  console.log("\nsearch, full screen (390, signed in)")
-  {
+  if (only("search")) console.log("\nsearch, full screen (390, signed in)")
+  if (only("search")) {
     const { p, errors } = await open(PHONE(390), "/explore", "buyer", { consent: true })
     const cdp = await p.createCDPSession()
     const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, radiusX: 10, radiusY: 10, force: 1 }] })
@@ -395,13 +638,88 @@ try {
     }))
     expect(open1.covered && open1.barCovered, "no site header and no tab bar while it is open: the screen covers both", open1)
     expect(open1.overflow === "hidden" && open1.modal === "true", "the page under it holds still, and it is a declared modal", open1)
-    expect(open1.title === "Search" && open1.field.radius !== "0px" && open1.field.font === "16px", "a big Search title and a rounded 16px field (image 27)", open1)
+    expect(open1.title === "Search" && open1.field.font === "16px", "a big Search title and a 16px field (image 27)", open1)
+    const fieldLook = await p.evaluate(() => { const cs = getComputedStyle(document.querySelector("[data-search-screen-field]")); return { radius: cs.borderTopLeftRadius, shadow: cs.boxShadow } })
+    expect(fieldLook.radius === "12px" && /inset/.test(fieldLook.shadow) && (fieldLook.shadow.match(/rgba/g) || []).length >= 3, "the field is a 12px rounded rectangle, not a pill, with a little depth (a shade inside, a shadow under)", fieldLook)
     await p.screenshot({ path: join(shots, "search-open.png") })
+
+    /* ── A CATEGORY OPENS ITS SUBCATEGORIES, pushed in, frame by frame ── */
+    const browse = await p.evaluate(() => {
+      const rows = [...document.querySelectorAll('[data-search-level="root"] [data-search-section="browse"] [data-search-row="category"]')]
+      const card = document.querySelector('[data-search-level="root"] [data-search-card]')
+      return { weights: [...new Set(rows.map((r) => getComputedStyle(r.querySelector("span")).fontWeight))], opens: rows.filter((r) => r.dataset.searchOpens).length, n: rows.length, card: card ? getComputedStyle(card).boxShadow : null }
+    })
+    expect(browse.weights.join() === "600" && browse.opens >= 3 && /rgba/.test(browse.card || ""), "Browse categories: 600, on a card with a little depth, and the categories with subcategories open them", browse)
+    const opener = await p.evaluate(() => { const a = document.querySelector('[data-search-level="root"] [data-search-row="category"][data-search-opens]'); a.scrollIntoView({ block: "center" }); const r = a.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, id: a.dataset.searchOpens, label: a.textContent.trim() } })
+    await sleep(100)
+    await p.evaluate(() => { window.__router = [] })
+    const pushFilm = (ms) => p.evaluate((ms) => {
+      window.__push = []
+      const root = document.querySelector('[data-search-level="root"]'), sub = document.querySelector('[data-search-level="sub"]'), veil = document.querySelector("[data-search-veil]")
+      const t0 = performance.now()
+      const tick = () => {
+        const r = root.getBoundingClientRect(), s = sub.getBoundingClientRect()
+        window.__push.push({ t: Math.round(performance.now() - t0), root: Math.round(r.left * 10) / 10, sub: Math.round(s.left * 10) / 10, veil: +(+getComputedStyle(veil).opacity).toFixed(3), vis: getComputedStyle(sub).visibility })
+        if (performance.now() - t0 < ms) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, ms)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+    await pushFilm(900)
+    await sleep(40)
+    await touch("touchStart", opener.x, opener.y)
+    await sleep(30)
+    await touch("touchEnd")
+    await sleep(160)
+    await p.screenshot({ path: join(shots, "search-push-mid.png"), captureBeyondViewport: false })
+    await sleep(900)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    const pushIn = await p.evaluate(() => window.__push)
+    await p.screenshot({ path: join(shots, "search-sub.png") })
+    const inMoving = pushIn.filter((f) => f.sub > 0.5 && f.sub < 389.5)
+    const inMono = pushIn.every((f, i, a) => i === 0 || f.sub <= a[i - 1].sub + 0.5)
+    const sub = await p.evaluate(() => {
+      const rows = [...document.querySelectorAll('[data-search-level="sub"] [data-search-row="category"]')]
+      return { back: document.querySelector("[data-search-back]")?.textContent.trim(), first: rows[0]?.textContent.trim(), n: rows.length, weights: [...new Set(rows.map((r) => getComputedStyle(r.querySelector("span")).fontWeight))], backWeight: getComputedStyle(document.querySelector("[data-search-back]")).fontWeight, rootInert: document.querySelector('[data-search-level="root"]').inert, overlay: document.querySelector("[data-search-overlay]").dataset.searchOverlay, router: window.__router }
+    })
+    if (process.env.PROBE_VERBOSE) console.log(JSON.stringify(pushIn))
+    const endIn = pushIn[pushIn.length - 1]
+    expect(inMoving.length >= 4 && inMono && endIn.sub === 0 && Math.abs(endIn.root - -97.5) < 1 && endIn.veil > 0.05, "SUBCATEGORIES: tapped, the level slides in from the right over several frames (only ever left), the list under it moves a quarter over and dims", { moving: inMoving.length, mono: inMono, end: endIn })
+    expect(sub.back === opener.label && /^All /.test(sub.first || "") && sub.n >= 3 && sub.weights.join() === "500" && sub.backWeight === "600" && sub.rootInert, "a back row named for the category, All first, the subcategories at 500", sub)
+    expect(sub.overlay === "open" && !(sub.router || []).some(([k]) => k === "push" || k === "replace"), "and nothing navigated: it is a level of the search screen", sub.router)
+    /* Back: the same move reversed. */
+    const backAt = await p.evaluate(() => { const r = document.querySelector("[data-search-back]").getBoundingClientRect(); return { x: r.left + 40, y: r.top + r.height / 2 } })
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+    await pushFilm(900)
+    await sleep(40)
+    await touch("touchStart", backAt.x, backAt.y)
+    await sleep(30)
+    await touch("touchEnd")
+    await sleep(1000)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    const pushOut = await p.evaluate(() => window.__push)
+    const outMovingP = pushOut.filter((f) => f.sub > 0.5 && f.sub < 389.5)
+    const outMono = pushOut.every((f, i, a) => i === 0 || f.sub >= a[i - 1].sub - 0.5)
+    const endOut = pushOut[pushOut.length - 1]
+    expect(outMovingP.length >= 4 && outMono && endOut.root === 0 && endOut.veil === 0 && endOut.vis === "hidden", "back: the level slides out over several frames, the list comes back, and the level is no longer painted", { moving: outMovingP.length, mono: outMono, end: endOut })
+    /* Escape in a level goes back, not out of search. */
+    await p.evaluate((x) => document.querySelector(`[data-search-level="root"] [data-search-opens="${x}"]`).click(), opener.id)
+    await sleep(500)
+    await p.focus("[data-search-screen-field]")
+    await p.keyboard.press("Escape")
+    await sleep(500)
+    const esc1 = await p.evaluate(() => ({ overlay: document.querySelector("[data-search-overlay]").dataset.searchOverlay, sub: document.querySelector('[data-search-level="sub"]').getAttribute("aria-hidden") }))
+    expect(esc1.overlay === "open" && esc1.sub === "true", "Escape in a category goes back to the list, and search stays open", esc1)
 
     /* Typing: loading, then results. */
     await p.keyboard.type("mar", { delay: 40 })
     await sleep(120)
-    const loading = await p.evaluate(() => ({ state: document.querySelector("[data-search-state]")?.dataset.searchState, sections: [...document.querySelectorAll("[data-search-section]")].map((s) => s.dataset.searchSection) }))
+    const loading = await p.evaluate(() => ({
+      state: document.querySelector("[data-search-state]")?.dataset.searchState,
+      sections: [...document.querySelectorAll("[data-search-section]")].map((s) => s.dataset.searchSection),
+      skeleton: [...document.querySelectorAll("[data-search-loading] > div:not(:first-child)")].map((r) => Math.round(r.getBoundingClientRect().height)),
+      thumb: (() => { const t = document.querySelector("[data-search-loading] > div:not(:first-child) > div"); return t ? Math.round(t.getBoundingClientRect().width) : 0 })(),
+    }))
     await p.screenshot({ path: join(shots, "search-typing.png") })
     await sleep(600)
     const res = await p.evaluate(() => ({
@@ -417,6 +735,35 @@ try {
     expect(res.products.length >= 2 && res.products.every((x) => x.img && /\?layout=discover$/.test(x.href)) && /Maria Keys/.test(res.products.find((x) => /drum/i.test(x.text))?.text || "") && /\$19\.00/.test(res.products.find((x) => /drum/i.test(x.text))?.text || ""), "each product: picture, title, creator, price, opening in discover mode", res.products)
     expect(res.creators.includes("/mariakeys?layout=discover"), "creators link to their page", res.creators)
     expect(res.searches.filter((t) => t === "m" || t === "ma").length === 0, "debounced: the word typed at speed was one question, not one per letter", res.searches)
+
+    /* The product rows, bigger and cleaner, and the placeholder in their exact shape. */
+    const rowsLook = await p.evaluate(() => {
+      const a = document.querySelector('[data-search-row="product"]')
+      const img = a.querySelector("span")
+      const f = (sel) => { const cs = getComputedStyle(a.querySelector(sel)); return `${cs.fontSize}/${cs.fontWeight}` }
+      return { h: Math.round(a.getBoundingClientRect().height), thumb: [Math.round(img.getBoundingClientRect().width), Math.round(img.getBoundingClientRect().height)], title: f("[data-search-title]"), creator: f("[data-search-creator]"), price: f("[data-search-price]"), order: [...a.querySelectorAll("[data-search-title],[data-search-creator],[data-search-price]")].map((e) => Math.round(e.getBoundingClientRect().top)) }
+    })
+    expect(rowsLook.thumb.join() === "60,60" && rowsLook.h >= 76 && rowsLook.title === "15px/500" && rowsLook.creator === "13px/400" && rowsLook.price === "14px/600" && rowsLook.order[0] < rowsLook.order[1] && rowsLook.order[1] < rowsLook.order[2], "PRODUCTS: a 60px picture, then the title, the creator and the price, each on its own line", rowsLook)
+    expect(loading.skeleton.length === 3 && loading.skeleton.every((h) => h === rowsLook.h) && loading.thumb === 60, "the wait is three placeholder rows of exactly a result's height and picture", { skeleton: loading.skeleton, row: rowsLook.h, thumb: loading.thumb })
+    await p.screenshot({ path: join(shots, "search-results-rows.png"), clip: { x: 0, y: 150, width: 390, height: 420 }, captureBeyondViewport: false })
+
+    /* NO FLICKER: another letter, every frame until its answer is in: the last products stay, at full strength. */
+    await p.evaluate(() => {
+      window.__flick = []
+      const t0 = performance.now()
+      const tick = () => {
+        const sec = document.querySelector('[data-search-section="products"]')
+        window.__flick.push({ t: Math.round(performance.now() - t0), products: sec ? sec.querySelectorAll('[data-search-row="product"]').length : 0, opacity: sec ? +getComputedStyle(sec).opacity : null, skeleton: !!document.querySelector("[data-search-loading]") })
+        if (performance.now() - t0 < 900) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    await p.keyboard.type("i")
+    await sleep(1000)
+    const flick = await p.evaluate(() => window.__flick)
+    expect(flick.length > 20 && flick.every((f) => f.products > 0 && f.opacity === 1 && !f.skeleton), "NO FLICKER: typing on, the last products stay on screen at full strength until the next answer replaces them", { frames: flick.length, gaps: flick.filter((f) => !f.products || f.opacity !== 1 || f.skeleton).slice(0, 3) })
+    await p.keyboard.press("Backspace")
+    await sleep(700)
 
     /* Keyboard: down to the first product and Enter. */
     await p.evaluate(() => { window.__router = [] })
@@ -519,8 +866,8 @@ try {
   }
 
   /* ── /explore/search at its own address ─────────────────────────────── */
-  console.log("\n/explore/search")
-  for (const vp of [PHONE(390), DESK]) {
+  if (only("page")) console.log("\n/explore/search")
+  if (only("page")) for (const vp of [PHONE(390), DESK]) {
     const { p, errors } = await open(vp, "/explore/search", "buyer")
     const s = await p.evaluate(() => {
       const page = document.querySelector("[data-search-page]")
