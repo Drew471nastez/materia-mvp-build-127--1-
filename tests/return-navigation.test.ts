@@ -41,7 +41,6 @@ const RETURNS: Array<[string, string]> = [
   ["app/library/products/[id]/page.tsx", "Library"],
   ["app/library/my-downloads/page.tsx", "Library"],
   ["app/library/wishlist/page.tsx", "Library"],
-  ["app/library/settings/buyer-settings.tsx", "Library"],
 ]
 
 function main() {
