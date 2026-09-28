@@ -9,6 +9,7 @@ import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Searc
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { PickSheet } from "./pick-sheet"
+import { asksInPlace, useNewProductChooser } from "./new/kind-chooser"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
@@ -768,10 +769,21 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     warmEditor(router, `/app/products/${id}`)
   }
   const resting = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /* New product the same way: its page is the empty editor, read on the server. */
+  /*
+    NEW PRODUCT ASKS FIRST: a digital product, a video course or a
+    membership (./new/kind-chooser.tsx), in a sheet on a phone and a dialog
+    on a computer. Both editors it can open are fetched ahead the same way
+    a row's is, so the pick finds its page here.
+  */
+  const newProduct = useNewProductChooser()
+  const askNew = (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (!asksInPlace(e)) return
+    e.preventDefault()
+    newProduct.open()
+  }
   const warmNew = () => {
     if (!due("new")) return
-    warmEditor(router, "/app/products/new")
+    newProduct.warm()
   }
   const firstShown = useRef<string[]>([])
   firstShown.current = pageProducts.slice(0, WARM_AHEAD).map((p) => p.id)
@@ -1027,7 +1039,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             <Link
               href="/app/products/new"
               data-new-product=""
-              onClick={openFromLink("new")}
+              onClick={askNew}
               onMouseEnter={warmNew}
               onTouchStart={warmNew}
               onPointerDown={warmNew}
@@ -1235,7 +1247,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               ) : products.length === 0 ? (
                 <Link
                   href="/app/products/new"
-                  onClick={openFromLink("new")}
+                  onClick={askNew}
                   onMouseEnter={warmNew}
                   onTouchStart={warmNew}
                   className={cn(NEW_LOOK, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}
@@ -1334,6 +1346,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           </div>
         </div>
       )}
+      {newProduct.chooser}
     </div>
   )
 }

@@ -16,7 +16,8 @@ export interface AppPage {
 export const APP_PAGES: readonly AppPage[] = [
   { label: "Dashboard", href: "/app", group: "Pages", words: "home overview" },
   { label: "Products", href: "/app/products", group: "Pages", words: "digital downloads" },
-  { label: "New product", href: "/app/products/new", group: "Pages", words: "add create" },
+  { label: "New product", href: "/app/products/new", group: "Pages", words: "add create digital course membership sell" },
+  { label: "New course", href: "/app/products/new?type=course", group: "Pages", words: "video lessons create add" },
   { label: "Memberships", href: "/app/memberships", group: "Pages", words: "subscription members monthly yearly posts updates community" },
   { label: "Coupons", href: "/app/coupons", group: "Pages", words: "discount codes" },
   { label: "Reviews", href: "/app/reviews", group: "Pages", words: "ratings stars reply report buyers" },

@@ -42,6 +42,8 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 import { APP_PAGES, GO_TO, matchPages } from "@/lib/search/app-pages"
 import { GROUP_LABELS, SEARCH_GROUPS, isSearchable, normalizeQuery, type SearchResult } from "@/lib/search/app-search"
+import { useNewProductChooser } from "@/app/app/products/new/kind-chooser"
+import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
 
 const MAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 const EXTERNAL: Record<string, string> = {
@@ -233,9 +235,16 @@ export const AppSearch = memo(
       document.getElementById(optionId(active.key))?.scrollIntoView({ block: "nearest" })
     }, [active])
 
+    /* New product asks what is being sold, over the page it was searched from (app/app/products/new/kind-chooser). */
+    const newProduct = useNewProductChooser()
+    const askNew = newProduct.open
     const go = useCallback(
       (href: string) => {
         close()
+        if (href === NEW_PRODUCT_HREF) {
+          askNew()
+          return
+        }
         const external = EXTERNAL[href]
         if (external && isNativeApp()) {
           openExternal(external)
@@ -253,7 +262,7 @@ export const AppSearch = memo(
         if (href.startsWith("/app")) startNavigationLoading(href)
         router.push(href)
       },
-      [close, router],
+      [close, router, askNew],
     )
 
     /* An Enter that arrived before its answer did. */
@@ -487,6 +496,7 @@ export const AppSearch = memo(
           </kbd>
         </button>
         {mounted ? createPortal(panel, document.body) : null}
+        {newProduct.chooser}
       </>
     )
   }),

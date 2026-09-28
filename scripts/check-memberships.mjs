@@ -265,6 +265,33 @@ export const getPlatform = () => "web"
       await p.close()
     }
 
+    /* ── NEW: the draft the New product question makes, set up to sale ── */
+    {
+      const { p, errors, calls } = await open("new", vp)
+      const first = await p.evaluate(() => ({
+        tab: document.querySelector('[role="tab"][aria-selected="true"]')?.textContent?.trim(),
+        name: document.getElementById("m-title")?.value,
+        monthly: document.getElementById("m-monthly")?.value,
+      }))
+      /* The draft's placeholder name is not put in the field: the creator names it (components/memberships/creator-screen initialSettings). */
+      expect(first.tab === "Settings" && first.name === "" && first.monthly === "", "NEW: a new membership opens on Settings, the name and price to fill", first)
+      await p.type("#m-title", "Film club")
+      await p.type("#m-monthly", "9")
+      await p.type("#m-yearly", "90")
+      const actions = await p.evaluate(() => [...document.querySelectorAll(".sticky button")].map((b) => b.textContent.trim()))
+      expect(actions.includes("Save draft") && actions.includes("Put on sale"), "NEW: Save draft and Put on sale in reach", actions)
+      await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Save draft")?.click())
+      await sleep(400)
+      const put = calls.find((c) => c.url === "/api/app/memberships/new1")
+      const sent = put ? JSON.parse(put.body) : null
+      expect(!!sent && sent.title === "Film club" && sent.plan && sent.plan.monthlyPriceCents === 900 && sent.plan.yearlyPriceCents === 9000, "NEW: Save sends the name and both prices", sent && { title: sent.title, plan: sent.plan })
+      const s = await noSideScroll(p)
+      expect(s.scroll <= s.width, "NEW: nothing scrolls sideways", s)
+      expect(errors.length === 0, "NEW: no page errors", errors)
+      await shot(p, `creator-new-${label}`)
+      await p.close()
+    }
+
     /* ── CHECKOUT ─────────────────────────────────────────────────── */
     {
       const { p, errors } = await open("checkout", vp)

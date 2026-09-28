@@ -1039,6 +1039,9 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     ["desktop-1440", { width: 1440, height: 900 }, ""],
     ["desktop-1440-new", { width: 1440, height: 900 }, "?new"],
     ["wide-1920", { width: 1920, height: 1080 }, ""],
+    /* A new Video course, from the question before a new product: its Lessons card right under the title. */
+    ["phone-390-course", phone(390), "?new&course"],
+    ["desktop-1280-course", { width: 1280, height: 800 }, "?new&course"],
     ["phone-390-route", phone(390), "?route"],
     ["desktop-1280-route", { width: 1280, height: 800 }, "?route"],
   ]
@@ -1100,6 +1103,29 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     await p.goto(query.includes("route") ? `http://probe.test/app/products/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6${query}` : `file://${join(stubs, "index.html")}${query}`)
     await sleep(900)
     if (errors.length) fail(`The page threw: ${errors[0]}`)
+    if (query.includes("course")) {
+      /* THE COURSE'S ORDER: About (the title a lesson needs), then Lessons, then the pictures; the page says New course. */
+      const course = await p.evaluate(() => {
+        const main = document.querySelector("[data-editor-main]")
+        const cards = [...main.children].map((c) => c.querySelector("h2")?.textContent?.trim()).filter(Boolean)
+        const titles = [...document.querySelectorAll("h1")].map((h) => h.textContent.trim())
+        return { cards: cards.slice(0, 4), titles, placeholder: document.getElementById("title")?.getAttribute("placeholder"), empty: !!document.querySelector("[data-course-editor]") && /No lessons yet/.test(document.querySelector("[data-course-editor]").innerText), included: [...document.querySelectorAll("[data-included-row]")].map((r) => r.innerText.replace(/\s+/g, " ").replace(/ Default$/, "")), scroll: document.scrollingElement.scrollWidth }
+      })
+      expect(course.cards[0] === "About" && course.cards[1] === "Lessons" && course.cards[2] === "Photos and video", "COURSE: Lessons right under About, before the pictures", course.cards)
+      expect(course.titles.includes("New course") && course.placeholder === "Course title", "COURSE: the page says New course, the field Course title", { titles: course.titles, placeholder: course.placeholder })
+      expect(course.empty, "COURSE: the Lessons card starts empty, with Add a module")
+      expect(!course.included.some((t) => /download/i.test(t)), "COURSE: What's included says nothing about downloads", course.included)
+      expect(course.scroll <= vp.width, "COURSE: nothing scrolls sideways", course.scroll)
+      /* A lesson needs a name for its product: Add a module with none asks for the title. */
+      await p.evaluate(() => [...document.querySelectorAll("[data-course-editor] button")].find((b) => /Add a module/.test(b.textContent)).click())
+      await sleep(500)
+      const asked = await p.evaluate(() => document.body.innerText.includes("Add a title first"))
+      expect(asked, "COURSE: Add a module before a title asks for the title")
+      await p.screenshot({ path: join(shots, `${label}.png`) })
+      if (errors.length) expect(false, "nothing threw", errors)
+      await p.close()
+      continue
+    }
     if (query.includes("route")) {
       await routeTrip(p, browser, label.replace(/-route$/, ""), vp, isPhone)
       if (errors.length) expect(false, "nothing threw on the way", errors)

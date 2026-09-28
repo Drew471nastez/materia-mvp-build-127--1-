@@ -71,6 +71,7 @@ const SUITES = [
   "tests/product-delete.test.ts",
   "tests/product-visibility.test.ts",
   "tests/course-player.test.ts",
+  "tests/new-product-kinds.test.ts",
   "tests/native-scroll-guard.test.ts",
   "tests/app-mobile-nav.test.ts",
   "tests/buyer-tab-bar.test.ts",
