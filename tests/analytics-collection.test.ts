@@ -17,10 +17,20 @@ import { join } from "node:path"
 
 import { FakeSupabase, type Row } from "./fake-supabase"
 import { collect, type CollectDeps, type CollectKind, type CollectOutcome } from "../lib/analytics/collect"
+import { OWN_MARKER_COOKIE, marksOwner, ownLink, ownReturnPath, readOwnToken, signOwnHandoff, signOwnMarker } from "../lib/analytics/own-marker"
 import { clearPropertyCache } from "../lib/analytics/property"
 import { forgetSent, pageKeyOf, schedulePageView, skipReason, watchOutboundLinks } from "../lib/analytics/page-tracker"
 import { ALLOWED_EVENT_TYPES, EVENT, normalizeLinkUrl, normalizePath, splitDays, sumDailyRows } from "../lib/analytics/events"
 import { everything, serialize } from "../lib/consent/consent"
+
+/*
+  The marker is signed with ANALYTICS_OWN_SECRET, or the service role key
+  where that is unset (lib/analytics/own-marker). A test run has neither, and
+  an unsigned marker would make every check below pass for the wrong reason,
+  so the run gets a key of its own. It is read when a token is signed, not
+  when the module loads, so setting it here is in time.
+*/
+process.env.ANALYTICS_OWN_SECRET = process.env.ANALYTICS_OWN_SECRET || "storelib-tests-own-marker-key"
 
 let passed = 0
 let failed = 0
@@ -117,6 +127,8 @@ function deps(db: FakeSupabase, extra: Partial<CollectDeps> = {}): CollectDeps {
     mainDomain: "storelib.com",
     /* Signed in as the owner: an sb- auth cookie whose user is the creator's. */
     isOwnVisit: async (names, ownerUserId) => names.includes("sb-test-auth-token") && ownerUserId === ANA_USER,
+    /* The real one: the marker this host carries, signed by this server (lib/analytics/own-marker). */
+    marksOwner,
     limited: async () => false,
     ...extra,
   }
@@ -316,8 +328,7 @@ async function main() {
 
     const own = await ask(db, { body: { creatorId: ANA, href: "https://storelib.com/ana" }, cookies: { "sb-test-auth-token": "x" } })
     check("the creator on their own page records nothing", !own.recorded && own.reason === "own", own.reason)
-    const ownSite = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about" }, cookies: { "sb-test-auth-token": "x" } })
-    check("  nor on their website", ownSite.reason === "own")
+
 
     const bot = await ask(db, { body: { creatorId: ANA, href: "https://storelib.com/ana" }, ua: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" })
     const headless = await ask(db, { body: { creatorId: ANA, href: "https://storelib.com/ana" }, ua: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 HeadlessChrome/120.0 Safari/537.36" })
@@ -351,6 +362,101 @@ async function main() {
     const flood = await ask(db, { body: { creatorId: ANA, href: "https://storelib.com/ana" } }, { limited: async (s) => s.startsWith("track:") && !s.includes("203.0.113.7") })
     check("one address past the limit records nothing, counted by a hash of the address, never the address", flood.reason === "rate_limited", flood.reason)
     check("none of it wrote a row", db.rows("analytics_events").length === 0, db.rows("analytics_events").length)
+  }
+
+  console.log("\nThe creator is not a visitor on a host that carries no session")
+  {
+    const db = world()
+    /*
+      ON THEIR WEBSITE THERE IS NO SESSION TO READ. The session cookie is
+      host-only (proxy.ts says why), so a browser sends nothing of it to
+      ana.storelib.com, storelib.me or a connected domain. This test used to
+      hand the sb- cookie to the website host as though a browser would, and
+      passed while production counted the creator as one of their own
+      visitors on every property but the creator page. What the host carries
+      instead is the marker left by /api/analytics/own (lib/analytics/
+      own-marker), and that is what is checked here.
+    */
+    const unmarked = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s0", visitorId: "own-v0" } })
+    check("  a browser carries no session to the website host, so without a marker it is a visit", unmarked.recorded, unmarked.reason)
+
+    const marker = signOwnMarker(ANA, db.clock)
+    const marked = await ask(db, {
+      body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s1", visitorId: "own-v1" },
+      cookies: { [OWN_MARKER_COOKIE]: String(marker) },
+    })
+    check("  with the marker this host carries, the creator is not counted on their website", !marked.recorded && marked.reason === "own", marked.reason)
+
+    const onePageMarked = await ask(db, {
+      body: { creatorId: ANA, href: "https://storelib.me/ana", sessionId: "own-s2", visitorId: "own-v2" },
+      host: "storelib.me",
+      cookies: { [OWN_MARKER_COOKIE]: String(marker) },
+    })
+    check("  and not on their OnePage", !onePageMarked.recorded && onePageMarked.reason === "own", onePageMarked.reason)
+
+    const otherMarker = signOwnMarker(BEE, db.clock)
+    const otherMarked = await ask(db, {
+      body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s3", visitorId: "own-v3" }, ip: "203.0.113.23",
+      cookies: { [OWN_MARKER_COOKIE]: String(otherMarker) },
+    })
+    check("  another creator's marker is somebody else's, and their visit is counted", otherMarked.recorded, otherMarked.reason)
+
+    const stale = await ask(db, {
+      body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s4", visitorId: "own-v4" }, ip: "203.0.113.24",
+      cookies: { [OWN_MARKER_COOKIE]: String(signOwnMarker(ANA, db.clock - 200 * 24 * 60 * 60 * 1000)) },
+    })
+    check("  a marker past its half year is counted again", stale.recorded, stale.reason)
+
+    const forged = String(signOwnMarker(ANA, db.clock)).replace(/.$/, (c) => (c === "a" ? "b" : "a"))
+    const tampered = await ask(db, {
+      body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s5", visitorId: "own-v5" }, ip: "203.0.113.25",
+      cookies: { [OWN_MARKER_COOKIE]: forged },
+    })
+    check("  a marker this server did not sign is no marker", tampered.recorded, tampered.reason)
+
+    /* The hand-off itself: the app's link, and what the route on the site's host reads from it. */
+    const hand = signOwnHandoff(ANA, db.clock)
+    check("a hand-off token names the creator it was minted for", readOwnToken(hand, "hand", db.clock) === ANA)
+    check("  and is not a marker, nor a marker a hand-off", readOwnToken(hand, "mark", db.clock) === null && readOwnToken(marker, "hand", db.clock) === null)
+    check("  it goes stale within the hour", readOwnToken(hand, "hand", db.clock + 31 * 60_000) === null)
+    check("marksOwner answers for the creator the marker names and no other", marksOwner(marker, ANA, db.clock) && !marksOwner(marker, BEE, db.clock) && !marksOwner(null, ANA, db.clock))
+
+    const link = ownLink("https://ana.storelib.com/about?ref=x", ANA, db.clock)
+    const linkUrl = new URL(String(link))
+    check("the app's link goes to the marker route on the site's own host, carrying the page it is for",
+      linkUrl.host === "ana.storelib.com" && linkUrl.pathname === "/api/analytics/own"
+        && linkUrl.searchParams.get("to") === "/about?ref=x" && readOwnToken(linkUrl.searchParams.get("t"), "hand", db.clock) === ANA,
+      link)
+    check("  and nothing but https is linked", ownLink("http://ana.storelib.com/", ANA, db.clock) === null && ownLink("javascript:alert(1)", ANA, db.clock) === null)
+    check("the route only ever returns to a path on its own host",
+      ["/about", "/a?b=c"].every((p) => ownReturnPath(p) === p)
+        && ["//evil.example", "https://evil.example", "/\\evil.example", "evil", null, undefined].every((p) => ownReturnPath(p as string) === "/"))
+
+    /*
+      THE HAND-OFF IS WIRED, AND THE TOKEN IS NEVER WHAT A CREATOR SHARES.
+      A screen that can open the creator's own site asks for the token as it
+      mounts, and only the address it OPENS carries it: an address a Copy
+      button copies, or the screen draws, stays plain.
+    */
+    /* The route in the middle is not read here, it is run: tests/own-marker.test.ts. */
+    check("the token is minted only for the session's own creator", /\.eq\("user_id", user\.id\)/.test(read("app/api/analytics/own/token/route.ts")))
+    check("the OnePage host lets the marker route through, and only a GET", /\{ path: \/\^\\\/api\\\/analytics\\\/own\\\/\?\$\/, methods: \["GET"\] \}/.test(read("lib/onepage/host-route.ts")))
+
+    const wired: Array<[string, string]> = [
+      ["app/app/website-builder/website-builder-client.tsx", "href={ownOpen(siteUrl)}"],
+      ["app/website-builder/editor/[installId]/page.tsx", "href={ownOpen(websiteUrl)}"],
+      ["components/website-builder/publish-panel.tsx", "href={ownOpen(websiteUrl)}"],
+      ["components/store-builder/editor-topbar.tsx", "openExternal(ownOpen(getLiveStoreUrl()))"],
+      ["components/onepage/onepage-editor.tsx", "openExternal(ownOpen(pageUrl))"],
+      ["components/app/settings/addresses.tsx", "openExternal(ownOpen(url))"],
+      ["components/app/share/share-storelib.tsx", "openExternal(ownOpen(url))"],
+    ]
+    for (const [file, opens] of wired) check(`  ${file} opens the site through the marker`, read(file).includes(opens), opens)
+    check("  and every screen that opens one asks for the token as it mounts",
+      wired.filter(([f]) => !f.includes("publish-panel")).every(([f]) => /useOwnMarker\(\)/.test(read(f))))
+    check("what is copied stays the plain address",
+      /navigator\.clipboard\.writeText\(pageUrl\)/.test(read("components/onepage/onepage-editor.tsx"))
+        && /await navigator\.clipboard\.writeText\(url\)/.test(read("app/app/website-builder/website-builder-client.tsx")))
   }
 
   console.log("\nForged or foreign: dropped")

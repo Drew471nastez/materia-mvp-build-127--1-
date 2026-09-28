@@ -10,6 +10,7 @@
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key-for-sealing"
 
 import { readFileSync } from "node:fs"
+import { tamperBase64url } from "./tamper"
 import { join } from "node:path"
 import { hintOf, open, seal } from "@/lib/ai-keys/crypto"
 import { describeOwnKeyError } from "@/lib/ai-keys/errors"
@@ -49,7 +50,7 @@ async function main() {
   check("and opens back to it", open(sealed) === key)
   check("two seals of one key differ (a fresh nonce each time)", seal(key) !== sealed)
   const parts = sealed.split(".")
-  parts[3] = parts[3].slice(0, -2) + (parts[3].endsWith("A") ? "BB" : "AA")
+  parts[3] = tamperBase64url(parts[3])
   check("a changed byte opens to nothing, not to garbage", open(parts.join(".")) === null)
   const before = process.env.AI_KEYS_SECRET
   process.env.AI_KEYS_SECRET = "another-secret"

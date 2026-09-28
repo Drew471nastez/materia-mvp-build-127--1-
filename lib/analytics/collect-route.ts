@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { getMainDomain } from "@/lib/url-helpers"
 import { collect, type CollectKind, type CollectOutcome } from "./collect"
+import { marksOwner } from "./own-marker"
 import { isOwnVisit } from "./own-visit"
 
 /**
@@ -46,6 +47,7 @@ export async function collectFrom(req: NextRequest, kind: CollectKind, body: unk
       now: Date.now,
       mainDomain: getMainDomain(),
       isOwnVisit,
+      marksOwner,
       limited: async (subject) => (await rateLimit({ bucket: "track", subjects: [subject], windows: LIMITS.track })) !== null,
     },
   )

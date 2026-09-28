@@ -8,6 +8,7 @@ import { anonSession, anonVisitorId, clientIp, dailyKey } from "./anon-visit"
 import { EVENT, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
 import { resolveProperty, type ResolvedProperty } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
+import { OWN_MARKER_COOKIE } from "./own-marker"
 import { isBotAgent, parseUserAgent } from "./user-agent"
 
 /**
@@ -77,6 +78,8 @@ export interface CollectDeps {
   now: () => number
   mainDomain: string
   isOwnVisit: (cookieNames: string[], ownerUserId: string | null | undefined) => Promise<boolean>
+  /** Whether this host's marker cookie names this creator (lib/analytics/own-marker). */
+  marksOwner: (cookieValue: string | undefined, creatorId: string) => boolean
   /** True when this address has asked too often (lib/api/rate-limit, bucket "track"). */
   limited: (subject: string) => Promise<boolean>
 }
@@ -243,8 +246,15 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     if (!product) return { recorded: false, reason: "unknown_product" }
   }
 
-  /* 7. The creator on their own page is not a visitor. */
+  /*
+    7. The creator on their own page is not a visitor. On storelib.com that
+    is the session (lib/analytics/own-visit). Everywhere else the session
+    cookie is host-only and never arrives, so the site's own host carries a
+    marker instead, left by /api/analytics/own when the creator opened the
+    page from the app (lib/analytics/own-marker). Either answer is enough.
+  */
   const ownerUserId = (owner as { user_id?: string | null }).user_id ?? null
+  if (deps.marksOwner(req.cookie(OWN_MARKER_COOKIE), creatorId)) return { recorded: false, reason: "own" }
   if (await deps.isOwnVisit(req.cookieNames, ownerUserId)) return { recorded: false, reason: "own" }
 
   /* 9, first half. Consent is the visitor's own record, read here, never the page's word. */

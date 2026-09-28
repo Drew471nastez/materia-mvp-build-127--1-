@@ -25,6 +25,7 @@
  * Run with:  npm run test:push
  */
 import { isPackagedCover } from "@/lib/website-builder/cover-take"
+import { tamperBase64url } from "./tamper"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
@@ -363,7 +364,7 @@ section("The page")
         /label: "Unpublished",[\s\S]{0,140}items: \[\{ label: "Publish again", icon: <Rocket \/>, onClick: \(\) => setPublishing\(offline\) \}\]/.test(src) &&
         /: null\s*\n/.test(src.slice(src.indexOf("const publicControl"), src.indexOf("const explore"))))
     check("  View website is a real anchor to a new tab while a site is live, and a disabled button while none is",
-      /live \? \(\s*<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src) &&
+      /live \? \(\s*<a href=\{ownOpen\(siteUrl\)\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src) &&
         /<button type="button" disabled aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src))
     check("View website left the More menu, which now starts at Edit code", !/label: "View website"/.test(client) && !/SquareArrowOutUpRight/.test(client))
     check("Take offline stays in the live site's More menu, so a phone can still reach it",
@@ -435,7 +436,7 @@ section("The page")
    * checked in changed while the rule did not.
    */
   check("the live link is a real anchor that opens a new tab",
-    /<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view"/.test(client) &&
+    /<a href=\{ownOpen\(siteUrl\)\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view"/.test(client) &&
       !/window\.open\(siteUrl/.test(client))
   check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
     !/ThemeCoverPair|ThemePhoneCover/.test(client) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="block h-full w-full" \/>/.test(client) &&
@@ -813,7 +814,7 @@ section("The cover")
     check("  not once its two minutes are up", readCoverPass(good, now + 3 * 60 * 1000) === null)
     check("  not with another install's id put in its place", readCoverPass(`${B}.${exp}.${sig}`, now) === null)
     check("  not with its time pushed back", readCoverPass(`${id}.${(now + 60 * 60 * 1000).toString(36)}.${sig}`, now) === null)
-    check("  not with its signature altered", readCoverPass(`${id}.${exp}.${sig.slice(0, -2)}AA`, now) === null)
+    check("  not with its signature altered", readCoverPass(`${id}.${exp}.${tamperBase64url(sig)}`, now) === null)
     check("  and not for anything that is not a pass at all",
       readCoverPass("", now) === null && readCoverPass("../../etc", now) === null && readCoverPass("a.b.c.d", now) === null)
     if (had === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY

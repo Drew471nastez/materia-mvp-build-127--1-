@@ -21,6 +21,7 @@
  * Run with:  npm run test:push
  */
 import { register } from "node:module"
+import { tamperSignature } from "./tamper"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -371,7 +372,7 @@ function links() {
   realLog("\nThe review request unsubscribe link")
   const token = signReviewWith(KEY, ORDER)
   check("it names the order and nothing else", verifyReviewWith(KEY, token)?.orderId === ORDER && !Buffer.from(token.split(".")[0], "base64url").toString().includes("@"))
-  check("a changed character breaks it", verifyReviewWith(KEY, token.slice(0, -2) + (token.endsWith("A") ? "BB" : "AA")) === null)
+  check("a changed signature breaks it", verifyReviewWith(KEY, tamperSignature(token)) === null)
   check("another key does not verify it", verifyReviewWith("another-long-enough-secret-key", token) === null)
   check("a creator's unsubscribe link cannot pass for it, nor the other way round", verifyReviewWith(KEY, signWith(KEY, BUYER, "lifecycle")) === null && verifyWith(KEY, token) === null)
 }

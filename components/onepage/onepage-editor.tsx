@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
+import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { AnalyticsSummaryLine } from "@/components/app/analytics-summary-line"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./live-preview"
@@ -1170,8 +1171,11 @@ function EditorLayout() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  /* The creator opening their own OnePage is not one of its visitors (lib/analytics/own-site). */
+  useOwnMarker()
+
   const viewLive = () => {
-    openExternal(pageUrl)
+    openExternal(ownOpen(pageUrl))
   }
 
   const tabs = [
