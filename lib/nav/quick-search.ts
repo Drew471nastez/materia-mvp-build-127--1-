@@ -33,6 +33,7 @@ import { CATEGORY_NAV } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
 import { listPrice } from "@/lib/pricing/list-price"
 import { getProductInternalPath, getStoreInternalPath } from "@/lib/url-helpers"
+import { withPriceIntervals } from "@/lib/memberships/intervals"
 
 export type QuickProduct = {
   id: string
@@ -101,11 +102,14 @@ type Row = {
   compare_at_cents?: number | null
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
+  /** A "membership" is listed per month or year (lib/pricing/list-price). */
+  type?: string | null
+  price_interval?: "month" | "year"
   creators: { id?: string; user_id?: string | null; display_name: string | null; slug: string | null; username: string | null; avatar_url?: string | null } | null
 }
 
 const SELECT = `
-  id, title, slug, thumbnail_url, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents,
+  id, title, slug, thumbnail_url, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, type,
   creators!inner ( id, user_id, display_name, slug, username, avatar_url )
 `
 
@@ -128,6 +132,8 @@ function toProduct(r: Row): QuickProduct {
       compare_at_cents: r.compare_at_cents ?? null,
       pay_what_you_want: !!r.pay_what_you_want,
       pwyw_min_price_cents: r.pwyw_min_price_cents ?? null,
+      type: r.type ?? null,
+      price_interval: r.price_interval ?? null,
     }).main,
   }
 }
@@ -164,14 +170,15 @@ export async function quickSearch(client: Client, query: string): Promise<QuickR
 
   /* Titles first, then the creator's products that are not already in. */
   const seen = new Set<string>()
-  const products = [...textRows, ...creatorRows]
+  const found = [...textRows, ...creatorRows]
     .filter((r) => {
       if (!r?.creators || seen.has(r.id)) return false
       seen.add(r.id)
       return true
     })
     .slice(0, PRODUCT_LIMIT)
-    .map(toProduct)
+  /* A yearly only membership says "/year"; asked only when a membership was found (lib/memberships/intervals). */
+  const products = (await withPriceIntervals(client, found)).map(toProduct)
 
   /* The creators whose NAME said the word, once each, in the order found. */
   const byId = new Map<string, QuickCreator>()

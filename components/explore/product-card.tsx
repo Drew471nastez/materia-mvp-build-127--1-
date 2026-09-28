@@ -52,6 +52,8 @@ interface ProductCardProps {
     pwyw_min_price_cents?: number | null
     thumbnail_url?: string | null
     type: string
+    /* A membership's billing interval, when its plan was read: "$9/month" or "$90/year" (lib/pricing/list-price). */
+    price_interval?: "month" | "year" | null
     category?: string | null // Direct category field from product
     categoryName?: string | null // Pre-computed category name for display
     reviews_count?: number | null

@@ -217,9 +217,16 @@ check(
   (() => {
     // `loading` started true unconditionally, so the grey pills were painted on
     // every load for everybody and replaced once getUser() returned.
+    /* Changed on purpose: seeding useState from the snapshot made the server
+       and a returning visitor's browser draw different headers in the same
+       hydration pass (a React hydration warning and a redraw). The snapshot
+       is now applied in a layout effect, after hydration and before paint,
+       so the first paint is still the right header and the two renders agree. */
     const src = code("components/platform/platform-header-client.tsx")
     return (
-      /useState\(\(\) => readAuthSnapshot\(\) === null\)/.test(src) &&
+      /useLayoutEffect\(\(\) => \{\s*const seed = readAuthSnapshot\(\)/.test(src) &&
+      /setLoading\(false\)\s*\}, \[\]\)/.test(src) &&
+      !/useState[^(]*\(\(\) => [^)]*readAuthSnapshot/.test(src) &&
       /writeAuthSnapshot\(/.test(src) &&
       /clearAuthSnapshot\(\)/.test(src)
     )

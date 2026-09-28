@@ -31,8 +31,8 @@ import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, L
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { downloadEntitledFile } from "@/components/download-button"
-import { anchorCanSave, clickDownloadLink, openDownloadTab, showBlockedDownload } from "@/lib/platform/download-tab"
-import { openInSystemBrowser } from "@/lib/platform/save-file"
+import { downloadFile } from "@/lib/downloads/download-file"
+import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
@@ -1576,10 +1576,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
    * The shared button's helper, not a request and a window.open of our own.
    * That window was asked for AFTER the await, which is what a pop-up
    * blocker eats, and the iOS build has no Browser plugin to call. The
-   * helper opens the tab inside the press, points it at the file when the
-   * address arrives, keeps the visitor on this page either way, and hands
-   * the file over in a notice if the tab is refused
-   * (components/download-button, lib/platform/download-tab).
+   * helper asks for the address and saves the file where the button is,
+   * keeping the visitor on this page (components/download-button,
+   * lib/downloads/download-file).
    */
   const handleQuickCheckoutDownload = useCallback(async (asset: DigitalAsset) => {
     if (!quickCheckoutReceiptToken) return
@@ -4959,11 +4958,13 @@ function PublicBlockRenderer({
       /*
        * The lead magnet, once the address has been given. The file sits on
        * storage, another origin, where an anchor's `download` is ignored:
-       * this used to be a plain anchor click, so a file the browser could
-       * draw replaced the creator's page with itself and the visitor was
-       * gone. It goes to a tab of its own now (lib/platform/download-tab),
-       * and the page stays. `download=` is still asked for, so storage
-       * sends it as an attachment and most of the time no tab is left over.
+       * this was a plain anchor click once, so a file the browser could draw
+       * replaced the creator's page with itself and the visitor was gone.
+       * Then it went to a tab of its own, which the owner saw as about:blank
+       * and did not want. It takes the one download path now
+       * (lib/downloads/download-file): saved where the button is in a
+       * browser, and the app's own downloader in the iOS and Android apps.
+       * `download=` is still asked for, so storage sends an attachment.
        */
       const handleDownloadClick = () => {
         if (!downloadLink) return
@@ -4973,21 +4974,7 @@ function PublicBlockRenderer({
           const separator = downloadUrl.includes('?') ? '&' : '?'
           downloadUrl = `${downloadUrl}${separator}download=${encodeURIComponent(name)}`
         }
-
-        // In Capacitor: the system browser sheet, and no tab of our own.
-        if (isNativeApp()) {
-          void openInSystemBrowser(downloadUrl)
-          return
-        }
-
-        if (anchorCanSave(downloadUrl)) {
-          clickDownloadLink(downloadUrl, name)
-          return
-        }
-        const tab = openDownloadTab()
-        if (tab?.point(downloadUrl)) return
-        tab?.close()
-        showBlockedDownload(downloadUrl, name)
+        void downloadFile({ url: downloadUrl, fileName: name })
       }
 
       // Pro layout with thumbnail
@@ -5309,8 +5296,9 @@ function PublicBlockRenderer({
       const quickCheckoutContext = useContext(QuickCheckoutModalContext)
 
       const productUrl = data.product_slug ? `/p/${data.product_slug}` : '#'
+      /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price). */
       const priceDisplay = data.product_price_cents && data.product_price_cents > 0
-        ? `$${(data.product_price_cents / 100).toFixed(2)}`
+        ? perInterval(`$${(data.product_price_cents / 100).toFixed(2)}`, intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
         : 'Free'
       const isFreeProduct = !data.product_price_cents || data.product_price_cents === 0
       const useQuickCheckout = isFreeProduct && data.quick_checkout === true

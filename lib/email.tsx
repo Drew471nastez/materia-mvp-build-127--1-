@@ -470,7 +470,8 @@ async function receiptEmailModel(
       items: v.items.map((i) => ({
         title: i.title,
         variantName: i.variantName,
-        amountText: money(i.subtotalCents),
+        /* A membership's line is one period of it, "$9.00/month", as the receipt page writes it. */
+        amountText: i.priceInterval && i.subtotalCents > 0 ? `${money(i.subtotalCents)}/${i.priceInterval}` : money(i.subtotalCents),
         note: notes[i.state] ?? null,
         thumbnailUrl: i.thumbnailUrl,
       })),

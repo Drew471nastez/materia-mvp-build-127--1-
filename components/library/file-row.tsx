@@ -7,6 +7,7 @@ import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import { fileKindOf, formatFileSize, splitFileName } from "@/lib/receipts/rules"
 import type { LibraryFile } from "@/lib/library/library-view"
 import { PRIMARY, SECONDARY, SMALL } from "./library-ui"
+import { cn } from "@/lib/utils"
 
 /**
  * One file in the library: its type, its name cut in the middle so the end
@@ -74,7 +75,7 @@ export function LibraryFileRow({
           aria-busy={busy || undefined}
           aria-label={`Download ${file.name}`}
           data-file-download=""
-          className={`${tone === "primary" ? PRIMARY : SECONDARY} ${SMALL} min-w-[48px] px-2.5 tabular-nums sm:min-w-[112px] sm:px-3`}
+          className={cn(tone === "primary" ? PRIMARY : SECONDARY, SMALL, "min-w-[48px] px-2.5 tabular-nums sm:min-w-[112px] sm:px-3")}
         >
           {busy ? (
             <>

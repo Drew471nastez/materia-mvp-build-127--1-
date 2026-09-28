@@ -96,7 +96,7 @@ export function LibraryReceipts({ receipts }: { receipts: LibraryReceipt[] }) {
                 {status ? <p className={`text-[12.5px] font-medium ${status.tone}`}>{status.text}</p> : null}
               </div>
               <p className="text-right text-[14.5px] font-semibold tabular-nums text-[#1a1a2e]">
-                {r.totalCents === 0 ? "Free" : formatMoney(r.totalCents, r.currency, "en-US")}
+                {r.totalCents === 0 ? "Free" : `${formatMoney(r.totalCents, r.currency, "en-US")}${r.priceInterval ? `/${r.priceInterval}` : ""}`}
                 {r.refundedCents > 0 && r.refundedCents < r.totalCents ? (
                   <span className="block text-[12px] font-normal text-[#b42318]">−{formatMoney(r.refundedCents, r.currency, "en-US")}</span>
                 ) : null}

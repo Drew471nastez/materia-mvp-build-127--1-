@@ -626,15 +626,17 @@ function SignUpFormContent() {
           </form>
 
           <p className="mt-4 text-[12px] text-neutral-500 leading-relaxed">
-            {t("auth.by_clicking")} <strong>{t("auth.create_account")}</strong>{t("auth.you_agree_storelib")}{" "}
-            <Link href="/legal/privacy" className="underline underline-offset-2 hover:text-neutral-700">
+            {/* Named after the button above it, which says Continue; and to the policy pages the footer links, not the old /legal stubs. */}
+            {t("auth.by_clicking")} <strong>{t("auth.continue")}</strong>{t("auth.you_agree_storelib")}{" "}
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-neutral-700">
               {t("auth.privacy_notice")}
             </Link>
             ,{" "}
-            <Link href="/legal/terms" className="underline underline-offset-2 hover:text-neutral-700">
+            <Link href="/terms" className="underline underline-offset-2 hover:text-neutral-700">
               {t("auth.terms_short")}
-            </Link>{" "}
-            {t("auth.and_receive_updates")}
+            </Link>
+            {/* Offers are the box above, which starts unticked: the sentence only says so once it is ticked. */}
+            {agreeToTerms ? <> {t("auth.and_receive_updates")}</> : "."}
           </p>
 
           <div className="my-6 flex items-center gap-4">

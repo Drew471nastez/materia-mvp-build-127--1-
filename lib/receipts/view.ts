@@ -33,6 +33,8 @@ export interface ReceiptItem {
   files: ReceiptFile[]
   /** Where a course is taken, when the product is one. Needs an account. */
   courseHref: string | null
+  /** A membership's line is one period of it: "$9.00/month". Null for anything bought once. */
+  priceInterval?: "month" | "year" | null
   /**
    * The line's price before a discount code, when the payment recorded one
    * and it adds up (lib/receipts/discount.ts). Absent otherwise, and the

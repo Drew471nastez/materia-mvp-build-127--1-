@@ -118,7 +118,7 @@ export function CategoryHero({
       <Link
         href="/explore"
         data-category-back=""
-        className="-ml-1.5 inline-flex h-8 items-center gap-1 rounded-lg pl-1 pr-2.5 text-[14px] font-medium text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+        className="-my-0.5 -ml-1.5 inline-flex h-9 items-center gap-1 rounded-lg pl-1 pr-2.5 text-[14px] font-medium text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
       >
         <Chevron dir="left" />
         Explore

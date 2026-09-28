@@ -67,6 +67,7 @@ import { SmartLink } from "@/components/smart-link"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
+import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 
 // Shared product type for consistency
 export interface ProductData {
@@ -86,6 +87,8 @@ export interface ProductData {
   video_url?: string
   faqs?: Array<{ question: string; answer: string }>
   type?: string
+  /** A membership's billing interval: its price reads "$9/month" or "$90/year" (lib/pricing/list-price). */
+  price_interval?: "month" | "year" | null
   show_sales_badge?: boolean
   categories?: Array<{ id: string; name: string; slug: string; type: string | null }>
   // Denormalised on the product row; the card shows a rating without a query.
@@ -3467,6 +3470,10 @@ export function UnifiedProductPage({
     }).format(cents / 100)
   }
 
+  /* A membership's price is per month or year, in every layout: "$9/month", never a bare "$9". */
+  const pricePer = intervalOf(product ?? {})
+  const priced = (cents: number) => perInterval(formatPrice(cents), pricePer)
+
   const productTitle = product?.title || "Product Title"
   const productPrice = product?.price_cents ?? 0
   const compareAtPrice = product?.compare_at_cents
@@ -3788,7 +3795,7 @@ export function UnifiedProductPage({
                           className={cn("min-w-0 shrink-0 text-xl font-bold", !priceContainerText && "text-foreground")}
                           style={{ color: priceContainerText }}
                         >
-                          {productPrice === 0 ? "Free" : formatPrice(productPrice)}
+                          {productPrice === 0 ? "Free" : priced(productPrice)}
                         </div>
                         {compareAtPrice && compareAtPrice > productPrice && (
                           <div className="flex min-w-0 items-center gap-2">
@@ -3813,7 +3820,7 @@ export function UnifiedProductPage({
                           className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
                           style={{ color: priceContainerText }}
                         >
-                          {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
+                          {currentDisplayPrice === 0 ? "Free" : priced(currentDisplayPrice)}
                         </div>
                         {compareAtPrice && compareAtPrice > currentDisplayPrice && (
                           <div className="flex items-center gap-2">
@@ -4097,7 +4104,7 @@ export function UnifiedProductPage({
                         className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
                         style={{ color: priceContainerText }}
                       >
-                        {productPrice === 0 ? "Free" : formatPrice(productPrice)}
+                        {productPrice === 0 ? "Free" : priced(productPrice)}
                       </div>
                       {compareAtPrice && compareAtPrice > productPrice && (
                         <div className="flex items-center gap-2">
@@ -4122,7 +4129,7 @@ export function UnifiedProductPage({
                         className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
                         style={{ color: priceContainerText }}
                       >
-                        {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
+                        {currentDisplayPrice === 0 ? "Free" : priced(currentDisplayPrice)}
                       </div>
                       {compareAtPrice && compareAtPrice > currentDisplayPrice && (
                         <div className="flex items-center gap-2">
@@ -4383,7 +4390,7 @@ export function UnifiedProductPage({
                       className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
                       style={{ color: priceContainerText }}
                     >
-                      {productPrice === 0 ? "Free" : formatPrice(productPrice)}
+                      {productPrice === 0 ? "Free" : priced(productPrice)}
                     </div>
                     {compareAtPrice && compareAtPrice > productPrice && (
                       <div className="flex items-center gap-2">
@@ -4406,7 +4413,7 @@ export function UnifiedProductPage({
                       className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
                       style={{ color: priceContainerText }}
                     >
-                      {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
+                      {currentDisplayPrice === 0 ? "Free" : priced(currentDisplayPrice)}
                     </div>
                     {compareAtPrice && compareAtPrice > currentDisplayPrice && (
                       <div className="flex items-center gap-2">
@@ -4679,7 +4686,7 @@ export function UnifiedProductsGrid({
                 {settings.showPrice && (
                   <div className={cn("mt-2 flex items-center gap-2", isMobile ? "text-sm" : "text-base")}>
                     <span className="font-semibold text-foreground">
-                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                      {product.price_cents === 0 ? "Free" : perInterval(formatPrice(product.price_cents), intervalOf(product))}
                     </span>
                     {settings.showCompareAtPrice &&
                       product.compare_at_cents &&
@@ -4875,6 +4882,7 @@ function UnifiedMoreFromSellerSection({
                 price_cents: product.price_cents,
                 compare_at_cents: product.compare_at_cents,
                 type: product.type,
+                price_interval: product.price_interval ?? null,
                 categories: product.categories,
                 reviews_count: product.reviews_count,
                 reviews_average: product.reviews_average,
