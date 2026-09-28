@@ -60,7 +60,8 @@ async function membershipPrices() {
     ["app/receipt/[token]/receipt-view.tsx", /item\.priceInterval/],
     ["components/library/library-receipts.tsx", /r\.priceInterval/],
     ["lib/email.tsx", /i\.priceInterval/],
-    ["components/wishlist/wishlist-content.tsx", /perInterval\(/],
+    /* The wishlist's price is listPrice's, handed the type and the plan's interval (components/wishlist/wishlist-entry.ts). */
+    ["components/wishlist/wishlist-entry.ts", /price_interval: e\.interval/],
   ]
   for (const [file, pattern] of wired) check(`${file} writes the interval`, pattern.test(code(file)))
 }
@@ -88,7 +89,7 @@ console.log("\nOne heading on every library tab (scripts/check-course-player.mjs
   check("and its skeleton draws no heading block either", !/h-7 w-32/.test(code("app/library/courses/loading.tsx")))
   const wishlist = code("components/wishlist/wishlist-content.tsx")
   check("the library's wishlist has no heading of its own either", !/<h1\b/.test(wishlist) && !/Nothing saved yet<\/h2>/.test(wishlist))
-  check("and waits in the grid's own shape, not a spinner or a header card", /if \(isLibrary\) return <WishlistSkeleton \/>/.test(wishlist) && !/Header card skeleton/.test(read("app/library/wishlist/loading.tsx")))
+  check("and waits in its own shape, not a spinner or a header card", /<WishlistSkeleton \/>/.test(wishlist) && !/animate-spin/.test(wishlist) && !/Header card skeleton/.test(read("app/library/wishlist/loading.tsx")))
 }
 
 console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it)")

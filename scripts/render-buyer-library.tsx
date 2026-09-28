@@ -129,6 +129,7 @@ export const WISHLIST: WishlistEntry[] = [
   loading.tsx first and the screen 500ms later, as Next does.
 */
 function screenFor(path: string): React.ReactNode {
+  if (path.startsWith("/library/products/")) return <LibraryProduct data={productData(path.split("/").pop())} />
   switch (path) {
     case "/library/reviews":
       return <LibraryReviews items={data.items} />
@@ -136,8 +137,6 @@ function screenFor(path: string): React.ReactNode {
       return <LibraryReceipts receipts={data.receipts} />
     case "/library/wishlist":
       return <WishlistContent isLibrary initialItems={WISHLIST} />
-    case "/library/products/p1":
-      return <LibraryProduct data={productData()} />
     case "/library/courses":
     case "/library/memberships":
       return (
@@ -159,8 +158,8 @@ function routeSkeleton(path: string): React.ReactNode {
   )
 }
 
-function productData() {
-  const item = data.items[0]
+function productData(id?: string) {
+  const item = data.items.find((i) => i.productId === id) ?? data.items[0]
   return {
     productId: item.productId,
     title: item.title,
@@ -174,7 +173,7 @@ function productData() {
     receiptNumber: "8A1F4C2E",
     invoice: true,
     isOwn: false,
-    creator: data.creators.find((c) => c.id === "c1")!,
+    creator: data.creators.find((c) => c.id === item.creator.id) ?? data.creators[0],
     reviewer: { name: "Sam Rivera", avatarUrl: null },
   }
 }
@@ -209,7 +208,7 @@ function NavApp() {
   const PathContext = (window as unknown as { __PathContext: React.Context<string | null> }).__PathContext
   return (
     <PathContext.Provider value={state.path}>
-      <Shell tabs>{state.loading ? routeSkeleton(state.path) : <div key={state.path}>{screenFor(state.path)}</div>}</Shell>
+      <Shell tabs>{state.loading ? routeSkeleton(state.path) : <div key={state.path} data-probe-path={state.path}>{screenFor(state.path)}</div>}</Shell>
     </PathContext.Provider>
   )
 }

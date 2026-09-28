@@ -35,7 +35,7 @@ import { actionOf, entryOf, priceOf, type WishlistEntry } from "./wishlist-entry
  *
  *   THE HEART is filled because it is saved, top right on every one, 44px
  *   to press. A press takes the product off at once (the rest close the
- *   gap on transform), and a bar at the foot says so with Undo for a few
+ *   gap on the compositor), and a bar at the foot says so with Undo for a few
  *   seconds, which puts it back where it was and saves it again.
  *
  *   THE BUTTON is what can happen next: Buy (or Get it free) straight to
@@ -140,7 +140,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
     before.current = { rects, height: list.getBoundingClientRect().height }
   }
 
-  /* The rest glide to where they are now, on transform; the card's height follows; an item put back fades in. */
+  /* The rest glide to where they are now, on translate; the card's height follows; an item put back fades in. */
   useLayoutEffect(() => {
     const list = listRef.current
     const shot = before.current
@@ -150,7 +150,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
       const id = el.dataset.wishlistItem as string
       const was = shot.rects.get(id)
       if (id === arrived.current) {
-        el.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: MOVE_MS, easing: EASE, delay: 60, fill: "backwards" })
+        el.animate([{ opacity: 0, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], { duration: MOVE_MS, easing: EASE, delay: 60, fill: "backwards" })
         return
       }
       if (!was) return
@@ -158,7 +158,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
       const dx = was.left - now.left
       const dy = was.top - now.top
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return
-      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: MOVE_MS, easing: EASE })
+      el.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0 0" }], { duration: MOVE_MS, easing: EASE })
     })
     arrived.current = null
     const height = list.getBoundingClientRect().height
@@ -176,7 +176,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
     }
     if (el && !reducedMotion() && typeof el.animate === "function") {
       el.style.pointerEvents = "none"
-      const a = el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.97)" }], { duration: OUT_MS, easing: "ease-in", fill: "forwards" })
+      const a = el.animate([{ opacity: 1, scale: "1" }, { opacity: 0, scale: "0.97" }], { duration: OUT_MS, easing: "ease-in", fill: "forwards" })
       a.onfinish = drop
     } else drop()
 
@@ -246,7 +246,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
           <span aria-hidden className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#fff1f3]">
             <Heart className="h-5 w-5 text-[#f43f5e]" strokeWidth={2} />
           </span>
-          <h2 className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">Nothing saved yet</h2>
+          <p className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">Nothing saved yet</p>
           <p className="mx-auto mt-1.5 max-w-[320px] text-[14px] leading-relaxed text-[#6b7280]">Tap the heart on any product and it waits here, with its price, until you want it.</p>
           <Link href="/explore" className={`${VIOLET} mt-5`}>
             Discover products

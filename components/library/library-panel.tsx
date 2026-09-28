@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
+import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
 import { cleanPath, isLibraryProduct, showsLibraryTabs } from "./library-tab-list"
 import { TabsHeaderStill, skeletonFor } from "./library-skeletons"
@@ -60,7 +60,7 @@ import { TabsHeaderStill, skeletonFor } from "./library-skeletons"
  * above, which then scrolls the whole page up. Kept laid out at the top of
  * the panel, it is where the pills are, so nothing scrolls.
  *
- * Opacity on the copies, 8px of transform on a product's shape while it is
+ * Opacity on the copies, 8px of `translate` on a product's shape while it is
  * only a shape. Nothing fixed lives inside what
  * moves (the download tray and the sheets are portals on <body>). Under
  * reduced motion nothing fades: the shape is shown at once and swapped.
@@ -72,14 +72,21 @@ export const IN_MS = 240
 /** The shape dissolving into the real screen, once the old screen's copy has mostly gone. */
 export const SETTLE_MS = 160
 export const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)"
-export const EASE_IN_OUT = "cubic-bezier(0.45, 0, 0.55, 1)"
+/** The old screen's fade: under way from the press's first frame, easing into the end. */
+export const EASE_IN_OUT = "cubic-bezier(0.25, 0.1, 0.25, 1)"
 /** A press whose screen never came: the stage lets go and shows what is there. */
 const GIVE_UP_MS = 10_000
 /** The site header is sticky: a screen's top counts as seen below it. */
 const HEADER_ROOM = 64
 
 type Kind = "tab" | "open" | "back"
-type Pending = { href: string; kind: Kind; id: number }
+/**
+ * `under`: the shape sits under the live screen, which fades out itself
+ * (a tab pressed from where its pills are, the common case). Otherwise the
+ * old screen is a copy laid over the shape (a product, a way back, a second
+ * press while one is still on its way).
+ */
+type Pending = { href: string; kind: Kind; id: number; under: boolean }
 
 const FULL = "full" as PrefetchKind
 
@@ -93,6 +100,24 @@ export function moveOf(from: string, to: string): Kind | null {
   if (showsLibraryTabs(from) && isLibraryProduct(to)) return "open"
   if (isLibraryProduct(from) && showsLibraryTabs(to)) return "back"
   return null
+}
+
+/**
+ * From the first frame that shows it, not from whenever the compositor
+ * reports it ready. A new animation's clock only starts once it is "ready",
+ * and measured in Chromium that left the old screen at full strength for two
+ * or three frames after the press. Its start is set as the next frame is
+ * made instead: that frame draws it at the start, the one after part way.
+ * Not at the press itself: when the press's frame is a long one (a phone at
+ * a quarter speed), a fade begun then would be mostly over before anything
+ * was drawn.
+ */
+function startNow(a: Animation): Animation {
+  requestAnimationFrame(() => {
+    /* The clock as the frame is being made, not the frame's own timestamp: after a long task Chromium hands the callback the start of the frame it missed. */
+    if (a.playState !== "idle" && a.playState !== "finished" && a.startTime === null) a.startTime = performance.now()
+  })
+  return a
 }
 
 function reducedMotion() {
@@ -156,7 +181,7 @@ type Leave = { anim: Animation; start: number; duration: number }
  * does not move it. `under` puts it beneath the copies already fading, so a
  * shape that gives way to its screen never covers the screen before it.
  */
-function leaveCopy(el: HTMLElement, duration: number, under = false): Leave | null {
+function leaveCopy(el: HTMLElement, duration: number, under = false, from = 1): Leave | null {
   const r = el.getBoundingClientRect()
   if (r.height < 1 || r.bottom < 0 || r.top > window.innerHeight) return null
   const copy = el.cloneNode(true) as HTMLElement
@@ -171,17 +196,41 @@ function leaveCopy(el: HTMLElement, duration: number, under = false): Leave | nu
   layer.setAttribute("aria-hidden", "true")
   layer.inert = true
   layer.style.cssText = "position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:1;contain:strict"
-  copy.style.cssText += `;position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;opacity:1;transform:none;min-height:0;visibility:visible;display:block`
+  copy.style.cssText += `;position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;opacity:1;translate:none;scale:none;min-height:0;visibility:visible;display:block`
   layer.append(copy)
   const first = under ? document.body.querySelector(":scope > [data-library-leaving]") : null
   if (first) document.body.insertBefore(layer, first)
   else document.body.append(layer)
-  const anim = layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration, easing: EASE_IN_OUT, fill: "forwards" })
+  const anim = startNow(layer.animate([{ opacity: from }, { opacity: 0 }], { duration, easing: from < 1 ? EASE_OUT : EASE_IN_OUT, fill: "both" }))
   const done = () => layer.remove()
   anim.onfinish = done
   anim.oncancel = done
   window.setTimeout(done, duration + 400)
   return { anim, start: performance.now(), duration }
+}
+
+/**
+ * Told about a new address in the commit that brings it, BEFORE React
+ * replaces a single element of the old screen: getSnapshotBeforeUpdate runs
+ * for the whole tree ahead of any change. It is the one moment the old
+ * screen can still be copied after the press has let it fade on its own.
+ */
+class BeforeCommit extends Component<{ path: string; onBefore: (to: string) => void }> {
+  getSnapshotBeforeUpdate(prev: { path: string }) {
+    if (prev.path !== this.props.path) this.props.onBefore(this.props.path)
+    return null
+  }
+  componentDidUpdate() {}
+  render() {
+    return null
+  }
+}
+
+/** How far a fade has got, from its own clock: no style is read, so nothing is laid out for it. */
+function remaining(a: Animation | null): number {
+  if (!a || a.playState === "finished" || a.playState === "idle") return 0
+  const p = a.effect?.getComputedTiming().progress
+  return typeof p === "number" ? Math.max(0, 1 - p) : 0
 }
 
 export function LibraryPanel({ head, children }: { head?: ReactNode; children: ReactNode }) {
@@ -201,17 +250,30 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
   const traversal = useRef(false)
   /* The press's copy of the old screen, still fading. */
   const lastLeave = useRef<Leave | null>(null)
+  /* The live screen fading out by itself, before its route has answered. */
+  const liveFade = useRef<Animation | null>(null)
 
-  /* After the move, the held height goes, unless the page would then be shorter than where it is scrolled. */
-  const letGo = useCallback(() => {
+  /**
+   * The least height the panel can have without the page becoming shorter
+   * than where it is scrolled (which the browser answers by scrolling it up,
+   * moving the pills under the finger).
+   */
+  const scrollNeed = useCallback(() => {
     const panel = panelRef.current
-    const live = liveRef.current
-    if (!panel || !live || pendingRef.current) return
+    if (!panel) return 0
     const top = panel.getBoundingClientRect().top + window.scrollY
     const below = document.documentElement.scrollHeight - (top + panel.offsetHeight)
-    const need = window.scrollY + window.innerHeight - below - top
-    panel.style.minHeight = live.offsetHeight >= need ? "" : `${Math.ceil(need)}px`
+    return Math.ceil(window.scrollY + window.innerHeight - below - top)
   }, [])
+
+  /* After the move, the held height goes, unless the page would then be shorter than where it is scrolled. */
+  const letGo = useCallback((arriving = false) => {
+    const panel = panelRef.current
+    const live = liveRef.current
+    if (!panel || !live || (pendingRef.current && !arriving)) return
+    const need = scrollNeed()
+    panel.style.minHeight = live.offsetHeight >= need ? "" : `${need}px`
+  }, [scrollNeed])
 
   /**
    * The screen has come: it takes the shape's place. It is shown whole,
@@ -229,16 +291,23 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     giveUp.current = null
     const incoming = incomingRef.current
     const lead = lastLeave.current
-    const covered = lead ? 1 - Math.min(1, (performance.now() - lead.start) / lead.duration) : 0
+    const covered = Math.max(remaining(liveFade.current), lead ? 1 - Math.min(1, (performance.now() - lead.start) / lead.duration) : 0)
     if (incoming && !reducedMotion() && covered < 0.75) leaveCopy(incoming, SETTLE_MS, true)
     if (incoming) incoming.style.display = "none"
+    liveFade.current?.cancel()
+    liveFade.current = null
+    const live = liveRef.current
+    if (live) live.style.opacity = ""
+    if (panelRef.current) panelRef.current.style.isolation = ""
     show(nowRef.current)
-    show(liveRef.current)
+    show(live)
     if (p.kind === "back") jump(scrolls.get(p.href) ?? 0)
     else if (p.kind === "open") jump(0)
     setPending(null)
+    /* The held height goes with the shape, in the frame the screen comes in: the page's length changes once, under the fade. */
     if (release.current) window.clearTimeout(release.current)
-    release.current = window.setTimeout(letGo, OUT_MS + 80)
+    release.current = null
+    letGo(true)
   }, [letGo])
 
   /** A press on a link to another library screen: the move starts now, whatever the server does. */
@@ -251,21 +320,33 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
       /* Every read first, while the page is laid out and nothing has changed yet. */
       const visible = was ? incomingRef.current : kind === "tab" ? liveRef.current : now
       const nowTop = now ? now.getBoundingClientRect().top : 0
-      const panelTop = panel ? panel.getBoundingClientRect().top : 0
+      const panelBox = panel?.getBoundingClientRect()
+      const panelTop = panelBox ? panelBox.top : 0
+      const panelHeight = panelBox ? Math.ceil(panelBox.height) : 0
       if (!was) scrolls.set(pathRef.current, window.scrollY)
-      if (visible && !reduce) lastLeave.current = leaveCopy(visible, OUT_MS)
+      const live = liveRef.current
+      /*
+        THE COMMON PRESS COPIES NOTHING. A pill pressed where its row can be
+        seen: the live screen fades out by itself, on the compositor, over
+        the new shape laid under it, and is only copied if its route answers
+        before the fade is over (BeforeCommit). Copying a screen at the press
+        cost a phone at a quarter speed about 80ms before the first frame.
+      */
+      const under = kind === "tab" && !was && !reduce && !!live && typeof live.animate === "function" && !(nowTop < 0 && panelTop < HEADER_ROOM)
+      if (under && live) {
+        if (panel) panel.style.isolation = "isolate"
+        liveFade.current = startNow(live.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_IN_OUT, fill: "both" }))
+      } else if (visible && !reduce) lastLeave.current = leaveCopy(visible, OUT_MS)
       if (was && incomingRef.current) incomingRef.current.style.display = "none"
 
-      if (kind === "tab") {
+      if (under) {
+        /* The height it has now, held for the move: the next screen may be shorter than where the page is scrolled. */
+        if (panel) panel.style.minHeight = `${panelHeight}px`
+      } else if (kind === "tab") {
         /* Pressed from far down (the header's heart): the new screen starts where its pills can be seen. */
-        let top = panelTop
-        if (nowTop < 0 && panelTop < HEADER_ROOM) {
-          const to = Math.max(0, nowTop + window.scrollY - HEADER_ROOM)
-          top = panelTop + (window.scrollY - to)
-          jump(to)
-        }
-        /* The screen holds the height the scroll needs, so the pills stay under the finger. */
-        if (panel) panel.style.minHeight = `${Math.max(0, Math.ceil(window.innerHeight - top))}px`
+        if (nowTop < 0 && panelTop < HEADER_ROOM) jump(Math.max(0, nowTop + window.scrollY - HEADER_ROOM))
+        /* The screen holds its height for the move, so the page under the finger keeps its length. */
+        if (panel) panel.style.minHeight = `${panelHeight}px`
         show(now)
         hide(liveRef.current)
       } else {
@@ -275,7 +356,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
         jump(0)
       }
       if (release.current) window.clearTimeout(release.current)
-      const next = { href, kind, id: ++seq.current }
+      const next = { href, kind, id: ++seq.current, under }
       pendingRef.current = next
       setPending(next)
       if (giveUp.current) window.clearTimeout(giveUp.current)
@@ -283,6 +364,10 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
         /* Nothing came. What is live is shown again, as it is. */
         if (pendingRef.current?.id !== next.id) return
         pendingRef.current = null
+        liveFade.current?.cancel()
+        liveFade.current = null
+        if (liveRef.current) liveRef.current.style.opacity = ""
+        if (panelRef.current) panelRef.current.style.isolation = ""
         show(nowRef.current)
         show(liveRef.current)
         setPending(null)
@@ -291,6 +376,18 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     },
     [letGo],
   )
+
+  /* The route answered while the live screen was still fading: copy what is left of it, then hold the live slot clear for the new screen. */
+  const beforeCommit = useCallback((to: string) => {
+    const p = pendingRef.current
+    const live = liveRef.current
+    if (!p || !p.under || !live || cleanPath(to) !== p.href) return
+    const left = remaining(liveFade.current)
+    if (left > 0.03) lastLeave.current = leaveCopy(live, Math.max(80, OUT_MS * left), false, left)
+    liveFade.current?.cancel()
+    liveFade.current = null
+    live.style.opacity = "0"
+  }, [])
 
   /* Every plain press on a link to another library screen, wherever the link is. */
   useEffect(() => {
@@ -389,9 +486,15 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
       return
     }
     traversal.current = false
-    if (path === p.href && liveRef.current?.querySelector("[data-library-skeleton]")) return
+    if (path === p.href && liveRef.current?.querySelector("[data-library-skeleton]")) {
+      /* The route drew its own skeleton, out of sight: the page takes the shape's height while it waits, so the screen's arrival changes it little. */
+      const panel = panelRef.current
+      const shape = incomingRef.current
+      if (p.under && panel && shape) panel.style.minHeight = `${Math.max(shape.offsetHeight, scrollNeed())}px`
+      return
+    }
     arrive()
-  }, [pathname, arrive])
+  }, [pathname, arrive, scrollNeed])
 
   /* A route skeleton giving way to its screen, while the stage still shows the shape. */
   useEffect(() => {
@@ -414,7 +517,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
   useLayoutEffect(() => {
     const el = incomingRef.current
     if (!pending || pending.kind !== "open" || !el || reducedMotion() || typeof el.animate !== "function") return
-    el.animate([{ transform: "translateY(8px)" }, { transform: "none" }], { duration: IN_MS, easing: EASE_OUT })
+    el.animate([{ translate: "0 8px" }, { translate: "0 0" }], { duration: IN_MS, easing: EASE_OUT })
   }, [pending])
 
   useEffect(
@@ -428,6 +531,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
 
   return (
     <div data-library-stage="" className="relative">
+      <BeforeCommit path={cleanPath(pathname)} onBefore={beforeCommit} />
       <div ref={nowRef} data-library-now="">
         {head}
         <div ref={panelRef} data-library-panel="" className="relative">
@@ -435,7 +539,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
             {children}
           </div>
           {pending?.kind === "tab" ? (
-            <div key={pending.id} ref={incomingRef} data-library-incoming="tab">
+            <div key={pending.id} ref={incomingRef} data-library-incoming="tab" className={pending.under ? "absolute inset-x-0 top-0 -z-10" : undefined}>
               {skeletonFor(pending.href)}
             </div>
           ) : null}

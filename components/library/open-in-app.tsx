@@ -114,7 +114,7 @@ export function OpenInApp({ phone }: { phone: Phone | null }) {
           <StorelibLogo size={40} alt="" data-open-in-app-icon="" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-semibold leading-[18px] text-[#1a1a2e]">Storelib</p>
-            <p className="truncate text-[12.5px] leading-[17px] text-[#6b7280]">Downloads save to your phone</p>
+            <p className="truncate text-[12.5px] leading-[17px] text-[#6b7280]">Your library in the app</p>
           </div>
           <a
             href={appLink(phone, pathname)}
