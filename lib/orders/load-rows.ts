@@ -1,6 +1,7 @@
 import "server-only"
 
 import type { OrderRow } from "./order-view"
+import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
 
 /**
  * EVERY ORDER A CREATOR HAS, AS THE ORDERS PAGE READS THEM
@@ -10,7 +11,11 @@ import type { OrderRow } from "./order-view"
  * names orders by number, and a number is only the same number if it is
  * counted over the same rows. So there is one reader.
  *
- * Read with the service role and scoped by the creator's own products. The
+ * Read with the service role and scoped by the order's own creator
+ * (orders.creator_id, run-now part 32), as Analytics reads them, so a sale
+ * of a product the creator has since deleted stays on this page and in the
+ * export, with no product, and the two pages count the same orders. Until
+ * that part has run the orders are read through their product instead. The
  * creator id always comes from the session, or from a link the server signed
  * for that session, never from the request.
  */
@@ -79,26 +84,24 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
     type: (p.type as string) || null,
     thumbnail_url: (p.thumbnail_url as string) || p.gallery_urls?.[0] || p.gallery_images?.[0] || null,
   }))
-  if (products.length === 0) return { products, rows: [] }
-
   /*
     A page at a time: a query returns at most 1,000 rows, and a creator
     with more orders than that would otherwise lose the oldest ones from
     the list without a word.
   */
-  const ordersData: any[] = []
-  const productIds = products.map((p) => p.id)
-  for (let from = 0; from < 100_000; from += 1000) {
-    const { data, error: ordersError } = await admin
-      .from("orders")
-      .select("*")
-      .in("product_id", productIds)
-      .order("created_at", { ascending: false })
-      .range(from, from + 999)
-    if (ordersError) throw new OrdersReadError(`Orders: could not read orders (${ordersError.message})`)
-    ordersData.push(...(data ?? []))
-    if (!data || data.length < 1000) break
-  }
+  const ordersData = await byCreator(async (scope) => {
+    const rows: any[] = []
+    for (let from = 0; from < 100_000; from += 1000) {
+      const { data, error: ordersError } = await scopedOrders(admin, "*", scope, creatorId, null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, from + 999)
+      if (ordersError) throw new OrdersReadError(`Orders: could not read orders (${ordersError.message})`)
+      rows.push(...(data ?? []))
+      if (!data || data.length < 1000) break
+    }
+    return ownRows(rows)
+  })
 
   const byId = new Map(products.map((p) => [p.id, p]))
   return { products, rows: ordersData.map((order) => toOrderRow(order, byId.get(order.product_id))) }

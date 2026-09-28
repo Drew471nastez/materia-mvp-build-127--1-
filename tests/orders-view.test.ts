@@ -425,7 +425,10 @@ async function main() {
     check("a failed read stops the page instead of drawing no orders", /if \(productsError\) throw/.test(loader) && /if \(ordersError\) throw/.test(loader))
     check("every order is read, a thousand at a time", /\.range\(from, from \+ 999\)/.test(loader))
     check("the range the creator chose last time is read on the server", /initialRange=\{jar\.get\(RANGE_COOKIE\)/.test(page))
-    check("the orders are read for the signed-in creator's own products", /\.eq\("user_id", user\.id\)/.test(page) && /\.eq\("creator_id", creatorId\)/.test(loader) && /\.in\(\s*"product_id",/.test(loader))
+    check("the orders are read for the signed-in creator, by the order's own creator as Analytics reads them, so a deleted product's sales stay",
+      /\.eq\("user_id", user\.id\)/.test(page) && /\.eq\("creator_id", creatorId\)/.test(loader)
+        && /byCreator\(/.test(loader) && /scopedOrders\(admin, "\*", scope, creatorId, null\)/.test(loader) && !/\.in\(\s*"product_id",/.test(loader)
+        && !/products\.length === 0\) return/.test(loader))
     check("no Stripe call stands between the creator and the page", /after\(\(\) => catchMissedRefunds/.test(page) && !/await stripe\./.test(page.split("export default")[1]))
     const client = read("app/app/orders/orders-client.tsx")
     check("the list stays mounted under an open order", /inert=\{listCovered\}/.test(client) && !/listCovered \?\s*null/.test(client))
