@@ -12,6 +12,7 @@ import type {
   GroupBlockData,
 } from "./types"
 import { defaultTheme, defaultSettings, defaultSocialLinks, createDefaultBlock } from "./types"
+import { lookFromTemplate, type ThemeTemplateLike } from "./theme-apply"
 import {
   canStepBack,
   canStepForward,
@@ -82,6 +83,8 @@ interface OnePageContextType {
 
   updateTheme: (updates: Partial<OnePageTheme>) => void
   applyTemplate: (template: OnePageTemplate) => void
+  /** Picks a theme: the whole look, Share and Subscribe, and every block's own colours, in one undo step (lib/onepage/theme-apply). */
+  applyThemeLook: (template: ThemeTemplateLike, headerLayout?: "classic" | "hero") => void
 
   updateSocialLinks: (updates: Partial<OnePageSocialLinks>) => void
 
@@ -389,6 +392,12 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     const prev = latestOnepageRef.current
     if (!prev) return
     commit({ ...prev, theme: { ...template.theme, template_id: template.id } }, null)
+  }, [commit])
+
+  const applyThemeLook = useCallback((template: ThemeTemplateLike, headerLayout?: "classic" | "hero") => {
+    const prev = latestOnepageRef.current
+    if (!prev) return
+    commit(lookFromTemplate(prev, template, headerLayout), null)
   }, [commit])
 
   const updateSocialLinks = useCallback((updates: Partial<OnePageSocialLinks>) => {
@@ -713,6 +722,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         updateProfile,
         updateTheme,
         applyTemplate,
+        applyThemeLook,
         updateSocialLinks,
         addBlock,
         updateBlock,

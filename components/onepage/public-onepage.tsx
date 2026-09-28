@@ -43,6 +43,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { readableOn } from "@/lib/onepage/theme-apply"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -5327,24 +5328,42 @@ function PublicBlockRenderer({
       }
 
       const productBorderRadius = theme.button_border_radius
-      const blockBackgroundColor = data.block_background_color || theme.button_color
-      const textColor = data.text_color || theme.button_text_color
+      /*
+        THE BLOCK WEARS THE THEME, like every button on the page: solid,
+        outline or glass, with the theme's corners, border and shadow
+        (cardStyle below). Colours chosen for this block win; picking a
+        theme clears them (lib/onepage/theme-apply). Whatever it ends up
+        on, its text is readable: an inherited text colour that would
+        vanish on the block's background is swapped for near black or
+        white (readableOn), a colour the person chose is left alone.
+      */
+      const ownBackground = data.block_background_color || null
+      const themeFill = theme.button_style !== "outline" && theme.button_style !== "glass"
+      const blockBackgroundColor = ownBackground || (themeFill ? theme.button_color : "transparent")
+      const surfaceColor = ownBackground || (themeFill ? theme.button_color : theme.background_color)
+      const textColor = readableOn(surfaceColor, theme.button_text_color, data.text_color)
 
+      const isHex6 = (c: string) => /^#[0-9a-f]{6}$/i.test(c)
       // Helper to darken a hex color
       const darkenHex = (hex: string, percent: number) => {
+        if (!isHex6(hex)) return hex
         const num = parseInt(hex.replace('#', ''), 16)
         const r = Math.max(0, Math.floor((num >> 16) * (1 - percent)))
         const g = Math.max(0, Math.floor(((num >> 8) & 0x00FF) * (1 - percent)))
         const b = Math.max(0, Math.floor((num & 0x0000FF) * (1 - percent)))
         return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`
       }
+      /* A tint of the text colour: the button strip on a card with no fill of its own. */
+      const tintOf = (c: string, alpha: string) => (isHex6(c) ? `${c}${alpha}` : "rgba(127,127,127,0.12)")
 
       const isPreviewStyle = data.style === 'preview'
       const ctaButtonColor = isPreviewStyle
-        ? (data.button_color || `${textColor}15`)
-        : darkenHex(blockBackgroundColor, 0.08)
+        ? (data.button_color || tintOf(textColor, "15"))
+        : ownBackground || themeFill
+          ? darkenHex(surfaceColor, 0.08)
+          : tintOf(textColor, "14")
       const ctaButtonTextColor = isPreviewStyle
-        ? (data.button_text_color || textColor)
+        ? readableOn(isHex6(ctaButtonColor) ? ctaButtonColor : surfaceColor, textColor, data.button_text_color)
         : textColor
 
       // Button styles for product block (mirrors link_button styles)
@@ -5377,8 +5396,10 @@ function PublicBlockRenderer({
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
-
-      // Check if product is already purchased
+      /* The card: its own colour when it has one, else exactly the theme's button. */
+      const cardStyle: React.CSSProperties = ownBackground
+        ? { borderRadius: `${productBorderRadius}px`, backgroundColor: ownBackground, border: "none", boxShadow: shadowStyles[buttonShadow] || "none" }
+        : { ...buttonStyles, color: undefined }
       const isPurchased = quickCheckoutContext?.purchasedProducts?.[data.product_id] !== undefined
       const purchaseInfo = isPurchased ? quickCheckoutContext?.purchasedProducts[data.product_id] : null
 
@@ -5402,7 +5423,7 @@ function PublicBlockRenderer({
             productThumbnail: data.custom_thumbnail || data.product_thumbnail,
             productSlug: data.product_slug,
             ctaText: data.cta_text || 'Get it Now',
-            blockBackgroundColor,
+            blockBackgroundColor: surfaceColor,
             textColor,
             buttonBorderRadius: productBorderRadius,
           })
@@ -5505,7 +5526,6 @@ function PublicBlockRenderer({
                   borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
                   backgroundColor: ctaButtonColor,
                   color: ctaButtonTextColor,
-                  boxShadow: shadowStyles[buttonShadow] || "none",
                 }}
               >
                 {ctaDisplayText}
@@ -5523,11 +5543,7 @@ function PublicBlockRenderer({
                 hoverEffect,
                 getProductAnimationClass(data.animation_type),
               )}
-              style={{
-                borderRadius: `${productBorderRadius}px`,
-                backgroundColor: blockBackgroundColor,
-                border: "none",
-              }}
+              style={cardStyle}
             >
               {previewContent}
             </button>
@@ -5543,11 +5559,7 @@ function PublicBlockRenderer({
               hoverEffect,
               getProductAnimationClass(data.animation_type),
             )}
-            style={{
-              borderRadius: `${productBorderRadius}px`,
-              backgroundColor: blockBackgroundColor,
-              border: "none",
-            }}
+            style={cardStyle}
           >
             {previewContent}
           </a>
@@ -5599,7 +5611,6 @@ function PublicBlockRenderer({
               borderRadius: `0 0 ${productBorderRadius}px ${productBorderRadius}px`,
               backgroundColor: ctaButtonColor,
               color: ctaButtonTextColor,
-              boxShadow: shadowStyles[buttonShadow] || "none",
             }}
           >
             {ctaDisplayText}
@@ -5616,11 +5627,7 @@ function PublicBlockRenderer({
               hoverEffect,
               getProductAnimationClass(data.animation_type),
             )}
-            style={{
-              borderRadius: `${productBorderRadius}px`,
-              backgroundColor: blockBackgroundColor,
-              border: "none",
-            }}
+            style={cardStyle}
           >
             {calloutContent}
           </button>
@@ -5636,11 +5643,7 @@ function PublicBlockRenderer({
             hoverEffect,
             getProductAnimationClass(data.animation_type),
           )}
-          style={{
-            borderRadius: `${productBorderRadius}px`,
-            backgroundColor: blockBackgroundColor,
-            border: "none",
-          }}
+          style={cardStyle}
         >
           {calloutContent}
         </a>

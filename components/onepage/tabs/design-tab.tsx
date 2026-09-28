@@ -2884,7 +2884,7 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
 }
 
 function ThemeSection() {
-  const { onepage, updateTheme, updateSettings, updateBlock } = useOnePage()
+  const { onepage, updateBlock, applyThemeLook } = useOnePage()
   /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
   const sheetPhone = usePhone()
   const [filter, setFilter] = useState<ThemeFilter>("all")
@@ -2913,24 +2913,9 @@ function ThemeSection() {
       return
     }
 
-    // Apply template, ensuring correct layout
-    const updatedConfig = { ...config, template_id: template.id }
-    if (wantsHeroLayout) {
-      // Template explicitly wants hero layout (e.g., Midnight)
-      (updatedConfig as any).header_layout = "hero"
-    } else if (needsClassicLayout) {
-      (updatedConfig as any).header_layout = "classic"
-    }
-    updateTheme(updatedConfig)
-
-    // Apply button styles from template if specified (for Default theme white buttons)
-    const templateWithStyles = template as any
-    if (templateWithStyles.share_style || templateWithStyles.subscribe_style) {
-      const settingsUpdate: any = {}
-      if (templateWithStyles.share_style) settingsUpdate.share_style = templateWithStyles.share_style
-      if (templateWithStyles.subscribe_style) settingsUpdate.subscribe_style = templateWithStyles.subscribe_style
-      updateSettings(settingsUpdate)
-    }
+    /* The whole look in one step: nothing of the old theme left behind, Share
+       and Subscribe matched, every block's own colours cleared (lib/onepage/theme-apply). */
+    applyThemeLook(template as never, wantsHeroLayout ? "hero" : needsClassicLayout ? "classic" : undefined)
 
     // AIR theme: Set swipe animation on the first link_button block if no blocks have animations
     if (template.id === "air" && draft_blocks) {
@@ -2953,8 +2938,7 @@ function ThemeSection() {
 
   const handleConfirmLayoutChange = () => {
     if (pendingTemplate) {
-      const config = pendingTemplate.theme_config
-      updateTheme({ ...config, template_id: pendingTemplate.id, header_layout: "classic" } as any)
+      applyThemeLook(pendingTemplate as never, "classic")
     }
     setShowLayoutChangeDialog(false)
     setPendingTemplate(null)

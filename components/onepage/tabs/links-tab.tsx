@@ -5002,6 +5002,7 @@ function BlockEditor({
           {(data.style === "callout" || data.style === "preview") && (
             <div className="space-y-4 pt-2 border-t">
               <p className="text-[14px] font-semibold text-[#1a1a2e]">Colours for this block</p>
+              <p className="-mt-3 text-[13px] text-[#6b7280]">Picking a theme sets these back to the theme&apos;s.</p>
 
               {/* The four overrides, each the editor's one colour field; Reset goes back to the theme's. */}
               <ColorRow
@@ -5019,7 +5020,8 @@ function BlockEditor({
                 description={`Title, description, price${data.style === "callout" ? " and button" : ""}`}
                 value={data.text_color || null}
                 emptyLabel="Theme"
-                fallback="#ffffff"
+                /* Every picker starts on what the block shows now: the theme's colour, not a guess. */
+                fallback={onepage?.theme.button_text_color || "#111827"}
                 onChange={(color) => updateData({ text_color: color })}
                 onClear={() => updateData({ text_color: null })}
                 suggestions={textColorPresets}
@@ -5029,7 +5031,7 @@ function BlockEditor({
                   label="Button"
                   value={data.button_color || null}
                   emptyLabel="Theme"
-                  fallback="#ffffff"
+                  fallback={onepage?.theme.button_color || "#ffffff"}
                   onChange={(color) => updateData({ button_color: color })}
                   onClear={() => updateData({ button_color: null })}
                   suggestions={buttonColorPresets}
@@ -5040,7 +5042,7 @@ function BlockEditor({
                   label="Button text"
                   value={data.button_text_color || null}
                   emptyLabel="Theme"
-                  fallback="#1a1a1a"
+                  fallback={onepage?.theme.button_text_color || "#1a1a1a"}
                   onChange={(color) => updateData({ button_text_color: color })}
                   onClear={() => updateData({ button_text_color: null })}
                   suggestions={buttonTextColorPresets}

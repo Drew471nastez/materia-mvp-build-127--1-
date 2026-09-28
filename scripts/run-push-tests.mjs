@@ -321,6 +321,7 @@ const SUITES = [
   "tests/upload-limits.test.ts",
   "tests/onepage-editor-shell.test.ts",
   "tests/onepage-leave.test.ts",
+  "tests/onepage-theme-apply.test.ts",
   "tests/onepage-open.test.ts",
   "tests/onepage-arrival.test.ts",
   "tests/own-section-html.test.ts",
