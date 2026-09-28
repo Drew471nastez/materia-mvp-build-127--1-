@@ -358,16 +358,20 @@ async function main() {
 
     const lib = strip(read("lib/library/get-library-downloads.ts"))
     check("My Library fills in a product its buyer's session cannot see", /await fillOwnedProducts\(admin, entitlements/.test(lib))
-    for (const page of ["app/dashboard/page.tsx", "app/dashboard/products/page.tsx", "app/dashboard/courses/page.tsx"]) {
+    for (const page of ["app/dashboard/page.tsx", "app/dashboard/products/page.tsx"]) {
       check(`${page}: an archived purchase still listed`, /fillOwnedProducts\(createAdminClient\(\), entitlements\)/.test(strip(read(page))))
     }
+    /* Courses moved to the library (lib/courses/load.ts): the buyer's own purchases are read by their id, the products with the server's client whatever their status. */
+    const courses = strip(read("lib/courses/load.ts"))
+    check("the courses list: an archived course still listed", /\.from\("entitlements"\)\.select\("product_id, created_at"\)\.eq\("buyer_id", userId\)/.test(courses) && !/\.eq\("status", "published"\)/.test(courses))
+    check("the old course list sends people to it", /redirect\("\/library\/courses"\)/.test(read("app/dashboard/courses/page.tsx")))
     check("the library's product page", /fillOwnedProduct\(admin, entitlement\)/.test(strip(read("app/library/products/[id]/page.tsx"))))
     check("the dashboard's product page", /fillOwnedProduct\(createAdminClient\(\), read\)/.test(strip(read("app/dashboard/products/[id]/page.tsx"))))
-    const course = strip(read("app/dashboard/courses/[id]/page.tsx"))
-    check("the course player, after the buyer's own entitlement is found",
-      course.indexOf("if (!read) notFound()") > 0 && course.indexOf("if (!read) notFound()") < course.indexOf("createAdminClient()") &&
-        /admin\.from\("courses"\)/.test(course) && /await admin\s*\.from\("course_modules"\)/.test(course))
-    check("course progress is still the buyer's own session", /supabase\.from\("course_progress"\)/.test(course))
+    const player = strip(read("lib/courses/load.ts"))
+    check("the course player, after deciding what the buyer owns",
+      player.indexOf("productAccess(db, userId, productId)") > 0 && player.indexOf("productAccess(db, userId, productId)") < player.indexOf("readCourseTree(db, productId)") &&
+        /level === "none"\) return \{ state: "not-found" \}/.test(player))
+    check("course progress is only ever the buyer's own", /\.eq\("buyer_id", userId\)/.test(strip(read("lib/courses/server.ts"))) && /redirect\(`\/library\/courses\//.test(read("app/dashboard/courses/[id]/page.tsx")))
 
     const preview = strip(read("components/onepage/preview-document.tsx"))
     check("the OnePage preview draws what the live page draws", /answersForBlocks\(db, sellerId, blocks\)/.test(preview) && /resolveProductBlocks\(sent\.blocks, answers\)/.test(preview))

@@ -66,6 +66,7 @@ import { FaqList } from "./faq-list"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
+import { CourseEditor } from "./course-editor"
 import { CategoryPicker } from "./category-picker"
 import { useCategorySuggestion } from "./category-suggestion"
 import { saveVariants } from "./variant-save"
@@ -396,7 +397,9 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   }
   const compareRef = useRef<HTMLInputElement>(null)
   const [slug, setSlug] = useState(initial.slug)
-  const [productType] = useState<"digital" | "course">(initial.productType)
+  const [productType, setProductType] = useState<"digital" | "course">(initial.productType)
+  /* A course's lessons, counted by its card (./course-editor.tsx), for the publish check. */
+  const [lessonCount, setLessonCount] = useState(0)
   const [showSalesBadge, setShowSalesBadge] = useState(initial.showSalesBadge)
   const [refundPolicyEnabled, setRefundPolicyEnabled] = useState(initial.refundPolicyEnabled)
   const [refundPolicyType, setRefundPolicyType] = useState(initial.refundPolicyType)
@@ -1213,6 +1216,37 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     setMediaItems(prev => prev.filter(m => m.id !== id))
   }
 
+  /*
+    A LESSON NEEDS A PRODUCT TO BELONG TO. The course card asks for the
+    product's id before its first change; a new product is saved as a draft
+    for it, as the first file upload does just below.
+  */
+  const productIdRef = useRef(productId)
+  productIdRef.current = productId
+  const scrollToSectionRef = useRef(scrollToSection)
+  scrollToSectionRef.current = scrollToSection
+  const saveProductRef = useRef(saveProduct)
+  saveProductRef.current = saveProduct
+  const titleRef = useRef(title)
+  titleRef.current = title
+  const ensureProductForCourse = useCallback(async (): Promise<string | null> => {
+    if (productIdRef.current) return productIdRef.current
+    if (!titleRef.current.trim()) {
+      showToast("Add a title first")
+      scrollToSectionRef.current("about")
+      return null
+    }
+    const saved = await saveProductRef.current(false)
+    return saved?.productId ?? null
+  }, [showToast])
+
+  /* /app/products/new?type=course: a new product that starts as a course (the old /app/courses/new lands here). */
+  useEffect(() => {
+    if (productId) return
+    if (new URLSearchParams(window.location.search).get("type") === "course") setProductType("course")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
@@ -1391,8 +1425,14 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       return false
     }
 
-    // Validation 3: At least 1 digital file is required
-    if (digitalFiles.length === 0) {
+    // Validation 3: At least 1 digital file is required, or for a course, one lesson
+    if (productType === "course") {
+      if (lessonCount === 0) {
+        showToast("Add a lesson")
+        scrollToSection("files")
+        return false
+      }
+    } else if (digitalFiles.length === 0) {
       showToast("Upload a file")
       /* The files' own card: the Content tab used to cover it, and the tabs are gone. */
       scrollToSection("files")
@@ -2186,11 +2226,39 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 )}
               </div>
 
-              {/* Digital Files Section */}
+              {/* Digital Files Section, or for a course its lessons (./course-editor.tsx) */}
               <div
                 ref={(el) => { sectionRefs.current.files = el }}
                 className={CARD}
               >
+                {productType === "course" ? (
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h2 className={CARD_TITLE}>Lessons</h2>
+                          <span className="text-red-500 text-sm">*</span>
+                        </div>
+                        <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
+                          Buyers watch these in their library, and pick up where they left off.
+                        </p>
+                      </div>
+                      {lessonCount === 0 ? (
+                        <button type="button" onClick={() => { setProductType("digital"); setHasUnsavedChanges(true) }} className="shrink-0 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
+                          Sell files instead
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="mt-4">
+                      <CourseEditor
+                        productId={productId}
+                        ensureProductId={ensureProductForCourse}
+                        onLessonCount={setLessonCount}
+                        notify={showToast}
+                      />
+                    </div>
+                  </div>
+                ) : (
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h2 className={CARD_TITLE}>Digital Files</h2>
@@ -2209,7 +2277,16 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     onDelete={(file) => void handleDeleteFile(file)}
                     onNotice={showToast}
                   />
+                  {digitalFiles.length === 0 && fileUploads.inFlight.length === 0 ? (
+                    <p className="mt-3 text-[13px] text-[#6b7280]">
+                      Selling a course?{" "}
+                      <button type="button" data-make-course onClick={() => { setProductType("course"); setHasUnsavedChanges(true) }} className="font-medium text-[#6d28d9] hover:text-[#5b21b6]">
+                        Add video lessons instead
+                      </button>
+                    </p>
+                  ) : null}
                 </div>
+                )}
               </div>
 
               {/* Variants Section */}

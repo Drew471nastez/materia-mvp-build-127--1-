@@ -185,7 +185,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       refundedCents: money.refundedCents,
       refundedAt: (r.refunded_at as string) ?? null,
       files,
-      courseHref: state === "open" && type === "course" ? `/dashboard/courses/${r.product_id}` : null,
+      courseHref: state === "open" && type === "course" ? `/library/courses/${r.product_id}` : null,
       refundPolicy: refundPolicyOf(policies.get(r.product_id)),
     }
   })
