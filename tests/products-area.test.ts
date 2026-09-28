@@ -600,7 +600,8 @@ check("only the list answers a row's press, and it writes the row's tint in the 
 */
 check("the row's answer lasts as long as the wait, and the arrival ends it",
   !/window\.setTimeout\(reset, 10_000\)/.test(list)
-    && /if \(!editorAnswered\(href, openedAt\.current\) && waited < WAIT_LONGEST_MS\) \{\s*startNavigationLoading\(href\)/.test(list)
+    && /if \(!editorAnswered\(href, openedAt\.current\) && waited < WAIT_LONGEST_MS\) return/.test(list)
+    && !/startNavigationLoading\(href\)\s*return\s*\}/.test(list)
     && /if \(getAppNavigation\(\)\) return\s*reset\(\)/.test(list)
     && /export function editorAnswered\(href: string, since: number\): boolean/.test(ret)
     && /export const WAIT_LONGEST_MS = 45_000/.test(ret))

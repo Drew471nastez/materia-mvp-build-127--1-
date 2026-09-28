@@ -824,11 +824,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     const href = `/app/products/${opening}`
     const tick = window.setInterval(() => {
       const waited = performance.now() - openedAt.current
-      /* Still out: the server has not answered, so the wait is real and the whole shell is told again. */
-      if (!editorAnswered(href, openedAt.current) && waited < WAIT_LONGEST_MS) {
-        startNavigationLoading(href)
-        return
-      }
+      /* The router's own request for the editor is still out: the wait is
+         real, and the row goes on saying so. Nothing here tells the shell
+         anything: a second "a navigation started" is not true, and the shell
+         reads that as a press on the address already showing. */
+      if (!editorAnswered(href, openedAt.current) && waited < WAIT_LONGEST_MS) return
       /* Answered, and this list is still the page: either it landed in this
          same commit (and this runs no more) or it is not coming. */
       if (getAppNavigation()) return
