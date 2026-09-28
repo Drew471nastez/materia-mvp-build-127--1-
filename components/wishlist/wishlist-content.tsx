@@ -7,6 +7,8 @@ import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
 import { getStoreUrl, getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { isNativeApp } from "@/lib/native-bridge"
+import { WishlistSkeleton } from "./wishlist-skeleton"
+import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 
 interface WishlistItem {
   id: string
@@ -131,6 +133,9 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
   }
 
   if (isLoading) {
+    /* In the library, the same grid the route's loading screen drew, so the
+       wait between the two is one shape and nothing jumps when cards land. */
+    if (isLibrary) return <WishlistSkeleton />
     return (
       <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
@@ -146,7 +151,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
     return (
       <div data-wishlist-empty="" className="rounded-2xl border border-[#e4e7ec]/80 bg-white px-5 py-10 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]">
         <Heart className="mx-auto h-7 w-7 text-[#c4c8cf]" strokeWidth={1.5} aria-hidden />
-        <h2 className="mt-3 text-[16px] font-semibold text-[#1a1a2e]">Nothing saved yet</h2>
+        <p className="mt-3 text-[16px] font-semibold text-[#1a1a2e]">Nothing saved yet</p>
         <p className="mx-auto mt-1.5 max-w-[320px] text-[14px] leading-relaxed text-[#6b7280]">Tap the heart on any product to keep it here for later.</p>
         <Link href="/explore" className="mt-5 inline-flex h-10 items-center justify-center rounded-[10px] bg-[#7c3aed] px-4 text-[14px] font-semibold text-white hover:bg-[#6d28d9]">
           Discover products
@@ -178,11 +183,10 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <p className="text-sm text-neutral-500">
-          {items.length} {items.length === 1 ? "item" : "items"} saved
-        </p>
-      </div>
+      {/* The library's count line (components/library/library-home.tsx), in the library; the page's own elsewhere. */}
+      <p className={isLibrary ? "mb-3 px-0.5 text-[13px] text-[#6b7280]" : "mb-5 text-sm text-neutral-500"}>
+        {items.length} {items.length === 1 ? "item" : "items"} saved
+      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => {
@@ -227,7 +231,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
               <button
                 onClick={() => removeItem(product.id)}
                 disabled={isRemoving}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-50 cursor-pointer"
+                className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-50 cursor-pointer"
                 aria-label="Remove from wishlist"
               >
                 {isRemoving ? (
@@ -257,7 +261,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                 <div className="flex items-center justify-between mt-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-neutral-900 text-sm">
-                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                      {product.price_cents === 0 ? "Free" : perInterval(formatPrice(product.price_cents), intervalOf(product))}
                     </span>
                     {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
                       <span className="text-xs text-neutral-400 line-through">

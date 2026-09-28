@@ -6,7 +6,7 @@ import type React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, isProductPage, getProductInternalPath } from "@/lib/url-helpers"
@@ -32,6 +32,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
+import { listPrice } from "@/lib/pricing/list-price"
 
 
 
@@ -204,6 +205,11 @@ type SearchProduct = {
   slug: string
   thumbnail_url?: string
   price_cents: number
+  compare_at_cents?: number | null
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
+  /** A membership reads "$9/month" (lib/pricing/list-price). */
+  type?: string | null
   creator?: {
     display_name?: string
     slug?: string
@@ -612,25 +618,24 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    * of them cosmetic. The real getUser() call still runs on mount and still
    * overwrites all of this; nothing is gated on the snapshot being truthful.
    */
-  const [user, setUser] = useState<User | null>(() => {
-    const seed = readAuthSnapshot()
-    return seed?.signedIn && seed.userId ? ({ id: seed.userId } as User) : null
-  })
-  const [profile, setProfile] = useState<Profile | null>(() => {
-    const seed = readAuthSnapshot()
-    return seed?.signedIn
-      ? ({
-          display_name: seed.displayName,
-          avatar_url: seed.avatarUrl,
-          username: seed.username,
-        } as Profile)
-      : null
-  })
-  const [isCreator, setIsCreator] = useState(() => !!readAuthSnapshot()?.isSeller)
-  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(
-    () => !!readAuthSnapshot()?.isSeller,
-  )
-  const [loading, setLoading] = useState(() => readAuthSnapshot() === null)
+  /*
+    SEEDED BEFORE THE FIRST PAINT, NOT IN THE FIRST RENDER. The snapshot lives
+    in localStorage, which the server cannot see: seeding useState from it
+    meant the server drew the waiting stand in and a returning visitor's
+    browser drew their photo in the same hydration pass, React reported the
+    mismatch and redrew the header from scratch. Now the server and the
+    browser's first render agree (the stand in), and the snapshot is applied
+    in a layout effect, which runs after hydration and before the browser
+    paints again: no warning, and no frame of the stand in beyond the one the
+    server's HTML already showed. A header mounted later, on a client side
+    move between layouts, takes the same path and paints the photo in its
+    first frame.
+  */
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [isCreator, setIsCreator] = useState(false)
+  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   /**
    * Seeded from the last known count, for the same reason the session is.
@@ -676,10 +681,23 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     }
   }, [])
   // Persist avatar URL so it shows immediately on re-renders/navigations (no placeholder flash)
-  const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null
-    try { return localStorage.getItem("_sl_avatar") } catch { return null }
-  })
+  const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(null)
+
+  /* The snapshot, applied after hydration and before paint (see the note above `user`). */
+  useLayoutEffect(() => {
+    const seed = readAuthSnapshot()
+    let avatar: string | null = null
+    try { avatar = localStorage.getItem("_sl_avatar") } catch { /* no storage: nothing cached */ }
+    if (avatar) setCachedAvatarUrl(avatar)
+    if (!seed) return
+    if (seed.signedIn && seed.userId) {
+      setUser({ id: seed.userId } as User)
+      setProfile({ display_name: seed.displayName, avatar_url: seed.avatarUrl, username: seed.username } as Profile)
+    }
+    setIsCreator(!!seed.isSeller)
+    setHasCompletedSellerOnboarding(!!seed.isSeller)
+    setLoading(false)
+  }, [])
 
   const mountedRef = useRef(true)
 
@@ -816,6 +834,10 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             slug,
             thumbnail_url,
             price_cents,
+            compare_at_cents,
+            pay_what_you_want,
+            pwyw_min_price_cents,
+            type,
             creator_id,
             creators!inner (
               display_name,
@@ -859,6 +881,10 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             slug: p.slug,
             thumbnail_url: p.thumbnail_url,
             price_cents: p.price_cents,
+            compare_at_cents: p.compare_at_cents,
+            pay_what_you_want: p.pay_what_you_want,
+            pwyw_min_price_cents: p.pwyw_min_price_cents,
+            type: p.type,
             creator: p.creators ? {
               display_name: p.creators.display_name,
               slug: p.creators.slug,
@@ -1816,7 +1842,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                             )}
                           </div>
                           <div className="text-sm font-medium text-gray-900">
-                            {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                            {listPrice(product).main}
                           </div>
                         </Link>
                       ))}
@@ -1953,9 +1979,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               ) : (
                 /* The white Sign in the owner asked to keep on a phone. One link,
                    drawn as the button (not a button inside a link, which a screen
-                   reader announces as two controls and a keyboard stops on twice). */
-                <Button asChild className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black hover:bg-white/90 gap-2">
-                  <Link {...headerLink("/login")} data-phone-sign-in="">
+                   reader announces as two controls and a keyboard stops on twice).
+                   While the header does not know yet who is looking (the server's
+                   HTML, and a first visit until the session read answers) it holds
+                   its place unseen, as the computer's row does, rather than showing
+                   Sign in to somebody whose photo is a moment away. */
+                <Button asChild className={cn("ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black hover:bg-white/90 gap-2", loading && "invisible")}>
+                  <Link {...headerLink("/login")} data-phone-sign-in="" data-placeholder={loading ? "" : undefined} aria-hidden={loading || undefined} tabIndex={loading ? -1 : undefined}>
                     <UserIcon className="h-4 w-4" />
                     Sign in
                   </Link>
@@ -2495,7 +2525,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       )}
                     </div>
                     <div className="text-sm font-semibold text-gray-900">
-                      {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                      {listPrice(product).main}
                     </div>
                   </button>
                 ))}

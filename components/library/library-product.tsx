@@ -14,6 +14,7 @@ import { contactOf, productPageOf, storeOf } from "./creator-links"
 import { LibraryFileRow } from "./file-row"
 import { useStoreLinkProps } from "./use-store-link"
 import { CARD, MUTED, SECONDARY, SMALL, shortDate } from "./library-ui"
+import { cn } from "@/lib/utils"
 
 export interface LibraryProductData {
   productId: string
@@ -63,7 +64,7 @@ function InvoiceButton({ token, number }: { token: string; number: string }) {
         await downloadFile({ url: `/api/checkout/invoice?token=${encodeURIComponent(token)}`, fileName: `Invoice ${number}.pdf` })
         setBusy(false)
       }}
-      className={`${SECONDARY} ${SMALL}`}
+      className={cn(SECONDARY, SMALL)}
     >
       {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <FileText className="h-3.5 w-3.5" aria-hidden />}
       Invoice
@@ -173,13 +174,13 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
             {contact || store ? (
               <div data-creator-actions="" className="mt-3.5 grid grid-cols-2 gap-2">
                 {contact ? (
-                  <a href={contact.href} data-creator-contact="" aria-label={contact.label} className={`${SECONDARY} ${SMALL} min-w-0 whitespace-nowrap ${store ? "" : "col-span-2"}`}>
+                  <a href={contact.href} data-creator-contact="" aria-label={contact.label} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${store ? "" : "col-span-2"}`)}>
                     <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span className="truncate">{contact.short}</span>
                   </a>
                 ) : null}
                 {store ? (
-                  <a href={store} {...storeLink} data-creator-store="" aria-label={`${data.creator.name}'s store`} className={`${SECONDARY} ${SMALL} min-w-0 whitespace-nowrap ${contact ? "" : "col-span-2"}`}>
+                  <a href={store} {...storeLink} data-creator-store="" aria-label={`${data.creator.name}'s store`} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${contact ? "" : "col-span-2"}`)}>
                     <Store className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span className="truncate">Store</span>
                   </a>
@@ -199,7 +200,7 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
                     Receipt {data.receiptNumber ? <span className="tabular-nums text-[#6b7280]">#{data.receiptNumber}</span> : null}
                   </p>
                   <div className={`mt-3 grid gap-2 ${data.invoice ? "grid-cols-2" : "grid-cols-1"}`}>
-                    <Link href={`/receipt/${encodeURIComponent(data.receiptToken)}`} className={`${SECONDARY} ${SMALL}`}>
+                    <Link href={`/receipt/${encodeURIComponent(data.receiptToken)}`} className={cn(SECONDARY, SMALL)}>
                       View receipt
                     </Link>
                     {data.invoice ? <InvoiceButton token={data.receiptToken} number={data.receiptNumber || "receipt"} /> : null}

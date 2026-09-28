@@ -24,6 +24,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss } from "./probe-css.mjs"
+import { sweepScreens } from "./sweep-measure.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
@@ -262,6 +263,17 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const { frames } = await sampleSwitch(p, "settings", "reduced")
     expect(Math.min(...frames.map((f) => f.panelO)) === 1 && !frames.some((f) => f.settings.o > 0 && f.settings.o < 1), "no fades at all", { panelMin: Math.min(...frames.map((f) => f.panelO)) })
     await p.close()
+  }
+  /* SWEEP: both tabs at six widths (scripts/sweep-measure.mjs). */
+  console.log("\nsweep at six widths")
+  {
+    const paths = { overview: "/account", settings: "/account/settings" }
+    const problems = await sweepScreens(Object.keys(paths), async (name, vp) => {
+      const { p, errors } = await open(vp, paths[name])
+      p.errors = errors
+      return p
+    }, { shots })
+    expect(problems.length === 0, "the account's two tabs read clean at every width", problems)
   }
   await browser.close()
 } finally {

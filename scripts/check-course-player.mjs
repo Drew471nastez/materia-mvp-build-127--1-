@@ -31,6 +31,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss } from "./probe-css.mjs"
+import { sweepScreens } from "./sweep-measure.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
@@ -344,6 +345,19 @@ for (const [label, vp] of [
   expect(byCreator === 2, "LIST: one creator's courses", byCreator)
   expect(list.errors.length === 0, "no errors on the page", list.errors)
   await list.p.close()
+}
+
+/* SWEEP: the list and the player at six widths (scripts/sweep-measure.mjs). */
+console.log("\nsweep at six widths")
+{
+  const problems = await sweepScreens(["index", "player"], async (mode, vp) => {
+    const { p, errors } = await open(vp, mode)
+    await new Promise((r) => setTimeout(r, 900))
+    p.errors = errors
+    return p
+    /* An address written in a lesson's text is a link inside the text, not a control. */
+  }, { shots, allowSmall: (s) => /"https?:\/\//.test(s) })
+  expect(problems.length === 0, "the courses list and the player read clean at every width", problems)
 }
 
 await browser.close()

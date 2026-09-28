@@ -27,6 +27,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { TextSwap } from "@/components/ui/text-swap"
 import { AvatarMark } from "@/components/app/app-avatar"
+import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 
 /*
   ONE CLOCK FOR EVERY MOVE IN THE ONBOARDING. A step change is a crossfade:
@@ -389,9 +390,14 @@ interface CreatorOnboardingModalProps {
    * Ignored when there is a switchBack, which is the way out for a business.
    */
   leave?: { label: string; href: string } | null
+  /**
+   * A setup begun and not finished (lib/account/onboarding-resume): the store
+   * name, bio and category typed last time, and the step it was left on.
+   */
+  resume?: OnboardingResume | null
 }
 
-export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null }: CreatorOnboardingModalProps) {
+export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null, resume = null }: CreatorOnboardingModalProps) {
   const router = useRouter()
   /*
     FULL SCREEN IN THE APP, AT EVERY WIDTH. Below 640px the onboarding has
@@ -544,6 +550,23 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     }
   }, [isRedirecting])
 
+  /*
+    PICKED UP WHERE IT WAS LEFT. What this person typed before, read back from
+    the creator row the plan step wrote, and the plan step itself when they
+    had reached it. Once, on opening; the name typed here is never replaced
+    by the sign in's name the effect below reads.
+  */
+  const resumedRef = useRef(false)
+  useEffect(() => {
+    if (!open || !resume || resumeFromStripe || resumedRef.current) return
+    resumedRef.current = true
+    if (resume.displayName) setDisplayName(resume.displayName)
+    if (resume.bio) setBio(resume.bio)
+    if (resume.category) setSelectedCategory(resume.category)
+    if (resume.step > 1 && resume.displayName) setCurrentStep(resume.step)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, resume, resumeFromStripe])
+
   // Resume onboarding after a Stripe redirect (user paid for Growth/Pro).
   // Restore saved form state from localStorage and jump straight to the setup step.
   useEffect(() => {
@@ -687,7 +710,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         chosen: user.user_metadata?.[AVATAR_CHOSEN] === true,
       })
       if (start) setAvatarUrl(start)
-      if (user?.user_metadata?.full_name) {
+      /* The sign in's name is only a starting point: never over a store name read back from a setup begun before. */
+      if (user?.user_metadata?.full_name && !resume?.displayName) {
         setDisplayName(user.user_metadata.full_name)
       }
     }

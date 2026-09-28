@@ -13,6 +13,7 @@ import { getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { fileKindOf, formatFileSize, formatMoney, splitFileName, type AccessState } from "@/lib/receipts/rules"
 import type { ReceiptItem, ReceiptView as Receipt, ReceiptViewer } from "@/lib/receipts/view"
+import { cn } from "@/lib/utils"
 
 /**
  * The receipt and the files, for the buyer. Everything it shows arrives from
@@ -32,7 +33,8 @@ const CARD =
 const PRESS = "transition-[background-color,box-shadow,translate] duration-150 active:translate-y-px disabled:cursor-default disabled:opacity-60 disabled:active:translate-y-0"
 const PRIMARY = `inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[#0f0f1c] bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] hover:bg-[#262640] active:bg-[#12121f] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2 ${PRESS}`
 const SECONDARY = `inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[#d5d9e0] bg-[#f3f4f6] px-4 text-[14px] font-semibold text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(16,24,40,0.08)] hover:bg-[#eceef1] active:bg-[#e7e9ed] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2 ${PRESS}`
-/* The same two, a size down, for a row's own action. */
+/* The same two, a size down (36px), for a row's own action. Merged with cn(PRIMARY, SMALL), never
+   concatenated: h-10 sits after h-9 in the stylesheet and would win (components/library/library-ui). */
 const SMALL = "h-9 px-3 text-[13px]"
 const TEXT_LINK = "font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-2 transition-[text-decoration-color] hover:decoration-[#1a1a2e]"
 
@@ -155,7 +157,7 @@ function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: s
              the name beside them. On a phone the arrow alone, as in the
              library (components/library/file-row.tsx), so a file's name keeps
              the room it needs; the words from 640px. */
-          className={`${PRIMARY} ${SMALL} w-11 tabular-nums sm:w-[124px] print:hidden`}
+          className={cn(PRIMARY, SMALL, "w-11 tabular-nums sm:w-[124px] print:hidden")}
         >
           {busy ? (
             <>
@@ -229,7 +231,8 @@ function ItemBlock({
           {status ? <p className={`mt-0.5 text-[13px] font-medium ${status.tone}`}>{status.text}</p> : null}
         </div>
         <p className="shrink-0 pt-0.5 text-[15px] font-semibold leading-snug tabular-nums text-[#1a1a2e]">
-          {item.totalCents === 0 ? "Free" : formatMoney(shown, currency, locale)}
+          {/* A membership's line is one period of it: "$9.00/month". */}
+          {item.totalCents === 0 ? "Free" : `${formatMoney(shown, currency, locale)}${item.priceInterval ? `/${item.priceInterval}` : ""}`}
         </p>
       </div>
 
@@ -246,7 +249,7 @@ function ItemBlock({
               {viewer.isBuyer ? (
                 <>
                   <p className="min-w-0 flex-1 text-[14px] font-medium text-[#1a1a2e]">Course lessons</p>
-                  <Link href={item.courseHref} className={`${PRIMARY} ${SMALL} whitespace-nowrap sm:w-[124px] print:hidden`}>
+                  <Link href={item.courseHref} className={cn(PRIMARY, SMALL, "whitespace-nowrap sm:w-[124px] print:hidden")}>
                     Open course
                   </Link>
                 </>
@@ -504,7 +507,7 @@ export function ReceiptView({
               <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{receipt.seller.name}</span>
             </span>
           )}
-          <button type="button" onClick={() => window.print()} className={`${SECONDARY} ${SMALL} print:hidden`}>
+          <button type="button" onClick={() => window.print()} className={cn(SECONDARY, SMALL, "print:hidden")}>
             <Printer className="h-3.5 w-3.5 text-[#4b5563]" aria-hidden />
             Print
           </button>
@@ -568,7 +571,7 @@ export function ReceiptView({
                       e.preventDefault()
                       void downloadFile({ url: e.currentTarget.getAttribute("href") || "", fileName: `Invoice ${receipt.number}.pdf` })
                     }}
-                    className={`${TEXT_LINK} inline-flex min-h-[32px] items-center gap-1.5 print:hidden`}
+                    className={`${TEXT_LINK} -my-0.5 inline-flex min-h-9 items-center gap-1.5 print:hidden`}
                   >
                     <FileText className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
                     Download invoice (PDF)
@@ -604,7 +607,7 @@ export function ReceiptView({
                   </>
                 )}
               </p>
-              <button type="button" onClick={resend} disabled={emailState === "sending"} className={`${SECONDARY} ${SMALL} min-w-[92px]`}>
+              <button type="button" onClick={resend} disabled={emailState === "sending"} className={cn(SECONDARY, SMALL, "min-w-[92px]")}>
                 {emailState === "sending" && !changing ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -680,7 +683,7 @@ export function ReceiptView({
                   setChanging(true)
                   setEmailNote(null)
                 }}
-                className="mt-1 min-h-[32px] text-[13px] text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
+                className="-mb-0.5 mt-0.5 min-h-9 text-[13px] text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
               >
                 {accountEmail ? "Send a copy to another email" : "Wrong address?"}
               </button>
@@ -967,7 +970,7 @@ function ContactSeller({
                 <p className="min-w-0 text-[12px] text-[#8a919c] [overflow-wrap:anywhere]">
                   {replyTo ? `They reply to ${replyTo}` : "They reply by email"}
                 </p>
-                <button type="submit" disabled={state === "sending"} className={`${PRIMARY} ${SMALL} min-w-[76px]`}>
+                <button type="submit" disabled={state === "sending"} className={cn(PRIMARY, SMALL, "min-w-[76px]")}>
                   {state === "sending" ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />

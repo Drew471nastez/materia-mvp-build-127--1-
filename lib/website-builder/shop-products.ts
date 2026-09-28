@@ -231,7 +231,8 @@ export function toCard(row: ProductRow, variants: VariantRow[] = []): ProductCar
     type: "product",
     settings: {
       title: row.title ?? "",
-      price: formatPrice(cents),
+      /* A membership's price is per month, "$9.00/month", as on Storelib's own cards (lib/pricing/list-price). */
+      price: row.type === "membership" && cents > 0 ? `${formatPrice(cents)}/month` : formatPrice(cents),
       compare_price: wasPrice(cents, row.compare_at_cents),
       currency: SHOP_CURRENCY,
       free: cents <= 0 && !row.pay_what_you_want,

@@ -426,7 +426,8 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
                 <PostText body={page.product.description} className="text-[13.5px] text-[#4b5563]" />
                 {!aboutOpen ? <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" /> : null}
               </div>
-              <button type="button" onClick={() => setAboutOpen((o) => !o)} className="mt-1 inline-flex items-center gap-1 text-[13px] font-medium text-[#6d28d9]">
+              <button type="button" onClick={() => setAboutOpen((o) => !o)} className="-mb-2 -mt-1 inline-flex items-center gap-1 py-2 text-[13px] font-medium text-[#6d28d9]">
+                {/* 36px to press on a phone; the margins take the padding back, so it sits where it did. */}
                 {aboutOpen ? "Less" : "More"}
                 <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-[rotate] duration-200", aboutOpen && "rotate-180")} />
               </button>
@@ -471,7 +472,7 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">{page.creator.name}</p>
             {creatorHref ? (
-              <Link href={creatorHref} className="text-[13px] font-medium text-[#6d28d9] hover:underline">
+              <Link href={creatorHref} className="-my-[11px] inline-block py-[11px] text-[13px] font-medium text-[#6d28d9] hover:underline">
                 Visit their page
               </Link>
             ) : null}
@@ -520,7 +521,7 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
                   {inv.status === "failed" ? "Failed" : money(inv.amountCents, inv.currency)}
                 </span>
                 {inv.url ? (
-                  <a href={inv.url} target="_blank" rel="noopener noreferrer" className="text-[12.5px] font-medium text-[#6d28d9] hover:underline">
+                  <a href={inv.url} target="_blank" rel="noopener noreferrer" className="-my-[9px] inline-block py-[9px] text-[12.5px] font-medium text-[#6d28d9] hover:underline">
                     Receipt
                   </a>
                 ) : (
