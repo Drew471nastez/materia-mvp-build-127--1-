@@ -150,23 +150,27 @@ function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: s
           onClick={onDownload}
           disabled={busy}
           aria-busy={busy || undefined}
-          aria-label={`Download ${file.name}`}
-          className={`${PRIMARY} ${SMALL} min-w-[104px] sm:min-w-[112px] print:hidden`}
+          data-receipt-download=""
+          /* ONE WIDTH FOR EVERY STATE, so Preparing and Downloaded never move
+             the name beside them. On a phone the arrow alone, as in the
+             library (components/library/file-row.tsx), so a file's name keeps
+             the room it needs; the words from 640px. */
+          className={`${PRIMARY} ${SMALL} w-11 tabular-nums sm:w-[124px] print:hidden`}
         >
           {busy ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              {pct !== null ? `${pct}%` : "Preparing"}
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+              {pct !== null ? <span className="hidden sm:inline">{pct}%</span> : <span className="hidden sm:inline">Preparing</span>}
             </>
           ) : done ? (
             <>
-              <Check className="h-3.5 w-3.5" aria-hidden />
-              Downloaded
+              <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="hidden sm:inline">Downloaded</span>
             </>
           ) : (
             <>
-              <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />
-              Download
+              <ArrowDownToLine className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="hidden sm:inline">Download</span>
             </>
           )}
         </button>
@@ -210,20 +214,21 @@ function ItemBlock({
   const shown = typeof item.listCents === "number" && item.listCents > item.subtotalCents ? item.listCents : item.subtotalCents
   return (
     <section data-receipt-item="" className="px-4 py-4 sm:px-5">
-      <div data-item-head="" className="flex items-center gap-3.5">
+      {/* Top aligned: a two line name keeps its price beside its first line, not floating between them. */}
+      <div data-item-head="" className="flex items-start gap-3.5">
         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04]">
           {item.thumbnailUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={item.thumbnailUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
           ) : null}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pt-0.5">
           <p className="text-[15px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere]">{item.title}</p>
           {meta ? <p className="mt-0.5 text-[13px] text-[#6b7280]">{meta}</p> : null}
           {nothing ? <p className="mt-0.5 text-[13px] text-[#6b7280]">No files come with this item.</p> : null}
           {status ? <p className={`mt-0.5 text-[13px] font-medium ${status.tone}`}>{status.text}</p> : null}
         </div>
-        <p className="shrink-0 text-[15px] font-semibold tabular-nums text-[#1a1a2e]">
+        <p className="shrink-0 pt-0.5 text-[15px] font-semibold leading-snug tabular-nums text-[#1a1a2e]">
           {item.totalCents === 0 ? "Free" : formatMoney(shown, currency, locale)}
         </p>
       </div>
@@ -241,7 +246,7 @@ function ItemBlock({
               {viewer.isBuyer ? (
                 <>
                   <p className="min-w-0 flex-1 text-[14px] font-medium text-[#1a1a2e]">Course lessons</p>
-                  <Link href={item.courseHref} className={`${PRIMARY} ${SMALL} min-w-[112px] print:hidden`}>
+                  <Link href={item.courseHref} className={`${PRIMARY} ${SMALL} whitespace-nowrap sm:w-[124px] print:hidden`}>
                     Open course
                   </Link>
                 </>
@@ -575,7 +580,7 @@ export function ReceiptView({
         </div>
 
         {hasFiles && platform !== "web" ? (
-          <p className="mt-3 px-1 text-[13px] leading-relaxed text-[#6b7280] print:hidden">
+          <p className="mt-3 text-[13px] leading-relaxed text-[#6b7280] print:hidden">
             {platform === "ios"
               ? "Downloads save to this iPhone. When one is ready, tap Save to Files."
               : "Downloads save to the Downloads folder on this phone."}
@@ -586,8 +591,8 @@ export function ReceiptView({
             on the buyer's own account, send one copy somewhere else. */}
         {receipt.buyer.maskedEmail ? (
           <div data-receipt-email="" className={`${CARD} mt-4 px-4 py-4 sm:px-5 print:hidden`}>
-            <div className="flex items-center justify-between gap-3">
-              <p className="min-w-0 text-[14px] text-[#4b5563]">
+            <div className="flex items-start justify-between gap-3">
+              <p className="min-w-0 pt-2 text-[14px] leading-5 text-[#4b5563]">
                 {accountEmail ? (
                   <>
                     Receipt goes to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{accountEmail}</span>
@@ -599,7 +604,7 @@ export function ReceiptView({
                   </>
                 )}
               </p>
-              <button type="button" onClick={resend} disabled={emailState === "sending"} className={`${SECONDARY} ${SMALL} min-w-[84px]`}>
+              <button type="button" onClick={resend} disabled={emailState === "sending"} className={`${SECONDARY} ${SMALL} min-w-[92px]`}>
                 {emailState === "sending" && !changing ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -643,7 +648,7 @@ export function ReceiptView({
                   {accountEmail ? (
                     <p className="mt-2 text-[13px] leading-relaxed text-[#6b7280]">
                       Only this copy goes there. To change your account email, go to{" "}
-                      <Link href="/account" className={TEXT_LINK}>
+                      <Link href="/account/settings" className={TEXT_LINK}>
                         Settings
                       </Link>
                       .
@@ -693,11 +698,11 @@ export function ReceiptView({
         {receipt.state === "open" ? (
           viewer.signedIn ? (
             receipt.buyer.unclaimed ? (
-              <div className={`${CARD} mt-4 flex items-center justify-between gap-3 px-4 py-4 sm:px-5 print:hidden`}>
+              <div className={`${CARD} mt-4 flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 print:hidden`}>
                 <p className="min-w-0 text-[14px] text-[#4b5563]">
                   {claimNote ?? "Keep this order with the rest of your purchases."}
                 </p>
-                <button type="button" onClick={claim} disabled={claiming} className={PRIMARY}>
+                <button type="button" onClick={claim} disabled={claiming} className={`${PRIMARY} w-full sm:w-auto`}>
                   {claiming ? "Adding" : "Add to library"}
                 </button>
               </div>
@@ -748,7 +753,7 @@ export function ReceiptView({
         ) : null}
 
         {/* Who to ask, and what the seller promised about refunds. */}
-        <div data-receipt-help="" className="mt-6 space-y-1.5 border-t border-[#e4e7ec] px-1 pt-3 text-[13px] leading-relaxed text-[#6b7280]">
+        <div data-receipt-help="" className="mt-6 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-[13px] leading-relaxed text-[#6b7280]">
           <ContactSeller
             sellerName={receipt.seller.name}
             supportEmail={receipt.seller.supportEmail ?? null}
@@ -889,7 +894,7 @@ function ContactSeller({
   return (
     <div data-receipt-contact="">
       <div className="flex items-center justify-between gap-3">
-        <p>Questions about this order?</p>
+        <p className="min-w-0">Questions about this order?</p>
         <button
           type="button"
           aria-expanded={open}

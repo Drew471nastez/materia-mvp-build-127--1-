@@ -12,6 +12,7 @@
 import React from "react"
 import { createRoot, hydrateRoot } from "react-dom/client"
 import { ReceiptView } from "@/app/receipt/[token]/receipt-view"
+import ReceiptLoading from "@/app/receipt/[token]/loading"
 import { receiptCases } from "./receipt-cases"
 
 const params = new URLSearchParams(location.search)
@@ -20,7 +21,8 @@ const CASES = receiptCases(location.origin)
 const chosen = CASES[which] ?? CASES.free
 ;(window as any).__receiptCase = which
 
-const tree = <ReceiptView receipt={chosen.receipt as never} viewer={chosen.viewer as never} locale="en-US" />
+/* ?case=loading draws the route's skeleton, to be laid over the real page (scripts/check-receipt.mjs). */
+const tree = which === "loading" ? <ReceiptLoading /> : <ReceiptView receipt={chosen.receipt as never} viewer={chosen.viewer as never} locale="en-US" />
 const app = document.getElementById("app")!
 if (app.hasChildNodes()) hydrateRoot(app, tree)
 else createRoot(app).render(tree)
