@@ -1,15 +1,21 @@
 "use client"
 
 import { usePathname, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import { MarketingFooter } from "@/components/marketing/footer"
+import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { siteFooterFor } from "@/lib/nav/site-footer"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 
+/** Signed in, as the header last knew it: read synchronously, so a signed in visitor's Explore never draws the footer first. */
+const readSignedIn = () => !!readAuthSnapshot()?.signedIn
+
 export function ConditionalFooter() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const signedIn = useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
   const [showFooter, setShowFooter] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
 
@@ -89,8 +95,10 @@ export function ConditionalFooter() {
       pathname.startsWith("/help") ||
       pathname.startsWith("/account-deletion")
 
-    setShowFooter(isPlatformPage)
-  }, [pathname, searchParams, isHydrated])
+    /* And of those, who keeps it: lib/nav/site-footer. Not the library or
+       the account at any width, Explore only for somebody signed out. */
+    setShowFooter(isPlatformPage && siteFooterFor(pathname, { signedIn }))
+  }, [pathname, searchParams, isHydrated, signedIn])
 
   return showFooter ? <MarketingFooter /> : null
 }

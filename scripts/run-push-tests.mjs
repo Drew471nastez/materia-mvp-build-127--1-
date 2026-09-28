@@ -74,6 +74,8 @@ const SUITES = [
   "tests/native-scroll-guard.test.ts",
   "tests/app-mobile-nav.test.ts",
   "tests/buyer-tab-bar.test.ts",
+  "tests/buyer-chrome.test.ts",
+  "tests/quick-search.test.ts",
   "tests/header-elements.test.ts",
   "tests/site-cart.test.ts",
   "tests/cart-checkout.test.ts",

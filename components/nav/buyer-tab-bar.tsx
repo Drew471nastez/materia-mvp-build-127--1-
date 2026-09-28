@@ -27,6 +27,15 @@
  * the page you are on is the filled icon and nothing else, as in the
  * reference.
  *
+ * PROFILE IS A PERSON, NOT THE PHOTO, since the next round: "the photo is in
+ * the header bar up there". And Search keeps its glass when it is the page
+ * you are on, drawn heavier rather than solid, because a solid magnifier
+ * read as a black blob (components/nav/buyer-tab-icons.tsx).
+ *
+ * SEARCH IS A SCREEN OVER THE PAGE (components/search/search-overlay.tsx),
+ * opened from inside the press so the keyboard comes up with it, and mounted
+ * here because this bar is the only thing that opens it.
+ *
  * WHERE IT IS DRAWN is lib/nav/buyer-tabs.ts: Storelib's own buyer pages,
  * never /app, admin, checkout, sign in, a receipt, or a creator's own site.
  * It is mounted by the layouts that draw the platform header (marketing,
@@ -48,15 +57,12 @@ import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState, useSyncExternalStore } from "react"
 
-import { MagnifierIcon as SearchLinear } from "@solar-icons/react/linear/magnifier"
-import { MagnifierIcon as SearchBold } from "@solar-icons/react/bold/magnifier"
 import { LibraryIcon as LibraryLinear } from "@solar-icons/react/linear/library"
 import { LibraryIcon as LibraryBold } from "@solar-icons/react/bold/library"
-import { UserCircleIcon as PersonLinear } from "@solar-icons/react/linear/user-circle"
-import { UserCircleIcon as PersonBold } from "@solar-icons/react/bold/user-circle"
 
-import { AppAvatar } from "@/components/app/app-avatar"
 import { NAV_ICONS, FILL_MS, FILL_CURVE, type NavIconPair } from "@/components/app/sidebar-desktop-nav"
+import { PERSON_ICONS, SEARCH_ICONS } from "@/components/nav/buyer-tab-icons"
+import { SearchOverlay, openSearchOverlay, refocusSearchOverlay } from "@/components/search/search-overlay"
 import {
   ARRIVING_FILL,
   DROP,
@@ -72,10 +78,8 @@ import {
   useTabLens,
 } from "@/components/nav/tab-lens"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { useShellAvatar } from "@/lib/account/avatar-store"
-import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { BUYER_TABS, SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsBelongOn } from "@/lib/nav/buyer-tabs"
-import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
+import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -111,31 +115,30 @@ const DROP_CLEAR = "0 1px 1.5px rgba(16,18,27,0), 0 4px 12px -2px rgba(16,18,27,
 const BAR_SHADOW = "0 -0.5px 0 rgba(16,18,27,0.09), 0 -2px 6px -2px rgba(16,18,27,0.05), 0 -10px 24px -12px rgba(16,18,27,0.10)"
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 
-const PERSON: NavIconPair = { line: PersonLinear, fill: PersonBold }
-const ICONS: Record<"home" | "search" | "library", NavIconPair> = {
+/**
+ * Four glyphs of one family, outline at rest and solid on the page you are
+ * on. Search keeps its glass and Profile is a person rather than the photo:
+ * components/nav/buyer-tab-icons.tsx says why for both.
+ */
+const ICONS: Record<"home" | "search" | "library" | "profile", NavIconPair> = {
   home: NAV_ICONS.dashboard,
-  search: { line: SearchLinear, fill: SearchBold },
+  search: SEARCH_ICONS,
   library: { line: LibraryLinear, fill: LibraryBold },
+  profile: PERSON_ICONS,
 }
 
 /* ── Who is signed in ────────────────────────────────────────────────────── */
 
 /**
  * The header's record of the session (lib/auth/auth-snapshot), read the way
- * the header reads it: synchronously, so a signed in person's avatar is in
- * the bar on the first frame after the page wakes up, and corrected the
- * moment the header verifies the session. A string so the store can compare
- * it; nothing on the server, which never knows.
+ * the header reads it: synchronously, so the Profile tab knows on the first
+ * frame after the page wakes up whether it is the account or Log in, and is
+ * corrected the moment the header verifies the session. Nothing on the
+ * server, which never knows.
  */
-function readWho(): string {
-  const s = readAuthSnapshot()
-  return s?.signedIn ? JSON.stringify([s.avatarUrl ?? null, s.displayName ?? s.username ?? ""]) : ""
-}
-function useWho(): { signedIn: boolean; avatarUrl: string | null; name: string } {
-  const raw = useSyncExternalStore(subscribeAuthSnapshot, readWho, () => "")
-  if (!raw) return { signedIn: false, avatarUrl: null, name: "" }
-  const [avatarUrl, name] = JSON.parse(raw) as [string | null, string]
-  return { signedIn: true, avatarUrl, name }
+const readSignedIn = () => !!readAuthSnapshot()?.signedIn
+function useSignedIn(): boolean {
+  return useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
 }
 
 /* ── A field has the focus ───────────────────────────────────────────────── */
@@ -167,34 +170,6 @@ function useTyping(): boolean {
   return typing
 }
 
-/**
- * ASKING FOR THE KEYBOARD ON THE PRESS. Search opens a screen whose field
- * takes the focus as it arrives, but a phone raises its keyboard only for a
- * focus given during a touch, and by the time the screen has arrived the
- * touch is long over. So on the press itself a field that nobody can see
- * takes the focus, the keyboard comes up with the tap, and the search
- * field takes the focus from it a moment later (a focus moved from one field
- * to another keeps the keyboard up). 16px, or iOS zooms the page to it.
- */
-function holdKeyboard() {
-  if (!window.matchMedia?.("(pointer: coarse)").matches) return
-  const el = document.createElement("input")
-  el.type = "search"
-  el.setAttribute("aria-hidden", "true")
-  el.tabIndex = -1
-  el.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;font-size:16px;pointer-events:none"
-  document.body.appendChild(el)
-  el.focus({ preventScroll: true })
-  const drop = () => el.remove()
-  el.addEventListener("blur", drop, { once: true })
-  window.setTimeout(drop, 2000)
-}
-
-/** The search screen's field (components/explore/search-screen.tsx), when it is on screen. */
-function focusSearchField() {
-  ;(document.querySelector("[data-search-screen-field]") as HTMLInputElement | null)?.focus({ preventScroll: true })
-}
-
 /* ── The query, which Next only hands out under a Suspense ───────────────── */
 
 /**
@@ -203,9 +178,9 @@ function focusSearchField() {
  * it is asked in this empty child under its own Suspense rather than by the
  * bar, which then renders on the server like any other part of the page.
  */
-function QueryWatch({ onChange }: { onChange: (hasQuery: boolean) => void }) {
+function QueryWatch({ onChange }: { onChange: (query: string) => void }) {
   const params = useSearchParams()
-  const q = (params?.get("q") ?? "").trim() !== ""
+  const q = (params?.get("q") ?? "").trim()
   useEffect(() => onChange(q), [q, onChange])
   return null
 }
@@ -219,32 +194,25 @@ function QueryWatch({ onChange }: { onChange: (hasQuery: boolean) => void }) {
  */
 export function BuyerTabBar() {
   const pathname = usePathname() || "/"
-  /*
-    WHERE THIS IS depends on the host, which the server does not hand a
-    client component: a creator's subdomain or their own domain is theirs.
-    The first render answers from the address alone (a creator's page is
-    left bare until it is known to be browsed from Storelib), and the host
-    has the last word a moment later, as it does for the header.
-  */
-  const [where, setWhere] = useState(() => ({ sellerSurface: isSellerPage(pathname), discover: false, customDomain: false }))
-  useEffect(() => {
-    const host = window.location.host
-    const subdomain = extractUsernameFromHost(host) !== null
-    const sellerSurface = subdomain || isSellerPage(pathname)
-    const discover = sellerSurface && isDiscoverMode(pathname, new URLSearchParams(window.location.search), { isSubdomain: subdomain })
-    setWhere({ sellerSurface, discover, customDomain: isCustomDomain(host) })
-  }, [pathname])
-  if (!buyerTabsBelongOn(pathname, where)) return null
-  return <TabBar pathname={pathname} sellerSurface={where.sellerSurface} />
+  /* Where this is, as the header asks it too (lib/nav/use-buyer-tabs-where). */
+  const where = useBuyerTabsWhere(pathname)
+  return (
+    <>
+      {buyerTabsBelongOn(pathname, where) ? <TabBar pathname={pathname} sellerSurface={where.sellerSurface} /> : null}
+      {/* Search, full screen, opened by the Search tab. Mounted beside the
+          bar rather than in it, so a result that leads to a page without
+          the bar does not take the screen out of the document mid fade. */}
+      <SearchOverlay />
+    </>
+  )
 }
 
 function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: boolean }) {
   const router = useRouter()
-  const who = useWho()
-  const avatar = useShellAvatar(who.avatarUrl)
+  const signedIn = useSignedIn()
   const typing = useTyping()
-  const [hasQuery, setHasQuery] = useState(false)
-  const current = buyerTabFor(pathname, { query: hasQuery, sellerSurface })
+  const [query, setQuery] = useState("")
+  const current = buyerTabFor(pathname, { query: query !== "", sellerSurface })
 
   /*
     WHERE A PRESS IS GOING, until the address says it has arrived. The /app
@@ -260,7 +228,7 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
   const hrefOf = (index: number): string => {
     const tab = BUYER_TABS[index]
     if (!tab) return "/explore"
-    return tab.key === "profile" && !who.signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
+    return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
   const { slide, pick, linkRefs, marked, shown, arriving, filling } = useTabLens({
@@ -271,23 +239,29 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
     onPick: (index) => {
       const tab = BUYER_TABS[index]
       if (!tab) return
+      /*
+        SEARCH OPENS OVER THE PAGE, from inside this press, so the keyboard
+        comes up with it (components/search/search-overlay.tsx). On Explore's
+        results it opens on the words that found them. Only where there is
+        no screen to open (never on a phone) does it go to the address.
+      */
+      if (tab.key === "search" && openSearchOverlay(query)) return
       const href = hrefOf(index)
       /*
         THE TAB YOU ARE ALREADY ON takes you to the top of it, as a phone's
-        own tab bar does, and Search puts you back in the field.
+        own tab bar does.
       */
       if (index === current && pathname === tab.href) {
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
         window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" })
-        if (tab.key === "search") focusSearchField()
         return
       }
-      if (tab.key === "search") holdKeyboard()
       setToward(index)
       router.push(href)
     },
     onPress: (index) => {
-      if (index !== current) router.prefetch(hrefOf(index))
+      /* Search is a screen already in the page: nothing to fetch. */
+      if (index !== current && BUYER_TABS[index]?.key !== "search") router.prefetch(hrefOf(index))
     },
   })
 
@@ -313,8 +287,9 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
       {/* The room at the end of the page, so nothing ends under the bar. */}
       <div aria-hidden="true" data-buyer-tabs-room="" className="shrink-0 md:hidden" style={{ height: "var(--buyer-tabs-room)" }} />
       <Suspense fallback={null}>
-        <QueryWatch onChange={setHasQuery} />
+        <QueryWatch onChange={setQuery} />
       </Suspense>
+
       <div
         data-buyer-tab-bar={away ? "away" : "shown"}
         className="fixed inset-x-0 bottom-0 z-50 bg-white md:hidden"
@@ -343,6 +318,11 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
           */
           onTouchEnd={(e) => {
             if (e.cancelable) e.preventDefault()
+            /* A touch's end is a gesture on every phone; the pointer's end,
+               where Search opened, may not be to an older WebKit. The field
+               is given the focus again here, so the keyboard comes up either
+               way. */
+            refocusSearchOverlay()
           }}
           className="relative flex select-none"
           style={{
@@ -399,7 +379,7 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
                 ref={(el) => { linkRefs.current[i] = el }}
                 href={href}
                 prefetch={false}
-                aria-label={tab.key === "profile" && !who.signedIn ? "Log in" : tab.label}
+                aria-label={tab.key === "profile" && !signedIn ? "Log in" : tab.label}
                 aria-current={i === current ? "page" : undefined}
                 data-buyer-tab={tab.key}
                 /* The pointer gesture decides (useSlide); a click with no
@@ -412,28 +392,7 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
                 className="relative flex flex-1 items-center justify-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
                 style={{ color: on ? ACTIVE_TEXT : REST_TEXT, transition: `color ${FILL_MS}ms ${FILL_CURVE}` }}
               >
-                {tab.key === "profile" && who.signedIn ? (
-                  <span className="relative block" style={{ width: 28, height: 28 }}>
-                    <AppAvatar src={avatar} name={who.name} alt="" size={28} />
-                    {/* On: a ring of ink around the photo with a gap of
-                        white, the avatar's way of being filled. Off: the
-                        faintest ring, so a white photo still has an edge. */}
-                    <span
-                      aria-hidden="true"
-                      data-avatar-ring={on ? "on" : "off"}
-                      className="pointer-events-none absolute -inset-[3px] rounded-full"
-                      style={{
-                        boxShadow: on
-                          ? `inset 0 0 0 1.75px ${ACTIVE_TEXT}`
-                          : "inset 0 0 0 1.75px rgba(26,26,46,0)",
-                        transition: `box-shadow ${FILL_MS}ms ${FILL_CURVE}`,
-                      }}
-                    />
-                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full" style={{ boxShadow: "inset 0 0 0 0.5px rgba(16,18,27,0.10)" }} />
-                  </span>
-                ) : (
-                  <NavIcon icon={tab.key === "profile" ? PERSON : ICONS[tab.key]} active={on} color="currentColor" box={GLYPH} layer />
-                )}
+                <NavIcon icon={ICONS[tab.key]} active={on} color="currentColor" box={GLYPH} layer />
               </Link>
             )
           })}

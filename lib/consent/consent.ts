@@ -135,6 +135,7 @@ export const STORED: StoredItem[] = [
   { name: "storelib_tz", category: "necessary", kind: "cookie", purpose: "Shows your own orders in your time zone", lasts: "1 year" },
   { name: "storelib_feed_view, storelib_order_columns, storelib_orders_range", category: "preferences", kind: "cookie", purpose: "How you like lists laid out, and the dates you last looked at", lasts: "1 year" },
   { name: "storelib_wishlist_count", category: "preferences", kind: "cookie", purpose: "Draws your wishlist count before the page loads", lasts: "1 year" },
+  { name: "storelib_recent_searches", category: "preferences", kind: "local storage", purpose: "Your last few searches, shown when you open Search", lasts: "Until cleared" },
   { name: "materia_visitor", category: "analytics", kind: "cookie", purpose: "Tells a returning visitor from a new one", lasts: "1 year" },
   { name: "visitor_id", category: "analytics", kind: "cookie", purpose: "The same, set by the server", lasts: "1 year" },
   { name: "sl_asid", category: "analytics", kind: "cookie", purpose: "Groups the pages of one visit", lasts: "30 minutes" },

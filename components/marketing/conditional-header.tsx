@@ -50,6 +50,12 @@ function isKnownPlatformPath(p: string): boolean {
        that doubled as its header on a phone. Without this it is not a known
        platform path, so the header would not render there at all. */
     p.startsWith("/library") ||
+    /* The account page draws it the way the library does (app/account/
+       layout.tsx mounts this). Missing from this list, the header was
+       never drawn there at all: not a known platform path, so both the
+       first render and the host check below said no. */
+    p === "/account" ||
+    p.startsWith("/account/") ||
     p.startsWith("/dashboard") ||
     p.startsWith("/app") ||
     p.startsWith("/marketplace") ||

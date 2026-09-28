@@ -19,7 +19,7 @@
  *   STACK     a product page browsed from Storelib: the buy bar stands on
  *             the tab bar, both whole; on the open web the bar is not there
  *   ACCOUNT   /account at 390 and 1280, nothing sideways; the Profile tab is
- *             the photo with a ring when you are on it
+ *             a person icon, filled when you are on it
  *   DESKTOP   no bar at 1280, and no room left for one
  *
  * Pictures go to SHOTS_DIR (or a temp folder), and are meant to be looked at.
@@ -227,33 +227,50 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await touch(cdp, "touchEnd")
     await cpu.send("Emulation.setCPUThrottlingRate", { rate: 1 })
     await sleep(700)
-    const landed = await barState(p)
     const slideLog = await p.evaluate(() => window.__router)
-    expect(slideLog.some(([k, h]) => k === "push" && h === "/explore/search") && !slideLog.some(([k]) => k === "link"), "let go over Search, and Search opens (and nothing under the bar is clicked)", slideLog)
-    expect(Math.abs(landed.lens.cx - c.x) < 0.6, "the glass lands on Search's centre", Math.round((landed.lens.cx - c.x) * 100) / 100)
+    const opened = await p.evaluate(() => ({
+      overlay: document.querySelector("[data-search-overlay]")?.getAttribute("data-search-overlay"),
+      focused: document.activeElement?.hasAttribute("data-search-screen-field") ?? false,
+      locked: getComputedStyle(document.documentElement).overflow,
+      entry: !!(history.state && history.state.storelibSearch),
+    }))
+    expect(opened.overlay === "open" && !slideLog.some(([k]) => k === "push" || k === "link"), "let go over Search, and the search screen opens over the page (no route, and nothing under the bar is clicked)", { opened, slideLog })
 
-    /* ── KEYBOARD ── the search screen takes the focus as it arrives. */
-    const kb = await p.evaluate(() => ({ focused: document.activeElement?.hasAttribute("data-search-screen-field") ?? false }))
+    /* ── KEYBOARD ── the field has the focus from the press itself. */
     await sleep(350)
     const away = await barState(p)
-    expect(kb.focused, "the search screen's field has the focus as it arrives", kb)
+    expect(opened.focused, "the search screen's field has the focus as it opens", opened)
+    expect(opened.locked === "hidden" && opened.entry, "the page under it holds still, and it has a history entry of its own", opened)
     expect(away.top >= 844 && away.html === "away", "KEYBOARD: while it does, the bar has slid away", { top: away.top, html: away.html })
     await p.screenshot({ path: join(shots, "phone-search-focused.png") })
-    await p.evaluate(() => document.activeElement.blur())
-    await sleep(450)
+    /* The X: Back pops the screen's entry and the screen goes. */
+    await p.evaluate(() => document.querySelector("[data-search-close]").click())
+    await sleep(500)
+    const shut = await p.evaluate(() => ({
+      overlay: document.querySelector("[data-search-overlay]")?.getAttribute("data-search-overlay"),
+      visibility: getComputedStyle(document.querySelector("[data-search-overlay]")).visibility,
+      locked: document.documentElement.style.overflow,
+      entry: !!(history.state && history.state.storelibSearch),
+    }))
+    expect(shut.overlay === "closed" && shut.visibility === "hidden" && shut.locked === "" && !shut.entry, "the X closes it, lets the page go and takes its entry back", shut)
     const back = await barState(p)
-    expect(back.bottom === 844 && back.html === "shown" && back.current === 1, "and comes back when it lets go, on Search", { bottom: back.bottom, current: back.current })
-    await p.screenshot({ path: join(shots, "phone-search.png") })
-    /* The tab you are on again: back to the top and into the field. */
+    expect(back.bottom === 844 && back.html === "shown" && back.current === 2, "and the bar comes back, still on Library", { bottom: back.bottom, current: back.current })
+    await p.screenshot({ path: join(shots, "phone-search-closed.png") })
+    /* A tap on Search: no mouse click follows onto whatever the screen has there. */
     await p.evaluate(() => { window.__router = []; window.__ev = []; for (const t of ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "focusin", "focusout", "touchstart", "touchend"]) document.addEventListener(t, (e) => window.__ev.push(`${t}:${e.target.tagName}${e.target.getAttribute?.("data-buyer-tab") ?? ""}${e.target.hasAttribute?.("data-buyer-tab-bar") ? "#bar" : ""}${e.target.closest?.("[data-buyer-tab-bar]") ? "@in" : "@out"}`), true) })
     await touch(cdp, "touchStart", back.slots[1].x, back.slots[1].y)
     await sleep(50)
     await touch(cdp, "touchEnd")
     await sleep(100)
     const events = await p.evaluate(() => window.__ev)
-    expect(!events.some((e) => /^(mousedown|click)/.test(e)), "and no mouse click follows the tap onto whatever is under the bar once it has moved", events)
-    const again = await p.evaluate(() => ({ pushes: (window.__router || []).filter(([k]) => k === "push").length, focused: document.activeElement?.hasAttribute("data-search-screen-field") ?? false }))
-    expect(again.pushes === 0 && again.focused, "Search pressed on Search goes nowhere and puts you back in the field", again)
+    expect(!events.some((e) => /^(mousedown|click)/.test(e)), "a tap on Search: no mouse click follows onto the screen it opened", events)
+    const again = await p.evaluate(() => ({ pushes: (window.__router || []).filter(([k]) => k === "push").length, focused: document.activeElement?.hasAttribute("data-search-screen-field") ?? false, overlay: document.querySelector("[data-search-overlay]")?.getAttribute("data-search-overlay") }))
+    expect(again.pushes === 0 && again.focused && again.overlay === "open", "and it opens again with the field focused", again)
+    /* Back (Android's, the browser's) closes it too. */
+    await p.evaluate(() => history.back())
+    await sleep(450)
+    const popped = await p.evaluate(() => document.querySelector("[data-search-overlay]")?.getAttribute("data-search-overlay"))
+    expect(popped === "closed", "Back closes it", popped)
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()
   }
@@ -266,10 +283,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const s = await barState(p)
     const prof = await p.evaluate(() => {
       const tab = document.querySelector('[data-buyer-tab="profile"]')
-      return { img: !!tab.querySelector("img"), ring: tab.querySelector("[data-avatar-ring]")?.getAttribute("data-avatar-ring"), label: tab.getAttribute("aria-label") }
+      const ink = tab.querySelector('[data-part="ink"]')
+      return { img: !!tab.querySelector("img"), ink: ink ? +getComputedStyle(ink).opacity : null, label: tab.getAttribute("aria-label") }
     })
-    expect(s.current === 3 && prof.label === "Profile" && prof.ring === "on", "the Profile tab is on, with its ring", { current: s.current, ...prof })
-    expect(prof.img, "and it is the person's photo", prof)
+    expect(s.current === 3 && prof.label === "Profile" && prof.ink === 1, "the Profile tab is on: the person filled", { current: s.current, ...prof })
+    expect(!prof.img, "and it is a person icon, not the photo (the photo is in the header)", prof)
     await shotBar(p, "phone-rest-account.png")
     const page = await p.evaluate(() => ({
       cards: [...document.querySelectorAll("[data-account-card]")].map((c) => c.getAttribute("data-account-card")),
