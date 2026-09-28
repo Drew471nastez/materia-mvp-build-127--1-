@@ -114,7 +114,7 @@ console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it
    barPriceText's own body into barPriceText(product), which threw "Maximum
    call stack size exceeded" on every priced product page. */
 {
-  const src = require("node:fs").readFileSync("components/store-builder/sticky-add-to-cart.tsx", "utf8") as string
+  const src = readFileSync("components/store-builder/sticky-add-to-cart.tsx", "utf8")
   const body = src.match(/function barPriceText\(product: ProductData\): string \{([\s\S]*?)\n\}/)?.[1] ?? ""
   check("the sticky buy bar's price is formatted, not recursive", body.length > 0 && !/barPriceText\(/.test(body) && /formatPrice\(product\.price_cents\)/.test(body))
 }
