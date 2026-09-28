@@ -604,7 +604,7 @@ check("the row's answer lasts as long as the wait, and the arrival ends it",
     && !/startNavigationLoading\(href\)\s*return\s*\}/.test(list)
     && /if \(getAppNavigation\(\)\) return\s*reset\(\)/.test(list)
     && /export function editorAnswered\(href: string, since: number\): boolean/.test(ret)
-    && /export const WAIT_LONGEST_MS = 45_000/.test(ret))
+    && /export const WAIT_LONGEST_MS = 30_000/.test(ret))
 
 const probe = read("scripts/check-products-page.mjs")
 check("the probe draws the pill's box from its variables and measures 360, 390, 430, 768 and 1280", /width: "var\(--app-nav-width\)"/.test(probe) && /bottom: "var\(--app-nav-lift\)"/.test(probe) && /const TABS = /.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))

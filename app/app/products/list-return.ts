@@ -202,8 +202,14 @@ export function warmEditor(router: Router, href: string) {
   it, as the old ten seconds was.
 */
 export const WAIT_TICK_MS = 2000
-/** Nothing on the list waits longer than this, whatever the timings say. */
-export const WAIT_LONGEST_MS = 45_000
+/**
+ * Nothing on the list waits longer than this, whatever the timings say. Past
+ * it the row is a row again and takes a press: longer than anything the editor
+ * can take on the server (an auth round trip with a 3s ceiling and one retry,
+ * then the reads), short enough that a press that truly went nowhere does not
+ * hold the list for the best part of a minute.
+ */
+export const WAIT_LONGEST_MS = 30_000
 
 /** Has the router's own request for `href`, sent at or after `since`, come back? */
 export function editorAnswered(href: string, since: number): boolean {
