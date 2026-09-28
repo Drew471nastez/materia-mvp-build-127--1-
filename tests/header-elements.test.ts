@@ -154,8 +154,26 @@ function main() {
     /root\.overflow = "hidden"/.test(frame))
   check("and its width is given back as padding, so nothing shifts",
     /body\.paddingRight = `\$\{barWidth\}px`/.test(frame))
+  /*
+    THE PACE IS NOW CHOSEN ONCE, NOT ONCE PER DRAWER.
+
+    This used to count `drawerSlide(open)` and `drawerFade(open)` twice each
+    in the header: the menu and the bag each wrote the transition into their
+    own style prop. That is where they were, and it was also why the motion
+    was not smooth — a transition set during a React commit starts counting
+    from inside that commit and runs unpainted for as long as it takes (see
+    useDrawerMotion in components/website-builder/drawer-frame.ts, and the
+    frame counts in scripts/check-header-motion.mjs).
+
+    Both drawers hand their panel and their backdrop to that one hook now, so
+    the claim is stronger than it was: the two cannot disagree about the pace
+    because neither of them names it. It is named in the hook, once.
+  */
   check("both drawers move at the one pace",
-    (header.match(/drawerSlide\(open\)/g) ?? []).length === 2 && (header.match(/drawerFade\(open\)/g) ?? []).length === 2)
+    (header.match(/useDrawerMotion\(\s*open,\s*"transform"/g) ?? []).length === 2
+      && (header.match(/useDrawerMotion\(open, "opacity", "0", "1"\)/g) ?? []).length === 2
+      && (frame.match(/drawerSlide\(open\)/g) ?? []).length === 1
+      && (frame.match(/drawerFade\(open\)/g) ?? []).length === 1)
   check("and the lists inside them have the slim bar",
     (header.match(/site-slim-scroll/g) ?? []).length >= 3)
 

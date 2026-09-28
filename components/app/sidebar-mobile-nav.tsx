@@ -247,16 +247,41 @@ function NavIcon({ icon, active, color, size = 22, box, layer = false }: { icon:
   const matched = box
     ? { inset: `calc(${box} * ${-Math.round(((FILL_MATCH - 1) / 2) * 10000) / 10000})`, width: `calc(${box} * ${FILL_MATCH})`, height: `calc(${box} * ${FILL_MATCH})` }
     : { inset: -grow }
+  /*
+    ── A GLYPH IN A BOX IS DRAWN AT THE BOX, AND NOT AT `size` ────────────
+    "Make sure the settings button icon sits there correctly centred in the
+    white circle."
+
+    Solar's IconBase takes the `size` prop and writes it into the inline
+    style as `width` and `height` — AFTER spreading the style it was handed.
+    So the `width: 100%` above lost, silently, and every Solar glyph was
+    drawn at 22px inside a box that is --app-nav-glyph: 21px on a 390px
+    phone, 20 on a 360. `inset: 0` on an absolutely positioned element that
+    carries its own width resolves to left and top, so the whole of that
+    extra pixel hung off the RIGHT and the BOTTOM, and the ink sat a pixel
+    down and to the right of the middle of its circle.
+
+    The hand-drawn icons in this family (Home, OnePage, Payouts) put `size`
+    on the svg's width ATTRIBUTE, which a style beats, so they were already
+    the size of their box — which is why only four of the nine were off, and
+    why the gear, alone in a white circle beside a menu glyph made of divs,
+    was the one that got reported.
+
+    So a glyph with a box is handed no `size` at all: the box's own width
+    and height are then the only ones in the style, whichever family the
+    icon came from. `size` still draws the rail's icons, which have no box.
+  */
+  const noSize = box != null
   return (
     <span className="relative block shrink-0" style={{ color, width: box ?? size, height: box ?? size }}>
       <Line
-        size={size}
+        {...(noSize ? {} : { size })}
         strokeWidth={1.5}
         data-part="outline"
         style={{ ...piece, ...fit, opacity: active ? 0 : 1 }}
       />
       <Fill
-        size={layer ? size * FILL_MATCH : size}
+        {...(noSize ? {} : { size: layer ? size * FILL_MATCH : size })}
         data-part="ink"
         style={layer ? { ...piece, ...matched, opacity: active ? 1 : 0 } : { ...piece, ...fit, opacity: active ? 1 : 0, scale: String(FILL_MATCH) }}
       />

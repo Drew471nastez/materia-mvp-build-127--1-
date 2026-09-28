@@ -4545,6 +4545,27 @@ html.capacitor [data-app-nav-pill] nav a:active {
   opacity: 1;
 }
 
+/* ── AND NOT A PICTURE ────────────────────────────────────────────────────────
+   "On a mobile device, if I touch the website cover, make sure there is no
+   grey thing over it, it looks bad."
+
+   On a control, fading to 72% for the length of a press reads as the control
+   going quiet for a moment. On a PHOTOGRAPH it does not: the picture washes
+   out into the white card behind it, over the whole tile at once, and the
+   website's black hero turned grey under a thumb. Measured on the live cover
+   in the native shell, with :active forced: opacity 0.72 across the whole
+   16:10 picture, with nothing else on the tile to read as a press.
+
+   A tile whose content is a picture says so with [data-picture-press] and
+   answers a finger at its FRAME instead: a hairline that deepens, drawn on
+   the edge where the picture is not. The page's own loading bar starts on the
+   same press, so the tap is acknowledged twice over and never by dimming what
+   the tile is there to show.
+   ──────────────────────────────────────────────────────────────────────────── */
+html.capacitor [data-picture-press]:active {
+  opacity: 1;
+}
+
 /* ── NO LONG-PRESS CALLOUT, ANYWHERE IT IS NOT TEXT ───────────────────────────
    Holding a card in a WebView pops iOS's own preview: a rounded highlight
    drawn OVER the element, which is the "flash overlay" that appears on hold

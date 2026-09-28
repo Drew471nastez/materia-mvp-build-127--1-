@@ -18,7 +18,7 @@ import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProp
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
-import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerFade, drawerSlide, useBackdropDismiss, useDrawerFrame, useDrawerTouchGuard, useHeaderUnderDrawer } from "../../drawer-frame"
+import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, prefersStill, useBackdropDismiss, useComposedRef, useDrawerFrame, useDrawerMotion, useDrawerTouchGuard, useHeaderUnderDrawer } from "../../drawer-frame"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { useSiteCart } from "../../site-cart"
 import { useStorefront } from "../../theme/storefront-context"
@@ -103,12 +103,6 @@ function HeaderMobileNavDrawer({
   // Filter out empty/placeholder items so the drawer only shows real links
   const visibleItems = items.filter(it => it.label && it.label.trim().length > 0)
 
-  // Use different easing/duration for open vs close — open is a smooth
-  // deceleration (iOS-style spring), close is a quicker ease-in so it
-  // feels snappy and intentional rather than slow.
-  const drawerTransition = drawerSlide(open)
-  const backdropTransition = drawerFade(open)
-
   const drawer = (
     <MobileDrawerInner
       open={open}
@@ -119,8 +113,6 @@ function HeaderMobileNavDrawer({
       frameStyle={frameStyle}
       onEditorNavigate={onEditorNavigate}
       scopedToPreview={!!scopedToPreview}
-      drawerTransition={drawerTransition}
-      backdropTransition={backdropTransition}
       showAccount={!!showAccount}
       showSearch={showSearch !== false}
       showWishlist={!!showWishlist}
@@ -741,12 +733,22 @@ function HeaderCartDrawer({
   const { lines, open, setOpen, setQty, remove, subtotalCents, count } = useSiteCart()
   const onClose = useCallback(() => setOpen(false), [setOpen])
   const { mounted, target, positionClass, frameStyle } = useDrawerFrame(open, scopedToPreview, onClose)
-  const dismissBackdrop = useBackdropDismiss(open, onClose)
-  const guardPanel = useDrawerTouchGuard()
-  if (!mounted || !target) return null
+  /*
+    THE SLIDE AND THE FADE ARE WRITTEN TO THE NODES, ON THE FRAME THEY BEGIN.
 
-  const panelTransition = drawerSlide(open)
-  const backdropTransition = drawerFade(open)
+    Both used to be React props — `transform` and `transition` in the style
+    object below — which meant the transition started inside the commit that
+    opened the drawer and ran unseen for as long as that commit took. See
+    useDrawerMotion in components/website-builder/drawer-frame.ts for what
+    that measured, and why the bag and the menu both do it this way.
+  */
+  const slidePanel = useDrawerMotion(open, "transform", "translateX(101%)", "translateX(0)")
+  const fadeBackdrop = useDrawerMotion(open, "opacity", "0", "1")
+  const pressBackdrop = useBackdropDismiss(open, onClose)
+  const touchGuard = useDrawerTouchGuard()
+  const dismissBackdrop = useComposedRef(pressBackdrop, fadeBackdrop)
+  const guardPanel = useComposedRef(touchGuard, slidePanel)
+  if (!mounted || !target) return null
 
   const stop = (e: React.MouseEvent) => { if (onEditorNavigate) { e.preventDefault(); e.stopPropagation() } }
 
@@ -759,10 +761,7 @@ function HeaderCartDrawer({
         className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z)}
         style={{
           ...frameStyle,
-          opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
-          transition: backdropTransition,
-          willChange: "opacity",
         }}
       />
       <aside
@@ -783,9 +782,6 @@ function HeaderCartDrawer({
           ...frameStyle,
           background: scheme.bg,
           color: scheme.heading,
-          transform: open ? "translateX(0)" : "translateX(101%)",
-          transition: panelTransition,
-          willChange: "transform",
           pointerEvents: open ? "auto" : "none",
         }}
       >
@@ -928,8 +924,6 @@ function MobileDrawerInner({
   frameStyle,
   onEditorNavigate,
   scopedToPreview,
-  drawerTransition,
-  backdropTransition,
   showAccount,
   showWishlist,
   showSearch,
@@ -946,8 +940,6 @@ function MobileDrawerInner({
   frameStyle: CSSProperties
   onEditorNavigate?: (href: string, fromNav?: boolean) => void
   scopedToPreview: boolean
-  drawerTransition: string
-  backdropTransition: string
   showAccount: boolean
   showWishlist: boolean
   showSearch: boolean
@@ -958,8 +950,32 @@ function MobileDrawerInner({
   // with children is tapped this flips to that item's id and the drawer
   // slides to a sub-page showing just that item's children (iOS-style).
   // The back button on the sub-page returns us to the root by clearing it.
-  const dismissBackdrop = useBackdropDismiss(open, onClose)
-  const guardPanel = useDrawerTouchGuard()
+  /*
+    THE PANEL TRAVELS, THE BACKDROP DARKENS, AND NEITHER OF THEM IS A PROP.
+
+    Both were rendered by React — `transform` and `opacity` in the style
+    objects below, with their transitions beside them — so both started
+    inside the commit that opened the menu and spent it unpainted. Measured
+    on a 390px screen at a quarter of the processor: the tap landed, nothing
+    moved for 138ms, and then 93% of the picture changed in one frame. The
+    panel was not sliding in. It was appearing.
+
+    They are written to the nodes now, on the first frame the browser is
+    about to paint. See useDrawerMotion in components/website-builder
+    /drawer-frame.ts, which is also where the bag's half of this lives, so
+    the two cannot drift.
+  */
+  const slidePanel = useDrawerMotion(
+    open,
+    "transform",
+    menuStyle === "full" ? "translate3d(0, -101%, 0)" : menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
+    "translate3d(0, 0, 0)",
+  )
+  const fadeBackdrop = useDrawerMotion(open, "opacity", "0", "1")
+  const pressBackdrop = useBackdropDismiss(open, onClose)
+  const touchGuard = useDrawerTouchGuard()
+  const dismissBackdrop = useComposedRef(pressBackdrop, fadeBackdrop)
+  const guardPanel = useComposedRef(touchGuard, slidePanel)
   const railRef = useRef<HTMLDivElement | null>(null)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
   /* The saved count for the heart, and Sign in or Account for this visitor. */
@@ -1060,10 +1076,7 @@ function MobileDrawerInner({
         className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z)}
         style={{
           ...frameStyle,
-          opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
-          transition: backdropTransition,
-          willChange: "opacity",
         }}
       />
       <aside
@@ -1137,9 +1150,6 @@ function MobileDrawerInner({
           ...frameStyle,
           background: scheme.bg,
           color: scheme.heading,
-          transform: open ? "translate3d(0, 0, 0)" : menuStyle === "full" ? "translate3d(0, -101%, 0)" : menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
-          transition: drawerTransition,
-          willChange: "transform",
           pointerEvents: open ? "auto" : "none",
         }}
       >
@@ -1613,14 +1623,52 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
      */
     const containerTop = () => (target === window ? 0 : (target as HTMLElement).getBoundingClientRect().top)
     let origin = 0
+    let height = 0
     const sampleOrigin = () => {
+      /*
+        NEVER WHILE A DRAWER IS OVER THE PAGE, for the same reason the
+        decision below stands still there. Locking the page pins the body at
+        minus its offset, so the scroller reports nought and a sticky header
+        reports a top of nought with it — which reads as "this header lives at
+        the very top of the page", and the clearance band that keeps it from
+        flickering over the announcement bar would be thrown away by the act
+        of opening the menu. The lock also changes the body's width on a
+        screen with a scrollbar, which is enough to wake the observer below.
+      */
+      if (drawerOverPage.current) return
       const rel = el.getBoundingClientRect().top - containerTop()
       const y = getY()
       if (rel > 1 || y <= 1) origin = Math.max(0, y + rel)
+      height = el.offsetHeight
     }
 
-    const REVEAL = "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+    /*
+      A REVEAL IS A MOVEMENT, AND SOME PEOPLE HAVE ASKED FOR NONE.
+      With reduced motion the header still hides and still comes back — that
+      is the behaviour the creator switched on — it simply arrives instead of
+      travelling.
+    */
+    const REVEAL = prefersStill() ? "none" : "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+    /*
+      AND IT IS ONLY WRITTEN WHEN IT CHANGES.
+
+      This used to set all three properties on every scroll event — the same
+      values, over and over, forty times a flick — and every one of those
+      writes dirties the element's style whether or not the value moved. The
+      header has exactly two states worth writing, and there is no reason to
+      write either of them more than once. It also makes the reveal's own
+      decisions readable in a film: the header's inline transform changes
+      when the header changes, so a spurious move (one the visitor did not
+      ask for, on a menu opening or closing) is a line in the record rather
+      than something lost among forty identical writes. That is the check
+      scripts/check-header-motion.mjs reports as `headerMoves`.
+    */
+    let shownHide: boolean | null = null
+    let shownPinned: boolean | null = null
     const apply = (hide: boolean, pinned: boolean) => {
+      if (hide === shownHide && pinned === shownPinned) return
+      shownHide = hide
+      shownPinned = pinned
       el.style.transition = pinned ? REVEAL : "none"
       el.style.transform = hide ? "translateY(-100%)" : "translateY(0)"
       el.style.pointerEvents = hide ? "none" : ""
@@ -1631,7 +1679,25 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     apply(false, false)
     sampleOrigin()
 
-    const onScroll = () => {
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       ONE DECISION PER FRAME, NOT ONE PER SCROLL EVENT
+      ═══════════════════════════════════════════════════════════════════════
+      A flick sends scroll events faster than the screen refreshes, and this
+      ran the whole decision on each of them — a `getBoundingClientRect`, an
+      `offsetHeight` and three style writes — for a screen that can only show
+      one answer per frame. Work nobody can see, done on the thread that is
+      supposed to be drawing.
+
+      The event now does one thing: ask for a frame, if one has not been
+      asked for already. The decision happens in that frame, once, against
+      the offset as it is at that moment, which is also the only offset the
+      frame is going to draw. The answer is the same and the work is a
+      fraction of it.
+    */
+    let pendingFrame = 0
+    const decide = () => {
+      pendingFrame = 0
       /*
         NOT WHILE A DRAWER IS OVER THE PAGE. Pinning the page for the menu
         is itself a scroll: the document's offset drops to zero, and on the
@@ -1667,8 +1733,18 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
        * header's own are settings, and a header that measured itself once at
        * mount is a header that is wrong after the first edit.
        */
-      sampleOrigin()
-      const settled = origin + el.offsetHeight
+      /*
+        AND IT IS ONLY RE-MEASURED WHERE THE ANSWER CAN CHANGE. `sampleOrigin`
+        reads the header's rectangle, which is the one expensive thing here,
+        and above the clearance line it can only ever confirm what is already
+        known: a pinned header's top IS the container's, so `rel` is nought,
+        the guard above rejects the sample, and the read was for nothing.
+        Below the line it is taken, which is exactly where the announcement
+        bar's height and the header's own are still in play — and the
+        ResizeObserver below catches an edit made while scrolled down.
+      */
+      if (y <= origin + height + 1) sampleOrigin()
+      const settled = origin + height
       const mayMove = y >= settled
 
       if (!mayMove) hidden = false
@@ -1678,9 +1754,24 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       apply(hidden && mayMove, mayMove)
     }
 
+    const onScroll = () => {
+      if (pendingFrame) return
+      pendingFrame = requestAnimationFrame(decide)
+    }
+
+    /* A header whose own height changed — a logo swapped, a padding slider
+       dragged — has a new clearance line, and the creator is often scrolled
+       away from the top when they change it. */
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(sampleOrigin) : null
+    ro?.observe(el)
+    window.addEventListener("resize", sampleOrigin)
+
     target.addEventListener("scroll", onScroll as EventListener, { passive: true })
     return () => {
       target.removeEventListener("scroll", onScroll as EventListener)
+      window.removeEventListener("resize", sampleOrigin)
+      ro?.disconnect()
+      if (pendingFrame) cancelAnimationFrame(pendingFrame)
       clear()
     }
   }, [renderingInsideEditor, headerStickyEnabled, headerStickyOnScrollUp])
@@ -2277,19 +2368,46 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       style={{ color: navLinkColor }}
       onClick={e => { e.preventDefault(); setMobileNavOpen(o => !o) }}
     >
+      {/*
+        ═══════════════════════════════════════════════════════════════════
+         THE BARS SLIDE ON THE COMPOSITOR, NOT ON `top`
+        ═══════════════════════════════════════════════════════════════════
+        The top and bottom bars used to travel by transitioning `top` from
+        0px and 14px to 7px. `top` is a layout property: every frame of that
+        180ms asks the browser to lay the page out again, and it runs during
+        the exact frames the menu drawer is trying to slide in — which is the
+        one moment on the whole page where there is no main thread to spare.
+        scripts/check-header-motion.mjs names it in the list of what is
+        animating during an open: "top on span".
+
+        Two nested spans instead. The outer one carries the travel as a
+        `translateY`, the inner one the rotation, so the stagger the original
+        had — slide first, then turn — survives while both halves stay on the
+        compositor and cost the layout nothing.
+      */}
       <span className="relative block h-[16px] w-[22px]">
         <span
           aria-hidden
-          className="absolute left-0 h-[2px] w-full rounded-full"
+          className="absolute left-0 top-0 h-[2px] w-full"
           style={{
-            background: navLinkColor,
-            top: mobileNavOpen ? "7px" : "0px",
-            transform: mobileNavOpen ? "rotate(45deg)" : "rotate(0deg)",
+            transform: mobileNavOpen ? "translateY(7px)" : "translateY(0px)",
             transition: mobileNavOpen
-              ? "top 180ms cubic-bezier(0.4, 0, 0.6, 1), transform 200ms 80ms cubic-bezier(0.32, 0.72, 0, 1)"
-              : "transform 160ms cubic-bezier(0.4, 0, 1, 1), top 180ms 60ms cubic-bezier(0.32, 0.72, 0, 1)",
+              ? "transform 180ms cubic-bezier(0.4, 0, 0.6, 1)"
+              : "transform 180ms 60ms cubic-bezier(0.32, 0.72, 0, 1)",
           }}
-        />
+        >
+          <span
+            aria-hidden
+            className="block h-full w-full rounded-full"
+            style={{
+              background: navLinkColor,
+              transform: mobileNavOpen ? "rotate(45deg)" : "rotate(0deg)",
+              transition: mobileNavOpen
+                ? "transform 200ms 80ms cubic-bezier(0.32, 0.72, 0, 1)"
+                : "transform 160ms cubic-bezier(0.4, 0, 1, 1)",
+            }}
+          />
+        </span>
         <span
           aria-hidden
           className="absolute left-0 top-[7px] h-[2px] w-full rounded-full"
@@ -2303,16 +2421,26 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         />
         <span
           aria-hidden
-          className="absolute left-0 h-[2px] w-full rounded-full"
+          className="absolute left-0 top-[14px] h-[2px] w-full"
           style={{
-            background: navLinkColor,
-            top: mobileNavOpen ? "7px" : "14px",
-            transform: mobileNavOpen ? "rotate(-45deg)" : "rotate(0deg)",
+            transform: mobileNavOpen ? "translateY(-7px)" : "translateY(0px)",
             transition: mobileNavOpen
-              ? "top 180ms cubic-bezier(0.4, 0, 0.6, 1), transform 200ms 80ms cubic-bezier(0.32, 0.72, 0, 1)"
-              : "transform 160ms cubic-bezier(0.4, 0, 1, 1), top 180ms 60ms cubic-bezier(0.32, 0.72, 0, 1)",
+              ? "transform 180ms cubic-bezier(0.4, 0, 0.6, 1)"
+              : "transform 180ms 60ms cubic-bezier(0.32, 0.72, 0, 1)",
           }}
-        />
+        >
+          <span
+            aria-hidden
+            className="block h-full w-full rounded-full"
+            style={{
+              background: navLinkColor,
+              transform: mobileNavOpen ? "rotate(-45deg)" : "rotate(0deg)",
+              transition: mobileNavOpen
+                ? "transform 200ms 80ms cubic-bezier(0.32, 0.72, 0, 1)"
+                : "transform 160ms cubic-bezier(0.4, 0, 1, 1)",
+            }}
+          />
+        </span>
       </span>
     </button>
   )

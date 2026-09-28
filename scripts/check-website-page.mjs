@@ -1116,6 +1116,117 @@ async function landing(W) {
  *
  * Read on every animation frame from the upload until the photograph is in.
  */
+/**
+ * ===========================================================================
+ *  WHAT A FINGER LEAVES ON THE PAGE
+ * ===========================================================================
+ * "On a mobile device, if I touch the website cover, make sure there is no
+ * grey thing over it, it looks bad. Fully fix it."
+ *
+ * Two ways a touch screen paints something the page never asked for, and both
+ * are measured here rather than read out of the source:
+ *
+ *   A PRESS. The native shell fades any button to 72% while it is held
+ *   (html.capacitor button:active, app/globals.css). On a control that reads
+ *   as the control going quiet; on a photograph it is the picture washing out
+ *   into the white card behind it, across the whole 16:10 tile, and the
+ *   website's black hero came out grey. A synthetic touch does not set
+ *   :active in a headless browser, so the state is FORCED through the
+ *   protocol, the way scripts/check-app-mobile-nav.mjs forces it.
+ *
+ *   A HOVER THAT STAYS. Several mobile engines answer (hover: hover), turn
+ *   :hover on where a finger landed and leave it there until something else
+ *   is tapped. Anything on this page whose hover paints a BACKGROUND would
+ *   then sit shaded behind you, which is the same grey complaint one surface
+ *   over. So every card and row here is read with :hover forced, under the
+ *   media a phone reports.
+ *
+ * What a press may do is answer at the tile's frame, where no picture is: the
+ * hairline goes from 8% to 22%. That is checked for as well, because a press
+ * with no acknowledgement at all is the other way to get this wrong.
+ */
+async function touchPart(W) {
+  if (W > 640) return
+  console.log(`\nwhat a finger leaves on the page, at ${W}px\n`)
+  const { p, errors } = await open(W, "live", "&snapshot=1")
+  await p.evaluate(() => document.documentElement.classList.add("capacitor"))
+  await sleep(200)
+  const cdp = await p.target().createCDPSession()
+  await cdp.send("DOM.enable")
+  await cdp.send("CSS.enable")
+  const { root: docRoot } = await cdp.send("DOM.getDocument", { depth: -1 })
+  const idsOf = async (sel) => (await cdp.send("DOM.querySelectorAll", { nodeId: docRoot.nodeId, selector: sel })).nodeIds
+  /* What is painted over an element: its own fade, its background, and the
+     two layers it can draw on top of itself. */
+  const paintOf = async (nodeId) => {
+    const { object } = await cdp.send("DOM.resolveNode", { nodeId })
+    const { result } = await cdp.send("Runtime.callFunctionOn", {
+      objectId: object.objectId, returnByValue: true, functionDeclaration: `function () {
+        const cs = getComputedStyle(this), be = getComputedStyle(this, "::before"), af = getComputedStyle(this, "::after")
+        const alpha = (c) => { const m = String(c).match(/^rgba?\\(([^)]+)\\)/); if (!m) return 0; const v = m[1].split(",").map(Number); return v.length < 4 ? 1 : v[3] }
+        return { label: (this.getAttribute("aria-label") || this.textContent || "").trim().slice(0, 26) || this.tagName,
+                 opacity: Number(cs.opacity), bgAlpha: alpha(cs.backgroundColor), bg: cs.backgroundColor,
+                 beforeAlpha: alpha(be.backgroundColor), afterAlpha: alpha(af.backgroundColor), ring: af.boxShadow }
+      }` })
+    return result.value
+  }
+  const withState = async (nodeId, forced) => {
+    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: forced })
+    /* Past the frame's own 150ms, so the reading is the state and not a
+       moment part way into it. */
+    await sleep(240)
+    const got = await paintOf(nodeId)
+    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] })
+    return got
+  }
+  const coverId = (await idsOf("[data-cover]"))[0]
+  const rest = await paintOf(coverId)
+  const held = await withState(coverId, ["active"])
+  const left = await withState(coverId, ["hover"])
+  expect(held.opacity === 1, `the cover keeps its picture under a finger in the native shell (opacity ${held.opacity} held, ${rest.opacity} at rest)`)
+  expect(held.beforeAlpha === 0, `  and nothing is laid over it (tint alpha ${held.beforeAlpha})`)
+  expect(left.opacity === 1 && left.beforeAlpha === 0,
+    `  and a tap that leaves :hover behind leaves nothing to see (opacity ${left.opacity}, tint alpha ${left.beforeAlpha})`)
+  const ringOf = (x) => { const m = /rgba\(15, 23, 42, ([\d.]+)\) 0px 0px 0px 1px inset/.exec(x.ring); return m ? Number(m[1]) : null }
+  expect(ringOf(held) !== null && ringOf(rest) !== null && ringOf(held) > ringOf(rest),
+    `  the press is answered at the frame instead: the hairline goes ${ringOf(rest)} to ${ringOf(held)}`)
+  if (process.env.SHOTS) {
+    await cdp.send("CSS.forcePseudoState", { nodeId: coverId, forcedPseudoClasses: ["active"] })
+    await sleep(120)
+    const b = await p.evaluate(() => { const r = document.querySelector("[data-cover]").getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } })
+    await p.screenshot({ path: join(process.env.SHOTS, `wbpage-cover-held-${W}.png`), clip: b })
+    await cdp.send("CSS.forcePseudoState", { nodeId: coverId, forcedPseudoClasses: [] })
+  }
+  /*
+    AND EVERY CARD AND ROW ON THE PAGE, READ FROM ITS CLASSES AND NOT FROM
+    ITS PAINT. This browser answers (hover: none), so Tailwind's own
+    @media (hover: hover) never opens and a forced :hover paints nothing here
+    however the class is written. The engines this goes wrong on are the ones
+    that answer (hover: hover) WITH a finger, and no flag in Chromium makes it
+    into one. So the surfaces are asked what they would paint there: a hover
+    that fills a background or lays on a shadow, and is not behind
+    `pointer-fine:`, is one a tap can leave switched on behind you.
+
+    Colour on text is left alone. A word that stays dark after you tap it is
+    not the grey plate this is about.
+  */
+  const stuck = await p.evaluate(() => {
+    const out = []
+    for (const el of document.querySelectorAll("[data-install-row], [data-explore-row], [data-cover], [data-card], [data-page-block] > div")) {
+      const cls = typeof el.className === "string" ? el.className : ""
+      for (const token of cls.split(/\s+/)) {
+        if (!/(^|:)hover:(bg|shadow|border)-/.test(token)) continue
+        if (token.startsWith("pointer-fine:")) continue
+        out.push(`${el.getAttribute("data-install-row") ? "library row" : el.getAttribute("data-explore-row") !== null ? "theme card" : el.tagName.toLowerCase()}: ${token}`)
+      }
+    }
+    return out
+  })
+  expect(stuck.length === 0, `no card or row on the page shades itself on a hover a finger can leave switched on${stuck.length ? `: ${stuck.join("; ")}` : ""}`)
+  expect(errors.length === 0, `  no errors on the page`, errors[0] || "")
+  await p.close()
+}
+
 async function coversPart(W) {
   console.log(`\nan imported website's cover, at ${W}px\n`)
   const shots = process.env.SHOTS
@@ -1190,8 +1301,8 @@ async function coversPart(W) {
   }
 }
 
-/* PARTS=static,live,landing,covers runs some of them; all by default. */
-const PARTS = new Set((process.env.PARTS || "static,live,landing,covers").split(","))
+/* PARTS=static,live,landing,covers,touch runs some of them; all by default. */
+const PARTS = new Set((process.env.PARTS || "static,live,landing,covers,touch").split(","))
 
 try {
   for (const W of WIDTHS) {
@@ -1199,6 +1310,7 @@ try {
     if (PARTS.has("live")) await livePage(W)
     if (PARTS.has("landing")) await landing(W)
     if (PARTS.has("covers")) await coversPart(W)
+    if (PARTS.has("touch")) await touchPart(W)
   }
   console.log(broken === 0 ? "\nall measured, nothing out\n" : `\n${broken} measurement(s) out\n`)
 } finally {
