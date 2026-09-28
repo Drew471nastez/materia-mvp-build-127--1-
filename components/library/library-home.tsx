@@ -25,6 +25,15 @@ import { cn } from "@/lib/utils"
  * under the heading is only there so an empty search is not a surprise.
  */
 
+/**
+ * How many products a library needs before the search field and the order
+ * are drawn over it. Under this the whole list is on the screen already and
+ * both are chrome; past it the list stops being scannable and they start
+ * being the way through it. A phone shows about six rows at a time, so this
+ * is the first size where something is always out of sight.
+ */
+const CONTROLS_FROM = 8
+
 const SORTS: Array<{ value: LibrarySort; label: string }> = [
   { value: "recent", label: "Newest" },
   { value: "oldest", label: "Oldest" },
@@ -224,7 +233,27 @@ export function LibraryHome({
           </p>
         ) : null}
 
-        {/* Search and order: one line on every width. */}
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+           SEARCH AND ORDER ONLY ONCE THERE IS SOMETHING TO SEARCH
+          ═══════════════════════════════════════════════════════════════════
+          "Is a search bar and a Newest filter truly necessary on the library
+          page?" On most libraries, no. Three purchases fit on one screen and
+          are read in a glance; a field and a sort over them are two controls
+          that answer a question nobody has yet, and they are the first thing
+          under the heading, which is the room the products should have. This
+          file already says it: nothing here is a dashboard.
+
+          They are not useless, though, they are early. Past a screenful the
+          list stops being scannable and both start earning their place, so
+          they appear at CONTROLS_FROM and not before, the same way the row
+          of sellers waits for a second seller.
+
+          Counted on the WHOLE library, never on what is being shown, so
+          choosing a seller or typing cannot pull the controls out from under
+          the finger that is using them.
+        */}
+        {items.length >= CONTROLS_FROM ? (
         <div className="flex items-center gap-2" data-library-toolbar="">
           <label className="relative min-w-0 flex-1">
             <span className="sr-only">Search your products</span>
@@ -259,6 +288,7 @@ export function LibraryHome({
             <ChevronRight aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-[#6b7280]" />
           </label>
         </div>
+        ) : null}
 
         {creators.length > 1 ? <CreatorChips creators={creators} chosen={creator} onChoose={setCreator} /> : null}
 

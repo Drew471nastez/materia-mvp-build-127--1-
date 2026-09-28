@@ -72,6 +72,18 @@ const extras: LibraryExtras = {
 }
 
 const data = assembleLibrary(downloads, extras)
+
+/*
+ * A LIBRARY BIG ENOUGH TO NEED ITS SEARCH. The field and the order are only
+ * drawn past CONTROLS_FROM (components/library/library-home.tsx): under that
+ * the whole list is on the screen and both are chrome. The fixture holds
+ * five products, so the `many` mode pads it out with copies that carry the
+ * same files and a distinct id, and the search test opens that.
+ */
+const manyItems = [
+  ...data.items,
+  ...data.items.map((it, i) => ({ ...it, productId: `${it.productId}-copy${i}`, title: `${it.title} (again)` })),
+]
 const w = window as unknown as { __mode?: string; __focus?: string; __cold?: boolean; __navigate?: (href: string) => void; __navStore?: { path: string; listeners: Set<() => void> } }
 const mode = w.__mode || "home"
 
@@ -257,7 +269,12 @@ function Screen() {
     default:
       return (
         <Shell>
-          <LibraryHome items={data.items} creators={data.creators} toReview={data.items.filter((i) => i.canReview).length} highlight={mode === "highlight" ? "p1" : null} />
+          <LibraryHome
+            items={mode === "many" ? manyItems : data.items}
+            creators={data.creators}
+            toReview={data.items.filter((i) => i.canReview).length}
+            highlight={mode === "highlight" ? "p1" : null}
+          />
         </Shell>
       )
   }

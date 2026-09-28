@@ -35,12 +35,34 @@ type SavedRow = {
   products: (Record<string, unknown> & { id: string; type?: string | null; status?: string | null; creators?: { user_id?: string | null } | null }) | null
 }
 
+/**
+ * Is this failure "that column is not here", which reading without the pay
+ * what you want columns would fix? 42703 is Postgres's undefined_column,
+ * which PostgREST passes through; the message is checked too, because a
+ * schema cache miss on the same columns comes back as PGRST204 instead.
+ * Anything else (a timeout, a dropped connection, a refusal) is not worth
+ * a second read of the whole list.
+ */
+function missingPwywColumn(error: { code?: string | null; message?: string | null }): boolean {
+  if (error.code === "42703" || error.code === "PGRST204") return true
+  return /pay_what_you_want|pwyw_min_price_cents/.test(error.message ?? "")
+}
+
 export async function loadWishlist(userId: string): Promise<WishlistEntry[]> {
   const admin = createAdminClient()
   const read = (select: string) => admin.from("wishlist_items").select(select).eq("user_id", userId).order("created_at", { ascending: false })
   let { data, error } = await read(WITH_PWYW)
-  /* A database from before pay what you want: the same list without it. */
-  if (error) ({ data, error } = await read(WITHOUT_PWYW))
+  /*
+    A DATABASE FROM BEFORE PAY WHAT YOU WANT: the same list without it, and
+    ONLY for that. This used to read the whole list a second time after any
+    failure at all, so a slow moment or a dropped connection on the first
+    read was paid for twice before the page could say anything, which is
+    the worst moment to double the work: the second attempt is made under
+    exactly the conditions that lost the first. A column the database does
+    not have is the one failure a different query can actually fix, and
+    PostgREST names it.
+  */
+  if (error && missingPwywColumn(error)) ({ data, error } = await read(WITHOUT_PWYW))
   if (error || !data) return []
 
   const rows = (data as unknown as SavedRow[]).filter((r) => r.products && isPubliclyVisible(r.products as { status?: string | null }))

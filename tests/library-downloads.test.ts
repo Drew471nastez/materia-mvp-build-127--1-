@@ -176,7 +176,21 @@ function wishlistCases() {
   check("the heart is 44px to press, filled, and takes it off with Undo",
     /h-11 w-11/.test(content) && /fill-\[#f43f5e\]/.test(content) && /data-wishlist-undo-button/.test(content) && /method: "DELETE"/.test(content) && /method: "POST"/.test(content))
   check("the small buttons go through cn(), so they really are 36px", /cn\(PRIMARY, SMALL/.test(content) && !/\$\{PRIMARY\} \$\{SMALL\}/.test(content))
-  check("the library's tab reads the list on the server", /loadWishlist\(user\.id\)/.test(read("app/library/wishlist/page.tsx")) && /initialItems=\{items\}/.test(read("app/library/wishlist/page.tsx")))
+  /*
+    STILL READ ON THE SERVER, BUT NOT IN FRONT OF THE PAGE. The read was
+    awaited before the page returned anything, so the route could not commit
+    until the saved rows, the sellers' faces, the plans, the options and
+    what is already owned had all come back, and the library's stage held
+    its shape over the screen for the whole of it ("it shows after like 10
+    seconds"). It is inside a Suspense boundary now, as the account
+    overview is: the tab commits as soon as it knows who is asking.
+  */
+  const wishPage = read("app/library/wishlist/page.tsx")
+  check("the library's tab reads the list on the server", /loadWishlist\(userId\)/.test(wishPage) && /initialItems=\{await loadWishlist\(userId\)\}/.test(wishPage))
+  check("  and streams it, so the tab is on screen before the cards are", /<Suspense$/m.test(wishPage) && /\{savedBody\(user\.id\)\}/.test(wishPage) && /<WishlistSkeleton \/>/.test(wishPage))
+  /* A second full read of the list only for the one failure another query can fix. */
+  const wishLoad = read("app/library/wishlist/load-wishlist.ts")
+  check("  and a slow first read is not paid for twice", /if \(error && missingPwywColumn\(error\)\)/.test(wishLoad) && /error\.code === "42703"/.test(wishLoad))
   check("and never imports server code into the browser", !/load-wishlist|next\/headers|server-only/.test(content) && !/next\/headers|server-only/.test(read("components/wishlist/wishlist-entry.ts")))
 }
 

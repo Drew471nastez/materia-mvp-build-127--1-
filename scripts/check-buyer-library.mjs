@@ -341,16 +341,33 @@ try {
       const mail = await page.evaluate(() => document.querySelector("[data-creator-strip] [data-creator-contact]")?.getAttribute("href"))
       expect(/^mailto:hello@mayachen\.co/.test(mail || ""), "a seller with a support address is emailed", mail)
       await page.evaluate(() => [...document.querySelectorAll("[data-creator-chips] button")][0].click())
-      await page.type("[data-library-toolbar] input", "Mobile.dng")
-      await sleep(100)
-      const s = await page.evaluate(() => [...document.querySelectorAll("[data-library-item]")].map((r) => r.getAttribute("data-library-item")))
-      expect(s.join() === "p1", "search finds a product by a file's name", s)
+      /* Five products is under CONTROLS_FROM, so this library draws neither the field nor the order. */
+      const toolbar = await page.evaluate(() => !!document.querySelector("[data-library-toolbar]"))
+      expect(!toolbar, "a small library draws no search and no order over it", toolbar)
       await page.evaluate(() => document.querySelector('[data-library-item="p1"] [data-row-files]').click())
       await sleep(150)
       const files = await page.evaluate(() => document.querySelectorAll('[data-library-item="p1"] [data-library-file]').length)
       expect(files === 3, "3 files opens the list in place", files)
       await page.screenshot({ path: join(shots, `home-${label}-files.png`), fullPage: true })
     }
+    await page.close()
+  }
+
+  /* ─── A LIBRARY BIG ENOUGH FOR ITS SEARCH ───────────────────────────── */
+  if (part("layout")) {
+    console.log("\na library past the size the controls appear at")
+    const page = await open("many", PHONE)
+    await sleep(250)
+    const there = await page.evaluate(() => ({
+      toolbar: !!document.querySelector("[data-library-toolbar]"),
+      rows: document.querySelectorAll("[data-library-item]").length,
+    }))
+    expect(there.toolbar && there.rows >= 8, "past it the search and the order are drawn", there)
+    await page.type("[data-library-toolbar] input", "Mobile.dng")
+    await sleep(120)
+    const s = await page.evaluate(() => [...document.querySelectorAll("[data-library-item]")].map((r) => r.getAttribute("data-library-item")))
+    expect(s.includes("p1"), "search finds a product by a file's name", s)
+    await page.screenshot({ path: join(shots, "home-many-search.png"), fullPage: true })
     await page.close()
   }
 
