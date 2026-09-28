@@ -30,6 +30,7 @@ import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
+import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
 
 
@@ -1077,6 +1078,27 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    * scrolls away.
    */
   const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     WHERE THE PHONE'S TAB BAR IS, THE HEADER DOES NOT REPEAT IT
+    ═══════════════════════════════════════════════════════════════════════
+    "When logged in, on phones where the bottom tab bar shows, do not show
+    the Library icon in the header (it's in the tab bar). Anything else the
+    tab bar duplicates should go too, but keep the wishlist heart and the
+    avatar." So on those pages the phone row is the menu, the logo, the
+    heart and the photo; the search strip that followed the page down under
+    the header is the tab bar's Search now; and the menu sheet loses its My
+    Library row and its search link. The same answer the bar itself uses
+    (lib/nav/use-buyer-tabs-where), so nothing goes where the bar is not.
+    Both are drawn below 768px only, so a computer is untouched.
+  */
+  const tabsHere = useBuyerTabsHere(pathname)
+  /*
+    AND THE LIBRARY AND THE ACCOUNT HAVE NO SEARCH STRIP AT ANY WIDTH. It
+    was "Search for anything" over the owner's own purchases (image 25),
+    a marketplace search on the one page that is not the marketplace.
+  */
+  const isOwnPages = pathname === "/library" || pathname.startsWith("/library/") || pathname === "/account" || pathname.startsWith("/account/")
   /* The phone's strip: its line is still 8px from the top of the window. */
   const searchInHeader = useSearchHandoff(isExploreSurface)
   /**
@@ -1833,8 +1855,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
-              {/* Library - only show when logged in; h-[42px] w-[42px] = 44px tap target */}
-              {user && (
+              {/* Library - only show when logged in and the tab bar is not there
+                  to carry it; h-[42px] w-[42px] = 44px tap target */}
+              {user && !tabsHere && (
                 <Link
                   href={getCanonicalOrRelativePath("/library")} onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
                   className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
@@ -2116,7 +2139,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     <GuestSheetActions second="login" link={headerLink} onDone={() => setMobileMenuOpen(false)} />
                   </div>
                 )}
-                {isDiscoverProductContext && (
+                {isDiscoverProductContext && !tabsHere && (
                   /* This opened a search sheet that no longer exists. It goes to
                      the page whose whole top half is a search field instead. */
                   <Link
@@ -2129,10 +2152,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   </Link>
                 )}
               </div>
-              {/* My Library sits under the buttons, above the categories, rather than at the foot of the list. */}
+              {/* My Library sits under the buttons, above the categories, rather than at the foot of the list.
+                  Not where the tab bar is: Library is one of its four. */}
+              {!tabsHere && (
               <div className="border-b border-[#eef0f2] pb-1">
                 <MenuRow href="/library" label="My Library" onNav={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/library")} />
               </div>
+              )}
               </>
             }
             rootBottom={
@@ -2275,7 +2301,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         AND IT SAT TOO LOW, because that lead-in was twenty pixels of black
         above it. Without it the field starts directly under the header.
       */}
-      {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage) && (
+      {/* Not where the tab bar is (its Search is the way in there), and
+          never on the library or the account. */}
+      {searchInHeader && !tabsHere && !isOwnPages && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on
@@ -2284,6 +2312,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             frame late. A bar that appears as you scroll past the page's own
             field should just appear, the way every sticky header does.
           */
+          data-header-search-strip=""
           className="fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200"
           style={{ top: headerH }}
         >

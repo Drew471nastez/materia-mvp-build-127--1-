@@ -1,11 +1,14 @@
 import type { Metadata } from "next"
-import { SearchScreen } from "@/components/explore/search-screen"
+import { Suspense } from "react"
+import { SearchPage } from "@/components/search/search-page"
 
 /**
- * The phone's search screen: the buyer tab bar's Search (components/nav/
- * buyer-tab-bar.tsx). A static route, so it beats /explore/[category] for
- * this one word and needs nothing from the server. Its results are
- * Explore's own (`/explore?q=`), which is the page search engines index.
+ * The search screen at its own address (components/search/search-page.tsx).
+ * On a phone the tab bar's Search opens the same screen over the page
+ * instead (components/search/search-overlay.tsx); this is where a link or a
+ * reload lands. A static route, so it beats /explore/[category] for this one
+ * word and needs nothing from the server. Its results are Explore's own
+ * (`/explore?q=`), which is the page search engines index.
  */
 export const metadata: Metadata = {
   title: "Search",
@@ -13,5 +16,10 @@ export const metadata: Metadata = {
 }
 
 export default function ExploreSearchPage() {
-  return <SearchScreen />
+  /* useSearchParams, for words to start from, is read under a Suspense. */
+  return (
+    <Suspense fallback={null}>
+      <SearchPage />
+    </Suspense>
+  )
 }

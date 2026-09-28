@@ -1,6 +1,6 @@
 /**
- * The real buyer tab bar, the real search screen and the real profile
- * (scripts/account-hub-demo.tsx),
+ * The real buyer tab bar (with the search screen it opens), the real search
+ * page and the real profile (scripts/account-hub-demo.tsx),
  * in a shell shaped like the buyer's side of storelib.com: the black header,
  * a light page, the dark footer, and the bar mounted after it the way the
  * layouts mount it. The router is the probe's stub (scripts/check-buyer-tab-
@@ -13,7 +13,7 @@ import { createRoot } from "react-dom/client"
 import { usePathname } from "next/navigation"
 
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
-import { SearchScreen } from "@/components/explore/search-screen"
+import { SearchPage } from "@/components/search/search-page"
 import { AccountDemo } from "./account-hub-demo"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
 import { LocaleProvider } from "@/components/locale-provider"
@@ -78,7 +78,7 @@ function Product() {
 function Page() {
   const path = usePathname() || "/explore"
   const body =
-    path === "/explore/search" ? <SearchScreen />
+    path === "/explore/search" ? <SearchPage />
       : path.startsWith("/explore") ? <Explore />
         : path.startsWith("/library") ? <Library />
           : path.startsWith("/account") ? <AccountDemo />

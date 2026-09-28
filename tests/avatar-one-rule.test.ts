@@ -123,8 +123,10 @@ console.log("\nNo face is a question mark")
     ["components/library/product-row.tsx", 1],
     ["components/library/library-home.tsx", 3],
     ["components/library/library-product.tsx", 2],
-    /* The phone's buyer tab bar: the Profile tab is the person's photo. */
-    ["components/nav/buyer-tab-bar.tsx", 1],
+    /* The phone's search screen: a creator found by name. (The buyer tab
+       bar's Profile tab was the person's photo; it is a person icon now, at
+       the owner's request, because the photo is in the header.) */
+    ["components/search/search-screen.tsx", 1],
     ["app/admin/blog/seo/_seo-client.tsx", 1],
   ]
   for (const [file, n] of moved) {
