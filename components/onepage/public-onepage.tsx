@@ -5339,7 +5339,7 @@ function PublicBlockRenderer({
       */
       const ownBackground = data.block_background_color || null
       const themeFill = theme.button_style !== "outline" && theme.button_style !== "glass"
-      const blockBackgroundColor = ownBackground || (themeFill ? theme.button_color : "transparent")
+      /* What the text really sits on: the block's own colour, the theme's button fill, or, with no fill at all (outline, glass), the page behind it. */
       const surfaceColor = ownBackground || (themeFill ? theme.button_color : theme.background_color)
       const textColor = readableOn(surfaceColor, theme.button_text_color, data.text_color)
 
@@ -5357,11 +5357,11 @@ function PublicBlockRenderer({
       const tintOf = (c: string, alpha: string) => (isHex6(c) ? `${c}${alpha}` : "rgba(127,127,127,0.12)")
 
       const isPreviewStyle = data.style === 'preview'
+      /* The strip: a shade of the card's own fill, or a tint of its text when the card has no fill to darken. */
+      const hasFill = Boolean(ownBackground) || themeFill
       const ctaButtonColor = isPreviewStyle
         ? (data.button_color || tintOf(textColor, "15"))
-        : ownBackground || themeFill
-          ? darkenHex(surfaceColor, 0.08)
-          : tintOf(textColor, "14")
+        : (hasFill ? darkenHex(surfaceColor, 0.08) : tintOf(textColor, "14"))
       const ctaButtonTextColor = isPreviewStyle
         ? readableOn(isHex6(ctaButtonColor) ? ctaButtonColor : surfaceColor, textColor, data.button_text_color)
         : textColor
