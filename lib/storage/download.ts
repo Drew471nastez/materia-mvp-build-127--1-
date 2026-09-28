@@ -27,6 +27,28 @@ const SIGNABLE_BUCKETS: readonly string[] = [...DIGITAL_BUCKETS, PUBLIC_BUCKET]
  * made with `download`, so storage answers with Content-Disposition:
  * attachment and the file is saved, never rendered, whatever it contains.
  */
+/**
+ * A signed storage URL, asked for as an attachment under `downloadName`.
+ *
+ * THE NAME GOES ON THE URL HERE, ENCODED, NOT THROUGH storage-js. Its
+ * `download` option is pasted into the query as it is and the whole URL then
+ * goes through encodeURI, which leaves & # + ; alone: "Drums & Bass.zip"
+ * reached storage as "Drums " and a stray parameter, and "Kit #2.zip" as
+ * "Kit " with the rest cut off as a fragment. The parameter is not part of
+ * the signature (storage-js adds it after signing too), and storage answers
+ * it with Content-Disposition: attachment and the name, as filename and as
+ * the RFC 5987 filename*. Empty asks for an attachment under the stored name.
+ *
+ * Every signed address a buyer or a visitor is sent goes through this, so
+ * storage saves the file rather than drawing it over the page they are on.
+ * The name is cleaned first: no folders, no quotes or line breaks, no
+ * direction marks (lib/security/uploads/filename.ts).
+ */
+export function asAttachment(signedUrl: string, downloadName?: string | null): string {
+  const name = typeof downloadName === "string" && downloadName.trim() ? sanitizeDisplayName(downloadName) : ""
+  return `${signedUrl}${signedUrl.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`
+}
+
 export async function generateSignedDownloadUrl(
   admin: SupabaseClient,
   filePath: string,
@@ -61,20 +83,7 @@ export async function generateSignedDownloadUrl(
   if (!isContainedPath(normalizedPath)) return null
 
   const expiry = Math.max(30, Math.min(expirySeconds, 3600))
-  /* The name the buyer's browser saves it as: no folders, no quotes or line
-     breaks, no direction marks (lib/security/uploads/filename.ts). */
-  const name = typeof downloadName === "string" && downloadName.trim() ? sanitizeDisplayName(downloadName) : ""
-  /*
-    THE NAME GOES ON THE URL HERE, ENCODED, NOT THROUGH storage-js. Its
-    `download` option is pasted into the query as it is and the whole URL
-    then goes through encodeURI, which leaves & # + ; alone: "Drums & Bass.zip"
-    reached storage as "Drums " and a stray parameter, and "Kit #2.zip" as
-    "Kit " with the rest cut off as a fragment. The parameter is not part of
-    the signature (storage-js adds it after signing too), and storage answers
-    it with Content-Disposition: attachment and the name, as filename and as
-    the RFC 5987 filename*. Empty asks for an attachment under the stored name.
-  */
-  const withName = (signedUrl: string) => `${signedUrl}${signedUrl.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`
+  const withName = (signedUrl: string) => asAttachment(signedUrl, downloadName)
 
   // Build bucket order: preferred first (if provided and allowed), then standard fallbacks
   const standardBuckets = [STORAGE_BUCKET, "product-files", "digital-assets"]

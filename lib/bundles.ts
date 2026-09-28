@@ -18,6 +18,7 @@
 import { sanitizeDisplayName } from "@/lib/security/uploads/filename"
 import JSZip from "jszip"
 import { STORAGE_BUCKET } from "@/lib/storage"
+import { asAttachment } from "@/lib/storage/download"
 import type { createAdminClient } from "@/lib/supabase/admin"
 
 /** Minimum number of files that triggers automatic ZIP bundling. */
@@ -278,14 +279,20 @@ export async function ensureProductBundle(
 /**
  * Generate a signed download URL for a cached bundle ZIP.
  * Returns null if the bundle doesn't exist or signing fails.
+ *
+ * Asked for as an attachment, the way every other signed address is
+ * (lib/storage/download.ts asAttachment). The token route redirects the
+ * browser here, so without the header storage decides what to do with the
+ * bytes and the page that asked can be drawn over.
  */
 export async function getBundleSignedUrl(
   admin: AdminClient,
   zipPath: string,
   expiresIn = 300,
+  downloadName?: string | null,
 ): Promise<string | null> {
   const { data } = await admin.storage
     .from(STORAGE_BUCKET)
     .createSignedUrl(zipPath, expiresIn)
-  return data?.signedUrl ?? null
+  return data?.signedUrl ? asAttachment(data.signedUrl, downloadName) : null
 }
