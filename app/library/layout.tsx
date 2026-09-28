@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
@@ -16,6 +16,7 @@ import { NativeAuthGate } from "@/components/native-auth-gate"
 import LibraryLoading from "./loading"
 import { LibraryBgFix } from "./library-bg-fix"
 import { HtmlClass } from "@/components/platform/html-class"
+import { APP_BANNER_COOKIE, bannerPhone, isAppWebView, type Phone } from "@/lib/platform/open-in-app"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -32,8 +33,13 @@ export const metadata: Metadata = { robots: { index: false, follow: false } }
  */
 async function isCapacitorWebView(): Promise<boolean> {
   const headersList = await headers()
-  const ua = headersList.get("user-agent") || ""
-  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+  return isAppWebView(headersList.get("user-agent") || "")
+}
+
+/** The phone the app banner is for, from the same request: none in the app, on a computer, or once closed. */
+async function appBannerPhone(): Promise<Phone | null> {
+  const [headersList, jar] = await Promise.all([headers(), cookies()])
+  return bannerPhone(headersList.get("user-agent") || "", jar.get(APP_BANNER_COOKIE)?.value)
 }
 
 export default async function LibraryLayout({
@@ -48,12 +54,13 @@ export default async function LibraryLayout({
    */
   /* The header's two server-side props, asked for alongside everything else
      rather than in front of it. */
-  const [isNative, current, initialWishlistCount, onPlatformDomain] = await Promise.all([
+  const [isNative, current, initialWishlistCount, onPlatformDomain, bannerFor] = await Promise.all([
     isCapacitorWebView(),
     /** A blip is not a sign-out. See lib/auth/current-user.ts. */
     currentUserForRequest(),
     readWishlistCount(),
     isPlatformDomain(),
+    appBannerPhone(),
   ])
   const user = current.user
 
@@ -129,11 +136,10 @@ export default async function LibraryLayout({
             paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
           }}
         >
-          <LibraryTabs />
-          {/* The screen under the pills, which changes the way /app settings changes a tab. */}
-          <LibraryPanel>{children}</LibraryPanel>
-          {/* On a phone's browser, one quiet line under everything; nowhere else. */}
-          <OpenInApp className="mt-10" />
+          {/* On a phone's browser, the app's banner at the top; nowhere else. Known here, so its room is in the first paint. */}
+          <OpenInApp phone={bannerFor} />
+          {/* The heading and pills, and the screen under them, which cross fades from one to the next (library-panel.tsx). */}
+          <LibraryPanel head={<LibraryTabs />}>{children}</LibraryPanel>
         </div>
       </main>
 

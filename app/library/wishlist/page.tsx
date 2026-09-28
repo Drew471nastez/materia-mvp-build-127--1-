@@ -1,6 +1,7 @@
-import { Metadata } from "next"
-import { Suspense } from "react"
+import type { Metadata } from "next"
+import { pageUser } from "@/lib/auth/page-user"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
+import { loadWishlist } from "./load-wishlist"
 
 export const metadata: Metadata = {
   title: "Wishlist | Library",
@@ -9,30 +10,15 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic"
 
-function WishlistSkeleton() {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-2xl border border-neutral-100 overflow-hidden">
-          <div className="aspect-[4/3] bg-neutral-100 animate-pulse" />
-          <div className="p-3.5 space-y-2">
-            <div className="h-4 w-3/4 bg-neutral-100 rounded animate-pulse" />
-            <div className="h-3 w-1/3 bg-neutral-100 rounded animate-pulse" />
-            <div className="h-4 w-1/4 bg-neutral-100 rounded animate-pulse" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export default function LibraryWishlistPage() {
-  /* The heading and the tabs are the library's (components/library/library-tabs). */
-  return (
-    <div>
-      <Suspense fallback={<WishlistSkeleton />}>
-        <WishlistContent isLibrary />
-      </Suspense>
-    </div>
-  )
+/**
+ * The library's Wishlist tab. Read on the server (./load-wishlist.ts), so
+ * the tab's prefetch carries the products and the cards are in the first
+ * frame; the heading and the pills are the library's
+ * (components/library/library-tabs).
+ */
+export default async function LibraryWishlistPage() {
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the session in the browser, and the list is asked for there. */
+  const items = user ? await loadWishlist(user.id) : null
+  return <WishlistContent isLibrary initialItems={items} />
 }
