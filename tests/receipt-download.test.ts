@@ -364,9 +364,16 @@ function main() {
      attachment never replaces the page). No tab, no window.open, no pop-up.
      scripts/check-buyer-library.mjs presses Download against a real
      attachment in Chromium: a download begins, no target is created and the
-     address never changes. The tab helper stays for the surfaces that still
-     use it (a OnePage, a course attachment); these pins keep it honest. */
+     address never changes. A OnePage's lead magnet, a lesson's attachment
+     and a creator's own file in the product editor moved onto the same path
+     too (the owner hated the about:blank tab wherever it came from); the pins
+     below keep all three off the tab helper. It stays only for the builder's
+     picture viewer, which saves an image rather than a bought file. */
   check("a browser download opens no tab and no window", !/openDownloadTab|window\.open\(/.test(browserPath))
+  for (const file of ["components/courses/download-attachment.ts", "components/onepage/public-onepage.tsx", "lib/platform/own-file.ts"]) {
+    const body = code(file)
+    check(`${file} opens no tab for a download and saves on the page instead`, !/openDownloadTab|showBlockedDownload/.test(body) && /downloadFile\(|saveInPlace/.test(body))
+  }
   check("it asks for the address first, then saves in place", browserPath.indexOf("await resolveTarget(target)") > -1 && browserPath.indexOf("await resolveTarget(target)") < browserPath.indexOf("saveInPlace(url, fileName)"))
   const inPlace = button.slice(button.indexOf("export function saveInPlace("), button.indexOf("/* ─── The app"))
   check("in a hidden frame on this page, left long enough to finish",

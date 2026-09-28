@@ -17,8 +17,11 @@
  *   OPEN APP   on an iPhone's browser a line with Open, whose link is the
  *              app's scheme carrying this page; not on a computer, not
  *              inside the app, and not again once closed.
- *   BROWSER    Download asks /api/download once, the file goes to a tab of
- *              its own and the library's address never changes.
+ *   BROWSER    Download asks /api/download once, the file saves where the
+ *              button is (no tab) and the library's address never changes.
+ *   TABS       at 4x CPU, the pressed pill's fill only grows and takes
+ *              settings' 150ms, timed on the animation clock from the frame
+ *              it starts, with one frame's tolerance each way.
  *   IPHONE APP (bridge stood in, no native downloader): the file is read with
  *              a bar that only grows, measured frame by frame at 4x CPU
  *              throttle, then Save to Files hands the whole file to the

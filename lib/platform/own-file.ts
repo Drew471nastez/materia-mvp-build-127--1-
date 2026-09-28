@@ -14,10 +14,12 @@
  *     attachment under the file's name (lib/storage/owner-download.ts).
  *     That link is on STORAGE'S origin, where an anchor's `download` is
  *     ignored, so clicking one was an ordinary navigation and the editor
- *     went with it whenever the attachment header did not arrive. The file
- *     goes to a tab of its own now, opened empty inside the press and
- *     pointed at the link when it comes back (lib/platform/download-tab).
- *     A link on our own origin still saves through the anchor.
+ *     went with it whenever the attachment header did not arrive. For a
+ *     while it went to a tab of its own, opened empty inside the press;
+ *     the owner saw that tab as about:blank and did not want it. It now
+ *     saves where the button is (saveInPlace in lib/downloads/download-file:
+ *     a hidden frame takes storage's attachment), the same way a buyer's
+ *     Download does. A link on our own origin still saves through the anchor.
  *
  *   The iOS and Android apps: <a download> does nothing in WKWebView or in
  *     Capacitor's Android WebView, so the same signed link is opened in the
@@ -37,10 +39,10 @@
  * runs every branch without a browser.
  */
 import { downloadBlob, openInSystemBrowser, savePlatform, type SaveOutcome, type SavePlatform } from "./save-file"
-import { anchorCanSave, clickDownloadLink, openDownloadTab, showBlockedDownload, type DownloadTab } from "./download-tab"
+import { anchorCanSave, clickDownloadLink } from "./download-tab"
+import { saveInPlace } from "@/lib/downloads/download-file"
 
-/** "blocked": the browser refused the tab, so the file is in the notice. */
-export type OwnFileOutcome = SaveOutcome | "shared" | "blocked"
+export type OwnFileOutcome = SaveOutcome | "shared"
 
 export type OwnFilePlan = { via: "local" } | { via: "link"; open: "anchor" | "system" } | { via: "share" } | { via: "none" }
 
@@ -61,14 +63,12 @@ export interface OwnFileDeps {
   /** The signed link for a saved file, or throws with the server's words. */
   fetchLink: (assetId: string, name: string) => Promise<{ url: string; fileName: string }>
   downloadBlob: (blob: Blob, name: string) => void
-  /** A tab of this page's own, opened before anything is awaited. */
-  openTab: () => DownloadTab | null
   /** True where an <a download> really saves the address in place. */
   anchorCanSave: (url: string) => boolean
   /** An ordinary link click, for an address anchorCanSave allows. */
   followLink: (url: string, name: string) => void
-  /** The calm notice with the file on it, when the tab was refused. */
-  showBlocked: (url: string, name: string) => void
+  /** Storage's attachment, saved without leaving the page: no tab, no pop-up. */
+  saveInPlace: (url: string, name: string) => void
   openInSystemBrowser: (url: string) => Promise<void>
   /** The share sheet with this file; false where the page cannot share files. */
   shareFile: (file: File, name: string) => Promise<boolean>
@@ -91,26 +91,13 @@ export async function saveOwnFile(
     case "none":
       throw new Error(NOT_UPLOADED_YET)
     case "link": {
-      /* Opened here, before the request: a tab asked for after an await is
-         a pop-up and blockers eat it. Nothing is opened for the apps. */
-      const tab = plan.open === "anchor" ? deps.openTab() : null
-      let link: { url: string; fileName: string }
-      try {
-        link = await deps.fetchLink(request.assetId!, request.name)
-      } catch (err) {
-        tab?.close()
-        throw err
-      }
+      /* Nothing is opened before the request any more: the file is saved on
+         this page once the link is back, so there is no pop-up to protect. */
+      const link = await deps.fetchLink(request.assetId!, request.name)
       if (plan.open === "anchor") {
-        if (deps.anchorCanSave(link.url)) {
-          tab?.close()
-          deps.followLink(link.url, link.fileName)
-          return "downloaded"
-        }
-        if (tab?.point(link.url)) return "downloaded"
-        tab?.close()
-        deps.showBlocked(link.url, link.fileName)
-        return "blocked"
+        if (deps.anchorCanSave(link.url)) deps.followLink(link.url, link.fileName)
+        else deps.saveInPlace(link.url, link.fileName)
+        return "downloaded"
       }
       await deps.openInSystemBrowser(link.url)
       return deps.platform === "ios" ? "ios-download" : "android-download"
@@ -126,8 +113,6 @@ export async function saveOwnFile(
 export function ownFileNotice(outcome: OwnFileOutcome): string | null {
   if (outcome === "ios-download") return "Tap Download to save it to Files"
   if (outcome === "android-download") return "Saving to Downloads on this phone"
-  /* The notice itself carries the file; the toast points at it. */
-  if (outcome === "blocked") return "Your file is ready. Press Save."
   return null
 }
 
@@ -174,10 +159,9 @@ export function ownFileDeps(): OwnFileDeps {
     platform: savePlatform(),
     fetchLink,
     downloadBlob,
-    openTab: openDownloadTab,
     anchorCanSave,
     followLink: clickDownloadLink,
-    showBlocked: showBlockedDownload,
+    saveInPlace,
     openInSystemBrowser,
     shareFile,
   }

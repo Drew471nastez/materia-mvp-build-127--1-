@@ -181,15 +181,15 @@ async function main() {
     check("nothing to save from says so", ownFilePlan({ platform: "web", hasLocal: false }).via === "none")
 
     const calls: string[] = []
-    /* Changed on purpose, and the `anchor:` line below with it. The signed
-       link is on storage's origin, where an anchor's `download` is ignored,
-       so following one in place was an ordinary navigation: whenever the
-       attachment header did not arrive the editor was replaced by the file.
-       The link goes to a tab of its own now, opened before the request
-       (lib/platform/download-tab). These stand-ins are that tab, the test
-       for an address the anchor really saves, and the notice a refused tab
-       shows. `tabRefused` and `sameOrigin` steer the new branches. */
-    let tabRefused = false
+    /* Changed on purpose twice. The signed link is on storage's origin,
+       where an anchor's `download` is ignored, so following one in place
+       was an ordinary navigation and the editor could be replaced by the
+       file. It then went to a tab of its own, opened empty inside the press,
+       and the owner saw that tab as about:blank and did not want it. It is
+       now saved where the button is (saveInPlace, a hidden frame taking
+       storage's attachment), the way a buyer's Download is. These stand-ins
+       are that frame and the test for an address the anchor really saves;
+       `sameOrigin` steers that branch. */
     let sameOrigin = false
     const deps = (platform: OwnFileDeps["platform"], share = true): OwnFileDeps => ({
       platform,
@@ -198,23 +198,9 @@ async function main() {
         return { url: "https://s/signed?download=x", fileName: name }
       },
       downloadBlob: (_b, name) => calls.push(`blob:${name}`),
-      openTab: () => {
-        if (tabRefused) {
-          calls.push("tab:refused")
-          return null
-        }
-        calls.push("tab:open")
-        return {
-          point: (url: string) => {
-            calls.push(`tab:${url}`)
-            return true
-          },
-          close: () => calls.push("tab:close"),
-        }
-      },
       anchorCanSave: () => sameOrigin,
       followLink: (url) => calls.push(`anchor:${url}`),
-      showBlocked: (url, name) => calls.push(`notice:${url}:${name}`),
+      saveInPlace: (url, name) => calls.push(`frame:${url}:${name}`),
       openInSystemBrowser: async (url) => {
         calls.push(`system:${url}`)
       },
@@ -226,24 +212,17 @@ async function main() {
     const local = new Blob(["x"]) as unknown as File
 
     calls.length = 0
-    tabRefused = false
     sameOrigin = false
     let r = await saveOwnFile({ assetId: MY_FILE, name: "Kit.zip" }, deps("web"))
-    check("web: the tab is opened BEFORE the request, then pointed at the link",
-      r === "downloaded" && calls.join(" ") === `tab:open fetch:${MY_FILE}:Kit.zip tab:https://s/signed?download=x`, calls)
+    check("web: the link is asked for, then saved on this page, with no tab at all",
+      r === "downloaded" && calls.join(" ") === `fetch:${MY_FILE}:Kit.zip frame:https://s/signed?download=x:Kit.zip`, calls)
     calls.length = 0
     sameOrigin = true
     r = await saveOwnFile({ assetId: MY_FILE, name: "Kit.zip" }, deps("web"))
-    check("a link on our own origin still saves through the anchor, and the tab is closed again",
-      r === "downloaded" && calls.join(" ") === `tab:open fetch:${MY_FILE}:Kit.zip tab:close anchor:https://s/signed?download=x`, calls)
-    calls.length = 0
+    check("a link on our own origin still saves through the anchor",
+      r === "downloaded" && calls.join(" ") === `fetch:${MY_FILE}:Kit.zip anchor:https://s/signed?download=x`, calls)
     sameOrigin = false
-    tabRefused = true
-    r = await saveOwnFile({ assetId: MY_FILE, name: "Kit.zip" }, deps("web"))
-    check("a browser that refuses the tab gets the notice with the file, not nothing, and the editor stays",
-      r === "blocked" && calls.join(" ") === `tab:refused fetch:${MY_FILE}:Kit.zip notice:https://s/signed?download=x:Kit.zip`, calls)
-    calls.length = 0
-    tabRefused = false
+    check("nothing on the page half opens a tab or a window any more", !/openDownloadTab|window\.open\(/.test(code("lib/platform/own-file.ts")))
     calls.length = 0
     r = await saveOwnFile({ assetId: MY_FILE, name: "Kit.zip", local }, deps("web"))
     check("web with the file in hand: no request at all", r === "downloaded" && calls.join(" ") === "blob:Kit.zip", calls)
@@ -273,10 +252,8 @@ async function main() {
       error = (e as Error).message
     }
     check("a refusal reaches the row in the server's words", /Wait a minute/.test(error), error)
-    check("and the tab opened for it is closed again, not left empty", calls.join(" ") === "tab:open tab:close", calls)
+    check("and nothing was saved or opened for it", calls.length === 0, calls)
     check("the apps' notices fit the toast on a phone and say what to do", ownFileNotice("ios-download") === "Tap Download to save it to Files" && ownFileNotice("android-download") === "Saving to Downloads on this phone" && ownFileNotice("downloaded") === null && [ownFileNotice("ios-download"), ownFileNotice("android-download")].every((m) => (m ?? "").length <= 34))
-    /* New with the tab: the toast points at the notice, which carries the file. */
-    check("a refused tab has a toast of its own, short enough for a phone", ownFileNotice("blocked") === "Your file is ready. Press Save." && (ownFileNotice("blocked") ?? "").length <= 34)
   }
 
   {
