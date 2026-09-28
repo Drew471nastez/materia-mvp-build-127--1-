@@ -6,19 +6,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { isAbsoluteTarget, safeReturnTarget } from "@/lib/auth/return-to"
+import { isAbsoluteTarget } from "@/lib/auth/return-to"
 import { getMainDomain } from "@/lib/url-helpers"
-import { useState, useEffect, Suspense, useRef } from "react"
+import { useState, useEffect, Suspense, useRef, useMemo } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
-import { nativeAuthStart, nativeAppReady, cacheNativeHome } from "@/lib/native-bridge"
+import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { classifyOAuthError, existingAccountHint, messageForCode, type OAuthErrorCode, type OAuthProvider, type SignInMethod } from "@/lib/auth/oauth-errors"
 import { HtmlClass } from "@/components/platform/html-class"
+import { readCarry, withCarry } from "@/lib/auth/continue"
+import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 
 /**
  * ===========================================================================
@@ -150,10 +152,21 @@ function LoginFormContent() {
     one. Both go through the same check now, and anything that is not ours
     is dropped rather than followed. See lib/auth/return-to.ts.
   */
-  const redirectUrl = safeReturnTarget(
-    searchParams.get("next") ?? searchParams.get("redirect"),
-    { mainDomain: getMainDomain() },
-  )
+  /*
+    WHY THEY CAME AND WHERE THEY WERE (lib/auth/continue.ts). `intent=sell`
+    is Sell on Storelib or Become a seller; `next` is the page to go back to.
+    Both ride on every link off this page (Sign up, Forgot password, Google,
+    Apple) and are handed to /auth/continue once somebody is in, which
+    decides on the server: onboarding, the dashboard, the page they were on,
+    or Discover. A review left pending on a receipt goes along on `next`.
+  */
+  const carry = useMemo(() => {
+    const c = readCarry(searchParams, getMainDomain())
+    if (c.next && searchParams.get("pendingReview") === "true" && !c.next.includes("pendingReview")) {
+      c.next += (c.next.includes("?") ? "&" : "?") + "pendingReview=true"
+    }
+    return c
+  }, [searchParams])
 
   /**
    * A FAILED SIGN IN, ARRIVING BACK HERE.
@@ -273,116 +286,18 @@ function LoginFormContent() {
       sessionStorage.setItem("storelib_login_ts", String(now))
     }
 
-    // ── Session exists — determine destination and redirect ─────────────
+    // ── Session exists: the server decides where to (app/auth/continue) ──
+    /*
+      ONE HARD NAVIGATION, AND THE SERVER ANSWERS. This used to read the
+      creator row and the profile here, pick /app, /library or the old role
+      chooser, and push there, with a six second timer that sent everybody to
+      /app if the reads were slow. /auth/continue reads the same rows on the
+      server and replies with one redirect, so there is nothing to wait for
+      here and no second page drawn on the way.
+    */
     setIsRedirecting(true)
-    const user = gateSession.user
-    const supabase = createClient()
-
-    // Hard safety: if we've been "redirecting" for >6s (DB hang, flaky network,
-    // unhandled error, etc.) force a full-page navigation to /app so the user
-    // is never stuck on the loader forever. This runs in addition to the
-    // per-call timeouts below.
-    const forceNavTimer = window.setTimeout(() => {
-      try {
-        const isNative =
-          typeof (window as any).Capacitor?.isNativePlatform === "function" &&
-          (window as any).Capacitor.isNativePlatform()
-        if (isNative && gateSession.access_token && gateSession.refresh_token) {
-          window.location.assign(
-            `/auth/sync-session` +
-            `?access_token=${encodeURIComponent(gateSession.access_token)}` +
-            `&refresh_token=${encodeURIComponent(gateSession.refresh_token)}` +
-            `&next=${encodeURIComponent("/app")}`
-          )
-        } else {
-          window.location.assign("/app")
-        }
-      } catch {
-        window.location.assign("/app")
-      }
-    }, 6000)
-
-    // Per-query timeout so a hung DB round-trip can never block the redirect.
-    const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
-      Promise.race<T | null>([
-        p,
-        new Promise<null>(resolve => window.setTimeout(() => resolve(null), ms)),
-      ])
-
-    const determineAndRedirect = async () => {
-      const creatorRes = await withTimeout(
-        supabase.from("creators").select("id, onboarding_completed").eq("user_id", user.id).maybeSingle(),
-        3500,
-      )
-      const creatorRow = (creatorRes as any)?.data as { id: string; onboarding_completed: boolean } | null | undefined
-
-      /* Somebody who was already signed in when they got here, having been
-         sent from a shop. Their answer is the shop, not their dashboard. */
-      const sentBack = safeReturnTarget(
-        searchParams.get("next") ?? searchParams.get("redirect"),
-        { mainDomain: getMainDomain() },
-      )
-      if (sentBack) {
-        window.clearTimeout(forceNavTimer)
-        if (isAbsoluteTarget(sentBack)) window.location.assign(sentBack)
-        else router.replace(sentBack)
-        return
-      }
-
-      let nextPath = "/signup/success"
-      if (creatorRow?.onboarding_completed) {
-        nextPath = "/app"
-      } else if (creatorRow === undefined) {
-        // Query timed out — assume creator to keep flow moving; layout will re-check.
-        nextPath = "/app"
-      } else {
-        const profileRes = await withTimeout(
-          supabase.from("profiles").select("is_creator, welcome_completed").eq("id", user.id).maybeSingle(),
-          3500,
-        )
-        const profile = (profileRes as any)?.data as { is_creator: boolean; welcome_completed: boolean } | null | undefined
-        if (profile?.welcome_completed) {
-          nextPath = profile.is_creator ? "/app" : "/library"
-        } else if (profile === undefined) {
-          // Timed out — default to /app; /app layout will re-check.
-          nextPath = "/app"
-        }
-      }
-
-      // On native Capacitor, route through /auth/sync-session to establish cookies.
-      const isNative =
-        typeof (window as any).Capacitor?.isNativePlatform === "function" &&
-        (window as any).Capacitor.isNativePlatform()
-
-      // Cache home route so NativeStartupRouter can skip DB on next cold start
-      if (nextPath === "/app" || nextPath === "/library") {
-        cacheNativeHome(nextPath)
-      }
-
-      window.clearTimeout(forceNavTimer)
-
-      if (isNative) {
-        window.location.assign(
-          `/auth/sync-session` +
-          `?access_token=${encodeURIComponent(gateSession.access_token)}` +
-          `&refresh_token=${encodeURIComponent(gateSession.refresh_token)}` +
-          `&next=${encodeURIComponent(nextPath)}`
-        )
-      } else {
-        router.replace(nextPath)
-      }
-    }
-
-    determineAndRedirect().catch((err) => {
-      console.error("Auth check error:", err)
-      window.clearTimeout(forceNavTimer)
-      setIsRedirecting(false)
-    })
-
-    return () => {
-      window.clearTimeout(forceNavTimer)
-    }
-  }, [router, authGateLoading, nativeAuthInProgress, gateSession])
+    void goOnAfterAuth(carry, gateSession)
+  }, [authGateLoading, nativeAuthInProgress, gateSession]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -391,9 +306,6 @@ function LoginFormContent() {
       }
     }
   }, [])
-
-  const pendingReview = searchParams.get("pendingReview")
-  const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
 
   const lookupAccountOrigin = async (rawEmail: string) => {
     const emailToCheck = rawEmail.trim().toLowerCase()
@@ -482,7 +394,7 @@ function LoginFormContent() {
 
           if (userData) {
             navigateWithFallback(
-              `/signup/verify?userId=${userData.id}&email=${encodeURIComponent(trimmedEmail)}`
+              withCarry(`/signup/verify?userId=${userData.id}&email=${encodeURIComponent(trimmedEmail)}`, carry)
             )
             router.refresh()
             return
@@ -492,78 +404,19 @@ function LoginFormContent() {
       }
 
       if (data.user) {
-        // ── Gate 1: email must be verified ──────────────────────────────
-        const { data: loginProfile } = await supabase
-          .from("profiles")
-          .select("email_verified, is_creator, welcome_completed")
-          .eq("id", data.user.id)
-          .maybeSingle()
-
-        if (loginProfile && !loginProfile.email_verified) {
-          // Send a fresh verification code
-          try {
-            await fetch("/api/auth/verify-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ userId: data.user.id, email: trimmedEmail }),
-            })
-          } catch {}
-          navigateWithFallback(
-            `/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}`
-          )
-          router.refresh()
-          setIsLoading(false)
-          return
-        }
-
-        // ── Gate 2: role must be selected ───────────────────────────────
-        const roleSelected =
-          loginProfile?.is_creator === true || loginProfile?.welcome_completed === true
-        if (!roleSelected) {
-          navigateWithFallback("/signup/success")
-          router.refresh()
-          setIsLoading(false)
-          return
-        }
-
-        // ── Both gates passed — route to destination ────────────────────
-
-        // PRIORITY: If there's a redirect URL, use it (e.g., returning to receipt page)
-        if (redirectUrl) {
-          // Add pendingReview param if it was set
-          let finalUrl = redirectUrl
-          if (pendingReview === "true" && !finalUrl.includes("pendingReview")) {
-            finalUrl += (finalUrl.includes("?") ? "&" : "?") + "pendingReview=true"
-          }
-          // Clear the stored redirect
-          localStorage.removeItem("storelib_auth_redirect")
-          navigateWithFallback(finalUrl)
-          router.refresh()
-          return
-        }
-
-        // Use database as source of truth for routing (not localStorage)
-        const { data: creator } = await supabase
-          .from("creators")
-          .select("id, onboarding_completed")
-          .eq("user_id", data.user.id)
-          .maybeSingle()
-
-        if (creator) {
-          localStorage.setItem("storelib_welcome_shown", "true")
-          if (creator.onboarding_completed === false) {
-            navigateWithFallback("/signup/success")
-          } else {
-            cacheNativeHome("/app")
-            navigateWithFallback("/app")
-          }
-        } else {
-          // Buyer — welcome_completed is already true (passed gate 2)
-          localStorage.setItem("storelib_welcome_shown", "true")
-          cacheNativeHome("/library")
-          navigateWithFallback("/library")
-        }
-        router.refresh()
+        /*
+          SIGNED IN. Where to is not this page's call any more: an address
+          still to verify, Sell on Storelib, a seller, a buyer and the page
+          they came from are all decided by /auth/continue on the server
+          (lib/auth/continue.ts), in one redirect. The unverified case gets a
+          fresh code from the verify page itself, which sends one when it
+          opens without `sent`.
+        */
+        try { localStorage.setItem("storelib_welcome_shown", "true") } catch {}
+        localStorage.removeItem("storelib_auth_redirect")
+        setIsRedirecting(true)
+        await goOnAfterAuth(carry, data.session)
+        return
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Invalid email or password"
@@ -722,6 +575,8 @@ function LoginFormContent() {
         // the login form between browser close and appUrlOpen handler start.
         nativeAuthStart()
 
+        /* Why they came, for lib/native-oauth.ts to hand on once the deep link is back. */
+        rememberNativeCarry(carry)
         await Browser.open({ url: data.url, windowName: "_self" })
 
         // isGoogleLoading stays true while the browser is open.
@@ -732,7 +587,7 @@ function LoginFormContent() {
         // ── Web ───────────────────────────────────────────────────────
         // Full-screen overlay already shown above (before dynamic import).
         // Navigate to auth/start which redirects to Google OAuth.
-        window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
+        window.location.href = `${canonicalUrl}${withCarry("/auth/start?provider=google", carry)}`
         return
       }
     } catch (err: unknown) {
@@ -814,6 +669,8 @@ function LoginFormContent() {
         }
 
         nativeAuthStart()
+        /* Why they came, for lib/native-oauth.ts to hand on once the deep link is back. */
+        rememberNativeCarry(carry)
         await Browser.open({ url: data.url, windowName: "_self" })
         // isAppleLoading stays true while browser is open.
         // Cleared by: CapacitorAuthHandler navigation, browserFinished, or timeout.
@@ -822,7 +679,7 @@ function LoginFormContent() {
         // ── Web — server-side PKCE via /auth/start ────────────────────────
         // /auth/start writes the PKCE cookie on the server and redirects to
         // the Apple OAuth URL. Full-screen overlay already shown above.
-        window.location.href = `${canonicalUrl}/auth/start?provider=apple&next=/app`
+        window.location.href = `${canonicalUrl}${withCarry("/auth/start?provider=apple", carry)}`
         return
       }
     } catch (err: unknown) {
@@ -862,7 +719,8 @@ function LoginFormContent() {
           <AuthLogo />
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
-          <p className="mb-8 text-[15px] text-neutral-500">Log in to your account</p>
+          {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
+          <p className="mb-8 text-[15px] text-neutral-500">{carry.intent ? "Log in, then set up your shop." : "Log in to your account"}</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
@@ -971,14 +829,14 @@ function LoginFormContent() {
           </div>
 
           <div className="mt-4 text-center">
-            <Link href="/request" className="text-[13px] text-neutral-400 hover:text-neutral-600">
+            <Link href={withCarry("/request", carry)} className="text-[13px] text-neutral-400 hover:text-neutral-600">
               Forgot password?
             </Link>
           </div>
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="font-medium text-purple-600 hover:text-purple-700">
+            <Link href={withCarry("/signup", carry)} className="font-medium text-purple-600 hover:text-purple-700">
               Sign up
             </Link>
           </p>

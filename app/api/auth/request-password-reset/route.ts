@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { emailButton } from "@/lib/mail-document"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { encodeCarry, readIntent, safeNext } from "@/lib/auth/continue"
+import { getMainDomain } from "@/lib/url-helpers"
 
 export const runtime = "nodejs"
 
@@ -162,7 +164,14 @@ export async function POST(request: Request) {
 
     // The primary link the user clicks — uses a query param, never a hash fragment.
     // Works reliably through Gmail proxy, Outlook SafeLinks, and every email client.
-    const resetUrl = `https://storelib.com/reset-password?code=${encodeURIComponent(bridgeCode)}`
+    /*
+      Sell on Storelib, and the page to go back to, when the login that sent
+      them to reset their password had them (lib/auth/continue.ts). Both are
+      checked here as everywhere else; the reset page hands them on to the
+      login it ends on.
+    */
+    const carry = encodeCarry({ intent: readIntent(body.intent), next: safeNext(body.next, getMainDomain()) })
+    const resetUrl = `https://storelib.com/reset-password?code=${encodeURIComponent(bridgeCode)}${carry ? `&${carry}` : ""}`
 
     // Send password reset email
     if (isSmtpConfigured()) {

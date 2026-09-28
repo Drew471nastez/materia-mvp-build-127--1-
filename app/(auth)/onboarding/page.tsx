@@ -1,26 +1,14 @@
-"use client"
+import { redirect } from "next/navigation"
+import { withCarry, SELL_PATH, safeNext } from "@/lib/auth/continue"
+import { getMainDomain } from "@/lib/url-helpers"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
-
-// This page now redirects to /signup/success which handles the welcome selection.
-// The old multi-step onboarding is replaced by the new CreatorOnboardingModal.
-export default function OnboardingPage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    // Redirect to /signup/success — the role chooser decides the final
-    // destination (creator → onboarding → /app, buyer → /library).
-    router.replace("/signup/success")
-  }, [router])
-
-  return (
-    <div className="flex min-h-svh w-full items-center justify-center bg-white">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto" />
-        <p className="mt-4 text-neutral-500">Redirecting...</p>
-      </div>
-    </div>
-  )
+/**
+ * /onboarding is an older name for becoming a seller: the header's Become a
+ * Seller and the /app pages that find no creator row still link here. It
+ * goes to /sell, the one door into seller onboarding (lib/auth/continue.ts),
+ * on the server, so nothing is drawn on the way.
+ */
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const { next } = await searchParams
+  redirect(withCarry(SELL_PATH, { next: safeNext(next, getMainDomain()) }))
 }

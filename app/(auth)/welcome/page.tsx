@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { HtmlClass } from "@/components/platform/html-class"
+import { readCarry, withCarry } from "@/lib/auth/continue"
+import { getMainDomain } from "@/lib/url-helpers"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
 const PHRASES = [
@@ -94,8 +96,20 @@ export default function WelcomePage() {
   }, [])
 
   // Client-side navigation — stays in WebView, never opens Safari
-  const goToSignup = () => router.push("/signup")
-  const goToLogin  = () => router.push("/login")
+  /*
+    Sell on Storelib, and the page to go back to, when the app opened here
+    with them (a password reset finished in the app ends here): carried on
+    to Sign up and Log in like every other hop (lib/auth/continue.ts).
+  */
+  const carry = () => {
+    try {
+      return readCarry(new URLSearchParams(window.location.search), getMainDomain())
+    } catch {
+      return { intent: null, next: null }
+    }
+  }
+  const goToSignup = () => router.push(withCarry("/signup", carry()))
+  const goToLogin  = () => router.push(withCarry("/login", carry()))
 
   return (
     <>

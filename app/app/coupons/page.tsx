@@ -14,6 +14,6 @@ export default async function CouponsPage() {
   /* No session yet: the app shell's gate draws its own frame and spinner
      over this while it restores the session (app/app/cold-start.tsx). */
   if (load.state === "signed-out") return null
-  if (load.state === "no-creator") redirect("/signup/success")
+  if (load.state === "no-creator") redirect("/sell")
   return <CouponsClient creatorId={load.creatorId} initialCoupons={load.coupons} products={load.products} />
 }

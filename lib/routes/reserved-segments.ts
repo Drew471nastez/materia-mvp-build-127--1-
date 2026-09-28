@@ -65,6 +65,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "receipt",
   "request",
   "reset-password",
+  /* Sell on Storelib and Become a seller: the one door into seller onboarding. */
+  "sell",
   "signup",
   "site",
   // storelib.com's sitemap index, and the files it names (/sitemap/<name>.xml).

@@ -141,6 +141,7 @@ export const deDict: Record<string, string> = {
   "auth.setting_new_password_for": "Neues Passwort wird festgelegt für",
   "auth.signing_you_in": "Du wirst angemeldet...",
   "auth.signup_subtitle": "Registriere dich kostenlos!",
+  "auth.signup_subtitle_sell": "Erstelle dein Konto und richte dann deinen Shop ein.",
   "auth.signup_title": "Werde Teil von Storelib",
   "auth.spam_junk_folder": "Spam-Ordner nach",
   "auth.switch_later": "Du kannst später wechseln.",

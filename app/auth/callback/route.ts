@@ -3,6 +3,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 import { AVATAR_CHOSEN, copyProviderAvatar } from "@/lib/account/avatar"
+import { cookies } from "next/headers"
+import { getMainDomain } from "@/lib/url-helpers"
+import { readSellerAccess } from "@/lib/account/seller-access"
+import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "@/lib/auth/continue"
 
 /**
  * GET /auth/callback?code=<code>
@@ -13,7 +17,10 @@ import { AVATAR_CHOSEN, copyProviderAvatar } from "@/lib/account/avatar"
  * Steps:
  *  1. Exchange the PKCE auth code for a session.
  *  2. Upsert the user profile.
- *  3. Determine destination: creator → /app, buyer → /library, new user → /signup/success.
+ *  3. Determine destination with lib/auth/continue.ts, from the carry cookie
+ *     /auth/start wrote (Sell on Storelib, the page to go back to) and the
+ *     account's seller access: /sell, /app, next, or /explore. A new account
+ *     is a buyer; nobody is asked to choose any more.
  *  4. Redirect.
  */
 export async function GET(request: Request) {
@@ -73,8 +80,8 @@ export async function GET(request: Request) {
     if (isVerifierError) {
       const { data: { user: currentUser } } = await supabase.auth.getUser()
       if (currentUser) {
-        // Already signed in — just take them home.
-        return NextResponse.redirect(`${origin}/app`)
+        // Already signed in: the same decision as every other way in.
+        return NextResponse.redirect(`${origin}${CONTINUE_PATH}`)
       }
       // Not signed in. Send them to /login WITHOUT the scary error — the
       // login page itself will prompt them calmly.
@@ -116,7 +123,8 @@ export async function GET(request: Request) {
       display_name: displayName,
       avatar_url: copyProviderAvatar({ profileExists: false, profileAvatar: null, providerAvatar: avatarUrl, chosen: avatarChosen, accountAgeMs }) ? avatarUrl : null,
       is_creator: false,
-      welcome_completed: false,
+      /* No creator or buyer question after sign up any more: a new account is a buyer. */
+      welcome_completed: true,
       email_verified: true,
       email_verified_at: new Date().toISOString(),
     })
@@ -138,23 +146,17 @@ export async function GET(request: Request) {
   }
 
   // 3. Determine destination
-  let nextPath = "/signup/success"
+  /*
+    ONE DECISION FOR EVERY WAY IN (lib/auth/continue.ts). A new account is a
+    buyer and lands on Discover; Sell on Storelib goes on to seller
+    onboarding; a seller goes to the dashboard or back to where they were.
+    The carry cookie is read once and cleared.
+  */
+  const jar = await cookies()
+  const carry = decodeCarry(jar.get(CARRY_COOKIE)?.value, getMainDomain())
+  jar.delete(CARRY_COOKIE)
+  const access = existingProfile ? await readSellerAccess(admin, data.user.id) : { state: "none" as const }
+  const destination = destinationAfterAuth(carry, access)
 
-  if (existingProfile) {
-    const { data: creatorRow } = await admin
-      .from("creators")
-      .select("id, onboarding_completed")
-      .eq("user_id", data.user.id)
-      .maybeSingle()
-
-    if (creatorRow?.onboarding_completed) {
-      nextPath = "/app"
-    } else if (existingProfile.welcome_completed && existingProfile.is_creator === false) {
-      nextPath = "/library"
-    } else if (existingProfile.welcome_completed && existingProfile.is_creator === true) {
-      nextPath = "/app"
-    }
-  }
-
-  return NextResponse.redirect(`${origin}${nextPath}`)
+  return NextResponse.redirect(new URL(destination, origin))
 }

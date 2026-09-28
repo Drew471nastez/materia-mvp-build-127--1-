@@ -7,6 +7,7 @@ import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-sco
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
+import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { LibraryTabs } from "@/components/library/library-tabs"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
@@ -82,11 +83,12 @@ export default async function LibraryLayout({
     redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
   }
 
-  // Gate 2: role must be selected (creator OR buyer with welcome_completed)
-  const roleSelected = gateCheck.is_creator === true || gateCheck.welcome_completed === true
-  if (!roleSelected) {
-    redirect("/signup/success")
-  }
+  /*
+    No "role must be selected" gate any more. Every account is a buyer from
+    the moment it exists; there is no creator or buyer question to have
+    answered (lib/account/seller-access.ts). A new signup used to be bounced
+    from here to that question.
+  */
 
   return (
     /*
@@ -137,6 +139,11 @@ export default async function LibraryLayout({
           <ConditionalFooter />
         </Suspense>
       </div>
+
+      {/* The phone's Home, Search, Library and Profile bar, on the pages of
+          this layout that are Storelib's own buyer pages. It decides which
+          those are, and brings the room it takes at the end of the page. */}
+      <BuyerTabBar />
     </div>
     </NativeAuthGate>
   )
