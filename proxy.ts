@@ -58,6 +58,7 @@ const RESERVED_PATHS = [
   "/signup",
   "/logout",
   "/onboarding",
+  "/sell",
   "/checkout",
   "/feed",
   "/explore",
@@ -653,7 +654,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "checkout", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "native-start",
   "onboarding", "onepage-preview", "p", "pricing", "privacy", "products", "purchase", "receipt",
-  "register", "request", "reset-password", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
+  "register", "request", "reset-password", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
 ])
@@ -1444,6 +1445,15 @@ export async function proxy(request: NextRequest) {
   if (guarded && shouldSendToLogin(current)) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
+    /*
+      THE PAGE THEY WERE OPENING COMES WITH THEM. A deep link into /app
+      (a product, an order from an email) used to become a bare /login and
+      then the dashboard's home. `next` is followed after sign in by
+      /auth/continue (lib/auth/continue.ts), which checks it like any other
+      return target: a seller lands on that page, a buyer on /sell.
+    */
+    url.search = ""
+    url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`)
     /**
      * THE REDIRECT HAS TO CARRY THE COOKIES.
      *

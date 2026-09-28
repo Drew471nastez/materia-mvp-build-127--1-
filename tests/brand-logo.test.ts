@@ -232,7 +232,7 @@ function main() {
     ["the Library sidebar", "components/dashboard/sidebar.tsx"],
     ["sign in, sign up, password reset, verify", "components/auth/auth-logo.tsx"],
     ["the welcome screen", "app/(auth)/welcome/page.tsx"],
-    ["the choose how to use Storelib screen after sign up", "app/(auth)/signup/success/page.tsx"],
+    /* Changed on purpose: the "choose how to use Storelib" screen after sign up is gone; a new account is a buyer (lib/account/seller-access.ts). */
     ["the welcome modal", "components/app/welcome-modal.tsx"],
     ["creator onboarding's setup step", "components/app/creator-onboarding-modal.tsx"],
     ["OnePage onboarding", "components/onepage/onboarding-modal.tsx"],

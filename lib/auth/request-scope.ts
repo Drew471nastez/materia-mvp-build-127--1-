@@ -3,6 +3,7 @@ import "server-only"
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
+import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access"
 
 /**
  * ===========================================================================
@@ -93,4 +94,14 @@ export const creatorForRequest = cache(async (userId: string): Promise<RequestCr
   const supabase = await createClient()
   const { data } = await supabase.from("creators").select(SHELL_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle()
   return (data as RequestCreator | null) ?? null
+})
+
+/**
+ * Seller access for the signed in person (lib/account/seller-access.ts), from
+ * the two rows above, so a layout that has asked for them already pays
+ * nothing more for the answer.
+ */
+export const sellerAccessForRequest = cache(async (userId: string): Promise<SellerAccess> => {
+  const [creator, profile] = await Promise.all([creatorForRequest(userId), profileForRequest(userId)])
+  return sellerAccessFrom({ creator, profile })
 })

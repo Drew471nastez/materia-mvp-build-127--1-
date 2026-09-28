@@ -204,6 +204,7 @@ const CUSTOM_DOMAIN_PLATFORM_PATHS = [
   "onboarding",
   "purchase",
   "receipt",
+  "sell",
   "signup",
   "wishlist",
 ]

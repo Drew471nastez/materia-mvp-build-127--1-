@@ -43,11 +43,12 @@ export default async function DashboardLayout({
     redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
   }
 
-  // Gate 2: role must be selected (creator OR buyer with welcome_completed)
-  const roleSelected = gateCheck.is_creator === true || gateCheck.welcome_completed === true
-  if (!roleSelected) {
-    redirect("/signup/success")
-  }
+  /*
+    No "role must be selected" gate any more. Every account is a buyer from
+    the moment it exists; there is no creator or buyer question to have
+    answered (lib/account/seller-access.ts). A new signup used to be bounced
+    from here to that question.
+  */
 
   return (
     <NativeAuthGate>

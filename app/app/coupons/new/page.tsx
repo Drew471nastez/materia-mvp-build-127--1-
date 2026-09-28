@@ -23,6 +23,6 @@ export default async function NewCouponPage({ searchParams }: PageProps) {
   if (edit) redirect(`/app/coupons/${encodeURIComponent(edit)}`)
   const load = await loadCouponArea(null)
   if (load.state === "signed-out") return null
-  if (load.state === "no-creator") redirect("/signup/success")
+  if (load.state === "no-creator") redirect("/sell")
   return <CouponEditor products={load.products} initialCoupon={null} />
 }

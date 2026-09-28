@@ -1,5 +1,7 @@
 "use client"
 
+import { readCarry, withCarry } from "@/lib/auth/continue"
+import { getMainDomain } from "@/lib/url-helpers"
 import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -188,7 +190,8 @@ function ResetPasswordContent() {
         // On mobile browser: try to hand off to the native app first
         if (isMobileBrowser() && !isInCapacitor) {
           // Build a deep link that includes the bridge code for the app
-          const appLink = `storelib://reset-password?code=${encodeURIComponent(bridgeCode)}`
+          /* With Sell on Storelib and the return page, so the app's reset ends on the same login (lib/auth/continue.ts). */
+          const appLink = withCarry(`storelib://reset-password?code=${encodeURIComponent(bridgeCode)}`, readCarry(searchParams, getMainDomain()))
           setDeepLink(appLink)
           setPendingBridgeCode(bridgeCode)
           setPhase("handoff")
@@ -347,15 +350,17 @@ function ResetPasswordContent() {
       setPhase("success")
 
       // Sign out and redirect to login after 3 seconds
+      /* With Sell on Storelib and the return page if the reset link carried them (lib/auth/continue.ts). */
+      const carry = readCarry(new URLSearchParams(window.location.search), getMainDomain())
       setTimeout(async () => {
         await supabase.auth.signOut({ scope: "global" })
         if (isNativePlatform()) {
           try {
             (window as any).StorelibNative?.authDone?.()
           } catch {}
-          window.location.replace("/welcome")
+          window.location.replace(withCarry("/welcome", carry))
         } else {
-          router.push("/login")
+          router.push(withCarry("/login", carry))
         }
       }, 3000)
     } catch {

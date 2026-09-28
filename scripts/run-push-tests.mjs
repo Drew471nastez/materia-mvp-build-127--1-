@@ -78,6 +78,7 @@ const SUITES = [
   "tests/checkout-safety.test.ts",
   "tests/checkout-receipt.test.ts",
   "tests/return-to.test.ts",
+  "tests/sell-intent.test.ts",
   "tests/no-image-transforms.test.ts",
   "tests/page-performance.test.ts",
   "tests/products-area.test.ts",
