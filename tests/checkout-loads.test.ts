@@ -113,21 +113,36 @@ function main() {
     const sk = read("app/checkout/checkout-skeleton.tsx")
     check("the skeleton draws the bar and both halves at once, and only its blocks wait", /data-checkout-skeleton/.test(sk) && /skeleton-deferred relative mx-auto grid/.test(sk) && /fallback=\{<CheckoutSkeleton \/>\}/.test(page))
     const client = read("app/checkout/checkout-client.tsx")
-    check("leaving the checkout cross-fades where the browser can", /startViewTransition/.test(client) && /data-checkout-motion/.test(client))
+    check("leaving the checkout cross-fades, and with no view transition anywhere near it", /holdLeavingStill/.test(client) && !/doc\.startViewTransition|document as Document & \{ startViewTransition/.test(client) && !/data-checkout-motion/.test(client))
     /*
       "I click back, nothing happens, and it takes me back abruptly after 5
-      seconds." The update waited on requestAnimationFrame, which never runs
-      while a view transition waits for its update, until Chrome gave up
-      after 4 seconds. And the fade itself was `animation: none`.
+      seconds", then "sometimes trying to go back from a checkout or whatever
+      takes too much and blocks". Both were the same instrument: while a view
+      transition waits for its update THE BROWSER DRAWS NOTHING, so the wait
+      is a frozen picture of the page you are trying to leave, and the page
+      cannot see it because it runs no animation frames either. Capping the
+      wait at 400ms only made the freeze 400ms long: filmed with the page
+      behind 2.5s away, the screen stood still for 429ms
+      (scripts/check-back-stall.mjs). So the way out waits for nothing at all
+      now: the checkout is copied in the commit that takes it away and faded
+      off the page that came (lib/navigation/leaving-still.ts).
     */
     const leave = client.slice(client.indexOf("const leaveWithFade"), client.indexOf("CONTINUE SHOPPING goes"))
-    check("the way out starts on the press, before the transition, not inside it", /const leaveWithFade = \(go: \(\) => void\) => \{\s*go\(\)/.test(leave))
-    check("the transition waits on a MutationObserver and a timer, never on an animation frame", /new MutationObserver/.test(leave) && /window\.setTimeout\(done, LEAVE_HOLD_MS\)/.test(leave) && /const LEAVE_HOLD_MS = 400/.test(client) && !/new Promise<void>\(\(resolve\) => \{[^]*requestAnimationFrame\(tick\)/.test(leave))
+    check("the way out starts on the press and holds nothing back", /const leaveWithFade = \(go: \(\) => void\) => \{\s*leavingRef\.current = true\s*go\(\)/.test(leave))
+    const still = read("lib/navigation/leaving-still.ts")
+    check("the copy is taken in the commit that takes the checkout away, and fades off the page under it", /if \(leavingRef\.current\) holdLeavingStill\(node\)/.test(client) && /export function holdLeavingStill/.test(still) && /box\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(still))
+    check("and it never loads a second Stripe frame or a second copy of an id", /iframe,video,object,embed/.test(still) && /removeAttribute\("id"\)/.test(still))
+    /* A back that does nothing reports nothing, and eight seconds under a spinner on the same page is the complaint. */
+    check("a back that does not happen is followed by the page itself", /const backThen = \(fallback: \(\) => void\) => \{/.test(client) && /window\.addEventListener\("popstate", done\)/.test(client) && /window\.addEventListener\("pagehide", done\)/.test(client) && /\}, BACK_WATCH_MS\)/.test(client))
+    /* An edge swipe, the hardware key, the browser's arrow: none of them presses the control. */
+    check("the browser's own back is answered like a press", /const onPop = \(\) => \{\s*if \(alreadyGoing\(\)\) return\s*leavingRef\.current = true\s*startGoing\("back"\)/.test(client))
     check("the press shows in the click itself, before React renders it", /pageRef\.current\?\.setAttribute\("data-leaving", way\)/.test(client) && /window\.setTimeout\(\(\) => setGoing\(way\), GOING_STATE_MS\)/.test(client) && /if \(alreadyGoing\(\)\) return/.test(client) && /data-\[leaving\]:opacity-80/.test(client) && /group-data-\[leaving=back\]\/page:scale-\[0\.94\]/.test(client))
     const css = read("app/globals.css")
-    check("and the fade is an animation in full, not a duration on none", /@keyframes checkout-arrive \{ from \{ opacity: 0; \} \}/.test(css) && /html\[data-checkout-motion\]::view-transition-new\(root\) \{\s*animation: checkout-arrive 240ms/.test(css))
+    check("nothing inside the copy can be reached or moves on its own", /\[data-leaving-still\],\n\[data-leaving-still\] \* \{\s*pointer-events: none !important;/.test(css) && !/data-checkout-motion/.test(css))
+    /* The buyer's loading line was mounted on the marketing pages alone, so a slow way back off the checkout said nothing at all. */
+    check("and a back off the checkout that has to be fetched says so", /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")) && /<RouteLoadingBar \/>/.test(read("app/library/layout.tsx")))
     check("Back is a quiet rounded square, not a raised circle", /data-back-face=""\s*className=\{cn\(\s*"relative grid h-9 w-9 place-items-center rounded-\[10px\]/.test(client))
-    check("a Back through another document is the browser's own, with no transition around it", /if \(cameFrom !== null && cameFrom === target && window\.history\.length > 1\) \{\s*window\.history\.back\(\)/.test(client))
+    check("a Back through another document is the browser's own, watched the same way", /if \(cameFrom !== null && cameFrom === target && window\.history\.length > 1\) \{\s*leaveWithFade\(\(\) => backThen\(\(\) => window\.location\.replace\(productUrl\)\)\)/.test(client))
   }
 
   console.log("\nFinishing: one screen from paid to the receipt")

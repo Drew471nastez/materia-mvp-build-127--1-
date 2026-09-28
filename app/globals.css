@@ -5253,9 +5253,17 @@ html.wb-fullscreen body {
   z-index: 2147483001;
   pointer-events: none;
   border-radius: 0 2px 2px 0;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--route-bar-ink, rgba(255, 255, 255, 0.85));
   width: 0;
   animation: route-loading-bar 10s cubic-bezier(0.12, 0.72, 0.18, 1) forwards;
+}
+
+/* White reads as a browser's own line over the dark bar the marketplace and a product page carry.
+   The checkout and the library have a light top, where white is nothing at all, so there it is the
+   near-black the rest of those screens use. */
+html.with-page-checkout,
+html.with-page-library {
+  --route-bar-ink: rgba(26, 26, 46, 0.78);
 }
 
 @keyframes route-loading-bar {
@@ -6334,18 +6342,21 @@ html.pop-in-flight #platform-header-root {
   .checkout-shimmer-soft { animation: none; }
 }
 
-/* Leaving the checkout (checkout-client leaveWithFade): the page Back lands on fades in over the
-   checkout as it was, over 240ms, once it is there; the transition waits for it, never longer than
-   400ms. Spelled out in full because every root picture is `animation: none` by default here (the
-   page layers above), which is why this was only ever a swap when it said a duration alone. The old
-   picture holds still under the new one, so it is a true cross-fade, never a dip through white. */
-@keyframes checkout-arrive { from { opacity: 0; } }
-html[data-checkout-motion]::view-transition-old(root) { animation: none; }
-html[data-checkout-motion]::view-transition-new(root) {
-  animation: checkout-arrive 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+/* Leaving the checkout, and every other buyer page that fades off the one it goes to: a copy of the
+   page that left is laid over the window and fades off the page underneath (lib/navigation/
+   leaving-still.ts). It used to be a view transition, and a view transition that waits for the page
+   behind FREEZES THE SCREEN for as long as it waits, which is what "I click back and nothing
+   happens" was both times. A copy waits for nothing: the pages are drawn live throughout. Its
+   opacity is animated from script; what belongs here is that nothing inside it can be reached and
+   that it never joins whatever else is moving on the page. */
+[data-leaving-still],
+[data-leaving-still] * {
+  pointer-events: none !important;
+  user-select: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  html[data-checkout-motion]::view-transition-new(root) { animation: none; }
+[data-leaving-still] * {
+  animation: none !important;
+  transition: none !important;
 }
 
 @keyframes checkout-shimmer {

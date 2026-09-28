@@ -63,6 +63,17 @@ function main() {
 
   /* The clicks that are NOT a navigation of this document. Each of these
      starting a bar is "appears when it doesn't matter" in a different form. */
+  /*
+    AND THE BROWSER'S OWN BACK IS A NAVIGATION TOO. This started on a click
+    alone, so an edge swipe on an iPhone, the hardware key and the browser's
+    arrow started nothing: filmed with the page behind 2.5 seconds away,
+    nothing on screen changed for 2,545ms (scripts/check-back-stall.mjs).
+  */
+  check("a popstate starts it, so the browser's own back is answered too", /window\.addEventListener\("popstate", onPop\)/.test(bar) && /setPendingSince\(Date\.now\(\)\)/.test(bar.slice(bar.indexOf("const onPop"))))
+  /* An entry of ours over the page already showing (the search screen's own, a #tab) fetches nothing. */
+  check("but a back to the address already showing starts nothing", /const landed = `\$\{window\.location\.pathname\}\?\$\{new URLSearchParams\(window\.location\.search\)\.toString\(\)\}`/.test(bar) && /if \(landed === committed\.current\) return/.test(bar))
+  /* useSearchParams hands out a new object on some renders: a dependency on it would resubscribe every one of them. */
+  check("and it subscribes once, reading the committed address from a ref", /window\.addEventListener\("popstate", onPop\)\s*\n\s*return \(\) => window\.removeEventListener\("popstate", onPop\)\s*\n\s*\}, \[\]\)/.test(bar))
   check("a modified click is left to the browser", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(bar))
   check("a non-primary button does not count", /e\.button !== 0/.test(bar))
   check("a click something else already handled does not count", /e\.defaultPrevented/.test(bar))
@@ -143,6 +154,14 @@ function main() {
   console.log("\n  it is mounted where the navigation happens")
 
   check("the marketing layout mounts it", /<RouteLoadingBar \/>/.test(layout))
+  /*
+    "Sometimes trying to go back from a checkout or whatever takes too much and
+    blocks." The library and the checkout are not under (marketing), so they
+    carried no line at all: a way back off either that the router had to fetch
+    said nothing, however long it took.
+  */
+  check("so do the library and the checkout, which had none", /<RouteLoadingBar \/>/.test(read("app/library/layout.tsx")) && /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")))
+  check("and it is visible on their light tops, not white on white", /html\.with-page-checkout,\s*\nhtml\.with-page-library \{\s*\n\s*--route-bar-ink: rgba\(26, 26, 46, 0\.78\);/.test(css) && /background: var\(--route-bar-ink, rgba\(255, 255, 255, 0\.85\)\)/.test(css))
   check("above the header, so it reads as the browser's own line", layout.indexOf("<RouteLoadingBar />") < layout.indexOf("<ConditionalHeader"))
   /* useSearchParams needs a boundary to build, and the fallback must be null:
      a placeholder here would be a bar drawn for a reason unrelated to

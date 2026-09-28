@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 
 /**
  * ===========================================================================
@@ -90,10 +90,45 @@ function RouteLoadingBarInner() {
   }, [])
 
   /*
+    ═══════════════════════════════════════════════════════════════════════
+     AND THE BROWSER'S OWN BACK IS A NAVIGATION TOO
+    ═══════════════════════════════════════════════════════════════════════
+    "Sometimes trying to go back from a checkout or whatever takes too much
+    and blocks." This bar only ever started on a CLICK, so an edge swipe on
+    an iPhone, the hardware key on Android and the browser's own arrow
+    started nothing at all: whatever the router then did, however long the
+    page behind took to come back, the screen said nothing. Filmed with the
+    page behind 2.5 seconds away, nothing on screen changed for 2,545ms.
+
+    A popstate is the browser telling us the address has already changed and
+    the page for it has not arrived, which is exactly the condition this bar
+    is for. `location` is the entry landed on; `pathname` and `searchParams`
+    are still the page showing, because the router has not committed yet. If
+    they are the same address the entry is one of ours over the page that is
+    already up (the search screen's own, a #tab, an editor's guard) and
+    nothing is being fetched, so nothing starts.
+  */
+  /* Read from a ref rather than from the effect's dependencies: useSearchParams hands out a new
+     object on some renders, and this must subscribe once rather than on every one of them. */
+  const committed = useRef("")
+  /* The query through URLSearchParams on both sides, so `?a=b c` and `?a=b%20c` are the one address
+     they are: a mismatch here would leave a bar up for a back that fetched nothing. */
+  committed.current = `${pathname}?${searchParams?.toString() ?? ""}`
+  useEffect(() => {
+    const onPop = () => {
+      const landed = `${window.location.pathname}?${new URLSearchParams(window.location.search).toString()}`
+      if (landed === committed.current) return
+      setPendingSince(Date.now())
+    }
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [])
+
+  /*
     THE NAVIGATION LANDED. This is the whole reason the previous one could
     stick and this one cannot: the end is reported by the router, not decided
-    by the bar. Back and forward clear it here too, for free, because they
-    change the pathname exactly the same way.
+    by the bar. Back and forward clear it here too, because they change the
+    pathname exactly the same way.
   */
   useEffect(() => {
     setPendingSince(null)

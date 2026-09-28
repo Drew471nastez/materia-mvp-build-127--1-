@@ -8,6 +8,7 @@ import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
+import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { LibraryTabs } from "@/components/library/library-tabs"
 import { LibraryPanel } from "@/components/library/library-panel"
 import { OpenInApp } from "@/components/library/open-in-app"
@@ -124,6 +125,10 @@ export default async function LibraryLayout({
     <NativeAuthGate>
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="library">
       <HtmlClass name="with-page-library" />
+      {/* Nothing until a navigation (a press, or the browser's own back) has been slow for 220ms.
+          The marketing layout has carried this for every other buyer page; this one had none, so a
+          slow way back to the library said nothing at all. */}
+      <RouteLoadingBar />
       <LibraryBgFix />
       <PurchaseSyncProvider />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />

@@ -7,6 +7,7 @@ import { CheckoutSkeleton } from "./checkout-skeleton"
 import { getProductUrl } from "@/lib/url-helpers"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
 import MembershipCheckout from "./membership-checkout"
+import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
@@ -226,10 +227,15 @@ async function membershipCheckoutContent({ product, interval }: { product: Recor
 
 export default async function CheckoutPage(props: CheckoutPageProps) {
   return (
-    <Suspense
-      fallback={<CheckoutSkeleton />}
-    >
-      <CheckoutContent {...props} />
-    </Suspense>
+    <>
+      {/* A back off the checkout that the router has to fetch says so after 220ms, wherever the press
+          came from: the control, the browser's arrow, or an edge swipe. */}
+      <RouteLoadingBar />
+      <Suspense
+        fallback={<CheckoutSkeleton />}
+      >
+        <CheckoutContent {...props} />
+      </Suspense>
+    </>
   )
 }

@@ -33,6 +33,8 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ReturnLink } from "@/components/navigation/return-link"
 import { canReturnInApp, canReturnTo } from "@/lib/navigation/in-app-history"
+import { holdLeavingStill } from "@/lib/navigation/leaving-still"
+import { BACK_WATCH_MS } from "@/lib/navigation/go-back"
 import { creatorPageHref } from "@/lib/navigation/back-plan"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -85,10 +87,6 @@ const TIP_MAX_CENTS = 100_000
 const MIN_CHARGE_CENTS = 50
 /** Which way out of the checkout was pressed. */
 type Way = "back" | "shop" | "creator"
-/** The longest the old frame is held while the page behind draws: see leaveWithFade. */
-const LEAVE_HOLD_MS = 400
-/** How long the press is answered live (Back pressed, the page easing back) before that picture is taken. */
-const CAPTURE_AFTER_MS = 64
 /** When React draws a press that the page has already shown (see startGoing). */
 const GOING_STATE_MS = 120
 /** How long "Payment complete" is on screen before the receipt, long enough to be read. */
@@ -294,6 +292,8 @@ export default function CheckoutPageClient({
   const leaving = going === "back"
   const pageRef = React.useRef<HTMLDivElement>(null)
   const goingLater = React.useRef(0)
+  /** A way out is running: the checkout is held over the page that comes, and fades off it (LEAVING, below). */
+  const leavingRef = React.useRef(false)
   /*
     The press is answered in the page itself, inside the click: the
     attribute that holds Back pressed and eases the page back is set on the
@@ -312,7 +312,11 @@ export default function CheckoutPageClient({
   const alreadyGoing = () => !!going || !!pageRef.current?.hasAttribute("data-leaving")
   React.useEffect(() => {
     if (!going) return
-    const t = window.setTimeout(() => setGoing(null), 8000)
+    const t = window.setTimeout(() => {
+      /* Whatever was on its way is not coming: no still is taken if this page goes now. */
+      leavingRef.current = false
+      setGoing(null)
+    }, 8000)
     return () => window.clearTimeout(t)
   }, [going])
   /* A page brought back from the browser's cache is not still leaving, and a render of the press still waiting is dropped. */
@@ -320,6 +324,7 @@ export default function CheckoutPageClient({
     const reset = () => {
       window.clearTimeout(goingLater.current)
       pageRef.current?.removeAttribute("data-leaving")
+      leavingRef.current = false
       setGoing(null)
     }
     window.addEventListener("pageshow", reset)
@@ -372,79 +377,93 @@ export default function CheckoutPageClient({
 
   /*
     ═══════════════════════════════════════════════════════════════════════
-     LEAVING IS A CROSS-FADE, AND IT NEVER HOLDS THE PAGE
+     LEAVING IS A CROSS-FADE, AND IT WAITS FOR NOTHING AT ALL
     ═══════════════════════════════════════════════════════════════════════
     "I click back, nothing happens, and it takes me back abruptly after 5
-    seconds." Measured on storelib.com (a product, its checkout, Back, at
-    1280 wide): with the view transition taken out the product page was on
-    screen 164ms after the press; with it, 4,050ms. The page behind was
-    never slow. The transition was: its update waited for the checkout to
-    leave by polling on requestAnimationFrame, and while a view transition
-    waits for its update the browser draws nothing, so no animation frame
-    ever came. The poll never ran, nor its own 1.2 second limit, and
-    Chrome gave up on the transition after its fixed 4 seconds with the old
-    frame frozen on screen the whole time.
+    seconds." That was `document.startViewTransition` holding the old frame
+    while the page behind was fetched, and Chrome ending it after its fixed
+    four seconds. It was fixed by starting the navigation on the press and
+    capping the transition's own wait at 400ms.
 
-    Now the way out starts on the press, before the transition and not
-    inside it, so the page behind is being drawn from the first moment.
-    The press is answered on the next frame (Back held pressed, the page
-    easing back to 80% over 100ms), and that is shown live for at least
-    three frames and CAPTURE_AFTER_MS before the old frame is captured.
-    The transition then only waits for the checkout to be gone, which a
-    MutationObserver sees without needing a frame, and never longer than
-    LEAVE_HOLD_MS on a timer, which needs none either. A page behind that
-    is slower than that gets the live checkout back, with its spinner,
-    until it lands: never a frozen picture. If the page behind is already
-    there before the capture, there is nothing to fade and no transition
-    is started. With reduced motion, or no support, it is the plain
-    navigation with the same answer to the press.
+    IT WAS STILL A WAIT, AND A WAIT IS STILL A FROZEN SCREEN. Filmed with
+    the page behind 2.5 seconds away (scripts/check-back-stall.mjs), the
+    screen did not change once for 429ms after the press: the transition
+    was waiting for the checkout to go, and while a view transition waits
+    the browser draws nothing at all, so the pressed Back, the page easing
+    away and the spinner were all frozen with it. Nothing inside the page
+    can see that, because a page that is not being drawn runs no animation
+    frames either.
 
-    It was also never a cross-fade. Every root picture in this app is
-    `animation: none` (globals.css, the page layers), and the checkout's
-    rule only changed the duration of an animation that was not there, so
-    the pages swapped in one frame. globals.css now names the fade in full.
-    scripts/check-checkout-motion.mjs films it and times every frame.
+    So there is no view transition here now. The press is answered in the
+    page itself (startGoing, in the click), the navigation starts in the
+    same task, and the checkout is copied in the commit that takes it away
+    and faded off the page that came (lib/navigation/leaving-still). Every
+    frame between the press and the arrival is drawn live: a page behind
+    that takes five seconds shows five seconds of the live checkout with
+    its spinner turning, never a photograph of it.
   */
-  const leaveWithFade = (go: () => void) => {
-    go()
-    const doc = document as Document & { startViewTransition?: (cb: () => Promise<void>) => { finished: Promise<void> } }
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    if (!doc.startViewTransition || reduced) return
-    const beginFade = doc.startViewTransition.bind(doc)
-    const html = document.documentElement
-    const gone = () => !document.querySelector('[data-page="checkout"]')
-    const landed = () =>
-      new Promise<void>((resolve) => {
-        if (gone()) return resolve()
-        let cap = 0
-        const watch = new MutationObserver(() => {
-          if (gone()) done()
-        })
-        const done = () => {
-          watch.disconnect()
-          window.clearTimeout(cap)
-          resolve()
-        }
-        watch.observe(document.body, { childList: true, subtree: true })
-        cap = window.setTimeout(done, LEAVE_HOLD_MS)
-      })
-    const pressed = performance.now()
-    let frames = 0
-    const capture = (now: number) => {
-      /* Both: on a slow phone three frames can take far longer than 64ms, and the fade must have started on screen. */
-      if (++frames < 3 || now - pressed < CAPTURE_AFTER_MS) return void requestAnimationFrame(capture)
-      if (gone()) return
-      html.setAttribute("data-checkout-motion", "leave")
-      try {
-        beginFade(landed)
-          .finished.catch(() => {})
-          .finally(() => html.removeAttribute("data-checkout-motion"))
-      } catch {
-        html.removeAttribute("data-checkout-motion")
-      }
+  React.useLayoutEffect(() => {
+    const node = pageRef.current
+    /* The commit that takes the checkout away, before that frame is painted: the page it goes to is already under this still. */
+    return () => {
+      if (leavingRef.current) holdLeavingStill(node)
     }
-    requestAnimationFrame(capture)
+  }, [])
+  const leaveWithFade = (go: () => void) => {
+    leavingRef.current = true
+    go()
   }
+
+  /*
+    A BACK THAT PROVES IT HAPPENED. `history.back()` reports nothing when it
+    does nothing, and there are several ways for it to do nothing: an entry
+    the browser replaced, a hash entry, a web view that reports a length it
+    cannot go back through. Filmed with back made into a no-op, the checkout
+    sat under a pressed arrow and a spinner for eight seconds and then came
+    back to life on the same page. So a real back has to show itself (a
+    popstate for a page the router still has, a pagehide for one it does
+    not) within BACK_WATCH_MS, or the product page is used instead.
+  */
+  const backThen = (fallback: () => void) => {
+    let settled = false
+    const off = () => {
+      window.removeEventListener("popstate", done)
+      window.removeEventListener("pagehide", done)
+    }
+    function done() {
+      settled = true
+      off()
+    }
+    window.addEventListener("popstate", done)
+    window.addEventListener("pagehide", done)
+    window.history.back()
+    window.setTimeout(() => {
+      if (settled) return
+      off()
+      fallback()
+    }, BACK_WATCH_MS)
+  }
+
+  /*
+    AND THE BROWSER'S OWN BACK IS A PRESS TOO. An edge swipe on an iPhone,
+    the hardware key on Android, the browser's own arrow: none of them
+    touches the control, so the checkout used to sit there unanswered for
+    as long as the page behind took to draw. Filmed with it 2.5 seconds
+    away: the screen did not change once in 2,545ms. Now the same answer
+    as the control's, from the popstate, and the same still over the page
+    that comes.
+  */
+  React.useEffect(() => {
+    const onPop = () => {
+      if (alreadyGoing()) return
+      leavingRef.current = true
+      startGoing("back")
+    }
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+    /* Once: what it reads is the attribute on the page, never a rendered value. */
+     
+  }, [])
 
   /**
    * CONTINUE SHOPPING goes to the product page. When that is the page behind
@@ -457,11 +476,12 @@ export default function CheckoutPageClient({
     e.preventDefault()
     if (alreadyGoing()) return
     startGoing("shop")
+    const path = ownPath(shopUrl)
     if (canReturnTo(shopUrl)) {
-      leaveWithFade(() => window.history.back())
+      /* A back that does nothing is followed by the page itself, never by a spinner that ends in the same place. */
+      leaveWithFade(() => backThen(() => (path ? router.replace(path) : window.location.replace(shopUrl))))
       return
     }
-    const path = ownPath(shopUrl)
     if (!path) {
       window.location.replace(shopUrl)
       return
@@ -489,17 +509,17 @@ export default function CheckoutPageClient({
         return null
       }
     })()
-    /* The page behind is one of ours in this tab: the router draws it, and the cross-fade can wait for it. */
+    const path = ownPath(productUrl)
+    /* The page behind is one of ours in this tab: the router draws it, and the checkout fades off it when it lands. */
     if (canReturnInApp()) {
-      leaveWithFade(() => window.history.back())
+      leaveWithFade(() => backThen(() => (path ? router.replace(path) : window.location.replace(productUrl))))
       return
     }
     /* The page behind is another document (a creator's website): the browser's own Back, from its cache when it can. */
     if (cameFrom !== null && cameFrom === target && window.history.length > 1) {
-      window.history.back()
+      leaveWithFade(() => backThen(() => window.location.replace(productUrl)))
       return
     }
-    const path = ownPath(productUrl)
     if (!path) {
       window.location.replace(productUrl)
       return

@@ -130,7 +130,16 @@ check("the wait: placeholder rows in the result's own box, and the last answer i
 check("the screen keeps its layer until its move has ended, and leaves on an ease in and out", /willChange: open \|\| moving \? "opacity, translate" : undefined/.test(overlay) && /const EASE_OUT = "cubic-bezier\(0\.4, 0, 0\.2, 1\)"/.test(overlay) && /const OPEN_FADE_MS = 200/.test(overlay))
 check("the page at its own address carries Explore's anchor, so the header does not grow a second field", /\[SEARCH_ANCHOR_ATTR\]: ""/.test(page))
 check("the overlay: a declared modal, covering the header, animated on opacity and translate only", /aria-modal=\{open \? true : undefined\}/.test(overlay) && /className="fixed inset-0 z-\[70\] bg-white md:hidden"/.test(overlay) && /transition: !open && !moving\s*\? "none"\s*: reduce/.test(overlay) && !/transition:[^\n]*\b(top|height|transform)\b/.test(overlay))
-check("Back closes it: one history entry of its own, popped by the X, replaced by a result", /pushState\(\{ \.\.\.\(window\.history\.state \|\| \{\}\), \[SEARCH_ENTRY\]: 1 \}, ""\)/.test(overlay) && /if \(ownsEntry\(\)\) window\.history\.back\(\)/.test(overlay) && /if \(ownsEntry\(\)\) router\.replace\(href\)/.test(overlay) && /addEventListener\("popstate", onPop\)/.test(overlay))
+check("Back closes it: one history entry of its own, popped by the X, replaced by a result", /pushState\(\{ \.\.\.\(window\.history\.state \|\| \{\}\), \[SEARCH_ENTRY\]: 1 \}, ""\)/.test(overlay) && /closing\.current = true\s*window\.history\.back\(\)/.test(overlay) && /if \(ownsEntry\(\)\) router\.replace\(href\)/.test(overlay) && /addEventListener\("popstate", onPop\)/.test(overlay))
+/*
+  A close is a history.back(), which lands a task later: Search, X, Search in
+  quick succession found the screen's own mark still on the entry, pushed
+  nothing, and then the first close's pop shut the screen the second press had
+  opened, with no entry left to hold it.
+*/
+check("opening and closing twice quickly leaves it holding exactly one entry", /if \(closing\.current\) reopened\.current = true\s*else if \(!ownsEntry\(\)\) pushEntry\(\)/.test(overlay) && /if \(reopened\.current\) \{\s*reopened\.current = false\s*if \(isOpen\.current && !ownsEntry\(\)\) pushEntry\(\)/.test(overlay))
+/* A back through the page behind is not this screen's: taking the document's overflow off there would undo whatever layer holds it now. */
+check("and a back with the screen already closed is left alone", /if \(!isOpen\.current\) return/.test(overlay))
 check("the page under it holds still while it is open", /el\.style\.setProperty\("overflow", "hidden"\)/.test(overlay) && /el\.style\.removeProperty\("overflow"\)/.test(overlay))
 
 console.log("\nThe account page: a profile, with its settings one tab over (tests/account-hub.test.ts has the rest)")

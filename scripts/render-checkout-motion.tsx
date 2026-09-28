@@ -11,7 +11,8 @@
  *                   product page, so Back returns through history
  *   ?mode=replace   the checkout was opened from a shared link, so Back
  *                   replaces it with the product page
- *   ?delay=160      how long the page behind takes to draw
+ *   ?delay=160      how long the page behind takes to draw, or 0 for never
+ *                   (an offline destination): window.__delay overrides it
  *   ?skeleton=1     the page's loading skeleton instead, to lay one over the other
  */
 import React from "react"
@@ -23,6 +24,16 @@ import { noteClientNavigation, notePopNavigation } from "@/lib/navigation/in-app
 const q = new URLSearchParams(location.search)
 const MODE = q.get("mode") || "replace"
 const DELAY = Number(q.get("delay") || 160)
+/* The probe can move the destination's cost while the page is up (an offline one: never). */
+const delay = () => {
+  const d = (window as unknown as { __delay?: number }).__delay
+  return typeof d === "number" ? d : DELAY
+}
+const later = (fn: () => void) => {
+  const ms = delay()
+  if (ms < 0) return
+  window.setTimeout(fn, ms)
+}
 const PRODUCT = "/lucadragoste/seo-geo-aeo-content-guide"
 
 /* A render that costs what a real page's does: the main thread busy for a while. */
@@ -69,7 +80,7 @@ function App() {
     const onPop = () => {
       notePopNavigation()
       ;(window as unknown as { __navAt: number }).__navAt = performance.now()
-      window.setTimeout(() => setPage("product"), DELAY)
+      later(() => setPage("product"))
     }
     const onNav = (e: Event) => {
       const href = (e as CustomEvent<string>).detail
@@ -83,10 +94,10 @@ function App() {
         window.setTimeout(() => setPage("receipt"), 40 + DELAY)
         return
       }
-      window.setTimeout(() => {
+      later(() => {
         history.replaceState({}, "", href)
         setPage("product")
-      }, DELAY)
+      })
     }
     window.addEventListener("popstate", onPop)
     window.addEventListener("probe-nav", onNav)

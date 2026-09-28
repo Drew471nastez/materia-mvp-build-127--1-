@@ -120,6 +120,26 @@ export function SearchOverlay() {
   const screen = useRef<SearchScreenHandle>(null)
   const address = useRef<string>("")
   const leaveTimer = useRef<number | null>(null)
+  /*
+    ═════════════════════════════════════════════════════════════════════════
+     OPENING AND CLOSING TWICE QUICKLY MUST NOT DESYNC THE STACK
+    ═════════════════════════════════════════════════════════════════════════
+    Closing is a `history.back()`, and a back lands a task later: until the
+    popstate arrives `history.state` still carries this screen's mark. So
+    Search, X, Search in quick succession found the mark still there, pushed
+    no entry of its own, and then the pop from the FIRST close closed the
+    screen the second press had just opened. The screen shut by itself, and
+    the entry that was meant to hold it was gone, so the next Back left the
+    page instead.
+
+    A close in flight is remembered. A press that reopens the screen while it
+    is in flight lets the pop through and puts a fresh entry back in its
+    place, so the screen stays up and still owns exactly one entry.
+  */
+  const closing = useRef(false)
+  const reopened = useRef(false)
+  /** Whether the screen is up, readable from a listener registered once. */
+  const isOpen = useRef(false)
 
   useEffect(() => setReady(true), [])
 
@@ -128,6 +148,14 @@ export function SearchOverlay() {
     for (const el of els) {
       if (on) el.style.setProperty("overflow", "hidden")
       else el.style.removeProperty("overflow")
+    }
+  }
+
+  const pushEntry = () => {
+    try {
+      window.history.pushState({ ...(window.history.state || {}), [SEARCH_ENTRY]: 1 }, "")
+    } catch {
+      /* no history (a sandboxed frame): Back simply leaves the page */
     }
   }
 
@@ -151,13 +179,10 @@ export function SearchOverlay() {
     })
     screen.current.field?.focus({ preventScroll: true })
     lockDocument(true)
-    if (!ownsEntry()) {
-      try {
-        window.history.pushState({ ...(window.history.state || {}), [SEARCH_ENTRY]: 1 }, "")
-      } catch {
-        /* no history (a sandboxed frame): Back simply leaves the page */
-      }
-    }
+    isOpen.current = true
+    /* A close of ours is still on its way: its pop puts the entry back rather than taking the screen. */
+    if (closing.current) reopened.current = true
+    else if (!ownsEntry()) pushEntry()
     return true
   }, [])
 
@@ -171,6 +196,8 @@ export function SearchOverlay() {
   /* ── CLOSE ── the screen's own way out goes through Back, so the entry goes with it. */
   const shut = useCallback(() => {
     screen.current?.field?.blur()
+    isOpen.current = false
+    reopened.current = false
     setOpen(false)
     setMoving(true)
     setLeavingFor(null)
@@ -178,13 +205,25 @@ export function SearchOverlay() {
   }, [])
 
   const close = useCallback(() => {
-    if (ownsEntry()) window.history.back()
-    else shut()
+    if (ownsEntry()) {
+      closing.current = true
+      window.history.back()
+    } else shut()
   }, [shut])
 
   /* Back, from anywhere: the entry is gone, so is the screen. */
   useEffect(() => {
     const onPop = () => {
+      closing.current = false
+      /* Reopened while the close was in flight: this pop was that close, and the screen keeps an entry of its own. */
+      if (reopened.current) {
+        reopened.current = false
+        if (isOpen.current && !ownsEntry()) pushEntry()
+        return
+      }
+      /* Closed already: a real back through the page behind, which is none of this screen's business.
+         Taking the document's overflow off here would undo whatever layer is holding it now. */
+      if (!isOpen.current) return
       if (!ownsEntry()) shut()
     }
     window.addEventListener("popstate", onPop)
