@@ -79,7 +79,7 @@ export function selfCallingFunctions(files: readonly string[], read: (f: string)
         .map((a) => a.split(":")[0].trim().replace(/[?=].*/, ""))
         .filter(Boolean)
       if (!args.length) continue
-      const body = bodyFrom(src, head.index + head[0].length - 1)
+      const body = bodyFrom(src, (head.index ?? 0) + head[0].length - 1)
       /* Its own name, not a method of that name on something else: queue.push(patch) is not push calling push. */
       const calls = [...body.matchAll(new RegExp(`(?<![.\\w$])${name}\\s*\\(([^)]*)\\)`, "g"))].map((c) => c[1].trim())
       if (calls.some((c) => c === args.join(", "))) found.push(`${file}: ${name}(${args.join(", ")})`)

@@ -233,12 +233,20 @@ export function AccountAvatar({
         aria-hidden="true"
         data-account-avatar-camera=""
         className={cn(
-          "pointer-events-none absolute bottom-0.5 right-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#1a1a2e] text-white ring-[3px] ring-[#fafafa]",
+          /*
+            A BADGE, NOT A SECOND BUTTON. At 32px with a 3px ring it took
+            most of one quadrant of the photo and read as the loudest thing
+            in the card: "the photo icon there is too big in the profile
+            avatar circle in the settings". 26px with a 2.5px ring, and the
+            glyph a little smaller with it, so it still says the photo can
+            be changed without competing with the face behind it.
+          */
+          "pointer-events-none absolute bottom-0 right-0 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#1a1a2e] text-white ring-[2.5px] ring-[#fafafa]",
           "transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none",
           editable ? "scale-100 opacity-100" : "scale-75 opacity-0",
         )}
       >
-        <Camera className="h-[15px] w-[15px]" strokeWidth={2} />
+        <Camera className="h-[13px] w-[13px]" strokeWidth={2} />
       </span>
     </div>
   )

@@ -141,10 +141,23 @@ export default async function LibraryLayout({
             paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
           }}
         >
-          {/* On a phone's browser, the app's banner at the top; nowhere else. Known here, so its room is in the first paint. */}
-          <OpenInApp phone={bannerFor} />
           {/* The heading and pills, and the screen under them, which cross fades from one to the next (library-panel.tsx). */}
           <LibraryPanel head={<LibraryTabs />}>{children}</LibraryPanel>
+          {/*
+            THE APP'S BANNER SITS UNDER THE LIBRARY, NOT OVER IT: "do not use
+            the banner above the library, use it under, at the page". It was
+            the first thing on the screen, pushing the heading and the pills
+            down and taking the top of every visit for something nobody came
+            for. At the foot it is still found, and what the person opened
+            the library to see is what they land on.
+
+            It is outside the panel on purpose, so it holds still while the
+            screens cross fade over each other, and it keeps its room in the
+            first paint the same way it did at the top: the phone it is for
+            is known on the server (bannerFor), so nothing shifts when the
+            page hydrates.
+          */}
+          <OpenInApp phone={bannerFor} />
         </div>
       </main>
 

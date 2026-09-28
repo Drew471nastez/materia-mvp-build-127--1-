@@ -85,8 +85,9 @@ function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: bo
       <div className="sticky top-0 z-40 h-14 border-b border-black/10 bg-[#0b0b10]" data-fake-header="" />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
-          <OpenInApp phone={banner} />
+          {/* The banner sits UNDER the library, as app/library/layout.tsx has it. */}
           <LibraryPanel head={tabs ? <LibraryTabs /> : null}>{children}</LibraryPanel>
+          <OpenInApp phone={banner} />
         </div>
       </main>
       <footer className="h-64 bg-[#0b0b10]" data-fake-footer="" />

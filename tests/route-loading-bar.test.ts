@@ -54,9 +54,16 @@ function main() {
   /* Back is 78ms measured on production. A threshold under that would draw a
      line on the one navigation that is already instant. */
   check("and it is longer than a measured back navigation (78ms)", showAfter > 78)
+  /*
+    NEITHER THE LINE NOR THE SURFACE IS IN THE DOCUMENT BEFORE ITS OWN WAIT.
+    This used to read the one early return the file had. The file now draws
+    two things on the same pending record (the line at SHOW_AFTER_MS, the
+    slow page's surface at /app's wait), so each is checked for its own
+    guard: rendering either one hidden would put an element over the page.
+  */
   check(
     "nothing is rendered before then",
-    /if \(!visible\) return null/.test(bar),
+    /\{visible \? \(/.test(bar) && /if \(!shown\) return null/.test(bar),
     "rendering it hidden still puts an element over the header",
   )
   check("the delay is what sets visible", /window\.setTimeout\(\(\) => setVisible\(true\), SHOW_AFTER_MS\)/.test(bar))
@@ -115,6 +122,43 @@ function main() {
   check("and a hard cap clears it regardless", giveUp > 0 && giveUp <= 30000, `GIVE_UP_MS is ${giveUp || "unset"}`)
   check("the cap is armed with the same pending state", /window\.setTimeout\(\(\) => setPendingSince\(null\), GIVE_UP_MS\)/.test(bar))
   check("both timers are cleared when pending changes", /window\.clearTimeout\(show\)[\s\S]{0,60}window\.clearTimeout\(giveUp\)/.test(bar))
+
+  /* ---------------------------------------------------------------------
+     4. AND PAST THE LINE, /app's SPINNER
+     --------------------------------------------------------------------- */
+  console.log("\n  a page that is genuinely slow gets the iOS indicator")
+
+  /*
+    "If pages take too much to load, show the iOS style loading thing used
+    in /app. Only if it takes too much." The line says a page is coming; it
+    does not say how far off it is, and past about half a second a screen
+    that has not moved reads as a tap that missed. So the same surface /app
+    puts up gets put up here, on /app's own waits and /app's own component,
+    and it is bound to the same pending record so it cannot outlive the
+    navigation any more than the line can.
+  */
+  check("it is the same indicator /app uses, not another one", /import \{ PageSpinner \} from "@\/components\/ui\/activity-spinner"/.test(bar) && /<PageSpinner \/>/.test(bar))
+  check("on the same waits as /app, read from /app rather than written down again", /NAV_PHONE_SPINNER_AFTER_MS/.test(bar) && /NAV_SPINNER_AFTER_MS/.test(bar) && /from "@\/lib\/ui\/app-navigation"/.test(bar))
+  check("  a phone waits less than a computer", /isPhoneShell\(\) \? NAV_PHONE_SPINNER_AFTER_MS : NAV_SPINNER_AFTER_MS/.test(bar))
+  check("  and the wait counts from the press, not from the render", /wait - \(Date\.now\(\) - pendingSince\)/.test(bar))
+  check("it fades in and out rather than appearing, so it is never direct", /NAV_SPINNER_FADE_MS/.test(bar) && /NAV_SPINNER_OUT_MS/.test(bar) && /\{ opacity: 0 \}, \{ opacity: 1 \}/.test(bar) && /\{ opacity: 1 \}, \{ opacity: 0 \}/.test(bar))
+  check("  and a fade that never finishes still leaves", /window\.setTimeout\(done, NAV_SPINNER_OUT_MS \+ 200\)/.test(bar))
+  check("the landing and the cap clear it too, so it cannot stick either", /if \(pendingSince != null \|\| !shown \|\| leaving\.current\) return/.test(bar))
+  check("it cannot block a press, and the tab bar stays above it", /pointer-events-none fixed inset-x-0 bottom-0 z-\[35\]/.test(bar) && Number(/z-\[(\d+)\]/.exec(read("components/nav/buyer-tab-bar.tsx").match(/className="fixed inset-x-0 bottom-0 z-\d+/)?.[0]?.replace(/z-(\d+)/, "z-[$1]") ?? "z-[0]")?.[1] ?? 0) > 35)
+  check("it starts under the header, measured when it shows, not written down", /document\.querySelector\("header"\)/.test(bar) && /box\.bottom > 0 \? box\.bottom : 0/.test(bar))
+  check("  and takes the page's own ground, so no colour flashes in", /getComputedStyle\(n\)\.backgroundColor/.test(bar))
+  /*
+    THE SURFACE STAYS OFF A PAGE THAT ANSWERS THE WAIT ITSELF. The line is
+    mounted on the library and the checkout too (a hairline sits over
+    anything), but both draw their own waiting state and are the better
+    one: the library cross fades its screens, the checkout is copied and
+    faded off the page that arrives. So the surface reads the page being
+    LEFT and stays away from those; coming into either from elsewhere their
+    stage is not mounted yet, and it is right.
+  */
+  check("the line is mounted on the marketing layout", /<RouteLoadingBar \/>/.test(layout))
+  check("the surface stays off a page that draws its own wait", /const DRAWS_ITS_OWN_WAIT = \/\^\\\/\(library\|checkout\)/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\)/.test(bar))
+  check("  and it reads the page being left, not the one being opened", /<SlowPage pendingSince=\{pendingSince\} from=\{pathname\} \/>/.test(bar))
 
   /*
     AND THE WIDTH NEVER REACHES THE END. A bar that fills to 100% and waits is

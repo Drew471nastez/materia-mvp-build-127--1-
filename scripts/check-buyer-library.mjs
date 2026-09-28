@@ -854,7 +854,8 @@ try {
         return {
           h: r ? Math.round(r.height) : 0,
           right: r ? Math.round(r.right) : 0,
-          aboveHeading: !!(r && h1 && r.bottom <= h1.getBoundingClientRect().top),
+          /* It sits UNDER the library now, so what is measured is that it is clear of the heading, below it. */
+          belowHeading: !!(r && h1 && r.top >= h1.getBoundingClientRect().bottom),
           iconIsLogo: icon?.tagName === "IMG" && /storelib-logo/.test(icon.getAttribute("src") || "") && icon.naturalWidth > 0,
           iconSize: icon ? Math.round(icon.getBoundingClientRect().width) : 0,
           iconRadius: icon ? getComputedStyle(icon).borderTopLeftRadius : null,
@@ -868,7 +869,8 @@ try {
         }
       })
       expect(b.h >= 56 && b.h <= 64, "a 56 to 64px strip", b.h)
-      expect(b.aboveHeading && b.right <= width - 16, "at the top of the library, above the heading, inside the page's gutter", { above: b.aboveHeading, right: b.right })
+      /* "Do not use the banner above the library, use it under, at the page." */
+      expect(b.belowHeading && b.right <= width - 16, "at the foot of the library, below the heading, inside the page's gutter", { below: b.belowHeading, right: b.right })
       expect(b.iconIsLogo && b.iconSize === 40 && b.iconRadius === "7px", "the Storelib icon at its 7px corner", { logo: b.iconIsLogo, size: b.iconSize, radius: b.iconRadius })
       expect(/^Storelib /.test(b.text || "") && /Open$/.test(b.text || "") && !b.clipped, "Storelib, one short line that fits whole, Open", b.text)
       expect(b.link === "com.storelib.app://open?path=%2Flibrary", "Open goes into this page in the app", b.link)

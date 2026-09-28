@@ -40,6 +40,7 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { accountTabFor } from "@/lib/account/account-tabs"
 import { AccountAvatar } from "@/components/account/account-photo"
+import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { cn } from "@/lib/utils"
 
 export interface AccountIdentity {
@@ -66,7 +67,35 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
   return (
     <div data-account-hub="">
       <header data-account-profile="" className="flex flex-col items-center text-center">
-        <AccountAvatar src={shown} name={identity.name} size={112} className="h-24 w-24 md:h-28 md:w-28" />
+        {/*
+          THE PICTURE OPENS, THE WAY A CREATOR'S DOES. It is the one image
+          on this page worth actually looking at, and it was a cropped
+          circle with nothing behind the press. This is the creator page's
+          own dialog (components/storefront/avatar-lightbox), so the whole
+          photograph opens uncropped on a dark ground, Escape and a press
+          on the ground close it, focus returns to the circle, and it comes
+          and goes on the app's curve rather than a second animation
+          written here.
+
+          A RING AND A LITTLE DEPTH, so it sits on the page rather than
+          being stamped on it, and so its edge is there on a photograph
+          whose corners are near white.
+
+          AND A LITTLE BIGGER, with a little more sky over it: "the avatar
+          should be a bit bigger just, and 2% more vertical space between
+          the header at the top and the profile avatar". 96 to 104 on a
+          phone, 112 to 120 from md.
+        */}
+        <div className="mt-[2vh]" data-account-avatar-room="">
+          <AvatarLightbox src={shown} name={identity.name}>
+            <AccountAvatar
+              src={shown}
+              name={identity.name}
+              size={120}
+              className="h-[104px] w-[104px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.06),0_8px_24px_-10px_rgba(16,24,40,0.28)] ring-[3px] ring-white md:h-[120px] md:w-[120px]"
+            />
+          </AvatarLightbox>
+        </div>
         <h1
           className="mt-3.5 line-clamp-2 max-w-full text-[22px] font-bold leading-[1.2] tracking-[-0.015em] text-[#1a1a2e] [overflow-wrap:anywhere] md:mt-4 md:text-[26px]"
           data-account-display-name=""
