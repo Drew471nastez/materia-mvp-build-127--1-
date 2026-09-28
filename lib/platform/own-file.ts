@@ -11,8 +11,13 @@
  *
  *   A browser otherwise: the server checks the file is yours and answers
  *     with a two minute signed storage link that storage serves as an
- *     attachment under the file's name (lib/storage/owner-download.ts). An
- *     ordinary link click saves it; the page does not move.
+ *     attachment under the file's name (lib/storage/owner-download.ts).
+ *     That link is on STORAGE'S origin, where an anchor's `download` is
+ *     ignored, so clicking one was an ordinary navigation and the editor
+ *     went with it whenever the attachment header did not arrive. The file
+ *     goes to a tab of its own now, opened empty inside the press and
+ *     pointed at the link when it comes back (lib/platform/download-tab).
+ *     A link on our own origin still saves through the anchor.
  *
  *   The iOS and Android apps: <a download> does nothing in WKWebView or in
  *     Capacitor's Android WebView, so the same signed link is opened in the
@@ -32,8 +37,10 @@
  * runs every branch without a browser.
  */
 import { downloadBlob, openInSystemBrowser, savePlatform, type SaveOutcome, type SavePlatform } from "./save-file"
+import { anchorCanSave, clickDownloadLink, openDownloadTab, showBlockedDownload, type DownloadTab } from "./download-tab"
 
-export type OwnFileOutcome = SaveOutcome | "shared"
+/** "blocked": the browser refused the tab, so the file is in the notice. */
+export type OwnFileOutcome = SaveOutcome | "shared" | "blocked"
 
 export type OwnFilePlan = { via: "local" } | { via: "link"; open: "anchor" | "system" } | { via: "share" } | { via: "none" }
 
@@ -54,8 +61,14 @@ export interface OwnFileDeps {
   /** The signed link for a saved file, or throws with the server's words. */
   fetchLink: (assetId: string, name: string) => Promise<{ url: string; fileName: string }>
   downloadBlob: (blob: Blob, name: string) => void
-  /** An ordinary link click to an address storage serves as an attachment. */
+  /** A tab of this page's own, opened before anything is awaited. */
+  openTab: () => DownloadTab | null
+  /** True where an <a download> really saves the address in place. */
+  anchorCanSave: (url: string) => boolean
+  /** An ordinary link click, for an address anchorCanSave allows. */
   followLink: (url: string, name: string) => void
+  /** The calm notice with the file on it, when the tab was refused. */
+  showBlocked: (url: string, name: string) => void
   openInSystemBrowser: (url: string) => Promise<void>
   /** The share sheet with this file; false where the page cannot share files. */
   shareFile: (file: File, name: string) => Promise<boolean>
@@ -78,10 +91,26 @@ export async function saveOwnFile(
     case "none":
       throw new Error(NOT_UPLOADED_YET)
     case "link": {
-      const link = await deps.fetchLink(request.assetId!, request.name)
+      /* Opened here, before the request: a tab asked for after an await is
+         a pop-up and blockers eat it. Nothing is opened for the apps. */
+      const tab = plan.open === "anchor" ? deps.openTab() : null
+      let link: { url: string; fileName: string }
+      try {
+        link = await deps.fetchLink(request.assetId!, request.name)
+      } catch (err) {
+        tab?.close()
+        throw err
+      }
       if (plan.open === "anchor") {
-        deps.followLink(link.url, link.fileName)
-        return "downloaded"
+        if (deps.anchorCanSave(link.url)) {
+          tab?.close()
+          deps.followLink(link.url, link.fileName)
+          return "downloaded"
+        }
+        if (tab?.point(link.url)) return "downloaded"
+        tab?.close()
+        deps.showBlocked(link.url, link.fileName)
+        return "blocked"
       }
       await deps.openInSystemBrowser(link.url)
       return deps.platform === "ios" ? "ios-download" : "android-download"
@@ -97,6 +126,8 @@ export async function saveOwnFile(
 export function ownFileNotice(outcome: OwnFileOutcome): string | null {
   if (outcome === "ios-download") return "Tap Download to save it to Files"
   if (outcome === "android-download") return "Saving to Downloads on this phone"
+  /* The notice itself carries the file; the toast points at it. */
+  if (outcome === "blocked") return "Your file is ready. Press Save."
   return null
 }
 
@@ -124,18 +155,6 @@ async function fetchLink(assetId: string, name: string): Promise<{ url: string; 
   return { url: body.downloadUrl, fileName: typeof body.fileName === "string" ? body.fileName : name }
 }
 
-function followLink(url: string, name: string): void {
-  const a = document.createElement("a")
-  a.href = url
-  /* Ignored across origins; the attachment header is what names it. Kept for a same origin storage. */
-  a.download = name
-  a.rel = "noopener noreferrer"
-  a.style.display = "none"
-  document.body.appendChild(a)
-  a.click()
-  window.setTimeout(() => a.remove(), 300)
-}
-
 async function shareFile(file: File, name: string): Promise<boolean> {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false
   const named = file.name === name ? file : new File([file], name, { type: file.type })
@@ -151,5 +170,15 @@ async function shareFile(file: File, name: string): Promise<boolean> {
 }
 
 export function ownFileDeps(): OwnFileDeps {
-  return { platform: savePlatform(), fetchLink, downloadBlob, followLink, openInSystemBrowser, shareFile }
+  return {
+    platform: savePlatform(),
+    fetchLink,
+    downloadBlob,
+    openTab: openDownloadTab,
+    anchorCanSave,
+    followLink: clickDownloadLink,
+    showBlocked: showBlockedDownload,
+    openInSystemBrowser,
+    shareFile,
+  }
 }
