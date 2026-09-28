@@ -135,7 +135,7 @@ export function DashboardSidebar() {
           </Link>
         )}
         <Link
-          href="/library/settings"
+          href="/account"
           onClick={onItemClick}
           className="mb-1 flex items-center gap-3 px-3 py-3 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground transition-colors active:scale-[0.98]"
         >

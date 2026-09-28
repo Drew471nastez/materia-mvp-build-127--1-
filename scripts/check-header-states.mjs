@@ -171,9 +171,9 @@ const DESK_READ = `(() => {
     signup: box(q("[data-guest-actions]:not([data-placeholder]) [data-guest-signup]")),
     dashboard: box(q("[data-header-dashboard]")),
     avatar: box(q("[data-header-avatar]")),
+    avatarTag: q("[data-header-avatar]")?.tagName ?? null,
     wishlist: box([...root.querySelectorAll("a[aria-label]")].find((a) => /wishlist/i.test(a.getAttribute("aria-label")) && shown(a))),
     library: box([...root.querySelectorAll("a[aria-label]")].find((a) => /library/i.test(a.getAttribute("aria-label")) && shown(a))),
-    menu: { become: box(q("[data-account-menu] [data-become-seller]")), account: box(q("[data-account-menu] [data-account-link]")), text: q("[data-account-menu]")?.textContent ?? "" },
     rootH: Math.round(root.getBoundingClientRect().height * 100) / 100,
     overflow: { doc: document.documentElement.scrollWidth - innerWidth, row: row ? row.scrollWidth - row.clientWidth : 0, rightmost: Math.max(0, ...[...root.querySelectorAll("a, button")].filter(shown).map((e) => e.getBoundingClientRect().right)) - innerWidth },
   }
@@ -236,23 +236,14 @@ for (const path of ["/", "/explore"]) {
     if (who === "buyer") {
       expect(!!d.avatar?.visible && !d.dashboard && !d.guest && !d.text.some((t) => /^dashboard$/i.test(t)), `${tag} only the photo after the icons: no Dashboard, no Sign up`, d.text)
       expect(d.text.filter((t) => /^library$/i.test(t)).length === 1, `${tag} one Library (the icon), no second, purple Library button`, d.text)
-      expect(d.menu.become?.href === "/sell" && d.menu.account?.href === "/account" && !/Dashboard/.test(d.menu.text), `${tag} the photo's menu: the account (/account) first, Become a seller (/sell), no Dashboard`, { become: d.menu.become?.href, account: d.menu.account?.href })
-      /* Opened from the keyboard: Enter on the photo, the menu takes focus order, Escape gives it back. */
+      expect(d.avatarTag === "A" && d.avatar.href === "/account", `${tag} the photo is a link to /account`, { tag: d.avatarTag, href: d.avatar?.href })
       await p.focus("[data-header-avatar]")
-      await p.keyboard.press("Enter")
-      await sleep(350)
-      const menu = await p.evaluate(() => ({ expanded: document.querySelector("[data-header-avatar]").getAttribute("aria-expanded"), inert: document.querySelector("[data-account-menu]").hasAttribute("inert") }))
-      await p.keyboard.press("Tab")
-      const focused = await p.evaluate(() => document.activeElement?.getAttribute("href"))
-      await p.screenshot({ path: join(shots, `desk-1280-${path === "/" ? "home" : "explore"}-buyer-menu.png`), clip: { x: 880, y: 0, width: 400, height: 420 } })
-      await p.keyboard.press("Escape")
-      await sleep(300)
-      const after = await p.evaluate(() => ({ open: document.querySelector("[data-account-menu]").dataset.accountMenu, focus: document.activeElement?.hasAttribute("data-header-avatar") }))
-      expect(menu.expanded === "true" && !menu.inert && focused === "/account" && after.open === "closed" && after.focus, `${tag} the menu opens from the keyboard, Tab reaches the account first, Escape closes it back to the photo`, { menu, focused, after })
+      const focused = await p.evaluate(() => document.activeElement?.hasAttribute("data-header-avatar"))
+      expect(focused, `${tag} and a keyboard reaches it`)
     }
     if (who === "seller") {
       expect(d.dashboard?.href === "/app" && d.dashboard.visible && isViolet(d.dashboard.bg) && r8(d.dashboard) && !!d.avatar?.visible, `${tag} Dashboard (/app) beside the photo, 8px corners`, d.dashboard && { href: d.dashboard.href, radius: d.dashboard.radius })
-      expect(!d.menu.become && /Dashboard/.test(d.menu.text), `${tag} the menu has Dashboard and no Become a seller`)
+      expect(d.avatarTag === "A" && d.avatar.href === "/account", `${tag} the photo is a link to /account`, d.avatar?.href)
     }
     if (who === "unknown") {
       const g = measured[`${path}|guest`]
@@ -317,6 +308,17 @@ for (const path of ["/", "/explore"]) {
     const s = await openSheet(p, "menu")
     await p.screenshot({ path: join(shots, `phone-390-${path === "/" ? "home" : "explore"}-${who}-menu.png`) })
     expect(!!s, `${tag} the menu sheet opens`)
+    /* THE TAB BAR UNDER IT. The sheet and its scrim sit over the buyer tab bar, so the bar is covered cleanly, never on top of the sheet. */
+    const tabs = await p.evaluate(() => {
+      const bar = document.querySelector("[data-buyer-tab-bar]")
+      if (!bar) return { bar: false, where: location.hash }
+      const r = bar.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      const panel = document.querySelector("[data-app-sheet] [data-sheet-panel]").getBoundingClientRect()
+      return { bar: r.height > 0, covered: !!hit?.closest("[data-app-sheet]"), panelBottom: Math.round(panel.bottom), h: innerHeight }
+    })
+    if (path === "/") expect(!tabs.bar, `${tag} no buyer tab bar on the homepage, so nothing under the sheet`)
+    else expect(tabs.bar && tabs.covered && Math.abs(tabs.panelBottom - tabs.h) <= 1, `${tag} the sheet covers the buyer tab bar cleanly, down to the bottom of the screen`, tabs)
     if (s) {
       expect(!/start selling/i.test(s.text), `${tag} no Start selling in the menu`)
       if (who === "guest") {
@@ -358,7 +360,7 @@ for (const who of ["buyer", "seller"]) {
     await p.screenshot({ path: join(shots, `phone-390-explore-${who}-account.png`) })
     expect(!!s, `${tag} the account sheet opens from the photo`)
     if (s) {
-      expect(s.account?.href === "/account", `${tag} its first row is the account, /account`, s.account?.href)
+      expect(s.account?.href === "/account" && /Settings/.test(s.account.text), `${tag} Settings goes to /account`, s.account && { href: s.account.href, text: s.account.text })
       expect(/My Library/.test(s.text) && /Settings/.test(s.text) && /Language/.test(s.text) && /Log out/.test(s.text), `${tag} My Library, Settings, Language and Log out are still there`)
       if (who === "buyer") {
         expect(s.become?.href === "/sell" && !s.dashboard, `${tag} Become a seller (/sell), no Dashboard`, s.become?.href)

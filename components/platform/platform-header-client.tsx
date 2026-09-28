@@ -26,6 +26,7 @@ import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loa
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
@@ -685,8 +686,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const belowMd = useBelowMd()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const profileDropdownRef = useRef<HTMLDivElement>(null)
-  const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
   /**
    * The language picker, opened from either account menu.
    *
@@ -706,7 +705,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     setCategoriesDropdownOpen(false)
     setMobileMenuOpen(false)
     setMobileProfileOpen(false)
-    setDesktopProfileOpen(false)
   }, [pathname])
 
   // Close desktop dropdowns when clicking outside
@@ -727,9 +725,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       // Only close if clicking completely outside the dropdown
       if (!target.closest('[data-categories-dropdown]')) {
         setCategoriesDropdownOpen(false)
-      }
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(target)) {
-        setDesktopProfileOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -959,12 +954,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             if (freshAvatar) localStorage.setItem("_sl_avatar", freshAvatar)
             else localStorage.removeItem("_sl_avatar")
           } catch {}
-          // SELLER ACCESS: a finished seller onboarding (creators.onboarding_completed)
-          // is what gives this account seller access today. It decides Dashboard
-          // against Become a seller everywhere in this header, and it is written
-          // to the snapshot so the next page opens on the right one. Point this at
-          // lib/account/seller-access.ts once that exists.
-          const isSellerByState = !!creatorData?.onboarding_completed
+          // SELLER ACCESS: the shared answer (lib/account/seller-access.ts), worked
+          // out from the two rows read just above, so it costs no third query.
+          // Only "seller" is seller access; an onboarding begun and not finished
+          // ("started") is still a buyer here. It decides Dashboard against Become
+          // a seller everywhere in this header, and it is written to the snapshot
+          // so the next page opens on the right one.
+          const isSellerByState = hasSellerAccess(sellerAccessFrom({ creator: creatorData, profile: profileData }))
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
           writeAuthSnapshot({
@@ -1048,7 +1044,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     const supabase = createClient()
     await supabase.auth.signOut({ scope: "local" })
     setMobileProfileOpen(false)
-    setDesktopProfileOpen(false)
     setCachedAvatarUrl(null)
     try { localStorage.removeItem("_sl_avatar") } catch {}
     if (isNativePlatform()) {
@@ -1372,128 +1367,30 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   ) : null
 
   /*
-    THE PHOTO AND ITS MENU, ON A COMPUTER, on the marketing pages and the
-    buyer pages alike. The photo opens the menu rather than leaving the page,
-    because the menu is the only place on a computer with the language and
-    Log out; its first row is the account itself (/account), so the account
-    is one click from the photo. Closed, the menu is `inert`: it is only
-    transparent, and without that its links stayed in the tab order.
+    THE PHOTO IS THE WAY TO THE ACCOUNT, ON A COMPUTER. The owner: "just the
+    normal buyer controls and the avatar (-> /account)". It opened a menu of
+    Dashboard, My Library, Settings, Language and Log out; every one of those
+    is now either in the bar already (Dashboard for a seller, the library
+    icon) or on /account (settings, language, selling, log out), so the photo
+    goes there itself, as a plain link a screen reader names and a keyboard
+    reaches in one stop.
   */
-  const accountMenuRow =
-    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer outline-none focus-visible:bg-gray-50 focus-visible:text-gray-900"
   const desktopAccountMenu = user ? (
-    <div ref={profileDropdownRef} className="relative">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => setDesktopProfileOpen(!desktopProfileOpen)}
-            className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
-            aria-label="Your account"
-            aria-haspopup="menu"
-            aria-expanded={desktopProfileOpen}
-            data-header-avatar=""
-          >
-            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200 transition-opacity duration-150" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-          Your account
-        </TooltipContent>
-      </Tooltip>
-
-      <div
-        data-account-menu={desktopProfileOpen ? "open" : "closed"}
-        inert={desktopProfileOpen ? undefined : true}
-        onKeyDown={(e) => {
-          if (e.key !== "Escape") return
-          setDesktopProfileOpen(false)
-          profileDropdownRef.current?.querySelector<HTMLElement>("button[data-header-avatar]")?.focus()
-        }}
-        className={`absolute right-0 top-full mt-2 z-50 origin-top-right transition-all ease-out ${
-          desktopProfileOpen
-            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
-        }`}
-        style={{ transitionDuration: '200ms', transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
-      >
-        <div className="min-w-[220px] rounded-xl border border-gray-200/70 bg-white p-1.5 shadow-lg shadow-black/5">
-          {/* The account itself: the photo's destination, one click in. */}
-          <Link
-            {...headerLink("/account")}
-            onClick={(e) => { onCanonicalNav(e, "/account"); setDesktopProfileOpen(false) }}
-            data-account-link=""
-            className="mb-1 flex items-center gap-3 rounded-lg border-b border-gray-100 px-3 py-2.5 transition-colors hover:bg-gray-50 outline-none focus-visible:bg-gray-50"
-          >
-            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={40} className="border border-gray-200" />
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-medium text-gray-900 truncate">{displayName}</span>
-              <span className="block text-xs text-gray-500 truncate">{user.email || "Your account"}</span>
-            </span>
-          </Link>
-
-          {hasCompletedSellerOnboarding ? (
-            <Link
-              {...headerLink("/app")}
-              onClick={(e) => { onCanonicalNav(e, "/app"); setDesktopProfileOpen(false) }}
-              className={accountMenuRow}
-            >
-              <LayoutDashboard className="h-4 w-4 shrink-0" />
-              <span>Dashboard</span>
-            </Link>
-          ) : (
-            <Link
-              {...headerLink("/sell")}
-              onClick={(e) => { onCanonicalNav(e, "/sell"); setDesktopProfileOpen(false) }}
-              data-become-seller=""
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-violet-700 transition-colors hover:bg-[#f5f3ff] cursor-pointer outline-none focus-visible:bg-[#f5f3ff]"
-            >
-              <Store className="h-4 w-4 shrink-0 text-[#8b5cf6]" />
-              <span>Become a seller</span>
-            </Link>
-          )}
-          <Link
-            href={getCanonicalOrRelativePath("/library")}
-            onClick={(e) => {
-              e.preventDefault()
-              setDesktopProfileOpen(false)
-              onCanonicalNav(e, "/library")
-            }}
-            className={accountMenuRow}
-          >
-            <Library className="h-4 w-4 shrink-0" />
-            <span>My Library</span>
-          </Link>
-          <Link
-            href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
-            onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setDesktopProfileOpen(false) }}
-            className={accountMenuRow}
-          >
-            <Settings className="h-4 w-4 shrink-0" />
-            <span>Settings</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => { setDesktopProfileOpen(false); setLanguageOpen(true) }}
-            className={cn(accountMenuRow, "w-full")}
-          >
-            <Globe className="h-4 w-4 shrink-0" />
-            <span>{t("settings.language")}</span>
-          </button>
-
-          <div className="my-1.5 h-px bg-gray-100" />
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 cursor-pointer outline-none focus-visible:bg-red-50 focus-visible:text-red-600"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            <span>Log out</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          {...headerLink("/account")}
+          aria-label="Your account"
+          data-header-avatar=""
+          className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+        >
+          <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200 transition-opacity duration-150" />
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+        Your account
+      </TooltipContent>
+    </Tooltip>
   ) : null
 
   return (
@@ -2268,20 +2165,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         keepMounted={!!user && belowMd}
       >
         <div className="px-4 pb-6">
-          {/* Who is signed in: the photo's destination, the account (/account). */}
-          <Link
-            {...headerLink("/account")}
-            onClick={(e) => { onCanonicalNav(e, "/account"); setMobileProfileOpen(false) }}
-            data-account-link=""
-            className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl active:bg-gray-100 transition-colors [-webkit-tap-highlight-color:transparent]"
-          >
+          {/* User Info */}
+          <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
             <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={48} className="border border-gray-200" />
-            <span className="flex-1 min-w-0">
-              <span className="block text-base font-medium text-gray-900 truncate">{displayName}</span>
-              <span className="block text-sm text-gray-500 truncate">{user?.email || "Your account"}</span>
-            </span>
-            <ChevronRight aria-hidden className="h-5 w-5 text-gray-400" />
-          </Link>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
+              {user?.email && <p className="text-sm text-gray-500 truncate">{user.email}</p>}
+            </div>
+          </div>
 
           {/* Menu Items */}
           <div className="space-y-0.5">
@@ -2315,8 +2206,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             <Link
-              href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
-              onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setMobileProfileOpen(false) }}
+              /* The buyer's account page holds the settings now, for a seller too:
+                 the photo, name, password, language and log out are the account's,
+                 not the shop's. /library/settings only redirects there. */
+              {...headerLink("/account")}
+              onClick={(e) => { onCanonicalNav(e, "/account"); setMobileProfileOpen(false) }}
+              data-account-link=""
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">

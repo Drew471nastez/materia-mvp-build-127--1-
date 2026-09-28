@@ -11,13 +11,15 @@
  *                                waiting to know who is looking
  *
  * On "/" the real homepage hero is drawn under the header, so its two
- * buttons can be measured against the header's.
+ * buttons can be measured against the header's. The buyer tab bar is drawn
+ * too, so a phone sheet can be seen over it.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { LocaleProvider } from "@/components/locale-provider"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { Hero } from "@/components/marketing/hero"
+import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 
 const params = new URLSearchParams(location.hash.slice(1))
 const w = window as any
@@ -39,5 +41,7 @@ createRoot(document.getElementById("app")!).render(
     ) : (
       <main className="min-h-[1400px] bg-[#f8f9fa] p-6 text-[15px] text-neutral-500">A buyer page under the header.</main>
     )}
+    {/* The phone's buyer tab bar, where it belongs (not on the homepage), so the sheets can be seen over it. */}
+    <BuyerTabBar />
   </LocaleProvider>,
 )
