@@ -71,7 +71,8 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
             away on the list above, which is where "view all" goes. */}
         <Link
           href="/explore?sort=popular"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors whitespace-nowrap"
+          /* 36px to press on a phone; the negative margin keeps the heading row the height it was. */
+          className="-my-2 inline-flex items-center gap-1 py-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors whitespace-nowrap"
         >
           View all
           <ChevronRight className="h-4 w-4" />

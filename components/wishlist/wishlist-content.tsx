@@ -6,9 +6,10 @@ import { createPortal } from "react-dom"
 import { Heart, Package } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { SmartLink } from "@/components/smart-link"
-import { WishlistSkeleton } from "@/components/library/library-skeletons"
+import { WishlistSkeleton } from "./wishlist-skeleton"
 import { CARD, PRIMARY, SECONDARY, SMALL, VIOLET } from "@/components/library/library-ui"
 import { isNativeApp } from "@/lib/platform-utils"
+import { cn } from "@/lib/utils"
 import { getProductShareUrl, getProductUrl } from "@/lib/url-helpers"
 import { actionOf, entryOf, priceOf, type WishlistEntry } from "./wishlist-entry"
 
@@ -352,16 +353,16 @@ function WishlistCard({ entry, native, priority, onRemove }: { entry: WishlistEn
       <div className="col-start-2 mt-3 flex sm:mt-auto sm:px-4 sm:pb-4 sm:pt-3.5">
         {action.kind === "page" ? (
           page ? (
-            <SmartLink href={page} {...pageProps} data-wishlist-action="page" className={`${SECONDARY} ${SMALL} min-w-[112px] sm:w-full`}>
+            <SmartLink href={page} {...pageProps} data-wishlist-action="page" className={cn(SECONDARY, SMALL, "min-w-[112px] sm:w-full")}>
               {action.label}
             </SmartLink>
           ) : null
         ) : action.kind === "library" ? (
-          <Link href={action.href!} data-wishlist-action="library" className={`${SECONDARY} ${SMALL} min-w-[112px] sm:w-full`}>
+          <Link href={action.href!} data-wishlist-action="library" className={cn(SECONDARY, SMALL, "min-w-[112px] sm:w-full")}>
             {action.label}
           </Link>
         ) : (
-          <Link href={action.href!} data-wishlist-action="checkout" className={`${PRIMARY} ${SMALL} min-w-[112px] sm:w-full`}>
+          <Link href={action.href!} data-wishlist-action="checkout" className={cn(PRIMARY, SMALL, "min-w-[112px] sm:w-full")}>
             {action.label}
           </Link>
         )}

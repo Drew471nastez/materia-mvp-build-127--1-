@@ -101,6 +101,7 @@ import {
  */
 import { resolveStorefrontChrome, type StorefrontBarColors, type StoredChrome } from "@/lib/store-builder/storefront-chrome"
 import { SCHEME_PREVIEW_PARAM, previewSchemeFrom, schemeRootPaints, type RootPaint } from "@/lib/store-builder/scheme-preview"
+import { planIntervals } from "@/lib/memberships/intervals"
 
 export const dynamic = "force-dynamic"
 
@@ -727,6 +728,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 
+  /* A membership's card says "$9/month", and "/year" for a yearly only plan: read only when the page sells one (lib/memberships/intervals). */
+  const intervals = await planIntervals(supabase, (products ?? []).filter((p) => p.type === "membership").map((p) => p.id))
   const productsData: ProductData[] =
     products?.map((p) => ({
       id: p.id,
@@ -734,6 +737,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       title: p.title,
       thumbnail_url: p.thumbnail_url,
       price_cents: p.price_cents,
+      type: p.type ?? undefined,
+      price_interval: intervals.get(p.id) ?? null,
       compare_at_cents: p.compare_at_cents,
       pay_what_you_want: p.pay_what_you_want ?? null,
       pwyw_min_price_cents: p.pwyw_min_price_cents ?? null,

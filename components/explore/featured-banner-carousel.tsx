@@ -6,12 +6,15 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
+import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 
 interface FeaturedProduct {
   id: string
   title: string
   slug: string
   price_cents?: number
+  type?: string | null
+  price_interval?: "month" | "year" | null
   thumbnail_url?: string | null
   creator?: {
     slug?: string
@@ -276,7 +279,8 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
                 View product
               </SmartLink>
               <span className="text-lg font-bold text-white drop-shadow-md">
-                {formatPrice(productPrice)}
+                {/* A membership's price is per month or year (lib/pricing/list-price). */}
+                {productPrice ? perInterval(formatPrice(productPrice), intervalOf(currentProduct ?? {})) : formatPrice(productPrice)}
               </span>
             </div>
           </div>

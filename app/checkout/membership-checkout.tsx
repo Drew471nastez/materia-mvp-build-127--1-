@@ -427,8 +427,9 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
 
       <dl className="space-y-2 border-t border-black/[0.07] pt-5 text-[14px]">
         <div className="flex justify-between">
+          {/* The price with what it is per, "$9.00/month", as every other place a membership's price is written. */}
           <dt className="text-[#4b5563]">{interval === "year" ? "Yearly" : "Monthly"}</dt>
-          <dd className="tabular-nums text-[#1a1a2e]">{moneyExact(priceCents)}</dd>
+          <dd data-summary-price="" className="tabular-nums text-[#1a1a2e]">{`${moneyExact(priceCents)}/${interval === "year" ? "year" : "month"}`}</dd>
         </div>
         {trial ? (
           <div className="flex justify-between">

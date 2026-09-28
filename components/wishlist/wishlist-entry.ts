@@ -1,4 +1,4 @@
-import { listPrice, usd } from "@/lib/pricing/list-price"
+import { listPrice, usd, type PriceInterval } from "@/lib/pricing/list-price"
 
 /**
  * ===========================================================================
@@ -24,7 +24,7 @@ export interface WishlistEntry {
   payWhatYouWant: boolean
   pwywMinCents: number | null
   /** A membership's billing period: "/month" or "/year" after its price. */
-  interval: "month" | "year" | null
+  interval: PriceInterval | null
   /** The product has options (product_variants): one is chosen on its page, not here. */
   hasOptions: boolean
   /** Already theirs: the card opens it in the library instead of selling it again. */
@@ -101,14 +101,26 @@ export interface EntryPrice {
   sale: string | null
 }
 
-/** What the card says its price is: the list price rule every product card uses (lib/pricing/list-price), and a membership's period. */
+/**
+ * What the card says its price is: the list price rule every product card
+ * uses (lib/pricing/list-price), membership period included, so "$9/month"
+ * is written the one way it is written everywhere. The period is only split
+ * off so the card can set it smaller than the number.
+ */
 export function priceOf(e: WishlistEntry): EntryPrice {
   const label = listPrice(
-    { price_cents: e.priceCents, compare_at_cents: e.compareAtCents, pay_what_you_want: e.payWhatYouWant, pwyw_min_price_cents: e.pwywMinCents },
+    {
+      price_cents: e.priceCents,
+      compare_at_cents: e.compareAtCents,
+      pay_what_you_want: e.payWhatYouWant,
+      pwyw_min_price_cents: e.pwywMinCents,
+      type: e.type,
+      price_interval: e.interval,
+    },
     usd,
   )
-  const per = e.interval && e.priceCents > 0 && !e.payWhatYouWant ? `/${e.interval}` : null
-  return { main: label.main, per, was: label.was, sale: label.off ? `${label.off}% off` : null }
+  const m = /^(.*)(\/(?:month|year))$/.exec(label.main)
+  return { main: m ? m[1] : label.main, per: m ? m[2] : null, was: label.was, sale: label.off ? `${label.off}% off` : null }
 }
 
 export type EntryAction = { label: string; kind: "checkout" | "page" | "library"; href: string | null }

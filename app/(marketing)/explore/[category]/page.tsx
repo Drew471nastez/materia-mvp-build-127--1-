@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
+import { planIntervals } from "@/lib/memberships/intervals"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -130,6 +131,8 @@ export default async function CategoryPage({ params, searchParams }: Props) {
 
   if (products && products.length > 0) {
     // Get creators for products
+    /* A yearly only membership says "/year" on its card (lib/memberships/intervals); asked beside the creators. */
+    const intervalsPromise = planIntervals(supabase, products.filter((p) => p.type === "membership").map((p) => p.id))
     const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
     let productCreators: any[] = []
 
@@ -153,12 +156,14 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       productCreatorProfiles = pcProfiles || []
     }
 
+    const intervals = await intervalsPromise
     // Build products with creator info
     productsWithCreators = products.map((product) => {
       const creator = productCreators.find((c) => c.id === product.creator_id)
       const profile = creator ? productCreatorProfiles.find((p) => p.id === creator.user_id) : null
       return {
         ...product,
+        ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
         creator: creator ? { ...creator, profile } : null,
         categories: [],
         categoryName: product.category || null,

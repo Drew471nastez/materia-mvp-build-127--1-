@@ -31,6 +31,8 @@ export interface StorefrontCardProduct {
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
   type?: string
+  /** A membership's interval, when its plan was read (lib/memberships/intervals). */
+  price_interval?: "month" | "year" | null
   categories?: Array<{ id?: string; name: string; slug?: string; type?: string | null }> | null
   reviews_count?: number | null
   reviews_average?: number | null
@@ -82,6 +84,7 @@ export function StorefrontProductCard({
         pwyw_min_price_cents: product.pwyw_min_price_cents ?? null,
         thumbnail_url: product.thumbnail_url ?? null,
         type: product.type || "digital",
+        price_interval: product.price_interval ?? null,
         reviews_count: product.reviews_count ?? null,
         reviews_average: product.reviews_average ?? null,
         categories: (product.categories || []).map((c) => ({

@@ -90,6 +90,8 @@ export interface LibraryReceipt {
   sellerName: string | null
   /** A paid card order has an invoice PDF (/api/checkout/invoice). */
   invoice: boolean
+  /** A payment for one period of a membership: its total reads "$9.00/month". Null otherwise. */
+  priceInterval?: "month" | "year" | null
 }
 
 export interface LibraryData {
@@ -113,7 +115,7 @@ export interface ExtrasOrder {
   variant_id?: string | null
   stripe_session_id?: string | null
   stripe_payment_intent_id?: string | null
-  product?: { id?: string; title?: string | null; thumbnail_url?: string | null; creator_id?: string | null } | null
+  product?: { id?: string; title?: string | null; thumbnail_url?: string | null; creator_id?: string | null; type?: string | null } | null
 }
 
 export interface ExtrasReview {
@@ -144,6 +146,8 @@ export interface LibraryExtras {
   /** variant id to the asset ids it includes (product_variant_files). */
   variantFiles: Map<string, string[]>
   creators: ExtrasCreator[]
+  /** Order id to its membership's interval, for a payment that was one period of a membership. */
+  intervals?: Map<string, "month" | "year">
 }
 
 export const EMPTY_EXTRAS: LibraryExtras = { orders: [], reviews: [], ownCreatorId: null, variantFiles: new Map(), creators: [] }
@@ -250,7 +254,7 @@ export function assembleLibrary(downloads: DownloadRow[], extras: LibraryExtras)
 }
 
 /** One receipt per payment: a basket is several orders with one Stripe session. */
-export function receiptsOf(extras: Pick<LibraryExtras, "orders" | "creators">): LibraryReceipt[] {
+export function receiptsOf(extras: Pick<LibraryExtras, "orders" | "creators" | "intervals">): LibraryReceipt[] {
   const names = new Map(extras.creators.map((c) => [c.id, c.name]))
   const groups = new Map<string, ExtrasOrder[]>()
   for (const o of extras.orders) {
@@ -287,6 +291,8 @@ export function receiptsOf(extras: Pick<LibraryExtras, "orders" | "creators">): 
       sellerName: sellers.length === 1 ? sellers[0] : null,
       /* As the receipt page offers it (receipt.invoice && paid): a paid card payment that still stands. */
       invoice: total > 0 && state === "open" && list.some((o) => !!o.stripe_payment_intent_id),
+      /* A membership is charged alone, one period at a time: said as the receipt page says it. */
+      priceInterval: list.length === 1 && first.product?.type === "membership" ? extras.intervals?.get(first.id) ?? "month" : null,
     })
   }
   return receipts.sort((a, b) => b.createdAt.localeCompare(a.createdAt))

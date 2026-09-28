@@ -34,7 +34,7 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
       admin
         .from("orders")
         /* Whole rows: the refund amount and the tip arrived in later migrations. */
-        .select(`*, product:products(id, title, thumbnail_url, creator_id, creator:creators(${SELLER}))`)
+        .select(`*, product:products(id, title, thumbnail_url, type, creator_id, creator:creators(${SELLER}))`)
         .eq("buyer_id", userId)
         .order("created_at", { ascending: false })
         .limit(500),
@@ -66,14 +66,26 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
     const variantIds = [...new Set(rawOrders.map((o) => o.variant_id).filter(Boolean) as string[])]
     const sellerIds = [...sellers.keys()]
 
-    const [byOrderRes, variantRes, supportRes] = await Promise.all([
+    /* A membership's payments, for what each one was per (a month or a year); in the same wave, and only when there is one. */
+    const membershipOrderIds = rawOrders.filter((o) => o.product?.type === "membership").map((o) => o.id)
+
+    const [byOrderRes, variantRes, supportRes, intervalRes] = await Promise.all([
       orderIds.length ? admin.from("reviews").select("*").in("order_id", orderIds.slice(0, 500)) : Promise.resolve({ data: [] }),
       variantIds.length
         ? admin.from("product_variant_files").select("variant_id, digital_asset_id").in("variant_id", variantIds)
         : Promise.resolve({ data: [] }),
       /* Its own read: support_email came later, and a database without it must still draw the library. */
       sellerIds.length ? admin.from("creators").select("id, support_email").in("id", sellerIds) : Promise.resolve({ data: [] }),
+      membershipOrderIds.length
+        ? admin.from("membership_invoices").select("order_id, membership:memberships(billing_interval)").in("order_id", membershipOrderIds.slice(0, 500))
+        : Promise.resolve({ data: [] }),
     ])
+
+    const intervals = new Map<string, "month" | "year">()
+    for (const row of (intervalRes?.error ? [] : intervalRes?.data ?? []) as Array<{ order_id?: string | null; membership?: { billing_interval?: string } | { billing_interval?: string }[] | null }>) {
+      const m = Array.isArray(row.membership) ? row.membership[0] : row.membership
+      if (row.order_id && m?.billing_interval) intervals.set(row.order_id, m.billing_interval === "year" ? "year" : "month")
+    }
 
     const moreReviews = (byOrderRes?.error ? [] : byOrderRes?.data ?? []) as ExtrasReview[]
     const seen = new Set(reviews.map((r) => r.id))
@@ -94,10 +106,10 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
 
     const orders: ExtrasOrder[] = rawOrders.map((o) => ({
       ...o,
-      product: o.product ? { id: o.product.id, title: o.product.title, thumbnail_url: o.product.thumbnail_url, creator_id: o.product.creator_id } : null,
+      product: o.product ? { id: o.product.id, title: o.product.title, thumbnail_url: o.product.thumbnail_url, creator_id: o.product.creator_id, type: o.product.type ?? null } : null,
     }))
 
-    return { orders, reviews, ownCreatorId, variantFiles, creators: [...sellers.values()] }
+    return { orders, reviews, ownCreatorId, variantFiles, creators: [...sellers.values()], intervals }
   } catch (e) {
     console.error("[library] extras:", e instanceof Error ? e.message : e)
     return EMPTY_EXTRAS

@@ -1,4 +1,7 @@
+import { WishlistSkeleton } from "@/components/wishlist/wishlist-skeleton"
 import { LIBRARY_TABS } from "./library-tab-list"
+
+export { WishlistSkeleton }
 
 /**
  * ===========================================================================
@@ -20,9 +23,6 @@ import { LIBRARY_TABS } from "./library-tab-list"
 const LINE = "rounded bg-[#eceef1]"
 const SOFT = "rounded bg-[#f1f3f5]"
 const PULSE = "animate-pulse motion-reduce:animate-none"
-/** A card from 640px only: the wishlist is rows in one card on a phone and a grid of cards above it. */
-const CARD_FROM_SM =
-  "sm:rounded-2xl sm:border sm:border-[#e4e7ec]/80 sm:bg-white sm:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]"
 const CARD = "rounded-2xl border border-[#e4e7ec]/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]"
 
 /** Products (components/library/library-home.tsx): search and order, the count, the rows; the sellers' column from 1024px. */
@@ -101,18 +101,18 @@ export function RowsSkeleton({ rows = 4, sections = 1 }: { rows?: number; sectio
   )
 }
 
-/** Courses (components/courses/courses-index.tsx): its heading and creator filter, the progress switch, the rows with a 16:9 cover. */
+/** Courses (components/courses/courses-index.tsx): the progress switch and the creator filter on one line, the count, then rows with a 16:9 cover in the library's card. */
 export function CoursesSkeleton() {
   return (
-    <div aria-hidden>
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div className={`h-7 w-32 sm:h-8 ${LINE} ${PULSE}`} />
-        <div className="h-9 w-[132px] rounded-lg bg-white ring-1 ring-inset ring-[#e5e7eb]" />
+    <div className="space-y-3" aria-hidden>
+      <div className="flex items-center justify-between gap-2">
+        <div className="h-10 w-[300px] max-w-full rounded-[10px] bg-[#eef0f3]" />
+        <div className="hidden h-10 w-[132px] rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec] sm:block" />
       </div>
-      <div className="mb-4 h-10 w-[260px] rounded-lg bg-[#f1f1f4]" />
-      <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className={`h-[18px] w-20 ${LINE} ${PULSE}`} />
+      <div className={`${CARD} overflow-hidden`}>
         {[0, 1, 2].map((i) => (
-          <div key={i} className="flex gap-3 border-b border-[#f0f0f2] p-3 last:border-0 sm:gap-4 sm:p-4">
+          <div key={i} className="flex gap-3 border-b border-[#eef0f3] p-3 last:border-0 sm:gap-4 sm:p-4">
             <div className={`aspect-video w-[112px] shrink-0 rounded-lg sm:w-[168px] ${SOFT} ${PULSE}`} />
             <div className="flex min-w-0 flex-1 flex-col">
               <div className={`h-4 w-2/3 ${LINE} ${PULSE}`} />
@@ -144,33 +144,6 @@ export function MembershipsSkeleton() {
               <div className={`h-4 w-1/2 ${LINE} ${PULSE}`} />
               <div className={`h-3 w-1/3 ${SOFT} ${PULSE}`} />
               <div className={`h-3 w-2/5 ${SOFT}`} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/**
- * The wishlist (components/wishlist/wishlist-content.tsx): the count, then on
- * a phone rows in one card, and from 640px a grid of cards with a 16:9 cover.
- */
-export function WishlistSkeleton({ items = 3 }: { items?: number }) {
-  return (
-    <div aria-hidden>
-      <div className={`mb-3 h-[18px] w-24 ${LINE} ${PULSE}`} />
-      <div className={`${CARD} divide-y divide-[#eef0f3] overflow-hidden sm:grid sm:grid-cols-2 sm:gap-4 sm:divide-y-0 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none lg:grid-cols-3 xl:grid-cols-4`}>
-        {Array.from({ length: items }, (_, i) => (
-          <div key={i} className={`grid grid-cols-[76px_minmax(0,1fr)] gap-x-3.5 px-4 py-4 sm:flex sm:flex-col sm:p-0 ${CARD_FROM_SM} sm:overflow-hidden`}>
-            <div className={`row-span-2 h-[76px] w-[76px] rounded-xl sm:aspect-video sm:h-auto sm:w-full sm:rounded-none ${SOFT} ${PULSE}`} />
-            <div className="min-w-0 space-y-2 pr-9 pt-0.5 sm:px-4 sm:pb-1 sm:pr-4 sm:pt-3.5">
-              <div className={`h-4 w-4/5 ${LINE} ${PULSE}`} />
-              <div className={`h-3.5 w-1/2 ${SOFT} ${PULSE}`} />
-              <div className={`h-4 w-16 ${LINE} ${PULSE}`} />
-            </div>
-            <div className="mt-3 flex gap-2 sm:mt-auto sm:px-4 sm:pb-4 sm:pt-3">
-              <div className={`h-9 flex-1 rounded-[10px] ${SOFT} ${PULSE}`} />
             </div>
           </div>
         ))}

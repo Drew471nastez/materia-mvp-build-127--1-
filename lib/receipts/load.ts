@@ -159,6 +159,31 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
   const mappingError = (mappingRes as any).error as { code?: string } | null
   const mappingUnknown = !!mappingError && mappingError.code !== "42P01"
 
+  /*
+    A MEMBERSHIP'S LINE SAYS WHAT IT IS PER. The charge is one period of a
+    membership, so the receipt writes "$9.00/month", never a bare "$9.00"
+    that reads as a one-off. The interval is the membership's own (the plan
+    it was joined on), found through the invoice that made the order; where
+    that cannot be read the line says "/month", as the product row's price is.
+  */
+  const intervals = new Map<string, "month" | "year">()
+  const membershipOrders = rows.filter((r) => products.get(r.product_id)?.type === "membership").map((r) => r.id)
+  if (membershipOrders.length > 0) {
+    try {
+      const { data: invoices } = await admin.from("membership_invoices").select("order_id, membership_id").in("order_id", membershipOrders)
+      const byMembership = new Map<string, string>(((invoices as { order_id: string; membership_id: string }[] | null) ?? []).map((i) => [i.membership_id, i.order_id]))
+      if (byMembership.size > 0) {
+        const { data: members } = await admin.from("memberships").select("id, billing_interval").in("id", [...byMembership.keys()])
+        for (const m of (members as { id: string; billing_interval: string }[] | null) ?? []) {
+          const orderId = byMembership.get(m.id)
+          if (orderId) intervals.set(orderId, m.billing_interval === "year" ? "year" : "month")
+        }
+      }
+    } catch {
+      /* "/month" stands. */
+    }
+  }
+
   const items: ReceiptItem[] = rows.map((r) => {
     const product = products.get(r.product_id)
     const state = accessStateOf(r)
@@ -186,6 +211,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       refundedAt: (r.refunded_at as string) ?? null,
       files,
       courseHref: state === "open" && type === "course" ? `/library/courses/${r.product_id}` : null,
+      priceInterval: type === "membership" ? intervals.get(r.id) ?? "month" : null,
       refundPolicy: refundPolicyOf(policies.get(r.product_id)),
     }
   })

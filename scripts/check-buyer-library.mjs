@@ -17,8 +17,11 @@
  *   OPEN APP   on an iPhone's browser a line with Open, whose link is the
  *              app's scheme carrying this page; not on a computer, not
  *              inside the app, and not again once closed.
- *   BROWSER    Download asks /api/download once, the file goes to a tab of
- *              its own and the library's address never changes.
+ *   BROWSER    Download asks /api/download once, the file saves where the
+ *              button is (no tab) and the library's address never changes.
+ *   TABS       at 4x CPU, the pressed pill's fill only grows and takes
+ *              settings' 150ms, timed on the animation clock from the frame
+ *              it starts, with one frame's tolerance each way.
  *   IPHONE APP (bridge stood in, no native downloader): the file is read with
  *              a bar that only grows, measured frame by frame at 4x CPU
  *              throttle, then Save to Files hands the whole file to the
@@ -276,8 +279,11 @@ try {
         idleFill: getComputedStyle(document.querySelector('[data-library-tab="Courses"] [data-library-tab-fill]')).opacity,
         fade: document.querySelector("[data-library-tabs]")?.getAttribute("data-fade"),
         refunded: [...document.querySelectorAll("[data-library-item]")].filter((r) => /Refunded/.test(r.textContent)).length,
+        /* A row's own actions are SMALL: 36px, not the 40px a concatenated class string drew. */
+        rowActions: [...new Set([...document.querySelectorAll("[data-row-actions] a, [data-row-actions] button[data-row-download]")].filter((el) => el.getBoundingClientRect().height > 0).map((el) => Math.round(el.getBoundingClientRect().height)))],
       }
     })
+    expect(m.rowActions.length > 0 && m.rowActions.every((h) => h === 36), "a row's own buttons are the small size, 36px", m.rowActions)
     expect(m.h1 === "Library", "the heading is Library", m.h1)
     expect(m.tabs.map((t) => t[0]).join() === "Products,Courses,Memberships,Reviews,Receipts,Wishlist" && m.tabs[0][1] === "page", "six tabs, Products current", m.tabs)
     expect(m.pills.every((p) => p.h === 36 && p.radius >= 18 && p.border === "1px") && !m.underline, "the tabs are separate pills, 36px, fully round, no underline", m.pills[0])
@@ -398,6 +404,8 @@ try {
           const po = new PerformanceObserver((l) => l.getEntries().forEach((e) => !e.hadRecentInput && shifts.push(e.value)))
           po.observe({ type: "layout-shift" })
           const t0 = performance.now()
+          /* The animation clock: what a transition's progress is computed from, one value per frame. */
+          const c0 = document.timeline.currentTime
           const fill = (href) => {
             const el = document.querySelector(`[data-library-tab-href="${href}"] [data-library-tab-fill]`)
             return el ? parseFloat(getComputedStyle(el).opacity) : null
@@ -418,6 +426,7 @@ try {
             const r = row()
             out.push({
               t: Math.round(t - t0),
+              clock: Math.round(document.timeline.currentTime - c0),
               lead,
               inc: Math.round(incOp * 1000) / 1000,
               live: liveSeen ? Math.round(liveOp * 1000) / 1000 : 0,
@@ -468,10 +477,40 @@ try {
       /* f[0] is read in the same task as the click; f[1] is the first frame painted after the press. */
       expect(f[1].active === "/library/reviews", "the pressed pill is chosen in the first frame after the press, ahead of the route", { t: f[1].t, active: f[1].active })
       const fills = f.map((x) => x.fills[0])
+      const drops = fills.filter((v, i) => i > 0 && v < fills[i - 1] - 0.001).length
       const full = f.find((x) => x.fills[0] >= 0.999)
-      const startAt = f[1].t
-      const gapAtFull = full ? full.t - f[f.indexOf(full) - 1].t : 0
-      expect(falls(fills) === 0 && full && full.t - startAt <= 150 + gapAtFull + 20 && fills[0] < 1, "its fill only grows, 0 to 1 in settings' 150ms from the press's frame", { chosenAt: startAt, fullAt: full?.t, sampleGap: gapAtFull })
+      /*
+        TIMED FROM THE FRAME THE FILL STARTS, NOT FROM THE PRESS. It was timed
+        from the press's frame, and under 4x throttle the commit that starts
+        the transition can land a frame or two after that frame, so the fill
+        reached 1 at 156 to 195ms after the press while still taking 150ms
+        itself: a flake that said nothing about the animation.
+
+        The transition really began somewhere between the last sample that
+        read 0 (lastZero) and the first that read more (begun). It really
+        ended somewhere between the sample before `full` and `full`. So:
+          full - begun    <= 150 + the gap at the end   (never longer than 150ms)
+          full - lastZero >= 150 - one frame            (never shorter: really animated)
+        A frame's worth of tolerance on each side, and nothing else. It still
+        fails a 300ms fade, an instant jump to 1, and any dip on the way.
+      */
+      const begunAt = fills.findIndex((v) => v > 0.001)
+      const begun = begunAt > 0 ? f[begunAt] : null
+      const lastZero = begunAt > 0 ? f[begunAt - 1] : null
+      const fullAt = full ? f.indexOf(full) : -1
+      /* On the animation clock (document.timeline), which is what the fill's progress is read from; performance.now() inside a throttled frame runs ahead of it by however long the frame took. */
+      const clockGaps = f.slice(1).map((x, i) => x.clock - f[i].clock).filter((g) => g > 0).sort((a, b) => a - b)
+      const medianGap = clockGaps[Math.floor(clockGaps.length / 2)] ?? 17
+      const gapAtFull = fullAt > 0 ? full.clock - f[fullAt - 1].clock : 0
+      const took = full && begun ? full.clock - begun.clock : null
+      const atLeast = full && lastZero ? full.clock - lastZero.clock : null
+      expect(
+        drops === 0 && fills[0] < 1 && !!begun && !!full && took <= 150 + gapAtFull + 2 && atLeast >= 150 - medianGap - 2 && fullAt > begunAt,
+        "its fill only grows, 0 to 1 in settings' 150ms from the frame the fill starts (one frame's tolerance)",
+        { first: fills[0], lastZeroAt: lastZero?.clock, begunAt: begun?.clock, fullAt: full?.clock, took, atLeast, gapAtFull, medianGap, drops },
+      )
+      /* And the start itself follows the press closely: within a few frames of the pill being chosen. */
+      expect(!!begun && begunAt - 1 <= 4, "the fill starts within a few frames of the press", { chosenAt: f[1].t, begunAt: begun?.t, frames: begunAt - 1 })
       const outs = f.map((x) => x.fills[1])
       expect(outs.at(-1) === 0 && rises(outs) === 0, "the old pill's fill only fades out", outs.slice(0, 6))
       expect(f[1].lead > 0.9 && f[1].inc === 1, "the press's own frame starts the dissolve: the old screen as a still copy over the new one's whole shape", { lead: f[1].lead, shape: f[1].inc })

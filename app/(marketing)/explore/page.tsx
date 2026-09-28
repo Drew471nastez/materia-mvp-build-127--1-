@@ -9,6 +9,7 @@ import { FeaturedCategoriesSection } from "@/components/explore/featured-categor
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
+import { planIntervals } from "@/lib/memberships/intervals"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -167,6 +168,8 @@ export default async function ExplorePage({
 
     if (products && products.length > 0) {
       // Get creators for products
+      /* A yearly only membership says "/year" on its card (lib/memberships/intervals); asked beside the creators. */
+      const intervalsPromise = planIntervals(supabase, products.filter((p) => p.type === "membership").map((p) => p.id))
       const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
       let productCreators: any[] = []
 
@@ -190,12 +193,14 @@ export default async function ExplorePage({
         productCreatorProfiles = pcProfiles || []
       }
 
+      const intervals = await intervalsPromise
       // Build products with creator info
       productsWithCreators = products.map((product) => {
         const creator = productCreators.find((c) => c.id === product.creator_id)
         const profile = creator ? productCreatorProfiles.find((p) => p.id === creator.user_id) : null
         return {
           ...product,
+          ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
           creator: creator ? { ...creator, profile } : null,
           categories: [],
           categoryName: product.category || null,

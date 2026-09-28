@@ -9,6 +9,7 @@ import { contactOf, storeOf } from "./creator-links"
 import { ProductRow } from "./product-row"
 import { useStoreLinkProps } from "./use-store-link"
 import { CARD, MUTED, SECONDARY, SMALL, TEXT_LINK, VIOLET } from "./library-ui"
+import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
@@ -41,13 +42,13 @@ function CreatorActions({ creator, stacked = false }: { creator: LibraryCreator;
   return (
     <div className={`flex gap-2 ${stacked ? "flex-col" : "flex-wrap"}`}>
       {contact ? (
-        <a href={contact.href} data-creator-contact="" className={`${SECONDARY} ${SMALL} whitespace-nowrap ${stacked ? "w-full" : ""}`}>
+        <a href={contact.href} data-creator-contact="" className={cn(SECONDARY, SMALL, `whitespace-nowrap ${stacked ? "w-full" : ""}`)}>
           <Mail className="h-3.5 w-3.5" aria-hidden />
           {contact.label}
         </a>
       ) : null}
       {store ? (
-        <a href={store} {...storeLink} data-creator-store="" className={`${SECONDARY} ${SMALL} whitespace-nowrap ${stacked ? "w-full" : ""}`}>
+        <a href={store} {...storeLink} data-creator-store="" className={cn(SECONDARY, SMALL, `whitespace-nowrap ${stacked ? "w-full" : ""}`)}>
           <Store className="h-3.5 w-3.5" aria-hidden />
           Visit store
         </a>
@@ -291,7 +292,7 @@ export function LibraryHome({
                 setQuery("")
                 setCreator(null)
               }}
-              className={`${SECONDARY} ${SMALL} mt-4`}
+              className={cn(SECONDARY, SMALL, "mt-4")}
             >
               Show everything
             </button>
