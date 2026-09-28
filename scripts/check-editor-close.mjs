@@ -310,9 +310,128 @@ async function scenarioOnce(p, cdp, engine, { isNew, dirty, slowMs = 0 }) {
   return checks
 }
 
+/*
+  ===========================================================================
+   AND ON A COMPUTER, WHERE THE EDITOR IS NOT A LAYER
+  ===========================================================================
+  From 768px the product editor is an ordinary page inside the shell, under
+  the header and beside the rail (page-layer.tsx, `phoneOnly`), so leaving it
+  is the stage's landing of the list and not a drop. This measures what that
+  costs on a slowed CPU and pins what must be true of it either way: every
+  frame has a page in it, only transform and opacity are animated, and the
+  list comes back exactly where it was left, with the row that was opened
+  still in it. The numbers are printed so the difference from the phone's
+  drop can be read rather than argued about.
+*/
+async function desktopClose(browser) {
+  console.log(`\ncomputer 1280x900`)
+  const p = await browser.newPage()
+  const errors = []
+  p.on("pageerror", (e) => errors.push(e.message))
+  await p.setRequestInterception(true)
+  p.on("request", (r) => {
+    const u = r.url()
+    if (u.startsWith("data:")) return r.continue()
+    if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+    if (!u.startsWith("http://probe.test/app") && u.startsWith("http://probe.test/")) return r.respond({ status: 404, contentType: "application/json", body: "{}" })
+    if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: html })
+    r.abort()
+  })
+  await p.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 })
+  const cdp = await p.createCDPSession()
+  await p.goto("http://probe.test/app/products")
+  await sleep(1400)
+  /* Scrolled down the list, so "where it was left" is a real place. */
+  await p.evaluate(() => {
+    const el = [...document.querySelectorAll(".app-content-scroll, .orders-pane, .page-scroll")].find((n) => n.scrollHeight > n.clientHeight + 2)
+    if (el) {
+      el.scrollTop = 360
+      el.dispatchEvent(new Event("scroll"))
+      window.__scrollerClass = el.className
+    }
+  })
+  await sleep(700)
+  /* Read by selector every time: the list is unmounted and drawn again, so a
+     kept reference would be a detached node, whose scrollTop is always 0. */
+  const scrollNow = () => p.evaluate(() => document.querySelector(".orders-pane")?.scrollTop ?? null)
+  const was = await scrollNow()
+  const opened = await p.evaluate(() => {
+    const row = [...document.querySelectorAll("[data-row]:not([hidden])")].find((el) => el.getBoundingClientRect().top > 120)
+    const id = row.dataset.row
+    row.querySelector("td:first-child a").click()
+    return id
+  })
+  for (let i = 0; i < 60 && !(await p.$("[data-product-editor]")); i++) await sleep(50)
+  await sleep(700)
+
+  const frames = []
+  cdp.removeAllListeners("Page.screencastFrame")
+  cdp.on("Page.screencastFrame", (f) => {
+    frames.push({ data: f.data, ts: f.metadata.timestamp })
+    cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+  })
+  await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 })
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+  await p.evaluate(() => {
+    window.__d = { props: new Set(), gaps: [], shift: 0, last: null }
+    window.__d.long = []
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__d.shift += e.value }).observe({ type: "layout-shift" }) } catch {}
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__d.long.push(Math.round(e.duration)) }).observe({ type: "longtask" }) } catch {}
+    window.__running = true
+    const tick = (t) => {
+      if (!window.__running) return
+      if (window.__d.last !== null) window.__d.gaps.push(+(t - window.__d.last).toFixed(1))
+      window.__d.last = t
+      /* What is animated, and on what: a bar or a spinner of its own is not the page closing. */
+      for (const a of document.getAnimations()) {
+        const el = a.effect?.target
+        if (!(el instanceof Element)) continue
+        const where = el.closest("[data-product-editor],[data-layer-still],[data-page-layer]") ? "page" : "elsewhere"
+        for (const k of a.effect?.getKeyframes?.() ?? []) {
+          for (const key of Object.keys(k)) {
+            if (["offset", "computedOffset", "easing", "composite"].includes(key)) continue
+            window.__d.props.add(`${where}:${key}`)
+          }
+        }
+      }
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+  await p.click("[data-editor-head] button[aria-label='Back to products']")
+  await sleep(1600)
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  await cdp.send("Page.stopScreencast")
+  const d = await p.evaluate(() => {
+    window.__running = false
+    return { props: [...window.__d.props], gaps: window.__d.gaps, shift: +window.__d.shift.toFixed(4), long: window.__d.long }
+  })
+  const inks = []
+  for (const f of frames) inks.push(await inkOf(p, f.data, 70, 860))
+  const blank = inks.filter((x) => x < 0.005).length
+  for (const [k, i] of [0, Math.floor(frames.length / 2), frames.length - 1].entries()) if (frames[i]) writeFileSync(join(shots, `editor-close-computer-1280-${k}.png`), Buffer.from(frames[i].data, "base64"))
+  const dropped = d.gaps.filter((g) => g > 20).length
+  const longest = d.gaps.length ? Math.max(...d.gaps) : null
+  console.log(`        (${d.gaps.length + 1} frames, longest ${longest}ms, ${dropped} over 20ms; properties ${JSON.stringify(d.props)}; long tasks ${JSON.stringify(d.long)}; layout shift ${d.shift}; ${frames.length} screencast frames, ink min ${inks.length ? Math.min(...inks) : null})`)
+  const back = await p.evaluate((id) => {
+    const el = document.querySelector(".app-content-scroll")
+    const row = [...document.querySelectorAll(`[data-row="${CSS.escape(id)}"]`)].find((r) => r.getClientRects().length > 0)
+    return { scroll: document.querySelector(".orders-pane")?.scrollTop ?? null, row: !!row, layer: !!document.querySelector("[data-product-editor]") }
+  }, opened)
+  expect(!back.layer, "computer 1280: Back leaves the list on the screen", back)
+  expect(frames.length > 5 && blank === 0, "computer 1280: no blank frame while it closes", { frames: frames.length, blank })
+  expect(d.props.filter((k) => k.startsWith("page:")).every((k) => k === "page:transform" || k === "page:opacity"), "computer 1280: transform and opacity only on the page, nothing that lays it out", d.props)
+  expect(d.shift < 0.01, "computer 1280: no layout shift while it closes", d.shift)
+  expect(back.scroll !== null && was !== null && Math.abs(back.scroll - was) <= 2, "computer 1280: the list is where it was left", { was, now: back.scroll })
+  expect(back.row, "computer 1280: with the row that was opened still in it", back.row)
+  if (errors.length) expect(false, "computer 1280: nothing threw", errors)
+  await p.close()
+}
+
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"] })
 try {
-  for (const engine of ["chromium", "no-view-transitions"]) {
+  /* DESKTOP_ONLY=1 runs the computer's section alone, for a quick look at it. */
+  for (const engine of process.env.DESKTOP_ONLY ? [] : ["chromium", "no-view-transitions"]) {
     console.log(`\nphone 390x844, touch, ${engine}`)
     const p = await browser.newPage()
     const errors = []
@@ -349,6 +468,7 @@ try {
     if (errors.length) expect(false, `${engine}: nothing threw`, errors)
     await p.close()
   }
+  await desktopClose(browser)
 } finally {
   await browser.close()
 }

@@ -424,7 +424,7 @@ check("price and sales are quiet grey 12px text under the name, ending in an ell
 check("a phone row names its status only when it is not on sale, as a dot and a word, not a badge",
   /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
 check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
-check("table rows are 56px (62 from 1024px, 70 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[62px\] xl:h-\[70px\] /.test(list) && /openRow: open,/.test(list) && /api\.current\?\.openRow\(product\.id\)/.test(list) && /openEditor\(router, href\)\s*requestAnimationFrame\(\(\) => setOpening\(id\)\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
+check("table rows are 56px (62 from 1024px, 70 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[62px\] xl:h-\[70px\] /.test(list) && /openRow: open,/.test(list) && /api\.current\?\.openRow\(product\.id\)/.test(list) && /openEditor\(router, href, id !== "new"\)\s*requestAnimationFrame\(\(\) => setOpening\(id\)\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
 check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium lg:pl-\[18px\] lg:pr-\[13px\] xl:pl-\[22px\]">Product<\/th>/.test(list))
 check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[97px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell lg:px-\[13px\] xl:w-\[110px\]">Sales/.test(list))
 check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
@@ -480,7 +480,7 @@ check("but only on a return: a fresh visit from the sidebar or the pill starts a
     && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
 check("the row you came back from is tinted as the list comes back, after the layer's drop", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_LEAVE_MS/.test(list))
 check("rows and New product open the editor with the layer's move; a press with a modifier is left to the link",
-  /openEditor\(router, href\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 2
+  /openEditor\(router, href, id !== "new"\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 2
     && (list.match(/onClick=\{\(e\) => api\.current\?\.open\(product\.id\)\(e\)\}/g) ?? []).length === 2 && /open: openFromLink,/.test(list))
 
 const layer = code("components/app/page-layer.tsx")
@@ -566,6 +566,8 @@ check("  the list's off screen rows are laid out in the frame the picture is tak
   /html\[data-layer-motion\] \.\\\[content-visibility\\:auto\\\] \{\s*content-visibility: visible;/.test(css))
 check("  React's leftover pseudo animations are read from the document's list, which still has them once the pseudo elements are gone",
   /function clearLeftovers\(\) \{\s*for \(const a of document\.getAnimations\(\)\)/.test(layer))
+check("a press's answer is not taken away while the shell still has a page on its way",
+  /let cap = window\.setTimeout\(function again\(\) \{\s*if \(getAppNavigation\(\)\) \{\s*cap = window\.setTimeout\(again, LAYER_PRESS_KEPT_MS\)\s*return\s*\}\s*release\(\)\s*\}, LAYER_PRESS_KEPT_MS\)/.test(layer))
 check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
 check("the stage plays no landing of its own under a layer's move (the mark read on the commit, and again on the frame the landing would start)",
   /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
@@ -578,6 +580,30 @@ check("\"the list opened it\" is noted when the editor mounts right after the li
     && /if \(editors === 0\) fromList = false/.test(ret) && /useListOrigin\(\)/.test(editor))
 check("a return is noted by address: the way back from the editor and every popstate, kept until the list shows",
   /window\.addEventListener\("popstate", \(\) => \{\s*returnTo = window\.location\.pathname/.test(ret) && /returnTo = PRODUCTS_HREF/.test(ret) && /return returnTo === PRODUCTS_HREF \|\| isTraversing\(\)/.test(ret))
+/*
+  "When it's loading a product page editor, or editing a new product, you can see the double loading there." A press
+  on a row was answered twice: the list drew its spinner where View is, and the layer answered whatever was under the
+  pointer as well, which on a computer is the product's name (page-layer holdPress). `[data-layer-press="wait"]` paints
+  its element's text away and puts a spinner in its place, so the row showed an empty name with a spinner in the middle
+  of it and a second spinner at its end. scripts/check-editor-open.mjs counts them at 390, 1280 and 1920.
+*/
+check("only the list answers a row's press, and it writes the row's tint in the press's own task",
+  /openEditor\(router, href, id !== "new"\)/.test(list)
+    && /for \(const el of sectionRef\.current\?\.querySelectorAll<HTMLElement>\(`\[data-row="\$\{CSS\.escape\(id\)\}"\]`\) \?\? \[\]\) el\.dataset\.opening = ""/.test(list)
+    && /export function openEditor\(router: Router, href: string, answered = false\)/.test(ret)
+    && /answered \? false : undefined,/.test(ret))
+/*
+  "Sometimes it ends, and then I have to wait another 10 seconds to load the page." The row's answer ended on a clock of
+  its own (ten seconds) and the layer let its press go after LAYER_PRESS_KEPT_MS, both of them before an editor whose
+  server read ran longer than that. Now the answer lasts while the router's own request for the editor is still out, and
+  the arrival is what ends it.
+*/
+check("the row's answer lasts as long as the wait, and the arrival ends it",
+  !/window\.setTimeout\(reset, 10_000\)/.test(list)
+    && /if \(!editorAnswered\(href, openedAt\.current\) && waited < WAIT_LONGEST_MS\) \{\s*startNavigationLoading\(href\)/.test(list)
+    && /if \(getAppNavigation\(\)\) return\s*reset\(\)/.test(list)
+    && /export function editorAnswered\(href: string, since: number\): boolean/.test(ret)
+    && /export const WAIT_LONGEST_MS = 45_000/.test(ret))
 
 const probe = read("scripts/check-products-page.mjs")
 check("the probe draws the pill's box from its variables and measures 360, 390, 430, 768 and 1280", /width: "var\(--app-nav-width\)"/.test(probe) && /bottom: "var\(--app-nav-lift\)"/.test(probe) && /const TABS = /.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))

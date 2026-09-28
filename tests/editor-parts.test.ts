@@ -121,6 +121,20 @@ check("the suggestion is asked for once the fields settle, cached by content, ne
 /* Changed on purpose: the list moved to lib/products/category-groups.ts so the suggestion route can check answers against it. */
 check("every category the editor offered is still offered", (read("lib/products/category-groups.ts").match(/^      "/gm) ?? []).length >= 80 && /"Lightroom Presets"/.test(groups) && /"Video LUTs"/.test(groups))
 
+/*
+  "It takes so much time to load a product edit page." A tile is 16:9, two to a
+  row: about 170px across on a phone and 350px in the editor's main column, and
+  each one was loading the original upload, so a product with six camera photos
+  fetched twenty megabytes before anything could be read.
+*/
+const media = code("app/app/products/new/media-grid.tsx")
+console.log("\nThe media tiles are thumbnails, not the photos")
+check("each tile asks the optimizer for the file it needs, with an honest sizes and its box declared",
+  /const TILE_FILES = \[256, 384, 640, 750\]/.test(media) && /const srcSet = optimizedSrcSet\(src, TILE_FILES, PORTRAIT_QUALITY\)/.test(media)
+    && /src=\{srcSet \? optimizedImageUrl\(src, TILE_BOX, PORTRAIT_QUALITY\) : src\}/.test(media)
+    && /sizes=\{TILE_SIZES\}/.test(media) && /width=\{640\}/.test(media) && /height=\{360\}/.test(media) && /decoding="async"/.test(media))
+check("the tiles past the first two wait until they are scrolled near", /loading=\{index < TILES_EAGER \? undefined : "lazy"\}/.test(media) && /const TILES_EAGER = 2/.test(media))
+
 console.log("\nThe probe")
 const probe = read("scripts/check-editor-parts.mjs")
 check("scripts/check-editor-parts.mjs measures all three at 390 and 1280, with a stand-in uploader", existsSync("scripts/check-editor-parts.mjs") && /"phone-390"/.test(probe) && /"desktop-1280"/.test(probe) && /storage\\\/chunked-upload\$/.test(probe) && /const PREFIX = "editor-parts-"/.test(probe))
