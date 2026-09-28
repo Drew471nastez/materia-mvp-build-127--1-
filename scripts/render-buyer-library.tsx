@@ -9,7 +9,12 @@ import { createRoot } from "react-dom/client"
 import { LibraryTabs } from "@/components/library/library-tabs"
 import { LibraryPanel } from "@/components/library/library-panel"
 import { OpenInApp } from "@/components/library/open-in-app"
-import { ListSkeleton, RowsSkeleton, TAB_SKELETON } from "@/app/library/loading"
+import { TAB_SKELETON } from "@/app/library/loading"
+import { skeletonFor } from "@/components/library/library-skeletons"
+import { WishlistContent } from "@/components/wishlist/wishlist-content"
+import type { WishlistEntry } from "@/components/wishlist/wishlist-entry"
+import { bannerPhone } from "@/lib/platform/open-in-app"
+import { noteClientNavigation, notePopNavigation } from "@/lib/navigation/in-app-history"
 import { LibraryHome } from "@/components/library/library-home"
 import { LibraryReviews } from "@/components/library/library-reviews"
 import { LibraryReceipts } from "@/components/library/library-receipts"
@@ -70,21 +75,51 @@ const data = assembleLibrary(downloads, extras)
 const w = window as unknown as { __mode?: string; __focus?: string; __cold?: boolean; __navigate?: (href: string) => void; __navStore?: { path: string; listeners: Set<() => void> } }
 const mode = w.__mode || "home"
 
-/* The layout's column, as app/library/layout.tsx draws it: the pills, the panel, the quiet app line. */
+/* The server's decision, made the way app/library/layout.tsx makes it: the request's user agent and the closed cookie. */
+const banner = bannerPhone(navigator.userAgent || "", (document.cookie.match(/(?:^|;\s*)storelib_app_banner=([^;]+)/) ?? [])[1])
+
+/* The layout's column, as app/library/layout.tsx draws it: the app banner, then the stage with the pills over the screen. */
 function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: boolean }) {
   return (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="library">
-      <div className="h-14 border-b border-black/10 bg-[#0b0b10]" data-fake-header="" />
+      <div className="sticky top-0 z-40 h-14 border-b border-black/10 bg-[#0b0b10]" data-fake-header="" />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
-          {tabs ? <LibraryTabs /> : null}
-          <LibraryPanel>{children}</LibraryPanel>
-          <OpenInApp className="mt-10" />
+          <OpenInApp phone={banner} />
+          <LibraryPanel head={tabs ? <LibraryTabs /> : null}>{children}</LibraryPanel>
         </div>
       </main>
+      <footer className="h-64 bg-[#0b0b10]" data-fake-footer="" />
     </div>
   )
 }
+
+const wish = (over: Partial<WishlistEntry>): WishlistEntry => ({
+  id: "w",
+  productId: "w",
+  title: "Product",
+  slug: "product",
+  type: "digital",
+  priceCents: 1900,
+  compareAtCents: null,
+  payWhatYouWant: false,
+  pwywMinCents: null,
+  interval: null,
+  hasOptions: false,
+  owned: false,
+  thumbnailUrl: null,
+  creator: { name: "Maya Chen", username: "mayachen", avatarUrl: null },
+  savedAt: "2026-09-20T10:00:00Z",
+  ...over,
+})
+
+export const WISHLIST: WishlistEntry[] = [
+  wish({ id: "w1", productId: "q1", title: "Cinematic LUT Pack for Sony and Canon", slug: "luts", priceCents: 2900, compareAtCents: 3900, thumbnailUrl: cover("#0e7490", "#164e63", "LUTS") }),
+  wish({ id: "w2", productId: "q2", title: "Inner Circle", slug: "inner-circle", type: "membership", priceCents: 900, interval: "month", thumbnailUrl: cover("#7c3aed", "#312e81", "MEMBERS"), creator: { name: "Luca Dragoste", username: "lucadragoste", avatarUrl: null } }),
+  wish({ id: "w3", productId: "q3", title: "Lo-fi Sample Kit", slug: "lofi", payWhatYouWant: true, pwywMinCents: 500, priceCents: 500, thumbnailUrl: cover("#be123c", "#4c0519", "LO-FI"), creator: { name: "Kiko Beats", username: "kikobeats", avatarUrl: null } }),
+  wish({ id: "w4", productId: "q4", title: "Freelance Contract Templates", slug: "contracts", priceCents: 0, thumbnailUrl: cover("#334155", "#0f172a", "CONTRACTS") }),
+  wish({ id: "w5", productId: "p2", title: "The Buyer Question Playbook", slug: "playbook", priceCents: 1900, owned: true, thumbnailUrl: cover("#1e3a8a", "#0f172a", "PLAYBOOK"), creator: { name: "Luca Dragoste", username: "lucadragoste", avatarUrl: null } }),
+]
 
 /*
   THE TABS AS ROUTES, stood in for. The probe's next/navigation reads the
@@ -94,14 +129,16 @@ function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: bo
   loading.tsx first and the screen 500ms later, as Next does.
 */
 function screenFor(path: string): React.ReactNode {
+  if (path.startsWith("/library/products/")) return <LibraryProduct data={productData(path.split("/").pop())} />
   switch (path) {
     case "/library/reviews":
       return <LibraryReviews items={data.items} />
     case "/library/receipts":
       return <LibraryReceipts receipts={data.receipts} />
+    case "/library/wishlist":
+      return <WishlistContent isLibrary initialItems={WISHLIST} />
     case "/library/courses":
     case "/library/memberships":
-    case "/library/wishlist":
       return (
         <div data-probe-screen={path} className="rounded-2xl border border-[#e4e7ec]/80 bg-white px-5 py-10 text-center text-[14px] text-[#6b7280]">
           {path.split("/").pop()} screen
@@ -112,12 +149,33 @@ function screenFor(path: string): React.ReactNode {
   }
 }
 
-function skeletonFor(path: string): React.ReactNode {
+/* The route's own loading.tsx, as each one draws it. */
+function routeSkeleton(path: string): React.ReactNode {
   return (
     <div data-library-skeleton="" className={TAB_SKELETON}>
-      {path === "/library/reviews" ? <RowsSkeleton rows={3} sections={2} /> : path === "/library/receipts" ? <RowsSkeleton rows={4} /> : <ListSkeleton />}
+      {skeletonFor(path)}
     </div>
   )
+}
+
+function productData(id?: string) {
+  const item = data.items.find((i) => i.productId === id) ?? data.items[0]
+  return {
+    productId: item.productId,
+    title: item.title,
+    thumbnailUrl: item.thumbnailUrl,
+    productSlug: item.productSlug,
+    archived: false,
+    purchasedAt: item.purchasedAt,
+    state: item.state,
+    files: item.files.map((f, i) => ({ ...f, addedAt: i === 2 ? "2026-09-26T10:00:00Z" : null })),
+    receiptToken: item.receiptToken,
+    receiptNumber: "8A1F4C2E",
+    invoice: true,
+    isOwn: false,
+    creator: data.creators.find((c) => c.id === item.creator.id) ?? data.creators[0],
+    reviewer: { name: "Sam Rivera", avatarUrl: null },
+  }
 }
 
 function NavApp() {
@@ -126,14 +184,31 @@ function NavApp() {
   React.useEffect(() => {
     /* Next navigates in a transition: the press's own updates (the pill) paint first. */
     w.__navigate = (href: string) => {
-      React.startTransition(() => setState({ path: href, loading: !!w.__cold }))
-      if (w.__cold) window.setTimeout(() => React.startTransition(() => setState({ path: href, loading: false })), 500)
+      /* Next pushes the address as the new page commits; a slow answer (__delay) commits later. */
+      const go = () => {
+        const path = href.split("?")[0]
+        /* What components/platform/app-history-tracker does, so ReturnLink can tell the list is behind a product. */
+        noteClientNavigation(location.pathname)
+        history.pushState({}, "", path)
+        React.startTransition(() => setState({ path, loading: !!w.__cold }))
+        if (w.__cold) window.setTimeout(() => React.startTransition(() => setState({ path, loading: false })), 500)
+      }
+      const delay = (window as unknown as { __delay?: number }).__delay || 0
+      if (delay) window.setTimeout(go, delay)
+      else go()
     }
+    /* The browser's back, as Next's router answers a popstate. */
+    const onPop = () => {
+      notePopNavigation()
+      React.startTransition(() => setState({ path: location.pathname, loading: false }))
+    }
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
   }, [store])
   const PathContext = (window as unknown as { __PathContext: React.Context<string | null> }).__PathContext
   return (
     <PathContext.Provider value={state.path}>
-      <Shell>{state.loading ? skeletonFor(state.path) : <div key={state.path}>{screenFor(state.path)}</div>}</Shell>
+      <Shell tabs>{state.loading ? routeSkeleton(state.path) : <div key={state.path} data-probe-path={state.path}>{screenFor(state.path)}</div>}</Shell>
     </PathContext.Provider>
   )
 }
@@ -160,31 +235,24 @@ function Screen() {
           <LibraryReceipts receipts={data.receipts} />
         </Shell>
       )
-    case "product": {
-      const item = data.items[0]
+    case "product":
       return (
         <Shell>
-          <LibraryProduct
-            data={{
-              productId: item.productId,
-              title: item.title,
-              thumbnailUrl: item.thumbnailUrl,
-              productSlug: item.productSlug,
-              archived: false,
-              purchasedAt: item.purchasedAt,
-              state: item.state,
-              files: item.files.map((f, i) => ({ ...f, addedAt: i === 2 ? "2026-09-26T10:00:00Z" : null })),
-              receiptToken: item.receiptToken,
-              receiptNumber: "8A1F4C2E",
-              invoice: true,
-              isOwn: false,
-              creator: data.creators.find((c) => c.id === "c1")!,
-              reviewer: { name: "Sam Rivera", avatarUrl: null },
-            }}
-          />
+          <LibraryProduct data={productData()} />
         </Shell>
       )
-    }
+    case "wishlist":
+      return (
+        <Shell>
+          <WishlistContent isLibrary initialItems={WISHLIST} />
+        </Shell>
+      )
+    case "wishlist-empty":
+      return (
+        <Shell>
+          <WishlistContent isLibrary initialItems={[]} />
+        </Shell>
+      )
     default:
       return (
         <Shell>

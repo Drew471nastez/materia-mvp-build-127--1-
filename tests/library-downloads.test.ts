@@ -25,7 +25,9 @@ import { assembleLibrary, creatorKey, receiptsOf, visibleItems, type LibraryExtr
 import type { DownloadRow } from "../lib/library/get-library-downloads"
 import { downloadJob, downloadJobs, removeJob } from "../lib/downloads/download-store"
 import { IN_PAGE_LIMIT, TooLargeForPage, readIntoFile } from "../lib/downloads/native"
-import { openTarget, appLink, phoneOf } from "../lib/platform/open-in-app"
+import { openTarget, appLink, phoneOf, bannerPhone } from "../lib/platform/open-in-app"
+import { actionOf, entryOf, priceOf } from "../components/wishlist/wishlist-entry"
+import { cleanPath, isLibraryProduct, showsLibraryTabs } from "../components/library/library-tab-list"
 import { readFileSync } from "node:fs"
 
 let passed = 0
@@ -140,6 +142,46 @@ function openInAppCases() {
   check("Android opens the installed app, with the Play Store as fallback", /^intent:#Intent;action=android\.intent\.action\.MAIN;/.test(appLink("android", "/library")) && /package=com\.storelib\.app/.test(appLink("android", "/library")) && /S\.browser_fallback_url=https%3A%2F%2Fplay\.google\.com/.test(appLink("android", "/library")))
   check("another site's address is never followed", openTarget("com.storelib.app://open?path=%2F%2Fevil.com") === null && openTarget("storelib://open?path=https://evil.com") === null)
   check("and an OAuth callback is left to its own handler", openTarget("com.storelib.app://auth/callback?code=1") === null)
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"
+  check("the banner is decided on the server: a phone's browser gets it", bannerPhone(IPHONE, undefined) === "ios" && bannerPhone("Mozilla/5.0 (Linux; Android 15; Pixel 9) Mobile Safari", null) === "android")
+  check("never inside the app, never on a computer, never once closed",
+    bannerPhone(IPHONE + " Capacitor", undefined) === null && bannerPhone("Mozilla/5.0 (Linux; Android 15; Pixel 9; wv) Mobile", undefined) === null &&
+      bannerPhone("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", undefined) === null && bannerPhone(IPHONE, "closed") === null)
+}
+
+/* ─── The wishlist's cards (read, not drawn) ──────────────────────────── */
+
+function wishlistCases() {
+  console.log("\nthe wishlist")
+  const row = (p: Record<string, unknown>) => ({ id: "w1", product_id: String(p.id), created_at: "2026-09-20T10:00:00Z", products: { title: "LUTs", slug: "luts", type: "digital", price_cents: 2900, compare_at_cents: null, thumbnail_url: null, creators: { slug: "maya" }, creator_profile: { display_name: "Maya Chen", username: "mayachen", avatar_url: "https://x/a.png" }, ...p } })
+  const sale = entryOf(row({ id: "q1", compare_at_cents: 3900 }))!
+  const price = priceOf(sale)
+  check("on sale: the price, the old one struck, the saving", price.main === "$29.00" && price.was === "$39.00" && price.sale === "26% off" && price.per === null, JSON.stringify(price))
+  check("with the seller's name and face", sale.creator.name === "Maya Chen" && sale.creator.avatarUrl === "https://x/a.png" && sale.creator.username === "mayachen")
+  check("Buy goes straight to checkout", actionOf(sale).label === "Buy" && actionOf(sale).href === "/checkout?productId=q1")
+  const member = entryOf(row({ id: "q2", type: "membership", price_cents: 900 }), { plan: { monthly_price_cents: 900, yearly_price_cents: 9000 } })!
+  const yearly = entryOf(row({ id: "q3", type: "membership", price_cents: 9000 }), { plan: { monthly_price_cents: null, yearly_price_cents: 9000 } })!
+  const guess = entryOf(row({ id: "q4", type: "membership", price_cents: 500 }))!
+  check("a membership says what its price is per, through listPrice", priceOf(member).main === "$9.00" && priceOf(member).per === "/month" && priceOf(yearly).per === "/year" && priceOf(yearly).main === "$90.00" && priceOf(guess).per === "/month")
+  check("and Join goes to its checkout at that period", actionOf(member).label === "Join" && actionOf(member).href === "/checkout?productId=q2&interval=month" && actionOf(yearly).href === "/checkout?productId=q3&interval=year")
+  const pwyw = entryOf(row({ id: "q5", pay_what_you_want: true, pwyw_min_price_cents: 500, price_cents: 500 }))!
+  check("pay what you want: from its minimum, and View to choose on the page", priceOf(pwyw).main === "$5.00+" && actionOf(pwyw).label === "View" && actionOf(pwyw).kind === "page")
+  check("options are chosen on the page too", actionOf(entryOf(row({ id: "q6" }), { hasOptions: true })!).kind === "page")
+  const free = entryOf(row({ id: "q7", price_cents: 0 }))!
+  check("free: Get it free", priceOf(free).main === "Free" && actionOf(free).label === "Get it free")
+  const owned = entryOf(row({ id: "q8" }), { owned: true })!
+  check("already theirs: In your library, to that purchase", actionOf(owned).label === "In your library" && actionOf(owned).href === "/library/products/q8")
+  check("a row with no product left is dropped", entryOf({ id: "w9", product_id: "gone", created_at: "", products: null }) === null)
+  const content = read("components/wishlist/wishlist-content.tsx")
+  check("the heart is 44px to press, filled, and takes it off with Undo",
+    /h-11 w-11/.test(content) && /fill-\[#f43f5e\]/.test(content) && /data-wishlist-undo-button/.test(content) && /method: "DELETE"/.test(content) && /method: "POST"/.test(content))
+  check("the small buttons go through cn(), so they really are 36px", /cn\(PRIMARY, SMALL/.test(content) && !/\$\{PRIMARY\} \$\{SMALL\}/.test(content))
+  check("the library's tab reads the list on the server", /loadWishlist\(user\.id\)/.test(read("app/library/wishlist/page.tsx")) && /initialItems=\{items\}/.test(read("app/library/wishlist/page.tsx")))
+  check("and never imports server code into the browser", !/load-wishlist|next\/headers|server-only/.test(content) && !/next\/headers|server-only/.test(read("components/wishlist/wishlist-entry.ts")))
+}
+
+function read(f: string) {
+  return readFileSync(f, "utf8")
 }
 
 /* ─── The phone app, stood in ─────────────────────────────────────────── */
@@ -347,13 +389,24 @@ function screenCases() {
   console.log("\nthe library's screens")
   const read = (f: string) => readFileSync(f, "utf8")
   const tabs = read("components/library/library-tabs.tsx")
+  check("the tab list and its addresses", showsLibraryTabs("/library/") && showsLibraryTabs("/library/wishlist") && !showsLibraryTabs("/library/products/p1") && isLibraryProduct("/library/products/p1?x=1") && cleanPath("/library/reviews/?product=1") === "/library/reviews")
   check("the tabs are separate pills, not an underlined row", /rounded-full border/.test(tabs) && !/border-b-2/.test(tabs))
   check("the pressed pill is chosen on the press, ahead of the address", /setPressed\(href\)/.test(tabs) && /const current = pressed \?\? path/.test(tabs))
   check("its fill fades in place on settings' 150ms curve", /TAB_FADE_MS = 150/.test(tabs) && /cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(tabs) && /transition-\[opacity,scale\]/.test(tabs))
   check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && /onPointerEnter=\{\(\) => warm/.test(tabs))
   const layout = read("app/library/layout.tsx")
-  check("the screen under the pills changes through the panel", /<LibraryPanel>\{children\}<\/LibraryPanel>/.test(layout))
-  check("Open in app is one quiet line at the foot, not a card above the list", /<OpenInApp className="mt-10" \/>/.test(layout) && !/OpenInApp/.test(tabs) && !/rounded-2xl/.test(read("components/library/open-in-app.tsx")))
+  check("the pills and the screen under them are one stage", /<LibraryPanel head=\{<LibraryTabs \/>\}>\{children\}<\/LibraryPanel>/.test(layout))
+  const panel = read("components/library/library-panel.tsx")
+  check("a press cross fades in place: the old screen fades over the next one's shape, which is drawn at once",
+    /skeletonFor\(pending\.href\)/.test(panel) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(panel) && /data-library-leaving/.test(panel) && !/opacity: 0\.2/.test(panel))
+  check("a tab pressed from its row copies nothing at the press, only at the commit if the fade is not over",
+    /getSnapshotBeforeUpdate/.test(panel) && /liveFade\.current = startNow\(live\.animate/.test(panel))
+  check("the live screen stays laid out while hidden, so Next never scrolls the page up", /el\.style\.visibility = "hidden"/.test(panel) && !/style\.display = "none"\s*\n\s*}\s*\n\s*function show/.test(panel))
+  check("the way back puts the list's scroll back, and the browser's own back is not faded", /history\.scrollRestoration = "manual"/.test(panel) && /jump\(scrolls\.get\(p\.href\) \?\? 0\)/.test(panel) && /traversal\.current/.test(panel))
+  check("every loading.tsx draws the same shape the stage does", ["app/library/loading.tsx", "app/library/courses/loading.tsx", "app/library/memberships/loading.tsx", "app/library/wishlist/loading.tsx", "app/library/products/[id]/loading.tsx"].every((f) => /data-library-skeleton/.test(read(f)) && /Skeleton/.test(read(f))))
+  const banner = read("components/library/open-in-app.tsx")
+  check("Open in app is a banner at the top with the Storelib icon, known on the server so nothing moves",
+    /<OpenInApp phone=\{bannerFor\} \/>/.test(layout) && layout.indexOf("<OpenInApp") < layout.indexOf("<LibraryPanel") && /<StorelibLogo size=\{40\}/.test(banner) && /h-\[60px\]/.test(banner) && /APP_BANNER_COOKIE/.test(banner) && /\[html\.capacitor_&\]:hidden/.test(banner))
   const row = read("components/library/product-row.tsx")
   check("no stars and no Rate it on a product row", !/RateStars|rate-stars|\?rate=|<Stars/.test(row))
   check("More's review rows go to the Reviews tab focused on that product", /\/library\/reviews\?product=\$\{encodeURIComponent\(item\.productId\)\}/.test(row))
@@ -366,6 +419,8 @@ function screenCases() {
   check("a refusal puts the review back", /before === item\.review \? undefined : before/.test(reviews))
   const product = read("components/library/library-product.tsx")
   check("the creator block's buttons never wrap and say only what they do", /whitespace-nowrap/.test(product) && /\{contact\.short\}/.test(product) && !/\n\s*\{contact\.label\}\n/.test(product))
+  check("the back control is a chevron and Library in a 36px pill, 44px to press, pressed on the finger",
+    /<ChevronLeft/.test(product) && /data-library-back/.test(product) && /h-11/.test(product) && /group-active\/back:scale-\[0\.96\]/.test(product) && /<ReturnLink/.test(product))
   check("the creator's store opens in a new tab in a browser, in the same view in the app",
     /\{\.\.\.storeLink\}/.test(product) && /target: "_blank", rel: "noopener"/.test(read("components/library/use-store-link.ts")) && /appPlatform\(\) === null/.test(read("components/library/use-store-link.ts")))
 }
@@ -374,6 +429,7 @@ async function main() {
   libraryCases()
   screenCases()
   openInAppCases()
+  wishlistCases()
   await appCases()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {

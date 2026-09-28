@@ -1,4 +1,5 @@
-import { RowsSkeleton, TAB_SKELETON } from "../loading"
+import { RowsSkeleton } from "@/components/library/library-skeletons"
+import { TAB_SKELETON } from "../loading"
 
 /** One row per payment, in the shape components/library/library-receipts.tsx draws them. */
 export default function ReceiptsLoading() {

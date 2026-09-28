@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { ArrowLeft, ExternalLink, FileText, Loader2, Mail, Package, Receipt, Store } from "lucide-react"
+import { ChevronLeft, ExternalLink, FileText, Loader2, Mail, Package, Receipt, Store } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ReturnLink } from "@/components/navigation/return-link"
 import { LibraryReview } from "@/components/reviews/library-review"
@@ -82,11 +82,31 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
   const open = data.state === "open"
 
   return (
-    <div data-library-product={data.productId} className="animate-in fade-in-0 duration-300">
-      <ReturnLink href="/library" className="-ml-1 mb-3 inline-flex h-9 items-center gap-1.5 rounded-lg px-1 text-[14px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        Library
-      </ReturnLink>
+    <div data-library-product={data.productId}>
+      {/*
+        BACK TO THE LIBRARY, AS A CONTROL AND NOT A GREY LINK. "That back to
+        library icon should be better UI, more Storelib, clean, smooth on
+        touch." It is the library's own pill (the tabs' white on a hairline,
+        fully round) with a chevron and the name of where it goes, 36px to
+        see and 44px to press: the link is the full 44px row and the pill
+        sits in it. It dips to 96% on a grey fill under the finger, on a
+        named group so a phone keeps the transition (app/globals.css stops
+        transitions inside a plain .group on touch). It returns rather than
+        pushes (ReturnLink), and the stage fades the list back in with its
+        scroll where it was (components/library/library-panel.tsx).
+      */}
+      <div className="-mt-1 mb-2 flex h-11 items-center">
+        <ReturnLink
+          href="/library"
+          data-library-back=""
+          className="group/back -ml-1 inline-flex h-11 items-center rounded-full pl-1 pr-2 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+        >
+          <span className="inline-flex h-9 items-center gap-0.5 rounded-full border border-[#e4e7ec] bg-white pl-2 pr-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[background-color,border-color,scale] duration-150 ease-out group-hover/back:border-[#d7dadf] group-active/back:scale-[0.96] group-active/back:bg-[#eef0f3] motion-reduce:transition-none">
+            <ChevronLeft className="h-[18px] w-[18px] text-[#4b5563] transition-[translate] duration-150 ease-out group-hover/back:-translate-x-0.5" strokeWidth={2.25} aria-hidden />
+            Library
+          </span>
+        </ReturnLink>
+      </div>
 
       {/* What it is, who made it, when it was bought. */}
       <header className="flex items-start gap-4">

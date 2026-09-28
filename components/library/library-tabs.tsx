@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
+import { LIBRARY_TABS, cleanPath as clean, showsLibraryTabs } from "./library-tab-list"
 
 /**
  * ===========================================================================
@@ -28,7 +29,9 @@ import type { PrefetchKind } from "next/dist/client/components/router-reducer/ro
  *
  * THE PILL ANSWERS THE PRESS, NOT THE SERVER. The tabs are routes, and a
  * route can take a moment. The pressed pill is chosen on the press itself
- * and the address catches up. Every tab is fetched whole while the page is
+ * and the address catches up. The screen under the row answers the same
+ * press on its own (components/library/library-panel.tsx hears the click):
+ * the old screen fades out over the new one's shape. Every tab is fetched whole while the page is
  * idle, and again the moment a pointer comes near one, so by the time a
  * finger lands the next screen is usually already on the phone.
  *
@@ -38,37 +41,17 @@ import type { PrefetchKind } from "next/dist/client/components/router-reducer/ro
  * a product, a course player or a membership opened from it has its own back
  * link and needs the room.
  */
-export const LIBRARY_TABS = [
-  { href: "/library", label: "Products" },
-  { href: "/library/courses", label: "Courses" },
-  { href: "/library/memberships", label: "Memberships" },
-  { href: "/library/reviews", label: "Reviews" },
-  { href: "/library/receipts", label: "Receipts" },
-  { href: "/library/wishlist", label: "Wishlist" },
-] as const
-
-/** The screens the row is drawn on: exactly the tabs' own addresses. */
-export function showsLibraryTabs(pathname: string | null): boolean {
-  const path = (pathname || "").replace(/\/+$/, "") || "/"
-  return LIBRARY_TABS.some((t) => t.href === path)
-}
+export { LIBRARY_TABS, showsLibraryTabs } from "./library-tab-list"
 
 /** Settings' own numbers (components/app/settings-form-new.tsx TAB_FADE_MS, TAB_EASE). */
 export const TAB_FADE_MS = 150
 export const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-
-/** Told to the panel under the row (components/library/library-panel.tsx) the moment a pill is pressed. */
-export const LIBRARY_TAB_EVENT = "storelib:library-tab"
 
 /** A whole page, data included, rather than the shell a Link fetches on its own. */
 const FULL = "full" as PrefetchKind
 
 const PILL =
   "relative inline-flex h-9 shrink-0 cursor-pointer select-none items-center whitespace-nowrap rounded-full border bg-white px-3.5 text-[14px] font-medium outline-none transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
-
-function clean(path: string | null): string {
-  return (path || "").replace(/\/+$/, "") || "/"
-}
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
 
@@ -155,7 +138,6 @@ export function LibraryTabs() {
     if (href === current) return
     setMoved(true)
     setPressed(href)
-    window.dispatchEvent(new CustomEvent(LIBRARY_TAB_EVENT, { detail: { href } }))
   }
 
   const fade = edges.left && edges.right ? "both" : edges.right ? "right" : edges.left ? "left" : "none"
