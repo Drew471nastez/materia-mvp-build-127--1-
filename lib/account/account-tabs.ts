@@ -3,18 +3,20 @@
  *  THE PROFILE'S OWN PAGES
  * ===========================================================================
  * /account is the buyer's profile: who they are on Storelib and what they
- * have there, with the account's settings one tab over. "It needs to be the
- * account with multiple subpages there, such as settings, overview. Like a
- * profile, not directly changing the name or profile photo."
+ * have there, with the account's settings one screen away. "It needs to be
+ * the account with multiple subpages there, such as settings, overview.
+ * Like a profile, not directly changing the name or profile photo."
  *
- *   Overview   /account           the profile, the library in numbers, the
+ *   Overview   /account           the person, the library in numbers, the
  *                                 newest purchases, and selling
- *   Settings   /account/settings  photo and name, email, password,
- *                                 preferences, log out, delete
+ *   Settings   /account/settings  photo, name and bio; email and password;
+ *                                 preferences; log out; delete
  *
- * Two, because those are the two with something in them today. A
- * Notifications or Privacy page would hold one switch each (the newsletter,
- * recommendations), and both already sit under Preferences in Settings.
+ * NO ROW OF PILLS BETWEEN THE TWO any more. They were two pills under an
+ * Edit profile button that went to the same place, and Settings has its own
+ * section pills now (components/account/account-settings.tsx). This list is
+ * what tells a path which of the two pages it is, which is all the hub and
+ * the skeleton need from it.
  *
  * Pure, so tests/account-hub.test.ts asks it about every address.
  */
@@ -31,7 +33,7 @@ export function accountLoginPath(href: string): string {
   return `/login?next=${encodeURIComponent(href)}`
 }
 
-/** The tab an address is, as an index into ACCOUNT_TABS: a page under Settings is Settings, anything else under /account is Overview. */
+/** Which page an address is, as an index into ACCOUNT_TABS: anything under /account/settings is Settings, anything else under /account is Overview. */
 export function accountTabFor(pathname: string | null | undefined): number {
   const path = (pathname || "").replace(/\/+$/, "") || "/"
   for (let i = ACCOUNT_TABS.length - 1; i > 0; i--) {
@@ -43,8 +45,8 @@ export function accountTabFor(pathname: string | null | undefined): number {
 
 /**
  * THE PROFILE COLUMN'S SIDE PADDING (app/account/layout.tsx), which the
- * phone's own bar (components/account/account-hub.tsx) steps out of to run
- * edge to edge. Written once here, read by both, so the two never disagree.
+ * skeleton reserves too (components/account/account-skeleton.tsx). Written
+ * once here, read by both, so the two never disagree.
  */
 export const ACCOUNT_GUTTER_LEFT = "max(1rem, env(safe-area-inset-left, 0px))"
 export const ACCOUNT_GUTTER_RIGHT = "max(1rem, env(safe-area-inset-right, 0px))"

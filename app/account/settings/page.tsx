@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { pageUser } from "@/lib/auth/page-user"
 import { profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
 import { readNewsletter } from "@/lib/account/preferences"
@@ -14,12 +15,12 @@ export const metadata: Metadata = { title: "Settings" }
 const PROVIDER_NAMES: Record<string, string> = { google: "Google", apple: "Apple", github: "GitHub", facebook: "Facebook" }
 
 /**
- * The profile's Settings, read in one round of requests: the profile, seller
- * access (the delete card says what goes with a store), the newsletter and
- * the recommendations choice. The profile on the person's own client where
- * row level security answers, and the newsletter with the service role
- * because its table is closed to browsers (app/app/settings/_server.ts reads
- * it the same way).
+ * The profile's Settings, read in one round of requests: the profile, the
+ * bio, seller access (the delete row says what goes with a store), the
+ * newsletter and the recommendations choice. The profile on the person's
+ * own client where row level security answers, and the newsletter with the
+ * service role because its table is closed to browsers
+ * (app/app/settings/_server.ts reads it the same way).
  */
 export default async function AccountSettingsRoute() {
   const user = await pageUser(accountLoginPath("/account/settings"))
@@ -27,8 +28,23 @@ export default async function AccountSettingsRoute() {
      in the browser (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const [profile, access, newsletter, personalized] = await Promise.all([
+  const [profile, bio, access, newsletter, personalized] = await Promise.all([
     profileForRequest(user.id),
+    /* THE BIO, AND WHETHER THERE IS ANYWHERE TO PUT ONE. profiles.bio comes
+       from supabase/sql/RUN_PROFILE_COVER_BIO.sql; where that has not run,
+       PostgREST answers "no such column" (PGRST204, or 42703 from Postgres
+       itself) and the field is simply not drawn, rather than drawn and then
+       failing to save. */
+    (async () => {
+      try {
+        const supabase = await createClient()
+        const { data, error } = await supabase.from("profiles").select("bio").eq("id", user.id).maybeSingle()
+        if (error) return { text: "", supported: !(error.code === "PGRST204" || error.code === "42703") }
+        return { text: ((data as { bio?: string | null } | null)?.bio || "").trim(), supported: true }
+      } catch {
+        return { text: "", supported: false }
+      }
+    })(),
     sellerAccessForRequest(user.id).catch(() => null),
     (async () => {
       try {
@@ -61,6 +77,10 @@ export default async function AccountSettingsRoute() {
       userId={user.id}
       email={user.email || ""}
       name={profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || ""}
+      bio={bio.text}
+      bioSupported={bio.supported}
+      /* The only photo on this screen is Settings' own: the profile header is not drawn here. */
+      avatarUrl={profile?.avatar_url || null}
       createdAt={user.created_at}
       hasPassword={hasPassword}
       via={via}
