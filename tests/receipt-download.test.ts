@@ -326,6 +326,27 @@ function main() {
   check("the app says how to keep a file on iPhone", /Tap Share, then Save to Files/.test(view))
   check("a download error is shown next to the file", /role="alert"/.test(view))
 
+  /* Changed on purpose. The signed address is on storage's origin, and an
+     anchor's `download` is ignored across origins: the click became an
+     ordinary navigation, the PDF drew itself in the tab, and the receipt
+     under it was gone (the owner's report). The file now goes to a tab of
+     its own, opened empty inside the press so no pop-up blocker eats it. */
+  /* The code alone: the note above openBlankTab quotes the form that does
+     not work, and a guard is about what runs. */
+  const button = code("components/download-button.tsx")
+  check("the tab is opened inside the press, before the request", /const tab = native \? null : openBlankTab\(\)/.test(button)
+    && button.indexOf("const tab = native") < button.indexOf("await fetch(apiUrl"))
+  check("and without the noopener feature, which would answer null and leave no tab",
+    /window\.open\("", "_blank"\)/.test(button) && /tab\.opener = null/.test(button) && !/window\.open\([^)]*"noopener"/.test(button))
+  check("the file goes to that tab, never to the page the buyer is on",
+    /tab\.location\.replace\(data\.downloadUrl\)/.test(button) && !/link\.href = data\.downloadUrl/.test(button))
+  check("our own origin still saves through an anchor with download",
+    /isSameOrigin\(data\.downloadUrl\)/.test(button) && /link\.download = filename/.test(button))
+  check("a refused request closes the tab again", /closeTab\(\)\s*\n\s*return \{\s*\n\s*success: false/.test(button))
+  check("a browser that refuses the tab reads a notice with a link, never nothing",
+    /showBlockedDownload\(data\.downloadUrl, filename\)/.test(button) && /data-download-blocked-link/.test(button) && /blockedUrl: data\.downloadUrl/.test(button))
+  check("the app still opens the system browser", /await openInSystemBrowser\(data\.downloadUrl\)/.test(button))
+
   const legacy = [
     ["app/checkout/receipt/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],
     ["app/access/[orderId]/page.tsx", /receiptTokenForLegacyLink\(/],

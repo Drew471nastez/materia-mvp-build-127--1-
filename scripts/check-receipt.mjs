@@ -177,7 +177,12 @@ const server = createServer((req, res) => {
       let delay = 150
       if (url.pathname.startsWith("/api/download/")) {
         delay = 600
-        if (answer.download === "ok") out = { success: true, downloadUrl: `${base}/files/signed.pdf`, fileName: "signed.pdf", expiresIn: 300 }
+        /* "cross" is what production really answers: storage is another
+           origin, and the name rides along as `download`, which is what
+           makes storage send Content-Disposition: attachment. */
+        if (answer.download === "cross") out = { success: true, downloadUrl: `${filesBase}/files/signed.pdf?download=signed.pdf`, fileName: "signed.pdf", expiresIn: 300 }
+        else if (answer.download === "inline") out = { success: true, downloadUrl: `${filesBase}/files/signed.pdf`, fileName: "signed.pdf", expiresIn: 300 }
+        else if (answer.download === "ok") out = { success: true, downloadUrl: `${base}/files/signed.pdf`, fileName: "signed.pdf", expiresIn: 300 }
         else { status = 403; out = { error: "This order was refunded, so its files are closed.", reason: "refunded" } }
       } else if (url.pathname === "/api/receipt/resend") {
         delay = 400
@@ -217,6 +222,35 @@ const server = createServer((req, res) => {
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const base = `http://127.0.0.1:${server.address().port}`
+
+/*
+ * THE FILE ITSELF, ON ANOTHER ORIGIN. Supabase storage is not storelib.com,
+ * and a different port here is a different origin in exactly the same way,
+ * so an anchor's `download` is ignored against it just as it is in
+ * production. This is what the receipt's Download used to navigate to.
+ */
+const fileAsks = []
+const fileServer = createServer((req, res) => {
+  const url = new URL(req.url, "http://x")
+  fileAsks.push({ path: url.pathname, query: url.search })
+  if (url.pathname === "/files/signed.pdf") {
+    /* Storage answers the `download` parameter with an attachment under
+       that name (lib/storage/download.ts). WITHOUT it the PDF comes back
+       inline, which is the shape the owner reported: the browser drew it
+       over the receipt. Both shapes are run below. */
+    const name = url.searchParams.get("download")
+    res.writeHead(200, {
+      "content-type": "application/pdf",
+      "content-disposition": name === null ? "inline" : `attachment; filename="${name || "signed.pdf"}"`,
+    })
+    res.end("%PDF-1.4\n%probe\n")
+    return
+  }
+  res.writeHead(404, { "content-type": "text/plain" })
+  res.end("no")
+})
+await new Promise((r) => fileServer.listen(0, "127.0.0.1", r))
+const filesBase = `http://127.0.0.1:${fileServer.address().port}`
 
 let broken = 0
 const expect = (ok, what, got = "") => {
@@ -444,6 +478,135 @@ try {
       expect(/refunded/.test(err), `${label}: a refusal shows the server's words`, err)
       await page.close()
     }
+
+    /* ── The file opens in a tab of its own, the receipt stays ─────────── */
+    /*
+     * The owner's report: "it downloads it, then opens it, it opens in the
+     * same receipt page, and the receipt page completely disappears."
+     * The address is on storage's origin and `download` is ignored across
+     * origins, so the click was a plain navigation. Here the file lives on
+     * a second port, which is a second origin, and the run asserts the page
+     * the buyer is on never moves.
+     */
+    console.log("\nthe receipt survives a download from another origin")
+    const browserCdp = await browser.target().createCDPSession()
+    await browserCdp.send("Browser.setDownloadBehavior", { behavior: "allowAndName", downloadPath: join(root, ".receipt-downloads"), eventsEnabled: true })
+    for (const [label, viewport] of VIEWPORTS) {
+      const page = await open(viewport, "free")
+      let began = null
+      const onBegin = (e) => { began = e }
+      browserCdp.on("Browser.downloadWillBegin", onBegin)
+      const tabs = []
+      const onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
+      browser.on("targetcreated", onTarget)
+      fileAsks.length = 0
+      asked.length = 0
+      answer.download = "cross"
+      const was = page.url()
+      const btn = await page.$("[data-receipt-file] button")
+      await btn.click()
+      await wait(2200)
+      browser.off("targetcreated", onTarget)
+      browserCdp.off("Browser.downloadWillBegin", onBegin)
+
+      expect(page.url() === was, `${label}: the receipt's address never changed`, `${was} -> ${page.url()}`)
+      const alive = await page.evaluate(() => ({
+        receipt: !!document.querySelector("[data-receipt]"),
+        files: document.querySelectorAll("[data-receipt-file]").length,
+        head: document.querySelector("h1")?.textContent || "",
+        totals: !!document.querySelector("[data-receipt-totals]"),
+      }))
+      expect(alive.receipt && alive.files > 0 && alive.totals && /Thanks/.test(alive.head), `${label}: the receipt is still drawn, files and all`, JSON.stringify(alive))
+      expect(tabs.length === 1, `${label}: one tab of its own was asked for`, JSON.stringify(tabs))
+      const got = fileAsks.find((a) => a.path === "/files/signed.pdf")
+      expect(!!got && /download=signed\.pdf/.test(got.query), `${label}: the file was asked for with the name storage answers as an attachment`, JSON.stringify(got))
+      expect(!!began && began.suggestedFilename === "signed.pdf" && began.url.startsWith(filesBase), `${label}: it came back as an attachment and was saved, not drawn`, JSON.stringify(began && { url: began.url, name: began.suggestedFilename }))
+      const doneText = await page.evaluate((b) => b.textContent, btn)
+      expect(/Downloaded/.test(doneText), `${label}: the row says Downloaded`, doneText)
+      const said = (logs.get(page) ?? []).filter((l) => !/Download the React DevTools/.test(l))
+      expect(said.length === 0, `${label}: nothing in the console`, said.slice(0, 3).join(" | "))
+      await page.close()
+    }
+
+    /*
+     * AND THE OWNER'S CASE EXACTLY. A file that comes back without the
+     * attachment header is drawn by the browser rather than saved. Before
+     * this fix that drawing happened in the receipt's own tab and took the
+     * receipt with it. The header is asked for on every signed address the
+     * server makes, but the page must not depend on getting it.
+     */
+    console.log("\nand when the file comes back drawable")
+    for (const [label, viewport] of VIEWPORTS) {
+      const page = await open(viewport, "free")
+      const tabs = []
+      const onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
+      browser.on("targetcreated", onTarget)
+      answer.download = "inline"
+      const was = page.url()
+      await (await page.$("[data-receipt-file] button")).click()
+      await wait(2000)
+      browser.off("targetcreated", onTarget)
+      expect(page.url() === was, `${label}: the receipt's address never changed`, `${was} -> ${page.url()}`)
+      const alive = await page.evaluate(() => ({
+        receipt: !!document.querySelector("[data-receipt]"),
+        files: document.querySelectorAll("[data-receipt-file]").length,
+        head: document.querySelector("h1")?.textContent || "",
+      }))
+      expect(alive.receipt && alive.files > 0 && /Thanks/.test(alive.head), `${label}: the receipt is still there, the PDF did not take its place`, JSON.stringify(alive))
+      expect(tabs.length === 1, `${label}: the file was drawn in a tab of its own`, JSON.stringify(tabs))
+      /* The tab is left open here, because nothing downloaded, so close it. */
+      for (const p of await browser.pages()) if (p !== page && /\/files\/signed\.pdf/.test(p.url())) await p.close()
+      await page.close()
+    }
+
+    /*
+     * AND WHERE THE BROWSER REFUSES THE TAB. Some people have pop-ups
+     * blocked outright, and then window.open answers null. The receipt must
+     * still be there and the file must still be one press away.
+     */
+    console.log("\nwith the tab refused")
+    for (const [label, viewport] of VIEWPORTS) {
+      const page = await open(viewport, "free")
+      await page.evaluateOnNewDocument(() => {})
+      await page.evaluate(() => { window.open = () => null })
+      const tabs = []
+      const onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
+      browser.on("targetcreated", onTarget)
+      answer.download = "cross"
+      const was = page.url()
+      await (await page.$("[data-receipt-file] button")).click()
+      await wait(1600)
+      browser.off("targetcreated", onTarget)
+
+      expect(page.url() === was, `${label}: the receipt's address never changed`, `${was} -> ${page.url()}`)
+      expect(tabs.length === 0, `${label}: no tab was opened behind the refusal`, JSON.stringify(tabs))
+      const notice = await page.evaluate(() => {
+        const box = document.querySelector("[data-download-blocked]")
+        if (!box) return null
+        const a = box.querySelector("[data-download-blocked-link]")
+        const r = a ? a.getBoundingClientRect() : null
+        return {
+          text: box.textContent || "",
+          href: a ? a.getAttribute("href") : "",
+          download: a ? a.getAttribute("download") : "",
+          target: a ? a.getAttribute("target") : "",
+          rel: a ? a.getAttribute("rel") : "",
+          onScreen: !!r && r.width > 0 && r.height >= 32 && r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth,
+        }
+      })
+      expect(!!notice, `${label}: the buyer is shown a notice, not nothing`, "none")
+      expect(!!notice && /stopped the new tab/.test(notice.text) && /Save signed\.pdf/.test(notice.text), `${label}: it says so plainly and names the file`, notice && notice.text)
+      expect(!!notice && notice.href.startsWith(filesBase) && notice.target === "_blank" && notice.rel === "noopener noreferrer" && notice.download === "signed.pdf",
+        `${label}: the link goes to the file, in a tab of its own`, JSON.stringify(notice))
+      expect(!!notice && notice.onScreen, `${label}: and it is on the screen where it can be pressed`, JSON.stringify(notice))
+      const row = await page.evaluate(() => document.querySelector("[data-receipt-file] [role=alert]")?.textContent || "")
+      expect(/ready below\. Press Save/.test(row) && !/stopped the new tab/.test(row), `${label}: the file's own row points at it, without saying the same thing twice`, row)
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      expect(overflow <= 0, `${label}: the notice pushes nothing sideways`, `${overflow}px`)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-free-${label}-tab-refused.png`), fullPage: false })
+      await page.close()
+    }
+    answer.download = "ok"
     rmSync(join(root, ".receipt-downloads"), { recursive: true, force: true })
 
     /* ── Resend and Wrong address ──────────────────────────────────────── */
@@ -785,6 +948,7 @@ try {
 } finally {
   await browser.close()
   server.close()
+  fileServer.close()
 }
 
 if (SHOTS_ONLY) console.log(`\npictures in ${SHOTS}`)
