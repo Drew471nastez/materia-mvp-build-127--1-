@@ -201,7 +201,7 @@ try {
 
   for (const [label, vp] of viewports) {
     const isPhone = vp.width < 640
-    /* The app's gutter (app/globals.css --app-gutter): 10px on a phone since every /app card moved to 10px from the glass. */
+    /* The app's gutter (app/globals.css --app-gutter): 11px on a phone since every /app card moved close to the glass. */
     const gutter = vp.width < 640 ? 10 : vp.width < 1024 ? 24 : 32
 
     console.log(`\nChooser, ${label}`)

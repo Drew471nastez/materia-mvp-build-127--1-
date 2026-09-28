@@ -181,7 +181,7 @@ for (const [label, viewport] of [
   if (label === "390") {
     if (new Set(m.cards.map((c) => c.x)).size !== 1) problems.push(`${at} the cards are not one column`)
     /* 10px each side, not 16: the /app phone gutter is --app-gutter (app/globals.css), and this page reads it from there too. */
-    if (m.cards.some((c) => c.w !== W - 20)) problems.push(`${at} a card is not the page width less the 10px phone gutters: ${m.cards.map((c) => c.w).join(", ")}`)
+    if (m.cards.some((c) => c.w !== W - 22)) problems.push(`${at} a card is not the page width less the 11px phone gutters: ${m.cards.map((c) => c.w).join(", ")}`)
   } else {
     if (new Set(m.cards.map((c) => c.y)).size !== 1) problems.push(`${at} the plan cards are not in one row`)
     if (new Set(m.cards.map((c) => c.h)).size !== 1) problems.push(`${at} the cards are different heights: ${m.cards.map((c) => c.h).join(", ")}`)

@@ -3192,7 +3192,7 @@ html.capacitor .app-content-scroll {
  * than a Settings card, and pointing them here would widen them there.
  * ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  --app-gutter: 10px;
+  --app-gutter: 11px;
   --app-card-x: 12px;
 }
 @media (min-width: 640px) {
