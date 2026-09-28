@@ -140,7 +140,9 @@ console.log("\nSelling: Dashboard only with seller access")
   check("and the user is the one the auth server confirmed this request", /currentUserForRequest = cache\(/.test(scope) && /readCurrentUser\(supabase\)/.test(scope))
   check("a copy the router kept is asked for again, so a finished onboarding is never an old Become a seller", /<AccountOverview data=\{data\} drawnAt=\{Date\.now\(\)\} \/>/.test(route) && /router\.refresh\(\)/.test(code("components/account/account-fresh.tsx")))
   const header = code("components/platform/platform-header-client.tsx")
-  check("the header's account sheet asks the same rule (hasSellerAccess of sellerAccessFrom)", /hasSellerAccess\(sellerAccessFrom\(\{ creator: creatorData, profile: profileData \}\)\)/.test(header))
+  check("the header's account sheet asks the same rule (hasSellerAccess of sellerAccessFrom), and says Finish setting up for a started store",
+    /const access = sellerAccessFrom\(\{ creator: creatorData, profile: profileData \}\)[\s\S]{0,80}hasSellerAccess\(access\)/.test(header)
+      && /state === "started" \? "Finish setting up your store" : "Become a seller"/.test(header))
   check("and the shared rule itself: seller only with a finished onboarding", hasSellerAccess(sellerAccessFrom({ creator: { onboarding_completed: true } })) && !hasSellerAccess(sellerAccessFrom({ creator: { onboarding_completed: false }, profile: { is_creator: true } })))
 }
 
