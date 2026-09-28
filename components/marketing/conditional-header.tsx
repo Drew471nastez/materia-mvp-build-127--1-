@@ -50,6 +50,11 @@ function isKnownPlatformPath(p: string): boolean {
        that doubled as its header on a phone. Without this it is not a known
        platform path, so the header would not render there at all. */
     p.startsWith("/library") ||
+    /* THE BUYER'S PROFILE, /account and its subpages. It mounted this
+       header exactly as /library does and still drew none, because it was
+       not on this list. Not /account/continue, which is a redirect and never
+       a page; and a word boundary, so /account-deletion stays its own entry. */
+    ((p === "/account" || p.startsWith("/account/")) && !p.startsWith("/account/continue")) ||
     p.startsWith("/dashboard") ||
     p.startsWith("/app") ||
     p.startsWith("/marketplace") ||

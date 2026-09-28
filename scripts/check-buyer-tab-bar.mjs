@@ -18,8 +18,9 @@
  *   KEYBOARD  the bar slides away while a field has the focus, and back
  *   STACK     a product page browsed from Storelib: the buy bar stands on
  *             the tab bar, both whole; on the open web the bar is not there
- *   ACCOUNT   /account at 390 and 1280, nothing sideways; the Profile tab is
- *             the photo with a ring when you are on it
+ *   ACCOUNT   /account (the profile's Overview) at 390 and 1280, nothing
+ *             sideways; the Profile tab is the photo with a ring when you
+ *             are on it, on Overview and on Settings
  *   DESKTOP   no bar at 1280, and no room left for one
  *
  * Pictures go to SHOTS_DIR (or a temp folder), and are meant to be looked at.
@@ -275,14 +276,15 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       cards: [...document.querySelectorAll("[data-account-card]")].map((c) => c.getAttribute("data-account-card")),
       sideways: document.documentElement.scrollWidth - innerWidth,
       h1: document.querySelector("h1")?.textContent,
-      rows: [...document.querySelectorAll("[data-account-row]")].map((r) => r.getAttribute("data-account-row")),
-      thumbs: document.querySelectorAll("[data-wishlist-preview] img").length,
+      tabs: [...document.querySelectorAll("[data-account-tab]")].map((t) => `${t.getAttribute("data-account-tab")}${t.getAttribute("aria-current") ? "*" : ""}`),
+      facts: [...document.querySelectorAll("[data-account-fact]")].map((r) => r.getAttribute("data-account-fact")),
+      fields: document.querySelectorAll("[data-account-hub] input").length,
       sell: !!document.querySelector('a[href="/sell"]'),
-      smallTargets: [...document.querySelectorAll("[data-account-page] button, [data-account-page] a")].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 40 && !el.closest("[data-wishlist-preview]") }).map((el) => `${el.textContent.trim().slice(0, 20)} ${Math.round(el.getBoundingClientRect().height)}`),
+      smallTargets: [...document.querySelectorAll("[data-account-hub] button, [data-account-hub] a")].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 40 }).map((el) => `${el.textContent.trim().slice(0, 20)} ${Math.round(el.getBoundingClientRect().height)}`),
     }))
-    expect(page.h1 === "Account" && page.cards.join() === "profile,library,email,preferences,selling,log-out,delete", "ACCOUNT: you, your library, email, password, preferences, selling, log out, delete", page.cards)
-    expect(page.rows.join() === "purchases,wishlist,reviews,sell", "purchases, wishlist, reviews, and Become a seller", page.rows)
-    expect(page.thumbs === 4 && page.sell, "the newest four saves are shown", page.thumbs)
+    expect(page.h1 === "Alex Morgan" && page.tabs.join() === "overview*,settings", "ACCOUNT: a profile, headed by the person, on Overview", { h1: page.h1, tabs: page.tabs })
+    expect(page.cards.join() === "library,recent,selling" && page.fields === 0, "the library in facts, recent purchases, selling; nothing to type", page)
+    expect(page.facts.join() === "purchases,courses,memberships,reviews,wishlist" && page.sell, "purchases, courses, memberships, reviews, wishlist, and Become a seller", page.facts)
     expect(page.sideways <= 0, "nothing scrolls sideways at 390", page.sideways)
     expect(page.smallTargets.length === 0, "every control is a thumb's size", page.smallTargets)
     await p.screenshot({ path: join(shots, "account-390.png"), fullPage: true })
@@ -290,7 +292,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await sleep(150)
     const room = await p.evaluate(() => ({ last: document.querySelector("[data-footer-last]").getBoundingClientRect().bottom, bar: document.querySelector("[data-buyer-tab-bar]").getBoundingClientRect().top }))
     expect(room.last <= room.bar, "the account page ends above the bar too", room)
-    /* The name field is a field: the bar gets out of its way. */
+    /* The name field is a field, on Settings: the bar gets out of its way. */
+    await p.evaluate(() => window.__go("/account/settings"))
+    await sleep(300)
+    const onSettings = await barState(p)
+    expect(onSettings.current === 3, "Settings is still the Profile tab", onSettings.current)
     await p.evaluate(() => { window.scrollTo(0, 0); document.querySelector("[data-account-name]").focus() })
     await sleep(400)
     const typing = await barState(p)
@@ -340,12 +346,12 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       display: getComputedStyle(document.querySelector("[data-buyer-tab-bar]")).display,
       room: document.querySelector("[data-buyer-tabs-room]").getBoundingClientRect().height,
       h: getComputedStyle(document.documentElement).getPropertyValue("--buyer-tabs-h").trim(),
-      width: Math.round(document.querySelector("[data-account-page]").getBoundingClientRect().width),
+      width: Math.round(document.querySelector("[data-probe-account-column]").getBoundingClientRect().width),
       dashboard: !!document.querySelector('a[href="/app"]'),
       sideways: document.documentElement.scrollWidth - innerWidth,
     }))
     expect(d.display === "none" && d.room === 0 && d.h === "", "DESKTOP: no bar, no room left for one", d)
-    expect(d.width === 640 && d.sideways <= 0, "the account page is one 640px column", d.width)
+    expect(d.width === 720 && d.sideways <= 0, "the profile is one 720px column", d.width)
     expect(d.dashboard, "a seller gets Dashboard where a buyer gets Become a seller")
     await p.screenshot({ path: join(shots, "account-1280.png"), fullPage: true })
     expect(errors.length === 0, "no errors on the page", errors)
