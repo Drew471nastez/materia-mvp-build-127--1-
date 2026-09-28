@@ -309,8 +309,8 @@ const couponsList = code("app/app/coupons/coupons-client.tsx")
 check("no Products and Coupons tabs: Coupons is a page of its own again", !existsSync("app/app/products/products-subnav.tsx") && !/ProductsSubnav|products-subnav/.test(list + couponsList))
 check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
 const sidebar = code("components/app/sidebar.tsx")
-/* Reviews joined Coupons under Products on purpose (app/app/reviews, the seller's reviews list); Coupons is still the first child. */
-check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\s*\{ href: "\/app\/coupons", label: "Coupons" \},\s*\{ href: "\/app\/reviews", label: "Reviews" \},?\s*\]/.test(sidebar))
+/* Reviews joined Coupons under Products on purpose (app/app/reviews, the seller's reviews list), and Memberships after them (app/app/memberships); Coupons is still the first child. */
+check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\s*\{ href: "\/app\/coupons", label: "Coupons" \},\s*\{ href: "\/app\/reviews", label: "Reviews" \},?\s*(\{ href: "\/app\/memberships", label: "Memberships" \},?\s*)?\]/.test(sidebar))
 check("the Orders bar and gutter, and Orders' 1200px column made 7% and then 3% wider (1323px, 35px gutters, a 73px bar) from 1024px",
   /<PaneBar width=\{PAGE_WIDTH\} className=\{cn\(LIST_BAR, PAGE_BAR, PAGE_GUTTER\)\}>/.test(list) && /const PAGE_BAR = "lg:min-h-\[73px\] lg:pb-\[9px\] lg:pt-\[15px\]"/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list)
     && /const PAGE_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(list) && /const PAGE_GUTTER = "lg:px-\[35px\]"/.test(list) && /cn\("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER\)/.test(list))

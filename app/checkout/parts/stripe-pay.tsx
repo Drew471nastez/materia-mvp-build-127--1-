@@ -106,10 +106,18 @@ function networkText(e: unknown, fallback: string): string {
 export interface IntentResult {
   clientSecret: string
   paymentIntentId: string
+  /**
+   * What the secret confirms. A one time payment and a membership's first
+   * payment are "payment"; a membership with a free trial saves the card
+   * and charges nothing yet, which is "setup" (stripe.confirmSetup).
+   */
+  type?: "payment" | "setup"
 }
 
 export interface StripePayProps {
   amountCents: number
+  /** "subscription" for a membership: the form is drawn for a recurring payment, and a trial's card is saved rather than charged. */
+  mode?: "payment" | "subscription"
   creatorName: string
   email: string
   onEmail: (email: string) => void
@@ -155,7 +163,7 @@ export function StripePay(props: StripePayProps) {
   const appearance = React.useMemo(() => stripeAppearance(fontSize ?? "15px"), [fontSize])
   const options = React.useMemo<StripeElementsOptions>(
     () => ({
-      mode: "payment",
+      mode: props.mode ?? "payment",
       amount: props.amountCents,
       currency: "usd",
       paymentMethodTypes: methods,
@@ -163,7 +171,7 @@ export function StripePay(props: StripePayProps) {
       fonts: FONTS,
       loader: "auto",
     }),
-    [props.amountCents, methods, appearance],
+    [props.mode, props.amountCents, methods, appearance],
   )
   const fallBack = React.useCallback(() => {
     setSetIndex((i) => (i < METHOD_SETS.length - 1 ? i + 1 : i))
@@ -193,7 +201,7 @@ export function StripePay(props: StripePayProps) {
 function returnUrl(): string {
   const url = new URL(window.location.href)
   /* A return from a redirect comes back to this page, which finishes it. */
-  for (const key of ["payment_intent", "payment_intent_client_secret", "redirect_status"]) url.searchParams.delete(key)
+  for (const key of ["payment_intent", "payment_intent_client_secret", "setup_intent", "setup_intent_client_secret", "redirect_status"]) url.searchParams.delete(key)
   return url.toString()
 }
 
@@ -275,6 +283,24 @@ function StripePayInner({
         return
       }
       const intent = await createIntent(undefined, methods)
+      if (intent.type === "setup") {
+        /* A free trial: the card is saved, nothing is charged today. */
+        const { error, setupIntent } = await stripe.confirmSetup({
+          elements,
+          clientSecret: intent.clientSecret,
+          confirmParams: {
+            return_url: returnUrl(),
+            payment_method_data: { billing_details: { name: payerName(), email } },
+          },
+          redirect: "if_required",
+        })
+        if (error) {
+          onError(paymentErrorText(error))
+          return
+        }
+        await onPaid(setupIntent?.id ?? intent.paymentIntentId, setupIntent?.status ?? "unknown")
+        return
+      }
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret: intent.clientSecret,
@@ -358,18 +384,17 @@ function StripePayInner({
                   const walletName = e.billingDetails?.name || payerName()
                   if (walletEmail && walletEmail !== email) onEmail(walletEmail)
                   const intent = await createIntent({ email: walletEmail, name: walletName }, methods)
-                  const { error, paymentIntent } = await stripe.confirmPayment({
-                    elements,
-                    clientSecret: intent.clientSecret,
-                    confirmParams: { return_url: returnUrl() },
-                    redirect: "if_required",
-                  })
-                  if (error) {
+                  const confirmed =
+                    intent.type === "setup"
+                      ? await stripe.confirmSetup({ elements, clientSecret: intent.clientSecret, confirmParams: { return_url: returnUrl() }, redirect: "if_required" })
+                      : await stripe.confirmPayment({ elements, clientSecret: intent.clientSecret, confirmParams: { return_url: returnUrl() }, redirect: "if_required" })
+                  if (confirmed.error) {
                     e.paymentFailed({ reason: "fail" })
-                    onError(paymentErrorText(error))
+                    onError(paymentErrorText(confirmed.error))
                     return
                   }
-                  await onPaid(paymentIntent?.id ?? intent.paymentIntentId, paymentIntent?.status ?? "unknown")
+                  const done = "setupIntent" in confirmed ? confirmed.setupIntent : confirmed.paymentIntent
+                  await onPaid(done?.id ?? intent.paymentIntentId, done?.status ?? "unknown")
                 } catch (err) {
                   e.paymentFailed({ reason: "fail" })
                   onError(networkText(err, "The payment did not go through. Nothing was charged."))

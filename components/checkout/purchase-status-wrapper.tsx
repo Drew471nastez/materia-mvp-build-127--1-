@@ -48,6 +48,13 @@ interface PurchaseStatusWrapperProps {
   payWhatYouWant?: boolean
   pwywMinPriceCents?: number | null
   pwywSuggestedPriceCents?: number | null
+  /**
+   * A membership (lib/memberships): joined, not owned. A member is shown
+   * their membership (memberHref, /library/memberships/<id>) in place of the
+   * download area; anybody else gets Join, which opens the membership
+   * checkout. The page reads both on the server.
+   */
+  membership?: { memberHref: string | null } | null
 }
 
 
@@ -92,6 +99,7 @@ export function PurchaseStatusWrapper({
   payWhatYouWant = false,
   pwywMinPriceCents = null,
   pwywSuggestedPriceCents = null,
+  membership = null,
 }: PurchaseStatusWrapperProps) {
   const {
     hasPurchased,
@@ -243,6 +251,41 @@ export function PurchaseStatusWrapper({
 
   // Show owned state even if no files - this hides buy button and shows View in Library
   const showOwnedState = currentVariantHasAccess
+
+  /* A membership: a member opens theirs, anybody else joins. Nothing here downloads. */
+  if (membership) {
+    return (
+      <div className="relative z-10 space-y-3">
+        {membership.memberHref ? (
+          <>
+            <a
+              href={membership.memberHref}
+              data-open-membership=""
+              className="flex min-h-[48px] w-full items-center justify-center rounded-md px-4 text-[15px] font-semibold"
+              style={{ backgroundColor: downloadButtonBgColor || "#1a1a2e", color: downloadButtonTextColor || "#ffffff" }}
+            >
+              Open your membership
+            </a>
+            <p className="text-center text-sm" style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}>
+              You are a member
+            </p>
+          </>
+        ) : (
+          <>
+            <BuyButton
+              productId={productId}
+              price={priceCents}
+              creatorId={creatorId}
+              backgroundColor={buyButtonBgColor}
+              textColor={buyButtonTextColor}
+              callToAction={callToAction || "Join"}
+            />
+            {notPurchasedExtraContent}
+          </>
+        )}
+      </div>
+    )
+  }
 
   // Loading state
   if (isChecking) {

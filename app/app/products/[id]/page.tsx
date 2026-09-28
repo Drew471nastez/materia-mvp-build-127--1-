@@ -33,5 +33,7 @@ export default async function ProductEditPage({ params }: ProductEditPageProps) 
   if (load.state === "no-creator") redirect("/onboarding")
   /* Not theirs, or gone: back to the list rather than an empty form. */
   if (load.state === "missing") redirect("/app/products")
+  /* A membership has its own screen: its price per month or year, its posts and its members (app/app/memberships). */
+  if (load.loaded?.product.type === "membership") redirect(`/app/memberships/${encodeURIComponent(id)}`)
   return <ProductEditor key={id} creator={load.creator} loaded={load.loaded} />
 }

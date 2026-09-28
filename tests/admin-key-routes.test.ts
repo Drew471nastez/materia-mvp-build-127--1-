@@ -64,6 +64,8 @@ const PROOFS: [string, RegExp][] = [
   /* lib/automations/flow-io.ts: auth.getUser(), then the creator by user id,
      and every flow read by that creator id. */
   ["the signed-in creator, for an automation", /await signedInCreator\(\)[\s\S]*\.eq\("creator_id", me\.creatorId\)/],
+  /* lib/memberships/viewer.ts: auth.getUser() as a member; the route answers 401 without one and checks the membership is theirs. */
+  ["a signed-in member", /await requestViewer\(\)[\s\S]*if \(!viewer\)/],
 ]
 
 /**
@@ -98,11 +100,13 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "onepage/download/route.ts": "the download token is the credential",
   "onepage/download/[token]/route.ts": "the download token is the credential",
   "coupons/validate/route.ts": "a buyer checking a code at checkout, and it answers yes or no",
+  "memberships/confirm/route.ts": "after joining: the subscription's own current client secret, which only the paying page holds, is the credential; it only brings the row up to date from Stripe, rate limited",
 
   // Email, opened in a mail client with no cookies.
   "email/click/route.ts": "a link in a sent email, keyed by its own token",
   "email/track/route.ts": "the open pixel in a sent email",
   "email/unsubscribe/route.ts": "the unsubscribe link, which must work without signing in",
+  "memberships/unsubscribe/route.ts": "the link in a creator's update email to members: the signed token names one membership and only turns its post emails off or on",
   "notify/unsubscribe/route.ts": "Storelib's own unsubscribe link: the signed token names the person and the category, and the page never shows an address",
   "automations/t/o/route.ts": "the open pixel in an automated email, keyed by its send's random token; it only ever sets opened_at once",
   "automations/t/c/route.ts": "a link in an automated email: the target is signed with the send's token, so it redirects only where the email said",

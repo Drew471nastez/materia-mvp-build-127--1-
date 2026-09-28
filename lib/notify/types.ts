@@ -54,6 +54,13 @@ export const DOMAIN_EVENTS = [
   "subscription.renewed",
   "subscription.payment_failed",
   "subscription.cancelled",
+  /* A buyer's membership of a creator (lib/memberships), told to the member. */
+  "membership.started",
+  "membership.renewed",
+  "membership.renewal_upcoming",
+  "membership.payment_failed",
+  "membership.canceled",
+  "membership.ended",
   "domain.connected",
   "domain.connection_failed",
   "team.invitation_created",
@@ -96,6 +103,7 @@ export type EntityType =
   | "payment_setup"
   | "dispute"
   | "subscription"
+  | "membership"
   | "domain"
   | "team"
 
@@ -149,6 +157,13 @@ export const NOTIFICATION_TYPES = [
   /* The buyer, a week after a purchase on Storelib, and once more a week later (lib/reviews/request-rules). */
   "REVIEW_REQUEST",
   "REVIEW_REMINDER",
+  /* A buyer's membership of a creator (lib/notify/workflows/memberships.ts): the welcome, each renewal's receipt, the reminder before a renewal, a failed payment, a cancellation and its end. */
+  "MEMBERSHIP_STARTED",
+  "MEMBERSHIP_RENEWED",
+  "MEMBERSHIP_RENEWAL_REMINDER",
+  "MEMBERSHIP_PAYMENT_FAILED",
+  "MEMBERSHIP_CANCELED",
+  "MEMBERSHIP_ENDED",
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
