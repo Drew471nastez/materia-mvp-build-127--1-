@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { notifyPayoutAvailable } from "@/lib/push/notifications"
 import { requireBearerSecret } from "@/lib/api/require-secret"
+import { releaseDueHolds } from "@/lib/payments/ledger"
 
 /**
  * GET /api/cron/release-holds
@@ -30,6 +31,25 @@ export async function GET(request: Request) {
 
     const adminSupabase = createAdminClient()
     const now = new Date()
+
+    /* In the database, creator by creator, each under a lock and each once
+       (public.ledger_release_due, run-now part 64). Two runs at once, or a
+       run while a sale lands, can no longer lose or double a release. The
+       code below it is the path before part 64. */
+    const done = await releaseDueHolds(adminSupabase)
+    if (done) {
+      for (const r of done) {
+        if (Number(r.to_available) > 0) {
+          notifyPayoutAvailable(r.creator_id, Number(r.to_available)).catch((err) =>
+            console.error(`[Release Holds] Push notification failed for ${r.creator_id}:`, err),
+          )
+        }
+      }
+      const total = done.reduce((n, r) => n + Number(r.released || 0), 0)
+      const events = done.reduce((n, r) => n + Number(r.events || 0), 0)
+      console.log(`[Release Holds] Released ${total} cents for ${done.length} creators (${events} events)`)
+      return NextResponse.json({ released: events, creators: done.length, total_cents: total })
+    }
 
     // Find all unreleased sale events where hold has expired
     const { data: releasable, error: queryError } = await adminSupabase

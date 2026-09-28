@@ -39,6 +39,7 @@ import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
+import { postLedger } from "@/lib/payments/ledger"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -469,6 +470,29 @@ export async function recordSale(
     holdUntil.setDate(holdUntil.getDate() + 3)
   }
 
+  /* Once per order, in one locked step in the database (lib/payments/ledger): the
+     webhook's Checkout Session path writes the same key, so a sale is never counted twice. */
+  const posted = await postLedger(admin, {
+    creatorId: s.creatorId,
+    key: `sale:${s.orderId}`,
+    op: "sale",
+    amountCents: net,
+    event: {
+      event_type: "sale",
+      amount_cents: s.total,
+      net_seller_cents: net,
+      fee_cents: s.fee,
+      currency: "usd",
+      order_id: s.orderId,
+      hold_until: holdUntil.toISOString(),
+      description: `Sale: $${(s.total / 100).toFixed(2)} (net $${(net / 100).toFixed(2)})`,
+      add_lifetime_earnings: s.total,
+      add_lifetime_fees: s.fee,
+    },
+  })
+  if (!posted.unavailable) return
+
+  /* Before run-now part 64: as it was. */
   await admin.from("seller_ledger").upsert({ creator_id: s.creatorId }, { onConflict: "creator_id" })
   const { data: ledger } = await admin.from("seller_ledger").select("*").eq("creator_id", s.creatorId).single()
   if (!ledger) return

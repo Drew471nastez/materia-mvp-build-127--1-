@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
-import { deleteAllUserData } from "@/app/api/auth/delete-account/route"
+import { deleteAccount } from "@/lib/account/delete-account"
 import { adminFailure } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
 import { plainReason } from "@/lib/admin/plain-reason"
@@ -385,8 +385,12 @@ async function must<T extends { error: { message: string } | null }>(
           failed.push({ creatorId: target.creatorId, error: "No user account is attached to this creator." })
           continue
         }
-        await deleteAllUserData(admin, target.userId)
-        await admin.auth.admin.deleteUser(target.userId).catch(() => {})
+        /* Retired, not wiped, when buyers or money records hang off it (lib/account/delete-account). */
+        const outcome = await deleteAccount(admin, target.userId, "admin")
+        if (!outcome.ok) {
+          failed.push({ creatorId: target.creatorId, error: `Not fully deleted: ${outcome.failures.slice(0, 2).join("; ")}` })
+          continue
+        }
       }
 
       /**

@@ -206,6 +206,7 @@ const SUITES = [
   "tests/admin-key-routes.test.ts",
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
+  "tests/ledger-and-deletion.test.ts",
   "tests/public-abuse.test.ts",
   "tests/section-signups.test.ts",
   "tests/developer-hub.test.ts",
