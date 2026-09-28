@@ -27,6 +27,7 @@
  */
 
 import * as React from "react"
+import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { AnalyticsSummaryFact } from "@/components/app/analytics-summary-line"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -448,13 +449,13 @@ function SiteAddress({ url, display }: { url: string; display: string }) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1600)
     } catch {
-      window.open(url, "_blank", "noopener")
+      window.open(ownOpen(url), "_blank", "noopener")
     }
   }
   return (
     <div className="mt-1.5 flex min-w-0 items-center gap-0.5">
       <a
-        href={url}
+        href={ownOpen(url)}
         target="_blank"
         rel="noopener noreferrer"
         className="group inline-flex min-w-0 items-center gap-1.5 rounded-md text-[14px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]"
@@ -588,6 +589,9 @@ export function WebsiteBuilderClient({
   /** The website's own name on Storelib, when it has one apart from the username. */
   siteHandle?: string | null
 }) {
+  /* Opening your own website from here is not a visit to it (lib/analytics/own-site). */
+  useOwnMarker()
+
   /*
     ===========================================================================
      A COVER OLDER THAN THE SITE IS RETAKEN WHILE YOU LOOK AT IT
@@ -1172,7 +1176,7 @@ export function WebsiteBuilderClient({
                 )}
                 {siteUrl &&
                   (live ? (
-                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className={HEADER_BUTTON}>
+                    <a href={ownOpen(siteUrl)} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className={HEADER_BUTTON}>
                       <ViewLabel />
                     </a>
                   ) : (

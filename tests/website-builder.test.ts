@@ -363,7 +363,7 @@ section("The page")
         /label: "Unpublished",[\s\S]{0,140}items: \[\{ label: "Publish again", icon: <Rocket \/>, onClick: \(\) => setPublishing\(offline\) \}\]/.test(src) &&
         /: null\s*\n/.test(src.slice(src.indexOf("const publicControl"), src.indexOf("const explore"))))
     check("  View website is a real anchor to a new tab while a site is live, and a disabled button while none is",
-      /live \? \(\s*<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src) &&
+      /live \? \(\s*<a href=\{ownOpen\(siteUrl\)\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src) &&
         /<button type="button" disabled aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src))
     check("View website left the More menu, which now starts at Edit code", !/label: "View website"/.test(client) && !/SquareArrowOutUpRight/.test(client))
     check("Take offline stays in the live site's More menu, so a phone can still reach it",
@@ -435,7 +435,7 @@ section("The page")
    * checked in changed while the rule did not.
    */
   check("the live link is a real anchor that opens a new tab",
-    /<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view"/.test(client) &&
+    /<a href=\{ownOpen\(siteUrl\)\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view"/.test(client) &&
       !/window\.open\(siteUrl/.test(client))
   check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
     !/ThemeCoverPair|ThemePhoneCover/.test(client) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="block h-full w-full" \/>/.test(client) &&

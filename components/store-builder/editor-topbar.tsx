@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { useRouter } from "next/navigation"
 import { useStoreBuilder } from "./store-builder-context"
 import { Button } from "@/components/ui/button"
@@ -136,8 +137,11 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     }
   }
 
+  /* The creator opening their own live store is not one of its visitors (lib/analytics/own-site). */
+  useOwnMarker()
+
   const handleViewLiveStore = () => {
-    openExternal(getLiveStoreUrl())
+    openExternal(ownOpen(getLiveStoreUrl()))
   }
 
   const handleSaveFromDialog = async () => {

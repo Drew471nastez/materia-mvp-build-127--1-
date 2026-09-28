@@ -27,6 +27,7 @@
  * before. scripts/check-settings-addresses measures both.
  */
 import { useMemo, useState } from "react"
+import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import Link from "next/link"
 import { Check, ChevronDown, Copy, ExternalLink } from "lucide-react"
 import { copyText } from "@/lib/platform/copy-text"
@@ -95,7 +96,7 @@ function Row({
             >
               {copied ? <Check className="h-4 w-4 text-[#15803d]" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
             </button>
-            <button type="button" aria-label={`Open the ${label.toLowerCase()}`} title="Open" onClick={() => openExternal(url)} className={ICON_BUTTON}>
+            <button type="button" aria-label={`Open the ${label.toLowerCase()}`} title="Open" onClick={() => openExternal(ownOpen(url))} className={ICON_BUTTON}>
               <ExternalLink className="h-4 w-4" aria-hidden />
             </button>
           </>
@@ -125,6 +126,8 @@ export function AddressList({
   /** The website's connected domain, or null. */
   websiteDomain?: string | null
 }) {
+  /* Opening one of your own addresses from here is not a visit to it (lib/analytics/own-site). */
+  useOwnMarker()
   const name = username.trim().toLowerCase()
   const siteName = (website?.handle || name).toLowerCase()
   const editor = website?.installId ? `/website-builder/editor/${website.installId}` : null

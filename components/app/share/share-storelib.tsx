@@ -35,6 +35,7 @@
  */
 
 import * as React from "react"
+import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { ArrowRight, Check, Copy, ExternalLink, Eye, Globe, Link2 } from "lucide-react"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -400,8 +401,10 @@ export const ShareStorelib = React.memo(function ShareStorelib({
 
   const close = React.useCallback(() => setOpen(false), [])
   const toggle = React.useCallback(() => setOpen((v) => !v), [])
+  /* One of the creator's own three addresses: opening it here is not a visit (lib/analytics/own-site). */
+  useOwnMarker()
   const openUrl = React.useCallback((url: string) => {
-    openExternal(url)
+    openExternal(ownOpen(url))
     setOpen(false)
   }, [])
   const setup = React.useCallback(() => {

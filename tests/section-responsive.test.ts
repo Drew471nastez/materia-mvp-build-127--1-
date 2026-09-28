@@ -1635,7 +1635,7 @@ check(
   "a menu row can be a link, so 'View live site' opens a real new tab",
   /href\?: string/.test(menu) &&
     /<a\s*\n\s*href=\{item\.href\}\s*\n\s*target=\{item\.target\}/.test(menu) &&
-    /label: "View live site",[\s\S]{0,200}href: websiteUrl,[\s\S]{0,80}target: "_blank"/.test(editor) &&
+    /label: "View live site",[\s\S]{0,200}href: ownOpen\(websiteUrl\),[\s\S]{0,80}target: "_blank"/.test(editor) &&
     !/onClick=\{\(\) => window\.open\(websiteUrl, "_blank"\)\}/.test(editor),
 )
 
@@ -3083,7 +3083,7 @@ check(
   /function SiteAddress\(\{ url, display \}/.test(wbPage) &&
     !/function CopyUrlPill/.test(wbPage) &&
     // no border, no card, no field: an anchor, a mark, and a copy button
-    /<a\s*\n\s*href=\{url\}\s*\n\s*target="_blank"[\s\S]{0,200}?text-\[14px\] text-\[#6b7280\]/.test(wbPage) &&
+    /<a\s*\n\s*href=\{ownOpen\(url\)\}\s*\n\s*target="_blank"[\s\S]{0,200}?text-\[14px\] text-\[#6b7280\]/.test(wbPage) &&
     !/inline-flex h-9 max-w-full items-stretch overflow-hidden rounded-lg border/.test(wbPage),
 )
 
