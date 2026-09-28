@@ -21,9 +21,10 @@ export const dynamic = "force-dynamic"
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!isUuid(id)) return new NextResponse("", { status: 404, headers: PRIVATE })
+  const userId = await sessionUserId()
   try {
     const admin = createAdminClient()
-    const ctx = await lessonContext(admin, await sessionUserId(), id)
+    const ctx = await lessonContext(admin, userId, id)
     if (!ctx || ctx.access === "none" || !isLessonMediaPath(ctx.lesson.captions_path, ctx.creatorId, ctx.lesson.id)) {
       return new NextResponse("", { status: 404, headers: PRIVATE })
     }
