@@ -11,6 +11,7 @@ import { NativeAuthGate } from "@/components/native-auth-gate"
 import { AccountHub, type AccountIdentity } from "@/components/account/account-hub"
 import { AccountSkeleton } from "@/components/account/account-skeleton"
 import { LibraryBgFix } from "@/app/library/library-bg-fix"
+import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
 
 /** One signed in person's own pages: never in a search index. */
 export const metadata: Metadata = { title: "Profile", robots: { index: false, follow: false } }
@@ -36,10 +37,13 @@ function memberSince(createdAt: string | undefined): string {
  * outside /app and the Profile tab of the phone's bar open it.
  *
  * The platform header, a main column, the footer and the phone's tab bar,
- * exactly as /library draws them, so moving between Library and Profile on
- * the tab bar is one page changing and not two sites. Inside the column,
- * the person (photo, name, @username, member since) and the tabs, which
- * stay put while the page under them changes (components/account/
+ * as /library draws them, so moving between Library and Profile on the tab
+ * bar is one page changing and not two sites. On a phone the black header
+ * is not drawn here ("on the profile page we don't need the black bar
+ * header to show, especially on mobile"): the profile has a light bar of
+ * its own at the top of the column instead. Inside the column, the person
+ * (photo, name, @username, member since) centred, and the tabs, which stay
+ * put while the page under them changes (components/account/
  * account-hub.tsx).
  *
  * SIGNED OUT, EACH PAGE SENDS TO SIGN IN WITH ITS OWN ADDRESS. A layout is
@@ -72,6 +76,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const profile = user ? await profileForRequest(user.id) : null
   const identity: AccountIdentity | null = user
     ? {
+        userId: user.id,
         name: profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || "",
         username: profile?.username || null,
         avatarUrl: profile?.avatar_url || null,
@@ -84,9 +89,10 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <LibraryBgFix />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
       <main className="flex-1">
+        {/* No top padding on a phone: the profile's own bar is the top there (components/account/account-hub.tsx). */}
         <div
-          className="mx-auto w-full max-w-[720px] px-4 pb-10 pt-6 sm:px-6 sm:pt-10"
-          style={{ paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))", paddingRight: "max(1rem, env(safe-area-inset-right, 0px))" }}
+          className="mx-auto w-full max-w-[720px] pb-10 md:pt-10"
+          style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }}
         >
           {identity ? <AccountHub identity={identity}>{children}</AccountHub> : children}
         </div>

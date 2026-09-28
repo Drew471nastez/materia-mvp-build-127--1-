@@ -5,8 +5,9 @@
  * scripts/check-buyer-tab-bar.mjs. The page shown follows the stub router's
  * path, the way the layout's children follow the address.
  *
- * Globals a probe may set before load: __signedIn, __seller, __oauthOnly,
- * __emptyLibrary, __username (false for none), __longName.
+ * Globals a probe may set before load: __signedIn, __seller (true, or
+ * "seller", "started", "none"), __oauthOnly, __emptyLibrary, __username
+ * (false for none), __longName, __photo (a picture for the avatar).
  */
 import React from "react"
 import { usePathname } from "next/navigation"
@@ -15,6 +16,8 @@ import { AccountHub } from "@/components/account/account-hub"
 import { AccountOverview } from "@/components/account/account-overview"
 import { AccountSettings } from "@/components/account/account-settings"
 import { accountOverview } from "@/lib/account/overview"
+import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
+import type { SellerState } from "@/lib/account/seller-access"
 import type { LibraryItem } from "@/lib/library/library-view"
 
 const flag = (k: string) => (window as unknown as Record<string, unknown>)[k]
@@ -41,6 +44,15 @@ const item = (id: string, title: string, creator: string, at: string, extra: Par
 
 const REVIEW = { id: "r", rating: 5, content: "", createdAt: "", editedAt: null, hidden: false, sellerReply: null }
 
+function sellerState(): SellerState {
+  const s = flag("__seller")
+  return s === "started" || s === "none" || s === "seller" ? s : s ? "seller" : "none"
+}
+
+const PHOTO =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="#9ca3af"/><circle cx="80" cy="64" r="30" fill="#f3e3d3"/><rect x="34" y="104" width="92" height="70" rx="40" fill="#ffffff"/></svg>`)
+
 function overviewData() {
   const empty = !!flag("__emptyLibrary")
   return accountOverview({
@@ -55,7 +67,7 @@ function overviewData() {
     courses: empty ? [] : [{ title: "Lighting basics", status: "in_progress" }, { title: "Colour grading", status: "not_started" }],
     memberships: empty ? null : { current: 1, ended: 0 },
     wishlist: empty ? 0 : 7,
-    seller: flag("__seller") ? "seller" : "none",
+    seller: sellerState(),
   })
 }
 
@@ -65,18 +77,17 @@ export function AccountDemo() {
   const username = flag("__username") === false ? null : "alexmorgan"
   const name = long ? "Alexandra Montgomery-Richardson" : "Alex Morgan"
   return (
-    <div className="mx-auto w-full max-w-[720px] px-4 pb-10 pt-6 sm:px-6 sm:pt-10" data-probe-account-column="">
-      <AccountHub identity={{ name, username, avatarUrl: null, memberSince: "March 2025" }}>
+    <div className="mx-auto w-full max-w-[720px] pb-10 md:pt-10" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-probe-account-column="">
+      <AccountHub identity={{ userId: "u1", name, username, avatarUrl: flag("__photo") ? PHOTO : null, memberSince: "March 2025" }}>
         {path.startsWith("/account/settings") ? (
           <AccountSettings
             userId="u1"
             email="alex@example.com"
             name={name}
-            avatarUrl={null}
             createdAt="2025-03-14T10:00:00Z"
             hasPassword={!flag("__oauthOnly")}
             via="Google"
-            isSeller={!!flag("__seller")}
+            isSeller={sellerState() === "seller"}
             newsletter={false}
             personalized={true}
           />

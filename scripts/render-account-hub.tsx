@@ -1,7 +1,8 @@
 /**
  * The buyer's profile (scripts/account-hub-demo.tsx: the real hub, Overview
  * and Settings) in a shell shaped like app/account/layout.tsx: the black
- * header, the light page, the footer. The router is the probe's stub
+ * header from 768px up (on a phone the profile draws its own bar), the
+ * light page, the footer. The router is the probe's stub
  * (scripts/check-account-hub.mjs): a link's press changes the path a moment
  * later, the way a prefetched page arrives.
  */
@@ -13,7 +14,8 @@ import { LocaleProvider } from "@/components/locale-provider"
 function Shell() {
   return (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
-      <header className="sticky top-0 z-40 h-[64px] bg-black" data-probe-header="" />
+      {/* The site header as it draws on /account: from 768px only (the phone has the profile's own bar). */}
+      <header className="sticky top-0 z-40 hidden h-[64px] bg-black md:block" data-probe-header="" />
       <main className="flex-1">
         <AccountDemo />
       </main>

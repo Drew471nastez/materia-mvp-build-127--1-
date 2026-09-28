@@ -40,3 +40,11 @@ export function accountTabFor(pathname: string | null | undefined): number {
   }
   return 0
 }
+
+/**
+ * THE PROFILE COLUMN'S SIDE PADDING (app/account/layout.tsx), which the
+ * phone's own bar (components/account/account-hub.tsx) steps out of to run
+ * edge to edge. Written once here, read by both, so the two never disagree.
+ */
+export const ACCOUNT_GUTTER_LEFT = "max(1rem, env(safe-area-inset-left, 0px))"
+export const ACCOUNT_GUTTER_RIGHT = "max(1rem, env(safe-area-inset-right, 0px))"
