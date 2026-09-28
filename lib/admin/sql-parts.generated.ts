@@ -62,7 +62,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "60", file: "60_attribution.sql", sha256: "d4c55cc65182810480882ef852e6983e282a65d579c0826afe081484c41b10ca" },
   { part: "61", file: "61_analytics_one_pipeline.sql", sha256: "857b11a2b0a1584c5991588f6bbb3b9067f660f18f4b7587148e6c1178d8a4b1" },
   { part: "62", file: "62_money_rows_server_only.sql", sha256: "60d76b7f686af5f1d5899b59d6ee780398832a20d55cc4c51ffe79003e16ad77" },
-  { part: "63", file: "63_private_columns.sql", sha256: "b5c1a5dc780685b4b428e0089a5f5ddc215060db994222307532334040300d52" },
+  { part: "63", file: "63_private_columns.sql", sha256: "bead2309f2d218b66274c1bed02fa8191bdb5d067d180d1dfd68beb372901525" },
   { part: "64", file: "64_ledger_once_and_atomic.sql", sha256: "6db5fdf4f88574dae5720a435336b9fda6b43324e2e3bd991c010f5d7deee874" },
   { part: "65", file: "65_account_deletion_keeps_records.sql", sha256: "4bb97cf40c3db666fbaffefc7e6dcff2ee6ff889cd1b2914b5b5d811a409a553" },
   { part: "66", file: "66_deleted_rows_kept.sql", sha256: "8360d280e70a0d23896c61c02a4c7f631988513ef2540a055483c430261f1f64" },

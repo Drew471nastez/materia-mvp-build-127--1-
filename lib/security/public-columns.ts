@@ -42,6 +42,9 @@ export const PRIVATE_CREATOR_COLUMNS = [
   "banned_reason",
   "statement_descriptor",
   "first_sale_email_sent",
+  "stripe_requirements",
+  "stripe_requirements_due_at",
+  "stripe_requirements_updated_at",
 ] as const
 
 export const PRIVATE_PROFILE_COLUMNS = [
