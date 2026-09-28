@@ -644,16 +644,22 @@ export function Hero() {
         </div>
       </div>
 
-      <div className="flex flex-row items-center gap-2.5 sm:gap-3 mb-5 sm:mb-[32px] animate-fade-in-up delay-200">
+      {/*
+        THE SAME CORNER AS THE HEADER'S LOG IN BUTTON, NOT A PILL. The owner
+        asked for these two to match the header's buttons, so they take the
+        shared `rounded-action` token (app/globals.css) rather than a radius
+        of their own. They stay where they were, above the line of copy.
+      */}
+      <div data-hero-actions="" className="flex flex-row items-center gap-2.5 sm:gap-3 mb-5 sm:mb-[32px] animate-fade-in-up delay-200">
         <Link
           href="/explore"
-          className="inline-flex items-center px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors"
+          className="inline-flex items-center px-6 sm:px-7 py-2.5 sm:py-3 rounded-action text-sm font-semibold bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors"
         >
           Discover
         </Link>
         <Link
           href={isAuthenticated ? (isCreator ? "/app" : "/library") : "/signup"}
-          className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+          className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-action text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
         >
           {isAuthenticated ? (isCreator ? "Dashboard" : "Library") : "Sign Up"}
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>

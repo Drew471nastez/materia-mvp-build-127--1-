@@ -23,7 +23,8 @@ export function PublicWishlistShell() {
           </button>
 
           <div className="flex items-center gap-2">
-            <StorelibLogo size={32} />
+            {/* 5% UNDER THE 32PX IT WAS: the logo is a little smaller in every header. */}
+            <StorelibLogo size={30.4} />
             <span className="text-sm font-semibold text-neutral-900">Storelib</span>
           </div>
 

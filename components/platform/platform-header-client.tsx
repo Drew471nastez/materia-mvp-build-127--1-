@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
 /* The shell's own avatar: the photo, else the initials, else a plain
    person, and nothing drawn while a photo is on its way (which is what the
    header wants: this is the viewer's own picture and it is cached). */
@@ -23,7 +22,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronDown, Sparkles, Store, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -313,15 +312,158 @@ function MobileBottomSheet({
 }
 
 /** A link row in the category sheet, drawn like the browser's own rows. */
-function MenuRow({ to, label, onNav }: { href: string; to: string; label: string; onNav: (e: React.MouseEvent<HTMLElement>) => void }) {
+function MenuRow({ to, label, onNav, seller = false }: { href: string; to: string; label: string; onNav: (e: React.MouseEvent<HTMLElement>) => void; seller?: boolean }) {
   return (
     <Link
       href={to}
       onClick={onNav}
-      className="flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+      data-become-seller={seller ? "" : undefined}
+      className={cn(
+        "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:bg-[#f1f2f4]",
+        /* Become a seller, in the purple and on a pale violet press: noticed, not shouted. */
+        seller ? "font-medium text-violet-700 active:bg-[#f5f3ff]" : "text-[#1a1a2e] active:bg-[#f1f2f4]",
+      )}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <Chevron className="text-[#9ca3af]" />
+      <Chevron className={seller ? "text-violet-300" : "text-[#9ca3af]"} />
+    </Link>
+  )
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE LOGO IS FIVE PERCENT SMALLER IN A HEADER, AND ONLY IN A HEADER
+  ═══════════════════════════════════════════════════════════════════════════
+  The owner asked for the mark to sit a little quieter in the bar. The sizes
+  themselves change (44, 42 and 38 before), not a scale on top of them, so
+  the picture is still fetched and laid out at the size it is drawn. The
+  footers, sign in and everything else keep theirs.
+*/
+export const HEADER_LOGO = { desktop: 41.8, marketingPhone: 39.9, phone: 36.1 } as const
+
+/** A focus ring that reads on the black bar. */
+const DARK_FOCUS =
+  "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+
+/** Where a header link goes, and the click that gets it there (canonical host, native shell). */
+type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void }
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE LOGGED OUT BUTTONS ON A COMPUTER
+  ═══════════════════════════════════════════════════════════════════════════
+  The owner's picture (image 20): a thin rule, "Sell on Storelib" as plain
+  text, "Log in" outlined and "Sign up" filled in the Storelib purple, both
+  with the small `rounded-action` corner rather than a pill. The marketing
+  pages carry all four; Explore and the pages that share its header leave
+  out Log in, where the wishlist and library icons already sit.
+
+  `placeholder` draws the same row invisibly, for a first visit where the
+  header does not know yet who is looking. It holds exactly the width the
+  logged out row will take, so nothing beside it moves when the answer
+  arrives, and there is no grey pill standing in for a button.
+*/
+function GuestHeaderActions({ withLogin, link, placeholder = false }: { withLogin: boolean; link: HeaderLink; placeholder?: boolean }) {
+  return (
+    <div
+      data-guest-actions={withLogin ? "marketing" : "buyer"}
+      data-placeholder={placeholder ? "" : undefined}
+      aria-hidden={placeholder || undefined}
+      inert={placeholder || undefined}
+      className={cn("flex shrink-0 items-center", placeholder && "invisible")}
+    >
+      <span aria-hidden data-guest-divider="" className="ml-1 h-6 w-px bg-white/15" />
+      {/* "Sell" alone on a tablet, where the bar has no room for three words; the name stays whole for a screen reader. */}
+      <Link
+        {...link("/sell")}
+        data-guest-sell=""
+        aria-label="Sell on Storelib"
+        className={cn("ml-5 whitespace-nowrap rounded-md px-2 py-2 text-[15px] font-medium text-white/85 transition-colors hover:text-white", DARK_FOCUS)}
+      >
+        <span className="lg:hidden">Sell</span>
+        <span className="hidden lg:inline">Sell on Storelib</span>
+      </Link>
+      {withLogin && (
+        <Link
+          {...link("/login")}
+          data-guest-login=""
+          className={cn("ml-6 inline-flex h-[42px] items-center whitespace-nowrap rounded-action border border-white/30 px-5 text-[15px] font-medium text-white transition-colors hover:border-white/55 hover:bg-white/[0.06]", DARK_FOCUS)}
+        >
+          Log in
+        </Link>
+      )}
+      <Link
+        {...link("/signup")}
+        data-guest-signup=""
+        className={cn(withLogin ? "ml-3" : "ml-6", "inline-flex h-[42px] items-center whitespace-nowrap rounded-action bg-violet-600 px-5 text-[15px] font-[550] text-white transition-colors hover:bg-violet-700", DARK_FOCUS)}
+      >
+        Sign up
+      </Link>
+    </div>
+  )
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE LOGGED OUT BUTTONS IN THE PHONE MENU
+  ═══════════════════════════════════════════════════════════════════════════
+  The owner's picture (image 23), in Storelib's purple rather than the blue
+  it was drawn in: a filled Sign up, an outlined second button, and "Sell on
+  Storelib" as a purple line of text under them. On the marketing pages the
+  second button is Discover with its compass; on Explore and the pages that
+  share its header it is Log in, because Discover is where you already are.
+  46px buttons, 6px apart, labels at 16px, and the text link a 44px row of
+  its own so it is as easy to hit as the buttons above it.
+*/
+const SHEET_BUTTON =
+  "flex h-[46px] w-full touch-manipulation items-center justify-center rounded-action text-[16px] transition-colors duration-100 [-webkit-tap-highlight-color:transparent] outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+function GuestSheetActions({ second, link, onDone }: { second: "discover" | "login"; link: HeaderLink; onDone: () => void }) {
+  const go = (path: string) => {
+    const { href, onClick } = link(path)
+    return { href, onClick: (e: React.MouseEvent<HTMLElement>) => { onClick(e); onDone() } }
+  }
+  return (
+    <div data-guest-sheet={second} className="flex flex-col gap-1.5">
+      <Link {...go("/signup")} data-menu-sign-up="" className={cn(SHEET_BUTTON, "bg-violet-600 font-[550] text-white hover:bg-violet-700 active:bg-violet-700")}>
+        Sign up
+      </Link>
+      {second === "discover" ? (
+        <Link {...go("/explore")} data-menu-discover="" className={cn(SHEET_BUTTON, "gap-3 border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}>
+          <Compass aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+          Discover
+        </Link>
+      ) : (
+        <Link {...go("/login")} data-menu-log-in="" className={cn(SHEET_BUTTON, "border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}>
+          Log in
+        </Link>
+      )}
+      <Link {...go("/sell")} data-menu-sell="" className={cn(SHEET_BUTTON, "h-11 font-medium text-violet-600 active:bg-violet-50")}>
+        Sell on Storelib
+      </Link>
+    </div>
+  )
+}
+
+/*
+  "BECOME A SELLER", INVITING BUT CALM. The owner asked for it to be
+  noticeable without being a badge: a pale violet row among the plain ones,
+  its words in the purple, a store rather than a sparkle. It goes to /sell,
+  which decides what a buyer who wants to sell sees next.
+*/
+function BecomeSellerRow({ link, onDone }: { link: HeaderLink; onDone: () => void }) {
+  const { href, onClick } = link("/sell")
+  return (
+    <Link
+      href={href}
+      onClick={(e) => { onClick(e); onDone() }}
+      data-become-seller=""
+      className="flex touch-manipulation items-center justify-between rounded-xl bg-[#f5f3ff] px-4 py-3.5 text-base font-medium text-violet-700 transition-colors hover:bg-[#ede9fe] active:bg-[#ede9fe] [-webkit-tap-highlight-color:transparent] outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+    >
+      <span className="flex items-center gap-3">
+        <Store aria-hidden className="h-5 w-5 text-violet-500" />
+        <span>Become a seller</span>
+      </span>
+      <ChevronRight aria-hidden className="h-5 w-5 text-violet-400" />
     </Link>
   )
 }
@@ -817,6 +959,11 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             if (freshAvatar) localStorage.setItem("_sl_avatar", freshAvatar)
             else localStorage.removeItem("_sl_avatar")
           } catch {}
+          // SELLER ACCESS: a finished seller onboarding (creators.onboarding_completed)
+          // is what gives this account seller access today. It decides Dashboard
+          // against Become a seller everywhere in this header, and it is written
+          // to the snapshot so the next page opens on the right one. Point this at
+          // lib/account/seller-access.ts once that exists.
           const isSellerByState = !!creatorData?.onboarding_completed
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
@@ -873,15 +1020,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchWishlistCount])
 
-  const startSellingHref = useMemo(() => {
-    if (!user) return "/signup"
-    return hasCompletedSellerOnboarding ? "/app" : "/library"
-  }, [user, hasCompletedSellerOnboarding])
-
-  const dashboardHref = useMemo(() => {
-    if (!user) return "/signup"
-    return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
-  }, [user, hasCompletedSellerOnboarding])
+  /*
+    A SELLER'S WAY IN IS THE DASHBOARD; EVERYBODY ELSE'S IS /sell. /sell is
+    the one door to selling (it sends a guest to sign up with the intent kept,
+    a buyer into seller onboarding and a seller to /app), so no link here
+    decides that for itself any more.
+  */
+  const dashboardHref = hasCompletedSellerOnboarding ? "/app" : "/sell"
 
   const wishlistHref = useMemo(() => {
     return user ? "/library/wishlist" : "/wishlist"
@@ -1183,6 +1328,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     return shouldForceCanonicalNav ? toCanonicalUrl(targetPath) : targetPath
   }, [shouldForceCanonicalNav, toCanonicalUrl])
 
+  /* The href and the click for one path, in the form the buttons above take. */
+  const headerLink: HeaderLink = useCallback(
+    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path) }),
+    [getCanonicalOrRelativePath, onCanonicalNav],
+  )
+
   // Detect active category from URL
   const activeCategoryId = useMemo(() => {
     if (pathname.startsWith("/explore/")) {
@@ -1203,6 +1354,147 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const browserSelection = pathname.startsWith("/explore") && activeCategoryId !== "all"
     ? { group: activeCategoryId, item: activeSubId }
     : { group: null, item: null }
+
+  /*
+    DASHBOARD, FOR AN ACCOUNT WITH SELLER ACCESS ONLY. A buyer sees no
+    Dashboard and no Start selling beside their photo; their way to selling
+    is Become a seller in the account menu and the phone sheet. Filled purple
+    with the shared `rounded-action` corner, the same button as Sign up.
+  */
+  const sellerDashboardButton = hasCompletedSellerOnboarding ? (
+    <Link
+      {...headerLink("/app")}
+      data-header-dashboard=""
+      className={cn("inline-flex h-[42px] items-center whitespace-nowrap rounded-action bg-violet-600 px-5 text-[15px] font-[550] text-white transition-colors hover:bg-violet-700", DARK_FOCUS)}
+    >
+      {t("dashboard")}
+    </Link>
+  ) : null
+
+  /*
+    THE PHOTO AND ITS MENU, ON A COMPUTER, on the marketing pages and the
+    buyer pages alike. The photo opens the menu rather than leaving the page,
+    because the menu is the only place on a computer with the language and
+    Log out; its first row is the account itself (/account), so the account
+    is one click from the photo. Closed, the menu is `inert`: it is only
+    transparent, and without that its links stayed in the tab order.
+  */
+  const accountMenuRow =
+    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer outline-none focus-visible:bg-gray-50 focus-visible:text-gray-900"
+  const desktopAccountMenu = user ? (
+    <div ref={profileDropdownRef} className="relative">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => setDesktopProfileOpen(!desktopProfileOpen)}
+            className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+            aria-label="Your account"
+            aria-haspopup="menu"
+            aria-expanded={desktopProfileOpen}
+            data-header-avatar=""
+          >
+            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200 transition-opacity duration-150" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+          Your account
+        </TooltipContent>
+      </Tooltip>
+
+      <div
+        data-account-menu={desktopProfileOpen ? "open" : "closed"}
+        inert={desktopProfileOpen ? undefined : true}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return
+          setDesktopProfileOpen(false)
+          profileDropdownRef.current?.querySelector<HTMLElement>("button[data-header-avatar]")?.focus()
+        }}
+        className={`absolute right-0 top-full mt-2 z-50 origin-top-right transition-all ease-out ${
+          desktopProfileOpen
+            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
+        }`}
+        style={{ transitionDuration: '200ms', transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
+      >
+        <div className="min-w-[220px] rounded-xl border border-gray-200/70 bg-white p-1.5 shadow-lg shadow-black/5">
+          {/* The account itself: the photo's destination, one click in. */}
+          <Link
+            {...headerLink("/account")}
+            onClick={(e) => { onCanonicalNav(e, "/account"); setDesktopProfileOpen(false) }}
+            data-account-link=""
+            className="mb-1 flex items-center gap-3 rounded-lg border-b border-gray-100 px-3 py-2.5 transition-colors hover:bg-gray-50 outline-none focus-visible:bg-gray-50"
+          >
+            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={40} className="border border-gray-200" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium text-gray-900 truncate">{displayName}</span>
+              <span className="block text-xs text-gray-500 truncate">{user.email || "Your account"}</span>
+            </span>
+          </Link>
+
+          {hasCompletedSellerOnboarding ? (
+            <Link
+              {...headerLink("/app")}
+              onClick={(e) => { onCanonicalNav(e, "/app"); setDesktopProfileOpen(false) }}
+              className={accountMenuRow}
+            >
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
+              <span>Dashboard</span>
+            </Link>
+          ) : (
+            <Link
+              {...headerLink("/sell")}
+              onClick={(e) => { onCanonicalNav(e, "/sell"); setDesktopProfileOpen(false) }}
+              data-become-seller=""
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-violet-700 transition-colors hover:bg-[#f5f3ff] cursor-pointer outline-none focus-visible:bg-[#f5f3ff]"
+            >
+              <Store className="h-4 w-4 shrink-0 text-violet-500" />
+              <span>Become a seller</span>
+            </Link>
+          )}
+          <Link
+            href={getCanonicalOrRelativePath("/library")}
+            onClick={(e) => {
+              e.preventDefault()
+              setDesktopProfileOpen(false)
+              onCanonicalNav(e, "/library")
+            }}
+            className={accountMenuRow}
+          >
+            <Library className="h-4 w-4 shrink-0" />
+            <span>My Library</span>
+          </Link>
+          <Link
+            href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
+            onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setDesktopProfileOpen(false) }}
+            className={accountMenuRow}
+          >
+            <Settings className="h-4 w-4 shrink-0" />
+            <span>Settings</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => { setDesktopProfileOpen(false); setLanguageOpen(true) }}
+            className={cn(accountMenuRow, "w-full")}
+          >
+            <Globe className="h-4 w-4 shrink-0" />
+            <span>{t("settings.language")}</span>
+          </button>
+
+          <div className="my-1.5 h-px bg-gray-100" />
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 cursor-pointer outline-none focus-visible:bg-red-50 focus-visible:text-red-600"
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span>Log out</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
 
   return (
     <>
@@ -1252,14 +1544,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo - refreshes main page */}
                 <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
-                  <StorelibLogo size={44} priority />
+                  <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
-                {/* Center - Nav Links (show for all users) */}
-                <nav className="flex items-center gap-2">
+                {/* Center - Nav Links (show for all users). On a tablet they
+                    close up and Home goes (the logo is Home), so the owner's
+                    four on the right still fit beside them at 768px. */}
+                <nav className="flex items-center gap-1 lg:gap-2">
                   {[
-                    { href: "/", label: "Home", active: pathname === '/' },
+                    { href: "/", label: "Home", active: pathname === '/', wide: true },
                     { href: "/explore", label: "Discover", active: pathname.startsWith('/explore') },
                     { href: "/blog", label: "Blog", active: isBlogRoute },
                     { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
@@ -1270,7 +1564,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       href={item.href}
                       onClick={(e) => onCanonicalNav(e, item.href)}
                       className={cn(
-                        "px-4 py-2 text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,scale] duration-180 ease-out",
+                        "px-3 lg:px-4 py-2 text-[14px] lg:text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,scale] duration-180 ease-out",
+                        "wide" in item && item.wide && "hidden lg:inline",
                         item.active
                           ? "border-white/20 bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                           : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/15 active:scale-[0.98]",
@@ -1281,17 +1576,22 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   ))}
                 </nav>
 
-                {/* Right - Actions */}
-                <div className="flex items-center gap-3">
+                {/*
+                  Right: a guest gets the owner's row in full (a rule, Sell on
+                  Storelib, Log in, Sign up). Signed in, the same things as on
+                  the buyer pages: Discover and the library as icons, Dashboard
+                  only for a seller, and the photo.
+                */}
+                <div className="flex items-center gap-2.5">
                   {loading ? (
-                    <HeaderActionsSkeleton isMarketingRoute />
+                    <GuestHeaderActions withLogin link={headerLink} placeholder />
                   ) : user ? (
                     <>
                       {/* Discover icon */}
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
-                            href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")}
+                            {...headerLink("/explore")}
                             className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                             aria-label="Discover"
                           >
@@ -1302,38 +1602,39 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                           Discover
                         </TooltipContent>
                       </Tooltip>
-                      {/* Primary CTA */}
-                      <Button asChild className="h-[42px] rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app" : "/library")} onClick={(e) => onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app" : "/library")}>
-                          {hasCompletedSellerOnboarding ? "Dashboard" : "Library"}
-                        </Link>
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            {...headerLink("/library")}
+                            /* From lg: on a tablet the photo's menu has My Library. */
+                            className="hidden lg:flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                            aria-label={t("library")}
+                          >
+                            <Library className="h-[22px] w-[22px]" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                          My Library
+                        </TooltipContent>
+                      </Tooltip>
+                      {sellerDashboardButton}
+                      {desktopAccountMenu}
                     </>
                   ) : (
-                    <>
-                      {/* Log In */}
-                      <Link href={getCanonicalOrRelativePath("/login")} onClick={(e) => onCanonicalNav(e, "/login")}>
-                        <Button variant="ghost" className="h-[42px] px-5 rounded-lg text-[15px] font-medium text-white border border-white/70 hover:bg-white/10 hover:text-white cursor-pointer">
-                          Log In
-                        </Button>
-                      </Link>
-                      {/* Start Selling */}
-                      <Button asChild className="h-[42px] rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href="/signup" onClick={(e) => onCanonicalNav(e, "/signup")}>
-                          Start Selling
-                        </Link>
-                      </Button>
-                    </>
+                    <GuestHeaderActions withLogin link={headerLink} />
                   )}
                 </div>
               </div>
 
-              {/* Mobile Homepage/Marketing Header - Logo left, hamburger right */}
-              <div className="md:hidden flex items-center justify-between w-full">
+              {/* Mobile Homepage/Marketing Header - Logo left, hamburger right.
+                  min-h-[42px]: the 42px logo used to set this row's height, and
+                  at 39.9px it would take the bar 2px under the 64.6px that
+                  conditional-header's placeholder reserves, a jump on every load. */}
+              <div className="md:hidden flex min-h-[42px] items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
                   <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
-                    <StorelibLogo size={42} priority />
+                    <StorelibLogo size={HEADER_LOGO.marketingPhone} priority />
                     <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
                   </Link>
                 </div>
@@ -1357,7 +1658,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - links to /explore */}
                 <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
-                  <StorelibLogo size={44} priority />
+                  <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
@@ -1628,7 +1929,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
               {/* Logo next to hamburger - links to /explore */}
               <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
-                <StorelibLogo size={38} priority />
+                <StorelibLogo size={HEADER_LOGO.phone} priority />
                 <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
               </Link>
             </div>
@@ -1694,22 +1995,28 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={32} className="border border-gray-200" />
                 </button>
               ) : (
-                <Link href={getCanonicalOrRelativePath("/login")} onClick={(e) => onCanonicalNav(e, "/login")}>
-                  <Button className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black hover:bg-white/90 gap-2">
+                /* The white Sign in the owner asked to keep on a phone. One link,
+                   drawn as the button (not a button inside a link, which a screen
+                   reader announces as two controls and a keyboard stops on twice). */
+                <Button asChild className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black hover:bg-white/90 gap-2">
+                  <Link {...headerLink("/login")} data-phone-sign-in="">
                     <UserIcon className="h-4 w-4" />
                     Sign in
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
             </div>
           </div>
 
-          {/* Right Side Actions - Desktop only (10% larger) */}
+          {/*
+            THE RIGHT OF THE BAR ON A COMPUTER. The wishlist and the library
+            are here for everybody, as they were. After them, a guest gets the
+            owner's row (a rule, Sell on Storelib, Sign up; no Log in on these
+            pages), a signed in buyer gets nothing more than their photo, and
+            a seller gets Dashboard beside it. No Start selling and no second
+            Library button: the icon beside it already is one.
+          */}
           <div className="hidden md:flex items-center gap-2.5 shrink-0">
-            {loading ? (
-              <HeaderActionsSkeleton />
-            ) : (
-              <>
                 {/* Wishlist */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1749,122 +2056,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Library or Dashboard */}
-                <Button asChild className="h-[42px] rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
-                  <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
-                    {user && hasCompletedSellerOnboarding ? t("dashboard") : user ? "Library" : t("start_selling")}
-                  </Link>
-                </Button>
-
-                {/* User Menu - Desktop styled like sidebar dropdown */}
-                {user && (
-                  <div ref={profileDropdownRef} className="relative">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={() => setDesktopProfileOpen(!desktopProfileOpen)}
-                          className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
-                          aria-label="Open profile menu"
-                        >
-                          <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200 transition-opacity duration-150" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                        Your Account
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Desktop Profile Dropdown - styled like sidebar */}
-                    <div
-                      className={`absolute right-0 top-full mt-2 z-50 origin-top-right transition-all ease-out ${
-                        desktopProfileOpen
-                          ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-                          : "opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
-                      }`}
-                      style={{ transitionDuration: '200ms', transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
-                    >
-                      <div className="min-w-[220px] rounded-xl border border-gray-200/70 bg-white p-1.5 shadow-lg shadow-black/5">
-                        {/* User Info */}
-                        <div className="px-3 py-2.5 border-b border-gray-100 mb-1">
-                          <div className="flex items-center gap-3">
-                            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={40} className="border border-gray-200" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
-                              {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
-                            </div>
-                          </div>
-                        </div>
-
-                        {hasCompletedSellerOnboarding ? (
-                        <Link
-                          href={getCanonicalOrRelativePath(dashboardHref)}
-                          onClick={(e) => {
-                            onCanonicalNav(e, dashboardHref)
-                            setDesktopProfileOpen(false)
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
-                        >
-                          <LayoutDashboard className="h-4 w-4 shrink-0" />
-                          <span>Dashboard</span>
-                        </Link>
-                        ) : (
-                        <Link
-                          href={getCanonicalOrRelativePath('/onboarding')}
-                          onClick={(e) => {
-                            onCanonicalNav(e, '/onboarding')
-                            setDesktopProfileOpen(false)
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
-                        >
-                          <Sparkles className="h-4 w-4 shrink-0" />
-                          <span>Become a Seller</span>
-                        </Link>
-                        )}
-                        <Link
-                          href={getCanonicalOrRelativePath("/library")}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setDesktopProfileOpen(false)
-                            onCanonicalNav(e, "/library")
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
-                        >
-                          <Library className="h-4 w-4 shrink-0" />
-                          <span>My Library</span>
-                        </Link>
-                        <Link
-                          href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
-                          onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setDesktopProfileOpen(false) }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
-                        >
-                          <Settings className="h-4 w-4 shrink-0" />
-                          <span>Settings</span>
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => { setDesktopProfileOpen(false); setLanguageOpen(true) }}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
-                        >
-                          <Globe className="h-4 w-4 shrink-0" />
-                          <span>{t("settings.language")}</span>
-                        </button>
-
-                        <div className="my-1.5 h-px bg-gray-100" />
-
-                        <button
-                          onClick={handleLogout}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 cursor-pointer"
-                        >
-                          <LogOut className="h-4 w-4 shrink-0" />
-                          <span>Log out</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                {loading ? (
+                  <GuestHeaderActions withLogin={false} link={headerLink} placeholder />
+                ) : user ? (
+                  <>
+                    {sellerDashboardButton}
+                    {desktopAccountMenu}
+                  </>
+                ) : (
+                  <GuestHeaderActions withLogin={false} link={headerLink} />
                 )}
-              </>
-            )}
           </div>
           </>
           )}
@@ -1895,60 +2096,53 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       >
         {isMarketingNavRoute ? (
         <div className="px-4 pb-6">
-          {/* Guest User - Simple Sign in and Discover buttons only */}
+          {/* A guest: the owner's three, Sign up, Discover, Sell on Storelib (image 23). */}
           {!user && (
-            <div className="mb-6">
-              {/* Sign in button */}
-              <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="block mb-2">
-                <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Sign in
-                </Button>
-              </Link>
-              {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
-                <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
-                  <Compass className="h-4 w-4" />
-                  Discover
-                </Button>
-              </Link>
+            <div className="px-1 pt-3 pb-2 border-b border-[#eef0f2]">
+              <GuestSheetActions second="discover" link={headerLink} onDone={() => setMobileMenuOpen(false)} />
             </div>
           )}
 
-          {/* Logged-in User Profile Section - On Homepage and Marketing Pages */}
+          {/* Signed in, on the homepage and the marketing pages */}
           {user && isMarketingNavRoute && (
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              {/* Profile Info */}
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
+            <div className="pt-1 pb-4 border-b border-gray-200">
+              {/* Who is signed in, and the way to their account. */}
+              <Link
+                {...headerLink("/account")}
+                onClick={(e) => { onCanonicalNav(e, "/account"); setMobileMenuOpen(false) }}
+                data-account-link=""
+                className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3 active:bg-gray-100 transition-colors [-webkit-tap-highlight-color:transparent]"
+              >
                 <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
-                  {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
-                </div>
-              </div>
-              {/* Dashboard / Become Seller button - below profile */}
-              {hasCompletedSellerOnboarding ? (
-                <Link href={getCanonicalOrRelativePath(dashboardHref)} onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} className="block mb-2">
-                  <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </Button>
-                </Link>
-              ) : (
-                <Link href={getCanonicalOrRelativePath("/onboarding")} onClick={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} className="block mb-2">
-                  <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Become a Seller
-                  </Button>
-                </Link>
-              )}
-              {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
-                <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
-                  <Compass className="h-4 w-4" />
-                  Discover
-                </Button>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-gray-900 truncate">{displayName}</span>
+                  <span className="block text-xs text-gray-500 truncate">{user.email || "Your account"}</span>
+                </span>
+                <ChevronRight aria-hidden className="h-5 w-5 text-gray-400" />
               </Link>
+              <div className="flex flex-col gap-1.5">
+                {hasCompletedSellerOnboarding ? (
+                  <Link
+                    {...headerLink("/app")}
+                    onClick={(e) => { onCanonicalNav(e, "/app"); setMobileMenuOpen(false) }}
+                    data-sheet-dashboard=""
+                    className={cn(SHEET_BUTTON, "gap-2 bg-violet-600 font-[550] text-white hover:bg-violet-700 active:bg-violet-700")}
+                  >
+                    <LayoutDashboard aria-hidden className="h-[18px] w-[18px]" />
+                    Dashboard
+                  </Link>
+                ) : (
+                  <BecomeSellerRow link={headerLink} onDone={() => setMobileMenuOpen(false)} />
+                )}
+                <Link
+                  {...headerLink("/explore")}
+                  onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
+                  className={cn(SHEET_BUTTON, "gap-3 border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}
+                >
+                  <Compass aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+                  Discover
+                </Link>
+              </div>
             </div>
           )}
 
@@ -2014,28 +2208,15 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <>
               <div className="px-4 pt-3">
                 {/*
-                  THE BUTTONS THE MENU HAD BEFORE THE CATEGORY LIST CHANGED,
-                  asked back: full width and stacked, violet Sign in over the
-                  near black Discover, each with its icon, the same pair the
-                  marketing pages' menu shows above. "A bit more space between
-                  the drag pill and the buttons" (pt-3, 16px under the pill
-                  where it was 8px), and labels at 550: at 500 they read slim
-                  in white on a dark fill.
+                  A GUEST ON EXPLORE, A PRODUCT OR ANY PAGE WITH THIS HEADER:
+                  Sign up, Log in, Sell on Storelib. The marketing menu's three
+                  with Log in where Discover was, because this is Discover.
+                  "A bit more space between the drag pill and the buttons"
+                  still holds (pt-3, 16px under the pill).
                 */}
                 {!user && (
                   <div className="mb-2">
-                    <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="block mb-2">
-                      <Button data-menu-sign-in="" className="w-full h-[42px] rounded-lg text-sm font-[550] bg-violet-600 text-white hover:bg-violet-700 gap-2">
-                        <LogIn className="h-4 w-4" />
-                        Sign in
-                      </Button>
-                    </Link>
-                    <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
-                      <Button data-menu-discover="" className="w-full h-[42px] rounded-lg text-sm font-[550] bg-gray-900 text-white hover:bg-gray-800 gap-2">
-                        <Compass className="h-4 w-4" />
-                        Discover
-                      </Button>
-                    </Link>
+                    <GuestSheetActions second="login" link={headerLink} onDone={() => setMobileMenuOpen(false)} />
                   </div>
                 )}
                 {isDiscoverProductContext && (
@@ -2064,7 +2245,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <MenuRow href={dashboardHref} label="Dashboard" onNav={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath(dashboardHref)} />
                 )}
                 {!hasCompletedSellerOnboarding && (
-                  <MenuRow href="/onboarding" label="Become a Seller" onNav={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/onboarding")} />
+                  <MenuRow seller href="/sell" label="Become a seller" onNav={(e) => { onCanonicalNav(e, "/sell"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/sell")} />
                 )}
               </div>
               ) : null
@@ -2087,14 +2268,20 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         keepMounted={!!user && belowMd}
       >
         <div className="px-4 pb-6">
-          {/* User Info */}
-          <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
+          {/* Who is signed in: the photo's destination, the account (/account). */}
+          <Link
+            {...headerLink("/account")}
+            onClick={(e) => { onCanonicalNav(e, "/account"); setMobileProfileOpen(false) }}
+            data-account-link=""
+            className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl active:bg-gray-100 transition-colors [-webkit-tap-highlight-color:transparent]"
+          >
             <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={48} className="border border-gray-200" />
-            <div className="flex-1 min-w-0">
-              <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
-              {user?.email && <p className="text-sm text-gray-500 truncate">{user.email}</p>}
-            </div>
-          </div>
+            <span className="flex-1 min-w-0">
+              <span className="block text-base font-medium text-gray-900 truncate">{displayName}</span>
+              <span className="block text-sm text-gray-500 truncate">{user?.email || "Your account"}</span>
+            </span>
+            <ChevronRight aria-hidden className="h-5 w-5 text-gray-400" />
+          </Link>
 
           {/* Menu Items */}
           <div className="space-y-0.5">
@@ -2102,6 +2289,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             <Link
               href={getCanonicalOrRelativePath(dashboardHref)}
               onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileProfileOpen(false) }}
+              data-sheet-dashboard=""
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -2111,17 +2299,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             ) : (
-            <Link
-              href={getCanonicalOrRelativePath('/onboarding')}
-              onClick={(e) => { onCanonicalNav(e, '/onboarding'); setMobileProfileOpen(false) }}
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <Sparkles className="h-5 w-5 text-gray-400" />
-                <span>Become a Seller</span>
+              <div className="pb-1.5">
+                <BecomeSellerRow link={headerLink} onDone={() => setMobileProfileOpen(false)} />
               </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </Link>
             )}
             <Link
               href={getCanonicalOrRelativePath("/library")}
@@ -2394,31 +2574,5 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         </div>
       )}
     </>
-  )
-}
-
-function HeaderActionsSkeleton({ isMarketingRoute = false }: { isMarketingRoute?: boolean }) {
-  if (isMarketingRoute) {
-    return (
-      <div className="flex items-center gap-3">
-        {/* Log In button skeleton */}
-        <Skeleton className="h-[42px] w-[72px] rounded-lg bg-white/10" />
-        {/* Start Selling button skeleton */}
-        <Skeleton className="h-[42px] w-[110px] rounded-lg bg-white/10" />
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex items-center gap-2.5">
-      {/* Wishlist circle */}
-      <Skeleton className="h-[42px] w-[42px] rounded-full bg-white/10" />
-      {/* Library circle */}
-      <Skeleton className="h-[42px] w-[42px] rounded-full bg-white/10 hidden sm:block" />
-      {/* CTA button */}
-      <Skeleton className="h-[42px] w-28 rounded-full bg-white/10" />
-      {/* Avatar circle */}
-      <Skeleton className="h-[42px] w-[42px] rounded-full bg-white/10" />
-    </div>
   )
 }

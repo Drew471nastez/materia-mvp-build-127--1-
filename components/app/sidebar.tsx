@@ -683,7 +683,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <div className="h-5 w-px bg-white/15" />
 
             <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
-              <StorelibLogo size={27} priority />
+              {/* 5% UNDER THE 27PX IT WAS, as in every header. components/app/shell-header-still.tsx draws the same number. */}
+              <StorelibLogo size={25.65} priority />
               <span className="text-[15px] font-semibold text-white">Storelib</span>
             </Link>
           </div>

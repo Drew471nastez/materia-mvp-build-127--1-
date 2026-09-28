@@ -270,6 +270,14 @@ html.capacitor body {
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /*
+    THE CORNER OF A STORELIB BUTTON THAT IS NOT A PILL. The header's Log in
+    button set it (8px, the owner's reference for the logged out header), and
+    every button that should match it (Sign up beside it, the hero's Discover
+    and Sign up, the phone menu's buttons) says `rounded-action` rather than
+    a number, so the corner is decided in one place.
+  */
+  --radius-action: 8px;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
