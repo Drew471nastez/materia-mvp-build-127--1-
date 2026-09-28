@@ -109,6 +109,8 @@ export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string
   { path: /^\/api\/checkout\/quick-free\/?$/, methods: ["POST"] },
   /* Its download, by the receipt token the claim returned. */
   { path: /^\/api\/download\/[A-Za-z0-9-]{1,64}\/?$/, methods: ["GET", "HEAD"] },
+  /* The creator arriving from the app, so their own visits are not counted here (lib/analytics/own-marker). */
+  { path: /^\/api\/analytics\/own\/?$/, methods: ["GET"] },
 ]
 
 /** Files a OnePage's markup may ask the host for directly: fonts, media, icons. */

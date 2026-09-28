@@ -1,6 +1,7 @@
 "use client"
 
 import { relativeTime } from "@/lib/website-builder/relative-time"
+import { ownOpen } from "@/lib/analytics/own-site"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Check, ChevronDown, ChevronRight, Copy, ExternalLink, Eye, Globe, Loader2, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react"
 
@@ -540,7 +541,7 @@ function Body({
                 {copied === "site" ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
               </button>
               <a
-                href={websiteUrl}
+                href={ownOpen(websiteUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"

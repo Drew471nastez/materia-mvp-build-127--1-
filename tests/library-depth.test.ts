@@ -32,7 +32,16 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
-const LATENCY = 60
+/*
+  Each fake query waits this long, and the checks below read the waves off the
+  clock. At 60ms three waves measured 226ms against a bound of 216, and five in
+  a line would have been 300: a scheduler hiccup of a few milliseconds was the
+  difference between pass and fail, and the suite failed at random on a busy
+  machine while passing on an idle one. The wait is longer so the gap between
+  three waves and five is hundreds of milliseconds instead of tens. It costs
+  the suite about half a second and it no longer races the clock.
+*/
+const LATENCY = 200
 
 interface Call {
   table: string

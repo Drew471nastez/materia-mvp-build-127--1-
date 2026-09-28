@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
+import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -6008,6 +6009,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // ── Website URL display ────────────────────────────────────
   /* The website's own name when it has one, else the creator's username. */
   const siteName = siteHandle || username
+  /* Opening the live site from the editor is not a visit to it (lib/analytics/own-site). */
+  useOwnMarker()
   const websiteUrl = siteName ? getWebsiteShareUrl(siteName) : ""
   const websiteUrlDisplay = siteName ? getWebsiteUrlDisplay(siteName) : ""
 
@@ -6560,7 +6563,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         ? [{
             label: "View live site",
             icon: <ExternalLink className="h-4 w-4" />,
-            href: websiteUrl,
+            href: ownOpen(websiteUrl),
             target: "_blank" as const,
             separatorBefore: true,
           }]
@@ -6824,7 +6827,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <Tooltip>
               <TooltipTrigger asChild>
                 <a
-                  href={websiteUrl}
+                  href={ownOpen(websiteUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
