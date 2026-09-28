@@ -359,6 +359,8 @@ try {
         new Promise((resolve) => {
           const out = []
           const t0 = performance.now()
+          /* The animation clock: what a transition's progress is computed from, one value per frame. */
+          const c0 = document.timeline.currentTime
           const fill = (href) => parseFloat(getComputedStyle(document.querySelector(`[data-library-tab-href="${href}"] [data-library-tab-fill]`)).opacity)
           const panel = document.querySelector("[data-library-panel]")
           const row = document.querySelector("[data-library-tabs]")
@@ -368,6 +370,7 @@ try {
             const content = panel.firstElementChild
             out.push({
               t: Math.round(now - t0),
+              clock: Math.round(document.timeline.currentTime - c0),
               to: fill(to),
               from: fill(from),
               active: document.querySelector('[data-library-tab][data-active="true"]')?.getAttribute("data-library-tab-href"),
@@ -409,10 +412,38 @@ try {
       const fills = f.map((x) => x.to)
       const drops = fills.filter((v, i) => i > 0 && v < fills[i - 1] - 0.001).length
       const full = f.find((x) => x.to >= 0.999)
-      /* Timed from the frame the pill was chosen in. Samples are only as dense as the frames a throttled main thread gets, so a sample's own gap is allowed on top. */
-      const startAt = f[1].t
-      const gapAtFull = full ? full.t - f[f.indexOf(full) - 1].t : 0
-      expect(drops === 0 && full && full.t - startAt <= 150 + gapAtFull + 20 && fills[0] < 1, "its fill only grows, 0 to 1 in settings' 150ms from the press's frame", { first: fills[0], chosenAt: startAt, fullAt: full?.t, sampleGap: gapAtFull, drops })
+      /*
+        TIMED FROM THE FRAME THE FILL STARTS, NOT FROM THE PRESS. It was timed
+        from the press's frame, and under 4x throttle the commit that starts
+        the transition can land a frame or two after that frame, so the fill
+        reached 1 at 156 to 195ms after the press while still taking 150ms
+        itself: a flake that said nothing about the animation.
+
+        The transition really began somewhere between the last sample that
+        read 0 (lastZero) and the first that read more (begun). It really
+        ended somewhere between the sample before `full` and `full`. So:
+          full - begun    <= 150 + the gap at the end   (never longer than 150ms)
+          full - lastZero >= 150 - one frame            (never shorter: really animated)
+        A frame's worth of tolerance on each side, and nothing else. It still
+        fails a 300ms fade, an instant jump to 1, and any dip on the way.
+      */
+      const begunAt = fills.findIndex((v) => v > 0.001)
+      const begun = begunAt > 0 ? f[begunAt] : null
+      const lastZero = begunAt > 0 ? f[begunAt - 1] : null
+      const fullAt = full ? f.indexOf(full) : -1
+      /* On the animation clock (document.timeline), which is what the fill's progress is read from; performance.now() inside a throttled frame runs ahead of it by however long the frame took. */
+      const clockGaps = f.slice(1).map((x, i) => x.clock - f[i].clock).filter((g) => g > 0).sort((a, b) => a - b)
+      const medianGap = clockGaps[Math.floor(clockGaps.length / 2)] ?? 17
+      const gapAtFull = fullAt > 0 ? full.clock - f[fullAt - 1].clock : 0
+      const took = full && begun ? full.clock - begun.clock : null
+      const atLeast = full && lastZero ? full.clock - lastZero.clock : null
+      expect(
+        drops === 0 && fills[0] < 1 && !!begun && !!full && took <= 150 + gapAtFull + 2 && atLeast >= 150 - medianGap - 2 && fullAt > begunAt,
+        "its fill only grows, 0 to 1 in settings' 150ms from the frame the fill starts (one frame's tolerance)",
+        { first: fills[0], lastZeroAt: lastZero?.clock, begunAt: begun?.clock, fullAt: full?.clock, took, atLeast, gapAtFull, medianGap, drops },
+      )
+      /* And the start itself follows the press closely: within a few frames of the pill being chosen. */
+      expect(!!begun && begunAt - 1 <= 4, "the fill starts within a few frames of the press", { chosenAt: f[1].t, begunAt: begun?.t, frames: begunAt - 1 })
       const outs = f.map((x) => x.from)
       expect(outs.at(-1) === 0 && outs.filter((v, i) => i > 0 && v > outs[i - 1] + 0.001).length === 0, "the old pill's fill only fades out", outs.slice(0, 6))
       expect(f.every((x) => x.filled), "no frame without a screen under the pills (no blank frame)", f.filter((x) => !x.filled).map((x) => x.t))
