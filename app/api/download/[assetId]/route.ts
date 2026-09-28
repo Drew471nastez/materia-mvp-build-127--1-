@@ -124,7 +124,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     }
 
     return NextResponse.json(
-      { success: true, downloadUrl: signed.url, fileName: asset.file_name || "download", expiresIn: SIGNED_URL_EXPIRY_SECONDS },
+      {
+        success: true,
+        downloadUrl: signed.url,
+        fileName: asset.file_name || "download",
+        expiresIn: SIGNED_URL_EXPIRY_SECONDS,
+        /* The phone app reads these to choose how to save it: a file too big
+           to hold in the page is streamed to disk instead (lib/downloads). */
+        fileSize: asset.file_size,
+        mimeType: asset.mime_type,
+      },
       { headers: NO_STORE },
     )
   } catch (error) {

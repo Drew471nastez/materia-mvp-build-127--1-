@@ -11,7 +11,7 @@ type EntitlementRow = {
   creator: any
 }
 
-type DownloadRow = {
+export type DownloadRow = {
   id: string
   productId: string
   title: string
@@ -19,7 +19,15 @@ type DownloadRow = {
   creatorName: string
   createdAt: string
   purchasedAtLabel: string
-  files: Array<{ id: string; fileName: string }>
+  files: Array<{ id: string; fileName: string; sizeBytes: number | null }>
+  /* What the library's creator filter and contact need. Read in the same
+     queries as before: the page is still three waves deep. */
+  creatorId: string | null
+  creatorSlug: string | null
+  creatorAvatarUrl: string | null
+  productSlug: string | null
+  /** "published" while it is on sale; anything else is still theirs, only not in the shop. */
+  productStatus: string | null
 }
 
 function formatDate(dateString: string) {
@@ -121,6 +129,7 @@ export async function getLibraryDownloads(
 
   const uniqueCreatorIds = [...new Set(missingCreatorIds)]
   const creatorProfileMap = new Map<string, string>()
+  const creatorCardMap = new Map<string, { slug: string | null; avatarUrl: string | null }>()
 
   /*
     AND THE FILES DO NOT WAIT FOR THE CREATOR NAMES.
@@ -136,18 +145,20 @@ export async function getLibraryDownloads(
     if (uniqueCreatorIds.length === 0) return
     const { data: creators } = await admin
       .from("creators")
-      .select("id, user_id, slug")
+      .select("id, user_id, slug, display_name")
       .in("id", uniqueCreatorIds)
 
-    const userIds = (creators || []).map((c) => c.user_id).filter(Boolean)
+    const userIds = (creators || []).map((c: any) => c.user_id).filter(Boolean)
     const { data: profiles } = userIds.length
-      ? await admin.from("profiles").select("id, display_name").in("id", userIds)
+      ? await admin.from("profiles").select("id, display_name, avatar_url").in("id", userIds)
       : { data: [] as any[] }
 
-    const profileByUserId = new Map((profiles || []).map((p: any) => [p.id, p.display_name]))
+    const profileByUserId = new Map((profiles || []).map((p: any) => [p.id, p]))
 
     ;(creators || []).forEach((creator: any) => {
-      creatorProfileMap.set(creator.id, profileByUserId.get(creator.user_id) || creator.slug || "Creator")
+      const profile: any = profileByUserId.get(creator.user_id)
+      creatorProfileMap.set(creator.id, profile?.display_name || creator.display_name || creator.slug || "Creator")
+      creatorCardMap.set(creator.id, { slug: creator.slug || null, avatarUrl: profile?.avatar_url || null })
     })
   }
 
@@ -155,15 +166,19 @@ export async function getLibraryDownloads(
     namesForMissingCreators(),
     admin
       .from("digital_assets")
-      .select("id, product_id, file_name, created_at")
+      /* Whole rows: upload_status and file_size arrived in later migrations. */
+      .select("*")
       .in("product_id", productIds)
       .order("created_at", { ascending: true }),
   ])
 
-  const filesByProduct = new Map<string, Array<{ id: string; fileName: string }>>()
+  const filesByProduct = new Map<string, Array<{ id: string; fileName: string; sizeBytes: number | null }>>()
   ;(assets || []).forEach((asset: any) => {
+    /* A file still uploading, or whose upload failed, has nothing to download yet (as on the receipt). */
+    if (typeof asset.upload_status === "string" && asset.upload_status !== "completed") return
     const current = filesByProduct.get(asset.product_id) || []
-    current.push({ id: asset.id, fileName: asset.file_name || "File" })
+    const size = Number(asset.file_size)
+    current.push({ id: asset.id, fileName: asset.file_name || "File", sizeBytes: size > 0 ? size : null })
     filesByProduct.set(asset.product_id, current)
   })
 
@@ -174,6 +189,9 @@ export async function getLibraryDownloads(
         creatorProfileMap.get(row.product?.creator_id) ||
         "Creator"
 
+      const creatorId: string | null = row.creator?.id || row.product?.creator_id || null
+      const card = creatorId ? creatorCardMap.get(creatorId) : undefined
+
       return {
         id: row.id,
         productId: row.product_id,
@@ -183,6 +201,12 @@ export async function getLibraryDownloads(
         createdAt: row.created_at,
         purchasedAtLabel: formatDate(row.created_at),
         files: filesByProduct.get(row.product_id) || [],
+        creatorId,
+        creatorSlug: row.creator?.slug || card?.slug || null,
+        /* The creator's profile photo, the one Explore and the receipt show (lib/account/avatar). */
+        creatorAvatarUrl: row.creator?.profile?.avatar_url || card?.avatarUrl || null,
+        productSlug: row.product?.slug || null,
+        productStatus: row.product?.status || null,
       }
     })
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))

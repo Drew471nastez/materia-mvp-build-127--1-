@@ -17,6 +17,9 @@ export interface DownloadAsset {
   storage_bucket: string | null
   scan_status: string | null
   creator_id: string | null
+  /** For the phone app, which decides from the size how to save it (lib/downloads/native.ts). */
+  file_size: number | null
+  mime_type: string | null
 }
 
 export interface DownloadAccessResult {
@@ -62,6 +65,8 @@ export async function resolveDownloadAccess(
     storage_bucket: row.storage_bucket ?? null,
     scan_status: row.scan_status ?? null,
     creator_id: product?.creator_id ?? null,
+    file_size: typeof row.file_size === "number" && row.file_size > 0 ? row.file_size : Number(row.file_size) > 0 ? Number(row.file_size) : null,
+    mime_type: typeof row.mime_type === "string" && row.mime_type ? row.mime_type : null,
   }
 
   let receiptOrder: { id: string; product_id: string; variant_id: string | null; status: string | null; amount_cents?: number | null; refund_amount_cents?: number | null } | null = null

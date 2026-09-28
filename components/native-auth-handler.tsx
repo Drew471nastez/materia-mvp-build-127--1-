@@ -39,7 +39,16 @@ export function NativeAuthHandler() {
       const { createClient } = await import("@/lib/supabase/client")
       const { handleNativeOAuthCallback } = await import("@/lib/native-bridge")
 
+      const { openTarget } = await import("@/lib/platform/open-in-app")
+
       listenerRef.current = await App.addListener("appUrlOpen", async ({ url }) => {
+        /* "Open in app" from the library in a phone's browser
+           (components/library/open-in-app.tsx): go to the page it names. */
+        const opened = openTarget(url)
+        if (opened) {
+          router.push(opened)
+          return
+        }
         // Only handle URLs that look like our OAuth callback.
         if (!url.includes("/auth/callback") && !url.includes("auth/callback")) return
 

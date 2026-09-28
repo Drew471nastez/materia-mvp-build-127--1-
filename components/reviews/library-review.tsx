@@ -15,6 +15,10 @@ import { ReviewForm, type OwnReview } from "./review-form"
  * Signed in is a given on this page. The check also hands back their newest
  * order's receipt token, so a review they wrote as a guest (from the receipt
  * link, before they had an account) can be changed from here too.
+ *
+ * `?rate=4#review` (a star pressed in the library's list, components/
+ * library/rate-stars.tsx) chooses the stars before the card is drawn and
+ * brings the card into view; the words are still theirs to write.
  */
 export function LibraryReview({
   productId,
@@ -36,6 +40,22 @@ export function LibraryReview({
     receiptToken?: string | null
   } | null>(null)
   const [ready, setReady] = useState(false)
+  const [rate, setRate] = useState<number | null>(null)
+
+  useEffect(() => {
+    try {
+      const n = Number(new URLSearchParams(window.location.search).get("rate"))
+      if (Number.isInteger(n) && n >= 1 && n <= 5) setRate(n)
+    } catch {
+      /* no address to read */
+    }
+  }, [])
+
+  /* Arrived for the review: once the card is drawn, bring it into view. */
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || window.location.hash !== "#review") return
+    document.getElementById("review")?.scrollIntoView({ block: "start", behavior: "smooth" })
+  }, [ready])
 
   useEffect(() => {
     let live = true
@@ -58,7 +78,7 @@ export function LibraryReview({
   if (!status.hasPurchased && !status.hasReviewed) return null
 
   return (
-    <section id="review" aria-label="Your review" className="mt-6 max-w-[640px] scroll-mt-6">
+    <section id="review" aria-label="Your review" className="scroll-mt-20">
       <ReviewForm
         productId={productId}
         productTitle={productTitle}
@@ -67,6 +87,7 @@ export function LibraryReview({
         hasPurchased
         hasReviewed={!!status.hasReviewed}
         existingReview={status.existingReview}
+        initialRating={status.hasReviewed ? null : rate}
         reviewerName={reviewerName}
         reviewerAvatarUrl={reviewerAvatarUrl}
         sellerName={sellerName}

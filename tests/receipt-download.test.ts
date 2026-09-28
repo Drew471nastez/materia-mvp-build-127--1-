@@ -325,7 +325,9 @@ function main() {
   check("a pending payment refreshes by itself", /router\.refresh\(\)/.test(view) && /PENDING_POLL_LIMIT/.test(view))
   check("and stops rather than polling for ever", /polls >= PENDING_POLL_LIMIT/.test(view))
   check("dates are in the buyer's locale and zone", /new Intl\.DateTimeFormat\(locale/.test(view) && /format\(undefined\)/.test(view))
-  check("the app says how to keep a file on iPhone", /Tap Share, then Save to Files/.test(view))
+  /* Changed on purpose: in the app a download now ends at Save to Files in the
+     share sheet (lib/downloads/download-file.ts), not at Safari's viewer. */
+  check("the app says how to keep a file on iPhone", /tap Save to Files/.test(view))
   check("a download error is shown next to the file", /role="alert"/.test(view))
 
   /* Changed on purpose. The signed address is on storage's origin, and an
@@ -336,9 +338,16 @@ function main() {
 
      Changed on purpose again: the same shape was needed by the creator's
      own file menu and by a public OnePage, so it moved into one module and
-     these pins follow it there. The button's own pins stay on the button. */
+     these pins follow it there. The button's own pins stay on the button.
+
+     Changed on purpose a third time: the button's decision moved into the
+     one download path every Download now takes (lib/downloads/download-file.ts,
+     with the app's own downloader in front of the system browser), and
+     components/download-button.tsx is a thin call into it. The pins follow
+     it there; what they pin is the same. */
   const shared = code("lib/platform/download-tab.ts")
-  const button = code("components/download-button.tsx")
+  const button = code("lib/downloads/download-file.ts")
+  const browserPath = button.slice(button.indexOf("async function downloadInBrowser("), button.indexOf("async function downloadInApp("))
   check("the tab is opened without the noopener feature, which would answer null and leave no tab",
     /window\.open\("", "_blank"\)/.test(shared) && /tab\.opener = null/.test(shared) && !/window\.open\([^)]*"noopener"/.test(shared))
   check("it is pointed at the file with replace, so the empty page is not in its history",
@@ -347,14 +356,15 @@ function main() {
     /\^\(blob\|data\):/.test(shared) && /new URL\(url, window\.location\.href\)\.origin === window\.location\.origin/.test(shared) && /link\.download = filename/.test(shared))
   check("a refused tab gets a notice with the address, never nothing",
     /data-download-blocked-link/.test(shared) && /link\.target = "_blank"/.test(shared) && /link\.rel = "noopener noreferrer"/.test(shared))
-  check("the tab is opened inside the press, before the request", /const tab = native \? null : openDownloadTab\(\)/.test(button)
-    && button.indexOf("const tab = native") < button.indexOf("await fetch(apiUrl"))
+  check("the tab is opened inside the press, before the request", /const tab = openDownloadTab\(\)/.test(browserPath)
+    && browserPath.indexOf("const tab = openDownloadTab()") < browserPath.indexOf("await resolveTarget(target)"))
   check("the file goes to that tab, never to the page the buyer is on",
-    /tab\?\.point\(data\.downloadUrl\)/.test(button) && !/link\.href = data\.downloadUrl/.test(button))
-  check("our own origin still saves through an anchor", /anchorCanSave\(data\.downloadUrl\)/.test(button) && /clickDownloadLink\(data\.downloadUrl, filename\)/.test(button))
-  check("a refused request closes the tab again", /tab\?\.close\(\)\s*\n\s*return \{\s*\n\s*success: false/.test(button))
-  check("and a refused tab hands the buyer the notice", /showBlockedDownload\(data\.downloadUrl, filename\)/.test(button) && /blockedUrl: data\.downloadUrl/.test(button))
-  check("the app still opens the system browser", /await openInSystemBrowser\(data\.downloadUrl\)/.test(button))
+    /tab\?\.point\(url\)/.test(browserPath) && !/location\.href = url/.test(browserPath))
+  check("our own origin still saves through an anchor", /anchorCanSave\(url\)/.test(browserPath) && /clickDownloadLink\(url, fileName\)/.test(browserPath))
+  check("a refused request closes the tab again", /if \("failed" in resolved\) \{\s*\n\s*tab\?\.close\(\)\s*\n\s*return resolved\.failed/.test(browserPath))
+  check("and a refused tab hands the buyer the notice", /showBlockedDownload\(url, fileName\)/.test(browserPath) && /blockedUrl: url/.test(browserPath))
+  check("the app still opens the system browser when nothing better is there", /await openInSystemBrowser\(file\.url\)/.test(button))
+  check("the button is a thin call into that one path", /return downloadFile\(\{ assetId, receiptToken/.test(code("components/download-button.tsx")))
 
   const legacy = [
     ["app/checkout/receipt/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],

@@ -2,68 +2,76 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { OpenInApp } from "./open-in-app"
 
 /**
  * ===========================================================================
- *  WHAT IS LEFT OF THE SIDEBAR
+ *  THE LIBRARY'S OWN PLACES
  * ===========================================================================
- * The library had a 256px sidebar of its own, and on a phone that sidebar was
- * also the page's header. Which meant /library carried a completely different
- * shell from the rest of the platform: its own bar, its own logo, its own
- * scroll container, no platform header and no footer.
+ * The library was a sidebar once, then a row of pills: Overview, Downloads,
+ * Wishlist, Settings. What a buyer comes here for is the things they bought,
+ * and those come in three kinds that live on three screens: products (files
+ * to download), courses (/library/courses) and memberships
+ * (/library/memberships). Then what they did about them: reviews and
+ * receipts. Then what they have not bought yet: the wishlist.
  *
- * Most of what that sidebar held is already in the platform header two
- * centimetres above it: Discover, Dashboard, Settings, Log out, the wishlist
- * and the library itself. A second copy of a navigation is not navigation, it
- * is a choice about which of two identical things to press.
+ * So the heading is "Library" and under it one row of tabs, underlined like
+ * sections of one place rather than pills, because pills on this product are
+ * filters (Explore's categories, the creator chips below). Settings is not a
+ * tab: it is the account (/account), which the avatar in the header opens.
  *
- * What is NOT in the header is the library's own four places. They are a row
- * of pills, which is the shape this product already uses for "pick one of
- * these" on Explore, rather than a second sidebar wearing a different hat.
+ * The row is on the library's list screens only. A product, a course player
+ * or a membership opened from it has its own back link and needs the room.
  */
-const TABS = [
-  { href: "/library", label: "Overview" },
-  { href: "/library/my-downloads", label: "Downloads" },
+export const LIBRARY_TABS = [
+  { href: "/library", label: "Products" },
+  { href: "/library/courses", label: "Courses" },
+  { href: "/library/memberships", label: "Memberships" },
+  { href: "/library/reviews", label: "Reviews" },
+  { href: "/library/receipts", label: "Receipts" },
   { href: "/library/wishlist", label: "Wishlist" },
-  { href: "/library/settings", label: "Settings" },
 ] as const
+
+/** The screens the row is drawn on: exactly the tabs' own addresses. */
+export function showsLibraryTabs(pathname: string | null): boolean {
+  const path = (pathname || "").replace(/\/+$/, "") || "/"
+  return LIBRARY_TABS.some((t) => t.href === path)
+}
 
 export function LibraryTabs() {
   const pathname = usePathname()
+  if (!showsLibraryTabs(pathname)) {
+    /* Still offered on a product opened from the library: that is where a phone most wants the app. */
+    return <OpenInApp className="mb-4" />
+  }
+  const path = (pathname || "").replace(/\/+$/, "")
 
   return (
-    /*
-      One row at every width, scrolling sideways when it does not fit, the
-      same as the category pills. `w-max` with auto margins centres nothing
-      here because the row is left-aligned with the page, but it does stop the
-      row stretching its items.
-    */
-    <nav
-      aria-label="Library"
-      className="mb-6 -mx-1 overflow-x-auto px-1 py-0.5 scrollbar-hide [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-16px),transparent_100%)] sm:[mask-image:none]"
-    >
-      <div className="flex w-max items-center gap-2">
-        {TABS.map((tab) => {
-          /* Overview is the only one that is a prefix of the others. */
-          const isActive =
-            tab.href === "/library" ? pathname === "/library" : pathname.startsWith(tab.href)
-
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              aria-current={isActive ? "page" : undefined}
-              className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-colors duration-150 ${
-                isActive
-                  ? "border-neutral-900 bg-neutral-900 text-white"
-                  : "border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:text-neutral-800"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          )
-        })}
-      </div>
-    </nav>
+    <header data-library-header="" className="mb-5 sm:mb-6">
+      <h1 className="text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Library</h1>
+      <nav aria-label="Library" className="relative -mx-4 mt-3 sm:mx-0 sm:mt-4">
+        <div className="overflow-x-auto px-4 scrollbar-hide sm:px-0">
+          <div className="flex w-max min-w-full items-stretch gap-5 border-b border-[#e4e7ec] sm:gap-7">
+            {LIBRARY_TABS.map((tab) => {
+              const active = tab.href === path
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  aria-current={active ? "page" : undefined}
+                  data-library-tab={tab.label}
+                  className={`relative -mb-px inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 text-[14px] font-medium transition-colors duration-150 ${
+                    active ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:text-[#1a1a2e]"
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      </nav>
+      <OpenInApp className="mt-4" />
+    </header>
   )
 }

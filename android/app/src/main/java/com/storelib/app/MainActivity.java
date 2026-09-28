@@ -1,11 +1,17 @@
 package com.storelib.app;
 
+import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
@@ -19,6 +25,8 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 
 import androidx.core.splashscreen.SplashScreen;
+
+import org.json.JSONObject;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -183,6 +191,128 @@ public class MainActivity extends BridgeActivity {
                         // No settings activity to open: the message on screen says where to go.
                     }
                 });
+            }
+
+            /**
+             * A bought file, saved to this phone's Downloads.
+             *
+             * The WebView drops a download on the floor: Capacitor sets no
+             * DownloadListener, and the file lives on storage's origin, so
+             * the page cannot save it itself. The page asks the server for
+             * a short lived signed https address and hands it here; the
+             * system DownloadManager streams it straight to disk (a file of
+             * hundreds of megabytes never passes through the page), shows
+             * its own notification, and keeps it in Downloads. The page
+             * polls downloadStatus() for its progress bar
+             * (lib/downloads/download-file.ts). An older install has no
+             * such method, and the page falls back to the system browser.
+             *
+             * Answers the download's id, or "" when it could not start.
+             */
+            @JavascriptInterface
+            public String download(String url, String fileName, String mimeType) {
+                try {
+                    Uri uri = Uri.parse(url);
+                    if (!"https".equals(uri.getScheme())) return "";
+                    String name = safeFileName(fileName);
+                    DownloadManager.Request request = new DownloadManager.Request(uri);
+                    request.setTitle(name);
+                    request.setDescription("Storelib");
+                    if (mimeType != null && !mimeType.isEmpty()) request.setMimeType(mimeType);
+                    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                    request.setAllowedOverMetered(true);
+                    request.setAllowedOverRoaming(true);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        // Android 10 and later: the shared Downloads folder needs no permission.
+                        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+                    } else {
+                        // Older: the app's own Downloads folder, which needs no permission either.
+                        // The notification and the Downloads app still list it and open it.
+                        request.setDestinationInExternalFilesDir(MainActivity.this, Environment.DIRECTORY_DOWNLOADS, name);
+                    }
+                    DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (manager == null) return "";
+                    return String.valueOf(manager.enqueue(request));
+                } catch (Exception e) {
+                    return "";
+                }
+            }
+
+            /** {"state":"pending|running|paused|done|failed","loaded":n,"total":n} */
+            @JavascriptInterface
+            public String downloadStatus(String id) {
+                JSONObject out = new JSONObject();
+                try {
+                    out.put("state", "failed");
+                    DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (manager == null) return out.toString();
+                    DownloadManager.Query query = new DownloadManager.Query().setFilterById(Long.parseLong(id));
+                    Cursor cursor = manager.query(query);
+                    if (cursor == null) return out.toString();
+                    try {
+                        if (!cursor.moveToFirst()) return out.toString();
+                        int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                        long loaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                        long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                        String state = "running";
+                        if (status == DownloadManager.STATUS_SUCCESSFUL) state = "done";
+                        else if (status == DownloadManager.STATUS_FAILED) state = "failed";
+                        else if (status == DownloadManager.STATUS_PAUSED) state = "paused";
+                        else if (status == DownloadManager.STATUS_PENDING) state = "pending";
+                        out.put("state", state);
+                        out.put("loaded", Math.max(0L, loaded));
+                        out.put("total", Math.max(0L, total));
+                    } finally {
+                        cursor.close();
+                    }
+                } catch (Exception ignored) {
+                    // Answered as failed; the page says so and offers the file again.
+                }
+                return out.toString();
+            }
+
+            /** Opens a finished download in whatever app handles its type. */
+            @JavascriptInterface
+            public boolean openDownload(String id) {
+                try {
+                    DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (manager == null) return false;
+                    long n = Long.parseLong(id);
+                    Uri file = manager.getUriForDownloadedFile(n);
+                    if (file == null) return false;
+                    String type = manager.getMimeTypeForDownloadedFile(n);
+                    Intent view = new Intent(Intent.ACTION_VIEW);
+                    view.setDataAndType(file, type != null ? type : "*/*");
+                    view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    mainHandler.post(() -> {
+                        try {
+                            startActivity(view);
+                        } catch (ActivityNotFoundException e) {
+                            // Nothing opens this type: the Downloads list does, and shows it there.
+                            try {
+                                Intent list = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
+                                list.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(list);
+                            } catch (Exception ignored) {
+                                // No Downloads app either; the notification still opens it.
+                            }
+                        }
+                    });
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+
+            /** Stops a download the buyer closed before it finished. */
+            @JavascriptInterface
+            public void cancelDownload(String id) {
+                try {
+                    DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (manager != null) manager.remove(Long.parseLong(id));
+                } catch (Exception ignored) {
+                    // Already finished or already gone.
+                }
             }
 
             /**
@@ -400,6 +530,23 @@ public class MainActivity extends BridgeActivity {
     public void showAuthLoading() { showOverlay(); }
     /** @deprecated Use {@link #hideOverlay()} */
     public void hideAuthLoading() { hideOverlay(); }
+
+    /**
+     * A name DownloadManager can write: no folders, no control characters,
+     * not empty, and not so long a file system refuses it. The extension is
+     * kept, because it is what opens the file afterwards.
+     */
+    static String safeFileName(String raw) {
+        String name = raw == null ? "" : raw.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+        while (name.startsWith(".")) name = name.substring(1);
+        if (name.isEmpty()) name = "download";
+        if (name.length() > 120) {
+            int dot = name.lastIndexOf('.');
+            String ext = dot > 0 && name.length() - dot <= 10 ? name.substring(dot) : "";
+            name = name.substring(0, 120 - ext.length()) + ext;
+        }
+        return name;
+    }
 
     private int dpToPx(int dp) {
         return (int) (dp * getResources().getDisplayMetrics().density + 0.5f);

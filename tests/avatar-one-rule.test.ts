@@ -117,7 +117,11 @@ console.log("\nNo face is a question mark")
     ["app/(marketing)/p/[slug]/page.tsx", 2],
     ["app/(marketing)/u/[username]/page.tsx", 1],
     ["app/dashboard/communities/page.tsx", 1],
-    ["app/library/page.tsx", 1],
+    /* The library no longer draws the buyer's own face (that is /account);
+       it draws the sellers', on each row, in the seller filter and on a product. */
+    ["components/library/product-row.tsx", 1],
+    ["components/library/library-home.tsx", 3],
+    ["components/library/library-product.tsx", 2],
     /* The phone's buyer tab bar: the Profile tab is the person's photo. */
     ["components/nav/buyer-tab-bar.tsx", 1],
     ["app/admin/blog/seo/_seo-client.tsx", 1],
