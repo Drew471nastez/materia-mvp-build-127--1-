@@ -266,6 +266,11 @@ function pure() {
     /receipt\.buyer\.unclaimed \|\| accountEmail \? \([\s\S]{0,200}<form onSubmit=\{accountEmail \? sendCopy : changeEmail\}/.test(page) &&
       /const accountEmail = !receipt\.buyer\.unclaimed && viewer\.isBuyer && viewer\.email/.test(page))
   check("the creator's name links to their page with a soft hover pill", /data-seller-link=""[\s\S]{0,400}hover:bg-\[#eaecf0\][\s\S]{0,200}focus-visible:ring-2/.test(page))
+  /* Changed on purpose: the owner asked for the creator to open in a tab of
+     its own, so a look at the shop does not take the receipt and its files
+     away from the buyer. */
+  check("and that link opens in a tab of its own, with no way back through the opener",
+    /data-seller-link=""\s*\n\s*target="_blank"\s*\n\s*rel="noopener noreferrer"/.test(page))
 
   const mail = sellerMessageEmail({
     buyerName: "Ghita\r\nBcc: x@evil.example",
