@@ -105,6 +105,11 @@ console.log("\n6. signed in")
   check("the account sheet keeps My Library, Settings and Language", /<span>My Library<\/span>/.test(header) && /<span>Settings<\/span>/.test(header) && /t\("settings\.language"\)/.test(header))
   check("the seller check is marked for the seller access helper", /\/\/ SELLER ACCESS:[\s\S]{0,400}const isSellerByState = !!creatorData\?\.onboarding_completed/.test(headerSrc))
   check("the account menu is out of the tab order while closed", /inert=\{desktopProfileOpen \? undefined : true\}/.test(header) && /aria-expanded=\{desktopProfileOpen\}/.test(header))
+  for (const f of ["components/marketing/user-nav.tsx", "components/marketing/user-nav-client.tsx", "components/dashboard/sidebar.tsx"]) {
+    const src = readCode(f)
+    check(`${f}: Become a seller goes to /sell, not through signup/success`, /href="\/sell"/.test(src) && !/become-creator/.test(src) && !/Start Selling|Become a Seller/.test(src))
+  }
+  check("the old marketing headers say Sign up, not Start selling", ["components/marketing/header.tsx", "components/marketing/header-client.tsx"].every((f) => !/Start selling/i.test(readCode(f))))
   check("the phone's white Sign in is one link, not a button in a link", /<Button asChild className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black[^"]*">\s*<Link \{\.\.\.headerLink\("\/login"\)\}/.test(header))
 }
 

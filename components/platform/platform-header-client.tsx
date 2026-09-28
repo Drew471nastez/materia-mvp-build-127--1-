@@ -460,7 +460,7 @@ function BecomeSellerRow({ link, onDone }: { link: HeaderLink; onDone: () => voi
       className="flex touch-manipulation items-center justify-between rounded-xl bg-[#f5f3ff] px-4 py-3.5 text-base font-medium text-violet-700 transition-colors hover:bg-[#ede9fe] active:bg-[#ede9fe] [-webkit-tap-highlight-color:transparent] outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
     >
       <span className="flex items-center gap-3">
-        <Store aria-hidden className="h-5 w-5 text-violet-500" />
+        <Store aria-hidden className="h-5 w-5 text-[#8b5cf6]" />
         <span>Become a seller</span>
       </span>
       <ChevronRight aria-hidden className="h-5 w-5 text-violet-400" />
@@ -1448,7 +1448,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               data-become-seller=""
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-violet-700 transition-colors hover:bg-[#f5f3ff] cursor-pointer outline-none focus-visible:bg-[#f5f3ff]"
             >
-              <Store className="h-4 w-4 shrink-0 text-violet-500" />
+              <Store className="h-4 w-4 shrink-0 text-[#8b5cf6]" />
               <span>Become a seller</span>
             </Link>
           )}
