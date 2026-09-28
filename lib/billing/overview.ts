@@ -15,6 +15,7 @@ import "server-only"
  * navigation happens.
  */
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 
 const FREE_PLAN = {
@@ -273,7 +274,7 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
             })
             .eq("id", creator.id)
 
-          await supabase
+          await createAdminClient()
             .from("subscriptions")
             .upsert({
               creator_id: creator.id,

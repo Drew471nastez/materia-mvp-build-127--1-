@@ -734,7 +734,7 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
     && /FROM public\.analytics_property_daily d WHERE d\.creator_id = \$1 /.test(report54) && /analytics_property_counts\(r\.f, r\.t, \$1, /.test(report54), eventReads)
   check("  planned for each question, not once for all of them", /EXECUTE format\(/.test(report54) && !/SECURITY DEFINER/.test(report54))
   check("the run-now part is listed with its size, and the check after has a column for it",
-    /`61_analytics_one_pipeline\.sql` \|[^\n]*\| 41 \|/.test(read("supabase/sql/run-now/README.md")) && /as p61_analytics_reports;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    /`61_analytics_one_pipeline\.sql` \|[^\n]*\| 41 \|/.test(read("supabase/sql/run-now/README.md")) && /as p61_analytics_reports[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
   const reads = read("lib/analytics/report-read.ts")
   check("the route counts in the database, and from the rows while the function is missing",

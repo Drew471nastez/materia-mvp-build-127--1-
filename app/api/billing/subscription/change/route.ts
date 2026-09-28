@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 
 const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
@@ -207,7 +208,7 @@ export async function POST(request: Request) {
       // Get the period end from the canceled subscription
       const { periodEnd: cancelPeriodEnd } = getSubscriptionPeriod(canceledSub as any)
 
-      await supabase
+      await createAdminClient()
         .from("subscriptions")
         .update({
           cancel_at_period_end: true,
@@ -323,7 +324,7 @@ export async function POST(request: Request) {
       // Get updated period from the updated subscription
       const updatedPeriod = getSubscriptionPeriod(updatedSubscription as any)
 
-      await supabase
+      await createAdminClient()
         .from("subscriptions")
         .update({
           plan_id: newPlanId,
@@ -422,7 +423,7 @@ export async function POST(request: Request) {
         metadata: { ...stripeSubscription.metadata, pending_plan_id: newPlanId },
       })
 
-      await supabase
+      await createAdminClient()
         .from("subscriptions")
         .update({
           pending_plan_id: newPlanId,
