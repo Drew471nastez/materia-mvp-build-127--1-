@@ -60,6 +60,7 @@ import { OrdersList } from "./orders-list"
 import { ExportOrders } from "./export-dialog"
 import { markRow, moveOrder, stillOrder } from "./order-motion"
 import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
+import { backThen } from "@/lib/navigation/go-back"
 import { hasConsent } from "@/lib/consent/client"
 import { todayIn, type CompareValue, type RangeValue } from "@/lib/date-range/range"
 import { writePeriod } from "@/lib/date-range/params"
@@ -397,9 +398,17 @@ export function OrdersClient(props: OrdersClientProps) {
     pushed.current = true
     writeAddress((p) => p.set("order", id), "push")
   })
+  /*
+    BACK CLOSES IT EVEN WHEN THE BACK DOES NOTHING. Same as the Emails list:
+    the pushed entry is the app's own note, `history.back()` says nothing when
+    it does nothing, and the order then sat over the list for ever. A back
+    that does not show itself within BACK_WATCH_MS is followed by the address
+    being cleared (lib/navigation/go-back backThen).
+  */
+  const closeOver = () => writeAddress((p) => p.delete("order"), "replace")
   const onBack = () => {
-    if (pushed.current) window.history.back()
-    else writeAddress((p) => p.delete("order"), "replace")
+    if (pushed.current) backThen(closeOver)
+    else closeOver()
   }
   const at = displayed ? filtered.findIndex((o) => o.id === displayed.id) : -1
   const onStep = (dir: -1 | 1) => {

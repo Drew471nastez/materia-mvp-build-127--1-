@@ -107,8 +107,13 @@ check("  kept on the window: the instrumentation bundle is its own", /__storelib
 console.log("\nA link out, with work unsaved")
 check("the editor stops it in the capture phase, before the link, the rail or the shell", /document\.addEventListener\('click', handleClick, true\)/.test(editor) && /e\.preventDefault\(\)\s*e\.stopPropagation\(\)\s*e\.stopImmediatePropagation\(\)\s*setPendingNavigation\(url\.href\)\s*setShowUnsavedDialog\(true\)/.test(editor))
 check("  only a plain press, and not a new tab, a download or this same page", /if \(!isDirtyRef\.current \|\| leavingRef\.current \|\| !isPlainClick\(e\)\) return/.test(editor) && /anchor\.hasAttribute\("download"\)/.test(editor) && /anchor\.target && anchor\.target !== "_self"/.test(editor) && /url\.pathname === window\.location\.pathname && url\.search === window\.location\.search\) return/.test(editor))
-check("answered, it goes by the router and tells the shell on the same press", /startNavigationLoading\(href\)\s*router\.push\(href\)/.test(editor))
-check("  a held Back goes back one entry", /if \(target === "back"\) \{\s*window\.history\.back\(\)/.test(editor))
+check("answered, it goes by the router and tells the shell on the same press", /const goTo = \(href: string\) => \{\s*startNavigationLoading\(href\)/.test(editor) && /navigateWithCeiling\(\s*\(\) => router\.push\(href\)/.test(editor))
+/* And a way out that never lands is loaded as a document at the ceiling, as `leave` does (lib/website-builder/navigate-ceiling). */
+check("  and a push that never lands still ends", /\(\) => window\.location\.assign\(href\)/.test(editor))
+/* A back that does nothing reports nothing: the editor used to sit there with
+   the question gone for LEAVE_REVIVE_MS and then hold Back again. Filmed:
+   scripts/check-onepage-back-stall.mjs. */
+check("  a held Back goes back one entry, and lands on the app when that entry is dead", /if \(target === "back"\) \{\s*backThen\(\(\) => goTo\(EXIT_HREF\)\)/.test(editor) && /const EXIT_HREF = "\/app"/.test(editor))
 check("  no whole document load for a link of the app", !/window\.location\.href = pendingNavigation/.test(editor))
 check("  and the answered question stands the browser's own prompt down", /leavingRef\.current = true\s*setLeaveGuard\(null\)/.test(editor) && /if \(isDirty && !leavingRef\.current\)/.test(editor))
 check("the phone's way out still leaves through the glass", (editor.match(/if \(pendingNavigation === "\/app"\) \{\s*leave\(\)\s*\} else if \(pendingNavigation\) \{\s*leaveTo\(pendingNavigation\)/g) ?? []).length === 2)

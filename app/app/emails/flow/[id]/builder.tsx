@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { ScrollEdge } from "@/components/app/scroll-edge"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
+import { backThen } from "@/lib/navigation/go-back"
 import { leaveLayer } from "../../layer-nav"
 import {
   CONDITIONS,
@@ -374,9 +375,12 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
    * the browser's own back: instant, with the list where it was scrolled.
    * From anywhere else (a link opened cold, a new tab) it goes to the list.
    */
+  /* And a back that does nothing (a replaced entry, this flow opened straight
+     from a link) is followed by the list itself within BACK_WATCH_MS, instead
+     of leaving the layer up over a dimmed arrow (lib/navigation/go-back). */
   const leave = () =>
     leaveLayer(() => {
-      if (canReturnTo("/app/emails")) router.back()
+      if (canReturnTo("/app/emails")) backThen(() => router.replace(EMAILS))
       else router.push(EMAILS)
     })
   const back = () => {

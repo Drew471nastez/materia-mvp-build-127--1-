@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from "react"
 import { ArrowLeft } from "lucide-react"
+import { backThen } from "@/lib/navigation/go-back"
 
 export function EmbeddedBackBar() {
   const [canGoBack, setCanGoBack] = useState(false)
@@ -37,8 +38,12 @@ export function EmbeddedBackBar() {
       <button
         type="button"
         onClick={() => {
-          if (canGoBack) window.history.back()
-          else window.location.assign("/creator-page")
+          /* Inside a frame a back can do nothing at all and say nothing about
+             it, and this bar is the only way out: the page itself, then
+             (lib/navigation/go-back). */
+          const page = () => window.location.assign("/creator-page")
+          if (canGoBack) backThen(page)
+          else page()
         }}
         className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-black/5 hover:text-gray-900"
       >

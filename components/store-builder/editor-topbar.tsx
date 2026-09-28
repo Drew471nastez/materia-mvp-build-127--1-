@@ -31,6 +31,10 @@ import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
 import { getStoreUrl, getStoreShareUrl, getProductUrl, getProductShareUrl, getStoreUrlWithCustomDomain, getProductUrlWithCustomDomain } from "@/lib/url-helpers"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
 import { openExternal } from "@/lib/native-bridge"
+import { backThen } from "@/lib/navigation/go-back"
+
+/** Where the editor goes when it leaves, and where a back that goes nowhere lands. */
+const APP_HREF = "/app"
 
 interface EditorTopbarProps {
   creatorSlug: string
@@ -126,6 +130,19 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     }
   }, [hasUnsavedChanges])
 
+  /*
+    THE WAY OUT ALWAYS ENDS SOMEWHERE. Both ways out of the unsaved dialog
+    used to be a bare `history.back()` with the editor's full screen loading
+    cover already up (isNavigating, read by components/store-builder/
+    preview-canvas). The back this answers is one the editor held by pushing
+    an entry back, so there is usually an entry to pop, and there is not
+    always: an entry the browser replaced, the editor opened straight from a
+    link, a web view that reports a length it cannot go back through.
+    `history.back()` reports nothing when it does nothing, so the cover stayed
+    over the editor with nothing behind it, for ever. A back that does not
+    show itself within BACK_WATCH_MS is followed by the app itself
+    (lib/navigation/go-back backThen).
+  */
   const handleNavigationAttempt = (href: string) => {
     if (hasUnsavedChanges) {
       setPendingNavigation(href)
@@ -151,9 +168,9 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
       await publish()
       setShowUnsavedDialog(false)
       if (pendingBrowserBack) {
-        // Go back after saving
+        // Go back after saving, and land on the app if that back does nothing
         setIsNavigating(true)
-        window.history.back()
+        backThen(() => { window.location.href = APP_HREF })
       } else if (pendingNavigation) {
         setIsNavigating(true)
         window.location.href = pendingNavigation
@@ -170,9 +187,9 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     discardChanges()
     setShowUnsavedDialog(false)
     if (pendingBrowserBack) {
-      // Go back after discarding
+      // Go back after discarding, and land on the app if that back does nothing
       setIsNavigating(true)
-      window.history.back()
+      backThen(() => { window.location.href = APP_HREF })
     } else if (pendingNavigation) {
       setIsNavigating(true)
       window.location.href = pendingNavigation
@@ -326,7 +343,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56 z-[100]">
             <DropdownMenuItem
-              onClick={() => handleNavigationAttempt("/app")}
+              onClick={() => handleNavigationAttempt(APP_HREF)}
               disabled={isNavigating}
               className="cursor-pointer"
             >

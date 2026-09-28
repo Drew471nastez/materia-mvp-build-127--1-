@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { moveLayer } from "@/components/app/page-layer"
+import { backThen } from "@/lib/navigation/go-back"
 import { isAnswerFor, isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navigation"
 
 /**
@@ -112,20 +113,34 @@ export function listShown() {
   returnTo = null
 }
 
-/** Leave the editor for the list. `productId` is the saved product, if there is one. */
+/**
+ * Leave the editor for the list. `productId` is the saved product, if there is one.
+ *
+ * AND A BACK THAT GOES NOWHERE STILL ENDS ON THE LIST. "The list opened it"
+ * is the app's own note, and the browser has cases the note does not know
+ * about: an entry it replaced, an editor opened straight from a link or a
+ * notification, a web view that reports a length it cannot go back through.
+ * `history.back()` says nothing when it does nothing, so the layer stayed
+ * live over a dimmed Back for the whole LAYER_PRESS_KEPT_MS (8s, components/
+ * app/page-layer.tsx) and then came back to life on the same editor.
+ * Filmed at 390 with back made into a no-op: nothing changed on the screen
+ * for 8,000ms. So the back has to show itself within BACK_WATCH_MS
+ * (lib/navigation/go-back backThen) or the list is put up in its place, the
+ * same way and marked as the same return.
+ */
 export function returnToProducts(router: Router, productId: string | null) {
   edited = productId
   returnTo = PRODUCTS_HREF
   const back = fromList
   fromList = false
+  const replaceWithList = () => {
+    markTraversal()
+    router.replace(PRODUCTS_HREF)
+  }
   moveLayer("leave", () => {
-    if (back) {
-      /* A popstate: the app marks it a return itself (navigation-loading-bar). */
-      router.back()
-    } else {
-      markTraversal()
-      router.replace(PRODUCTS_HREF)
-    }
+    /* A popstate: the app marks it a return itself (navigation-loading-bar). */
+    if (back) backThen(replaceWithList)
+    else replaceWithList()
   })
 }
 

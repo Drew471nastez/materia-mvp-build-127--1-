@@ -5,6 +5,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
+import { watchLeaveGuard } from "@/lib/ui/leave-guard"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { OnePagePreviewDocument } from "@/components/onepage/preview-document"
@@ -13,6 +14,11 @@ import { defaultTheme, defaultSettings, type OnePage } from "@/lib/onepage/types
 
 const px = (n: number) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="hsl(${n * 47},55%,62%)"/></svg>`)}`
+
+/* The listener a page with unsaved work holds Back with, added before the app
+   as instrumentation-client.ts adds it (lib/ui/leave-guard.ts). It holds
+   nothing until the editor sets a guard. */
+watchLeaveGuard()
 
 /* The onboarding wizard has been done, so the editor opens on its tabs. */
 try { localStorage.setItem("onepage-onboarding-completed", "true") } catch {}

@@ -88,7 +88,8 @@ console.log("\nTables that scroll sideways under a frozen column")
 
 console.log("\nAn email's page, opened over the list the way an order is")
 {
-  check("?email= is pushed, so back closes it, and the list stays mounted under it", /writeAddress\(\(p\) => \{ p\.delete\("contact"\); p\.set\("email", c\.id\) \}, "push"\)/.test(page) && /window\.history\.back\(\)/.test(page) && /inert=\{listCovered\}/.test(page) && /orders-pane orders-detail/.test(page))
+  /* Back goes through the watch now, so an entry the browser will not go back through closes the email anyway (lib/navigation/go-back, tests/back-never-stalls). */
+  check("?email= is pushed, so back closes it, and the list stays mounted under it", /writeAddress\(\(p\) => \{ p\.delete\("contact"\); p\.set\("email", c\.id\) \}, "push"\)/.test(page) && /backThen\(closeOver\)/.test(page) && /inert=\{listCovered\}/.test(page) && /orders-pane orders-detail/.test(page))
   check("its bar is the order's, drawn on the first frame", /<OrderBarFrame/.test(detail))
   check("it comes in and goes back with Orders' own move, not one of its own",
     /import \{ markRow, moveOrder, stillOrder \} from "\.\.\/orders\/order-motion"/.test(page)
@@ -159,7 +160,7 @@ console.log("\nBack to the list is the list, as it was")
     /if \(!tabShown\.current\) \{\s*tabShown\.current = true\s*return\s*\}/.test(client))
   check("the list notes its address for the composer's way back", /noteListAddress\(address\)/.test(client))
   check("the composer goes back in history when the list is right behind it on the right tab, and pushes it otherwise",
-    /if \(tab && listBehindShows\(tab, canReturnTo\("\/app\/emails"\)\)\) router\.back\(\)\s*else router\.push\(/.test(code("components/email/compose/compose-page.tsx")))
+    /if \(tab && listBehindShows\(tab, canReturnTo\("\/app\/emails"\)\)\) backThen\(\(\) => router\.replace\(list\)\)\s*else router\.push\(list\)/.test(code("components/email/compose/compose-page.tsx")))
   check("the list behind is the list on that tab", listBehindShows("drafts", true, "tab=drafts") && listBehindShows("subscribers", true, "") && !listBehindShows("scheduled", true, "tab=drafts"))
   check("not an email or a contact open over it, and not a page that is not the list", !listBehindShows("published", true, "tab=published&email=abc") && !listBehindShows("subscribers", true, "contact=s1") && !listBehindShows("drafts", false, "tab=drafts") && !listBehindShows("drafts", true, null))
 }

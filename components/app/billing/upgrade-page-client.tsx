@@ -8,12 +8,16 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 import { hasInAppHistory } from "@/lib/ui/app-navigation"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { moveLayer } from "@/components/app/page-layer"
+import { backThen } from "@/lib/navigation/go-back"
 import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { ComparePlans } from "@/components/billing/compare-plans"
 import { PlanFaq } from "@/components/billing/plan-faq"
 import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
+
+/** Where Back goes: the Billing tab this page was opened from. */
+const BILLING_HREF = "/app/settings?tab=billing"
 
 interface UpgradePageClientProps {
   plans: any[]
@@ -99,11 +103,14 @@ export function UpgradePageClient({
       return
     }
     setLeaving(true)
-    startNavigationLoading("/app/settings?tab=billing")
+    startNavigationLoading(BILLING_HREF)
     if (!hasInAppHistory()) return
     e.preventDefault()
     /* On a phone the page drops away over the one it goes back to, the way every page layer leaves (components/app/page-layer.tsx). */
-    moveLayer("leave", () => router.back(), false)
+    /* And a back that does nothing (an entry the app counted and the browser
+       replaced) is followed by the Billing tab itself within BACK_WATCH_MS,
+       rather than leaving this page up under a spinner (lib/navigation/go-back). */
+    moveLayer("leave", () => backThen(() => router.replace(BILLING_HREF)), false)
   }
 
   const handleUpgrade = async (planId: string) => {
@@ -238,7 +245,7 @@ export function UpgradePageClient({
       <div data-upgrade-bar="" className="sticky top-0 z-20 border-b border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04),0_6px_16px_-10px_rgba(17,24,39,0.18)]">
         <div className="relative flex h-14 items-center app-gutter sm:h-16 sm:px-6">
           <Link
-            href="/app/settings?tab=billing"
+            href={BILLING_HREF}
             onClick={goBack}
             data-upgrade-back=""
             data-leaving={leaving ? "" : undefined}

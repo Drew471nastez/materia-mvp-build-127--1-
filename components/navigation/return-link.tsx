@@ -39,6 +39,7 @@
 import Link from "next/link"
 import type { ComponentProps, MouseEvent } from "react"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
+import { backThen } from "@/lib/navigation/go-back"
 
 type ReturnLinkProps = Omit<ComponentProps<typeof Link>, "href"> & { href: string }
 
@@ -53,7 +54,10 @@ export function ReturnLink({ href, onClick, ...rest }: ReturnLinkProps) {
     /* Not where we came from — let the link be a link. */
     if (!canReturnTo(href)) return
     e.preventDefault()
-    window.history.back()
+    /* And if that back does nothing (an entry the browser replaced, a web view
+       that reports a length it cannot go back through) the link is followed
+       after all: a press on a link never ends nowhere. */
+    backThen(() => window.location.assign(href))
   }
 
   return <Link href={href} onClick={handleClick} {...rest} />

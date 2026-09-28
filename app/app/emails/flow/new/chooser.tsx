@@ -32,8 +32,12 @@ import { BLANK_TEMPLATE, TEMPLATES, type FlowTemplate } from "@/lib/automations/
 import { StatusBadge } from "../../../orders/order-parts"
 import { FlowTopBar, ListIcon, TEMPLATE_ICON, backButton } from "../flow-parts"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
+import { backThen } from "@/lib/navigation/go-back"
 import { leaveLayer } from "../../layer-nav"
 import { refreshMatching } from "@/components/email/emails-cache"
+
+/** Where Back goes: the Emails page, on the tab this flow belongs to. */
+const FLOWS_HREF = "/app/emails?tab=flows"
 
 /**
  * The page's width: the 1200px every /app page uses from lg, the product
@@ -85,11 +89,17 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
     }
   }
 
-  /* Back returns: the browser's own back when the page behind is Emails, instant and where it was scrolled. */
+  /*
+    Back returns: the browser's own back when the page behind is Emails,
+    instant and where it was scrolled. A back that does nothing (an entry the
+    browser replaced, this page opened straight from a link) is followed by
+    Emails itself within BACK_WATCH_MS, rather than leaving the layer up over
+    a dimmed arrow (lib/navigation/go-back backThen).
+  */
   const back = () =>
     leaveLayer(() => {
-      if (canReturnTo("/app/emails")) router.back()
-      else router.push("/app/emails?tab=flows")
+      if (canReturnTo("/app/emails")) backThen(() => router.replace(FLOWS_HREF))
+      else router.push(FLOWS_HREF)
     })
 
   return (

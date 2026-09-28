@@ -149,6 +149,8 @@ const SUITES = [
   "tests/explore-entrance.test.ts",
   "tests/explore-browse.test.ts",
   "tests/route-loading-bar.test.ts",
+  "tests/back-plan.test.ts",
+  "tests/back-never-stalls.test.ts",
   "tests/avatar-grounds.test.ts",
   "tests/brand-logo.test.ts",
   "tests/quick-access-urls.test.ts",
