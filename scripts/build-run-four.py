@@ -124,6 +124,32 @@ for f in sorted(os.listdir(THREE)):
     if f.endswith('.sql'): print('three:', f, os.path.getsize(THREE+f))
 
 
+# THE SAME SQL IN TWO FILES (supabase/sql/all-in-two/), which the owner asked
+# for: every numbered part (01 to 89) in the first, and the step that must run
+# on its own, the storage policies and the check in the second, exactly as the
+# last of the four. Built from the same parts, text unchanged, so it cannot
+# drift from the four or the three. The first file is large: paste it into
+# the SQL editor in one go, or run it with psql.
+TWO=ROOT+'supabase/sql/all-in-two/'
+os.makedirs(TWO,exist_ok=True)
+_all=sorted(p for p in parts if '01'<=p<='89')
+out=["-- STORELIB DATABASE, FILE 1 of 2", "-- Every part from "+_all[0]+" to "+_all[-1]+": the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.", HOW.replace('Run the four files','Run the two files'), "", "set local statement_timeout = 0;", "-- the record of which parts ran (part 67)"]+BOOTSTRAP+[""]
+for q in _all:
+    head,rest=body(q)
+    out.append(f"-- part {parts[q]}")
+    out.append(head)
+    out+=rest
+    out.append("")
+out.append("notify pgrst, 'reload schema';")
+out.append("select 'Storelib file 1 of 2 ran. Next file.' as done;")
+open(TWO+'1_of_2_everything.sql','w').write("\n".join(out)+"\n")
+f2=open(OUT+'4_of_4_storage_policies_and_check.sql').read()
+f2=f2.replace('-- STORELIB DATABASE, FILE 4 of 4','-- STORELIB DATABASE, FILE 2 of 2',1).replace('Run the four files','Run the two files')
+open(TWO+'2_of_2_storage_policies_and_check.sql','w').write(f2)
+for f in sorted(os.listdir(TWO)):
+    if f.endswith('.sql'): print('two:', f, os.path.getsize(TWO+f))
+
+
 # THE RANGE IN EACH README FOLLOWS THE PARTS. Every folder's README named the
 # range by hand ("01 to 38", "01 to 45", "01 to 50") and none was rewritten
 # when a part was added, so all four disagreed with each other and with
@@ -131,7 +157,7 @@ for f in sorted(os.listdir(THREE)):
 import re as _re
 _numbered=sorted(p for p in parts if p.isdigit() and '01'<=p<'90')
 _span=f"{_numbered[0]} to {_numbered[-1]}"
-for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-three'):
+for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-three','all-in-two'):
     _path=ROOT+'supabase/sql/'+_folder+'/README.md'
     if not os.path.exists(_path): continue
     _text=open(_path).read()

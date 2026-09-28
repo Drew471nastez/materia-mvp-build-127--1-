@@ -8,9 +8,9 @@
  *   in this order", a plain white bar with the /app pill's touch (the slide,
  *   the glass bubble, the icon fill), no red badges.
  *
- *   A profile page for the buyer, /account: photo, name, email, password,
- *   preferences, the wishlist, the way into the library and to selling, log
- *   out, delete. /library/settings folds into it.
+ *   A profile for the buyer, /account: who they are and what they have
+ *   (Overview), and one tab over photo, name, email, password, preferences,
+ *   log out, delete (/account/settings). /library/settings folds into it.
  *
  * Where the bar is and which tab a page belongs to are pure functions and are
  * asked about every address here. What it looks like under a finger is
@@ -117,25 +117,26 @@ check("the overlay: a declared modal, covering the header, animated on opacity a
 check("Back closes it: one history entry of its own, popped by the X, replaced by a result", /pushState\(\{ \.\.\.\(window\.history\.state \|\| \{\}\), \[SEARCH_ENTRY\]: 1 \}, ""\)/.test(overlay) && /if \(ownsEntry\(\)\) window\.history\.back\(\)/.test(overlay) && /if \(ownsEntry\(\)\) router\.replace\(href\)/.test(overlay) && /addEventListener\("popstate", onPop\)/.test(overlay))
 check("the page under it holds still while it is open", /el\.style\.setProperty\("overflow", "hidden"\)/.test(overlay) && /el\.style\.removeProperty\("overflow"\)/.test(overlay))
 
-console.log("\nThe account page")
-const account = code("components/account/account-page.tsx")
-const route = code("app/account/page.tsx")
+console.log("\nThe account page: a profile, with its settings one tab over (tests/account-hub.test.ts has the rest)")
+const account = code("components/account/account-settings.tsx")
+const overview = code("components/account/account-overview.tsx")
+const route = code("app/account/settings/page.tsx")
+const home = code("app/account/page.tsx")
 const layout = code("app/account/layout.tsx")
-check("signed out it is sign in first, then back here", /redirect\("\/login\?next=%2Faccount"\)/.test(layout) && /pageUser\("\/login\?next=%2Faccount"\)/.test(route))
+check("signed out it is sign in first, then back to the page that was opened", /pageUser\(accountLoginPath\("\/account"\)\)/.test(home) && /pageUser\(accountLoginPath\("\/account\/settings"\)\)/.test(route) && !/redirect\(/.test(layout))
 check("the native app's session is recovered before it decides, as the library's is", /<NativeAuthGate requireAuth/.test(layout))
-check("the photo is Settings' own control, through the one photo route", /<ProfilePhoto userId=\{userId\}/.test(account))
+check("/account has nothing to type: no photo control, no name field", !/<ProfilePhoto\b|<input\b/.test(overview) && !/<ProfilePhoto\b|<input\b/.test(home))
+check("the photo is Settings' own control, through the one photo route, on /account/settings", /<ProfilePhoto userId=\{userId\}/.test(account))
 check("the name saves on the person's own client and its copies follow", /\.from\("profiles"\)\.update\(\{ display_name: next \}\)\.eq\("id", userId\)/.test(account) && /\/api\/account\/profile-changed/.test(account))
 check("the email changes with a code to each address", /<EmailChangeFlow\b/.test(account))
 check("the password is Settings' card, which can set one on a Google or Apple only account", /<PasswordCard email=\{email\} hasPassword=\{hasPassword\} via=\{via\} \/>/.test(account) && /const hasPassword = providers\.length === 0 \|\| providers\.includes\("email"\)/.test(route))
 check("preferences: language, the newsletter, recommendations, saved where they are read", /<LanguageModal\b/.test(account) && /savePreference\(\{ newsletter: v \}\)/.test(account) && /savePreference\(\{ personalizedRecommendations: v \}\)/.test(account))
-check("the wishlist: the newest saves, still on sale, and how many", /\.eq\("products\.status", "published"\)/.test(route) && /\.limit\(WISHLIST_PREVIEW\)/.test(route) && /data-wishlist-preview/.test(account))
-check("purchases and reviews go to the library, which owns them", (account.match(/href="\/library"/g) ?? []).length >= 2)
-check("Become a seller goes to /sell; a seller gets Dashboard", /href="\/sell"/.test(account) && /href="\/app"/.test(account) && /isSeller=\{creator\?\.onboarding_completed === true\}/.test(route))
-check("and where seller access is decided says so, for the shared helper", /SELLER ACCESS:/.test(read("app/account/page.tsx")))
+check("the wishlist counts only what is still on sale", /\.eq\("products\.status", "published"\)/.test(home))
+check("Become a seller goes to /sell; a seller gets Dashboard", /href="\/sell"/.test(overview) && /href="\/app"/.test(overview) && /sellerAccessForRequest\(user\.id\)/.test(home))
 check("log out here or everywhere, and the header forgets the session at once", /signOut\(\{ scope \}\)/.test(account) && /clearAuthSnapshot\(\)/.test(account))
 check("deleting is the existing flow: a code, then the code", /action: "send-code"/.test(account) && /action: "verify", code/.test(account))
-check("no em dashes in what a person reads", !/—/.test(read("components/account/account-page.tsx")) && !/—/.test(read("components/nav/buyer-tab-bar.tsx")) && !/—/.test(read("components/search/search-screen.tsx")) && !/—/.test(read("components/search/search-overlay.tsx")) && !/—/.test(read("components/nav/buyer-tab-icons.tsx")))
-check("/library/settings is the account page now", /permanentRedirect\("\/account"\)/.test(read("app/library/settings/page.tsx")) && !existsSync(join(process.cwd(), "app/library/settings/buyer-settings.tsx")))
+check("no em dashes in what a person reads", ["components/account/account-settings.tsx", "components/account/account-overview.tsx", "components/account/account-hub.tsx", "components/nav/buyer-tab-bar.tsx", "components/nav/buyer-tab-icons.tsx", "components/search/search-screen.tsx", "components/search/search-overlay.tsx"].every((f) => !/\u2014/.test(read(f))))
+check("/library/settings is the profile's Settings now", /permanentRedirect\("\/account\/settings"\)/.test(read("app/library/settings/page.tsx")) && !existsSync(join(process.cwd(), "app/library/settings/buyer-settings.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)
