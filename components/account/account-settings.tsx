@@ -2,37 +2,31 @@
 
 /**
  * ===========================================================================
- *  THE BUYER'S OWN ACCOUNT
+ *  THE PROFILE'S SETTINGS
  * ===========================================================================
- * /account, the page every avatar outside /app opens and the Profile tab of
- * the phone's bar. "Edit some basic things such as their email, password,
- * profile picture, access account settings, log out, wishlist overview,
- * things like this."
+ * /account/settings, the Settings tab of the buyer's profile (components/
+ * account/account-hub.tsx) and where its Edit profile goes. This was the
+ * whole of /account once; the owner asked for a profile there instead, "not
+ * directly changing the name or profile photo", so the changing lives here:
  *
- * One column of cards, in the order somebody comes here for them:
- *
- *   YOU             photo (changed in place, through the one photo route:
+ *   PROFILE         photo (changed in place, through the one photo route:
  *                   components/app/settings/profile-photo) and name
- *   YOUR LIBRARY    purchases, the newest saved products, the reviews you
- *                   have left: rows into /library, which owns them
  *   SIGN IN         email (a code to each address, the same flow as the
  *                   seller's settings) and password (change it, or set one
  *                   on an account that has only ever used Google or Apple)
  *   PREFERENCES     language, the newsletter, recommendations on Explore
- *   SELLING         Become a seller (/sell decides where that goes) or, for
- *                   somebody who sells, Dashboard
  *   LOG OUT         and, last and quiet, deleting the account
  *
- * The cards are /app Settings' cards (the same white, hairline and radius,
- * the same switch and password card), so an account reads the same on both
- * sides of Storelib. What was /library/settings is all here, and that
- * address now redirects to this one.
+ * What was here about the library and selling is the Overview's now
+ * (components/account/account-overview.tsx). The cards are /app Settings'
+ * cards (the same white, hairline and radius, the same switch and password
+ * card), so an account reads the same on both sides of Storelib.
+ * /library/settings redirects here.
  */
 
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useRef, useState, type ReactNode } from "react"
-import { ChevronRight, Loader2 } from "lucide-react"
+import { useCallback, useRef, useState } from "react"
+import { Loader2 } from "lucide-react"
 
 import { ProfilePhoto } from "@/components/app/settings/profile-photo"
 import {
@@ -51,13 +45,7 @@ import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { nativeLogOut } from "@/lib/native-bridge"
-import { optimizedImageUrl, isOptimizableImage } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
-
-export type WishlistPreview = {
-  count: number
-  items: { id: string; title: string; thumbnail: string | null; href: string }[]
-}
 
 /* ── The parts, /app Settings' own ─────────────────────────────────────── */
 
@@ -74,27 +62,6 @@ const INK =
 const QUIET =
   "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] px-4 text-[13px] font-medium text-[#374151] " +
   "transition-colors hover:bg-[#e5e7eb] disabled:cursor-not-allowed disabled:opacity-60"
-
-/**
- * A row that goes somewhere: its name, a line under it, and a chevron. The
- * whole row is the link, 56px or taller; the chevron darkens under a mouse.
- */
-function LinkRow({ href, title, detail, children, testId }: { href: string; title: string; detail?: ReactNode; children?: ReactNode; testId?: string }) {
-  return (
-    <Link
-      href={href}
-      data-account-row={testId}
-      className="group/row flex min-h-[56px] items-center gap-3 py-3"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-medium leading-[1.4] text-[#1a1a2e]">{title}</p>
-        {detail ? <div className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{detail}</div> : null}
-        {children}
-      </div>
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9ca3af] transition-colors group-hover/row:text-[#1a1a2e]" />
-    </Link>
-  )
-}
 
 /* ── You ─────────────────────────────────────────────────────────────── */
 
@@ -141,6 +108,7 @@ function ProfileCard({ userId, name: initialName, avatarUrl }: { userId: string;
 
   return (
     <section className={CARD} aria-labelledby="account-you" data-account-card="profile">
+      {/* The photo control heads itself ("Profile photo"), so the card's own name is for screen readers. */}
       <h2 id="account-you" className="sr-only">
         Profile
       </h2>
@@ -181,73 +149,6 @@ function ProfileCard({ userId, name: initialName, avatarUrl }: { userId: string;
             {error}
           </p>
         ) : null}
-      </div>
-    </section>
-  )
-}
-
-/* ── Your library ─────────────────────────────────────────────────────── */
-
-function Thumb({ src, title }: { src: string | null; title: string }) {
-  const url = src && isOptimizableImage(src) ? optimizedImageUrl(src, 112) : src
-  return (
-    <span className="relative block h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb]/70 bg-[#f3f4f6]">
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-      ) : null}
-    </span>
-  )
-}
-
-function LibraryCard({ wishlist }: { wishlist: WishlistPreview }) {
-  const more = wishlist.count - wishlist.items.length
-  return (
-    <section className={CARD} aria-labelledby="account-library" data-account-card="library">
-      <h2 id="account-library" className={cn(CARD_TITLE, "mb-1")}>
-        Your library
-      </h2>
-      <div className="divide-y divide-[#f0f1f3]">
-        <LinkRow href="/library" title="Purchases" detail="Everything you have bought, with its downloads." testId="purchases" />
-        <div data-account-row="wishlist">
-          <Link
-            href="/library/wishlist"
-            className="group/row flex min-h-[56px] items-center gap-3 py-3"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-medium leading-[1.4] text-[#1a1a2e]">
-                Wishlist
-                {wishlist.count > 0 ? <span className="ml-1.5 font-normal text-[#6b7280]">{wishlist.count}</span> : null}
-              </p>
-              {wishlist.items.length === 0 ? (
-                <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">Products you save with the heart show up here.</p>
-              ) : null}
-            </div>
-            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9ca3af] transition-colors group-hover/row:text-[#1a1a2e]" />
-          </Link>
-          {wishlist.items.length > 0 ? (
-            /* The newest saves, each to its own page. Outside the row's link:
-               a link inside a link is two answers to one tap. */
-            <div className="-mt-1 flex items-center gap-2 pb-3" data-wishlist-preview="">
-              {wishlist.items.map((item) => (
-                <Link key={item.id} href={item.href} aria-label={item.title} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25">
-                  <Thumb src={item.thumbnail} title={item.title} />
-                </Link>
-              ))}
-              {more > 0 ? (
-                <Link
-                  href="/library/wishlist"
-                  className="flex h-12 min-w-12 items-center justify-center rounded-lg bg-[#f3f4f6] px-2 text-[13px] font-medium text-[#4b5563]"
-                  aria-label={`${more} more saved`}
-                >
-                  +{more}
-                </Link>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        {/* The reviews live in the library, beside what they are about. */}
-        <LinkRow href="/library" title="Your reviews" detail="The reviews you have left on what you bought." testId="reviews" />
       </div>
     </section>
   )
@@ -356,27 +257,6 @@ function PreferencesCard({ email, newsletter: initialNewsletter, personalized: i
         />
       </div>
       <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
-    </section>
-  )
-}
-
-/* ── Selling ─────────────────────────────────────────────────────────── */
-
-function SellingCard({ isSeller }: { isSeller: boolean }) {
-  return (
-    <section className={CARD} aria-labelledby="account-selling" data-account-card="selling">
-      <h2 id="account-selling" className="sr-only">
-        Selling
-      </h2>
-      <div className="-my-3">
-        {isSeller ? (
-          <LinkRow href="/app" title="Dashboard" detail="Your store, products and sales." testId="dashboard" />
-        ) : (
-          /* /sell decides: seller onboarding for this account, which keeps
-             everything bought and saved exactly as it is. */
-          <LinkRow href="/sell" title="Become a seller" detail="Sell your own products on Storelib with this account." testId="sell" />
-        )}
-      </div>
     </section>
   )
 }
@@ -569,7 +449,7 @@ function LeaveCard({ email, createdAt, isSeller }: { email: string; createdAt: s
 
 /* ── The page ────────────────────────────────────────────────────────── */
 
-export function AccountPage({
+export function AccountSettings({
   userId,
   email,
   name,
@@ -580,7 +460,6 @@ export function AccountPage({
   isSeller,
   newsletter,
   personalized,
-  wishlist,
 }: {
   userId: string
   email: string
@@ -592,27 +471,14 @@ export function AccountPage({
   isSeller: boolean
   newsletter: boolean
   personalized: boolean
-  wishlist: WishlistPreview
 }) {
   return (
-    <div
-      className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-6 sm:px-6 sm:pt-10"
-      style={{ paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))", paddingRight: "max(1rem, env(safe-area-inset-right, 0px))" }}
-      data-account-page=""
-    >
-      <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Account</h1>
-      <p className="mt-1 text-[14px] text-[#6b7280]">Your profile, how you sign in, and what you get from Storelib.</p>
-
-      <div className="mt-6 space-y-4 sm:space-y-5">
-        <ProfileCard userId={userId} name={name} avatarUrl={avatarUrl} />
-        <LibraryCard wishlist={wishlist} />
-        <EmailCard email={email} />
-        <PasswordCard email={email} hasPassword={hasPassword} via={via} />
-        <PreferencesCard email={email} newsletter={newsletter} personalized={personalized} />
-        <SellingCard isSeller={isSeller} />
-        <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
-      </div>
+    <div className="space-y-4 sm:space-y-5" data-account-page="" data-account-settings="">
+      <ProfileCard userId={userId} name={name} avatarUrl={avatarUrl} />
+      <EmailCard email={email} />
+      <PasswordCard email={email} hasPassword={hasPassword} via={via} />
+      <PreferencesCard email={email} newsletter={newsletter} personalized={personalized} />
+      <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
     </div>
   )
 }
-

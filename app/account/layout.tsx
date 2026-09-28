@@ -1,19 +1,19 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { headers } from "next/headers"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+import { AccountHub, type AccountIdentity } from "@/components/account/account-hub"
+import { AccountSkeleton } from "@/components/account/account-skeleton"
 import { LibraryBgFix } from "@/app/library/library-bg-fix"
-import AccountLoading from "./loading"
 
-/** One signed in person's own page: never in a search index. */
-export const metadata: Metadata = { title: "Account", robots: { index: false, follow: false } }
+/** One signed in person's own pages: never in a search index. */
+export const metadata: Metadata = { title: "Profile", robots: { index: false, follow: false } }
 
 /** The native shell keeps its session in Preferences, not cookies (see app/library/layout.tsx). */
 async function isCapacitorWebView(): Promise<boolean> {
@@ -21,21 +21,40 @@ async function isCapacitorWebView(): Promise<boolean> {
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
 }
 
+/** "March 2025", in UTC, so the server's words and the browser's are the same words. */
+function memberSince(createdAt: string | undefined): string {
+  const d = new Date(createdAt || "")
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
+}
+
 /**
  * ===========================================================================
- *  THE BUYER'S ACCOUNT, IN THE SAME SHELL AS THE LIBRARY
+ *  THE BUYER'S PROFILE, IN THE SAME SHELL AS THE LIBRARY
  * ===========================================================================
- * /account is the signed in person's own page: their photo and name, how
- * they sign in, their preferences, the way into what they bought and saved,
- * and the way out. Not a creator page; every avatar outside /app links here.
+ * /account and its pages (lib/account/account-tabs.ts): the signed in
+ * person's profile, Overview and Settings. Not a creator page; every avatar
+ * outside /app and the Profile tab of the phone's bar open it.
  *
  * The platform header, a main column, the footer and the phone's tab bar,
  * exactly as /library draws them, so moving between Library and Profile on
- * the tab bar is one page changing and not two sites. Signed out, it is sign
- * in first and then here (`next`); in the native app the session may only be
- * in the app's storage, so the gate there recovers it before deciding, as
- * the library's does. /account/continue, the route a creator's site sends
- * Account to, is a route handler and draws none of this.
+ * the tab bar is one page changing and not two sites. Inside the column,
+ * the person (photo, name, @username, member since) and the tabs, which
+ * stay put while the page under them changes (components/account/
+ * account-hub.tsx).
+ *
+ * SIGNED OUT, EACH PAGE SENDS TO SIGN IN WITH ITS OWN ADDRESS. A layout is
+ * not told which of its pages is being opened, so it cannot say where to
+ * come back to; every page asks lib/auth/page-user.ts with its own `next`
+ * (/login?next=%2Faccount, /login?next=%2Faccount%2Fsettings) and the
+ * layout draws nothing around it. There is no loading.tsx above the pages,
+ * so that redirect is decided before anything streams and is a real 307,
+ * not a hop after a skeleton; the slow part of the overview streams inside
+ * the page instead (app/account/page.tsx).
+ *
+ * In the native app the session may only be in the app's storage, so the
+ * gate there recovers it before deciding, as the library's does.
+ * /account/continue, the route a creator's site sends Account to, is a
+ * route handler and draws none of this.
  */
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const [isNative, current, initialWishlistCount, onPlatformDomain] = await Promise.all([
@@ -44,12 +63,34 @@ export default async function AccountLayout({ children }: { children: React.Reac
     readWishlistCount(),
     isPlatformDomain(),
   ])
+  const user = current.user
+
+  /* Signed out for certain: the page's own redirect (see above). */
+  if (!user && !isNative && current.state !== "indeterminate") return <>{children}</>
+
+  /* Cached for the request: the settings page reads the same row. */
+  const profile = user ? await profileForRequest(user.id) : null
+  const identity: AccountIdentity | null = user
+    ? {
+        name: profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || "",
+        username: profile?.username || null,
+        avatarUrl: profile?.avatar_url || null,
+        memberSince: memberSince(user.created_at),
+      }
+    : null
 
   const shell = (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
       <LibraryBgFix />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        <div
+          className="mx-auto w-full max-w-[720px] px-4 pb-10 pt-6 sm:px-6 sm:pt-10"
+          style={{ paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))", paddingRight: "max(1rem, env(safe-area-inset-right, 0px))" }}
+        >
+          {identity ? <AccountHub identity={identity}>{children}</AccountHub> : children}
+        </div>
+      </main>
       <div className="relative isolate">
         <Suspense fallback={null}>
           <ConditionalFooter />
@@ -59,15 +100,12 @@ export default async function AccountLayout({ children }: { children: React.Reac
     </div>
   )
 
-  if (!current.user) {
-    if (isNative || current.state === "indeterminate") {
-      return (
-        <NativeAuthGate requireAuth loadingFallback={<AccountLoading />}>
-          {shell}
-        </NativeAuthGate>
-      )
-    }
-    redirect("/login?next=%2Faccount")
+  if (!user) {
+    return (
+      <NativeAuthGate requireAuth loadingFallback={<AccountSkeleton />}>
+        {shell}
+      </NativeAuthGate>
+    )
   }
 
   return <NativeAuthGate>{shell}</NativeAuthGate>
