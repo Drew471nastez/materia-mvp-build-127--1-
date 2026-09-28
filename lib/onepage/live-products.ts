@@ -33,6 +33,7 @@
  * what it drew yesterday rather than emptying itself.
  */
 import { isPubliclyVisible, type VisibilityFields } from "@/lib/products/visibility"
+import { planIntervals } from "@/lib/memberships/intervals"
 
 /** What a live product contributes to a block. */
 export type LiveProduct = {
@@ -41,6 +42,9 @@ export type LiveProduct = {
   slug?: string | null
   price_cents?: number | null
   thumbnail_url?: string | null
+  /** A "membership" is priced per month or year: its block says "$9/month". */
+  type?: string | null
+  price_interval?: "month" | "year" | null
 }
 
 /**
@@ -88,6 +92,8 @@ function refreshed(data: Record<string, unknown>, product: LiveProduct): Record<
     product_slug: product.slug ?? null,
     product_price_cents: typeof product.price_cents === "number" ? product.price_cents : null,
     product_thumbnail: product.thumbnail_url ?? null,
+    product_type: product.type ?? null,
+    product_price_interval: product.price_interval ?? null,
   }
 }
 
@@ -183,9 +189,9 @@ export type ProductsDb = {
   }
 }
 
-const COLUMNS = "id, title, slug, price_cents, thumbnail_url, status, archived"
+const COLUMNS = "id, title, slug, price_cents, thumbnail_url, type, status, archived"
 /* A database from before the archive flag. The status carries the same answer there. */
-const COLUMNS_WITHOUT_FLAG = "id, title, slug, price_cents, thumbnail_url, status"
+const COLUMNS_WITHOUT_FLAG = "id, title, slug, price_cents, thumbnail_url, type, status"
 
 /** Live means published and not archived by the older flag: the one rule, lib/products/visibility.ts. */
 function live(row: Record<string, unknown>): boolean {
@@ -210,6 +216,12 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
         const id = idOf(row.id)
         if (!id || !answers.has(id)) continue
         answers.set(id, live(row) ? (row as LiveProduct) : null)
+      }
+      /* A yearly only membership says "/year" (lib/memberships/intervals); asked only when a block names a membership. */
+      const memberships = [...answers.values()].filter((p): p is LiveProduct => !!p && p.type === "membership")
+      if (memberships.length > 0) {
+        const intervals = await planIntervals(db as never, memberships.map((p) => p.id))
+        for (const p of memberships) answers.set(p.id, { ...p, price_interval: intervals.get(p.id) ?? "month" })
       }
       return answers
     } catch {

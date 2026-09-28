@@ -188,6 +188,9 @@ export interface ProductBlockData {
   product_description?: string | null
   product_price_cents?: number | null
   product_slug?: string | null
+  /** Refreshed from the product row (lib/onepage/live-products): a membership's price is per month or year. */
+  product_type?: string | null
+  product_price_interval?: "month" | "year" | null
   // Layout and animation options
   layout_type?: BlockLayoutType
   animation_type?: BlockAnimationType

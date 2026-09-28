@@ -231,7 +231,8 @@ function ItemBlock({
           {status ? <p className={`mt-0.5 text-[13px] font-medium ${status.tone}`}>{status.text}</p> : null}
         </div>
         <p className="shrink-0 pt-0.5 text-[15px] font-semibold leading-snug tabular-nums text-[#1a1a2e]">
-          {item.totalCents === 0 ? "Free" : formatMoney(shown, currency, locale)}
+          {/* A membership's line is one period of it: "$9.00/month". */}
+          {item.totalCents === 0 ? "Free" : `${formatMoney(shown, currency, locale)}${item.priceInterval ? `/${item.priceInterval}` : ""}`}
         </p>
       </div>
 

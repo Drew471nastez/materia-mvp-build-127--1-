@@ -8,6 +8,7 @@ import { getStoreUrl, getProductUrl, getProductShareUrl } from "@/lib/url-helper
 import { SmartLink } from "@/components/smart-link"
 import { isNativeApp } from "@/lib/native-bridge"
 import { WishlistSkeleton } from "./wishlist-skeleton"
+import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 
 interface WishlistItem {
   id: string
@@ -260,7 +261,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                 <div className="flex items-center justify-between mt-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-neutral-900 text-sm">
-                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                      {product.price_cents === 0 ? "Free" : perInterval(formatPrice(product.price_cents), intervalOf(product))}
                     </span>
                     {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
                       <span className="text-xs text-neutral-400 line-through">

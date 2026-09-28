@@ -42,6 +42,7 @@ const { data: products, error: productsError } = await supabase
     thumbnail_url,
     price_cents,
     compare_at_cents,
+    type,
     sales_count,
     description,
     whats_included,
@@ -78,6 +79,8 @@ const productsData =
     thumbnail_url: p.thumbnail_url,
     price_cents: p.price_cents,
     compare_at_cents: p.compare_at_cents,
+    /* A membership's card in the editor says "/month" too, as on the live page. */
+    type: p.type,
     sales_count: p.sales_count,
     description: p.description,
     whats_included: p.whats_included,

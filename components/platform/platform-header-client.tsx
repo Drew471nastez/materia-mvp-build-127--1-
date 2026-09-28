@@ -32,6 +32,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
+import { listPrice } from "@/lib/pricing/list-price"
 
 
 
@@ -204,6 +205,11 @@ type SearchProduct = {
   slug: string
   thumbnail_url?: string
   price_cents: number
+  compare_at_cents?: number | null
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
+  /** A membership reads "$9/month" (lib/pricing/list-price). */
+  type?: string | null
   creator?: {
     display_name?: string
     slug?: string
@@ -778,6 +784,10 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             slug,
             thumbnail_url,
             price_cents,
+            compare_at_cents,
+            pay_what_you_want,
+            pwyw_min_price_cents,
+            type,
             creator_id,
             creators!inner (
               display_name,
@@ -821,6 +831,10 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             slug: p.slug,
             thumbnail_url: p.thumbnail_url,
             price_cents: p.price_cents,
+            compare_at_cents: p.compare_at_cents,
+            pay_what_you_want: p.pay_what_you_want,
+            pwyw_min_price_cents: p.pwyw_min_price_cents,
+            type: p.type,
             creator: p.creators ? {
               display_name: p.creators.display_name,
               slug: p.creators.slug,
@@ -1778,7 +1792,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                             )}
                           </div>
                           <div className="text-sm font-medium text-gray-900">
-                            {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                            {listPrice(product).main}
                           </div>
                         </Link>
                       ))}
@@ -2447,7 +2461,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       )}
                     </div>
                     <div className="text-sm font-semibold text-gray-900">
-                      {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                      {listPrice(product).main}
                     </div>
                   </button>
                 ))}

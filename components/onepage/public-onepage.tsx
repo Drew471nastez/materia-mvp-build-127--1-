@@ -32,6 +32,7 @@ import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
+import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
@@ -5294,8 +5295,9 @@ function PublicBlockRenderer({
       const quickCheckoutContext = useContext(QuickCheckoutModalContext)
 
       const productUrl = data.product_slug ? `/p/${data.product_slug}` : '#'
+      /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price). */
       const priceDisplay = data.product_price_cents && data.product_price_cents > 0
-        ? `$${(data.product_price_cents / 100).toFixed(2)}`
+        ? perInterval(`$${(data.product_price_cents / 100).toFixed(2)}`, intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
         : 'Free'
       const isFreeProduct = !data.product_price_cents || data.product_price_cents === 0
       const useQuickCheckout = isFreeProduct && data.quick_checkout === true

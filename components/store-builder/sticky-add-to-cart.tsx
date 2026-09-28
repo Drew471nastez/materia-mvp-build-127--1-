@@ -16,6 +16,7 @@ import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { useProductTopBarShown } from "@/lib/store-builder/product-top-bar"
 import { useRouter } from "next/navigation"
 import { carryTouches } from "@/lib/attribution/browser"
+import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -39,6 +40,9 @@ interface ProductData {
   reviews_count?: number
   reviews_average?: number
   selectedVariantId?: string | null
+  /** A "membership" is joined and priced per month or year (lib/pricing/list-price). */
+  type?: string | null
+  price_interval?: "month" | "year" | null
 }
 
 interface StickyAddToCartProps {
@@ -58,6 +62,11 @@ interface StickyAddToCartProps {
 function formatPrice(cents: number): string {
   if (cents === 0) return "Free"
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+}
+
+/* The bar's price: a membership's is per month or year, "$9/month", as on the page above it. */
+function barPriceText(product: ProductData): string {
+  return product.price_cents ? perInterval(barPriceText(product), intervalOf(product)) : formatPrice(0)
 }
 
 function getButtonText(style: StickyAddToCartSettings["buttonStyle"]): string {
@@ -182,9 +191,11 @@ export function EditorStickyAddToCart({
   // This fixes the issue where the bar wasn't showing in the editor preview
   const shouldShow = true
 
+  /* A membership is joined, and a member opens it from the library, not from a downloads list. */
+  const isMembership = product.type === "membership"
   const buttonText = isPurchased
-    ? (downloadFiles.length > 0 ? "Download" : "Access")
-    : getButtonText(settings.buttonStyle)
+    ? (isMembership ? "Open" : downloadFiles.length > 0 ? "Download" : "Access")
+    : isMembership ? "Join" : getButtonText(settings.buttonStyle)
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingId(assetId)
@@ -334,7 +345,7 @@ export function EditorStickyAddToCart({
               <p className="truncate text-sm font-medium leading-tight" style={{ color: contentTextColor }}>
                 {product.title}
               </p>
-              {barPrice(formatPrice(product.price_cents), contentTextColor, !!isDarkBg)}
+              {barPrice(barPriceText(product), contentTextColor, !!isDarkBg)}
             </div>
           ) : (
             <div className="min-w-0">
@@ -355,7 +366,7 @@ export function EditorStickyAddToCart({
               className={cn("text-[17px] font-semibold tabular-nums", !contentTextColor && "text-gray-900")}
               style={{ color: contentTextColor }}
             >
-              {formatPrice(product.price_cents)}
+              {barPriceText(product)}
             </span>
           )}
           <Button
@@ -523,9 +534,11 @@ export function LiveStickyAddToCart({
   // Don't render on server or if settings say not visible
   if (!isMounted || !settings.visible) return null
 
+  /* A membership is joined, and a member opens it from the library, not from a downloads list. */
+  const isMembership = product.type === "membership"
   const buttonText = isPurchased
-    ? (downloadFiles.length > 0 ? "Download" : "Access")
-    : getButtonText(settings.buttonStyle)
+    ? (isMembership ? "Open" : downloadFiles.length > 0 ? "Download" : "Access")
+    : isMembership ? "Join" : getButtonText(settings.buttonStyle)
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingId(assetId)
@@ -539,6 +552,10 @@ export function LiveStickyAddToCart({
     /* Same rule as the buy button: the canvas browses, it does not buy. */
     if (inEditorFrame) return
     if (isPurchased) {
+      if (isMembership) {
+        window.location.assign(new URL("/library/memberships", getCanonicalSiteUrl()).toString())
+        return
+      }
       if (downloadFiles.length > 1) {
         setShowFilesModal(true)
         return
@@ -636,7 +653,7 @@ export function LiveStickyAddToCart({
               <p className="truncate text-sm font-medium leading-tight" style={{ color: contentTextColor }}>
                 {product.title}
               </p>
-              {barPrice(formatPrice(product.price_cents), contentTextColor, !!isDarkBg)}
+              {barPrice(barPriceText(product), contentTextColor, !!isDarkBg)}
             </div>
           </div>
           <Button
@@ -695,7 +712,7 @@ export function LiveStickyAddToCart({
               className={cn("text-[17px] font-semibold tabular-nums", !contentTextColor && "text-gray-900")}
               style={{ color: contentTextColor }}
             >
-              {formatPrice(product.price_cents)}
+              {barPriceText(product)}
             </span>
             <Button
               type="button"
