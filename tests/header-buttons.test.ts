@@ -111,7 +111,7 @@ console.log("\n6. signed in")
     check(`${f}: Become a seller goes to /sell, not through signup/success, and settings to /account`, /href="\/sell"/.test(src) && !/become-creator/.test(src) && !/Start Selling|Become a Seller/.test(src) && /href="\/account"/.test(src) && !/\/library\/settings|"\/app\/settings"/.test(src))
   }
   check("the old marketing headers say Sign up, not Start selling", ["components/marketing/header.tsx", "components/marketing/header-client.tsx"].every((f) => !/Start selling/i.test(readCode(f))))
-  check("the phone's white Sign in is one link, not a button in a link", /<Button asChild className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black[^"]*">\s*<Link \{\.\.\.headerLink\("\/login"\)\}/.test(header))
+  check("the phone's white Sign in is one link, not a button in a link", /<Button asChild className=\{cn\("ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black[^"]*", loading && "invisible"\)\}>\s*<Link \{\.\.\.headerLink\("\/login"\)\}/.test(header))
 }
 
 console.log("\n7. the logo, 5% smaller in headers only")
