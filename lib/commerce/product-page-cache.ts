@@ -218,7 +218,7 @@ export type CachedAsset = { id: string; file_name: string | null }
 export type CachedCourseModule = {
   id: string
   title: string
-  lessons: Array<{ id: string; title: string; module_id: string }>
+  lessons: Array<{ id: string; title: string; module_id: string; duration_seconds?: number | null; is_preview?: boolean }>
 }
 
 /** The seller's other products: the card's fields, and the row's others. */
@@ -345,6 +345,18 @@ export const cachedCourseOutline = (productId: string) =>
   unstable_cache(
     async () => {
       const supabase = createPublicReadClient()
+      /*
+        ONE CALL, AND IT STILL SEES THE LESSONS. A visitor may read a course's
+        module titles and its free preview lessons, nothing else (run-now part
+        74), so the lesson titles of a published course come from
+        public.course_outline(), which returns titles, running times and the
+        preview marks and nothing a buyer paid for. Before that part has run
+        it is not there, and the three reads below are what the page had.
+      */
+      const outline = (await (supabase.rpc as (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>)("course_outline", { p_product_id: productId })) as { data: unknown; error: unknown }
+      if (!outline.error && Array.isArray(outline.data)) {
+        return (outline.data.length ? outline.data : null) as CachedCourseModule[] | null
+      }
       const { data: course } = await supabase
         .from("courses")
         .select("id")

@@ -538,7 +538,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   let courseModules: Array<{
     id: string
     title: string
-    lessons?: Array<{ id: string; title: string }>
+    lessons?: Array<{ id: string; title: string; duration_seconds?: number | null; is_preview?: boolean }>
   }> | null = null
 
   if (coursePromise) {
@@ -1326,7 +1326,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                             className="h-1.5 w-1.5 rounded-full shrink-0"
                             style={{ backgroundColor: themeColors.cardPriceColor ? `${themeColors.cardPriceColor}80` : "var(--muted-foreground)" }}
                           />
-                          <span className="break-words">{lesson.title}</span>
+                          <span className="min-w-0 flex-1 break-words">{lesson.title}</span>
+                          {lesson.is_preview ? <span className="shrink-0 text-xs font-medium">Free preview</span> : null}
+                          {lesson.duration_seconds ? (
+                            <span className="shrink-0 text-xs tabular-nums opacity-80">
+                              {Math.floor(lesson.duration_seconds / 60)}:{String(lesson.duration_seconds % 60).padStart(2, "0")}
+                            </span>
+                          ) : null}
                         </li>
                       ))}
                     </ul>

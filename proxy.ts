@@ -1501,7 +1501,9 @@ export async function proxy(request: NextRequest) {
       " https://js.stripe.com/v3/payment-request-*" +
       " https://js.stripe.com/v3/three-ds-*" +
       " https://js.stripe.com/v3/link-*" +
-      " https://hooks.stripe.com",
+      " https://hooks.stripe.com" +
+      /* A course lesson that is a YouTube or Vimeo link plays in their player (lib/courses/external.ts). */
+      " https://www.youtube-nocookie.com https://player.vimeo.com",
     )
   }
 

@@ -10,6 +10,7 @@ import { runDueJobs } from "@/lib/automations/run"
 import { runCampaignQueue } from "@/lib/email-campaigns/queue"
 import { runAbandonedSweep } from "@/lib/automations/abandoned-run"
 import { recordCronRun } from "@/lib/observability/report"
+import { runCourseEmails } from "@/lib/courses/emails"
 
 /**
  * ===========================================================================
@@ -57,6 +58,14 @@ const LEGACY_BUDGET_MS = 45_000
 const ENGINE_DEADLINE_MS = 220_000
 const LEGACY_DEADLINE_MS = 280_000
 const LEGACY_ATTEMPTS = 3
+/**
+ * THE COURSE EMAILS LAST (lib/courses/emails.ts): a reminder to a buyer who
+ * went quiet partway through a course, and the note when they finish. A few
+ * a run at most, so they take the time the queues before them left, and
+ * stop by COURSE_DEADLINE_MS whatever that was.
+ */
+const COURSE_BUDGET_MS = 30_000
+const COURSE_DEADLINE_MS = 290_000
 
 // Create admin client
 const supabaseAdmin = createClient(
@@ -162,17 +171,25 @@ async function runJob(request: Request) {
 
   const legacy = await drainLegacyQueue(Math.min(Date.now() + LEGACY_BUDGET_MS, started + LEGACY_DEADLINE_MS))
 
+  let courses: Awaited<ReturnType<typeof runCourseEmails>> | { available: false; error: true } = { available: false, error: true }
+  try {
+    courses = await runCourseEmails(supabaseAdmin, Math.min(Date.now() + COURSE_BUDGET_MS, started + COURSE_DEADLINE_MS))
+  } catch (err) {
+    console.error("[cron/scheduled-emails] Course emails failed:", errorText(err))
+  }
+
   const { data: health } = await supabaseAdmin.rpc("email_flow_health").then(
     (r: { data: unknown }) => r,
     () => ({ data: null }),
   )
 
-  console.log("[cron/scheduled-emails] Done:", { campaigns, abandoned, engine, legacy })
+  console.log("[cron/scheduled-emails] Done:", { campaigns, abandoned, engine, legacy, courses })
   return NextResponse.json({
     campaigns,
     abandoned,
     engine,
     legacy,
+    courses,
     health: Array.isArray(health) ? health[0] ?? null : null,
   })
 }
