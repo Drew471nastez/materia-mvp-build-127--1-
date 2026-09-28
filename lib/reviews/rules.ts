@@ -88,11 +88,22 @@ export interface ReviewAuthorFields {
   buyer?: { display_name?: string | null; username?: string | null; avatar_url?: string | null } | null
 }
 
-/** Who wrote it, as a review card shows it. */
-export function reviewerOf(review: ReviewAuthorFields): { name: string; avatarUrl: string | null } {
+/** What a review reads as when nobody ever gave a name. */
+export const UNNAMED_REVIEWER = "Verified buyer"
+
+/**
+ * Who wrote it, as a review card shows it.
+ *
+ * `avatarName` is what the circle beside the name is drawn from, and it is
+ * empty rather than "Verified buyer" when the name is that stand in: "VB" in
+ * a circle reads as somebody's initials, and this person has no initials. The
+ * avatar draws its person glyph on an empty name.
+ */
+export function reviewerOf(review: ReviewAuthorFields): { name: string; avatarUrl: string | null; avatarName: string; named: boolean } {
   const buyer = Array.isArray(review.buyer) ? review.buyer[0] : review.buyer
-  const name = (buyer?.display_name || "").trim() || (review.reviewer_name || "").trim() || (buyer?.username || "").trim() || "Verified buyer"
-  return { name: name.slice(0, 60), avatarUrl: buyer?.avatar_url || null }
+  const given = (buyer?.display_name || "").trim() || (review.reviewer_name || "").trim() || (buyer?.username || "").trim()
+  const name = (given || UNNAMED_REVIEWER).slice(0, 60)
+  return { name, avatarUrl: buyer?.avatar_url || null, avatarName: given ? name : "", named: !!given }
 }
 
 /** A review's own status, reading an older row with no status column as published. */

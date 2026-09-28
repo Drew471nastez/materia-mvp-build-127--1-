@@ -16,7 +16,9 @@
 
 import { Star } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { cn } from "@/lib/utils"
+import { UNNAMED_REVIEWER } from "@/lib/reviews/rules"
 import { getProductInternalPath } from "@/lib/url-helpers"
 
 
@@ -42,6 +44,11 @@ export interface StorefrontReview {
   created_at?: string | null
   productTitle?: string | null
   productSlug?: string | null
+  /**
+   * Who wrote it: the account's display name, else the name a guest bought
+   * with (reviews.reviewer_name, run-now part 52). Null for neither, and the
+   * card then reads "Verified buyer" with a plain person in the circle.
+   */
   buyerName?: string | null
   /** The reviewer's own picture. A name with a face reads as a person. */
   buyerAvatarUrl?: string | null
@@ -108,28 +115,29 @@ export function ReviewsPanel({
               every review anyone has read is laid out.
             */}
             <div className="flex items-center gap-2.5">
-              {review.buyerAvatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={review.buyerAvatarUrl}
-                  alt=""
-                  className="h-8 w-8 shrink-0 rounded-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <span
-                  aria-hidden
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground"
-                >
-                  {(review.buyerName || "?").trim().charAt(0).toUpperCase()}
-                </span>
-              )}
+              {/*
+                THE CIRCLE HELD A QUESTION MARK. It was the first letter of
+                `buyerName || "?"`, and a guest's review carries no
+                `buyerName` at all, so every review written from a receipt
+                link showed a grey box with a "?" in it and no name beside
+                it. Through the shared avatar now (any host loads, a photo
+                that fails becomes the letters), in the page's own muted and
+                foreground colours so it reads on a dark theme as well as a
+                white one, and with a plain person rather than a "?" when
+                nobody ever gave a name.
+              */}
+              <AppAvatar
+                src={review.buyerAvatarUrl}
+                name={(review.buyerName || "").trim()}
+                alt=""
+                size={32}
+                tone="theme"
+                markWhileLoading
+              />
 
               <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex items-center gap-2">
-                  {review.buyerName && (
-                    <span className="truncate text-sm font-semibold text-foreground">{review.buyerName}</span>
-                  )}
+                  <span className="truncate text-sm font-semibold text-foreground">{review.buyerName?.trim() || UNNAMED_REVIEWER}</span>
                   <Stars rating={review.rating} />
                 </div>
               </div>

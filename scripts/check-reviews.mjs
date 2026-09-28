@@ -15,6 +15,14 @@
  *              form posts with the receipt token and no sign in; their own
  *              review shows the seller's reply with Edit and Delete.
  *   LIBRARY    the same card on a product in the library.
+ *   FACES      every kind of reviewer, on the light theme and a dark one: an
+ *              account with a photo, an account with none, a guest named by
+ *              their order, a review with no name anywhere, and a photo whose
+ *              address 404s. No "?" is drawn, no circle is left empty, and
+ *              the letters are measured against what they actually sit on.
+ *              With the Leave a review card in the three states its circle
+ *              used to be blank in: nobody known, a photo that 404s, and a
+ *              photo whose host never answers.
  *
  * Everywhere: nothing violet, nothing scrolls sideways.
  *
@@ -61,10 +69,15 @@ rmSync(dir, { recursive: true, force: true })
 
 const BUYER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" fill="#e8d5c4"/><circle cx="48" cy="38" r="18" fill="#6b4a3a"/><rect x="18" y="62" width="60" height="40" rx="20" fill="#35506b"/></svg>'
 const asked = []
+/** Requests deliberately left unanswered, cut loose at the end so the server can close. */
+const hanging = []
 let own = false
 const server = createServer((req, res) => {
   const url = new URL(req.url, "http://x")
   if (url.pathname === "/buyer.png") { res.writeHead(200, { "content-type": "image/svg+xml" }); res.end(BUYER_SVG); return }
+  /* A photo whose address is gone, and one whose host never answers. */
+  if (url.pathname === "/gone.png") { res.writeHead(404); res.end("gone"); return }
+  if (url.pathname === "/slow.png") { hanging.push(res); return }
   if (url.pathname.startsWith("/api/")) {
     let raw = ""
     req.on("data", (c) => (raw += c))
@@ -99,6 +112,69 @@ const expect = (ok, what, got = "") => {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 
+/**
+ * ===========================================================================
+ *  WHAT EVERY AVATAR ON THE PAGE IS HOLDING
+ * ===========================================================================
+ * For each <AppAvatar>: its state, its box, whether anything is drawn inside
+ * it (letters or the person glyph), the letters themselves, and the colours
+ * the letters are drawn in against what they sit on, composited down through
+ * whatever is behind them so a half transparent circle is measured as it is
+ * actually seen. `empty` is the failure this whole probe is about: a circle
+ * with a size and nothing in it.
+ */
+const AVATAR_SCAN = `(() => {
+  const luminance = (r, g, b) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+  }
+  const parse = (c) => {
+    const m = (c || "").match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/)
+    if (!m) return null
+    return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] }
+  }
+  const over = (top, bottom) => ({
+    r: top.r * top.a + bottom.r * (1 - top.a),
+    g: top.g * top.a + bottom.g * (1 - top.a),
+    b: top.b * top.a + bottom.b * (1 - top.a),
+    a: 1,
+  })
+  /* What is actually behind this element: every painted background up the tree, flattened. */
+  const behind = (el) => {
+    let out = { r: 255, g: 255, b: 255, a: 1 }
+    const chain = []
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) chain.push(n)
+    for (const n of chain.reverse()) {
+      const c = parse(getComputedStyle(n).backgroundColor)
+      if (c && c.a > 0) out = over(c, out)
+    }
+    return out
+  }
+  const ratio = (fg, bg) => {
+    const a = luminance(fg.r, fg.g, fg.b) + 0.05
+    const b = luminance(bg.r, bg.g, bg.b) + 0.05
+    return Math.round((Math.max(a, b) / Math.min(a, b)) * 100) / 100
+  }
+  return [...document.querySelectorAll("[data-app-avatar]")].map((el) => {
+    const box = el.getBoundingClientRect()
+    const mark = el.querySelector("span[aria-hidden], svg[aria-hidden]")
+    const text = (el.textContent || "").trim()
+    const img = el.querySelector("img")
+    const ground = behind(el)
+    const ink = mark ? parse(getComputedStyle(mark).color) || { r: 0, g: 0, b: 0, a: 1 } : null
+    return {
+      state: el.getAttribute("data-state"),
+      w: Math.round(box.width),
+      h: Math.round(box.height),
+      text,
+      glyph: !!el.querySelector("svg"),
+      photo: !!img && getComputedStyle(img).opacity === "1",
+      empty: box.width > 0 && !text && !el.querySelector("svg") && !(img && getComputedStyle(img).opacity === "1"),
+      contrast: ink ? ratio(over({ ...ink, a: ink.a }, ground), ground) : null,
+    }
+  })
+})()`
+
 const VIOLET_SCAN = `(() => {
   const out = []
   const violet = (c) => {
@@ -130,10 +206,10 @@ const VIOLET_SCAN = `(() => {
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true })
 const VIEWPORTS = [["390x844", { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }], ["1440x900", { width: 1440, height: 900, deviceScaleFactor: 1 }]]
-const open = async (vp, query) => {
+const open = async (vp, query, settle = "networkidle0") => {
   const page = await browser.newPage()
   await page.setViewport(vp)
-  await page.goto(`${base}/?${query}`, { waitUntil: "networkidle0" })
+  await page.goto(`${base}/?${query}`, { waitUntil: settle })
   await wait(700)
   return page
 }
@@ -276,9 +352,83 @@ try {
       await shot(page, `library-review-${size}`)
       await page.close()
     }
+
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       EVERY KIND OF REVIEWER, ON THE LIGHT THEME AND THE DARK ONE
+      ═══════════════════════════════════════════════════════════════════════
+      "The user that left the review may be signed out, another account, so
+      he doesn't have an account image at all, but it still needs to display
+      something." The creator page drew `(buyerName || "?")[0]` and a guest
+      review has no buyerName at all, so it was a grey box with a question
+      mark in it and no name beside it.
+
+      Five authors, both blocks that draw them, both themes: an account with
+      a photo, an account with none, a guest named by their order, a review
+      with no name anywhere, and a photo whose address 404s. Nothing may be a
+      "?", nothing may be an empty circle, and the letters have to be legible
+      on the background they actually sit on.
+    */
+    for (const theme of ["light", "dark"]) {
+      console.log(`\nEvery kind of reviewer, ${theme} theme at ${size}`)
+      const page = await open(vp, `view=reviewers&theme=${theme}`)
+      await common(page, `reviewers ${theme} ${size}`)
+      /*
+        The rating bars were the platform's near black on a page whose own
+        background is near black: darker than the track they run in. They
+        take the page's text colour now, so they read either way.
+      */
+      const bars = await page.evaluate(`(() => {
+        const track = document.querySelector("[data-rating-summary] li span:nth-child(2)")
+        const fill = track && track.firstElementChild
+        return { track: track && getComputedStyle(track).backgroundColor, fill: fill && getComputedStyle(fill).backgroundColor }
+      })()`)
+      expect(bars.fill !== bars.track, `the rating bars are not the colour of their track (${theme})`, JSON.stringify(bars))
+      const avatars = await page.evaluate(AVATAR_SCAN)
+      const text = await page.evaluate(() => document.getElementById("app")?.textContent || "")
+      expect(avatars.length === 10, "five reviewers on the product page and five on the creator page", String(avatars.length))
+      expect(!/\?/.test(text.replace(/How was [^?]*\?/g, "")), "not one question mark anywhere on the reviews", text.match(/.{0,20}\?.{0,20}/)?.[0] || "")
+      const empties = avatars.filter((a) => a.empty)
+      expect(empties.length === 0, "no avatar is an empty circle", JSON.stringify(empties))
+      const sized = avatars.every((a) => a.w >= 28 && a.h >= 28 && a.w === a.h)
+      expect(sized, "every avatar keeps its round box", JSON.stringify(avatars.map((a) => `${a.w}x${a.h}`)))
+      const product = avatars.slice(0, 5)
+      const creator = avatars.slice(5)
+      expect(product[0].photo && creator[0].photo, "the buyer with a photo shows it", JSON.stringify([product[0], creator[0]]))
+      expect(product[1].text === "MP" && creator[1].text === "MP", "a buyer with no photo is their initials", `${product[1].text} ${creator[1].text}`)
+      expect(product[2].text === "AN" && creator[2].text === "AN", "a guest is the name on the order", `${product[2].text} ${creator[2].text}`)
+      expect(product[3].glyph && !product[3].text && creator[3].glyph, "no name at all is a plain person, never a letter", JSON.stringify([product[3], creator[3]]))
+      expect(product[4].text === "LI" && creator[4].text === "LI", "a photo that 404s falls back to the initials", `${product[4].text} ${creator[4].text}`)
+      expect((text.match(/Verified buyer/g) || []).length >= 2, "and the nameless review reads Verified buyer", text.slice(0, 80))
+      const marks = avatars.filter((a) => a.contrast !== null)
+      const worst = marks.reduce((lo, a) => (a.contrast < lo ? a.contrast : lo), 99)
+      expect(worst >= 4.5, `the letters carry on the ${theme} theme (worst ${worst}:1)`, JSON.stringify(marks.map((a) => `${a.text || "glyph"} ${a.contrast}`)))
+      await shot(page, `reviewers-${theme}-${size}`)
+      await page.close()
+    }
+
+    /*
+      "Sometimes in the Leave a review the avatar is empty." Three ways it
+      was: nobody known, a photo whose address 404s, and a photo whose host
+      never answers, which left a bare ring under the heading for as long as
+      the request hung.
+    */
+    for (const theme of ["light", "dark"]) {
+      for (const [which, want] of [["unknown", ""], ["gone", "LI"], ["slow", "GN"]]) {
+        /* The hanging photo never lets the network fall idle, so this one waits on the markup. */
+        const page = await open(vp, `view=leave&case=${which}&theme=${theme}`, which === "slow" ? "domcontentloaded" : "networkidle0")
+        const a = (await page.evaluate(AVATAR_SCAN))[0]
+        expect(!!a && !a.empty && a.w === 48, `Leave a review, ${which}, ${theme}: the circle is never empty`, JSON.stringify(a))
+        expect(a && (want ? a.text === want : a.glyph && !a.text), `  and holds ${want || "a plain person"}`, JSON.stringify(a))
+        expect(a && a.contrast >= 4.5, `  legible on what it sits on (${a?.contrast}:1)`, JSON.stringify(a))
+        await shot(page, `leave-${which}-${theme}-${size}`)
+        await page.close()
+      }
+    }
   }
 } finally {
   await browser.close()
+  for (const res of hanging) res.destroy()
   server.close()
 }
 

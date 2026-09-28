@@ -131,7 +131,8 @@ export function CommunityFeed({ creatorId, userId, posts: initialPosts, isCreato
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-3">
-                      <AppAvatar src={post.author?.avatar_url} name={post.author?.display_name || initials || "?"} size={32} />
+                      {/* No name: the avatar's own person glyph, not a "?" at somebody. */}
+                      <AppAvatar src={post.author?.avatar_url} name={post.author?.display_name || initials || ""} size={32} />
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{post.author?.display_name || "User"}</span>

@@ -151,6 +151,16 @@ check(
 /* The specific one that caused it, named so the regression is unmistakable. */
 const creatorPage = readFileSync("app/(marketing)/u/[username]/page.tsx", "utf8")
 check("the creator page asks for content", /\.select\("id, rating, content, created_at/.test(creatorPage))
+/*
+  CHANGED ON PURPOSE: it now asks for `reviewer_name` too, and falls back to
+  the old list when run-now part 52 has not run. A guest's review has no
+  buyer_id and carries the name they bought with in that column, so without
+  it the creator page had nothing to write under a guest review and drew a
+  "?" for the face.
+*/
+check("and for the name a guest bought with, with the old list when part 52 has not run",
+  /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage)
+    && /missingColumn\(res\.error\)/.test(creatorPage))
 check("and not for comment", !/rating, comment/.test(creatorPage))
 check(
   "and it no longer drops the error that would tell it",

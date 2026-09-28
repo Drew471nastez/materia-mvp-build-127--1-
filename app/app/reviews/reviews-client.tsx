@@ -250,7 +250,7 @@ function ReviewRow({
   onRemoveReply: () => void
   onReport: () => void
 }) {
-  const { name, avatarUrl } = reviewerOf(review)
+  const { name, avatarUrl, avatarName } = reviewerOf(review)
   const hidden = review.status === "hidden"
   const items = [
     ...(ready && !hidden ? [{ label: review.seller_reply ? "Edit reply" : "Reply", onClick: onReply }] : []),
@@ -262,7 +262,7 @@ function ReviewRow({
   return (
     <article data-review-row={review.id} className={cn("px-4 py-4 md:px-5", hidden && "bg-[#fafbfb]")}>
       <div className="flex items-start gap-3">
-        <AppAvatar src={avatarUrl} name={name} alt="" size={36} />
+        <AppAvatar src={avatarUrl} name={avatarName} alt="" size={36} markWhileLoading />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">

@@ -39,6 +39,7 @@ import { renderEmail } from "../lib/notify/templates"
 import { signReviewWith, signWith, verifyReviewWith, verifyWith } from "../lib/notify/unsubscribe"
 import type { ChannelResult, DomainEvent, OutgoingEmail } from "../lib/notify/types"
 import { MemoryNotifyStore } from "./notify-memory-store"
+import { readCode, readSource } from "./_source"
 
 let passed = 0
 let failed = 0
@@ -85,6 +86,14 @@ function rules() {
   check("an account's review is named by the profile", reviewerOf({ buyer: { display_name: "Ghita N", avatar_url: "https://x/a.png" }, reviewer_name: "G" }).name === "Ghita N")
   check("a guest's by the first name they bought with", reviewerOf({ buyer: null, reviewer_name: "Ana" }).name === "Ana")
   check("and nobody's is a verified buyer, never an address", reviewerOf({ buyer: null, reviewer_name: null }).name === "Verified buyer" && guestReviewerName("ana@example.com") === null && guestReviewerName("  Ana  ") === "Ana")
+  /*
+    THE CIRCLE IS DRAWN FROM `avatarName`, NOT THE NAME. "Verified buyer" is
+    the words a card writes when nobody gave a name; its initials, "VB",
+    would read in a circle as a person called V. B. So the avatar is handed
+    nothing and draws its person glyph instead.
+  */
+  check("a named reviewer's circle is drawn from that name", reviewerOf({ buyer: { display_name: "Ghita N" }, reviewer_name: null }).avatarName === "Ghita N" && reviewerOf({ buyer: null, reviewer_name: "Ana" }).named)
+  check("  and a nameless one's is drawn from nothing, so it is a person and not VB", reviewerOf({ buyer: null, reviewer_name: null }).avatarName === "" && !reviewerOf({ buyer: null, reviewer_name: null }).named)
   const s = summarize([5, 5, 4, 1])
   check("the rating is the average to one decimal, with a count per star", s.count === 4 && s.average === 3.8 && s.stars[5] === 2 && s.stars[1] === 1 && s.stars[3] === 0, s)
 }
@@ -546,9 +555,56 @@ async function routes() {
   }
 }
 
+/* ── The face on a review ──────────────────────────────────────────────── */
+
+/* readCode for every "it is not there": a comment naming the old bug must not satisfy it (tests/_source). */
+const source = readSource
+const code = readCode
+
+/**
+ * "The user that left the review may be signed out, another account, so he
+ * doesn't have an account image at all, but it still needs to display
+ * something." Every surface that draws a reviewer draws the photo, else the
+ * initials, else a plain person. Measured at
+ * scripts/check-reviews.mjs (`view=reviewers`, both themes); pinned here so
+ * a "?" cannot come back through the source.
+ */
+function faces() {
+  realLog("\nThe face on a review")
+  const avatar = source("components/app/app-avatar.tsx")
+  check("no name means no letters, and the avatar draws a person instead of a \"?\"",
+    /if \(!words\.length\) return ""/.test(avatar) && /export function AvatarMark/.test(avatar) && /<svg aria-hidden="true" viewBox="0 0 24 24"/.test(avatar) && !/return "\?"/.test(code("components/app/app-avatar.tsx")))
+  check("  the review surfaces keep the mark under a photo that has not arrived, so no circle is ever blank",
+    /markWhileLoading\?: boolean/.test(avatar) && /\{!photo \|\| \(markWhileLoading && !loaded\) \? <AvatarMark name=\{name\} size=\{size\} \/> : null\}/.test(avatar))
+  check("  and a page with its own theme gets a circle mixed from its own text colour",
+    /theme: "bg-foreground\/\[0\.10\] text-foreground"/.test(avatar))
+
+  const panel = source("components/storefront/reviews-panel.tsx")
+  check("the creator page's review drew `(buyerName || \"?\")[0]`: it is the shared avatar now",
+    !/\|\| "\?"/.test(code("components/storefront/reviews-panel.tsx")) && /<AppAvatar/.test(panel) && /tone="theme"/.test(panel) && /markWhileLoading/.test(panel) && /UNNAMED_REVIEWER/.test(panel))
+  const creatorPage = source("app/(marketing)/u/[username]/page.tsx")
+  check("  and it asks for the guest's name, which is why those reviews had none to draw",
+    /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage) && /missingColumn\(res\.error\)/.test(creatorPage) && /const author = reviewerOf\(review\)/.test(creatorPage))
+
+  const card = source("components/reviews/review-card.tsx")
+  check("the product page's review card draws the page's own colours in the circle",
+    /name=\{avatarName\}/.test(card) && /markWhileLoading/.test(card) && /backgroundColor: `\$\{textColor\}1f`, color: textColor/.test(card))
+  const form = source("components/reviews/review-form.tsx")
+  check("Leave a review is handed the name it has, empty when there is none, never a \"?\"",
+    /name=\{\(name \?\? ""\)\.trim\(\)\} alt="" size=\{48\} markWhileLoading/.test(form) && !/\|\| "\?"/.test(code("components/reviews/review-form.tsx")))
+  const seller = source("app/app/reviews/reviews-client.tsx")
+  check("the seller's Reviews list draws the same face", /name=\{avatarName\} alt="" size=\{36\} markWhileLoading/.test(seller))
+
+  /* On a dark product page the bars were darker than the track they run in. */
+  const breakdown = source("components/reviews/reviews-rating-breakdown.tsx")
+  check("the rating bars follow the page's text colour rather than Storelib's near black",
+    /const bar = starColor \|\| accentColor \|\| textColor \|\| "#1a1a2e"/.test(breakdown))
+}
+
 async function main() {
   process.env.NOTIFY_UNSUBSCRIBE_SECRET = KEY
   rules()
+  faces()
   emailRules()
   await engine()
   links()

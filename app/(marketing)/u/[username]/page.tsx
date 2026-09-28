@@ -28,6 +28,8 @@ import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { creatorBadges } from "@/lib/creators/badges"
+import { reviewerOf } from "@/lib/reviews/rules"
+import { missingColumn } from "@/lib/reviews/store"
 
 /**
  * ===========================================================================
@@ -506,12 +508,37 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       asks for `content`, which is why one screen showed a review and the
       other said there were none.
     */
-    supabase
-      .from("reviews")
-      .select("id, rating, content, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
-      .eq("creator_id", creator.id)
-      .order("created_at", { ascending: false })
-      .limit(30),
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       `reviewer_name`, AND WHY A REVIEW HERE HAD NO NAME AND A "?" FOR A FACE
+      ═══════════════════════════════════════════════════════════════════════
+      A guest reviews from their receipt link (run-now part 52): the row has
+      no `buyer_id` and carries the first name they bought with in
+      `reviewer_name`. This asked for the profile join alone, so for those
+      reviews the panel had nothing to write and nothing to draw: the name
+      was left off and the circle fell back to a literal question mark.
+
+      Asked for again without it when part 52 has not run, because PostgREST
+      refuses a select naming a column that is not there (42703) rather than
+      skipping it, and that would empty the whole panel.
+    */
+    (async () => {
+      const res = await supabase
+        .from("reviews")
+        .select("id, rating, content, created_at, reviewer_name, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+        .eq("creator_id", creator.id)
+        .order("created_at", { ascending: false })
+        .limit(30)
+      if (!(res.error && missingColumn(res.error))) return res
+      /* Both column lists are written out rather than built from a variable, so
+         tests/review-columns can read them and hold them to the table. */
+      return await supabase
+        .from("reviews")
+        .select("id, rating, content, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+        .eq("creator_id", creator.id)
+        .order("created_at", { ascending: false })
+        .limit(30)
+    })(),
     /**
      * HAS THIS VIEWER BOUGHT ANYTHING FROM THIS CREATOR, which decides whether
      * the contact address goes into the page at all.
@@ -596,17 +623,21 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     })
   }
 
-  const reviewsForPanel: StorefrontReview[] = (creatorReviews || []).map((review: any) => ({
-    id: review.id,
-    rating: review.rating,
-    /* The column is `content`; `comment` is what the display type calls it. */
-    comment: review.content,
-    created_at: review.created_at,
-    productTitle: review.product?.title ?? null,
-    productSlug: review.product?.slug ?? null,
-    buyerName: review.buyer?.display_name ?? null,
-    buyerAvatarUrl: review.buyer?.avatar_url ?? null,
-  }))
+  const reviewsForPanel: StorefrontReview[] = (creatorReviews || []).map((review: any) => {
+    /* The account's display name, else the name the guest bought with. Never the address. */
+    const author = reviewerOf(review)
+    return {
+      id: review.id,
+      rating: review.rating,
+      /* The column is `content`; `comment` is what the display type calls it. */
+      comment: review.content,
+      created_at: review.created_at,
+      productTitle: review.product?.title ?? null,
+      productSlug: review.product?.slug ?? null,
+      buyerName: author.named ? author.name : null,
+      buyerAvatarUrl: author.avatarUrl,
+    }
+  })
 
   /**
    * Built once and handed to whichever header branch renders, so the control
