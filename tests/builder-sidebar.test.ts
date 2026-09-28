@@ -106,7 +106,29 @@ function main() {
     /* "On hover it flickers ... make it how Shopify displays that": scripts/check-dynamic-source.mjs measures it. */
     const dyn = read("components/website-builder/editor/controls/dynamic-source-field.tsx").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\{\/\*[\s\S]*?\*\/\}/g, " ")
     check("Insert shop data is a square button at the end of the label row, named for a screen reader",
-      /export const INSERT_LABEL = "Insert shop data"/.test(dyn) && /aria-label=\{INSERT_LABEL\}/.test(dyn) && /data-dynamic-label=""/.test(dyn) && /inline-flex h-7 w-7/.test(dyn) && /<Database /.test(dyn))
+      /export const INSERT_LABEL = "Insert shop data"/.test(dyn) && /aria-label=\{INSERT_LABEL\}/.test(dyn) && /data-dynamic-label=""/.test(dyn) && /inline-flex h-\[26px\] w-\[26px\]/.test(dyn) && /<Database /.test(dyn))
+    /*
+      A LITTLE DEPTH, AND A BACKGROUND OF ITS OWN. 26px now, one shade of the
+      app's light-surface depth (components/ui/depth-button.ts): a hairline
+      ring, a shade in its foot, one soft pixel under it, flat with the shade
+      inside while it is pressed or open. `bg-white` is load-bearing beyond
+      the look: globals.css clears :hover backgrounds inside the phone
+      sheets, where a touch screen leaves :hover on the last thing tapped,
+      and its opt-out is an element that sets its own background — without it
+      the open state was erased under a thumb. Nothing may hide behind a
+      `hover:shadow`, which that same block strips to none.
+      scripts/check-dynamic-source.mjs measures all of it in a browser.
+    */
+    check("it wears a little of the app's light-surface depth, with a background of its own",
+      /rounded-md bg-white/.test(dyn) &&
+        /shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.08\),inset_0_-1px_0_rgba\(15,23,42,0\.06\),0_1px_1px_rgba\(15,23,42,0\.05\)\]/.test(dyn) &&
+        /aria-expanded:shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.10\),inset_0_1px_2px_rgba\(15,23,42,0\.12\)\]/.test(dyn) &&
+        !/hover:shadow/.test(dyn) && /\[-webkit-tap-highlight-color:transparent\]/.test(dyn))
+    check("and it says whether this setting reads the shop",
+      /const connected = !!bound \|\| named\.length > 0/.test(dyn) && /data-connected=\{connected \? "" : undefined\}/.test(dyn))
+    /* A number setting cannot hold "": the canvas would fall back to the default while the sidebar showed an empty box. */
+    check("disconnecting a number puts a number back, not the empty string",
+      /if \(target === "number"\) onChange\(typeof field\.default === "number" \? field\.default : 0\)/.test(dyn))
     check("and it is there at rest: nothing about it waits for a hover or fades",
       !/group-hover\/dyn|group-focus-within\/dyn|opacity-0|transition-opacity/.test(dyn))
     check("a connected field is a chip with the source's name and an x",

@@ -9,14 +9,30 @@
  * 320px sidebar at 1440 and in the editor's real bottom sheet at 390, and
  * measures:
  *
- *   - the button is there at rest, fully opaque, 28px, and never overlaps
+ *   - the button is there at rest, fully opaque, 26px, and never overlaps
  *     the field under it; under a thumb it answers over 44px
+ *   - it carries the app's light-surface depth: a hairline ring, a shade in
+ *     its foot and one soft pixel under it, going flat with the shade inside
+ *     while its list is open
  *   - the field's label and input do not move by a pixel on hover, on
  *     focus, on opening the list or on inserting; no opacity changes
  *   - a keyboard reaches it, opens it, walks the list and picks
  *   - a text insert lands at the caret; a whole source reads as a chip
  *     with an x, the same height as the input, and the x disconnects
  *   - a tooltip on a desktop, none on a phone
+ *   - EVERY OPTION, EXERCISED. Each kind of setting that takes a source is
+ *     mounted, its list read and compared against what that kind may hold,
+ *     one option picked, the written value and the canvas beside it read
+ *     back, and the source disconnected again.
+ *
+ * A MOUSE AND A FINGER, DECLARED. Tailwind puts every `hover:` utility
+ * behind `(hover: hover)`, and a headless Chromium says it has neither a
+ * hover nor a fine pointer — so a probe that does not say otherwise measures
+ * a page on which no hover rule exists at all, and reports that nothing
+ * changes under the pointer because nothing can. The desktop pass declares a
+ * mouse through blink settings and the phone pass declares a touch screen,
+ * which is also the only way to see what a finger leaves behind: `:hover`
+ * sticks to the last thing tapped, and what it then paints is the artefact.
  *
  *   node scripts/check-dynamic-source.mjs          (SHOTS_DIR=dir for pictures)
  */
@@ -96,13 +112,50 @@ const geometry = (page, id) =>
   }, id)
 const same = (a, b) => JSON.stringify({ l: a.label, i: a.input, b: a.button }) === JSON.stringify({ l: b.label, i: b.input, b: b.button })
 
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
+/* The shade of the button, everything a pointer or a finger can change about it. */
+const skin = (page, id) =>
+  page.evaluate((id) => {
+    const b = document.querySelector(`[data-probe-field="${id}"] [data-dynamic-action]`)
+    const cs = getComputedStyle(b)
+    const svg = b.querySelector("svg").getBoundingClientRect()
+    return {
+      bg: cs.backgroundColor,
+      shadow: cs.boxShadow,
+      color: cs.color,
+      icon: [+svg.width.toFixed(2), +svg.height.toFixed(2)],
+      hovered: b.matches(":hover"),
+      expanded: b.getAttribute("aria-expanded"),
+      connected: b.hasAttribute("data-connected"),
+    }
+  }, id)
+/* The same, once the 100ms it takes to change has finished: two readings that agree. */
+const settled = async (page, id) => {
+  let last = await skin(page, id)
+  for (let i = 0; i < 20; i++) {
+    await sleep(80)
+    const now = await skin(page, id)
+    if (now.shadow === last.shadow && now.bg === last.bg) return now
+    last = now
+  }
+  return last
+}
+/* The layers of a box-shadow that are actually drawn: Tailwind leaves four transparent ones in front. */
+const layers = (shadow) => shadow.split(/,(?![^(]*\))/).map((l) => l.trim()).filter((l) => !l.startsWith("rgba(0, 0, 0, 0)"))
+/* Declared, because a headless Chromium has neither by default. See the note at the top. */
+const MOUSE = "--blink-settings=availableHoverTypes=2,primaryHoverType=2,availablePointerTypes=4,primaryPointerType=4"
+const FINGER = "--blink-settings=availableHoverTypes=1,primaryHoverType=1,availablePointerTypes=2,primaryPointerType=2"
+
+let browser = null
 try {
   for (const vp of [
     { name: "desktop 1440", width: 1440, height: 900, phone: false },
     { name: "phone 390", width: 390, height: 844, phone: true },
   ]) {
     console.log(`\n${vp.name}`)
+    browser = await puppeteer.launch({
+      executablePath: CHROMIUM,
+      args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", vp.phone ? FINGER : MOUSE],
+    })
     const page = await browser.newPage()
     await page.setViewport({ width: vp.width, height: vp.height, deviceScaleFactor: 2, isMobile: vp.phone, hasTouch: vp.phone })
     await page.evaluateOnNewDocument(() => {
@@ -124,10 +177,11 @@ try {
     /* ── At rest ─────────────────────────────────────────────── */
     const rest = await geometry(page, "eyebrow")
     const count = await page.$$eval("[data-dynamic-action]", (b) => b.length)
-    expect(count === 5, "every field that takes a source has the button at rest, and the select has none", count)
+    expect(count === 8, "every field that takes a source has the button at rest, and the select has none", count)
     expect(rest.opacity === "1", "fully opaque at rest, not waiting for a hover", rest.opacity)
     expect(!/opacity|all/.test(rest.transition), "and nothing about it transitions opacity", rest.transition)
-    expect(Math.abs(rest.button.w - 28) < 0.5 && Math.abs(rest.button.h - 28) < 0.5, "the visible button is 28px", rest.button)
+    /* 26px, down from 28: "a little bit smaller, just extremely slightly". The glyph inside it went 16px to 15px. */
+    expect(Math.abs(rest.button.w - 26) < 0.5 && Math.abs(rest.button.h - 26) < 0.5, "the visible button is 26px", rest.button)
     expect(rest.button.y + rest.button.h <= rest.input.y + 0.01, "it ends above the field and never overlaps the text", { buttonBottom: rest.button.y + rest.button.h, inputTop: rest.input.y })
     expect(Math.abs(rest.button.x + rest.button.w - (rest.input.x + rest.input.w)) < 0.5, "at the right end of the label row, flush with the field", { buttonRight: rest.button.x + rest.button.w, inputRight: rest.input.x + rest.input.w })
     const plain = await geometry(page, "style")
@@ -149,7 +203,17 @@ try {
       return { h: up + down + 1, w: left + right + 1, reachesInput: cy + down >= input.top }
     })
     if (vp.phone) expect(hit.h >= 44 && hit.w >= 44 && !hit.reachesInput, "under a thumb it answers over 44 by 44, and not over the field", hit)
-    else expect(hit.h >= 27 && hit.w >= 27, "under a pointer, its own 28px", hit)
+    else expect(hit.h >= 25 && hit.w >= 25, "under a pointer, its own 26px", hit)
+
+    /* ── A little depth, and a background of its own ─────────── */
+    const skinRest = await settled(page, "eyebrow")
+    const drawn = layers(skinRest.shadow)
+    expect(Math.abs(skinRest.icon[0] - 15) < 0.5 && Math.abs(skinRest.icon[1] - 15) < 0.5, "the glyph in it is 15px", skinRest.icon)
+    expect(drawn.length === 3 && drawn.filter((l) => l.endsWith("inset")).length === 2,
+      "at rest it has three layers and no more: the hairline ring and the foot inside it, one soft pixel under it", drawn)
+    expect(/0px 0px 0px 1px inset$/.test(drawn[0]) && /0px -1px 0px 0px inset$/.test(drawn[1]) && /0px 1px 1px 0px$/.test(drawn[2]),
+      "a hairline, a 1px foot, a 1px shadow: a little depth and not a lift", drawn)
+    expect(skinRest.bg === "rgb(255, 255, 255)", "and a white background of its own, which is what globals.css reads as the opt-out from its touch rule", skinRest.bg)
     await shoot("rest")
 
     /* ── Hover: over the field, then the button ──────────────── */
@@ -170,6 +234,10 @@ try {
       expect(onButtonEarly.opacity === "1" && onButton[0].opacity === "1", "and the button's opacity never changes under the pointer", [onButtonEarly.opacity, onButton[0].opacity])
       const tip = await page.evaluate(() => document.querySelector("[data-slot='tooltip-content']")?.textContent ?? null)
       expect(tip?.startsWith("Insert shop data"), "a tooltip names it after a moment's hover", tip)
+      /* A shade darker, and NOT a step higher: the depth is the same at rest and under the pointer. */
+      const skinHover = await skin(page, "eyebrow")
+      expect(skinHover.hovered && skinHover.bg !== skinRest.bg, "under the pointer it takes a shade", { rest: skinRest.bg, hover: skinHover.bg })
+      expect(skinHover.shadow === skinRest.shadow, "and keeps the depth it had: nothing lifts or drops under a pointer", { rest: skinRest.shadow, hover: skinHover.shadow })
       await shoot("hover")
       /* A sweep down the sidebar: long tasks while the pointer passes. */
       await page.evaluate(() => (window.__long = 0))
@@ -179,8 +247,15 @@ try {
       }
       const longs = await page.evaluate(() => window.__long)
       expect(longs === 0, "sweeping the pointer down the sidebar makes no long task", longs)
-      await page.mouse.move(900, 400)
-      await sleep(200)
+      /* Stepped, so the pointer actually crosses the button's edge: a jump
+         sends no boundary event and leaves the tooltip standing, which is a
+         probe leaving an artefact behind rather than the page doing it. */
+      await page.mouse.move(900, 400, { steps: 20 })
+      await sleep(300)
+      const gone = await page.evaluate(() => document.querySelectorAll("[data-slot='tooltip-content']").length)
+      const skinAway = await skin(page, "eyebrow")
+      expect(gone === 0, "the tooltip goes when the pointer does", gone)
+      expect(!skinAway.hovered && skinAway.bg === skinRest.bg && skinAway.shadow === skinRest.shadow, "and the button is exactly as it was: nothing left behind", skinAway)
     } else {
       const tapTip = async () => {
         await page.tap('[data-probe-field="heading"] [data-dynamic-action]')
@@ -191,6 +266,32 @@ try {
         return t
       }
       expect(!(await tapTip()), "no tooltip under a thumb")
+
+      /* ── WHAT A FINGER LEAVES BEHIND ─────────────────────────
+         On a touch screen :hover latches on the last thing tapped. Two
+         things have to be true of that. While the list is open the button
+         must still show it — globals.css clears :hover backgrounds inside
+         the phone sheets, and it used to clear this one's open state with
+         them, so a thumb opened the list and the glyph looked untouched.
+         And once the list is closed the button must be back to exactly the
+         shade it had before the tap, with the latched :hover painting
+         nothing. */
+      const sel = '[data-probe-field="heading"] [data-dynamic-action]'
+      const beforeTap = await settled(page, "heading")
+      await page.tap(sel)
+      await sleep(350)
+      const whileOpen = await settled(page, "heading")
+      expect(whileOpen.expanded === "true" && whileOpen.bg !== "rgba(0, 0, 0, 0)" && whileOpen.bg !== beforeTap.bg,
+        "a thumb opens the list and the glyph says so: the open shade survives the sheet's touch rule", { rest: beforeTap.bg, open: whileOpen.bg })
+      expect(whileOpen.shadow !== beforeTap.shadow, "and it goes flat with the shade inside while it is open", whileOpen.shadow)
+      await shoot("touched-open")
+      await page.tap(sel)
+      await sleep(350)
+      const afterTap = await settled(page, "heading")
+      expect(afterTap.hovered, ":hover is still latched on it after the tap, as it is on anything a finger touches", afterTap.hovered)
+      expect(afterTap.bg === beforeTap.bg && afterTap.shadow === beforeTap.shadow && afterTap.color === beforeTap.color,
+        "and the latched hover paints nothing: the glyph is exactly as it was before the tap", { before: beforeTap, after: afterTap })
+      await shoot("touched")
     }
 
     /* ── Focus the input, then open, then insert at the caret ── */
@@ -275,6 +376,85 @@ try {
     expect(cleared === "" && titleAfter.input && titleAfter.input.y === titleBefore.input.y, "the x disconnects: the text box comes back in the same place, empty", { value: cleared, before: titleBefore.input, after: titleAfter.input })
     await shoot("disconnected")
 
+    /* ── EVERY OPTION, EXERCISED ────────────────────────────
+       Desktop only, because this is about what the list offers and what
+       the page then draws, and neither depends on the pointer. Each kind
+       of setting is opened, its whole list read and compared with what a
+       setting of that kind may hold, one option picked, the written value
+       and the canvas beside it read back, and the source disconnected. */
+    if (!vp.phone) {
+      const labels = (id) => page.$$eval(`[data-probe-field="${id}"] [role="option"] span:first-child`, (n) => n.map((x) => x.textContent))
+      const stored = (id) => page.evaluate((id) => window.__values[id], id)
+      const drawn = (id) => page.$eval(`[data-canvas-for="${id}"]`, (e) => e.textContent)
+      const connected = (id) => page.$eval(`[data-probe-field="${id}"] [data-dynamic-action]`, (b) => b.hasAttribute("data-connected"))
+      const openList = async (id) => {
+        await page.evaluate((id) => document.querySelector(`[data-probe-field="${id}"]`).scrollIntoView({ block: "center" }), id)
+        await sleep(120)
+        await page.click(`[data-probe-field="${id}"] [data-dynamic-action]`)
+        await sleep(220)
+      }
+      const pickIn = async (id, label) => {
+        const h = await page.evaluateHandle((id, label) => {
+          const o = [...document.querySelectorAll(`[data-probe-field="${id}"] [role="option"]`)].find((o) => o.textContent.startsWith(label))
+          o.scrollIntoView({ block: "nearest" })
+          return o
+        }, id, label)
+        await h.click()
+        await sleep(250)
+      }
+      const cut = async (id, label) => {
+        const sel = `[data-probe-field="${id}"] button[aria-label="Disconnect ${label}"]`
+        await page.evaluate((id) => document.querySelector(`[data-probe-field="${id}"]`).scrollIntoView({ block: "center" }), id)
+        await sleep(120)
+        await page.click(sel)
+        await sleep(250)
+      }
+
+      /* A link takes an address and nothing else. */
+      await openList("link")
+      expect(JSON.stringify(await labels("link")) === JSON.stringify(["Shop address", "Product address", "Instagram", "TikTok", "YouTube", "X"]),
+        "a link setting is offered the addresses, and only the addresses", await labels("link"))
+      await pickIn("link", "Shop address")
+      expect((await stored("link")) === "{{ shop.url }}" && (await drawn("link")) === "https://drew.storelib.com",
+        "picking one writes it whole and the page draws the address", { stored: await stored("link"), drawn: await drawn("link") })
+      expect(await connected("link"), "and the glyph reads as connected")
+      await cut("link", "Shop address")
+      expect((await stored("link")) === "" && (await drawn("link")) === "" && !(await connected("link")),
+        "the x puts a plain empty link back, and the glyph goes quiet", { stored: await stored("link"), drawn: await drawn("link") })
+
+      /* A picture takes a picture and nothing else. */
+      await openList("image")
+      expect(JSON.stringify(await labels("image")) === JSON.stringify(["Creator photo", "Product image"]),
+        "a picture setting is offered the two pictures", await labels("image"))
+      await pickIn("image", "Creator photo")
+      expect((await stored("image")) === "{{ creator.avatar }}" && (await drawn("image")) === "https://cdn.example.com/drew.jpg",
+        "a connected picture swaps to the new source and the page draws it", { stored: await stored("image"), drawn: await drawn("image") })
+      await cut("image", "Creator photo")
+      expect((await stored("image")) === "" && (await drawn("image")) === "", "and the x empties it", await stored("image"))
+
+      /* A number takes a number, and comes back a number. */
+      await openList("count")
+      expect(JSON.stringify(await labels("count")) === JSON.stringify(["Number of products", "This year"]),
+        "a number setting is offered the two numbers", await labels("count"))
+      await pickIn("count", "Number of products")
+      expect((await stored("count")) === "{{ shop.product_count }}" && (await drawn("count")) === "12",
+        "picking one writes it whole and the page draws the count", { stored: await stored("count"), drawn: await drawn("count") })
+      await cut("count", "Number of products")
+      expect((await stored("count")) === 3 && (await drawn("count")) === "3",
+        "the x puts the setting's own default back, a number and not the empty string the canvas would have had to guess at", { stored: await stored("count"), drawn: await drawn("count") })
+
+      /* Words take anything and read it as words, pictures excepted. */
+      await openList("story")
+      const words = await labels("story")
+      expect(words.includes("Shop name") && words.includes("This year") && words.includes("Product description") && !words.includes("Creator photo") && !words.includes("Product image"),
+        "a text setting is offered everything that reads as words, and no pictures", words.length)
+      await pickIn("story", "Creator bio")
+      expect((await stored("story")) === "Two lines about it {{ creator.bio }}" && (await drawn("story")) === "Two lines about it Makes things",
+        "a source among words goes in beside them and the page draws the words filled in", { stored: await stored("story"), drawn: await drawn("story") })
+      expect((await connected("story")) && !(await connected("heading")),
+        "the glyph is lit on the setting that reads the shop and quiet on the one beside it")
+    }
+
     /* ── Keyboard, desktop only ─────────────────────────────── */
     if (!vp.phone) {
       await page.click('[data-probe-field="heading"] input')
@@ -297,9 +477,11 @@ try {
     const longs = await page.evaluate(() => window.__long)
     console.log(`  info  long tasks over the whole run: ${longs}`)
     await page.close()
+    await browser.close()
+    browser = null
   }
 } finally {
-  await browser.close()
+  if (browser) await browser.close()
   server.close()
 }
 console.log(broken ? `\n${broken} FAILED` : "\nall passed")

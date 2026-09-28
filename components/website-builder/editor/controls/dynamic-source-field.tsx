@@ -27,8 +27,44 @@
  * landed inside the input on top of the words, and every pass of the
  * pointer made it blink. The button is now in the label row's own flow, at
  * rest and on hover alike: nothing appears, disappears or moves under the
- * pointer. It is 28px, and 44px under a thumb through a hit area that
- * reaches into the gap above the row, never over the field below it.
+ * pointer. It is 26px, and 44px under a thumb through a hit area that
+ * reaches into the gap above the row, never over the field below it. The
+ * row it sits in is still 28px, so shrinking the button moved nothing
+ * around it.
+ *
+ * ---------------------------------------------------------------------------
+ *  A LITTLE DEPTH, ON A LIGHT SIDEBAR
+ * ---------------------------------------------------------------------------
+ * The builder's sidebar is white — deliberately so; the editor page says as
+ * much where it paints its section rows — so this wears the app's
+ * light-surface depth (components/ui/depth-button.ts) at a whisper: a
+ * hairline drawn as an inset ring rather than a border, so the button stays
+ * exactly 26px and nothing reflows; a 1px shade inside its foot; a 1px
+ * shadow under it. A shade darker under the pointer, and flat with the shade
+ * inside while it is pressed and while its list is open, which is how a key
+ * reads when it is down. No glow, no lift, no gradient: there is one of
+ * these on every text setting in the panel, and anything louder would be a
+ * column of buttons.
+ *
+ * THE BACKGROUND IS ITS OWN, AND THAT IS WHAT KEEPS A FINGER OFF IT.
+ * globals.css clears `:hover` backgrounds inside the phone sheets, because a
+ * touch screen leaves `:hover` on the last thing tapped until something else
+ * is tapped. Its documented opt-out is that an element setting its OWN
+ * background keeps it. Before the depth this button set none, so that rule
+ * applied to it, and the open state (`aria-expanded:bg-…`) was erased the
+ * moment a thumb opened the list: you tapped the glyph, the list opened, and
+ * the glyph looked untouched. `bg-white` in the class list is the opt-out,
+ * and the depth wanted it anyway. Everything that answers a pointer is a
+ * `hover:` utility, which Tailwind already puts behind `(hover: hover)` and
+ * a touch screen therefore never sees, and nothing is behind a
+ * `hover:shadow`, which that same block would strip to none. The tap
+ * highlight — the grey square a phone paints over a small button — is turned
+ * off, the way every button in depth-button.ts turns it off.
+ *
+ * CONNECTED, THE GLYPH SAYS SO. Muted while the setting holds only typed
+ * words, the foreground colour as soon as any of its value comes from the
+ * shop. A whole-value field already reads as a chip, but a text setting with
+ * a source among its words had nothing in its label row to say so.
  *
  * Only drawn where the editor provides the page it is on. A field that is
  * not in the editor, or that holds a value per breakpoint, gets its label
@@ -68,7 +104,7 @@ export function DynamicSourceField({
   label,
   children,
 }: {
-  field: { type: string; label?: string; responsive?: boolean }
+  field: { type: string; label?: string; responsive?: boolean; default?: unknown }
   value: unknown
   onChange: (v: unknown) => void
   /** The label row's words. Absent for a control that names itself. */
@@ -132,6 +168,8 @@ export function DynamicSourceField({
   }
 
   const named = bound ? [] : whole ? [] : sourcesIn(text)
+  /** Anything of this setting's value that comes from the shop, whole or among words. */
+  const connected = !!bound || named.length > 0
 
   const pick = (s: DynamicSource) => {
     setOpen(false)
@@ -163,9 +201,20 @@ export function DynamicSourceField({
     }, 0)
   }
 
+  /**
+   * BACK TO A PLAIN VALUE OF THE RIGHT KIND. Every setting used to be
+   * disconnected to `""`, which is a plain value for words, a link and a
+   * picture, and is not a number. A number setting connected to the number
+   * of products and then disconnected held the empty string: the canvas
+   * quietly drew the default (resolveOne refuses a value the control
+   * cannot hold) while the sidebar showed an empty box, and the two
+   * disagreed until something was typed. A number goes back to its own
+   * default, or to zero when the schema names none.
+   */
   const disconnect = () => {
     caret.current = null
-    onChange("")
+    if (target === "number") onChange(typeof field.default === "number" ? field.default : 0)
+    else onChange("")
     requestAnimationFrame(refocus)
   }
 
@@ -197,19 +246,28 @@ export function DynamicSourceField({
       aria-haspopup="listbox"
       aria-expanded={open}
       data-dynamic-action=""
+      data-connected={connected ? "" : undefined}
       onClick={() => {
         setTip(false)
         setOpen((o) => !o)
       }}
       className={
-        "relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors " +
-        "hover:bg-neutral-100 hover:text-foreground aria-expanded:bg-neutral-100 aria-expanded:text-foreground " +
+        "relative inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-white " +
+        (connected ? "text-foreground " : "text-muted-foreground ") +
+        /* The hairline as an inset ring, the foot inside it, one soft pixel under it. */
+        "shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08),inset_0_-1px_0_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.05)] " +
+        "transition-[background-color,box-shadow,color] duration-100 " +
+        "hover:bg-[#f7f7f8] hover:text-foreground " +
+        /* Down, and open, are the same thing: flat, with the shade inside. */
+        "active:bg-[#f1f2f4] active:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.10),inset_0_1px_2px_rgba(15,23,42,0.12)] " +
+        "aria-expanded:bg-[#f1f2f4] aria-expanded:text-foreground aria-expanded:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.10),inset_0_1px_2px_rgba(15,23,42,0.12)] " +
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 " +
-        /* 44px under a thumb: 8px either side, 14px up into the 16px gap above, 2px down to the field and not over it. */
-        "before:absolute before:content-[''] max-sm:before:-inset-x-2 max-sm:before:-top-3.5 max-sm:before:-bottom-0.5"
+        "[-webkit-tap-highlight-color:transparent] " +
+        /* 44px under a thumb: 10px either side, 16px up into the gap above, 2px down to the field and not over it. */
+        "before:absolute before:content-[''] max-sm:before:-inset-x-2.5 max-sm:before:-top-4 max-sm:before:-bottom-0.5"
       }
     >
-      <Database className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      <Database className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden />
     </button>
   )
 
@@ -265,7 +323,7 @@ export function DynamicSourceField({
                       type="button"
                       aria-label={`Disconnect ${source?.label ?? bound}`}
                       onClick={disconnect}
-                      className="relative inline-flex h-5 w-5 max-sm:h-7 max-sm:w-7 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-neutral-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 before:absolute before:content-[''] max-sm:before:-inset-2"
+                      className="relative inline-flex h-5 w-5 max-sm:h-7 max-sm:w-7 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-neutral-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 [-webkit-tap-highlight-color:transparent] before:absolute before:content-[''] max-sm:before:-inset-2"
                     >
                       <X className="h-3 w-3 max-sm:h-3.5 max-sm:w-3.5" strokeWidth={2} aria-hidden />
                     </button>
