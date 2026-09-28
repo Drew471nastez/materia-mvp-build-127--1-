@@ -17,8 +17,11 @@ const firstBusiness = params.get("first")
   ? { userId: "u-owner", name: "AndrewRullz Studio", handle: "andrew", avatarUrl: null, ready: true }
   : null
 
+/* `?resume=1`: a setup begun and not finished, as /sell reads it back (lib/account/onboarding-resume). */
+const resume = params.get("resume") ? { displayName: "Maya Prints", bio: "Risograph prints of city corners", category: "Art & Illustration", step: 4 as const } : null
+
 const root = createRoot(document.getElementById("app")!)
 root.render(createElement(Loading))
 ;(window as unknown as { __swap: () => void }).__swap = () =>
-  root.render(createElement(SellOnboarding, { leaveHref: "/p/prints", resumePlan: null, firstBusiness }))
+  root.render(createElement(SellOnboarding, { leaveHref: "/p/prints", resumePlan: null, firstBusiness, resume }))
 ;(window as unknown as { __ran?: boolean }).__ran = true

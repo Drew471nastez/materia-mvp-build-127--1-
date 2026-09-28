@@ -631,6 +631,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       compare_at_cents: p.compare_at_cents ?? undefined,
       sales_count: p.sales_count ?? undefined,
       description: p.description,
+      /* A membership's card says "/month" (lib/pricing/list-price). */
+      type: (p as { type?: string | null }).type ?? undefined,
     }))
 
   // Apply theme colors to all sections from the product page config
@@ -837,9 +839,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     compare_at_cents: product.compare_at_cents,
     pay_what_you_want: (product as { pay_what_you_want?: boolean | null }).pay_what_you_want ?? null,
     pwyw_min_price_cents: (product as { pwyw_min_price_cents?: number | null }).pwyw_min_price_cents ?? null,
+    /* A membership's price is "$9/month" (or "/year" when it has only a yearly one), by the same rule as every card. */
+    type: product.type,
+    price_interval: membershipInfo?.interval ?? null,
   }, formatPrice)
-  /* A membership's price is "$9/month" (or "/year" when it has only a yearly one). */
-  const headerPrice = membershipInfo && product.price_cents > 0 ? { ...listed, main: `${listed.main}/${membershipInfo.interval}` } : listed
+  const headerPrice = listed
 
   // Check if the logged-in user is the creator of this product
 
@@ -932,6 +936,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       thumbnail_url: product.thumbnail_url,
       price_cents: product.price_cents,
       compare_at_cents: product.compare_at_cents,
+      /* The custom layout (SectionRenderer) writes a membership's price per month or year too, not a bare "$9". */
+      type: product.type,
+      price_interval: membershipInfo?.interval ?? null,
       sales_count: product.sales_count,
       description: product.description,
       whats_included: product.whats_included,
@@ -1230,7 +1237,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <SmartLink href={creatorStoreUrl} className="creator-link flex min-w-0 items-center gap-3" target="_blank" rel="noopener noreferrer">
+                  {/* 36px to press (a phone's floor), drawn at the same place: the extra 2px each side are taken back by the margin. */}
+                  <SmartLink href={creatorStoreUrl} className="creator-link -my-0.5 flex min-w-0 items-center gap-3 py-0.5" target="_blank" rel="noopener noreferrer">
                     <AppAvatar
                       src={creatorAvatarUrl}
                       name={(creatorProfile?.display_name || "").trim()}
@@ -1275,7 +1283,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   productSlug={product.slug}
                   creatorUsername={creatorUsername}
                   pageHost={pageHost}
-                  className="shrink-0 h-8 w-8"
+                  className="-m-0.5 shrink-0 h-9 w-9"
                   iconSize="h-4 w-4"
                 />
               </div>
@@ -1769,6 +1777,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               thumbnail_url: galleryImages[0] || product.thumbnail_url || null,
               price_cents: product.price_cents,
               compare_at_cents: product.compare_at_cents,
+              type: product.type,
+              price_interval: membershipInfo?.interval ?? null,
               reviews_count: reviewsCount,
               reviews_average: reviewsAverage,
             }}
@@ -1938,6 +1948,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             thumbnail_url: galleryImages[0] || product.thumbnail_url || null,
             price_cents: product.price_cents,
             compare_at_cents: product.compare_at_cents,
+            type: product.type,
+            price_interval: membershipInfo?.interval ?? null,
             reviews_count: reviewsCount,
             reviews_average: reviewsAverage,
           }}

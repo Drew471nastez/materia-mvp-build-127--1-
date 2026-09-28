@@ -17,7 +17,9 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { BookOpen, Check, Play } from "lucide-react"
+import { BookOpen, Check, ChevronDown, Play } from "lucide-react"
+import { CARD, SECONDARY, SMALL, VIOLET } from "@/components/library/library-ui"
+import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { lengthInWords, type CourseStatus } from "@/lib/courses/progress"
 import type { MyCourse } from "@/lib/courses/types"
@@ -51,13 +53,19 @@ export function CoursesIndex({ courses }: { courses: MyCourse[] }) {
 
   const shown = courses.filter((c) => (filter === "all" || c.status === filter) && (!creator || c.creator.id === creator))
 
+  /*
+    ONE HEADING ON THE SCREEN. "Library" above the pills is the page's
+    heading, as on every other tab; this screen used to draw its own
+    "Courses" h1 under it, and an h1 in its empty state too. What is left is
+    what the Products tab has in the same place: a toolbar, a count line and
+    the list in the library's card (components/library/library-ui).
+  */
   if (courses.length === 0) {
     return (
-      <div data-courses-index className="rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-14 text-center">
-        <BookOpen className="mx-auto h-8 w-8 text-neutral-400" />
-        <h1 className="mt-3 text-[17px] font-semibold text-[#1a1a2e]">No courses yet</h1>
-        <p className="mx-auto mt-1 max-w-[320px] text-[14px] text-[#6b7280]">Courses you buy on Storelib show up here, with your place in each one.</p>
-        <Link href="/explore" className="mt-4 inline-flex h-10 items-center rounded-lg bg-[#8b5cf6] px-4 text-[14px] font-semibold text-white hover:bg-[#7c3aed]">
+      <div data-courses-index="" data-courses-empty="" className={`${CARD} px-5 py-10 text-center`}>
+        <p className="text-[16px] font-semibold text-[#1a1a2e]">No courses yet</p>
+        <p className="mx-auto mt-1.5 max-w-[320px] text-[14px] leading-relaxed text-[#6b7280]">Courses you buy on Storelib show up here, with your place in each one.</p>
+        <Link href="/explore" className={`${VIOLET} mt-5`}>
           Discover courses
         </Link>
       </div>
@@ -65,19 +73,35 @@ export function CoursesIndex({ courses }: { courses: MyCourse[] }) {
   }
 
   return (
-    <div data-courses-index>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-[22px] font-bold text-[#1a1a2e] sm:text-[26px]">
-          Courses <span className="text-[16px] font-medium text-[#9ca3af] sm:text-[18px]">{courses.length}</span>
-        </h1>
+    <div data-courses-index="" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2" data-courses-toolbar="">
+        <div className="-mx-4 min-w-0 max-w-[calc(100%+2rem)] overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:max-w-full sm:px-0" role="tablist" aria-label="Progress">
+          <div className="flex w-max items-center gap-0.5 rounded-[10px] bg-[#eef0f3] p-0.5">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={`h-9 whitespace-nowrap rounded-[8px] px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${
+                  filter === f.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]"
+                }`}
+              >
+                {f.label}
+                <span className={`ml-1.5 tabular-nums max-sm:hidden ${filter === f.id ? "text-[#9ca3af]" : "text-[#b0b3ba]"}`}>{counts[f.id]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         {creators.length > 1 ? (
-          <label className="flex items-center gap-2 text-[13px] text-[#6b7280]">
-            <span className="hidden sm:inline">Creator</span>
+          <label className="relative min-w-0 shrink">
+            <span className="sr-only">Creator</span>
             <select
               value={creator}
               onChange={(e) => setCreator(e.target.value)}
               data-creator-filter
-              className="h-9 max-w-[220px] rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[14px] font-medium text-[#1a1a2e] outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20"
+              className="h-10 max-w-[220px] appearance-none truncate rounded-[10px] border border-[#e4e7ec] bg-white pl-3 pr-8 text-[14px] font-medium text-[#1a1a2e] focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/10"
             >
               <option value="">All creators</option>
               {creators.map((c) => (
@@ -86,39 +110,24 @@ export function CoursesIndex({ courses }: { courses: MyCourse[] }) {
                 </option>
               ))}
             </select>
+            <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
           </label>
         ) : null}
       </div>
 
-      <div className="-mx-1 mb-4 overflow-x-auto px-1 scrollbar-hide" role="tablist" aria-label="Progress">
-        <div className="flex w-max items-center gap-1 rounded-lg bg-[#f1f1f4] p-1">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.id}
-              onClick={() => setFilter(f.id)}
-              className={`h-8 whitespace-nowrap rounded-md px-2.5 text-[13px] font-medium transition-colors sm:px-3 ${
-                filter === f.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]"
-              }`}
-            >
-              {f.label}
-              <span className={`ml-1.5 tabular-nums max-sm:hidden ${filter === f.id ? "text-[#9ca3af]" : "text-[#b0b3ba]"}`}>{counts[f.id]}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <p className="px-0.5 text-[13px] text-[#6b7280]" aria-live="polite">
+        {shown.length === courses.length ? `${courses.length} ${courses.length === 1 ? "course" : "courses"}` : `${shown.length} of ${courses.length}`}
+      </p>
 
       {shown.length === 0 ? (
-        <div className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-6 py-10 text-center text-[14px] text-[#6b7280]">
-          Nothing here.{" "}
-          <button type="button" className="font-medium text-[#6d28d9]" onClick={() => (setFilter("all"), setCreator(""))}>
+        <div data-courses-no-match="" className={`${CARD} px-5 py-10 text-center`}>
+          <p className="text-[15px] font-semibold text-[#1a1a2e]">Nothing here</p>
+          <button type="button" className={cn(SECONDARY, SMALL, "mt-4")} onClick={() => (setFilter("all"), setCreator(""))}>
             Show every course
           </button>
         </div>
       ) : (
-        <ul className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-course-list>
+        <ul className={`${CARD} overflow-hidden`} data-course-list>
           {shown.map((c) => (
             <CourseRow key={c.productId} course={c} onCreator={creators.length > 1 ? () => setCreator(c.creator.id) : null} />
           ))}
@@ -133,7 +142,7 @@ function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => 
   const length = lengthInWords(course.totalSeconds)
   const action = course.status === "completed" ? "Watch again" : course.status === "not_started" ? "Start" : "Continue"
   return (
-    <li className="border-b border-[#f0f0f2] last:border-0" data-course-row={course.status}>
+    <li className="border-b border-[#eef0f3] last:border-0" data-course-row={course.status}>
       <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
         <Link href={href} className="relative aspect-video w-[112px] shrink-0 overflow-hidden rounded-lg bg-[#f1f1f4] sm:w-[168px]" tabIndex={-1} aria-hidden>
           {course.thumbnailUrl ? (
@@ -157,7 +166,7 @@ function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => 
           <div className="mt-1 flex min-w-0 items-center gap-1.5">
             <AppAvatar src={course.creator.avatarUrl} name={course.creator.name} size={18} alt="" />
             {onCreator ? (
-              <button type="button" onClick={onCreator} className="truncate text-[13px] text-[#6b7280] hover:text-[#1a1a2e]" title={`Only ${course.creator.name}`}>
+              <button type="button" onClick={onCreator} className="-my-2 truncate py-2 text-[13px] text-[#6b7280] hover:text-[#1a1a2e]" title={`Only ${course.creator.name}`}>
                 {course.creator.name}
               </button>
             ) : (
@@ -182,7 +191,7 @@ function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => 
         <div className="hidden shrink-0 flex-col items-end justify-center gap-1 sm:flex sm:w-[200px]">
           <Link
             href={href}
-            className="inline-flex h-10 max-w-full items-center gap-1.5 rounded-lg bg-[#8b5cf6] px-4 text-[14px] font-semibold text-white hover:bg-[#7c3aed]"
+            className={cn(VIOLET, "max-w-full")}
             data-continue
           >
             <Play className="h-3.5 w-3.5 shrink-0" fill="currentColor" />
@@ -198,7 +207,7 @@ function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => 
 
       {/* On a phone, Continue is a full row of its own under the course. */}
       <div className="px-3 pb-3 sm:hidden">
-        <Link href={href} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#8b5cf6] px-3 text-[14px] font-semibold text-white" data-continue-phone>
+        <Link href={href} className={cn(VIOLET, "flex w-full px-3")} data-continue-phone>
           <Play className="h-3.5 w-3.5 shrink-0" fill="currentColor" />
           <span className="truncate">
             {action}

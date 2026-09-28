@@ -771,7 +771,7 @@ export function CreatorMembershipScreenView({ screen: initial, initialTab, isNew
           <StatusBadge tone={screen.product.status === "published" ? "success" : "neutral"}>{screen.product.status === "published" ? "On sale" : "Draft"}</StatusBadge>
         </div>
         {pageHref && screen.product.status === "published" ? (
-          <a href={pageHref} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "max-sm:w-9 max-sm:px-0")} aria-label="View page">
+          <a href={pageHref} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "max-sm:h-9 max-sm:w-9 max-sm:px-0")} aria-label="View page">
             <ExternalLink aria-hidden className="h-4 w-4" />
             <span className="max-sm:hidden">View page</span>
           </a>

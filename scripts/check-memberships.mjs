@@ -33,6 +33,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss } from "./probe-css.mjs"
+import { sweepScreens } from "./sweep-measure.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
@@ -311,6 +312,17 @@ export const getPlatform = () => "web"
       await shot(p, `checkout-${label}`)
       await p.close()
     }
+  }
+
+  /* SWEEP: the buyer's screens and the creator's at six widths (scripts/sweep-measure.mjs). */
+  console.log("\nsweep at six widths")
+  {
+    const problems = await sweepScreens(["list", "list-empty", "member", "past-due", "ended", "creator", "members"], async (screen, vp) => {
+      const { p, errors } = await open(screen, vp)
+      p.errors = errors
+      return p
+    }, { shots })
+    expect(problems.length === 0, "every memberships screen reads clean at every width", problems)
   }
 
   await browser.close()

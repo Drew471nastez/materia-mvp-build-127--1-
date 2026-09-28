@@ -11,18 +11,21 @@
  * as Supabase storage is in production. An anchor's `download` is ignored
  * there: this was a plain anchor click, so a file the browser could draw
  * replaced the creator's page with itself and the visitor was gone from the
- * page that was meant to sell to them. It goes to a tab of its own now
- * (lib/platform/download-tab).
+ * page that was meant to sell to them. It then went to a tab of its own,
+ * which the owner saw as about:blank and did not want. It takes the one
+ * download path now (lib/downloads/download-file): saved where the button
+ * is, in a hidden frame, with no tab and no pop-up.
  *
  * At 390x844 and 1440x900, three presses:
  *
  *   ATTACHMENT  what storage answers a `download=` address with. The page's
- *               own address never changes, the page is still drawn, one tab
- *               is asked for, and that tab holds a line rather than nothing.
+ *               own address never changes, the page is still drawn, no tab
+ *               is opened, and the file is saved under its name.
  *   DRAWABLE    no attachment header, which is the shape that took the page
- *               away. The page stays; the file is drawn in the tab.
- *   NO TAB      a browser with pop-ups blocked. The page stays, and the file
- *               arrives in a notice with a link on it.
+ *               away. The page stays, no tab opens, and a one line notice
+ *               offers the file with an Open link.
+ *   POP-UPS OFF a browser that blocks pop-ups. Nothing asks for one, so the
+ *               file still saves.
  *
  *   PROBE_CSS=source node scripts/check-onepage-download.mjs
  *   SHOTS=/some/dir  also writes pictures
@@ -167,21 +170,10 @@ try {
       expect(page.url() === was, `${label}: the creator's page never moved`, `${was} -> ${page.url()}`)
       const alive = await stillThere(page)
       expect(alive.headline && alive.shop && alive.blocks > 1, `${label}: the page is still drawn, blocks and all`, alive)
-      expect(tabs.length === 1, `${label}: one tab of its own was asked for`, tabs)
+      expect(tabs.length === 0, `${label}: no tab was opened, not even about:blank`, tabs)
       const got = asked.find((a) => a.path.endsWith("/guide.pdf"))
       expect(!!got && decodeURIComponent(got.query).includes(`download=${FILE_NAME}`), `${label}: the file was asked for with the name storage answers as an attachment`, got)
       expect(!!began && began.suggestedFilename === FILE_NAME, `${label}: it came back as an attachment and was saved, not drawn`, began && { url: began.url, name: began.suggestedFilename })
-      /* The tab writes its holding line and is then pointed at the file, so
-         read it a few times rather than once on the edge of that. */
-      let held = null
-      for (let i = 0; i < 12 && !held?.mark; i++) {
-        for (const other of await browser.pages()) {
-          if (other === page || held?.mark) continue
-          held = await other.evaluate(() => ({ mark: !!document.querySelector("[data-storelib-download]"), text: document.body?.textContent || "" })).catch(() => null)
-        }
-        if (!held?.mark) await wait(150)
-      }
-      expect(!!held?.mark && /Your download is starting/.test(held.text), `${label}: and that tab says what it is rather than sitting blank`, held)
       expect(said.length === 0, `${label}: nothing in the console`, said.slice(0, 2).join(" | "))
       await settle(page)
       await page.close()
@@ -201,46 +193,39 @@ try {
       expect(page.url() === was, `${label}: a drawable file did not take the page with it`, `${was} -> ${page.url()}`)
       const alive = await stillThere(page)
       expect(alive.headline && alive.shop, `${label}: the page is still there, the PDF did not take its place`, alive)
-      expect(tabs.length === 1, `${label}: it was drawn in a tab of its own`, tabs)
+      expect(tabs.length === 0, `${label}: and no tab was opened for it`, tabs)
+      const open = await page.evaluate(() => {
+        const box = document.querySelector("[data-download-open]")
+        const a = box?.querySelector("a")
+        const r = a ? a.getBoundingClientRect() : null
+        return box ? { text: box.textContent || "", target: a?.getAttribute("target"), onScreen: !!r && r.height >= 32 && r.bottom <= window.innerHeight && r.right <= window.innerWidth } : null
+      })
+      expect(!!open && open.target === "_blank" && open.onScreen && open.text.includes(FILE_NAME), `${label}: a notice offers it with an Open link the visitor presses`, open)
       await settle(page)
       await page.close()
     }
 
     /* ── A browser with pop-ups blocked ───────────────────────────── */
-    console.log(`\nwith the tab refused at ${label}`)
+    console.log(`\nwith pop-ups blocked at ${label}`)
     {
       const page = await openPage(viewport)
-      await page.evaluate(() => { window.open = () => null })
-      const tabs = []
-      const onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
-      browser.on("targetcreated", onTarget)
+      await page.evaluate(() => {
+        window.__opened = 0
+        window.open = () => { window.__opened++; return null }
+      })
+      let began = null
+      const onBegin = (e) => { began = e }
+      cdp.on("Browser.downloadWillBegin", onBegin)
       const was = page.url()
       await pressDownload(page)
-      await wait(1200)
-      browser.off("targetcreated", onTarget)
-      expect(page.url() === was, `${label}: the refused tab did not move the page either`, `${was} -> ${page.url()}`)
-      expect(tabs.length === 0, `${label}: and nothing was opened behind it`, tabs)
-      const notice = await page.evaluate(() => {
-        const box = document.querySelector("[data-download-blocked]")
-        if (!box) return null
-        const a = box.querySelector("[data-download-blocked-link]")
-        const r = a ? a.getBoundingClientRect() : null
-        return {
-          text: box.textContent || "",
-          href: a ? a.getAttribute("href") : "",
-          download: a ? a.getAttribute("download") : "",
-          target: a ? a.getAttribute("target") : "",
-          rel: a ? a.getAttribute("rel") : "",
-          onScreen: !!r && r.width > 0 && r.height >= 32 && r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth,
-        }
-      })
-      expect(!!notice, `${label}: the visitor is shown a notice, not nothing`, "none")
-      expect(!!notice && notice.href.startsWith(filesBase) && notice.target === "_blank" && notice.rel === "noopener noreferrer" && notice.download === FILE_NAME,
-        `${label}: with the file on it, in a tab of its own`, notice)
-      expect(!!notice && notice.onScreen && notice.text.includes(`Save ${FILE_NAME}`), `${label}: on the screen, naming the file`, notice)
+      await wait(1500)
+      cdp.off("Browser.downloadWillBegin", onBegin)
+      expect(page.url() === was, `${label}: the page did not move`, `${was} -> ${page.url()}`)
+      expect((await page.evaluate(() => window.__opened)) === 0, `${label}: window.open was never called`)
+      expect(!!began && began.suggestedFilename === FILE_NAME, `${label}: and the file still saved`, began && began.suggestedFilename)
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-      expect(overflow <= 0, `${label}: the notice pushes nothing sideways`, `${overflow}px`)
-      if (SHOTS) await page.screenshot({ path: join(SHOTS, `onepage-download-${label}-tab-refused.png`) })
+      expect(overflow <= 0, `${label}: nothing pushed sideways`, `${overflow}px`)
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `onepage-download-${label}-popups-off.png`) })
       await settle(page)
       await page.close()
     }

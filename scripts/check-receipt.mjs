@@ -59,6 +59,7 @@ import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
+import { sweepScreens } from "./sweep-measure.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const SHOTS = process.env.SHOTS
@@ -978,6 +979,16 @@ try {
       if (SHOTS) await sk.screenshot({ path: join(SHOTS, `receipt-loading-${width}.png`) })
       await sk.close()
     }
+  }
+  /* SWEEP: the receipt's cases at six widths (scripts/sweep-measure.mjs). */
+  if (!SHOTS_ONLY) {
+    console.log("\nsweep at six widths")
+    const problems = await sweepScreens(["paid", "multi", "guest", "refunded", "nofiles"], async (which, vp) => {
+      const page = await open(vp, which)
+      page.errors = (logs.get(page) ?? []).filter((l) => l.startsWith("pageerror"))
+      return page
+    }, { shots: SHOTS })
+    expect(problems.length === 0, "the receipt reads clean at every width", problems)
   }
 } finally {
   await browser.close()

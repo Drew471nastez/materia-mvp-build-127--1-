@@ -26,7 +26,16 @@ export const SECONDARY = `inline-flex h-10 shrink-0 items-center justify-center 
 /** Storelib's purple, for the one call to action a screen has (Explore's Start selling). */
 export const VIOLET = `inline-flex h-10 shrink-0 items-center justify-center gap-1.5 ${RADIUS} bg-[#7c3aed] px-4 text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(76,29,149,0.3)] hover:bg-[#6d28d9] active:bg-[#5b21b6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/30 focus-visible:ring-offset-2 ${PRESS}`
 
-/** A size down, for a row's own action. */
+/**
+ * A size down, for a row's own action: 36px, not 40.
+ *
+ * ALWAYS THROUGH cn(): cn(PRIMARY, SMALL, ...). Written as
+ * `${PRIMARY} ${SMALL}` both h-10 and h-9 land on the element, and the
+ * stylesheet, not the class string, decides which wins: Tailwind puts h-10
+ * after h-9 (and px-4 after px-3, text-[14px] after text-[13px]), so every
+ * "small" button drew at 40px. cn merges the two, so the later one really
+ * is the only one left.
+ */
 export const SMALL = "h-9 px-3 text-[13px]"
 
 /** A square icon button the size of SMALL, for a row's More. */

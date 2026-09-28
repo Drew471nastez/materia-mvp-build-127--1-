@@ -10,6 +10,13 @@
  *   free                "Free"
  *   a fixed price       the price, and the compare-at price struck through
  *                       with the saving, only when it is higher than the price
+ *   a membership        its price per month or per year: "$9/month". The
+ *                       product row carries the monthly price (the yearly one
+ *                       when there is no monthly, lib/memberships/creator.ts),
+ *                       so a card that was handed the plan's interval
+ *                       (lib/memberships/intervals.ts) says which, and one
+ *                       that was not says "/month", which is right unless the
+ *                       plan is yearly only. A bare "$9" read as a one-off.
  *
  * A pay-what-you-want product was drawn "Free" (its price_cents is its
  * minimum, often 0), and a compare-at price left from before a product went
@@ -23,6 +30,23 @@ export interface ListedPrice {
   compare_at_cents?: number | null
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
+  /** The product's type: a "membership" is priced per month or year. */
+  type?: string | null
+  /** A membership's billing interval, when the plan was read. */
+  price_interval?: PriceInterval | null
+}
+
+export type PriceInterval = "month" | "year"
+
+/** The interval a price is per, or null for a one-off price. */
+export function intervalOf(p: { type?: string | null; price_interval?: PriceInterval | null }): PriceInterval | null {
+  if (p.price_interval === "month" || p.price_interval === "year") return p.price_interval
+  return p.type === "membership" ? "month" : null
+}
+
+/** "$9" to "$9/month" for a membership; anything else as it was. */
+export function perInterval(text: string, interval: PriceInterval | null | undefined): string {
+  return interval ? `${text}/${interval}` : text
 }
 
 export interface PriceLabel {
@@ -45,10 +69,11 @@ export function listPrice(p: ListedPrice, format: (cents: number) => string = us
   }
   const price = Math.max(0, p.price_cents ?? 0)
   if (price === 0) return { main: "Free", was: null, off: null }
+  const per = intervalOf(p)
   const compare = p.compare_at_cents ?? 0
   if (compare > price) {
     const off = Math.round((1 - price / compare) * 100)
-    return { main: format(price), was: format(compare), off: off >= 1 && off <= 99 ? off : null }
+    return { main: perInterval(format(price), per), was: format(compare), off: off >= 1 && off <= 99 ? off : null }
   }
-  return { main: format(price), was: null, off: null }
+  return { main: perInterval(format(price), per), was: null, off: null }
 }
