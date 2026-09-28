@@ -21,14 +21,12 @@ export default async function LibraryMembershipsPage() {
   const count = list.available ? list.current.length : 0
   return (
     <div data-page-memberships="" className="mx-auto max-w-3xl px-0.5 pb-10 sm:px-0">
-      <header className="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Memberships</h1>
-          <p className="mt-0.5 text-[14px] text-[#6b7280]">
-            {!list.available ? "" : count === 0 ? "Creators you support, and what they post for members" : `${count} ${count === 1 ? "membership" : "memberships"} running`}
-          </p>
-        </div>
-      </header>
+      {/* One heading on the screen: "Library" above the pills is the page's. This is the line under it. */}
+      {list.available ? (
+        <p className="mb-5 px-0.5 text-[14px] text-[#6b7280]">
+          {count === 0 ? "Creators you support, and what they post for members" : `${count} ${count === 1 ? "membership" : "memberships"} running`}
+        </p>
+      ) : null}
       {list.available ? (
         <MembershipsList current={list.current} ended={list.ended} />
       ) : (

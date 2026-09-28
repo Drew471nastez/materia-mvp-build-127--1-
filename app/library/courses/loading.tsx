@@ -1,7 +1,9 @@
+import { TAB_SKELETON } from "../loading"
+
 /** The list's shape while it is read. */
 export default function CoursesLoading() {
   return (
-    <div className="skeleton-deferred">
+    <div data-library-skeleton="" className={TAB_SKELETON}>
       <div className="mb-5 h-7 w-32 rounded bg-neutral-200" />
       <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
         {[0, 1, 2].map((i) => (

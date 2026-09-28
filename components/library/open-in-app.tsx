@@ -6,13 +6,12 @@ import { X } from "lucide-react"
 import { isNativeApp } from "@/lib/platform-utils"
 import { StorelibGlyph } from "@/components/app/share/storelib-share-marks"
 import { appLink, phoneOf, type Phone } from "@/lib/platform/open-in-app"
-import { SECONDARY, SMALL } from "./library-ui"
 
 /**
  * ===========================================================================
  *  "OPEN IN APP", FOR A PHONE IN A BROWSER
  * ===========================================================================
- * A calm line above the library on a phone's browser, and nothing anywhere
+ * A quiet line at the foot of the library on a phone's browser, and nothing anywhere
  * else: not inside the app (it already is the app), not on a computer (there
  * is no desktop app), and not again for a month once closed.
  *
@@ -80,28 +79,30 @@ export function OpenInApp({ className = "" }: { className?: string }) {
     document.addEventListener("visibilitychange", gone, { once: true })
   }
 
+  /*
+    ONE QUIET LINE AT THE FOOT OF THE PAGE. It was a card above the list,
+    the app's mark, a title, a sentence and an Open button, and the owner
+    said it took too much room on the screen that is for their purchases. It
+    is now a line of small grey type under everything, the way a site says
+    it has an app, with the same Open and the same Hide.
+  */
   return (
-    <div
-      data-open-in-app={phone}
-      className={`flex items-center gap-3 rounded-2xl border border-[#e4e7ec]/80 bg-white py-2.5 pl-2.5 pr-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${className}`}
-    >
-      <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-[#7c3aed]">
-        <StorelibGlyph size={20} className="text-white" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold leading-5 text-[#1a1a2e]">Storelib app</p>
-        <p className="truncate text-[12.5px] leading-4 text-[#6b7280]">Your library and downloads on this phone</p>
-      </div>
-      <a href={appLink(phone, pathname)} onClick={open} className={`${SECONDARY} ${SMALL}`}>
-        Open
+    <div data-open-in-app={phone} className={`flex items-center justify-center gap-1 text-[13px] text-[#8a919c] ${className}`}>
+      <a
+        href={appLink(phone, pathname)}
+        onClick={open}
+        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2 font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]"
+      >
+        <StorelibGlyph size={14} className="text-[#7c3aed]" />
+        Open in the Storelib app
       </a>
       <button
         type="button"
         onClick={close}
         aria-label="Hide for now"
-        className="inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-lg text-[#9ca3af] transition-colors hover:text-[#4b5563]"
+        className="inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-lg text-[#b0b5bd] transition-colors hover:text-[#4b5563]"
       >
-        <X className="h-4 w-4" aria-hidden />
+        <X className="h-3.5 w-3.5" aria-hidden />
       </button>
     </div>
   )
