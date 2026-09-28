@@ -35,7 +35,16 @@
  * than a virtual-time one: frames do not run under a virtual clock, so a
  * ResizeObserver never fires there and the third bug is invisible.
  */
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react"
+
+/**
+ * A layout effect in the browser, an ordinary one on the server — where
+ * React warns about layout effects and there is no layout to be had anyway.
+ * The lock and the drawer's rectangle both belong before the first paint of
+ * an opening: measured afterwards, the drawer is drawn once at last time's
+ * offset and jumps on the frame after.
+ */
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect
 
 /**
  * One pace for every drawer on a built site. Open settles a touch slower
@@ -51,6 +60,124 @@ export const drawerSlide = (open: boolean) =>
   open ? `transform ${DRAWER_OPEN_MS}ms ${DRAWER_OPEN_EASE}` : `transform ${DRAWER_CLOSE_MS}ms ${DRAWER_CLOSE_EASE}`
 export const drawerFade = (open: boolean) =>
   open ? `opacity 300ms ${DRAWER_OPEN_EASE}` : `opacity 220ms cubic-bezier(0.4, 0, 0.6, 1)`
+
+/** Somebody who has asked their phone for less movement gets none of this. */
+export const prefersStill = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function"
+  && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+/**
+ * ===========================================================================
+ *  A DRAWER STARTS MOVING ON A FRAME THE BROWSER HAS ACTUALLY PAINTED
+ * ===========================================================================
+ * "When I open the navigation sidebar the nav sidebar is not even smooth."
+ *
+ * It was not. Filmed at 390px with the processor slowed four times, in
+ * scripts/check-header-motion.mjs: from the tap, NOTHING on screen changed
+ * for between 125 and 183 milliseconds, and then 93% to 100% of the picture
+ * changed in a single frame. The drawer did not slide in. It appeared,
+ * already most of the way across.
+ *
+ * The cause is an ordering nobody wrote down. Tapping the menu sets React
+ * state; React re-renders the whole header, portals the drawer's panel and
+ * every row in it, and the same commit puts `transform: translate3d(0,0,0)`
+ * with a 360ms transition on the panel. All of that is ONE task — 85 to
+ * 110ms of it here — and the browser cannot paint until it ends. But the
+ * transition's clock started when the style was set, at the beginning of
+ * that task. So by the time the first frame is painted the slide is already
+ * a third finished, and the first third of it was never drawn.
+ *
+ * The answer is the one every platform's sheet uses: do the work, let the
+ * browser paint the drawer where it still is, and start the travel on the
+ * NEXT frame. `requestAnimationFrame` is exactly that moment — the callback
+ * runs at the top of a rendering step, so the transition begins on a frame
+ * that is about to be drawn and every millisecond of it is seen.
+ *
+ * Which means the transform cannot come from React at all: a React render is
+ * the commit we are trying to get out from under. It is written here, to the
+ * node, on the frame it should begin. The same hook serves the panel (which
+ * travels) and the backdrop (which fades), because they must begin together
+ * or the dark and the panel arrive apart.
+ *
+ * `will-change` is put on for the journey and taken off at the end of it, so
+ * a closed drawer is not holding a compositor layer for the rest of the
+ * visit. A permanently promoted layer is what the header's own note below
+ * blames for stale tiles, and there is no reason for two of them.
+ */
+export function useDrawerMotion(
+  open: boolean,
+  /** `transform` for a panel that travels, `opacity` for a backdrop. */
+  property: "transform" | "opacity",
+  /** What the node reads while closed, and returns to. */
+  closed: string,
+  /** What it reads while open. */
+  shown: string,
+): (node: HTMLElement | null) => void {
+  const nodeRef = useRef<HTMLElement | null>(null)
+  const frame = useRef(0)
+  /* Held in a ref so a re-rendered string does not restart the animation:
+     these are constants of the drawer, not state. */
+  const at = useRef({ closed, shown })
+  at.current = { closed, shown }
+
+  const setNode = useCallback((node: HTMLElement | null) => {
+    nodeRef.current = node
+    if (!node || node.dataset.drawerPlaced) return
+    node.dataset.drawerPlaced = "1"
+    /* The resting state, put on with the node and before its first paint, so
+       a drawer that has never been opened does not slide in on mount. */
+    node.style.transition = "none"
+    node.style[property] = at.current.closed
+    /* The compositor layer goes when the journey ends, not when the drawer
+       does: a closed drawer holding one for the rest of the visit is the
+       promotion the header's own note below blames for stale tiles. */
+    node.addEventListener("transitionend", (e) => {
+      /* This node's own journey, not a chevron's inside it: transitionend
+         bubbles, and the drawer is full of small things that transition. */
+      if (e.target === node && e.propertyName === property) node.style.willChange = ""
+    })
+  }, [property])
+
+  useEffect(() => {
+    const el = nodeRef.current
+    if (!el) return
+    const to = open ? at.current.shown : at.current.closed
+    cancelAnimationFrame(frame.current)
+
+    if (prefersStill()) {
+      el.style.transition = "none"
+      el.style[property] = to
+      return
+    }
+
+    frame.current = requestAnimationFrame(() => {
+      el.style.willChange = property
+      el.style.transition = property === "transform" ? drawerSlide(open) : drawerFade(open)
+      el.style[property] = to
+    })
+    return () => cancelAnimationFrame(frame.current)
+  }, [open, property])
+
+  return setNode
+}
+
+/**
+ * One ref attribute, two refs — memoised, because a ref callback with a new
+ * identity is detached and reattached on every render, and both of the ones
+ * composed here do real work when they attach.
+ */
+type Attach<T> = (node: T | null) => void | (() => void)
+export function useComposedRef<T extends HTMLElement>(a: Attach<T>, b: Attach<T>): Attach<T> {
+  return useCallback((node: T | null) => {
+    const undoA = a(node)
+    const undoB = b(node)
+    /* React 19 takes a function back from a ref callback as its detach. One
+       of these two hands one over, and losing it would leak the panel's touch
+       listeners every time the drawer's node changed. */
+    const undo = [undoA, undoB].filter((u): u is () => void => typeof u === "function")
+    if (undo.length) return () => { for (const u of undo) u() }
+  }, [a, b])
+}
 
 /**
  * ===========================================================================
@@ -263,7 +390,22 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
   const closeRef = useRef(onClose)
   closeRef.current = onClose
 
-  useEffect(() => {
+  /*
+    BEFORE THE PAINT, NOT AFTER IT.
+
+    This was an ordinary effect, which runs once the browser has already had
+    the chance to draw. Inside the editor the drawer's rectangle comes from
+    `setPin` below, so on an opening the first painted frame carried LAST
+    time's offset — the drawer drawn at wherever the canvas was scrolled to
+    when it was last opened — and the frame after it jumped to the right
+    place. On a published page the same lateness meant the page was still
+    free to scroll for a frame after the menu was over it.
+
+    A layout effect is the same code one step earlier: the lock is taken and
+    the rectangle is measured in the same commit the drawer is rendered in,
+    so the first frame anybody sees is already correct.
+  */
+  useBeforePaint(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current() }
     window.addEventListener("keydown", onKey)
@@ -447,29 +589,43 @@ export const DRAWER_PANEL_Z = "z-[10001]"
  * it goes. Opacity only, on the compositor, through the Web Animations API
  * rather than a style: show on scroll up writes `transition` straight to the
  * same node, so a transition written here would fight it.
+ *
+ * AND IT STARTS ON THE SAME FRAME THE DRAWER DOES. An animation created in
+ * an effect starts counting from the moment it is created, which is inside
+ * the commit that opened the menu — so on a slow phone it was a third spent
+ * before anything was painted, and the header did not fade, it stepped. Held
+ * until the next frame, exactly as the panel and the backdrop are, all three
+ * begin together and are seen from their first millisecond. See
+ * useDrawerMotion above for the measurements.
  */
 export function useHeaderUnderDrawer(ref: { current: HTMLElement | null }, drawerOpen: boolean) {
   const fade = useRef<Animation | null>(null)
+  const frame = useRef(0)
   useEffect(() => {
     const el = ref.current
     if (!el || typeof el.animate !== "function") return
     /* Closed and never faded: nothing to put back. */
     if (!drawerOpen && !fade.current) return
-    /* From wherever it is now, so a quick open and close does not jump. */
-    const from = Number(getComputedStyle(el).opacity)
-    fade.current?.cancel()
-    const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const a = el.animate([{ opacity: from }, { opacity: drawerOpen ? 0 : 1 }], {
-      duration: still ? 0 : drawerOpen ? 300 : 220,
-      easing: drawerOpen ? DRAWER_OPEN_EASE : "cubic-bezier(0.4, 0, 0.6, 1)",
-      fill: "forwards",
-    })
-    fade.current = a
-    /* Back at full opacity the animation goes, so nothing is left holding
-       the header's opacity for the rest of the visit. */
-    if (!drawerOpen) {
-      a.finished.then(() => { if (fade.current === a) { a.cancel(); fade.current = null } }, () => {})
+    cancelAnimationFrame(frame.current)
+    const start = () => {
+      /* From wherever it is now, so a quick open and close does not jump. */
+      const from = Number(getComputedStyle(el).opacity)
+      fade.current?.cancel()
+      const still = prefersStill()
+      const a = el.animate([{ opacity: from }, { opacity: drawerOpen ? 0 : 1 }], {
+        duration: still ? 0 : drawerOpen ? 300 : 220,
+        easing: drawerOpen ? DRAWER_OPEN_EASE : "cubic-bezier(0.4, 0, 0.6, 1)",
+        fill: "forwards",
+      })
+      fade.current = a
+      /* Back at full opacity the animation goes, so nothing is left holding
+         the header's opacity for the rest of the visit. */
+      if (!drawerOpen) {
+        a.finished.then(() => { if (fade.current === a) { a.cancel(); fade.current = null } }, () => {})
+      }
     }
+    frame.current = requestAnimationFrame(start)
+    return () => cancelAnimationFrame(frame.current)
   }, [drawerOpen, ref])
-  useEffect(() => () => { fade.current?.cancel() }, [])
+  useEffect(() => () => { cancelAnimationFrame(frame.current); fade.current?.cancel() }, [])
 }

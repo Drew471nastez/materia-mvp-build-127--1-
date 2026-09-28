@@ -492,7 +492,18 @@ section("The header, the announcement bar, and the space between them")
        * page background — filmed, it is a white band that grows toward the
        * announcement bar's height and snaps shut.
        */
-      /const settled = origin \+ el\.offsetHeight/.test(source) &&
+      /**
+       * The height is now READ ONCE PER MEASUREMENT rather than once per
+       * scroll event — `sampleOrigin` takes it beside the origin, and is run
+       * again on a resize and on a ResizeObserver of the header itself, so a
+       * logo swapped or a padding slider dragged while the creator is
+       * scrolled down still moves the line. The clearance is the same full
+       * header's height it always was; what changed is that reading it no
+       * longer happens forty times a flick.
+       */
+      /const settled = origin \+ height/.test(source) &&
+      /height = el\.offsetHeight/.test(source) &&
+      /new ResizeObserver\(sampleOrigin\)/.test(source) &&
       /const mayMove = y >= settled/.test(source) &&
       !/y >= originOf\(\) - 1/.test(source) &&
       /**
