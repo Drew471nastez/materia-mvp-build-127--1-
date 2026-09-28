@@ -408,7 +408,7 @@ async function headerMenu(vp, tag) {
     }
     return { rows: [...new Set(rows.map((r) => getComputedStyle(r.querySelector("span")).fontWeight))], back: null, family: getComputedStyle(label).fontFamily.split(",")[0], widths, inter: document.fonts.check("450 14px Inter") }
   })
-  expect(weight.rows.length === 1 && weight.rows[0] === "450", "the rows are 450, 50 up from the 400 they were", weight.rows)
+  expect(weight.rows.length === 1 && weight.rows[0] === "600", "the category rows are 600 (a subcategory is 500): heavier, as asked", weight.rows)
   const faces = /Inter/.test(weight.family) && weight.widths[400] < weight.widths[450] && weight.widths[450] < weight.widths[500]
   if (process.env.PROBE_FONT === "fallback" || !interFaces(root)) console.log("        (no Inter build to measure the face with; the weight is measured on the fallback)")
   else expect(faces, "and 450 draws between 400 and 500: Inter is loaded as a variable font", weight.widths)

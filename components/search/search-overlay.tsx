@@ -17,11 +17,30 @@
  * keyboard and the screen arrive together.
  *
  * IN AND OUT ON THE COMPOSITOR. Opacity and the `translate` property only,
- * 280ms in on the tab bar's own curve and 200ms out, on a layer that covers
- * the header, the page and the tab bar. `visibility` flips at the start of
- * the way in and the end of the way out, so a closed screen is out of the
- * hit test and the tab order and never paints. Under reduced motion it
- * fades, briefly, and does not move.
+ * on a layer that covers the header, the page and the tab bar. `visibility`
+ * flips at the start of the way in and the end of the way out, so a closed
+ * screen is out of the hit test and the tab order and never paints. Under
+ * reduced motion it fades, briefly, and does not move.
+ *
+ * "Opening and closing must feel smoother." Three things made it feel
+ * rough, and each is changed:
+ *
+ *   THE FADE AND THE RISE WERE ONE CURVE. On iOS's curve the opacity was
+ *   most of the way up in the first two frames while the screen was still
+ *   14px low, so it read as a white sheet snapping on and then drifting. The
+ *   fade is now shorter than the rise and eased out on its own, and the rise
+ *   settles on a long, soft tail (OPEN_MS, EASE_RISE), so the screen is
+ *   solid early and arrives without a last-moment creep.
+ *
+ *   THE WAY OUT STOPPED DEAD. 200ms on a pure ease in ended at full speed.
+ *   It is an ease in and out now, a little longer, and it sinks half as far
+ *   as it rose, so leaving is quieter than arriving, as a dismissal should be.
+ *
+ *   ITS LAYER WAS DROPPED AS IT STARTED TO LEAVE. `will-change` followed
+ *   `open`, so the frame that began the close also took the screen off its
+ *   layer, and the first frames of the fade repainted the whole screen on
+ *   the main thread. It now keeps its layer until the move has ended
+ *   (`moving`), and only then lets it go.
  *
  * BACK CLOSES IT. Opening adds one history entry at the same address (the
  * router's own state copied into it, with a mark of ours, so the router
@@ -47,13 +66,20 @@ import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/
 
 /** The mark on the history entry the open screen owns. */
 export const SEARCH_ENTRY = "storelibSearch"
-/** In and out: the tab bar's curve in, a plain ease out, both on the compositor. */
-export const OPEN_MS = 280
-export const CLOSE_MS = 200
-const EASE_IN = "cubic-bezier(0.32, 0.72, 0, 1)"
-const EASE_OUT = "cubic-bezier(0.4, 0, 1, 1)"
+/** In and out, both on the compositor (see IN AND OUT ON THE COMPOSITOR). */
+export const OPEN_MS = 320
+export const CLOSE_MS = 240
+/** The fade in is shorter than the rise, so the screen is solid while it is still settling. */
+const OPEN_FADE_MS = 200
+/** The rise: quick off the mark, a long soft settle, never past its place. */
+const EASE_RISE = "cubic-bezier(0.22, 1, 0.36, 1)"
+const EASE_FADE_IN = "cubic-bezier(0.25, 0.8, 0.4, 1)"
+/** The way out: in gently and out gently, the shared sheet's close (components/ui/bottom-sheet.tsx). */
+const EASE_OUT = "cubic-bezier(0.4, 0, 0.2, 1)"
 /** How far it rises as it arrives. Small, so the field is on screen at the moment it takes the focus. */
 const RISE = "0 14px"
+/** And how far it sinks as it leaves: half, so leaving is the quieter of the two. */
+const SINK = "0 7px"
 
 type Opener = (q?: string) => boolean
 let opener: Opener | null = null
@@ -89,6 +115,8 @@ export function SearchOverlay() {
   const [ready, setReady] = useState(false)
   /** A result was chosen: the screen stays until the page it leads to is up, then goes. */
   const [leavingFor, setLeavingFor] = useState<string | null>(null)
+  /** Coming or going: the screen keeps its compositor layer until the move has ended. */
+  const [moving, setMoving] = useState(false)
   const screen = useRef<SearchScreenHandle>(null)
   const address = useRef<string>("")
   const leaveTimer = useRef<number | null>(null)
@@ -119,6 +147,7 @@ export function SearchOverlay() {
     flushSync(() => {
       setLeavingFor(null)
       setOpen(true)
+      setMoving(true)
     })
     screen.current.field?.focus({ preventScroll: true })
     lockDocument(true)
@@ -143,6 +172,7 @@ export function SearchOverlay() {
   const shut = useCallback(() => {
     screen.current?.field?.blur()
     setOpen(false)
+    setMoving(true)
     setLeavingFor(null)
     lockDocument(false)
   }, [])
@@ -231,8 +261,9 @@ export function SearchOverlay() {
   }
 
   const reduce = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  const ms = open ? OPEN_MS : CLOSE_MS
-  const ease = open ? EASE_IN : EASE_OUT
+  const motion = open
+    ? `opacity ${OPEN_FADE_MS}ms ${EASE_FADE_IN}, translate ${OPEN_MS}ms ${EASE_RISE}, visibility 0s linear 0ms`
+    : `opacity ${CLOSE_MS}ms ${EASE_OUT}, translate ${CLOSE_MS}ms ${EASE_OUT}, visibility 0s linear ${CLOSE_MS}ms`
 
   if (!ready) return null
   return createPortal(
@@ -248,17 +279,24 @@ export function SearchOverlay() {
         aria-hidden={open ? undefined : true}
         inert={open ? undefined : true}
         onKeyDown={onKeyDown}
+        onTransitionEnd={(e) => {
+          /* The rise is the longer of the two on the way in, and both end together on the way out. */
+          if (e.target === e.currentTarget && (e.propertyName === "translate" || reduce)) setMoving(false)
+        }}
         className="fixed inset-0 z-[70] bg-white md:hidden"
         style={{
           opacity: open ? 1 : 0,
-          translate: open || reduce ? "0 0" : RISE,
+          /* Closed it waits where it will rise from; leaving, it sinks half as far. */
+          translate: open || reduce ? "0 0" : moving ? SINK : RISE,
           visibility: open ? "visible" : "hidden",
           pointerEvents: open ? "auto" : "none",
           /* visibility: at once on the way in, at the end on the way out. */
-          transition: reduce
-            ? `opacity ${open ? 140 : 120}ms linear, visibility 0s linear ${open ? 0 : 120}ms`
-            : `opacity ${ms}ms ${ease}, translate ${ms}ms ${ease}, visibility 0s linear ${open ? 0 : ms}ms`,
-          willChange: open ? "opacity, translate" : undefined,
+          transition: !open && !moving
+            ? "none"
+            : reduce
+              ? `opacity ${open ? 140 : 120}ms linear, visibility 0s linear ${open ? 0 : 120}ms`
+              : motion,
+          willChange: open || moving ? "opacity, translate" : undefined,
           /* The shell's pull to refresh and the page's bounce stay under it. */
           overscrollBehavior: "contain",
         }}

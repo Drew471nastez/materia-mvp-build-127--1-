@@ -49,6 +49,12 @@ async function overviewBody(user: User) {
         .eq("user_id", user.id)
         .eq("products.status", "published"),
     ),
+    /* SELLER ACCESS FOR THIS PERSON, FROM THIS REQUEST. `user` is the
+       signed in person as the auth server confirmed them for this request
+       (pageUser, lib/auth/request-scope.ts), and the answer is their own
+       creators row, `user_id = user.id` on their own client, with their
+       profile (lib/account/seller-access.ts). Not any creator row and not
+       a remembered one: nothing here reads the browser's auth snapshot. */
     orNull(() => sellerAccessForRequest(user.id)),
   ])
 
@@ -59,7 +65,8 @@ async function overviewBody(user: User) {
     wishlist: saved?.count ?? 0,
     seller: access?.state ?? "none",
   })
-  return <AccountOverview data={data} />
+  /* Stamped, so a copy the router kept is asked for again (components/account/account-fresh.tsx). */
+  return <AccountOverview data={data} drawnAt={Date.now()} />
 }
 
 /**

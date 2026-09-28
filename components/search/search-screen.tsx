@@ -32,13 +32,20 @@
  * THE KEYBOARD. The field is a combobox: up and down walk the rows without
  * leaving the field, Enter opens the row that is lit (or searches Explore
  * when none is), Escape closes. Tab stays inside the screen while it is open.
+ *
+ * A CATEGORY OPENS ITS SUBCATEGORIES, here, rather than leaving for its page:
+ * the list is pushed in from the right with a back row on top, the way
+ * Explore's category sheet does it (components/explore/category-browser.tsx,
+ * whose timing, curve, parallax and veil this uses), and its first row is
+ * all of the category. Back, Escape, or typing another word comes out again.
  */
 
 import Image from "next/image"
-import { ChevronRight, Clock3, Search, X } from "lucide-react"
-import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { ChevronLeft, ChevronRight, Clock3, Search, X } from "lucide-react"
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { AppAvatar } from "@/components/app/app-avatar"
+import { BROWSE_DIM, BROWSE_EASE, BROWSE_PARALLAX, BROWSE_SLIDE_MS } from "@/components/explore/category-browser"
 import { createClient } from "@/lib/supabase/client"
 import { CATEGORY_NAV } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
@@ -56,6 +63,24 @@ import {
 
 /** The categories that have a page of their own, in the catalogue's order. */
 const BROWSE = CATEGORY_NAV.filter((c) => hasCategoryPage(c.id))
+/** A category's subcategories, by the category's id: what opening one pushes in. */
+const SUBS = new Map(BROWSE.map((c) => [c.id, c]))
+
+/*
+  WHAT A ROW WEIGHS. A category is 600 and a subcategory 500, as in every
+  other list of them (components/explore/category-browser.tsx).
+*/
+const GROUP_WEIGHT = "font-semibold"
+const ITEM_WEIGHT = "font-medium"
+
+/*
+  THE CATEGORIES' DEPTH. "A little more depth on those rows": they sit
+  together on one white card with a hairline between them, a ring and a soft
+  shadow under it, rather than as bare text on the screen. One card per
+  list, never a card per row.
+*/
+const GROUPED =
+  "mx-1 overflow-hidden rounded-2xl bg-white divide-y divide-[#eef0f2] shadow-[0_0_0_1px_rgba(16,18,27,0.07),0_1px_2px_rgba(16,18,27,0.05),0_6px_16px_-8px_rgba(16,18,27,0.14)]"
 
 /** Explore's results for some words: the page Enter and "Search for" go to. */
 export const exploreResultsHref = (q: string) => `/explore?q=${encodeURIComponent(q.trim())}`
@@ -74,7 +99,59 @@ type Row =
   | { kind: "recent"; key: string; href: string; label: string }
   | { kind: "product"; key: string; href: string; label: string; thumb: string | null; creator: string | null; price: string }
   | { kind: "creator"; key: string; href: string; label: string; handle: string; avatar: string | null }
-  | { kind: "category"; key: string; href: string; label: string; parent: string | null }
+  | {
+      kind: "category"
+      key: string
+      href: string
+      label: string
+      parent: string | null
+      /** A category whose subcategories open here, pushed in, rather than its page. */
+      opens?: string
+      /** The row's level: a category (600) or a subcategory (500). */
+      level: "group" | "item"
+    }
+
+type CategoryRow = Extract<Row, { kind: "category" }>
+
+/** A top level category as a row: it opens its subcategories when it has any. */
+const groupRow = (id: string, label: string, href: string, key: string): CategoryRow => ({
+  kind: "category",
+  key,
+  href,
+  label,
+  parent: null,
+  opens: SUBS.get(id)?.subcategories.length ? id : undefined,
+  level: "group",
+})
+
+/** The level a category opens into: all of it first, then each subcategory. */
+function subRowsFor(id: string | null): CategoryRow[] {
+  const c = id ? SUBS.get(id) : undefined
+  if (!c) return []
+  return [
+    { kind: "category", key: `s:${c.id}`, href: c.href, label: `All ${c.label}`, parent: null, level: "item" },
+    ...c.subcategories.map((s): CategoryRow => ({ kind: "category", key: `s:${c.id}/${s.id}`, href: s.href, label: s.label, parent: null, level: "item" })),
+  ]
+}
+
+function reducedMotion() {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
+
+/*
+  A PRODUCT ROW, and the placeholder in its exact shape. "Bigger and
+  cleaner": a 60px picture with a hairline ring, then three lines that each
+  say one thing, the title in ink, the creator in grey, the price in ink and
+  heavier. The placeholder is the same box, the same three lines and the same
+  height, so nothing moves when the answer lands on it.
+*/
+const THUMB_BOX = "relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-[12px] bg-[#f1f2f4]"
+const THUMB = `${THUMB_BOX} shadow-[0_0_0_1px_rgba(16,18,27,0.06),0_1px_2px_rgba(16,18,27,0.06)]`
+
+/* The box of each kind of row, so no two sizes are ever written on one row. */
+const ROW = "min-h-[52px] gap-3 rounded-xl px-3"
+const CARD_ROW = "min-h-[52px] gap-3 px-4"
+const PRODUCT_ROW = "min-h-[76px] gap-3.5 rounded-xl px-3 py-2"
 
 export const SearchScreen = forwardRef<SearchScreenHandle, {
   /** The X, Escape, and Android's back. */
@@ -90,10 +167,23 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
   const [results, setResults] = useState<QuickResults | null>(null)
   /** The words the results on screen answer, and whether an answer for the current ones is still out. */
   const [waiting, setWaiting] = useState(false)
+  /** An answer has been out long enough to say so: only then are the last results dimmed. */
+  const [slow, setSlow] = useState(false)
   const [recent, setRecent] = useState<string[]>([])
   const [active, setActive] = useState(-1)
+  /*
+    THE SUBCATEGORY LEVEL. `sub` is the category open now; `held` keeps its
+    rows drawn while it slides back out (and for opening it again), and
+    `subOut` says it has finished leaving, so it is not painted. `instant`
+    puts a level away with no slide, for a screen that is starting again.
+  */
+  const [sub, setSub] = useState<string | null>(null)
+  const [held, setHeld] = useState<string | null>(null)
+  const [subOut, setSubOut] = useState(true)
+  const [instant, setInstant] = useState(false)
   const field = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
+  const subList = useRef<HTMLDivElement>(null)
   const ask = useRef(0)
   const timer = useRef<number | null>(null)
   const ids = useId()
@@ -107,6 +197,9 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
       setDraft(q)
       setActive(-1)
       setRecent(readRecent())
+      setInstant(true)
+      setSub(null)
+      setSubOut(true)
       if (!q) {
         setResults(null)
         setWaiting(false)
@@ -156,12 +249,36 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
     }
   }, [term])
 
-  /* Every row a finger or the arrow keys can reach, in the order drawn. */
-  const rows = useMemo<Row[]>(() => {
+  /*
+    NO FLICKER BETWEEN TWO WORDS. The last answer stays on screen while the
+    next is asked for, at full strength: dimming it on every letter made the
+    list blink as you typed. Only an answer that is taking a while (a slow
+    network, not a typist) dims it, softly, so it reads as waiting.
+  */
+  useEffect(() => {
+    if (!waiting) {
+      setSlow(false)
+      return
+    }
+    const t = window.setTimeout(() => setSlow(true), 650)
+    return () => window.clearTimeout(t)
+  }, [waiting, term])
+
+  /* Another word is a question about the whole list: out of a category, back to the top level. */
+  const lastTerm = useRef(term)
+  useEffect(() => {
+    if (lastTerm.current === term) return
+    lastTerm.current = term
+    setSub(null)
+    if (reducedMotion()) setSubOut(true)
+  }, [term])
+
+  /* The rows of the top level, whatever level is showing: it stays drawn under a pushed one. */
+  const rootRows = useMemo<Row[]>(() => {
     if (!term) {
       return [
         ...recent.map((q): Row => ({ kind: "recent", key: `r:${q}`, href: exploreResultsHref(q), label: q })),
-        ...BROWSE.map((c): Row => ({ kind: "category", key: `b:${c.id}`, href: c.href, label: c.label, parent: null })),
+        ...BROWSE.map((c): Row => groupRow(c.id, c.label, c.href, `b:${c.id}`)),
       ]
     }
     const r = results
@@ -169,11 +286,17 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
       { kind: "all", key: "all", href: exploreResultsHref(draft), label: draft.trim() },
       ...(r?.products ?? []).map((p): Row => ({ kind: "product", key: `p:${p.id}`, href: p.href, label: p.title, thumb: p.thumb, creator: p.creator, price: p.price })),
       ...(r?.creators ?? []).map((c): Row => ({ kind: "creator", key: `c:${c.id}`, href: c.href, label: c.name, handle: c.handle, avatar: c.avatar })),
-      ...(r?.categories ?? []).map((c): Row => ({ kind: "category", key: `k:${c.id}`, href: c.href, label: c.label, parent: c.parent })),
+      ...(r?.categories ?? []).map((c): Row =>
+        c.parent ? { kind: "category", key: `k:${c.id}`, href: c.href, label: c.label, parent: c.parent, level: "item" } : groupRow(c.id, c.label, c.href, `k:${c.id}`),
+      ),
     ]
   }, [term, draft, recent, results])
+  const heldRows = useMemo(() => subRowsFor(held), [held])
+  /* Every row a finger or the arrow keys can reach on the level showing, in the order drawn. */
+  const rows: Row[] = sub ? heldRows : rootRows
+  const indexOf = useMemo(() => new Map(rows.map((r, i) => [r.key, i])), [rows])
 
-  useEffect(() => setActive(-1), [term])
+  useEffect(() => setActive(-1), [term, sub])
   /* The lit row stays in view as the arrows walk past the edge of the list. */
   useEffect(() => {
     if (active < 0) return
@@ -181,15 +304,45 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
+  /*
+    IN AND OUT OF A CATEGORY, on the tap (never the press: see ONE TAP in
+    components/explore/category-browser.tsx, which is why a level that
+    appears under a finger on WebKit cost a second tap). The level's rows
+    and its move are one commit.
+  */
+  const drillIn = useCallback((id: string) => {
+    if (subList.current) subList.current.scrollTop = 0
+    setInstant(false)
+    setHeld(id)
+    setSubOut(false)
+    setSub(id)
+  }, [])
+  const back = useCallback(() => {
+    setInstant(false)
+    setSub(null)
+    if (reducedMotion()) setSubOut(true)
+  }, [])
+  /* A level opened or closed by a keyboard keeps the focus on something that is still on screen. */
+  const keyboardBack = useRef(false)
+  useLayoutEffect(() => {
+    if (!keyboardBack.current || sub) return
+    keyboardBack.current = false
+    field.current?.focus({ preventScroll: true })
+  }, [sub])
+
   const go = useCallback(
     (row: Row) => {
+      if (row.kind === "category" && row.opens) {
+        drillIn(row.opens)
+        return
+      }
       /* What was typed is what is remembered, whichever row it led to. */
       const typed = row.kind === "recent" ? row.label : draft.trim()
       if (typed && row.kind !== "category") setRecent(addRecent(typed))
       field.current?.blur()
       onNavigate(row.href)
     },
-    [draft, onNavigate],
+    [draft, onNavigate, drillIn],
   )
 
   const submit = () => {
@@ -208,7 +361,9 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
       setActive((i) => (rows.length === 0 ? -1 : i <= 0 ? rows.length - 1 : i - 1))
     } else if (e.key === "Escape") {
       e.preventDefault()
-      if (draft) {
+      if (sub) {
+        back()
+      } else if (draft) {
         setDraft("")
       } else {
         onClose()
@@ -218,40 +373,76 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
 
   const found = results && (results.products.length > 0 || results.creators.length > 0 || results.categories.length > 0)
   const nothing = !!term && !waiting && !found
+  const inSub = sub !== null
+  const heldCat = held ? SUBS.get(held) ?? null : null
 
-  /* The index of a row in `rows`, for its id and whether it is lit. */
-  let at = 0
-  const option = (row: Row, children: React.ReactNode, className = "") => {
-    const i = at++
-    const lit = i === active
+  /*
+    One row, in one of the boxes above: CARD_ROW is a row on the
+    categories' card (square, full width, a hairline between it and the
+    next), ROW a rounded row on the screen. A row that is not on the level
+    showing has no id and is never lit, so the arrows only ever walk what
+    can be seen.
+  */
+  const option = (row: Row, children: React.ReactNode, box = ROW) => {
+    const i = indexOf.get(row.key)
+    const reachable = i !== undefined
+    const lit = reachable && i === active
     return (
       <a
         key={row.key}
-        id={optionId(i)}
+        id={reachable ? optionId(i) : undefined}
         role="option"
         aria-selected={lit}
         href={row.href}
         data-search-row={row.kind}
+        data-search-opens={row.kind === "category" && row.opens ? row.opens : undefined}
         tabIndex={-1}
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return
           e.preventDefault()
           go(row)
         }}
-        onMouseMove={() => active !== i && setActive(i)}
-        className={`flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 text-left outline-none transition-colors duration-100 active:bg-[#f1f2f4] ${lit ? "bg-[#f1f2f4]" : ""} ${className}`}
+        onMouseMove={() => reachable && active !== i && setActive(i)}
+        className={`flex w-full items-center ${box} text-left outline-none transition-colors duration-100 active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent] ${lit ? "bg-[#f1f2f4]" : ""}`}
       >
         {children}
       </a>
     )
   }
 
+  /* A category or a subcategory on the card: its name at its level's weight, and a chevron when it opens. */
+  const categoryRow = (row: CategoryRow) =>
+    option(
+      row,
+      <>
+        <span className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-[#1a1a2e] ${row.level === "group" ? GROUP_WEIGHT : ITEM_WEIGHT}`}>
+          {row.label}
+          {row.parent ? <span className="font-normal text-[#6b7280]"> in {row.parent}</span> : null}
+        </span>
+        <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" />
+      </>,
+      CARD_ROW,
+    )
+
   const heading = (text: string, extra?: React.ReactNode) => (
-    <div className="flex items-center justify-between px-3 pb-1 pt-5">
+    <div className="flex items-center justify-between px-3 pb-1.5 pt-5">
       <h2 className="text-[13px] font-semibold text-[#6b7280]">{text}</h2>
       {extra}
     </div>
   )
+
+  /* The push, on the category sheet's own timing and curve. */
+  const still = instant || reducedMotion()
+  const move = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
+  const veil = still ? "none" : `opacity ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
+  const pane = "absolute inset-0 overflow-y-auto overscroll-contain bg-white px-2 sm:px-4"
+  const paneStyle = { paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))", WebkitOverflowScrolling: "touch", touchAction: "pan-y", willChange: "transform" } as const
+  /* A drag on the list puts the keyboard away, as a phone's own search does. */
+  const putKeyboardAway = () => {
+    if (document.activeElement === field.current) field.current?.blur()
+  }
+  const listState = !term ? "idle" : nothing ? "empty" : waiting && !found ? "waiting" : "results"
+  const products = results?.products ?? []
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white" data-search-screen="">
@@ -273,13 +464,13 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
         </div>
         <form
           role="search"
-          className="relative mx-auto mt-3 w-full max-w-[720px]"
+          className="relative mx-auto mt-3 w-full max-w-[720px] pb-1"
           onSubmit={(e) => {
             e.preventDefault()
             submit()
           }}
         >
-          <Search aria-hidden="true" className="pointer-events-none absolute left-[18px] top-1/2 h-[19px] w-[19px] -translate-y-1/2 text-[#1a1a2e]" strokeWidth={2} />
+          <Search aria-hidden="true" className="pointer-events-none absolute left-[15px] top-[25px] h-[19px] w-[19px] -translate-y-1/2 text-[#1a1a2e]" strokeWidth={2} />
           <input
             ref={field}
             data-search-screen-field=""
@@ -295,15 +486,19 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
             spellCheck={false}
             role="combobox"
             aria-expanded={rows.length > 0}
-            aria-controls={`${ids}-list`}
+            aria-controls={inSub ? `${ids}-sub` : `${ids}-list`}
             aria-activedescendant={active >= 0 ? optionId(active) : undefined}
             aria-autocomplete="list"
             aria-labelledby={`${ids}-title`}
             placeholder="Search products and creators"
-            /* Image 27's field: a full pill with a dark outline, 16px type
-               so iOS does not zoom to it. The outline darkens a little on
-               focus rather than growing a ring round it. */
-            className="h-[50px] w-full rounded-full border-[1.5px] border-[#1a1a2e]/85 bg-white pl-[46px] pr-12 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#6b7280] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] [&::-webkit-search-cancel-button]:appearance-none"
+            /* A rounded rectangle, not a pill: "a normal rounded rectangle,
+               about 12px". The dark outline of image 27 stays, with a little
+               depth under it: a faint shade pressed in along the top edge
+               and a soft shadow below, so the field sits in the screen
+               rather than being drawn on it. 16px type, so iOS does not zoom
+               to it. Focus darkens the outline and adds a soft ring; its
+               size never changes. */
+            className="h-[50px] w-full rounded-[12px] border-[1.5px] border-[#1a1a2e]/85 bg-white pl-[42px] pr-12 text-[16px] text-[#1a1a2e] shadow-[inset_0_1px_2px_rgba(16,18,27,0.08),0_1px_2px_rgba(16,18,27,0.06),0_4px_12px_-6px_rgba(16,18,27,0.12)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#6b7280] focus:border-[#1a1a2e] focus:shadow-[inset_0_1px_2px_rgba(16,18,27,0.08),0_0_0_3px_rgba(26,26,46,0.08),0_4px_12px_-6px_rgba(16,18,27,0.12)] [&::-webkit-search-cancel-button]:appearance-none"
           />
           {draft ? (
             <button
@@ -314,7 +509,7 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
                 setDraft("")
                 field.current?.focus({ preventScroll: true })
               }}
-              className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[#6b7280] transition-colors active:bg-[#f1f2f4] hover:text-[#1a1a2e]"
+              className="absolute right-1.5 top-[25px] flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[10px] text-[#6b7280] transition-colors active:bg-[#f1f2f4] hover:text-[#1a1a2e]"
             >
               <X className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
@@ -322,187 +517,235 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
         </form>
       </div>
 
-      {/* ── THE ROWS ── scrolled on their own, so the field stays put above the keyboard. */}
-      <div
-        ref={list}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 sm:px-4"
-        style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))", WebkitOverflowScrolling: "touch" }}
-        /* A drag on the list puts the keyboard away, as a phone's own search does. */
-        onTouchMove={() => {
-          if (document.activeElement === field.current) field.current?.blur()
-        }}
-      >
-        <div id={`${ids}-list`} role="listbox" aria-labelledby={`${ids}-title`} className="mx-auto w-full max-w-[720px] pb-2 pt-1" data-search-state={!term ? "idle" : nothing ? "empty" : waiting && !found ? "waiting" : "results"}>
-          {!term ? (
-            <>
-              {recent.length > 0 ? (
-                <section data-search-section="recent">
-                  {heading(
-                    "Recent",
-                    <button
-                      type="button"
-                      onClick={() => setRecent(clearRecent())}
-                      className="-mr-1 rounded-md px-2 py-1 text-[13px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e] active:bg-[#f1f2f4]"
-                    >
-                      Clear
-                    </button>,
-                  )}
-                  {rows.filter((r) => r.kind === "recent").map((row) =>
-                    option(
-                      row,
-                      <>
-                        <Clock3 aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" />
-                        <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">{row.label}</span>
-                        <span
-                          role="button"
-                          tabIndex={-1}
-                          aria-label={`Remove ${row.label}`}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setRecent(removeRecent(row.label))
-                          }}
-                          className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#9ca3af] hover:text-[#1a1a2e] active:bg-[#e8e9ec]"
-                        >
-                          <X aria-hidden="true" className="h-4 w-4" />
-                        </span>
-                      </>,
-                    ),
-                  )}
-                </section>
-              ) : null}
-              <section data-search-section="browse">
-                {heading("Browse categories")}
-                {rows.filter((r) => r.kind === "category").map((row) =>
-                  option(
-                    row,
-                    <>
-                      <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">{row.label}</span>
-                      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-                    </>,
-                  ),
-                )}
-              </section>
-            </>
-          ) : (
-            <>
-              {option(
-                rows[0],
-                <>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f1f2f4]">
-                    <Search aria-hidden="true" className="h-[18px] w-[18px] text-[#1a1a2e]" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">
-                    See all results for <span className="font-semibold">{"“"}{draft.trim()}{"”"}</span>
-                  </span>
-                </>,
-                "mt-2",
-              )}
-
-              {nothing ? (
-                <div className="px-3 pb-2 pt-6" data-search-empty="">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e]">No results for {"“"}{draft.trim()}{"”"}</p>
-                  <p className="mt-1 text-[14px] text-[#6b7280]">Check the spelling, try a shorter word, or open a category.</p>
-                </div>
-              ) : null}
-
-              {results && results.products.length > 0 ? (
-                <section data-search-section="products" className={waiting ? "opacity-70 transition-opacity" : "transition-opacity"}>
-                  {heading("Products")}
-                  {rows.filter((r) => r.kind === "product").map((row) =>
-                    row.kind === "product"
-                      ? option(
-                          row,
-                          <>
-                            <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb]/70 bg-[#f1f2f4]">
-                              {row.thumb ? <Image src={row.thumb} alt="" width={48} height={48} className="h-full w-full object-cover" /> : null}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{row.label}</span>
-                              {row.creator ? <span className="block truncate text-[13px] text-[#6b7280]">{row.creator}</span> : null}
-                            </span>
-                            <span className="shrink-0 pl-2 text-[14px] font-semibold tabular-nums text-[#1a1a2e]">{row.price}</span>
-                          </>,
-                        )
-                      : null,
-                  )}
-                </section>
-              ) : waiting && !found ? (
-                <div aria-hidden="true" data-search-loading="" className="px-3 pt-5">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="flex h-[60px] items-center gap-3">
-                      <div className="h-12 w-12 shrink-0 animate-pulse rounded-lg bg-[#f1f2f4]" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 w-2/3 animate-pulse rounded bg-[#f1f2f4]" />
-                        <div className="h-3 w-1/3 animate-pulse rounded bg-[#f4f5f6]" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              {results && results.creators.length > 0 ? (
-                <section data-search-section="creators">
-                  {heading("Creators")}
-                  {rows.filter((r) => r.kind === "creator").map((row) =>
-                    row.kind === "creator"
-                      ? option(
-                          row,
-                          <>
-                            <AppAvatar src={row.avatar} name={row.label} alt="" size={40} />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{row.label}</span>
-                              <span className="block truncate text-[13px] text-[#6b7280]">@{row.handle}</span>
-                            </span>
-                          </>,
-                        )
-                      : null,
-                  )}
-                </section>
-              ) : null}
-
-              {results && results.categories.length > 0 ? (
-                <section data-search-section="categories">
-                  {heading("Categories")}
-                  {rows.filter((r) => r.kind === "category").map((row) =>
-                    row.kind === "category"
-                      ? option(
-                          row,
-                          <>
-                            <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">
-                              {row.label}
-                              {row.parent ? <span className="text-[#6b7280]"> in {row.parent}</span> : null}
-                            </span>
-                            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-                          </>,
-                        )
-                      : null,
-                  )}
-                </section>
-              ) : null}
-
-              {nothing ? (
+      {/* ── THE ROWS ── two levels, each its own scroller, so the field stays put above the keyboard and a level keeps its place. */}
+      <div className="relative mt-1 min-h-0 flex-1 overflow-hidden" style={{ contain: "layout paint" }}>
+        <div
+          ref={list}
+          data-search-level="root"
+          inert={inSub || undefined}
+          aria-hidden={inSub || undefined}
+          className={pane}
+          style={{ ...paneStyle, transform: inSub ? `translate3d(${BROWSE_PARALLAX}, 0, 0)` : "translate3d(0, 0, 0)", transition: move }}
+          onTouchMove={putKeyboardAway}
+        >
+          <div id={`${ids}-list`} role="listbox" aria-labelledby={`${ids}-title`} className="mx-auto w-full max-w-[720px] pb-2 pt-1" data-search-state={listState}>
+            {!term ? (
+              <>
+                {recent.length > 0 ? (
+                  <section data-search-section="recent">
+                    {heading(
+                      "Recent",
+                      <button
+                        type="button"
+                        onClick={() => setRecent(clearRecent())}
+                        className="-mr-1 rounded-md px-2 py-1 text-[13px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e] active:bg-[#f1f2f4]"
+                      >
+                        Clear
+                      </button>,
+                    )}
+                    {rootRows.filter((r) => r.kind === "recent").map((row) =>
+                      option(
+                        row,
+                        <>
+                          <Clock3 aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" />
+                          <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">{row.label}</span>
+                          <span
+                            role="button"
+                            tabIndex={-1}
+                            aria-label={`Remove ${row.label}`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setRecent(removeRecent(row.label))
+                            }}
+                            className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#9ca3af] hover:text-[#1a1a2e] active:bg-[#e8e9ec]"
+                          >
+                            <X aria-hidden="true" className="h-4 w-4" />
+                          </span>
+                        </>,
+                      ),
+                    )}
+                  </section>
+                ) : null}
                 <section data-search-section="browse">
                   {heading("Browse categories")}
-                  {BROWSE.map((c) =>
-                    /* Not arrow key rows: the empty state's way on, reached by a finger or Tab. */
-                    <a
-                      key={c.id}
-                      href={c.href}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        onNavigate(c.href)
-                      }}
-                      className="flex min-h-[48px] items-center justify-between gap-3 rounded-xl px-3 text-[15px] text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] hover:bg-[#f7f7f8] focus-visible:bg-[#f1f2f4]"
-                    >
-                      <span className="truncate">{c.label}</span>
-                      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-                    </a>,
-                  )}
+                  <div className={GROUPED} data-search-card="">
+                    {rootRows.map((row) => (row.kind === "category" ? categoryRow(row) : null))}
+                  </div>
                 </section>
-              ) : null}
-            </>
-          )}
+              </>
+            ) : (
+              <>
+                {option(
+                  rootRows[0],
+                  <>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f1f2f4]">
+                      <Search aria-hidden="true" className="h-[18px] w-[18px] text-[#1a1a2e]" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">
+                      See all results for <span className="font-semibold">{"“"}{draft.trim()}{"”"}</span>
+                    </span>
+                  </>,
+                  `${ROW} mt-2`,
+                )}
+
+                {nothing ? (
+                  <div className="px-3 pb-2 pt-6" data-search-empty="">
+                    <p className="text-[15px] font-semibold text-[#1a1a2e]">No results for {"“"}{draft.trim()}{"”"}</p>
+                    <p className="mt-1 text-[14px] text-[#6b7280]">Check the spelling, try a shorter word, or open a category.</p>
+                  </div>
+                ) : null}
+
+                {products.length > 0 ? (
+                  <section
+                    data-search-section="products"
+                    className="transition-opacity duration-200 ease-out"
+                    style={{ opacity: slow ? 0.6 : 1 }}
+                  >
+                    {heading("Products")}
+                    {rootRows.map((row) =>
+                      row.kind === "product"
+                        ? option(
+                            row,
+                            <>
+                              <span className={THUMB}>
+                                {row.thumb ? <Image src={row.thumb} alt="" width={60} height={60} className="h-full w-full object-cover" /> : null}
+                              </span>
+                              <span className="min-w-0 flex-1 py-0.5">
+                                <span data-search-title="" className="block truncate text-[15px] font-medium leading-5 text-[#1a1a2e]">{row.label}</span>
+                                {row.creator ? <span data-search-creator="" className="block truncate text-[13px] leading-[18px] text-[#6b7280]">{row.creator}</span> : null}
+                                <span data-search-price="" className="mt-0.5 block text-[14px] font-semibold leading-[18px] tabular-nums text-[#1a1a2e]">{row.price}</span>
+                              </span>
+                            </>,
+                            PRODUCT_ROW,
+                          )
+                        : null,
+                    )}
+                  </section>
+                ) : waiting ? (
+                  /* The answer is out and there is nothing from before to show: rows in the result's own shape. */
+                  <section aria-hidden="true" data-search-loading="">
+                    {heading("Products")}
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className={`flex items-center ${PRODUCT_ROW}`}>
+                        <div className={`${THUMB_BOX} animate-pulse`} />
+                        <div className="flex-1 py-0.5">
+                          <div className="flex h-5 items-center"><div className="h-3.5 animate-pulse rounded-full bg-[#eceef1]" style={{ width: `${[64, 52, 70][i]}%` }} /></div>
+                          <div className="flex h-[18px] items-center"><div className="h-3 w-[34%] animate-pulse rounded-full bg-[#f1f2f4]" /></div>
+                          <div className="mt-0.5 flex h-[18px] items-center"><div className="h-3 w-[18%] animate-pulse rounded-full bg-[#eceef1]" /></div>
+                        </div>
+                      </div>
+                    ))}
+                  </section>
+                ) : null}
+
+                {results && results.creators.length > 0 ? (
+                  <section data-search-section="creators">
+                    {heading("Creators")}
+                    {rootRows.map((row) =>
+                      row.kind === "creator"
+                        ? option(
+                            row,
+                            <>
+                              <AppAvatar src={row.avatar} name={row.label} alt="" size={40} />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{row.label}</span>
+                                <span className="block truncate text-[13px] text-[#6b7280]">@{row.handle}</span>
+                              </span>
+                            </>,
+                          )
+                        : null,
+                    )}
+                  </section>
+                ) : null}
+
+                {results && results.categories.length > 0 ? (
+                  <section data-search-section="categories">
+                    {heading("Categories")}
+                    <div className={GROUPED} data-search-card="">
+                      {rootRows.map((row) => (row.kind === "category" ? categoryRow(row) : null))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {nothing ? (
+                  <section data-search-section="browse">
+                    {heading("Browse categories")}
+                    <div className={GROUPED} data-search-card="">
+                      {BROWSE.map((c) => {
+                        const opens = !!SUBS.get(c.id)?.subcategories.length
+                        /* Not arrow key rows: the empty state's way on, reached by a finger or Tab. */
+                        return (
+                          <a
+                            key={c.id}
+                            href={c.href}
+                            data-search-opens={opens ? c.id : undefined}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              if (opens) drillIn(c.id)
+                              else onNavigate(c.href)
+                            }}
+                            className={`flex min-h-[52px] items-center justify-between gap-3 px-4 text-[16px] leading-5 text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] hover:bg-[#f7f7f8] focus-visible:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent] ${GROUP_WEIGHT}`}
+                          >
+                            <span className="truncate">{c.label}</span>
+                            <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" />
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* The veil that dims the top level under a pushed one. */}
+        <div
+          aria-hidden="true"
+          data-search-veil=""
+          className="pointer-events-none absolute inset-0 bg-[#0f172a]"
+          style={{ opacity: inSub ? BROWSE_DIM : 0, transition: veil, willChange: "opacity" }}
+        />
+
+        {/* ── A CATEGORY'S SUBCATEGORIES, pushed in from the right ── */}
+        <div
+          ref={subList}
+          data-search-level="sub"
+          inert={!inSub || undefined}
+          aria-hidden={!inSub || undefined}
+          className={pane}
+          style={{
+            ...paneStyle,
+            transform: inSub ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
+            transition: move,
+            visibility: heldCat && (inSub || !subOut) ? "visible" : "hidden",
+          }}
+          onTouchMove={putKeyboardAway}
+          onTransitionEnd={(e) => {
+            /* Out of sight and still: not painted, its rows kept for going in again. */
+            if (e.target === e.currentTarget && e.propertyName === "transform" && !inSub) setSubOut(true)
+          }}
+        >
+          {heldCat ? (
+            <div className="mx-auto w-full max-w-[720px] pb-2 pt-1">
+              <button
+                type="button"
+                data-search-back=""
+                onClick={(e) => {
+                  keyboardBack.current = e.detail === 0
+                  back()
+                }}
+                className="mt-1 flex min-h-[48px] w-full items-center gap-1.5 rounded-xl pl-1.5 pr-3 text-left text-[17px] font-semibold text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+              >
+                <ChevronLeft aria-hidden="true" className="h-[22px] w-[22px] shrink-0 text-[#6b7280]" strokeWidth={2} />
+                <span className="min-w-0 flex-1 truncate">{heldCat.label}</span>
+              </button>
+              <div id={`${ids}-sub`} role="listbox" aria-label={heldCat.label} className={`${GROUPED} mt-1.5`} data-search-card="">
+                {heldRows.map((row) => categoryRow(row))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

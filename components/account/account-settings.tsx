@@ -9,8 +9,10 @@
  * whole of /account once; the owner asked for a profile there instead, "not
  * directly changing the name or profile photo", so the changing lives here:
  *
- *   PROFILE         photo (changed in place, through the one photo route:
- *                   components/app/settings/profile-photo) and name
+ *   PROFILE         the name. The photo is changed on the big one at the
+ *                   top of the profile, which is the photo's control on
+ *                   this tab (components/account/account-photo.tsx), so
+ *                   the same face is never drawn twice on one screen
  *   SIGN IN         email (a code to each address, the same flow as the
  *                   seller's settings) and password (change it, or set one
  *                   on an account that has only ever used Google or Apple)
@@ -28,7 +30,6 @@ import { useRouter } from "next/navigation"
 import { useCallback, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 
-import { ProfilePhoto } from "@/components/app/settings/profile-photo"
 import {
   EmailChangeFlow,
   PasswordCard,
@@ -43,7 +44,6 @@ import { useLocale } from "@/components/locale-provider"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { useShellAvatar } from "@/lib/account/avatar-store"
 import { nativeLogOut } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -65,9 +65,14 @@ const QUIET =
 
 /* ── You ─────────────────────────────────────────────────────────────── */
 
-function ProfileCard({ userId, name: initialName, avatarUrl }: { userId: string; name: string; avatarUrl: string | null }) {
+/**
+ * THE NAME, AND ONLY THE NAME. The photo is the big one at the top of the
+ * profile, which is its own control on this tab (components/account/
+ * account-photo.tsx): drawn here as well it was the same face twice on one
+ * screen, which the owner called ugly.
+ */
+function ProfileCard({ userId, name: initialName }: { userId: string; name: string }) {
   const router = useRouter()
-  const photo = useShellAvatar(avatarUrl)
   const [saved, setSaved] = useState(initialName)
   const [name, setName] = useState(initialName)
   const [busy, setBusy] = useState(false)
@@ -108,13 +113,11 @@ function ProfileCard({ userId, name: initialName, avatarUrl }: { userId: string;
 
   return (
     <section className={CARD} aria-labelledby="account-you" data-account-card="profile">
-      {/* The photo control heads itself ("Profile photo"), so the card's own name is for screen readers. */}
       <h2 id="account-you" className="sr-only">
         Profile
       </h2>
-      <ProfilePhoto userId={userId} src={photo} name={saved} onChanged={() => router.refresh()} />
-      <div className="mt-5 border-t border-[#f0f1f3] pt-4">
-        <label htmlFor="account-name" className="mb-1.5 flex items-center text-[13px] font-medium text-[#374151]">
+      <div>
+        <label htmlFor="account-name" className={cn(CARD_TITLE, "mb-2 flex items-center")}>
           Name
           <Saved at={savedAt} />
         </label>
@@ -453,7 +456,6 @@ export function AccountSettings({
   userId,
   email,
   name,
-  avatarUrl,
   createdAt,
   hasPassword,
   via,
@@ -464,7 +466,6 @@ export function AccountSettings({
   userId: string
   email: string
   name: string
-  avatarUrl: string | null
   createdAt: string
   hasPassword: boolean
   via: string
@@ -474,7 +475,7 @@ export function AccountSettings({
 }) {
   return (
     <div className="space-y-4 sm:space-y-5" data-account-page="" data-account-settings="">
-      <ProfileCard userId={userId} name={name} avatarUrl={avatarUrl} />
+      <ProfileCard userId={userId} name={name} />
       <EmailCard email={email} />
       <PasswordCard email={email} hasPassword={hasPassword} via={via} />
       <PreferencesCard email={email} newsletter={newsletter} personalized={personalized} />

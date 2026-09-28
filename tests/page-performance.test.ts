@@ -477,9 +477,10 @@ check(
     // positioned against the LINK sat ~12px clear of the glyph and read as
     // floating loose. It was always so; shrinking the bubble made it obvious.
     const src = code("components/platform/platform-header-client.tsx")
-    const wrappers = src.match(/<span className="relative inline-flex">\s*<Heart/g)?.length ?? 0
+    // Both badges are the one CountBadge now, each inside the heart's own wrapper.
+    const wrappers = src.match(/<span className="relative inline-flex">\s*<Heart[^>]*\/>\s*\{wishlistCount > 0 && \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<CountBadge /g)?.length ?? 0
     const badges = src.match(/bg-red-500/g)?.length ?? 0
-    return wrappers === 2 && badges === 2
+    return wrappers === 2 && badges === 1
   })(),
   "        components/platform/platform-header-client.tsx",
 )
