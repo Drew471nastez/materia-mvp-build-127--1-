@@ -35,6 +35,26 @@ for (const p of parts) {
   check(`${p}: named in the file that carries it`, four.some((f) => f.includes(`-- part ${p}`)))
 }
 
+console.log("\nEvery part's note is copied whole too, in every folder the owner might run")
+/*
+  The checks above skip each part's first line, its note. Part 62's note was
+  edited after the files were built, so file 2 carried the old note without
+  the characters that close it. Postgres answered "unterminated /* comment" and ran
+  nothing from file 2 on. A note left open is the whole file lost, so every
+  note is checked word for word, in every folder, and every line a file
+  opens as a comment closes on that line.
+*/
+const allInThree = readdirSync(join(process.cwd(), "supabase/sql/all-in-three")).filter((f) => f.endsWith(".sql")).sort().map((f) => read(`supabase/sql/all-in-three/${f}`))
+const threeLines = new Set(allInThree.join("\n").split("\n"))
+for (const p of parts) {
+  const note = read(`${RN}/${p}`).split("\n")[0]
+  check(`${p}: its note, word for word, in run-four and all-in-three`, lines.has(note) && threeLines.has(note), note.slice(-80))
+}
+const unclosed = [...four, ...allInThree].flatMap((f) => f.split("\n")).filter((l) => l.startsWith("/*") && !l.trimEnd().endsWith("*/"))
+check("no line opens a comment it does not close", unclosed.length === 0, unclosed.map((l) => l.slice(0, 100)).join(" | "))
+for (const dir of ["supabase/sql/all-last-three-days", "supabase/sql/all-last-14-days"])
+  check(`${dir} holds the same four files as run-four`, FILES.every((f, i) => read(`${dir}/${f}`) === four[i]))
+
 console.log("\nThe order, and what each file ends with")
 const order = parts.map((p) => all.indexOf(`-- part ${p}`))
 check("the parts run in their numbered order", order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1])))
