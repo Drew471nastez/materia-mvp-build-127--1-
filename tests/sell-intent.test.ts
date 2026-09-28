@@ -260,6 +260,10 @@ function main() {
   const proxy = code("proxy.ts")
   check("a signed out deep link into /app keeps its page as next",
     /url\.pathname = "\/login"\s*url\.search = ""\s*url\.searchParams\.set\("next", `\$\{request\.nextUrl\.pathname\}\$\{request\.nextUrl\.search\}`\)/.test(proxy))
+  check("/sell signed out is a real 307 to sign up before anything streams",
+    /request\.nextUrl\.pathname === "\/sell" && shouldSendToLogin\(current\)/.test(proxy)
+      && /url\.pathname = "\/signup"[\s\S]{0,120}url\.searchParams\.set\("intent", "sell"\)/.test(proxy)
+      && proxy.indexOf('request.nextUrl.pathname === "/sell"') < proxy.indexOf("const guarded ="))
   check("/sell is a platform route on every host", /"\/sell",/.test(proxy) && /"sell", "signup"/.test(proxy) && /"sell",/.test(code("lib/routes/reserved-segments.ts")))
 
   check("/onboarding goes to /sell on the server", !/use client/.test(read("app/(auth)/onboarding/page.tsx")) && /redirect\(withCarry\(SELL_PATH/.test(code("app/(auth)/onboarding/page.tsx")))

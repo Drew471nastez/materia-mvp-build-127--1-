@@ -1439,6 +1439,27 @@ export async function proxy(request: NextRequest) {
     console.warn(`[proxy] auth undetermined on ${request.nextUrl.pathname}: ${current.reason}`)
   }
 
+  /*
+    SELL ON STORELIB, SIGNED OUT, GOES STRAIGHT TO SIGN UP. /sell makes the
+    same decision itself, but it has a loading screen, so its redirect came
+    after the page had started streaming: a white frame, then a client hop
+    (a one second refresh without scripts). Here it is a real 307 before
+    anything is drawn. The `next` it carries is checked again by
+    /auth/continue like any other return target.
+  */
+  if (request.nextUrl.pathname === "/sell" && shouldSendToLogin(current)) {
+    const url = request.nextUrl.clone()
+    const next = request.nextUrl.searchParams.get("next")
+    url.pathname = "/signup"
+    url.search = ""
+    url.searchParams.set("intent", "sell")
+    if (next) url.searchParams.set("next", next)
+    const redirect = NextResponse.redirect(url, 307)
+    for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
+    retireDomainScopedCookies(redirect, request)
+    return redirect
+  }
+
   const guarded =
     request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/dashboard")
 
