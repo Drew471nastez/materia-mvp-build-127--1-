@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { fillOwnedProduct } from "@/lib/library/owned-products"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DownloadButton } from "@/components/download-button"
 import { ArrowLeft, Download, FileIcon, ExternalLink } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { pageUser } from "@/lib/auth/page-user"
@@ -124,11 +125,14 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
                           </p>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={`/api/download/${asset.id}`}>
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </Button>
+                      {/* /api/download answers with a short signed address,
+                          not the file, so a plain link here walked the buyer
+                          off this page and onto that answer. The shared
+                          button asks for the address and hands the file to a
+                          tab of its own (components/download-button). */}
+                      <DownloadButton assetId={asset.id} size="sm" variant="outline" className="shrink-0">
+                        <span className="sr-only">Download {asset.file_name}</span>
+                      </DownloadButton>
                     </div>
                   ))}
                 </div>
