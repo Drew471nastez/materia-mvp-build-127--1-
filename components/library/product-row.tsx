@@ -10,19 +10,24 @@ import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import type { LibraryCreator, LibraryItem } from "@/lib/library/library-view"
 import { contactOf, productPageOf, storeOf } from "./creator-links"
 import { LibraryFileRow } from "./file-row"
-import { RateStars } from "./rate-stars"
+import { useStoreLinkProps } from "./use-store-link"
 import { ICON_BUTTON, PRIMARY, SECONDARY, SMALL, shortDate } from "./library-ui"
 
 /**
  * ===========================================================================
  *  ONE PURCHASE IN THE LIBRARY
  * ===========================================================================
- * The picture, the name, who made it and when it was bought, the review
- * line, and the one thing most people came to do: Download. A product with
+ * The picture, the name, who made it and when it was bought, and the one
+ * thing most people came to do: Download. A product with
  * several files opens its list in place; one with none opens the product.
  * Everything else a buyer might want once (the receipt, their review,
  * writing to the seller, the seller's shop) is under More, which is a menu
  * on a computer and a sheet on a phone (components/ui/responsive-action-menu).
+ *
+ * NO STARS ON THE ROW. There were five, with "Rate it", and the owner asked
+ * for rating to live in one place: the Reviews tab. More's "Write a review"
+ * and "Edit your review" go there, to this product, with its composer open
+ * (/library/reviews?product=<id>, components/library/library-reviews.tsx).
  *
  * A refunded or unpaid purchase keeps its row, says so, and offers the
  * receipt instead of a Download that could only say no.
@@ -89,6 +94,7 @@ export function ProductRow({
   highlight?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const storeLink = useStoreLinkProps()
   const href = `/library/products/${item.productId}`
   const status = item.state === "open" ? null : STATE_LINE[item.state]
   const many = item.state === "open" && item.files.length > 1
@@ -96,16 +102,17 @@ export function ProductRow({
   const menu = useMemo<ActionMenuItem[]>(() => {
     const rows: ActionMenuItem[] = [{ label: "Open", icon: <Package className="h-4 w-4" />, href }]
     if (item.receiptToken) rows.push({ label: "Receipt", icon: <Receipt className="h-4 w-4" />, href: `/receipt/${encodeURIComponent(item.receiptToken)}` })
-    if (item.review) rows.push({ label: "Edit your review", icon: <Star className="h-4 w-4" />, href: `${href}#review` })
-    else if (item.canReview) rows.push({ label: "Write a review", icon: <Star className="h-4 w-4" />, href: `${href}#review` })
+    const reviewHref = `/library/reviews?product=${encodeURIComponent(item.productId)}`
+    if (item.review) rows.push({ label: "Edit your review", icon: <Star className="h-4 w-4" />, href: reviewHref })
+    else if (item.canReview) rows.push({ label: "Write a review", icon: <Star className="h-4 w-4" />, href: reviewHref })
     const contact = creator ? contactOf(creator, item.title) : null
     const store = storeOf(item.creator)
     const page = productPageOf(item)
     if (contact) rows.push({ label: contact.label, icon: <Mail className="h-4 w-4" />, href: contact.href, separatorBefore: true })
-    if (store) rows.push({ label: `${item.creator.name}'s store`, icon: <Store className="h-4 w-4" />, href: store, separatorBefore: !contact })
+    if (store) rows.push({ label: `${item.creator.name}'s store`, icon: <Store className="h-4 w-4" />, href: store, target: storeLink.target, separatorBefore: !contact })
     if (page) rows.push({ label: "Product page", icon: <ExternalLink className="h-4 w-4" />, href: page })
     return rows
-  }, [creator, href, item])
+  }, [creator, href, item, storeLink.target])
 
   /* Download for one file, the list for several, the product for none. */
   const primary =
@@ -170,13 +177,7 @@ export function ProductRow({
               {shortDate(item.purchasedAt)}
             </time>
           </p>
-          {status ? (
-            <p className={`mt-1 text-[13px] font-medium ${status.tone}`}>{status.text}</p>
-          ) : (
-            <div className="mt-1">
-              <RateStars item={item} />
-            </div>
-          )}
+          {status ? <p className={`mt-1 text-[13px] font-medium ${status.tone}`}>{status.text}</p> : null}
         </div>
         <div data-row-actions="" className="col-span-2 mt-3 flex flex-wrap items-center gap-2 sm:col-span-1 sm:mt-0 sm:max-w-[280px] sm:justify-end">
           {primary}

@@ -16,6 +16,8 @@ import type { LibraryCreator, LibraryItem } from "@/lib/library/library-view"
 export interface ContactLink {
   href: string
   label: string
+  /** The verb alone, for a place that already shows the seller's name beside it. */
+  short: string
   /** A mail link, opened by the mail app rather than navigated to. */
   mail: boolean
 }
@@ -24,10 +26,10 @@ export function contactOf(creator: Pick<LibraryCreator, "name" | "supportEmail" 
   const first = (creator.name || "the seller").split(" ")[0]
   if (creator.supportEmail) {
     const subject = productTitle ? `?subject=${encodeURIComponent(`About ${productTitle}`)}` : ""
-    return { href: `mailto:${creator.supportEmail}${subject}`, label: `Email ${first}`, mail: true }
+    return { href: `mailto:${creator.supportEmail}${subject}`, label: `Email ${first}`, short: "Email", mail: true }
   }
   if (creator.contactReceiptToken) {
-    return { href: `/receipt/${encodeURIComponent(creator.contactReceiptToken)}#receipt-contact`, label: `Message ${first}`, mail: false }
+    return { href: `/receipt/${encodeURIComponent(creator.contactReceiptToken)}#receipt-contact`, label: `Message ${first}`, short: "Message", mail: false }
   }
   return null
 }

@@ -26,6 +26,7 @@ import type { DownloadRow } from "../lib/library/get-library-downloads"
 import { downloadJob, downloadJobs, removeJob } from "../lib/downloads/download-store"
 import { IN_PAGE_LIMIT, TooLargeForPage, readIntoFile } from "../lib/downloads/native"
 import { openTarget, appLink, phoneOf } from "../lib/platform/open-in-app"
+import { readFileSync } from "node:fs"
 
 let passed = 0
 let failed = 0
@@ -340,8 +341,38 @@ async function appCases() {
   check("no job is left behind", downloadJobs().length === 0, downloadJobs().map((j) => j.key))
 }
 
+/* ─── What the owner asked the library screens to be (read, not run) ─── */
+
+function screenCases() {
+  console.log("\nthe library's screens")
+  const read = (f: string) => readFileSync(f, "utf8")
+  const tabs = read("components/library/library-tabs.tsx")
+  check("the tabs are separate pills, not an underlined row", /rounded-full border/.test(tabs) && !/border-b-2/.test(tabs))
+  check("the pressed pill is chosen on the press, ahead of the address", /setPressed\(href\)/.test(tabs) && /const current = pressed \?\? path/.test(tabs))
+  check("its fill fades in place on settings' 150ms curve", /TAB_FADE_MS = 150/.test(tabs) && /cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(tabs) && /transition-\[opacity,scale\]/.test(tabs))
+  check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && /onPointerEnter=\{\(\) => warm/.test(tabs))
+  const layout = read("app/library/layout.tsx")
+  check("the screen under the pills changes through the panel", /<LibraryPanel>\{children\}<\/LibraryPanel>/.test(layout))
+  check("Open in app is one quiet line at the foot, not a card above the list", /<OpenInApp className="mt-10" \/>/.test(layout) && !/OpenInApp/.test(tabs) && !/rounded-2xl/.test(read("components/library/open-in-app.tsx")))
+  const row = read("components/library/product-row.tsx")
+  check("no stars and no Rate it on a product row", !/RateStars|rate-stars|\?rate=|<Stars/.test(row))
+  check("More's review rows go to the Reviews tab focused on that product", /\/library\/reviews\?product=\$\{encodeURIComponent\(item\.productId\)\}/.test(row))
+  const reviews = read("components/library/library-reviews.tsx")
+  check("Leave a review opens the composer on the Reviews tab, never another page",
+    /<ReviewComposer/.test(reviews) && /<SheetDialog/.test(reviews) && !/\/library\/products\/|\/receipt\//.test(reviews))
+  check("post, edit and delete go to the review routes, shown before they answer",
+    /fetch\("\/api\/reviews", \{\s*method: "POST"/.test(reviews) && /method: "PATCH"/.test(reviews) && /method: "DELETE"/.test(reviews) &&
+      reviews.indexOf("setOpen(false)") < reviews.indexOf('await fetch("/api/reviews"'))
+  check("a refusal puts the review back", /before === item\.review \? undefined : before/.test(reviews))
+  const product = read("components/library/library-product.tsx")
+  check("the creator block's buttons never wrap and say only what they do", /whitespace-nowrap/.test(product) && /\{contact\.short\}/.test(product) && !/\n\s*\{contact\.label\}\n/.test(product))
+  check("the creator's store opens in a new tab in a browser, in the same view in the app",
+    /\{\.\.\.storeLink\}/.test(product) && /target: "_blank", rel: "noopener"/.test(read("components/library/use-store-link.ts")) && /appPlatform\(\) === null/.test(read("components/library/use-store-link.ts")))
+}
+
 async function main() {
   libraryCases()
+  screenCases()
   openInAppCases()
   await appCases()
   console.log(`\n${passed} passed, ${failed} failed`)

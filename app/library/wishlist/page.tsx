@@ -29,7 +29,7 @@ function WishlistSkeleton() {
 export default function LibraryWishlistPage() {
   /* The heading and the tabs are the library's (components/library/library-tabs). */
   return (
-    <div className="animate-in fade-in-0 duration-300">
+    <div>
       <Suspense fallback={<WishlistSkeleton />}>
         <WishlistContent isLibrary />
       </Suspense>

@@ -1,7 +1,9 @@
+import { TAB_SKELETON } from "../loading"
+
 export default function WishlistLoading() {
   return (
-    <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300 skeleton-deferred">
-      {/* Header card skeleton — matches the new page header card */}
+    <div data-library-skeleton="" className={`max-w-5xl mx-auto px-2 sm:px-0 ${TAB_SKELETON}`}>
+      {/* Header card skeleton, matching the new page header card */}
       <div className="mb-6 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="h-16 sm:h-20 bg-neutral-200 animate-pulse" />
         <div className="px-5 sm:px-6 pb-5 sm:pb-6">

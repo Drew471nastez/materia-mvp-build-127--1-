@@ -7,6 +7,9 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { LibraryTabs } from "@/components/library/library-tabs"
+import { LibraryPanel } from "@/components/library/library-panel"
+import { OpenInApp } from "@/components/library/open-in-app"
+import { ListSkeleton, RowsSkeleton, TAB_SKELETON } from "@/app/library/loading"
 import { LibraryHome } from "@/components/library/library-home"
 import { LibraryReviews } from "@/components/library/library-reviews"
 import { LibraryReceipts } from "@/components/library/library-receipts"
@@ -64,8 +67,10 @@ const extras: LibraryExtras = {
 }
 
 const data = assembleLibrary(downloads, extras)
-const mode = (window as unknown as { __mode?: string }).__mode || "home"
+const w = window as unknown as { __mode?: string; __focus?: string; __cold?: boolean; __navigate?: (href: string) => void; __navStore?: { path: string; listeners: Set<() => void> } }
+const mode = w.__mode || "home"
 
+/* The layout's column, as app/library/layout.tsx draws it: the pills, the panel, the quiet app line. */
 function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: boolean }) {
   return (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="library">
@@ -73,10 +78,63 @@ function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: bo
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
           {tabs ? <LibraryTabs /> : null}
-          {children}
+          <LibraryPanel>{children}</LibraryPanel>
+          <OpenInApp className="mt-10" />
         </div>
       </main>
     </div>
+  )
+}
+
+/*
+  THE TABS AS ROUTES, stood in for. The probe's next/navigation reads the
+  path from window.__navStore, and its Link calls window.__navigate. A warm
+  press (the router already holds the page) swaps the screen in the same
+  commit as the address; a cold one (window.__cold) shows the route's
+  loading.tsx first and the screen 500ms later, as Next does.
+*/
+function screenFor(path: string): React.ReactNode {
+  switch (path) {
+    case "/library/reviews":
+      return <LibraryReviews items={data.items} />
+    case "/library/receipts":
+      return <LibraryReceipts receipts={data.receipts} />
+    case "/library/courses":
+    case "/library/memberships":
+    case "/library/wishlist":
+      return (
+        <div data-probe-screen={path} className="rounded-2xl border border-[#e4e7ec]/80 bg-white px-5 py-10 text-center text-[14px] text-[#6b7280]">
+          {path.split("/").pop()} screen
+        </div>
+      )
+    default:
+      return <LibraryHome items={data.items} creators={data.creators} toReview={data.items.filter((i) => i.canReview).length} />
+  }
+}
+
+function skeletonFor(path: string): React.ReactNode {
+  return (
+    <div data-library-skeleton="" className={TAB_SKELETON}>
+      {path === "/library/reviews" ? <RowsSkeleton rows={3} sections={2} /> : path === "/library/receipts" ? <RowsSkeleton rows={4} /> : <ListSkeleton />}
+    </div>
+  )
+}
+
+function NavApp() {
+  const store = (w.__navStore ||= { path: (window as unknown as { __path?: string }).__path || "/library", listeners: new Set() })
+  const [state, setState] = React.useState({ path: store.path, loading: false })
+  React.useEffect(() => {
+    /* Next navigates in a transition: the press's own updates (the pill) paint first. */
+    w.__navigate = (href: string) => {
+      React.startTransition(() => setState({ path: href, loading: !!w.__cold }))
+      if (w.__cold) window.setTimeout(() => React.startTransition(() => setState({ path: href, loading: false })), 500)
+    }
+  }, [store])
+  const PathContext = (window as unknown as { __PathContext: React.Context<string | null> }).__PathContext
+  return (
+    <PathContext.Provider value={state.path}>
+      <Shell>{state.loading ? skeletonFor(state.path) : <div key={state.path}>{screenFor(state.path)}</div>}</Shell>
+    </PathContext.Provider>
   )
 }
 
@@ -88,10 +146,12 @@ function Screen() {
           <LibraryHome items={[]} creators={[]} wishlistCount={3} />
         </Shell>
       )
+    case "nav":
+      return <NavApp />
     case "reviews":
       return (
         <Shell>
-          <LibraryReviews items={data.items} />
+          <LibraryReviews items={data.items} focus={w.__focus ?? null} />
         </Shell>
       )
     case "receipts":

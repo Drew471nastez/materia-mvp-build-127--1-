@@ -9,6 +9,8 @@ import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { LibraryTabs } from "@/components/library/library-tabs"
+import { LibraryPanel } from "@/components/library/library-panel"
+import { OpenInApp } from "@/components/library/open-in-app"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import LibraryLoading from "./loading"
@@ -59,7 +61,7 @@ export default async function LibraryLayout({
     /** Could not tell, so the client decides with the session it is holding. */
     if (isNative || current.state === "indeterminate") {
       // In Capacitor, session lives in Preferences (not cookies).
-      // A full-page reload won't have a server-side session yet —
+      // A full-page reload won't have a server-side session yet;
       // the client will restore it asynchronously from Preferences.
       // Skip the redirect and let NativeAuthGate handle it.
       return (
@@ -103,8 +105,8 @@ export default async function LibraryLayout({
 
       It is the marketing shell now, which is what Explore and the product
       pages use: header, a main column, footer. The sidebar's links were
-      almost all in the header already — Discover, Dashboard, Settings, Log
-      out, the wishlist — and the four that were not are a row of pills above
+      almost all in the header already: Discover, Dashboard, Settings, Log
+      out, the wishlist, and the four that were not are a row of pills above
       the content. See components/library/library-tabs.
 
       The h-svh scroll container went with it. It existed to give
@@ -128,7 +130,10 @@ export default async function LibraryLayout({
           }}
         >
           <LibraryTabs />
-          {children}
+          {/* The screen under the pills, which changes the way /app settings changes a tab. */}
+          <LibraryPanel>{children}</LibraryPanel>
+          {/* On a phone's browser, one quiet line under everything; nowhere else. */}
+          <OpenInApp className="mt-10" />
         </div>
       </main>
 

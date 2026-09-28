@@ -62,7 +62,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const { items, creators } = assembleLibrary(downloads, extras)
 
   return (
-    <div className="animate-in fade-in-0 duration-300">
+    <div>
       <LibrarySplashInit />
       <LibraryHome
         items={items}

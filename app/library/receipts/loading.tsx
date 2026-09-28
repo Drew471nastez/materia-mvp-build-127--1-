@@ -1,9 +1,10 @@
-import { ListSkeleton } from "../loading"
+import { RowsSkeleton, TAB_SKELETON } from "../loading"
 
+/** One row per payment, in the shape components/library/library-receipts.tsx draws them. */
 export default function ReceiptsLoading() {
   return (
-    <div className="skeleton-deferred">
-      <ListSkeleton rows={4} />
+    <div data-library-skeleton="" className={TAB_SKELETON}>
+      <RowsSkeleton rows={4} />
     </div>
   )
 }

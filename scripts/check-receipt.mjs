@@ -517,7 +517,10 @@ try {
         totals: !!document.querySelector("[data-receipt-totals]"),
       }))
       expect(alive.receipt && alive.files > 0 && alive.totals && /Thanks/.test(alive.head), `${label}: the receipt is still drawn, files and all`, JSON.stringify(alive))
-      expect(tabs.length === 1, `${label}: one tab of its own was asked for`, JSON.stringify(tabs))
+      /* Changed on purpose: the empty tab opened for the file showed the owner a blank about:blank page. The file now saves where the button is. */
+      expect(tabs.length === 0, `${label}: no tab and no about:blank, the file saves where the button is`, JSON.stringify(tabs))
+      const note = await page.evaluate(() => !!document.querySelector("[data-download-open]"))
+      expect(!note, `${label}: an attachment needs no note`, note)
       const got = fileAsks.find((a) => a.path === "/files/signed.pdf")
       expect(!!got && /download=signed\.pdf/.test(got.query), `${label}: the file was asked for with the name storage answers as an attachment`, JSON.stringify(got))
       expect(!!began && began.suggestedFilename === "signed.pdf" && began.url.startsWith(filesBase), `${label}: it came back as an attachment and was saved, not drawn`, JSON.stringify(began && { url: began.url, name: began.suggestedFilename }))
@@ -553,57 +556,39 @@ try {
         head: document.querySelector("h1")?.textContent || "",
       }))
       expect(alive.receipt && alive.files > 0 && /Thanks/.test(alive.head), `${label}: the receipt is still there, the PDF did not take its place`, JSON.stringify(alive))
-      expect(tabs.length === 1, `${label}: the file was drawn in a tab of its own`, JSON.stringify(tabs))
-      /* The tab is left open here, because nothing downloaded, so close it. */
-      for (const p of await browser.pages()) if (p !== page && /\/files\/signed\.pdf/.test(p.url())) await p.close()
+      expect(tabs.length === 0, `${label}: nothing opened by itself`, JSON.stringify(tabs))
+      const drawnNote = await page.evaluate(() => {
+        const box = document.querySelector("[data-download-open]")
+        const a = box?.querySelector("a")
+        const r = a?.getBoundingClientRect()
+        return box ? { text: box.textContent, href: a?.getAttribute("href"), target: a?.getAttribute("target"), onScreen: !!r && r.height >= 32 && r.bottom <= window.innerHeight && r.right <= window.innerWidth } : null
+      })
+      expect(!!drawnNote && /signed\.pdf is ready to open/.test(drawnNote.text || "") && drawnNote.href.startsWith(filesBase) && drawnNote.target === "_blank" && drawnNote.onScreen, `${label}: the drawn file is one press away, on the buyer's own press`, JSON.stringify(drawnNote))
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-free-${label}-drawable.png`), fullPage: false })
       await page.close()
     }
 
     /*
-     * AND WHERE THE BROWSER REFUSES THE TAB. Some people have pop-ups
-     * blocked outright, and then window.open answers null. The receipt must
-     * still be there and the file must still be one press away.
+     * AND WITH POP-UPS BLOCKED OUTRIGHT. window.open answers null for some
+     * people. There is no pop-up any more, so nothing changes for them.
      */
-    console.log("\nwith the tab refused")
+    console.log("\nwith pop-ups blocked")
     for (const [label, viewport] of VIEWPORTS) {
       const page = await open(viewport, "free")
-      await page.evaluateOnNewDocument(() => {})
-      await page.evaluate(() => { window.open = () => null })
-      const tabs = []
-      const onTarget = (t) => { if (t.type() === "page") tabs.push(t.url()) }
-      browser.on("targetcreated", onTarget)
+      await page.evaluate(() => { window.open = () => { window.__opened = (window.__opened || 0) + 1; return null } })
+      let began = null
+      const onBegin = (e) => { began = e }
+      browserCdp.on("Browser.downloadWillBegin", onBegin)
       answer.download = "cross"
       const was = page.url()
       await (await page.$("[data-receipt-file] button")).click()
       await wait(1600)
-      browser.off("targetcreated", onTarget)
-
-      expect(page.url() === was, `${label}: the receipt's address never changed`, `${was} -> ${page.url()}`)
-      expect(tabs.length === 0, `${label}: no tab was opened behind the refusal`, JSON.stringify(tabs))
-      const notice = await page.evaluate(() => {
-        const box = document.querySelector("[data-download-blocked]")
-        if (!box) return null
-        const a = box.querySelector("[data-download-blocked-link]")
-        const r = a ? a.getBoundingClientRect() : null
-        return {
-          text: box.textContent || "",
-          href: a ? a.getAttribute("href") : "",
-          download: a ? a.getAttribute("download") : "",
-          target: a ? a.getAttribute("target") : "",
-          rel: a ? a.getAttribute("rel") : "",
-          onScreen: !!r && r.width > 0 && r.height >= 32 && r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth,
-        }
-      })
-      expect(!!notice, `${label}: the buyer is shown a notice, not nothing`, "none")
-      expect(!!notice && /stopped the new tab/.test(notice.text) && /Save signed\.pdf/.test(notice.text), `${label}: it says so plainly and names the file`, notice && notice.text)
-      expect(!!notice && notice.href.startsWith(filesBase) && notice.target === "_blank" && notice.rel === "noopener noreferrer" && notice.download === "signed.pdf",
-        `${label}: the link goes to the file, in a tab of its own`, JSON.stringify(notice))
-      expect(!!notice && notice.onScreen, `${label}: and it is on the screen where it can be pressed`, JSON.stringify(notice))
+      browserCdp.off("Browser.downloadWillBegin", onBegin)
+      const opened = await page.evaluate(() => window.__opened || 0)
+      expect(page.url() === was && opened === 0, `${label}: window.open is never called, the address never changes`, { opened, url: page.url() })
+      expect(!!began && began.suggestedFilename === "signed.pdf", `${label}: and the file is saved all the same`, began && began.suggestedFilename)
       const row = await page.evaluate(() => document.querySelector("[data-receipt-file] [role=alert]")?.textContent || "")
-      expect(/ready below\. Press Save/.test(row) && !/stopped the new tab/.test(row), `${label}: the file's own row points at it, without saying the same thing twice`, row)
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-      expect(overflow <= 0, `${label}: the notice pushes nothing sideways`, `${overflow}px`)
-      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-free-${label}-tab-refused.png`), fullPage: false })
+      expect(row === "", `${label}: with nothing to apologise for next to the file`, row)
       await page.close()
     }
     answer.download = "ok"
@@ -689,7 +674,7 @@ try {
       const hint = await page.evaluate(() => document.querySelector("[data-receipt-email]")?.textContent || "")
       expect(/Only this copy goes there/.test(hint) && /Settings/.test(hint), `${label}: says it is one copy and where the account email is changed`, hint)
       const settings = await page.evaluate(() => [...document.querySelectorAll("[data-receipt-email] a")].map((a) => a.getAttribute("href")))
-      expect(settings.includes("/library/settings"), `${label}: Settings is the buyer's settings`, JSON.stringify(settings))
+      expect(settings.includes("/account/settings"), `${label}: Settings is the buyer's settings (/account/settings)`, JSON.stringify(settings))
       if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-free-${label}-copy-open.png`), fullPage: label === "390" })
       asked.length = 0
       answer.copy = "ok"
@@ -943,6 +928,55 @@ try {
       expect(initial === "GH", "a guest's card shows their initials on a neutral circle (AppAvatar's two letters)", initial)
       if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-guest-390-review.png"), fullPage: true })
       await page.close()
+    }
+  }
+
+  /* ── Phones from 360 to 430, and the skeleton laid over the page ──────
+     The owner: "not mobile responsive, the buttons misaligned, the loading
+     structure feels cheap". At every phone width: nothing sideways, every
+     file's Download the same size and centred on its row, the whole file
+     name readable where it fits, the price beside the first line of the
+     name. Then the route's skeleton is drawn at the same width and its
+     parts are measured against the real ones. */
+  if (!SHOTS_ONLY) {
+    console.log("\nphone widths and the skeleton")
+    for (const width of [360, 390, 430, 1280]) {
+      const vp = { width, height: 860, isMobile: width < 640, hasTouch: width < 640, deviceScaleFactor: 2 }
+      const page = await open(vp, "multi")
+      const m = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll("[data-receipt-file]")]
+        const btns = rows.map((r) => {
+          const b = r.querySelector("[data-receipt-download]").getBoundingClientRect()
+          const line = r.firstElementChild.getBoundingClientRect()
+          return { w: Math.round(b.width), h: Math.round(b.height), off: Math.round(Math.abs(b.top + b.height / 2 - (line.top + line.height / 2))), right: Math.round(b.right) }
+        })
+        const cut = rows.filter((r) => { const h = r.querySelector("[data-name-head]"); return h.scrollWidth > h.clientWidth + 1 }).length
+        const head = document.querySelector("[data-item-head]")
+        const title = head.querySelector("p").getBoundingClientRect()
+        const price = head.lastElementChild.getBoundingClientRect()
+        const card = document.querySelector("[data-receipt-items]").getBoundingClientRect()
+        const help = document.querySelector("[data-receipt-contact] button").getBoundingClientRect()
+        return { over: document.documentElement.scrollWidth - window.innerWidth, btns, cut, priceOff: Math.round(Math.abs(price.top - title.top)), cardRight: Math.round(card.right), helpRight: Math.round(help.right), cardTop: Math.round(card.top) }
+      })
+      expect(m.over <= 0, `${width}: nothing wider than the screen`, m.over)
+      expect(new Set(m.btns.map((b) => `${b.w}x${b.h}`)).size === 1 && new Set(m.btns.map((b) => b.right)).size === 1 && m.btns.every((b) => b.off <= 1), `${width}: every Download one size, one right edge, centred on its row`, m.btns)
+      expect(width < 400 || m.cut === 0, `${width}: every file name whole`, m.cut)
+      expect(m.priceOff <= 3, `${width}: the price sits beside the name's first line`, m.priceOff)
+      expect(Math.abs(m.helpRight - m.cardRight) <= 1, `${width}: Contact seller lines up with the cards' edge`, { help: m.helpRight, card: m.cardRight })
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `receipt-multi-${width}.png`), fullPage: true })
+      await page.close()
+
+      const sk = await open(vp, "loading")
+      await wait(700)
+      const k = await sk.evaluate(() => {
+        const main = document.querySelector("[data-receipt-loading]")
+        const cards = [...main.querySelectorAll(".rounded-2xl")].map((c) => c.getBoundingClientRect())
+        return { opacity: getComputedStyle(main).opacity, over: document.documentElement.scrollWidth - window.innerWidth, cardTop: Math.round(cards[0].top), cardRight: Math.round(cards[0].right) }
+      })
+      expect(k.opacity === "1" && k.over <= 0, `${width}: the skeleton shows (after its short wait) and fits`, k)
+      expect(Math.abs(k.cardTop - m.cardTop) <= 12 && Math.abs(k.cardRight - m.cardRight) <= 1, `${width}: its order card sits where the real one lands`, { skeleton: k.cardTop, page: m.cardTop })
+      if (SHOTS) await sk.screenshot({ path: join(SHOTS, `receipt-loading-${width}.png`) })
+      await sk.close()
     }
   }
 } finally {
