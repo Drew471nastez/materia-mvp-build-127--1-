@@ -98,14 +98,19 @@ console.log("\n6. signed in")
   check("both computer rows show the Dashboard button and the photo's menu only when signed in", (header.match(/\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2)
   check("no link in the header goes to /onboarding: /sell decides", !/["']\/onboarding["']/.test(header))
   check("Become a seller goes to /sell from both phone sheets",
-    /function BecomeSellerRow[\s\S]{0,200}link\("\/sell"\)/.test(header) && /<MenuRow seller href="\/sell" label="Become a seller"/.test(header) && (header.match(/<BecomeSellerRow link=\{headerLink\}/g) ?? []).length === 2)
+    /function BecomeSellerRow[\s\S]{0,200}link\("\/sell"\)/.test(header) && /<MenuRow seller href="\/sell" label=\{sellingLabel\(sellerState\)\}/.test(header) && (header.match(/<BecomeSellerRow link=\{headerLink\} state=\{sellerState\}/g) ?? []).length === 2)
+  /* The profile's three (sellingEntry in lib/account/overview.ts): a seller who left the setup half done is asked to finish it. */
+  check("a seller who began the setup and left it is asked to finish it, not to become one",
+    /export const sellingLabel = \(state: SellerState\) => \(state === "started" \? "Finish setting up your store" : "Become a seller"\)/.test(header) && /setSellerState\(access\.state\)/.test(header))
+  check("a profile that could not be read does not undo what the creators row says",
+    /if \(profileErr\) \{[\s\S]{0,700}?const state = sellerAccessFrom\(\{ creator: creatorData, profile: null \}\)\.state\s*setIsCreator\(state === "seller"\)\s*setHasCompletedSellerOnboarding\(state === "seller"\)/.test(header))
   check("it is a calm row, not a badge: a pale violet ground, the height of its neighbours", /data-become-seller=""\s*className="[^"]*rounded-xl bg-\[#f5f3ff\] px-4 py-3\.5 text-base font-medium text-violet-700/.test(header))
   check("a seller gets Dashboard there instead", (header.match(/hasCompletedSellerOnboarding \? \(/g) ?? []).length >= 3)
   check("on a computer the photo is a link to /account, not a menu", /<Link\s+\{\.\.\.headerLink\("\/account"\)\}\s+aria-label="Your account"\s+data-header-avatar=""/.test(header) && !/data-account-menu|desktopProfileOpen/.test(header))
   check("the phone sheets lead to /account too (the profile card, Settings)", (header.match(/headerLink\("\/account"\)/g) ?? []).length === 3)
   check("no settings link in the header goes anywhere but /account", !/"\/library\/settings"|"\/app\/settings"/.test(header))
   check("the account sheet keeps My Library, Settings and Language", /<span>My Library<\/span>/.test(header) && /<span>Settings<\/span>/.test(header) && /t\("settings\.language"\)/.test(header))
-  check("the seller check is the shared helper, marked SELLER ACCESS", /\/\/ SELLER ACCESS:[\s\S]{0,500}const isSellerByState = hasSellerAccess\(sellerAccessFrom\(\{ creator: creatorData, profile: profileData \}\)\)/.test(headerSrc) && /from "@\/lib\/account\/seller-access"/.test(header))
+  check("the seller check is the shared helper, marked SELLER ACCESS", /\/\/ SELLER ACCESS:[\s\S]{0,500}const access = sellerAccessFrom\(\{ creator: creatorData, profile: profileData \}\)\s*const isSellerByState = hasSellerAccess\(access\)/.test(headerSrc) && /from "@\/lib\/account\/seller-access"/.test(header))
   for (const f of ["components/marketing/user-nav.tsx", "components/marketing/user-nav-client.tsx", "components/dashboard/sidebar.tsx"]) {
     const src = readCode(f)
     check(`${f}: Become a seller goes to /sell, not through signup/success, and settings to /account`, /href="\/sell"/.test(src) && !/become-creator/.test(src) && !/Start Selling|Become a Seller/.test(src) && /href="\/account"/.test(src) && !/\/library\/settings|"\/app\/settings"/.test(src))

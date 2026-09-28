@@ -15,7 +15,7 @@
  *             on the slot it landed on; the icon starts filling on the
  *             press; NOTHING SCALES: every element of the tab and the glass
  *             sampled each frame at 4x CPU throttle keeps scale 1 and no
- *             transform (no bump); the page changes and the tab it went to
+ *             matrix of any kind (no bump); the page changes and the tab it went to
  *             fills; the glass clears
  *   SLIDE     the glass follows the finger one to one, lifts and stretches,
  *             and the slot it is let go over is where the page goes
@@ -185,7 +185,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const cdp = await p.createCDPSession()
     const lib = s.slots[2]
     await p.evaluate(() => { window.__router = [] })
-    /* Every frame of the press, at 4x CPU throttle: the scale and transform of the tab, everything in it, and the glass. */
+    /* Every frame of the press, at 4x CPU throttle: the scale and the matrix of the tab, everything in it, and the glass. */
     const slow = await p.createCDPSession()
     await slow.send("Emulation.setCPUThrottlingRate", { rate: 4 })
     await p.evaluate(() => {
@@ -226,7 +226,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(down.inks[2] > 0, "the icon starts filling on the press, before the page changes", down.inks)
     const bumps = press.filter((f) => f.scaled.length > 0 || f.anims > 0 || f.lens[0] !== "1" || f.lens[1] !== "none")
     const boxes = new Set(press.map((f) => f.box.join()))
-    expect(press.length >= 10 && bumps.length === 0 && boxes.size === 1, "NO BUMP: over every frame of the tap, nothing in the tab and not the glass is scaled or transformed, and the icon's box never changes", { frames: press.length, bumped: bumps.slice(0, 3), boxes: [...boxes] })
+    expect(press.length >= 10 && bumps.length === 0 && boxes.size === 1, "NO BUMP: over every frame of the tap, nothing in the tab and not the glass is scaled or moved, and the icon's box never changes", { frames: press.length, bumped: bumps.slice(0, 3), boxes: [...boxes] })
     const glassAlphas = press.map((f) => alpha(f.bg))
     const peak = Math.max(...glassAlphas)
     const easing = glassAlphas.slice(glassAlphas.indexOf(peak)).filter((a) => a > 0.02 && a < peak - 0.02)
@@ -371,7 +371,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   {
     const { p, errors } = await open(PHONE, "/maria/preset-pack", { search: "?layout=discover" })
     const s = await barState(p)
-    expect(!!s && s.current === 0, "browsed from Storelib, the bar is there, on Home", s && { current: s.current })
+    expect(!!s && s.current === 0, "browsed from Storelib, the bar is there, on Home", s ? { current: s.current } : errors)
     await p.evaluate(() => window.scrollTo(0, 1100))
     await sleep(800)
     const stack = await p.evaluate(() => {

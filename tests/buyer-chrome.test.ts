@@ -72,7 +72,7 @@ console.log("\nThe header on /account")
 const cond = code("components/marketing/conditional-header.tsx")
 check("/account is a known platform path, so the header draws there on the first paint", /p === "\/account" \|\|\s*p\.startsWith\("\/account\/"\)/.test(cond))
 /* "/account on phones: do not render the black site header" (the profile draws a light bar of its own). Decided on the server from the path, hidden by CSS below md, so there is no flash of it. */
-check("on a phone the header is not drawn on /account and under it; from md it is, as a box that is not a box", /export function hidesHeaderOnPhone\(p: string\): boolean \{\s*return p === "\/account" \|\| p\.startsWith\("\/account\/"\)/.test(cond) && /if \(hidesHeaderOnPhone\(pathname\)\) \{\s*return \(\s*<div data-header-phone="hidden" className="hidden md:contents">/.test(cond))
+check("on a phone the header is not drawn on /account and under it; from md it is, as a box that is not a box", /return \(p === "\/account" \|\| p\.startsWith\("\/account\/"\)\) && !p\.startsWith\("\/account\/continue"\)/.test(cond) && /if \(hidesHeaderOnPhone\(pathname\)\) \{\s*return \(\s*<div data-header-phone="hidden" className="hidden md:contents">/.test(cond))
 check("decided from the path the server renders with, not after hydration", !/hidesHeaderOnPhone\([^)]*\)[^\n]*useEffect/.test(cond) && !/matchMedia/.test(cond))
 check("and the account layout mounts it, as the library's does", /<ConditionalHeader initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} \/>/.test(read("app/account/layout.tsx")))
 

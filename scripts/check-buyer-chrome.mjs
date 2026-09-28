@@ -318,14 +318,14 @@ try {
       const { p, errors } = await open(PHONE(width), path, "buyer")
       const own = path.startsWith("/account")
       const s = await p.evaluate(READ)
-      await p.screenshot({ path: join(shots, `${path.slice(1)}-buyer-${width}-top.png`), clip: { x: 0, y: 0, width, height: 190 } })
+      await p.screenshot({ path: join(shots, `${path.slice(1).replace(/\//g, "-")}-buyer-${width}-top.png`), clip: { x: 0, y: 0, width, height: 190 } })
       await p.evaluate(() => window.scrollTo(0, 900))
       await sleep(400)
       const d = await p.evaluate(READ)
       await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
       await sleep(300)
       const end = await p.evaluate(READ)
-      await p.screenshot({ path: join(shots, `${path.slice(1)}-buyer-${width}-end.png`) })
+      await p.screenshot({ path: join(shots, `${path.slice(1).replace(/\//g, "-")}-buyer-${width}-end.png`) })
       if (own) {
         /* The profile draws its own light bar here: no black header, from the very first frame, and the tab bar stays. */
         const first = await p.evaluate(() => window.__headerEver)
@@ -364,7 +364,20 @@ try {
     expect(s.header && !s.bar, `${tag} the header, no tab bar`, { header: s.header, bar: s.bar })
     expect(s.footer === footer, `${tag} ${footer ? "the black footer" : "no black footer"}`, s.footer)
     if (who === "buyer" && path !== "/") expect(s.library, `${tag} the computer's header keeps its Library icon`, s.controls)
-    if (path !== "/" ) await p.screenshot({ path: join(shots, `desk-${path.slice(1)}-${who}.png`) })
+    /* Scrolled to the end, the header is still stuck to the top: on /account it is inside a box that is not a box (display: contents), which must not stop it sticking. */
+    if (path !== "/") {
+      const stuck = await p.evaluate(async () => {
+        /* Room to scroll, on a page too short for it. */
+        const room = document.createElement("div")
+        room.style.height = "2000px"
+        document.querySelector("main").append(room)
+        window.scrollTo(0, 1200)
+        await new Promise((r) => setTimeout(r, 200))
+        return { top: document.getElementById("platform-header-root")?.getBoundingClientRect().top, y: scrollY }
+      })
+      expect(stuck.y >= 1000 && stuck.top === 0, `${tag} scrolled down, the header is still stuck to the top`, stuck)
+    }
+    if (path !== "/" ) await p.screenshot({ path: join(shots, `desk-${path.slice(1).replace(/\//g, "-")}-${who}.png`) })
     expect(errors.length === 0, `${tag} no errors`, errors)
     await p.close()
   }
@@ -405,7 +418,7 @@ try {
         if (!b) return null
         const x = b.getBoundingClientRect()
         const t = b.firstElementChild.getBoundingClientRect()
-        return { x: x.left, y: x.top, w: x.width, h: x.height, text: b.textContent, font: getComputedStyle(b.firstElementChild).fontFamily.split(",")[0], tb: [t.top - x.top, t.height] }
+        return { x: x.left, y: x.top, w: x.width, h: x.height, text: b.textContent, font: getComputedStyle(b.firstElementChild).fontFamily.split(",")[0], tb: [t.top - x.top, t.height], nudge: b.style.marginTop }
       })
       if (process.env.PROBE_VERBOSE) console.log(JSON.stringify(r))
       if (!r) return null
@@ -451,6 +464,7 @@ try {
       }
       const [x0, x1] = span(Array.from(cols)), [y0, y1] = span(Array.from(rows))
       const ink = { cx: (x0 + x1) / 2 / dpr + clip.x, cy: (y0 + y1) / 2 / dpr + clip.y }
+      /* The disc is the badge's own box, where it was laid out (and drawn: it is not a layer of its own). */
       const disc = { cx: r.x + r.w / 2, cy: r.y + r.h / 2 }
       return { text: r.text, w: r.w, h: r.h, dx: Math.round((ink.cx - disc.cx) * 100) / 100, dy: Math.round((ink.cy - disc.cy) * 100) / 100, n, clip }
     }
@@ -472,6 +486,7 @@ try {
         }
         const texts = all.map((m) => m?.text).join()
         expect(texts === "1,5,9,12,99+" && all.every((m) => m && m.n > 0 && m.h === 18), `BADGE ${where} @${dpr}x: 1, 5, 9, 12 and 99+ on an 18px disc`, all.map((m) => m && { t: m.text, w: m.w, h: m.h }))
+        /* The old badge, measured the same way: 0.54px low at 3x and 0.7px at 2x on a phone in Inter, and 0.8 to 1.9px high in a fallback face. */
         expect(worst.dx <= 0.5 && worst.dy <= 0.5, `BADGE ${where} @${dpr}x: the figures are centred on the disc within 0.5px`, all.map((m) => m && `${m.text}: ${m.dx}, ${m.dy}`))
         /*
           AND IN ANOTHER FONT. Centring the figures rather than the line is
@@ -488,7 +503,7 @@ try {
         }
         const off = Math.max(...other.map((m) => (m && m.n ? Math.max(Math.abs(m.dx), Math.abs(m.dy)) : 99)))
         /* A serif's figures are not quite its cap height, so this one is allowed a little more. */
-        expect(off <= 0.75, `BADGE ${where} @${dpr}x: and in a serif fallback, still within 0.75px (the old badge was 0.8 to 1.9px high in Inter)`, other.map((m) => m && `${m.text}: ${m.dx}, ${m.dy}`))
+        expect(off <= 0.75, `BADGE ${where} @${dpr}x: and in a serif fallback, still within 0.75px`, other.map((m) => m && `${m.text}: ${m.dx}, ${m.dy}`))
         expect(errors.length === 0, `BADGE ${where} @${dpr}x: no errors`, errors)
         await p.close()
       }

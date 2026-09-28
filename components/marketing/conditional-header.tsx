@@ -83,7 +83,8 @@ function isKnownPlatformPath(p: string): boolean {
  * all there and the header's `position: sticky` still sticks to the page.
  */
 export function hidesHeaderOnPhone(p: string): boolean {
-  return p === "/account" || p.startsWith("/account/")
+  /* Not /account/continue, which is a redirect and never a page (the same rule as isKnownPlatformPath). */
+  return (p === "/account" || p.startsWith("/account/")) && !p.startsWith("/account/continue")
 }
 
 export function ConditionalHeader({

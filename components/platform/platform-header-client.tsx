@@ -26,7 +26,7 @@ import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loa
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
+import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
@@ -462,18 +462,29 @@ function GuestSheetActions({ second, link, onDone }: { second: "discover" | "log
   its words in the purple, a store rather than a sparkle. It goes to /sell,
   which decides what a buyer who wants to sell sees next.
 */
-function BecomeSellerRow({ link, onDone }: { link: HeaderLink; onDone: () => void }) {
+/*
+  WHAT THE WAY INTO SELLING SAYS, by the account's seller state, the same
+  three the profile shows (sellingEntry in lib/account/overview.ts): a seller
+  gets Dashboard (drawn by the caller), a seller who began the setup and left
+  it gets "Finish setting up your store", and a buyer who never began gets
+  "Become a seller". Both of the last two open /sell, which picks up where
+  the setup was left.
+*/
+export const sellingLabel = (state: SellerState) => (state === "started" ? "Finish setting up your store" : "Become a seller")
+
+function BecomeSellerRow({ link, onDone, state = "none" }: { link: HeaderLink; onDone: () => void; state?: SellerState }) {
   const { href, onClick } = link("/sell")
   return (
     <Link
       href={href}
       onClick={(e) => { onClick(e); onDone() }}
+      data-seller-state={state}
       data-become-seller=""
       className="flex touch-manipulation items-center justify-between rounded-xl bg-[#f5f3ff] px-4 py-3.5 text-base font-medium text-violet-700 transition-colors hover:bg-[#ede9fe] active:bg-[#ede9fe] [-webkit-tap-highlight-color:transparent] outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
     >
       <span className="flex items-center gap-3">
         <Store aria-hidden className="h-5 w-5 text-[#8b5cf6]" />
-        <span>Become a seller</span>
+        <span>{sellingLabel(state)}</span>
       </span>
       <ChevronRight aria-hidden className="h-5 w-5 text-violet-400" />
     </Link>
@@ -484,7 +495,6 @@ function BecomeSellerRow({ link, onDone }: { link: HeaderLink; onDone: () => voi
 // drag threshold is now ≤56 px so category buttons below that zone never
 // have their click events suppressed. Plain onClick is sufficient.
 
-// Animated Hamburger Icon Component - subtle animation only
 /**
  * ===========================================================================
  *  THE COUNT ON THE HEART, CENTRED
@@ -498,16 +508,55 @@ function BecomeSellerRow({ link, onDone }: { link: HeaderLink; onDone: () => voi
  * Now the box the flexbox centres IS the figures: `text-box` trims the line
  * to cap height over the baseline (figures are cap height in Inter), so the
  * middle of that box is the middle of the ink, whatever the font. The disc
- * is an even 18px in border-box, so its own middle is a whole pixel at every
- * density; tabular figures so 1 and 7 take the same width. Where a browser
- * has no `text-box`, `leading-none` is the fallback, which for Inter lands
- * within a hair of the same place. scripts/check-buyer-chrome.mjs measures
- * the white ink against the red disc for 1, 5, 9, 12 and 99+.
+ * is an even 18px in border-box; tabular figures so 1 and 7 take the same
+ * width. Where a browser has no `text-box`, `leading-none` is the fallback.
+ *
+ * AND ON A 1x SCREEN IT SITS ON A WHOLE PIXEL. The header's rows are not
+ * whole pixels tall, so the disc lands a fraction of a pixel down the page,
+ * while the browser puts a line of text on a whole pixel: on a screen whose
+ * pixel is a whole CSS pixel that rounded the figures and their disc apart
+ * by up to a pixel (measured 0.67px on a computer). There the badge is moved
+ * onto the nearest pixel after layout, and again when the window changes
+ * size or the header settles: by its own margin, under half a pixel, and it
+ * is absolutely placed, so nothing around it moves. Its layout position and
+ * not a `translate`: a `translate` moves the drawing after the text has been
+ * put on its pixel, and measured, that left the figures a pixel high. At 2x and 3x
+ * the grain is fine enough that the same move made things worse, so it is
+ * left alone.
+ *
+ * scripts/check-buyer-chrome.mjs finds the white figures in screenshots and
+ * measures them against the disc, for 1, 5, 9, 12 and 99+
+ * at 1x, 2x and 3x: within 0.35px, where the old badge was 0.54px low on a
+ * 3x phone (0.7px at 2x) and up to 1.9px off in a fallback face.
  */
 export function CountBadge({ count, className }: { count: number; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const snap = () => {
+      el.style.marginTop = ""
+      /* At 2x and 3x a pixel of the screen is a third or half of one of these, fine enough to leave. */
+      if ((window.devicePixelRatio || 1) >= 1.5) return
+      const top = el.getBoundingClientRect().top
+      const off = Math.round(top) - top
+      if (Math.abs(off) > 0.01) el.style.marginTop = `${off.toFixed(3)}px`
+    }
+    snap()
+    window.addEventListener("resize", snap)
+    /* The header's rows settling (a photo, a font) move it too. */
+    const header = el.closest("#platform-header-root")
+    const ro = header && typeof ResizeObserver !== "undefined" ? new ResizeObserver(snap) : null
+    if (ro && header) ro.observe(header)
+    return () => {
+      window.removeEventListener("resize", snap)
+      ro?.disconnect()
+    }
+  }, [count])
   if (count <= 0) return null
   return (
     <span
+      ref={ref}
       data-count-badge=""
       className={cn(
         "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white ring-2 ring-black",
@@ -521,6 +570,7 @@ export function CountBadge({ count, className }: { count: number; className?: st
   )
 }
 
+// Animated Hamburger Icon Component - subtle animation only
 /*
  * The three lines of the menu button. Opening the sheet dims them and draws
  * the middle one shorter, and nothing else: by opacity and `scale` about its
@@ -635,6 +685,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isCreator, setIsCreator] = useState(false)
   const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
+  /* The whole seller state, for what the way into selling says (sellingLabel). */
+  const [sellerState, setSellerState] = useState<SellerState>("none")
   const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   /**
@@ -696,6 +748,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     }
     setIsCreator(!!seed.isSeller)
     setHasCompletedSellerOnboarding(!!seed.isSeller)
+    setSellerState(seed.isSeller ? "seller" : "none")
     setLoading(false)
   }, [])
 
@@ -982,6 +1035,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           setProfile(null)
           setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
+          setSellerState("none")
           return
         }
 
@@ -1006,8 +1060,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         if (!mountedRef.current) return
         if (profileErr) {
           setProfile(null)
-          setIsCreator(false)
-          setHasCompletedSellerOnboarding(false)
+          /*
+            THE PROFILE COULD NOT BE READ, BUT THE CREATORS ROW WAS. That row is
+            the one that says whether onboarding is finished, so it still
+            decides: a seller whose profile read failed is a seller, not a
+            buyer offered the onboarding again.
+          */
+          const state = sellerAccessFrom({ creator: creatorData, profile: null }).state
+          setIsCreator(state === "seller")
+          setHasCompletedSellerOnboarding(state === "seller")
+          setSellerState(state)
         } else {
           const pd = (profileData as Profile) ?? null
           setProfile(pd)
@@ -1025,9 +1087,11 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           // ("started") is still a buyer here. It decides Dashboard against Become
           // a seller everywhere in this header, and it is written to the snapshot
           // so the next page opens on the right one.
-          const isSellerByState = hasSellerAccess(sellerAccessFrom({ creator: creatorData, profile: profileData }))
+          const access = sellerAccessFrom({ creator: creatorData, profile: profileData })
+          const isSellerByState = hasSellerAccess(access)
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
+          setSellerState(access.state)
           writeAuthSnapshot({
             signedIn: true,
             userId: user.id,
@@ -1044,6 +1108,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         setProfile(null)
         setIsCreator(false)
         setHasCompletedSellerOnboarding(false)
+        setSellerState("none")
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -2129,7 +2194,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     Dashboard
                   </Link>
                 ) : (
-                  <BecomeSellerRow link={headerLink} onDone={() => setMobileMenuOpen(false)} />
+                  <BecomeSellerRow link={headerLink} state={sellerState} onDone={() => setMobileMenuOpen(false)} />
                 )}
                 <Link
                   {...headerLink("/explore")}
@@ -2246,7 +2311,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <MenuRow href={dashboardHref} label="Dashboard" onNav={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath(dashboardHref)} />
                 )}
                 {!hasCompletedSellerOnboarding && (
-                  <MenuRow seller href="/sell" label="Become a seller" onNav={(e) => { onCanonicalNav(e, "/sell"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/sell")} />
+                  <MenuRow seller href="/sell" label={sellingLabel(sellerState)} onNav={(e) => { onCanonicalNav(e, "/sell"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/sell")} />
                 )}
               </div>
               ) : null
@@ -2295,7 +2360,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             </Link>
             ) : (
               <div className="pb-1.5">
-                <BecomeSellerRow link={headerLink} onDone={() => setMobileProfileOpen(false)} />
+                <BecomeSellerRow link={headerLink} state={sellerState} onDone={() => setMobileProfileOpen(false)} />
               </div>
             )}
             <Link
