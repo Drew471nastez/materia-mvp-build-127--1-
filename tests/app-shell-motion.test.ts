@@ -342,7 +342,8 @@ section("No page draws a picture of itself while it loads, inside or out")
 section("The press answers on the press")
 {
   const desktop = code("components/app/sidebar-desktop-nav.tsx")
-  const mobile = code("components/app/sidebar-mobile-nav.tsx")
+  /* The pill's slide lives in components/nav/tab-lens.tsx, shared with the buyer bar. */
+  const mobile = code("components/nav/tab-lens.tsx") + code("components/app/sidebar-mobile-nav.tsx")
   check("the rail's rows and the menu's rows light the page being opened, from the navigation record",
     (desktop.match(/const pathname = useShownPath\(\)/g) || []).length === 3 && !/usePathname/.test(desktop)
       && (mobile.match(/isRouteActive\(useShownPath\(\), /g) || []).length === 2)
