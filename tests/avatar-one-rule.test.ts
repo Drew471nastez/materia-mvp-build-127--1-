@@ -118,7 +118,8 @@ console.log("\nNo face is a question mark")
     ["app/(marketing)/u/[username]/page.tsx", 1],
     ["app/dashboard/communities/page.tsx", 1],
     ["app/library/page.tsx", 1],
-    ["app/library/settings/buyer-settings.tsx", 1],
+    /* The phone's buyer tab bar: the Profile tab is the person's photo. */
+    ["components/nav/buyer-tab-bar.tsx", 1],
     ["app/admin/blog/seo/_seo-client.tsx", 1],
   ]
   for (const [file, n] of moved) {

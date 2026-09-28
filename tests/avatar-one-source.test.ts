@@ -243,8 +243,9 @@ async function main() {
       && !/currentConfig\.draft_config\.headerSettings\.avatarUrl === ""/.test(builder))
   const onboarding = readCode("components/app/creator-onboarding-modal.tsx")
   check("onboarding starts from onboardingPhoto, not the Google picture", /const start = onboardingPhoto\(\{/.test(onboarding) && !/if \(user\?\.user_metadata\?\.avatar_url\) \{\s*setAvatarUrl/.test(onboarding))
-  const library = readCode("app/library/settings/buyer-settings.tsx")
-  check("the library's photo is saved through the same route and announced", /fetch\("\/api\/account\/avatar"/.test(library) && /announceAvatar\(url\)/.test(library) && !/update\(\{ avatar_url: url \}\)/.test(library))
+  /* The buyer's settings are the account page now, and its photo is Settings' own control. */
+  const account = readCode("components/account/account-page.tsx")
+  check("the account page's photo is saved through the same route and announced", /<ProfilePhoto\b/.test(account) && /fetch\("\/api\/account\/avatar"/.test(readCode("components/app/settings/profile-photo.tsx")) && /announceAvatar\(publicUrl\)/.test(readCode("components/app/settings/profile-photo.tsx")) && !/update\(\{ avatar_url/.test(account))
   const layout = readCode("app/app/layout.tsx")
   check("the /app header's photo is still the profile's, with no fallback", /const avatarUrl = profileAvatar\(profile\?\.avatar_url\)/.test(layout) && !/user_metadata\??\.(avatar_url|picture)/.test(layout))
   /*

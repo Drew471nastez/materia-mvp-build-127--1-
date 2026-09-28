@@ -4544,6 +4544,10 @@ html.capacitor [tabindex="0"]:active {
 html.capacitor [data-app-nav-pill] nav a:active {
   opacity: 1;
 }
+/* The buyer's tab bar answers a finger the same way (components/nav/buyer-tab-bar.tsx). */
+html.capacitor [data-buyer-tab-bar] nav a:active {
+  opacity: 1;
+}
 
 /* ── AND NOT A PICTURE ────────────────────────────────────────────────────────
    "On a mobile device, if I touch the website cover, make sure there is no
@@ -6988,5 +6992,39 @@ html.capacitor .home-card li > :is(a, button):active {
     background-color: #fff;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+}
+
+/* ── THE BUYER'S TAB BAR ──────────────────────────────────────────────────────
+   components/nav/buyer-tab-bar.tsx, on a phone, on Storelib's own buyer
+   pages. Its height is said once, here, and read by everything that has to
+   make room for it:
+
+     --buyer-tabs-bar    the row the icons are in
+     --buyer-tabs-room   the row and the home indicator under it: what the
+                         bar's own spacer holds at the end of every page
+     --buyer-tabs-h      the room, but only while the bar is on screen on a
+                         phone (the bar says so on <html>); unset otherwise,
+                         so a reader writes var(--buyer-tabs-h, 0px). The
+                         product page's buy bar stands on it and the cookie
+                         banner lifts over it.
+
+   "away" is the bar slid out of sight for a keyboard, when the buy bar may
+   come back down to the foot of the screen. The icons are links, so the
+   native shell's press dimming (above) is taken off them, as on the pill.
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  --buyer-tabs-bar: 56px;
+  --buyer-tabs-room: calc(var(--buyer-tabs-bar) + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 767px) {
+  html[data-buyer-tabs="shown"] {
+    --buyer-tabs-h: var(--buyer-tabs-room);
+  }
+  /* The cookie card over the bar rather than across it, 12px clear of it:
+     the home indicator's inset is already under the bar. */
+  html[data-buyer-tabs="shown"] [data-cookie-banner] {
+    bottom: var(--buyer-tabs-h);
+    padding-bottom: 12px;
   }
 }

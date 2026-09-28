@@ -334,8 +334,10 @@ function main() {
      when it became the shared sheet, which reads the published inset, and
      the website builder's sheet reads its keyboard through `visibleKeyboard`
      in sheet-gestures.ts, which keeps the pan as a number of its own. That
-     one is pinned by name just below, so it is not lost from this list. */
-  check("every file that works out a keyboard height was found", scanned.length >= 4 && !scanned.includes("app/app/products/new/product-editor.tsx"), `${scanned.length} found`)
+     one is pinned by name just below, so it is not lost from this list.
+     Three since the buyer's settings page folded into /account, which scrolls
+     with the document and leaves the keyboard to KeyboardGuard. */
+  check("every file that works out a keyboard height was found", scanned.length >= 3 && !scanned.includes("app/app/products/new/product-editor.tsx"), `${scanned.length} found`)
   /* The builder's sheet takes the published floor through `keyboardFor`
      (sheet-gestures.ts), which refuses a toolbar's worth and a pinch as a
      keyboard: tests/sheet-reserve.test.ts drives it. */
@@ -353,7 +355,6 @@ function main() {
   for (const file of [
     ["components/platform/keyboard-guard.tsx", "the keyboard-open class and --vvh, which every /app page is sized by"],
     ["components/app/app-layout-wrapper.tsx", "--keyboard-inset-height"],
-    ["app/library/settings/buyer-settings.tsx", "the buyer's settings"],
   ] as const) {
     check(`${file[0].split("/").slice(-1)[0]}: ${file[1]}`, read(file[0]).includes("keyboardInsetOrFloor"))
   }

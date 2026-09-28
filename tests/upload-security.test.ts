@@ -395,10 +395,11 @@ async function main() {
     ["components/app/creator-onboarding-modal.tsx", /`\$\{user\.id\}\/creator-avatar-/],
     /* Settings' photo changes in place now (components/app/settings/profile-photo), still under the owner's folder. */
     ["components/app/settings/profile-photo.tsx", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/],
-    ["app/library/settings/buyer-settings.tsx", /`\$\{userId\}\/avatar\.\$\{ext\}`/],
   ] as const) {
     check(`${file} uploads under the owner's folder`, pattern.test(read(file)))
   }
+  /* The buyer's settings moved to /account, whose photo is Settings' own control above. */
+  check("the account page's photo is Settings' own, so it uploads under the owner's folder too", /<ProfilePhoto\b/.test(read("components/account/account-page.tsx")) && !/\.from\("avatars"\)/.test(read("components/account/account-page.tsx")))
   check("link page thumbnails and images go under the owner's folder", (read("components/onepage/tabs/links-tab.tsx").match(/`\$\{ownerId\}\/(thumbnail|image)_/g) ?? []).length === 3)
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
