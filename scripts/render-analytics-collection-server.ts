@@ -37,7 +37,7 @@ async function main() {
     const kind = (s.path === "/api/track-view" ? "view" : String(s.body.eventType)) as CollectKind
     const out = await collect(
       { kind, body, headers, cookie: () => undefined, cookieNames: [] },
-      { db, now: () => db.clock, mainDomain: "storelib.com", isOwnVisit: async () => false, limited: async () => false },
+      { db, now: () => db.clock, mainDomain: "storelib.com", isOwnVisit: async () => false, marksOwner: () => false, limited: async () => false },
     )
     outcomes.push(out.reason)
   }

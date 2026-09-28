@@ -99,7 +99,10 @@ function getStyleText(style: string | undefined, creatorName?: string): string {
       return "Never miss a release"
     case "style1":
     default:
-      return `Join ${creatorName || "our"}'s newsletter!`
+      /* No name to possess: "Join our's newsletter" is what the fallback
+         wrote, so a creator Storelib has no name for gets the plain
+         sentence instead of a broken possessive. */
+      return creatorName ? `Join ${creatorName}'s newsletter!` : "Join our newsletter!"
   }
 }
 

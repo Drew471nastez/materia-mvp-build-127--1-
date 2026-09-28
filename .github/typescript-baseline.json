@@ -12,7 +12,6 @@
   "app/api/store-builder/apply-theme-globally/route.ts": 5,
   "app/api/store-builder/route.ts": 1,
   "app/api/wishlist/route.ts": 2,
-  "app/app/products/new/file-uploads.tsx": 1,
   "app/checkout/page.tsx": 1,
   "capacitor.config.ts": 1,
   "components/app/categories-selector.tsx": 1,
