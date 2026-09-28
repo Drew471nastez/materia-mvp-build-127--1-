@@ -183,13 +183,19 @@ export function warmEditor(router: Router, href: string) {
   arriving seconds later, which is the worst reading of all: the press looks
   refused and then the screen changes by itself.
 
-  So while the router's own request for the editor's address is still out,
-  the navigation is reported again on a tick. The row, the loading bar and
-  the shell all read the one record, so all three last exactly as long as the
-  server does. Once the answer is back the shell takes over as it does
-  everywhere: a page that does not land within NAV_STUCK_AFTER_ANSWER_MS of
-  its answer is loaded as a document (lib/ui/app-navigation
-  watchRouterAnswers), and either way the press is over.
+  So the row asks the browser itself whether the wait is real: while the
+  router's own request for the editor's address is still out, the server is
+  still working and the row goes on saying so, whatever the clocks think.
+  Once the answer is back, the shell takes over as it does everywhere: a page
+  that does not land within NAV_STUCK_AFTER_ANSWER_MS of its answer is loaded
+  as a document (lib/ui/app-navigation watchRouterAnswers), and either way the
+  press is over.
+
+  The shell is told nothing a second time. "A navigation started" for the
+  address already showing is how the app says "you pressed the page you are
+  on", which ends the record the layer's own rise waits on: saying it again
+  on a tick made a slow editor appear in place instead of rising, measured at
+  390 with no view transitions.
 
   Resource timing only: nothing is fetched, no request is touched and no
   response is read. Where a browser has none, WAIT_LONGEST_MS is the end of
