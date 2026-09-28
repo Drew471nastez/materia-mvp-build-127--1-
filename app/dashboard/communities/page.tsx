@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { Users, ArrowRight } from "lucide-react"
 import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
 
@@ -42,22 +42,21 @@ export default async function DashboardCommunitiesPage() {
       {communities.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {communities.map((creator) => {
-            const initials = creator.profile?.display_name
-              ?.split(" ")
-              .map((n: string) => n[0])
-              .join("")
-              .toUpperCase()
-
             return (
               <Link
                 key={creator.id}
                 href={`/dashboard/communities/${creator.id}`}
                 className="group flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
               >
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={creator.profile?.avatar_url || undefined} />
-                  <AvatarFallback>{initials || "?"}</AvatarFallback>
-                </Avatar>
+                {/* Photo, else initials, else a plain person. Never a "?". */}
+                <AppAvatar
+                  src={creator.profile?.avatar_url}
+                  name={(creator.profile?.display_name || "").trim()}
+                  alt=""
+                  size={48}
+                  tone="theme"
+                  markWhileLoading
+                />
                 <div className="flex-1">
                   <h3 className="font-medium group-hover:text-primary">
                     {creator.profile?.display_name || "Creator"}&apos;s Community

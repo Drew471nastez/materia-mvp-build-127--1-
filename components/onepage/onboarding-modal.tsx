@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, memo } from "react"
+import { useState, useEffect, useRef, useCallback, memo, type ReactNode } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createPortal, preload } from "react-dom"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -23,6 +23,7 @@ import { THEME_TEMPLATES } from "./tabs/design-tab"
 import { getOnePageDomain } from "@/lib/onepage/address"
 import { CardMark, CheckMark, ChoiceMark } from "./choice-marks"
 import { WallpaperPattern } from "./wallpaper-layers"
+import { AvatarMark } from "@/components/app/app-avatar"
 
 type Goal = "general" | "artist" | "digital" | "business"
 
@@ -123,7 +124,8 @@ const TemplateCard = memo(function TemplateCard({
   selected: boolean
   onPick: (id: string) => void
   avatarUrl: string | null
-  initial: string
+  /** The letter, or the avatar's own person glyph when there is no name. */
+  initial: ReactNode
 }) {
   const c = template.theme_config as (typeof THEME_TEMPLATES)[number]["theme_config"] & Record<string, any>
   const image = c.background_type === "image" ? TEMPLATE_THUMBS[template.id] || c.background_image_url || null : null
@@ -1469,7 +1471,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-2xl sm:text-3xl font-bold text-gray-400">
-                            {displayName.charAt(0).toUpperCase() || "A"}
+                            {displayName.trim() ? displayName.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
                           </span>
                         )}
                       </div>
@@ -1560,7 +1562,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           selected={selectedTemplate === template.id}
                           onPick={setSelectedTemplate}
                           avatarUrl={avatarUrl}
-                          initial={displayName.charAt(0).toUpperCase() || "A"}
+                          initial={displayName.trim() ? displayName.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
                         />
                       ))}
                     </div>

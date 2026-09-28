@@ -42,6 +42,7 @@ import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } fr
 import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { NATIVE_BACK_EVENT } from "@/lib/ui/native-back"
+import { AvatarMark } from "@/components/app/app-avatar"
 import {
   ChoiceCard,
   ColorRow,
@@ -2077,7 +2078,7 @@ function HeaderSection() {
               ) : onepage.avatar_url ? (
                 <img src={onepage.avatar_url} alt={onepage.title} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.charAt(0) || "?"}</div>
+                <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.trim() ? onepage.title.charAt(0) : <AvatarMark name="" size={72} />}</div>
               )}
             </span>
             <span aria-hidden className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">

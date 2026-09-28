@@ -1,6 +1,6 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,12 +43,6 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
     }
   }
 
-  const initials = profile?.display_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-
   return (
     <DropdownMenu>
       <Tooltip>
@@ -58,10 +52,8 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
               className="relative h-10 w-10 rounded-full cursor-pointer transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2"
               type="button"
             >
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || ""} />
-                <AvatarFallback className="bg-neutral-200 text-neutral-700 font-medium">{initials || "?"}</AvatarFallback>
-              </Avatar>
+              {/* Their own photo, else their initials, else a plain person. No "?". */}
+              <AppAvatar src={profile?.avatar_url} name={(profile?.display_name || "").trim()} alt="" size={40} />
             </button>
           </DropdownMenuTrigger>
         </TooltipTrigger>

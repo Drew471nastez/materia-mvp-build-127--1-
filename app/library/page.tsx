@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { ArrowRight, CheckCircle, Download, Heart, Package, Settings, ShoppingBag } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -88,15 +89,20 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         <div className="px-5 sm:px-6 pb-5 sm:pb-6">
           {/* Avatar overlapping banner */}
           <div className="flex items-end justify-between -mt-8 sm:-mt-10 mb-4">
-            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-4 border-white bg-neutral-200 overflow-hidden shadow-sm shrink-0">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center bg-neutral-900 text-white text-xl sm:text-2xl font-bold">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
+            {/*
+              The shared avatar: any host loads, a photo that fails becomes
+              the letters, and a buyer with no name at all gets a plain person
+              rather than an empty circle. One letter was all it drew before.
+            */}
+            <AppAvatar
+              src={avatarUrl}
+              name={(displayName || "").trim()}
+              alt=""
+              size={80}
+              sizedByClass
+              markWhileLoading
+              className="h-16 w-16 border-4 border-white shadow-sm sm:h-20 sm:w-20"
+            />
             <Link
               href="/library/settings"
               className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 sm:py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm mt-10 sm:mt-0"

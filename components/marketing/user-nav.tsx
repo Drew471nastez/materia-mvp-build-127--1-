@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -32,15 +32,6 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const initials =
-    profile.display_name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() ||
-    user.email?.[0].toUpperCase() ||
-    "?"
-
   const handleSignOut = async () => {
     setIsLoading(true)
     const supabase = createClient()
@@ -57,10 +48,9 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={profile.avatar_url || undefined} alt={profile.display_name || "User"} />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
+          {/* Their photo, else their initials, else a plain person. Never the
+              first letter of their email, which is not a name. */}
+          <AppAvatar src={profile.avatar_url} name={(profile.display_name || profile.username || "").trim()} alt="" size={32} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>

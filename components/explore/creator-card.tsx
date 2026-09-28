@@ -1,6 +1,6 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { Badge } from "@/components/ui/badge"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
@@ -25,12 +25,6 @@ export function CreatorCard({ creator }: CreatorCardProps) {
   // Safety check - if creator is null/undefined, don't render
   if (!creator) return null
 
-  const initials = creator.profile?.display_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-
   // Only use profile.username — it's what /u/[username] routes look up.
   const username = creator.profile?.username || ""
 
@@ -40,16 +34,15 @@ export function CreatorCard({ creator }: CreatorCardProps) {
       className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
     >
       <div className="flex items-start gap-4">
-        <Avatar className="h-14 w-14 aspect-square shrink-0">
-          {creator.profile?.avatar_url ? (
-            <AvatarImage
-              src={creator.profile.avatar_url}
-              alt={creator.profile?.display_name || "Creator"}
-              loading="lazy"
-            />
-          ) : null}
-          <AvatarFallback>{initials || "?"}</AvatarFallback>
-        </Avatar>
+        {/* The shared avatar: the photo, else the initials, else a plain person. Never a "?". */}
+        <AppAvatar
+          src={creator.profile?.avatar_url}
+          name={(creator.profile?.display_name || "").trim()}
+          alt=""
+          size={56}
+          tone="theme"
+          markWhileLoading
+        />
         <div className="flex-1 overflow-hidden">
           <h3 className="truncate font-medium">
             {creator.profile?.display_name || "Creator"}

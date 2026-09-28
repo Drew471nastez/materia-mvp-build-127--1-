@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation"
 import { createPortal } from "react-dom"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { AvatarMark } from "@/components/app/app-avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -281,14 +282,6 @@ export function ProductCreatorBar({
   // Early return AFTER all hooks
   if (!settings.visible) return null
 
-  const initials =
-    creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
-
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
@@ -391,7 +384,7 @@ export function ProductCreatorBar({
           <div className="relative h-9 w-9 shrink-0">
             <Avatar className="h-9 w-9 shrink-0 absolute inset-0">
               {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} className="object-cover" /> : null}
-              <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
+              <AvatarFallback delayMs={avatarUrl ? undefined : 0} className="text-[11px]"><AvatarMark name={(creatorName || "").trim()} size={36} /></AvatarFallback>
             </Avatar>
           </div>
           <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
@@ -417,7 +410,7 @@ export function ProductCreatorBar({
           >
             <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
               {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} /> : null}
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              <AvatarFallback delayMs={avatarUrl ? undefined : 0} className="text-xs"><AvatarMark name={(creatorName || "").trim()} size={32} /></AvatarFallback>
             </Avatar>
             <p className="text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
               {creatorName}
@@ -1147,14 +1140,6 @@ export function LiveProductCreatorBar({
   // Early return AFTER all hooks
   if (!settings.visible) return null
 
-  const initials =
-    creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
-
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   /**
@@ -1332,10 +1317,15 @@ export function LiveProductCreatorBar({
             creator's picture sits. A tenth of white on near-black is the same
             insurance without the flash, and the fallback matches it so the
             initials, if they ever show, sit on the same ground.
+
+            What it holds is the shared mark: the initials, or a plain person
+            when the creator has no display name. It was `initials || "?"`.
+            And with no picture there is nothing for the 600ms to wait for, so
+            the mark paints at once instead of leaving a bare disc.
           */}
           <Avatar className="h-8 w-8 shrink-0 bg-white/10">
             {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} /> : null}
-            <AvatarFallback className="bg-white/10 text-[10px]">{initials}</AvatarFallback>
+            <AvatarFallback delayMs={avatarUrl ? undefined : 0} className="bg-white/10 text-[10px]"><AvatarMark name={(creatorName || "").trim()} size={32} /></AvatarFallback>
           </Avatar>
           {/* min-w-0 is what lets `truncate` work inside a flex row: without
               it the name takes its content's width and runs past the edge of
@@ -1358,7 +1348,7 @@ export function LiveProductCreatorBar({
             >
               <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                <AvatarFallback delayMs={avatarUrl ? undefined : 0} className="text-xs"><AvatarMark name={(creatorName || "").trim()} size={32} /></AvatarFallback>
               </Avatar>
               {/*
                 THE BIO MOVED HERE FROM THE PHONE BAR. It was added under the

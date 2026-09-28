@@ -5,6 +5,7 @@ import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -423,15 +424,9 @@ export function BuyerSettings({ userId, email: initialEmail, displayName: initia
             <h3 className="text-[15px] font-semibold text-neutral-900 mb-4">Profile Photo</h3>
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="h-16 w-16 rounded-full bg-neutral-200 overflow-hidden shrink-0">
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-neutral-900 text-white text-xl font-bold">
-                      {(name || "U").charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
+                {/* Their initials, or a plain person when they have not named
+                    themselves yet. It drew a stand-in "U" before. */}
+                <AppAvatar src={avatarPreview} name={(name || "").trim()} alt="" size={64} markWhileLoading />
                 <label className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-neutral-900 text-white flex items-center justify-center cursor-pointer hover:bg-black transition-colors shadow-sm">
                   {uploadingAvatar ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

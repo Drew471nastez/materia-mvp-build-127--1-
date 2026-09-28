@@ -26,7 +26,7 @@ import {
 } from "@/lib/commerce/product-page-data"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Check, ArrowRight, CheckCircle, ChevronRight, Star, Heart } from "lucide-react"
@@ -834,12 +834,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     pwyw_min_price_cents: (product as { pwyw_min_price_cents?: number | null }).pwyw_min_price_cents ?? null,
   }, formatPrice)
 
-  const creatorInitials = creatorProfile?.display_name
-    ?.split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-
   // Check if the logged-in user is the creator of this product
 
   const getWhatsIncluded = () => {
@@ -1025,10 +1019,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   href={creatorStoreUrl}
                   className="creator-link inline-flex items-center gap-3 rounded-lg min-h-[44px]" target="_blank" rel="noopener noreferrer"
                 >
-                  <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src={creatorAvatarUrl || undefined} />
-                    <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
-                  </Avatar>
+                  {/*
+                    THE PAGE'S OWN COLOURS IN THE CIRCLE. A product page can
+                    be any colour the creator picks, and the shared light grey
+                    with a "?" in it was a bright disc with a question mark on
+                    a dark one. The photo, else the initials, else a plain
+                    person, on a tenth of the page's text colour.
+                  */}
+                  <AppAvatar
+                    src={creatorAvatarUrl}
+                    name={(creatorProfile?.display_name || "").trim()}
+                    alt=""
+                    size={40}
+                    markWhileLoading
+                    style={themeColors.textColor ? { backgroundColor: `${themeColors.textColor}1f`, color: themeColors.textColor } : undefined}
+                  />
                   <p
                     className="font-medium truncate"
                     style={{ color: themeColors.textColor || "var(--foreground)" }}
@@ -1218,10 +1223,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <SmartLink href={creatorStoreUrl} className="creator-link flex min-w-0 items-center gap-3" target="_blank" rel="noopener noreferrer">
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage src={creatorAvatarUrl || undefined} />
-                      <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
-                    </Avatar>
+                    <AppAvatar
+                      src={creatorAvatarUrl}
+                      name={(creatorProfile?.display_name || "").trim()}
+                      alt=""
+                      size={32}
+                      markWhileLoading
+                      style={themeColors.cardTextColor ? { backgroundColor: `${themeColors.cardTextColor}1f`, color: themeColors.cardTextColor } : undefined}
+                    />
                     <p
                       className="font-medium truncate text-sm"
                       style={{ color: themeColors.cardTextColor || "var(--foreground)" }}

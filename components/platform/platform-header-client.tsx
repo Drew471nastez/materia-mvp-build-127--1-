@@ -16,7 +16,10 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+/* The shell's own avatar: the photo, else the initials, else a plain
+   person, and nothing drawn while a photo is on its way (which is what the
+   header wants: this is the viewer's own picture and it is cached). */
+import { AppAvatar } from "@/components/app/app-avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
@@ -1688,10 +1691,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   className="flex h-[42px] w-[42px] items-center justify-center rounded-full cursor-pointer"
                   aria-label="Open profile menu"
                 >
-                  <Avatar className="h-8 w-8 border border-gray-200">
-                    <AvatarImage src={avatarUrl} alt={displayName} />
-                    <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
-                  </Avatar>
+                  <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={32} className="border border-gray-200" />
                 </button>
               ) : (
                 <Link href={getCanonicalOrRelativePath("/login")} onClick={(e) => onCanonicalNav(e, "/login")}>
@@ -1767,10 +1767,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                           className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
                           aria-label="Open profile menu"
                         >
-                          <Avatar className="h-[42px] w-[42px] border border-gray-200 transition-opacity duration-150">
-                            <AvatarImage src={avatarUrl} alt={displayName} />
-                            <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
-                          </Avatar>
+                          <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200 transition-opacity duration-150" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
@@ -1791,10 +1788,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                         {/* User Info */}
                         <div className="px-3 py-2.5 border-b border-gray-100 mb-1">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border border-gray-200">
-                              <AvatarImage src={avatarUrl} alt={displayName} />
-                              <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
-                            </Avatar>
+                            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={40} className="border border-gray-200" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
                               {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
@@ -1926,10 +1920,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             <div className="mb-4 pb-4 border-b border-gray-200">
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
-                <Avatar className="h-[42px] w-[42px] border border-gray-200">
-                  <AvatarImage src={avatarUrl} alt={displayName} />
-                  <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
-                </Avatar>
+                <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
                   {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
@@ -2098,10 +2089,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         <div className="px-4 pb-6">
           {/* User Info */}
           <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
-            <Avatar className="h-12 w-12 border border-gray-200">
-              <AvatarImage src={avatarUrl} alt={displayName} />
-              <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
-            </Avatar>
+            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={48} className="border border-gray-200" />
             <div className="flex-1 min-w-0">
               <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
               {user?.email && <p className="text-sm text-gray-500 truncate">{user.email}</p>}

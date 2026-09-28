@@ -84,8 +84,32 @@ function main() {
   check("both components derive it from their own background", grounds.length === 2, `found ${grounds.length}`)
   check(
     "the fallback sits on the same ground as the circle",
-    (subscribe.match(/<AvatarFallback className=\{cn\([^)]*avatarGround\)\}/g) ?? []).length === 5,
+    (subscribe.match(/<AvatarFallback [^>]*className=\{cn\([^)]*avatarGround\)\}/g) ?? []).length === 5,
     "an initials chip on a different ground is the flash with letters on it",
+  )
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     AND WITH NO PICTURE THERE IS NOTHING TO WAIT FOR
+    ═══════════════════════════════════════════════════════════════════════
+    CHANGED ON PURPOSE, and it is the other half of the same report. The
+    600ms exists so a cached photo never flashes initials first. When the
+    creator has no photo at all there is no photo to beat, so those 600ms
+    were 600ms of the bare ground on every single load: "sometimes the
+    avatar is empty". The wait is kept exactly as it was whenever a picture
+    is coming, and skipped when none is.
+
+    What the fallback holds is the shared mark (components/app/app-avatar),
+    so a creator with no display name gets a plain person. It was built from
+    `... || "?"`, which drew a question mark at them.
+  */
+  check(
+    "with no picture the initials paint at once instead of 600ms of bare ground",
+    (subscribe.match(/delayMs=\{settings\.avatarUrl \? undefined : 0\}/g) ?? []).length === 5,
+  )
+  check(
+    "and what they paint is the shared mark, never a \"?\"",
+    (subscribe.match(/<AvatarMark name=\{\(settings\.creatorName \|\| ""\)\.trim\(\)\} size=\{(?:24|32)\} \/>/g) ?? []).length === 5
+      && !/\|\| "\?"/.test(subscribe),
   )
 
   /* THE PICTURE, AT THE SIZE IT IS SHOWN AT. */
@@ -112,7 +136,13 @@ function main() {
     "its avatar has a dark ground",
     /<Avatar className="h-8 w-8 shrink-0 bg-white\/10">/.test(productBar),
   )
-  check("and its fallback matches", /<AvatarFallback className="bg-white\/10 text-\[10px\]">/.test(productBar))
+  /* The delay attribute comes first now (see the note above); the ground is the check. */
+  check("and its fallback matches", /<AvatarFallback [^>]*className="bg-white\/10 text-\[10px\]">/.test(productBar))
+  check(
+    "its four avatars all hold the shared mark and none waits with no picture",
+    (productBar.match(/<AvatarMark name=\{\(creatorName \|\| ""\)\.trim\(\)\}/g) ?? []).length === 4
+      && (productBar.match(/delayMs=\{avatarUrl \? undefined : 0\}/g) ?? []).length === 4,
+  )
   check(
     "it asks for the picture at the size it draws it",
     /optimizedImageUrl\(avatarUrl, 48\)/.test(productBar),
