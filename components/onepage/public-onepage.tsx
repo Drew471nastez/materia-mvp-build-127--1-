@@ -25,6 +25,7 @@ import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AvatarMark } from "@/components/app/app-avatar"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
@@ -1002,11 +1003,12 @@ function ShareButton({
                     onError={() => { setAvatarImgError(true); setAvatarImgLoaded(false) }}
                   />
                   {(!avatarImgLoaded || avatarImgError) && (
-                    <span className={cn("text-3xl font-bold absolute inset-0 flex items-center justify-center", headerTextClass)}>{pageTitle.charAt(0).toUpperCase()}</span>
+                    <span className={cn("text-3xl font-bold absolute inset-0 flex items-center justify-center", headerTextClass)}>{pageTitle.trim() ? pageTitle.charAt(0).toUpperCase() : <AvatarMark name="" size={64} />}</span>
                   )}
                 </>
               ) : (
-                <span className={cn("text-3xl font-bold", headerTextClass)}>{pageTitle.charAt(0).toUpperCase()}</span>
+                /* An untitled page drew nothing at all here: a plain person instead. */
+                <span className={cn("text-3xl font-bold", headerTextClass)}>{pageTitle.trim() ? pageTitle.charAt(0).toUpperCase() : <AvatarMark name="" size={64} />}</span>
               )}
             </div>
             <h3 className={cn("text-xl font-bold mb-1", headerTextClass)}>{pageTitle}</h3>
@@ -3808,11 +3810,15 @@ function PublicBlockRenderer({
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
                       }}
                     />
+                    {/* The page's first letter, or a plain person when it has
+                        no title. It was a "?", and before that, for 600ms with
+                        no picture coming, an empty circle. */}
                     <AvatarFallback
+                      delayMs={profile.avatar_url ? undefined : 0}
                       className="text-2xl sm:text-3xl font-semibold"
                       style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
                     >
-                      {profile.title?.charAt(0)?.toUpperCase() || "?"}
+                      {profile.title?.trim() ? profile.title.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
                     </AvatarFallback>
                   </Avatar>
                 )}

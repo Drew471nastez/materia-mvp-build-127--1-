@@ -59,6 +59,7 @@ const SUITES = [
   "tests/own-reviews.test.ts",
   "tests/review-columns.test.ts",
   "tests/reviews-system.test.ts",
+  "tests/avatar-one-rule.test.ts",
   "tests/nav-drawer.test.ts",
   "tests/header-motion.test.ts",
   "tests/storefront-mobile-drawer.test.ts",

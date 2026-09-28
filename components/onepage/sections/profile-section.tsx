@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AvatarMark } from "@/components/app/app-avatar"
 import { Camera, X } from "lucide-react"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -70,9 +71,13 @@ export function ProfileSection() {
         <Label>Profile Picture</Label>
         <div className="flex items-center gap-4">
           <div className="relative group">
+            {/* The page's initials, or a plain person when it has no title
+                yet. It drew a "?", and for 600ms before that, nothing. */}
             <Avatar className="h-20 w-20">
               <AvatarImage src={onepage.avatar_url || undefined} />
-              <AvatarFallback>{onepage.title?.charAt(0) || "?"}</AvatarFallback>
+              <AvatarFallback delayMs={onepage.avatar_url ? undefined : 0}>
+                <AvatarMark name={(onepage.title || "").trim()} size={80} />
+              </AvatarFallback>
             </Avatar>
             <button
               type="button"

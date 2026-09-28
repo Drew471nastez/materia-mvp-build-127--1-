@@ -513,8 +513,18 @@ export function ReviewForm({
                 "Post review"
               )}
             </button>
+            {/*
+              IT PROMISED A NAME IT MIGHT NOT HAVE. A guest's review is signed
+              with the first name on their order, and plenty of orders carry
+              none: the line said "Shown with your first name" over a review
+              that would go out as "Verified buyer". It says which it will be.
+            */}
             {!isLoggedIn ? (
-              <p className="mt-2.5 text-center text-[12px] text-[#6b7280]">Shown with your first name as a verified purchase.</p>
+              <p className="mt-2.5 text-center text-[12px] text-[#6b7280]">
+                {(reviewerName ?? "").trim()
+                  ? "Shown with your first name as a verified purchase."
+                  : "Shown as a verified purchase."}
+              </p>
             ) : null}
           </>
         ) : (

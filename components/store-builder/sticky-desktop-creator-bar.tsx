@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { cn } from "@/lib/utils"
 
 interface StickyDesktopCreatorBarProps {
   creatorName: string
   creatorAvatarUrl: string | null
-  creatorInitials: string
   creatorStoreUrl: string
   productTitle: string
   textColor?: string
@@ -17,7 +16,6 @@ interface StickyDesktopCreatorBarProps {
 export function StickyDesktopCreatorBar({
   creatorName,
   creatorAvatarUrl,
-  creatorInitials,
   creatorStoreUrl,
   productTitle,
   textColor,
@@ -61,10 +59,21 @@ export function StickyDesktopCreatorBar({
           rel="noopener noreferrer"
           className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
         >
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage src={creatorAvatarUrl || undefined} />
-            <AvatarFallback className="text-xs font-medium">{creatorInitials || "?"}</AvatarFallback>
-          </Avatar>
+          {/*
+            THE BAR IS THE CREATOR'S OWN COLOUR, so the circle is a tenth of
+            the text it sits beside rather than the shared light grey, which
+            on a dark bar was a bright disc. The photo, else the initials,
+            else a plain person: never a "?", and never an empty ring while
+            the photo is on its way.
+          */}
+          <AppAvatar
+            src={creatorAvatarUrl}
+            name={(creatorName || "").trim()}
+            alt=""
+            size={32}
+            markWhileLoading
+            style={textColor ? { backgroundColor: `${textColor}1f`, color: textColor } : undefined}
+          />
           <div className="min-w-0">
             <p
               className="text-[13px] font-semibold truncate"

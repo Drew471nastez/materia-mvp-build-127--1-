@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { isOptimizableImage, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
@@ -35,6 +35,25 @@ import { toOriginalImageUrl } from "@/lib/storage/image-url"
 
 /** Photos this tab has already shown: a remount draws them at once. */
 const shown = new Set<string>()
+
+/**
+ * HOW LONG A CIRCLE MAY STAY BLANK WAITING FOR A PHOTO.
+ *
+ * Nothing is drawn while a photo is on its way, on purpose: "when the user
+ * profile avatar loads, it first shows the initials and then the image loads
+ * abruptly". A cached photo lands in a frame or two and the initials are
+ * never seen, which is the whole point.
+ *
+ * But a host that is slow, or one that never answers at all, left the circle
+ * a bare tint for as long as the request hung, and that is the other half of
+ * the same report: "sometimes the avatar is empty". So the wait has an end.
+ * Past it the mark is drawn under the photo, and the photo still fades over
+ * it when it finally arrives.
+ *
+ * 600ms, the same number components/ui/avatar.tsx waits for the same reason,
+ * so the two cannot drift apart.
+ */
+const BLANK_LIMIT_MS = 600
 
 const GROUND = {
   /** On the dark header. */
@@ -153,6 +172,10 @@ export function AppAvatar({
    * avatar in it: an empty ring is the whole card looking broken. So the
    * review surfaces pass this and get the initials at once, with the photo
    * fading over them when it arrives.
+   *
+   * Everywhere else the mark still appears once BLANK_LIMIT_MS has gone by
+   * with nothing drawn, so a slow or dead host is never a hole either; this
+   * is only about showing it from the first frame.
    */
   markWhileLoading?: boolean
 }) {
@@ -162,12 +185,22 @@ export function AppAvatar({
   /** Whether it arrived after the first paint, which is when it fades. */
   const [fade, setFade] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
+  /** Whether a photo has kept the circle blank past BLANK_LIMIT_MS. */
+  const [waited, setWaited] = useState(false)
   const [prevUrl, setPrevUrl] = useState(url)
   if (url !== prevUrl) {
     setPrevUrl(url)
     setLoaded(!!url && shown.has(url))
     setFade(false)
+    setWaited(false)
   }
+
+  /* A photo that is taking too long: draw the mark under it rather than a hole. */
+  useEffect(() => {
+    if (!url || loaded || markWhileLoading) return
+    const id = window.setTimeout(() => setWaited(true), BLANK_LIMIT_MS)
+    return () => window.clearTimeout(id)
+  }, [url, loaded, markWhileLoading])
 
   /* Decoded from the cache before this frame is painted: no fade. */
   useLayoutEffect(() => {
@@ -212,7 +245,7 @@ export function AppAvatar({
       className={cn("relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full", GROUND[tone], className)}
       style={sizedByClass ? style : { width: widthPx, height: widthPx, ...style }}
     >
-      {!photo || (markWhileLoading && !loaded) ? <AvatarMark name={name} size={size} /> : null}
+      {!photo || (!loaded && (markWhileLoading || waited)) ? <AvatarMark name={name} size={size} /> : null}
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

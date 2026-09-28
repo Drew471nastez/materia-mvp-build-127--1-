@@ -119,6 +119,7 @@ import { LinkStatsChart } from "@/components/onepage/link-stats-chart"
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
+import { AvatarMark } from "@/components/app/app-avatar"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
@@ -1334,7 +1335,7 @@ export function LinksTab() {
             ) : avatar_url ? (
               <img src={avatar_url} alt={title || 'Avatar'} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">{title?.charAt(0) || "?"}</div>
+              <div className="w-full h-full flex items-center justify-center">{title?.trim() ? title.charAt(0) : <AvatarMark name="" size={72} />}</div>
             )}
           </div>
           <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

@@ -26,6 +26,7 @@ import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { TextSwap } from "@/components/ui/text-swap"
+import { AvatarMark } from "@/components/app/app-avatar"
 
 /*
   ONE CLOCK FOR EVERY MOVE IN THE ONBOARDING. A step change is a crossfade:
@@ -1432,7 +1433,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-2xl sm:text-3xl font-bold text-gray-400">
-                      {displayName.charAt(0).toUpperCase() || "A"}
+                      {displayName.trim() ? displayName.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
                     </span>
                   )}
                 </div>

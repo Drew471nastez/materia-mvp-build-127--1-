@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { showPillToast } from "@/components/storefront/pill-toast"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { AvatarMark } from "@/components/app/app-avatar"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -270,15 +271,6 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
 
 
   // IMPORTANT: All useMemo hooks must be called BEFORE any early returns to avoid React error #310
-  const initials = useMemo(() =>
-    settings.creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?",
-    [settings.creatorName]
-  )
 
   // Memoize avatar elements to prevent re-renders when email changes
   /*
@@ -307,6 +299,12 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
 
     The big profile avatar further down the page was already doing both; only
     the bar was not.
+
+    AND WHEN THERE IS NO PICTURE AT ALL, the 600ms wait has nothing to wait
+    for: it was 600ms of a bare disc on every load. The fallback is told to
+    paint at once in exactly that case, and the wait is untouched whenever a
+    photo is coming. What it paints is the shared mark, so a creator with no
+    display name gets a plain person rather than the "?" this used to build.
   */
   const avatarGround = isDarkBackground ? "bg-white/10" : "bg-black/[0.06]"
 
@@ -316,10 +314,10 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
         {settings.avatarUrl ? (
           <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
         ) : null}
-        <AvatarFallback className={cn("text-[10px]", avatarGround)}>{initials}</AvatarFallback>
+        <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-[10px]", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={24} /></AvatarFallback>
       </Avatar>
     ) : null
-  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials, avatarGround])
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, avatarGround])
 
   const desktopAvatar = useMemo(() => (
     settings.showAvatar ? (
@@ -327,10 +325,10 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
         {settings.avatarUrl ? (
           <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 32)} alt={settings.creatorName || ""} />
         ) : null}
-        <AvatarFallback className={cn("text-xs", avatarGround)}>{initials}</AvatarFallback>
+        <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-xs", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={32} /></AvatarFallback>
       </Avatar>
     ) : null
-  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials, avatarGround])
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, avatarGround])
 
   /*
     `isSticky` is only READ below the early return, but the height effect
@@ -782,14 +780,6 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   // Early return AFTER all hooks have been called
   if (!settings.visible) return null
 
-  const initials =
-    settings.creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
-
   const displayText = getDisplayText(settings, settings.creatorName)
   const buttonText = getButtonText(settings, false)
 
@@ -834,7 +824,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
             {settings.avatarUrl ? (
               <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
             ) : null}
-            <AvatarFallback className={cn("text-[10px]", avatarGround)}>{initials}</AvatarFallback>
+            <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-[10px]", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={24} /></AvatarFallback>
           </Avatar>
         )}
         <p className="text-xs font-medium text-center">{displayText}</p>
@@ -879,7 +869,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
               {settings.avatarUrl ? (
                 <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
               ) : null}
-              <AvatarFallback className={cn("text-[10px]", avatarGround)}>{initials}</AvatarFallback>
+              <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-[10px]", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={24} /></AvatarFallback>
             </Avatar>
           )}
           <p className="text-xs font-medium text-center">{displayText}</p>
@@ -917,7 +907,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
               {settings.avatarUrl ? (
                 <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 32)} alt={settings.creatorName || ""} />
               ) : null}
-              <AvatarFallback className={cn("text-xs", avatarGround)}>{initials}</AvatarFallback>
+              <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-xs", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={32} /></AvatarFallback>
             </Avatar>
           )}
           <p className="text-sm font-medium">{displayText}</p>

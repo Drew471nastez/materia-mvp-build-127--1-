@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { onePageUrl, onePageUrlDisplay } from "@/lib/onepage/address"
 
 interface Creator {
@@ -663,13 +663,14 @@ export default function SeoAdminClient() {
                           aria-label={`Select ${creator.username || "creator"}`}
                           className="h-4 w-4 shrink-0 accent-neutral-900"
                         />
-                        <div className="w-9 h-9 rounded-full bg-neutral-200 overflow-hidden shrink-0 flex items-center justify-center text-sm font-semibold text-neutral-500">
-                          {creator.avatar_url ? (
-                            <Image src={creator.avatar_url} alt={creator.display_name || creator.username || ""} width={36} height={36} className="w-full h-full object-cover" unoptimized />
-                          ) : (
-                            (creator.display_name || creator.username || "?")[0].toUpperCase()
-                          )}
-                        </div>
+                        {/* Photo, else initials, else a plain person. Never a "?". */}
+                        <AppAvatar
+                          src={creator.avatar_url}
+                          name={(creator.display_name || creator.username || "").trim()}
+                          alt=""
+                          size={36}
+                          markWhileLoading
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-semibold text-neutral-900">{creator.display_name || creator.username}</span>

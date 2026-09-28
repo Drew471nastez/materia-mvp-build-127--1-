@@ -575,8 +575,14 @@ function faces() {
   const avatar = source("components/app/app-avatar.tsx")
   check("no name means no letters, and the avatar draws a person instead of a \"?\"",
     /if \(!words\.length\) return ""/.test(avatar) && /export function AvatarMark/.test(avatar) && /<svg aria-hidden="true" viewBox="0 0 24 24"/.test(avatar) && !/return "\?"/.test(code("components/app/app-avatar.tsx")))
+  /*
+    CHANGED ON PURPOSE. `markWhileLoading` still means "from the first
+    frame", which is what a review card wants. Everywhere else the mark now
+    also appears once BLANK_LIMIT_MS has gone by with nothing drawn, so a
+    host that hangs is not a hole on any surface; see tests/avatar-one-rule.
+  */
   check("  the review surfaces keep the mark under a photo that has not arrived, so no circle is ever blank",
-    /markWhileLoading\?: boolean/.test(avatar) && /\{!photo \|\| \(markWhileLoading && !loaded\) \? <AvatarMark name=\{name\} size=\{size\} \/> : null\}/.test(avatar))
+    /markWhileLoading\?: boolean/.test(avatar) && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited\)\) \? <AvatarMark name=\{name\} size=\{size\} \/> : null\}/.test(avatar))
   check("  and a page with its own theme gets a circle mixed from its own text colour",
     /theme: "bg-foreground\/\[0\.10\] text-foreground"/.test(avatar))
 

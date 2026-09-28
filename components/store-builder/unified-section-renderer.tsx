@@ -21,6 +21,7 @@ import type {
   GlobalStoreSettings,
 } from "@/lib/store-builder/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar, AvatarMark } from "@/components/app/app-avatar"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -2700,12 +2701,6 @@ export function UnifiedShopHeader({
   const avatarImageUrl =
     settings.avatarUrl === "" ? undefined : settings.avatarUrl !== undefined ? settings.avatarUrl : profile?.avatar_url
 
-  const initials = profile?.display_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-
   const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
 
   // Show placeholder only in editor mode (when we have edit callbacks), never on live published pages
@@ -3086,10 +3081,26 @@ export function UnifiedShopHeader({
                     crossFadeFromFallback
                   />
                 ) : null}
+                {/*
+                  WHAT THE CIRCLE HOLDS WHEN THERE IS NO PICTURE: the
+                  initials, else a plain person. It was `initials || "?"` on a
+                  hardcoded `bg-gray-300`, so a creator with no display name
+                  got a question mark, and on a dark page the circle was a
+                  bright grey disc whoever they were. The ground is a tenth of
+                  the heading colour the rest of this header is written in.
+
+                  `delayMs` 0 WHEN THERE IS NO PICTURE. The 600ms wait is
+                  there so a cached photo never flashes initials first, and
+                  that reason only exists when a photo is coming: with none,
+                  the wait was 600ms of an empty circle on every load. The
+                  wait is kept exactly as it was whenever there is a photo.
+                */}
                 <AvatarFallback
-                  className={cn("bg-gray-300 text-gray-700 font-semibold", isMobile ? "text-lg" : "text-xl sm:text-2xl")}
+                  delayMs={avatarImageUrl ? undefined : 0}
+                  className={cn("font-semibold", !headingColor && "bg-gray-200 text-gray-600", isMobile ? "text-lg" : "text-xl sm:text-2xl")}
+                  style={headingColor ? { backgroundColor: `${headingColor}1f`, color: headingColor } : undefined}
                 >
-                  {initials || "?"}
+                  <AvatarMark name={(profile?.display_name || "").trim()} size={avatarSize} />
                 </AvatarFallback>
               </Avatar>
             </AvatarLightbox>
@@ -3456,12 +3467,6 @@ export function UnifiedProductPage({
     }).format(cents / 100)
   }
 
-  const initials = profile?.display_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-
   const productTitle = product?.title || "Product Title"
   const productPrice = product?.price_cents ?? 0
   const compareAtPrice = product?.compare_at_cents
@@ -3686,10 +3691,17 @@ export function UnifiedProductPage({
               {!isMobile && settings.showCreatorInfo && creator && (
                 <div className="mt-4 flex items-center justify-between">
                   <div className="flex items-center gap-3 p-2 -ml-2">
-                    <Avatar className="shrink-0 h-10 w-10">
-                      <AvatarImage src={profile?.avatar_url || undefined} />
-                      <AvatarFallback>{initials || "?"}</AvatarFallback>
-                    </Avatar>
+                    {/* The page's own text colour in the circle: the shared
+                        light grey with a "?" in it was a bright disc on a dark
+                        theme. Photo, else initials, else a plain person. */}
+                    <AppAvatar
+                      src={profile?.avatar_url}
+                      name={(profile?.display_name || "").trim()}
+                      alt=""
+                      size={40}
+                      markWhileLoading
+                      style={themeTextColor ? { backgroundColor: `${themeTextColor}1f`, color: themeTextColor } : undefined}
+                    />
                     <div className="min-w-0 flex items-center gap-3">
                       <p
                         className={cn(
@@ -3968,10 +3980,14 @@ export function UnifiedProductPage({
                       style={{ backgroundColor: cardBgColor, borderColor: cardBorderColor }}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Avatar className="shrink-0 h-8 w-8">
-                          <AvatarImage src={profile?.avatar_url || undefined} />
-                          <AvatarFallback>{initials || "?"}</AvatarFallback>
-                        </Avatar>
+                        <AppAvatar
+                          src={profile?.avatar_url}
+                          name={(profile?.display_name || "").trim()}
+                          alt=""
+                          size={32}
+                          markWhileLoading
+                          style={themeTextColor ? { backgroundColor: `${themeTextColor}1f`, color: themeTextColor } : undefined}
+                        />
                         <div className="min-w-0 flex items-center gap-2 flex-1">
                           <p
                             className={cn("font-medium truncate text-sm", !themeTextColor && "text-foreground")}

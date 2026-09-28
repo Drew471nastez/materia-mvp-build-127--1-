@@ -8,7 +8,7 @@ import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { keptPhoto } from "@/lib/account/identity"
 import { isReservedWord } from "@/lib/reserved-words"
 import Image from "next/image"
@@ -396,23 +396,17 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       <div className="min-h-screen overflow-x-hidden" style={{ background: STOREFRONT_PAGE_BACKGROUND }}>
         <div className="mx-auto max-w-4xl px-4 py-12">
           <div className="flex flex-col items-center text-center">
-            <Avatar
-              className="h-24 w-24 shadow-lg"
-              style={{
-                borderWidth: "1.3px",
-                borderStyle: "solid",
-                borderColor: "#e5e7eb",
-              }}
-            >
-              <AvatarImage src={profile.avatar_url || undefined} alt={profile.display_name || ""} />
-              <AvatarFallback className="text-2xl">
-                {profile.display_name
-                  ?.split(" ")
-                  .map((n: string) => n[0])
-                  .join("")
-                  .toUpperCase() || "?"}
-              </AvatarFallback>
-            </Avatar>
+            {/* The photo, else the initials, else a plain person. Never a "?". */}
+            <AppAvatar
+              src={profile.avatar_url}
+              name={(profile.display_name || profile.username || "").trim()}
+              alt=""
+              size={96}
+              tone="theme"
+              markWhileLoading
+              className="shadow-lg"
+              style={{ borderWidth: "1.3px", borderStyle: "solid", borderColor: "#e5e7eb" }}
+            />
             <h1 className="mt-4 text-2xl font-semibold text-foreground">{profile.display_name || username}</h1>
             <p className="mt-6 text-muted-foreground">This creator hasn't set up their store yet.</p>
           </div>

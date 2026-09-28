@@ -232,9 +232,15 @@ console.log("\nThe back arrow\n")
   /* The bar is #1a1a1a. A light grey avatar ground on it is a bright disc that
      paints before the photo and vanishes under it: a flash in the header on
      every arrival. */
+  /*
+    CHANGED ON PURPOSE: the fallback now also carries `delayMs`, so it paints
+    at once when there is no picture to wait for rather than leaving a bare
+    disc for 600ms. The ground it sits on, which is what this check is about,
+    is untouched, so the pattern allows an attribute before the className.
+  */
   check(
     "the bar's avatar has a dark ground, not the shared light one",
-    /<Avatar className="h-8 w-8 shrink-0 bg-white\/10">/.test(bar) && /<AvatarFallback className="bg-white\/10 text-\[10px\]">/.test(bar),
+    /<Avatar className="h-8 w-8 shrink-0 bg-white\/10">/.test(bar) && /<AvatarFallback [^>]*className="bg-white\/10 text-\[10px\]">/.test(bar),
   )
   check(
     "the two icons share a centre",

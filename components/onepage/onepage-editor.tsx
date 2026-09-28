@@ -56,6 +56,7 @@ import { usePillPress, usePillSlide } from "./pill-tabs"
 import { createClient } from "@/lib/supabase/client"
 import { SaveNotification } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { AvatarMark } from "@/components/app/app-avatar"
 
 /* React 19.2's <Activity>. The installed types are 19.0's, which do not name it yet; the runtime has it. */
 const Activity = (ReactModule as unknown as {
@@ -333,7 +334,7 @@ function ShareOnePage({
           />
         ) : (
           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: `${theme.text_color}20` }}>
-            <span className="text-xl font-semibold" style={{ color: theme.text_color }}>{onepage.title?.charAt(0)?.toUpperCase() || "?"}</span>
+            <span className="text-xl font-semibold" style={{ color: theme.text_color }}>{onepage.title?.trim() ? onepage.title.charAt(0).toUpperCase() : <AvatarMark name="" size={48} />}</span>
           </div>
         )}
         <h3 className="text-[15px] font-semibold" style={{ color: theme.text_color }}>{onepage.title || "Your name"}</h3>
