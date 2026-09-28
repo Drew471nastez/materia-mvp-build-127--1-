@@ -167,6 +167,7 @@ const SUITES = [
   "tests/receipt-download.test.ts",
   "tests/receipt-actions.test.ts",
   "tests/contact-seller.test.ts",
+  "tests/no-self-recursion.test.ts",
   "tests/email-inbox-image.test.ts",
   "tests/onepage-search-share.test.ts",
   "tests/onepage-share-image.test.ts",
