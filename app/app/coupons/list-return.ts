@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { moveLayer } from "@/components/app/page-layer"
+import { backThen } from "@/lib/navigation/go-back"
 import { isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navigation"
 import type { CouponReturn } from "./coupon-form"
 
@@ -79,19 +80,29 @@ export function useCouponListOrigin() {
   }, [])
 }
 
-/** Leave the editor for the list, with what it did. */
+/**
+ * Leave the editor for the list, with what it did.
+ *
+ * A BACK THAT GOES NOWHERE STILL ENDS ON THE LIST, for the same reason as the
+ * products list (app/app/products/list-return.ts returnToProducts): the note
+ * that says the list opened this editor is the app's own, and a coupon opened
+ * from a link, a notification or a replaced entry has no list behind it.
+ * `history.back()` reports nothing when it does nothing, so the layer used to
+ * hang over a dimmed Back for LAYER_PRESS_KEPT_MS (8s) and then come back to
+ * life on the same editor.
+ */
 export function returnToCoupons(router: Router, what: CouponReturn) {
   handoff = what
   returnTo = COUPONS_HREF
   const back = fromList
   fromList = false
+  const replaceWithList = () => {
+    markTraversal()
+    router.replace(COUPONS_HREF)
+  }
   moveLayer("leave", () => {
-    if (back) {
-      router.back()
-    } else {
-      markTraversal()
-      router.replace(COUPONS_HREF)
-    }
+    if (back) backThen(replaceWithList)
+    else replaceWithList()
   })
 }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { ArrowLeft, Shield } from "lucide-react"
+import { backThen } from "@/lib/navigation/go-back"
 
 export default function LegalPrivacyPage() {
   return (
@@ -9,7 +10,9 @@ export default function LegalPrivacyPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         <button
           type="button"
-          onClick={() => window.history.back()}
+          /* Most visits here are a link somebody was sent, with nothing behind
+             them: a bare back did nothing at all (lib/navigation/go-back). */
+          onClick={() => backThen(() => window.location.assign("/privacy"))}
           className="inline-flex items-center gap-2 text-[14px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors mb-6"
         >
           <ArrowLeft className="h-4 w-4" />

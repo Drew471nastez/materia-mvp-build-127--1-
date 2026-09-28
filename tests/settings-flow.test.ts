@@ -250,8 +250,9 @@ section("Upgrade opens and closes")
      redirects. */
   check(
     "Back goes back when there is somewhere in the app to go back to, and is a link to the Billing tab otherwise",
-    /<Link\s+href="\/app\/settings\?tab=billing"\s+onClick=\{goBack\}/.test(upgrade) &&
-      /if \(!hasInAppHistory\(\)\) return\s+e\.preventDefault\(\)\s+moveLayer\("leave", \(\) => router\.back\(\), false\)/.test(upgrade),
+    /<Link\s+href=\{BILLING_HREF\}\s+onClick=\{goBack\}/.test(upgrade) &&
+      /const BILLING_HREF = "\/app\/settings\?tab=billing"/.test(upgrade) &&
+      /if \(!hasInAppHistory\(\)\) return\s+e\.preventDefault\(\)\s+moveLayer\("leave", \(\) => backThen\(\(\) => router\.replace\(BILLING_HREF\)\), false\)/.test(upgrade),
   )
   check(
     "it is its own page: a layer over the whole shell, with the pill stepping aside under it",

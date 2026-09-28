@@ -5,6 +5,9 @@ import { useRouter, usePathname } from "next/navigation"
 import { isNativeApp } from "@/lib/native-bridge"
 import { CLOSE_EVENT } from "@/components/app/sidebar-mobile-nav"
 import { NATIVE_BACK_EVENT, nativeBackTarget } from "@/lib/ui/native-back"
+import { backThen } from "@/lib/navigation/go-back"
+import { homeFor, isAppRootRoute } from "@/lib/navigation/app-home"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 /**
  * NativeBackHandler
@@ -16,29 +19,19 @@ import { NATIVE_BACK_EVENT, nativeBackTarget } from "@/lib/ui/native-back"
  *  • If on a root route (/app, /app/products, etc.) with no history
  *    → show a "tap again to exit" toast, then exit the app on second tap
  *
- * The "root routes" list covers the main tab bar destinations — pages the user
+ * The "root routes" list covers the main tab bar destinations: pages the user
  * reaches by tapping a sidebar item rather than drilling in.
  *
- * This component renders nothing. Mount it once inside the app layout.
+ * This component renders nothing. It is mounted once, in app/app/layout.tsx,
+ * so everything here is about the seller's screens: the roots and the home a
+ * press falls back to are lib/navigation/app-home. The buyer's screens
+ * (/library, /explore, /account) are under other layouts, where a press with
+ * nothing behind it must not land in the seller app, and where the search
+ * screen answers back through a history entry of its own (components/search/
+ * search-overlay). They keep the webview's own back, which does the same
+ * thing without a wrong home; /library was listed here and was never
+ * reached, because no buyer route mounts this.
  */
-
-const ROOT_ROUTES = [
-  "/app",
-  "/app/products",
-  "/app/analytics",
-  "/app/orders",
-  "/app/coupons",
-  "/app/reviews",
-  "/app/onepage",
-  "/app/emails",
-  "/app/payouts",
-  "/app/settings",
-  "/library",
-]
-
-function isRootRoute(pathname: string): boolean {
-  return ROOT_ROUTES.some(r => pathname === r || pathname === r + "/")
-}
 
 export function NativeBackHandler() {
   const router = useRouter()
@@ -87,17 +80,35 @@ export function NativeBackHandler() {
             return
           }
 
-          const isRoot = isRootRoute(window.location.pathname)
+          const here = window.location.pathname
+          const isRoot = isAppRootRoute(here)
 
           if (!isRoot && canGoBack) {
-            // Standard back navigation within the app
-            window.history.back()
+            /*
+              AND THE HARDWARE KEY IS A PRESS THAT HAS TO END SOMEWHERE.
+              `canGoBack` is Android's count of the webview's history, and it
+              says yes to entries the router replaced and to entries it cannot
+              actually go back through. `history.back()` then did nothing at
+              all, silently: on a product or coupon editor the page layer
+              stayed live over a dimmed Back for LAYER_PRESS_KEPT_MS (8s) and
+              came back to life on the same editor, and the iOS swipe in the
+              installed app did the same. So the back has to show itself
+              within BACK_WATCH_MS or the list this page belongs to is put up
+              instead (lib/navigation/go-back backThen).
+            */
+            /* A hardware key touches no control, so there is nothing to dim:
+               the shell's own bar is what says the press landed, at
+               NAV_BAR_AFTER_MS, whether the back works or the list has to be
+               put up instead. */
+            startNavigationLoading(homeFor(here))
+            backThen(() => router.replace(homeFor(here)))
             return
           }
 
           if (!isRoot && !canGoBack) {
-            // No history but not on a root — go to /app as home
-            router.replace("/app")
+            // No history but not on a root — the list this page belongs to
+            startNavigationLoading(homeFor(here))
+            router.replace(homeFor(here))
             return
           }
 

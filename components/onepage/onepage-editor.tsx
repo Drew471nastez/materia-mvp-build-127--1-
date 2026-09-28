@@ -35,6 +35,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, sta
 import { useRouter } from "next/navigation"
 import { BuilderLoader, useLinger } from "@/components/website-builder/builder-loader"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { backThen } from "@/lib/navigation/go-back"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { isPlainClick } from "@/lib/ui/app-navigation"
 import { setLeaveGuard } from "@/lib/ui/leave-guard"
@@ -107,6 +108,9 @@ function reducedMotion() {
 
 /** Leaving was answered but the editor is still here this long after: it holds Back again. */
 const LEAVE_REVIVE_MS = 12_000
+
+/** The way out of the editor: the app's home, and where a back that goes nowhere lands. */
+const EXIT_HREF = "/app"
 
 /** The loader on the way in waits for the preview this long at most. */
 const ARRIVE_CAP_MS = 2500
@@ -448,8 +452,8 @@ function EditorLayout() {
     cancelCeiling.current?.()
     const start = window.setTimeout(() => {
       cancelCeiling.current = navigateWithCeiling(
-        () => router.push("/app"),
-        () => window.location.assign("/app"),
+        () => router.push(EXIT_HREF),
+        () => window.location.assign(EXIT_HREF),
         (cb, ms) => window.setTimeout(cb, ms),
         (id) => window.clearTimeout(id),
       )
@@ -1026,8 +1030,35 @@ function EditorLayout() {
       leavingRef.current = false
       refreshLeaveGuard.current()
     }, LEAVE_REVIVE_MS)
+    /*
+      AND EVERY WAY OUT ENDS SOMEWHERE. The soft navigation first, with the
+      shell's bar told so a slow page says something, and the address loaded
+      for real if this editor is still here at the ceiling
+      (lib/website-builder/navigate-ceiling), which is what `leave` does too.
+    */
+    const goTo = (href: string) => {
+      startNavigationLoading(href)
+      cancelCeiling.current?.()
+      cancelCeiling.current = navigateWithCeiling(
+        () => router.push(href),
+        () => window.location.assign(href),
+        (cb, ms) => window.setTimeout(cb, ms),
+        (id) => window.clearTimeout(id),
+      )
+    }
+    /*
+      A HELD BACK THAT GOES NOWHERE GOES HOME. The hold puts the editor's own
+      entry back and Back then pops from it, so there is normally an entry to
+      pop to. There is not always: the entry behind was replaced, the editor
+      was opened straight from a link or the app's start screen, the web view
+      reports a length it cannot go back through. `history.back()` says
+      nothing when it does nothing, so the editor sat quiet with the dialog
+      gone for the whole LEAVE_REVIVE_MS (12s) and then simply held Back
+      again. Now a back that does not show itself within BACK_WATCH_MS is
+      followed by the app's home (lib/navigation/go-back backThen).
+    */
     if (target === "back") {
-      window.history.back()
+      backThen(() => goTo(EXIT_HREF))
       return
     }
     let url: URL
@@ -1040,9 +1071,7 @@ function EditorLayout() {
       window.location.assign(url.href)
       return
     }
-    const href = url.pathname + url.search + url.hash
-    startNavigationLoading(href)
-    router.push(href)
+    goTo(url.pathname + url.search + url.hash)
   }, [router])
 
   const handleSaveAndNavigate = useCallback(async () => {

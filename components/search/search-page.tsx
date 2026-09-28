@@ -21,14 +21,19 @@ import { SearchScreen } from "@/components/search/search-screen"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
 import { canReturnInApp } from "@/lib/navigation/in-app-history"
+import { backThen } from "@/lib/navigation/go-back"
 
 export function SearchPage() {
   const router = useRouter()
   const params = useSearchParams()
   const q = params?.get("q") ?? ""
+  /* The X: back where you came from on this site, and Explore when that back
+     does nothing (an entry the browser replaced, a link opened cold), rather
+     than a screen that stays up under a pressed X (lib/navigation/go-back). */
   const close = useCallback(() => {
-    if (canReturnInApp()) router.back()
-    else router.replace("/explore")
+    const explore = () => router.replace("/explore")
+    if (canReturnInApp()) backThen(explore)
+    else explore()
   }, [router])
   const navigate = useCallback(
     (href: string) => {

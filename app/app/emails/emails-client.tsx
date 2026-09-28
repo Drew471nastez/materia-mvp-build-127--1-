@@ -53,6 +53,7 @@ import { useToast } from "@/hooks/use-toast"
 import { buttonPrimary, buttonSecondary } from "../orders/order-parts"
 import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
 import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
+import { backThen } from "@/lib/navigation/go-back"
 import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type SubscriberRow } from "./emails-home"
 import { ContactPage } from "./contact-detail"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
@@ -312,9 +313,20 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     pushed.current = true
     writeAddress((p) => { p.delete("email"); p.set("contact", s.id) }, "push")
   }
+  /*
+    BACK CLOSES IT, AND CLOSES IT EVEN WHEN THE BACK DOES NOTHING. The entry
+    this page pushed is the app's own note, and the browser has cases the note
+    does not know about (an entry it replaced, a web view that reports a
+    length it cannot go back through). `history.back()` reports nothing when
+    it does nothing, so the email stayed over the list with nothing happening
+    at all. A back that does not show itself within BACK_WATCH_MS is followed
+    by the address being cleared, which closes it the same way
+    (lib/navigation/go-back backThen).
+  */
+  const closeOver = () => writeAddress((p) => { p.delete("email"); p.delete("contact") }, "replace")
   const onBack = React.useCallback(() => {
-    if (pushed.current) window.history.back()
-    else writeAddress((p) => { p.delete("email"); p.delete("contact") }, "replace")
+    if (pushed.current) backThen(closeOver)
+    else closeOver()
   }, [])
 
   const onCampaignIntent = (c: CampaignRow) => {

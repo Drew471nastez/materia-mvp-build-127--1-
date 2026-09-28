@@ -129,6 +129,43 @@ async function main() {
   }
   check("the watch is short enough not to read as a hang", BACK_WATCH_MS > 300 && BACK_WATCH_MS <= 1500, BACK_WATCH_MS)
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE WATCH ON ITS OWN, WHICH THE WHOLE APP GOES BACK THROUGH
+    ═══════════════════════════════════════════════════════════════════════
+    Every screen with a way back also puts something up while it waits: a
+    dimmed arrow, a spinner, a page layer held live over the page behind.
+    `history.back()` reports nothing when it does nothing, so all of it stayed
+    there. Filmed on the product editor with back made into a no-op, nothing
+    changed on the screen for the whole film (scripts/check-app-back-stall.mjs).
+  */
+  console.log("\nThe watch")
+  const { backThen } = await import("../lib/navigation/go-back")
+  {
+    const tab = fakeWindow({ backDoes: "nothing" })
+    const went: string[] = []
+    backThen(() => went.push("fallback"))
+    tab.run()
+    check("a back that does nothing is followed by the fallback", tab.backs() === 1 && went.join() === "fallback")
+    check("and nothing is left listening", tab.listening() === 0)
+  }
+  for (const showed of ["popstate", "pagehide"] as const) {
+    const tab = fakeWindow({ backDoes: showed })
+    const went: string[] = []
+    backThen(() => went.push("fallback"))
+    tab.run()
+    check(`a back that shows itself (${showed}) is left alone`, tab.backs() === 1 && went.length === 0 && tab.listening() === 0)
+  }
+  {
+    /* A screen that goes away before the watch is over takes its watch with it. */
+    const tab = fakeWindow({ backDoes: "nothing" })
+    const went: string[] = []
+    const stop = backThen(() => went.push("fallback"))
+    stop()
+    tab.run()
+    check("a cancelled watch never runs its fallback", went.length === 0 && tab.listening() === 0)
+  }
+
   console.log("\nThe controls")
   /* Code only: the comments explain what router.back() used to do. */
   const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")

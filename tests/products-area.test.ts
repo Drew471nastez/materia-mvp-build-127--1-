@@ -581,8 +581,11 @@ check("the stage plays no landing of its own under a layer's move (the mark read
   /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
 const ret = code("app/app/products/list-return.ts")
 /* "Exit must not leave the editor in the browser's forward/back stack in a surprising way." */
+/* And a back that does nothing is followed by the list itself, rather than by
+   the layer sitting over a dimmed arrow for eight seconds
+   (lib/navigation/go-back backThen, tests/back-never-stalls.test.ts). */
 check("an editor the list opened goes back in history; one opened any other way is replaced by the list, and neither pushes a new entry",
-  /if \(back\) \{[\s\S]{0,120}router\.back\(\)\s*\} else \{\s*markTraversal\(\)\s*router\.replace\(PRODUCTS_HREF\)/.test(ret) && !/router\.push\(PRODUCTS_HREF\)/.test(ret) && /prefetchAppPage\(router, PRODUCTS_HREF\)/.test(ret))
+  /if \(back\) backThen\(replaceWithList\)\s*else replaceWithList\(\)/.test(ret) && /const replaceWithList = \(\) => \{\s*markTraversal\(\)\s*router\.replace\(PRODUCTS_HREF\)/.test(ret) && !/router\.push\(PRODUCTS_HREF\)/.test(ret) && /prefetchAppPage\(router, PRODUCTS_HREF\)/.test(ret))
 check("\"the list opened it\" is noted when the editor mounts right after the list pushed it, and forgotten once no editor is up",
   /pushedAt = Date\.now\(\)\s*router\.push\(href\)/.test(ret) && /if \(pushedAt !== null && Date\.now\(\) - pushedAt < PUSH_KEPT_MS\) fromList = true/.test(ret)
     && /if \(editors === 0\) fromList = false/.test(ret) && /useListOrigin\(\)/.test(editor))

@@ -19,6 +19,7 @@ import { refreshMatching } from "@/components/email/emails-cache"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
 import { listBehindShows } from "@/app/app/emails/list-return"
 import { leaveLayer } from "@/app/app/emails/layer-nav"
+import { backThen } from "@/lib/navigation/go-back"
 import { EmailComposer } from "./composer"
 
 export function ComposePage({ campaignId }: { campaignId: string | null }) {
@@ -30,9 +31,13 @@ export function ComposePage({ campaignId }: { campaignId: string | null }) {
       onExit={(tab) => {
         refreshMatching("emails:")
         /* On a phone the composer is a layer, and goes off the list the way it came (app/app/emails/layer-nav.ts). */
+        const list = tab ? `/app/emails?tab=${tab}` : "/app/emails"
         leaveLayer(() => {
-          if (tab && listBehindShows(tab, canReturnTo("/app/emails"))) router.back()
-          else router.push(tab ? `/app/emails?tab=${tab}` : "/app/emails")
+          /* A back that does nothing leaves the layer up over a dimmed arrow for
+             LAYER_PRESS_KEPT_MS and then comes back to life on the composer, so
+             the list is put up instead (lib/navigation/go-back backThen). */
+          if (tab && listBehindShows(tab, canReturnTo("/app/emails"))) backThen(() => router.replace(list))
+          else router.push(list)
         })
       }}
     />

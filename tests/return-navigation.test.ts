@@ -66,7 +66,10 @@ function main() {
   )
   check("a handler that already acted is respected", /if \(e\.defaultPrevented\) return/.test(rl))
   check("and it only pops when the entry behind is that page", /if \(!canReturnTo\(href\)\) return/.test(rl))
-  check("then it is a real back", /window\.history\.back\(\)/.test(rl))
+  /* A real back, watched: a back the browser will not go through is followed by
+     the link's own href, so a press on a link never ends nowhere
+     (lib/navigation/go-back backThen). */
+  check("then it is a real back", /backThen\(\(\) => window\.location\.assign\(href\)\)/.test(rl))
 
   /* ---------------------------------------------------------------------
      THE QUESTION IT ASKS
@@ -110,7 +113,7 @@ function main() {
      a ReturnLink: when the order was opened from the list, it pops that
      entry instead of pushing the list again. */
   const orders = read("app/app/orders/orders-client.tsx")
-  check("an order's back arrow pops the entry it pushed", /if \(pushed\.current\) window\.history\.back\(\)/.test(orders))
+  check("an order's back arrow pops the entry it pushed", /if \(pushed\.current\) backThen\(closeOver\)/.test(orders) && /const closeOver = \(\) => writeAddress\(\(p\) => p\.delete\("order"\), "replace"\)/.test(orders))
   check("  and opening one pushes exactly one entry", /writeAddress\(\(p\) => p\.set\("order", id\), "push"\)/.test(orders))
   check("the old order address still lands on the order", /redirect\(`\/app\/orders\?order=/.test(read("app/app/orders/[id]/page.tsx")))
 

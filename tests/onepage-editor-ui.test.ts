@@ -263,7 +263,7 @@ function main() {
       /data-native-back=\{section \? "" : undefined\}/.test(design) && /root\.addEventListener\(NATIVE_BACK_EVENT, onBack\)/.test(design)
       && /const onBack = \(\) => setSection\(null\)/.test(design)
       && /const inner = nativeBackTarget\(\)[\s\S]{0,200}inner\.dispatchEvent\(new CustomEvent\(NATIVE_BACK_EVENT\)\)/.test(nativeBack)
-      && nativeBack.indexOf("nativeBackTarget()") < nativeBack.indexOf("const isRoot = isRootRoute"))
+      && nativeBack.indexOf("nativeBackTarget()") < nativeBack.indexOf("const isRoot = isAppRootRoute"))
     /* The pull from the left edge dragged the panel sideways; it went with the slide ("NO SLIDE"). The way back is the arrow, and Android's back. */
     check("no edge pull is left: the way back is the arrow at the top of the panel", !/data-edge-back=""/.test(design) && !/onPointerMove=\{onEdgeMove\}/.test(design) && /onBack=\{\(\) => setSection\(null\)\} backLabel="Back to Design"/.test(design))
     /*

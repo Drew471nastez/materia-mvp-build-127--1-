@@ -185,7 +185,7 @@ console.log("\nThe frame: the product editor's")
   check("and takes up the view it was on only on a return", /const \[returning\] = useState\(isReturning\)/.test(list) && /useState<View>\(\(\) => \(returning && leftAt \? leftAt : "all"\)\)/.test(list))
 
   const ret = code("app/app/coupons/list-return.ts")
-  check("back in history when the list opened it, a replace marked as a return otherwise", /if \(back\) \{\s*router\.back\(\)\s*\} else \{\s*markTraversal\(\)\s*router\.replace\(COUPONS_HREF\)/.test(ret) && /moveLayer\("enter"/.test(ret) && /moveLayer\("leave"/.test(ret))
+  check("back in history when the list opened it, a replace marked as a return otherwise", /if \(back\) backThen\(replaceWithList\)\s*else replaceWithList\(\)/.test(ret) && /const replaceWithList = \(\) => \{\s*markTraversal\(\)\s*router\.replace\(COUPONS_HREF\)/.test(ret) && /moveLayer\("enter"/.test(ret) && /moveLayer\("leave"/.test(ret))
 
   const files = ["app/app/coupons/coupon-editor.tsx", "app/app/coupons/coupon-parts.tsx", "app/app/coupons/coupons-client.tsx"].map(read).join("\n")
   check("no violet anywhere in the coupon pages", !/#8b5cf6|#7c3aed|#6d28d9|#f5f3ff|violet-|buttonAccent|primaryDepth/i.test(files))

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
+import { backThen } from "@/lib/navigation/go-back"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
 import { MarketingFooter } from "@/components/marketing/footer"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
@@ -15,7 +16,10 @@ export function PublicWishlistShell() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <button
             type="button"
-            onClick={() => router.back()}
+            /* The same watch every back in the app has: this page is a link
+               somebody is sent, so most visits have nothing behind them and a
+               bare back did nothing at all (lib/navigation/go-back). */
+            onClick={() => backThen(() => router.push("/explore"))}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
             aria-label="Go back"
           >

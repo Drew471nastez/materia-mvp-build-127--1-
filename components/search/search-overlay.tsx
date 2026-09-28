@@ -63,6 +63,7 @@ import { createPortal, flushSync } from "react-dom"
 import { SearchScreen, type SearchScreenHandle } from "@/components/search/search-screen"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
+import { backThen } from "@/lib/navigation/go-back"
 
 /** The mark on the history entry the open screen owns. */
 export const SEARCH_ENTRY = "storelibSearch"
@@ -204,10 +205,21 @@ export function SearchOverlay() {
     lockDocument(false)
   }, [])
 
+  /*
+    AND A CLOSE THAT GOES NOWHERE STILL CLOSES. The entry is this screen's
+    own, and `history.back()` reports nothing when it does nothing (an entry
+    the browser replaced, a web view that reports a length it cannot go back
+    through): the screen then stayed over the page with X pressed and nothing
+    happening. A back that does not show itself within BACK_WATCH_MS closes
+    the screen anyway (lib/navigation/go-back backThen).
+  */
   const close = useCallback(() => {
     if (ownsEntry()) {
       closing.current = true
-      window.history.back()
+      backThen(() => {
+        closing.current = false
+        shut()
+      })
     } else shut()
   }, [shut])
 

@@ -128,7 +128,7 @@ function main() {
 
   check("the handler looks for an open menu before anything else",
     back.indexOf('[data-mobile-menu="open"]') > 0
-      && back.indexOf('[data-mobile-menu="open"]') < back.indexOf("isRootRoute(window.location.pathname)"),
+      && back.indexOf('[data-mobile-menu="open"]') < back.indexOf("isAppRootRoute(here)"),
     "back would offer to exit the app with a full screen menu open over it")
   check("it asks by event rather than by importing the component",
     /dispatchEvent\(new CustomEvent\(CLOSE_EVENT\)\)/.test(back))

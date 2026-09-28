@@ -660,6 +660,39 @@ try {
     return page
   })
 
+  /*
+    A BACK THAT GOES NOWHERE. The hold puts the editor's own entry back and
+    Discard then pops from it, which is fine as long as there is an entry to
+    pop to. There is not always: an entry the browser replaced, the editor
+    opened straight from a link or the app's start screen, a web view that
+    reports a length it cannot go back through. `history.back()` says nothing
+    when it does nothing, so Discard left the editor sitting there with the
+    question gone and nothing else happening for LEAVE_REVIVE_MS (12s), and
+    then simply held Back again. Now it lands on Home.
+  */
+  await scenario("BACK: a back that does nothing still lands, rather than sitting in the editor", async () => {
+    const page = await open()
+    await page.goto(`${base}/app`, { waitUntil: "domcontentloaded" })
+    await page.waitForSelector("[data-page='dashboard']")
+    await wait(500)
+    await page.evaluate(() => window.next.router.push("/app/onepage"))
+    await page.waitForSelector("[data-onepage-editor] header", { timeout: 20000 })
+    await wait(700)
+    await tab(page, "settings")
+    await edit(page)
+    await page.evaluate(() => history.back())
+    await page.waitForSelector("[data-unsaved-discard]", { visible: true, timeout: 3000 })
+    await wait(300)
+    /* From here the entry behind is dead: back() reports nothing, because it does nothing. */
+    await page.evaluate(() => { history.back = () => {} })
+    await clickAnswer(page, "discard")
+    const l = await landed(page, "/app", 6000)
+    expect(l.ms !== null && l.page === "dashboard", `Discard with a dead entry still lands on Home (${l.ms}ms)`, l.ms === null ? l : "")
+    expect(l.ms === null || l.ms < 2500, "  inside a second and a half of watching, not twelve seconds of nothing", l.ms)
+    numbers.deadBackMs = l.ms
+    return page
+  })
+
   await scenario("BACK: to another document with work unsaved, the browser asks, and staying keeps it", async () => {
     const page = await open()
     await page.goto(`${base}/app`, { waitUntil: "domcontentloaded" })
