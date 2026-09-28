@@ -33,6 +33,7 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     // Signup
     "auth.signup_title": "Alătură-te Storelib",
     "auth.signup_subtitle": "Înregistrează-te gratuit!",
+    "auth.signup_subtitle_sell": "Creează-ți contul, apoi configurează-ți magazinul.",
     "auth.password_min6_placeholder": "Parolă (min. 6 caractere)",
     "auth.agree_offers": "Sunt de acord să primesc oferte, noutăți și actualizări de la Storelib.",
     "auth.email_linked_google": "Acest email este asociat cu autentificarea Google:",
@@ -174,6 +175,7 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     // Signup
     "auth.signup_title": "Join Storelib",
     "auth.signup_subtitle": "Sign up for free!",
+    "auth.signup_subtitle_sell": "Create your account, then set up your shop.",
     "auth.password_min6_placeholder": "Password (min 6 characters)",
     "auth.agree_offers": "I agree to receive offers, news and updates from Storelib.",
     "auth.email_linked_google": "This email is linked to Google sign-in:",

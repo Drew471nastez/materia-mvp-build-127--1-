@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { safeReturnTarget } from "@/lib/auth/return-to"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
@@ -22,6 +21,8 @@ import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { useLocale } from "@/components/locale-provider"
 import { alreadyRegisteredHint, classifyOAuthError, type SignInMethod } from "@/lib/auth/oauth-errors"
 import { HtmlClass } from "@/components/platform/html-class"
+import { readCarry, withCarry } from "@/lib/auth/continue"
+import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 
 function SignUpFormContent() {
   const { t } = useLocale()
@@ -67,8 +68,15 @@ function SignUpFormContent() {
   /* Only a target the platform will actually honour is passed on. The same
      check runs again on the login page; this one keeps a rejected target
      out of the link rather than putting it there to be dropped later. */
-  const signupReturn = safeReturnTarget(searchParams.get("next"), { mainDomain: getMainDomain() })
-  const loginHref = signupReturn ? `/login?next=${encodeURIComponent(signupReturn)}` : "/login"
+  /*
+    WHY THEY CAME AND WHERE THEY WERE (lib/auth/continue.ts): `intent=sell`
+    from Sell on Storelib or Become a seller, and `next`, the page to go back
+    to. Carried onto Log in, the email code, Google and Apple, and handed to
+    /auth/continue at the end, which sends a plain signup to Discover and a
+    Sell on Storelib one straight into seller onboarding.
+  */
+  const carry = readCarry(searchParams, getMainDomain())
+  const loginHref = withCarry("/login", carry)
   const claim = searchParams.get("claim")
   const receiptToken = searchParams.get("receiptToken")
   const prefilledEmail = searchParams.get("email")
@@ -140,9 +148,9 @@ function SignUpFormContent() {
         const user = session?.user
 
         if (user) {
-          // Let /signup/success decide the final destination (creator → /app,
-          // buyer → /library).  Never redirect to /explore or /library here.
-          router.replace("/signup/success")
+          /* Already signed in: the server decides where to (app/auth/continue). */
+          setIsRedirecting(true)
+          void goOnAfterAuth(carry, session)
           return
         }
 
@@ -154,7 +162,7 @@ function SignUpFormContent() {
     }
 
     checkAuth()
-  }, [router, authGateLoading, nativeAuthInProgress])
+  }, [router, authGateLoading, nativeAuthInProgress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -280,7 +288,8 @@ function SignUpFormContent() {
           email: trimmedEmail,
           is_creator: false,
           email_verified: false,
-          welcome_completed: false,
+          /* No creator or buyer question after sign up any more: a new account is a buyer. */
+          welcome_completed: true,
         }, { onConflict: "id" })
 
         // Send branded verification code via SMTP
@@ -315,7 +324,7 @@ function SignUpFormContent() {
 
         // Redirect to verify page
         navigateWithFallback(
-          `/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`
+          withCarry(`/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`, carry)
         )
         router.refresh()
       }
@@ -393,7 +402,7 @@ function SignUpFormContent() {
       // Route through /auth/start which handles PKCE cookie scoping correctly
       // (uses the actual request origin, not NEXT_PUBLIC_SITE_URL)
       const canonicalUrl = getCanonicalSiteUrl()
-      window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
+      window.location.href = `${canonicalUrl}${withCarry("/auth/start?provider=google", carry)}`
       return
     } catch (error: unknown) {
       setError(classifyOAuthError({ message: error instanceof Error ? error.message : null }, "google").message)
@@ -481,10 +490,12 @@ function SignUpFormContent() {
         }
 
         nativeAuthStart()
+        /* Why they came, for lib/native-oauth.ts to hand on once the deep link is back. */
+        rememberNativeCarry(carry)
         await Browser.open({ url: data.url, windowName: "_self" })
         return
       } else {
-        window.location.href = `${canonicalUrl}/auth/start?provider=apple&next=/app`
+        window.location.href = `${canonicalUrl}${withCarry("/auth/start?provider=apple", carry)}`
         return
       }
     } catch (err: unknown) {
@@ -512,7 +523,8 @@ function SignUpFormContent() {
           <AuthLogo />
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.signup_title")}</h1>
-          <p className="mb-8 text-[15px] text-neutral-500">{t("auth.signup_subtitle")}</p>
+          {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
+          <p className="mb-8 text-[15px] text-neutral-500">{t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">

@@ -603,7 +603,14 @@ export function LiveStickyAddToCart({
         borderColor: settings.borderColor || undefined,
         // env(safe-area-inset-bottom) keeps content above the iOS home indicator.
         // --sab was never defined anywhere; use the native env() directly.
-        paddingBottom: "env(safe-area-inset-bottom)",
+        /* STANDING ON THE BUYER'S TAB BAR. Browsed from Storelib on a phone
+           the platform's tab bar is across the foot of the screen
+           (components/nav/buyer-tab-bar.tsx), so this sits on top of it
+           rather than under it, and the tab bar keeps the home indicator's
+           inset, so this one drops its own. Anywhere else --buyer-tabs-h
+           is unset and both read as they always have. */
+        bottom: "var(--buyer-tabs-h, 0px)",
+        paddingBottom: "max(0px, env(safe-area-inset-bottom, 0px) - var(--buyer-tabs-h, 0px))",
       }}
     >
       {/* Mobile version - NO STARS */}

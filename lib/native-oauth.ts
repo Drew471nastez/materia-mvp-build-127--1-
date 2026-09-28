@@ -16,7 +16,7 @@
  *       → Browser.close()           ← dismiss Chrome Custom Tab
  *       → exchangeCodeForSession(code) ← bare code string + stored PKCE verifier
  *       → getSession()              ← verify session exists
- *       → window.location.assign("/app")
+ *       → /auth/sync-session → /auth/continue (lib/auth/continue.ts)
  *
  * Session storage: Capacitor Preferences (Android SharedPreferences).
  * This survives across Chrome Custom Tab ↔ WebView process switches
@@ -31,6 +31,10 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { cacheNativeHome } from "@/lib/native-bridge"
+import { hasSellerAccess, readSellerAccess } from "@/lib/account/seller-access"
+import { NATIVE_BUYER_HOME, SELLER_HOME, continueHref, readCarry, withCarry } from "@/lib/auth/continue"
+import { getMainDomain } from "@/lib/url-helpers"
+import { takeNativeCarry } from "@/lib/auth/continue-client"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 
 const TAG = "[NativeOAuth]"
@@ -134,7 +138,8 @@ async function handleBridgeCodeResetLink(rawUrl: string): Promise<void> {
   try {
     const u = new URL(rawUrl)
     const code = u.searchParams.get("code")
-    const dest = code ? `/reset-password?code=${encodeURIComponent(code)}` : "/reset-password"
+    /* Sell on Storelib and the return page ride along from the email's link (lib/auth/continue.ts). */
+    const dest = withCarry(code ? `/reset-password?code=${encodeURIComponent(code)}` : "/reset-password", readCarry(u.searchParams, getMainDomain()))
     // Guard: already on reset-password — don't navigate again (prevents reload loop
     // when setupNativeOAuthListeners() re-runs on the mounted page after cold-start fix).
     if (window.location.pathname === "/reset-password") {
@@ -486,43 +491,25 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     }
 
     // Determine destination.
-    // Only route to /app or /library if the user has completed onboarding.
-    // New / unboarded users MUST go to /signup/success (role chooser) so
-    // they can pick creator vs buyer.  Without this check, new Google-OAuth
-    // signups were sent directly to /library, skipping the role chooser.
+    /*
+      THE SERVER DECIDES, AS IT DOES FOR EVERY OTHER WAY IN. The session goes
+      through /auth/sync-session into cookies and on to /auth/continue
+      (lib/auth/continue.ts) with whatever the login or signup page kept
+      before the browser opened: Sell on Storelib goes into seller
+      onboarding, a seller to the dashboard, a buyer to Discover. There is no
+      creator or buyer question for a new account any more. Seller access is
+      still read here, but only to remember the home a cold start opens on.
+    */
     const userId = verifiedSession.user.id
-    let nextPath = "/signup/success"
+    const carry = takeNativeCarry()
     try {
-      const { data: creatorRow } = await supabase
-        .from("creators")
-        .select("id, onboarding_completed")
-        .eq("user_id", userId)
-        .maybeSingle()
-      if (creatorRow?.onboarding_completed) {
-        // Fully onboarded creator → /app
-        nextPath = "/app"
-      } else {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_creator, welcome_completed")
-          .eq("id", userId)
-          .maybeSingle()
-        if (profile?.welcome_completed) {
-          // Returning user who already chose a role
-          nextPath = profile.is_creator ? "/app" : "/library"
-        }
-        // else: new user or welcome not completed → /signup/success (default)
-      }
+      const access = await readSellerAccess(supabase, userId)
+      cacheNativeHome(hasSellerAccess(access) ? SELLER_HOME : NATIVE_BUYER_HOME)
     } catch (e) {
-      console.warn(`${TAG}   User type check failed, defaulting to /signup/success:`, e)
+      console.warn(`${TAG}   Seller access read failed, home not cached:`, e)
     }
+    const nextPath = continueHref(carry)
     console.log(`${TAG}   destination: ${nextPath}`)
-
-    // Cache the home route so NativeStartupRouter can use it on the next
-    // cold start without a DB query.
-    if (nextPath === "/app" || nextPath === "/library") {
-      cacheNativeHome(nextPath)
-    }
 
     // The native Capacitor client stores the session in Capacitor Preferences
     // (Android SharedPreferences), but Next.js server components read cookies.

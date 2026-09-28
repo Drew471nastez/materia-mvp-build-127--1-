@@ -142,6 +142,7 @@ export const frDict: Record<string, string> = {
   "auth.setting_new_password_for": "Définition d'un nouveau mot de passe pour",
   "auth.signing_you_in": "Connexion en cours...",
   "auth.signup_subtitle": "Inscris-toi gratuitement !",
+  "auth.signup_subtitle_sell": "Crée ton compte, puis configure ta boutique.",
   "auth.signup_title": "Rejoins Storelib",
   "auth.spam_junk_folder": "dossier spam ou courrier indésirable",
   "auth.switch_later": "Tu pourras changer plus tard.",

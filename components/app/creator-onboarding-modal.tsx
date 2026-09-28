@@ -382,9 +382,16 @@ interface CreatorOnboardingModalProps {
    * account menu, where it says "Setting up".
    */
   switchBack?: { name: string; onSwitch: () => Promise<void> } | null
+  /**
+   * A buyer becoming a seller (app/(auth)/sell): the way out, in the same
+   * place as the way back above, to the page they came from. Nothing is
+   * lost by leaving; /sell opens the setup again whenever they come back.
+   * Ignored when there is a switchBack, which is the way out for a business.
+   */
+  leave?: { label: string; href: string } | null
 }
 
-export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null }: CreatorOnboardingModalProps) {
+export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null }: CreatorOnboardingModalProps) {
   const router = useRouter()
   /*
     FULL SCREEN IN THE APP, AT EVERY WIDTH. Below 640px the onboarding has
@@ -644,8 +651,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId,
-          successUrl: `${origin}/signup/success?action=become-creator&stripe_success=1&tier=${planId}`,
-          cancelUrl: `${origin}/signup/success?action=become-creator`,
+          /* Back to /sell, the one door into seller onboarding, which reopens the setup and finishes it. */
+          successUrl: `${origin}/sell?stripe_success=1&tier=${planId}`,
+          cancelUrl: `${origin}/sell`,
         }),
       })
       const data = await res.json()
@@ -1695,6 +1703,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             */}
             <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-6 sm:pt-7">
               <div className="flex min-w-0 items-center justify-start">
+                {!switchBack && leave && (
+                  <a
+                    href={leave.href}
+                    data-onboarding-leave=""
+                    aria-label={leave.label}
+                    className="inline-flex h-11 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 max-sm:w-11 sm:h-10 sm:justify-start sm:px-2"
+                  >
+                    <ArrowLeft className="h-[18px] w-[18px] shrink-0" />
+                    <span className="hidden truncate sm:inline">{leave.label}</span>
+                  </a>
+                )}
                 {switchBack && (
                   <button
                     type="button"

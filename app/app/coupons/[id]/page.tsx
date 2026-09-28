@@ -25,7 +25,7 @@ export default async function CouponEditPage({ params }: CouponEditPageProps) {
   if (!UUID.test(id)) redirect("/app/coupons")
   const load = await loadCouponArea(id)
   if (load.state === "signed-out") return null
-  if (load.state === "no-creator") redirect("/signup/success")
+  if (load.state === "no-creator") redirect("/sell")
   const coupon = load.coupons[0] as CouponRecord | undefined
   if (!coupon) redirect("/app/coupons")
   return <CouponEditor key={id} products={load.products} initialCoupon={coupon} />

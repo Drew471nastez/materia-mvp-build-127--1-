@@ -36,7 +36,12 @@ function main() {
   */
   const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
   const shell = read("components/app/sidebar.tsx")
-  const nav = read("components/app/sidebar-mobile-nav.tsx")
+  /* The pill and the touch it shares with the buyer bar (components/nav/
+     tab-lens.tsx), read as one: the lens, the slide and the icons moved out
+     of the pill file so both bars use them, and every claim below is still
+     about the pill. The shared half comes first, so a check that reads from
+     `export function MobileNavPill` onwards still reads only the pill. */
+  const nav = read("components/nav/tab-lens.tsx") + "\n" + read("components/app/sidebar-mobile-nav.tsx")
   const back = read("components/app/native-back-handler.tsx")
   const css = read("app/globals.css")
 

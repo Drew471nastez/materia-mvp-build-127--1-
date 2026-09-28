@@ -109,8 +109,9 @@ section("The layout: everything that needs only the user, together")
   /* The header's photo is the profile's own (lib/account/avatar): the store
      header was read only to fall back to its photo, so it is not read at all. */
   check("and the store header is not read for a photo any more", !/store_builder_configs/.test(layout) && /profileAvatar\(profile\?\.avatar_url\)/.test(layout))
-  check("and the redirects are still decided in their order: verified, then role, then creator",
-    /if \(!gateCheck\?\.email_verified\)[\s\S]*if \(!roleSelected\)[\s\S]*if \(!creator \|\| creator\.onboarding_completed !== true\)/.test(layout))
+  /* Changed on purpose: there is no creator or buyer question any more, so no role gate; seller access (lib/account/seller-access.ts) sends anybody without it to /sell. */
+  check("and the redirects are still decided in their order: verified, then seller access",
+    /if \(!gateCheck\?\.email_verified\)[\s\S]*if \(!creator \|\| !hasSellerAccess\(sellerAccessFrom\(\{ creator, profile: gateCheck \}\)\)\)/.test(layout))
   check("on the caller's own client only", !/createAdminClient/.test(layout))
 }
 

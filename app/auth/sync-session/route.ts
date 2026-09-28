@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
+import { CONTINUE_PATH, sameOriginPath } from "@/lib/auth/continue"
 
 /**
  * GET /auth/sync-session?access_token=...&refresh_token=...&next=/app
@@ -32,7 +33,13 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const accessToken = searchParams.get("access_token")
   const refreshToken = searchParams.get("refresh_token")
-  const next = searchParams.get("next") ?? "/app"
+  /*
+    A PATH ON THIS SITE, NEVER AN ADDRESS. This is `${origin}${next}` below,
+    and "https://storelib.com" followed by "@evil.com" is evil.com. Anything
+    that is not a plain path goes to /auth/continue, which decides where a
+    signed in person belongs (lib/auth/continue.ts).
+  */
+  const next = sameOriginPath(searchParams.get("next"), CONTINUE_PATH)
 
   if (!accessToken || !refreshToken) {
     console.error("[sync-session] Missing access_token or refresh_token")

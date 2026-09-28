@@ -7,10 +7,9 @@
  * All the user sees is a neutral #f2f2f2 screen — never the public homepage.
  *
  * Client-side, we resolve session + role and redirect:
- *   - creator with onboarding done  → /app
- *   - buyer with welcome done        → /library
- *   - no valid session               → /welcome
- *   - new user (no profile complete) → /signup/success
+ *   - seller access (lib/account/seller-access.ts) → /app
+ *   - any other signed in account                  → /library
+ *   - no valid session                             → /welcome
  *
  * Splash hide is NOT called here.  The destination page hides it.
  */
@@ -100,9 +99,13 @@ export default function NativeStartPage() {
             try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch { /* ignore */ }
             if (isBridgeReset) {
               try {
-                const code = new URL(lu).searchParams.get("code")
+                const launchParams = new URL(lu).searchParams
+                const code = launchParams.get("code")
                 if (code) {
-                  safeRedirect(`/reset-password?code=${encodeURIComponent(code)}`)
+                  /* Sell on Storelib and the return page ride along from the email's link (lib/auth/continue.ts). */
+                  const { readCarry, withCarry } = await import("@/lib/auth/continue")
+                  const { getMainDomain } = await import("@/lib/url-helpers")
+                  safeRedirect(withCarry(`/reset-password?code=${encodeURIComponent(code)}`, readCarry(launchParams, getMainDomain())))
                   return
                 }
               } catch { /* ignore */ }
@@ -150,35 +153,18 @@ export default function NativeStartPage() {
           }
 
           // No cache — query DB to determine creator vs buyer.
-          const userId = session.user.id
-
-          const { data: creator } = await supabase
-            .from("creators")
-            .select("onboarding_completed")
-            .eq("user_id", userId)
-            .maybeSingle()
-
-          if (creator?.onboarding_completed) {
-            await cacheNativeHome("/app")
-            safeRedirect("/app")
-            return
-          }
-
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("is_creator, welcome_completed")
-            .eq("id", userId)
-            .maybeSingle()
-
-          if (profile?.welcome_completed) {
-            const dest = profile.is_creator ? "/app" : "/library"
-            await cacheNativeHome(dest)
-            safeRedirect(dest)
-            return
-          }
-
-          // Authenticated but hasn't finished onboarding.
-          safeRedirect("/signup/success")
+          /*
+            SELLER ACCESS DECIDES THE HOME (lib/account/seller-access.ts): the
+            dashboard for a seller, the library for everybody else. There is
+            no creator or buyer question to send a new account to any more.
+            The library rather than Discover because the offline shell in
+            the installed apps (out/index.html) only knows the homes in
+            NATIVE_HOME_ALLOWED, and anything else there becomes /app.
+          */
+          const { hasSellerAccess, readSellerAccess } = await import("@/lib/account/seller-access")
+          const home = hasSellerAccess(await readSellerAccess(supabase, session.user.id)) ? "/app" : "/library"
+          await cacheNativeHome(home)
+          safeRedirect(home)
           return
         }
 

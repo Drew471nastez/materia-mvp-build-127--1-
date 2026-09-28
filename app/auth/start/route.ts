@@ -2,9 +2,11 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import type { Provider } from "@supabase/supabase-js"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
+import { CARRY_COOKIE, CARRY_MAX_AGE_SECONDS, encodeCarry, readCarry } from "@/lib/auth/continue"
+import { getMainDomain } from "@/lib/url-helpers"
 
 /**
- * GET /auth/start?provider=google|apple&next=/app
+ * GET /auth/start?provider=google|apple&intent=sell&next=/somewhere
  *
  * Runs entirely server-side to kick off OAuth for any provider via PKCE.
  *
@@ -92,5 +94,22 @@ export async function GET(request: Request) {
   // The Supabase client has already written the PKCE code-verifier cookie to
   // the cookie store (via setAll → cookieStore.set). That Set-Cookie header
   // will be present on THIS 302 response, so Chrome Custom Tab stores it.
-  return NextResponse.redirect(data.url)
+  const response = NextResponse.redirect(data.url)
+
+  /*
+    WHY THEY CAME, KEPT FOR THE WAY BACK. The callback URL cannot carry it
+    (see the note on redirectTo above), so Sell on Storelib and the page to
+    return to ride in a short lived cookie in this same browser, next to the
+    PKCE verifier, and /auth/continue reads it once (lib/auth/continue.ts).
+    Nothing to carry clears any cookie an earlier, abandoned attempt left.
+  */
+  const carry = encodeCarry(readCarry(searchParams, getMainDomain()))
+  response.cookies.set(CARRY_COOKIE, carry, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: callbackOrigin.startsWith("https://"),
+    maxAge: carry ? CARRY_MAX_AGE_SECONDS : 0,
+  })
+  return response
 }

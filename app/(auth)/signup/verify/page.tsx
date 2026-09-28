@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Loader2, Mail } from "lucide-react"
 import Image from "next/image"
@@ -9,6 +9,9 @@ import Link from "next/link"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { createClient } from "@/lib/supabase/client"
+import { readCarry, withCarry } from "@/lib/auth/continue"
+import { goOnAfterAuth } from "@/lib/auth/continue-client"
+import { getMainDomain } from "@/lib/url-helpers"
 
 /**
  * /signup/verify?userId=...&email=...
@@ -21,15 +24,25 @@ import { createClient } from "@/lib/supabase/client"
  *  2. User is redirected here with ?userId=...&email=... prefilled.
  *  3. User enters the 6-digit code → /api/auth/confirm-email verifies it
  *     and marks the profile email_verified = true.
- *  4. User is sent to /signup/success (role chooser).
+ *  4. User is sent on through /auth/continue (lib/auth/continue.ts), with
+ *     the intent and return page they arrived with: a plain signup to
+ *     Discover, Sell on Storelib into seller onboarding.
  */
 function VerifyContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId") ?? ""
   const email = searchParams.get("email") ?? ""
 
   const sent = searchParams.get("sent") === "1"
+  /* Sell on Storelib, and the page to go back to, from the signup or login that sent them here. */
+  const carry = readCarry(searchParams, getMainDomain())
+
+  /** On to wherever they belong; the server decides (app/auth/continue). */
+  const goOn = async () => {
+    setIsRedirecting(true)
+    const { data } = await createClient().auth.getSession().catch(() => ({ data: { session: null } }))
+    await goOnAfterAuth(carry, data.session)
+  }
 
   const [code, setCode] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +55,7 @@ function VerifyContent() {
   const handleBackToSignup = async () => {
     const supabase = createClient()
     await supabase.auth.signOut({ scope: "local" })
-    window.location.href = "/signup"
+    window.location.href = withCarry("/signup", carry)
   }
 
   // Forward-redirect: if email is already verified, skip to next step
@@ -56,10 +69,10 @@ function VerifyContent() {
       .maybeSingle()
       .then(({ data }) => {
         if (data?.email_verified) {
-          router.replace("/signup/success")
+          void goOn()
         }
       })
-  }, [userId, router])
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-send email on mount if not already sent (e.g. direct navigation to this URL)
   useEffect(() => {
@@ -103,8 +116,7 @@ function VerifyContent() {
         throw new Error(data.error || "Verification failed")
       }
 
-      setIsRedirecting(true)
-      router.replace("/signup/success")
+      await goOn()
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Verification failed"
       if (msg.toLowerCase().includes("expired")) {
@@ -145,7 +157,7 @@ function VerifyContent() {
   }
 
   if (isRedirecting) {
-    return <AuthResolvingScreen message="Verified! Redirecting..." />
+    return <AuthResolvingScreen />
   }
 
   if (!userId || !email) {
@@ -157,7 +169,7 @@ function VerifyContent() {
             No user information was provided. Please sign up first.
           </p>
           <Link
-            href="/signup"
+            href={withCarry("/signup", carry)}
             className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-neutral-900 text-white font-medium hover:bg-neutral-800 transition-colors"
           >
             Go to signup
