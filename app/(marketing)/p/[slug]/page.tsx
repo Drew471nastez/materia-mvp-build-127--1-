@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation"
+import { CourseOutline } from "@/components/courses/course-outline"
 import { listPrice } from "@/lib/pricing/list-price"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
@@ -1305,56 +1306,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           )}
         </div>
 
+        {/* A course's lessons, counted and timed, its free previews playable here (components/courses/course-outline). */}
         {product.type === "course" && courseModules && courseModules.length > 0 && (
           <div className="mt-8 sm:mt-10">
-            <h2
-              className="mb-4 text-lg font-semibold"
-              style={{ color: themeColors.textColor || "var(--foreground)" }}
-            >
-              Course Curriculum
-            </h2>
-            <div className="space-y-3">
-              {courseModules.map((module, idx) => (
-                <div
-                  key={module.id}
-                  className="rounded-lg border p-4"
-                  style={{
-                    backgroundColor: themeColors.cardBackground || "var(--card)",
-                    borderColor: themeColors.cardBorderColor || "var(--border)",
-                  }}
-                >
-                  <h3
-                    className="font-medium"
-                    style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-                  >
-                    {idx + 1}. {module.title}
-                  </h3>
-                  {module.lessons && module.lessons.length > 0 && (
-                    <ul className="mt-3 space-y-2">
-                      {module.lessons.map((lesson) => (
-                        <li
-                          key={lesson.id}
-                          className="flex items-center gap-2 text-sm"
-                          style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                        >
-                          <div
-                            className="h-1.5 w-1.5 rounded-full shrink-0"
-                            style={{ backgroundColor: themeColors.cardPriceColor ? `${themeColors.cardPriceColor}80` : "var(--muted-foreground)" }}
-                          />
-                          <span className="min-w-0 flex-1 break-words">{lesson.title}</span>
-                          {lesson.is_preview ? <span className="shrink-0 text-xs font-medium">Free preview</span> : null}
-                          {lesson.duration_seconds ? (
-                            <span className="shrink-0 text-xs tabular-nums opacity-80">
-                              {Math.floor(lesson.duration_seconds / 60)}:{String(lesson.duration_seconds % 60).padStart(2, "0")}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
+            <CourseOutline
+              modules={courseModules}
+              colors={{
+                heading: themeColors.textColor,
+                card: themeColors.cardBackground,
+                cardBorder: themeColors.cardBorderColor,
+                cardText: themeColors.cardTextColor,
+                muted: themeColors.cardPriceColor,
+              }}
+            />
           </div>
         )}
 

@@ -135,6 +135,18 @@ const SCREEN: CreatorMembershipScreen = {
   paymentsReady: true,
 }
 
+/* A membership as the New product question makes it (lib/memberships/creator createMembershipProduct): a draft named Membership, no price, nothing posted, nobody in it. */
+const NEW_SCREEN: CreatorMembershipScreen = {
+  product: { id: "new1", title: "Membership", slug: "membership", description: "", status: "draft", thumbnail_url: null, descriptionText: "" },
+  plan: { monthlyPriceCents: null, yearlyPriceCents: null, trialDays: 0, benefits: [], includedProductIds: [] },
+  posts: [],
+  members: [],
+  stats: { members: 0, trialing: 0, pastDue: 0, cancelling: 0, monthlyCents: 0 },
+  products: SCREEN.products,
+  handle: "mateo",
+  paymentsReady: true,
+}
+
 const screen = new URLSearchParams(location.search).get("screen") || "list"
 
 function LibraryFrame({ children }: { children: React.ReactNode }) {
@@ -169,6 +181,12 @@ if (screen === "list" || screen === "list-empty") {
     <LibraryFrame>
       <MemberPage page={PAGE(screen === "member" ? "active" : screen === "past-due" ? "past_due" : "expired")} now={NOW} />
     </LibraryFrame>
+  )
+} else if (screen === "new") {
+  tree = (
+    <AppFrame>
+      <CreatorMembershipScreenView screen={NEW_SCREEN} initialTab={null} isNew />
+    </AppFrame>
   )
 } else if (screen === "creator" || screen === "members" || screen === "settings") {
   tree = (

@@ -66,7 +66,7 @@ function formatPrice(cents: number): string {
 
 /* The bar's price: a membership's is per month or year, "$9/month", as on the page above it. */
 function barPriceText(product: ProductData): string {
-  return product.price_cents ? perInterval(barPriceText(product), intervalOf(product)) : formatPrice(0)
+  return product.price_cents ? perInterval(formatPrice(product.price_cents), intervalOf(product)) : formatPrice(0)
 }
 
 function getButtonText(style: StickyAddToCartSettings["buttonStyle"]): string {

@@ -67,7 +67,8 @@ const isNew = location.search.includes("new")
 /* `layer`: the editor as a full screen layer over the app's header, the way
    the plans page is drawn (app/app/settings/billing/upgrade/layout.tsx). */
 const isLayer = location.search.includes("layer")
-const editor = <ProductEditor creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={isNew ? null : loaded} />
+/* `?new&course`: a new product picked as a Video course (app/app/products/new/kind-chooser), as the server page hands it over. */
+const editor = <ProductEditor creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={isNew ? null : loaded} startAs={location.search.includes("course") ? "course" : "digital"} />
 
 /*
   `route`: the list and the editor as the app draws them, with a router of

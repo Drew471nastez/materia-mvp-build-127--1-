@@ -43,6 +43,7 @@ import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "./editor-control
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import {
+  COURSE_WHATS_INCLUDED,
   DEFAULT_WHATS_INCLUDED,
   initialForm,
   parseYouTubeUrl,
@@ -54,6 +55,7 @@ import {
   type MediaItem,
   type ProductVariant,
   type UploadedFile,
+  swapDefaults,
 } from "./editor-form"
 import { LeaveButton, PRESS_CONTENT_OUT, PRESS_SPINNER_IN, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
 import { StatusBadge, iconButton } from "../../orders/order-parts"
@@ -258,11 +260,11 @@ let carriedNotice: string | null = null
 let carriedSavedAt: number | null = null
 let carriedScrollTop: number | null = null
 
-export function ProductEditor({ creator: loadedCreator, loaded }: { creator: EditorCreator; loaded: LoadedProduct | null }) {
+export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digital" }: { creator: EditorCreator; loaded: LoadedProduct | null; startAs?: "digital" | "course" }) {
   const router = useRouter()
   /* The form's first frame is the saved product (./editor-form.ts). Read once:
      a server render after a save hands new props that must not reset it. */
-  const [initial] = useState(() => initialForm(loaded))
+  const [initial] = useState(() => initialForm(loaded, startAs))
   const editProductId = loaded?.product.id ?? null
   /* The variants could not be read when the page was drawn (./load-editor.ts): the form shows none, and a save must not take that as all of them removed. */
   const variantsUnread = useRef(!!loaded?.variantsUnread)
@@ -515,6 +517,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [faqs, setFaqs] = useState<FAQItem[]>(initial.faqs)
   /* The FAQ card is folded to one line until it is opened or a question is added. */
   const [faqOpen, setFaqOpen] = useState(false)
+
+  /* Digital files or lessons, from the card's quiet switch: the kind's own default lines come with it, while nobody has changed them (./editor-form swapDefaults). */
+  const switchKind = (kind: "digital" | "course") => {
+    const next = swapDefaults(kind, whatsIncluded, faqs)
+    setProductType(kind)
+    setWhatsIncluded(next.whatsIncluded)
+    setFaqs(next.faqs)
+    setHasUnsavedChanges(true)
+  }
 
   // Category state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initial.selectedCategory)
@@ -1240,12 +1251,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     return saved?.productId ?? null
   }, [showToast])
 
-  /* /app/products/new?type=course: a new product that starts as a course (the old /app/courses/new lands here). */
-  useEffect(() => {
-    if (productId) return
-    if (new URLSearchParams(window.location.search).get("type") === "course") setProductType("course")
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  /* /app/products/new?type=course opens as a course from the server (./page.tsx startAs); the old /app/courses/new lands there. */
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -1732,6 +1738,77 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     </StatusBadge>
   ) : null
 
+  /*
+    THE FILES, OR FOR A COURSE ITS LESSONS (./course-editor.tsx). A course is
+    its lessons, so its card comes first, right under the title it needs
+    (a lesson saves the product as a draft, and a draft needs a name); a
+    digital product's files keep their place under the photos.
+  */
+  const filesCard = (
+    <div
+      ref={(el) => { sectionRefs.current.files = el }}
+      className={CARD}
+    >
+      {productType === "course" ? (
+        <div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h2 className={CARD_TITLE}>Lessons</h2>
+                <span className="text-red-500 text-sm">*</span>
+              </div>
+              <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
+                Buyers watch these in their library, and pick up where they left off.
+              </p>
+            </div>
+            {lessonCount === 0 ? (
+              <button type="button" data-make-digital onClick={() => switchKind("digital")} className="shrink-0 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
+                Sell files instead
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-4">
+            <CourseEditor
+              productId={productId}
+              ensureProductId={ensureProductForCourse}
+              onLessonCount={setLessonCount}
+              notify={showToast}
+            />
+          </div>
+        </div>
+      ) : (
+      <div>
+        <div className="flex items-center gap-1.5">
+          <h2 className={CARD_TITLE}>Digital Files</h2>
+          <span className="text-red-500 text-sm">*</span>
+        </div>
+        <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
+          Files customers receive after purchase. Several files? A ZIP keeps them together.
+        </p>
+
+        <DigitalFiles
+          files={digitalFiles}
+          uploads={fileUploads}
+          max={MAX_DIGITAL_FILES}
+          onPick={(files) => void handleFileUpload(files)}
+          onRename={(file, name) => setDigitalFiles(prev => prev.map(f => (f.file_path === file.file_path ? { ...f, file_name: name } : f)))}
+          onDelete={(file) => void handleDeleteFile(file)}
+          onNotice={showToast}
+        />
+        {digitalFiles.length === 0 && fileUploads.inFlight.length === 0 ? (
+          /* A quiet way across, for a product started as the wrong kind: the question before the editor is where a course is chosen now (./kind-chooser.tsx). */
+          <p className="mt-3 text-[13px] text-[#9ca3af]">
+            Video lessons instead of files?{" "}
+            <button type="button" data-make-course onClick={() => switchKind("course")} className="font-medium text-[#6b7280] underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
+              Make it a course
+            </button>
+          </p>
+        ) : null}
+      </div>
+      )}
+    </div>
+  )
+
   return (
     /*
       THE PANE THAT SCROLLS. From lg it is a column, so the foot bar can sit at
@@ -1831,7 +1908,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
           isScrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "",
         )}
       >
-        <h1 className="sr-only">{productId ? "Edit product" : "New product"}</h1>
+        <h1 className="sr-only">{productId ? "Edit product" : productType === "course" ? "New course" : "New product"}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 app-gutter sm:h-16 sm:px-6">
           <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
@@ -1872,7 +1949,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
             </span>
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">
-            {productId ? savedTitle.trim() || "Untitled" : "New product"}
+            {productId ? savedTitle.trim() || "Untitled" : productType === "course" ? "New course" : "New product"}
           </h1>
           {statusBadge ? <span className="ml-1 shrink-0">{statusBadge}</span> : null}
           <div className="ml-auto flex shrink-0 items-center pl-2">{moreMenu}</div>
@@ -1905,13 +1982,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   </div>
                   <Input
                     id="title"
-                    placeholder="Product title"
+                    placeholder={productType === "course" ? "Course title" : "Product title"}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="h-11 border-gray-200 bg-white text-sm sm:text-base"
                   />
                 </div>
               </div>
+
+              {productType === "course" ? filesCard : null}
 
               {/* Media Section */}
               <div
@@ -2171,7 +2250,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
                 <div className="space-y-2">
                   {whatsIncluded.map((item, index) => {
-                    const isDefaultItem = index < DEFAULT_WHATS_INCLUDED.length && DEFAULT_WHATS_INCLUDED[index] === item
+                    const isDefaultItem = DEFAULT_WHATS_INCLUDED[index] === item || COURSE_WHATS_INCLUDED[index] === item
                     return (
                       <div
                         key={index}
@@ -2226,68 +2305,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 )}
               </div>
 
-              {/* Digital Files Section, or for a course its lessons (./course-editor.tsx) */}
-              <div
-                ref={(el) => { sectionRefs.current.files = el }}
-                className={CARD}
-              >
-                {productType === "course" ? (
-                  <div>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h2 className={CARD_TITLE}>Lessons</h2>
-                          <span className="text-red-500 text-sm">*</span>
-                        </div>
-                        <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                          Buyers watch these in their library, and pick up where they left off.
-                        </p>
-                      </div>
-                      {lessonCount === 0 ? (
-                        <button type="button" onClick={() => { setProductType("digital"); setHasUnsavedChanges(true) }} className="shrink-0 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
-                          Sell files instead
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="mt-4">
-                      <CourseEditor
-                        productId={productId}
-                        ensureProductId={ensureProductForCourse}
-                        onLessonCount={setLessonCount}
-                        notify={showToast}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className={CARD_TITLE}>Digital Files</h2>
-                    <span className="text-red-500 text-sm">*</span>
-                  </div>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Files customers receive after purchase. Several files? A ZIP keeps them together.
-                  </p>
-
-                  <DigitalFiles
-                    files={digitalFiles}
-                    uploads={fileUploads}
-                    max={MAX_DIGITAL_FILES}
-                    onPick={(files) => void handleFileUpload(files)}
-                    onRename={(file, name) => setDigitalFiles(prev => prev.map(f => (f.file_path === file.file_path ? { ...f, file_name: name } : f)))}
-                    onDelete={(file) => void handleDeleteFile(file)}
-                    onNotice={showToast}
-                  />
-                  {digitalFiles.length === 0 && fileUploads.inFlight.length === 0 ? (
-                    <p className="mt-3 text-[13px] text-[#6b7280]">
-                      Selling a course?{" "}
-                      <button type="button" data-make-course onClick={() => { setProductType("course"); setHasUnsavedChanges(true) }} className="font-medium text-[#6d28d9] hover:text-[#5b21b6]">
-                        Add video lessons instead
-                      </button>
-                    </p>
-                  ) : null}
-                </div>
-                )}
-              </div>
+              {productType === "course" ? null : filesCard}
 
               {/* Variants Section */}
               <div

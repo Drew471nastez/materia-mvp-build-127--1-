@@ -111,6 +111,15 @@ console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it
   check("no screen concatenates SMALL after a button any more; every one goes through cn()", concatenated.length === 0, concatenated)
 }
 
+/* THE BUY BAR'S PRICE NEVER CALLS ITSELF. A find-and-replace once turned
+   barPriceText's own body into barPriceText(product), which threw "Maximum
+   call stack size exceeded" on every priced product page. */
+{
+  const src = require("node:fs").readFileSync("components/store-builder/sticky-add-to-cart.tsx", "utf8") as string
+  const body = src.match(/function barPriceText\(product: ProductData\): string \{([\s\S]*?)\n\}/)?.[1] ?? ""
+  check("the sticky buy bar's price is formatted, not recursive", body.length > 0 && !/barPriceText\(/.test(body) && /formatPrice\(product\.price_cents\)/.test(body))
+}
+
 membershipPrices().then(() => {
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)
