@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, Upload, Loader2 } from "lucide-react"
@@ -128,6 +129,7 @@ export function OnepageAvatarPicker({
       const fileName = `${user.id}/${folder}/avatar-${Date.now()}.jpg`
       const { error } = await supabase.storage.from(bucket).upload(fileName, blob, { upsert: true })
       if (error) throw error
+      confirmUpload(bucket, fileName)
 
       const {
         data: { publicUrl },

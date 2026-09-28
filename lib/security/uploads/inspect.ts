@@ -17,8 +17,9 @@
  *   detectedType  what the bytes say the file is
  *   safeName      the name to keep and to hand back (filename.ts)
  *
- * In order: the size; the name (a program's extension anywhere, hidden
- * direction marks); the declared type; the first bytes (a program, a script
+ * In order: the size; the name (its extension read the way Windows reads it,
+ * trailing dots, spaces and stream names and all, and hidden direction marks
+ * that turn "invoice\u202Efdp.exe" into "invoiceexe.pdf"); the declared type; the first bytes (a program, a script
  * or a web page behind a document's name, the EICAR test file); what the
  * context requires (a picture must be a picture); and, for a ZIP, its table
  * of contents (zip.ts). The checks are cheap and bounded: a ZIP's directory is
@@ -38,15 +39,26 @@ import { extensionOf, hasHiddenFormatting, sanitizeDisplayName } from "./filenam
 import {
   ARCHIVE_LIMITS,
   BINARY_MEDIA_EXTENSIONS,
-  BLOCKED_EXTENSIONS,
   DANGEROUS_DECLARED_TYPES,
   DOCUMENT_OR_MEDIA_EXTENSIONS,
+  extensionAllowed,
   MAX_UPLOAD_BYTES,
+  SHEBANG_IS_A_DISGUISE,
   userMessage,
   type UploadContext,
   type UserFacingCode,
 } from "./policy"
-import { checkZipDirectory, readZipDirectory, THEME_BLOCKED_INSIDE, type RangeReader, type ZipFindingCode, type ZipReadResult } from "./zip"
+import {
+  checkZipDirectory,
+  readZipDirectory,
+  verifyZipEntries,
+  THEME_BLOCKED_INSIDE,
+  ZIP_VERIFY_BUDGET,
+  type BoundedInflate,
+  type RangeReader,
+  type ZipFindingCode,
+  type ZipReadResult,
+} from "./zip"
 
 /** Why a file was refused. */
 export type RefusalCode =
@@ -78,6 +90,8 @@ export type NoteCode =
   | "zip_nested_archive"
   | "zip_hidden_formatting"
   | "zip_directory_cut_short"
+  | "zip_sizes_not_verified"
+  | "zip_behind_another_format"
 
 export interface VerdictNote {
   code: NoteCode
@@ -90,6 +104,8 @@ export interface ArchiveSummary {
   totalUncompressed: number
   encrypted: number
   nestedArchives: number
+  /** Entries actually unpacked to check their declared size. */
+  verified?: number
 }
 
 export interface UploadVerdict {
@@ -116,6 +132,13 @@ export interface InspectInput {
   context: UploadContext
   /** A Range read of the same file, for a ZIP directory not in `tail`. */
   readRange?: RangeReader
+  /**
+   * Unpacks a bounded prefix of a few of an archive's entries, so the sizes
+   * it declares are tested rather than believed (zip.ts verifyZipEntries).
+   * Server side only: lib/security/uploads/stored.ts passes it. Without it
+   * the archive is judged on its table of contents alone, as before.
+   */
+  inflate?: BoundedInflate
   /** How long the archive read may take. Default 2.5 s. */
   budgetMs?: number
   /** A different size limit (an email picture is smaller than a cover). */
@@ -210,7 +233,7 @@ export function precheckUpload(input: PrecheckInput): UploadVerdict {
 
   if (!Number.isFinite(size) || size <= 0) return refused("empty", "empty", "the file has no bytes", base, input.context)
   if (size > limit) return refused("too_large", "too_large", `${size} bytes, over ${limit}`, base, input.context, limit)
-  if (BLOCKED_EXTENSIONS.has(ext)) return refused("blocked_extension", "unsupported_type", `.${ext} is a program or launcher`, base, input.context)
+  if (!extensionAllowed(ext, input.context)) return refused("blocked_extension", "unsupported_type", `.${ext} is a program or launcher`, base, input.context)
   if (DANGEROUS_DECLARED_TYPES.has(declared)) return refused("dangerous_declared_type", "unsupported_type", `declared as ${declared}`, base, input.context)
   if (hasHiddenFormatting(input.fileName)) notes.push({ code: "hidden_formatting_in_name", detail: "direction or invisible characters removed from the name" })
 
@@ -265,7 +288,7 @@ export function inspectHead(input: InspectInput): UploadVerdict {
   const shebang = s.mime === "text/x-shellscript"
 
   /* A script behind a document or media name. */
-  if (shebang && (DOCUMENT_OR_MEDIA_EXTENSIONS.has(ext) || context !== "product_file")) {
+  if (shebang && (SHEBANG_IS_A_DISGUISE.has(ext) || context !== "product_file")) {
     return refused("script_in_document", "not_accepted", `a script named .${ext || "(none)"}`, base, context)
   }
   if (text && BINARY_MEDIA_EXTENSIONS.has(ext) && SCRIPT_TEXT.some((re) => re.test(text))) {
@@ -306,30 +329,77 @@ export function inspectHead(input: InspectInput): UploadVerdict {
 
 /**
  * Everything: inspectHead(), then a ZIP's table of contents. Never throws.
+ *
+ * WHETHER THIS IS AN ARCHIVE IS DECIDED BY ITS END, NOT ITS START. A ZIP is
+ * defined by the end of central directory record at the end of the file, and
+ * every unpacker on every platform finds it there: anything at all may sit in
+ * front of it. So "%PDF-1.4" and some padding glued in front of an archive
+ * opens as an archive on a double click while its first bytes read as a PDF,
+ * and reading the first bytes alone was how a ZIP holding setup.exe and
+ * "../../evil.exe" came through with no ZIP check made and nothing written
+ * down. The end is read for EVERY file that has one, whatever the start said,
+ * and only a file with no end record at all is treated as not an archive.
+ *
+ * Pictures and videos are the exception: those contexts already require the
+ * bytes to be a real picture or a real video, and are served as one, so an
+ * archive glued to the end of one is never unpacked by anything.
  */
 export async function inspectUpload(input: InspectInput): Promise<UploadVerdict> {
   try {
     const first = inspectHead(input)
-    if (!first.ok || first.detectedType !== "application/zip" || input.context === "public_image" || input.context === "video") return first
+    if (!first.ok || input.context === "public_image" || input.context === "video") return first
+    /* No end to read and no way to read one: nothing more can be known here. */
+    if (!input.tail && !input.readRange) return first
 
     const theme = input.context === "theme_package"
     const limits = ARCHIVE_LIMITS[theme ? "theme" : "product"]
     const deadline = Date.now() + (input.budgetMs ?? 2500)
     const notes = [...first.notes]
-    const read: ZipReadResult = await readZipDirectory({ size: input.size, tail: input.tail, read: input.readRange, limits, deadline }).catch(
-      (e: unknown): ZipReadResult => ({ ok: false, reason: "unreadable", detail: e instanceof Error ? e.message : "read failed" }),
+    const read: ZipReadResult = await readZipDirectory({
+      size: input.size,
+      tail: input.tail,
+      read: input.readRange,
+      limits,
+      deadline,
+      looksLikeZip: first.detectedType === "application/zip",
+    }).catch(
+      (e: unknown): ZipReadResult => ({ ok: false, reason: "read_failed", detail: e instanceof Error ? e.message : "read failed", isZip: false }),
     )
     if (read.ok === false) {
       const failed = read as Extract<ZipReadResult, { ok: false }>
-      if (failed.reason === "directory_too_large" && (failed.declaredEntries ?? 0) > limits.maxEntries) {
-        return refused("zip_too_many_entries", "not_accepted", `${failed.declaredEntries} entries`, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context)
+      /*
+        AN ARCHIVE WHOSE LIST CANNOT BE READ IS REFUSED, NOT WAVED THROUGH.
+        This used to be a note, which let the uploader choose when the checks
+        did not run: a list padded past the ceiling, or one that does not
+        parse, skipped every check inside and the file was kept. It is an
+        archive (its end record says so) and nothing inside it is known, so it
+        does not go in.
+      */
+      if (failed.isZip) {
+        if ((failed.declaredEntries ?? 0) > limits.maxEntries) {
+          return refused("zip_too_many_entries", "not_accepted", `${failed.declaredEntries} entries, over ${limits.maxEntries}`, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context)
+        }
+        return refused("zip_directory_unreadable", "not_accepted", `${failed.reason}: ${failed.detail}`, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context)
       }
+      /* Not an archive at all: the other checks are the whole answer. */
+      if (failed.reason === "not_a_zip" || failed.reason === "bad_directory" || failed.reason === "directory_too_large") {
+        if (theme) return refused("not_a_zip", "unsupported_type", failed.detail, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context)
+        return first
+      }
+      /* Storage would not answer. An outage must not lose somebody's upload,
+         so it is kept and written down for the admin. */
       if (theme) return refused("not_a_zip", "unsupported_type", failed.detail, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context)
       notes.push({ code: "zip_not_inspected", detail: `${failed.reason}: ${failed.detail}` })
       return { ...first, notes, archive: { inspected: false, entries: 0, totalUncompressed: 0, encrypted: 0, nestedArchives: 0 } }
     }
 
-    const report = checkZipDirectory((read as Extract<ZipReadResult, { ok: true }>).dir, input.size, limits, theme ? THEME_BLOCKED_INSIDE : undefined)
+    const dir = (read as Extract<ZipReadResult, { ok: true }>).dir
+    /* The bytes said one thing and the end of the file said archive: kept for
+       the admin, because that pairing is how a check gets skipped. */
+    if (first.detectedType !== "application/zip") {
+      notes.push({ code: "zip_behind_another_format", detail: `read as ${first.detectedType ?? "an unknown format"}, and an archive at its end` })
+    }
+    const report = checkZipDirectory(dir, input.size, limits, theme ? THEME_BLOCKED_INSIDE : undefined)
     const archive: ArchiveSummary = {
       inspected: true,
       entries: report.entries,
@@ -340,6 +410,18 @@ export async function inspectUpload(input: InspectInput): Promise<UploadVerdict>
     for (const n of report.notes) notes.push(n)
     if (report.refusal) {
       return { ...refused(report.refusal.code, "not_accepted", report.refusal.detail, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context), archive }
+    }
+
+    /* The list said nothing wrong; now a few entries are unpacked to see
+       whether the sizes it gave are true. Bounded, and skipped when the time
+       is gone: an archive is never left waiting on this. */
+    if (input.inflate && input.readRange && dir.entries.length > 0 && Date.now() < deadline) {
+      const verified = await verifyZipEntries(dir, input.readRange, input.inflate, { ...ZIP_VERIFY_BUDGET, deadline })
+      archive.verified = verified.checked
+      if (verified.refusal) {
+        return { ...refused(verified.refusal.code, "not_accepted", verified.refusal.detail, { safeName: first.safeName, detectedType: first.detectedType, notes }, input.context), archive }
+      }
+      if (verified.note) notes.push({ code: "zip_sizes_not_verified", detail: verified.note })
     }
     return { ...first, notes, archive }
   } catch (e) {

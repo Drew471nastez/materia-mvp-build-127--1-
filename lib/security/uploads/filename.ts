@@ -31,8 +31,14 @@ export function hasHiddenFormatting(name: string): boolean {
 
 /**
  * The last extension of a name, the way Windows would read it: trailing dots
- * and spaces dropped, hidden formatting removed, lower case, letters and
- * digits only. "" when there is none.
+ * and spaces dropped, hidden formatting removed, lower case. "" when there is
+ * none.
+ *
+ * THE EXTENSION ENDS AT THE FIRST CHARACTER THAT IS NOT A LETTER OR A DIGIT,
+ * it is not those characters deleted. Deleting them read "a.exe:x" as "exex",
+ * which is on no blocked list, while NTFS writes that name as a.exe with a
+ * second stream hanging off it: the file that runs is still setup.exe. The
+ * same cut catches "a.exe " and "a.exe\u0000.txt".
  */
 export function extensionOf(name: string): string {
   const cleaned = String(name ?? "")
@@ -40,22 +46,34 @@ export function extensionOf(name: string): string {
     .replace(CONTROL, "")
     .split(/[\\/]/)
     .pop()!
+    /* Everything after a colon is an NTFS stream name, not part of the file:
+       "setup.exe:notes.txt" writes setup.exe and hangs notes.txt off it. */
+    .split(":")[0]
     .replace(/[\s.]+$/, "")
   const dot = cleaned.lastIndexOf(".")
   if (dot <= 0 && !cleaned.startsWith(".")) return ""
-  return cleaned
-    .slice(dot + 1)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 16)
+  const after = cleaned.slice(dot + 1).trim().toLowerCase()
+  return (/^[a-z0-9]*/.exec(after)?.[0] ?? "").slice(0, 16)
 }
 
-/** Every extension in a name after the first dot: "a.tar.gz" is ["tar", "gz"]. */
+/**
+ * Every extension in a name after the first dot: "a.tar.gz" is ["tar", "gz"],
+ * and "invoice.pdf.exe" is ["pdf", "exe"]. What a name PROMISES as well as
+ * what it is, which is what catches a program wearing a document's name even
+ * when the last extension is not the dangerous one.
+ */
 export function extensionsOf(name: string): string[] {
-  const base = String(name ?? "").replace(BIDI_AND_INVISIBLE, "").split(/[\\/]/).pop()!.replace(/[\s.]+$/, "")
-  const parts = base.split(".").slice(1)
-  return parts.map((p) => p.trim().toLowerCase().replace(/[^a-z0-9]/g, "")).filter(Boolean)
+  const base = String(name ?? "")
+    .replace(BIDI_AND_INVISIBLE, "")
+    .replace(CONTROL, "")
+    .split(/[\\/]/)
+    .pop()!
+    .replace(/[\s.]+$/, "")
+  return base
+    .split(".")
+    .slice(1)
+    .map((p) => /^[a-z0-9]*/.exec(p.trim().toLowerCase())?.[0] ?? "")
+    .filter(Boolean)
 }
 
 /**
@@ -149,9 +167,24 @@ export function isContainedPath(path: unknown): path is string {
  * backslash is read as a folder separator first, as Windows unpackers do,
  * so "..\\..\\x" is caught and "folder\\file.wav" (written by some old
  * Windows tools) is not.
+ *
+ * EACH SEGMENT IS READ THE WAY THE COMPUTER THAT UNPACKS IT WILL READ IT,
+ * not as the bytes in the archive. Windows drops trailing dots and spaces
+ * from a name, so ".. " and ".._" with a zero width joiner in it are both
+ * "..'' by the time the folder is made, and comparing the raw text let every
+ * one of those through as an ordinary folder name.
  */
 export function isTraversalPath(entryName: string): boolean {
-  const name = String(entryName ?? "").replace(/\\/g, "/")
+  const name = String(entryName ?? "")
+    .replace(BIDI_AND_INVISIBLE, "")
+    .replace(CONTROL, "")
+    .replace(/\\/g, "/")
   if (name.startsWith("/") || /^[A-Za-z]:/.test(name) || name.startsWith("//")) return true
-  return name.split("/").some((p) => p === "..")
+  return name.split("/").some((part) => {
+    /* Windows drops the spaces at the end of a folder name, so ".. " makes
+       the same folder ".." does. Dots are not dropped from a name that is
+       only dots, which is why they are kept here and counted instead. */
+    const seg = part.replace(/\s+$/, "")
+    return seg.length >= 2 && /^\.+$/.test(seg)
+  })
 }

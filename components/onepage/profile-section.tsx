@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -49,6 +50,7 @@ export function ProfileSection() {
         .upload(fileName, photo.blob, { upsert: true, contentType: photo.mimeType })
 
       if (uploadErr) throw uploadErr
+      confirmUpload("avatars", fileName)
 
       const { data: { publicUrl } } = supabase.storage
         .from("avatars")

@@ -37,6 +37,9 @@ function fakeUploads(list: FileUpload[]): FileUploads {
     rowKeyOf: (f: UploadedFile) => f.id ?? f.file_path,
     seqOf: (f: UploadedFile) => (f.id === "saved-1" ? 1 : f.id === "saved-2" ? 5 : 9),
     inFlight: list.filter((u) => u.status !== "complete" && u.status !== "aborted"),
+    /* The picked File behind a saved row, for "save a copy". Nothing is
+       picked in a probe, so every row is a saved one. */
+    localOf: () => null,
   } as unknown as FileUploads
 }
 
@@ -107,6 +110,8 @@ const overview: SecurityOverview = {
       "Scripts and web pages behind a document's name",
       "EICAR test file",
       "ZIP contents: bombs, ../ paths, launchers inside",
+      "An archive's declared sizes tested by unpacking a little of it",
+      "Files a browser sent straight to a public bucket, read back from storage",
       "Name cleaned for storage and download",
       "Size limit per kind of upload",
     ],
@@ -114,6 +119,7 @@ const overview: SecurityOverview = {
     limits: { product_file: "10 GB", link_page_file: "1 GB", public_image: "25 MB", video: "1.9 GB", theme_package: "50 MB" },
     archive: { entries: 200000, unpacked: "100 GB", ratio: 1100 },
     signedUrlSeconds: 300,
+    fingerprintMaxBytes: "2 GB",
   },
   counts: {
     day: { refused: 3, noted: 7, denied: 2, limited: 1, removed: 0 },

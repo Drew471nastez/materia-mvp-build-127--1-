@@ -69,5 +69,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "67", file: "67_applied_parts.sql", sha256: "08d9290e042ca7e3d9b63c2efcbcb5f0e3115a656b5f43202451fdc925e1bf06" },
   { part: "68", file: "68_errors_and_job_runs.sql", sha256: "728471bf45c353e66c251814848c70ae05d2f959652c6cf350cf36852ec5b476" },
   { part: "69", file: "69_stripe_requirements.sql", sha256: "bffe5658dcf65f1dfda09ff1b45cc2814862aad1a97ad618e78ea47622599ab3" },
+  { part: "70", file: "70_public_upload_safety.sql", sha256: "873a6d18cd4194d938f12e6f5e6a9bf885bf277af950716592eb48d70d64ec20" },
   { part: "90", file: "90_storage_policies_needs_owner.sql", sha256: "ddc22cfc130759fbfacb45536938c90e20f1aec09c5d3ee4db92f4450a763149" },
 ]

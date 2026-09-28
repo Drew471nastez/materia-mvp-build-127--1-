@@ -9,7 +9,14 @@
  * of contents that claims sizes its data does not have, and the EICAR string
  * is the industry's harmless test file.
  *
- * Pure.
+ * One of them does hold real packed data: the archive that LIES about its
+ * sizes, which is the only way to try the check that unpacks a little
+ * (zip.ts verifyZipEntries). Its entry is a few kilobytes of DEFLATE written
+ * by hand here, which unpacks to eight megabytes of zeros while the table of
+ * contents claims four kilobytes. Zeros, so nothing runs and nothing is
+ * stored: it exists to be counted.
+ *
+ * Pure: no node:zlib, no network, nothing on disk.
  */
 
 const enc = new TextEncoder()
@@ -43,12 +50,68 @@ export function pdfBytes(): Uint8Array {
 export interface ZipSpec {
   name: string
   data?: Uint8Array
+  /** Real DEFLATE bytes for this entry, so unpacking it produces something. */
+  deflated?: Uint8Array
   /** Claimed in the directory instead of the real sizes (a crafted zip bomb). */
   claimUncompressed?: number
   claimCompressed?: number
   encrypted?: boolean
   /** Point this entry's directory record at an earlier entry's data (an overlapping bomb). */
   sameDataAs?: number
+}
+
+/* ── A run of zeros, packed by hand ──────────────────────────────────── */
+
+/**
+ * Bits into bytes, both ways round: DEFLATE writes its own fields from the
+ * low bit up and its Huffman codes from the high bit down.
+ */
+class BitWriter {
+  private readonly bytes: number[] = []
+  private cur = 0
+  private nbits = 0
+  private bit(b: number) {
+    this.cur |= (b & 1) << this.nbits
+    if (++this.nbits === 8) {
+      this.bytes.push(this.cur)
+      this.cur = 0
+      this.nbits = 0
+    }
+  }
+  /** A plain field: lowest bit first. */
+  field(value: number, count: number) {
+    for (let i = 0; i < count; i++) this.bit(value >> i)
+  }
+  /** A Huffman code: highest bit first. */
+  code(value: number, count: number) {
+    for (let i = count - 1; i >= 0; i--) this.bit(value >> i)
+  }
+  finish(): Uint8Array {
+    if (this.nbits > 0) this.bytes.push(this.cur)
+    return new Uint8Array(this.bytes)
+  }
+}
+
+/**
+ * Raw DEFLATE (no zlib wrapper) for a run of zero bytes: one fixed Huffman
+ * block, a single literal, then "copy 258 bytes from one byte back" over and
+ * over. Thirteen bits buy 258 bytes, so the result is about 1 to 158, which
+ * is what makes an archive able to lie about its sizes at all.
+ *
+ * Returns the packed bytes; `unpackedSize` says exactly what they unpack to.
+ */
+export function deflateZeros(atLeastBytes: number): { packed: Uint8Array; unpackedSize: number } {
+  const matches = Math.max(1, Math.ceil((atLeastBytes - 1) / 258))
+  const w = new BitWriter()
+  w.field(1, 1) /* last block */
+  w.field(1, 2) /* fixed Huffman */
+  w.code(0x30, 8) /* literal 0x00 */
+  for (let i = 0; i < matches; i++) {
+    w.code(0xc5, 8) /* length 258 */
+    w.code(0x00, 5) /* distance 1 */
+  }
+  w.code(0x00, 7) /* end of block */
+  return { packed: w.finish(), unpackedSize: 1 + matches * 258 }
 }
 
 function le16(n: number) {
@@ -58,24 +121,32 @@ function le32(n: number) {
   return [n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff]
 }
 
-/** A ZIP with the entries stored (not compressed), and a directory that says what `spec` says. */
+/** The method an entry is written with: DEFLATE when it holds packed data or claims to. */
+function methodOf(e: ZipSpec): number {
+  return e.deflated || e.claimUncompressed ? 8 : 0
+}
+
+/**
+ * A ZIP whose entries are stored as they are given (or packed, when `deflated`
+ * is), and whose directory says whatever `spec` says, true or not.
+ */
 export function buildZip(entries: ZipSpec[]): Uint8Array {
   const parts: number[] = []
   const offsets: number[] = []
   const names = entries.map((e) => enc.encode(e.name))
   entries.forEach((e, i) => {
     offsets.push(parts.length)
-    const data = e.data ?? new Uint8Array(0)
+    const data = e.deflated ?? e.data ?? new Uint8Array(0)
     const flags = (e.encrypted ? 1 : 0) | 0x800
-    parts.push(...le32(0x04034b50), ...le16(20), ...le16(flags), ...le16(0), ...le16(0), ...le16(0), ...le32(0))
-    parts.push(...le32(data.length), ...le32(data.length), ...le16(names[i].length), ...le16(0))
+    parts.push(...le32(0x04034b50), ...le16(20), ...le16(flags), ...le16(methodOf(e)), ...le16(0), ...le16(0), ...le32(0))
+    parts.push(...le32(data.length), ...le32(e.claimUncompressed ?? data.length), ...le16(names[i].length), ...le16(0))
     parts.push(...names[i], ...data)
   })
   const cdStart = parts.length
   entries.forEach((e, i) => {
-    const data = e.data ?? new Uint8Array(0)
+    const data = e.deflated ?? e.data ?? new Uint8Array(0)
     const flags = (e.encrypted ? 1 : 0) | 0x800
-    const method = e.claimUncompressed ? 8 : 0
+    const method = methodOf(e)
     const at = e.sameDataAs !== undefined ? offsets[e.sameDataAs] : offsets[i]
     parts.push(...le32(0x02014b50), ...le16(20), ...le16(20), ...le16(flags), ...le16(method), ...le16(0), ...le16(0), ...le32(0))
     parts.push(...le32(e.claimCompressed ?? data.length), ...le32(e.claimUncompressed ?? data.length))
@@ -100,6 +171,7 @@ export type SampleId =
   | "zip_bomb"
   | "zip_overlap"
   | "zip_with_program"
+  | "zip_lying_sizes"
 
 export interface Sample {
   id: SampleId
@@ -142,4 +214,11 @@ export const SAMPLES: readonly Sample[] = [
     bytes: () => buildZip([{ name: "a.txt", data: enc.encode("aaaa") }, { name: "b.txt", data: enc.encode("aaaa"), sameDataAs: 0 }]),
   },
   { id: "zip_with_program", label: "A ZIP with setup.exe inside", fileName: "installer.zip", expect: "refused", bytes: () => buildZip([{ name: "readme.txt", data: enc.encode("hi") }, { name: "setup.exe", data: peHeaderBytes() }]) },
+  {
+    id: "zip_lying_sizes",
+    label: "An archive whose list claims 4 KB and whose entry unpacks to 8 MB",
+    fileName: "pack.zip",
+    expect: "refused",
+    bytes: () => buildZip([{ name: "readme.txt", data: enc.encode("hi") }, { name: "data.bin", deflated: deflateZeros(8 * 1024 * 1024).packed, claimUncompressed: 4096 }]),
+  },
 ]

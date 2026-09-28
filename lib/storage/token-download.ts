@@ -23,6 +23,7 @@ import { NextResponse } from "next/server"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { addressSubject, callerAddress, rateLimit } from "@/lib/api/rate-limit"
+import { DOWNLOAD_TOO_MANY, DOWNLOAD_USER_WINDOWS, logDownloadLimit } from "./download-limits"
 import { isUuid } from "@/lib/receipts/rules"
 import { BUNDLE_THRESHOLD, ensureProductBundle, getBundleSignedUrl } from "@/lib/bundles"
 import {
@@ -50,19 +51,26 @@ export async function serveTokenDownload(
   request: Request,
   admin: SupabaseClient,
   token: string | null | undefined,
-  options: { bundles?: boolean } = {},
+  options: { bundles?: boolean; userId?: string | null } = {},
 ): Promise<NextResponse> {
+  const userId = options.userId ?? null
   /* The column is a uuid: anything else is not a link we sent. Refused
      before any query, and before it can count against the address. */
   if (!token || !isUuid(token)) return json({ error: "Invalid or expired download link" }, 404)
 
+  /* The address, the link itself, and, when somebody is signed in, the
+     account (lib/storage/download-limits.ts). A guest with a link from their
+     email has no account, so the first two are their whole limit, as before. */
   const limited = await rateLimit({
     bucket: "download",
-    subjects: [addressSubject(request), `token:${token}`],
-    windows: TOKEN_DOWNLOAD_WINDOWS,
-    message: "That is a lot of downloads at once. Wait a minute and try again.",
+    subjects: [addressSubject(request), `token:${token}`, userId ? `user:${userId}` : null],
+    windows: userId ? [...TOKEN_DOWNLOAD_WINDOWS, ...DOWNLOAD_USER_WINDOWS] : TOKEN_DOWNLOAD_WINDOWS,
+    message: DOWNLOAD_TOO_MANY,
   })
-  if (limited) return limited
+  if (limited) {
+    logDownloadLimit({ code: "download_link", userId, ip: callerAddress(request) })
+    return limited
+  }
 
   const validation = await validateDownloadToken(admin, token)
   if (!validation.valid) return json({ error: validation.reason }, validation.status)

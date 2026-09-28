@@ -42,6 +42,15 @@ export async function resolveDownloadAccess(
      migrations, and this row never leaves the server. */
   const { data: row, error } = await admin.from("digital_assets").select("*").eq("id", input.assetId).maybeSingle()
   if (error || !row || !row.product_id) return NOT_FOUND
+  /*
+    A ROW AN UPLOAD PREPARED AND NEVER FINISHED IS NOT A FILE ANYBODY BOUGHT.
+    It may name a path whose bytes were refused and removed, or one that never
+    arrived. Read here rather than in the query, because the column arrived in
+    a later migration and a row from before it has none: those are real files,
+    and they still count.
+  */
+  const uploadState = typeof row.upload_status === "string" ? row.upload_status : ""
+  if (uploadState && uploadState !== "completed") return NOT_FOUND
 
   const { data: product } = await admin.from("products").select("id, creator_id").eq("id", row.product_id).maybeSingle()
 
@@ -76,6 +85,10 @@ export async function resolveDownloadAccess(
         ? admin.from("creators").select("id").eq("id", asset.creator_id).eq("user_id", input.userId).maybeSingle()
         : Promise.resolve({ data: null }),
       admin.from("orders").select("*").eq("buyer_id", input.userId).eq("product_id", asset.product_id),
+      /* Whole rows, and no status or expiry filter: this database's
+         entitlements have neither column. A refund DELETES the row
+         (lib/stripe/refund-sync.ts), so an entitlement that is there is one
+         that still stands. If an expiry is ever added, it is filtered here. */
       admin.from("entitlements").select("*").eq("buyer_id", input.userId).eq("product_id", asset.product_id),
     ])
     isCreator = !!(creatorRes as any).data

@@ -117,6 +117,29 @@ export const BLOCKED_IN_ARCHIVE: ReadonlySet<string> = new Set([
   "ps1", "psm1", "sct", "shs", "shb", "gadget", "application",
 ])
 
+/**
+ * SOURCE CODE A CREATOR SELLS AS ONE FILE. Every one of these is on the list
+ * above, because a public bucket serves them and a browser or a shell runs
+ * some of them. A PRODUCT file is not served: it is handed over as a download
+ * from a private bucket, to somebody who bought it because it is code, and
+ * nothing on Storelib ever runs it.
+ *
+ * Refusing them cost real sales. ".jsx" is the After Effects script
+ * extension and script packs are a mainstream product here; a Figma plugin,
+ * a build script, a Blender or Maya add-on and a single Python tool are all
+ * one file with one of these names. They are allowed for `product_file` and
+ * refused everywhere else, which is where they could be opened.
+ */
+export const SOURCE_EXTENSIONS_FOR_PRODUCTS: ReadonlySet<string> = new Set([
+  "js", "jsx", "mjs", "cjs", "py", "pyw", "rb", "pl", "php", "sh", "bash", "csh", "ksh", "zsh", "asp", "aspx", "jsp",
+])
+
+/** Whether this extension may be a whole upload in this context. */
+export function extensionAllowed(ext: string, context: UploadContext): boolean {
+  if (!BLOCKED_EXTENSIONS.has(ext)) return true
+  return context === "product_file" && SOURCE_EXTENSIONS_FOR_PRODUCTS.has(ext)
+}
+
 /** Declared types that say "program" whatever the name is. */
 export const DANGEROUS_DECLARED_TYPES: ReadonlySet<string> = new Set([
   "application/x-msdownload",
@@ -144,6 +167,15 @@ export const DOCUMENT_OR_MEDIA_EXTENSIONS: ReadonlySet<string> = new Set([
   "zip",
 ])
 
+/**
+ * Extensions where a first line of "#!" is a disguise rather than the file.
+ * A .txt or a .csv that starts with "#!" is a text file whose first line
+ * happens to be that, and refusing those was refusing ordinary writing.
+ */
+export const SHEBANG_IS_A_DISGUISE: ReadonlySet<string> = new Set(
+  [...DOCUMENT_OR_MEDIA_EXTENSIONS].filter((e) => e !== "txt" && e !== "csv"),
+)
+
 /** Binary media: text of any kind inside one of these is a disguise. */
 export const BINARY_MEDIA_EXTENSIONS: ReadonlySet<string> = new Set([
   "pdf", "jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "tif", "tiff", "heic", "heif",
@@ -165,7 +197,7 @@ export interface ArchiveLimits {
   maxNestedArchives: number
   /** Folder depth of one entry's path. */
   maxPathDepth: number
-  /** The most of the central directory read to inspect it. */
+  /** The most of the central directory read to inspect it. Past this the archive is refused, never kept unread. */
   maxDirectoryBytes: number
 }
 
@@ -184,7 +216,10 @@ export const ARCHIVE_LIMITS: Record<"product" | "theme", ArchiveLimits> = {
     ratioFloorBytes: 10 * MB,
     maxNestedArchives: 2000,
     maxPathDepth: 48,
-    maxDirectoryBytes: 32 * MB,
+    /* 200,000 entries with long paths: a real sample pack's list fits, and
+       an archive whose list is larger than this is refused rather than kept
+       unchecked (lib/security/uploads/inspect.ts). */
+    maxDirectoryBytes: 64 * MB,
   },
   theme: {
     maxEntries: 5000,
@@ -193,7 +228,7 @@ export const ARCHIVE_LIMITS: Record<"product" | "theme", ArchiveLimits> = {
     ratioFloorBytes: 1 * MB,
     maxNestedArchives: 0,
     maxPathDepth: 24,
-    maxDirectoryBytes: 4 * MB,
+    maxDirectoryBytes: 8 * MB,
   },
 }
 

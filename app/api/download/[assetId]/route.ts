@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { SIGNED_URL_EXPIRY_SECONDS } from "@/lib/security"
-import { rateLimit, addressSubject, callerAddress } from "@/lib/api/rate-limit"
+import { callerAddress } from "@/lib/api/rate-limit"
+import { downloadRateLimit, purchaseRateLimit } from "@/lib/storage/download-limits"
 import { resolveDownloadAccess } from "@/lib/receipts/download-access"
 import { DENY_MESSAGES, isUuid } from "@/lib/receipts/rules"
 import { gateDownload } from "@/lib/storage/scan-gate"
@@ -26,12 +27,6 @@ export const dynamic = "force-dynamic"
  * the order beyond the reason it was refused.
  */
 
-/** Far above a person clicking through their files, far below a crawler. */
-const DOWNLOAD_WINDOWS = [
-  { limit: 30, seconds: 60 },
-  { limit: 300, seconds: 3600 },
-] as const
-
 const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function GET(request: Request, { params }: { params: Promise<{ assetId: string }> }) {
@@ -39,15 +34,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
   if (!isUuid(assetId)) {
     return NextResponse.json({ error: "File not found" }, { status: 404, headers: NO_STORE })
   }
-
-  const limited = await rateLimit({
-    bucket: "download",
-    subjects: [addressSubject(request)],
-    windows: DOWNLOAD_WINDOWS,
-    message: "That is a lot of downloads at once. Wait a minute and try again.",
-  })
-  if (limited) runAfterResponse(() => logSecurityEvent(createAdminClient(), { event: "rate_limit", outcome: "limited", code: "download", assetId, ip: callerAddress(request) }))
-  if (limited) return limited
 
   try {
     const receiptToken = new URL(request.url).searchParams.get("receipt")
@@ -63,6 +49,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     } catch {
       /* No session is the normal case for a guest with a receipt. */
     }
+
+    /* The address AND, when somebody is signed in, the account: an address
+       on its own is shared by a household and changes with a phone's
+       network (lib/storage/download-limits.ts). */
+    const limited = await downloadRateLimit(request, { userId, assetId })
+    if (limited) return limited
 
     const { asset, decision, orderId, entitlementId } = await resolveDownloadAccess(admin, {
       assetId,
@@ -86,6 +78,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     /* Flagged files never go out, and a file nobody has scanned yet is
        scanned now, before the first buyer gets it (lib/storage/scan-gate.ts).
        This used to refuse only files already marked infected. */
+    /* And what this download is being made against, now that it is known:
+       one order or one entitlement, so a receipt link that was passed on is
+       bounded however many people have it. */
+    const byPurchase = await purchaseRateLimit(request, { orderId, entitlementId, token: receiptToken, userId, assetId: asset.id })
+    if (byPurchase) return byPurchase
+
     const gate = await gateDownload(admin, asset, { isCreator: decision.via === "creator" })
     if (!gate.ok) {
       runAfterResponse(() => logSecurityEvent(admin, { event: "download", outcome: "denied", code: gate.code, assetId: asset.id, userId, bucket: asset.storage_bucket ?? null, path: asset.file_path, ip: callerAddress(request) }))

@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 
 import { useOnePage } from "@/lib/onepage/context"
 import * as ReactModule from "react"
@@ -1498,6 +1499,7 @@ function HeaderSection() {
             upsert: true,
             contentType: tempVideoFile.type
           })
+        if (!uploadError) confirmUpload("onepage-assets", fileName)
         
         if (uploadError) {
           console.error("Upload error:", uploadError)
@@ -1610,6 +1612,7 @@ function HeaderSection() {
       const fileName = `${user.id}/avatar-${Date.now()}.jpg`
       const { error } = await supabase.storage.from("onepage-assets").upload(fileName, blob, { upsert: true })
       if (error) throw error
+      confirmUpload("onepage-assets", fileName)
 
       const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
       // Clear video when uploading an image to replace it
@@ -1941,6 +1944,7 @@ function HeaderSection() {
       const fileName = `${user.id}/logo-${Date.now()}.png`
       const { error } = await supabase.storage.from("onepage-assets").upload(fileName, blob, { upsert: true })
       if (error) throw error
+      confirmUpload("onepage-assets", fileName)
 
       const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
       updateTheme({ title_logo_url: publicUrl, title_style: 'logo' } as any)
@@ -3211,6 +3215,7 @@ function WallpaperSection() {
       const fileName = `${user.id}/wallpaper-${Date.now()}.${file.name.split('.').pop()}`
       const { error } = await supabase.storage.from("onepage-assets").upload(fileName, file, { upsert: true })
       if (error) throw error
+      confirmUpload("onepage-assets", fileName)
 
       const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
       updateTheme({ background_type: "image", background_image_url: publicUrl })
@@ -3378,6 +3383,7 @@ function WallpaperSection() {
       const fileName = `${user.id}/wallpaper-video-${Date.now()}.${tempWallpaperVideoFile.name.split('.').pop()}`
       const { error } = await supabase.storage.from("onepage-assets").upload(fileName, tempWallpaperVideoFile, { upsert: true })
       if (error) throw error
+      confirmUpload("onepage-assets", fileName)
 
       const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
 
