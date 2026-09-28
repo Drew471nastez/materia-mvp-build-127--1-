@@ -136,6 +136,20 @@ function main() {
     "its avatar has a dark ground",
     /<Avatar className="h-8 w-8 shrink-0 bg-white\/10">/.test(productBar),
   )
+  /*
+    AND SO DO THE OTHER THREE IN THE FILE, which is the round after this one.
+    Measured in a browser (scripts/check-avatars.mjs): the phone bar's 36px
+    circle was `bg-muted`, a 242,242,242 disc, and the bar's own white text
+    inherited into it. White on near white is 1.12:1, which is to say the
+    creator's initials were not there at all. The ground is derived from the
+    colour being painted now, the same one line the subscribe bar uses.
+  */
+  check(
+    "and so do the other three, from the same one line",
+    /const avatarGround = isDarkBackground \? "bg-white\/10" : "bg-black\/\[0\.06\]"/.test(productBar)
+      && (productBar.match(/<Avatar className=\{cn\([^)]*avatarGround\)\}/g) ?? []).length === 3
+      && (productBar.match(/<AvatarFallback [^>]*className=\{cn\([^)]*avatarGround\)\}/g) ?? []).length === 3,
+  )
   /* The delay attribute comes first now (see the note above); the ground is the check. */
   check("and its fallback matches", /<AvatarFallback [^>]*className="bg-white\/10 text-\[10px\]">/.test(productBar))
   check(
@@ -144,8 +158,8 @@ function main() {
       && (productBar.match(/delayMs=\{avatarUrl \? undefined : 0\}/g) ?? []).length === 4,
   )
   check(
-    "it asks for the picture at the size it draws it",
-    /optimizedImageUrl\(avatarUrl, 48\)/.test(productBar),
+    "it asks for the picture at the size it draws it, at every one of its four avatars",
+    (productBar.match(/optimizedImageUrl\(avatarUrl, 48\)/g) ?? []).length === 4 && !/<AvatarImage src=\{avatarUrl\}/.test(productBar),
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)

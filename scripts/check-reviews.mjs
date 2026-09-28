@@ -128,10 +128,31 @@ const AVATAR_SCAN = `(() => {
     const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
   }
+  /*
+    ANY COLOUR THE PAGE ACTUALLY USES. Reading rgba() with a regex and
+    returning null for the rest means every oklch() design token counts as
+    nothing painted, and the measurement then reads the colour BEHIND a
+    solid disc. That hid white initials on a near white circle for a whole
+    round. Painted into a canvas and read back instead, which speaks every
+    syntax the browser can render.
+  */
+  const unreadable = []
+  const pad = document.createElement("canvas")
+  pad.width = 1
+  pad.height = 1
+  const ctx = pad.getContext("2d", { willReadFrequently: true })
   const parse = (c) => {
-    const m = (c || "").match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/)
-    if (!m) return null
-    return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] }
+    if (!c) return null
+    const m = c.match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/)
+    if (m) return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] }
+    if (c === "transparent" || c === "none") return { r: 0, g: 0, b: 0, a: 0 }
+    ctx.clearRect(0, 0, 1, 1)
+    ctx.fillStyle = "#010101"
+    ctx.fillStyle = c
+    if (ctx.fillStyle === "#010101") { unreadable.push(c); return null }
+    ctx.fillRect(0, 0, 1, 1)
+    const d = ctx.getImageData(0, 0, 1, 1).data
+    return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 }
   }
   const over = (top, bottom) => ({
     r: top.r * top.a + bottom.r * (1 - top.a),
@@ -155,7 +176,7 @@ const AVATAR_SCAN = `(() => {
     const b = luminance(bg.r, bg.g, bg.b) + 0.05
     return Math.round((Math.max(a, b) / Math.min(a, b)) * 100) / 100
   }
-  return [...document.querySelectorAll("[data-app-avatar]")].map((el) => {
+  const out = [...document.querySelectorAll("[data-app-avatar]")].map((el) => {
     const box = el.getBoundingClientRect()
     const mark = el.querySelector("span[aria-hidden], svg[aria-hidden]")
     const text = (el.textContent || "").trim()
@@ -173,6 +194,8 @@ const AVATAR_SCAN = `(() => {
       contrast: ink ? ratio(over({ ...ink, a: ink.a }, ground), ground) : null,
     }
   })
+  if (unreadable.length) out.unreadable = [...new Set(unreadable)]
+  return out
 })()`
 
 const VIOLET_SCAN = `(() => {
@@ -385,6 +408,8 @@ try {
       })()`)
       expect(bars.fill !== bars.track, `the rating bars are not the colour of their track (${theme})`, JSON.stringify(bars))
       const avatars = await page.evaluate(AVATAR_SCAN)
+      /* A colour the reader cannot resolve is a measurement that silently reads past a disc. */
+      expect(!avatars.unreadable, "every colour behind the letters could be read", (avatars.unreadable || []).join(" | "))
       const text = await page.evaluate(() => document.getElementById("app")?.textContent || "")
       expect(avatars.length === 10, "five reviewers on the product page and five on the creator page", String(avatars.length))
       expect(!/\?/.test(text.replace(/How was [^?]*\?/g, "")), "not one question mark anywhere on the reviews", text.match(/.{0,20}\?.{0,20}/)?.[0] || "")

@@ -242,6 +242,21 @@ export function ProductCreatorBar({
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     WHITE LETTERS ON A NEAR WHITE DISC
+    ═══════════════════════════════════════════════════════════════════════
+    Avatar's shared ground is `bg-muted`, light on purpose so a circle is
+    never a hole on a white page. This bar is the creator's own colour and
+    usually near-black, and the text in it is white, which it inherits: the
+    initials were white on a 242,242,242 disc, 1.12:1, which is to say not
+    there at all. The phone bar had been fixed for exactly this and the
+    other two circles in this file had not.
+
+    A tenth of the bar's own ink, derived from the colour being painted, so
+    it is a quiet disc on a dark bar and a quiet disc on a light one.
+  */
+  const avatarGround = isDarkBackground ? "bg-white/10" : "bg-black/[0.06]"
 
   const creatorHref = useMemo(
     () => getCreatorHref(creatorUsername, creatorId, creatorName),
@@ -382,9 +397,9 @@ export function ProductCreatorBar({
         >
           {/* Explicit box around the avatar: it clipped during scroll without one. */}
           <div className="relative h-9 w-9 shrink-0">
-            <Avatar className="h-9 w-9 shrink-0 absolute inset-0">
+            <Avatar className={cn("h-9 w-9 shrink-0 absolute inset-0", avatarGround)}>
               {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} className="object-cover" /> : null}
-              <AvatarFallback delayMs={avatarUrl ? undefined : 0} className="text-[11px]"><AvatarMark name={(creatorName || "").trim()} size={36} /></AvatarFallback>
+              <AvatarFallback delayMs={avatarUrl ? undefined : 0} className={cn("text-[11px]", avatarGround)}><AvatarMark name={(creatorName || "").trim()} size={36} /></AvatarFallback>
             </Avatar>
           </div>
           <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
@@ -408,9 +423,9 @@ export function ProductCreatorBar({
               }
             }}
           >
-            <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
+            <Avatar className={cn("h-8 w-8 shrink-0 cursor-pointer", avatarGround)}>
               {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} /> : null}
-              <AvatarFallback delayMs={avatarUrl ? undefined : 0} className="text-xs"><AvatarMark name={(creatorName || "").trim()} size={32} /></AvatarFallback>
+              <AvatarFallback delayMs={avatarUrl ? undefined : 0} className={cn("text-xs", avatarGround)}><AvatarMark name={(creatorName || "").trim()} size={32} /></AvatarFallback>
             </Avatar>
             <p className="text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
               {creatorName}
@@ -925,6 +940,21 @@ export function LiveProductCreatorBar({
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     WHITE LETTERS ON A NEAR WHITE DISC
+    ═══════════════════════════════════════════════════════════════════════
+    Avatar's shared ground is `bg-muted`, light on purpose so a circle is
+    never a hole on a white page. This bar is the creator's own colour and
+    usually near-black, and the text in it is white, which it inherits: the
+    initials were white on a 242,242,242 disc, 1.12:1, which is to say not
+    there at all. The phone bar had been fixed for exactly this and the
+    other two circles in this file had not.
+
+    A tenth of the bar's own ink, derived from the colour being painted, so
+    it is a quiet disc on a dark bar and a quiet disc on a light one.
+  */
+  const avatarGround = isDarkBackground ? "bg-white/10" : "bg-black/[0.06]"
 
   const creatorHref = useMemo(
     () => getCreatorHref(creatorUsername, creatorId, creatorName),
@@ -1346,9 +1376,9 @@ export function LiveProductCreatorBar({
               className="flex items-center gap-2 min-w-0 group"
               aria-label={`Go to ${creatorName}'s page`}
             >
-              <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
-                {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-                <AvatarFallback delayMs={avatarUrl ? undefined : 0} className="text-xs"><AvatarMark name={(creatorName || "").trim()} size={32} /></AvatarFallback>
+              <Avatar className={cn("h-8 w-8 shrink-0 cursor-pointer", avatarGround)}>
+                {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} /> : null}
+                <AvatarFallback delayMs={avatarUrl ? undefined : 0} className={cn("text-xs", avatarGround)}><AvatarMark name={(creatorName || "").trim()} size={32} /></AvatarFallback>
               </Avatar>
               {/*
                 THE BIO MOVED HERE FROM THE PHONE BAR. It was added under the

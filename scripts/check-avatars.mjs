@@ -91,10 +91,36 @@ const SCAN = `(() => {
     const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
   }
+  /*
+    ANY COLOUR THE PAGE ACTUALLY USES, not just the ones written rgb().
+
+    The first version of this read rgba() with a regex and returned null
+    for anything else. The design tokens are oklch(), so every bg-muted
+    in the tree parsed as null, was skipped as nothing painted here, and
+    the measurement quietly read the colour BEHIND a solid disc. It passed a
+    bar whose initials were white on a near-white circle. So the browser
+    resolves the string, through a canvas, which speaks every colour syntax
+    it can render; anything that still will not resolve is reported rather
+    than skipped.
+  */
+  const unresolved = []
+  const pad = document.createElement("canvas")
+  pad.width = 1
+  pad.height = 1
+  const ctx = pad.getContext("2d", { willReadFrequently: true })
   const parse = (c) => {
-    const m = (c || "").match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/)
-    if (!m) return null
-    return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] }
+    if (!c) return null
+    const direct = c.match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/)
+    if (direct) return { r: +direct[1], g: +direct[2], b: +direct[3], a: direct[4] === undefined ? 1 : +direct[4] }
+    if (c === "transparent" || c === "none") return { r: 0, g: 0, b: 0, a: 0 }
+    /* Painted and read back: the only thing that speaks every colour syntax. */
+    ctx.clearRect(0, 0, 1, 1)
+    ctx.fillStyle = "#010101"
+    ctx.fillStyle = c
+    if (ctx.fillStyle === "#010101") { unresolved.push(c); return null }
+    ctx.fillRect(0, 0, 1, 1)
+    const d = ctx.getImageData(0, 0, 1, 1).data
+    return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 }
   }
   const over = (top, bottom) => ({
     r: top.r * top.a + bottom.r * (1 - top.a),
@@ -118,7 +144,7 @@ const SCAN = `(() => {
     return Math.round((Math.max(a, b) / Math.min(a, b)) * 100) / 100
   }
   const sel = "[data-app-avatar], [data-slot='avatar'], [data-bar-avatar]"
-  return [...document.querySelectorAll(sel)].map((el) => {
+  const avatars = [...document.querySelectorAll(sel)].map((el) => {
     const box = el.getBoundingClientRect()
     const style = getComputedStyle(el)
     const surface = el.closest("[data-surface]")
@@ -126,8 +152,11 @@ const SCAN = `(() => {
     const svg = el.querySelector("svg")
     const img = el.querySelector("img")
     const shown = !!img && getComputedStyle(img).opacity !== "0" && img.naturalWidth > 0
-    const ink = parse(getComputedStyle(svg || el).color) || { r: 0, g: 0, b: 0, a: 1 }
-    const ground = behind(el)
+    /* The ink of the mark itself, and the ground the mark sits on, which
+       includes the fallback's own disc where Radix paints one. */
+    const inked = svg || el.querySelector("[data-slot='avatar-fallback'], span[aria-hidden]") || el
+    const ink = parse(getComputedStyle(inked).color) || { r: 0, g: 0, b: 0, a: 1 }
+    const ground = behind(inked)
     return {
       surface: surface ? surface.getAttribute("data-surface") : "bar",
       w: Math.round(box.width),
@@ -138,8 +167,11 @@ const SCAN = `(() => {
       photo: shown,
       empty: box.width > 0 && !text && !svg && !shown,
       contrast: text || svg ? ratio(over(ink, ground), ground) : null,
+      ground: "rgb(" + [ground.r, ground.g, ground.b].map(Math.round).join(", ") + ")",
+      ink: getComputedStyle(inked).color,
     }
   })
+  return { avatars, unresolved: [...new Set(unresolved)] }
 })()`
 
 const VIOLET_SCAN = `(() => {
@@ -188,8 +220,9 @@ try {
       const text = await page.evaluate(() => document.getElementById("app")?.textContent || "")
       expect(!text.includes("?"), `${theme} ${size}: not one question mark on the page`, text.match(/.{0,24}\?.{0,24}/)?.[0] || "")
 
-      const all = await page.evaluate(SCAN)
-      const drawn = all.filter((a) => !a.hidden)
+      const scan = await page.evaluate(SCAN)
+      expect(scan.unresolved.length === 0, "every colour on the page could be read", scan.unresolved.join(" | "))
+      const drawn = scan.avatars.filter((a) => !a.hidden)
       expect(drawn.length >= 30, "every surface drew its six people", `${drawn.length} circles`)
 
       const empties = drawn.filter((a) => a.empty)
