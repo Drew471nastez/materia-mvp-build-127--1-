@@ -38,8 +38,27 @@ import { GripVertical, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { parseYouTubeUrl, type MediaItem } from "./editor-form"
 import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hold-to-drag"
+import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 
 const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" ? "video" : "photo")
+
+/*
+  THE TILES ARE THUMBNAILS, NOT THE PHOTOS. Two to a row, 16:9, so about
+  170px across on a phone and about 350px in the editor's main column. Each
+  tile used to load the ORIGINAL upload: a camera JPEG of three or four
+  megabytes painted into a box the size of a stamp, for every picture a
+  product has. Opening an editor for a product with six photos fetched
+  twenty megabytes before anything could be looked at. These are the files
+  the optimizer makes (lib/images/optimized-url.ts, the same endpoint the
+  Products list's thumbnails use), and the browser picks by an honest
+  `sizes`. The first two tiles are what is in view when the media card is;
+  the rest wait until they are scrolled to.
+*/
+const TILE_FILES = [256, 384, 640, 750]
+const TILE_BOX = 360
+const TILE_SIZES = "(max-width: 767px) 45vw, 360px"
+/** Tiles loaded straight away; the rest when they are scrolled near. */
+const TILES_EAGER = 2
 
 /** A photo on its way up: its own preview, shown the moment it is picked. */
 export interface PendingMedia {
@@ -127,6 +146,7 @@ function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; 
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   const kind = kindOf(item)
   const src = item.type === "youtube" ? `https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg` : item.url
+  const srcSet = optimizedSrcSet(src, TILE_FILES, PORTRAIT_QUALITY)
 
   return (
     <div
@@ -151,7 +171,19 @@ function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; 
             : "border-gray-200 hover:border-gray-300",
         )}
       >
-        <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />
+        {/* eslint-disable-next-line @next/next/no-img-element -- the srcset is chosen here (TILE_FILES), see there */}
+        <img
+          src={srcSet ? optimizedImageUrl(src, TILE_BOX, PORTRAIT_QUALITY) : src}
+          srcSet={srcSet || undefined}
+          sizes={TILE_SIZES}
+          alt=""
+          width={640}
+          height={360}
+          loading={index < TILES_EAGER ? undefined : "lazy"}
+          decoding="async"
+          className="h-full w-full object-cover"
+          draggable={false}
+        />
         {item.type === "youtube" && (
           <div aria-hidden className="absolute inset-0 flex items-center justify-center bg-black/30">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 sm:h-10 sm:w-10">
