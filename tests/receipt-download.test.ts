@@ -271,7 +271,9 @@ function main() {
   check("the signed URL uses the short expiry", /generateSignedDownloadUrl\([\s\S]{0,80}SIGNED_URL_EXPIRY_SECONDS/.test(dl))
   check("and the expiry is five minutes", /SIGNED_URL_EXPIRY_SECONDS = 300\b/.test(read("lib/security.ts")))
   check("the response is never cached", /"Cache-Control": "no-store"/.test(dl))
-  check("it is rate limited per address", /bucket: "download"/.test(dl) && /if \(limited\) return limited/.test(dl))
+  check("it is rate limited per address, per signed in buyer, and per purchase",
+    /downloadRateLimit\(request, \{ userId, assetId \}\)/.test(dl) && /if \(limited\) return limited/.test(dl)
+    && /purchaseRateLimit\(request, \{ orderId, entitlementId/.test(dl) && /if \(byPurchase\) return byPurchase/.test(dl))
   check("the storage path never leaves the server", !/file_path[^\n]*NextResponse\.json|NextResponse\.json\([^)]*(file_path|storage_bucket)/.test(dl))
   check("the old order id and access token door is gone", !/searchParams\.get\("order"\)/.test(dl) && !/allowed_fingerprints/.test(dl))
   check("an asset id is validated before any query", /if \(!isUuid\(assetId\)\)/.test(dl))

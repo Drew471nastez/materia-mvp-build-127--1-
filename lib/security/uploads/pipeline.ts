@@ -59,10 +59,28 @@ export interface AssetRow {
 const PRIVATE_BUCKET = "digital-products"
 
 /**
- * Hashing reads the whole file back out of storage, which costs time and
- * transfer. Right after an upload, files up to 1 GB are hashed (well inside
- * the route's time); the daily sweep takes up to 2 GB, five a run. Larger
- * files are recorded as not hashed rather than read again every day.
+ * ===========================================================================
+ *  A FILE OVER 2 GB IS NOT FINGERPRINTED, AND THAT IS THE POLICY
+ * ===========================================================================
+ * The SHA-256 of a stored file means reading every byte of it back out of
+ * storage. Right after an upload, files up to 1 GB are hashed (well inside
+ * the route's time); the daily sweep takes up to 2 GB, five a run. Past that
+ * the file is recorded as "not fingerprinted" and left alone.
+ *
+ * NOT IN CHUNKS ACROSS SEVERAL PASSES, and the reason is not cost. A SHA-256
+ * cannot be paused: node:crypto gives no way to save a half-finished hash and
+ * carry on with it next time, so "resumable" would mean re-reading everything
+ * read so far on every pass, which is more transfer than doing it in one go,
+ * not less. Reading a 10 GB file back out of storage once is already several
+ * minutes and ten gigabytes of transfer for a number that would then be
+ * hashed again tomorrow.
+ *
+ * AND NOTHING NEEDS ONE. The fingerprint is for the admin page and for
+ * telling two copies of a file apart. No download, no verdict, no gate and no
+ * purchase depends on it: a file with none is served exactly like a file with
+ * one. `scan_result.sha256Skipped` says "too_large" on those rows, and
+ * /admin/security says the ceiling out loud rather than leaving the owner to
+ * wonder why some files have no fingerprint.
  */
 export const AFTER_UPLOAD_HASH_MAX_BYTES = 1024 * 1024 * 1024
 export const SWEEP_HASH_MAX_BYTES = 2 * 1024 * 1024 * 1024

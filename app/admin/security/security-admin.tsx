@@ -66,6 +66,7 @@ export type SecurityOverview = {
     limits: Record<string, string>
     archive: { entries: number; unpacked: string; ratio: number }
     signedUrlSeconds: number
+    fingerprintMaxBytes?: string
   }
   counts: { day: Counts; week: Counts; byCode: { code: string; day: number; week: number }[]; unavailable?: string }
   files: { blocked: number | null; unchecked: number | null; checked: number | null }
@@ -311,6 +312,10 @@ export function SecurityAdmin({ initial }: { initial?: SecurityOverview | null }
                   { label: "Picture limit", value: data.checks.limits.public_image },
                   { label: "ZIP limits", value: `${data.checks.archive.entries.toLocaleString("en-GB")} files, ${data.checks.archive.unpacked} unpacked` },
                   { label: "Download links last", value: `${Math.round(data.checks.signedUrlSeconds / 60)} min` },
+                  /* A deliberate limit, said out loud: a fingerprint of a
+                     larger file means reading the whole of it back out of
+                     storage, and nothing decides anything from one. */
+                  { label: "Fingerprinted up to", value: `${data.checks.fingerprintMaxBytes ?? "2 GB"}, larger files are not` },
                 ]}
               />
               <ul className="border-t border-white/[0.08] px-4 py-3 text-[12px] leading-5 text-[#9b9ba6] sm:columns-2" data-builtin-checks="">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import type { OnePageBlock, OnePageBlockType, LinkButtonBlockData, TextBlockData, EmailCaptureBlockData, ImageBlockData, DividerBlockData, HeaderBlockData, EmailCaptureButtonPreset } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -300,7 +301,7 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
         throw new Error(err.error || 'Failed to get upload URL')
       }
 
-      const { signedUrl, publicUrl } = await signedRes.json()
+      const { signedUrl, publicUrl, path, bucket } = await signedRes.json()
 
       // Step 2: Upload file directly to Supabase Storage using XHR for progress
       await new Promise<void>((resolve, reject) => {
@@ -345,6 +346,10 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
         xhr.timeout = 600000 // 10 minute timeout for large files
         xhr.send(formData)
       })
+
+      /* The bytes are there now, so the server reads them and checks them
+         (lib/storage/confirm-upload.ts). Nothing here waits for it. */
+      confirmUpload(bucket || 'lead-form-files-v2', path)
 
       // Step 3: Update block data with the public URL
       updateData({

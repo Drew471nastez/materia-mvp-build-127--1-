@@ -387,7 +387,11 @@ async function main() {
     const rows = code("app/app/products/new/file-uploads.tsx")
     check("no Scanning, Clean, Virus check pending or Blocked by the virus scan", !/"Scanning"|"Clean"|Virus check pending|Blocked by the virus scan|virus|ClamAV/i.test(rows))
     check("nothing asks /api/v2/upload/scan after an upload", !/\/api\/v2\/upload\/scan/.test(rows))
-    check("\"Checking file…\" only once the check takes longer than a blink", /CHECKING_DELAY_MS = 300/.test(rows) && /setTimeout\(\(\) => setChecking\(true\), CHECKING_DELAY_MS\)/.test(rows) && /"Checking file…"/.test(rows))
+    /* The rule and the words moved to lib/storage/upload-state.ts, so every
+       uploader shows the same thing at the same moment. */
+    const shared = code("lib/storage/upload-state.ts")
+    check("\"Checking file…\" only once the check takes longer than a blink", /CHECKING_DELAY_MS = 300/.test(shared) && /setTimeout\(\(\) => setShown\(true\), delayMs\)/.test(shared) && /CHECKING_LABEL = "Checking file…"/.test(shared) && /useUploadChecking\(status\)/.test(rows))
+    check("and the other uploader shows it from the same rule", /useUploadChecking\(upload\.status\)/.test(code("components/app/file-upload.tsx")))
     check("a refused upload has only a way to remove it, no Retry", /status === "error" && upload\.refused \?/.test(rows))
     check("the editor loads no threat names", !/scan_result/.test(code("app/app/products/load-editor.ts")))
   }

@@ -7,6 +7,7 @@
  * URLs, and a description with two photos in it was a megabyte row.
  */
 import { createClient } from "@/lib/supabase/client"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
 
 export interface UploadedImage {
@@ -65,6 +66,7 @@ export async function uploadDescriptionImage(file: File, owner: { creatorId: str
     upsert: false,
   })
   if (error) throw new Error("The picture did not upload. Check the connection and try again.")
+  confirmUpload("product-images", path)
   const { data } = supabase.storage.from("product-images").getPublicUrl(path)
   return { url: data.publicUrl, width: size.width, height: size.height }
 }

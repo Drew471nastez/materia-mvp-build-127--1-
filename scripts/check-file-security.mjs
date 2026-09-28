@@ -172,6 +172,13 @@ for (const width of [390, 1280]) {
         outcome: document.querySelector("[data-test-outcome]")?.textContent ?? "",
         bg: getComputedStyle(document.querySelector("[data-admin-security]")).backgroundColor,
         rows: document.querySelectorAll("[data-row]").length,
+        /* The deliberate limits the owner should be able to read at a glance. */
+        facts: [...document.querySelectorAll("dl > div")].filter(visible).map((d) => ({
+          label: d.querySelector("dt")?.textContent ?? "",
+          value: d.querySelector("dd")?.textContent ?? "",
+          cut: (d.querySelector("dd")?.scrollWidth ?? 0) - (d.querySelector("dd")?.clientWidth ?? 0),
+        })),
+        builtin: [...document.querySelectorAll("[data-builtin-checks] li")].map((li) => li.textContent ?? ""),
       }
     })
     expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
@@ -188,6 +195,10 @@ for (const width of [390, 1280]) {
     expect(/Refused: EICAR test file/.test(m.outcome) && /the EICAR antivirus test file/.test(m.outcome) && /We couldn't accept this file/.test(m.outcome), "the EICAR sample: refused, what was found, what a creator reads", m.outcome.slice(0, 200))
     expect(m.bg === "rgb(11, 11, 15)", "the admin surface is dark", m.bg)
     expect(m.rows >= 10, "the reasons and the log are listed", m.rows)
+    const fingerprint = m.facts.find((f) => /Fingerprinted/.test(f.label))
+    expect(!!fingerprint && /2 GB, larger files are not/.test(fingerprint.value), "the fingerprint ceiling is said out loud, not left to be wondered about", fingerprint)
+    expect(m.facts.every((f) => f.cut <= 1), "and no limit on the panel is cut off", m.facts.filter((f) => f.cut > 1))
+    expect(m.builtin.some((c) => /declared sizes tested/.test(c)) && m.builtin.some((c) => /straight to a public bucket/.test(c)), "the checks added since are listed with the rest", m.builtin)
     await page.screenshot({ path: join(shots, `admin-${engine}-${width}.png`), fullPage: true })
     await page.screenshot({ path: join(shots, `admin-${engine}-${width}-top.png`) })
     await page.close()

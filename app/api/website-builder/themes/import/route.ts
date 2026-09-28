@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import { screenInBackground } from "@/lib/storage/upload-guard"
 import { inspectHead, inspectUpload } from "@/lib/security/uploads/inspect"
+import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { IMPORT_BUCKET, IMPORT_MAX_BYTES, IMPORT_NOT_A_PACKAGE, IMPORT_TOO_LARGE, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
@@ -27,6 +28,7 @@ import {
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
 import { readPackage, sectionsFromTemplate } from "@/lib/storelib-theme"
+import { readEntryCapped } from "@/lib/storelib-theme/package"
 import {
   MAX_BYTES,
   MEDIA_TYPES,
@@ -163,6 +165,8 @@ export async function POST(req: Request) {
     head: packageBytes.subarray(0, 8192),
     tail: { bytes: packageBytes.subarray(Math.max(0, packageBytes.byteLength - 70_000)), start: Math.max(0, packageBytes.byteLength - 70_000) },
     readRange: async (a, b) => packageBytes.subarray(a, b + 1),
+    /* An archive's declared sizes tested, not believed (lib/security/uploads/zip.ts). */
+    inflate: nodeInflateRaw,
     context: "theme_package",
   })
   if (!verdict.ok) {
@@ -380,9 +384,13 @@ export async function POST(req: Request) {
         const ext = extensionOf(entry.name)
         const type = MEDIA_TYPES[ext]
         if (!type) continue
-        const data = await entry.file.async("nodebuffer")
-        if (data.byteLength > MAX_BYTES[type.kind]) continue
-        if (!packageFileAllowed(entry.name, new Uint8Array(data.buffer, data.byteOffset, data.byteLength), type.kind)) continue
+        /* Counted as it inflates and stopped at the ceiling, because the
+           size an archive declares is written by whoever made it
+           (lib/storelib-theme/package.ts readEntryCapped). */
+        const read = await readEntryCapped(entry.file, MAX_BYTES[type.kind])
+        if (!read.bytes) continue
+        const data = read.bytes
+        if (!packageFileAllowed(entry.name, data, type.kind)) continue
         const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`
         const path = `${user.id}/imported/${safeName}`
         const { error: upErr } = await admin.storage.from(BUCKET).upload(path, data, {

@@ -23,6 +23,7 @@ import {
   type UploadError,
 } from "@/lib/storage/chunked-upload"
 import { precheckUpload, userMessage } from "@/lib/security/uploads"
+import { uploadRowState, uploadStatusLabel, useUploadChecking } from "@/lib/storage/upload-state"
 import { plainError } from "@/app/app/products/new/file-uploads"
 
 interface UploadedFile {
@@ -69,16 +70,6 @@ export function FileUpload({
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
-  /* Plain states only: the file check runs on the server and says nothing unless a file is refused. */
-  const getStatusLabel = (status: UploadStatus): string => {
-    switch (status) {
-      case "complete": return "Ready"
-      case "paused": return "Paused"
-      case "error": return "Not uploaded"
-      case "aborted": return "Cancelled"
-      default: return "Uploading…"
-    }
-  }
 
   const isUploading = Array.from(activeUploads.values()).some(
     (u) => !["complete", "error", "aborted", "paused"].includes(u.status),
@@ -314,87 +305,15 @@ export function FileUpload({
       {activeUploads.size > 0 && (
         <div className="space-y-3">
           {Array.from(activeUploads).map(([key, upload]) => (
-            <div key={key} className="rounded-lg border border-border p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
-                  {upload.status === "error" ? (
-                    <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-                  ) : upload.status === "complete" ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  ) : (
-                    <Loader2 className="h-4 w-4 text-blue-500 animate-spin shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{upload.file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {getStatusLabel(upload.status)}
-                      {upload.status === "uploading" && upload.bytesTotal > 0 && (
-                        <> · {formatFileSize(upload.bytesUploaded)} of {formatFileSize(upload.bytesTotal)}</>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  {upload.status === "uploading" && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); handlePause(key) }}
-                      title="Pause upload"
-                    >
-                      <Pause className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {upload.status === "paused" && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); handleResume(key) }}
-                      title="Resume upload"
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {upload.status === "error" && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); handleRetry(key) }}
-                      title="Retry upload"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {upload.status !== "complete" && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); handleCancel(key) }}
-                      title="Cancel upload"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Real progress bar */}
-              <Progress value={upload.progress} className="h-1.5" />
-
-              {/* Error message */}
-              {upload.error && (
-                <p className="text-xs text-destructive">{upload.error}</p>
-              )}
-            </div>
+            <UploadRow
+              key={key}
+              upload={upload}
+              formatFileSize={formatFileSize}
+              onPause={() => handlePause(key)}
+              onResume={() => handleResume(key)}
+              onRetry={() => handleRetry(key)}
+              onCancel={() => handleCancel(key)}
+            />
           ))}
         </div>
       )}
@@ -441,6 +360,113 @@ export function FileUpload({
             </div>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * ONE ROW, WITH THE SAME STATES THE PRODUCT EDITOR'S LIST SHOWS. The words
+ * and the rule that nothing is said for a step over in a blink both come from
+ * lib/storage/upload-state.ts, so a file uploaded here and a file uploaded in
+ * the product editor read the same at every moment.
+ */
+function UploadRow({
+  upload,
+  formatFileSize,
+  onPause,
+  onResume,
+  onRetry,
+  onCancel,
+}: {
+  upload: ActiveUpload
+  formatFileSize: (bytes: number) => string
+  onPause: () => void
+  onResume: () => void
+  onRetry: () => void
+  onCancel: () => void
+}) {
+  const checking = useUploadChecking(upload.status)
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2" data-upload-row="" data-state={uploadRowState(upload.status, checking)}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          {upload.status === "error" ? (
+            <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+          ) : upload.status === "complete" ? (
+            <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+          ) : (
+            <Loader2 className="h-4 w-4 text-blue-500 animate-spin shrink-0" />
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{upload.file.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {uploadStatusLabel(upload.status, checking)}
+              {upload.status === "uploading" && upload.bytesTotal > 0 && (
+                <> · {formatFileSize(upload.bytesUploaded)} of {formatFileSize(upload.bytesTotal)}</>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {upload.status === "uploading" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => { e.stopPropagation(); onPause() }}
+              title="Pause upload"
+            >
+              <Pause className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {upload.status === "paused" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => { e.stopPropagation(); onResume() }}
+              title="Resume upload"
+            >
+              <Play className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {upload.status === "error" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => { e.stopPropagation(); onRetry() }}
+              title="Retry upload"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {upload.status !== "complete" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              onClick={(e) => { e.stopPropagation(); onCancel() }}
+              title="Cancel upload"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Real progress bar */}
+      <Progress value={upload.progress} className="h-1.5" />
+
+      {/* Error message */}
+      {upload.error && (
+        <p className="text-xs text-destructive">{upload.error}</p>
       )}
     </div>
   )
