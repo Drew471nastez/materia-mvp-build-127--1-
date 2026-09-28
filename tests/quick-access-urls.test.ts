@@ -294,10 +294,14 @@ function main() {
     fixes it: a gap in the header's own black is how every app separates a
     badge from the icon under it.
   */
-  const badges = header.match(/absolute -top-1\.5 -right-2 flex h-\[17px\] min-w-\[17px\][^"]*/g) ?? []
+  /* One badge, drawn by CountBadge, on the phone's heart and the computer's. */
+  const badges = header.match(/<CountBadge count=\{wishlistCount\} className="absolute -top-1\.5 -right-2" \/>/g) ?? []
+  const badge = /export function CountBadge[\s\S]*?\n}\n/.exec(header)?.[0] ?? ""
   check("both badges were reworked, not just the one on screen", badges.length === 2, `${badges.length} found`)
-  check("they are ringed in the header's own black", badges.every((b) => /ring-2 ring-black/.test(b)))
-  check("and the digits do not shift the disc", badges.every((b) => /tabular-nums/.test(b)))
+  check("they are ringed in the header's own black", /ring-2 ring-black/.test(badge))
+  check("and the digits do not shift the disc", /tabular-nums/.test(badge))
+  /* "The number is not centred": the box that is centred is the figures (cap height to baseline), on an even disc. */
+  check("the figures are what is centred, on an even 18px disc", /\[text-box:trim-both_cap_alphabetic\]/.test(badge) && /box-border flex h-\[18px\] min-w-\[18px\] items-center justify-center/.test(badge))
   check("nothing is left at the old 7px size", !/text-\[7px\] font-bold/.test(header))
 
   /* ---------------------------------------------------------------------

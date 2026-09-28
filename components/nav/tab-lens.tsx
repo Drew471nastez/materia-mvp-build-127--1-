@@ -909,6 +909,8 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
  *              remembered once a navigation that is not it ends
  *   onPick     a slot was chosen (the finger lifted on it, or Enter)
  *   onPress    a finger landed on a slot: the head start for its page
+ *   give       whether the tapped icon gives a little (TAP_PULSE); the
+ *              buyer's bar asks for none
  */
 export function useTabLens({
   count,
@@ -917,6 +919,7 @@ export function useTabLens({
   nav,
   onPick,
   onPress,
+  give = true,
 }: {
   count: number
   current: number
@@ -924,6 +927,8 @@ export function useTabLens({
   nav: unknown
   onPick: (index: number) => void
   onPress?: (index: number) => void
+  /** Whether a tapped icon gives a little (TAP_PULSE). The buyer's bar turns it off. */
+  give?: boolean
 }) {
   /**
    * ═══════════════════════════════════════════════════════════════════════
@@ -978,7 +983,7 @@ export function useTabLens({
     a.id = "tap"
   }
   const slide = useSlide(count, pick, (index) => {
-    pulse(index)
+    if (give) pulse(index)
     onPress?.(index)
   })
   /* Under the finger while one is down, then on the slot that was picked,

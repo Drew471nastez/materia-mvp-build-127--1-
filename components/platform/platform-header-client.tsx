@@ -26,7 +26,7 @@ import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loa
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
+import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
@@ -287,9 +287,12 @@ function MobileBottomSheet({
   fill = false,
   height,
   keepMounted = false,
+  onClosed,
 }: {
   isOpen: boolean
   onClose: () => void
+  /** The slide out has finished. */
+  onClosed?: () => void
   children: React.ReactNode
   title?: string
   contentKey?: string | null
@@ -313,6 +316,7 @@ function MobileBottomSheet({
       className="rounded-t-[24px]"
       scrollKey={contentKey ?? "default"}
       keepMounted={keepMounted}
+      onClosed={onClosed}
     >
       {children}
     </BottomSheet>
@@ -458,18 +462,29 @@ function GuestSheetActions({ second, link, onDone }: { second: "discover" | "log
   its words in the purple, a store rather than a sparkle. It goes to /sell,
   which decides what a buyer who wants to sell sees next.
 */
-function BecomeSellerRow({ link, onDone }: { link: HeaderLink; onDone: () => void }) {
+/*
+  WHAT THE WAY INTO SELLING SAYS, by the account's seller state, the same
+  three the profile shows (sellingEntry in lib/account/overview.ts): a seller
+  gets Dashboard (drawn by the caller), a seller who began the setup and left
+  it gets "Finish setting up your store", and a buyer who never began gets
+  "Become a seller". Both of the last two open /sell, which picks up where
+  the setup was left.
+*/
+export const sellingLabel = (state: SellerState) => (state === "started" ? "Finish setting up your store" : "Become a seller")
+
+function BecomeSellerRow({ link, onDone, state = "none" }: { link: HeaderLink; onDone: () => void; state?: SellerState }) {
   const { href, onClick } = link("/sell")
   return (
     <Link
       href={href}
       onClick={(e) => { onClick(e); onDone() }}
+      data-seller-state={state}
       data-become-seller=""
       className="flex touch-manipulation items-center justify-between rounded-xl bg-[#f5f3ff] px-4 py-3.5 text-base font-medium text-violet-700 transition-colors hover:bg-[#ede9fe] active:bg-[#ede9fe] [-webkit-tap-highlight-color:transparent] outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
     >
       <span className="flex items-center gap-3">
         <Store aria-hidden className="h-5 w-5 text-[#8b5cf6]" />
-        <span>Become a seller</span>
+        <span>{sellingLabel(state)}</span>
       </span>
       <ChevronRight aria-hidden className="h-5 w-5 text-violet-400" />
     </Link>
@@ -480,25 +495,96 @@ function BecomeSellerRow({ link, onDone }: { link: HeaderLink; onDone: () => voi
 // drag threshold is now ≤56 px so category buttons below that zone never
 // have their click events suppressed. Plain onClick is sufficient.
 
-// Animated Hamburger Icon Component - subtle animation only
-function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
+/**
+ * ===========================================================================
+ *  THE COUNT ON THE HEART, CENTRED
+ * ===========================================================================
+ * "The number in the red badge is not centred." It was a 17px disc with the
+ * digits set at `line-height: 1` and centred as a line: that centres the
+ * font's line box (ascender to descender), not the figures, so how far the
+ * ink sat from the middle depended on the font's metrics and on where an odd
+ * 17px box fell on the pixel grid at 1x, 2x and 3x.
+ *
+ * Now the box the flexbox centres IS the figures: `text-box` trims the line
+ * to cap height over the baseline (figures are cap height in Inter), so the
+ * middle of that box is the middle of the ink, whatever the font. The disc
+ * is an even 18px in border-box; tabular figures so 1 and 7 take the same
+ * width. Where a browser has no `text-box`, `leading-none` is the fallback.
+ *
+ * AND ON A 1x SCREEN IT SITS ON A WHOLE PIXEL. The header's rows are not
+ * whole pixels tall, so the disc lands a fraction of a pixel down the page,
+ * while the browser puts a line of text on a whole pixel: on a screen whose
+ * pixel is a whole CSS pixel that rounded the figures and their disc apart
+ * by up to a pixel (measured 0.67px on a computer). There the badge is moved
+ * onto the nearest pixel after layout, and again when the window changes
+ * size or the header settles: by its own margin, under half a pixel, and it
+ * is absolutely placed, so nothing around it moves. Its layout position and
+ * not a `translate`: a `translate` moves the drawing after the text has been
+ * put on its pixel, and measured, that left the figures a pixel high. At 2x and 3x
+ * the grain is fine enough that the same move made things worse, so it is
+ * left alone.
+ *
+ * scripts/check-buyer-chrome.mjs finds the white figures in screenshots and
+ * measures them against the disc, for 1, 5, 9, 12 and 99+
+ * at 1x, 2x and 3x: within 0.35px, where the old badge was 0.54px low on a
+ * 3x phone (0.7px at 2x) and up to 1.9px off in a fallback face.
+ */
+export function CountBadge({ count, className }: { count: number; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const snap = () => {
+      el.style.marginTop = ""
+      /* At 2x and 3x a pixel of the screen is a third or half of one of these, fine enough to leave. */
+      if ((window.devicePixelRatio || 1) >= 1.5) return
+      const top = el.getBoundingClientRect().top
+      const off = Math.round(top) - top
+      if (Math.abs(off) > 0.01) el.style.marginTop = `${off.toFixed(3)}px`
+    }
+    snap()
+    window.addEventListener("resize", snap)
+    /* The header's rows settling (a photo, a font) move it too. */
+    const header = el.closest("#platform-header-root")
+    const ro = header && typeof ResizeObserver !== "undefined" ? new ResizeObserver(snap) : null
+    if (ro && header) ro.observe(header)
+    return () => {
+      window.removeEventListener("resize", snap)
+      ro?.disconnect()
+    }
+  }, [count])
+  if (count <= 0) return null
   return (
-    <div className="w-[23px] h-[23px] flex flex-col justify-center items-center gap-[5px]">
-      <span
-        className={`block h-0.5 w-[23px] bg-current rounded-full transition-all duration-200 ease-out ${
-          isOpen ? "opacity-60" : "opacity-100"
-        }`}
-      />
-      <span
-        className={`block h-0.5 bg-current rounded-full transition-all duration-200 ease-out ${
-          isOpen ? "opacity-60 w-4" : "opacity-100 w-[23px]"
-        }`}
-      />
-      <span
-        className={`block h-0.5 w-[23px] bg-current rounded-full transition-all duration-200 ease-out ${
-          isOpen ? "opacity-60" : "opacity-100"
-        }`}
-      />
+    <span
+      ref={ref}
+      data-count-badge=""
+      className={cn(
+        "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white ring-2 ring-black",
+        className,
+      )}
+    >
+      <span className="block text-[10px] font-semibold leading-none tabular-nums [font-feature-settings:'tnum'] [text-box:trim-both_cap_alphabetic]">
+        {count > 99 ? "99+" : count}
+      </span>
+    </span>
+  )
+}
+
+// Animated Hamburger Icon Component - subtle animation only
+/*
+ * The three lines of the menu button. Opening the sheet dims them and draws
+ * the middle one shorter, and nothing else: by opacity and `scale` about its
+ * middle, on the compositor, never by width. A width animating in the
+ * header laid the header out again on every frame of the sheet's slide,
+ * which is the one moment nothing else should be asking for a frame.
+ */
+function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
+  const line = "block h-0.5 w-[23px] rounded-full bg-current transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+  return (
+    <div className="w-[23px] h-[23px] flex flex-col justify-center items-center gap-[5px]" data-hamburger={isOpen ? "open" : "closed"}>
+      <span className={cn(line, isOpen ? "opacity-60" : "opacity-100")} />
+      <span className={cn(line, isOpen ? "opacity-60 scale-x-[0.6957]" : "opacity-100 scale-x-100")} />
+      <span className={cn(line, isOpen ? "opacity-60" : "opacity-100")} />
     </div>
   )
 }
@@ -599,6 +685,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isCreator, setIsCreator] = useState(false)
   const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
+  /* The whole seller state, for what the way into selling says (sellingLabel). */
+  const [sellerState, setSellerState] = useState<SellerState>("none")
   const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   /**
@@ -660,6 +748,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     }
     setIsCreator(!!seed.isSeller)
     setHasCompletedSellerOnboarding(!!seed.isSeller)
+    setSellerState(seed.isSeller ? "seller" : "none")
     setLoading(false)
   }, [])
 
@@ -700,6 +789,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     return () => document.removeEventListener("keydown", onKey)
   }, [categoriesDropdownOpen])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  /* Counts the menu sheet's closes, so its kept category list starts again from the top. */
+  const [menuRound, setMenuRound] = useState(0)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
   const belowMd = useBelowMd()
@@ -944,6 +1035,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           setProfile(null)
           setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
+          setSellerState("none")
           return
         }
 
@@ -968,8 +1060,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         if (!mountedRef.current) return
         if (profileErr) {
           setProfile(null)
-          setIsCreator(false)
-          setHasCompletedSellerOnboarding(false)
+          /*
+            THE PROFILE COULD NOT BE READ, BUT THE CREATORS ROW WAS. That row is
+            the one that says whether onboarding is finished, so it still
+            decides: a seller whose profile read failed is a seller, not a
+            buyer offered the onboarding again.
+          */
+          const state = sellerAccessFrom({ creator: creatorData, profile: null }).state
+          setIsCreator(state === "seller")
+          setHasCompletedSellerOnboarding(state === "seller")
+          setSellerState(state)
         } else {
           const pd = (profileData as Profile) ?? null
           setProfile(pd)
@@ -987,9 +1087,11 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           // ("started") is still a buyer here. It decides Dashboard against Become
           // a seller everywhere in this header, and it is written to the snapshot
           // so the next page opens on the right one.
-          const isSellerByState = hasSellerAccess(sellerAccessFrom({ creator: creatorData, profile: profileData }))
+          const access = sellerAccessFrom({ creator: creatorData, profile: profileData })
+          const isSellerByState = hasSellerAccess(access)
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
+          setSellerState(access.state)
           writeAuthSnapshot({
             signedIn: true,
             userId: user.id,
@@ -1006,6 +1108,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         setProfile(null)
         setIsCreator(false)
         setHasCompletedSellerOnboarding(false)
+        setSellerState("none")
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -1923,9 +2026,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                         object on every app that has one. tabular-nums so 7
                         and 77 do not shift the disc sideways.
                       */
-                      <span className="absolute -top-1.5 -right-2 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-red-500 px-[4px] text-[10px] font-semibold leading-none tabular-nums text-white ring-2 ring-black">
-                      {wishlistCount > 99 ? "99+" : wishlistCount}
-                    </span>
+                      <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
                   )}
                 </span>
               </Link>
@@ -1978,9 +2079,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       <span className="relative inline-flex">
                         <Heart className="h-[22px] w-[22px]" />
                         {wishlistCount > 0 && (
-                          <span className="absolute -top-1.5 -right-2 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-red-500 px-[4px] text-[10px] font-semibold leading-none tabular-nums text-white ring-2 ring-black">
-                            {wishlistCount > 99 ? "99+" : wishlistCount}
-                          </span>
+                          <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
                         )}
                       </span>
                     </Link>
@@ -2038,9 +2137,22 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         search link on a product, My Library and the rest) scrolls with the
         first level. On the marketing pages it is the menu it always was.
       */}
+      {/*
+        BUILT AHEAD AND KEPT, on a phone. "The animation when I open it needs
+        to be smooth and clean." It was built on the tap: React rendering the
+        category list and the browser styling and laying out every row of it
+        before the first frame of the slide could be drawn, which on a phone
+        is the stutter at the start of the open. Kept, it waits below the
+        screen on its own layer and the tap only slides it up, as the account
+        sheet and the app's sheets do (components/ui/bottom-sheet.tsx). The
+        category list is drawn afresh once it has slid away (`menuRound`), so
+        it still opens on the first level every time.
+      */}
       <MobileBottomSheet
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
+        onClosed={() => setMenuRound((n) => n + 1)}
+        keepMounted={belowMd}
         fill={!isMarketingNavRoute}
         height={isMarketingNavRoute ? undefined : "min(78dvh, 680px)"}
       >
@@ -2082,7 +2194,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     Dashboard
                   </Link>
                 ) : (
-                  <BecomeSellerRow link={headerLink} onDone={() => setMobileMenuOpen(false)} />
+                  <BecomeSellerRow link={headerLink} state={sellerState} onDone={() => setMobileMenuOpen(false)} />
                 )}
                 <Link
                   {...headerLink("/explore")}
@@ -2148,6 +2260,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         </div>
         ) : (
           <CategoryBrowser
+            key={menuRound}
             groups={HEADER_GROUPS}
             selectedGroup={browserSelection.group}
             selectedItem={browserSelection.item}
@@ -2198,7 +2311,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <MenuRow href={dashboardHref} label="Dashboard" onNav={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath(dashboardHref)} />
                 )}
                 {!hasCompletedSellerOnboarding && (
-                  <MenuRow seller href="/sell" label="Become a seller" onNav={(e) => { onCanonicalNav(e, "/sell"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/sell")} />
+                  <MenuRow seller href="/sell" label={sellingLabel(sellerState)} onNav={(e) => { onCanonicalNav(e, "/sell"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/sell")} />
                 )}
               </div>
               ) : null
@@ -2247,7 +2360,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             </Link>
             ) : (
               <div className="pb-1.5">
-                <BecomeSellerRow link={headerLink} onDone={() => setMobileProfileOpen(false)} />
+                <BecomeSellerRow link={headerLink} state={sellerState} onDone={() => setMobileProfileOpen(false)} />
               </div>
             )}
             <Link

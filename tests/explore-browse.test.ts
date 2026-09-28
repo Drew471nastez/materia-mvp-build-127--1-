@@ -79,6 +79,9 @@ function main() {
   check("  the chosen row wears a circled check that grows in and shrinks away by scale and opacity, and its text keeps its weight",
     /export function CheckDisc\(/.test(browser) && /transition-\[scale,opacity\]/.test(browser) && /on \? "scale-100 opacity-100/.test(browser) && /rounded-full bg-\[#eceef1\] text-\[#1a1a2e\]/.test(browser)
     && (browser.match(/<CheckDisc on=\{on\} \/>/g) ?? []).length === 2 && !/on && "font-medium"/.test(browser))
+  /* "Category and subcategory text should have a heavier font weight": 600 and 500, by level, the same on a phone and a computer. */
+  check("  a category row is 600 and a subcategory row 500, by level and never by whether it is chosen",
+    /const groupWeight = "font-semibold"/.test(browser) && /const itemWeight = "font-medium"/.test(browser) && /className=\{cn\(rowBase, rowCommon, groupWeight\)\}/.test(browser) && /className=\{cn\(rowBase, rowCommon, weight\)\}/.test(browser) && !/font-\[450\]/.test(browser))
   check("  and kept after going back, so nothing renders during a move", !/setHeld\(null\)/.test(browser) && /setSubOut\(true\)/.test(browser))
   check("each level scrolls itself, so back returns to where you were", (browser.match(/data-browse-level=/g) || []).length === 2 && /absolute inset-0 overflow-y-auto/.test(browser))
   check("the level out of sight takes no focus", /inert=\{inSub \|\| undefined\}/.test(browser) && /inert=\{!inSub \|\| undefined\}/.test(browser))

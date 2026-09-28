@@ -311,12 +311,17 @@ export function CategoryBrowser({
   }, [open])
 
   const rowBase = phone
-    ? /* A little heavier than body text on a phone, never bold: the same weight on and off, so nothing reflows. */
-      "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] font-medium leading-5 active:bg-[#f1f2f4]"
-    : /* 450 on a computer: "just by 50, a little bit more" than the 400 they inherited. Inter is
-         loaded as a variable font (app/layout.tsx names no weights), so 450 is a real weight, not
-         a rounding to 400 or 500. Hover and focus change only the background, never the weight. */
-      "flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] font-[450] leading-5 hover:bg-[#f4f5f6] focus-visible:bg-[#f1f2f4]"
+    ? "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 active:bg-[#f1f2f4]"
+    : "flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] leading-5 hover:bg-[#f4f5f6] focus-visible:bg-[#f1f2f4]"
+  /*
+    THE WEIGHT SAYS WHICH LEVEL A ROW IS ON. "Category and subcategory text
+    should have a heavier font weight": a category is 600 and a subcategory
+    500, on a phone and a computer alike, and the same in the search screen
+    (components/search/search-screen.tsx). It is the level that decides it,
+    never whether the row is chosen, so nothing reflows when a check moves.
+  */
+  const groupWeight = "font-semibold"
+  const itemWeight = "font-medium"
   const rowCommon =
     "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]"
   const labelCls = phone
@@ -367,7 +372,7 @@ export function CategoryBrowser({
             drillIn(g.id)
           }
         }}
-        className={cn(rowBase, rowCommon)}
+        className={cn(rowBase, rowCommon, groupWeight)}
       >
         <span className="min-w-0 flex-1 truncate">{g.label}</span>
         {detail ? <span className={detailCls}>{detail}</span> : null}
@@ -376,7 +381,7 @@ export function CategoryBrowser({
     )
   }
 
-  const pickRow = (key: string, label: string, on: boolean, pick: () => void, detail?: string | null) => (
+  const pickRow = (key: string, label: string, on: boolean, pick: () => void, detail?: string | null, weight: string = itemWeight) => (
     <button
       key={key}
       type="button"
@@ -384,7 +389,7 @@ export function CategoryBrowser({
       data-browse-option={key}
       aria-current={on ? "true" : undefined}
       onClick={pick}
-      className={cn(rowBase, rowCommon)}
+      className={cn(rowBase, rowCommon, weight)}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {detail ? <span className={detailCls}>{detail}</span> : null}
@@ -401,7 +406,7 @@ export function CategoryBrowser({
         found.map(({ group, item }) =>
           item
             ? pickRow(`${group.id}/${item.id}`, item.label, selectedGroup === group.id && selectedItem === item.id, () => onPick(group.id, item.id), group.label)
-            : pickRow(group.id, group.label, selectedGroup === group.id && !selectedItem, () => onPick(group.id, null), group.items.length ? "All" : null),
+            : pickRow(group.id, group.label, selectedGroup === group.id && !selectedItem, () => onPick(group.id, null), group.items.length ? "All" : null, groupWeight),
         )
       ) : (
         <p className={cn(labelCls, "pt-4")}>Nothing called “{query.trim()}”</p>
@@ -412,7 +417,7 @@ export function CategoryBrowser({
       {rootTop}
       <div className={phone ? "pb-2" : "p-1.5"}>
         {heading ? <p className={labelCls}>{heading}</p> : null}
-        {allRow ? pickRow(allRow.id, allRow.label, allOn, () => onPick(allRow.id, null)) : null}
+        {allRow ? pickRow(allRow.id, allRow.label, allOn, () => onPick(allRow.id, null), null, groupWeight) : null}
         {groups.map(groupRow)}
       </div>
       {rootBottom}
