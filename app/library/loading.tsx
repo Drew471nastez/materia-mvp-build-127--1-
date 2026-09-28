@@ -1,48 +1,39 @@
+/**
+ * The library while it loads: its heading, its tabs and three rows in the
+ * shape the list draws (components/library/library-home.tsx), so nothing
+ * moves when the real ones land. Deferred: a fast load never shows it.
+ */
 export default function LibraryLoading() {
   return (
-    <div className="bg-[#fafafa] skeleton-deferred">
-    <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
-      {/* Profile header skeleton */}
-      <div className="mb-6 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-        <div className="h-24 sm:h-28 bg-neutral-100 animate-pulse" />
-        <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-          <div className="flex items-end justify-between -mt-8 sm:-mt-10 mb-4">
-            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-4 border-white bg-neutral-200 animate-pulse" />
-            <div className="h-8 w-20 rounded-lg bg-neutral-100 animate-pulse" />
-          </div>
-          <div className="h-6 w-40 rounded bg-neutral-200 animate-pulse mb-2" />
-          <div className="h-4 w-48 rounded bg-neutral-100 animate-pulse" />
+    <div className="skeleton-deferred">
+      <ListSkeleton />
+    </div>
+  )
+}
+
+export function ListSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6" aria-hidden>
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <div className="h-10 flex-1 rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec] animate-pulse" />
+          <div className="h-10 w-32 rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec] animate-pulse" />
+        </div>
+        <div className="h-4 w-20 rounded bg-[#eceef1] animate-pulse" />
+        <div className="divide-y divide-[#eef0f3] overflow-hidden rounded-2xl border border-[#e4e7ec]/80 bg-white">
+          {Array.from({ length: rows }, (_, i) => (
+            <div key={i} className="flex items-start gap-3.5 px-4 py-4 sm:px-5">
+              <div className="h-16 w-16 shrink-0 rounded-xl bg-[#f1f3f5] animate-pulse sm:h-[72px] sm:w-[72px]" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-4 w-3/5 rounded bg-[#eceef1] animate-pulse" />
+                <div className="h-3.5 w-2/5 rounded bg-[#f1f3f5] animate-pulse" />
+                <div className="h-3.5 w-1/3 rounded bg-[#f1f3f5] animate-pulse" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-
-      {/* Stats skeleton */}
-      <div className="mb-6 grid gap-3 grid-cols-2 sm:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className={`rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 ${i === 3 ? "col-span-2 sm:col-span-1" : ""}`}>
-            <div className="h-9 w-9 rounded-xl bg-neutral-100 animate-pulse mb-3" />
-            <div className="h-7 w-12 rounded bg-neutral-200 animate-pulse mb-1" />
-            <div className="h-3 w-20 rounded bg-neutral-100 animate-pulse" />
-          </div>
-        ))}
-      </div>
-
-      {/* Grid skeleton */}
-      <div className="h-5 w-36 rounded bg-neutral-200 animate-pulse mb-4" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-            <div className="aspect-video bg-neutral-100 animate-pulse" />
-            <div className="p-4 space-y-2">
-              <div className="h-5 w-3/4 rounded bg-neutral-200 animate-pulse" />
-              <div className="h-4 w-1/2 rounded bg-neutral-100 animate-pulse" />
-            </div>
-            <div className="border-t border-neutral-200 p-3">
-              <div className="h-10 rounded-xl bg-neutral-100 animate-pulse" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+      <div className="hidden h-48 rounded-2xl border border-[#e4e7ec]/80 bg-white lg:block" />
     </div>
   )
 }

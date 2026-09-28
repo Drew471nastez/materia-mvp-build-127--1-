@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowDownToLine, ArrowRight, Check, Copy, FileText, Loader2, Mail, PlayCircle, Printer } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
+import { downloadFile, downloadKey } from "@/lib/downloads/download-file"
+import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import { ReceiptReview } from "@/components/reviews/receipt-review"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { getStoreUrl } from "@/lib/url-helpers"
@@ -105,12 +107,14 @@ function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: s
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  /* In the app the file can take a while: the button counts it up (lib/downloads). */
+  const pct = percentOf(useDownloadJob(busy ? downloadKey({ assetId: file.id }) : null))
 
   const onDownload = async () => {
     setBusy(true)
     setError(null)
     setDone(false)
-    const result = await downloadEntitledFile(file.id, { receiptToken: token })
+    const result = await downloadEntitledFile(file.id, { receiptToken: token, fileName: file.name })
     setBusy(false)
     if (result.success) {
       setDone(true)
@@ -152,7 +156,7 @@ function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: s
           {busy ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              Preparing
+              {pct !== null ? `${pct}%` : "Preparing"}
             </>
           ) : done ? (
             <>
@@ -553,11 +557,11 @@ export function ReceiptView({
                     href={`/api/checkout/invoice?token=${encodeURIComponent(receipt.primary.token)}`}
                     download
                     onClick={(e) => {
-                      /* The app's web view cannot save a download; the system viewer can. */
+                      /* The app's web view cannot save a download: the one download path
+                         saves it there (lib/downloads/download-file.ts). */
                       if (platform === "web") return
                       e.preventDefault()
-                      const url = new URL(e.currentTarget.getAttribute("href") || "", window.location.origin).toString()
-                      void import("@capacitor/browser").then(({ Browser }) => Browser.open({ url })).catch(() => window.open(url, "_blank"))
+                      void downloadFile({ url: e.currentTarget.getAttribute("href") || "", fileName: `Invoice ${receipt.number}.pdf` })
                     }}
                     className={`${TEXT_LINK} inline-flex min-h-[32px] items-center gap-1.5 print:hidden`}
                   >
@@ -573,8 +577,8 @@ export function ReceiptView({
         {hasFiles && platform !== "web" ? (
           <p className="mt-3 px-1 text-[13px] leading-relaxed text-[#6b7280] print:hidden">
             {platform === "ios"
-              ? "Files open in a viewer. Tap Share, then Save to Files to keep a copy on this iPhone."
-              : "Files open in the browser and save to your Downloads folder."}
+              ? "Downloads save to this iPhone. When one is ready, tap Save to Files."
+              : "Downloads save to the Downloads folder on this phone."}
           </p>
         ) : null}
 

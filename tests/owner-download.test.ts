@@ -280,9 +280,11 @@ async function main() {
   }
 
   {
-    /* A buyer's Download in the app: the iOS build has no Browser plugin, so the button must not call it alone. */
-    const buyer = read("components/download-button.tsx")
-    check("a buyer's download in the app goes through openInSystemBrowser, which falls back to the address itself", buyer.includes("await openInSystemBrowser(data.downloadUrl)") && !buyer.includes('import("@capacitor/browser")'))
+    /* A buyer's Download in the app: the iOS build has no Browser plugin, so the button must not call it alone.
+       Moved with the one download path (lib/downloads/download-file.ts): the system browser is now its
+       last resort, behind the app's own downloader, and is still reached through openInSystemBrowser. */
+    const buyer = read("lib/downloads/download-file.ts")
+    check("a buyer's download in the app goes through openInSystemBrowser, which falls back to the address itself", buyer.includes("await openInSystemBrowser(file.url)") && !buyer.includes('import("@capacitor/browser")') && !read("components/download-button.tsx").includes('import("@capacitor/browser")'))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

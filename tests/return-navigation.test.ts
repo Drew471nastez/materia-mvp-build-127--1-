@@ -38,9 +38,10 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 /** Surfaces whose control names the page behind it. */
 const RETURNS: Array<[string, string]> = [
   ["app/checkout/checkout-client.tsx", "Back to product"],
-  ["app/library/products/[id]/page.tsx", "Library"],
-  ["app/library/my-downloads/page.tsx", "Library"],
-  ["app/library/wishlist/page.tsx", "Library"],
+  /* The product's screen is drawn by its client component now. My Downloads
+     became the library itself (it redirects there), and the wishlist sits
+     under the library's own tabs, which is where "Library" is. */
+  ["components/library/library-product.tsx", "Library"],
   ["app/library/settings/buyer-settings.tsx", "Library"],
 ]
 

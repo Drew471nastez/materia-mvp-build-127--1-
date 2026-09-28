@@ -141,6 +141,20 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
     )
   }
 
+  if (items.length === 0 && isLibrary) {
+    /* The library's own empty card (components/library/library-home.tsx has the same shape). */
+    return (
+      <div data-wishlist-empty="" className="rounded-2xl border border-[#e4e7ec]/80 bg-white px-5 py-10 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]">
+        <Heart className="mx-auto h-7 w-7 text-[#c4c8cf]" strokeWidth={1.5} aria-hidden />
+        <h2 className="mt-3 text-[16px] font-semibold text-[#1a1a2e]">Nothing saved yet</h2>
+        <p className="mx-auto mt-1.5 max-w-[320px] text-[14px] leading-relaxed text-[#6b7280]">Tap the heart on any product to keep it here for later.</p>
+        <Link href="/explore" className="mt-5 inline-flex h-10 items-center justify-center rounded-[10px] bg-[#7c3aed] px-4 text-[14px] font-semibold text-white hover:bg-[#6d28d9]">
+          Discover products
+        </Link>
+      </div>
+    )
+  }
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4">

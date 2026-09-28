@@ -205,9 +205,16 @@ async function main() {
     "the page does not ask Supabase who is signed in a second time",
     !/auth\.getUser\(\)/.test(page) && /currentUserForRequest\(\)/.test(page),
   )
+  /* Changed on purpose: the page no longer draws the buyer's own face (that
+     is /account now), so it has no profile row to read at all. What stays
+     true is that it never reads one a second time. */
   check(
-    "the layout and the page share one profile row",
-    /profileForRequest\(/.test(page) && /profileForRequest\(/.test(layout),
+    "the page reads no second profile row",
+    !/from\("profiles"\)/.test(page) && /profileForRequest\(/.test(layout),
+  )
+  check(
+    "and the library's other reads run beside the downloads, not after them",
+    /getLibraryDownloads\(user\.id\),\s*\n\s*getLibraryExtras\(user\.id\)/.test(page),
   )
   check(
     "the layout reads the user agent while the auth request is in flight",
