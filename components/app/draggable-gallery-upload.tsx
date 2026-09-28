@@ -1,5 +1,6 @@
 "use client"
 import { useState, useRef, useCallback } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
@@ -68,6 +69,7 @@ export function DraggableGalleryUpload({
             console.error("[v0] Gallery upload error:", uploadError)
             continue
           }
+          confirmUpload("product-images", filePath)
 
           const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(filePath)
           newUrls.push(urlData.publicUrl)

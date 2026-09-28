@@ -28,6 +28,7 @@ import {
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
 import { readPackage, sectionsFromTemplate } from "@/lib/storelib-theme"
+import { readEntryCapped } from "@/lib/storelib-theme/package"
 import {
   MAX_BYTES,
   MEDIA_TYPES,
@@ -383,9 +384,13 @@ export async function POST(req: Request) {
         const ext = extensionOf(entry.name)
         const type = MEDIA_TYPES[ext]
         if (!type) continue
-        const data = await entry.file.async("nodebuffer")
-        if (data.byteLength > MAX_BYTES[type.kind]) continue
-        if (!packageFileAllowed(entry.name, new Uint8Array(data.buffer, data.byteOffset, data.byteLength), type.kind)) continue
+        /* Counted as it inflates and stopped at the ceiling, because the
+           size an archive declares is written by whoever made it
+           (lib/storelib-theme/package.ts readEntryCapped). */
+        const read = await readEntryCapped(entry.file, MAX_BYTES[type.kind])
+        if (!read.ok) continue
+        const data = read.bytes
+        if (!packageFileAllowed(entry.name, data, type.kind)) continue
         const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`
         const path = `${user.id}/imported/${safeName}`
         const { error: upErr } = await admin.storage.from(BUCKET).upload(path, data, {

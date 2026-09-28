@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { X, Loader2 } from "lucide-react"
@@ -88,6 +89,7 @@ export function SquareImageCropper({
         .upload(fileName, blob, { upsert: true })
 
       if (uploadError) throw uploadError
+      confirmUpload(bucket, fileName)
 
       const { data: { publicUrl } } = supabase.storage
         .from(bucket)

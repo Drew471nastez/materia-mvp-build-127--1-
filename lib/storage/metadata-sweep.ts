@@ -30,6 +30,20 @@ import "server-only"
  * storage (its URL stops working) and logged. A file that is only not a
  * picture is left alone. When a malware engine is switched on
  * (SECURITY_MALWARE_PROVIDER) it reads each one too.
+ *
+ * ---------------------------------------------------------------------------
+ *  AND EVERYTHING ELSE THAT LANDED IN THOSE BUCKETS
+ * ---------------------------------------------------------------------------
+ * A picture is not the only thing a browser writes there: a link page's lead
+ * magnet, a profile video, a wallpaper clip and a product video all go the
+ * same way, and none of them is read above (the pass takes JPEG, PNG and WebP
+ * under 25 MB, because those are the ones that carry EXIF). Every one of
+ * those is confirmed to the server the moment it finishes
+ * (/api/storage/uploaded), and sweepDirectUploads() is what catches the ones
+ * that were not: a page closed mid-upload, or somebody who never meant to
+ * ask. It reads the FIRST AND LAST BYTES of each by Range, never the whole
+ * file, so a two gigabyte video costs two small reads
+ * (lib/security/uploads/direct.ts).
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -37,6 +51,7 @@ import { stripImageMetadata } from "@/lib/images/metadata"
 import { logSecurityEvent } from "@/lib/security/uploads/audit"
 import { inspectHead } from "@/lib/security/uploads/inspect"
 import { activeProviders } from "@/lib/security/uploads/providers"
+import { checkDirectUpload, PUBLIC_DIRECT_UPLOADS } from "@/lib/security/uploads/direct"
 import { isPublicImage } from "./file-signature"
 
 export interface SweepSummary {
@@ -94,6 +109,53 @@ export async function sweepImageMetadata(
       })
       if (uploadError) summary.errors.push(`${o.bucket_id}/${o.name}: ${uploadError.message}`)
       else summary.stripped++
+    } catch (e) {
+      summary.errors.push(`${o.bucket_id}/${o.name}: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+  return summary
+}
+
+export interface DirectSweepSummary {
+  checked: number
+  /** Files that did not belong in the bucket they were in, removed. */
+  removed: number
+  errors: string[]
+}
+
+/**
+ * The files in the public buckets the picture pass above does not read: a
+ * lead magnet, a video, anything that is not a small JPEG, PNG or WebP. Each
+ * one gets the same central check, from a small read of its start and its
+ * end, and one that is refused is deleted and logged.
+ *
+ * Costs two Range reads per file, never a download, and stops inside its own
+ * budget. Before supabase/sql/run-now/62_public_upload_safety.sql has run the
+ * list is not there, which is said once and then ignored.
+ */
+export async function sweepDirectUploads(
+  admin: SupabaseClient,
+  options: { sinceMinutes?: number; limit?: number; budgetMs?: number } = {},
+): Promise<DirectSweepSummary> {
+  const summary: DirectSweepSummary = { checked: 0, removed: 0, errors: [] }
+  const stopAt = Date.now() + (options.budgetMs ?? 120_000)
+  const { data, error } = await admin.rpc("storage_recent_public_objects", {
+    p_since_minutes: Math.max(1, Math.min(options.sinceMinutes ?? 150, 60 * 24 * 30)),
+    p_limit: Math.max(1, Math.min(options.limit ?? 200, 1000)),
+  })
+  if (error) {
+    /* Part 62 has not run: nothing to read, and nothing to say twice. */
+    if (!/storage_recent_public_objects/.test(error.message ?? "")) summary.errors.push(error.message)
+    return summary
+  }
+
+  for (const o of (data ?? []) as { bucket_id: string; name: string }[]) {
+    if (Date.now() > stopAt) break
+    if (!Object.hasOwn(PUBLIC_DIRECT_UPLOADS, o.bucket_id)) continue
+    try {
+      const result = await checkDirectUpload(admin, { bucket: o.bucket_id, path: o.name })
+      summary.checked++
+      if (!result.ok) summary.removed++
     } catch (e) {
       summary.errors.push(`${o.bucket_id}/${o.name}: ${e instanceof Error ? e.message : String(e)}`)
     }

@@ -24,6 +24,7 @@
  * nothing moves around it.
  */
 import { useEffect, useRef, useState } from "react"
+import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createClient } from "@/lib/supabase/client"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { announceAvatar } from "@/lib/account/avatar-store"
@@ -124,6 +125,7 @@ export function ProfilePhoto({
       const path = `${userId}/avatar-${Date.now()}.jpg`
       const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, { upsert: true, contentType: "image/jpeg" })
       if (uploadError) throw uploadError
+      confirmUpload("avatars", path)
       const {
         data: { publicUrl },
       } = supabase.storage.from("avatars").getPublicUrl(path)
