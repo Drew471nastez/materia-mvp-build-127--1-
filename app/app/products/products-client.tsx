@@ -16,8 +16,8 @@ import { quietDepth } from "./new/editor-buttons"
 import { accentDepth } from "@/components/ui/depth-button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
-import { isReturning, listShown, openEditor, takeEdited, warmEditor, warmInTurn, whenIdle } from "./list-return"
-import { holdLanding } from "@/lib/ui/app-navigation"
+import { editorAnswered, isReturning, listShown, openEditor, takeEdited, warmEditor, warmInTurn, whenIdle, WAIT_LONGEST_MS, WAIT_TICK_MS } from "./list-return"
+import { getAppNavigation, holdLanding } from "@/lib/ui/app-navigation"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playList, shootList, type ListShot } from "./list-motion"
@@ -795,29 +795,48 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     window, as the browser does.
   */
   /*
-    THE PRESS IS ANSWERED ON ITS OWN FRAME. The editor is read on the server
-    (the account, the product, its files and variants), and on a slow line
-    that took seconds with the row looking untouched. Now the row you
-    pressed holds its pressed tint at once, a spinner fades in where its
-    Preview was if the editor is not here a tenth of a second later
-    (OpeningMark), the app's loading bar is told, and further presses wait
-    for this one. The list stays live while the editor is on its way, so the
-    spinner turns; the editor rises the moment it is ready.
+    THE PRESS IS ANSWERED ON ITS OWN FRAME, ONCE, IN ONE PLACE. The editor is
+    read on the server (the account, the product, its files and variants),
+    and on a slow line that took seconds with the row looking untouched. The
+    row you pressed takes its pressed tint in the press itself, and a spinner
+    fades in where its Preview was if the editor is not here a tenth of a
+    second later (OpeningMark). That is the whole answer: the layer is told
+    not to add one of its own (openEditor's `answered`), which used to put a
+    second spinner over whatever was under the pointer, the product's name,
+    and paint the name away behind it.
+
+    AND IT LASTS AS LONG AS THE WAIT. It ends when the editor arrives (this
+    list goes with it) or when nothing is coming any more, never on a clock
+    of its own: ../list-return, THE SIGN OF PROGRESS LASTS AS LONG AS THE
+    WAIT.
   */
   const [opening, setOpening] = useState<string | null>(null)
   /* The lock, from the press itself: `opening` is drawn a frame later. */
   const openingRef = useRef(false)
+  const openedAt = useRef(0)
   useEffect(() => {
     if (!opening) return
-    /* Still here after all: shown again from the browser's back cache, or a navigation that never happened. The list comes back to life. */
+    /* Still here after all: shown again from the browser's back cache. The list comes back to life. */
     const reset = () => {
       openingRef.current = false
       setOpening(null)
     }
-    const t = window.setTimeout(reset, 10_000)
+    const href = `/app/products/${opening}`
+    const tick = window.setInterval(() => {
+      const waited = performance.now() - openedAt.current
+      /* Still out: the server has not answered, so the wait is real and the whole shell is told again. */
+      if (!editorAnswered(href, openedAt.current) && waited < WAIT_LONGEST_MS) {
+        startNavigationLoading(href)
+        return
+      }
+      /* Answered, and this list is still the page: either it landed in this
+         same commit (and this runs no more) or it is not coming. */
+      if (getAppNavigation()) return
+      reset()
+    }, WAIT_TICK_MS)
     window.addEventListener("pageshow", reset)
     return () => {
-      window.clearTimeout(t)
+      window.clearInterval(tick)
       window.removeEventListener("pageshow", reset)
     }
   }, [opening])
@@ -828,9 +847,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     if (id === "new") warmNew()
     else warm(id)
     openingRef.current = true
+    openedAt.current = performance.now()
     startNavigationLoading(href)
-    /* The row's tint (or New product's dim) is on the next frame, from moveLayer; the list draws its own spinner a frame later, not in the press's task. */
-    openEditor(router, href)
+    /* The tint in the press's own task, on the row itself: React draws the
+       same attribute a frame later, with the spinner, which is work the
+       press must not wait for. New product has no row, and the layer answers
+       it (openEditor). */
+    if (id !== "new") {
+      for (const el of sectionRef.current?.querySelectorAll<HTMLElement>(`[data-row="${CSS.escape(id)}"]`) ?? []) el.dataset.opening = ""
+    }
+    openEditor(router, href, id !== "new")
     requestAnimationFrame(() => setOpening(id))
   }
   const openFromLink = (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {

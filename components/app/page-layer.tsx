@@ -818,7 +818,21 @@ export function holdPress(pressed: Element | null | undefined, until: string | n
     el.setAttribute("aria-busy", "true")
     el.append(spinner)
   }, LAYER_PRESS_WAIT_MS)
-  const cap = window.setTimeout(() => release(), LAYER_PRESS_KEPT_MS)
+  /*
+    THE CAP IS NOT A CLOCK OF ITS OWN. "Sometimes it ends, and then I have to
+    wait another 10 seconds to load the page." A press whose page was still
+    being fetched had its answer taken away at LAYER_PRESS_KEPT_MS and the
+    page then arrived seconds later, which reads as a press refused and a
+    screen that changes by itself. So the cap looks again each time it comes
+    round, and only lets go once the shell has no navigation underway.
+  */
+  let cap = window.setTimeout(function again() {
+    if (getAppNavigation()) {
+      cap = window.setTimeout(again, LAYER_PRESS_KEPT_MS)
+      return
+    }
+    release()
+  }, LAYER_PRESS_KEPT_MS)
   /* A link's address is written when the router commits it: a tenth of a second is soon enough to notice. */
   const landed = until
     ? window.setInterval(() => {

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { moveLayer } from "@/components/app/page-layer"
-import { isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { isAnswerFor, isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navigation"
 
 /**
  * ===========================================================================
@@ -62,12 +62,28 @@ let fromList = false
 let editors = 0
 const PUSH_KEPT_MS = 10_000
 
-/** Open a product, or a new one, from the list. */
-export function openEditor(router: Router, href: string) {
-  moveLayer("enter", () => {
-    pushedAt = Date.now()
-    router.push(href)
-  })
+/**
+ * Open a product, or a new one, from the list.
+ *
+ * ONE SIGN OF PROGRESS, IN ONE PLACE. "You can see the double loading there."
+ * A press on a row was answered twice: the list drew its own spinner where
+ * Preview is, and the layer answered whatever was under the pointer as well,
+ * which on a computer is the product's name (page-layer holdPress). That one
+ * paints its element's text transparent and puts a spinner in its place, so
+ * the pressed row had an empty name with a spinner in the middle of it AND a
+ * second spinner at the end of the row. `answered` says the list has drawn
+ * the answer itself, and the layer adds none of its own. New product has no
+ * answer of its own and is still the layer's to answer.
+ */
+export function openEditor(router: Router, href: string, answered = false) {
+  moveLayer(
+    "enter",
+    () => {
+      pushedAt = Date.now()
+      router.push(href)
+    },
+    answered ? false : undefined,
+  )
 }
 
 /**
@@ -153,6 +169,47 @@ export function warmProducts(router: Router) {
 */
 export function warmEditor(router: Router, href: string) {
   prefetchAppPage(router, href)
+}
+
+/*
+  ===========================================================================
+   THE SIGN OF PROGRESS LASTS AS LONG AS THE WAIT
+  ===========================================================================
+  "Sometimes it ends, and then I have to wait another 10 seconds to load the
+  page." Two clocks were ending the press's answer on their own: the layer
+  lets a press go after LAYER_PRESS_KEPT_MS (8s) and the shell drops a
+  navigation it has heard nothing about after GIVE_UP_MS (10s). An editor
+  whose server read ran longer than that left the row quiet, with the editor
+  arriving seconds later, which is the worst reading of all: the press looks
+  refused and then the screen changes by itself.
+
+  So while the router's own request for the editor's address is still out,
+  the navigation is reported again on a tick. The row, the loading bar and
+  the shell all read the one record, so all three last exactly as long as the
+  server does. Once the answer is back the shell takes over as it does
+  everywhere: a page that does not land within NAV_STUCK_AFTER_ANSWER_MS of
+  its answer is loaded as a document (lib/ui/app-navigation
+  watchRouterAnswers), and either way the press is over.
+
+  Resource timing only: nothing is fetched, no request is touched and no
+  response is read. Where a browser has none, WAIT_LONGEST_MS is the end of
+  it, as the old ten seconds was.
+*/
+export const WAIT_TICK_MS = 2000
+/** Nothing on the list waits longer than this, whatever the timings say. */
+export const WAIT_LONGEST_MS = 45_000
+
+/** Has the router's own request for `href`, sent at or after `since`, come back? */
+export function editorAnswered(href: string, since: number): boolean {
+  if (typeof performance === "undefined" || typeof performance.getEntriesByType !== "function") return true
+  try {
+    const nav = { href, startedAt: since }
+    return performance
+      .getEntriesByType("resource")
+      .some((entry) => isAnswerFor(nav, entry as PerformanceResourceTiming, window.location.origin))
+  } catch {
+    return true
+  }
 }
 
 /**
