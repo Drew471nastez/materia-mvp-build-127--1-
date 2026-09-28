@@ -6,6 +6,7 @@ export default [
       'out/**',
       'dist/**',
       'coverage/**',
+      '.wb-probe/**',
     ],
   },
   {

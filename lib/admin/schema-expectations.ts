@@ -116,4 +116,6 @@ export const ENV_CHECKS: { name: string; group: string; optional?: boolean }[] =
   { name: "SECURITY_MALWARE_PROVIDER", group: "Malware engine (optional)", optional: true },
   { name: "CLAMAV_SERVICE_URL", group: "Malware engine (optional)", optional: true },
   { name: "CLAMAV_SERVICE_SECRET", group: "Malware engine (optional)", optional: true },
+  { name: "ALERT_EMAIL", group: "Alerts when something breaks", optional: true },
+  { name: "ALERT_WEBHOOK_URL", group: "Alerts when something breaks", optional: true },
 ]

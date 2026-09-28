@@ -379,6 +379,8 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
         ) : null}
       </Panel>
 
+      <ErrorsPanel errors={data.errors} />
+
       <SqlPartsPanel parts={data.sqlParts} />
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -451,6 +453,33 @@ function SqlPartsPanel({ parts }: { parts: SystemPayload["sqlParts"] }) {
           />
           <p className="border-t border-white/[0.08] px-4 py-2.5 text-[12px] text-[#9b9ba6]">Run the files in supabase/sql/run-four in order in the Supabase SQL editor, then open this page again.</p>
         </>
+      )}
+    </Panel>
+  )
+}
+
+/** What has been failing, one line per kind of error, counted (lib/observability/report). */
+function ErrorsPanel({ errors }: { errors: SystemPayload["errors"] }) {
+  const total = (errors ?? []).reduce((n, e) => n + e.count, 0)
+  return (
+    <Panel title="Errors" meta={errors === null ? "No record yet" : errors.length ? `${errors.length} kinds, ${total} times, last 7 days` : "None in the last 7 days"}>
+      {errors === null ? (
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Errors are counted once run-now part 68 has run. Until then they are only in the Vercel log.</p>
+      ) : errors.length === 0 ? (
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Nothing has failed in the last 7 days.</p>
+      ) : (
+        <DataList
+          label="Errors"
+          rows={errors}
+          rowKey={(r) => r.fingerprint}
+          empty=""
+          columns={[
+            { key: "where", label: "Where", width: "minmax(0,1.2fr)", phone: "primary", render: (r) => r.where },
+            { key: "message", label: "What", width: "minmax(0,2fr)", render: (r) => r.message },
+            { key: "count", label: "Times", width: "70px", align: "right", phone: "end", render: (r) => String(r.count) },
+            { key: "last", label: "Last", width: "90px", align: "right", render: (r) => ago(r.lastSeen) },
+          ]}
+        />
       )}
     </Panel>
   )

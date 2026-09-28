@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { purgeExpiredAttachments } from "@/lib/website-builder/agent/attachment-store"
 import { requireBearerSecret } from "@/lib/api/require-secret"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * GET /api/cron/purge-chat-attachments
@@ -22,7 +23,7 @@ import { requireBearerSecret } from "@/lib/api/require-secret"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-export async function GET(request: Request) {
+async function runJob(request: Request) {
   /* Was compared against `Bearer ${process.env.CRON_SECRET}`, which with the
      variable unset is the literal password "Bearer undefined". */
   const denied = requireBearerSecret(request, "CRON_SECRET")
@@ -34,4 +35,9 @@ export async function GET(request: Request) {
     console.error("[purge-chat-attachments]", error)
     return NextResponse.json({ error: "Purge failed" }, { status: 500 })
   }
+}
+
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
+export async function GET(request: Request) {
+  return recordCronRun("/api/cron/purge-chat-attachments", request, () => runJob(request))
 }

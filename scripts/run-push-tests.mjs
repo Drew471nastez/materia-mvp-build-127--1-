@@ -209,6 +209,7 @@ const SUITES = [
   "tests/ledger-and-deletion.test.ts",
   "tests/backups.test.ts",
   "tests/schema-source.test.ts",
+  "tests/ops-safety.test.ts",
   "tests/public-abuse.test.ts",
   "tests/section-signups.test.ts",
   "tests/developer-hub.test.ts",

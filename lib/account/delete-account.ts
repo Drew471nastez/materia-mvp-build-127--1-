@@ -290,7 +290,10 @@ export async function deleteAccount(admin: Admin, userId: string, by: "self" | "
       failures,
     }),
   )
-  if (failures.length > 0) console.error(`[delete-account] ${mode} ${userId} with ${failures.length} step(s) failed:`, failures.join("; ").slice(0, 2000))
+  if (failures.length > 0) {
+    const { reportError } = await import("@/lib/observability/report")
+    await reportError({ source: "account", where: `account ${mode} (${by})`, error: new Error(`${failures.length} step(s) failed: ${failures.join("; ").slice(0, 1500)}`), context: { userId } })
+  }
   return { ok, mode, failures }
 }
 

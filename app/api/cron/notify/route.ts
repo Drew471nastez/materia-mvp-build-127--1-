@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runNotificationWork } from "@/lib/notify/worker"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * GET /api/cron/notify
@@ -27,7 +28,7 @@ export const maxDuration = 60
 /** Stop taking batches with time left to finish the one in hand. */
 const RUN_BUDGET_MS = 45_000
 
-export async function GET(request: Request) {
+async function runJob(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
 
@@ -43,4 +44,9 @@ export async function GET(request: Request) {
     console.error("[cron/notify] the run failed")
     return NextResponse.json({ error: "Run failed" }, { status: 500 })
   }
+}
+
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
+export async function GET(request: Request) {
+  return recordCronRun("/api/cron/notify", request, () => runJob(request))
 }

@@ -17,6 +17,7 @@ import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
+import { reportError } from "@/lib/observability/report"
 
 export const runtime = "nodejs"
 
@@ -106,10 +107,15 @@ export async function POST(request: Request) {
     answer = await handleStripeEvent(new Request(request.url, { method: "POST", headers: request.headers, body }))
   } catch (error) {
     if (eventId) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: error instanceof Error ? error.message : String(error) })
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId } })
     throw error
   }
   if (eventId && answer.status === 200) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: true })
-  else if (eventId && answer.status >= 500) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
+  else if (eventId && answer.status >= 500) {
+    await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
+    /* Stripe will try again, but a payment event failing is the owner's to know about now. */
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId } })
+  }
   return answer
 }
 

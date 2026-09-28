@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { CronCheck, SchemaCheck, SqlPartCheck, SystemPayload } from "../types"
+import type { CronCheck, ErrorGroup, SchemaCheck, SqlPartCheck, SystemPayload } from "../types"
 import { Reader, isoDaysAgo, isoMinutesAgo } from "../platform-metrics"
 import { plainReason } from "../plain-reason"
 import { CRON_JOBS, ENV_CHECKS, EXPECTED_FUNCTIONS, EXPECTED_SCHEMA } from "../schema-expectations"
@@ -9,13 +9,22 @@ import { SQL_PARTS } from "../sql-parts.generated"
 const HOUR = 60 * 60 * 1000
 
 export async function system(r: Reader): Promise<Omit<SystemPayload, "problems" | "notices">> {
-  const [crons, rateRows, rateOldest, schema, sqlParts] = await Promise.all([
+  const [crons, rateRows, rateOldest, schema, sqlParts, errorRows] = await Promise.all([
     cronChecks(r),
     r.count("rate limit rows", "rate_limit_hits"),
     r.rows<{ created_at: string }>("rate limit oldest", "rate_limit_hits", "created_at", (q) => q.order("created_at", { ascending: true }).limit(1)),
     schemaChecks(r),
     sqlPartChecks(r),
+    r.rows<{ fingerprint: string; source: string; location: string; message: string; count: number; first_seen: string; last_seen: string }>(
+      "errors",
+      "error_events",
+      "fingerprint, source, location, message, count, first_seen, last_seen",
+      (q) => q.gte("last_seen", isoDaysAgo(7)).order("last_seen", { ascending: false }).limit(50),
+    ),
   ])
+  const errors: ErrorGroup[] | null = errorRows
+    ? errorRows.map((e) => ({ fingerprint: e.fingerprint, source: e.source, where: e.location, message: e.message, count: Number(e.count), firstSeen: e.first_seen, lastSeen: e.last_seen }))
+    : null
 
   return {
     crons,
@@ -23,6 +32,7 @@ export async function system(r: Reader): Promise<Omit<SystemPayload, "problems" 
     rateLimit: { rows: rateRows, oldest: rateOldest?.[0]?.created_at ?? null },
     schema,
     sqlParts,
+    errors,
   }
 }
 

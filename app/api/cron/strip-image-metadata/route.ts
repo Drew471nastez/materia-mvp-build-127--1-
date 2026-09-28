@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { sweepImageMetadata } from "@/lib/storage/metadata-sweep"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { recordCronRun } from "@/lib/observability/report"
 
 /**
  * GET /api/cron/strip-image-metadata
@@ -20,7 +21,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
-export async function GET(request: Request) {
+async function runJob(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
 
@@ -35,4 +36,9 @@ export async function GET(request: Request) {
     console.error("[strip-image-metadata]", error)
     return NextResponse.json({ error: "Sweep failed" }, { status: 500 })
   }
+}
+
+/* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
+export async function GET(request: Request) {
+  return recordCronRun("/api/cron/strip-image-metadata", request, () => runJob(request))
 }
