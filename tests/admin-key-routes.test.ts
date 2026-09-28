@@ -64,6 +64,11 @@ const PROOFS: [string, RegExp][] = [
   /* lib/automations/flow-io.ts: auth.getUser(), then the creator by user id,
      and every flow read by that creator id. */
   ["the signed-in creator, for an automation", /await signedInCreator\(\)[\s\S]*\.eq\("creator_id", me\.creatorId\)/],
+  /* lib/courses/route-auth.ts: auth.getUser(), then lib/courses/access decides
+     from that id what the caller may have (a creator, a buyer, or a visitor who
+     gets only a published course's free preview lessons). The stop link in a
+     course email is signed over its enrollment id (lib/email-campaigns/link-sign). */
+  ["the signed-in person, for a course", /await sessionUserId\(\)[\s\S]*(lessonContext|productAccess|ownerOf|verifyLink|\.eq\("buyer_id", userId\))/],
 ]
 
 /**
