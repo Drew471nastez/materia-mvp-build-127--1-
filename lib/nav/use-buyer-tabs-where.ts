@@ -11,10 +11,14 @@
  * never drop a control the bar is not there to replace.
  *
  * WHERE THIS IS depends on the host, which the server does not hand a client
- * component: a creator's subdomain or their own domain is theirs. The first
- * render answers from the address alone (a creator's page is left bare until
- * it is known to be browsed from Storelib), and the host has the last word a
- * moment later, as it does for the header.
+ * component: a creator's own domain is theirs, and nothing of Storelib's is
+ * drawn on it. The address alone settles the rest, on the first render, and
+ * the host has the last word a moment later, as it does for the header.
+ *
+ * A CREATOR'S PAGE OR PRODUCT NEVER HAS THE BAR, however it was reached
+ * (lib/nav/buyer-tabs.ts): the page's own buy bar is already at the foot of
+ * it. That is read from the address, so the bar is gone on the frame the
+ * product opens and there is nothing to flicker.
  *
  * Both are drawn below 768px only (md:hidden), so "the bar is on this page"
  * and "the bar is on screen" are the same question at every width the header
@@ -23,41 +27,19 @@
 
 import { useEffect, useState } from "react"
 
-import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { buyerTabsBelongOn } from "@/lib/nav/buyer-tabs"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 
-export type BuyerTabsWhere = { sellerSurface: boolean; discover: boolean; customDomain: boolean }
+export type BuyerTabsWhere = { sellerSurface: boolean; customDomain: boolean }
 
 export function useBuyerTabsWhere(pathname: string): BuyerTabsWhere {
-  const [state, setState] = useState<BuyerTabsWhere & { forPath: string }>(() => ({ sellerSurface: isSellerPage(pathname), discover: false, customDomain: false, forPath: pathname }))
+  const [host, setHost] = useState<{ subdomain: boolean; customDomain: boolean }>({ subdomain: false, customDomain: false })
   useEffect(() => {
-    const host = window.location.host
-    const subdomain = extractUsernameFromHost(host) !== null
-    const sellerSurface = subdomain || isSellerPage(pathname)
-    const discover = sellerSurface && isDiscoverMode(pathname, new URLSearchParams(window.location.search), { isSubdomain: subdomain })
-    const customDomain = isCustomDomain(host)
-    setState((w) =>
-      w.forPath === pathname && w.sellerSurface === sellerSurface && w.discover === discover && w.customDomain === customDomain
-        ? w
-        : { sellerSurface, discover, customDomain, forPath: pathname },
-    )
-  }, [pathname])
-  /*
-    BETWEEN TWO PAGES, UNTIL THE HOST HAS BEEN ASKED AGAIN. The answer above
-    is for the address it was worked out on, and the first render of a new
-    address comes before the effect that asks again. Read as it stood, a
-    product opened from Explore was "a creator's page, not browsed from
-    Storelib" for that one render, so the bar (and the search screen it
-    carries) left the document and came back a frame later. So a creator's
-    page reached from a page that had the bar keeps it until the effect has
-    answered for this address; the effect has the last word, as before.
-  */
-  if (state.forPath !== pathname) {
-    const had = buyerTabsBelongOn(state.forPath, state)
-    return { sellerSurface: isSellerPage(pathname), discover: had, customDomain: state.customDomain }
-  }
-  return state
+    const h = window.location.host
+    const next = { subdomain: extractUsernameFromHost(h) !== null, customDomain: isCustomDomain(h) }
+    setHost((w) => (w.subdomain === next.subdomain && w.customDomain === next.customDomain ? w : next))
+  }, [])
+  return { sellerSurface: host.subdomain || isSellerPage(pathname), customDomain: host.customDomain }
 }
 
 /** The same question, answered: true where the bar is drawn. */

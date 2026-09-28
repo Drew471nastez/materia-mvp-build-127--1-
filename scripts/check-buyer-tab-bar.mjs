@@ -20,8 +20,8 @@
  *   SLIDE     the glass follows the finger one to one, lifts and stretches,
  *             and the slot it is let go over is where the page goes
  *   KEYBOARD  the bar slides away while a field has the focus, and back
- *   STACK     a product page browsed from Storelib: the buy bar stands on
- *             the tab bar, both whole; on the open web the bar is not there
+ *   PRODUCT   a creator's page or product has no tab bar, browsed from
+ *             Storelib or on the open web, and its own buy bar is at the foot
  *   ACCOUNT   /account (the profile's Overview) at 390 and 1280, nothing
  *             sideways; the Profile tab is a person icon, filled when you
  *             are on it, on Overview and on Settings
@@ -368,31 +368,21 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.close()
   }
 
-  /* ── STACK ───────────────────────────────────────────────────────────── */
+  /* ── A CREATOR'S PRODUCT: THEIR SHOP, THEIR BAR ─────────────────────── */
   console.log("\nphone 390, a product page")
-  {
-    const { p, errors } = await open(PHONE, "/maria/preset-pack", { search: "?layout=discover" })
+  for (const [how, search] of [["browsed from Storelib", "?layout=discover"], ["on the open web", ""]]) {
+    const { p, errors } = await open(PHONE, "/maria/preset-pack", search ? { search } : undefined)
     const s = await barState(p)
-    expect(!!s && s.current === 0, "browsed from Storelib, the bar is there, on Home", s ? { current: s.current } : errors)
+    expect(s === null, `${how}, a creator's product has no tab bar`, s ? { current: s.current } : "none")
     await p.evaluate(() => window.scrollTo(0, 1100))
     await sleep(800)
-    const stack = await p.evaluate(() => {
-      const buy = document.querySelector('[class*="fixed bottom-0 left-0 right-0 z-50"]')
-      const b = buy.getBoundingClientRect(), t = document.querySelector("[data-buyer-tab-bar]").getBoundingClientRect()
-      return { buyTop: Math.round(b.top), buyBottom: Math.round(b.bottom * 10) / 10, tabsTop: Math.round(t.top * 10) / 10, opacity: getComputedStyle(buy).opacity }
+    const buy = await p.evaluate(() => {
+      const el = document.querySelector('[class*="fixed bottom-0 left-0 right-0 z-50"]')
+      return { bottom: Math.round(el.getBoundingClientRect().bottom), opacity: getComputedStyle(el).opacity }
     })
-    expect(stack.opacity === "1" && Math.abs(stack.buyBottom - stack.tabsTop) < 0.6, "STACK: the buy bar stands on the tab bar, both whole", stack)
-    await p.screenshot({ path: join(shots, "phone-product-stack.png"), clip: { x: 0, y: (await p.evaluate(() => scrollY)) + 844 - 200, width: 390, height: 200 } })
+    expect(buy.opacity === "1" && buy.bottom === 844, `${how}, the page's own buy bar stands at the foot`, buy)
+    await p.screenshot({ path: join(shots, `phone-product-${search ? "discover" : "web"}.png`), clip: { x: 0, y: (await p.evaluate(() => scrollY)) + 844 - 200, width: 390, height: 200 } })
     expect(errors.length === 0, "no errors on the page", errors)
-    await p.close()
-  }
-  {
-    const { p } = await open(PHONE, "/maria/preset-pack")
-    const s = await barState(p)
-    await p.evaluate(() => window.scrollTo(0, 1100))
-    await sleep(800)
-    const buy = await p.evaluate(() => Math.round(document.querySelector('[class*="fixed bottom-0 left-0 right-0 z-50"]').getBoundingClientRect().bottom))
-    expect(s === null && buy === 844, "on the open web the same page is the creator's: no bar, and the buy bar at the foot", { bar: s, buy })
     await p.close()
   }
   for (const path of ["/checkout", "/app", "/"]) {

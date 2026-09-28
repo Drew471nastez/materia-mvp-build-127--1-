@@ -18,14 +18,13 @@
  *   Library and everything in it   /library/...
  *   The account page               /account
  *   The wishlist                   /wishlist (a platform route of its own)
- *   A product or creator page      only while it is being browsed as part of
- *                                  Storelib (discover mode: the native app,
- *                                  or opened from Explore), which is exactly
- *                                  when the platform header is drawn over it.
- *                                  On the open web the same address is the
- *                                  creator's own storefront, and a Storelib
- *                                  bar across the foot of it would be
- *                                  somebody else's navigation on their shop.
+ *   A product or creator page      never. It is somebody's shop, and the
+ *                                  page's own buy bar already stands at the
+ *                                  foot of it; a second bar under that is
+ *                                  two rows of somebody else's navigation
+ *                                  over the thing being sold. The platform
+ *                                  header stays, so the way back to Storelib
+ *                                  is still there.
  *
  * The homepage is not on the list. It is the page that sells Storelib to
  * sellers, with its own calls to action, and the native app never shows it.
@@ -63,18 +62,17 @@ export function isBuyerPath(pathname: string): boolean {
  * Whether the bar belongs on this page.
  *
  * `sellerSurface` is a creator's page or product (lib/url-helpers
- * isSellerPage, or a creator's subdomain), `discover` is lib/isDiscoverMode's
- * answer for it, and `customDomain` is a creator's own domain, where nothing
- * of Storelib's is drawn at all.
+ * isSellerPage, or a creator's subdomain), and `customDomain` is a creator's
+ * own domain, where nothing of Storelib's is drawn at all.
  */
 export function buyerTabsBelongOn(
   pathname: string,
-  where: { sellerSurface?: boolean; discover?: boolean; customDomain?: boolean } = {},
+  where: { sellerSurface?: boolean; customDomain?: boolean } = {},
 ): boolean {
   if (where.customDomain) return false
   /* /account/continue is a redirect, never a page anybody sees. */
   if (under(pathname, "/account/continue")) return false
-  if (where.sellerSurface) return !!where.discover
+  if (where.sellerSurface) return false
   return isBuyerPath(pathname)
 }
 

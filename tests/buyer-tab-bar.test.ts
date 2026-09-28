@@ -42,9 +42,9 @@ const on = ["/explore", "/explore/design", SEARCH_HREF, "/library", "/library/pr
 for (const p of on) check(`on ${p}`, buyerTabsBelongOn(p))
 const off = ["/", "/app", "/app/products", "/admin", "/checkout", "/checkout/abc", "/login", "/signup", "/reset-password", "/receipt/tok", "/purchase/x", "/creator-page", "/website-builder", "/blog", "/pricing", "/sell", "/account/continue", "/w/someone"]
 for (const p of off) check(`not on ${p}`, !buyerTabsBelongOn(p))
-check("a creator's page or product on the open web is theirs: no bar", !buyerTabsBelongOn("/maria/preset-pack", { sellerSurface: true }) && !buyerTabsBelongOn("/maria", { sellerSurface: true }))
-check("the same page browsed from Storelib (discover mode) has it", buyerTabsBelongOn("/maria/preset-pack", { sellerSurface: true, discover: true }))
-check("never on a creator's own domain, whatever the path", !buyerTabsBelongOn("/explore", { customDomain: true }) && !buyerTabsBelongOn("/", { customDomain: true, sellerSurface: true, discover: true }))
+check("a creator's page or product never has the bar: it is their shop, and its own buy bar is already there",
+  !buyerTabsBelongOn("/maria/preset-pack", { sellerSurface: true }) && !buyerTabsBelongOn("/maria", { sellerSurface: true }))
+check("never on a creator's own domain, whatever the path", !buyerTabsBelongOn("/explore", { customDomain: true }) && !buyerTabsBelongOn("/", { customDomain: true, sellerSurface: true }))
 
 console.log("\nWhich tab a page belongs to")
 const cases: Array<[string, { query?: boolean; sellerSurface?: boolean }, number]> = [
@@ -88,7 +88,12 @@ check("and the touch's end gives the field the focus again, for a WebKit that di
 check("the bar mounts the screen beside itself, so a result leading off the bar's pages does not unmount it mid fade", /<SearchOverlay \/>/.test(bar))
 check("the tab you are on scrolls to the top", /window\.scrollTo\(\{ top: 0/.test(bar))
 check("its hooks are never behind a return: the question is asked where it is mounted", /\{buyerTabsBelongOn\(pathname, where\) \? <TabBar pathname=\{pathname\} sellerSurface=\{where\.sellerSurface\} \/> : null\}/.test(bar))
-check("between two pages it keeps the last answer until the host is asked again, so the bar does not blink out", /if \(state\.forPath !== pathname\) \{/.test(code("lib/nav/use-buyer-tabs-where.ts")))
+/* A creator's page is read from the address, so the bar is gone on the frame
+   the product opens: nothing is carried between pages and nothing blinks. */
+const where = code("lib/nav/use-buyer-tabs-where.ts")
+check("where the bar is comes from the address, and only the host waits for an effect",
+  /return \{ sellerSurface: host\.subdomain \|\| isSellerPage\(pathname\), customDomain: host\.customDomain \}/.test(where)
+    && !/forPath/.test(where) && !/isDiscoverMode/.test(where))
 check("the native shell's press dimming is taken off its icons, as on the pill", /html\.capacitor \[data-buyer-tab-bar\] nav a:active/.test(read("app/globals.css")))
 
 console.log("\nNothing ends under it, and nothing fights it")
