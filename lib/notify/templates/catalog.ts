@@ -369,6 +369,12 @@ function paymentLabel(d: Data): string {
  * totals, the fee and what the seller receives, who bought it, and one
  * button to the order. Every figure comes from data; a missing one leaves
  * out its row, never prints a guess.
+ *
+ * A FREE PRODUCT IS STILL A SALE. The owner's rule: "'You've made a sale'
+ * even if the product is for free." So a free claim gets the same email
+ * with the same heading, and only the money is worded differently: the
+ * amount reads "Free" rather than $0.00, and the fee and the payout rows
+ * are left out because nothing was taken and nothing arrives.
  */
 function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   const totalCents = d.cents("amountCents")
@@ -395,20 +401,20 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   const net = !free && totalCents !== null ? (netGiven ?? (fee !== null ? Math.max(0, totalCents - fee) : null)) : null
   const netText = net === null ? "" : d.format(net)
 
-  /* Subject: what sold and for how much, at most 60 characters. */
+  /* Subject: what sold and for how much, at most 60 characters. A free claim sold too, so it reads the same without a price. */
   const moreShort = count > 1 ? ` and ${count - 1} more` : ""
   let subject = ""
   if (first) subject = total && !free ? fitSubject("Your first sale: ", title, `${moreShort} for ${total}`) : fitSubject("Your first sale: ", title, moreShort)
-  else if (free) subject = fitSubject("New free order: ", title, moreShort)
+  else if (free) subject = fitSubject("You sold ", title, moreShort)
   else if (total) subject = fitSubject("You sold ", title, `${moreShort} for ${total}`)
-  if (!subject) subject = first ? (total && !free ? `Your first sale: ${total}` : "You made your first sale") : total && !free ? `New order for ${total}` : "You have a new order"
+  if (!subject) subject = first ? (total && !free ? `Your first sale: ${total}` : "You made your first sale") : total && !free ? `You made a sale for ${total}` : "You made a sale"
 
   const buyer = firstName || "A customer"
   const preview = free
-    ? `${buyer} claimed ${thing} for free.`
+    ? `${buyer} got ${thing} for free.`
     : join(`${buyer} bought ${thing}.`, (netText || total) && `${netText || total} goes to your balance.`)
 
-  const sentence = free ? `${who} claimed ${thing} from your store for free.` : `${who} bought ${thing} from your store.`
+  const sentence = free ? `${who} got ${thing} from your store for free.` : `${who} bought ${thing} from your store.`
   const paragraphs = first
     ? [sentence, "Congratulations on your first sale on Storelib. Here are the details."]
     : [sentence]
@@ -431,7 +437,8 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   if (discount !== null && discount > 0) totals.push({ label: code ? `Discount (${code})` : "Discount", value: `\u2212${d.moneyOf("discountCents")}` })
   if (tip !== null && tip > 0) totals.push({ label: "Tip", value: d.moneyOf("tipCents") })
   if (tax !== null && tax > 0) totals.push({ label: "Tax", value: d.moneyOf("taxCents") })
-  if (total) totals.push({ label: free ? "Total" : "Total paid", value: total, strong: true })
+  /* Honest money: a free claim reads "Free", never $0.00. */
+  if (total) totals.push({ label: free ? "Total" : "Total paid", value: free ? "Free" : total, strong: true })
   const payout: SummaryRow[] = []
   if (net !== null && netText) {
     if (fee !== null && fee > 0) payout.push({ label: "Storelib fee", value: `\u2212${d.moneyOf("feeCents")}` })
@@ -457,13 +464,13 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
         }
       : null
 
-  const inAppBody = free ? `${who} claimed ${thing} for free.` : join(`${who} bought ${thing}`, total && `for ${total}`) + "."
+  const inAppBody = free ? `${who} got ${thing} for free.` : join(`${who} bought ${thing}`, total && `for ${total}`) + "."
   return {
     family: first ? "success" : "transaction",
     audience: "creator",
     subject,
     preview,
-    heading: first ? "You made your first sale" : "You have a new order",
+    heading: first ? "You made your first sale" : "You made a sale",
     greet: false,
     paragraphs,
     order,
@@ -472,7 +479,7 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
     note: "You get sale emails because they are on in your notification settings. You can turn them off there and still see every order in the app.",
     inApp: first
       ? { title: "Your first sale", body: inAppBody, actionLabel: "View order", actionPath: path }
-      : { title: total && !free ? `New sale: ${total}` : "New order", body: inAppBody, actionLabel: "View order", actionPath: path },
+      : { title: total && !free ? `New sale: ${total}` : "New sale", body: inAppBody, actionLabel: "View order", actionPath: path },
   }
 }
 
