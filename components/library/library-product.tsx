@@ -200,9 +200,9 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
                   </a>
                 ) : null}
                 {store ? (
-                  <a href={store} {...storeLink} data-creator-store="" aria-label={`${data.creator.name}'s store`} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${contact ? "" : "col-span-2"}`)}>
+                  <a href={store} {...storeLink} data-creator-profile="" aria-label={`${data.creator.name}'s profile`} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${contact ? "" : "col-span-2"}`)}>
                     <Store className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    <span className="truncate">Store</span>
+                    <span className="truncate">Profile</span>
                   </a>
                 ) : null}
               </div>

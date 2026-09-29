@@ -540,7 +540,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
           </div>
           {pending?.kind === "tab" ? (
             <div key={pending.id} ref={incomingRef} data-library-incoming="tab" className={pending.under ? "absolute inset-x-0 top-0 -z-10" : undefined}>
-              {skeletonFor(pending.href)}
+              {skeletonFor(pending.href, true)}
             </div>
           ) : null}
         </div>
@@ -548,7 +548,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
       {pending && pending.kind !== "tab" ? (
         <div key={pending.id} ref={incomingRef} data-library-incoming={pending.kind}>
           {pending.kind === "back" ? <TabsHeaderStill active={pending.href} /> : null}
-          {skeletonFor(pending.href)}
+          {skeletonFor(pending.href, true)}
         </div>
       ) : null}
     </div>

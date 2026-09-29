@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, ChevronRight, Mail, Search, Store, X } from "lucide-react"
+import { Check, ChevronRight, Search, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { creatorKey, visibleItems, type LibraryCreator, type LibraryItem, type LibrarySort } from "@/lib/library/library-view"
 import { contactOf, storeOf } from "./creator-links"
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
  * One list, newest first, because the thing bought yesterday is the thing
  * most often opened today. Above it a search and an order when the list is
  * long enough to need them. The sellers they bought from sit under the
- * products as a plain list with Visit store and Email or Message — not a
+ * products as text links to profiles on a computer only — not a
  * filter dressed up as rows, and not mixed into the product list.
  *
  * Nothing here is a dashboard. There are no totals to admire: the count
@@ -43,23 +43,21 @@ const SORTS: Array<{ value: LibrarySort; label: string }> = [
 
 /* ─── The sellers ──────────────────────────────────────────────────────── */
 
-function CreatorActions({ creator, stacked = false }: { creator: LibraryCreator; stacked?: boolean }) {
+function CreatorRowLinks({ creator }: { creator: LibraryCreator }) {
   const contact = contactOf(creator)
-  const store = storeOf(creator)
+  const profile = storeOf(creator)
   const storeLink = useStoreLinkProps()
-  if (!contact && !store) return null
+  if (!contact && !profile) return null
   return (
-    <div className={`flex gap-2 ${stacked ? "flex-col" : "flex-wrap"}`}>
-      {contact ? (
-        <a href={contact.href} data-creator-contact="" className={cn(SECONDARY, SMALL, `whitespace-nowrap ${stacked ? "w-full" : ""}`)}>
-          <Mail className="h-3.5 w-3.5" aria-hidden />
-          {contact.label}
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-[13px] font-medium">
+      {profile ? (
+        <a href={profile} {...storeLink} data-creator-profile="" className={TEXT_LINK}>
+          View profile
         </a>
       ) : null}
-      {store ? (
-        <a href={store} {...storeLink} data-creator-store="" className={cn(SECONDARY, SMALL, `whitespace-nowrap ${stacked ? "w-full" : ""}`)}>
-          <Store className="h-3.5 w-3.5" aria-hidden />
-          Visit store
+      {contact ? (
+        <a href={contact.href} data-creator-contact="" className={TEXT_LINK}>
+          {contact.short}
         </a>
       ) : null}
     </div>
@@ -67,30 +65,27 @@ function CreatorActions({ creator, stacked = false }: { creator: LibraryCreator;
 }
 
 /**
- * Sellers under the products: face, name, how many, and store or contact
- * links on each row. Nothing toggles or filters the list above.
+ * On a computer only: who they bought from, with text links to a profile or
+ * email. On a phone each product row already shows the seller; a second
+ * block of chunky buttons under the list was noise.
  */
 function CreatorsList({ creators }: { creators: LibraryCreator[] }) {
   return (
-    <section aria-label="Creators you've bought from" className={`${CARD} overflow-hidden`} data-creator-list="">
+    <section aria-label="People you bought from" className={`${CARD} hidden overflow-hidden lg:block`} data-creator-list="">
       <div className="px-4 pb-2 pt-3.5">
-        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Creators you&apos;ve bought from</h2>
+        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">People you bought from</h2>
       </div>
       <ul className="divide-y divide-[#eef0f3] pb-1">
         {creators.map((c) => (
-          <li key={creatorKey(c)} className="px-4 py-3">
-            <div className="flex items-center gap-3">
-              <AppAvatar src={c.avatarUrl} name={c.name} alt="" size={36} markWhileLoading />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{c.name}</p>
-                <p className="text-[12px] text-[#6b7280]">
-                  {c.count} {c.count === 1 ? "product" : "products"}
-                </p>
-              </div>
+          <li key={creatorKey(c)} className="flex items-center gap-3 px-4 py-3">
+            <AppAvatar src={c.avatarUrl} name={c.name} alt="" size={36} markWhileLoading />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{c.name}</p>
+              <p className="text-[12px] text-[#6b7280]">
+                {c.count} {c.count === 1 ? "purchase" : "purchases"}
+              </p>
             </div>
-            <div className="mt-2.5">
-              <CreatorActions creator={c} />
-            </div>
+            <CreatorRowLinks creator={c} />
           </li>
         ))}
       </ul>

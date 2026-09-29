@@ -110,7 +110,7 @@ export function ProductRow({
     const store = storeOf(item.creator)
     const page = productPageOf(item)
     if (contact) rows.push({ label: contact.label, icon: <Mail className="h-4 w-4" />, href: contact.href, separatorBefore: true })
-    if (store) rows.push({ label: `${item.creator.name}'s store`, icon: <Store className="h-4 w-4" />, href: store, target: storeLink.target, separatorBefore: !contact })
+    if (store) rows.push({ label: "View profile", icon: <Store className="h-4 w-4" />, href: store, target: storeLink.target, separatorBefore: !contact })
     if (page) rows.push({ label: "Product page", icon: <ExternalLink className="h-4 w-4" />, href: page })
     return rows
   }, [creator, href, item, storeLink.target])
@@ -185,12 +185,21 @@ export function ProductRow({
           {more}
         </div>
       </div>
-      {many && open ? (
-        <ul data-row-file-list="" className="mt-3 border-t border-[#eef0f3] sm:ml-[88px]">
-          {item.files.map((f) => (
-            <LibraryFileRow key={f.id} file={f} receiptToken={item.receiptToken} tone="secondary" />
-          ))}
-        </ul>
+      {many ? (
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+            open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <ul data-row-file-list="" className="mt-3 border-t border-[#eef0f3] sm:ml-[88px]">
+              {item.files.map((f) => (
+                <LibraryFileRow key={f.id} file={f} receiptToken={item.receiptToken} tone="secondary" />
+              ))}
+            </ul>
+          </div>
+        </div>
       ) : null}
     </li>
   )

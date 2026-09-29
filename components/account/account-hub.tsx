@@ -66,14 +66,13 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
   if (onSettings) return <>{children}</>
 
   return (
-    <div data-account-hub="" className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] lg:items-start lg:gap-8 xl:gap-10">
-      <div className="order-2 mt-6 min-w-0 lg:order-1 lg:mt-0" data-account-panel="overview">
-        {children}
-      </div>
-
+    <div
+      data-account-hub=""
+      className="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] lg:items-start lg:gap-8 xl:gap-10"
+    >
       <header
         data-account-profile=""
-        className="order-1 flex flex-col items-center text-center lg:order-2 lg:sticky lg:top-[calc(64px+1.5rem)] lg:rounded-2xl lg:border lg:border-[#e5e7eb]/60 lg:bg-white lg:px-6 lg:pb-6 lg:pt-5 lg:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+        className="flex flex-col items-center text-center lg:col-start-2 lg:row-start-1 lg:sticky lg:top-[calc(64px+1.5rem)] lg:max-h-[calc(100svh-5.5rem)] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-[#e5e7eb]/60 lg:bg-white lg:px-6 lg:pb-6 lg:pt-5 lg:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
       >
         {/*
           THE PICTURE OPENS, THE WAY A CREATOR'S DOES. It is the one image
@@ -139,6 +138,7 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
         <Link
           href="/account/settings"
           prefetch={true}
+          scroll={false}
           data-account-edit=""
           className={cn(secondaryDepth, "mt-4 h-10 min-w-[140px] rounded-xl px-5 text-[14px]")}
         >
@@ -147,9 +147,13 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
 
         <p className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[#9ca3af]" data-account-powered="">
           <span>Powered by</span>
-          <StorelibLogo size={14} alt="" />
+          <StorelibLogo size={32} fluid className="h-[15px] w-[15px]" alt="Storelib" priority />
         </p>
       </header>
+
+      <div className="mt-6 min-w-0 lg:col-start-1 lg:row-start-1 lg:mt-0" data-account-panel="overview">
+        {children}
+      </div>
     </div>
   )
 }

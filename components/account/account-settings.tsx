@@ -724,6 +724,7 @@ export function AccountSettings({
         <Link
           href="/account"
           prefetch={true}
+          scroll={false}
           aria-label="Back to profile"
           data-account-settings-close=""
           className={cn(secondaryDepth, "h-10 w-10 rounded-full p-0")}
@@ -783,6 +784,7 @@ function SectionSwap({ section, children }: { section: SectionKey; children: Rea
   const [drawn, setDrawn] = useState(section)
   const [held, setHeld] = useState<React.ReactNode>(children)
   const ref = useRef<HTMLDivElement | null>(null)
+  const entered = useRef(false)
 
   useEffect(() => {
     if (section === drawn) { setHeld(children); return }
@@ -804,7 +806,15 @@ function SectionSwap({ section, children }: { section: SectionKey; children: Rea
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || typeof el.animate !== "function") return
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { el.style.opacity = "1"; return }
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      el.style.opacity = "1"
+      return
+    }
+    if (!entered.current) {
+      entered.current = true
+      el.style.opacity = "1"
+      return
+    }
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_IN_MS, easing: "ease-out", fill: "both" })
   }, [drawn])
 

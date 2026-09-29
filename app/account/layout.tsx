@@ -11,6 +11,7 @@ import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { AccountHub, type AccountIdentity } from "@/components/account/account-hub"
+import { AccountNavFade } from "@/components/account/account-nav-fade"
 import { AccountSkeleton } from "@/components/account/account-skeleton"
 import { LibraryBgFix } from "@/app/library/library-bg-fix"
 import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
@@ -113,13 +114,15 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <RouteLoadingBar />
       <LibraryBgFix />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
-      <main className="flex-1">
+      <main className="flex-1 overflow-x-hidden supports-[scrollbar-gutter:stable]:scrollbar-gutter-stable">
         {/* The library's own room under the header (app/library/layout.tsx py-6), so the two screens start at the same height. */}
         <div
           className="mx-auto w-full max-w-[720px] pt-6 pb-10 lg:max-w-[1080px]"
           style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }}
         >
-          {identity ? <AccountHub identity={identity}>{children}</AccountHub> : children}
+          <AccountNavFade>
+            {identity ? <AccountHub identity={identity}>{children}</AccountHub> : children}
+          </AccountNavFade>
         </div>
       </main>
       <div className="relative isolate">

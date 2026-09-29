@@ -406,7 +406,7 @@ function screenCases() {
   check("the tab list and its addresses", showsLibraryTabs("/library/") && showsLibraryTabs("/library/wishlist") && !showsLibraryTabs("/library/products/p1") && isLibraryProduct("/library/products/p1?x=1") && cleanPath("/library/reviews/?product=1") === "/library/reviews")
   check("the tabs are separate pills, not an underlined row", /rounded-full border/.test(tabs) && !/border-b-2/.test(tabs))
   const home = read("components/library/library-home.tsx")
-  check("creators sit under the products with store links, not a toggle filter", /data-creator-list=""/.test(home) && /function CreatorsList/.test(home) && !/onChoose=|aria-pressed|data-creator-chips|function CreatorChips/.test(home))
+  check("creators sit under the products on a computer with profile links, not a toggle filter", /data-creator-list=""/.test(home) && /function CreatorsList/.test(home) && /hidden overflow-hidden lg:block/.test(home) && /data-creator-profile=""/.test(home) && !/onChoose=|aria-pressed|data-creator-chips|function CreatorChips/.test(home))
   check("the pressed pill is chosen on the press, ahead of the address", /setPressed\(href\)/.test(tabs) && /const current = pressed \?\? path/.test(tabs))
   check("its fill fades in place on settings' 150ms curve", /TAB_FADE_MS = 150/.test(tabs) && /cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(tabs) && /transition-\[opacity,scale\]/.test(tabs))
   check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && /onPointerEnter=\{\(\) => warm/.test(tabs))
@@ -414,7 +414,7 @@ function screenCases() {
   check("the pills and the screen under them are one stage", /<LibraryPanel head=\{<LibraryTabs \/>\}>\{children\}<\/LibraryPanel>/.test(layout))
   const panel = read("components/library/library-panel.tsx")
   check("a press cross fades in place: the old screen fades over the next one's shape, which is drawn at once",
-    /skeletonFor\(pending\.href\)/.test(panel) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(panel) && /data-library-leaving/.test(panel) && !/opacity: 0\.2/.test(panel))
+    /skeletonFor\(pending\.href, true\)/.test(panel) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(panel) && /data-library-leaving/.test(panel) && !/opacity: 0\.2/.test(panel))
   check("a tab pressed from its row copies nothing at the press, only at the commit if the fade is not over",
     /getSnapshotBeforeUpdate/.test(panel) && /liveFade\.current = startNow\(live\.animate/.test(panel))
   check("the live screen stays laid out while hidden, so Next never scrolls the page up", /el\.style\.visibility = "hidden"/.test(panel) && !/style\.display = "none"\s*\n\s*}\s*\n\s*function show/.test(panel))

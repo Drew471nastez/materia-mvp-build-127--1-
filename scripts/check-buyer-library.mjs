@@ -319,27 +319,28 @@ try {
     expect(over <= 0, "nothing wider than the screen", over)
     expect(m.minControl >= 36, "every control at least 36px tall", m.minControl)
     expect(m.escaped === 0, "every row's actions stay inside the row", m.escaped)
-    expect(m.chips, "creators are under the products at every width", m.chips)
-    expect(label === "390" ? !m.aside : m.aside, label === "390" ? "no aside on a phone" : "the aside is reviews and receipts only", { aside: m.aside })
+    expect(label === "390" ? !m.chips && !m.aside : m.chips && m.aside, label === "390" ? "on a phone no creators block and no aside" : "creators under products and the aside on a computer", { chips: m.chips, aside: m.aside })
     expect(m.stars === 0 && m.rateIt === 0 && m.refunded === 1, "no stars and no Rate it on any product row, Refunded on one", { stars: m.stars, rateIt: m.rateIt, refunded: m.refunded })
     expect(page.errors.length === 0, "no page errors", page.errors)
 
     /* FILTERS */
-    if (label === "390") {
+    if (label === "1280") {
       const f = await page.evaluate(() => {
         const luca = [...document.querySelectorAll("[data-creator-list] li")].find((li) => /Luca/.test(li.textContent))
         const maya = [...document.querySelectorAll("[data-creator-list] li")].find((li) => /Maya/.test(li.textContent))
         return {
           rows: document.querySelectorAll("[data-library-item]").length,
           lucaContact: luca?.querySelector("[data-creator-contact]")?.getAttribute("href"),
-          lucaStore: luca?.querySelector("[data-creator-store]")?.getAttribute("href"),
+          lucaProfile: luca?.querySelector("[data-creator-profile]")?.getAttribute("href"),
           mayaMail: maya?.querySelector("[data-creator-contact]")?.getAttribute("href"),
         }
       })
       expect(f.rows === 5, "the product list is not filtered by a creator row", f.rows)
-      expect(/^\/receipt\/tok_p2_/.test(f.lucaContact || "") && /#receipt-contact$/.test(f.lucaContact || "") && f.lucaStore === "/lucadragoste", "Luca's row has Message and Visit store", f)
+      expect(/^\/receipt\/tok_p2_/.test(f.lucaContact || "") && /#receipt-contact$/.test(f.lucaContact || "") && f.lucaProfile === "/lucadragoste", "Luca's row has Message and View profile", f)
       expect(/^mailto:hello@mayachen\.co/.test(f.mayaMail || ""), "Maya's row emails her support address", f.mayaMail)
       await page.screenshot({ path: join(shots, `home-${label}-creator.png`), fullPage: true })
+    }
+    if (label === "390") {
       /* Five products is under CONTROLS_FROM, so this library draws neither the field nor the order. */
       const toolbar = await page.evaluate(() => !!document.querySelector("[data-library-toolbar]"))
       expect(!toolbar, "a small library draws no search and no order over it", toolbar)
@@ -828,7 +829,7 @@ try {
       await p.close()
     }
     const app = await open("product", PHONE, { path: "/library/products/p1", ua: IPHONE_UA + " Capacitor", init: () => { window.Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios" } } })
-    const inApp = await app.evaluate(() => document.querySelector("[data-creator-store]")?.getAttribute("target"))
+    const inApp = await app.evaluate(() => document.querySelector("[data-creator-profile]")?.getAttribute("target"))
     expect(inApp === null, "inside the app the store opens in the same web view, as store links do there", inApp)
     await app.close()
   }

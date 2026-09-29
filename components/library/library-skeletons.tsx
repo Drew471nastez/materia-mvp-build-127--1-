@@ -25,52 +25,46 @@ const SOFT = "rounded bg-[#f1f3f5]"
 const PULSE = "animate-pulse motion-reduce:animate-none"
 const CARD = "rounded-2xl border border-[#e4e7ec]/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]"
 
-/** Products (components/library/library-home.tsx): search and order, the count, the rows; the sellers' column from 1024px. */
-export function ListSkeleton({ rows = 4 }: { rows?: number }) {
+/** Products (components/library/library-home.tsx): search and order, the count, the rows; reviews aside from 1024px. */
+export function ListSkeleton({ rows = 4, still = false }: { rows?: number; still?: boolean }) {
+  const pulse = still ? "" : PULSE
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6" aria-hidden>
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-6" aria-hidden>
       <div className="min-w-0 space-y-3">
         <div className="flex items-center gap-2">
           <div className={`h-10 flex-1 rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec]`} />
           <div className="h-10 w-[104px] rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec]" />
         </div>
-        <div className="flex h-9 gap-2 lg:hidden">
-          {[44, 118, 124].map((w, i) => (
-            <div key={i} className="h-9 rounded-full bg-white ring-1 ring-inset ring-[#e4e7ec]" style={{ width: w }} />
-          ))}
-        </div>
-        <div className={`h-[18px] w-20 ${LINE} ${PULSE}`} />
+        <div className={`h-[18px] w-20 ${LINE} ${pulse}`} />
         <div className={`${CARD} divide-y divide-[#eef0f3] overflow-hidden`}>
           {Array.from({ length: rows }, (_, i) => (
             <div key={i} className="px-4 py-4 sm:px-5">
               <div className="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-3.5 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-x-4">
-                <div className={`h-16 w-16 rounded-xl sm:h-[72px] sm:w-[72px] ${SOFT} ${PULSE}`} />
+                <div className={`h-16 w-16 rounded-xl sm:h-[72px] sm:w-[72px] ${SOFT} ${pulse}`} />
                 <div className="min-w-0 space-y-2 pt-0.5">
-                  <div className={`h-4 w-4/5 ${LINE} ${PULSE}`} />
-                  <div className={`h-3.5 w-1/2 ${SOFT} ${PULSE}`} />
+                  <div className={`h-4 w-4/5 ${LINE} ${pulse}`} />
+                  <div className={`h-3.5 w-1/2 ${SOFT} ${pulse}`} />
                 </div>
                 <div className="col-span-2 mt-3 flex gap-2 sm:col-span-1 sm:mt-0">
-                  <div className={`h-9 flex-1 rounded-[10px] sm:w-[120px] sm:flex-none ${SOFT} ${PULSE}`} />
+                  <div className={`h-9 flex-1 rounded-[10px] sm:w-[120px] sm:flex-none ${SOFT} ${pulse}`} />
                   <div className="h-9 w-9 rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec]" />
                 </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
-      <div className="hidden space-y-4 lg:block">
-        <div className={`${CARD} px-4 pb-3 pt-3.5`}>
-          <div className={`h-3.5 w-16 ${LINE}`} />
-          {[0, 1, 2].map((i) => (
+        <div className={`${CARD} hidden px-4 py-3 lg:block`}>
+          <div className={`h-3.5 w-40 ${LINE} ${pulse}`} />
+          {[0, 1].map((i) => (
             <div key={i} className="mt-3 flex items-center gap-3">
-              <div className={`h-8 w-8 rounded-full ${SOFT} ${PULSE}`} />
-              <div className="flex-1 space-y-1.5">
-                <div className={`h-3.5 w-2/3 ${LINE} ${PULSE}`} />
-                <div className={`h-3 w-1/3 ${SOFT}`} />
-              </div>
+              <div className={`h-9 w-9 rounded-full ${SOFT} ${pulse}`} />
+              <div className={`h-3.5 flex-1 max-w-[120px] ${LINE} ${pulse}`} />
             </div>
           ))}
         </div>
+      </div>
+      <div className="hidden space-y-4 lg:block">
+        <div className={`h-16 ${CARD}`} />
       </div>
     </div>
   )
@@ -213,13 +207,13 @@ export function TabsHeaderStill({ active }: { active: string }) {
 }
 
 /** The shape of whatever is at `path`, or null for a screen that has none of its own here. */
-export function skeletonFor(path: string): React.ReactNode {
-  if (path === "/library") return <ListSkeleton />
+export function skeletonFor(path: string, still = false): React.ReactNode {
+  if (path === "/library") return <ListSkeleton still={still} />
   if (path === "/library/courses") return <CoursesSkeleton />
   if (path === "/library/memberships") return <MembershipsSkeleton />
   if (path === "/library/reviews") return <RowsSkeleton rows={3} sections={2} />
   if (path === "/library/receipts") return <RowsSkeleton rows={4} />
-  if (path === "/library/wishlist") return <WishlistSkeleton />
+  if (path === "/library/wishlist") return <WishlistSkeleton still={still} />
   if (/^\/library\/products\/[^/]+$/.test(path)) return <ProductDetailSkeleton />
   return null
 }
