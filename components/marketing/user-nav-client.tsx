@@ -49,7 +49,7 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <button
-              className="relative h-10 w-10 rounded-full cursor-pointer transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2"
+              className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 transition-shadow duration-150 ease-out hover:ring-2 hover:ring-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-300"
               type="button"
             >
               {/* Their own photo, else their initials, else a plain person. No "?". */}

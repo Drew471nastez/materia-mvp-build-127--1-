@@ -36,6 +36,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { accountTabFor } from "@/lib/account/account-tabs"
@@ -65,8 +66,15 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
   if (onSettings) return <>{children}</>
 
   return (
-    <div data-account-hub="">
-      <header data-account-profile="" className="flex flex-col items-center text-center">
+    <div data-account-hub="" className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] lg:items-start lg:gap-8 xl:gap-10">
+      <div className="order-2 mt-6 min-w-0 lg:order-1 lg:mt-0" data-account-panel="overview">
+        {children}
+      </div>
+
+      <header
+        data-account-profile=""
+        className="order-1 flex flex-col items-center text-center lg:order-2 lg:sticky lg:top-[calc(64px+1.5rem)] lg:rounded-2xl lg:border lg:border-[#e5e7eb]/60 lg:bg-white lg:px-6 lg:pb-6 lg:pt-5 lg:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+      >
         {/*
           THE PICTURE OPENS, THE WAY A CREATOR'S DOES. It is the one image
           on this page worth actually looking at, and it was a cropped
@@ -136,11 +144,12 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
         >
           Edit profile
         </Link>
-      </header>
 
-      <div className="mt-6" data-account-panel="overview">
-        {children}
-      </div>
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[#9ca3af]" data-account-powered="">
+          <span>Powered by</span>
+          <StorelibLogo size={14} alt="" />
+        </p>
+      </header>
     </div>
   )
 }

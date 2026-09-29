@@ -9,10 +9,10 @@
  *   LAYOUT     Library heading, the six tabs with Products underlined, one
  *              row per purchase, nothing wider than the screen, every
  *              control at least 36px tall, and the row's actions inside it.
- *              On a phone the sellers are a row of chips and the column is
- *              gone; on a computer the column is there and the chips are not.
- *   FILTERS    a seller's chip shows only their products and their Email or
- *              Message and store; search finds a product by a file's name;
+ *              Creators sit under the product list with Visit store links; the
+ *              aside on a computer is only reviews and receipts.
+ *   FILTERS    search finds a product by a file's name; each creator row
+ *              carries Email or Message and Visit store;
  *              "3 files" opens the list in place.
  *   BANNER     on a phone's browser at 360, 390 and 430, a 60px strip at
  *              the top with the Storelib icon at its 7px corner and Open
@@ -319,28 +319,27 @@ try {
     expect(over <= 0, "nothing wider than the screen", over)
     expect(m.minControl >= 36, "every control at least 36px tall", m.minControl)
     expect(m.escaped === 0, "every row's actions stay inside the row", m.escaped)
-    expect(label === "390" ? m.chips && !m.aside : !m.chips && m.aside, label === "390" ? "sellers are a list, no aside" : "sellers are the aside, no second list", { chips: m.chips, aside: m.aside })
+    expect(m.chips, "creators are under the products at every width", m.chips)
+    expect(label === "390" ? !m.aside : m.aside, label === "390" ? "no aside on a phone" : "the aside is reviews and receipts only", { aside: m.aside })
     expect(m.stars === 0 && m.rateIt === 0 && m.refunded === 1, "no stars and no Rate it on any product row, Refunded on one", { stars: m.stars, rateIt: m.rateIt, refunded: m.refunded })
     expect(page.errors.length === 0, "no page errors", page.errors)
 
     /* FILTERS */
     if (label === "390") {
-      await page.evaluate(() => [...document.querySelectorAll("[data-creator-list] button")].find((b) => /Luca/.test(b.textContent)).click())
-      await sleep(150)
-      const f = await page.evaluate(() => ({
-        rows: [...document.querySelectorAll("[data-library-item]")].map((r) => r.getAttribute("data-library-item")),
-        strip: !!document.querySelector("[data-creator-list] [data-creator-contact]"),
-        contact: document.querySelector("[data-creator-list] [data-creator-contact]")?.getAttribute("href"),
-        store: document.querySelector("[data-creator-list] [data-creator-store]")?.getAttribute("href"),
-      }))
-      expect(f.rows.join() === "p2,p4", "a seller's row shows only their products", f.rows)
-      expect(f.strip && /^\/receipt\/tok_p2_/.test(f.contact || "") && /#receipt-contact$/.test(f.contact || "") && f.store === "/lucadragoste", "with Message (the receipt's contact form) and their store", f)
+      const f = await page.evaluate(() => {
+        const luca = [...document.querySelectorAll("[data-creator-list] li")].find((li) => /Luca/.test(li.textContent))
+        const maya = [...document.querySelectorAll("[data-creator-list] li")].find((li) => /Maya/.test(li.textContent))
+        return {
+          rows: document.querySelectorAll("[data-library-item]").length,
+          lucaContact: luca?.querySelector("[data-creator-contact]")?.getAttribute("href"),
+          lucaStore: luca?.querySelector("[data-creator-store]")?.getAttribute("href"),
+          mayaMail: maya?.querySelector("[data-creator-contact]")?.getAttribute("href"),
+        }
+      })
+      expect(f.rows === 5, "the product list is not filtered by a creator row", f.rows)
+      expect(/^\/receipt\/tok_p2_/.test(f.lucaContact || "") && /#receipt-contact$/.test(f.lucaContact || "") && f.lucaStore === "/lucadragoste", "Luca's row has Message and Visit store", f)
+      expect(/^mailto:hello@mayachen\.co/.test(f.mayaMail || ""), "Maya's row emails her support address", f.mayaMail)
       await page.screenshot({ path: join(shots, `home-${label}-creator.png`), fullPage: true })
-      await page.evaluate(() => [...document.querySelectorAll("[data-creator-list] button")].find((b) => /Maya/.test(b.textContent)).click())
-      await sleep(100)
-      const mail = await page.evaluate(() => document.querySelector("[data-creator-list] [data-creator-contact]")?.getAttribute("href"))
-      expect(/^mailto:hello@mayachen\.co/.test(mail || ""), "a seller with a support address is emailed", mail)
-      await page.evaluate(() => [...document.querySelectorAll("[data-creator-list] button")].find((b) => /Show all/.test(b.textContent)).click())
       /* Five products is under CONTROLS_FROM, so this library draws neither the field nor the order. */
       const toolbar = await page.evaluate(() => !!document.querySelector("[data-library-toolbar]"))
       expect(!toolbar, "a small library draws no search and no order over it", toolbar)

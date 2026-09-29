@@ -80,7 +80,7 @@ export function AccountDemo() {
   const bio = flag("__bio") === false ? "" : "Buying presets and brushes for retouching work. Mostly film looks."
   const avatarUrl = flag("__photo") ? PHOTO : null
   return (
-    <div className="mx-auto w-full max-w-[720px] pt-6 pb-10" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-probe-account-column="">
+    <div className="mx-auto w-full max-w-[720px] pt-6 pb-10 lg:max-w-[1080px]" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-probe-account-column="">
       <AccountHub identity={{ userId: "u1", name, username, avatarUrl, memberSince: "March 2025", bio }}>
         {path.startsWith("/account/settings") ? (
           <AccountSettings

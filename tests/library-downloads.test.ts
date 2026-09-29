@@ -406,7 +406,7 @@ function screenCases() {
   check("the tab list and its addresses", showsLibraryTabs("/library/") && showsLibraryTabs("/library/wishlist") && !showsLibraryTabs("/library/products/p1") && isLibraryProduct("/library/products/p1?x=1") && cleanPath("/library/reviews/?product=1") === "/library/reviews")
   check("the tabs are separate pills, not an underlined row", /rounded-full border/.test(tabs) && !/border-b-2/.test(tabs))
   const home = read("components/library/library-home.tsx")
-  check("the sellers are that list on a phone too, not a second row of pills", /data-creator-list=""/.test(home) && /<CreatorColumn creators=\{creators\} chosen=\{creator\} onChoose=\{setCreator\} compact \/>/.test(home) && !/data-creator-chips|function CreatorChips|rounded-full/.test(home))
+  check("creators sit under the products with store links, not a toggle filter", /data-creator-list=""/.test(home) && /function CreatorsList/.test(home) && !/onChoose=|aria-pressed|data-creator-chips|function CreatorChips/.test(home))
   check("the pressed pill is chosen on the press, ahead of the address", /setPressed\(href\)/.test(tabs) && /const current = pressed \?\? path/.test(tabs))
   check("its fill fades in place on settings' 150ms curve", /TAB_FADE_MS = 150/.test(tabs) && /cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(tabs) && /transition-\[opacity,scale\]/.test(tabs))
   check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && /onPointerEnter=\{\(\) => warm/.test(tabs))

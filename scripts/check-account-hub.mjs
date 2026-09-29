@@ -311,7 +311,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const { p, errors } = await open(DESK, path, { __seller: true })
     const l = await layout(p)
     const col = await p.evaluate(() => Math.round(document.querySelector("[data-probe-account-column]").getBoundingClientRect().width))
-    expect(l.sideways <= 0 && col === 720, `${path}: one 720px column, nothing sideways`, { col, sideways: l.sideways })
+    expect(l.sideways <= 0 && col === 1080, `${path}: one 1080px column on a computer, nothing sideways`, { col, sideways: l.sideways })
     expect(l.headers === 1 && !l.ownBar && l.avatars === 1 && l.gap === HEADER_GAP, `${path}: the site header, one face, the library's gap`, { headers: l.headers, bar: l.ownBar, avatars: l.avatars, gap: l.gap })
     expect(l.small.length === 0, `${path}: every control 36px or taller`, l.small)
     if (!path.endsWith("settings")) expect(await p.evaluate(() => !!document.querySelector('a[href="/app"][data-account-row="dashboard"]')), "a seller gets Dashboard")

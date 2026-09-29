@@ -320,8 +320,8 @@ export function CategoryBrowser({
     (components/search/search-screen.tsx). It is the level that decides it,
     never whether the row is chosen, so nothing reflows when a check moves.
   */
-  const groupWeight = "font-semibold"
-  const itemWeight = "font-medium"
+  const groupWeight = phone ? "font-medium" : "font-semibold"
+  const itemWeight = phone ? "font-normal" : "font-medium"
   const rowCommon =
     "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]"
   const labelCls = phone
@@ -435,7 +435,7 @@ export function CategoryBrowser({
           keyboardRef.current = e.detail === 0
           back()
         }}
-        className={cn(rowBase, rowCommon, "font-semibold", phone ? "pl-2.5" : "pl-1")}
+        className={cn(rowBase, rowCommon, phone ? "font-medium" : "font-semibold", phone ? "pl-2.5" : "pl-1")}
       >
         <Chevron dir="left" className={cn("text-[#6b7280]", phone && "h-5 w-5")} />
         <span className="min-w-0 flex-1 truncate">{heldGroup.label}</span>

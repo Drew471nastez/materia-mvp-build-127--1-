@@ -16,12 +16,10 @@ import { cn } from "@/lib/utils"
  *  THE LIBRARY: EVERYTHING THEY BOUGHT, READY TO USE
  * ===========================================================================
  * One list, newest first, because the thing bought yesterday is the thing
- * most often opened today. Above it a search, an order, and the sellers
- * they bought from, so "everything from Dee" is one press. The sellers are
- * a list on both sizes, the same rows: a face, a name, how many. A pill
- * around a person is a filter dressed up as a button, and it does not
- * belong next to the library's own pills, which are sections. The chosen
- * seller offers Email or Message and their store under their row.
+ * most often opened today. Above it a search and an order when the list is
+ * long enough to need them. The sellers they bought from sit under the
+ * products as a plain list with Visit store and Email or Message — not a
+ * filter dressed up as rows, and not mixed into the product list.
  *
  * Nothing here is a dashboard. There are no totals to admire: the count
  * under the heading is only there so an empty search is not a surprise.
@@ -69,66 +67,32 @@ function CreatorActions({ creator, stacked = false }: { creator: LibraryCreator;
 }
 
 /**
- * The sellers, as a list. The same rows on a phone and on a computer: a
- * face, a name, how many, and the chosen one's Contact and store under the
- * row. Not pills. A pill is how the library's sections are chosen; a person
- * is not a section.
- *
- * `compact` is the phone's copy, which sits above the products and stops
- * growing once it is about five rows, so a long list of sellers does not
- * push the products off the screen. The computer's column is the page's to
- * scroll.
+ * Sellers under the products: face, name, how many, and store or contact
+ * links on each row. Nothing toggles or filters the list above.
  */
-function CreatorColumn({
-  creators,
-  chosen,
-  onChoose,
-  compact = false,
-}: {
-  creators: LibraryCreator[]
-  chosen: string | null
-  onChoose: (key: string | null) => void
-  compact?: boolean
-}) {
+function CreatorsList({ creators }: { creators: LibraryCreator[] }) {
   return (
-    <section aria-label="Creators" className={`${CARD} overflow-hidden`} data-creator-column="">
-      <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
-        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Creators</h2>
-        {chosen ? (
-          <button type="button" onClick={() => onChoose(null)} className="text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
-            Show all
-          </button>
-        ) : null}
+    <section aria-label="Creators you've bought from" className={`${CARD} overflow-hidden`} data-creator-list="">
+      <div className="px-4 pb-2 pt-3.5">
+        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Creators you&apos;ve bought from</h2>
       </div>
-      <ul className={compact ? "max-h-[280px] overflow-y-auto overscroll-contain pb-2" : "pb-2"}>
-        {creators.map((c) => {
-          const key = creatorKey(c)
-          const active = chosen === key
-          return (
-            <li key={key}>
-              <button
-                type="button"
-                onClick={() => onChoose(active ? null : key)}
-                aria-pressed={active}
-                className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-colors duration-100 ${active ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa]"}`}
-              >
-                <AppAvatar src={c.avatarUrl} name={c.name} alt="" size={32} markWhileLoading />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{c.name}</span>
-                  <span className="block text-[12px] text-[#6b7280]">
-                    {c.count} {c.count === 1 ? "product" : "products"}
-                  </span>
-                </span>
-                {active ? <Check className="h-4 w-4 text-[#1a1a2e]" aria-hidden /> : <ChevronRight className="h-4 w-4 text-[#c4c8cf]" aria-hidden />}
-              </button>
-              {active ? (
-                <div className="px-4 pb-3 pt-1">
-                  <CreatorActions creator={c} stacked />
-                </div>
-              ) : null}
-            </li>
-          )
-        })}
+      <ul className="divide-y divide-[#eef0f3] pb-1">
+        {creators.map((c) => (
+          <li key={creatorKey(c)} className="px-4 py-3">
+            <div className="flex items-center gap-3">
+              <AppAvatar src={c.avatarUrl} name={c.name} alt="" size={36} markWhileLoading />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{c.name}</p>
+                <p className="text-[12px] text-[#6b7280]">
+                  {c.count} {c.count === 1 ? "product" : "products"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <CreatorActions creator={c} />
+            </div>
+          </li>
+        ))}
       </ul>
     </section>
   )
@@ -189,11 +153,9 @@ export function LibraryHome({
 }) {
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<LibrarySort>("recent")
-  const [creator, setCreator] = useState<string | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
 
-  const shown = useMemo(() => visibleItems(items, { query, sort, creator }), [items, query, sort, creator])
-  const chosen = creator ? creators.find((c) => creatorKey(c) === creator) ?? null : null
+  const shown = useMemo(() => visibleItems(items, { query, sort, creator: null }), [items, query, sort])
 
   /* The product just bought, brought into view once. */
   useEffect(() => {
@@ -205,7 +167,7 @@ export function LibraryHome({
   if (items.length === 0) return <NothingYet wishlistCount={wishlistCount} />
 
   return (
-    <div data-library-home="" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6">
+    <div data-library-home="" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-6">
       <div className="min-w-0 space-y-3">
         {purchased ? (
           <p role="status" className="flex items-center gap-2 rounded-xl bg-[#ecfdf3] px-3.5 py-2.5 text-[14px] font-medium text-[#067647]">
@@ -214,26 +176,6 @@ export function LibraryHome({
           </p>
         ) : null}
 
-        {/*
-          ═══════════════════════════════════════════════════════════════════
-           SEARCH AND ORDER ONLY ONCE THERE IS SOMETHING TO SEARCH
-          ═══════════════════════════════════════════════════════════════════
-          "Is a search bar and a Newest filter truly necessary on the library
-          page?" On most libraries, no. Three purchases fit on one screen and
-          are read in a glance; a field and a sort over them are two controls
-          that answer a question nobody has yet, and they are the first thing
-          under the heading, which is the room the products should have. This
-          file already says it: nothing here is a dashboard.
-
-          They are not useless, though, they are early. Past a screenful the
-          list stops being scannable and both start earning their place, so
-          they appear at CONTROLS_FROM and not before, the same way the row
-          of sellers waits for a second seller.
-
-          Counted on the WHOLE library, never on what is being shown, so
-          choosing a seller or typing cannot pull the controls out from under
-          the finger that is using them.
-        */}
         {items.length >= CONTROLS_FROM ? (
         <div className="flex items-center gap-2" data-library-toolbar="">
           <label className="relative min-w-0 flex-1">
@@ -271,12 +213,6 @@ export function LibraryHome({
         </div>
         ) : null}
 
-        {creators.length > 1 ? (
-          <div className="lg:hidden" data-creator-list="">
-            <CreatorColumn creators={creators} chosen={creator} onChoose={setCreator} compact />
-          </div>
-        ) : null}
-
         <p className="px-0.5 text-[13px] text-[#6b7280]" aria-live="polite">
           {shown.length === items.length
             ? `${items.length} ${items.length === 1 ? "product" : "products"}`
@@ -298,23 +234,17 @@ export function LibraryHome({
           <div data-library-no-match="" className={`${CARD} px-5 py-10 text-center`}>
             <p className="text-[15px] font-semibold text-[#1a1a2e]">{query ? `Nothing matches "${query.trim()}"` : "Nothing here"}</p>
             <p className="mt-1 text-[14px] text-[#6b7280]">Search looks through names, creators and file names.</p>
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("")
-                setCreator(null)
-              }}
-              className={cn(SECONDARY, SMALL, "mt-4")}
-            >
+            <button type="button" onClick={() => setQuery("")} className={cn(SECONDARY, SMALL, "mt-4")}>
               Show everything
             </button>
           </div>
         )}
+
+        {creators.length > 0 ? <CreatorsList creators={creators} /> : null}
       </div>
 
-      {/* A computer's column: the sellers, and what is waiting for a review. */}
+      {/* A computer's column: what is waiting for a review, and where receipts live. */}
       <aside className="hidden space-y-4 lg:block" data-library-aside="">
-        {creators.length > 0 ? <CreatorColumn creators={creators} chosen={creator} onChoose={setCreator} /> : null}
         {toReview > 0 ? (
           <Link href="/library/reviews" className={`${CARD} flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[#fcfcfd]`}>
             <span className="min-w-0 flex-1">

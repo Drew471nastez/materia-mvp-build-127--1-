@@ -71,7 +71,7 @@ console.log("\nThe header, as on the library, at every width")
   check("the footer too", /\(\(pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)\) && !pathname\.startsWith\("\/account\/continue"\)\)/.test(footer))
   /* "The profile page reached from Explore needs to have the header on it." The rule that kept it off a phone, and the wrapper that applied it, are both gone. */
   check("nothing hides it on a phone any more: no rule, no wrapper", !/hidesHeaderOnPhone/.test(header) && !/data-header-phone/.test(header))
-  check("the column starts the library's py-6 under it, not a phone bar's room", /className="mx-auto w-full max-w-\[720px\] pt-6 pb-10"/.test(layout) && /px-4 py-6 sm:px-6 lg:px-8/.test(library))
+  check("the column starts the library's py-6 under it, and grows on a computer", /max-w-\[720px\].*lg:max-w-\[1080px\]/.test(layout) && /px-4 py-6 sm:px-6 lg:px-8/.test(library))
 }
 
 console.log("\nThe hub: the person, and the page under them")
@@ -80,7 +80,8 @@ console.log("\nThe hub: the person, and the page under them")
   const layout = code("app/account/layout.tsx")
   check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\}>\{children\}<\/AccountHub>/.test(layout))
   check("photo, name, @username when there is one, the bio, when they joined", /<AccountAvatar\b/.test(hub) && /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{identity\.username\}/.test(hub) && /Joined \{identity\.memberSince\}/.test(hub) && /data-account-bio=""/.test(hub))
-  check("centred: the person in one column", /data-account-profile="" className="flex flex-col items-center text-center"/.test(hub))
+  check("centred: the person in one column, with overview beside them on a computer", /data-account-profile=""[\s\S]*?flex flex-col items-center text-center/.test(hub) && /lg:grid/.test(hub))
+  check("Powered by Storelib under Edit profile", /data-account-powered=""/.test(hub) && /StorelibLogo/.test(hub))
   /*
     A LITTLE BIGGER, WITH A LITTLE MORE SKY. It was 96 and 112, and this
     check held it there; the owner asked for "a bit bigger just, and 2%

@@ -23,7 +23,7 @@ export function OverviewSkeleton() {
 
 export function AccountSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-[720px] pt-6 pb-10" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} aria-busy="true">
+    <div className="mx-auto w-full max-w-[720px] pt-6 pb-10 lg:max-w-[1080px]" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} aria-busy="true">
       <div className="skeleton-deferred flex flex-col items-center">
         <div className="h-[112px] w-[112px] rounded-full bg-[#eceef1] md:h-[128px] md:w-[128px]" />
         <div className="mt-4 h-5 w-40 rounded bg-[#eceef1]" />

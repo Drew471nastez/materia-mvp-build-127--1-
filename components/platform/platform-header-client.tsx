@@ -1544,9 +1544,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           {...headerLink("/account")}
           aria-label="Your account"
           data-header-avatar=""
-          className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+          className="flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 ring-offset-black transition-shadow duration-150 ease-out hover:ring-2 hover:ring-violet-400 focus-visible:ring-2 focus-visible:ring-violet-400"
         >
-          <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200 transition-opacity duration-150" />
+          <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200" />
         </Link>
       </TooltipTrigger>
       <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>

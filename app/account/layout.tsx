@@ -116,7 +116,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <main className="flex-1">
         {/* The library's own room under the header (app/library/layout.tsx py-6), so the two screens start at the same height. */}
         <div
-          className="mx-auto w-full max-w-[720px] pt-6 pb-10"
+          className="mx-auto w-full max-w-[720px] pt-6 pb-10 lg:max-w-[1080px]"
           style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }}
         >
           {identity ? <AccountHub identity={identity}>{children}</AccountHub> : children}
