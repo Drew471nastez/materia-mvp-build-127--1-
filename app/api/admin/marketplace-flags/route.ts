@@ -53,7 +53,11 @@ export async function POST(request: NextRequest) {
       detail: { exploreEnabled: body.exploreEnabled },
     })
   } catch (error) {
-    return adminFailure("marketplace flags write", error, "Could not save. Nothing was changed.")
+    const msg = String(error && typeof error === "object" && "message" in error ? (error as { message?: string }).message : error ?? "")
+    const hint = /platform_settings|does not exist|42P01|PGRST205/i.test(msg)
+      ? " Run supabase/sql/RUN_ADMIN_HEALTH.sql in Supabase first."
+      : ""
+    return adminFailure("marketplace flags write", error, `Could not save. Nothing was changed.${hint}`)
   }
 
   return NextResponse.json({ exploreEnabled: body.exploreEnabled }, { headers: { "Cache-Control": "no-store" } })

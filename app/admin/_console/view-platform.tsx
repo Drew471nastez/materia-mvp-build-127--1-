@@ -338,6 +338,12 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
     <div className="space-y-4">
       <ViewHeader title="Health" meta="Scheduled jobs, configuration, the database and the checkout's wallet buttons, checked now." />
       <ReadNotes problems={data.problems} notices={data.notices} />
+      {data.problems.some((p) => p.table === "error_events" || p.table === "storelib_applied_parts" || p.table === "platform_settings") ? (
+        <p className="rounded-[10px] border border-[#d4a72c]/30 bg-[#d4a72c]/[0.06] px-4 py-3 text-[13px] text-[#ededf0]">
+          Paste <code className="font-mono text-[12px] text-[#c9c9d1]">supabase/sql/RUN_ADMIN_HEALTH.sql</code> into the Supabase SQL editor and run it once, then refresh this page. (Or run the full{" "}
+          <code className="font-mono text-[12px] text-[#c9c9d1]">RUN_ADMIN_CONSOLE.sql</code> if you have not run that yet.)
+        </p>
+      ) : null}
 
       <ExploreMarketplacePanel />
       {/* The one panel here that changes something, and the last step for Apple Pay. */}
@@ -437,7 +443,7 @@ function SqlPartsPanel({ parts }: { parts: SystemPayload["sqlParts"] }) {
   return (
     <Panel title="Database updates" meta={meta}>
       {unknown ? (
-        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">This database keeps no record of its SQL yet. Run the files in supabase/sql/run-four in the Supabase SQL editor; from then on each part writes down that it ran.</p>
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">This database keeps no record of its SQL yet. Run supabase/sql/run-four in order in the Supabase SQL editor (part 67 creates this table). If Health still shows missing tables, run supabase/sql/RUN_ADMIN_HEALTH.sql first.</p>
       ) : open.length === 0 ? (
         <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Every part in the repository has run here, as written.</p>
       ) : (
@@ -466,7 +472,7 @@ function ErrorsPanel({ errors }: { errors: SystemPayload["errors"] }) {
   return (
     <Panel title="Errors" meta={errors === null ? "No record yet" : errors.length ? `${errors.length} kinds, ${total} times, last 7 days` : "None in the last 7 days"}>
       {errors === null ? (
-        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Errors are counted once run-now part 68 has run. Until then they are only in the Vercel log.</p>
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Errors are counted after supabase/sql/RUN_ADMIN_HEALTH.sql (or RUN_ADMIN_CONSOLE.sql) has run. Until then they are only in the Vercel log.</p>
       ) : errors.length === 0 ? (
         <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Nothing has failed in the last 7 days.</p>
       ) : (

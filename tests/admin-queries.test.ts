@@ -331,6 +331,9 @@ console.log("\nThe SQL the admin needs is shipped twice, identically, one statem
     ["admin_order_totals", "admin_creator_sales", "admin_daily_sales"].every((f) => new RegExp(`revoke all on function public\\.${f}\\([^)]*\\) from public, anon, authenticated;`).test(run)),
   )
   check("the audit table is service role only", /alter table public\.admin_actions enable row level security;/.test(run) && !/create policy/i.test(run))
+  check("health and discover tables ship with the admin SQL", /to_regclass\('public\.error_events'\)/.test(run) && /storelib_applied_parts/.test(run) && /platform_settings/.test(run) && /explore_marketplace_enabled/.test(run))
+  const health = readFileSync("supabase/sql/RUN_ADMIN_HEALTH.sql", "utf8")
+  check("RUN_ADMIN_HEALTH is the health-only slice", /error_events/.test(health) && /storelib_applied_parts/.test(health) && !/admin_actions/.test(health))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

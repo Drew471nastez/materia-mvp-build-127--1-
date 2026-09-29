@@ -92,10 +92,12 @@ export function ExploreMarketplacePanel() {
             <Status value={enabled ? "ok" : null} label={enabled ? "On" : "Off"} />
           </div>
         ) : null}
-        <p className="text-[12px] text-[#6b6b76]">
-          Requires <code className="font-mono text-[#9b9ba6]">supabase/sql/run-now/91_platform_settings.sql</code> in production. Emergency override:{" "}
-          <code className="font-mono text-[#9b9ba6]">EXPLORE_MARKETPLACE_ENABLED=true</code> on the server.
-        </p>
+        {error ? (
+          <p className="text-[12px] text-[#6b6b76]">
+            Needs <code className="font-mono text-[#9b9ba6]">supabase/sql/RUN_ADMIN_HEALTH.sql</code> in Supabase (includes platform_settings). Server override:{" "}
+            <code className="font-mono text-[#9b9ba6]">EXPLORE_MARKETPLACE_ENABLED</code>.
+          </p>
+        ) : null}
       </div>
     </Panel>
   )
