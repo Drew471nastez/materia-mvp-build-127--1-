@@ -133,7 +133,7 @@ function ProductGrid({ profile }: { profile: MemberProfileData }) {
                 </div>
                 <div className="min-w-0 flex-1 py-0.5">
                   <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e] group-hover:underline">{p.title}</p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#1a1a2e]">{price}</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#1a1a2e]">{price.main}</p>
                 </div>
               </Link>
             </li>

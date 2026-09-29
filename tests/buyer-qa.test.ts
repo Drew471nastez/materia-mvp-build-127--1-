@@ -52,6 +52,7 @@ async function membershipPrices() {
     ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product\)/],
     ["lib/nav/quick-search.ts", /withPriceIntervals\(client, found\)/],
     ["components/platform/platform-header-client.tsx", /listPrice\(product\)\.main/],
+    ["components/profile/member-profile-page.tsx", /listPrice\(\{[\s\S]*?\}\)[\s\S]*\{price\.main\}/],
     ["components/explore/featured-banner-carousel.tsx", /perInterval\(/],
     ["components/onepage/public-onepage.tsx", /perInterval\(/],
     ["lib/onepage/live-products.ts", /product_price_interval/],

@@ -99,16 +99,22 @@ async function publicReviews(userId: string): Promise<MemberPublicReview[]> {
     .order("created_at", { ascending: false })
     .limit(12)
   if (error || !data) return []
-  return data.map((row) => ({
-    id: row.id as string,
-    rating: row.rating as number,
-    content: (row.content as string | null) || null,
-    createdAt: row.created_at as string,
-    productTitle: ((row.products as { title?: string } | null)?.title || "Product").trim(),
-  }))
+  return data.map((row) => {
+    const embedded = row.products as { title?: string } | { title?: string }[] | null
+    const title =
+      (Array.isArray(embedded) ? embedded[0]?.title : embedded?.title) || "Product"
+    return {
+      id: row.id as string,
+      rating: Math.min(5, Math.max(1, Number(row.rating) || 5)),
+      content: (row.content as string | null) || null,
+      createdAt: row.created_at as string,
+      productTitle: String(title).trim() || "Product",
+    }
+  })
 }
 
 export const loadMemberProfile = cache(async (username: string): Promise<MemberProfileData | null> => {
+  try {
   const profile = await readPublicRow(await createClient(), "profiles", (q) => q.ilike("username", username))
   if (!profile?.id || !profile.username) return null
   const creator = await loadCreatorForUser(profile.id)
@@ -135,5 +141,8 @@ export const loadMemberProfile = cache(async (username: string): Promise<MemberP
     products: catalog.items,
     productCount: catalog.total,
     reviews,
+  }
+  } catch {
+    return null
   }
 })
