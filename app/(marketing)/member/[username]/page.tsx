@@ -6,6 +6,7 @@ import { memberProfilePublicPath } from "@/lib/profile/member-url"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
+import { MemberProfileShell } from "@/components/profile/member-profile-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -58,8 +59,10 @@ export default async function MemberProfileRoute({ params }: Props) {
 
   return (
     <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-      <div className="mx-auto max-w-[1400px] px-4 pb-8 pt-5 sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 lg:pb-12">
-        <MemberProfilePage profile={profile} viewerId={user?.id ?? null} viewerFollowing={following} />
+      <div className="mx-auto max-w-[1400px] px-4 pb-8 pt-4 sm:px-6 sm:pb-10 sm:pt-5 lg:px-8 lg:pb-12">
+        <MemberProfileShell>
+          <MemberProfilePage profile={profile} viewerId={user?.id ?? null} viewerFollowing={following} />
+        </MemberProfileShell>
       </div>
     </main>
   )
