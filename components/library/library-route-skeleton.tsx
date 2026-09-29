@@ -11,7 +11,7 @@ export function LibraryRouteSkeleton({ path }: { path: string }) {
     return <div className="min-h-[14rem]" aria-hidden data-library-loading="" />
   }
   return (
-    <div data-library-skeleton="" className="skeleton-deferred min-h-[14rem]" aria-busy="true" aria-label="Loading">
+    <div data-library-skeleton="" className="min-h-[14rem]" aria-busy="true" aria-label="Loading">
       {shape}
     </div>
   )

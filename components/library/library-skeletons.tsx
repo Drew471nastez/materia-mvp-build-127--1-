@@ -71,21 +71,22 @@ export function ListSkeleton({ rows = 4, still = false }: { rows?: number; still
 }
 
 /** Reviews and Receipts: one column of rows at most 760px wide, as those screens draw it. */
-export function RowsSkeleton({ rows = 4, sections = 1 }: { rows?: number; sections?: number }) {
+export function RowsSkeleton({ rows = 4, sections = 1, still = false }: { rows?: number; sections?: number; still?: boolean }) {
+  const pulse = still ? "" : PULSE
   return (
     <div className="max-w-[760px] space-y-7" aria-hidden>
       {Array.from({ length: sections }, (_, s) => (
         <div key={s}>
-          {sections > 1 ? <div className={`mb-2.5 h-4 w-24 ${LINE} ${PULSE}`} /> : null}
+          {sections > 1 ? <div className={`mb-2.5 h-4 w-24 ${LINE} ${pulse}`} /> : null}
           <div className={`${CARD} divide-y divide-[#eef0f3] overflow-hidden`}>
             {Array.from({ length: s === 0 ? rows : Math.max(1, rows - 2) }, (_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
-                <div className={`h-11 w-11 shrink-0 rounded-xl sm:h-12 sm:w-12 ${SOFT} ${PULSE}`} />
+                <div className={`h-11 w-11 shrink-0 rounded-xl sm:h-12 sm:w-12 ${SOFT} ${pulse}`} />
                 <div className="flex-1 space-y-2">
-                  <div className={`h-4 w-1/2 ${LINE} ${PULSE}`} />
-                  <div className={`h-3 w-1/3 ${SOFT} ${PULSE}`} />
+                  <div className={`h-4 w-1/2 ${LINE} ${pulse}`} />
+                  <div className={`h-3 w-1/3 ${SOFT} ${pulse}`} />
                 </div>
-                <div className={`h-4 w-14 ${SOFT} ${PULSE}`} />
+                <div className={`h-4 w-14 ${SOFT} ${pulse}`} />
               </div>
             ))}
           </div>
@@ -96,13 +97,14 @@ export function RowsSkeleton({ rows = 4, sections = 1 }: { rows?: number; sectio
 }
 
 /** Courses (components/courses/courses-index.tsx): empty card or list rows, matching what that tab usually shows. */
-export function CoursesSkeleton({ empty = false }: { empty?: boolean }) {
+export function CoursesSkeleton({ empty = false, still = false }: { empty?: boolean; still?: boolean }) {
+  const pulse = still ? "" : PULSE
   if (empty) {
     return (
       <div className={`${CARD} px-5 py-14 sm:py-16`} aria-hidden>
-        <div className={`mx-auto h-5 w-36 ${LINE} ${PULSE}`} />
-        <div className={`mx-auto mt-3 h-4 w-72 max-w-full ${SOFT} ${PULSE}`} />
-        <div className={`mx-auto mt-6 h-10 w-40 rounded-[10px] ${SOFT} ${PULSE}`} />
+        <div className={`mx-auto h-5 w-36 ${LINE} ${pulse}`} />
+        <div className={`mx-auto mt-3 h-4 w-72 max-w-full ${SOFT} ${pulse}`} />
+        <div className={`mx-auto mt-6 h-10 w-40 rounded-[10px] ${SOFT} ${pulse}`} />
       </div>
     )
   }
@@ -112,14 +114,14 @@ export function CoursesSkeleton({ empty = false }: { empty?: boolean }) {
         <div className="h-10 w-[300px] max-w-full rounded-[10px] bg-[#eef0f3]" />
         <div className="hidden h-10 w-[132px] rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec] sm:block" />
       </div>
-      <div className={`h-[18px] w-20 ${LINE} ${PULSE}`} />
+      <div className={`h-[18px] w-20 ${LINE} ${pulse}`} />
       <div className={`${CARD} overflow-hidden`}>
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex gap-3 border-b border-[#eef0f3] p-3 last:border-0 sm:gap-4 sm:p-4">
-            <div className={`aspect-video w-[112px] shrink-0 rounded-lg sm:w-[168px] ${SOFT} ${PULSE}`} />
+            <div className={`aspect-video w-[112px] shrink-0 rounded-lg sm:w-[168px] ${SOFT} ${pulse}`} />
             <div className="flex min-w-0 flex-1 flex-col">
-              <div className={`h-4 w-2/3 ${LINE} ${PULSE}`} />
-              <div className={`mt-2 h-3.5 w-28 ${SOFT} ${PULSE}`} />
+              <div className={`h-4 w-2/3 ${LINE} ${pulse}`} />
+              <div className={`mt-2 h-3.5 w-28 ${SOFT} ${pulse}`} />
               <div className="mt-auto pt-2.5">
                 <div className="h-1.5 w-full rounded-full bg-[#ede9fe]" />
               </div>
@@ -230,10 +232,10 @@ export function TabsHeaderStill({ active }: { active: string }) {
 /** The shape of whatever is at `path`, or null for a screen that has none of its own here. */
 export function skeletonFor(path: string, still = false): React.ReactNode {
   if (path === "/library") return <ListSkeleton still={still} />
-  if (path === "/library/courses") return <CoursesSkeleton />
+  if (path === "/library/courses") return <CoursesSkeleton still={still} />
   if (path === "/library/memberships") return <MembershipsSkeleton still={still} />
-  if (path === "/library/reviews") return <RowsSkeleton rows={3} sections={2} />
-  if (path === "/library/receipts") return <RowsSkeleton rows={4} />
+  if (path === "/library/reviews") return <RowsSkeleton rows={3} sections={2} still={still} />
+  if (path === "/library/receipts") return <RowsSkeleton rows={4} still={still} />
   if (path === "/library/wishlist") return <WishlistSkeleton still={still} />
   if (/^\/library\/products\/[^/]+$/.test(path)) return <ProductDetailSkeleton />
   return null

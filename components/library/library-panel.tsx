@@ -298,17 +298,21 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     liveFade.current?.cancel()
     liveFade.current = null
     const live = liveRef.current
-    if (live) live.style.opacity = ""
+    if (live) {
+      live.style.opacity = "1"
+    }
     if (panelRef.current) panelRef.current.style.isolation = ""
     show(nowRef.current)
     show(live)
     if (p.kind === "back") jump(scrolls.get(p.href) ?? 0)
     else if (p.kind === "open") jump(0)
     setPending(null)
-    /* The held height goes with the shape, in the frame the screen comes in: the page's length changes once, under the fade. */
+    /* Keep min-height through the shape dissolve so the page does not jump shorter mid-fade. */
     if (release.current) window.clearTimeout(release.current)
-    release.current = null
-    letGo(true)
+    release.current = window.setTimeout(() => {
+      release.current = null
+      letGo(true)
+    }, SETTLE_MS + 40)
   }, [letGo])
 
   /** A press on a link to another library screen: the move starts now, whatever the server does. */

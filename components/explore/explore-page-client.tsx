@@ -17,7 +17,7 @@ import { EMPTY_INTERESTS, FOR_YOU_ID, buildPillRow, interestScore, type Interest
 import { hasCategoryPage, showAllLabel as showAllProductsLabel } from "@/lib/explore/category-pages"
 import { normalizeCategoryToId as normalizeCategory } from "@/lib/marketplace/categories"
 import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-match"
-import { useExploreScrollRestore } from "@/lib/explore/use-explore-scroll"
+import { useExploreScrollRestore, useExploreScrollRestoring } from "@/lib/explore/use-explore-scroll"
 
 // Categories with icons and subcategories - Extended list
 const CATEGORIES = [
@@ -417,6 +417,7 @@ export function ExplorePageClient({
   const { language, setLanguage, languages: availableLanguages } = useLocale()
 
   useExploreScrollRestore()
+  const restoringExploreScroll = useExploreScrollRestoring()
 
   /* See buildPills: identical to everybody else's row below the threshold. */
   const pillRow = useMemo(() => pillsFrom(interests), [interests])
@@ -980,7 +981,7 @@ export function ExplorePageClient({
     }
   }, [initialCategory, searchParams, interests.enough])
 
-  const showSkeletons = isPending || isLoadingCategory
+  const showSkeletons = (isPending || isLoadingCategory) && !restoringExploreScroll
 
   /* A category chosen from More that has no pill of its own: the More pill holds it. */
   const moreHolds =
@@ -1260,7 +1261,7 @@ export function ExplorePageClient({
 
           {/* Products Grid - 3 per row */}
           {showSkeletons ? (
-            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+            <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${restoringExploreScroll ? "" : "animate-in fade-in-0 duration-200"}`}>
               {Array.from({ length: 9 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}

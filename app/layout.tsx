@@ -49,6 +49,7 @@ import { RotationGuard } from "@/components/platform/rotation-guard"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativePushInit } from "@/components/native-push-init"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
+import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
@@ -213,6 +214,7 @@ export default function RootLayout({
             __html: `try{var bf=document.createElement('link');bf.rel='stylesheet';bf.media='print';bf.onload=function(){this.onload=null;this.media='all'};bf.href='https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Montserrat:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap';document.head.appendChild(bf)}catch(e){}`,
           }}
         />
+        <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>

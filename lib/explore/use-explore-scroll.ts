@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 /** sessionStorage key shared by /explore and /explore/* category pages. */
 export const EXPLORE_SCROLL_KEY = "explore-scroll-position"
@@ -57,6 +57,37 @@ if (typeof window !== "undefined") {
   }
 }
 
+function peekRestorePending(): boolean {
+  try {
+    return sessionStorage.getItem(RESTORE_PENDING_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+/** True while explore is putting scroll back after back from a product. */
+export function exploreScrollRestoreActive(): boolean {
+  if (typeof window === "undefined") return false
+  if (document.documentElement.classList.contains(HOLD_CLASS)) return true
+  if (!isExploreSurface(window.location.pathname)) return false
+  if (!peekRestorePending() && !backTraversal) return false
+  const y = readSavedScroll()
+  return y != null && y > 0
+}
+
+/**
+ * First client render on explore after leaving for a product: hold and scroll
+ * before paint (pairs with explore-scroll-boot in the root layout).
+ */
+export function primeExploreScrollRestore(): void {
+  if (typeof window === "undefined" || !isExploreSurface(window.location.pathname)) return
+  if (!peekRestorePending() && !backTraversal) return
+  const target = readSavedScroll()
+  if (target == null || target <= 0) return
+  setExploreHold(true)
+  scrollToSaved(target)
+}
+
 function shouldRestoreOnEnter(): boolean {
   try {
     if (sessionStorage.getItem(RESTORE_PENDING_KEY) === "1") {
@@ -92,6 +123,7 @@ function setExploreHold(on: boolean) {
 function restoreScrollPosition(onDone?: () => void): void {
   const target = readSavedScroll()
   if (target == null || target <= 0) {
+    setExploreHold(false)
     onDone?.()
     return
   }
@@ -101,13 +133,17 @@ function restoreScrollPosition(onDone?: () => void): void {
 
   let attempts = 0
   const finish = () => {
-    setExploreHold(false)
-    onDone?.()
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setExploreHold(false)
+        onDone?.()
+      })
+    })
   }
   const tryOnce = () => {
     attempts += 1
     if (scrollToSaved(target) || attempts >= 48) {
-      requestAnimationFrame(finish)
+      finish()
       return
     }
     requestAnimationFrame(tryOnce)
@@ -136,17 +172,28 @@ export function saveExploreScrollNow(): void {
  */
 export function useExploreScrollRestore(): void {
   const restoringRef = useRef(false)
+  const primed = useRef(false)
+  const [, bump] = useState(0)
+
+  if (typeof window !== "undefined" && !primed.current) {
+    primed.current = true
+    primeExploreScrollRestore()
+  }
 
   /* Before paint: scroll back to where you were so the top of Explore never flashes. */
   useLayoutEffect(() => {
     if (!isExploreSurface(window.location.pathname)) return
     if (!shouldRestoreOnEnter()) return
     const target = readSavedScroll()
-    if (target == null || target <= 0) return
+    if (target == null || target <= 0) {
+      setExploreHold(false)
+      return
+    }
 
     restoringRef.current = true
     restoreScrollPosition(() => {
       restoringRef.current = false
+      bump((n) => n + 1)
     })
   }, [])
 
@@ -194,4 +241,19 @@ export function useExploreScrollRestore(): void {
       setExploreHold(false)
     }
   }, [])
+}
+
+/** Skip entrance skeletons while scroll restore is in flight (back from a product). */
+export function useExploreScrollRestoring(): boolean {
+  const [active, setActive] = useState(() => exploreScrollRestoreActive())
+  useLayoutEffect(() => {
+    setActive(exploreScrollRestoreActive())
+    const onEnd = () => setActive(false)
+    const obs = new MutationObserver(() => {
+      if (!document.documentElement.classList.contains(HOLD_CLASS)) onEnd()
+    })
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+    return () => obs.disconnect()
+  }, [])
+  return active
 }
