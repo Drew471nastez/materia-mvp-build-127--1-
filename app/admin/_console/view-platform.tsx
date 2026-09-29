@@ -7,6 +7,7 @@ import type { AudiencePayload, AuditPayload, EmailPayload, PeoplePayload, SiteRo
 import { ago, date, money, num, short, statusWord } from "./format"
 import type { Route } from "./nav-state"
 import { WalletDomainsPanel } from "./panel-wallets"
+import { ExploreMarketplacePanel } from "./panel-explore-marketplace"
 import { ViewHeader } from "./shell"
 import { DataList, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, reasonFor, type Column } from "./ui"
 
@@ -338,6 +339,7 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
       <ViewHeader title="Health" meta="Scheduled jobs, configuration, the database and the checkout's wallet buttons, checked now." />
       <ReadNotes problems={data.problems} notices={data.notices} />
 
+      <ExploreMarketplacePanel />
       {/* The one panel here that changes something, and the last step for Apple Pay. */}
       <WalletDomainsPanel />
 

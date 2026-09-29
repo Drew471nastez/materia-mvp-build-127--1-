@@ -19,7 +19,14 @@
  */
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { BUYER_TABS, SEARCH_HREF, SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
+import {
+  BUYER_TABS,
+  SEARCH_HREF,
+  SIGNED_OUT_PROFILE_HREF,
+  buyerTabFor,
+  buyerTabsBelongOn,
+  buyerTabsForMarketplace,
+} from "../lib/nav/buyer-tabs"
 import { isSellerProductPath } from "../lib/url-helpers"
 import { RESERVED_ROOT_SEGMENTS } from "../lib/routes/reserved-segments"
 
@@ -43,6 +50,16 @@ const on = ["/explore", "/explore/design", SEARCH_HREF, "/library", "/library/pr
 for (const p of on) check(`on ${p}`, buyerTabsBelongOn(p))
 const off = ["/", "/app", "/app/products", "/admin", "/checkout", "/checkout/abc", "/login", "/signup", "/reset-password", "/receipt/tok", "/purchase/x", "/creator-page", "/website-builder", "/blog", "/pricing", "/sell", "/account/continue", "/w/someone"]
 for (const p of off) check(`not on ${p}`, !buyerTabsBelongOn(p))
+
+console.log("\nDiscover off: library and profile only")
+check("two tabs when marketplace is off", buyerTabsForMarketplace(false).map((t) => t.key).join() === "library,profile")
+for (const p of ["/explore", "/explore/design", SEARCH_HREF, "/wishlist"]) {
+  check(`not on ${p} when discover is off`, !buyerTabsBelongOn(p, { exploreMarketplaceEnabled: false }))
+}
+for (const p of ["/library", "/library/wishlist", "/account"]) {
+  check(`still on ${p} when discover is off`, buyerTabsBelongOn(p, { exploreMarketplaceEnabled: false }))
+}
+check("/library is tab 0 and /account is tab 1 when discover is off", buyerTabFor("/library", { exploreMarketplaceEnabled: false }) === 0 && buyerTabFor("/account", { exploreMarketplaceEnabled: false }) === 1)
 /*
   A CREATOR'S PRODUCT HAS NO BAR; THEIR PAGE DOES. The bar came off both,
   because on a product the page's own buy bar already stands at the foot and
@@ -105,7 +122,7 @@ check("the bar mounts the screen beside itself, so a result leading off the bar'
 check("the tab you are on scrolls to the top", /window\.scrollTo\(\{ top: 0/.test(bar))
 /* A phone cancels the touch's click, so the loading line never heard a tab. The push says so itself. */
 check("a tab's push tells the loading line, because the click is cancelled", /startRouteLoading\(\{ cover: true \}\)\s*router\.push\(href\)/.test(bar))
-check("its hooks are never behind a return: the question is asked where it is mounted", /\{buyerTabsBelongOn\(pathname, where\) \? <TabBar pathname=\{pathname\} sellerSurface=\{where\.sellerSurface\} \/> : null\}/.test(bar))
+check("its hooks are never behind a return: the question is asked where it is mounted", /buyerTabsBelongOn\(pathname, whereWithExplore\)/.test(bar) && /exploreMarketplaceEnabled=\{exploreMarketplaceEnabled\}/.test(bar))
 /* A creator's page is read from the address, so the bar is gone on the frame
    the product opens: nothing is carried between pages and nothing blinks. */
 const where = code("lib/nav/use-buyer-tabs-where.ts")
@@ -113,6 +130,7 @@ check("where the bar is comes from the address, and only the host waits for an e
   /const surface = isSellerPage\(pathname\)/.test(where) && /const product = isSellerProductPath\(pathname\)/.test(where)
     && /sellerSurface: host\.subdomain \|\| surface/.test(where) && /customDomain: host\.customDomain/.test(where)
     && !/forPath/.test(where) && !/isDiscoverMode/.test(where))
+check("the discover flag is folded into the same answer the header uses", /useExploreMarketplaceEnabled\(\)/.test(where) && /exploreMarketplaceEnabled/.test(where))
 check("  and a creator's page counts as their store only on storelib.com",
   /sellerStore: surface && !product && !host\.subdomain && !host\.customDomain/.test(where))
 check("the native shell's press dimming is taken off its icons, as on the pill", /html\.capacitor \[data-buyer-tab-bar\] nav a:active/.test(read("app/globals.css")))

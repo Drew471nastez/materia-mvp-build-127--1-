@@ -92,7 +92,8 @@ import {
   useTabLens,
 } from "@/components/nav/tab-lens"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { BUYER_TABS, SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsBelongOn } from "@/lib/nav/buyer-tabs"
+import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
+import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsBelongOn, buyerTabsForMarketplace } from "@/lib/nav/buyer-tabs"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
@@ -208,11 +209,15 @@ function QueryWatch({ onChange }: { onChange: (query: string) => void }) {
  */
 export function BuyerTabBar() {
   const pathname = usePathname() || "/"
+  const exploreMarketplaceEnabled = useExploreMarketplaceEnabled()
   /* Where this is, as the header asks it too (lib/nav/use-buyer-tabs-where). */
   const where = useBuyerTabsWhere(pathname)
+  const whereWithExplore = { ...where, exploreMarketplaceEnabled }
   return (
     <>
-      {buyerTabsBelongOn(pathname, where) ? <TabBar pathname={pathname} sellerSurface={where.sellerSurface} /> : null}
+      {buyerTabsBelongOn(pathname, whereWithExplore) ? (
+        <TabBar pathname={pathname} sellerSurface={where.sellerSurface} exploreMarketplaceEnabled={exploreMarketplaceEnabled} />
+      ) : null}
       {/* Search, full screen, opened by the Search tab. Mounted beside the
           bar rather than in it, so a result that leads to a page without
           the bar does not take the screen out of the document mid fade. */}
@@ -221,12 +226,21 @@ export function BuyerTabBar() {
   )
 }
 
-function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: boolean }) {
+function TabBar({
+  pathname,
+  sellerSurface,
+  exploreMarketplaceEnabled,
+}: {
+  pathname: string
+  sellerSurface: boolean
+  exploreMarketplaceEnabled: boolean
+}) {
   const router = useRouter()
   const signedIn = useSignedIn()
   const typing = useTyping()
   const [query, setQuery] = useState("")
-  const current = buyerTabFor(pathname, { query: query !== "", sellerSurface })
+  const tabs = buyerTabsForMarketplace(exploreMarketplaceEnabled)
+  const current = buyerTabFor(pathname, { query: query !== "", sellerSurface, exploreMarketplaceEnabled })
 
   /*
     WHERE A PRESS IS GOING, until the address says it has arrived. The /app
@@ -240,18 +254,18 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
   useEffect(() => setToward(null), [pathname])
 
   const hrefOf = (index: number): string => {
-    const tab = BUYER_TABS[index]
-    if (!tab) return "/explore"
+    const tab = tabs[index]
+    if (!tab) return exploreMarketplaceEnabled ? "/explore" : "/library"
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
   const { slide, pick, linkRefs, shown, arriving, filling } = useTabLens({
-    count: BUYER_TABS.length,
+    count: tabs.length,
     current,
     heading: toward,
     nav: null,
     onPick: (index) => {
-      const tab = BUYER_TABS[index]
+      const tab = tabs[index]
       if (!tab) return
       /*
         SEARCH OPENS OVER THE PAGE, from inside this press, so the keyboard
@@ -285,7 +299,7 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
     },
     onPress: (index) => {
       /* Search is a screen already in the page: nothing to fetch. */
-      if (index !== current && BUYER_TABS[index]?.key !== "search") router.prefetch(hrefOf(index))
+      if (index !== current && tabs[index]?.key !== "search") router.prefetch(hrefOf(index))
     },
     /* No squeeze on a tap: see NO BUMP ON A TAP above. */
     give: false,
@@ -297,10 +311,10 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
     the bar is drawn, and never for the page you are on or for Search, which
     is a screen already in the page.
   */
-  const prefetchKey = BUYER_TABS.map((_, i) => hrefOf(i)).join(" ")
+  const prefetchKey = tabs.map((_, i) => hrefOf(i)).join(" ")
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 767px)").matches) return
-    const hrefs = BUYER_TABS.flatMap((tab, i) => (tab.key === "search" || i === current ? [] : [hrefOf(i)]))
+    const hrefs = tabs.flatMap((tab, i) => (tab.key === "search" || i === current ? [] : [hrefOf(i)]))
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
     const cancelIdle = (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback
     const run = () => { for (const href of hrefs) router.prefetch(href) }
@@ -420,7 +434,7 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
             />
           </span>
 
-          {BUYER_TABS.map((tab, i) => {
+          {tabs.map((tab, i) => {
             const on = i === shown
             const href = hrefOf(i)
             return (

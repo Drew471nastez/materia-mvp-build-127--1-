@@ -50,6 +50,7 @@ import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativePushInit } from "@/components/native-push-init"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
+import { ExploreMarketplaceRoot } from "@/components/platform/explore-marketplace-root"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
@@ -217,7 +218,11 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
-        <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
+        <SWRProvider>
+          <LocaleProvider>
+            <ExploreMarketplaceRoot>{children}</ExploreMarketplaceRoot>
+          </LocaleProvider>
+        </SWRProvider>
         {/* ONE buyer-protection subpage for the whole application.
             
             The shield beside a price is on every surface that shows one — the

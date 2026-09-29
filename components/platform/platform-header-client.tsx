@@ -11,6 +11,7 @@ import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, isProductPage, getProductInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -644,6 +645,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { t } = useLocale()
+  const exploreMarketplaceOn = useExploreMarketplaceEnabled()
+  const buyerLogoHref = exploreMarketplaceOn ? "/explore" : "/"
 
   /**
    * ===========================================================================
@@ -1217,7 +1220,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    * screen the header has none, and it grows one the moment that field
    * scrolls away.
    */
-  const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  const isExploreSurface =
+    exploreMarketplaceOn && (pathname === "/explore" || pathname.startsWith("/explore/") || pathname === "/wishlist")
   /*
     ═══════════════════════════════════════════════════════════════════════
      WHERE THE PHONE'S TAB BAR IS, THE HEADER DOES NOT REPEAT IT
@@ -1613,7 +1617,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 <nav className="flex items-center gap-1 lg:gap-2">
                   {[
                     { href: "/", label: "Home", active: pathname === '/', wide: true },
-                    { href: "/explore", label: "Discover", active: pathname.startsWith('/explore') },
+                    ...(exploreMarketplaceOn
+                      ? [{ href: "/explore", label: "Discover", active: pathname.startsWith("/explore") }]
+                      : []),
                     { href: "/blog", label: "Blog", active: isBlogRoute },
                     { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
                     { href: "/faq", label: "FAQ", active: isFaqRoute },
@@ -1646,21 +1652,22 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     <GuestHeaderActions withLogin link={headerLink} placeholder />
                   ) : user ? (
                     <>
-                      {/* Discover icon */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link
-                            {...headerLink("/explore")}
-                            className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-                            aria-label="Discover"
-                          >
-                            <Compass className="h-[22px] w-[22px]" />
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                          Discover
-                        </TooltipContent>
-                      </Tooltip>
+                      {exploreMarketplaceOn ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link
+                              {...headerLink("/explore")}
+                              className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                              aria-label="Discover"
+                            >
+                              <Compass className="h-[22px] w-[22px]" />
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                            Discover
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
@@ -1716,12 +1723,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - links to /explore */}
-                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 hidden md:flex items-center gap-2">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Categories Dropdown Button with Tooltip */}
+                {exploreMarketplaceOn ? (
                 <div className="relative hidden md:block" data-categories-dropdown>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1788,6 +1796,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 </div>
               )}
             </div>
+                ) : null}
           </div>
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
@@ -1987,7 +1996,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               </button>
 
               {/* Logo next to hamburger - links to /explore */}
-              <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
+              <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5">
                 <StorelibLogo size={HEADER_LOGO.phone} priority />
                 <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
               </Link>
@@ -2172,7 +2181,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           {/* A guest: the owner's three, Sign up, Discover, Sell on Storelib (image 23). */}
           {!user && (
             <div className="px-1 pt-3 pb-2 border-b border-[#eef0f2]">
-              <GuestSheetActions second="discover" link={headerLink} onDone={() => setMobileMenuOpen(false)} />
+              <GuestSheetActions second={exploreMarketplaceOn ? "discover" : "login"} link={headerLink} onDone={() => setMobileMenuOpen(false)} />
             </div>
           )}
 
@@ -2207,14 +2216,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 ) : (
                   <BecomeSellerRow link={headerLink} state={sellerState} onDone={() => setMobileMenuOpen(false)} />
                 )}
-                <Link
-                  {...headerLink("/explore")}
-                  onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
-                  className={cn(SHEET_BUTTON, "gap-3 border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}
-                >
-                  <Compass aria-hidden className="h-5 w-5" strokeWidth={1.9} />
-                  Discover
-                </Link>
+                {exploreMarketplaceOn ? (
+                  <Link
+                    {...headerLink("/explore")}
+                    onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
+                    className={cn(SHEET_BUTTON, "gap-3 border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}
+                  >
+                    <Compass aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+                    Discover
+                  </Link>
+                ) : null}
               </div>
             </div>
           )}
@@ -2232,14 +2243,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <span>Home</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
-                <Link
-                  href="/explore"
-                  onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>Discover</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
+                {exploreMarketplaceOn ? (
+                  <Link
+                    href="/explore"
+                    onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
+                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <span>Discover</span>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </Link>
+                ) : null}
                 <Link
                   href="/blog"
                   onClick={() => setMobileMenuOpen(false)}

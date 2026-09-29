@@ -27,6 +27,7 @@
 
 import { useEffect, useState } from "react"
 
+import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { buyerTabsBelongOn } from "@/lib/nav/buyer-tabs"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage, isSellerProductPath } from "@/lib/url-helpers"
 
@@ -63,5 +64,6 @@ export function useBuyerTabsWhere(pathname: string): BuyerTabsWhere {
 
 /** The same question, answered: true where the bar is drawn. */
 export function useBuyerTabsHere(pathname: string): boolean {
-  return buyerTabsBelongOn(pathname, useBuyerTabsWhere(pathname))
+  const exploreMarketplaceEnabled = useExploreMarketplaceEnabled()
+  return buyerTabsBelongOn(pathname, { ...useBuyerTabsWhere(pathname), exploreMarketplaceEnabled })
 }

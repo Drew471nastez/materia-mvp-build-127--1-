@@ -38,6 +38,12 @@ export const BUYER_TABS = [
   { key: "profile", label: "Profile", href: "/account" },
 ] as const
 
+/** Tab bar rows when Discover is off: Library and Profile only. */
+export function buyerTabsForMarketplace(exploreMarketplaceEnabled: boolean) {
+  if (exploreMarketplaceEnabled) return [...BUYER_TABS]
+  return BUYER_TABS.filter((t) => t.key === "library" || t.key === "profile")
+}
+
 export type BuyerTabKey = (typeof BUYER_TABS)[number]["key"]
 
 /** Where a signed out person's Profile tab goes: sign in, then their account. */
@@ -49,12 +55,12 @@ export const SEARCH_HREF = "/explore/search"
 const under = (pathname: string, base: string) => pathname === base || pathname.startsWith(`${base}/`)
 
 /** Storelib's own buyer pages, by address alone. */
-export function isBuyerPath(pathname: string): boolean {
+export function isBuyerPath(pathname: string, exploreMarketplaceEnabled = true): boolean {
   return (
-    under(pathname, "/explore") ||
+    (exploreMarketplaceEnabled && under(pathname, "/explore")) ||
     under(pathname, "/library") ||
     under(pathname, "/account") ||
-    under(pathname, "/wishlist")
+    (exploreMarketplaceEnabled && under(pathname, "/wishlist"))
   )
 }
 
@@ -79,15 +85,16 @@ export function buyerTabsBelongOn(
   pathname: string,
   /* `sellerSurface` is taken but not read here: it is what lights Home on the bar
      (buyerTabFor below), and callers hand this the whole answer from useBuyerTabsWhere. */
-  where: { sellerSurface?: boolean; sellerProduct?: boolean; sellerStore?: boolean; sellerSite?: boolean; customDomain?: boolean } = {},
+  where: { sellerSurface?: boolean; sellerProduct?: boolean; sellerStore?: boolean; sellerSite?: boolean; customDomain?: boolean; exploreMarketplaceEnabled?: boolean } = {},
 ): boolean {
+  const exploreOn = where.exploreMarketplaceEnabled !== false
   if (where.customDomain) return false
   /* /account/continue is a redirect, never a page anybody sees. */
   if (under(pathname, "/account/continue")) return false
   if (where.sellerSite) return false
   if (where.sellerProduct) return false
   if (where.sellerStore) return true
-  return isBuyerPath(pathname)
+  return isBuyerPath(pathname, exploreOn)
 }
 
 /**
@@ -97,12 +104,24 @@ export function buyerTabsBelongOn(
  * A product or creator page browsed from Explore is still Home: it is where
  * Home led, the way a phone's own tab bar keeps the tab you came through.
  */
-export function buyerTabFor(pathname: string, where: { query?: boolean; sellerSurface?: boolean } = {}): number {
-  if (under(pathname, SEARCH_HREF)) return 1
-  if (under(pathname, "/explore")) return where.query ? 1 : 0
-  if (under(pathname, "/library") || under(pathname, "/wishlist")) return 2
-  if (under(pathname, "/account")) return 3
-  /* A creator's page or product is where Home led, so Home stays lit on it. */
-  if (where.sellerSurface) return 0
+export function buyerTabFor(
+  pathname: string,
+  where: { query?: boolean; sellerSurface?: boolean; exploreMarketplaceEnabled?: boolean } = {},
+): number {
+  const exploreOn = where.exploreMarketplaceEnabled !== false
+  const tabs = buyerTabsForMarketplace(exploreOn)
+  const idx = (key: BuyerTabKey) => tabs.findIndex((t) => t.key === key)
+
+  if (exploreOn) {
+    if (under(pathname, SEARCH_HREF)) return 1
+    if (under(pathname, "/explore")) return where.query ? 1 : 0
+    if (under(pathname, "/library") || under(pathname, "/wishlist")) return 2
+    if (under(pathname, "/account")) return 3
+    if (where.sellerSurface) return 0
+    return -1
+  }
+
+  if (under(pathname, "/library") || under(pathname, "/wishlist")) return idx("library")
+  if (under(pathname, "/account")) return idx("profile")
   return -1
 }
