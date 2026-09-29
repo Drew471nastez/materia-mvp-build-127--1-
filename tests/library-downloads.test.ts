@@ -421,7 +421,9 @@ function screenCases() {
   check("the way back puts the list's scroll back, and the browser's own back is not faded", /history\.scrollRestoration = "manual"/.test(panel) && /jump\(scrolls\.get\(p\.href\) \?\? 0\)/.test(panel) && /traversal\.current/.test(panel))
   check("library tab loading draws the tab's shape, still, for the stage and the route", ["app/library/loading.tsx", "app/library/courses/loading.tsx", "app/library/memberships/loading.tsx", "app/library/wishlist/loading.tsx"].every((f) => /LibraryRouteSkeleton/.test(read(f)) && /data-library-skeleton/.test(read("components/library/library-route-skeleton.tsx"))))
   check("library route skeleton is not deferred; the panel already cross-fades", !/skeleton-deferred/.test(read("components/library/library-route-skeleton.tsx")))
-  check("tab content does not double-fade; the panel owns the move", /data-library-screen=""/.test(read("components/library/library-content-shell.tsx")) && /OUT_MS = 150/.test(panel))
+  check("tab content uses settings' panel entrance, not a second deferred fade", /\.library-panel/.test(read("app/globals.css")) && /enter=\{panelEnter\}/.test(panel) && /library-panel/.test(read("components/library/library-content-shell.tsx")))
+  check("pill links do not scroll the page to the top on a tab change", /scroll=\{false\}/.test(read("components/library/library-tabs.tsx")))
+  check("tab cross-fade timing unchanged for the buyer probe", /OUT_MS = 150/.test(panel))
   check("explore back from a product hides until scroll is restored", /explore-scroll-restoring/.test(read("app/globals.css")) && /primeExploreScrollRestore/.test(read("lib/explore/use-explore-scroll.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("lib/explore/explore-scroll-boot.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("app/layout.tsx")))
   const banner = read("components/library/open-in-app.tsx")
   /*

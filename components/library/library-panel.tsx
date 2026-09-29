@@ -238,6 +238,8 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
   const pathname = usePathname()
   const router = useRouter()
   const [pending, setPending] = useState<Pending | null>(null)
+  /** Settings-style panel entrance on tab commits only (components/app/settings-form-new.tsx). */
+  const [panelEnter, setPanelEnter] = useState(false)
   const pendingRef = useRef<Pending | null>(null)
   const pathRef = useRef(cleanPath(pathname))
   const nowRef = useRef<HTMLDivElement>(null)
@@ -293,7 +295,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     const incoming = incomingRef.current
     const lead = lastLeave.current
     const covered = Math.max(remaining(liveFade.current), lead ? 1 - Math.min(1, (performance.now() - lead.start) / lead.duration) : 0)
-    if (incoming && !reducedMotion() && covered < 0.75) leaveCopy(incoming, SETTLE_MS, true)
+    if (incoming && !reducedMotion() && covered < 0.75 && p.kind !== "tab") leaveCopy(incoming, SETTLE_MS, true)
     if (incoming) incoming.style.display = "none"
     liveFade.current?.cancel()
     liveFade.current = null
@@ -306,6 +308,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     show(live)
     if (p.kind === "back") jump(scrolls.get(p.href) ?? 0)
     else if (p.kind === "open") jump(0)
+    else if (p.kind === "tab" && !reducedMotion()) setPanelEnter(true)
     setPending(null)
     /* Keep min-height through the shape dissolve so the page does not jump shorter mid-fade. */
     if (release.current) window.clearTimeout(release.current)
@@ -337,23 +340,21 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
         before the fade is over (BeforeCommit). Copying a screen at the press
         cost a phone at a quarter speed about 80ms before the first frame.
       */
-      const under = kind === "tab" && !was && !reduce && !!live && typeof live.animate === "function" && !(nowTop < 0 && panelTop < HEADER_ROOM)
+      const under =
+        kind === "tab" && !was && !reduce && !!live && typeof live.animate === "function"
+      if (kind === "tab") setPanelEnter(false)
       if (under && live) {
         if (panel) panel.style.isolation = "isolate"
         liveFade.current = startNow(live.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_IN_OUT, fill: "both" }))
       } else if (visible && !reduce) lastLeave.current = leaveCopy(visible, OUT_MS)
       if (was && incomingRef.current) incomingRef.current.style.display = "none"
 
-      if (under) {
+      if (under || kind === "tab") {
+        if (kind === "tab" && nowTop < 0 && panelTop < HEADER_ROOM) {
+          jump(Math.max(0, nowTop + window.scrollY - HEADER_ROOM))
+        }
         /* The height it has now, held for the move: the next screen may be shorter than where the page is scrolled. */
         if (panel) panel.style.minHeight = `${panelHeight}px`
-      } else if (kind === "tab") {
-        /* Pressed from far down (the header's heart): the new screen starts where its pills can be seen. */
-        if (nowTop < 0 && panelTop < HEADER_ROOM) jump(Math.max(0, nowTop + window.scrollY - HEADER_ROOM))
-        /* The screen holds its height for the move, so the page under the finger keeps its length. */
-        if (panel) panel.style.minHeight = `${panelHeight}px`
-        show(now)
-        hide(liveRef.current)
       } else {
         if (panel) panel.style.minHeight = ""
         show(liveRef.current)
@@ -387,11 +388,10 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     const p = pendingRef.current
     const live = liveRef.current
     if (!p || !p.under || !live || cleanPath(to) !== p.href) return
-    const left = remaining(liveFade.current)
-    if (left > 0.03) lastLeave.current = leaveCopy(live, Math.max(80, OUT_MS * left), false, left)
+    /* The route answered: swap content and fade the new panel in (settings-style), not a second fixed copy. */
     liveFade.current?.cancel()
     liveFade.current = null
-    live.style.opacity = "0"
+    live.style.opacity = "1"
   }, [])
 
   /* Every plain press on a link to another library screen, wherever the link is. */
@@ -534,6 +534,12 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     [],
   )
 
+  useEffect(() => {
+    if (!panelEnter) return
+    const t = window.setTimeout(() => setPanelEnter(false), 220)
+    return () => window.clearTimeout(t)
+  }, [panelEnter, pathname])
+
   return (
     <div data-library-stage="" className="relative">
       <BeforeCommit path={cleanPath(pathname)} onBefore={beforeCommit} />
@@ -541,7 +547,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
         {head}
         <div ref={panelRef} data-library-panel="" className="relative">
           <div ref={liveRef} data-library-live="">
-            <LibraryContentShell>{children}</LibraryContentShell>
+            <LibraryContentShell enter={panelEnter}>{children}</LibraryContentShell>
           </div>
           {pending?.kind === "tab" ? (
             <div key={pending.id} ref={incomingRef} data-library-incoming="tab" className={pending.under ? "absolute inset-x-0 top-0 -z-10" : undefined}>

@@ -62,8 +62,8 @@ export function LibraryTabs() {
   const shows = showsLibraryTabs(pathname)
   /* The pill pressed, ahead of the address. Dropped once the address arrives. */
   const [pressed, setPressed] = useState<string | null>(null)
-  /* A pill that is simply on when the page loads does not animate into place. */
-  const [moved, setMoved] = useState(false)
+  /* After the first press, pill fills animate like /app settings (panelEntrance). */
+  const [panelEntrance, setPanelEntrance] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
 
@@ -129,14 +129,14 @@ export function LibraryTabs() {
     const next = el.scrollLeft > from ? from : el.scrollLeft < to ? to : el.scrollLeft
     if (Math.abs(next - el.scrollLeft) < 1) return
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    el.scrollTo({ left: Math.max(0, next), behavior: moved && !reduce ? "smooth" : "auto" })
-  }, [current, moved])
+    el.scrollTo({ left: Math.max(0, next), behavior: panelEntrance && !reduce ? "smooth" : "auto" })
+  }, [current, panelEntrance])
 
   if (!shows) return null
 
   const press = (href: string) => {
     if (href === current) return
-    setMoved(true)
+    setPanelEntrance(true)
     setPressed(href)
   }
 
@@ -160,6 +160,7 @@ export function LibraryTabs() {
                 <Link
                   key={tab.href}
                   href={tab.href}
+                  scroll={false}
                   aria-current={tab.href === path ? "page" : undefined}
                   data-library-tab={tab.label}
                   data-library-tab-href={tab.href}
@@ -179,7 +180,7 @@ export function LibraryTabs() {
                     aria-hidden
                     data-library-tab-fill=""
                     style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] ${moved ? "transition-[opacity,scale]" : "transition-none"} motion-reduce:transition-none ${
+                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] ${panelEntrance ? "transition-[opacity,scale]" : "transition-none"} motion-reduce:transition-none ${
                       active ? "scale-100 opacity-100" : "scale-[0.96] opacity-0"
                     }`}
                   />
