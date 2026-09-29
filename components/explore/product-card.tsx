@@ -7,6 +7,7 @@ import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
+import { saveExploreScrollNow } from "@/lib/explore/use-explore-scroll"
 import { Star } from "lucide-react"
 
 function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
@@ -226,8 +227,10 @@ export const ProductCard = memo(function ProductCard({
       e.preventDefault()
       e.stopPropagation()
       didScroll.current = false
+      return
     }
-  }, [])
+    if (discoverLayout) saveExploreScrollNow()
+  }, [discoverLayout])
 
   // Safety check - if product is null/undefined, don't render
   if (!product) return null

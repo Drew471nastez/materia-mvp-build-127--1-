@@ -138,6 +138,7 @@ function main() {
 
   console.log("\n   a subcategory is found in the fields the pages load")
   const explore = code("components/explore/explore-page-client.tsx")
+  check("explore remembers scroll for back from a product", /useExploreScrollRestore/.test(explore) && /useExploreScrollRestore/.test(catPage))
   check("neither page reads subcategory or tags, which the routes never select", ![catPage, explore].some((f) => /p\.subcategory|p\.tags/.test(f)))
   check("both use the shared rule", [catPage, explore].every((f) => /matchesSubcategory\(/.test(f)))
   const m = (id: string, label: string, product: { category?: string; title?: string; description?: string }) => matchesSubcategory(product, subcategoryTerms(id, label))

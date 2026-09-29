@@ -17,6 +17,7 @@ import { EMPTY_INTERESTS, FOR_YOU_ID, buildPillRow, interestScore, type Interest
 import { hasCategoryPage, showAllLabel as showAllProductsLabel } from "@/lib/explore/category-pages"
 import { normalizeCategoryToId as normalizeCategory } from "@/lib/marketplace/categories"
 import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-match"
+import { useExploreScrollRestore } from "@/lib/explore/use-explore-scroll"
 
 // Categories with icons and subcategories - Extended list
 const CATEGORIES = [
@@ -414,6 +415,8 @@ export function ExplorePageClient({
     a marketing route can use.
   */
   const { language, setLanguage, languages: availableLanguages } = useLocale()
+
+  useExploreScrollRestore()
 
   /* See buildPills: identical to everybody else's row below the threshold. */
   const pillRow = useMemo(() => pillsFrom(interests), [interests])

@@ -187,12 +187,12 @@ check("and the public wishlist's arrow", /backThen\(\(\) => router\.push\("\/exp
   long as a finger is moving.
 */
 console.log("\nExplore's scroll")
-const explore = code("components/explore/explore-content.tsx")
+const explore = code("lib/explore/use-explore-scroll.ts")
 const handler = explore.slice(explore.indexOf("const handleScroll"), explore.indexOf("window.addEventListener(\"beforeunload\""))
 check("the scroll handler writes nothing itself", !/sessionStorage/.test(handler), handler.replace(/\s+/g, " ").slice(0, 120))
 check("it asks for one frame and no more until that frame has run", /if \(frame\) return\s*\n\s*frame = requestAnimationFrame\(write\)/.test(explore))
-check("there is one place the position is written", (explore.match(/sessionStorage\.setItem\(SCROLL_KEY/g) || []).length === 1)
-check("a write that throws (private mode, storage full) does not take the page", /try \{\s*\n\s*sessionStorage\.setItem\(SCROLL_KEY[\s\S]{0,80}\} catch \{/.test(explore))
+check("there is one place the position is written", (explore.match(/sessionStorage\.setItem\(EXPLORE_SCROLL_KEY/g) || []).length === 1)
+check("a write that throws (private mode, storage full) does not take the page", /try \{[\s\S]*sessionStorage\.setItem\(EXPLORE_SCROLL_KEY[\s\S]*\} catch \{/.test(explore))
 check("leaving writes the last position straight away, with no frame to wait for", /window\.addEventListener\("pagehide", handleLeave\)/.test(explore) && /window\.addEventListener\("beforeunload", handleLeave\)/.test(explore))
 check("and a frame still pending when it unmounts is written rather than dropped", /if \(frame\) handleLeave\(\)/.test(explore))
 

@@ -39,6 +39,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react"
 import { categoryPath, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-match"
+import { useExploreScrollRestore } from "@/lib/explore/use-explore-scroll"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { cn } from "@/lib/utils"
 import { ProductCard } from "./product-card"
@@ -103,6 +104,8 @@ export function CategoryPageClient({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const sectionRef = useRef<HTMLElement>(null)
+
+  useExploreScrollRestore()
 
   // Store back-label so product pages can show "< Design" / "< Marketing" etc.
   useEffect(() => {
