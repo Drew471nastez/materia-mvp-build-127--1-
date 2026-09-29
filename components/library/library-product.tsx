@@ -10,7 +10,7 @@ import { downloadFile } from "@/lib/downloads/download-file"
 import { appPlatform } from "@/lib/downloads/native"
 import type { AccessState } from "@/lib/receipts/rules"
 import type { LibraryCreator, LibraryFile } from "@/lib/library/library-view"
-import { contactOf, productPageOf, storeOf } from "./creator-links"
+import { contactOf, memberProfileOf, productPageOf, storeOf } from "./creator-links"
 import { LibraryFileRow } from "./file-row"
 import { useStoreLinkProps } from "./use-store-link"
 import { CARD, MUTED, SECONDARY, SMALL, shortDate } from "./library-ui"
@@ -76,7 +76,8 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
   const note = useAppNote()
   const status = data.state === "open" ? null : STATE_LINE[data.state]
   const contact = contactOf(data.creator, data.title)
-  const store = storeOf(data.creator)
+  const profileHref = memberProfileOf(data.creator)
+  const storefrontHref = storeOf(data.creator)
   const storeLink = useStoreLinkProps()
   const page = productPageOf({ productSlug: data.productSlug, archived: data.archived, creator: data.creator })
   const open = data.state === "open"
@@ -191,18 +192,24 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
               them, so the buttons say only what they do, never wrap, and cut a
               label short rather than grow.
             */}
-            {contact || store ? (
+            {contact || profileHref || storefrontHref ? (
               <div data-creator-actions="" className="mt-3.5 grid grid-cols-2 gap-2">
                 {contact ? (
-                  <a href={contact.href} data-creator-contact="" aria-label={contact.label} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${store ? "" : "col-span-2"}`)}>
+                  <a href={contact.href} data-creator-contact="" aria-label={contact.label} className={cn(SECONDARY, SMALL, "min-w-0 whitespace-nowrap")}>
                     <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span className="truncate">{contact.short}</span>
                   </a>
                 ) : null}
-                {store ? (
-                  <a href={store} {...storeLink} data-creator-profile="" aria-label={`${data.creator.name}'s profile`} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${contact ? "" : "col-span-2"}`)}>
+                {profileHref ? (
+                  <Link href={profileHref} data-creator-profile="" aria-label={`${data.creator.name}'s profile`} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${!contact && !storefrontHref ? "col-span-2" : ""}`)}>
                     <Store className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span className="truncate">Profile</span>
+                  </Link>
+                ) : null}
+                {storefrontHref ? (
+                  <a href={storefrontHref} {...storeLink} data-creator-store="" aria-label={`${data.creator.name}'s store`} className={cn(SECONDARY, SMALL, `min-w-0 whitespace-nowrap ${!contact && !profileHref ? "col-span-2" : contact && profileHref ? "col-span-2" : ""}`)}>
+                    <Store className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span className="truncate">Visit store</span>
                   </a>
                 ) : null}
               </div>

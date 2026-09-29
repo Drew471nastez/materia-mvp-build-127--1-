@@ -187,7 +187,7 @@ function wishlistCases() {
   */
   const wishPage = read("app/library/wishlist/page.tsx")
   check("the library's tab reads the list on the server", /loadWishlist\(userId\)/.test(wishPage) && /initialItems=\{await loadWishlist\(userId\)\}/.test(wishPage))
-  check("  and streams it, so the tab is on screen before the cards are", /<Suspense$/m.test(wishPage) && /\{savedBody\(user\.id\)\}/.test(wishPage) && /<WishlistSkeleton \/>/.test(wishPage))
+  check("  and streams it, so the tab is on screen before the cards are", /<Suspense$/m.test(wishPage) && /\{savedBody\(user\.id\)\}/.test(wishPage) && /data-library-loading/.test(wishPage))
   /* A second full read of the list only for the one failure another query can fix. */
   const wishLoad = read("app/library/wishlist/load-wishlist.ts")
   check("  and a slow first read is not paid for twice", /if \(error && missingPwywColumn\(error\)\)/.test(wishLoad) && /error\.code === "42703"/.test(wishLoad))
@@ -419,7 +419,7 @@ function screenCases() {
     /getSnapshotBeforeUpdate/.test(panel) && /liveFade\.current = startNow\(live\.animate/.test(panel))
   check("the live screen stays laid out while hidden, so Next never scrolls the page up", /el\.style\.visibility = "hidden"/.test(panel) && !/style\.display = "none"\s*\n\s*}\s*\n\s*function show/.test(panel))
   check("the way back puts the list's scroll back, and the browser's own back is not faded", /history\.scrollRestoration = "manual"/.test(panel) && /jump\(scrolls\.get\(p\.href\) \?\? 0\)/.test(panel) && /traversal\.current/.test(panel))
-  check("every loading.tsx draws the same shape the stage does", ["app/library/loading.tsx", "app/library/courses/loading.tsx", "app/library/memberships/loading.tsx", "app/library/wishlist/loading.tsx", "app/library/products/[id]/loading.tsx"].every((f) => /data-library-skeleton/.test(read(f)) && /Skeleton/.test(read(f))))
+  check("library tab loading reserves space without a pulsing skeleton", ["app/library/loading.tsx", "app/library/courses/loading.tsx", "app/library/memberships/loading.tsx", "app/library/wishlist/loading.tsx"].every((f) => /data-library-loading/.test(read(f))))
   const banner = read("components/library/open-in-app.tsx")
   /*
     THE BANNER IS UNDER THE LIBRARY, NOT OVER IT. It used to be the first

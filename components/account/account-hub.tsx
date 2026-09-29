@@ -95,7 +95,7 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
           to 128, and a hair more weight under it: one close shadow and the
           same soft one, slightly nearer. Not a float.
         */}
-        <div className="mt-[2vh]" data-account-avatar-room="">
+        <div className="mt-[2vh] lg:mt-0" data-account-avatar-room="">
           <AvatarLightbox src={shown} name={identity.name}>
             <AccountAvatar
               src={shown}
@@ -145,14 +145,18 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
           Edit profile
         </Link>
 
-        <p className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[#9ca3af]" data-account-powered="">
+        <p className="mt-6 hidden items-center justify-center gap-1.5 text-[11px] text-[#9ca3af] lg:flex" data-account-powered="">
           <span>Powered by</span>
-          <StorelibLogo size={32} fluid className="h-[15px] w-[15px]" alt="Storelib" priority />
+          <StorelibLogo size={32} fluid className="h-[15px] w-[15px] !rounded-[5px]" alt="Storelib" priority />
         </p>
       </header>
 
       <div className="mt-6 min-w-0 lg:col-start-1 lg:row-start-1 lg:mt-0" data-account-panel="overview">
         {children}
+        <p className="mt-10 flex items-center justify-center gap-1.5 text-[11px] text-[#9ca3af] lg:hidden" data-account-powered-mobile="">
+          <span>Powered by</span>
+          <StorelibLogo size={32} fluid className="h-[15px] w-[15px] !rounded-[5px]" alt="Storelib" priority />
+        </p>
       </div>
     </div>
   )

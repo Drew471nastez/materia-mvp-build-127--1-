@@ -17,6 +17,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import StorefrontPage, { generateMetadata as storefrontMetadata } from "../u/[username]/page"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
+import { ensureStorefrontOrRedirectToMember } from "@/lib/profile/storefront-gate"
 
 export const dynamic = "force-dynamic"
 
@@ -47,5 +48,6 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 export default async function SellerPage({ params, searchParams }: PageProps) {
   const username = await asUsername(params)
   if (!username) notFound()
+  await ensureStorefrontOrRedirectToMember(username)
   return await StorefrontPage({ params: Promise.resolve({ username }), searchParams } as never)
 }

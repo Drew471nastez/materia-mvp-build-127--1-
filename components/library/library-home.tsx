@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronRight, Search, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { creatorKey, visibleItems, type LibraryCreator, type LibraryItem, type LibrarySort } from "@/lib/library/library-view"
-import { contactOf, storeOf } from "./creator-links"
+import { contactOf, memberProfileOf } from "./creator-links"
 import { ProductRow } from "./product-row"
 import { useStoreLinkProps } from "./use-store-link"
 import { CARD, SECONDARY, SMALL, TEXT_LINK, VIOLET } from "./library-ui"
@@ -45,15 +45,14 @@ const SORTS: Array<{ value: LibrarySort; label: string }> = [
 
 function CreatorRowLinks({ creator }: { creator: LibraryCreator }) {
   const contact = contactOf(creator)
-  const profile = storeOf(creator)
-  const storeLink = useStoreLinkProps()
+  const profile = memberProfileOf(creator)
   if (!contact && !profile) return null
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-[13px] font-medium">
       {profile ? (
-        <a href={profile} {...storeLink} data-creator-profile="" className={TEXT_LINK}>
+        <Link href={profile} data-creator-profile="" className={TEXT_LINK}>
           View profile
-        </a>
+        </Link>
       ) : null}
       {contact ? (
         <a href={contact.href} data-creator-contact="" className={TEXT_LINK}>
@@ -239,7 +238,7 @@ export function LibraryHome({
       </div>
 
       {/* A computer's column: what is waiting for a review, and where receipts live. */}
-      <aside className="hidden space-y-4 lg:block" data-library-aside="">
+      <aside className="hidden space-y-4 lg:block lg:pt-7 lg:self-start" data-library-aside="">
         {toReview > 0 ? (
           <Link href="/library/reviews" className={`${CARD} flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[#fcfcfd]`}>
             <span className="min-w-0 flex-1">

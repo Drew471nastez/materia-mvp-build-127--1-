@@ -23,6 +23,8 @@ import { LiveSubscribeBar } from "@/components/store-builder/live-subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
+import { MemberProfileCta } from "@/components/storefront/member-profile-cta"
+import { ensureStorefrontOrRedirectToMember } from "@/lib/profile/storefront-gate"
 import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
@@ -336,6 +338,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   if (isReservedWord(username)) {
     notFound()
   }
+
+  await ensureStorefrontOrRedirectToMember(username)
 
   const supabase = await createClient()
 
@@ -1264,6 +1268,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            */
           surface={{ textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }}
         />
+        {profile.username ? <MemberProfileCta username={profile.username} /> : null}
 
         {(() => {
           // Separate About section to render last

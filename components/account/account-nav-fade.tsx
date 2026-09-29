@@ -27,7 +27,7 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
     const el = ref.current
     if (!el || typeof el.animate !== "function") return
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0.94 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" })
+    el.animate([{ opacity: 0.97 }, { opacity: 1 }], { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" })
   }, [settings])
 
   return (

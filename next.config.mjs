@@ -148,6 +148,12 @@ const nextConfig = {
   // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)
   // use 2MB chunks to stay safely under the platform body size limit.
 
+  async rewrites() {
+    return {
+      beforeFiles: [{ source: "/@:handle", destination: "/member/:handle" }],
+    }
+  },
+
   // Cache headers for public pages — CDN edge + browser stale-while-revalidate
   async headers() {
     return [

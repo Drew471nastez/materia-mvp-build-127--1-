@@ -8,7 +8,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { downloadFile, downloadKey } from "@/lib/downloads/download-file"
 import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import type { LibraryCreator, LibraryItem } from "@/lib/library/library-view"
-import { contactOf, productPageOf, storeOf } from "./creator-links"
+import { contactOf, memberProfileOf, productPageOf, storeOf } from "./creator-links"
 import { LibraryFileRow } from "./file-row"
 import { useStoreLinkProps } from "./use-store-link"
 import { ICON_BUTTON, PRIMARY, SECONDARY, SMALL, shortDate } from "./library-ui"
@@ -107,10 +107,10 @@ export function ProductRow({
     if (item.review) rows.push({ label: "Edit your review", icon: <Star className="h-4 w-4" />, href: reviewHref })
     else if (item.canReview) rows.push({ label: "Write a review", icon: <Star className="h-4 w-4" />, href: reviewHref })
     const contact = creator ? contactOf(creator, item.title) : null
-    const store = storeOf(item.creator)
+    const store = memberProfileOf(item.creator)
     const page = productPageOf(item)
     if (contact) rows.push({ label: contact.label, icon: <Mail className="h-4 w-4" />, href: contact.href, separatorBefore: true })
-    if (store) rows.push({ label: "View profile", icon: <Store className="h-4 w-4" />, href: store, target: storeLink.target, separatorBefore: !contact })
+    if (store) rows.push({ label: "View profile", icon: <Store className="h-4 w-4" />, href: store, separatorBefore: !contact })
     if (page) rows.push({ label: "Product page", icon: <ExternalLink className="h-4 w-4" />, href: page })
     return rows
   }, [creator, href, item, storeLink.target])
@@ -131,11 +131,11 @@ export function ProductRow({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-row-files=""
-        className={cn(SECONDARY, SMALL, "flex-1 sm:flex-none sm:min-w-[120px]")}
+        className={cn(SECONDARY, SMALL, "flex-1 sm:w-[120px] sm:flex-none sm:shrink-0")}
       >
-        <FileText className="h-3.5 w-3.5" aria-hidden />
-        {item.files.length} files
-        <ChevronDown className={`h-3.5 w-3.5 transition-[rotate] duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden />
+        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        <span className="tabular-nums">{item.files.length} files</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
     ) : (
       <Link href={href} className={cn(SECONDARY, SMALL, "flex-1 sm:flex-none sm:min-w-[120px]")}>
@@ -179,28 +179,28 @@ export function ProductRow({
             </time>
           </p>
           {status ? <p className={`mt-1 text-[13px] font-medium ${status.tone}`}>{status.text}</p> : null}
+          {many ? (
+            <div
+              className={cn(
+                "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+                open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              )}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <ul data-row-file-list="" className="mt-3 border-t border-[#eef0f3]">
+                  {item.files.map((f) => (
+                    <LibraryFileRow key={f.id} file={f} receiptToken={item.receiptToken} tone="secondary" />
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
         </div>
-        <div data-row-actions="" className="col-span-2 mt-3 flex flex-wrap items-center gap-2 sm:col-span-1 sm:mt-0 sm:max-w-[280px] sm:justify-end">
+        <div data-row-actions="" className="col-span-2 mt-3 flex flex-nowrap items-center gap-2 sm:col-span-1 sm:mt-0 sm:max-w-[280px] sm:justify-end sm:self-start">
           {primary}
           {more}
         </div>
       </div>
-      {many ? (
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-            open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <ul data-row-file-list="" className="mt-3 border-t border-[#eef0f3] sm:ml-[88px]">
-              {item.files.map((f) => (
-                <LibraryFileRow key={f.id} file={f} receiptToken={item.receiptToken} tone="secondary" />
-              ))}
-            </ul>
-          </div>
-        </div>
-      ) : null}
     </li>
   )
 }

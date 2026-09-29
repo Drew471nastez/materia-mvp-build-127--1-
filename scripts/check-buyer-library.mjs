@@ -336,7 +336,7 @@ try {
         }
       })
       expect(f.rows === 5, "the product list is not filtered by a creator row", f.rows)
-      expect(/^\/receipt\/tok_p2_/.test(f.lucaContact || "") && /#receipt-contact$/.test(f.lucaContact || "") && f.lucaProfile === "/lucadragoste", "Luca's row has Message and View profile", f)
+      expect(/^\/receipt\/tok_p2_/.test(f.lucaContact || "") && /#receipt-contact$/.test(f.lucaContact || "") && f.lucaProfile === "/@lucadragoste", "Luca's row has Message and View profile", f)
       expect(/^mailto:hello@mayachen\.co/.test(f.mayaMail || ""), "Maya's row emails her support address", f.mayaMail)
       await page.screenshot({ path: join(shots, `home-${label}-creator.png`), fullPage: true })
     }

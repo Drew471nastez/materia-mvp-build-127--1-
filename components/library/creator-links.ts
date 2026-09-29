@@ -1,3 +1,4 @@
+import { memberProfilePublicPath } from "@/lib/profile/member-url"
 import { getProductInternalPath, getStoreInternalPath } from "@/lib/url-helpers"
 import type { LibraryCreator, LibraryItem } from "@/lib/library/library-view"
 
@@ -36,6 +37,11 @@ export function contactOf(creator: Pick<LibraryCreator, "name" | "supportEmail" 
 
 export function storeOf(creator: { slug: string | null }): string | null {
   return creator.slug ? getStoreInternalPath(creator.slug) : null
+}
+
+/** Public member profile (`/@handle`), not the creator storefront. */
+export function memberProfileOf(creator: { slug: string | null }): string | null {
+  return creator.slug ? memberProfilePublicPath(creator.slug) : null
 }
 
 /** The product's own page, while it is still on sale. */
