@@ -393,7 +393,11 @@ html.capacitor body {
   }
   /* Library tab content after loading.tsx or the stage's shape hands over. */
   .library-content-enter {
-    animation: skeleton-reveal 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: skeleton-reveal 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* Explore back from a product: hide until scroll is restored (use-explore-scroll). */
+  html.explore-scroll-restoring .explore-ground {
+    visibility: hidden;
   }
   /* `skeleton-reveal` is also the late fade of a part of an /app page that is
      still coming (WaitingArea, components/ui/activity-spinner.tsx): nothing

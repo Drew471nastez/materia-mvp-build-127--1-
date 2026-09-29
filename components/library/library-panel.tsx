@@ -67,11 +67,11 @@ import { TabsHeaderStill, skeletonFor } from "./library-skeletons"
  * reduced motion nothing fades: the shape is shown at once and swapped.
  */
 
-export const OUT_MS = 180
+export const OUT_MS = 150
 /** A product's shape rising into place as it is uncovered. */
-export const IN_MS = 240
+export const IN_MS = 200
 /** The shape dissolving into the real screen, once the old screen's copy has mostly gone. */
-export const SETTLE_MS = 160
+export const SETTLE_MS = 130
 export const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** The old screen's fade: under way from the press's first frame, easing into the end. */
 export const EASE_IN_OUT = "cubic-bezier(0.25, 0.1, 0.25, 1)"

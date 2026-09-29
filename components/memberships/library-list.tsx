@@ -71,7 +71,7 @@ export function MembershipsList({ current, ended }: { current: MembershipCard[];
       <div data-memberships-empty="">
         <LibraryEmptyState
           title="No memberships yet"
-          description="When you join a creator's membership, it shows up here with every post they share with members."
+          description="Creators you support show up here — memberships you've joined and the posts they share with members."
           ctaLabel="Discover creators"
           ctaHref="/explore"
         />

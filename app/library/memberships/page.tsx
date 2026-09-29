@@ -22,9 +22,9 @@ export default async function LibraryMembershipsPage() {
   return (
     <div data-page-memberships="" className="space-y-3 pb-4">
       {/* One heading on the screen: "Library" above the pills is the page's. This is the line under it. */}
-      {list.available ? (
+      {list.available && count > 0 ? (
         <p className="text-[14px] text-[#6b7280]">
-          {count === 0 ? "Creators you support, and what they post for members" : `${count} ${count === 1 ? "membership" : "memberships"} running`}
+          {count} {count === 1 ? "membership" : "memberships"} · posts from creators you support
         </p>
       ) : null}
       {list.available ? (

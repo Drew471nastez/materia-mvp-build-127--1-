@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef } from "react"
 
 /** sessionStorage key shared by /explore and /explore/* category pages. */
 export const EXPLORE_SCROLL_KEY = "explore-scroll-position"
@@ -29,6 +29,7 @@ function writeScroll(y: number) {
 }
 
 const RESTORE_PENDING_KEY = "explore-scroll-restore-pending"
+const HOLD_CLASS = "explore-scroll-restoring"
 
 /** Soft navigations do not update PerformanceNavigationTiming; popstate does. */
 let backTraversal = false
@@ -36,6 +37,11 @@ let backTraversal = false
 if (typeof window !== "undefined") {
   window.addEventListener("popstate", () => {
     backTraversal = true
+  })
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted && isExploreSurface(window.location.pathname)) {
+      backTraversal = true
+    }
   })
   const clearTraversal = () => {
     backTraversal = false
@@ -72,20 +78,42 @@ function shouldRestoreOnEnter(): boolean {
   }
 }
 
-function restoreScrollPosition(): void {
+function scrollToSaved(target: number): boolean {
+  const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+  const y = Math.min(target, maxY)
+  window.scrollTo(0, y)
+  return Math.abs(window.scrollY - y) < 2
+}
+
+function setExploreHold(on: boolean) {
+  document.documentElement.classList.toggle(HOLD_CLASS, on)
+}
+
+function restoreScrollPosition(onDone?: () => void): void {
   const target = readSavedScroll()
-  if (target == null || target <= 0) return
+  if (target == null || target <= 0) {
+    onDone?.()
+    return
+  }
+
+  setExploreHold(true)
+  scrollToSaved(target)
 
   let attempts = 0
+  const finish = () => {
+    setExploreHold(false)
+    onDone?.()
+  }
   const tryOnce = () => {
-    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-    const y = Math.min(target, maxY)
-    window.scrollTo(0, y)
     attempts += 1
-    if (Math.abs(window.scrollY - y) < 2 || attempts >= 32) return
+    if (scrollToSaved(target) || attempts >= 48) {
+      requestAnimationFrame(finish)
+      return
+    }
     requestAnimationFrame(tryOnce)
   }
   requestAnimationFrame(tryOnce)
+  window.setTimeout(finish, 700)
 }
 
 /**
@@ -109,6 +137,19 @@ export function saveExploreScrollNow(): void {
 export function useExploreScrollRestore(): void {
   const restoringRef = useRef(false)
 
+  /* Before paint: scroll back to where you were so the top of Explore never flashes. */
+  useLayoutEffect(() => {
+    if (!isExploreSurface(window.location.pathname)) return
+    if (!shouldRestoreOnEnter()) return
+    const target = readSavedScroll()
+    if (target == null || target <= 0) return
+
+    restoringRef.current = true
+    restoreScrollPosition(() => {
+      restoringRef.current = false
+    })
+  }, [])
+
   useEffect(() => {
     if (!isExploreSurface(window.location.pathname)) return
 
@@ -121,7 +162,15 @@ export function useExploreScrollRestore(): void {
     const handleLeave = () => {
       if (frame) cancelAnimationFrame(frame)
       frame = 0
-      writeScroll(window.scrollY)
+      const y = window.scrollY
+      writeScroll(y)
+      if (y > 0) {
+        try {
+          sessionStorage.setItem(RESTORE_PENDING_KEY, "1")
+        } catch {
+          /* ignore */
+        }
+      }
     }
     const handleScroll = () => {
       if (restoringRef.current) return
@@ -136,20 +185,13 @@ export function useExploreScrollRestore(): void {
     window.addEventListener("pagehide", handleLeave)
     window.addEventListener("scroll", handleScroll, { passive: true })
 
-    if (shouldRestoreOnEnter()) {
-      restoringRef.current = true
-      restoreScrollPosition()
-      window.setTimeout(() => {
-        restoringRef.current = false
-      }, 500)
-    }
-
     return () => {
       history.scrollRestoration = beforeRestoration
       window.removeEventListener("beforeunload", handleLeave)
       window.removeEventListener("pagehide", handleLeave)
       window.removeEventListener("scroll", handleScroll)
       if (frame) handleLeave()
+      setExploreHold(false)
     }
   }, [])
 }

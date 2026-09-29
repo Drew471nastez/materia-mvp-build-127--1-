@@ -69,7 +69,7 @@ const expect = (ok, what, got) => {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 /* components/library/library-panel.tsx OUT_MS: the old screen's fade. */
-const OUT_MS = 180
+const OUT_MS = 150
 
 writeFileSync(join(stubs, "navigation.js"), `import { createContext, useContext, useSyncExternalStore } from "react"
 /* The routed probe (mode "nav") provides the path through a context updated in a transition, as Next's router does. */

@@ -1,14 +1,11 @@
 "use client"
 
-import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
 
-/** Gentle fade when a library tab's real screen replaces the skeleton. */
+/**
+ * Stable min-height while a tab route swaps. Cross-fade is handled by
+ * library-panel.tsx; a second fade here felt mushy and direct at once.
+ */
 export function LibraryContentShell({ children }: { children: ReactNode }) {
-  const path = usePathname()
-  return (
-    <div key={path} className="library-content-enter min-h-[14rem]">
-      {children}
-    </div>
-  )
+  return <div className="min-h-[14rem]" data-library-screen="">{children}</div>
 }
