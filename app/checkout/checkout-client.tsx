@@ -47,6 +47,7 @@ import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { PaidOverlay, holdPaidScreen } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
+import { RETURN_PARAM, forgetSecret, redirectToAirwallex, takeSecret } from "./parts/airwallex-redirect"
 import { HtmlClass } from "@/components/platform/html-class"
 import { AppAvatar } from "@/components/app/app-avatar"
 
@@ -80,6 +81,12 @@ interface CheckoutPageClientProps {
   isPwyw?: boolean
   customPriceCents?: number | null
   allVariants?: SummaryVariant[]
+  /**
+   * Who takes the payment for this creator (lib/payments/service
+   * providerFor): Stripe, the form drawn here, or Airwallex, whose own
+   * payment page the buyer goes to after pressing Pay.
+   */
+  paymentProvider?: "stripe" | "airwallex"
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -130,6 +137,7 @@ export default function CheckoutPageClient({
   isPwyw,
   customPriceCents,
   allVariants = [],
+  paymentProvider = "stripe",
 }: CheckoutPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -648,6 +656,75 @@ export default function CheckoutPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /*
+    BACK FROM AIRWALLEX'S PAYMENT PAGE, with the payment's id in the address
+    and its client secret in this tab (./parts/airwallex-redirect). The order
+    is made the same way as Stripe's, once, and the receipt is fetched for the
+    browser that paid. A different browser, or storage that was cleared,
+    gets the receipt by email: the webhook makes the order either way.
+  */
+  React.useEffect(() => {
+    const intentId = searchParams.get(RETURN_PARAM)
+    if (!intentId) return
+    const clear = () => {
+      const url = new URL(window.location.href)
+      url.searchParams.delete(RETURN_PARAM)
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    }
+    const secret = takeSecret(intentId)
+    if (!secret) {
+      clear()
+      setSettled(true)
+      setError("If your payment went through, your receipt is on its way to your email. You will not be charged again.")
+      return
+    }
+    setBusy(true)
+    ;(async () => {
+      let last = "Your payment went through. The order is still being saved: refresh this page in a moment. You will not be charged again."
+      for (const wait of [0, 1500, 4000, 8000]) {
+        if (wait) await new Promise((r) => setTimeout(r, wait))
+        const res = await postJson<{ receiptToken?: string; amountCents?: number }>("/api/payments/airwallex/return", { paymentIntentId: intentId, clientSecret: secret }).catch(() => null)
+        if (res?.ok && res.data.receiptToken) {
+          forgetSecret(intentId)
+          clear()
+          showPaid(res.data.receiptToken, { total: res.data.amountCents ?? 0, free: false })
+          return
+        }
+        /* "Not completed" is Airwallex still settling a redirect payment: asked again. Any other refusal is an answer. */
+        if (res && res.status >= 400 && res.status < 500 && !/not completed/i.test(res.data.error || "")) {
+          last = res.data.error || last
+          break
+        }
+      }
+      setSettled(true)
+      setError(last)
+    })().finally(() => setBusy(false))
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* ── Pay, for a creator on Airwallex ─────────────────────────────── */
+  const payAirwallex = async () => {
+    if (busy) return
+    setError(null)
+    const problem = check("card")
+    if (problem) return setError(problem)
+    setBusy(true)
+    try {
+      const res = await postJson<{ provider?: string; intentId?: string; clientSecret?: string; currency?: string; env?: "sandbox" | "prod" }>("/api/checkout/stripe-session", orderBody())
+      if (!res.ok || res.data.provider !== "airwallex" || !res.data.intentId || !res.data.clientSecret || !res.data.currency) {
+        const field = res.data.field as keyof BusinessDetails | undefined
+        if (field) setBusinessErrors({ [field]: res.data.error || "Check this field." })
+        throw new Error(res.data.error || "The payment could not be started. Nothing was charged.")
+      }
+      await redirectToAirwallex({ intentId: res.data.intentId, clientSecret: res.data.clientSecret, currency: res.data.currency, env: res.data.env === "prod" ? "prod" : "sandbox" })
+      /* Leaving for the payment page: Pay stays pressed until the page changes. */
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The payment could not be started. Nothing was charged.")
+      setBusy(false)
+    }
+  }
+
   /* ── Checks, before anything is sent ─────────────────────────────── */
   const checkBusinessNow = (): string | null => {
     if (!businessOn) return null
@@ -995,6 +1072,28 @@ export default function CheckoutPageClient({
         <div className="mt-5">
           <PayButton onClick={() => void takeFree()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Processing" : "Get it free"}
+          </PayButton>
+        </div>
+      </div>
+    )
+  } else if (paymentProvider === "airwallex") {
+    /* The card is entered on Airwallex's own page, in the app as on the web (./parts/airwallex-redirect). */
+    payment = (
+      <div>
+        <section aria-labelledby="checkout-contact-awx">
+          <SectionTitle>
+            <span id="checkout-contact-awx">Contact information</span>
+          </SectionTitle>
+          <div className="space-y-3">
+            {emailField}
+            {namesAndNews}
+          </div>
+        </section>
+        <div className="mt-7 space-y-4">{beforePay}</div>
+        <p className="mt-5 text-[13px] leading-snug text-[#6b7280]">You enter your card on the next page, run by Airwallex.</p>
+        <div className="mt-3">
+          <PayButton onClick={() => void payAirwallex()} busy={busy} disabled={!!paid || settled}>
+            {busy ? "Opening" : payLabel}
           </PayButton>
         </div>
       </div>

@@ -89,6 +89,7 @@ const DIRECTIVES: [string, string[]][] = [
     "'unsafe-inline'",  // Next.js hydration; see the note above
     "'unsafe-eval'",    // monaco-editor, esbuild-wasm, and the section-script sandbox
     "https://js.stripe.com",
+    "https://*.airwallex.com",        // Airwallex.js and its forms, for Storelib Payments on Airwallex
     "https://cdnjs.cloudflare.com",   // pdf.js, for reading a PDF in the browser
     "https://va.vercel-scripts.com",  // @vercel/analytics
     "https://vercel.live",            // the preview comment toolbar
@@ -111,15 +112,17 @@ const DIRECTIVES: [string, string[]][] = [
     "https://*.supabase.co",
     "wss://*.supabase.co",            // realtime
     "https://api.stripe.com",
+    "https://*.airwallex.com",
     "https://*.vercel-insights.com",
     "https://va.vercel-scripts.com",
   ]],
 
-  /* Stripe's own frames, and the embed providers the sanitiser allows. */
+  /* Stripe's and Airwallex's own frames, and the embed providers the sanitiser allows. */
   ["frame-src", [
     "'self'",
     "https://js.stripe.com",
     "https://hooks.stripe.com",
+    "https://*.airwallex.com",
     "https://www.youtube.com",
     "https://youtube.com",
     "https://www.youtube-nocookie.com",

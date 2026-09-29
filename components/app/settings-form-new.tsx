@@ -46,6 +46,7 @@ import { useShellAvatar } from "@/lib/account/avatar-store"
 import { applyBusinessSession } from "@/lib/businesses/switch-client"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
+import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
@@ -116,6 +117,8 @@ interface SettingsFormProps {
    * so the confirmation can name everything it removes.
    */
   otherStores?: number
+  /** Who pays this creator (lib/payments/service providerFor). Airwallex draws Storelib Payments' hub in the Payments tab. */
+  paymentsProvider?: "stripe" | "airwallex"
   initialTab?: TabId
 }
 
@@ -242,7 +245,7 @@ function DesktopSettingsModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, paymentsProvider = "stripe", initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
@@ -1762,7 +1765,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {activeTab === "notifications" && <NotificationPreferencesPanel />}
 
           {/* Payments Tab */}
-          {activeTab === "payments" && (
+          {activeTab === "payments" && paymentsProvider === "airwallex" && <PaymentsHub />}
+
+          {activeTab === "payments" && paymentsProvider !== "airwallex" && (
             <div className="space-y-[10px] sm:space-y-[14px]">
               {/* Error display for Connect flow */}
               {error && (

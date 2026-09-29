@@ -164,7 +164,8 @@ check("a screen reader still hears Saving and Saved, from a hidden polite line o
   /<p data-editor-announce="" className="sr-only" aria-live="polite"/.test(editor) && /savePhase === "saving" \? "Saving" : savePhase === "saved" \? "Saved"/.test(editor)
     && editor.indexOf("data-editor-announce") < editor.indexOf('data-editor-bar=""'))
 check("Cancel at the start, the more button and Save at the end", /flex h-14 max-w-\[760px\] items-center justify-between/.test(barSource) && barSource.indexOf("handleCancel") < barSource.indexOf("{moreMenu}") && barSource.indexOf("{moreMenu}") < barSource.indexOf("<SaveButton"))
-check("whether the product is live or a draft heads the more menu", /const moreMenu = productId \? \(/.test(editor) && /section: isPublished \? "Live on your page" : "Draft, hidden from your page"/.test(editor))
+check("whether the product is live or a draft heads the more menu", /const moreMenu = productId \? \(/.test(editor) && /section: isPublished \? liveLine : "Draft, hidden from your page"/.test(editor))
+check("  and a live paid product says when checkout cannot take money yet", /const liveLine = creator\.payments_ready === false && sellsForMoney \? "Live\. Checkout opens once payments are set up" : "Live on your page"/.test(editor))
 /*
   The question moved into one callback, and it is asked through a door more
   than Cancel: the nav pill is one tap from anywhere in this page and used to

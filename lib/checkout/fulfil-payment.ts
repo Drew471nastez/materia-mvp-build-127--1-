@@ -40,6 +40,7 @@ import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { postLedger } from "@/lib/payments/ledger"
+import { markFeeRecord, paidAirwallexCheckout, type PaidCheckout } from "@/lib/payments/checkout"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -49,7 +50,11 @@ export type Fulfilment =
 
 /** A PaymentIntent the product checkout (stripe-session) made, as opposed to a subscription's, a cart's or a payout's. */
 export function isCheckoutIntent(pi: Pick<Stripe.PaymentIntent, "metadata">): boolean {
-  const m = pi.metadata || {}
+  return isCheckoutMetadata(pi.metadata || {})
+}
+
+/** The same test on any provider's metadata: a product checkout carries these three. */
+export function isCheckoutMetadata(m: Record<string, string>): boolean {
   return Boolean(m.product_id && m.creator_id && m.receipt_token)
 }
 
@@ -101,8 +106,10 @@ export function paymentFacts(pi: Stripe.PaymentIntent): PaymentFacts {
 /* `created_at` is the invoice's date and half its number: read back from the row, never the clock's. */
 const ORDER_READ = "id, receipt_token, session_fingerprint, amount_cents, created_at"
 
-async function existingOrder(admin: Db, paymentIntentId: string, receiptToken?: string) {
-  const { data } = await admin.from("orders").select(ORDER_READ).eq("stripe_payment_intent_id", paymentIntentId).maybeSingle()
+async function existingOrder(admin: Db, provider: PaidCheckout["provider"], paymentIntentId: string, receiptToken?: string) {
+  /* Stripe's orders carry the PaymentIntent in their own column; Airwallex's in provider_payment_id (part 76). */
+  const column = provider === "stripe" ? "stripe_payment_intent_id" : "provider_payment_id"
+  const { data } = await admin.from("orders").select(ORDER_READ).eq(column, paymentIntentId).maybeSingle()
   if (data || !receiptToken) return data
   const { data: byToken } = await admin.from("orders").select(ORDER_READ).eq("receipt_token", receiptToken).maybeSingle()
   return byToken
@@ -146,22 +153,64 @@ export async function fulfilPaymentIntent(
   if (pi.status !== "succeeded") return { ok: false, status: 400, error: "The payment has not completed." }
   if (!isCheckoutIntent(pi)) return { ok: false, status: 400, error: "That payment is not a checkout." }
 
-  const m = pi.metadata
-  const found = await existingOrder(admin, pi.id, m.receipt_token)
+  return fulfilPaidCheckout(
+    admin,
+    {
+      provider: "stripe",
+      paymentId: pi.id,
+      amountMinor: pi.amount_received || pi.amount || 0,
+      currency: pi.currency || "usd",
+      metadata: pi.metadata,
+      receiptEmail: pi.receipt_email || null,
+      createdSeconds: pi.created,
+      facts: paymentFacts(pi),
+    },
+    opts,
+  )
+}
+
+/**
+ * The same, for a checkout paid on Airwallex (lib/payments/checkout). Called
+ * by the buyer's return from Airwallex's payment page and by the
+ * payment_intent.succeeded webhook, whichever comes first, exactly as the
+ * Stripe path is: the order is made once.
+ */
+export async function fulfilAirwallexIntent(
+  admin: Db,
+  intentId: string,
+  opts: { request?: Request; baseUrl: string; clientSecret?: string | null },
+): Promise<Fulfilment> {
+  const loaded = await paidAirwallexCheckout(intentId)
+  if (loaded.ok === false) return loaded
+  if (opts.clientSecret !== undefined && !sameSecret(loaded.clientSecret, opts.clientSecret)) {
+    return { ok: false, status: 404, error: "That payment could not be found." }
+  }
+  if (!isCheckoutMetadata(loaded.paid.metadata)) return { ok: false, status: 400, error: "That payment is not a checkout." }
+  return fulfilPaidCheckout(admin, loaded.paid, opts)
+}
+
+/**
+ * A payment that succeeded, from either provider, made into its order. Only
+ * the few facts that differ come in `paid`; everything else is the one path
+ * it always was.
+ */
+export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { request?: Request; baseUrl: string }): Promise<Fulfilment> {
+  const m = paid.metadata
+  const found = await existingOrder(admin, paid.provider, paid.paymentId, m.receipt_token)
   if (found) {
-    return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, amountCents: found.amount_cents ?? pi.amount }
+    return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, amountCents: found.amount_cents ?? paid.amountMinor }
   }
 
   const productId = m.product_id
   const creatorId = m.creator_id
   const buyerId = m.buyer_id || null
-  const buyerEmail = (m.buyer_email || pi.receipt_email || "").trim()
-  const total = pi.amount_received || pi.amount || 0
+  const buyerEmail = (m.buyer_email || paid.receiptEmail || "").trim()
+  const total = paid.amountMinor || 0
   const tipCents = Math.max(0, Number.parseInt(m.tip_cents || "0", 10) || 0)
   const variantId = m.variant_id || null
   const variantName = m.variant_name || null
   const variantPriceCents = m.variant_price_cents ? Number.parseInt(m.variant_price_cents, 10) : null
-  const facts = paymentFacts(pi)
+  const facts = paid.facts
   const recordedFee = Number.parseInt(m.platform_fee_cents || "", 10)
   const feeCents = facts.applicationFeeCents ?? (Number.isFinite(recordedFee) ? recordedFee : 0)
   const device = opts.request ? await deviceFrom(opts.request) : null
@@ -178,9 +227,11 @@ export async function fulfilPaymentIntent(
     application_fee_cents: feeCents,
     transfer_id: facts.transferId,
     currency: "usd",
-    provider: "stripe",
+    provider: paid.provider,
     status: "completed",
-    stripe_payment_intent_id: pi.id,
+    /* Stripe's column for Stripe; Airwallex's payment in its own (part 76), and only then, so a Stripe insert is the one it always was. */
+    stripe_payment_intent_id: paid.provider === "stripe" ? paid.paymentId : null,
+    ...(paid.provider === "stripe" ? {} : { provider_payment_id: paid.paymentId }),
     access_token: buyerId ? null : m.access_token || null,
     session_fingerprint: m.session_fingerprint || null,
     receipt_token: m.receipt_token,
@@ -202,15 +253,15 @@ export async function fulfilPaymentIntent(
     variant_currency: "USD",
     variant_snapshot: variantId && variantName ? { id: variantId, name: variantName, price_cents: variantPriceCents } : null,
     agreed_to_terms: m.agreed_to_terms === "true",
-    agreed_at: m.agreed_at || new Date(pi.created * 1000).toISOString(),
+    agreed_at: m.agreed_at || new Date(paid.createdSeconds * 1000).toISOString(),
   }
 
   const { data: order, error } = await admin.from("orders").insert(row).select(ORDER_READ).single()
   if (error || !order) {
     /* Somebody else made it a moment ago: theirs is the order. */
-    const raced = await existingOrder(admin, pi.id, m.receipt_token)
+    const raced = await existingOrder(admin, paid.provider, paid.paymentId, m.receipt_token)
     if (raced) return { ok: true, created: false, orderId: raced.id, receiptToken: raced.receipt_token, sessionFingerprint: raced.session_fingerprint ?? null, amountCents: raced.amount_cents ?? total }
-    console.error("[fulfil] order insert failed", pi.id, error?.code, error?.message)
+    console.error("[fulfil] order insert failed", paid.paymentId, error?.code, error?.message)
     return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
   }
 
@@ -267,7 +318,13 @@ export async function fulfilPaymentIntent(
     await admin.from("analytics_events").insert({ creator_id: creatorId, product_id: productId, event_type: "purchase" })
   })
   if (m.coupon_id) await step("coupon use", () => recordCouponUse(admin, m.coupon_id, m.coupon_holder))
-  await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId }))
+  /* Stripe's balance is mirrored in seller_ledger; an Airwallex creator's balance is Airwallex's own
+     (their wallet), so nothing is mirrored for them: the payment's fee record says it succeeded. */
+  if (paid.provider === "stripe") {
+    await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId }))
+  } else {
+    await step("fee record", () => markFeeRecord(paid.paymentId, { status: "succeeded" }))
+  }
 
   await step("emails", async () => {
     if (!buyerEmail) return
@@ -283,7 +340,7 @@ export async function fulfilPaymentIntent(
         admin,
         {
           id: order.id,
-          created_at: order.created_at ?? new Date(pi.created * 1000).toISOString(),
+          created_at: order.created_at ?? new Date(paid.createdSeconds * 1000).toISOString(),
           status: "completed",
           amount_cents: total,
           tip_cents: tipCents,
@@ -295,7 +352,8 @@ export async function fulfilPaymentIntent(
           card_brand: facts.cardBrand,
           card_last4: facts.cardLast4,
           variant_name: variantName,
-          stripe_payment_intent_id: pi.id,
+          stripe_payment_intent_id: paid.provider === "stripe" ? paid.paymentId : null,
+          provider_payment_id: paid.provider === "stripe" ? null : paid.paymentId,
           product: { title: product?.title ?? m.product_title ?? null, creator_id: creatorId },
         },
         { metadata: m, business },
@@ -346,10 +404,10 @@ export async function fulfilPaymentIntent(
       creatorId,
       purchase: { orderId: order.id, amountCents: total, lineCount: 1 },
       lines: [{ orderId: order.id, productId, productTitle: m.product_title || null, amountCents: total, feeCents }],
-      currency: pi.currency || "usd",
+      currency: paid.currency.toLowerCase() || "usd",
       buyerEmail: buyerEmail || null,
       buyerCountry: row.buyer_country,
-      correlationId: pi.id,
+      correlationId: paid.paymentId,
     }),
   )
 

@@ -8,6 +8,7 @@ import { getProductUrl } from "@/lib/url-helpers"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
 import MembershipCheckout from "./membership-checkout"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
+import { providerFor } from "@/lib/payments/service"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
@@ -147,8 +148,12 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     finalPriceCents = chosen
   }
 
+  /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
+  const paymentProvider = creator?.id ? await providerFor(creator.id) : "stripe"
+
   return (
     <CheckoutPageClient
+      paymentProvider={paymentProvider}
       product={{
         id: product.id,
         title: product.title,

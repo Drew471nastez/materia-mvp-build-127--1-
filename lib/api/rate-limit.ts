@@ -206,6 +206,10 @@ export const LIMITS = {
    * of stolen keys would use this as a free checker.
    */
   aiKey: [{ limit: 6, seconds: 600 }, { limit: 20, seconds: 86400 }],
+  /** Setting up payments on Airwallex: starting, verifying, a payout account. Nobody needs dozens. */
+  paymentsSetup: [{ limit: 20, seconds: 600 }, { limit: 100, seconds: 86400 }],
+  /** Asking for a payout. A handful a day is plenty, and each moves money. */
+  payout: [{ limit: 5, seconds: 600 }, { limit: 20, seconds: 86400 }],
 
   /*
     THE WEBSITE BUILDER, per signed in person, one bucket per route. Every

@@ -12,6 +12,7 @@
     "check:client-errors": "node scripts/check-client-errors.mjs"
   },
   "dependencies": {
+    "@airwallex/components-sdk": "1.35.2",
     "@anthropic-ai/sdk": "^0.124.0",
     "@capacitor/android": "^8.1.0",
     "@capacitor/app": "^8.0.1",

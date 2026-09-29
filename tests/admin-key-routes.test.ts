@@ -53,6 +53,8 @@ const PROOFS: [string, RegExp][] = [
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],
   ["a shared secret, failing closed", /requireBearerSecret\(/],
   ["a signature on the payload", /constructEvent|HOOK_SECRET/],
+  /* app/api/payments/airwallex/webhook: x-timestamp and x-signature, HMAC over the raw body, before anything is parsed. */
+  ["Airwallex's signature on the payload", /verifyAirwallexSignature\(\{\s*rawBody: raw,/],
   /* An agent connected to one site: its token, hashed, looked up, revocable.
      See lib/agent-access/tokens.ts. */
   ["a site connection token", /await authenticateAgent\(request\)/],
@@ -98,6 +100,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
 
   // Buyers. A buyer does not have an account on this platform.
   "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent and its client secret, which only the paying page holds",
+  "payments/airwallex/return/route.ts": "keyed by the Airwallex payment intent and its client secret, which only the paying tab holds (lib/payments/checkout)",
   "checkout/invoice/route.ts": "the receipt token is the credential",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
   "receipt/view/route.ts": "the receipt token is the credential",

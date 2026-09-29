@@ -51,6 +51,8 @@ export const stripeRestricted: Rule = {
   evaluate(s) {
     const c = s.creator
     if (!c) return undefined
+    /* Stripe's own switches: a creator on Airwallex has none. */
+    if (c.airwallex) return []
     /* Not finished setting up is a next step (the panel's own "Set up payments"), not a problem. */
     if (!c.stripeAccountId || c.detailsSubmitted !== true) return []
     const charges = s.stripeAccount ? s.stripeAccount.chargesEnabled : c.chargesEnabled
@@ -212,6 +214,8 @@ export const disputeOpened: Rule = {
  * lib/home/progress paymentsReadyFrom counts it.
  */
 export function canTakePayments(c: CreatorFacts, account?: StripeAccountFacts): boolean {
+  /* On Airwallex, Airwallex's answer is the whole answer (lib/payments/model checkoutOpen). */
+  if (c.airwallex) return c.airwallex.ready
   if (!c.stripeAccountId || !c.stripeAccountId.startsWith("acct_")) return false
   const charges = account ? account.chargesEnabled : c.chargesEnabled
   const payouts = account ? account.payoutsEnabled : c.payoutsEnabled
@@ -244,6 +248,14 @@ export const payoutsNotConnected: Rule = {
     if (selling.length === 0) return []
     if (canTakePayments(c, s.stripeAccount)) return []
     const live = selling.length === 1 ? `${productName(selling[0].title)} is live` : `Your ${selling.length} products are live`
+    /* On Airwallex: the same two stages, in Storelib's words, and the hub says exactly what is left. */
+    if (c.airwallex) {
+      return [
+        c.airwallex.started
+          ? { subject: "finish", title: "Finish setting up payments", message: `${live}, but buyers cannot check out until payments are set up.`, href: PAYMENTS, area: "Payments", data: { live: selling.length } }
+          : { subject: "connect", title: "Set up payments to get paid", message: `${live}, but buyers cannot check out until payments are set up.`, href: PAYMENTS, area: "Payments", data: { live: selling.length } },
+      ]
+    }
     /* Each stage its own subject: finishing onboarding is news after connecting was said. */
     if (!c.stripeAccountId) {
       return [

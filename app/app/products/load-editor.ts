@@ -3,6 +3,8 @@ import "server-only"
 import { createClient } from "@/lib/supabase/server"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import type { EditorAssetRow, EditorCreator, EditorProductRow, EditorVariantRow, LoadedProduct } from "./new/editor-form"
+import { paymentsReadyFrom } from "@/lib/home/progress"
+import { providerPaymentsReady } from "@/lib/payments/readiness"
 
 /**
  * ===========================================================================
@@ -111,6 +113,8 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
     stripe_account_id: creatorRow.stripe_account_id,
     stripe_onboarding_status: creatorRow.stripe_onboarding_status,
     username: profileRow?.username ?? null,
+    /* The editor's status line says when a live paid product cannot be bought yet. */
+    payments_ready: await providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow)),
   }
 
   if (!productId) return { state: "ready", creator, loaded: null }

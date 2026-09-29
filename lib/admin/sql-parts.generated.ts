@@ -72,5 +72,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "70", file: "70_public_upload_safety.sql", sha256: "3384ef6721be0e6841e2220692713b58c3d89e6fa5ef7e8ad21d3e644b9cecf9" },
   { part: "74", file: "74_course_player.sql", sha256: "90bc906507a3c7edf3a4090ed627ea8c1ec4c5e9198899f0c21d927d0d252071" },
   { part: "75", file: "75_memberships.sql", sha256: "a310dc6e996f85f4e598ecd2fadd0ddee081dcd16fb36c752b2e8ce2fb40c819" },
+  { part: "76", file: "76_storelib_payments.sql", sha256: "a85ad8d952206216837306de057aeb9770e79b86dd1fd91f22d35a65ac698c66" },
   { part: "90", file: "90_storage_policies_needs_owner.sql", sha256: "ddc22cfc130759fbfacb45536938c90e20f1aec09c5d3ee4db92f4450a763149" },
 ]

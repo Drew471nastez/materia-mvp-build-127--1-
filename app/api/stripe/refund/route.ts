@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 import { emit } from "@/lib/notify/outbox"
+import { refundAirwallexOrder } from "@/lib/payments/refunds"
 
 function tryCreateAdminClient() {
   try {
@@ -71,7 +72,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Only a paid order can be refunded" }, { status: 400 })
     }
 
-    if (!order.stripe_payment_intent_id) {
+    /* A sale paid through Storelib Payments on Airwallex carries its payment in provider_payment_id (part 76). */
+    const onAirwallex = order.provider === "airwallex" && typeof order.provider_payment_id === "string" && order.provider_payment_id.startsWith("int_")
+    if (!order.stripe_payment_intent_id && !onAirwallex) {
       return NextResponse.json({ error: "No payment intent found for this order" }, { status: 400 })
     }
 
@@ -89,6 +92,19 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
+    /* Airwallex: Storelib refunds the buyer and charges the creator's share back (lib/payments/refunds). */
+    let refund: { id: string; status: string | null; currency: string | null }
+    if (onAirwallex) {
+      const done = await refundAirwallexOrder({
+        orderId,
+        creatorId: creator.id,
+        paymentIntentId: order.provider_payment_id,
+        amountMinor: refundAmountCents,
+        alreadyRefundedMinor: alreadyRefunded,
+        reason: reason || null,
+      })
+      refund = { id: done.id, status: done.status, currency: done.currency }
+    } else {
     // Create Stripe refund — use connected account if available
     const refundParams: any = {
       payment_intent: order.stripe_payment_intent_id,
@@ -116,7 +132,9 @@ export async function POST(request: Request) {
     refundParams.reverse_transfer = true
     /* Keyed on what was refunded before too: a double tap repeats the key,
        a later partial refund of what is left does not. */
-    const refund = await stripe.refunds.create(refundParams, { idempotencyKey: `storelib-refund:${orderId}:${alreadyRefunded}:${refundAmountCents}` })
+    const stripeRefund = await stripe.refunds.create(refundParams, { idempotencyKey: `storelib-refund:${orderId}:${alreadyRefunded}:${refundAmountCents}` })
+    refund = { id: stripeRefund.id, status: stripeRefund.status ?? null, currency: stripeRefund.currency ?? null }
+    }
 
     /* The row, at once, with the running total: the page reads it next. */
     const refundedAt = new Date().toISOString()
@@ -125,7 +143,7 @@ export async function POST(request: Request) {
     try {
       await dbClient
         .from("orders")
-        .update({ refunded_at: refundedAt, refund_reason: reason || "requested_by_customer", refund_amount_cents: refundedTotal, stripe_refund_id: refund.id })
+        .update({ refunded_at: refundedAt, refund_reason: reason || "requested_by_customer", refund_amount_cents: refundedTotal, ...(onAirwallex ? {} : { stripe_refund_id: refund.id }) })
         .eq("id", orderId)
     } catch {
       /* Older databases have no refund columns; the status above is enough. */
@@ -158,12 +176,15 @@ export async function POST(request: Request) {
        applied to each row once (lib/stripe/refund-sync.ts). */
     const admin = tryCreateAdminClient()
     if (admin) {
-      try {
-        const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id, { expand: ["latest_charge"] })
-        const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as import("stripe").Stripe.Charge) : null
-        if (charge) await syncChargeRefund(admin, stripe, charge)
-      } catch (syncErr) {
-        console.error("[Refund] ledger now failed; charge.refunded will apply it:", syncErr instanceof Error ? syncErr.message : syncErr)
+      /* Stripe's balance mirror (seller_ledger); an Airwallex creator's balance is their Airwallex wallet. */
+      if (!onAirwallex) {
+        try {
+          const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id, { expand: ["latest_charge"] })
+          const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as import("stripe").Stripe.Charge) : null
+          if (charge) await syncChargeRefund(admin, stripe, charge)
+        } catch (syncErr) {
+          console.error("[Refund] ledger now failed; charge.refunded will apply it:", syncErr instanceof Error ? syncErr.message : syncErr)
+        }
       }
       /* Refunded in full across several refunds from this page: the library
          entry goes, which a single refund's share cannot see on its own. */

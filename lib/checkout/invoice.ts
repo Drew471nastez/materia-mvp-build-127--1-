@@ -125,6 +125,8 @@ export interface OrderRow {
   variant_id?: string | null
   variant_name: string | null
   stripe_payment_intent_id: string | null
+  /** The Airwallex payment intent, for an order paid through Storelib Payments on Airwallex (part 76). */
+  provider_payment_id?: string | null
   stripe_session_id?: string | null
   refund_amount_cents?: number | null
   /** The company the buyer bought for, when the database has the column (part 35). */
@@ -181,7 +183,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const first = rows[0]
   const isBasket = !!first.stripe_session_id
   const total = rows.reduce((n, r) => n + Math.max(0, Number(r.amount_cents) || 0), 0)
-  if (total <= 0 || !rows.some((r) => r.stripe_payment_intent_id)) return null
+  if (total <= 0 || !rows.some((r) => r.stripe_payment_intent_id || r.provider_payment_id)) return null
   /* Only a payment that went through has an invoice: one that is pending,
      failed or disputed would be printed "paid". A refunded sale keeps its
      invoice, as a record of the sale the refund reverses. */
@@ -211,6 +213,14 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
       meta = (await stripe.paymentIntents.retrieve(first.stripe_payment_intent_id)).metadata ?? {}
     } catch {
       /* The order alone still makes an invoice: no discount line, no company from the payment. */
+    }
+  } else if (!context.metadata && first.provider_payment_id?.startsWith("int_")) {
+    /* Paid on Airwallex: the same fields, on its payment intent (lib/payments/checkout). */
+    try {
+      const { airwallexPaymentMetadata } = await import("@/lib/payments/checkout")
+      meta = (await airwallexPaymentMetadata(first.provider_payment_id)) ?? {}
+    } catch {
+      /* As above: the order alone still makes the invoice. */
     }
   }
   if (!businessKnown) business = business ?? businessFromMetadata(meta)
@@ -316,7 +326,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     tipCents: tip,
     totalCents: total,
     payment: paymentLabel(first),
-    reference: first.stripe_payment_intent_id,
+    reference: first.stripe_payment_intent_id ?? first.provider_payment_id ?? null,
     orderId: first.id,
   }
 }

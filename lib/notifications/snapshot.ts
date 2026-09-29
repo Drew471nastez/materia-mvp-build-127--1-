@@ -156,6 +156,23 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
       ])
       const profileOf = new Map((profiles ?? []).map((p) => [p.id, p]))
       const pageOf = new Map((onepages ?? []).map((p) => [p.owner_id, p]))
+      /* Who is on Storelib Payments' Airwallex rollout, and how far (run-now part 76). No table, or no row: Stripe, as before. */
+      const onAirwallex = new Map<string, { ready: boolean; started: boolean }>()
+      try {
+        const { data: awx, error: awxError } = await db
+          .from("payment_accounts")
+          .select("creator_id, provider_account_id, lifecycle_status, payout_beneficiary_id")
+          .eq("provider", "airwallex")
+          .in("creator_id", creators.map((c) => c.id))
+        if (!awxError) {
+          for (const r of (awx ?? []) as Array<{ creator_id: string; provider_account_id: string | null; lifecycle_status: string | null; payout_beneficiary_id: string | null }>) {
+            const started = !!r.provider_account_id
+            onAirwallex.set(r.creator_id, { started, ready: started && r.lifecycle_status === "ACTIVE" && !!r.payout_beneficiary_id })
+          }
+        }
+      } catch {
+        /* unread: every creator reads as Stripe's, which is what they were */
+      }
       for (const c of creators) {
         const s = snaps.get(c.id)
         if (!s) continue
@@ -166,6 +183,7 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
           userId: c.user_id ?? null,
           createdAt: c.created_at ?? null,
           stripeAccountId: c.stripe_account_id ?? null,
+          ...(onAirwallex.has(c.id) ? { airwallex: onAirwallex.get(c.id) } : {}),
           chargesEnabled: typeof c.charges_enabled === "boolean" ? c.charges_enabled : null,
           payoutsEnabled: typeof c.payouts_enabled === "boolean" ? c.payouts_enabled : null,
           detailsSubmitted: typeof c.details_submitted === "boolean" ? c.details_submitted : null,

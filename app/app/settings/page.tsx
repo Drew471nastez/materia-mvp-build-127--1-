@@ -21,6 +21,7 @@ export default async function SettingsPage() {
       website={data.website}
       newsletter={data.newsletter}
       otherStores={data.otherStores}
+      paymentsProvider={data.paymentsProvider}
       initialTab="general"
     />
   )

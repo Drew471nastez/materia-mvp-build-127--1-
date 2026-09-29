@@ -8,6 +8,7 @@ import { accountTimeZone } from "@/lib/account/time-zone"
 import { connectedBioPlatforms } from "@/components/app/share/share-data"
 import { businessGroup } from "@/lib/businesses/server"
 import { groupIds } from "@/lib/businesses/rules"
+import { providerFor } from "@/lib/payments/service"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "domains"
 
@@ -150,5 +151,7 @@ export async function loadSettingsData() {
     newsletter,
     /* Businesses of this login that go when this account goes: none unless this account is the login's first. */
     otherStores: group && group.ownerId === user.id ? groupIds(group, user.id).length - 1 : 0,
+    /* Who pays this creator: the Payments tab draws Stripe's card, or Storelib Payments on Airwallex (lib/payments). */
+    paymentsProvider: await providerFor(creator.id),
   }
 }

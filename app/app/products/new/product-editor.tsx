@@ -1732,6 +1732,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
             ? "Live"
             : "Draft"
 
+  /* Live and paid, with nowhere to take the money yet: the status says so, and where. */
+  const sellsForMoney = payWhatYouWant || (Number.parseFloat(price) || 0) > 0
+  const liveLine = creator.payments_ready === false && sellsForMoney ? "Live. Checkout opens once payments are set up" : "Live on your page"
+
   /* The more menu: in the top bar below lg, at the end of the page header from lg. */
   const moreMenu = productId ? (
     <ResponsiveActionMenu
@@ -1746,7 +1750,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         ...[
           ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
           { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
-        ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item)),
+        ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? liveLine : "Draft, hidden from your page" } : item)),
         /* Last and apart, as on the Products list's own row menu. */
         { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => void handleDeleteProduct() },
       ]}

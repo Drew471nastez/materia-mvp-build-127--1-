@@ -46,6 +46,12 @@ export interface CreatorFacts {
   userId: string | null
   createdAt: string | null
   stripeAccountId: string | null
+  /**
+   * Storelib Payments on Airwallex (lib/payments), when the creator has an
+   * Airwallex account: `ready` is checkout taking money there (ACTIVE, with
+   * a payout account). Absent for a creator on Stripe.
+   */
+  airwallex?: { ready: boolean; started: boolean } | null
   chargesEnabled: boolean | null
   payoutsEnabled: boolean | null
   detailsSubmitted: boolean | null

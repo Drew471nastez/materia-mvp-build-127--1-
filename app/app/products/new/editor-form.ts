@@ -160,6 +160,8 @@ export interface EditorCreator {
   username: string | null
   stripe_account_id?: string | null
   stripe_onboarding_status?: string | null
+  /** Checkout can take money for this creator, on Stripe or on Airwallex (lib/home/progress paymentsReadyFrom, lib/payments/readiness). */
+  payments_ready?: boolean
 }
 
 /* ── Rows to fields ───────────────────────────────────────────────────── */

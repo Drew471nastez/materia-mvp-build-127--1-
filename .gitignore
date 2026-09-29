@@ -80,6 +80,7 @@ tsconfig.*.generated.json
 .onepage-probe/
 .dash-probe/
 .nav-probe/
+.payments-probe/
 
 # Written and removed by scripts/check-nav-dropdown.mjs while it bundles the probe.
 .navdrop-probe/

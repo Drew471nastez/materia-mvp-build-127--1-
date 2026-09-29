@@ -347,6 +347,14 @@ const NOT_YOU = {
 }
 
 const when = (ctx: TemplateContext, d: Data): string => cleanText(ctx.when, 80) || d.date("occurredAt")
+
+/**
+ * Who checks the details and holds the money: Stripe, unless the event says
+ * the creator is on Storelib Payments' Airwallex rollout (lib/payments). The
+ * default keeps every Stripe email word for word what it was.
+ */
+const processor = (d: Data): string => (d.text("provider", 20).toLowerCase() === "airwallex" ? "Airwallex" : "Stripe")
+const onAirwallex = (d: Data): boolean => processor(d) === "Airwallex"
 const ending = (last4: string) => (last4 ? `Ending in ${last4}` : "")
 
 /** The receipt when there is one (it works without signing in), else the library. */
@@ -698,22 +706,22 @@ export const CATALOG: Record<NotificationType, Entry> = {
     }
   },
 
-  PAYMENT_SETUP_REMINDER: () => ({
+  PAYMENT_SETUP_REMINDER: (d) => ({
     family: "lifecycle",
     audience: "creator",
     subject: "Set up payments so you can get paid",
     preview: "It takes a few minutes and you only do it once.",
     heading: "Set up payments to get paid",
     paragraphs: [
-      "Before money from sales can reach you, we need a few details for your payouts. Stripe handles this part, and it takes a few minutes.",
-      "Once it is done, sales go to your balance and pay out to your bank on a regular schedule.",
+      `Before money from sales can reach you, we need a few details for your payouts. ${processor(d)} handles this part, and it takes a few minutes.`,
+      onAirwallex(d) ? "Once it is done, sales go to your balance and you pay them out to your bank." : "Once it is done, sales go to your balance and pay out to your bank on a regular schedule.",
     ],
     action: { label: "Set up payments", path: PATHS.payments },
     note: REMINDER_NOTE,
     inApp: { title: "Set up payments", body: "Add your payout details so you can get paid for sales.", actionLabel: "Set up", actionPath: PATHS.payments },
   }),
 
-  PAYMENT_SETUP_REMINDER_2: () => ({
+  PAYMENT_SETUP_REMINDER_2: (d) => ({
     family: "lifecycle",
     audience: "creator",
     subject: "Your payments are not set up yet",
@@ -721,7 +729,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
     heading: "Payments still need setting up",
     paragraphs: [
       "Without payments set up, you cannot get paid for your sales.",
-      "If you started and stopped, you can pick up where you left off. Stripe keeps what you already entered.",
+      `If you started and stopped, you can pick up where you left off. ${processor(d)} keeps what you already entered.`,
     ],
     action: { label: "Finish payment setup", path: PATHS.payments },
     note: LAST_REMINDER_NOTE,
@@ -745,8 +753,8 @@ export const CATALOG: Record<NotificationType, Entry> = {
           ? "You started setting up payments and stopped before it was done. Until it is finished, Storelib cannot pay you for a sale."
           : "Your product is live, but payments are not set up, so a sale has nowhere to pay out to.",
         started
-          ? "Stripe kept what you already entered, so you carry on from where you left off. It usually takes a few minutes."
-          : "Stripe handles this part and it usually takes a few minutes. You only do it once.",
+          ? `${processor(d)} kept what you already entered, so you carry on from where you left off. It usually takes a few minutes.`
+          : `${processor(d)} handles this part and it usually takes a few minutes. You only do it once.`,
       ],
       action: { label: "Finish payout setup", path: PATHS.payments },
       note: REMINDER_NOTE,
@@ -769,19 +777,35 @@ export const CATALOG: Record<NotificationType, Entry> = {
     inApp: { title: "Payments are still not set up", body: "Your sales cannot pay out until setup is finished.", actionLabel: "Finish setup", actionPath: PATHS.payments },
   }),
 
-  PAYMENT_SETUP_COMPLETED: () => ({
-    family: "success",
-    audience: "creator",
-    subject: "Payments are set up",
-    preview: "You can now get paid for your sales.",
-    heading: "You are ready to get paid",
-    paragraphs: [
-      "Your payment details are confirmed. Money from your sales goes to your balance and pays out to your bank on your payout schedule.",
-      "You can see your balance and upcoming payouts any time.",
-    ],
-    action: { label: "View payouts", path: PATHS.payouts },
-    inApp: { title: "Payments are set up", body: "You can now get paid for your sales.", actionLabel: "View payouts", actionPath: PATHS.payouts },
-  }),
+  PAYMENT_SETUP_COMPLETED: (d) =>
+    onAirwallex(d)
+      ? {
+          /* Verified is not the whole of it on Airwallex: a sale also needs somewhere to pay out to. */
+          family: "success",
+          audience: "creator",
+          subject: "You are verified",
+          preview: "Add a payout account to start taking payments.",
+          heading: "You are verified",
+          paragraphs: [
+            "Airwallex has confirmed your details.",
+            "Add the bank account your sales are paid into. Checkout opens as soon as it is added.",
+          ],
+          action: { label: "Add payout account", path: PATHS.payments },
+          inApp: { title: "You are verified", body: "Add a payout account to start taking payments.", actionLabel: "Add payout account", actionPath: PATHS.payments },
+        }
+      : {
+          family: "success",
+          audience: "creator",
+          subject: "Payments are set up",
+          preview: "You can now get paid for your sales.",
+          heading: "You are ready to get paid",
+          paragraphs: [
+            "Your payment details are confirmed. Money from your sales goes to your balance and pays out to your bank on your payout schedule.",
+            "You can see your balance and upcoming payouts any time.",
+          ],
+          action: { label: "View payouts", path: PATHS.payouts },
+          inApp: { title: "Payments are set up", body: "You can now get paid for your sales.", actionLabel: "View payouts", actionPath: PATHS.payouts },
+        },
 
   PAYMENT_VERIFICATION_REQUIRED: (d) => {
     const due = d.date("dueBy")
@@ -789,15 +813,15 @@ export const CATALOG: Record<NotificationType, Entry> = {
       family: "action_required",
       audience: "creator",
       subject: "Action needed: confirm your payout details",
-      preview: "Stripe needs a bit more information to keep payouts going.",
-      heading: "Stripe needs a few more details",
+      preview: `${processor(d)} needs a bit more information to keep payouts going.`,
+      heading: `${processor(d)} needs a few more details`,
       paragraphs: [
-        "To keep your payouts running, Stripe needs you to confirm some information about you or your business. This is a normal check.",
+        `To keep your payouts running, ${processor(d)} needs you to confirm some information about you or your business. This is a normal check.`,
         due ? `Please do this by ${due} so your payouts are not paused.` : "Please do this soon so your payouts are not paused.",
       ],
       facts: [["What is needed", d.readable("reason")], ["Due by", due]],
       action: { label: "Confirm your details", path: PATHS.payments },
-      inApp: { title: "Confirm your payout details", body: due ? `Stripe needs more information by ${due}.` : "Stripe needs a bit more information to keep payouts going.", actionLabel: "Confirm details", actionPath: PATHS.payments },
+      inApp: { title: "Confirm your payout details", body: due ? `${processor(d)} needs more information by ${due}.` : `${processor(d)} needs a bit more information to keep payouts going.`, actionLabel: "Confirm details", actionPath: PATHS.payments },
     }
   },
 
@@ -808,7 +832,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
     preview: "A quick look at your details usually fixes it.",
     heading: "We could not finish your payment setup",
     paragraphs: [
-      "Stripe could not verify the details you entered, so payments are not set up yet.",
+      `${processor(d)} could not verify the details you entered, so payments are not set up yet.`,
       "Most of the time it is a small mismatch in a name, date of birth or address. Check your details and try again.",
     ],
     facts: [["Reason", d.readable("reason")]],
