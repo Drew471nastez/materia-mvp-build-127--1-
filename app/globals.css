@@ -4171,6 +4171,13 @@ html.capacitor {
   box-shadow: var(--bar-depth-dark);
 }
 
+/* Buyer header light mode (admin toggle): near-white, hairline, barely-there depth. */
+.platform-header-light.platform-header-depth {
+  box-shadow:
+    0 1px 0 rgba(16, 18, 27, 0.05),
+    0 6px 18px -10px rgba(16, 18, 27, 0.08);
+}
+
 .platform-header-row {
   /*
     A FURTHER 5% OFF, ON THE PHONE ONLY.

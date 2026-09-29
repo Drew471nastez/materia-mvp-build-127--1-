@@ -79,6 +79,7 @@ create table if not exists public.platform_settings (key text primary key, value
 alter table public.platform_settings enable row level security;
 revoke all on public.platform_settings from anon, authenticated;
 insert into public.platform_settings (key, value) values ('explore_marketplace', 'false'::jsonb) on conflict (key) do nothing;
+insert into public.platform_settings (key, value) values ('buyer_header_light', 'false'::jsonb) on conflict (key) do nothing;
 create or replace function public.explore_marketplace_enabled() returns boolean language sql stable security definer set search_path = public as $$ select coalesce((select value::boolean from public.platform_settings where key = 'explore_marketplace'), false); $$;
 revoke all on function public.explore_marketplace_enabled() from public;
 grant execute on function public.explore_marketplace_enabled() to anon, authenticated;

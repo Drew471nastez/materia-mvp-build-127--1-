@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { cookies, headers } from "next/headers"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
@@ -55,12 +56,13 @@ export default async function LibraryLayout({
    */
   /* The header's two server-side props, asked for alongside everything else
      rather than in front of it. */
-  const [isNative, current, initialWishlistCount, onPlatformDomain, bannerFor] = await Promise.all([
+  const [isNative, current, initialWishlistCount, onPlatformDomain, buyerHeaderLight, bannerFor] = await Promise.all([
     isCapacitorWebView(),
     /** A blip is not a sign-out. See lib/auth/current-user.ts. */
     currentUserForRequest(),
     readWishlistCount(),
     isPlatformDomain(),
+    isBuyerHeaderLight(),
     appBannerPhone(),
   ])
   const user = current.user
@@ -131,7 +133,7 @@ export default async function LibraryLayout({
       <RouteLoadingBar />
       <LibraryBgFix />
       <PurchaseSyncProvider />
-      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
+      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
 
       <main className="flex-1">
         <div

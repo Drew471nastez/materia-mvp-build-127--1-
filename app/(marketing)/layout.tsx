@@ -1,5 +1,6 @@
 import type React from "react"
 import { Suspense } from "react"
+import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
@@ -12,8 +13,11 @@ export default async function MarketingLayout({
 }: {
   children: React.ReactNode
 }) {
-  const initialWishlistCount = await readWishlistCount()
-  const onPlatformDomain = await isPlatformDomain()
+  const [initialWishlistCount, onPlatformDomain, buyerHeaderLight] = await Promise.all([
+    readWishlistCount(),
+    isPlatformDomain(),
+    isBuyerHeaderLight(),
+  ])
   return (
     /*
       ═══════════════════════════════════════════════════════════════════════
@@ -48,7 +52,7 @@ export default async function MarketingLayout({
       {/* Nothing until a navigation has been slow for 220ms; see the
           component for why it cannot block and cannot get stuck. */}
       <RouteLoadingBar />
-      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
+      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
 
       {/*
         ═══════════════════════════════════════════════════════════════════

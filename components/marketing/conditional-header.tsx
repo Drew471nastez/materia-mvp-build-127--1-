@@ -10,7 +10,7 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
  * Shown while PlatformHeaderClient suspends (SSR streaming / initial hydration).
  * Same bg-black + sticky positioning as the real header so the layout doesn't shift.
  */
-function HeaderPlaceholder() {
+function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: boolean }) {
   // Height must match the real PlatformHeaderClient header so the layout
   // doesn't shift when React hydrates and swaps the fallback.
   // AND IT WAS FIVE PIXELS SHORT, which is a five pixel jump on every load.
@@ -23,7 +23,7 @@ function HeaderPlaceholder() {
   return (
     <div
       id="platform-header-root"
-      className="sticky top-0 z-40 w-full bg-black"
+      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-[#f7f8f9]" : "sticky top-0 z-40 w-full bg-black"}
       style={{ minHeight: 'max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))' }}
       aria-hidden
     />
@@ -82,8 +82,10 @@ function isKnownPlatformPath(p: string): boolean {
 export function ConditionalHeader({
   initialWishlistCount = 0,
   onPlatformDomain = false,
+  buyerHeaderLight = false,
 }: {
   initialWishlistCount?: number
+  buyerHeaderLight?: boolean
   /**
    * Whether this request arrived on the platform's OWN domain, decided on the
    * server from the Host header.
@@ -181,8 +183,8 @@ export function ConditionalHeader({
   // for SSR streaming (Next.js 16 build requirement).  The black-bar fallback keeps
   // the layout stable — no gap above content while the client hydrates.
   const header = (
-    <Suspense fallback={<HeaderPlaceholder />}>
-      <PlatformHeaderClient initialWishlistCount={initialWishlistCount} />
+    <Suspense fallback={<HeaderPlaceholder buyerHeaderLight={buyerHeaderLight} />}>
+      <PlatformHeaderClient initialWishlistCount={initialWishlistCount} buyerHeaderLight={buyerHeaderLight} />
     </Suspense>
   )
   return header

@@ -4,6 +4,7 @@ import { Suspense } from "react"
 import { headers } from "next/headers"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { createClient } from "@/lib/supabase/server"
+import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
@@ -83,11 +84,12 @@ function memberSince(createdAt: string | undefined): string {
  * route handler and draws none of this.
  */
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
-  const [isNative, current, initialWishlistCount, onPlatformDomain] = await Promise.all([
+  const [isNative, current, initialWishlistCount, onPlatformDomain, buyerHeaderLight] = await Promise.all([
     isCapacitorWebView(),
     currentUserForRequest(),
     readWishlistCount(),
     isPlatformDomain(),
+    isBuyerHeaderLight(),
   ])
   const user = current.user
 
@@ -113,7 +115,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
           another tab says so when the next page is slow. */}
       <RouteLoadingBar />
       <LibraryBgFix />
-      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
+      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
       <main className="flex-1 overflow-x-hidden supports-[scrollbar-gutter:stable]:scrollbar-gutter-stable">
         {/* The library's own room under the header (app/library/layout.tsx py-6), so the two screens start at the same height. */}
         <div

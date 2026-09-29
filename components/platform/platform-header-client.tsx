@@ -11,7 +11,8 @@ import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, isProductPage, getProductInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
-import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
+import { useBuyerHeaderLight, useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
+import { headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -377,7 +378,17 @@ type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEven
   logged out row will take, so nothing beside it moves when the answer
   arrives, and there is no grey pill standing in for a button.
 */
-function GuestHeaderActions({ withLogin, link, placeholder = false }: { withLogin: boolean; link: HeaderLink; placeholder?: boolean }) {
+function GuestHeaderActions({
+  withLogin,
+  link,
+  placeholder = false,
+  chrome,
+}: {
+  withLogin: boolean
+  link: HeaderLink
+  placeholder?: boolean
+  chrome: HeaderChrome
+}) {
   return (
     <div
       data-guest-actions={withLogin ? "marketing" : "buyer"}
@@ -386,13 +397,13 @@ function GuestHeaderActions({ withLogin, link, placeholder = false }: { withLogi
       inert={placeholder || undefined}
       className={cn("flex shrink-0 items-center", placeholder && "invisible")}
     >
-      <span aria-hidden data-guest-divider="" className="ml-1 h-6 w-px bg-white/15" />
+      <span aria-hidden data-guest-divider="" className={cn("ml-1 h-6 w-px", chrome.guestDivider)} />
       {/* "Sell" alone on a tablet, where the bar has no room for three words; the name stays whole for a screen reader. */}
       <Link
         {...link("/sell")}
         data-guest-sell=""
         aria-label="Sell on Storelib"
-        className={cn("ml-5 whitespace-nowrap rounded-md px-2 py-2 text-[15px] font-medium text-white/85 transition-colors hover:text-white", DARK_FOCUS)}
+        className={cn("ml-5 whitespace-nowrap rounded-md px-2 py-2 text-[15px] font-medium transition-colors", chrome.guestSell, chrome.focus)}
       >
         <span className="lg:hidden">Sell</span>
         <span className="hidden lg:inline">Sell on Storelib</span>
@@ -401,7 +412,7 @@ function GuestHeaderActions({ withLogin, link, placeholder = false }: { withLogi
         <Link
           {...link("/login")}
           data-guest-login=""
-          className={cn("ml-6 inline-flex h-[42px] items-center whitespace-nowrap rounded-action border border-white/30 px-5 text-[15px] font-medium text-white transition-colors hover:border-white/55 hover:bg-white/[0.06]", DARK_FOCUS)}
+          className={cn("ml-6 inline-flex h-[42px] items-center whitespace-nowrap rounded-action border px-5 text-[15px] font-medium transition-colors", chrome.guestLogin, chrome.focus)}
         >
           Log in
         </Link>
@@ -409,7 +420,7 @@ function GuestHeaderActions({ withLogin, link, placeholder = false }: { withLogi
       <Link
         {...link("/signup")}
         data-guest-signup=""
-        className={cn(withLogin ? "ml-3" : "ml-6", "inline-flex h-[42px] items-center whitespace-nowrap rounded-action bg-violet-600 px-5 text-[15px] font-[550] text-white transition-colors hover:bg-violet-700", DARK_FOCUS)}
+        className={cn(withLogin ? "ml-3" : "ml-6", "inline-flex h-[42px] items-center whitespace-nowrap rounded-action bg-violet-600 px-5 text-[15px] font-[550] text-white transition-colors hover:bg-violet-700", chrome.focus)}
       >
         Sign up
       </Link>
@@ -531,7 +542,7 @@ function BecomeSellerRow({ link, onDone, state = "none" }: { link: HeaderLink; o
  * at 1x, 2x and 3x: within 0.35px, where the old badge was 0.54px low on a
  * 3x phone (0.7px at 2x) and up to 1.9px off in a fallback face.
  */
-export function CountBadge({ count, className }: { count: number; className?: string }) {
+export function CountBadge({ count, className, ringClass = "ring-black" }: { count: number; className?: string; ringClass?: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   useLayoutEffect(() => {
     const el = ref.current
@@ -561,7 +572,8 @@ export function CountBadge({ count, className }: { count: number; className?: st
       ref={ref}
       data-count-badge=""
       className={cn(
-        "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white ring-2 ring-black",
+        "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white ring-2",
+        ringClass,
         className,
       )}
     >
@@ -640,12 +652,20 @@ function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.Mous
   )
 }
 
-export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWishlistCount?: number }) {
+export function PlatformHeaderClient({
+  initialWishlistCount = 0,
+  buyerHeaderLight: buyerHeaderLightProp,
+}: {
+  initialWishlistCount?: number
+  buyerHeaderLight?: boolean
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { t } = useLocale()
   const exploreMarketplaceOn = useExploreMarketplaceEnabled()
+  const buyerHeaderLight = buyerHeaderLightProp ?? useBuyerHeaderLight()
+  const chrome = useMemo(() => headerChrome(buyerHeaderLight), [buyerHeaderLight])
   const buyerLogoHref = exploreMarketplaceOn ? "/explore" : "/"
 
   /**
@@ -1526,7 +1546,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     <Link
       {...headerLink("/app")}
       data-header-dashboard=""
-      className={cn("inline-flex h-[42px] items-center whitespace-nowrap rounded-action bg-violet-600 px-5 text-[15px] font-[550] text-white transition-colors hover:bg-violet-700", DARK_FOCUS)}
+      className={cn("inline-flex h-[42px] items-center whitespace-nowrap rounded-action bg-violet-600 px-5 text-[15px] font-[550] text-white transition-colors hover:bg-violet-700", chrome.focus)}
     >
       {t("dashboard")}
     </Link>
@@ -1561,19 +1581,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
   return (
     <>
-      <div ref={headerRootRef} id="platform-header-root" className={cn(
-        /*
-          A LITTLE DEPTH, SO THE BAR SITS OVER THE PAGE RATHER THAN ABUTTING
-          IT. `platform-header-depth` is the shared --bar-depth-dark, the same
-          value the creator page's and the product page's bars use, so the
-          three strips a visitor moves between sit at the same height. Black
-          rather than slate because a slate shadow under a black bar is
-          lighter than the bar and reads as a halo at the seam.
-        */
-        "platform-header-depth z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black",
-        isSellerOrProductPage ? "relative" : "sticky top-0",
-      )}>
-    <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
+      <div
+        ref={headerRootRef}
+        id="platform-header-root"
+        data-header-tone={buyerHeaderLight ? "light" : "dark"}
+        className={cn(chrome.root, isSellerOrProductPage ? "relative" : "sticky top-0")}
+      >
+    <header className={cn(chrome.header, !(isNativePlatform() && isSellerOrProductPage) && chrome.headerBorder)}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
           /*
@@ -1608,7 +1622,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 {/* Left - Logo - refreshes main page */}
                 <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
-                  <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className={chrome.wordmark}>Storelib</span>
                 </Link>
 
                 {/* Center - Nav Links (show for all users). On a tablet they
@@ -1631,9 +1645,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       className={cn(
                         "px-3 lg:px-4 py-2 text-[14px] lg:text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,scale] duration-180 ease-out",
                         "wide" in item && item.wide && "hidden lg:inline",
-                        item.active
-                          ? "border-white/20 bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
-                          : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/15 active:scale-[0.98]",
+                        item.active ? chrome.navActive : chrome.navIdle,
                       )}
                     >
                       {item.label}
@@ -1649,7 +1661,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 */}
                 <div className="flex items-center gap-2.5">
                   {loading ? (
-                    <GuestHeaderActions withLogin link={headerLink} placeholder />
+                    <GuestHeaderActions withLogin link={headerLink} placeholder chrome={chrome} />
                   ) : user ? (
                     <>
                       {exploreMarketplaceOn ? (
@@ -1657,7 +1669,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                           <TooltipTrigger asChild>
                             <Link
                               {...headerLink("/explore")}
-                              className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                              className={cn("flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                               aria-label="Discover"
                             >
                               <Compass className="h-[22px] w-[22px]" />
@@ -1673,7 +1685,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                           <Link
                             {...headerLink("/library")}
                             /* From lg: on a tablet the photo's menu has My Library. */
-                            className="hidden lg:flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                            className={cn("hidden lg:flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                             aria-label={t("library")}
                           >
                             <Library className="h-[22px] w-[22px]" />
@@ -1687,7 +1699,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       {desktopAccountMenu}
                     </>
                   ) : (
-                    <GuestHeaderActions withLogin link={headerLink} />
+                    <GuestHeaderActions withLogin link={headerLink} chrome={chrome} />
                   )}
                 </div>
               </div>
@@ -1700,7 +1712,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 <div className="flex items-center gap-0">
                   <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
                     <StorelibLogo size={HEADER_LOGO.marketingPhone} priority />
-                    <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
+                    <span className={chrome.wordmarkPhone}>Storelib</span>
                   </Link>
                 </div>
 
@@ -1709,7 +1721,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   /* A 40px disc is under the 44px a thumb reliably hits, and this one sits in the corner of the screen where a hand is least accurate. The pseudo-element extends the TOUCH target 8px in every direction without moving the disc, so a near miss still opens the menu. `touch-manipulation` drops the browser's double-tap-to-zoom wait, which is the other half of "it sometimes does not register". */
-                  className="relative flex h-10 w-10 touch-manipulation items-center justify-center rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/15 transition cursor-pointer before:absolute before:-inset-2 before:content-['']"
+                  className={cn("relative flex h-10 w-10 touch-manipulation items-center justify-center rounded-full transition cursor-pointer before:absolute before:-inset-2 before:content-['']", chrome.menuBtn, chrome.hamburger)}
                   aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 >
                   <AnimatedHamburger isOpen={mobileMenuOpen} />
@@ -1724,7 +1736,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 {/* Logo with Storelib text - links to /explore */}
                 <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 hidden md:flex items-center gap-2">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
-                  <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className={chrome.wordmark}>Storelib</span>
                 </Link>
 
                 {/* Categories Dropdown Button with Tooltip */}
@@ -1736,11 +1748,10 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
                     aria-expanded={categoriesDropdownOpen}
                     aria-haspopup="true"
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-colors duration-150 cursor-pointer ${
-                      categoriesDropdownOpen
-                        ? "bg-white/15 text-white"
-                        : "text-white/80 hover:bg-white/10 hover:text-white"
-                    }`}
+                    className={cn(
+                      "flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-colors duration-150 cursor-pointer",
+                      categoriesDropdownOpen ? chrome.catBtnOpen : chrome.catBtn,
+                    )}
                   >
                     <Menu className="w-[18px] h-[18px]" />
                     <span>Categories</span>
@@ -1833,14 +1844,18 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             style={deskHandoff.animate ? undefined : { transitionDuration: "0ms" }}
           >
             <div className="relative w-full">
-              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
+              <Search className={cn("absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 pointer-events-none z-10", chrome.deskSearchIcon)} />
               <Input
                 ref={searchInputRef}
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className={`h-[42px] w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-white/45 focus:border-white/45 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                className={cn(
+                  "h-[42px] w-full pl-11 pr-4 text-[15px] focus-visible:ring-0 focus-visible:ring-offset-0",
+                  chrome.deskSearchField,
+                  isDiscoverProductContext ? "rounded-[8px]" : "rounded-full",
+                )}
               />
               {query && (
                 <button
@@ -1850,7 +1865,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     setSearchResults([])
                     searchInputRef.current?.focus()
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 cursor-pointer"
+                  className={cn("absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer", chrome.deskSearchClear)}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1988,7 +2003,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   barely any to the right, where the logo is a legitimate
                   target of its own.
                 */
-                className="relative z-10 flex h-9 w-9 touch-manipulation items-center justify-center text-white transition cursor-pointer before:absolute before:-left-4 before:-top-3 before:-bottom-3 before:-right-1.5 before:content-['']"
+                className={cn("relative z-10 flex h-9 w-9 touch-manipulation items-center justify-center transition cursor-pointer before:absolute before:-left-4 before:-top-3 before:-bottom-3 before:-right-1.5 before:content-['']", chrome.hamburger)}
                 aria-label={mobileMenuOpen ? "Close categories" : "Open categories"}
               >
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
@@ -1997,7 +2012,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               {/* Logo next to hamburger - links to /explore */}
               <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5">
                 <StorelibLogo size={HEADER_LOGO.phone} priority />
-                <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
+                <span className={chrome.wordmarkPhone}>Storelib</span>
               </Link>
             </div>
 
@@ -2008,7 +2023,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               {user && !tabsHere && (
                 <Link
                   href={getCanonicalOrRelativePath("/library")} onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
-                  className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
+                  className={cn("flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                   aria-label="Library"
                 >
                   <Library className="h-5 w-5" />
@@ -2018,7 +2033,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               {/* Wishlist — h-[42px] w-[42px] = 44px tap target */}
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
+                className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                 aria-label="Wishlist"
               >
                 {/* The badge is anchored to the ICON, not to the link.
@@ -2045,7 +2060,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                         object on every app that has one. tabular-nums so 7
                         and 77 do not shift the disc sideways.
                       */
-                      <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
+                      <CountBadge count={wishlistCount} ringClass={chrome.wishlistRing} className="absolute -top-1.5 -right-2" />
                   )}
                 </span>
               </Link>
@@ -2092,13 +2107,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                      className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                       aria-label={t("wishlist")}
                     >
                       <span className="relative inline-flex">
                         <Heart className="h-[22px] w-[22px]" />
                         {wishlistCount > 0 && (
-                          <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
+                          <CountBadge count={wishlistCount} ringClass={chrome.wishlistRing} className="absolute -top-1.5 -right-2" />
                         )}
                       </span>
                     </Link>
@@ -2113,7 +2128,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
-                      className="hidden sm:flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      className={cn("hidden sm:flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                       aria-label={t("library")}
                     >
                       <Library className="h-[22px] w-[22px]" />
@@ -2125,14 +2140,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 </Tooltip>
 
                 {loading ? (
-                  <GuestHeaderActions withLogin={false} link={headerLink} placeholder />
+                  <GuestHeaderActions withLogin={false} link={headerLink} placeholder chrome={chrome} />
                 ) : user ? (
                   <>
                     {sellerDashboardButton}
                     {desktopAccountMenu}
                   </>
                 ) : (
-                  <GuestHeaderActions withLogin={false} link={headerLink} />
+                  <GuestHeaderActions withLogin={false} link={headerLink} chrome={chrome} />
                 )}
           </div>
           </>
@@ -2658,7 +2673,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           Skipped on the FAQ page, whose hero is black too, and on any page that already
           renders the white strip above, to avoid two black bars. */}
       {!isFaqRoute && (pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || isDevelopersRoute) && (
-        <div className="relative z-30 bg-black h-[20px] -mb-px">
+        <div className={cn("relative z-30 h-[20px] -mb-px", chrome.concaveBg)}>
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
       )}
