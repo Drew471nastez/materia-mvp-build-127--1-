@@ -110,6 +110,7 @@ console.log("\n6. signed in")
   check("the phone sheets lead to /account too (the profile card, Settings)", (header.match(/headerLink\("\/account"\)/g) ?? []).length === 3)
   check("no settings link in the header goes anywhere but /account", !/"\/library\/settings"|"\/app\/settings"/.test(header))
   check("the account sheet keeps My Library, Settings and Language", /<span>My Library<\/span>/.test(header) && /<span>Settings<\/span>/.test(header) && /t\("settings\.language"\)/.test(header))
+  check("and it does not put the email under the name", !/\{user\?\.email && <p className="text-sm text-gray-500 truncate">\{user\.email\}<\/p>\}/.test(header))
   check("the seller check is the shared helper, marked SELLER ACCESS", /\/\/ SELLER ACCESS:[\s\S]{0,500}const access = sellerAccessFrom\(\{ creator: creatorData, profile: profileData \}\)\s*const isSellerByState = hasSellerAccess\(access\)/.test(headerSrc) && /from "@\/lib\/account\/seller-access"/.test(header))
   for (const f of ["components/marketing/user-nav.tsx", "components/marketing/user-nav-client.tsx", "components/dashboard/sidebar.tsx"]) {
     const src = readCode(f)

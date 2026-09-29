@@ -118,10 +118,11 @@ console.log("\nNo face is a question mark")
     ["app/(marketing)/p/[slug]/page.tsx", 2],
     ["app/(marketing)/u/[username]/page.tsx", 1],
     ["app/dashboard/communities/page.tsx", 1],
-    /* The library no longer draws the buyer's own face (that is /account);
-       it draws the sellers', on each row, in the seller filter and on a product. */
+    /* The library no longer draws the buyer's own face (that is /account).
+       A product row draws the seller once. The library home draws them once
+       too, in the one list both sizes use, not again as pills and a strip. */
     ["components/library/product-row.tsx", 1],
-    ["components/library/library-home.tsx", 3],
+    ["components/library/library-home.tsx", 1],
     ["components/library/library-product.tsx", 2],
     /* The phone's search screen: a creator found by name. (The buyer tab
        bar's Profile tab was the person's photo; it is a person icon now, at

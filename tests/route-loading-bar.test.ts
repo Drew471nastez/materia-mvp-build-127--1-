@@ -158,7 +158,7 @@ function main() {
   */
   check("the line is mounted on the marketing layout", /<RouteLoadingBar \/>/.test(layout))
   check("the surface stays off a page that draws its own wait", /const DRAWS_ITS_OWN_WAIT = \/\^\\\/\(library\|checkout\)/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\)/.test(bar))
-  check("  and it reads the page being left, not the one being opened", /<SlowPage pendingSince=\{pendingSince\} from=\{pathname\} \/>/.test(bar))
+  check("  and it reads the page being left, not the one being opened", /<SlowPage pendingSince=\{pendingSince\} from=\{pathname\} cover=\{cover\} \/>/.test(bar))
 
   /*
     AND THE WIDTH NEVER REACHES THE END. A bar that fills to 100% and waits is
@@ -205,6 +205,8 @@ function main() {
     said nothing, however long it took.
   */
   check("so do the library and the checkout, which had none", /<RouteLoadingBar \/>/.test(read("app/library/layout.tsx")) && /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")))
+  check("and the profile, so leaving it for another tab is answered too", /<RouteLoadingBar \/>/.test(read("app/account/layout.tsx")) && read("app/account/layout.tsx").indexOf("<RouteLoadingBar />") < read("app/account/layout.tsx").indexOf("<ConditionalHeader"))
+  check("a push the click never carried can start it, and ask the surface to cover a page that draws its own wait", /export function startRouteLoading\(/.test(bar) && /storelib-route-loading/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\) && !cover/.test(bar) && /closest\?\.\("\[data-buyer-tab-bar\]"\)/.test(bar))
   check("and it is visible on their light tops, not white on white", /html\.with-page-checkout,\s*\nhtml\.with-page-library \{\s*\n\s*--route-bar-ink: rgba\(26, 26, 46, 0\.78\);/.test(css) && /background: var\(--route-bar-ink, rgba\(255, 255, 255, 0\.85\)\)/.test(css))
   check("above the header, so it reads as the browser's own line", layout.indexOf("<RouteLoadingBar />") < layout.indexOf("<ConditionalHeader"))
   /* useSearchParams needs a boundary to build, and the fallback must be null:

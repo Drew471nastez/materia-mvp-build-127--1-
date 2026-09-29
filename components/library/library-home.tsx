@@ -8,7 +8,7 @@ import { creatorKey, visibleItems, type LibraryCreator, type LibraryItem, type L
 import { contactOf, storeOf } from "./creator-links"
 import { ProductRow } from "./product-row"
 import { useStoreLinkProps } from "./use-store-link"
-import { CARD, MUTED, SECONDARY, SMALL, TEXT_LINK, VIOLET } from "./library-ui"
+import { CARD, SECONDARY, SMALL, TEXT_LINK, VIOLET } from "./library-ui"
 import { cn } from "@/lib/utils"
 
 /**
@@ -17,9 +17,11 @@ import { cn } from "@/lib/utils"
  * ===========================================================================
  * One list, newest first, because the thing bought yesterday is the thing
  * most often opened today. Above it a search, an order, and the sellers
- * they bought from, so "everything from Dee" is one press: on a phone a
- * row of sellers that scrolls, on a computer a column beside the list,
- * where the chosen seller also offers Email or Message and their store.
+ * they bought from, so "everything from Dee" is one press. The sellers are
+ * a list on both sizes, the same rows: a face, a name, how many. A pill
+ * around a person is a filter dressed up as a button, and it does not
+ * belong next to the library's own pills, which are sections. The chosen
+ * seller offers Email or Message and their store under their row.
  *
  * Nothing here is a dashboard. There are no totals to admire: the count
  * under the heading is only there so an empty search is not a surprise.
@@ -66,49 +68,28 @@ function CreatorActions({ creator, stacked = false }: { creator: LibraryCreator;
   )
 }
 
-/** A phone's row of sellers: All, then each with their face and how many. */
-function CreatorChips({ creators, chosen, onChoose }: { creators: LibraryCreator[]; chosen: string | null; onChoose: (key: string | null) => void }) {
-  /*
-    A CHOSEN SELLER IS NOT A BLACK SLAB. It filled with near black and
-    turned its label white, which on a row of pale pills reads as a button
-    just pressed rather than a filter that is on, and it fought the face
-    inside it: "when I select a pill shaped creator, make sure it is not
-    black selected there". It wears the same grey fill and hairline the
-    library's own tabs wear for the one you are on
-    (components/library/library-tabs), so both rows of pills on this screen
-    say "chosen" the same way.
-  */
-  const chip = (active: boolean) =>
-    `inline-flex h-9 shrink-0 items-center gap-2 rounded-full border pl-1.5 pr-3 text-[13px] font-medium transition-colors duration-150 ${
-      active
-        ? "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
-        : "border-[#e4e7ec] bg-white text-[#374151] hover:border-[#d0d4db]"
-    }`
-  return (
-    <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide lg:hidden" data-creator-chips="">
-      <div className="flex w-max gap-2">
-        <button type="button" onClick={() => onChoose(null)} aria-pressed={!chosen} className={`${chip(!chosen)} pl-3`}>
-          All
-        </button>
-        {creators.map((c) => {
-          const key = creatorKey(c)
-          const active = chosen === key
-          return (
-            <button key={key} type="button" onClick={() => onChoose(active ? null : key)} aria-pressed={active} className={chip(active)}>
-              <AppAvatar src={c.avatarUrl} name={c.name} alt="" size={24} markWhileLoading />
-              <span className="max-w-[140px] truncate">{c.name}</span>
-              {/* The count reads on the grey fill now, not on black. */}
-              <span className={`tabular-nums ${active ? "text-[#6b7280]" : "text-[#9ca3af]"}`}>{c.count}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-/** A computer's column of sellers, with the chosen one's Contact and store. */
-function CreatorColumn({ creators, chosen, onChoose }: { creators: LibraryCreator[]; chosen: string | null; onChoose: (key: string | null) => void }) {
+/**
+ * The sellers, as a list. The same rows on a phone and on a computer: a
+ * face, a name, how many, and the chosen one's Contact and store under the
+ * row. Not pills. A pill is how the library's sections are chosen; a person
+ * is not a section.
+ *
+ * `compact` is the phone's copy, which sits above the products and stops
+ * growing once it is about five rows, so a long list of sellers does not
+ * push the products off the screen. The computer's column is the page's to
+ * scroll.
+ */
+function CreatorColumn({
+  creators,
+  chosen,
+  onChoose,
+  compact = false,
+}: {
+  creators: LibraryCreator[]
+  chosen: string | null
+  onChoose: (key: string | null) => void
+  compact?: boolean
+}) {
   return (
     <section aria-label="Creators" className={`${CARD} overflow-hidden`} data-creator-column="">
       <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
@@ -119,7 +100,7 @@ function CreatorColumn({ creators, chosen, onChoose }: { creators: LibraryCreato
           </button>
         ) : null}
       </div>
-      <ul className="pb-2">
+      <ul className={compact ? "max-h-[280px] overflow-y-auto overscroll-contain pb-2" : "pb-2"}>
         {creators.map((c) => {
           const key = creatorKey(c)
           const active = chosen === key
@@ -290,21 +271,9 @@ export function LibraryHome({
         </div>
         ) : null}
 
-        {creators.length > 1 ? <CreatorChips creators={creators} chosen={creator} onChoose={setCreator} /> : null}
-
-        {/* On a phone, the chosen seller's way to write and their store, above their products. */}
-        {chosen ? (
-          <div data-creator-strip="" className={`${CARD} flex flex-wrap items-center gap-3 px-4 py-3 lg:hidden`}>
-            <AppAvatar src={chosen.avatarUrl} name={chosen.name} alt="" size={40} markWhileLoading />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-semibold text-[#1a1a2e]">{chosen.name}</p>
-              <p className={MUTED}>
-                {chosen.count} {chosen.count === 1 ? "product" : "products"} in your library
-              </p>
-            </div>
-            <div className="basis-full">
-              <CreatorActions creator={chosen} />
-            </div>
+        {creators.length > 1 ? (
+          <div className="lg:hidden" data-creator-list="">
+            <CreatorColumn creators={creators} chosen={creator} onChoose={setCreator} compact />
           </div>
         ) : null}
 

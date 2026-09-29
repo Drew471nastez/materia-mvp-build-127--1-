@@ -20,8 +20,9 @@
  *
  * WHAT IT SHOWS, top to bottom:
  *
- *   NOTHING TYPED   what you searched before (this device, lib/nav/quick-
- *                   search), then the categories as the other way in.
+ *   NOTHING TYPED   the categories, as the other way in. Recent searches
+ *                   are not shown here: the screen opens from the tab bar
+ *                   onto Browse, not onto a history.
  *   TYPING          a row to search all of Explore for the words, then
  *                   products (picture, title, creator, price), creators and
  *                   categories as they come. The last answer stays on screen
@@ -41,7 +42,7 @@
  */
 
 import Image from "next/image"
-import { ChevronLeft, ChevronRight, Clock3, Search, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react"
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -51,13 +52,9 @@ import { CATEGORY_NAV } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
 import {
   DEBOUNCE_MS,
-  addRecent,
   cleanTerm,
-  clearRecent,
   matchCategories,
   quickSearch,
-  readRecent,
-  removeRecent,
   type QuickResults,
 } from "@/lib/nav/quick-search"
 
@@ -96,7 +93,6 @@ export type SearchScreenHandle = {
 
 type Row =
   | { kind: "all"; key: string; href: string; label: string }
-  | { kind: "recent"; key: string; href: string; label: string }
   | { kind: "product"; key: string; href: string; label: string; thumb: string | null; creator: string | null; price: string }
   | { kind: "creator"; key: string; href: string; label: string; handle: string; avatar: string | null }
   | {
@@ -169,7 +165,6 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
   const [waiting, setWaiting] = useState(false)
   /** An answer has been out long enough to say so: only then are the last results dimmed. */
   const [slow, setSlow] = useState(false)
-  const [recent, setRecent] = useState<string[]>([])
   const [active, setActive] = useState(-1)
   /*
     THE SUBCATEGORY LEVEL. `sub` is the category open now; `held` keeps its
@@ -196,7 +191,6 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
     reset: (q = "") => {
       setDraft(q)
       setActive(-1)
-      setRecent(readRecent())
       setInstant(true)
       setSub(null)
       setSubOut(true)
@@ -209,7 +203,6 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
   }))
 
   useEffect(() => {
-    setRecent(readRecent())
     if (autoFocus) field.current?.focus({ preventScroll: true })
   }, [autoFocus])
 
@@ -276,10 +269,7 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
   /* The rows of the top level, whatever level is showing: it stays drawn under a pushed one. */
   const rootRows = useMemo<Row[]>(() => {
     if (!term) {
-      return [
-        ...recent.map((q): Row => ({ kind: "recent", key: `r:${q}`, href: exploreResultsHref(q), label: q })),
-        ...BROWSE.map((c): Row => groupRow(c.id, c.label, c.href, `b:${c.id}`)),
-      ]
+      return BROWSE.map((c): Row => groupRow(c.id, c.label, c.href, `b:${c.id}`))
     }
     const r = results
     return [
@@ -290,7 +280,7 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
         c.parent ? { kind: "category", key: `k:${c.id}`, href: c.href, label: c.label, parent: c.parent, level: "item" } : groupRow(c.id, c.label, c.href, `k:${c.id}`),
       ),
     ]
-  }, [term, draft, recent, results])
+  }, [term, draft, results])
   const heldRows = useMemo(() => subRowsFor(held), [held])
   /* Every row a finger or the arrow keys can reach on the level showing, in the order drawn. */
   const rows: Row[] = sub ? heldRows : rootRows
@@ -336,13 +326,10 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
         drillIn(row.opens)
         return
       }
-      /* What was typed is what is remembered, whichever row it led to. */
-      const typed = row.kind === "recent" ? row.label : draft.trim()
-      if (typed && row.kind !== "category") setRecent(addRecent(typed))
       field.current?.blur()
       onNavigate(row.href)
     },
-    [draft, onNavigate, drillIn],
+    [onNavigate, drillIn],
   )
 
   const submit = () => {
@@ -545,42 +532,6 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
           <div id={`${ids}-list`} role="listbox" aria-labelledby={`${ids}-title`} className="mx-auto w-full max-w-[720px] pb-2 pt-1" data-search-state={listState}>
             {!term ? (
               <>
-                {recent.length > 0 ? (
-                  <section data-search-section="recent">
-                    {heading(
-                      "Recent",
-                      <button
-                        type="button"
-                        onClick={() => setRecent(clearRecent())}
-                        className="-mr-1 rounded-md px-2 py-1 text-[13px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e] active:bg-[#f1f2f4]"
-                      >
-                        Clear
-                      </button>,
-                    )}
-                    {rootRows.filter((r) => r.kind === "recent").map((row) =>
-                      option(
-                        row,
-                        <>
-                          <Clock3 aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" />
-                          <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">{row.label}</span>
-                          <span
-                            role="button"
-                            tabIndex={-1}
-                            aria-label={`Remove ${row.label}`}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setRecent(removeRecent(row.label))
-                            }}
-                            className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#9ca3af] hover:text-[#1a1a2e] active:bg-[#e8e9ec]"
-                          >
-                            <X aria-hidden="true" className="h-4 w-4" />
-                          </span>
-                        </>,
-                      ),
-                    )}
-                  </section>
-                ) : null}
                 <section data-search-section="browse">
                   {heading("Browse categories")}
                   <div className={GROUPED} data-search-card="">
@@ -593,12 +544,21 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
                 {option(
                   rootRows[0],
                   <>
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f1f2f4]">
-                      <Search aria-hidden="true" className="h-[18px] w-[18px] text-[#1a1a2e]" />
+                    {/*
+                      THE MARK IS A TILE, NOT A GREY DISC. A light grey circle
+                      around a glyph is a generic search suggestion. This row
+                      sits above product pictures that are white, 12px, and
+                      held by a hairline, so the mark is that same tile at
+                      the row's own size, with the field's own magnifier in
+                      it and a chevron, the way a category says it opens.
+                    */}
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-white shadow-[0_0_0_1px_rgba(16,18,27,0.07),0_1px_2px_rgba(16,18,27,0.06)]">
+                      <Search aria-hidden="true" className="h-[18px] w-[18px] text-[#1a1a2e]" strokeWidth={2} />
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e]">
                       See all results for <span className="font-semibold">{"“"}{draft.trim()}{"”"}</span>
                     </span>
+                    <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" />
                   </>,
                   `${ROW} mt-2`,
                 )}

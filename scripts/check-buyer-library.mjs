@@ -294,7 +294,7 @@ try {
         rows: rows.length,
         minControl: Math.min(...small),
         escaped,
-        chips: visible("[data-creator-chips]"),
+        chips: visible("[data-creator-list]"),
         aside: visible("[data-library-aside]"),
         stars: document.querySelectorAll("[data-library-item] svg.lucide-star, [data-library-item] [data-review-state]").length,
         rateIt: [...document.querySelectorAll("[data-library-item]")].filter((r) => /Rate it|Your review/.test(r.textContent)).length,
@@ -319,28 +319,28 @@ try {
     expect(over <= 0, "nothing wider than the screen", over)
     expect(m.minControl >= 36, "every control at least 36px tall", m.minControl)
     expect(m.escaped === 0, "every row's actions stay inside the row", m.escaped)
-    expect(label === "390" ? m.chips && !m.aside : !m.chips && m.aside, label === "390" ? "sellers are chips, no column" : "sellers are a column, no chips", { chips: m.chips, aside: m.aside })
+    expect(label === "390" ? m.chips && !m.aside : !m.chips && m.aside, label === "390" ? "sellers are a list, no aside" : "sellers are the aside, no second list", { chips: m.chips, aside: m.aside })
     expect(m.stars === 0 && m.rateIt === 0 && m.refunded === 1, "no stars and no Rate it on any product row, Refunded on one", { stars: m.stars, rateIt: m.rateIt, refunded: m.refunded })
     expect(page.errors.length === 0, "no page errors", page.errors)
 
     /* FILTERS */
     if (label === "390") {
-      await page.evaluate(() => [...document.querySelectorAll("[data-creator-chips] button")].find((b) => /Luca/.test(b.textContent)).click())
+      await page.evaluate(() => [...document.querySelectorAll("[data-creator-list] button")].find((b) => /Luca/.test(b.textContent)).click())
       await sleep(150)
       const f = await page.evaluate(() => ({
         rows: [...document.querySelectorAll("[data-library-item]")].map((r) => r.getAttribute("data-library-item")),
-        strip: !!document.querySelector("[data-creator-strip]"),
-        contact: document.querySelector("[data-creator-strip] [data-creator-contact]")?.getAttribute("href"),
-        store: document.querySelector("[data-creator-strip] [data-creator-store]")?.getAttribute("href"),
+        strip: !!document.querySelector("[data-creator-list] [data-creator-contact]"),
+        contact: document.querySelector("[data-creator-list] [data-creator-contact]")?.getAttribute("href"),
+        store: document.querySelector("[data-creator-list] [data-creator-store]")?.getAttribute("href"),
       }))
-      expect(f.rows.join() === "p2,p4", "a seller's chip shows only their products", f.rows)
+      expect(f.rows.join() === "p2,p4", "a seller's row shows only their products", f.rows)
       expect(f.strip && /^\/receipt\/tok_p2_/.test(f.contact || "") && /#receipt-contact$/.test(f.contact || "") && f.store === "/lucadragoste", "with Message (the receipt's contact form) and their store", f)
       await page.screenshot({ path: join(shots, `home-${label}-creator.png`), fullPage: true })
-      await page.evaluate(() => [...document.querySelectorAll("[data-creator-chips] button")].find((b) => /Maya/.test(b.textContent)).click())
+      await page.evaluate(() => [...document.querySelectorAll("[data-creator-list] button")].find((b) => /Maya/.test(b.textContent)).click())
       await sleep(100)
-      const mail = await page.evaluate(() => document.querySelector("[data-creator-strip] [data-creator-contact]")?.getAttribute("href"))
+      const mail = await page.evaluate(() => document.querySelector("[data-creator-list] [data-creator-contact]")?.getAttribute("href"))
       expect(/^mailto:hello@mayachen\.co/.test(mail || ""), "a seller with a support address is emailed", mail)
-      await page.evaluate(() => [...document.querySelectorAll("[data-creator-chips] button")][0].click())
+      await page.evaluate(() => [...document.querySelectorAll("[data-creator-list] button")].find((b) => /Show all/.test(b.textContent)).click())
       /* Five products is under CONTROLS_FROM, so this library draws neither the field nor the order. */
       const toolbar = await page.evaluate(() => !!document.querySelector("[data-library-toolbar]"))
       expect(!toolbar, "a small library draws no search and no order over it", toolbar)

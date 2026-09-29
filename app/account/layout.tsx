@@ -8,6 +8,7 @@ import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
+import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { AccountHub, type AccountIdentity } from "@/components/account/account-hub"
 import { AccountSkeleton } from "@/components/account/account-skeleton"
@@ -107,6 +108,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
   const shell = (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
+      {/* The same line the library and Explore carry, so leaving Profile for
+          another tab says so when the next page is slow. */}
+      <RouteLoadingBar />
       <LibraryBgFix />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
       <main className="flex-1">

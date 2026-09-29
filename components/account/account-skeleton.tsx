@@ -25,7 +25,7 @@ export function AccountSkeleton() {
   return (
     <div className="mx-auto w-full max-w-[720px] pt-6 pb-10" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} aria-busy="true">
       <div className="skeleton-deferred flex flex-col items-center">
-        <div className="h-24 w-24 rounded-full bg-[#eceef1] md:h-28 md:w-28" />
+        <div className="h-[112px] w-[112px] rounded-full bg-[#eceef1] md:h-[128px] md:w-[128px]" />
         <div className="mt-4 h-5 w-40 rounded bg-[#eceef1]" />
         <div className="mt-2.5 h-3.5 w-36 rounded bg-[#f1f3f5]" />
         <div className="mt-4 h-10 w-[140px] rounded-xl bg-[#f1f3f5]" />

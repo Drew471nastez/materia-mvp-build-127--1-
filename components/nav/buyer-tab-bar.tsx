@@ -76,6 +76,7 @@ import { LibraryIcon as LibraryBold } from "@solar-icons/react/bold/library"
 import { NAV_ICONS, FILL_MS, FILL_CURVE, type NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { PERSON_ICONS, SEARCH_ICONS } from "@/components/nav/buyer-tab-icons"
 import { SearchOverlay, openSearchOverlay, refocusSearchOverlay } from "@/components/search/search-overlay"
+import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 import {
   ARRIVING_FILL,
   DROP,
@@ -270,6 +271,16 @@ function TabBar({ pathname, sellerSurface }: { pathname: string; sellerSurface: 
         return
       }
       setToward(index)
+      /*
+        THE CLICK NEVER ARRIVES ON A PHONE. The touch's end below is
+        cancelled so it cannot fall through onto the page, and cancelling
+        it is what keeps the click from being sent at all. The loading line
+        only hears clicks, so without this a slow page (Profile, which has
+        to ask who you are before it can draw) filled its icon and then sat
+        there. The line and, past half a second, the page's own spinner are
+        what say the tap landed.
+      */
+      startRouteLoading({ cover: true })
       router.push(href)
     },
     onPress: (index) => {

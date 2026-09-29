@@ -87,8 +87,8 @@ console.log("\nThe hub: the person, and the page under them")
     more vertical space between the header at the top and the profile
     avatar", so it is 104 and 120 over 2vh of room.
   */
-  check("the photo is large: 104px on a phone, 120 from 768px, with 2vh of room over it", /h-\[104px\] w-\[104px\]/.test(hub) && /md:h-\[120px\] md:w-\[120px\]/.test(hub) && /className="mt-\[2vh\]"/.test(hub))
-  check("  and it wears a white ring and a soft shadow, like a creator's circle", /ring-\[3px\] ring-white/.test(hub) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\),0_8px_24px_-10px_rgba\(16,24,40,0\.28\)\]/.test(hub))
+  check("the photo is large: 112px on a phone, 128 from 768px, with 2vh of room over it", /h-\[112px\] w-\[112px\]/.test(hub) && /md:h-\[128px\] md:w-\[128px\]/.test(hub) && /className="mt-\[2vh\]"/.test(hub))
+  check("  and it wears a white ring and a soft shadow, like a creator's circle", /ring-\[3px\] ring-white/.test(hub) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.08\),0_8px_20px_-10px_rgba\(16,24,40,0\.32\)\]/.test(hub))
   /*
     AND IT OPENS. The same dialog the creator page uses, so the whole
     photograph is there uncropped, Escape and the ground close it, and
@@ -149,7 +149,7 @@ console.log("\nOne face per screen")
   const settings = code("components/account/account-settings.tsx")
   /* "the settings tab opens with the same two profile pictures there, it looks ugly": the hub bows out on Settings, so its one circle is Settings' own. */
   /* It opens the picture now, which is a viewer, not a photo control: still no picker and no camera here. */
-  check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar\s+src=\{shown\}\s+name=\{identity\.name\}\s+size=\{120\}/.test(hub) && !/useAccountPhoto/.test(hub) && !/photo=\{/.test(hub) && !/editable/.test(hub))
+  check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar\s+src=\{shown\}\s+name=\{identity\.name\}\s+size=\{128\}/.test(hub) && !/useAccountPhoto/.test(hub) && !/photo=\{/.test(hub) && !/editable/.test(hub))
   check("Settings' circle is the control: pressed, it opens the picker", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(settings) && /useAccountPhoto\(userId/.test(settings) && /\{editable && photo \? \(\s*<button[\s\S]{0,120}onClick=\{photo\.pick\}/.test(photo))
   check("Change photo and Remove sit beside it, and the picker is drawn once", /data-photo-change=""/.test(settings) && /data-photo-remove=""/.test(settings) && (settings.match(/\{photo\.input\}/g) ?? []).length === 1)
   check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && /fetch\("\/api\/account\/avatar"/.test(photo) && /announceAvatar\(publicUrl\)/.test(photo) && /announceAvatar\(null\)/.test(photo))

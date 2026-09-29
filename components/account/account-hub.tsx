@@ -84,15 +84,17 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
           AND A LITTLE BIGGER, with a little more sky over it: "the avatar
           should be a bit bigger just, and 2% more vertical space between
           the header at the top and the profile avatar". 96 to 104 on a
-          phone, 112 to 120 from md.
+          phone, 112 to 120 from md. Then a step more, 104 to 112 and 120
+          to 128, and a hair more weight under it: one close shadow and the
+          same soft one, slightly nearer. Not a float.
         */}
         <div className="mt-[2vh]" data-account-avatar-room="">
           <AvatarLightbox src={shown} name={identity.name}>
             <AccountAvatar
               src={shown}
               name={identity.name}
-              size={120}
-              className="h-[104px] w-[104px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.06),0_8px_24px_-10px_rgba(16,24,40,0.28)] ring-[3px] ring-white md:h-[120px] md:w-[120px]"
+              size={128}
+              className="h-[112px] w-[112px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_20px_-10px_rgba(16,24,40,0.32)] ring-[3px] ring-white md:h-[128px] md:w-[128px]"
             />
           </AvatarLightbox>
         </div>

@@ -7,6 +7,23 @@ import { PageSpinner } from "@/components/ui/activity-spinner"
 import { isPhoneShell, NAV_PHONE_SPINNER_AFTER_MS, NAV_SPINNER_AFTER_MS, NAV_SPINNER_FADE_MS, NAV_SPINNER_OUT_MS } from "@/lib/ui/app-navigation"
 
 /**
+ * A navigation this line cannot see on its own.
+ *
+ * It starts from a click on a link. The phone's tab bar cancels the touch's
+ * click (so the click cannot land on whatever the bar slid away from) and
+ * calls router.push from the pointer instead. A slow Profile used to fill
+ * its icon and then sit for seconds with nothing else on screen, because
+ * that push never became a click. Calling this beside the push is what
+ * starts the line and, with `cover`, the slow-page surface even while
+ * leaving a page that draws its own wait for its own links (the library):
+ * this push is not one of those links.
+ */
+export function startRouteLoading(opts?: { cover?: boolean }) {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent("storelib-route-loading", { detail: { cover: !!opts?.cover } }))
+}
+
+/**
  * ===========================================================================
  *  THE LOADING LINE, AND THE THREE THINGS THAT GOT THE LAST ONE DELETED
  * ===========================================================================
@@ -58,6 +75,8 @@ function RouteLoadingBarInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [pendingSince, setPendingSince] = useState<number | null>(null)
+  /** A push that asked to cover the page, even where this page draws its own wait for its own links. */
+  const [cover, setCover] = useState(false)
   const [visible, setVisible] = useState(false)
 
   /*
@@ -72,6 +91,10 @@ function RouteLoadingBarInner() {
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0) return
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      /* The phone's tab bar announces its own push (startRouteLoading). Its
+         click, on a desktop where the touch did not cancel it, must not
+         start a second wait or clear the cover that push asked for. */
+      if ((e.target as Element | null)?.closest?.("[data-buyer-tab-bar]")) return
       const anchor = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
       if (!anchor) return
       if (anchor.target && anchor.target !== "_self") return
@@ -84,6 +107,7 @@ function RouteLoadingBarInner() {
       }
       if (url.origin !== window.location.origin) return
       if (url.pathname === window.location.pathname && url.search === window.location.search) return
+      setCover(false)
       setPendingSince(Date.now())
     }
     /* Capture, so a handler that stops propagation on its way to calling the
@@ -121,10 +145,22 @@ function RouteLoadingBarInner() {
     const onPop = () => {
       const landed = `${window.location.pathname}?${new URLSearchParams(window.location.search).toString()}`
       if (landed === committed.current) return
+      setCover(false)
       setPendingSince(Date.now())
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
+  }, [])
+
+  /* A push that never became a click (the phone's tab bar). */
+  useEffect(() => {
+    const onStart = (e: Event) => {
+      const detail = (e as CustomEvent<{ cover?: boolean }>).detail
+      setCover(!!detail?.cover)
+      setPendingSince(Date.now())
+    }
+    window.addEventListener("storelib-route-loading", onStart)
+    return () => window.removeEventListener("storelib-route-loading", onStart)
   }, [])
 
   /*
@@ -160,7 +196,7 @@ function RouteLoadingBarInner() {
              decorative line. aria-hidden keeps it out of the way entirely. */
         />
       ) : null}
-      <SlowPage pendingSince={pendingSince} from={pathname} />
+      <SlowPage pendingSince={pendingSince} from={pathname} cover={cover} />
     </>
   )
 }
@@ -220,14 +256,17 @@ function RouteLoadingBarInner() {
  */
 const DRAWS_ITS_OWN_WAIT = /^\/(library|checkout)(\/|$)/
 
-function SlowPage({ pendingSince, from }: { pendingSince: number | null; from: string }) {
+function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; from: string; cover: boolean }) {
   const [shown, setShown] = useState(false)
   const [look, setLook] = useState<{ top: number; background: string }>({ top: 0, background: "#ffffff" })
   const ref = useRef<HTMLDivElement | null>(null)
   const leaving = useRef(false)
 
   useEffect(() => {
-    if (pendingSince == null || DRAWS_ITS_OWN_WAIT.test(from)) return
+    /* `cover` is a push that left the page rather than a link inside it.
+       The library draws its own wait for its own screens; a tab leaving it
+       does not, and saying nothing there was the five quiet seconds. */
+    if (pendingSince == null || (DRAWS_ITS_OWN_WAIT.test(from) && !cover)) return
     const wait = isPhoneShell() ? NAV_PHONE_SPINNER_AFTER_MS : NAV_SPINNER_AFTER_MS
     const t = window.setTimeout(() => {
       /* Measured now, not at mount: the header is sticky and the ground under it is the page's own. */
@@ -243,7 +282,7 @@ function SlowPage({ pendingSince, from }: { pendingSince: number | null; from: s
       setShown(true)
     }, Math.max(0, wait - (Date.now() - pendingSince)))
     return () => window.clearTimeout(t)
-  }, [pendingSince, from])
+  }, [pendingSince, from, cover])
 
   /* The page landed, or the cap gave up: fade out over the page already painted under it. */
   useEffect(() => {

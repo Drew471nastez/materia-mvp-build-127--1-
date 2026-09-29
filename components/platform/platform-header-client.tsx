@@ -2350,7 +2350,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={48} className="border border-gray-200" />
             <div className="flex-1 min-w-0">
               <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
-              {user?.email && <p className="text-sm text-gray-500 truncate">{user.email}</p>}
             </div>
           </div>
 

@@ -103,6 +103,8 @@ check("Search opens the full screen search from inside the press, so the keyboar
 check("and the touch's end gives the field the focus again, for a WebKit that did not count the pointer's", /refocusSearchOverlay\(\)/.test(bar))
 check("the bar mounts the screen beside itself, so a result leading off the bar's pages does not unmount it mid fade", /<SearchOverlay \/>/.test(bar))
 check("the tab you are on scrolls to the top", /window\.scrollTo\(\{ top: 0/.test(bar))
+/* A phone cancels the touch's click, so the loading line never heard a tab. The push says so itself. */
+check("a tab's push tells the loading line, because the click is cancelled", /startRouteLoading\(\{ cover: true \}\)\s*router\.push\(href\)/.test(bar))
 check("its hooks are never behind a return: the question is asked where it is mounted", /\{buyerTabsBelongOn\(pathname, where\) \? <TabBar pathname=\{pathname\} sellerSurface=\{where\.sellerSurface\} \/> : null\}/.test(bar))
 /* A creator's page is read from the address, so the bar is gone on the frame
    the product opens: nothing is carried between pages and nothing blinks. */
@@ -136,7 +138,8 @@ check("image 27: a big Search title, an X to close, a rounded field under them",
 check("Enter and See all results go to Explore's results", /exploreResultsHref = \(q: string\) => `\/explore\?q=\$\{encodeURIComponent\(q\.trim\(\)\)\}`/.test(search) && /See all results for/.test(search))
 check("products, creators and categories as you type, debounced, a stale answer dropped", /quickSearch\(createClient\(\), term\)/.test(search) && /DEBOUNCE_MS\)/.test(search) && /if \(n !== ask\.current\) return/.test(search))
 check("a combobox: arrows walk the rows, Enter opens the lit one, Escape closes", /role="combobox"/.test(search) && /aria-activedescendant=/.test(search) && /e\.key === "ArrowDown"/.test(search) && /e\.key === "Escape"/.test(search))
-check("recent searches and a no results state", /data-search-section="recent"/.test(search) && /data-search-empty=""/.test(search) && /No results for/.test(search))
+check("no recent searches on the idle screen, and a no results state", !/data-search-section="recent"/.test(search) && !/Recent searches|heading\(\s*"Recent"/.test(search) && /data-search-section="browse"/.test(search) && /data-search-empty=""/.test(search) && /No results for/.test(search))
+check("See all results wears a 12px tile and a chevron, not a grey disc", /rounded-\[12px\] bg-white shadow-\[0_0_0_1px_rgba\(16,18,27,0\.07\),0_1px_2px_rgba\(16,18,27,0\.06\)\]/.test(search) && !/rounded-full bg-\[#f1f2f4\]">\s*<Search/.test(search) && /See all results for/.test(search))
 check("16px type, so iOS does not zoom to it", /text-\[16px\]/.test(search))
 check("and the categories that have a page, as the other way in", /CATEGORY_NAV\.filter\(\(c\) => hasCategoryPage\(c\.id\)\)/.test(search))
 /* The owner's iPhone round: a rectangle with depth, categories that open, bigger products, a calm wait. */
