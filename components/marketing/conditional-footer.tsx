@@ -3,8 +3,9 @@
 import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { MarketingFooter } from "@/components/marketing/footer"
+import { ShopCompactFooter } from "@/components/marketing/shop-compact-footer"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { siteFooterFor } from "@/lib/nav/site-footer"
+import { isShopPage, siteFooterFor } from "@/lib/nav/site-footer"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -16,7 +17,7 @@ export function ConditionalFooter() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const signedIn = useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
-  const [showFooter, setShowFooter] = useState(false)
+  const [footerMode, setFooterMode] = useState<"none" | "marketing" | "compact">("none")
   const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export function ConditionalFooter() {
 
     // Never show platform footer on custom domains - seller owns the entire experience
     if (isOnCustomDomain) {
-      setShowFooter(false)
+      setFooterMode("none")
       return
     }
 
@@ -44,13 +45,13 @@ export function ConditionalFooter() {
     // In Capacitor native apps, hide the black footer on seller pages,
     // product pages, and /explore for a clean native app experience.
     if (isNativeApp() && (isSubdomain || isSellerPath || pathname.startsWith("/explore"))) {
-      setShowFooter(false)
+      setFooterMode("none")
       return
     }
 
     // On web with query-param discover layout: hide footer (existing behaviour)
     if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams, { isSubdomain })) {
-      setShowFooter(false)
+      setFooterMode("none")
       return
     }
 
@@ -70,7 +71,12 @@ export function ConditionalFooter() {
     const onSellerSurface = isSubdomain || isSellerPath
 
     if (onSellerSurface) {
-      setShowFooter(false)
+      setFooterMode("none")
+      return
+    }
+
+    if (isShopPage(pathname) && signedIn && !isNativeApp()) {
+      setFooterMode("compact")
       return
     }
 
@@ -95,12 +101,15 @@ export function ConditionalFooter() {
       pathname.startsWith("/privacy") ||
       pathname.startsWith("/terms") ||
       pathname.startsWith("/help") ||
-      pathname.startsWith("/account-deletion")
+      pathname.startsWith("/account-deletion") ||
+      pathname.startsWith("/member")
 
     /* And of those, who keeps it: lib/nav/site-footer. Not the library or
        the account at any width, Explore only for somebody signed out. */
-    setShowFooter(isPlatformPage && siteFooterFor(pathname, { signedIn }))
+    setFooterMode(isPlatformPage && siteFooterFor(pathname, { signedIn }) ? "marketing" : "none")
   }, [pathname, searchParams, isHydrated, signedIn])
 
-  return showFooter ? <MarketingFooter /> : null
+  if (footerMode === "marketing") return <MarketingFooter />
+  if (footerMode === "compact") return <ShopCompactFooter />
+  return null
 }

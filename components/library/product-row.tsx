@@ -2,13 +2,13 @@
 
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { ArrowDownToLine, ChevronDown, ExternalLink, FileText, Loader2, Mail, MoreHorizontal, Package, Receipt, Star, Store } from "lucide-react"
+import { ArrowDownToLine, ChevronDown, ExternalLink, FileText, Loader2, Mail, MoreHorizontal, Package, Receipt, Star } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { downloadFile, downloadKey } from "@/lib/downloads/download-file"
 import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import type { LibraryCreator, LibraryItem } from "@/lib/library/library-view"
-import { contactOf, memberProfileOf, productPageOf, storeOf } from "./creator-links"
+import { contactOf, productPageOf } from "./creator-links"
 import { LibraryFileRow } from "./file-row"
 import { useStoreLinkProps } from "./use-store-link"
 import { ICON_BUTTON, PRIMARY, SECONDARY, SMALL, shortDate } from "./library-ui"
@@ -107,10 +107,8 @@ export function ProductRow({
     if (item.review) rows.push({ label: "Edit your review", icon: <Star className="h-4 w-4" />, href: reviewHref })
     else if (item.canReview) rows.push({ label: "Write a review", icon: <Star className="h-4 w-4" />, href: reviewHref })
     const contact = creator ? contactOf(creator, item.title) : null
-    const store = memberProfileOf(item.creator)
     const page = productPageOf(item)
     if (contact) rows.push({ label: contact.label, icon: <Mail className="h-4 w-4" />, href: contact.href, separatorBefore: true })
-    if (store) rows.push({ label: "View profile", icon: <Store className="h-4 w-4" />, href: store, separatorBefore: !contact })
     if (page) rows.push({ label: "Product page", icon: <ExternalLink className="h-4 w-4" />, href: page })
     return rows
   }, [creator, href, item, storeLink.target])

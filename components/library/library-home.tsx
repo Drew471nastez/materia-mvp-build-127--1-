@@ -45,20 +45,12 @@ const SORTS: Array<{ value: LibrarySort; label: string }> = [
 
 function CreatorRowLinks({ creator }: { creator: LibraryCreator }) {
   const contact = contactOf(creator)
-  const profile = memberProfileOf(creator)
-  if (!contact && !profile) return null
+  if (!contact) return null
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-[13px] font-medium">
-      {profile ? (
-        <Link href={profile} data-creator-profile="" className={TEXT_LINK}>
-          View profile
-        </Link>
-      ) : null}
-      {contact ? (
-        <a href={contact.href} data-creator-contact="" className={TEXT_LINK}>
-          {contact.short}
-        </a>
-      ) : null}
+      <a href={contact.href} data-creator-contact="" className={TEXT_LINK}>
+        {contact.short}
+      </a>
     </div>
   )
 }
@@ -75,18 +67,27 @@ function CreatorsList({ creators }: { creators: LibraryCreator[] }) {
         <h2 className="text-[13px] font-semibold text-[#1a1a2e]">People you bought from</h2>
       </div>
       <ul className="divide-y divide-[#eef0f3] pb-1">
-        {creators.map((c) => (
+        {creators.map((c) => {
+          const profileHref = memberProfileOf(c)
+          return (
           <li key={creatorKey(c)} className="flex items-center gap-3 px-4 py-3">
             <AppAvatar src={c.avatarUrl} name={c.name} alt="" size={36} markWhileLoading />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{c.name}</p>
+              {profileHref ? (
+                <Link href={profileHref} data-creator-profile="" className="truncate text-[14px] font-medium text-[#1a1a2e] hover:underline">
+                  {c.name}
+                </Link>
+              ) : (
+                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{c.name}</p>
+              )}
               <p className="text-[12px] text-[#6b7280]">
                 {c.count} {c.count === 1 ? "purchase" : "purchases"}
               </p>
             </div>
             <CreatorRowLinks creator={c} />
           </li>
-        ))}
+          )
+        })}
       </ul>
     </section>
   )

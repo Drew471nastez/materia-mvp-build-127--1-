@@ -56,5 +56,11 @@ export default async function MemberProfileRoute({ params }: Props) {
   const { user } = await currentUserForRequest()
   const following = await viewerFollows(user?.id ?? null, profile.userId)
 
-  return <MemberProfilePage profile={profile} viewerId={user?.id ?? null} viewerFollowing={following} />
+  return (
+    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="mx-auto max-w-[1400px] px-4 pb-8 pt-5 sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 lg:pb-12">
+        <MemberProfilePage profile={profile} viewerId={user?.id ?? null} viewerFollowing={following} />
+      </div>
+    </main>
+  )
 }
