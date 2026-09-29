@@ -1,3 +1,5 @@
-export default function WishlistLoading() {
-  return <div className="min-h-[280px]" aria-hidden data-library-loading="" />
+import { LibraryRouteSkeleton } from "@/components/library/library-route-skeleton"
+
+export default function Loading() {
+  return <LibraryRouteSkeleton path="/library/wishlist" />
 }

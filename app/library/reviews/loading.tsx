@@ -1,3 +1,5 @@
-export default function ReviewsLoading() {
-  return <div className="min-h-[16rem]" aria-hidden data-library-loading="" />
+import { LibraryRouteSkeleton } from "@/components/library/library-route-skeleton"
+
+export default function Loading() {
+  return <LibraryRouteSkeleton path="/library/reviews" />
 }

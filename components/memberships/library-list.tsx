@@ -14,6 +14,7 @@
  * No hooks: drawn on the server, and by the probe.
  */
 import Link from "next/link"
+import { LibraryEmptyState } from "@/components/library/library-empty-state"
 import { ChevronRight } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { cn } from "@/lib/utils"
@@ -67,14 +68,13 @@ function Row({ card }: { card: MembershipCard }) {
 export function MembershipsList({ current, ended }: { current: MembershipCard[]; ended: MembershipCard[] }) {
   if (current.length === 0 && ended.length === 0) {
     return (
-      <div data-memberships-empty="" className="rounded-2xl border border-[#e5e7eb]/70 bg-white px-6 py-12 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <p className="text-[16px] font-semibold text-[#1a1a2e]">No memberships yet</p>
-        <p className="mx-auto mt-1.5 max-w-sm text-[14px] leading-relaxed text-[#6b7280]">
-          When you join a creator&apos;s membership, it shows up here with every post they share with members.
-        </p>
-        <Link href="/explore" className="mt-5 inline-flex h-10 items-center rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white transition-colors hover:bg-[#2a2a40]">
-          Discover creators
-        </Link>
+      <div data-memberships-empty="">
+        <LibraryEmptyState
+          title="No memberships yet"
+          description="When you join a creator's membership, it shows up here with every post they share with members."
+          ctaLabel="Discover creators"
+          ctaHref="/explore"
+        />
       </div>
     )
   }

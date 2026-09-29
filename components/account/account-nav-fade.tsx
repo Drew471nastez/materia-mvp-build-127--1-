@@ -31,7 +31,7 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
   }, [settings])
 
   return (
-    <div ref={ref} className="min-w-0">
+    <div key={pathname} ref={ref} className="library-content-enter min-w-0">
       {children}
     </div>
   )

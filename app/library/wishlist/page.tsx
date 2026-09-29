@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
-import { WishlistSkeleton } from "@/components/wishlist/wishlist-skeleton"
+import { LibraryRouteSkeleton } from "@/components/library/library-route-skeleton"
 import { TAB_SKELETON } from "../loading"
 import { loadWishlist } from "./load-wishlist"
 
@@ -51,7 +51,7 @@ export default async function LibraryWishlistPage() {
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser, and the list is asked for there. */
   if (!user) return <WishlistContent isLibrary initialItems={null} />
   return (
-    <Suspense fallback={<div className="min-h-[280px]" aria-hidden data-library-loading="" />}>
+    <Suspense fallback={<LibraryRouteSkeleton path="/library/wishlist" />}>
       {/* A promise as the child, as app/account/page.tsx does: React waits for it inside this boundary. */}
       {savedBody(user.id)}
     </Suspense>

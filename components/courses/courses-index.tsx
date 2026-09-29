@@ -18,6 +18,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { BookOpen, Check, ChevronDown, Play } from "lucide-react"
+import { LibraryEmptyState } from "@/components/library/library-empty-state"
 import { CARD, SECONDARY, SMALL, VIOLET } from "@/components/library/library-ui"
 import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -62,12 +63,8 @@ export function CoursesIndex({ courses }: { courses: MyCourse[] }) {
   */
   if (courses.length === 0) {
     return (
-      <div data-courses-index="" data-courses-empty="" className={`${CARD} px-5 py-10 text-center`}>
-        <p className="text-[16px] font-semibold text-[#1a1a2e]">No courses yet</p>
-        <p className="mx-auto mt-1.5 max-w-[320px] text-[14px] leading-relaxed text-[#6b7280]">Courses you buy on Storelib show up here, with your place in each one.</p>
-        <Link href="/explore" className={`${VIOLET} mt-5`}>
-          Discover courses
-        </Link>
+      <div data-courses-index="" data-courses-empty="">
+        <LibraryEmptyState title="No courses yet" description="Courses you buy on Storelib show up here, with your place in each one." ctaLabel="Discover courses" ctaHref="/explore" />
       </div>
     )
   }

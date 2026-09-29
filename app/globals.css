@@ -391,6 +391,10 @@ html.capacitor body {
     opacity: 0;
     animation: skeleton-reveal 260ms cubic-bezier(0.22, 1, 0.36, 1) 200ms forwards;
   }
+  /* Library tab content after loading.tsx or the stage's shape hands over. */
+  .library-content-enter {
+    animation: skeleton-reveal 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
   /* `skeleton-reveal` is also the late fade of a part of an /app page that is
      still coming (WaitingArea, components/ui/activity-spinner.tsx): nothing
      for half a second, then the spinner. */
@@ -428,6 +432,9 @@ html.capacitor body {
     .skeleton-deferred {
       animation: none;
       opacity: 1;
+    }
+    .library-content-enter {
+      animation: none;
     }
   }
 

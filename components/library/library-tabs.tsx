@@ -51,7 +51,7 @@ export const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 const FULL = "full" as PrefetchKind
 
 const PILL =
-  "relative inline-flex h-9 shrink-0 cursor-pointer select-none items-center whitespace-nowrap rounded-full border bg-white px-3.5 text-[14px] font-medium outline-none transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
+  "relative inline-flex h-9 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-full border bg-white px-4 text-[13px] font-medium outline-none transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
 

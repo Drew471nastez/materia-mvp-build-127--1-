@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
 import { cleanPath, isLibraryProduct, showsLibraryTabs } from "./library-tab-list"
+import { LibraryContentShell } from "./library-content-shell"
 import { TabsHeaderStill, skeletonFor } from "./library-skeletons"
 
 /**
@@ -536,7 +537,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
         {head}
         <div ref={panelRef} data-library-panel="" className="relative">
           <div ref={liveRef} data-library-live="">
-            {children}
+            <LibraryContentShell>{children}</LibraryContentShell>
           </div>
           {pending?.kind === "tab" ? (
             <div key={pending.id} ref={incomingRef} data-library-incoming="tab" className={pending.under ? "absolute inset-x-0 top-0 -z-10" : undefined}>

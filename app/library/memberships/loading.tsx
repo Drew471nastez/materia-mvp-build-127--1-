@@ -1,3 +1,5 @@
-export default function MembershipsLoading() {
-  return <div className="min-h-[12rem]" aria-hidden data-library-loading="" />
+import { LibraryRouteSkeleton } from "@/components/library/library-route-skeleton"
+
+export default function Loading() {
+  return <LibraryRouteSkeleton path="/library/memberships" />
 }

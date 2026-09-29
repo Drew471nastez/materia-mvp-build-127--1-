@@ -20,17 +20,17 @@ export default async function LibraryMembershipsPage() {
   const list = await loadLibraryMemberships(createAdminClient(), viewer)
   const count = list.available ? list.current.length : 0
   return (
-    <div data-page-memberships="" className="mx-auto max-w-3xl px-0.5 pb-10 sm:px-0">
+    <div data-page-memberships="" className="space-y-3 pb-4">
       {/* One heading on the screen: "Library" above the pills is the page's. This is the line under it. */}
       {list.available ? (
-        <p className="mb-5 px-0.5 text-[14px] text-[#6b7280]">
+        <p className="text-[14px] text-[#6b7280]">
           {count === 0 ? "Creators you support, and what they post for members" : `${count} ${count === 1 ? "membership" : "memberships"} running`}
         </p>
       ) : null}
       {list.available ? (
         <MembershipsList current={list.current} ended={list.ended} />
       ) : (
-        <div className="rounded-2xl border border-[#e5e7eb]/70 bg-white px-6 py-10 text-center text-[14px] text-[#6b7280]">{NOT_SET_UP}</div>
+        <div className={`rounded-2xl border border-[#e4e7ec]/80 bg-white px-6 py-10 text-center text-[14px] text-[#6b7280] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]`}>{NOT_SET_UP}</div>
       )}
     </div>
   )

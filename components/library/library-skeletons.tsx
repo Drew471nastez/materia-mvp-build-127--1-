@@ -95,8 +95,17 @@ export function RowsSkeleton({ rows = 4, sections = 1 }: { rows?: number; sectio
   )
 }
 
-/** Courses (components/courses/courses-index.tsx): the progress switch and the creator filter on one line, the count, then rows with a 16:9 cover in the library's card. */
-export function CoursesSkeleton() {
+/** Courses (components/courses/courses-index.tsx): empty card or list rows, matching what that tab usually shows. */
+export function CoursesSkeleton({ empty = false }: { empty?: boolean }) {
+  if (empty) {
+    return (
+      <div className={`${CARD} px-5 py-14 sm:py-16`} aria-hidden>
+        <div className={`mx-auto h-5 w-36 ${LINE} ${PULSE}`} />
+        <div className={`mx-auto mt-3 h-4 w-72 max-w-full ${SOFT} ${PULSE}`} />
+        <div className={`mx-auto mt-6 h-10 w-40 rounded-[10px] ${SOFT} ${PULSE}`} />
+      </div>
+    )
+  }
   return (
     <div className="space-y-3" aria-hidden>
       <div className="flex items-center justify-between gap-2">
@@ -125,19 +134,31 @@ export function CoursesSkeleton() {
   )
 }
 
-/** Memberships (app/library/memberships/page.tsx): a line under the pills, then one card per membership. */
-export function MembershipsSkeleton() {
+/** Memberships: subtitle line and either a quiet empty card (stage) or row shapes. */
+export function MembershipsSkeleton({ still = false }: { still?: boolean }) {
+  const pulse = still ? "" : PULSE
+  if (still) {
+    return (
+      <div className="space-y-3" aria-hidden>
+        <div className={`h-4 w-56 max-w-full ${LINE}`} />
+        <div className={`${CARD} px-5 py-14 sm:py-16`}>
+          <div className={`mx-auto h-5 w-40 ${LINE}`} />
+          <div className={`mx-auto mt-3 h-4 w-64 max-w-full ${SOFT}`} />
+          <div className={`mx-auto mt-6 h-10 w-36 rounded-[10px] ${SOFT}`} />
+        </div>
+      </div>
+    )
+  }
   return (
-    <div className="mx-auto max-w-3xl px-0.5 pb-10 sm:px-0" aria-hidden>
-      <div className={`mb-5 h-4 w-56 ${LINE} ${PULSE}`} />
+    <div className="space-y-3" aria-hidden>
+      <div className={`h-4 w-56 max-w-full ${LINE} ${pulse}`} />
       <div className="space-y-2.5">
         {[0, 1].map((i) => (
-          <div key={i} className="flex items-center gap-3.5 rounded-2xl border border-[#e5e7eb]/70 bg-white px-3.5 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:gap-4 sm:px-5 sm:py-4">
-            <div className={`h-[52px] w-[52px] shrink-0 rounded-xl ${SOFT} ${PULSE}`} />
+          <div key={i} className={`flex items-center gap-3.5 ${CARD} px-3.5 py-3.5 sm:px-5 sm:py-4`}>
+            <div className={`h-[52px] w-[52px] shrink-0 rounded-xl ${SOFT} ${pulse}`} />
             <div className="flex-1 space-y-2">
-              <div className={`h-4 w-1/2 ${LINE} ${PULSE}`} />
-              <div className={`h-3 w-1/3 ${SOFT} ${PULSE}`} />
-              <div className={`h-3 w-2/5 ${SOFT}`} />
+              <div className={`h-4 w-1/2 ${LINE} ${pulse}`} />
+              <div className={`h-3 w-1/3 ${SOFT} ${pulse}`} />
             </div>
           </div>
         ))}
@@ -191,7 +212,7 @@ export function TabsHeaderStill({ active }: { active: string }) {
           {LIBRARY_TABS.map((t) => (
             <span
               key={t.href}
-              className={`inline-flex h-9 items-center rounded-full border px-3.5 text-[14px] font-medium ${
+              className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-[13px] font-medium ${
                 t.href === active
                   ? "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
                   : "border-[#e4e7ec] bg-white text-[#6b7280]"
@@ -210,7 +231,7 @@ export function TabsHeaderStill({ active }: { active: string }) {
 export function skeletonFor(path: string, still = false): React.ReactNode {
   if (path === "/library") return <ListSkeleton still={still} />
   if (path === "/library/courses") return <CoursesSkeleton />
-  if (path === "/library/memberships") return <MembershipsSkeleton />
+  if (path === "/library/memberships") return <MembershipsSkeleton still={still} />
   if (path === "/library/reviews") return <RowsSkeleton rows={3} sections={2} />
   if (path === "/library/receipts") return <RowsSkeleton rows={4} />
   if (path === "/library/wishlist") return <WishlistSkeleton still={still} />
