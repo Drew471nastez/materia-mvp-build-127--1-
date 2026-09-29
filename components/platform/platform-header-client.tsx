@@ -349,11 +349,11 @@ function MenuRow({ to, label, onNav, seller = false }: { href: string; to: strin
    THE LOGO IS FIVE PERCENT SMALLER IN A HEADER, AND ONLY IN A HEADER
   ═══════════════════════════════════════════════════════════════════════════
   The owner asked for the mark to sit a little quieter in the bar. The sizes
-  themselves change (44, 42 and 38 before), not a scale on top of them, so
-  the picture is still fetched and laid out at the size it is drawn. The
-  footers, sign in and everything else keep theirs.
+  themselves change (not a CSS scale), so the picture is fetched at the size
+  it is drawn. Latest pass: ~5% under 41.8 / 39.9 / 36.1. Footers and sign-in
+  keep their sizes.
 */
-export const HEADER_LOGO = { desktop: 41.8, marketingPhone: 39.9, phone: 36.1 } as const
+export const HEADER_LOGO = { desktop: 39.71, marketingPhone: 37.91, phone: 34.3 } as const
 
 /** A focus ring that reads on the black bar. */
 const DARK_FOCUS =
@@ -1693,9 +1693,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               </div>
 
               {/* Mobile Homepage/Marketing Header - Logo left, hamburger right.
-                  min-h-[42px]: the 42px logo used to set this row's height, and
-                  at 39.9px it would take the bar 2px under the 64.6px that
-                  conditional-header's placeholder reserves, a jump on every load. */}
+                  min-h-[42px]: the row keeps a stable tap height even when the
+                  mark is drawn smaller than the old 42px logo. */}
               <div className="md:hidden flex min-h-[42px] items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
