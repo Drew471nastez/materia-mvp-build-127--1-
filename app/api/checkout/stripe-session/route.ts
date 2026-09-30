@@ -160,7 +160,7 @@ export async function POST(request: Request) {
   })
 
   const chargeCurrency = platformChargeCurrency()
-  let fee: Awaited<ReturnType<typeof calculatePlatformFee>>
+  let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(totals.totalCents, creator.id, admin, chargeCurrency)
   } catch (e) {
