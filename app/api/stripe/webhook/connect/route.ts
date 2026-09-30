@@ -36,7 +36,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    await handleConnectAccountEvent(event)
+    if (event.type.startsWith("account.")) {
+      await handleConnectAccountEvent(event)
+    } else if (isConnectPayoutEvent(event.type)) {
+      await handleConnectPayoutEvent(supabaseAdmin, event)
+    }
     await noteStripeEvent(supabaseAdmin, { id: event.id, type: event.type, account: event.account, ok: true })
     return NextResponse.json({ received: true })
   } catch (error) {
