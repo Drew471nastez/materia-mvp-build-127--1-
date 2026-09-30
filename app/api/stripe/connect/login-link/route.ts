@@ -3,12 +3,11 @@ import { NextResponse } from "next/server"
 /**
  * POST /api/stripe/connect/login-link
  *
- * REMOVED — Stripe Express dashboard access is no longer available.
- * Use /api/stripe/account-link instead for account management.
+ * REMOVED — the Express dashboard is not opened from Storelib.
  */
 export async function POST() {
   return NextResponse.json(
-    { error: "This endpoint has been removed. Use /api/stripe/account-link instead." },
+    { error: "This endpoint has been removed. Manage payouts from the Payouts page." },
     { status: 410 },
   )
 }

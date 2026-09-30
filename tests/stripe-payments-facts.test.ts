@@ -91,7 +91,7 @@ check("overlays, if set, is a value Stripe takes", !/overlays:/.test(embedded) |
 console.log("\nPayouts keeps Cash out")
 const payouts = code("app/app/payouts/payouts-client.tsx")
 check("no simple view in place of the dashboard", !/PayoutsSimpleView|NEXT_PUBLIC_PAYOUTS_LEGACY/.test(payouts))
-check("until setup is finished (and no money is waiting), the page is setup alone: no Export, stats or sales", /const hasMoney =/.test(payouts) && /if \(!hasStripe \|\| \(!paymentsReady && !hasMoney\)\) \{\s*return \(\s*<div aria-label="Set up payouts"/.test(payouts))
+check("until setup is finished, the page is setup alone: no Export, stats or sales", /if \(!paymentsReady\) \{\s*return \(\s*<div aria-label="Set up payouts"/.test(payouts) && !/const hasMoney =/.test(payouts))
 check("after setup the dashboard, with the card only while something is needed or the bank is being changed", /const showPaymentsCard = !paymentsReady \|\| manageRequest > 0/.test(payouts) && /\{showPaymentsCard \? <StorelibPaymentsInline compact manageRequest=\{manageRequest\} \/> : null\}/.test(payouts))
 check("while the account is not ready, the card carries setup and the setup notices stand down", /if \(paymentsReady\) \{\s*if \(accountStatus && !accountStatus\.details_submitted\)/.test(payouts))
 check("bank changes open in the card on the page, not a Stripe tab", !/account-link/.test(payouts) && /<PayoutMethodCard onManage=\{\(\) => setManageRequest\(\(n\) => n \+ 1\)\} \/>/.test(payouts))

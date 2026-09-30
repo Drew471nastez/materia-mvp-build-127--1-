@@ -70,11 +70,11 @@ async function main() {
     check("no live charges: 503, and nothing was charged", charges?.status === 503 && charges.code === "platform_cannot_charge" && /nothing was charged/.test(charges.error), charges)
     check("anything else is not taken for one of these", stripeRefusal(new Error("Your card was declined.")) === null && stripeRefusal(null) === null)
     check("no em dash, no Stripe jargon in what the creator reads", [platform, account, charges].every((r) => r && !/—|express|connect/i.test(r.error)))
-    for (const [route, where] of [["app/api/stripe/connect/start/route.ts", "connect/start"], ["app/api/stripe/account-link/route.ts", "account-link"], ["app/api/billing/subscription/create/route.ts", "billing/subscription/create"]]) {
+    for (const [route, where] of [["app/api/billing/subscription/create/route.ts", "billing/subscription/create"]]) {
       const src = read(route)
       check(`${where} answers with it before its generic failure`, src.indexOf("stripeRefusal(error)") > 0 && src.indexOf("stripeRefusal(error)") < src.lastIndexOf("console.error(") && src.includes(`logStripeRefusal("${where}", refusal)`))
     }
-    check("a rejected account is not asked for a second kind of link", /if \(stripeRefusal\(e\)\) throw e/.test(read("app/api/stripe/account-link/route.ts")))
+    check("hosted account links are not created", !/accountLinks\.create/.test(read("app/api/stripe/account-link/route.ts")) && !/accountLinks\.create/.test(read("app/api/stripe/connect/start/route.ts")))
   }
 
   out("\nAnthropic credit")

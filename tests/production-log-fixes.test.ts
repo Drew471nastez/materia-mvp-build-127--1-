@@ -36,7 +36,7 @@ for (const [given, want] of [
 }
 {
   const route = strip(read("app/api/stripe/connect/start/route.ts"))
-  check("the payout signup sends the code", /country: countryCode\(\(profile as any\)\?\.country\) \?\? "RO"/.test(route))
+  check("hosted payout signup does not create an account link", !/accountLinks\.create/.test(route))
 }
 
 console.log("\nThe database accepts every event and email type the app writes")

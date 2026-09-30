@@ -122,5 +122,14 @@ check("steps are the three short ones", /Personal info/.test(card) && /Verificat
 check("the embed uses the server key", embedded.includes("publishableKey") && !embedded.includes("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"))
 check("session secrets are not stored", !/localStorage|sessionStorage/.test(embedded))
 
+const payouts = readFileSync("app/app/payouts/payouts-client.tsx", "utf8")
+const payoutsPage = readFileSync("app/app/payouts/page.tsx", "utf8")
+const accountLink = readFileSync("app/api/stripe/account-link/route.ts", "utf8")
+const connectStart = readFileSync("app/api/stripe/connect/start/route.ts", "utf8")
+check("payouts does not open an account link", !/\/api\/stripe\/account-link/.test(payouts) && !/Could not open Stripe/.test(payouts))
+check("an unfinished payouts page is only the setup card", /if \(!paymentsReady\)/.test(payouts) && /paymentsReady \? \(/.test(payoutsPage))
+check("the page does not request an Express dashboard link", !/createLoginLink/.test(payoutsPage))
+check("account link routes do not call Stripe", !/accountLinks\.create/.test(accountLink) && !/accountLinks\.create/.test(connectStart))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

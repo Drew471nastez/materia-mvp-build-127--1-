@@ -65,6 +65,7 @@ export function StorelibPaymentsSettings({
   const [showIssues, setShowIssues] = React.useState(false)
   const [touched, setTouched] = React.useState<Record<string, boolean>>({})
   const seeded = React.useRef(false)
+  const wasSettingUp = React.useRef(false)
 
   const load = React.useCallback(async (how: "overview" | "refresh" = "overview") => {
     try {
@@ -82,6 +83,15 @@ export function StorelibPaymentsSettings({
   React.useEffect(() => {
     void load()
   }, [load])
+
+  React.useEffect(() => {
+    if (!compact || !data) return
+    if (data.beat !== "done") {
+      wasSettingUp.current = true
+      return
+    }
+    if (wasSettingUp.current) router.refresh()
+  }, [compact, data, router])
 
   React.useEffect(() => {
     if (!data?.prefill || seeded.current) return

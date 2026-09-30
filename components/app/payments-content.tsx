@@ -100,17 +100,8 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
     setError(null)
 
     try {
-      const response = await fetch("/api/stripe/connect/start", {
-        method: "POST",
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to start Stripe Connect")
-      }
-
-      const { url } = await response.json()
-      window.location.href = url
+      router.push("/app/payouts")
+      return
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
       setIsLoading(false)

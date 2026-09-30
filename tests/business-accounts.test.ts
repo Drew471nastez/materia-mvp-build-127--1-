@@ -516,7 +516,7 @@ function main() {
   /* Those emails are the notification engine's now (lib/notify): every creator email it sends goes to ownerAddress, a customer's to the address given. */
   check("  the payout, bank, verification and dispute emails too: none is sent to a tagged address as it is",
     /entry\.recipient === "customer" \? given : ownerAddress\(given\)/.test(read("lib/notify/engine.ts")) && !/^\s*to: params\.to,$/m.test(read("lib/email.tsx")))
-  for (const f of ["lib/checkout/invoice.ts", "lib/stripe/refund-sync.ts", "lib/automations/supabase-store.ts", "app/api/stripe/connect/start/route.ts"]) {
+  for (const f of ["lib/checkout/invoice.ts", "lib/stripe/refund-sync.ts", "lib/automations/supabase-store.ts"]) {
     check(`  and ${f} writes to the owner`, /ownerAddress\(/.test(read(f)))
   }
 

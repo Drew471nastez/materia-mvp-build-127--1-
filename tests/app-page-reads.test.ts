@@ -178,17 +178,17 @@ section("Payouts: its questions asked together")
 {
   const src = code("app/app/payouts/page.tsx")
   const first = batchAfter(src, /const stripeAccount/)
-  check("with the creator: the products, Stripe, the dashboard link and the ledger row",
+  check("with the creator: the products, Stripe and the ledger row, and no Express dashboard link",
     /\.from\("products"\)/.test(first) && /stripe\.balance\.retrieve/.test(first) && /stripe\.accounts\.retrieve/.test(first)
-      && /stripe\.balanceTransactions\.list/.test(first) && /stripe\.accounts\.createLoginLink/.test(first) && /\.from\("seller_ledger"\)/.test(first))
+      && /stripe\.balanceTransactions\.list/.test(first) && !/createLoginLink/.test(src) && /\.from\("seller_ledger"\)/.test(first))
   check("the ledger row is read once, with every column the page uses",
     (src.match(/\.from\("seller_ledger"\)/g) ?? []).length === 1 && /\.select\("available_amount, pending_amount, negative_balance"\)/.test(src))
   const second = batchAfter(src, /const productIds = /)
   check("with the products: the orders, the tax year's orders and the disputed orders",
     (second.match(/\.from\("orders"\)/g) ?? []).length === 3 && /\.gte\("created_at"/.test(second) && /\.eq\("status", "disputed"\)/.test(second))
   check("a Stripe failure still falls back to the orders' own figures", /if \(!stripeRead\.ok\) throw stripeRead\.error/.test(src) && /catch \(err\) \{\s*console\.error\("\[Payouts\] Failed to fetch Stripe balances:", err\);\s*stripePendingBalance = Math\.round\(orderPendingUsd/.test(src))
-  check("and a failed link, tax or ledger read is nothing, not a failed page",
-    /createLoginLink\(stripeAccount\)\.then\(\s*\(link\) => link\.url as string \| null,\s*\(\) => null/.test(src) && (src.match(/\.then\(\(r\) => r, \(\) => nothing\)/g) ?? []).length === 2)
+  check("and a failed tax or ledger read is nothing, not a failed page",
+    (src.match(/\.then\(\(r\) => r, \(\) => nothing\)/g) ?? []).length === 2 && !/accountLinks\.create/.test(src))
   check("scoped as before: the creator by the user's id, everything else by that creator or its products, on the service role",
     /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("user_id", user\.id\)/.test(src) && (src.match(/\.in\("product_id", productIds\)/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
 }

@@ -1101,7 +1101,7 @@ function BalanceDetails({
             <button
               type="button"
               onClick={onUpdateBank}
-              className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2 disabled:opacity-60"
+              className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
             >
               {bank ? "Update bank" : "Add a bank account"}
             </button>
@@ -2429,7 +2429,6 @@ function PayoutMethodCard({ onManage }: { onManage: () => void }) {
     };
   }, [loadData]);
 
-  /* The Storelib Payments card on this page opens Stripe's account form in place. */
   const openManageSettings = onManage;
 
   const bank = data?.bankAccount;
@@ -2795,8 +2794,6 @@ export function PayoutsClient({
   const payoutsEnabled = creator.payouts_enabled !== false;
   const { toast } = useToast();
 
-  // One account link opener, for the notice, the Details panel and its bank line
-
   const refreshBalances = useCallback(async () => {
     setRefreshKey((k) => k + 1);
 
@@ -3046,7 +3043,7 @@ export function PayoutsClient({
     on there is no Cash out at all: the notice under the bar carries the one
     way forward.
   */
-  const actions = hasStripe ? (
+  const actions = paymentsReady ? (
     <>
       <ResponsiveActionMenu
         title="Export"
@@ -3088,20 +3085,10 @@ export function PayoutsClient({
   const actionsInBar = slot && actions ? createPortal(actions, slot) : null;
 
   /*
-    SETUP FIRST, THE DASHBOARD AFTER, as the big platforms do it. Until
-    payments are set up there is nothing to cash out and nothing to chart,
-    so the page is the Storelib Payments card alone: no Export, no balance,
-    no revenue, no sales. The moment the account is ready the card refreshes
-    the page and this becomes the dashboard (the balance, Cash out, which is
-    the only way money leaves since payouts are manual, and the history).
-
-    A creator who already has money here and whose account then needs
-    something keeps the dashboard, with the card on top carrying what to do.
-    Once ready the card steps aside; Update bank brings it back in place.
+    Until payments are on, this page is only the setup card. Balance, export,
+    sales and cash out appear after that. Update bank brings the card back.
   */
-  const hasMoney =
-    initialData.totalEarnings > 0 || initialData.availableBalance > 0 || initialData.pendingAmount > 0 || (initialData.paidOut ?? 0) > 0;
-  if (!hasStripe || (!paymentsReady && !hasMoney)) {
+  if (!paymentsReady) {
     return (
       <div aria-label="Set up payouts" data-payouts-setup="" className="mx-auto mt-2 w-full max-w-[560px]">
         <StorelibPaymentsInline compact />
@@ -3170,7 +3157,7 @@ export function PayoutsClient({
             tone="attention"
             title="Finish setting up Stripe to get paid"
             body="Stripe needs your details, your identity and a bank account before it can pay you."
-            action={{ label: "Finish setup", onClick: () => setManageRequest((n) => n + 1) }}
+            action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
           />
         );
       }
@@ -3187,7 +3174,7 @@ export function PayoutsClient({
             tone="attention"
             title={hasPastDue ? "Verify your identity to keep getting paid" : "Stripe needs to verify your identity"}
             body="Stripe asks for this to keep your payouts turned on."
-            action={{ label: "Verify", onClick: () => setManageRequest((n) => n + 1) }}
+            action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
           />
         );
       }
@@ -3210,7 +3197,7 @@ export function PayoutsClient({
           <Notice
             tone="attention"
             title="Finish setting up Stripe to cash out"
-            action={{ label: "Finish setup", onClick: () => setManageRequest((n) => n + 1) }}
+            action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
           />
         );
       }

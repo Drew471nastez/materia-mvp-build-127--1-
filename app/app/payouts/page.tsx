@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
+import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
 import { checkoutReadyForCreator } from "@/lib/payments/service";
 import { TryProStrip } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
@@ -37,6 +38,8 @@ export default async function PayoutsPage() {
     redirect("/onboarding");
   }
 
+  const paymentsReady = await checkoutReadyForCreator(creator.id)
+
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {/* Try Pro, above the page's own bar (components/app/announcement-bar-mobile). */}
@@ -59,20 +62,26 @@ export default async function PayoutsPage() {
           </h1>
           {/* A phone's bar has room for the title and the two buttons only. */}
           <p className="hidden truncate text-[13px] leading-5 text-[#6b7280] sm:block">
-            Your balance, sales and cash outs
+            {paymentsReady ? "Your balance, sales and cash outs" : "Set up payments"}
           </p>
         </div>
-        <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
+        {paymentsReady ? <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" /> : null}
       </PaneBar>
 
       <div className="mx-auto max-w-[1200px] app-gutter pb-8">
         {/* The bar and the heading arrive at once; Stripe's answers
             stream in behind them (PayoutsBody). */}
-        <Suspense fallback={<PayoutsWaiting />}>
-          {/* Called, not written as an element: this project's JSX types do not take
-              an async component, and a promise is a child React waits on. */}
-          {PayoutsBody({ creator })}
-        </Suspense>
+        {paymentsReady ? (
+          <Suspense fallback={<PayoutsWaiting />}>
+            {/* Called, not written as an element: this project's JSX types do not take
+                an async component, and a promise is a child React waits on. */}
+            {PayoutsBody({ creator })}
+          </Suspense>
+        ) : (
+          <div className="mx-auto mt-2 w-full max-w-[560px]" data-payouts-setup="">
+            <StorelibPaymentsInline compact />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -172,7 +181,7 @@ async function PayoutsBody({ creator }: { creator: any }) {
   const currentYear = new Date().getFullYear();
   const previousYear = currentYear - 1;
 
-  const [{ data: productsData }, stripeRead, loginLinkUrl, ledger] = await Promise.all([
+  const [{ data: productsData }, stripeRead, ledger] = await Promise.all([
     adminSupabase.from("products").select("*").eq("creator_id", creator.id),
     stripeAccount
       ? Promise.all([
@@ -182,12 +191,6 @@ async function PayoutsBody({ creator }: { creator: any }) {
         ]).then(
           (value) => ({ ok: true as const, value }),
           (error: unknown) => ({ ok: false as const, error }),
-        )
-      : Promise.resolve(null),
-    stripeAccount
-      ? stripe.accounts.createLoginLink(stripeAccount).then(
-          (link) => link.url as string | null,
-          () => null /* Express dashboard not available */,
         )
       : Promise.resolve(null),
     Promise.resolve(
@@ -383,7 +386,7 @@ async function PayoutsBody({ creator }: { creator: any }) {
   } = {
     currentYear: { year: currentYear, grossCents: 0, transactionCount: 0, isEligible: false },
     previousYear: { year: previousYear, grossCents: 0, transactionCount: 0, isEligible: false },
-    stripeExpressDashboardUrl: loginLinkUrl,
+    stripeExpressDashboardUrl: null,
   };
 
   if (productIds.length > 0) {

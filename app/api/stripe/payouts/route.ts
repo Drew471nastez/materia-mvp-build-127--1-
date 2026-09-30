@@ -303,13 +303,7 @@ export async function GET() {
         taxData.previousYear.isEligible = taxData.previousYear.grossCents >= 2000000 && taxData.previousYear.transactionCount >= 200
       }
 
-      // Generate Stripe Express Dashboard login link for tax form access
-      if (stripeAccountId) {
-        try {
-          const loginLink = await stripe.accounts.createLoginLink(stripeAccountId)
-          taxData.stripeExpressDashboardUrl = loginLink.url
-        } catch { /* Express dashboard not available for this account type */ }
-      }
+      /* Tax forms stay in email. The Express dashboard is not opened from here. */
     } catch { /* non-fatal */ }
 
     return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus, disputeData, taxData })

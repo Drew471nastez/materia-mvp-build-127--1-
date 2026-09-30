@@ -365,7 +365,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [connectHelpUrl, setConnectHelpUrl] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
   /*
@@ -570,115 +569,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       window.history.replaceState({}, "", url.pathname)
     }
   }, [loadStripeStatus, fetchDomains])
-
-  const connectStripe = async () => {
-    setStripeBusy("connect")
-    try {
-      const res = await fetch("/api/stripe/connect/start", { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) {
-        console.error("Stripe Connect start error:", data)
-        if (data?.code === "platform_not_configured" && data?.helpUrl) {
-          setConnectHelpUrl(data.helpUrl)
-        }
-        setError(data?.error || "Failed to start Stripe Connect. Please try again.")
-        setTimeout(() => setError(null), 15000)
-        return
-      }
-      if (data?.url) {
-        if (isNativeApp()) {
-          // On native: open in SFSafariViewController (iOS) / Chrome Custom Tab (Android)
-          openExternal(data.url)
-          // Refresh Stripe status when the user returns to the app
-          try {
-            const { App } = await import("@capacitor/app")
-            const handle = await App.addListener("appStateChange", ({ isActive }) => {
-              if (isActive) {
-                handle.remove()
-                loadStripeStatus()
-              }
-            })
-          } catch { /* @capacitor/app not available */ }
-        } else {
-          // Web: open in a popup window so the user stays on the settings page
-          const w = 1100
-          const h = 700
-          const left = window.screenX + (window.outerWidth - w) / 2
-          const top = window.screenY + (window.outerHeight - h) / 2
-          const popup = window.open(data.url, "stripe-connect", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
-          if (popup) {
-            const pollTimer = setInterval(() => {
-              if (popup.closed) {
-                clearInterval(pollTimer)
-                loadStripeStatus()
-              }
-            }, 1000)
-          } else {
-            window.location.href = data.url
-          }
-        }
-      } else {
-        setError("No onboarding URL returned. Please try again.")
-        setTimeout(() => setError(null), 5000)
-      }
-    } catch (err) {
-      console.error("Stripe Connect fetch error:", err)
-      setError("Network error. Please check your connection and try again.")
-      setTimeout(() => setError(null), 5000)
-    } finally {
-      setStripeBusy(null)
-    }
-  }
-
-
-  const manageStripe = async () => {
-    setStripeBusy("connect")
-    try {
-      const res = await fetch("/api/stripe/account-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "update" }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || "Failed to open account settings")
-      if (data?.url) {
-        if (isNativeApp()) {
-          openExternal(data.url)
-          try {
-            const { App } = await import("@capacitor/app")
-            const handle = await App.addListener("appStateChange", ({ isActive }) => {
-              if (isActive) {
-                handle.remove()
-                loadStripeStatus()
-                loadStripeBankInfo()
-              }
-            })
-          } catch { /* @capacitor/app not available */ }
-        } else {
-          const w = 1100, h = 700
-          const left = window.screenX + (window.outerWidth - w) / 2
-          const top = window.screenY + (window.outerHeight - h) / 2
-          const popup = window.open(data.url, "stripe-manage", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
-          if (popup) {
-            const pollTimer = setInterval(() => {
-              if (popup.closed) {
-                clearInterval(pollTimer)
-                loadStripeStatus()
-                loadStripeBankInfo()
-              }
-            }, 1000)
-          } else {
-            window.location.href = data.url
-          }
-        }
-      }
-    } catch (err: any) {
-      setError(err?.message || "Something went wrong. Try again.")
-      setTimeout(() => setError(null), 5000)
-    } finally {
-      setStripeBusy(null)
-    }
-  }
 
   const disconnectStripe = async () => {
     setStripeBusy("disconnect")
