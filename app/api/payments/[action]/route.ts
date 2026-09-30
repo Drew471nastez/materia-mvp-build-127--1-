@@ -15,6 +15,7 @@
  *   POST payout-account  { payload } the embedded payout form's submit()
  *   POST payout          { amountMinor, currency } a payout to their bank
  *   POST refresh         asks Airwallex again, now
+ *   POST bank            { token } a Stripe.js bank token (btok_), never the number
  *
  * Errors are one sentence for the creator. Airwallex's own codes and
  * messages stay in the server log.
@@ -25,6 +26,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import {
   addPayoutAccount,
+  addStripeBank,
   componentAuth,
   describe,
   hostedFlowUrl,
@@ -196,6 +198,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
           transit: text("transit", 8),
         })
         return NextResponse.json(result, { headers: NO_STORE })
+      }
+      case "bank": {
+        const token = typeof body.token === "string" ? body.token.slice(0, 80) : ""
+        return NextResponse.json(await addStripeBank(creator, token), { headers: NO_STORE })
       }
       case "disconnect": {
         return NextResponse.json(await disconnectPayoutAccount(creator), { headers: NO_STORE })

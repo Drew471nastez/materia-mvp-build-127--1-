@@ -74,9 +74,9 @@ export function StripeConnectEmbedded({
           },
           appearance: {
             variables: {
-              colorPrimary: "#111827",
+              colorPrimary: "#1a1a2e",
               colorBackground: "#ffffff",
-              colorText: "#111827",
+              colorText: "#1a1a2e",
               colorSecondaryText: "#6b7280",
               colorBorder: "#e5e7eb",
               buttonPrimaryColorText: "#ffffff",

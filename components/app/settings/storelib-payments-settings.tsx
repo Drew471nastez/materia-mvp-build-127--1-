@@ -2,19 +2,13 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle } from "lucide-react"
-import type { StorelibPaymentsBadge } from "@/lib/payments/stripe/creator-badge"
+import { AlertCircle, AlertTriangle, ChevronRight, Clock, CreditCard, Landmark, UserRound } from "lucide-react"
 import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
-import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
-import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
-import { SetupSteps, StorelibPaymentsCard, StorelibPaymentsCardSkeleton } from "@/components/app/settings/storelib-payments-card"
-import { CountryPicker } from "@/components/app/settings/country-picker"
-import { countryLabel, countryOf } from "@/lib/account/country"
+import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { StorelibPaymentsCard, StorelibPaymentsCardSkeleton } from "@/components/app/settings/storelib-payments-card"
+import { PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
 import { cn } from "@/lib/utils"
-
-const FIELD = "h-11 w-full rounded-xl border border-[#e5e7eb] bg-white px-3 text-[14px] text-[#111827] outline-none transition-colors focus:border-[#111827]"
-const LABEL = "mb-1 block text-[12px] font-medium text-[#374151]"
 
 function safeError(message: string): string {
   if (/invalid_request|acct_|accs_|capability|requirement|sk_|whsec/i.test(message)) {
@@ -39,33 +33,23 @@ export function StorelibPaymentsSettings({
   statementDescriptorSlot,
   compact,
   manageRequest = 0,
+  panelOnly,
 }: {
   statementDescriptorSlot?: React.ReactNode
   compact?: boolean
-  /** Raised by the page (Payouts' Update bank) to open the account form from outside. */
+  /** Raised by the page (Payouts' Update bank, its notices) to open the setup panel from outside. */
   manageRequest?: number
+  /** Only the panel, for a page that draws its own dashboard around it. */
+  panelOnly?: boolean
 }) {
   const router = useRouter()
-  const cardRef = React.useRef<HTMLDivElement>(null)
   const wasOpen = React.useRef<boolean | null>(null)
-  /* Setup and its checks run on Stripe's onboarding form; changing the bank once active on its account form. */
-  const [embedPurpose, setEmbedPurpose] = React.useState<"stripe_onboarding" | "stripe_management">("stripe_onboarding")
   const [data, setData] = React.useState<Overview | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState(false)
   const [refreshing, setRefreshing] = React.useState(false)
-  const [phase, setPhase] = React.useState<"idle" | "personal" | "embed">("idle")
-  const [embedStep, setEmbedStep] = React.useState<"verification" | "bank" | null>(null)
-  const [embedKey, setEmbedKey] = React.useState(0)
-  const [kind, setKind] = React.useState<"individual" | "business">("individual")
-  const [countryName, setCountryName] = React.useState("")
-  const [firstName, setFirstName] = React.useState("")
-  const [lastName, setLastName] = React.useState("")
-  const [businessName, setBusinessName] = React.useState("")
-  const [showIssues, setShowIssues] = React.useState(false)
-  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
-  const seeded = React.useRef(false)
-  const wasSettingUp = React.useRef(false)
+  const [busy, setBusy] = React.useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = React.useState(false)
+  const [panel, setPanel] = React.useState<{ open: boolean; mode: SetupMode }>({ open: false, mode: "setup" })
 
   const load = React.useCallback(async (how: "overview" | "refresh" = "overview") => {
     try {
@@ -84,24 +68,6 @@ export function StorelibPaymentsSettings({
     void load()
   }, [load])
 
-  React.useEffect(() => {
-    if (!compact || !data) return
-    if (data.beat !== "done") {
-      wasSettingUp.current = true
-      return
-    }
-    if (wasSettingUp.current) router.refresh()
-  }, [compact, data, router])
-
-  React.useEffect(() => {
-    if (!data?.prefill || seeded.current) return
-    seeded.current = true
-    if (data.prefill.firstName) setFirstName(data.prefill.firstName)
-    if (data.prefill.lastName) setLastName(data.prefill.lastName)
-    if (data.prefill.country) setCountryName(countryLabel(data.prefill.country))
-    if (data.kind === "business" || data.kind === "individual") setKind(data.kind)
-  }, [data])
-
   /* Checkout just opened for this creator: the page around the card (Payouts) redraws as the dashboard. */
   React.useEffect(() => {
     if (!data) return
@@ -109,79 +75,46 @@ export function StorelibPaymentsSettings({
     wasOpen.current = data.checkoutOpen
   }, [data, router])
 
-  /* Payouts asked for the bank: open the account form in the card and bring it into view. */
-  React.useEffect(() => {
-    if (manageRequest > 0 && data?.beat === "done") {
-      setError(null)
-      setEmbedPurpose("stripe_management")
-      setEmbedKey((k) => k + 1)
-      setPhase("embed")
-      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }
-  }, [manageRequest, data?.beat])
-
-  const badge = (data?.badge ?? "setup") as StorelibPaymentsBadge
   const beat: OnboardingBeat = data?.beat ?? "personal"
-  const status = data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
-  const hasAccount = beat !== "personal"
-  const step: 1 | 2 | 3 =
-    phase === "personal" || (!hasAccount && phase !== "embed")
-      ? 1
-      : embedStep === "bank" || beat === "bank"
-        ? 3
-        : 2
 
-  const country = countryOf(countryName) ?? ""
-  const issues = personalIssues({ kind, country, firstName, lastName, businessName })
-  const issue = (key: "country" | "firstName" | "lastName" | "businessName") => ((touched[key] || showIssues) && issues[key]) || ""
-  const mark = (key: string) => setTouched((current) => ({ ...current, [key]: true }))
+  React.useEffect(() => {
+    if (manageRequest > 0 && data) setPanel({ open: true, mode: beat === "done" ? "bank" : "setup" })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manageRequest, !!data])
 
-  const begin = async () => {
-    setShowIssues(true)
-    if (Object.keys(issues).length > 0 || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      const next = await call<Overview>("begin", {
-        agree: true,
-        kind,
-        country,
-        firstName,
-        lastName,
-        businessName: kind === "business" ? businessName : "",
-      })
-      setData(next)
-      setEmbedStep(next.beat === "bank" ? "bank" : "verification")
-      setPhase("embed")
-    } catch (e) {
-      setError(safeError(e instanceof Error ? e.message : "We could not start setup just now."))
-    } finally {
-      setBusy(false)
-    }
-  }
+  React.useEffect(() => {
+    if (!confirmDisconnect) return
+    const t = window.setTimeout(() => setConfirmDisconnect(false), 4000)
+    return () => window.clearTimeout(t)
+  }, [confirmDisconnect])
 
-  const disconnect = async () => {
-    if (busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      setData(await call<Overview>("disconnect", {}))
-      setPhase("idle")
-      setEmbedStep(null)
-    } catch (e) {
-      setError(safeError(e instanceof Error ? e.message : "Could not disconnect."))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const openPanel = (mode: SetupMode) => setPanel({ open: true, mode })
+  const closePanel = React.useCallback(() => setPanel((p) => ({ ...p, open: false })), [])
+
+  const flow = data?.configured ? (
+    <PaymentsSetupFlow
+      open={panel.open}
+      mode={panel.mode}
+      data={data}
+      onClose={closePanel}
+      onData={setData}
+      onFinished={() => {
+        void load("refresh")
+        router.refresh()
+      }}
+    />
+  ) : null
+
+  if (panelOnly) return flow
 
   if (!data && !error) return <StorelibPaymentsCardSkeleton />
 
   if (!data) {
     return (
-      <div className="mx-auto w-full max-w-[560px] rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
-        <p className="text-[14px] text-[#111827]">{error}</p>
-        <button type="button" className="mt-3 inline-flex h-9 items-center rounded-lg border border-[#e5e7eb] px-3 text-[13px] font-medium" onClick={() => void load()}>
+      <div className="mx-auto flex w-full max-w-[560px] items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
+        <AlertCircle className="h-4 w-4 shrink-0 text-[#be123c]" />
+        <p className="flex-1 text-[14px] text-[#1a1a2e]">{error}</p>
+        <button type="button" className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")} onClick={() => void load()}>
           Try again
         </button>
       </div>
@@ -190,168 +123,143 @@ export function StorelibPaymentsSettings({
 
   if (!data.configured) {
     return (
-      <div className="mx-auto w-full max-w-[560px] rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
-        <h3 className="text-[15px] font-semibold text-[#111827]">Storelib Payments</h3>
+      <div className="mx-auto w-full max-w-[560px] rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5">
+        <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Storelib Payments</h3>
         <p className="mt-1 text-[13px] text-[#6b7280]">Payments are not switched on yet.</p>
       </div>
     )
   }
 
-  const primaryBal = data.balances[0]
-  const hint = phase === "embed" || beat === "verification" || beat === "bank" ? data.payoutHint : null
-  const showDisconnect = hasAccount && !data.chargesEnabled && phase === "idle"
-  const openEmbed = () => {
+  const status = data.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
+  const hasAccount = beat !== "personal"
+  const canDisconnect = hasAccount && !data.chargesEnabled
+
+  const disconnect = async () => {
+    if (!confirmDisconnect) {
+      setConfirmDisconnect(true)
+      return
+    }
+    setBusy(true)
     setError(null)
-    setEmbedPurpose("stripe_onboarding")
-    setEmbedStep(beat === "bank" ? "bank" : "verification")
-    setEmbedKey((k) => k + 1)
-    setPhase("embed")
+    try {
+      setData(await call<Overview>("disconnect", {}))
+      setConfirmDisconnect(false)
+    } catch (e) {
+      setError(safeError(e instanceof Error ? e.message : "Could not disconnect."))
+    } finally {
+      setBusy(false)
+    }
   }
 
+  const primaryBal = data.balances[0]
+
   return (
-    <div ref={cardRef} data-payments-hub="" data-badge={badge} className="mx-auto w-full max-w-[560px] scroll-mt-24 space-y-3">
+    <div data-payments-hub="" data-badge={data.badge} className="mx-auto w-full max-w-[560px] space-y-3">
       {error ? (
-        <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-[13px] text-[#9f1239]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="flex-1">{error}</span>
-          {phase === "embed" ? (
-            <button type="button" className="shrink-0 font-medium underline" onClick={openEmbed}>
-              Try again
-            </button>
-          ) : null}
         </div>
       ) : null}
 
       <StorelibPaymentsCard
         status={status}
-        quiet={phase !== "idle"}
+        quiet={beat === "done" || beat === "review"}
         onRefresh={() => void load("refresh")}
         refreshing={refreshing}
         footer={
-          showDisconnect ? (
-            <div className="mx-4 mb-4 flex justify-end sm:mx-5">
-              <button type="button" disabled={busy} onClick={() => void disconnect()} className="text-[12px] font-medium text-[#6b7280] hover:text-[#111827] disabled:opacity-60">
-                Disconnect
+          canDisconnect && beat !== "review" ? (
+            <div className="mx-4 mb-4 flex items-center gap-3 rounded-xl border border-[#eceef1] bg-[#f9fafb] px-3.5 py-3 sm:mx-5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-[#d97706]" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-[#1a1a2e]">Setup not finished</p>
+                <p className="text-[12px] text-[#6b7280]">Finish above, or disconnect to start over.</p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void disconnect()}
+                className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]", confirmDisconnect && "border-[#fecdd3] text-[#be123c]")}
+              >
+                {busy ? "Disconnecting" : confirmDisconnect ? "Confirm" : "Disconnect"}
               </button>
             </div>
           ) : null
         }
       >
-        <div className="border-t border-[#f3f4f6] px-4 py-4 sm:px-5">
-          {beat !== "done" ? <SetupSteps step={step} /> : null}
-
-          {phase === "personal" ? (
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void begin()
-              }}
-            >
-              <div>
-                <span className={LABEL}>Country</span>
-                <div onBlur={() => mark("country")}>
-                  <CountryPicker value={countryName} onChange={(name) => { setCountryName(name); mark("country") }} />
-                </div>
-                {issue("country") ? <p className="mt-1 text-[12px] text-red-700">{issue("country")}</p> : null}
-              </div>
-              <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#f3f4f6] p-1">
-                {(["individual", "business"] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setKind(option)}
-                    className={cn("h-9 rounded-lg text-[13px] font-medium", kind === option ? "bg-white text-[#111827] shadow-sm" : "text-[#6b7280]")}
-                  >
-                    {option === "individual" ? "Individual" : "Business"}
-                  </button>
-                ))}
-              </div>
-              {kind === "business" ? (
-                <label className="block">
-                  <span className={LABEL}>Business name</span>
-                  <input className={FIELD} value={businessName} autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
-                  {issue("businessName") ? <span className="mt-1 block text-[12px] text-red-700">{issue("businessName")}</span> : null}
-                </label>
-              ) : null}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <span className={LABEL}>First name</span>
-                  <input className={FIELD} value={firstName} autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
-                  {issue("firstName") ? <span className="mt-1 block text-[12px] text-red-700">{issue("firstName")}</span> : null}
-                </label>
-                <label className="block">
-                  <span className={LABEL}>Last name</span>
-                  <input className={FIELD} value={lastName} autoComplete="family-name" onBlur={() => mark("lastName")} onChange={(e) => setLastName(e.target.value)} />
-                  {issue("lastName") ? <span className="mt-1 block text-[12px] text-red-700">{issue("lastName")}</span> : null}
-                </label>
-              </div>
-              <button type="submit" disabled={busy} className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#111827] text-[14px] font-semibold text-white hover:bg-[#1f2937] disabled:opacity-60">
-                {busy ? "Saving" : "Continue"}
-              </button>
-            </form>
-          ) : phase === "embed" ? (
-            <div>
-              <PayoutNote name={hint?.accountName ?? ""} currency={hint?.currency ?? null} />
-              <StripeConnectEmbedded
-                key={embedKey}
-                purpose={embedPurpose}
-                onStep={setEmbedStep}
-                onError={setError}
-                onExit={async () => {
-                  setPhase("idle")
-                  await load("refresh")
-                }}
-              />
-            </div>
-          ) : beat === "done" ? (
-            <p className="pb-1 text-center text-[13px] text-[#6b7280]">
-              {data.payoutDestination?.last4 ? `Bank ···· ${data.payoutDestination.last4}` : "Payouts are on."}{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null)
-                  setEmbedPurpose("stripe_management")
-                  setEmbedKey((k) => k + 1)
-                  setPhase("embed")
-                }}
-                className="cursor-pointer font-medium text-[#111827] underline underline-offset-2"
-              >
-                Change bank
-              </button>
-            </p>
-          ) : beat === "review" ? (
-            <p className="pb-1 text-center text-[13px] text-[#6b7280]">Under review.</p>
-          ) : (
-            <div className="pb-1 text-center">
-              <PayoutNote name={data.payoutHint?.accountName ?? ""} currency={data.payoutHint?.currency ?? null} />
-              <button type="button" onClick={() => (hasAccount ? openEmbed() : setPhase("personal"))} className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#111827] text-[14px] font-semibold text-white hover:bg-[#1f2937]">
-                {hasAccount ? "Continue" : "Set up payments"}
-              </button>
-            </div>
-          )}
-        </div>
+        {beat === "done" ? (
+          <div className="border-t border-[#f1f2f4]">
+            <Row
+              icon={<Landmark className="h-4 w-4" />}
+              title="Payout account"
+              line={data.payoutDestination?.last4 ? `${data.payoutDestination.bankName || "Bank"} ···· ${data.payoutDestination.last4}${data.payoutDestination.currency ? ` · ${data.payoutDestination.currency.toUpperCase()}` : ""}` : "Bank account on file"}
+              action="Update"
+              onClick={() => openPanel("bank")}
+            />
+            <Row icon={<UserRound className="h-4 w-4" />} title="Account details" line="Name, address and identity" action="Edit" onClick={() => openPanel("details")} />
+          </div>
+        ) : beat === "review" ? (
+          <Empty
+            icon={<Clock className="h-5 w-5" />}
+            title="Your details are being reviewed"
+            line="This usually takes a few minutes. We will email you if anything else is needed."
+          />
+        ) : (
+          <Empty
+            icon={<CreditCard className="h-5 w-5" />}
+            title="Add information to start accepting payments"
+            line={hasAccount ? "Pick up where you left off." : "Takes about five minutes. Everything stays in Storelib."}
+            action={hasAccount ? "Continue setup" : "Add information"}
+            onClick={() => openPanel("setup")}
+          />
+        )}
       </StorelibPaymentsCard>
 
-      {badge === "active" && primaryBal && !compact ? (
-        <section className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4 shadow-sm">
-          <p className="text-[22px] font-semibold tabular-nums text-[#111827]">{money(primaryBal.availableMinor, primaryBal.currency)}</p>
-          <p className="text-[12px] text-[#6b7280]">Available · {money(primaryBal.pendingMinor, primaryBal.currency)} pending</p>
+      {data.badge === "active" && primaryBal && !compact ? (
+        <section className="rounded-2xl border border-[#e5e7eb] bg-white px-5 py-4">
+          <p className="text-[12px] font-medium text-[#6b7280]">Available</p>
+          <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-[#1a1a2e]">{money(primaryBal.availableMinor, primaryBal.currency)}</p>
+          <p className="text-[12px] text-[#6b7280]">{money(primaryBal.pendingMinor, primaryBal.currency)} on the way</p>
         </section>
       ) : null}
 
       {!compact ? statementDescriptorSlot : null}
+      {flow}
     </div>
   )
 }
 
-function PayoutNote({ name, currency }: { name: string; currency: string | null }) {
-  if (!name && !currency) return null
+function Empty({ icon, title, line, action, onClick }: { icon: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void }) {
   return (
-    <div className="mb-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2.5 text-[13px] leading-5 text-[#78350f]">
-      <p className="font-medium text-[#92400e]">Payouts will fail unless this matches.</p>
-      {currency ? <p>Account must be in {currency}.</p> : null}
-      {name ? <p>Account must be in the name {name}.</p> : null}
+    <div className="flex flex-col items-center px-6 pb-6 pt-4 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f3ff] text-[#635bff]">{icon}</span>
+      <h4 className="mt-3 text-[15px] font-semibold text-[#1a1a2e]">{title}</h4>
+      <p className="mt-1 max-w-[340px] text-[13px] leading-5 text-[#6b7280]">{line}</p>
+      {action ? (
+        <button type="button" onClick={onClick} className={cn(primaryDepth, "mt-4 h-10 rounded-xl px-5 text-[14px] max-sm:h-11 max-sm:w-full")}>
+          {action}
+        </button>
+      ) : null}
     </div>
+  )
+}
+
+function Row({ icon, title, line, action, onClick }: { icon: React.ReactNode; title: string; line: string; action: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#fafafb] active:bg-[#f4f4f6] sm:px-5 [&+&]:border-t [&+&]:border-[#f1f2f4]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#eceef1] bg-[#f7f7f8] text-[#6b7280]">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-medium text-[#1a1a2e]">{title}</span>
+        <span className="block truncate text-[12px] text-[#6b7280]">{line}</span>
+      </span>
+      <span className="flex items-center gap-0.5 text-[13px] font-medium text-[#1a1a2e]">
+        {action}
+        <ChevronRight className="h-4 w-4 text-[#9ca3af] transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </button>
   )
 }

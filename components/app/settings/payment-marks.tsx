@@ -9,50 +9,68 @@ export function StripeMark({ className = "h-10 w-10" }: { className?: string }) 
   )
 }
 
+const BADGE = "h-6 w-[38px] shrink-0"
+
 export function VisaMark() {
   return (
-    <svg viewBox="0 8.1 24 7.8" className="h-[14px] w-9" aria-label="Visa" role="img">
-      <path
-        fill="#1a1f71"
-        d="M9.112 8.262L5.97 15.758H3.92L2.374 9.775c-.094-.368-.175-.503-.461-.658C1.447 8.864.677 8.627 0 8.479l.046-.217h3.3a.904.904 0 01.894.764l.817 4.338 2.018-5.102zm8.033 5.049c.008-1.979-2.736-2.088-2.717-2.972.006-.269.262-.555.822-.628a3.66 3.66 0 011.913.336l.34-1.59a5.207 5.207 0 00-1.814-.333c-1.917 0-3.266 1.02-3.278 2.479-.012 1.079.963 1.68 1.698 2.04.756.367 1.01.603 1.006.931-.005.504-.602.725-1.16.734-.975.015-1.54-.263-1.992-.473l-.351 1.642c.453.208 1.289.39 2.156.398 2.037 0 3.37-1.006 3.377-2.564m5.061 2.447H24l-1.565-7.496h-1.656a.883.883 0 00-.826.55l-2.909 6.946h2.036l.405-1.12h2.488zm-2.163-2.656l1.02-2.815.588 2.815zm-8.16-4.84l-1.603 7.496H8.34l1.605-7.496z"
-      />
+    <svg viewBox="0 0 38 24" className={BADGE} role="img" aria-label="Visa">
+      <rect width="38" height="24" rx="4" fill="#1a1f71" />
+      <svg x="6" y="7.5" width="26" height="9" viewBox="0 8.1 24 7.8">
+        <path
+          fill="#fff"
+          d="M9.112 8.262L5.97 15.758H3.92L2.374 9.775c-.094-.368-.175-.503-.461-.658C1.447 8.864.677 8.627 0 8.479l.046-.217h3.3a.904.904 0 01.894.764l.817 4.338 2.018-5.102zm8.033 5.049c.008-1.979-2.736-2.088-2.717-2.972.006-.269.262-.555.822-.628a3.66 3.66 0 011.913.336l.34-1.59a5.207 5.207 0 00-1.814-.333c-1.917 0-3.266 1.02-3.278 2.479-.012 1.079.963 1.68 1.698 2.04.756.367 1.01.603 1.006.931-.005.504-.602.725-1.16.734-.975.015-1.54-.263-1.992-.473l-.351 1.642c.453.208 1.289.39 2.156.398 2.037 0 3.37-1.006 3.377-2.564m5.061 2.447H24l-1.565-7.496h-1.656a.883.883 0 00-.826.55l-2.909 6.946h2.036l.405-1.12h2.488zm-2.163-2.656l1.02-2.815.588 2.815zm-8.16-4.84l-1.603 7.496H8.34l1.605-7.496z"
+        />
+      </svg>
     </svg>
   )
 }
 
 export function MastercardMark() {
   return (
-    <svg viewBox="0 0 32 20" className="h-4 w-7" aria-hidden>
-      <circle cx="12" cy="10" r="7" fill="#eb001b" />
-      <circle cx="20" cy="10" r="7" fill="#f79e1b" />
-      <path d="M16 4.8a7 7 0 0 1 0 10.4 7 7 0 0 1 0-10.4z" fill="#ff5f00" />
+    <svg viewBox="0 0 38 24" className={BADGE} role="img" aria-label="Mastercard">
+      <rect width="38" height="24" rx="4" fill="#1f1f1f" />
+      <circle cx="15" cy="12" r="6.5" fill="#eb001b" />
+      <circle cx="23" cy="12" r="6.5" fill="#f79e1b" />
+      <path d="M19 6.9a6.5 6.5 0 0 1 0 10.2 6.5 6.5 0 0 1 0-10.2z" fill="#ff5f00" />
     </svg>
   )
 }
 
 export function AmexMark() {
   return (
-    <svg viewBox="0 0 36 16" className="h-4 w-9" aria-hidden>
-      <rect width="36" height="16" rx="2" fill="#2e77bc" />
-      <text x="18" y="11.5" textAnchor="middle" fill="#fff" fontFamily="Arial, Helvetica, sans-serif" fontSize="8" fontWeight="700">AMEX</text>
+    <svg viewBox="0 0 38 24" className={BADGE} role="img" aria-label="American Express">
+      <rect width="38" height="24" rx="4" fill="#1f72cd" />
+      <text x="19" y="15.5" textAnchor="middle" fill="#fff" fontFamily="Arial, Helvetica, sans-serif" fontSize="8.5" fontWeight="800" letterSpacing="0.3">AMEX</text>
     </svg>
   )
 }
 
 export function ApplePayMark() {
   return (
-    <svg viewBox="0 0 40 16" className="h-4 w-10" aria-hidden>
-      <text x="0" y="12" fill="#111" fontFamily="Arial, Helvetica, sans-serif" fontSize="11" fontWeight="600"> Pay</text>
-      <path fill="#111" d="M8.2 3.2c.4-.5.7-1.2.6-1.9-.6 0-1.3.4-1.7.9-.4.4-.7 1.1-.6 1.8.7 0 1.3-.3 1.7-.8zM8.8 4.4c-.9-.1-1.7.5-2.1.5s-1.1-.5-1.9-.5c-1 0-1.8.6-2.3 1.4-1 1.7-.3 4.3.7 5.7.5.7 1 1.4 1.8 1.4.7 0 1-.4 1.8-.4s1.1.4 1.9.4 1.2-.7 1.7-1.4c.5-.8.7-1.5.7-1.6-.1 0-1.4-.5-1.4-2.1 0-1.3 1.1-1.9 1.1-2 .-.6-1.1-1.1-1.6-1.2-.4-.1-.4-.1-.4 0z" />
+    <svg viewBox="0 0 38 24" className={BADGE} role="img" aria-label="Apple Pay">
+      <rect x="0.5" y="0.5" width="37" height="23" rx="3.5" fill="#fff" stroke="#d1d5db" />
+      <svg x="6.5" y="6" width="9" height="11" viewBox="0 0 384 512">
+        <path
+          fill="#000"
+          d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"
+        />
+      </svg>
+      <text x="16.5" y="15.8" fill="#000" fontFamily="-apple-system, 'Helvetica Neue', Arial, sans-serif" fontSize="8.5" fontWeight="600">Pay</text>
     </svg>
   )
 }
 
 export function GooglePayMark() {
   return (
-    <svg viewBox="0 0 40 16" className="h-4 w-10" aria-hidden>
-      <text x="12" y="12" fill="#5f6368" fontFamily="Arial, Helvetica, sans-serif" fontSize="11" fontWeight="600">Pay</text>
-      <path fill="#4285f4" d="M7.8 8.2v2.3h3.8c-.2 1-1.2 2.8-3.8 2.8A4.3 4.3 0 1 1 7.8 4.7c1.2 0 2 .5 2.5 1l1.7-1.6A7 7 0 0 0 7.8 1a7.2 7.2 0 1 0 0 14.4c4.2 0 6.9-2.9 6.9-7 0-.5 0-.8-.1-1.2H7.8z" />
+    <svg viewBox="0 0 38 24" className={BADGE} role="img" aria-label="Google Pay">
+      <rect x="0.5" y="0.5" width="37" height="23" rx="11.5" fill="#fff" stroke="#d1d5db" />
+      <svg x="6" y="7" width="10" height="10" viewBox="0 0 48 48">
+        <path fill="#4285f4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.8-2.1 5.1-4.4 6.7v5.5h7.1c4.2-3.8 6.6-9.5 6.6-16.2z" />
+        <path fill="#34a853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.6-3.9-12.3-9.1H4.4v5.7C8 41.1 15.4 46 24 46z" />
+        <path fill="#fbbc05" d="M11.7 28.2c-.4-1.3-.7-2.7-.7-4.2s.3-2.9.7-4.2v-5.7H4.4A21.9 21.9 0 0 0 2 24c0 3.5.8 6.9 2.4 9.9l7.3-5.7z" />
+        <path fill="#ea4335" d="M24 10.7c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.4 2 8 6.9 4.4 14.1l7.3 5.7c1.7-5.2 6.6-9.1 12.3-9.1z" />
+      </svg>
+      <text x="17.5" y="15.8" fill="#3c4043" fontFamily="Arial, Helvetica, sans-serif" fontSize="8.5" fontWeight="600">Pay</text>
     </svg>
   )
 }

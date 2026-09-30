@@ -79,7 +79,7 @@ export type { CreatorRef, HubOverview } from "./hub-types"
 import type { CreatorRef, HubOverview } from "./hub-types"
 import { PaymentsProblem } from "./errors"
 import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
-import { beginStripeOnboarding, disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
+import { attachStripeBank, beginStripeOnboarding, disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
 import type { PayoutProfileInput } from "./stripe/payout-profile"
 import { snapshotFromCreatorRow, stripeRowReady } from "./stripe/facts"
 
@@ -300,6 +300,12 @@ export async function beginOnboarding(
 export async function submitPayoutProfile(creator: CreatorRef, input: PayoutProfileInput) {
   if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
   return submitStripePayoutProfile(creator, input)
+}
+
+export async function addStripeBank(creator: CreatorRef, token: string) {
+  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
+  await attachStripeBank(creator, token)
+  return overview(creator)
 }
 
 export async function disconnectPayoutAccount(creator: CreatorRef) {

@@ -3095,8 +3095,6 @@ export function PayoutsClient({
       </div>
     );
   }
-  const showPaymentsCard = !paymentsReady || manageRequest > 0;
-
   /*
     ONE NOTICE AT A TIME, the most pressing first: an open dispute, a
     balance below zero, a payout that failed, a Stripe setup left unfinished,
@@ -3260,7 +3258,8 @@ export function PayoutsClient({
       {slot === null && actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
       {actionsInBar}
 
-      {showPaymentsCard ? <StorelibPaymentsInline compact manageRequest={manageRequest} /> : null}
+      {/* Update bank and the notices open the setup panel over the dashboard: no second card. */}
+      {manageRequest > 0 ? <StorelibPaymentsInline panelOnly manageRequest={manageRequest} /> : null}
 
       {notice}
 

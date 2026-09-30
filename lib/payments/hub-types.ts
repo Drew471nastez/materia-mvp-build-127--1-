@@ -33,7 +33,14 @@ export interface HubOverview {
   payoutsEnabled?: boolean
   prefill?: { firstName: string; lastName: string; country: string | null }
   /** Live name and currency from Stripe. Currency is never guessed from the country. */
-  payoutHint?: { accountName: string; currency: string | null } | null
+  payoutHint?: {
+    accountName: string
+    currency: string | null
+    country: string | null
+    holderType: "individual" | "company"
+    /** False for an older Express account, where Stripe's own form still adds the bank. */
+    inStorelib: boolean
+  } | null
   /** Where the creator is in setup. Requirement codes stay on the server. */
   beat?: OnboardingBeat
   statusLabel?: string

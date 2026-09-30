@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs"
 import { paymentsSetupErrorMessage } from "@/lib/payments/stripe/setup-errors"
 import {
-  bankCollection,
+  bankFormat,
+  bankIssues,
+  bankTokenFields,
+  ibanValid,
+  type BankInput,
   beatFromRequirements,
   creatorStatusLabel,
   parsePersonal,
@@ -36,9 +40,22 @@ const open = {
 check("an individual is not asked for a company", personalFields("individual").join(",") === "firstName,lastName")
 check("a business is asked for the business name", personalFields("business").join(",") === "businessName,firstName,lastName")
 
-for (const country of ["RO", "US", "GB", "DE", "JP", "AQ"]) {
-  check(`${country} bank collection stays inside Stripe`, bankCollection() === "embedded")
+const formats: Record<string, string> = { RO: "iban", DE: "iban", FR: "iban", US: "us", GB: "gb", AU: "au", CA: "ca", NZ: "nz", JP: "other", AQ: "other" }
+for (const [country, format] of Object.entries(formats)) {
+  check(`${country} bank form is ${format}`, bankFormat(country) === format)
 }
+check("a real Romanian IBAN passes the checksum", ibanValid("RO49AAAA1B31007593840000"))
+check("a mistyped IBAN fails the checksum", !ibanValid("RO49AAAA1B31007593840001"))
+const roBank: BankInput = { format: "iban", holder: "Andrei Radu", iban: "RO49 AAAA 1B31 0075 9384 0000", ibanConfirm: "RO49AAAA1B31007593840000", owns: true }
+check("a Romanian IBAN account is ready", Object.keys(bankIssues(roBank, "RO")).length === 0)
+check("an IBAN from another country is refused", bankIssues({ ...roBank, iban: "DE89370400440532013000", ibanConfirm: "DE89370400440532013000" }, "RO").iban === "Use an IBAN from your country.")
+check("IBANs that differ are refused", bankIssues({ ...roBank, ibanConfirm: "RO49AAAA1B31007593840001" }, "RO").ibanConfirm === "The IBANs do not match.")
+check("the account must be confirmed as theirs", bankIssues({ ...roBank, owns: false }, "RO").owns !== undefined)
+const usBank: BankInput = { format: "us", holder: "Ada Lovelace", routing: "110000000", account: "000123456789", accountConfirm: "000123456789", owns: true }
+check("a US account needs routing and account", Object.keys(bankIssues(usBank, "US")).length === 0 && bankIssues({ ...usBank, routing: "12" }, "US").routing !== undefined)
+check("a US token has routing and account", JSON.stringify(bankTokenFields(usBank)) === JSON.stringify({ account_number: "000123456789", routing_number: "110000000" }))
+check("a Canadian token joins transit and institution", bankTokenFields({ format: "ca", holder: "A B", account: "1234567", transit: "11000", institution: "000", owns: true }).routing_number === "11000-000")
+check("an IBAN token carries the IBAN only", JSON.stringify(bankTokenFields(roBank)) === JSON.stringify({ account_number: "RO49AAAA1B31007593840000" }))
 
 const ro = parsePersonal({ kind: "individual", country: "ro", firstName: "Andrei", lastName: "Radu", businessName: "Ignored SRL" })
 check("Romania individual keeps the person only", ro.ok === true && ro.ok && ro.value.country === "RO" && ro.value.businessName === null && ro.value.kind === "individual")
@@ -83,7 +100,15 @@ check(
 )
 check(
   "documents in review are under review",
-  beatFromRequirements({ ...open, detailsSubmitted: true, pendingVerification: ["individual.verification.document"] }) === "review",
+  beatFromRequirements({ ...open, detailsSubmitted: true, hasBank: true, pendingVerification: ["individual.verification.document"] }) === "review",
+)
+check(
+  "details in review with no bank yet goes to the bank",
+  beatFromRequirements({ ...open, detailsSubmitted: true, pendingVerification: ["individual.verification.document"] }) === "bank",
+)
+check(
+  "only the bank left, before Stripe marks the details sent, is the bank step",
+  beatFromRequirements({ ...open, currentlyDue: ["external_account"] }) === "bank",
 )
 check(
   "extra verification after submit is not finished",
@@ -113,12 +138,18 @@ const steps = readFileSync("lib/payments/stripe/onboarding-steps.ts", "utf8")
 check("payout currency is not hardcoded", !/\b(EUR|RON|USD|GBP)\b/.test(steps))
 
 const ui = readFileSync("components/app/settings/storelib-payments-settings.tsx", "utf8")
+const flow = readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8")
 const embedded = readFileSync("components/app/settings/stripe-connect-embedded.tsx", "utf8")
-const card = readFileSync("components/app/settings/storelib-payments-card.tsx", "utf8")
-check("the form does not collect a bank number", !/iban|routing|accountNumber|passport/i.test(ui))
-check("setup calls begin", ui.includes('"begin"'))
-check("verification stays in the page", ui.includes("StripeConnectEmbedded") && !/window\.open|dashboard\.stripe/i.test(ui))
-check("steps are the three short ones", /Personal info/.test(card) && /Verification/.test(card) && /Bank account/.test(card))
+const connect = readFileSync("lib/payments/stripe/connect.ts", "utf8")
+check("the card holds no bank or identity fields", !/iban|routing|accountNumber|passport/i.test(ui))
+check("bank numbers become a Stripe token in the browser; only the token is sent", /createToken\("bank_account"/.test(flow) && /post<Overview>\("bank", \{ token: token\.id \}\)/.test(flow))
+check("the server takes a bank token and never a number", /\^btok_/.test(connect) && /external_account: token/.test(connect))
+check("setup calls begin", flow.includes('"begin"'))
+check("verification stays in the page", flow.includes("StripeConnectEmbedded") && !/window\.open|dashboard\.stripe/i.test(flow + ui))
+check("steps are the three short ones", /\["Account", "Verify", "Bank"\]/.test(flow))
+check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))
+check("those accounts' embedded forms never open Stripe's sign-in window", /disable_stripe_user_authentication: true/.test(connect) && /external_account_collection: false/.test(connect))
+check("an unfinished Express account is replaced, not duplicated", /storelibOnly: true/.test(connect) && /stripe\.accounts\.del\(replacing\)/.test(connect))
 check("the embed uses the server key", embedded.includes("publishableKey") && !embedded.includes("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"))
 check("session secrets are not stored", !/localStorage|sessionStorage/.test(embedded))
 

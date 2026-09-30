@@ -82,6 +82,15 @@ function accountIsGone(error: unknown): boolean {
   return e.type === "StripeInvalidRequestError" && (e.code === "resource_missing" || e.code === "account_invalid" || e.statusCode === 404)
 }
 
+/**
+ * Storelib collects the requirements (through the embedded form) and there
+ * is no Stripe dashboard, so Stripe does not ask the creator to sign in to
+ * Stripe in a separate window.
+ */
+export function runsInStorelib(account: Pick<Stripe.Account, "controller"> | null | undefined): boolean {
+  return account?.controller?.requirement_collection === "application"
+}
+
 export async function ensureStripeAccount(
   creator: PaymentsCreatorRef,
   input: { kind: "individual" | "business"; country: string },
@@ -92,10 +101,15 @@ export async function ensureStripeAccount(
   if (!row) throw new PaymentsProblem("Creator profile not found.", 404)
 
   let accountId = row.stripe_account_id
+  let replacing: string | null = null
   if (accountId) {
     try {
-      await stripe.accounts.retrieve(accountId)
-      return accountId
+      const existing = await stripe.accounts.retrieve(accountId)
+      /* An unfinished Express account would make Stripe open its sign-in window.
+         Nothing has been sent on it, so it is swapped for one that stays in Storelib. */
+      const untouched = !existing.details_submitted && !existing.charges_enabled && !existing.payouts_enabled
+      if (runsInStorelib(existing) || !untouched) return accountId
+      replacing = accountId
     } catch (error) {
       if (!accountIsGone(error)) {
         console.error("[stripe connect] account check", error instanceof Error ? error.message : error)
@@ -125,7 +139,20 @@ export async function ensureStripeAccount(
   }
 
   try {
-    const account = await createExpressAccount(shared, country)
+    let account: Stripe.Account
+    if (replacing) {
+      try {
+        account = await createConnectedAccount(shared, country, { storelibOnly: true })
+      } catch (error) {
+        console.error("[stripe connect] kept the existing account", stripeErrorMessage(error).replace(/\s+/g, " ").slice(0, 180))
+        return replacing
+      }
+      await stripe.accounts.del(replacing).catch((error) => {
+        console.error("[stripe connect] old account not removed", stripeErrorMessage(error).slice(0, 160))
+      })
+    } else {
+      account = await createConnectedAccount(shared, country)
+    }
     accountId = account.id
 
     const admin = createAdminClient()
@@ -187,10 +214,16 @@ async function platformCountry(): Promise<string> {
  * Destination charges only need `transfers` on the connected account.
  * A creator outside the platform country is a cross-border recipient:
  * card_payments is not requested, and the recipient agreement is.
- * Losses are acknowledged on the create call so a missing dashboard
- * checkbox does not block Romania and other payout countries.
+ *
+ * First choice: Storelib collects the requirements and there is no Stripe
+ * dashboard, so setup never leaves Storelib. If the platform is not set up
+ * for that, Express accounts follow, as before.
  */
-async function createExpressAccount(shared: Stripe.AccountCreateParams, country: string): Promise<Stripe.Account> {
+async function createConnectedAccount(
+  shared: Stripe.AccountCreateParams,
+  country: string,
+  options: { storelibOnly?: boolean } = {},
+): Promise<Stripe.Account> {
   const platform = await platformCountry().catch(() => "")
   const crossBorder = platform !== "" && country !== platform
   const full: Stripe.AccountCreateParams.Capabilities = {
@@ -198,6 +231,12 @@ async function createExpressAccount(shared: Stripe.AccountCreateParams, country:
     transfers: { requested: true },
   }
   const transfersOnly: Stripe.AccountCreateParams.Capabilities = { transfers: { requested: true } }
+  const inStorelib: Stripe.AccountCreateParams.Controller = {
+    stripe_dashboard: { type: "none" },
+    fees: { payer: "application" },
+    losses: { payments: "application" },
+    requirement_collection: "application",
+  }
   const acknowledged: Stripe.AccountCreateParams.Controller = {
     stripe_dashboard: { type: "express" },
     fees: { payer: "application" },
@@ -218,7 +257,10 @@ async function createExpressAccount(shared: Stripe.AccountCreateParams, country:
   }
   const merchant = { ...shared, capabilities: full }
 
-  const attempts: Stripe.AccountCreateParams[] = crossBorder
+  const storelibAttempts: Stripe.AccountCreateParams[] = crossBorder
+    ? [{ ...recipient, controller: inStorelib }]
+    : [{ ...merchant, controller: inStorelib }, { ...recipient, controller: inStorelib }]
+  const expressAttempts: Stripe.AccountCreateParams[] = crossBorder
     ? [
         { ...recipient, controller: acknowledged },
         { ...recipient, controller: expressDefault },
@@ -230,6 +272,7 @@ async function createExpressAccount(shared: Stripe.AccountCreateParams, country:
         { ...recipient, controller: acknowledged },
         { ...recipient, type: "express" },
       ]
+  const attempts = options.storelibOnly ? storelibAttempts : [...storelibAttempts, ...expressAttempts]
 
   let last: unknown
   for (const params of attempts) {
@@ -385,23 +428,24 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
 
+  const account = await stripe.accounts.retrieve(row.stripe_account_id)
+  /* Storelib's own bank form adds the payout account, so the embedded forms
+     never open Stripe's sign-in window. Express accounts cannot turn it off. */
+  const features = runsInStorelib(account)
+    ? { external_account_collection: false, disable_stripe_user_authentication: true }
+    : { external_account_collection: true }
+
   const components: Stripe.AccountSessionCreateParams.Components = {}
   if (purpose === "onboarding") {
-    components.account_onboarding = {
-      enabled: true,
-      features: { external_account_collection: true },
-    }
+    components.account_onboarding = { enabled: true, features }
   } else if (purpose === "management") {
-    components.account_management = { enabled: true, features: { external_account_collection: true } }
-    components.account_onboarding = {
-      enabled: true,
-      features: { external_account_collection: true },
-    }
+    components.account_management = { enabled: true, features }
+    components.account_onboarding = { enabled: true, features }
   } else if (purpose === "payouts") {
-    components.payouts = { enabled: true }
-    components.balances = { enabled: true }
+    components.payouts = { enabled: true, features: { ...features, instant_payouts: false, standard_payouts: false, edit_payout_schedule: false } }
+    components.balances = { enabled: true, features: { ...features, instant_payouts: false, standard_payouts: false, edit_payout_schedule: false } }
   } else {
-    components.balances = { enabled: true }
+    components.balances = { enabled: true, features: { ...features, instant_payouts: false, standard_payouts: false, edit_payout_schedule: false } }
   }
 
   const session = await stripe.accountSessions.create({
@@ -452,16 +496,56 @@ export async function beginStripeOnboarding(
   await syncStripeAccount(creator.id, "creator")
 }
 
-export async function payoutFacts(accountId: string): Promise<{ accountName: string; currency: string | null } | null> {
+export async function payoutFacts(
+  accountId: string,
+): Promise<{ accountName: string; currency: string | null; country: string | null; holderType: "individual" | "company"; inStorelib: boolean } | null> {
   try {
     const account = await stripe.accounts.retrieve(accountId)
     const person = [account.individual?.first_name, account.individual?.last_name].filter(Boolean).join(" ").trim()
     const company = account.company?.name?.trim() || ""
     const accountName = account.business_type === "company" ? company || person : person || company
-    return { accountName, currency: account.default_currency ? account.default_currency.toUpperCase() : null }
+    return {
+      accountName,
+      currency: account.default_currency ? account.default_currency.toUpperCase() : null,
+      country: account.country ? account.country.toUpperCase() : null,
+      holderType: account.business_type === "company" ? "company" : "individual",
+      inStorelib: runsInStorelib(account),
+    }
   } catch {
     return null
   }
+}
+
+/**
+ * A bank token made by Stripe.js in the creator's browser. The account
+ * number goes from the browser to Stripe; Storelib only ever holds the token.
+ * The new account becomes the default and older bank accounts are removed.
+ */
+export async function attachStripeBank(creator: PaymentsCreatorRef, token: string) {
+  if (!/^btok_[A-Za-z0-9]{6,}$/.test(token)) throw new PaymentsProblem("The bank details did not come through. Try again.")
+  const row = await readCreatorStripe(creator.id)
+  if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
+  const accountId = row.stripe_account_id
+
+  let added: Stripe.ExternalAccount
+  try {
+    added = await stripe.accounts.createExternalAccount(accountId, { external_account: token, default_for_currency: true })
+  } catch (error) {
+    console.error("[stripe connect] bank", stripeErrorMessage(error).replace(/[A-Z]{2}\d{2}[A-Z0-9]{10,}/gi, "[iban]").slice(0, 180))
+    throw new PaymentsProblem(bankProblem(error))
+  }
+
+  try {
+    const existing = await stripe.accounts.listExternalAccounts(accountId, { object: "bank_account", limit: 20 })
+    for (const old of existing.data) {
+      if (old.id === added.id) continue
+      await stripe.accounts.deleteExternalAccount(accountId, old.id).catch(() => undefined)
+    }
+  } catch (error) {
+    console.error("[stripe connect] old bank cleanup", stripeErrorMessage(error).slice(0, 160))
+  }
+
+  await syncStripeAccount(creator.id, "creator")
 }
 
 export async function submitStripePayoutProfile(creator: PaymentsCreatorRef, input: PayoutProfileInput) {
