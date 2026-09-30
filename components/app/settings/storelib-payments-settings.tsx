@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { AlertCircle } from "lucide-react"
 import type { StorelibPaymentsBadge } from "@/lib/payments/stripe/creator-badge"
 import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
@@ -37,10 +38,18 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 export function StorelibPaymentsSettings({
   statementDescriptorSlot,
   compact,
+  manageRequest = 0,
 }: {
   statementDescriptorSlot?: React.ReactNode
   compact?: boolean
+  /** Raised by the page (Payouts' Update bank) to open the account form from outside. */
+  manageRequest?: number
 }) {
+  const router = useRouter()
+  const cardRef = React.useRef<HTMLDivElement>(null)
+  const wasOpen = React.useRef<boolean | null>(null)
+  /* Setup and its checks run on Stripe's onboarding form; changing the bank once active on its account form. */
+  const [embedPurpose, setEmbedPurpose] = React.useState<"stripe_onboarding" | "stripe_management">("stripe_onboarding")
   const [data, setData] = React.useState<Overview | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -82,6 +91,24 @@ export function StorelibPaymentsSettings({
     if (data.prefill.country) setCountryName(countryLabel(data.prefill.country))
     if (data.kind === "business" || data.kind === "individual") setKind(data.kind)
   }, [data])
+
+  /* Checkout just opened for this creator: the page around the card (Payouts) redraws as the dashboard. */
+  React.useEffect(() => {
+    if (!data) return
+    if (wasOpen.current === false && data.checkoutOpen) router.refresh()
+    wasOpen.current = data.checkoutOpen
+  }, [data, router])
+
+  /* Payouts asked for the bank: open the account form in the card and bring it into view. */
+  React.useEffect(() => {
+    if (manageRequest > 0 && data?.beat === "done") {
+      setError(null)
+      setEmbedPurpose("stripe_management")
+      setEmbedKey((k) => k + 1)
+      setPhase("embed")
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [manageRequest, data?.beat])
 
   const badge = (data?.badge ?? "setup") as StorelibPaymentsBadge
   const beat: OnboardingBeat = data?.beat ?? "personal"
@@ -165,13 +192,14 @@ export function StorelibPaymentsSettings({
   const showDisconnect = hasAccount && !data.chargesEnabled && phase === "idle"
   const openEmbed = () => {
     setError(null)
+    setEmbedPurpose("stripe_onboarding")
     setEmbedStep(beat === "bank" ? "bank" : "verification")
     setEmbedKey((k) => k + 1)
     setPhase("embed")
   }
 
   return (
-    <div data-payments-hub="" data-badge={badge} className="mx-auto w-full max-w-[560px] space-y-3">
+    <div ref={cardRef} data-payments-hub="" data-badge={badge} className="mx-auto w-full max-w-[560px] scroll-mt-24 space-y-3">
       {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -257,7 +285,7 @@ export function StorelibPaymentsSettings({
               <PayoutNote name={hint?.accountName ?? ""} currency={hint?.currency ?? null} />
               <StripeConnectEmbedded
                 key={embedKey}
-                purpose="stripe_onboarding"
+                purpose={embedPurpose}
                 onStep={setEmbedStep}
                 onError={setError}
                 onExit={async () => {
@@ -268,7 +296,19 @@ export function StorelibPaymentsSettings({
             </div>
           ) : beat === "done" ? (
             <p className="pb-1 text-center text-[13px] text-[#6b7280]">
-              {data.payoutDestination?.last4 ? `Bank ···· ${data.payoutDestination.last4}` : "Payouts are on."}
+              {data.payoutDestination?.last4 ? `Bank ···· ${data.payoutDestination.last4}` : "Payouts are on."}{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null)
+                  setEmbedPurpose("stripe_management")
+                  setEmbedKey((k) => k + 1)
+                  setPhase("embed")
+                }}
+                className="cursor-pointer font-medium text-[#111827] underline underline-offset-2"
+              >
+                Change bank
+              </button>
             </p>
           ) : beat === "review" ? (
             <p className="pb-1 text-center text-[13px] text-[#6b7280]">Under review.</p>

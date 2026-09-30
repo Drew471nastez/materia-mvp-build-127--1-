@@ -74,7 +74,6 @@ import {
   Clock,
   Copy,
   Download,
-  ExternalLink,
   FileText,
   Landmark,
   ListFilter,
@@ -1031,7 +1030,6 @@ function BalanceDetails({
   bank,
   bankLoading,
   onUpdateBank,
-  accountLinkLoading,
   payoutsEnabled,
   canCashOut,
   cashingOut,
@@ -1048,7 +1046,6 @@ function BalanceDetails({
   bank: { bankName: string | null; last4: string; currency: string } | null;
   bankLoading: boolean;
   onUpdateBank: () => void;
-  accountLinkLoading: boolean;
   payoutsEnabled: boolean;
   canCashOut: boolean;
   cashingOut: boolean;
@@ -1104,10 +1101,9 @@ function BalanceDetails({
             <button
               type="button"
               onClick={onUpdateBank}
-              disabled={accountLinkLoading}
               className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2 disabled:opacity-60"
             >
-              {accountLinkLoading ? "Opening Stripe" : bank ? "Update bank" : "Add a bank account"}
+              {bank ? "Update bank" : "Add a bank account"}
             </button>
           </p>
         )}
@@ -2406,11 +2402,9 @@ function friendlyRequirements(keys: string[]): string[] {
  * where it used to be up to three separate banners stacked above it. With no
  * bank at all the card says so and its button is Add bank.
  */
-function PayoutMethodCard() {
+function PayoutMethodCard({ onManage }: { onManage: () => void }) {
   const [data, setData] = useState<PayoutMethodData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const { toast } = useToast();
 
   const loadData = useCallback(() => {
     fetch("/api/stripe/payout-method")
@@ -2435,31 +2429,8 @@ function PayoutMethodCard() {
     };
   }, [loadData]);
 
-  const openManageSettings = async () => {
-    setActionLoading(true);
-    try {
-      const r = await fetch("/api/stripe/account-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "update" }),
-      });
-      const json = await r.json();
-      if (!r.ok) throw new Error(json.error || "Failed to open account settings");
-      if (json.url) {
-        window.open(json.url, "_blank", "noopener,noreferrer");
-      } else {
-        throw new Error("No URL returned");
-      }
-    } catch (e: any) {
-      toast({
-        title: "Could not open Stripe",
-        description: e?.message || "Try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  /* The Storelib Payments card on this page opens Stripe's account form in place. */
+  const openManageSettings = onManage;
 
   const bank = data?.bankAccount;
   const needsBank = data && !bank;
@@ -2511,10 +2482,9 @@ function PayoutMethodCard() {
           <button
             type="button"
             onClick={openManageSettings}
-            disabled={actionLoading}
             className={cn(secondaryDepth, "h-11 w-full rounded-xl px-4 text-[14px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}
           >
-            {actionLoading ? "Opening Stripe" : notice.action}
+            {notice.action}
           </button>
         </div>
       ) : null}
@@ -2549,10 +2519,9 @@ function PayoutMethodCard() {
         <button
           type="button"
           onClick={openManageSettings}
-          disabled={actionLoading || loading}
+          disabled={loading}
           className={cn(secondaryDepth, "h-11 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
         >
-          {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5 text-[#6b7280]" />}
           {needsBank ? "Add bank" : "Update bank"}
         </button>
       </div>
@@ -2771,6 +2740,8 @@ export function PayoutsClient({
   const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null);
   const [refundOnOpen, setRefundOnOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  /* Raised by a notice or Update bank: opens the Storelib Payments card's account form on this page. */
+  const [manageRequest, setManageRequest] = useState(0);
   const [balanceReady, setBalanceReady] = useState(false);
   const [availableBalance, setAvailableBalance] = useState(
     initialData.availableBalance,
@@ -2825,32 +2796,6 @@ export function PayoutsClient({
   const { toast } = useToast();
 
   // One account link opener, for the notice, the Details panel and its bank line
-  const [accountLinkLoading, setAccountLinkLoading] = useState(false);
-  const openAccountLink = useCallback(async (type: "onboarding" | "update" = "update") => {
-    setAccountLinkLoading(true);
-    try {
-      const r = await fetch("/api/stripe/account-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
-      });
-      const json = await r.json();
-      if (!r.ok) throw new Error(json.error || "Failed to open account settings");
-      if (json.url) {
-        window.open(json.url, "_blank", "noopener,noreferrer");
-      } else {
-        throw new Error("No URL returned");
-      }
-    } catch (e: any) {
-      toast({
-        title: "Could not open Stripe",
-        description: e?.message || "Try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setAccountLinkLoading(false);
-    }
-  }, [toast]);
 
   const refreshBalances = useCallback(async () => {
     setRefreshKey((k) => k + 1);
@@ -3143,20 +3088,27 @@ export function PayoutsClient({
   const actionsInBar = slot && actions ? createPortal(actions, slot) : null;
 
   /*
-    STORELIB PAYMENTS, ON THIS PAGE TOO. No account yet: the Storelib
-    Payments card is the page, and setup happens right here. With an
-    account, the card leads the page and everyone keeps the whole
-    dashboard under it: the balance, Cash out (payouts are manual, so it is
-    the only way money leaves) and the history. While the account is not
-    ready the card carries what to do, so the setup notices below stand down.
+    SETUP FIRST, THE DASHBOARD AFTER, as the big platforms do it. Until
+    payments are set up there is nothing to cash out and nothing to chart,
+    so the page is the Storelib Payments card alone: no Export, no balance,
+    no revenue, no sales. The moment the account is ready the card refreshes
+    the page and this becomes the dashboard (the balance, Cash out, which is
+    the only way money leaves since payouts are manual, and the history).
+
+    A creator who already has money here and whose account then needs
+    something keeps the dashboard, with the card on top carrying what to do.
+    Once ready the card steps aside; Update bank brings it back in place.
   */
-  if (!hasStripe) {
+  const hasMoney =
+    initialData.totalEarnings > 0 || initialData.availableBalance > 0 || initialData.pendingAmount > 0 || (initialData.paidOut ?? 0) > 0;
+  if (!hasStripe || (!paymentsReady && !hasMoney)) {
     return (
       <div aria-label="Set up payouts" data-payouts-setup="" className="mx-auto mt-2 w-full max-w-[560px]">
         <StorelibPaymentsInline compact />
       </div>
     );
   }
+  const showPaymentsCard = !paymentsReady || manageRequest > 0;
 
   /*
     ONE NOTICE AT A TIME, the most pressing first: an open dispute, a
@@ -3204,7 +3156,7 @@ export function PayoutsClient({
           tone="critical"
           title="Your last payout failed"
           body="The money is back in your available balance. Check your bank details, then cash out again."
-          action={{ label: "Update bank", onClick: () => openAccountLink("update"), busy: accountLinkLoading }}
+          action={{ label: "Update bank", onClick: () => setManageRequest((n) => n + 1) }}
         />
       );
     }
@@ -3218,7 +3170,7 @@ export function PayoutsClient({
             tone="attention"
             title="Finish setting up Stripe to get paid"
             body="Stripe needs your details, your identity and a bank account before it can pay you."
-            action={{ label: "Finish setup", onClick: () => openAccountLink("onboarding"), busy: accountLinkLoading }}
+            action={{ label: "Finish setup", onClick: () => setManageRequest((n) => n + 1) }}
           />
         );
       }
@@ -3235,7 +3187,7 @@ export function PayoutsClient({
             tone="attention"
             title={hasPastDue ? "Verify your identity to keep getting paid" : "Stripe needs to verify your identity"}
             body="Stripe asks for this to keep your payouts turned on."
-            action={{ label: "Verify", onClick: () => openAccountLink("update"), busy: accountLinkLoading }}
+            action={{ label: "Verify", onClick: () => setManageRequest((n) => n + 1) }}
           />
         );
       }
@@ -3258,7 +3210,7 @@ export function PayoutsClient({
           <Notice
             tone="attention"
             title="Finish setting up Stripe to cash out"
-            action={{ label: "Finish setup", onClick: () => openAccountLink("onboarding"), busy: accountLinkLoading }}
+            action={{ label: "Finish setup", onClick: () => setManageRequest((n) => n + 1) }}
           />
         );
       }
@@ -3321,9 +3273,7 @@ export function PayoutsClient({
       {slot === null && actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
       {actionsInBar}
 
-      <div className="mx-auto w-full max-w-[560px]">
-        <StorelibPaymentsInline compact />
-      </div>
+      {showPaymentsCard ? <StorelibPaymentsInline compact manageRequest={manageRequest} /> : null}
 
       {notice}
 
@@ -3575,7 +3525,7 @@ export function PayoutsClient({
       </section>
 
       {/* The bank it all goes to */}
-      <PayoutMethodCard />
+      <PayoutMethodCard onManage={() => setManageRequest((n) => n + 1)} />
 
       <BalanceDetails
         open={detailsOpen}
@@ -3588,8 +3538,10 @@ export function PayoutsClient({
         holdItemsLoading={holdItemsLoading}
         bank={detailsBank}
         bankLoading={detailsLoading}
-        onUpdateBank={() => openAccountLink("update")}
-        accountLinkLoading={accountLinkLoading}
+        onUpdateBank={() => {
+          closeDetails();
+          setManageRequest((n) => n + 1);
+        }}
         payoutsEnabled={payoutsEnabled}
         canCashOut={canCashOut}
         cashingOut={withdraw.loading}
