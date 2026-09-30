@@ -136,6 +136,17 @@ export async function POST(request: Request) {
     refund = { id: stripeRefund.id, status: stripeRefund.status ?? null, currency: stripeRefund.currency ?? null }
     }
 
+    /* Stripe has not confirmed it yet (or refused it): nothing is marked,
+       revoked or emailed here. refund.updated applies it once it succeeds.
+       Airwallex refunds keep their own flow (lib/payments/refunds). */
+    if (!onAirwallex && (refund.status === "failed" || refund.status === "canceled")) {
+      return NextResponse.json({ error: "The refund didn't go through. Nothing was changed. Try again, or contact support." }, { status: 402 })
+    }
+    if (!onAirwallex && refund.status !== "succeeded") {
+      await stripe.refunds.update(refund.id, { metadata: { settled_by: "webhook" } }).catch((e) => console.error("[Refund] pending tag failed:", e instanceof Error ? e.message : "unknown"))
+      return NextResponse.json({ success: true, pending: true, refundId: refund.id, status: refund.status, amount: refundAmountCents })
+    }
+
     /* The row, at once, with the running total: the page reads it next. */
     const refundedAt = new Date().toISOString()
     const refundedTotal = Math.min(order.amount_cents || 0, alreadyRefunded + refundAmountCents)

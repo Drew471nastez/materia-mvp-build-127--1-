@@ -460,6 +460,7 @@ export function OrdersClient(props: OrdersClientProps) {
         })
         if (!res.ok) throw new Error(data?.error || "The refund did not go through.")
         const cents = typeof data?.amount === "number" ? data.amount : action.amountCents
+        if (data?.pending) return `Refund of ${formatMoney(cents)} is processing. The order updates once it goes through.`
         patchRows([action.line.id], {
           status: "refunded",
           refund_amount_cents: cents,

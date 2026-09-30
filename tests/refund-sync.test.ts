@@ -76,7 +76,8 @@ check("a refund comes out of pending only while its sale is still held", /const 
   check("and that event is written before the balance moves", marker > 0 && balance > 0 && marker < balance, { marker, balance })
 }
 check("a refund from the Orders page is known by its own metadata, not by a row it may not have written yet",
-  /const startedHere = named === row\.id && typeof refund\.metadata\?\.creator_id === "string"/.test(sync))
+  /const startedHere = named === row\.id && typeof refund\.metadata\?\.creator_id === "string" && refund\.metadata\?\.settled_by !== "webhook"/.test(sync))
+check("a refund Stripe had not confirmed on the Orders page is finished here, told once", /settled_by: "webhook"/.test(read("app/api/stripe/refund/route.ts")) && /\.filter\(\(r\) => r\.status === "succeeded"\)/.test(sync))
 check("and it neither rewrites the amount nor sends a second email", /if \(startedHere\) return/.test(sync) && /if \(!startedHere\) touched\.push/.test(sync))
 check("the refund email is given cents", /refundAmount: touched\.reduce\(\(n, t\) => n \+ t\.cents, 0\)/.test(sync) && !/\/ 100,?\s*\n?\s*currency/.test(sync))
 check("the Orders page tags its refunds so the webhook can tell", /metadata: \{\s*\n\s*order_id: orderId,\s*\n\s*creator_id: creator\.id,/.test(read("app/api/stripe/refund/route.ts")))

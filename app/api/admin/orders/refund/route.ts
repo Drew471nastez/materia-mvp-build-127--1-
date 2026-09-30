@@ -118,6 +118,11 @@ export async function POST(request: NextRequest) {
       { idempotencyKey: plan.idempotencyKey },
     )
     refundId = refund.id
+    if (refund.status === "failed" || refund.status === "canceled") {
+      return NextResponse.json({ error: "Stripe did not complete the refund. Nothing was changed." }, { status: 402 })
+    }
+    /* Not confirmed yet: refund.updated marks the order when it succeeds. */
+    if (refund.status !== "succeeded") return NextResponse.json({ ok: true, pending: true, refundId })
   } catch (error) {
     const e = error as { type?: string; raw?: { message?: string } }
     /* Stripe's own sentence for a refund it refused is useful; anything else stays in the log. */

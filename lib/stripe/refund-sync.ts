@@ -62,7 +62,8 @@ async function refundsOf(stripe: Stripe, charge: Stripe.Charge): Promise<Stripe.
   const inline = charge.refunds?.data
   const list = inline && inline.length > 0 ? inline : (await stripe.refunds.list({ charge: charge.id, limit: 100 })).data
   return list
-    .filter((r) => r.status === "succeeded" || r.status === "pending")
+    /* Only money that has actually gone back. A pending refund is applied when refund.updated says it succeeded. */
+    .filter((r) => r.status === "succeeded")
     .sort((a, b) => a.created - b.created)
 }
 
@@ -283,7 +284,8 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
         from the refund, not from the row, because this event can arrive
         before the page has finished writing it.
       */
-      const startedHere = named === row.id && typeof refund.metadata?.creator_id === "string"
+      /* Unless Stripe had not confirmed it there: then this is the only place it is finished. */
+      const startedHere = named === row.id && typeof refund.metadata?.creator_id === "string" && refund.metadata?.settled_by !== "webhook"
       const already = before(row.id)
       let outcome: "recorded" | "duplicate" | "no-seller"
       try {

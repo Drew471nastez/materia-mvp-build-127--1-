@@ -1123,6 +1123,21 @@ async function handleStripeEvent(request: Request) {
   // REFUND EVENTS — sync refunds initiated from Stripe Dashboard
   // ============================================================================
 
+  /* A refund that was pending when it was made: applied once Stripe says it went through. */
+  if (event.type === "refund.updated" || event.type === "charge.refund.updated") {
+    const refund = event.data.object as Stripe.Refund
+    if (refund.status !== "succeeded" || !refund.charge) return NextResponse.json({ received: true })
+    try {
+      const charge = await stripe.charges.retrieve(typeof refund.charge === "string" ? refund.charge : refund.charge.id)
+      const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
+      console.log("[Webhook] refund settled", refund.id, "applied:", done.applied, "already applied:", done.skipped)
+    } catch (error) {
+      console.error("[Webhook] Error applying settled refund:", error instanceof Error ? error.message : error)
+      return NextResponse.json({ error: "Refund not recorded yet" }, { status: 500 })
+    }
+    return NextResponse.json({ received: true })
+  }
+
   if (event.type === "charge.refunded") {
     /* Every refund of the charge, split across the order rows it belongs to
        and applied to each once: lib/stripe/refund-sync.ts has the why. */
