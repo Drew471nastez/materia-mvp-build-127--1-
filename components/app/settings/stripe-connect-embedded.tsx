@@ -44,9 +44,10 @@ export function StripeConnectEmbedded({
           publishableKey,
           fetchClientSecret: () => fetchClientSecret(purpose),
           appearance: {
-            overlays: "dialog",
+            overlays: "never",
             variables: {
-              colorPrimary: "#8b5cf6",
+              colorPrimary: "#1a1a2e",
+              colorBackground: "#ffffff",
               fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
               borderRadius: "12px",
             },
@@ -75,10 +76,20 @@ export function StripeConnectEmbedded({
   }, [purpose])
 
   return (
-    <div className="mt-4 border-t border-[#f0f1f3] pt-4">
-      {!ready ? <WaitingArea className="h-24" size={18} label="Loading verification" /> : null}
-      <div ref={host} className={cn("min-h-[320px]", !ready && "h-0 overflow-hidden")} />
-      <div className="mt-3">
+    <div className="border-t border-[#f0f1f3] pt-4">
+      <div className="mb-3">
+        <h4 className="text-[14px] font-semibold text-[#1a1a2e]">Verify your details</h4>
+        <p className="mt-0.5 text-[12px] text-[#6b7280]">Identity, business information and your bank account</p>
+      </div>
+      <div className="relative min-h-[420px] rounded-xl border border-[#e5e7eb] bg-[#fafafb]">
+        {!ready ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <WaitingArea className="h-24" size={18} label="Loading verification" />
+          </div>
+        ) : null}
+        <div ref={host} className={cn("min-h-[420px] p-1", !ready && "invisible")} />
+      </div>
+      <div className="mt-3 flex justify-end">
         <button
           type="button"
           className="inline-flex h-9 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb]"

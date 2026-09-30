@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { AlertCircle, Check } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { WaitingArea } from "@/components/ui/activity-spinner"
 import { CountryPicker } from "@/components/app/settings/country-picker"
 import { countryOf } from "@/lib/account/country"
 import type { HubOverview } from "@/lib/payments/hub-types"
 import { BADGE_COPY, type StorelibPaymentsBadge } from "@/lib/payments/stripe/creator-badge"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
+import { StorelibPaymentsCard } from "@/components/app/settings/storelib-payments-card"
 import { cn } from "@/lib/utils"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
 
@@ -16,13 +17,6 @@ const PRIMARY =
   "inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl bg-[#1a1a2e] px-4 sm:px-5 text-[13px] sm:text-[14px] font-semibold text-white transition-colors hover:bg-[#26262b] disabled:opacity-60 cursor-pointer disabled:cursor-default"
 const SECONDARY =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb] disabled:opacity-60 cursor-pointer disabled:cursor-default"
-
-const BADGE_CLASS: Record<StorelibPaymentsBadge, string> = {
-  setup: "bg-[#f3f4f6] text-[#4b5563]",
-  review: "bg-[#fef3c7] text-[#92400e]",
-  action: "bg-[#ffedd5] text-[#c2410c]",
-  active: "bg-[#d1fae5] text-[#047857]",
-}
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/payments/${path}`, {
@@ -36,19 +30,31 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
   return data
 }
 
-export function StorelibPaymentsSettings({ statementDescriptorSlot }: { statementDescriptorSlot?: React.ReactNode }) {
+export function StorelibPaymentsSettings({
+  statementDescriptorSlot,
+  compact,
+}: {
+  statementDescriptorSlot?: React.ReactNode
+  compact?: boolean
+}) {
   const [data, setData] = React.useState<Overview | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
+  const [refreshing, setRefreshing] = React.useState(false)
   const [form, setForm] = React.useState<null | "stripe_onboarding" | "stripe_management">(null)
+  const [showKindForm, setShowKindForm] = React.useState(false)
 
   const load = React.useCallback(async (how: "overview" | "refresh" = "overview") => {
     try {
+      if (how === "refresh") setRefreshing(true)
       const next = how === "refresh" ? await call<Overview>("refresh", {}) : await call<Overview>("overview")
       setData(next)
       setError(null)
+      if (next.stage === "set_up") setShowKindForm(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load payments.")
+    } finally {
+      setRefreshing(false)
     }
   }, [])
 
@@ -61,8 +67,18 @@ export function StorelibPaymentsSettings({ statementDescriptorSlot }: { statemen
     return () => document.removeEventListener("visibilitychange", onVisible)
   }, [load])
 
-  const openSetup = () => setForm("stripe_onboarding")
+  const badge = (data?.badge ?? "setup") as StorelibPaymentsBadge
+  const badgeCopy = BADGE_COPY[badge]
+
   const openManage = () => setForm(data?.badge === "active" ? "stripe_management" : "stripe_onboarding")
+
+  const startSetupFlow = () => {
+    if (data?.stage === "set_up" || !data?.kind) {
+      setShowKindForm(true)
+      return
+    }
+    openManage()
+  }
 
   if (!data) {
     return error ? (
@@ -71,7 +87,7 @@ export function StorelibPaymentsSettings({ statementDescriptorSlot }: { statemen
         <button type="button" className={cn(SECONDARY, "mt-3")} onClick={() => void load()}>Try again</button>
       </div>
     ) : (
-      <WaitingArea className="h-32" size={18} label="Loading payments" />
+      <WaitingArea className="h-[280px]" size={18} label="Loading payments" />
     )
   }
 
@@ -84,8 +100,6 @@ export function StorelibPaymentsSettings({ statementDescriptorSlot }: { statemen
     )
   }
 
-  const badge = data.badge ?? "setup"
-  const badgeCopy = BADGE_COPY[badge]
   const primaryBal = data.balances[0]
 
   return (
@@ -97,27 +111,28 @@ export function StorelibPaymentsSettings({ statementDescriptorSlot }: { statemen
         </div>
       ) : null}
 
-      <section className={CARD}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">Storelib Payments</h3>
-              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", BADGE_CLASS[badge])}>{badgeCopy.label}</span>
+      <StorelibPaymentsCard
+        badge={badge}
+        checkoutOpen={data.checkoutOpen}
+        onRefresh={() => void load("refresh")}
+        refreshing={refreshing}
+        onPrimaryAction={badge === "setup" && !showKindForm && !form ? startSetupFlow : undefined}
+        primaryDisabled={!!busy}
+        footer={
+          badge !== "setup" && badgeCopy.cta && !form ? (
+            <div className="flex justify-end border-t border-[#f0f1f3] pt-4">
+              <button type="button" className={PRIMARY} disabled={!!busy} onClick={() => openManage()}>
+                {badgeCopy.cta}
+              </button>
             </div>
-            <p className="mt-1 text-[13px] text-[#6b7280]">{badgeCopy.line}</p>
-            <p className="mt-1 text-[12px] text-[#9ca3af]">{data.checkoutOpen ? "Checkout is on for your products." : "Checkout stays off until setup is finished."}</p>
-          </div>
-          {badgeCopy.cta && data.stage !== "set_up" ? (
-            <button type="button" className={PRIMARY} disabled={!!busy} onClick={() => openManage()}>
-              {badgeCopy.cta}
-            </button>
-          ) : null}
-        </div>
-
-        {data.stage === "set_up" ? (
+          ) : null
+        }
+      >
+        {showKindForm && data.stage === "set_up" ? (
           <SetUp
             onDone={(next) => {
               setData(next)
+              setShowKindForm(false)
               setForm("stripe_onboarding")
             }}
             busy={busy}
@@ -137,17 +152,13 @@ export function StorelibPaymentsSettings({ statementDescriptorSlot }: { statemen
             onError={setError}
           />
         ) : null}
-      </section>
+      </StorelibPaymentsCard>
 
-      <section className={CARD}>
-        <h4 className="text-[13px] font-semibold text-[#1a1a2e]">Payment methods</h4>
-        <ul className="mt-2 space-y-1.5 text-[13px] text-[#374151]">
-          <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#047857]" /> Cards</li>
-          <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#047857]" /> Apple Pay</li>
-          <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#047857]" /> Google Pay</li>
-          <li className="text-[#9ca3af]">PayPal · Coming soon</li>
-        </ul>
-      </section>
+      {!compact ? (
+        <section className={CARD}>
+          <p className="text-[13px] text-[#9ca3af]">PayPal · Coming soon</p>
+        </section>
+      ) : null}
 
       {badge === "active" && primaryBal ? (
         <section className={CARD}>
@@ -155,20 +166,12 @@ export function StorelibPaymentsSettings({ statementDescriptorSlot }: { statemen
           <p className="mt-1 text-[22px] font-semibold tabular-nums text-[#1a1a2e]">{money(primaryBal.availableMinor, primaryBal.currency)}</p>
           <p className="text-[12px] text-[#6b7280]">Available · {money(primaryBal.pendingMinor, primaryBal.currency)} pending</p>
           {data.payoutDestination?.last4 ? (
-            <p className="mt-2 text-[13px] text-[#374151]">
-              Bank account ·••• {data.payoutDestination.last4}
-            </p>
+            <p className="mt-2 text-[13px] text-[#374151]">Bank account ·••• {data.payoutDestination.last4}</p>
           ) : null}
         </section>
       ) : null}
 
-      {statementDescriptorSlot}
-
-      {data.stage !== "set_up" && !form && badge !== "active" && badgeCopy.cta ? (
-        <div className="flex justify-end">
-          <button type="button" className={PRIMARY} onClick={() => openManage()}>{badgeCopy.cta}</button>
-        </div>
-      ) : null}
+      {!compact ? statementDescriptorSlot : null}
     </div>
   )
 }
@@ -205,7 +208,7 @@ function SetUp({
   }
 
   return (
-    <div className="mt-4 space-y-3.5 border-t border-[#f0f1f3] pt-4">
+    <div className="space-y-3.5 border-t border-[#f0f1f3] pt-4">
       <fieldset>
         <legend className="mb-1.5 text-[13px] font-medium text-[#374151]">You are selling as</legend>
         <div role="radiogroup" className="inline-flex rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-0.5">
@@ -233,11 +236,11 @@ function SetUp({
         <CountryPicker id="payments-country" value={countryName} onChange={setCountryName} />
       </div>
       <label className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-5 text-[#4b5563]">
-        <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#8b5cf6]" />
+        <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" />
         <span>I agree to Storelib Payments and to our payment partner collecting the verification details needed to pay me.</span>
       </label>
       <button type="button" className={PRIMARY} disabled={busy !== null} onClick={() => void start()}>
-        {busy === "start" ? "Starting" : "Set up payments"}
+        {busy === "start" ? "Starting" : "Continue"}
       </button>
     </div>
   )

@@ -1377,21 +1377,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             <div className="space-y-4 sm:space-y-6">
               {/* Purple announcement bar: Connect Stripe (only after status confirmed) */}
               {!stripeStatus.connected && (
-                <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm transition-all duration-300">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#2d2d35] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm">
                   <div className="flex items-center gap-3 min-w-0">
                     <Wallet className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white">
-                      <span className="sm:hidden">Connect payouts to get paid</span>
-                      <span className="hidden sm:inline">Connect your payouts to get paid for your sales.</span>
+                      <span className="sm:hidden">Set up Storelib Payments</span>
+                      <span className="hidden sm:inline">Set up Storelib Payments to accept sales and receive payouts.</span>
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={connectStripe}
-                    disabled={stripeBusy !== null}
-                    className="shrink-0 h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-lg hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer disabled:opacity-60"
+                    onClick={() => handleTabChange("payments")}
+                    className="shrink-0 h-9 px-5 text-[13px] font-semibold text-[#1a1a2e] bg-white rounded-lg hover:bg-[#f3f4f6] transition-colors shadow-sm cursor-pointer"
                   >
-                    {stripeBusy === "connect" ? "Connecting..." : "Connect"}
+                    Set up
                   </button>
                 </div>
               )}

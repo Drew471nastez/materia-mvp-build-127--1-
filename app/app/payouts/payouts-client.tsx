@@ -55,6 +55,7 @@ import React, {
   type ButtonHTMLAttributes,
 } from "react";
 import { PayoutsSimpleView } from "./payouts-simple-view";
+import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
 import { createPortal } from "react-dom";
 import {
   AreaChart,
@@ -3144,18 +3145,9 @@ export function PayoutsClient({
 
   if (!paymentsReady) {
     return (
-      <section aria-label="Set up payouts" data-payouts-setup="" className={cn(card, "mt-2 px-6 py-10 sm:py-12")}>
-        <h2 className="text-[16px] font-semibold text-[#1a1a2e]">Set up payouts</h2>
-        <p className="mt-1 max-w-[420px] text-[14px] leading-5 text-[#6b7280] sm:text-[13px]">
-          Verify your details and add a bank account to receive your earnings.
-        </p>
-        <a
-          href="/app/settings?tab=payments"
-          className={cn(primaryDepth, "mt-5 inline-flex h-11 items-center rounded-xl px-5 text-[14px] sm:h-9 sm:rounded-lg sm:px-4 sm:text-[13px]")}
-        >
-          Continue setup
-        </a>
-      </section>
+      <div aria-label="Set up payouts" data-payouts-setup="" className="mt-2">
+        <StorelibPaymentsInline compact />
+      </div>
     );
   }
 
