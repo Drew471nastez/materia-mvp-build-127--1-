@@ -1,4 +1,5 @@
 /** Payment marks drawn in the page. No remote images. */
+import { cn } from "@/lib/utils"
 
 export function StripeMark({ className = "h-10 w-10" }: { className?: string }) {
   return (
@@ -11,6 +12,22 @@ export function StripeMark({ className = "h-10 w-10" }: { className?: string }) 
         />
       </svg>
     </svg>
+  )
+}
+
+/** Header lockup: Stripe mark and Storelib Payments / Powered by Stripe. */
+export function StorelibPaymentsBrand({ className, size = "md" }: { className?: string; size?: "md" | "lg" }) {
+  const mark = size === "lg" ? "h-11 w-11 sm:h-12 sm:w-12" : "h-10 w-10"
+  const title = size === "lg" ? "text-[16px] sm:text-[17px]" : "text-[15px]"
+  const sub = size === "lg" ? "text-[12px] sm:text-[13px]" : "text-[12px]"
+  return (
+    <div className={cn("flex min-w-0 items-center gap-3", className)}>
+      <StripeMark className={cn(mark, "shrink-0")} />
+      <div className="min-w-0">
+        <p className={cn("truncate font-semibold leading-5 text-[#1a1a2e]", title)}>Storelib Payments</p>
+        <p className={cn("truncate leading-4 text-[#6b7280]", sub)}>Powered by Stripe</p>
+      </div>
+    </div>
   )
 }
 

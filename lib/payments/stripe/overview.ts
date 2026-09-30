@@ -38,13 +38,14 @@ function mergeSnapshotFromRow(
   return snapshotFromCreatorRow(row)
 }
 
-export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> {
+export async function stripeOverview(creator: CreatorRef, options?: { sync?: boolean }): Promise<HubOverview> {
   const configured = stripeConfigured()
   const publishableKey = stripePublishableKey()
   const rowBefore = await readCreatorStripe(creator.id)
 
   let snapshot = mergeSnapshotFromRow(rowBefore)
-  if (rowBefore?.stripe_account_id) {
+  const shouldSync = options?.sync !== false
+  if (rowBefore?.stripe_account_id && shouldSync) {
     try {
       snapshot = await syncStripeAccount(creator.id, "system")
     } catch (e) {

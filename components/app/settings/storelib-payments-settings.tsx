@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { AlertCircle, AlertTriangle, ChevronRight, Clock, CreditCard, Landmark, UserRound } from "lucide-react"
 import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { StorelibPaymentsCard, StorelibPaymentsCardSkeleton } from "@/components/app/settings/storelib-payments-card"
 import { PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
@@ -111,7 +112,7 @@ export function StorelibPaymentsSettings({
 
   if (!data) {
     return (
-      <div className="mx-auto flex w-full max-w-[720px] items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
+      <div className={cn(PAYMENTS_SURFACE, "flex items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4 sm:px-6")}>
         <AlertCircle className="h-4 w-4 shrink-0 text-[#be123c]" />
         <p className="flex-1 text-[14px] text-[#1a1a2e]">{error}</p>
         <button type="button" className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")} onClick={() => void load()}>
@@ -123,7 +124,7 @@ export function StorelibPaymentsSettings({
 
   if (!data.configured) {
     return (
-      <div className="mx-auto w-full max-w-[720px] rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5">
+      <div className={cn(PAYMENTS_SURFACE, "rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5 sm:px-6")}>
         <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Storelib Payments</h3>
         <p className="mt-1 text-[13px] text-[#6b7280]">Payments are not switched on yet.</p>
       </div>
@@ -154,7 +155,7 @@ export function StorelibPaymentsSettings({
   const primaryBal = data.balances[0]
 
   return (
-    <div data-payments-hub="" data-badge={data.badge} className="mx-auto w-full max-w-[720px] space-y-3">
+    <div data-payments-hub="" data-badge={data.badge} className={cn(PAYMENTS_SURFACE, "space-y-3")}>
       {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-[13px] text-[#9f1239]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -206,7 +207,6 @@ export function StorelibPaymentsSettings({
           />
         ) : (
           <Empty
-            icon={<CreditCard className="h-5 w-5" />}
             title="Add information to start accepting payments"
             line={hasAccount ? "Pick up where you left off." : "Takes about five minutes. Everything stays in Storelib."}
             action={hasAccount ? "Continue setup" : "Add information"}
@@ -229,14 +229,14 @@ export function StorelibPaymentsSettings({
   )
 }
 
-function Empty({ icon, title, line, action, onClick }: { icon: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void }) {
+function Empty({ icon, title, line, action, onClick }: { icon?: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void }) {
   return (
-    <div className="flex flex-col items-center px-6 pb-6 pt-4 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f3ff] text-[#635bff]">{icon}</span>
-      <h4 className="mt-3 text-[15px] font-semibold text-[#1a1a2e]">{title}</h4>
-      <p className="mt-1 max-w-[340px] text-[13px] leading-5 text-[#6b7280]">{line}</p>
+    <div className="border-t border-[#f1f2f4] px-6 py-10 text-center sm:px-10 sm:py-12">
+      {icon ? <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f3ff] text-[#635bff]">{icon}</span> : null}
+      <h4 className={cn("text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]", icon ? "mt-3" : "")}>{title}</h4>
+      <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{line}</p>
       {action ? (
-        <button type="button" onClick={onClick} className={cn(primaryDepth, "mt-4 h-10 rounded-xl px-5 text-[14px] max-sm:h-11 max-sm:w-full")}>
+        <button type="button" onClick={onClick} className={cn(primaryDepth, "mt-6 h-11 rounded-xl px-6 text-[14px] sm:min-w-[200px] max-sm:w-full")}>
           {action}
         </button>
       ) : null}

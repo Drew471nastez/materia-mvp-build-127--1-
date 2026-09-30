@@ -123,6 +123,7 @@ export function CountryPicker({ value, onChange, id }: { value: string; onChange
       fieldLeading={code ? <CountryFlag code={code} /> : null}
       leading={(choice, near) => <CountryFlag code={choice.value} near={near} />}
       uniform
+      scrollClassName="max-h-[min(440px,min(52dvh,560px))]"
     />
   )
 }

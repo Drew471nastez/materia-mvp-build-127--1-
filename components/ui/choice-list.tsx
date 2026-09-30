@@ -145,6 +145,7 @@ export function ChoiceList({
   uniform = false,
   autoFocus = false,
   searchInHeader = false,
+  scrollClassName,
 }: {
   choices: Choice[]
   value: string | null
@@ -161,6 +162,8 @@ export function ChoiceList({
   autoFocus?: boolean
   /** On a phone the search is drawn by the sheet's header instead (ChoiceSearch). */
   searchInHeader?: boolean
+  /** Taller scroll area for long lists (countries). */
+  scrollClassName?: string
 }) {
   const [query, setQuery] = React.useState("")
   return (
@@ -174,6 +177,7 @@ export function ChoiceList({
       leading={leading}
       uniform={uniform}
       query={query}
+      scrollClassName={scrollClassName}
       search={searchInHeader ? null : <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={label} compact={compact} autoFocus={autoFocus} />}
     />
   )
@@ -243,6 +247,7 @@ function ChoiceListBody({
   uniform = false,
   query,
   search,
+  scrollClassName,
 }: {
   choices: Choice[]
   value: string | null
@@ -254,6 +259,7 @@ function ChoiceListBody({
   uniform?: boolean
   query: string
   search: React.ReactNode
+  scrollClassName?: string
 }) {
   const shown = React.useMemo(() => (query.trim() ? choices.filter((c) => matches(c, query)) : choices), [choices, query])
   /*
@@ -302,7 +308,7 @@ function ChoiceListBody({
         aria-label={label}
         data-choice-scroll={compact ? undefined : ""}
         data-choice-whole={windowed ? undefined : ""}
-        className={cn(compact ? "px-2 pb-3" : "max-h-[320px] overflow-y-auto overscroll-contain px-1.5 pb-1.5")}
+        className={cn(compact ? "px-2 pb-3" : "overflow-y-auto overscroll-contain px-1.5 pb-1.5", compact ? "" : scrollClassName ?? "max-h-[320px]")}
       >
         {!query.trim() && lead ? lead(compact) : null}
         {/* One keyed list in both states, so the rows drawn first are kept, not drawn again, when the rest arrive. */}
@@ -359,6 +365,7 @@ export function ChoiceSheet({
   lead,
   leading,
   uniform = false,
+  scrollClassName,
 }: {
   open: boolean
   onClose: () => void
@@ -370,6 +377,7 @@ export function ChoiceSheet({
   lead?: (compact: boolean) => React.ReactNode
   leading?: (choice: Choice, near: boolean) => React.ReactNode
   uniform?: boolean
+  scrollClassName?: string
 }) {
   const [query, setQuery] = React.useState("")
   const [prevOpen, setPrevOpen] = React.useState(open)
@@ -400,7 +408,7 @@ export function ChoiceSheet({
       }
     >
       <div data-choice-sheet="" ref={listRef}>
-        <ChoiceListBody choices={choices} value={value} onPick={onPick} compact label={title} lead={lead} leading={leading} uniform={uniform} query={query} search={null} />
+        <ChoiceListBody choices={choices} value={value} onPick={onPick} compact label={title} lead={lead} leading={leading} uniform={uniform} query={query} search={null} scrollClassName={scrollClassName ?? "max-h-[min(440px,52dvh)]"} />
       </div>
     </BottomSheet>
   )
@@ -426,6 +434,7 @@ export function ChoicePicker({
   fieldMuted = false,
   name,
   id,
+  scrollClassName,
 }: {
   title: string
   choices: Choice[] | (() => Choice[])
@@ -447,6 +456,7 @@ export function ChoicePicker({
   name: string
   /** The field's id, for a <label htmlFor> beside it. */
   id?: string
+  scrollClassName?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const phone = usePhoneWidth()
@@ -478,7 +488,7 @@ export function ChoicePicker({
     return (
       <>
         {trigger}
-        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} />
+        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} />
       </>
     )
   }
@@ -499,7 +509,7 @@ export function ChoicePicker({
           centerChecked(root)
         }}
       >
-        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} />
+        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} />
       </PopoverContent>
     </Popover>
   )

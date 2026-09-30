@@ -14,9 +14,10 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Check, ChevronLeft, FileText, Info, Landmark, Lock, ShieldCheck, Upload, X } from "lucide-react"
+import { Check, ChevronLeft, FileText, Info, Landmark, Lock, Upload, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { BirthDateField } from "@/components/app/settings/birth-date-field"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { countryLabel, countryOf } from "@/lib/account/country"
@@ -94,7 +95,22 @@ function usePhone(): boolean {
 
 const EXIT_MS = 220
 
-function Panel({ open, phone, onClose, label, children }: { open: boolean; phone: boolean; onClose: () => void; label: string; children: React.ReactNode }) {
+function Panel({
+  open,
+  phone,
+  compact,
+  onClose,
+  label,
+  children,
+}: {
+  open: boolean
+  phone: boolean
+  /** Shorter desktop panel for the Verify step. */
+  compact?: boolean
+  onClose: () => void
+  label: string
+  children: React.ReactNode
+}) {
   const [shown, setShown] = React.useState(open)
   const [leaving, setLeaving] = React.useState(false)
 
@@ -159,7 +175,8 @@ function Panel({ open, phone, onClose, label, children }: { open: boolean; phone
         aria-modal="true"
         aria-label={label}
         className={cn(
-          "relative flex max-h-[min(820px,calc(100dvh-48px))] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
+          "relative flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
+          compact ? "max-h-[min(640px,calc(100dvh-48px))] max-w-[min(640px,calc(100vw-48px))]" : "max-h-[min(760px,calc(100dvh-48px))] max-w-[min(680px,calc(100vw-48px))]",
           leaving ? "animate-out fade-out-0 zoom-out-95" : "animate-in fade-in-0 zoom-in-95",
         )}
       >
@@ -394,9 +411,16 @@ export function PaymentsSetupFlow({
   const title = mode === "bank" ? (data.payoutDestination ? "Update bank account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payments"
   const onBack = mode === "setup" && step > 0 ? () => go((step - 1) as Step) : onClose
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
+  const panelCompact = !phone && mode === "setup" && step === 1
+
+  React.useEffect(() => {
+    if (!open || step !== 1 || mode !== "setup") return
+    if (data.verification && data.payoutHint?.inStorelib) return
+    void post<Overview>("prepare", {}).then(onData).catch(() => undefined)
+  }, [open, step, mode, data.verification, data.payoutHint?.inStorelib, onData])
 
   return (
-    <Panel open={open} phone={phone} onClose={onClose} label={title}>
+    <Panel open={open} phone={phone} compact={panelCompact} onClose={onClose} label={title}>
       {phone ? (
         <div className="shrink-0 border-b border-[#f1f2f4] bg-white pt-[env(safe-area-inset-top)]">
           <div className="flex h-14 items-center gap-1 px-2">
@@ -442,10 +466,11 @@ export function PaymentsSetupFlow({
             <AccountStep
               data={data}
               onBack={onClose}
-              onDone={(next) => {
-                onData(next)
-                go(stepOfBeat(next.beat ?? "verification") === 2 ? 2 : 1)
-              }}
+            onDone={(next) => {
+              onData(next)
+              go(stepOfBeat(next.beat ?? "verification") === 2 ? 2 : 1)
+              void post<Overview>("prepare", {}).then(onData).catch(() => undefined)
+            }}
             />
           </div>
         ) : step === 1 ? (
@@ -512,7 +537,11 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
         <div>
           <div className="mb-1.5 flex items-center gap-1.5">
             <span className="text-[13px] font-medium text-[#1a1a2e]">Country</span>
-            <InfoTip label="Country">Where you live or your business is registered. It sets your payout currency and can&apos;t be changed later.</InfoTip>
+            <InfoTip label="Country">
+              {hasAccount
+                ? "Locked once your payments account is created. It sets your payout currency and tax rules. Disconnect below and start over if you chose the wrong country."
+                : "Where you live or your business is registered. It sets your payout currency and cannot be changed after you continue."}
+            </InfoTip>
           </div>
           {hasAccount && data.payoutHint?.country ? (
             <div className="flex h-11 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-[#f9fafb] px-3.5 text-[14px] text-[#1a1a2e] sm:h-10 sm:rounded-lg">
@@ -545,7 +574,7 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
           <Reveal open={kind === "business"}>
             <div className="px-[3px] pb-[3px] pt-5">
               <Field label="Legal business name" error={issue("businessName")} tip="The registered name of your company, exactly as on its official papers.">
-                <input className={cn(FIELD, issue("businessName") && FIELD_BAD)} value={businessName} tabIndex={kind === "business" ? undefined : -1} autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
+                <input className={cn(FIELD, issue("businessName") && FIELD_BAD)} value={businessName} placeholder="Legal business name" tabIndex={kind === "business" ? undefined : -1} autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
               </Field>
             </div>
           </Reveal>
@@ -553,10 +582,10 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
 
         <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
           <Field label="First name" error={issue("firstName")} tip={kind === "business" ? "The first name of the person running the business, as on their ID." : "Your first name exactly as on your passport or ID card."}>
-            <input className={cn(FIELD, issue("firstName") && FIELD_BAD)} value={firstName} autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
+            <input className={cn(FIELD, issue("firstName") && FIELD_BAD)} value={firstName} placeholder="First name" autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
           </Field>
           <Field label="Last name" error={issue("lastName")} tip="Your last name exactly as on your ID, including any second last name.">
-            <input className={cn(FIELD, issue("lastName") && FIELD_BAD)} value={lastName} autoComplete="family-name" onBlur={() => mark("lastName")} onChange={(e) => setLastName(e.target.value)} />
+            <input className={cn(FIELD, issue("lastName") && FIELD_BAD)} value={lastName} placeholder="Last name" autoComplete="family-name" onBlur={() => mark("lastName")} onChange={(e) => setLastName(e.target.value)} />
           </Field>
         </div>
       </div>
@@ -584,9 +613,20 @@ function stageOf(view: StripeVerificationView | null | undefined): Exclude<Verif
   return "next"
 }
 
+function verifyBoot(data: Overview): { stage: VerifyStage; view: StripeVerificationView | null } {
+  const view = data.verification ?? null
+  if (view && data.payoutHint?.inStorelib) {
+    const s = stageOf(view)
+    if (s === "next") return { stage: "loading", view }
+    return { stage: s, view }
+  }
+  return { stage: "loading", view }
+}
+
 function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: (next: Overview) => void; onBack: () => void; onDone: (next: Overview) => void }) {
-  const [stage, setStage] = React.useState<VerifyStage>("loading")
-  const [view, setView] = React.useState<StripeVerificationView | null>(data.verification ?? null)
+  const boot = React.useMemo(() => verifyBoot(data), [data])
+  const [stage, setStage] = React.useState<VerifyStage>(boot.stage)
+  const [view, setView] = React.useState<StripeVerificationView | null>(boot.view)
   const [error, setError] = React.useState<string | null>(null)
   const [embedKey, setEmbedKey] = React.useState(0)
 
@@ -602,17 +642,24 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
   )
 
   const prepare = React.useCallback(async () => {
-    setStage("loading")
     setError(null)
+    if (data.verification && data.payoutHint?.inStorelib) {
+      const s = stageOf(data.verification)
+      if (s === "next") onDone(data)
+      else setStage(s)
+      return
+    }
+    setStage("loading")
     try {
       take(await post<Overview>("prepare", {}))
     } catch (e) {
       setError(safe(e instanceof Error ? e.message : "Verification can't open right now."))
       setStage("failed")
     }
-  }, [take])
+  }, [data, onDone, take])
 
   React.useEffect(() => {
+    if (boot.stage !== "loading") return
     void prepare()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -728,18 +775,15 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
 
   return (
     <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
-      <div className="flex-1 space-y-5 px-5 sm:px-6">
+      <div className="flex-1 space-y-4 px-5 sm:px-6">
         {intro ?? (
-          <div className="flex items-start gap-3 rounded-xl bg-[#f7f7f8] px-3.5 py-3">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1a1a2e]" />
-            <p className="text-[13px] leading-5 text-[#374151]">Financial rules require us to confirm who gets paid. This takes about a minute.</p>
-          </div>
+          <p className="text-[13px] leading-5 text-[#6b7280]">Confirm a few details. This usually takes about a minute.</p>
         )}
         <ErrorLine message={error} />
 
         {has("dob") ? (
           <Field label="Date of birth" error={issue("dob")} tip="Confirms you're 18 or older. It must match the date on your ID.">
-            <input type="date" max={today} min="1900-01-01" autoComplete="bday" {...bind("dob")} className={cn(bind("dob").className, "appearance-none [&::-webkit-date-and-time-value]:text-left")} />
+            <BirthDateField value={form.dob ?? ""} max={today} invalid={!!issue("dob")} onChange={(v) => { setForm((f) => ({ ...f, dob: v })); setTouched((t) => ({ ...t, dob: true })) }} />
           </Field>
         ) : null}
 
@@ -749,19 +793,19 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
               <input autoComplete="address-line1" placeholder="Street and number" {...bind("line1")} />
             </Field>
             <Field label="Apartment, suite, floor" optional>
-              <input autoComplete="address-line2" {...bind("line2")} />
+              <input autoComplete="address-line2" placeholder="Apartment or suite" {...bind("line2")} />
             </Field>
             <div className="grid grid-cols-[minmax(0,1fr)_116px] gap-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:gap-4">
               <Field label="City" error={issue("city")}>
-                <input autoComplete="address-level2" {...bind("city")} />
+                <input autoComplete="address-level2" placeholder="City" {...bind("city")} />
               </Field>
               <Field label="Postal code" error={issue("postalCode")}>
-                <input autoComplete="postal-code" autoCapitalize="characters" {...bind("postalCode")} />
+                <input autoComplete="postal-code" autoCapitalize="characters" placeholder="Postal code" {...bind("postalCode")} />
               </Field>
             </div>
             {has("state") ? (
               <Field label={country === "US" ? "State" : "State or region"} error={issue("state")}>
-                <input autoComplete="address-level1" {...bind("state")} />
+                <input autoComplete="address-level1" placeholder={country === "US" ? "State" : "Region"} {...bind("state")} />
               </Field>
             ) : null}
           </div>
@@ -775,13 +819,13 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
 
         {has("idNumber") ? (
           <Field label={idCopy.label} error={issue("idNumber")} tip={idCopy.tip}>
-            <input inputMode={country === "US" || country === "RO" ? "numeric" : "text"} autoComplete="off" spellCheck={false} className={cn(bind("idNumber").className, "tabular-nums")} value={form.idNumber ?? ""} onChange={bind("idNumber").onChange} onBlur={bind("idNumber").onBlur} />
+            <input inputMode={country === "US" || country === "RO" ? "numeric" : "text"} autoComplete="off" spellCheck={false} placeholder={idCopy.label} className={cn(bind("idNumber").className, "tabular-nums")} value={form.idNumber ?? ""} onChange={bind("idNumber").onChange} onBlur={bind("idNumber").onBlur} />
           </Field>
         ) : null}
 
         {has("ssnLast4") ? (
           <Field label="Last 4 of your SSN" error={issue("ssnLast4")} tip="Only the last four digits of your Social Security number. Sent to Stripe only.">
-            <input inputMode="numeric" maxLength={4} autoComplete="off" className={cn(bind("ssnLast4").className, "tabular-nums")} value={form.ssnLast4 ?? ""} onChange={bind("ssnLast4").onChange} onBlur={bind("ssnLast4").onBlur} />
+            <input inputMode="numeric" maxLength={4} autoComplete="off" placeholder="1234" className={cn(bind("ssnLast4").className, "tabular-nums")} value={form.ssnLast4 ?? ""} onChange={bind("ssnLast4").onChange} onBlur={bind("ssnLast4").onBlur} />
           </Field>
         ) : null}
 

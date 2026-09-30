@@ -2,7 +2,8 @@
 
 import { Check, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { AmexMark, ApplePayMark, GooglePayMark, MastercardMark, StripeMark, VisaMark } from "./payment-marks"
+import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
+import { AmexMark, ApplePayMark, GooglePayMark, MastercardMark, StorelibPaymentsBrand, VisaMark } from "./payment-marks"
 
 function pillTone(status: string): string {
   if (status === "Payments active") return "bg-[#dcfce7] text-[#166534]"
@@ -28,16 +29,12 @@ export function StorelibPaymentsCard({
 }) {
   return (
     <section
-      className="mx-auto w-full max-w-[720px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+      className={cn(PAYMENTS_SURFACE, "overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)]")}
       data-storelib-payments-card=""
     >
-      <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
-        <StripeMark className="h-10 w-10 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]">Storelib Payments</h3>
-          <p className="truncate text-[12px] leading-4 text-[#6b7280] max-sm:hidden">Powered by Stripe</p>
-          <span className={cn("mt-1 inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium sm:hidden", pillTone(status))}>{status}</span>
-        </div>
+      <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
+        <StorelibPaymentsBrand className="min-w-0 flex-1" size="lg" />
+        <span className={cn("inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium sm:hidden", pillTone(status))}>{status}</span>
         <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-medium max-sm:hidden", pillTone(status))}>{status}</span>
         {onRefresh ? (
           <button
@@ -53,7 +50,7 @@ export function StorelibPaymentsCard({
       </div>
 
       {quiet ? null : (
-        <div className="space-y-2.5 px-4 pb-4 sm:px-5">
+        <div className="space-y-2.5 px-4 pb-4 sm:px-6">
           <ul className="space-y-2 rounded-xl bg-[#f7f7f8] px-3.5 py-3 text-[13px] text-[#1f2937]">
             {["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"].map((line) => (
               <li key={line} className="flex items-start gap-2">
@@ -85,7 +82,7 @@ export function StorelibPaymentsCard({
 
 export function StorelibPaymentsCardSkeleton() {
   return (
-    <section className="mx-auto w-full max-w-[720px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-5" aria-busy="true" aria-label="Loading payments">
+    <section className={cn(PAYMENTS_SURFACE, "overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-5 sm:p-6")} aria-busy="true" aria-label="Loading payments">
       <div className="flex items-center gap-3">
         <span className="h-10 w-10 animate-pulse rounded-[10px] bg-[#f1f2f4]" />
         <div className="flex-1 space-y-2">

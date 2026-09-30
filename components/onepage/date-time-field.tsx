@@ -59,7 +59,7 @@ function monthCells(y: number, m: number): (Ymd | null)[] {
   return cells
 }
 
-function MonthGrid({
+export function MonthGrid({
   selected,
   today,
   onPick,

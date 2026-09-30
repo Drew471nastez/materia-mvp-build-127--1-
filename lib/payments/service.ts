@@ -314,7 +314,7 @@ export async function addStripeBank(creator: CreatorRef, token: string) {
 export async function prepareVerification(creator: CreatorRef) {
   if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
   await prepareStorelibAccount(creator)
-  return overview(creator)
+  return stripeOverview(creator, { sync: false })
 }
 
 export async function submitVerificationDetails(

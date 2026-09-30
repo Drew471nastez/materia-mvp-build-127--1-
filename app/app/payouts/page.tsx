@@ -42,47 +42,32 @@ export default async function PayoutsPage() {
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
-      {/* Try Pro, above the page's own bar (components/app/announcement-bar-mobile). */}
       <TryProStrip />
 
-      {/*
-        THE BAR, THE ORDERS AND PRODUCTS BAR. The title and one line under it
-        on the left, and on the right an empty box the client fills with the
-        page's actions (Export and Cash out, `data-payouts-actions`) once
-        Stripe has answered. It sticks to the top of the pane and takes a
-        hairline and a soft shadow once something scrolls under it
-        (PaneBar, app/app/orders/order-parts). The widths are written out
-        here rather than imported: this is a server file, and a string
-        imported from a client module arrives as a reference, not a string.
-      */}
-      <PaneBar width="max-w-[1200px]" className="flex min-h-[66px] items-center justify-between gap-3 pb-2 pt-[14px]">
-        <div className="min-w-0">
-          <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">
-            Payouts
-          </h1>
-          {/* A phone's bar has room for the title and the two buttons only. */}
-          <p className="hidden truncate text-[13px] leading-5 text-[#6b7280] sm:block">
-            {paymentsReady ? "Your balance, sales and cash outs" : "Set up payments"}
-          </p>
-        </div>
-        {paymentsReady ? <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" /> : null}
-      </PaneBar>
-
-      <div className="mx-auto max-w-[1200px] app-gutter pb-8">
-        {/* The bar and the heading arrive at once; Stripe's answers
-            stream in behind them (PayoutsBody). */}
-        {paymentsReady ? (
-          <Suspense fallback={<PayoutsWaiting />}>
-            {/* Called, not written as an element: this project's JSX types do not take
-                an async component, and a promise is a child React waits on. */}
-            {PayoutsBody({ creator })}
-          </Suspense>
-        ) : (
-          <div className="mx-auto mt-2 w-full max-w-[720px]" data-payouts-setup="">
+      {paymentsReady ? (
+        <>
+          <PaneBar width="max-w-[1200px]" className="flex min-h-[66px] items-center justify-between gap-3 pb-2 pt-[14px]">
+            <div className="min-w-0">
+              <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
+              <p className="hidden truncate text-[13px] leading-5 text-[#6b7280] sm:block">Your balance, sales and cash outs</p>
+            </div>
+            <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
+          </PaneBar>
+          <div className="mx-auto max-w-[1200px] app-gutter pb-8">
+            <Suspense fallback={<PayoutsWaiting />}>{PayoutsBody({ creator })}</Suspense>
+          </div>
+        </>
+      ) : (
+        <div className="mx-auto max-w-[1200px] app-gutter pb-10 pt-5 sm:pt-6">
+          <header className="mb-4 sm:mb-5">
+            <h1 className="text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
+            <p className="mt-0.5 text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">Set up payments</p>
+          </header>
+          <div data-payouts-setup="">
             <StorelibPaymentsInline compact />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
