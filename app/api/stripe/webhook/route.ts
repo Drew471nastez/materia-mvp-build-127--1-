@@ -64,18 +64,6 @@ function periodEndOf(sub: any): number | null {
   return typeof at === "number" ? at : null
 }
 
-/** What a payout method notification may say about a bank account or card: never its number. */
-function payoutMethodFacts(ext: any): Record<string, unknown> {
-  return {
-    externalAccountId: ext?.id ?? null,
-    kind: ext?.object === "card" ? "card" : "bank_account",
-    bankName: ext?.bank_name || ext?.brand || null,
-    last4: ext?.last4 || null,
-    currency: ext?.currency || null,
-    country: ext?.country || null,
-  }
-}
-
 /**
  * EVERY STRIPE EVENT, HANDLED ONCE. Stripe delivers an event again whenever
  * an answer is slow or lost, and it can deliver one twice even after a 200.
@@ -133,9 +121,16 @@ async function handleStripeEvent(request: Request) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 })
   }
 
-  // Support both a main webhook secret and a separate Connect webhook secret.
-  // Stripe sends payout.* events from connected accounts using whichever endpoint
-  // is configured — try both secrets so a single endpoint handles everything.
+  /*
+    BOTH SECRETS, ALWAYS. Stripe signs each destination with its own secret:
+    "Your account" events with STRIPE_WEBHOOK_SECRET, "Connected accounts"
+    events with STRIPE_CONNECT_WEBHOOK_SECRET. A Connect destination set up
+    before /api/stripe/webhook/connect existed points here, so this endpoint
+    checks both: whichever URL the Connect destination uses, its payout and
+    account events are verified and handled. The two routes share one record
+    of events handled (lib/payments/ledger), so an event that reaches both is
+    acted on once.
+  */
   const mainSecret = process.env.STRIPE_WEBHOOK_SECRET
   const connectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET
 
@@ -146,8 +141,7 @@ async function handleStripeEvent(request: Request) {
 
   let event: Stripe.Event | null = null
 
-  const connectEndpointConfigured = !!connectSecret
-  const secretsToTry = connectEndpointConfigured && mainSecret ? [mainSecret] : ([mainSecret, connectSecret].filter(Boolean) as string[])
+  const secretsToTry = [mainSecret, connectSecret].filter(Boolean) as string[]
   for (const secret of secretsToTry) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, secret)
@@ -164,10 +158,7 @@ async function handleStripeEvent(request: Request) {
 
   console.log("[Webhook] Event type:", event.type)
 
-  if (connectEndpointConfigured && event.account && event.type.startsWith("account.")) {
-    return NextResponse.json({ received: true, ignored: true })
-  }
-
+  /* A connected account's status or bank changed: re-read from Stripe (idempotent). */
   if (event.type.startsWith("account.")) {
     const { handleConnectAccountEvent } = await import("@/lib/stripe/connect-webhook")
     await handleConnectAccountEvent(event)

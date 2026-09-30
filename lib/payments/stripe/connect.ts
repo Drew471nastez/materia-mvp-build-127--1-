@@ -18,7 +18,6 @@ export interface PaymentsCreatorRef {
   email: string | null
 }
 import type { PayoutDestination } from "../store"
-import { toMinor } from "../money"
 
 export type StripeAccountSessionPurpose = "onboarding" | "management" | "payouts" | "balances"
 
@@ -53,16 +52,33 @@ export async function profileForCreator(userId: string) {
   return data as { email: string | null; country: string | null; first_name: string | null; last_name: string | null } | null
 }
 
-async function enforceManualPayouts(accountId: string) {
+/**
+ * Storelib pays creators out when they press Cash out, so every connected
+ * account keeps a manual schedule. Pass the account when it has just been
+ * read, so this costs a write only when the schedule has drifted.
+ */
+async function enforceManualPayouts(accountId: string, known?: Stripe.Account) {
   try {
-    const account = await stripe.accounts.retrieve(accountId)
-    const schedule = (account as Stripe.Account).settings?.payouts?.schedule
-    if (schedule?.interval !== "manual") {
+    const account = known ?? (await stripe.accounts.retrieve(accountId))
+    if (account.settings?.payouts?.schedule?.interval !== "manual") {
       await stripe.accounts.update(accountId, { settings: { payouts: { schedule: { interval: "manual" } } } })
     }
   } catch {
-    /* non-fatal */
+    /* non-fatal: a Standard account refuses the write, and the next sync tries again */
   }
+}
+
+/**
+ * True only when Stripe says the account itself is gone or no longer ours
+ * (deleted, or the connection revoked). A timeout, a 500 or a rate limit is
+ * NOT that: treating it as "gone" would make a new account and overwrite the
+ * creator's real one, with its balance and history, on a network blip.
+ */
+function accountIsGone(error: unknown): boolean {
+  const e = error as { type?: string; code?: string; statusCode?: number } | null
+  if (!e) return false
+  if (e.type === "StripePermissionError") return true
+  return e.type === "StripeInvalidRequestError" && (e.code === "resource_missing" || e.code === "account_invalid" || e.statusCode === 404)
 }
 
 export async function ensureStripeAccount(
@@ -79,7 +95,11 @@ export async function ensureStripeAccount(
     try {
       await stripe.accounts.retrieve(accountId)
       return accountId
-    } catch {
+    } catch (error) {
+      if (!accountIsGone(error)) {
+        console.error("[stripe connect] account check", error instanceof Error ? error.message : error)
+        throw new PaymentsProblem("We could not reach our payment partner just now. Nothing was changed. Try again in a moment.", 502)
+      }
       accountId = null
     }
   }
@@ -240,7 +260,7 @@ export async function syncStripeAccount(creatorId: string, actor: "webhook" | "c
     stripe.accounts.listExternalAccounts(accountId, { object: "bank_account", limit: 1 }).catch(() => ({ data: [] })),
   ])
 
-  await enforceManualPayouts(accountId)
+  await enforceManualPayouts(accountId, account)
 
   const chargesEnabled = !!account.charges_enabled
   const payoutsEnabled = !!account.payouts_enabled
@@ -315,13 +335,14 @@ export async function fetchStripeBalances(accountId: string): Promise<Array<{ cu
   for (const b of bal.available ?? []) {
     const cur = (b.currency ?? "usd").toUpperCase()
     const e = byCurrency.get(cur) ?? { availableMinor: 0, pendingMinor: 0 }
-    e.availableMinor += toMinor(b.amount, cur)
+    /* Stripe's amounts are already in the smallest unit (cents). */
+    e.availableMinor += b.amount
     byCurrency.set(cur, e)
   }
   for (const b of bal.pending ?? []) {
     const cur = (b.currency ?? "usd").toUpperCase()
     const e = byCurrency.get(cur) ?? { availableMinor: 0, pendingMinor: 0 }
-    e.pendingMinor += toMinor(b.amount, cur)
+    e.pendingMinor += b.amount
     byCurrency.set(cur, e)
   }
   return [...byCurrency.entries()].map(([currency, v]) => ({ currency, ...v }))
@@ -331,7 +352,7 @@ export async function fetchStripePayouts(accountId: string) {
   const list = await stripe.payouts.list({ limit: 10 }, { stripeAccount: accountId })
   return list.data.map((p) => ({
     id: p.id,
-    amountMinor: toMinor(p.amount, p.currency),
+    amountMinor: p.amount,
     currency: p.currency.toUpperCase(),
     status: p.status,
     createdAt: p.created ? new Date(p.created * 1000).toISOString() : null,

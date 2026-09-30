@@ -1,5 +1,6 @@
 import "server-only"
 
+import { after } from "next/server"
 import type Stripe from "stripe"
 import { syncStripeAccount } from "@/lib/payments/stripe/connect"
 import { stripe } from "@/lib/stripe"
@@ -27,7 +28,21 @@ function payoutMethodFacts(ext: Stripe.ExternalAccount): Record<string, unknown>
   }
 }
 
-/** Connected-account webhook events (event.account must be set). */
+/**
+ * A connected account's own events, from either webhook endpoint
+ * (app/api/stripe/webhook and app/api/stripe/webhook/connect).
+ *
+ * account.updated: the creator row is re-read from Stripe (the flags,
+ * what Stripe is asking for and by when), and the creator is told once per
+ * change: payouts paused is one transition (keyed by this event), and
+ * requirements are keyed by the account, what is asked and by when, so the
+ * same list is told once and two creators asked for the same thing are each
+ * told. The payload is what the PAYOUT_ACTION_REQUIRED email and the
+ * verification reminders read (lib/notify).
+ *
+ * account.external_account.*: a bank added, or made the default, is
+ * payout_method.added or .changed, keyed by the bank account.
+ */
 export async function handleConnectAccountEvent(event: Stripe.Event): Promise<void> {
   if (event.type === "account.updated") {
     const account = event.data.object as Stripe.Account
@@ -35,44 +50,44 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
     if (!creator) return
 
     const previousPayoutsEnabled = (creator as { payouts_enabled?: boolean }).payouts_enabled ?? false
+    /* Also writes the requirements the reminders read, and keeps payouts manual. */
     await syncStripeAccount(creator.id as string, "webhook")
 
-    const userId = (creator as { user_id?: string }).user_id ?? null
-    try {
-      await (await import("@/lib/notifications/events")).noteStripeAccount(creator.id as string, account as any)
-    } catch {
-      /* optional */
-    }
+    /* Payouts or card payments off, or Stripe asking by a deadline: the creator's notices, after the answer. */
+    const accountCreatorId = creator.id as string
+    after(async () => (await import("@/lib/notifications/events")).noteStripeAccount(accountCreatorId, account as any))
 
+    const userId = (creator as { user_id?: string }).user_id ?? null
     const requirements = account.requirements
     const pastDue = requirements?.past_due ?? []
     const currentlyDue = requirements?.currently_due ?? []
     const due = [...new Set([...pastDue, ...currentlyDue])].sort()
     const payoutsEnabled = !!account.payouts_enabled
+    const chargesEnabled = !!account.charges_enabled
     const paused = previousPayoutsEnabled && !payoutsEnabled
-    const deadline = requirements?.current_deadline ?? null
+    const deadline = typeof requirements?.current_deadline === "number" ? requirements.current_deadline : null
 
     if (paused || (due.length > 0 && account.details_submitted)) {
       const asked = createHash("sha256").update(`${due.join(",")}|${deadline ?? ""}`).digest("hex").slice(0, 16)
       await emit({
         name: "payout.action_required",
-        key: paused ? `payout:paused:${account.id}` : `payout:req:${asked}`,
+        key: paused ? `stripe:${event.id}` : `stripe_requirements:${account.id}:${asked}`,
         userId,
-        creatorId: creator.id as string,
+        creatorId: accountCreatorId,
         entityType: "payment_setup",
-        entityId: creator.id as string,
+        entityId: accountCreatorId,
         correlationId: event.id,
-        payload: { dueCount: due.length },
+        payload: {
+          reason: paused ? "payouts_paused" : "requirements_due",
+          payoutsEnabled,
+          chargesEnabled,
+          pastDue: pastDue.length > 0,
+          requirementCount: due.length,
+          requirements: due.slice(0, 10),
+          deadline: deadline ? new Date(deadline * 1000).toISOString() : null,
+          disabledReason: requirements?.disabled_reason || null,
+        },
       })
-    }
-
-    const schedule = account.settings?.payouts?.schedule
-    if (schedule?.interval !== "manual") {
-      try {
-        await stripe.accounts.update(account.id, { settings: { payouts: { schedule: { interval: "manual" } } } })
-      } catch {
-        /* non-fatal */
-      }
     }
     return
   }
@@ -92,9 +107,20 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
 
     await syncStripeAccount(creator.id as string, "webhook")
 
+    /* A second bank on the account is a change, not a first payout method. */
+    let others = 0
+    if (event.type === "account.external_account.created") {
+      try {
+        const list = await stripe.accounts.listExternalAccounts(acctId, { limit: 3 })
+        others = list.data.filter((a) => a.id !== ext.id).length
+      } catch {
+        /* Unknown: told as added. */
+      }
+    }
+
     await emit({
-      name: becameDefault ? "payout_method.changed" : "payout_method.added",
-      key: `payout_method:${ext.id}`,
+      name: becameDefault || others > 0 ? "payout_method.changed" : "payout_method.added",
+      key: becameDefault ? `payout_method:${ext.id}:default` : `payout_method:${ext.id}`,
       userId: (creator as { user_id?: string }).user_id ?? null,
       creatorId: creator.id as string,
       entityType: "payment_setup",

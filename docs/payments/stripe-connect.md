@@ -33,10 +33,25 @@ Creators on Stripe (default) use the `creators` row as the payment account recor
 
 1. Connect → Settings → Platform profile (losses / responsibilities).
 2. Enable embedded components for Connect.
-3. Two webhook destinations (recommended):
-   - **Your account:** `https://<app>/api/stripe/webhook` — `STRIPE_WEBHOOK_SECRET`
-   - **Connect:** `https://<app>/api/stripe/webhook/connect` — `STRIPE_CONNECT_WEBHOOK_SECRET`
+3. Two webhook destinations:
+   - **Your account:** `https://<app>/api/stripe/webhook`, signed with `STRIPE_WEBHOOK_SECRET`.
+   - **Connected accounts:** `https://<app>/api/stripe/webhook/connect` (recommended), signed with `STRIPE_CONNECT_WEBHOOK_SECRET`.
+     A Connect destination still pointing at `/api/stripe/webhook` works too: that endpoint checks both secrets.
+     Both endpoints hand account events to `lib/stripe/connect-webhook.ts` and share one record of handled events,
+     so an event that reaches both is acted on once.
+   - Connected-account events it needs: `account.updated`, `account.external_account.created`,
+     `account.external_account.updated`, `payout.created`, `payout.paid`, `payout.failed`, `payout.updated`, `payout.canceled`.
 4. Storelib fees: `lib/payments/fees/*` (Free 6%+$0.25 / Pro 3%+$0.25; micro tier under $4 USD equivalent).
+
+## The creator's side
+
+One card, `components/app/settings/storelib-payments-settings.tsx`, in Settings → Payments and on Payouts.
+
+Stripe's embedded forms need `https://connect-js.stripe.com` in `script-src` and `frame-src`, and
+`https://fonts.googleapis.com` in `connect-src` (`lib/security/csp.ts` and `vercel.json`).
+
+Payouts keeps its whole dashboard (balance, Cash out, history) for every creator with an account, with the
+card at the top; payouts are manual, so Cash out is how money leaves. Without an account the card is the page.
 
 ## Sandbox testing
 

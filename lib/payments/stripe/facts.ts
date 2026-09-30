@@ -87,6 +87,26 @@ export function stripeCheckoutReady(s: StripeCreatorSnapshot): boolean {
   return true
 }
 
+/**
+ * CHECKOUT'S GATE, FROM THE CREATORS ROW ALONE (no Stripe call on a buyer's
+ * Pay). Never stricter than the gate every live seller passed before
+ * Storelib Payments: an `acct_` account, charges and payouts not switched
+ * off, and marked connected. A row the sync has since filled in (all three
+ * flags true) passes too, whatever its old status word says.
+ */
+export function stripeRowReady(row: {
+  stripe_account_id?: string | null
+  stripe_onboarding_status?: string | null
+  charges_enabled?: boolean | null
+  payouts_enabled?: boolean | null
+  details_submitted?: boolean | null
+} | null | undefined): boolean {
+  if (!row?.stripe_account_id?.startsWith("acct_")) return false
+  if (row.charges_enabled === false || row.payouts_enabled === false) return false
+  if (row.stripe_onboarding_status === "connected") return true
+  return row.charges_enabled === true && row.payouts_enabled === true && row.details_submitted === true
+}
+
 export function paymentUxStateOf(s: StripeCreatorSnapshot): PaymentUxState {
   if (!s.accountId) return "PAYMENTS_NOT_CONFIGURED"
   if (s.pastDue.length > 0 || (s.currentlyDue.length > 0 && s.detailsSubmitted)) return "ACTION_REQUIRED"

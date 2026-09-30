@@ -872,7 +872,8 @@ check(
     "no Settings or billing card writes its own sideways padding any more: `p-4 sm:p-6` is gone from both",
     !/p-4 sm:p-6/.test(read("components/app/settings-form-new.tsx"))
       && !/p-4 sm:p-6|p-5 sm:p-6/.test(read("components/app/billing/billing-page-client.tsx"))
-      && (code("components/app/settings-form-new.tsx").match(/app-card-x py-4 sm:py-6/g) ?? []).length >= 10,
+      /* 8 since the Payments tab's own Stripe cards became the Storelib Payments card (components/app/settings/storelib-payments-card.tsx). */
+      && (code("components/app/settings-form-new.tsx").match(/app-card-x py-4 sm:py-6/g) ?? []).length >= 8,
   )
 }
 

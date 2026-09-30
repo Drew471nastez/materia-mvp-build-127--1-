@@ -81,20 +81,14 @@ import { PaymentsProblem } from "./errors"
 import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
 import { disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
 import type { PayoutProfileInput } from "./stripe/payout-profile"
-import { stripeCheckoutReady, snapshotFromCreatorRow } from "./stripe/facts"
+import { snapshotFromCreatorRow, stripeRowReady } from "./stripe/facts"
 
 /* ── Which provider ───────────────────────────────────────────────────── */
 
 /**
- * Stripe or Airwallex, for this creator:
- *
- *   an Airwallex account row          Airwallex, whatever the rollout says now
- *   named in the rollout              Airwallex
- *   rollout "all", no Stripe account  Airwallex (a new creator)
- *   rollout "all", a Stripe account   Stripe: a creator already being paid is
- *                                     never moved by a switch; they move when
- *                                     they set up on Airwallex themselves
- *   otherwise                         Stripe
+ * Stripe, for every creator (./active-provider.ts). The Airwallex adapter
+ * stays in the code, reached by nothing live, until it is switched on again
+ * on purpose.
  */
 export async function providerFor(_creatorId: string): Promise<PaymentProviderId> {
   return activePaymentProvider()
@@ -148,7 +142,7 @@ export async function paymentFactsFor(creatorId: string): Promise<ProviderAccoun
     const row = await readCreatorStripe(creatorId)
     const snap = snapshotFromCreatorRow(row ?? {})
     const lifecycle =
-      stripeCheckoutReady(snap)
+      stripeRowReady(row)
         ? "ACTIVE"
         : snap.detailsSubmitted
           ? "SUBMITTED"
@@ -174,7 +168,7 @@ export async function checkoutReadyForCreator(creatorId: string): Promise<boolea
   const provider = await providerFor(creatorId)
   if (provider === "stripe") {
     const row = await readCreatorStripe(creatorId)
-    return stripeCheckoutReady(snapshotFromCreatorRow(row ?? {}))
+    return stripeRowReady(row)
   }
   return checkoutOpen(await paymentFactsFor(creatorId))
 }

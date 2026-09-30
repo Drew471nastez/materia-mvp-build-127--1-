@@ -187,9 +187,8 @@ async function main() {
     check("  and no one without credentials, whatever the rollout says", !inAirwallexRollout("creator-1", { STORELIB_PAYMENTS_AIRWALLEX: "all" }))
     check("\"all\" is its own answer, so the caller can keep Stripe creators where they are", airwallexRollout("creator-1", { ...env, STORELIB_PAYMENTS_AIRWALLEX: "all" }) === "all" && airwallexRollout("creator-1", { ...env, STORELIB_PAYMENTS_AIRWALLEX: "creator-1" }) === "named")
     const service = read("lib/payments/service.ts")
-    check("a creator already paid through Stripe is never moved by \"all\"", /if \(reach === "all"\) \{[\s\S]*?return stripeAccount \? "stripe" : "airwallex"/.test(service))
-    check("  while Airwallex is not configured, no read at all: Stripe", /if \(!readAirwallexConfig\(\)\.ok\) return "stripe"/.test(service))
-    check("  and an Airwallex account already made keeps its creator there", /if \(row\) return "airwallex"/.test(service))
+    /* Stripe is the only live processor now (lib/payments/active-provider.ts): the rollout reaches no one. */
+    check("every creator is on Stripe, whatever the rollout says", /return activePaymentProvider\(\)/.test(service) && /return "stripe"/.test(read("lib/payments/active-provider.ts")))
   }
 
   console.log("\nThe client: one login, the right account, nothing retried that moves money")
@@ -380,9 +379,8 @@ async function main() {
   console.log("\nStripe creators: nothing changes")
   {
     const session = read("app/api/checkout/stripe-session/route.ts")
-    check("checkout asks who takes the money before it takes any", /const provider = await providerFor\(creator\.id\)/.test(session))
-    check("  Airwallex only for an account checkout is open for", /!checkoutOpen\(factsOf\(row\)\)/.test(session))
-    check("  Stripe's own checks and its payment intent are as they were", session.includes("application_fee_amount: fee.platformFeeCents,") && session.includes("transfer_data: { destination: account },") && /provider === "stripe" && \(creator\.charges_enabled === false/.test(session))
+    check("checkout asks whether the seller can take money before it takes any", /if \(!\(await checkoutReadyForCreator\(creator\.id\)\)\)/.test(session))
+    check("  and Stripe's payment intent is as it was: Storelib's fee, the rest to the seller", session.includes("application_fee_amount: fee.platformFeeCents,") && session.includes("transfer_data: { destination: account },"))
     const fulfil = read("lib/checkout/fulfil-payment.ts")
     check("a Stripe order is written with the columns it always had", /stripe_payment_intent_id: paid\.provider === "stripe" \? paid\.paymentId : null/.test(fulfil) && /\.\.\.\(paid\.provider === "stripe" \? \{\} : \{ provider_payment_id: paid\.paymentId \}\)/.test(fulfil))
     check("  and its seller ledger is written as before; an Airwallex sale's balance is Airwallex's", /if \(paid\.provider === "stripe"\) \{\s*await step\("ledger"/.test(fulfil))

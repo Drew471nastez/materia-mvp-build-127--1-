@@ -804,7 +804,8 @@ function wiringSuite() {
   check("the job needs CRON_SECRET, and stops taking batches inside its time", /requireBearerSecret\(request, "CRON_SECRET"\)/.test(cron) && /export const maxDuration = 300/.test(cron) && /deadline: started \+ RUN_BUDGET_MS/.test(cron) && /const RUN_BUDGET_MS = 240_000/.test(cron))
   check("and logs counts only", !/creatorId|user_id|email/.test(cron.replace(/\/\*[\s\S]*?\*\//g, "")))
   const hook = read("app/api/stripe/webhook/route.ts")
-  check("account.updated, payouts and disputes tell the engine, after the answer", /after\(async \(\) => \(await import\("@\/lib\/notifications\/events"\)\)\.noteStripeAccount\(accountCreatorId, account as any\)\)/.test(hook)
+  /* A connected account's own events are handled in lib/stripe/connect-webhook.ts, which both webhook endpoints call. */
+  check("account.updated, payouts and disputes tell the engine, after the answer", /after\(async \(\) => \(await import\("@\/lib\/notifications\/events"\)\)\.noteStripeAccount\(accountCreatorId, account as any\)\)/.test(read("lib/stripe/connect-webhook.ts")) && /handleConnectAccountEvent\(event\)/.test(hook)
     && /\.notePayout\(payoutCreatorId\)/.test(hook) && /\.noteDispute\(disputeCreatorId\)/.test(hook))
   check("a review tells it too (the first is a milestone)", /\.noteReview\(reviewCreatorId\)/.test(read("app/api/reviews/route.ts")))
   const sale = read("lib/push/notifications.ts")

@@ -129,6 +129,8 @@ export interface PaidCheckout {
     applicationFeeCents: number | null
     transferId: string | null
     destinationPaymentId: string | null
+    /** Stripe's charge, for its processing fee (lib/payments/stripe/reconcile-processing-fee). Airwallex has none. */
+    chargeId?: string | null
   }
 }
 

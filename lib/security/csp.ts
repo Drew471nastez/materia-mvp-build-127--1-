@@ -89,6 +89,7 @@ const DIRECTIVES: [string, string[]][] = [
     "'unsafe-inline'",  // Next.js hydration; see the note above
     "'unsafe-eval'",    // monaco-editor, esbuild-wasm, and the section-script sandbox
     "https://js.stripe.com",
+    "https://connect-js.stripe.com",  // Stripe's embedded onboarding and account forms (Settings → Payments, Payouts)
     "https://*.airwallex.com",        // Airwallex.js and its forms, for Storelib Payments on Airwallex
     "https://cdnjs.cloudflare.com",   // pdf.js, for reading a PDF in the browser
     "https://va.vercel-scripts.com",  // @vercel/analytics
@@ -112,6 +113,7 @@ const DIRECTIVES: [string, string[]][] = [
     "https://*.supabase.co",
     "wss://*.supabase.co",            // realtime
     "https://api.stripe.com",
+    "https://fonts.googleapis.com",   // Inter for Stripe's embedded forms (their fonts CSS is fetched from this page)
     "https://*.airwallex.com",
     "https://*.vercel-insights.com",
     "https://va.vercel-scripts.com",
@@ -121,6 +123,7 @@ const DIRECTIVES: [string, string[]][] = [
   ["frame-src", [
     "'self'",
     "https://js.stripe.com",
+    "https://connect-js.stripe.com",
     "https://hooks.stripe.com",
     "https://*.airwallex.com",
     "https://www.youtube.com",

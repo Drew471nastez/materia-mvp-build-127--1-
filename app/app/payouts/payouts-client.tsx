@@ -54,7 +54,6 @@ import React, {
   useLayoutEffect,
   type ButtonHTMLAttributes,
 } from "react";
-import { PayoutsSimpleView } from "./payouts-simple-view";
 import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
 import { createPortal } from "react-dom";
 import {
@@ -3143,25 +3142,18 @@ export function PayoutsClient({
 
   const actionsInBar = slot && actions ? createPortal(actions, slot) : null;
 
-  if (!paymentsReady) {
+  /*
+    STORELIB PAYMENTS, ON THIS PAGE TOO. No account yet: the Storelib
+    Payments card is the page, and setup happens right here. With an
+    account, the card leads the page and everyone keeps the whole
+    dashboard under it: the balance, Cash out (payouts are manual, so it is
+    the only way money leaves) and the history. While the account is not
+    ready the card carries what to do, so the setup notices below stand down.
+  */
+  if (!hasStripe) {
     return (
       <div aria-label="Set up payouts" data-payouts-setup="" className="mt-2">
         <StorelibPaymentsInline compact />
-      </div>
-    );
-  }
-
-  const legacyPayoutsDashboard = process.env.NEXT_PUBLIC_PAYOUTS_LEGACY === "1";
-
-  if (!legacyPayoutsDashboard) {
-    return (
-      <div className="mt-2 space-y-4">
-        <StorelibPaymentsInline compact />
-        <PayoutsSimpleView
-          availableMinor={availableBalance}
-          pendingMinor={pendingBalance}
-          currency={sourceCurrency}
-        />
       </div>
     );
   }
@@ -3217,56 +3209,59 @@ export function PayoutsClient({
       );
     }
 
-    // 2. Finish setup: onboarding incomplete, details not submitted
-    if (accountStatus && !accountStatus.details_submitted) {
-      return (
-        <Notice
-          tone="attention"
-          title="Finish setting up Stripe to get paid"
-          body="Stripe needs your details, your identity and a bank account before it can pay you."
-          action={{ label: "Finish setup", onClick: () => openAccountLink("onboarding"), busy: accountLinkLoading }}
-        />
-      );
-    }
+    /* 2 to 4b: while the account is not ready, the Storelib Payments card above says it, with its button. */
+    if (paymentsReady) {
+      // 2. Finish setup: onboarding incomplete, details not submitted
+      if (accountStatus && !accountStatus.details_submitted) {
+        return (
+          <Notice
+            tone="attention"
+            title="Finish setting up Stripe to get paid"
+            body="Stripe needs your details, your identity and a bank account before it can pay you."
+            action={{ label: "Finish setup", onClick: () => openAccountLink("onboarding"), busy: accountLinkLoading }}
+          />
+        );
+      }
 
-    // 3. Verify identity: Stripe specifically asking for ID or documents
-    const idRequirements = accountStatus?.requirements?.currently_due?.filter(
-      (r: string) => r.includes("verification") || r.includes("id_number") || r.includes("ssn")
-    ) || [];
-    const hasPastDue = (accountStatus?.requirements?.past_due?.length || 0) > 0;
+      // 3. Verify identity: Stripe specifically asking for ID or documents
+      const idRequirements = accountStatus?.requirements?.currently_due?.filter(
+        (r: string) => r.includes("verification") || r.includes("id_number") || r.includes("ssn")
+      ) || [];
+      const hasPastDue = (accountStatus?.requirements?.past_due?.length || 0) > 0;
 
-    if (accountStatus && (idRequirements.length > 0 || hasPastDue)) {
-      return (
-        <Notice
-          tone="attention"
-          title={hasPastDue ? "Verify your identity to keep getting paid" : "Stripe needs to verify your identity"}
-          body="Stripe asks for this to keep your payouts turned on."
-          action={{ label: "Verify", onClick: () => openAccountLink("update"), busy: accountLinkLoading }}
-        />
-      );
-    }
+      if (accountStatus && (idRequirements.length > 0 || hasPastDue)) {
+        return (
+          <Notice
+            tone="attention"
+            title={hasPastDue ? "Verify your identity to keep getting paid" : "Stripe needs to verify your identity"}
+            body="Stripe asks for this to keep your payouts turned on."
+            action={{ label: "Verify", onClick: () => openAccountLink("update"), busy: accountLinkLoading }}
+          />
+        );
+      }
 
-    // 4. Under review: details submitted, payouts or charges not yet on, nothing due
-    if (accountStatus && accountStatus.details_submitted && (!accountStatus.payouts_enabled || !accountStatus.charges_enabled) &&
-        (accountStatus.requirements?.currently_due?.length || 0) === 0) {
-      return (
-        <Notice
-          tone="neutral"
-          title="Stripe is reviewing your details"
-          body="Nothing to do. This usually takes a few minutes."
-        />
-      );
-    }
+      // 4. Under review: details submitted, payouts or charges not yet on, nothing due
+      if (accountStatus && accountStatus.details_submitted && (!accountStatus.payouts_enabled || !accountStatus.charges_enabled) &&
+          (accountStatus.requirements?.currently_due?.length || 0) === 0) {
+        return (
+          <Notice
+            tone="neutral"
+            title="Stripe is reviewing your details"
+            body="Nothing to do. This usually takes a few minutes."
+          />
+        );
+      }
 
-    // 4b. Cash out is not on for this account (what the old cash out panel said in its place)
-    if (!payoutsEnabled) {
-      return (
-        <Notice
-          tone="attention"
-          title="Finish setting up Stripe to cash out"
-          action={{ label: "Finish setup", onClick: () => openAccountLink("onboarding"), busy: accountLinkLoading }}
-        />
-      );
+      // 4b. Cash out is not on for this account (what the old cash out panel said in its place)
+      if (!payoutsEnabled) {
+        return (
+          <Notice
+            tone="attention"
+            title="Finish setting up Stripe to cash out"
+            action={{ label: "Finish setup", onClick: () => openAccountLink("onboarding"), busy: accountLinkLoading }}
+          />
+        );
+      }
     }
 
     // 5. Payout in transit: money is on the way
@@ -3325,6 +3320,8 @@ export function PayoutsClient({
       {/* Where the page has no bar to hold them, the actions lead the page. */}
       {slot === null && actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
       {actionsInBar}
+
+      <StorelibPaymentsInline compact />
 
       {notice}
 
