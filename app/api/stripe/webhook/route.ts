@@ -164,7 +164,7 @@ async function handleStripeEvent(request: Request) {
 
   console.log("[Webhook] Event type:", event.type)
 
-  if (connectEndpointConfigured && event.account) {
+  if (connectEndpointConfigured && event.account && event.type.startsWith("account.")) {
     return NextResponse.json({ received: true, ignored: true })
   }
 
