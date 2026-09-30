@@ -194,9 +194,15 @@ export async function syncStripeAccount(creatorId: string, actor: "webhook" | "c
       charges_enabled: account.charges_enabled,
       payouts_enabled: account.payouts_enabled,
       details_submitted: account.details_submitted,
-      disabled_reason: account.disabled_reason,
+      disabled_reason: (account as { disabled_reason?: string | null }).disabled_reason ?? null,
       business_type: account.business_type,
-      requirements: account.requirements,
+      requirements: account.requirements
+        ? {
+            currently_due: account.requirements.currently_due,
+            past_due: account.requirements.past_due,
+            pending_verification: account.requirements.pending_verification,
+          }
+        : null,
     },
     hasBank,
   )
