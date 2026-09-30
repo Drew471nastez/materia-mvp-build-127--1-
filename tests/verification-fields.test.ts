@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs"
-import { AGREEMENT_URL, detailsIssues, detailsPlan, dobParts, idNumberCopy, normalPhone } from "@/lib/payments/stripe/details-fields"
+import { AGREEMENT_URL, detailsIssues, detailsPlan, dobParts, idNumberCopy, maskDobTyping, normalizeDobInput, normalPhone } from "@/lib/payments/stripe/details-fields"
 
 let passed = 0
 let failed = 0
@@ -47,7 +47,9 @@ check("the bank alone asks nothing here", detailsPlan(["external_account"], "ind
 
 const now = new Date(Date.UTC(2026, 0, 15))
 check("a real date parses", JSON.stringify(dobParts("1990-02-28", now)) === JSON.stringify({ day: 28, month: 2, year: 1990 }))
-check("an impossible date does not", dobParts("1990-02-30", now) === null && dobParts("28/02/1990", now) === null)
+check("typed digits become ISO", maskDobTyping("19900502") === "1990-05-02" && normalizeDobInput("19900502", now) === "1990-05-02")
+check("slashes normalize to ISO", normalizeDobInput("28/02/1990", now) === "1990-02-28" && normalizeDobInput("05/02/1990", now) === "1990-02-05")
+check("an impossible date does not", dobParts("1990-02-30", now) === null && dobParts("28/02/1990", now) === null && normalizeDobInput("1990-02-30", now) === null)
 check("a future date does not", dobParts("2030-01-01", now) === null)
 check("under 18 is refused", detailsIssues({ dob: "2010-01-01" }, ["dob"], "RO", now).dob === "You must be 18 or older to get paid.")
 check("18 today is fine", !detailsIssues({ dob: "2008-01-15" }, ["dob"], "RO", now).dob)

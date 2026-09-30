@@ -92,6 +92,56 @@ export function normalPhone(raw: string): string {
   return cleaned.startsWith("00") ? `+${cleaned.slice(2)}` : cleaned
 }
 
+function isoFromYmd(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+}
+
+/** While typing digits only, grow into YYYY-MM-DD (max 8 digits). */
+export function maskDobTyping(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8)
+  if (digits.length <= 4) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`
+}
+
+/** Typed or pasted birth dates into canonical YYYY-MM-DD, or null. */
+export function normalizeDobInput(raw: string, now = new Date()): string | null {
+  const t = raw.trim()
+  if (!t) return null
+
+  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t)
+  if (isoMatch) {
+    const cand = isoFromYmd(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]))
+    return dobParts(cand, now) ? cand : null
+  }
+
+  const digits = t.replace(/\D/g, "")
+  if (digits.length === 8) {
+    const cand = isoFromYmd(Number(digits.slice(0, 4)), Number(digits.slice(4, 6)), Number(digits.slice(6, 8)))
+    if (dobParts(cand, now)) return cand
+  }
+
+  const sep = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(t)
+  if (sep) {
+    const a = Number(sep[1])
+    const b = Number(sep[2])
+    const y = Number(sep[3])
+    const dmy = isoFromYmd(y, b, a)
+    const mdy = isoFromYmd(y, a, b)
+    const dmyOk = dobParts(dmy, now)
+    const mdyOk = dobParts(mdy, now)
+    if (dmyOk && !mdyOk) return dmy
+    if (mdyOk && !dmyOk) return mdy
+    if (dmyOk && mdyOk) {
+      if (a > 12 && b <= 12) return dmy
+      if (b > 12 && a <= 12) return mdy
+      return dmy
+    }
+  }
+
+  return null
+}
+
 /** YYYY-MM-DD into Stripe's parts, or null. */
 export function dobParts(raw: string, now = new Date()): { day: number; month: number; year: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim())
