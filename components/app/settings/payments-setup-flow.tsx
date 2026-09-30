@@ -166,7 +166,7 @@ function Panel({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6" data-payments-setup-panel="">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6" data-payments-setup-panel="">
       <div
         aria-hidden
         onClick={onClose}
@@ -178,7 +178,7 @@ function Panel({
         aria-label={label}
         className={cn(
           "relative flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
-          compact ? "max-h-[min(580px,calc(100dvh-40px))] max-w-[min(720px,calc(100vw-40px))]" : "max-h-[min(760px,calc(100dvh-48px))] max-w-[min(680px,calc(100vw-48px))]",
+          compact ? "max-h-[min(580px,calc(100dvh-40px))] max-w-[min(520px,calc(100vw-32px))]" : "max-h-[min(760px,calc(100dvh-48px))] max-w-[min(520px,calc(100vw-40px))]",
           leaving ? "animate-out fade-out-0 zoom-out-95" : "animate-in fade-in-0 zoom-in-95",
         )}
       >
@@ -465,7 +465,7 @@ export function PaymentsSetupFlow({
           ) : null}
         </div>
       ) : (
-        <div className={cn("flex shrink-0 flex-col px-6 pt-6", panelCompact ? "gap-3 pb-3" : "gap-4 pb-5")}>
+        <div className={cn("flex shrink-0 flex-col px-5 pt-5 sm:px-6 sm:pt-6", panelCompact ? "gap-3 pb-3" : "gap-4 pb-5")}>
           <div className="flex items-center gap-3">
             <h2 className="min-w-0 flex-1 text-[18px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
             <button
@@ -807,7 +807,7 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
         {intro ?? (compact ? null : <p className="text-[13px] leading-5 text-[#6b7280]">Confirm a few details. This usually takes about a minute.</p>)}
         <ErrorLine message={error} />
 
-        <div className={cn(compact && (has("dob") || has("phone")) ? "grid gap-2.5 sm:grid-cols-2 sm:gap-x-4" : "contents")}>
+        <div className={cn(compact && (has("dob") || has("phone")) ? "grid gap-2.5" : compact ? "contents" : (has("dob") || has("phone")) ? "grid gap-2.5 sm:grid-cols-2 sm:gap-x-4" : "contents")}>
           {has("dob") ? (
             <Field dense={compact} label="Date of birth" error={issue("dob")} tip="Must match your ID. You must be 18 or older.">
               <BirthDateField compact={compact} value={form.dob ?? ""} max={today} invalid={!!issue("dob")} onChange={(v) => { setForm((f) => ({ ...f, dob: v })); setTouched((t) => ({ ...t, dob: true })) }} />

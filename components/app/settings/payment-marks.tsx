@@ -1,36 +1,42 @@
-/** Payment marks drawn in the page. Brand image is bundled under public/brand. */
+/** Payment marks drawn in the page. No remote images. */
 import { cn } from "@/lib/utils"
 
-const BRAND_SRC = "/brand/storelib-payments-stripe.png"
+const MARK_DEPTH =
+  "shadow-[0_1px_2px_rgba(16,24,40,0.14),0_4px_10px_-2px_rgba(99,91,255,0.35),inset_0_-1px_0_rgba(0,0,0,0.12)]"
 
 export function StripeMark({ className = "h-10 w-10" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 40 40" role="img" aria-label="Stripe">
-      <rect width="40" height="40" rx="9" fill="#635bff" />
-      <svg x="10" y="9" width="20" height="22" viewBox="3.7 0 17 24">
-        <path
-          fill="#fff"
-          d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"
-        />
+    <span
+      className={cn("inline-flex shrink-0 overflow-hidden rounded-[7px]", MARK_DEPTH, className)}
+      role="img"
+      aria-label="Stripe"
+    >
+      <svg className="h-full w-full" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="7" fill="#635bff" />
+        <svg x="10" y="9" width="20" height="22" viewBox="3.7 0 17 24">
+          <path
+            fill="#fff"
+            d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"
+          />
+        </svg>
       </svg>
-    </svg>
+    </span>
   )
 }
 
-/** Header lockup from the official Storelib Payments × Stripe brand asset. */
+/** Header lockup: Stripe mark and Storelib Payments / Powered by Stripe. */
 export function StorelibPaymentsBrand({ className, size = "md" }: { className?: string; size?: "md" | "lg" }) {
-  const tall = size === "lg" ? "h-[34px] sm:h-[38px]" : "h-[30px] sm:h-[34px]"
+  const mark = size === "lg" ? "h-11 w-11 sm:h-12 sm:w-12" : "h-10 w-10"
+  const title = size === "lg" ? "text-[16px] sm:text-[17px]" : "text-[15px]"
+  const sub = size === "lg" ? "text-[12px] sm:text-[13px]" : "text-[12px]"
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={BRAND_SRC}
-      alt="Storelib Payments, powered by Stripe"
-      width={447}
-      height={447}
-      decoding="async"
-      draggable={false}
-      className={cn(tall, "w-auto max-w-[min(100%,300px)] object-contain object-left", className)}
-    />
+    <div className={cn("flex min-w-0 items-center gap-3", className)}>
+      <StripeMark className={mark} />
+      <div className="min-w-0">
+        <p className={cn("truncate font-semibold leading-5 text-[#1a1a2e]", title)}>Storelib Payments</p>
+        <p className={cn("truncate leading-4 text-[#6b7280]", sub)}>Powered by Stripe</p>
+      </div>
+    </div>
   )
 }
 

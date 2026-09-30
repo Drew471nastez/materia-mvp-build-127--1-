@@ -80,18 +80,3 @@ export function StorelibPaymentsCard({
   )
 }
 
-export function StorelibPaymentsCardSkeleton() {
-  return (
-    <section className={cn(PAYMENTS_SURFACE, "overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-5 sm:p-6")} aria-busy="true" aria-label="Loading payments">
-      <div className="flex items-center gap-3">
-        <span className="h-10 w-10 animate-pulse rounded-[10px] bg-[#f1f2f4]" />
-        <div className="flex-1 space-y-2">
-          <span className="block h-3 w-36 animate-pulse rounded-full bg-[#f1f2f4]" />
-          <span className="block h-2.5 w-24 animate-pulse rounded-full bg-[#f1f2f4]" />
-        </div>
-      </div>
-      <span className="mt-5 block h-24 animate-pulse rounded-xl bg-[#f7f7f8]" />
-      <span className="mt-3 block h-11 animate-pulse rounded-xl bg-[#f7f7f8]" />
-    </section>
-  )
-}
