@@ -2585,6 +2585,17 @@ html.keyboard-open .app-content-scroll {
   padding-bottom: 0 !important;
 }
 
+/* The payments setup subpage on a phone: the keyboard covers its Back and
+   Continue rather than lifting them over the fields (a webview that resizes
+   for the keyboard would otherwise carry them up), and the fields get the
+   keyboard's height as room below so the last one can scroll above it. */
+html.keyboard-open [data-payments-setup-panel="subpage"] [data-setup-footer] {
+  display: none;
+}
+html.keyboard-open [data-payments-setup-panel="subpage"] [data-setup-scroll] {
+  padding-bottom: max(24px, calc(100dvh - var(--vv-h, 100dvh)));
+}
+
 /* Zero the library layout's inner content padding-bottom while keyboard is
    open — env(safe-area-inset-bottom) does not drop to 0 in Capacitor WKWebView
    when the keyboard appears, so the ~34px safe-area padding becomes visible
