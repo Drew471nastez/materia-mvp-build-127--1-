@@ -7,6 +7,7 @@ import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { ShimmerSwap } from "@/components/ui/shimmer"
+import { cachedOverview, fetchOverview, rememberOverview } from "@/lib/payments/overview-cache"
 import { StorelibPaymentsCard, StorelibPaymentsCardLoading } from "@/components/app/settings/storelib-payments-card"
 import { PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
@@ -46,17 +47,22 @@ export function StorelibPaymentsSettings({
 }) {
   const router = useRouter()
   const wasOpen = React.useRef<boolean | null>(null)
-  const [data, setData] = React.useState<Overview | null>(null)
+  const [data, setShown] = React.useState<Overview | null>(cachedOverview)
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = React.useState(false)
   const [panel, setPanel] = React.useState<{ open: boolean; mode: SetupMode }>({ open: false, mode: "setup" })
 
+  const setData = React.useCallback((next: Overview) => {
+    rememberOverview(next)
+    setShown(next)
+  }, [])
+
   const load = React.useCallback(async (how: "overview" | "refresh" = "overview") => {
     try {
       if (how === "refresh") setRefreshing(true)
-      const next = how === "refresh" ? await call<Overview>("refresh", {}) : await call<Overview>("overview")
+      const next = how === "refresh" ? await call<Overview>("refresh", {}) : await fetchOverview()
       setData(next)
       setError(null)
     } catch (e) {
@@ -64,7 +70,7 @@ export function StorelibPaymentsSettings({
     } finally {
       setRefreshing(false)
     }
-  }, [])
+  }, [setData])
 
   React.useEffect(() => {
     void load()

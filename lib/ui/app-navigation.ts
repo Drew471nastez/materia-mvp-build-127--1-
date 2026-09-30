@@ -447,6 +447,9 @@ export function prefetchAppPage(router: { prefetch: (href: string, options?: nev
   if (href === "/app/website-builder") {
     import("@/lib/website-builder/cover-memory").then((m) => m.warmCovers()).catch(() => {})
   }
+  if (href === "/app/payouts") {
+    import("@/lib/payments/overview-cache").then((m) => m.warmOverview()).catch(() => {})
+  }
 }
 
 /* ── Where the reader was, per address ─────────────────────────────────── */

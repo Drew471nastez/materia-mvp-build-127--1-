@@ -134,8 +134,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
           body.purpose === "onboarding" ||
           body.purpose === "payout_form" ||
           body.purpose === "rfi" ||
-          body.purpose === "stripe_onboarding" ||
-          body.purpose === "stripe_management" ||
           body.purpose === "stripe_payouts"
             ? body.purpose
             : null

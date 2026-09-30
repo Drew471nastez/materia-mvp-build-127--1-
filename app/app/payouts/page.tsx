@@ -9,7 +9,7 @@ import { TryProStrip } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
-import { GUTTER, ORDER_WIDTH, PaneBar } from "@/app/app/orders/order-parts"
+import { GUTTER, LIST_WIDTH, PaneBar } from "@/app/app/orders/order-parts"
 import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic";
@@ -59,10 +59,10 @@ export default async function PayoutsPage() {
           </div>
         </>
       ) : (
-        <div className={cn("mx-auto min-h-full pb-24 md:pb-10", ORDER_WIDTH, GUTTER)} data-payouts-setup="">
-          <header className="pt-2">
-            <h1 className="text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
-            <p className="mt-0.5 text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">Set up payments</p>
+        <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} data-payouts-setup="">
+          <header className="pb-1 pt-2">
+            <h1 className="flex min-h-[48px] items-center text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Payouts</h1>
+            <p className="-mt-1 text-[13px] leading-5 text-[#6b7280]">Set up payments to start selling</p>
           </header>
           <div className="mt-4">
             <StorelibPaymentsInline compact />

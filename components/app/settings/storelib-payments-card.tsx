@@ -31,33 +31,54 @@ function PaymentsCardHeader({
   refreshing?: boolean
   statusPlaceholder?: boolean
 }) {
-  const showActions = Boolean(status || statusPlaceholder || onRefresh)
-
   return (
-    <div className="flex flex-col gap-2.5 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
-      <StorelibPaymentsBrand size="lg" />
-      {showActions ? (
-        <div className="flex w-full items-center justify-between gap-2">
-          {statusPlaceholder ? (
-            <span className="inline-flex rounded-full bg-[#f1f2f4] px-2.5 py-1 text-[11px] font-medium text-transparent" aria-hidden>····</span>
-          ) : status ? (
-            <StatusPill status={status} />
-          ) : (
-            <span className="flex-1" aria-hidden />
-          )}
-          {onRefresh ? (
-            <button
-              type="button"
-              aria-label="Refresh status"
-              disabled={refreshing}
-              onClick={onRefresh}
-              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#6b7280] shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f7f7f8] hover:text-[#1a1a2e] disabled:opacity-60"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-            </button>
-          ) : null}
-        </div>
+    <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
+      <StorelibPaymentsBrand size="lg" className="flex-1" />
+      {statusPlaceholder ? (
+        <ShimmerBlock className="h-6 w-[104px] shrink-0 rounded-full" />
+      ) : status ? (
+        <StatusPill status={status} className="shrink-0" />
       ) : null}
+      {onRefresh ? (
+        <button
+          type="button"
+          aria-label="Refresh status"
+          disabled={refreshing}
+          onClick={onRefresh}
+          className="hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#6b7280] shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f7f7f8] hover:text-[#1a1a2e] disabled:opacity-60 sm:flex"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+const FEATURES = ["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"]
+
+function PaymentsFeatures() {
+  return (
+    <div className="space-y-2.5 px-4 pb-4 sm:px-6">
+      <ul className="space-y-2 rounded-xl bg-[#f7f7f8] px-3.5 py-3 text-[13px] text-[#1f2937]">
+        {FEATURES.map((line) => (
+          <li key={line} className="flex items-start gap-2">
+            <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#16a34a]" strokeWidth={2.5} />
+            {line}
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-2 rounded-xl border border-[#eceef1] px-3.5 py-2.5">
+        <span className="min-w-0 truncate text-[13px] text-[#1a1a2e]">Payment methods</span>
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          <VisaMark />
+          <MastercardMark />
+          <AmexMark />
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <ApplePayMark />
+            <GooglePayMark />
+          </span>
+        </span>
+      </div>
     </div>
   )
 }
@@ -85,28 +106,7 @@ export function StorelibPaymentsCard({
     >
       <PaymentsCardHeader status={status} onRefresh={onRefresh} refreshing={refreshing} />
 
-      {quiet ? null : (
-        <div className="space-y-2.5 px-4 pb-4 sm:px-6">
-          <ul className="space-y-2 rounded-xl bg-[#f7f7f8] px-3.5 py-3 text-[13px] text-[#1f2937]">
-            {["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"].map((line) => (
-              <li key={line} className="flex items-start gap-2">
-                <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#16a34a]" strokeWidth={2.5} />
-                {line}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-col gap-2.5 rounded-xl border border-[#eceef1] px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-2">
-            <span className="text-[13px] text-[#1a1a2e]">Payment methods</span>
-            <span className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
-              <VisaMark />
-              <MastercardMark />
-              <AmexMark />
-              <ApplePayMark />
-              <GooglePayMark />
-            </span>
-          </div>
-        </div>
-      )}
+      {quiet ? null : <PaymentsFeatures />}
 
       {children}
       {footer}
@@ -114,7 +114,7 @@ export function StorelibPaymentsCard({
   )
 }
 
-/** Setup card frame while overview loads: brand and selling points only (spinner lives outside). */
+/** The card while the overview loads: the same header and selling points, the action as light gray shapes. */
 export function StorelibPaymentsCardLoading() {
   return (
     <section
@@ -124,27 +124,8 @@ export function StorelibPaymentsCardLoading() {
       data-storelib-payments-card=""
       data-storelib-payments-loading-card=""
     >
-      <PaymentsCardHeader />
-      <div className="space-y-2.5 px-4 pb-4 sm:px-6">
-        <ul className="space-y-2 rounded-xl bg-[#f7f7f8] px-3.5 py-3 text-[13px] text-[#1f2937]">
-          {["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"].map((line) => (
-            <li key={line} className="flex items-start gap-2">
-              <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#16a34a]" strokeWidth={2.5} />
-              {line}
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-col gap-2.5 rounded-xl border border-[#eceef1] px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-2">
-          <span className="text-[13px] text-[#1a1a2e]">Payment methods</span>
-          <span className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
-            <VisaMark />
-            <MastercardMark />
-            <AmexMark />
-            <ApplePayMark />
-            <GooglePayMark />
-          </span>
-        </div>
-      </div>
+      <PaymentsCardHeader statusPlaceholder />
+      <PaymentsFeatures />
       <Shimmer className="border-t border-[#f1f2f4] px-4 py-8 sm:px-10 sm:py-12" label="Loading">
         <ShimmerBlock className="mx-auto h-5 w-[min(100%,280px)] rounded-full" />
         <ShimmerBlock className="mx-auto mt-3 h-4 w-[min(100%,220px)] rounded-full" />

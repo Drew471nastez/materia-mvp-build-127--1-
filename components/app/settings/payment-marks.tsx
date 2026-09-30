@@ -1,5 +1,5 @@
 /** Payment marks drawn in the page. No remote images. */
-import { StorelibLogo } from "@/components/brand/storelib-logo"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 const MARK_DEPTH =
@@ -25,21 +25,28 @@ export function StripeMark({ className = "h-10 w-10" }: { className?: string }) 
   )
 }
 
-/** Header lockup: one Storelib logo, title, subtitle; Stripe mark only on md+ (avoids two purple icons on phones). */
+const STRIPE_LOGO = "/brand/stripe-logo.png"
+
+/** Header lockup: the Stripe logo (7px corners, a little depth) beside Storelib Payments / Powered by Stripe. */
 export function StorelibPaymentsBrand({ className, size = "md" }: { className?: string; size?: "md" | "lg" }) {
-  const storelib = size === "lg" ? "h-10 w-10 shrink-0 sm:h-12 sm:w-12" : "h-9 w-9 shrink-0 sm:h-10 sm:w-10"
-  const stripeAside = size === "lg" ? "hidden h-10 w-10 shrink-0 md:inline-flex" : "hidden h-8 w-8 shrink-0 md:inline-flex"
-  const logoPx = size === "lg" ? 48 : 40
-  const title = size === "lg" ? "text-[15px] leading-snug sm:text-[17px]" : "text-[14px] leading-snug sm:text-[15px]"
-  const sub = size === "lg" ? "text-[11px] leading-4 sm:text-[13px]" : "text-[11px] leading-4 sm:text-[12px]"
+  const px = size === "lg" ? 44 : 40
+  const title = size === "lg" ? "text-[15px] sm:text-[16px]" : "text-[14px] sm:text-[15px]"
   return (
-    <div className={cn("flex w-full min-w-0 items-center gap-2.5 sm:gap-3", className)} data-storelib-payments-brand="">
-      <StorelibLogo size={logoPx} fluid className={storelib} alt="" />
-      <div className="min-w-0 flex-1">
-        <p className={cn("font-semibold text-[#1a1a2e]", title)}>Storelib Payments</p>
-        <p className={cn("mt-0.5 text-[#6b7280]", sub)}>Powered by Stripe</p>
+    <div className={cn("flex min-w-0 items-center gap-3", className)} data-storelib-payments-brand="">
+      <Image
+        src={STRIPE_LOGO}
+        alt="Stripe"
+        width={px}
+        height={px}
+        priority
+        draggable={false}
+        className={cn("shrink-0 rounded-[7px] object-cover", MARK_DEPTH)}
+        style={{ width: px, height: px }}
+      />
+      <div className="min-w-0">
+        <p className={cn("truncate font-semibold leading-5 text-[#1a1a2e]", title)}>Storelib Payments</p>
+        <p className="truncate text-[12px] leading-4 text-[#6b7280] sm:text-[13px]">Powered by Stripe</p>
       </div>
-      <StripeMark className={stripeAside} />
     </div>
   )
 }
