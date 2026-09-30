@@ -79,6 +79,8 @@ export type { CreatorRef, HubOverview } from "./hub-types"
 import type { CreatorRef, HubOverview } from "./hub-types"
 import { PaymentsProblem } from "./errors"
 import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
+import { prepareStorelibAccount, submitStripeDetails, uploadStripeDocument } from "./stripe/verification"
+import type { DetailsInput } from "./stripe/details-fields"
 import { attachStripeBank, beginStripeOnboarding, disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
 import type { PayoutProfileInput } from "./stripe/payout-profile"
 import { snapshotFromCreatorRow, stripeRowReady } from "./stripe/facts"
@@ -308,6 +310,30 @@ export async function addStripeBank(creator: CreatorRef, token: string) {
   return overview(creator)
 }
 
+/** Swaps an untouched Stripe-hosted account for one Storelib runs, before the Verify step draws. */
+export async function prepareVerification(creator: CreatorRef) {
+  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
+  await prepareStorelibAccount(creator)
+  return overview(creator)
+}
+
+export async function submitVerificationDetails(
+  creator: CreatorRef,
+  input: DetailsInput,
+  consent: { ip: string | null; userAgent: string | null },
+  mode: "setup" | "update",
+) {
+  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
+  await submitStripeDetails(creator, input, consent, mode)
+  return overview(creator)
+}
+
+export async function uploadVerificationDocument(creator: CreatorRef, file: File | null, side: "front" | "back") {
+  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
+  await uploadStripeDocument(creator, file, side)
+  return overview(creator)
+}
+
 export async function disconnectPayoutAccount(creator: CreatorRef) {
   if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
   await disconnectIncompleteStripeAccount(creator.id)
@@ -408,7 +434,7 @@ export async function componentAuth(
           : purpose === "stripe_payouts" || purpose === "payout_form"
             ? "payouts"
             : "balances"
-    const session = await stripeAccountSession(creator.id, stripePurpose)
+    const session = await stripeAccountSession(creator, stripePurpose)
     return { clientSecret: session.clientSecret, publishableKey: session.publishableKey }
   }
   const cfg = requireConfigured()

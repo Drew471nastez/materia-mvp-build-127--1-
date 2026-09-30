@@ -3,6 +3,7 @@ import type { PayoutDestination } from "./store"
 import type { StorelibPaymentsBadge } from "./stripe/creator-badge"
 import type { PaymentUxState } from "./stripe/facts"
 import type { OnboardingBeat } from "./stripe/onboarding-steps"
+import type { StripeVerificationView } from "./stripe/details-fields"
 
 export interface HubOverview {
   provider: "stripe" | "airwallex"
@@ -41,6 +42,8 @@ export interface HubOverview {
     /** False for an older Express account, where Stripe's own form still adds the bank. */
     inStorelib: boolean
   } | null
+  /** What Storelib's own Verify step asks for. Null on accounts Storelib does not run. */
+  verification?: StripeVerificationView | null
   /** Where the creator is in setup. Requirement codes stay on the server. */
   beat?: OnboardingBeat
   statusLabel?: string

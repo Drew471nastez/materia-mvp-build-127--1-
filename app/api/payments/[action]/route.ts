@@ -16,6 +16,9 @@
  *   POST payout          { amountMinor, currency } a payout to their bank
  *   POST refresh         asks Airwallex again, now
  *   POST bank            { token } a Stripe.js bank token (btok_), never the number
+ *   POST prepare         makes sure the account is one Storelib runs, before Verify
+ *   POST details         identity details, sent straight to Stripe, never stored
+ *   POST document        multipart { file, side } an ID photo, to Stripe's Files API
  *
  * Errors are one sentence for the creator. Airwallex's own codes and
  * messages stay in the server log.
@@ -35,7 +38,10 @@ import {
   disconnectPayoutAccount,
   overview,
   PaymentsProblem,
+  prepareVerification,
   providerFor,
+  submitVerificationDetails,
+  uploadVerificationDocument,
   submitPayoutProfile,
   refreshPayoutAccount,
   refreshProviderAccount,
@@ -90,7 +96,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   const { action } = await context.params
   const creator = await paymentsCreator()
   if (creator instanceof NextResponse) return creator
-  const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>
+  const upload = action === "document" ? await request.formData().catch(() => null) : null
+  const body = upload ? {} : (((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>)
   const provider = await providerFor(creator.id)
 
   const moves = action === "payout"
@@ -202,6 +209,41 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       case "bank": {
         const token = typeof body.token === "string" ? body.token.slice(0, 80) : ""
         return NextResponse.json(await addStripeBank(creator, token), { headers: NO_STORE })
+      }
+      case "prepare": {
+        return NextResponse.json(await prepareVerification(creator), { headers: NO_STORE })
+      }
+      case "details": {
+        const text = (key: string, max: number) => {
+          const value = body[key]
+          return typeof value === "string" ? value.slice(0, max) : undefined
+        }
+        return NextResponse.json(
+          await submitVerificationDetails(
+            creator,
+            {
+              dob: text("dob", 10),
+              line1: text("line1", 120),
+              line2: text("line2", 120),
+              city: text("city", 80),
+              state: text("state", 80),
+              postalCode: text("postalCode", 16),
+              phone: text("phone", 24),
+              idNumber: text("idNumber", 24),
+              ssnLast4: text("ssnLast4", 4),
+              pep: body.pep === "none" || body.pep === "existing" ? body.pep : "",
+              tos: body.tos === true,
+            },
+            { ip: callerAddress(request), userAgent: request.headers.get("user-agent") },
+            body.mode === "update" ? "update" : "setup",
+          ),
+          { headers: NO_STORE },
+        )
+      }
+      case "document": {
+        const file = upload?.get("file")
+        const side = upload?.get("side") === "back" ? "back" : "front"
+        return NextResponse.json(await uploadVerificationDocument(creator, file instanceof File ? file : null, side), { headers: NO_STORE })
       }
       case "disconnect": {
         return NextResponse.json(await disconnectPayoutAccount(creator), { headers: NO_STORE })

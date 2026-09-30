@@ -9,7 +9,7 @@ import {
   fetchStripeBalances,
   fetchStripePayouts,
   maskExternalAccount,
-  payoutFacts,
+  payoutFactsOf,
   profileForCreator,
   readCreatorStripe,
   resolveCountryForStart,
@@ -27,6 +27,7 @@ import {
   stripeStageOf,
 } from "./facts"
 import { stripe } from "@/lib/stripe"
+import { prepareStorelibAccount, verificationView } from "./verification"
 
 function mergeSnapshotFromRow(
   row: Awaited<ReturnType<typeof readCreatorStripe>>,
@@ -53,7 +54,9 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
 
   const row = await readCreatorStripe(creator.id)
   const person = row ? await profileForCreator(row.user_id) : null
-  const facts = row?.stripe_account_id ? await payoutFacts(row.stripe_account_id) : null
+  const live = row?.stripe_account_id ? await stripe.accounts.retrieve(row.stripe_account_id).catch(() => null) : null
+  const facts = live ? payoutFactsOf(live) : null
+  const verification = live ? verificationView(live) : null
 
   const stage = stripeStageOf(snapshot)
   const uxState = paymentUxStateOf(snapshot)
@@ -144,6 +147,7 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
       country: countryCode(person?.country),
     },
     payoutHint: facts,
+    verification,
     beat,
     statusLabel,
     nextPayout,
@@ -156,6 +160,7 @@ export async function stripeStartOnboarding(creator: CreatorRef, input: { kind: 
   return stripeOverview(creator)
 }
 
-export async function stripeAccountSession(creatorId: string, purpose: "onboarding" | "management" | "payouts" | "balances") {
-  return createStripeAccountSession(creatorId, purpose)
+export async function stripeAccountSession(creator: CreatorRef, purpose: "onboarding" | "management" | "payouts" | "balances") {
+  if (purpose === "onboarding" || purpose === "management") await prepareStorelibAccount(creator)
+  return createStripeAccountSession(creator.id, purpose)
 }

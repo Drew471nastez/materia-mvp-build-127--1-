@@ -190,7 +190,7 @@ export async function ensureStripeAccount(
   }
 }
 
-function platformBusinessUrl(): string {
+export function platformBusinessUrl(): string {
   const raw = (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://storelib.com").trim()
   try {
     const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`)
@@ -496,23 +496,26 @@ export async function beginStripeOnboarding(
   await syncStripeAccount(creator.id, "creator")
 }
 
-export async function payoutFacts(
-  accountId: string,
-): Promise<{ accountName: string; currency: string | null; country: string | null; holderType: "individual" | "company"; inStorelib: boolean } | null> {
+export type PayoutFacts = { accountName: string; currency: string | null; country: string | null; holderType: "individual" | "company"; inStorelib: boolean }
+
+export async function payoutFacts(accountId: string): Promise<PayoutFacts | null> {
   try {
-    const account = await stripe.accounts.retrieve(accountId)
-    const person = [account.individual?.first_name, account.individual?.last_name].filter(Boolean).join(" ").trim()
-    const company = account.company?.name?.trim() || ""
-    const accountName = account.business_type === "company" ? company || person : person || company
-    return {
-      accountName,
-      currency: account.default_currency ? account.default_currency.toUpperCase() : null,
-      country: account.country ? account.country.toUpperCase() : null,
-      holderType: account.business_type === "company" ? "company" : "individual",
-      inStorelib: runsInStorelib(account),
-    }
+    return payoutFactsOf(await stripe.accounts.retrieve(accountId))
   } catch {
     return null
+  }
+}
+
+export function payoutFactsOf(account: Stripe.Account): PayoutFacts {
+  const person = [account.individual?.first_name, account.individual?.last_name].filter(Boolean).join(" ").trim()
+  const company = account.company?.name?.trim() || ""
+  const accountName = account.business_type === "company" ? company || person : person || company
+  return {
+    accountName,
+    currency: account.default_currency ? account.default_currency.toUpperCase() : null,
+    country: account.country ? account.country.toUpperCase() : null,
+    holderType: account.business_type === "company" ? "company" : "individual",
+    inStorelib: runsInStorelib(account),
   }
 }
 
