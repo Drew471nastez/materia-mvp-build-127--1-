@@ -33,6 +33,7 @@ import {
   AGREEMENT_URL,
   detailsIssues,
   idNumberCopy,
+  taxIdCopy,
   type DetailField,
   type DetailsInput,
   type StripeVerificationView,
@@ -155,7 +156,7 @@ function Panel({
         aria-label={label}
         data-payments-setup-panel="subpage"
         className={cn(
-          "fixed inset-0 z-[1000] flex h-[var(--vv-h,100dvh)] flex-col bg-white ease-sheet [will-change:transform]",
+          "fixed inset-x-0 top-0 z-[1000] flex h-[100dvh] flex-col bg-white ease-sheet [backface-visibility:hidden] [contain:layout_paint] [will-change:transform]",
           leaving ? "animate-out slide-out-to-right duration-200" : "animate-in slide-in-from-right duration-300",
         )}
       >
@@ -360,6 +361,7 @@ function Reveal({ open, children }: { open: boolean; children: React.ReactNode }
 function Footer({ children, compact }: { children: React.ReactNode; compact?: boolean }) {
   return (
     <div
+      data-setup-footer=""
       className={cn(
         "sticky bottom-0 flex shrink-0 items-center justify-between gap-3 border-t border-[#f1f2f4] bg-white px-5 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 [&>*:last-child]:max-sm:flex-1",
         compact ? "mt-3 py-3" : "mt-6 py-4",
@@ -434,13 +436,17 @@ export function PaymentsSetupFlow({
   const title = mode === "bank" ? (data.payoutDestination ? "Update bank account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payments"
   const onBack = mode === "setup" && step > 0 ? () => go((step - 1) as Step) : onClose
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
-  const panelCompact = !phone && mode === "setup" && step === 1
+  const panelCompact = !phone && mode === "setup" && step === 1 && data.verification?.kind !== "business"
 
+  /* The Verify step asks for itself when it has no view; with one already
+     shown, the server still settles what it can answer once per opening. */
+  const settledFor = React.useRef(-1)
   React.useEffect(() => {
-    if (!open || step !== 1 || mode !== "setup") return
-    if (data.verification) return
+    if (!open || step !== 1 || mode !== "setup" || !data.verification) return
+    if (settledFor.current === openCount) return
+    settledFor.current = openCount
     void post<Overview>("prepare", {}).then(onData).catch(() => undefined)
-  }, [open, step, mode, data.verification, data.payoutHint?.inStorelib, onData])
+  }, [open, step, mode, data.verification, openCount, onData])
 
   return (
     <Panel open={open} phone={phone} compact={panelCompact} onClose={onClose} label={title}>
@@ -481,7 +487,7 @@ export function PaymentsSetupFlow({
         </div>
       )}
 
-      <div className={cn("min-h-0 flex-1 overscroll-contain", phone && "pt-5", panelCompact ? "overflow-y-auto sm:overflow-hidden" : "overflow-y-auto")}>
+      <div data-setup-scroll="" className={cn("min-h-0 flex-1 overscroll-contain", phone && "pt-5", "overflow-y-auto")}>
         {mode === "details" ? (
           <DetailsStep key={`details-${openCount}`} data={data} onBack={onClose} onDone={(next) => { onData(next); onFinished(); onClose() }} />
         ) : step === 0 ? (
@@ -683,11 +689,11 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
     }
   }, [data, onDone, take])
 
-  const refreshVerify = React.useCallback(async () => {
+  const refreshVerify = React.useCallback(async (how: "refresh" | "prepare" = "refresh") => {
     setRetrying(true)
     setError(null)
     try {
-      take(await post<Overview>("refresh", {}))
+      take(await post<Overview>(how, {}))
     } catch (e) {
       setError(safe(e instanceof Error ? e.message : "Could not check your details."))
     } finally {
@@ -703,7 +709,7 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
 
   React.useEffect(() => {
     if (stage !== "other") return
-    void refreshVerify()
+    void refreshVerify("prepare")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage])
 
@@ -760,19 +766,34 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
     )
   }
 
+  const labels = view?.otherLabels ?? []
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-full flex-1 flex-col" data-verify-other="">
       <div className="flex-1 space-y-3 px-5 py-4 sm:px-6">
-        <p className="text-[13px] leading-5 text-[#6b7280]">
-          We could not open the next step just now. Everything stays in Storelib — Stripe&apos;s own setup screen is not used here.
-        </p>
+        <div className="rounded-xl border border-[#eceef1] bg-[#f9fafb] px-4 py-3.5">
+          <p className="text-[14px] font-semibold text-[#1a1a2e]">One more thing to confirm</p>
+          <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">
+            Stripe needs a detail this form does not cover yet. Write to{" "}
+            <a href="mailto:support@storelib.com?subject=Payments%20verification" className={LINK}>support@storelib.com</a> and we will finish it together.
+          </p>
+          {labels.length > 0 ? (
+            <ul className="mt-2.5 space-y-1">
+              {labels.map((label) => (
+                <li key={label} className="flex items-center gap-2 text-[13px] text-[#1a1a2e]">
+                  <span aria-hidden className="h-1 w-1 rounded-full bg-[#9ca3af]" />
+                  {label}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
         <ErrorLine message={error} />
       </div>
       <Footer>
         <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
-        <button type="button" className={PRIMARY} disabled={retrying} onClick={() => void refreshVerify()}>
+        <button type="button" className={PRIMARY} disabled={retrying} onClick={() => void refreshVerify("prepare")}>
           {retrying ? <Spinner /> : null}
-          {retrying ? "Checking" : "Try again"}
+          {retrying ? "Checking" : "Check again"}
         </button>
       </Footer>
     </div>
@@ -789,12 +810,29 @@ const PHONE_EXAMPLE: Record<string, string> = {
   AU: "+61 412 345 678",
 }
 
+const COMPANY_FIELDS: DetailField[] = ["companyName", "companyAddress", "companyPhone", "taxId", "registrationNumber"]
+const PERSON_FIELDS: DetailField[] = ["name", "title", "dob", "nationality", "address", "phone", "idNumber", "ssnLast4", "pep"]
+
+function PartLabel({ children }: { children: React.ReactNode }) {
+  return <p className="pt-1 text-[12px] font-semibold text-[#6b7280]">{children}</p>
+}
+
 function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerificationView; mode: "setup" | "update"; onBack: () => void; onDone: (next: Overview) => void; intro?: React.ReactNode }) {
   const fields: DetailField[] = mode === "update" ? ["address", "phone"] : view.fields
   const compact = mode === "setup"
   const has = (f: DetailField) => fields.includes(f)
   const country = view.country
-  const [form, setForm] = React.useState<DetailsInput>({ pep: "" })
+  const business = view.kind === "business"
+  const companyPart = COMPANY_FIELDS.some(has)
+  const personPart = PERSON_FIELDS.some(has)
+  const [form, setForm] = React.useState<DetailsInput>(() => ({
+    pep: "",
+    firstName: view.prefill?.firstName ?? "",
+    lastName: view.prefill?.lastName ?? "",
+    companyName: view.prefill?.companyName ?? "",
+    nationality: country,
+  }))
+  const [showCompanyLine2, setShowCompanyLine2] = React.useState(false)
   const [showLine2, setShowLine2] = React.useState(false)
   const [touched, setTouched] = React.useState<Record<string, boolean>>({})
   const [tried, setTried] = React.useState(false)
@@ -810,6 +848,7 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
     className: cn(compact ? FIELD_COMPACT : FIELD, issue(key as keyof typeof issues) && FIELD_BAD),
   })
   const idCopy = idNumberCopy(country)
+  const taxCopy = taxIdCopy(country)
   const today = new Date().toISOString().slice(0, 10)
 
   const submit = async (e: React.FormEvent) => {
@@ -837,6 +876,92 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
       <div className={cn("flex-1 px-5 sm:px-6", compact ? "space-y-2.5 sm:space-y-2" : "space-y-4")}>
         {intro ?? (compact ? null : <p className="text-[13px] leading-5 text-[#6b7280]">Confirm a few details. This usually takes about a minute.</p>)}
         <ErrorLine message={error} />
+
+        {business && companyPart ? (
+          <div className={cn(compact ? "space-y-2.5" : "space-y-4")} data-verify-company="">
+            <PartLabel>Your business</PartLabel>
+            {has("companyName") ? (
+              <Field dense={compact} label="Legal business name" error={issue("companyName")} tip="Exactly as on the company's registration papers.">
+                <input autoComplete="organization" placeholder="Legal business name" {...bind("companyName")} />
+              </Field>
+            ) : null}
+            {has("companyAddress") ? (
+              <>
+                <Field dense={compact} label="Business address" error={issue("companyLine1")} tip="The registered address of the business. No PO boxes.">
+                  <input autoComplete="off" placeholder="Street and number" {...bind("companyLine1")} />
+                </Field>
+                {!showCompanyLine2 && !(form.companyLine2 ?? "").trim() ? (
+                  <button type="button" onClick={() => setShowCompanyLine2(true)} className="text-[12px] font-medium text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
+                    Add suite or floor
+                  </button>
+                ) : (
+                  <Field dense={compact} label="Suite or floor" optional>
+                    <input autoComplete="off" placeholder="Optional" {...bind("companyLine2")} />
+                  </Field>
+                )}
+                <div className={cn("grid gap-2.5", has("companyState") ? "sm:grid-cols-[minmax(0,1fr)_108px_minmax(0,0.9fr)]" : "grid-cols-[minmax(0,1fr)_108px] sm:grid-cols-[minmax(0,1fr)_120px]")}>
+                  <Field dense={compact} label="City" error={issue("companyCity")}>
+                    <input autoComplete="off" placeholder="City" {...bind("companyCity")} />
+                  </Field>
+                  <Field dense={compact} label="Postal" error={issue("companyPostalCode")}>
+                    <input autoComplete="off" autoCapitalize="characters" placeholder="Code" {...bind("companyPostalCode")} />
+                  </Field>
+                  {has("companyState") ? (
+                    <Field dense={compact} label={country === "US" ? "State" : "Region"} error={issue("companyState")}>
+                      <input autoComplete="off" placeholder={country === "US" ? "State" : "Region"} {...bind("companyState")} />
+                    </Field>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+            {has("companyPhone") || has("taxId") || has("registrationNumber") ? (
+              <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-x-3">
+                {has("taxId") ? (
+                  <Field dense={compact} label={taxCopy.label} error={issue("taxId")} tip={taxCopy.tip}>
+                    <input autoComplete="off" spellCheck={false} placeholder={taxCopy.label} {...bind("taxId")} />
+                  </Field>
+                ) : null}
+                {has("registrationNumber") ? (
+                  <Field dense={compact} label="Registration number" error={issue("registrationNumber")} tip="The number on the company's registration certificate.">
+                    <input autoComplete="off" spellCheck={false} placeholder="Registration number" {...bind("registrationNumber")} />
+                  </Field>
+                ) : null}
+                {has("companyPhone") ? (
+                  <Field dense={compact} label="Business phone" error={issue("companyPhone")} tip="With the country code.">
+                    <input type="tel" inputMode="tel" autoComplete="off" placeholder={PHONE_EXAMPLE[country] ?? "+ country code"} {...bind("companyPhone")} />
+                  </Field>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {business && personPart ? <PartLabel>About you</PartLabel> : null}
+
+        {has("name") ? (
+          <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2 min-[420px]:gap-x-3">
+            <Field dense={compact} label="Legal first name" error={issue("firstName")} tip="Exactly as on your passport or ID card.">
+              <input autoComplete="given-name" placeholder="First name" {...bind("firstName")} />
+            </Field>
+            <Field dense={compact} label="Legal last name" error={issue("lastName")} tip="Exactly as on your ID, including any second last name.">
+              <input autoComplete="family-name" placeholder="Last name" {...bind("lastName")} />
+            </Field>
+          </div>
+        ) : null}
+
+        {has("title") ? (
+          <Field dense={compact} label="Your role" error={issue("title")} tip="Your job title at the business, like Owner, Director or CEO.">
+            <input autoComplete="organization-title" placeholder="Owner" {...bind("title")} />
+          </Field>
+        ) : null}
+
+        {has("nationality") ? (
+          <Field dense={compact} label="Nationality" error={issue("nationality")} tip="The country on your passport or ID card.">
+            <div>
+              <CountryPicker value={form.nationality ?? ""} onChange={(name) => { setForm((f) => ({ ...f, nationality: countryOf(name) ?? "" })); setTouched((t) => ({ ...t, nationality: true })) }} />
+            </div>
+          </Field>
+        ) : null}
 
         <div className={cn(compact && (has("dob") || has("phone")) ? "grid gap-2.5" : compact ? "contents" : (has("dob") || has("phone")) ? "grid gap-2.5 sm:grid-cols-2 sm:gap-x-4" : "contents")}>
           {has("dob") ? (
@@ -919,6 +1044,23 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
           </div>
         ) : null}
 
+        {has("owners") ? (
+          <div>
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#eceef1] bg-[#f9fafb] px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={form.owners === true}
+                onChange={(e) => { setForm((f) => ({ ...f, owners: e.target.checked })); setTouched((t) => ({ ...t, owners: true })) }}
+                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[#1a1a2e]"
+              />
+              <span className="text-[12px] leading-[17px] text-[#1a1a2e] sm:text-[13px] sm:leading-[18px]">
+                I am the only owner, director and executive of {form.companyName?.trim() || view.prefill?.companyName || "this business"}.
+              </span>
+            </label>
+            {issue("owners") ? <span className="mt-1 block text-[11px] text-[#c4290c]">{issue("owners")}</span> : null}
+          </div>
+        ) : null}
+
         {has("tos") ? (
           <p className="text-[11px] leading-[16px] text-[#6b7280] sm:text-[12px] sm:leading-[17px]">
             By continuing you agree to the{" "}
@@ -944,7 +1086,9 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
 const DOC_TYPES = "image/jpeg,image/png,application/pdf"
 
 function DocumentForm({ view, onBack, onDone }: { view: StripeVerificationView; onBack: () => void; onDone: (next: Overview) => void }) {
-  const proof = view.document === "address_proof"
+  const company = view.document === "company"
+  const proof = view.document === "address_proof" || company
+  const heading = company ? "Company document" : proof ? "Proof of address" : "Photo of your ID"
   const [front, setFront] = React.useState<File | null>(null)
   const [backFile, setBackFile] = React.useState<File | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -980,14 +1124,18 @@ function DocumentForm({ view, onBack, onDone }: { view: StripeVerificationView; 
       <div className="flex-1 space-y-5 px-5 sm:px-6">
         <div>
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{proof ? "Proof of address" : "Photo of your ID"}</h3>
-            <InfoTip label={proof ? "Proof of address" : "Photo of your ID"}>
-              {proof
-                ? "A bank statement, utility bill or tax letter from the last 3 months, showing your name and home address."
-                : "A passport, national ID card or driving licence. Show all four corners, with no glare or blur."}
+            <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{heading}</h3>
+            <InfoTip label={heading}>
+              {company
+                ? "A registration certificate, articles of association or a tax letter showing the business's legal name and number."
+                : proof
+                  ? "A bank statement, utility bill or tax letter from the last 3 months, showing your name and home address."
+                  : "A passport, national ID card or driving licence. Show all four corners, with no glare or blur."}
             </InfoTip>
           </div>
-          <p className="mt-1 text-[13px] text-[#6b7280]">{proof ? "A recent document with your name and address." : "Passport, ID card or driving licence."}</p>
+          <p className="mt-1 text-[13px] text-[#6b7280]">
+            {company ? "An official paper with the business name and number." : proof ? "A recent document with your name and address." : "Passport, ID card or driving licence."}
+          </p>
         </div>
         {view.problem ? (
           <p className="rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2.5 text-[13px] text-[#92400e] animate-in fade-in-0 duration-150">{view.problem}</p>

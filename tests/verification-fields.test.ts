@@ -1,5 +1,16 @@
 import { readFileSync } from "node:fs"
-import { AGREEMENT_URL, detailsIssues, detailsPlan, dobParts, idNumberCopy, maskDobTyping, normalizeDobInput, normalPhone } from "@/lib/payments/stripe/details-fields"
+import {
+  AGREEMENT_URL,
+  detailsIssues,
+  detailsPlan,
+  dobParts,
+  idNumberCopy,
+  maskDobTyping,
+  normalizeDobInput,
+  normalPhone,
+  requirementLabel,
+  unknownRequirements,
+} from "@/lib/payments/stripe/details-fields"
 
 let passed = 0
 let failed = 0
@@ -41,8 +52,41 @@ check("ssn last 4 when the full number is not due", detailsPlan(["individual.ssn
 check("an ID photo when Stripe asks", detailsPlan(["individual.verification.document"], "individual").document === "identity")
 check("proof of address when Stripe asks", detailsPlan(["individual.verification.additional_document"], "individual").document === "address_proof")
 check("an unknown requirement falls back", detailsPlan(["individual.relationship.title"], "individual").other)
-check("a business with owners falls back", detailsPlan(["company.tax_id", "tos_acceptance.date"], "business").other)
+check("a legal name still missing is asked, not skipped", plan.fields.includes("name") && !detailsPlan(["individual.dob.day"], "individual").fields.includes("name"))
+check("statement descriptors are set by the server", !detailsPlan(["settings.payments.statement_descriptor", "settings.card_payments.statement_descriptor_prefix"], "individual").other)
+const company = detailsPlan(
+  [
+    "company.name",
+    "company.address.city",
+    "company.address.line1",
+    "company.address.postal_code",
+    "company.address.state",
+    "company.phone",
+    "company.tax_id",
+    "company.owners_provided",
+    "company.directors_provided",
+    "representative.first_name",
+    "representative.last_name",
+    "representative.email",
+    "representative.dob.day",
+    "representative.address.line1",
+    "representative.phone",
+    "representative.relationship.title",
+    "representative.relationship.executive",
+    "owners.first_name",
+    "directors.last_name",
+    "business_profile.url",
+    "tos_acceptance.date",
+    "external_account",
+  ],
+  "business",
+)
+check("a business is asked in Storelib, company and representative", !company.other && ["companyName", "companyAddress", "companyState", "companyPhone", "taxId", "name", "title", "dob", "address", "phone", "owners", "tos"].every((f) => company.fields.includes(f as never)))
+check("a person created on a business reads as its representative", detailsPlan(["person_1AbC.dob.day", "person_1AbC.verification.document"], "business").fields.join() === "dob" && detailsPlan(["person_1AbC.verification.document"], "business").document === "identity")
+check("a company document when Stripe asks", detailsPlan(["company.verification.document"], "business").document === "company")
 check("a business with only the agreement stays native", detailsPlan(["tos_acceptance.date", "external_account"], "business").fields.join() === "tos")
+check("what Storelib cannot ask is named, not coded", unknownRequirements(["individual.verification.proof_of_liveness"], "individual").length === 1 && requirementLabel("individual.verification.proof_of_liveness") === "A quick selfie check")
+check("company fields are checked", !!detailsIssues({ taxId: "12" }, ["taxId"], "US").taxId && !detailsIssues({ taxId: "12-3456789" }, ["taxId"], "US").taxId && !!detailsIssues({}, ["owners"], "US").owners)
 check("the bank alone asks nothing here", detailsPlan(["external_account"], "individual").fields.length === 0 && !detailsPlan(["external_account"], "individual").other)
 
 const now = new Date(Date.UTC(2026, 0, 15))

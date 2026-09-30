@@ -9,11 +9,23 @@ import {
   platformBusinessUrl,
   profileForCreator,
   readCreatorStripe,
+  representativeOf,
   runsInStorelib,
   syncStripeAccount,
+  upsertRepresentative,
   type PaymentsCreatorRef,
 } from "./connect"
-import { detailsIssues, detailsPlan, dobParts, normalPhone, type DetailField, type DetailsInput, type StripeVerificationView } from "./details-fields"
+import {
+  detailsIssues,
+  detailsPlan,
+  dobParts,
+  normalPhone,
+  requirementLabel,
+  unknownRequirements,
+  type DetailField,
+  type DetailsInput,
+  type StripeVerificationView,
+} from "./details-fields"
 import { stripeErrorMessage } from "./setup-errors"
 
 const NOT_IN_STORELIB = "Verification can't open in Storelib right now. Nothing was sent. Try again later."
@@ -27,11 +39,16 @@ function kindOf(account: Stripe.Account): "individual" | "business" {
   return account.business_type === "company" ? "business" : "individual"
 }
 
+/** Person ids out of a requirement code, for a log line. */
+function codeForLog(key: string): string {
+  return key.replace(/^person_[A-Za-z0-9]+\./, "person.")
+}
+
 function documentProblem(account: Stripe.Account): string | null {
   const errors = account.requirements?.errors ?? []
   const doc = errors.find((e) => /verification\.(additional_)?document/.test(e.requirement))
   const code = doc?.code ?? account.individual?.verification?.document?.details_code ?? null
-  if (!code) return errors.some((e) => /^individual\.(dob|id_number|address)/.test(e.requirement)) ? "Some details did not match your ID. Check them and try again." : null
+  if (!code) return errors.some((e) => /^(individual|representative|person_[A-Za-z0-9]+)\.(dob|id_number|address)/.test(e.requirement)) ? "Some details did not match your ID. Check them and try again." : null
   if (/expired/.test(code)) return "That ID has expired. Upload one that is still valid."
   if (/too_large|failed_greyscale|unreadable|not_readable|corrupt|failed_copy|photo|image/.test(code)) return "We could not read that photo. Upload a clear, full photo of the ID."
   if (/name_mismatch|dob_mismatch|mismatch/.test(code)) return "The name or birth date on the ID did not match. Check your details."
@@ -41,14 +58,75 @@ function documentProblem(account: Stripe.Account): string | null {
 
 export function verificationView(account: Stripe.Account): StripeVerificationView | null {
   if (!runsInStorelib(account)) return null
-  const plan = detailsPlan(dueOf(account), kindOf(account))
+  const kind = kindOf(account)
+  const due = dueOf(account)
+  const plan = detailsPlan(due, kind)
+  const unknown = unknownRequirements(due, kind)
+  if (unknown.length > 0) console.warn("[stripe verification] no Storelib field for", unknown.map(codeForLog).join(",").slice(0, 300))
   const waiting = (account.requirements?.pending_verification ?? []).length > 0
   return {
+    kind,
     ...plan,
+    otherLabels: [...new Set(unknown.map(requirementLabel))].slice(0, 4),
     pending: waiting && plan.fields.length === 0 && !plan.document && !plan.other,
     agreement: account.tos_acceptance?.service_agreement === "recipient" ? "recipient" : "full",
     country: (account.country ?? "").toUpperCase(),
     problem: documentProblem(account),
+    prefill: {
+      firstName: kind === "individual" ? account.individual?.first_name ?? "" : "",
+      lastName: kind === "individual" ? account.individual?.last_name ?? "" : "",
+      companyName: account.company?.name ?? "",
+    },
+  }
+}
+
+/** Letters, digits and spaces, 5 to 22 long, with a letter: what card statements accept. */
+export function statementDescriptorFor(handle: string | null | undefined): string {
+  const tail = (handle ?? "").toUpperCase().replace(/[^A-Z0-9 ]/g, "").trim()
+  return `STORELIB${tail ? ` ${tail}` : ""}`.slice(0, 22).trim()
+}
+
+/**
+ * What Storelib answers for the creator without asking: the store's web
+ * address and what it sells, how charges read on a statement, and the
+ * account's email and legal name from the profile when Stripe still lacks them.
+ */
+async function settleServerSide(creator: PaymentsCreatorRef, account: Stripe.Account): Promise<Stripe.Account> {
+  const due = dueOf(account)
+  const needs = (re: RegExp) => due.some((k) => re.test(k))
+  const params: Stripe.AccountUpdateParams = {}
+  const row = needs(/^(business_profile\.|settings\.)/) ? await readCreatorStripe(creator.id) : null
+  if (needs(/^business_profile\./)) {
+    const handle = row?.username && /^[A-Za-z0-9._-]{2,64}$/.test(row.username) ? row.username : ""
+    params.business_profile = {
+      url: handle ? `${platformBusinessUrl()}/${handle}` : platformBusinessUrl(),
+      mcc: "5818",
+      product_description: row?.bio?.trim().slice(0, 200) || "Digital products and services on Storelib",
+    }
+  }
+  if (needs(/^settings\.(payments\.statement_descriptor|card_payments\.statement_descriptor_prefix)$/)) {
+    params.settings = {
+      payments: { statement_descriptor: statementDescriptorFor(row?.username) },
+      card_payments: { statement_descriptor_prefix: "STORELIB" },
+    }
+  }
+  if (kindOf(account) === "individual" && needs(/^individual\.(first_name|last_name|email)$/)) {
+    const profile = await profileForCreator(creator.userId)
+    const email = ownerAddress(profile?.email || creator.email) || undefined
+    const individual: Stripe.AccountUpdateParams.Individual = {}
+    if (due.includes("individual.email") && email) individual.email = email
+    if (due.includes("individual.first_name") && profile?.first_name?.trim()) individual.first_name = profile.first_name.trim()
+    if (due.includes("individual.last_name") && profile?.last_name?.trim()) individual.last_name = profile.last_name.trim()
+    if (Object.keys(individual).length > 0) params.individual = individual
+  }
+  if (Object.keys(params).length === 0) return account
+  try {
+    const updated = await stripe.accounts.update(account.id, params)
+    await syncStripeAccount(creator.id, "system").catch(() => undefined)
+    return updated
+  } catch (error) {
+    console.error("[stripe verification] settle", `param=${(error as { param?: string })?.param ?? ""}`)
+    return account
   }
 }
 
@@ -67,7 +145,7 @@ export async function prepareStorelibAccount(creator: PaymentsCreatorRef): Promi
     console.error("[stripe verification] account check", stripeErrorMessage(error).slice(0, 160))
     throw new PaymentsProblem("We could not reach our payment partner just now. Nothing was changed. Try again in a moment.", 502)
   }
-  if (runsInStorelib(account)) return account
+  if (runsInStorelib(account)) return settleServerSide(creator, account)
 
   const untouched = !account.details_submitted && !account.charges_enabled && !account.payouts_enabled
   if (untouched && account.country) {
@@ -85,7 +163,7 @@ export async function prepareStorelibAccount(creator: PaymentsCreatorRef): Promi
     console.error("[stripe verification] account is still Stripe-hosted; the platform profile must allow Storelib to collect requirements")
     throw new PaymentsProblem(NOT_IN_STORELIB, 409)
   }
-  return account
+  return settleServerSide(creator, account)
 }
 
 async function carryNames(creator: PaymentsCreatorRef, from: Stripe.Account, to: Stripe.Account) {
@@ -93,11 +171,13 @@ async function carryNames(creator: PaymentsCreatorRef, from: Stripe.Account, to:
   const last = from.individual?.last_name ?? undefined
   const email = ownerAddress((await profileForCreator(creator.userId))?.email || creator.email) || undefined
   try {
-    await stripe.accounts.update(to.id, {
-      email,
-      individual: first || last ? { first_name: first, last_name: last, email } : undefined,
-      company: from.business_type === "company" && from.company?.name ? { name: from.company.name } : undefined,
-    })
+    if (to.business_type === "company") {
+      await stripe.accounts.update(to.id, { email, company: from.company?.name ? { name: from.company.name } : undefined })
+      const rep = await representativeOf(from.id).catch(() => null)
+      if (rep?.first_name || rep?.last_name) await upsertRepresentative(to.id, { first_name: rep.first_name ?? undefined, last_name: rep.last_name ?? undefined, email }, {})
+    } else {
+      await stripe.accounts.update(to.id, { email, individual: first || last ? { first_name: first, last_name: last, email } : undefined })
+    }
   } catch (error) {
     console.error("[stripe verification] carry names", stripeErrorMessage(error).slice(0, 160))
   }
@@ -117,12 +197,47 @@ function detailsProblem(error: unknown): string {
   if (/dob/.test(param)) return "That date of birth was not accepted."
   if (/phone/.test(param)) return "That phone number was not accepted. Include the country code."
   if (/address|postal/.test(param)) return "That address was not accepted. Check it and try again."
+  if (/tax_id/.test(param)) return "That tax ID was not accepted. Check it and try again."
+  if (/registration_number/.test(param)) return "That registration number was not accepted."
+  if (/first_name|last_name|name/.test(param)) return "That name was not accepted. Use the name on the ID."
+  if (/nationality/.test(param)) return "That nationality was not accepted."
   return "Those details were not accepted. Check them and try again."
+}
+
+function addressOf(line1?: string, line2?: string, city?: string, postalCode?: string, state?: string, country?: string): Stripe.AddressParam {
+  return {
+    line1: (line1 ?? "").trim(),
+    line2: line2?.trim() || undefined,
+    city: (city ?? "").trim(),
+    postal_code: (postalCode ?? "").trim(),
+    state: state?.trim() || undefined,
+    country,
+  }
+}
+
+/** The person's details, the same for an individual account and a business's representative. */
+function personOf(input: DetailsInput, fields: DetailField[], country: string): Stripe.AccountUpdatePersonParams {
+  const person: Stripe.AccountUpdatePersonParams = {}
+  if (fields.includes("name")) {
+    person.first_name = (input.firstName ?? "").trim()
+    person.last_name = (input.lastName ?? "").trim()
+  }
+  const dob = fields.includes("dob") ? dobParts(input.dob ?? "") : null
+  if (dob) person.dob = dob
+  if (fields.includes("nationality")) person.nationality = (input.nationality ?? "").trim().toUpperCase()
+  if (fields.includes("address")) person.address = addressOf(input.line1, input.line2, input.city, input.postalCode, input.state, country)
+  if (fields.includes("phone")) person.phone = normalPhone(input.phone ?? "")
+  if (fields.includes("idNumber")) person.id_number = (input.idNumber ?? "").replace(/[\s-]/g, "")
+  if (fields.includes("ssnLast4")) person.ssn_last_4 = (input.ssnLast4 ?? "").trim()
+  if (fields.includes("pep")) person.political_exposure = input.pep === "existing" ? "existing" : "none"
+  return person
 }
 
 /**
  * The creator's own identity details, sent straight to Stripe. Storelib keeps
- * none of them. `update` edits the address and phone after setup.
+ * none of them. On a business, the company's details go on the account and
+ * the creator's own go on its representative. `update` edits the address and
+ * phone after setup.
  */
 export async function submitStripeDetails(
   creator: PaymentsCreatorRef,
@@ -132,63 +247,64 @@ export async function submitStripeDetails(
 ) {
   const account = await storelibAccount(creator)
   const kind = kindOf(account)
-  const due = dueOf(account)
-  const plan = detailsPlan(due, kind)
+  const plan = detailsPlan(dueOf(account), kind)
   const fields: DetailField[] = mode === "update" ? ["address", "phone"] : plan.fields
-  if (fields.length === 0 && !due.some((k) => /^(individual\.(first_name|last_name|email)|business_profile\.)/.test(k))) {
-    return
-  }
+  if (fields.length === 0) return
   const country = (account.country ?? "").toUpperCase()
   const issues = detailsIssues(input, fields, country)
   const first = Object.values(issues)[0]
   if (first) throw new PaymentsProblem(first)
 
+  const person = personOf(input, fields, country)
   const params: Stripe.AccountUpdateParams = {}
-  const address = fields.includes("address")
-    ? {
-        line1: input.line1!.trim(),
-        line2: input.line2?.trim() || undefined,
-        city: input.city!.trim(),
-        postal_code: input.postalCode!.trim(),
-        state: input.state?.trim() || undefined,
-        country,
-      }
-    : undefined
-  const phone = fields.includes("phone") ? normalPhone(input.phone ?? "") : undefined
 
-  if (kind === "business" && mode === "update") {
-    params.company = { address, phone }
+  if (mode === "update") {
+    if (kind === "business") params.company = { address: person.address, phone: person.phone }
+    else params.individual = { address: person.address, phone: person.phone }
   } else if (kind === "individual") {
-    const individual: Stripe.AccountUpdateParams.Individual = {}
-    const dob = fields.includes("dob") ? dobParts(input.dob ?? "") : null
-    if (dob) individual.dob = dob
-    if (address) individual.address = address
-    if (phone) individual.phone = phone
-    if (fields.includes("idNumber")) individual.id_number = (input.idNumber ?? "").replace(/[\s-]/g, "")
-    if (fields.includes("ssnLast4")) individual.ssn_last_4 = (input.ssnLast4 ?? "").trim()
-    if (fields.includes("pep")) individual.political_exposure = input.pep === "existing" ? "existing" : "none"
-    if (due.some((k) => /^individual\.(first_name|last_name|email)$/.test(k))) {
+    if (Object.keys(person).length > 0) params.individual = person as Stripe.AccountUpdateParams.Individual
+  } else {
+    const company: Stripe.AccountUpdateParams.Company = {}
+    if (fields.includes("companyName")) company.name = (input.companyName ?? "").trim()
+    if (fields.includes("companyAddress")) {
+      company.address = addressOf(input.companyLine1, input.companyLine2, input.companyCity, input.companyPostalCode, input.companyState, country)
+    }
+    if (fields.includes("companyPhone")) company.phone = normalPhone(input.companyPhone ?? "")
+    if (fields.includes("taxId")) company.tax_id = (input.taxId ?? "").replace(/[\s.-]/g, "")
+    if (fields.includes("registrationNumber")) company.registration_number = (input.registrationNumber ?? "").trim()
+    if (fields.includes("owners")) {
+      company.owners_provided = true
+      company.directors_provided = true
+      company.executives_provided = true
+    }
+    if (Object.keys(company).length > 0) params.company = company
+
+    const relationship: Stripe.AccountUpdatePersonParams.Relationship = {}
+    if (fields.includes("title")) relationship.title = (input.title ?? "").trim().slice(0, 80)
+    if (fields.includes("owners")) Object.assign(relationship, { owner: true, director: true, percent_ownership: 100 })
+    if (Object.keys(person).length > 0 || Object.keys(relationship).length > 0) {
       const profile = await profileForCreator(creator.userId)
       const email = ownerAddress(profile?.email || creator.email) || undefined
-      if (due.includes("individual.email") && email) individual.email = email
-      if (due.includes("individual.first_name") && profile?.first_name) individual.first_name = profile.first_name
-      if (due.includes("individual.last_name") && profile?.last_name) individual.last_name = profile.last_name
+      try {
+        await upsertRepresentative(account.id, { ...person, email }, relationship)
+      } catch (error) {
+        console.error("[stripe verification] representative", `param=${(error as { param?: string })?.param ?? ""}`)
+        throw new PaymentsProblem(detailsProblem(error))
+      }
     }
-    if (Object.keys(individual).length > 0) params.individual = individual
-  }
-  if (due.some((k) => k.startsWith("business_profile."))) {
-    params.business_profile = { url: platformBusinessUrl(), mcc: "5818", product_description: "Digital products and services on Storelib" }
   }
   if (fields.includes("tos")) {
     if (!consent.ip) throw new PaymentsProblem("We could not record your agreement. Refresh the page and try again.")
     params.tos_acceptance = { date: Math.floor(Date.now() / 1000), ip: consent.ip, user_agent: consent.userAgent?.slice(0, 400) || undefined }
   }
 
-  try {
-    await stripe.accounts.update(account.id, params)
-  } catch (error) {
-    console.error("[stripe verification] details", `param=${(error as { param?: string })?.param ?? ""}`)
-    throw new PaymentsProblem(detailsProblem(error))
+  if (Object.keys(params).length > 0) {
+    try {
+      await stripe.accounts.update(account.id, params)
+    } catch (error) {
+      console.error("[stripe verification] details", `param=${(error as { param?: string })?.param ?? ""}`)
+      throw new PaymentsProblem(detailsProblem(error))
+    }
   }
   await syncStripeAccount(creator.id, "creator")
 }
@@ -197,8 +313,9 @@ const DOCUMENT_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"])
 const DOCUMENT_MAX = 10 * 1024 * 1024
 
 /**
- * A photo of the creator's ID goes from this request to Stripe's Files API,
- * on the creator's own account. Nothing is written to Storelib's storage or logs.
+ * A photo of the creator's ID (or the company's papers) goes from this
+ * request to Stripe's Files API, on the creator's own account. Nothing is
+ * written to Storelib's storage or logs.
  */
 export async function uploadStripeDocument(creator: PaymentsCreatorRef, file: File | null, side: "front" | "back") {
   if (!file || typeof file.arrayBuffer !== "function") throw new PaymentsProblem("Choose a photo of your ID.")
@@ -207,14 +324,14 @@ export async function uploadStripeDocument(creator: PaymentsCreatorRef, file: Fi
   if (file.size < 1024) throw new PaymentsProblem("That file looks empty. Try another photo.")
 
   const account = await storelibAccount(creator)
-  if (kindOf(account) !== "individual") throw new PaymentsProblem("This upload is for personal accounts.")
-  const need = detailsPlan(dueOf(account), "individual").document ?? "identity"
+  const kind = kindOf(account)
+  const need = detailsPlan(dueOf(account), kind).document ?? "identity"
 
   let fileId: string
   try {
     const uploaded = await stripe.files.create(
       {
-        purpose: need === "address_proof" ? "additional_verification" : "identity_document",
+        purpose: need === "identity" ? "identity_document" : "additional_verification",
         file: { data: Buffer.from(await file.arrayBuffer()), name: `${side}.${file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : "jpg"}`, type: "application/octet-stream" },
       },
       { stripeAccount: account.id },
@@ -227,10 +344,20 @@ export async function uploadStripeDocument(creator: PaymentsCreatorRef, file: Fi
 
   const slot = need === "address_proof" ? "additional_document" : "document"
   try {
-    await stripe.accounts.update(account.id, { individual: { verification: { [slot]: { [side]: fileId } } } })
+    if (need === "company") {
+      await stripe.accounts.update(account.id, { company: { verification: { document: { [side]: fileId } } } })
+    } else if (kind === "business") {
+      const rep = await representativeOf(account.id)
+      if (!rep) throw new PaymentsProblem("Add your details first, then the photo.")
+      await stripe.accounts.updatePerson(account.id, rep.id, { verification: { [slot]: { [side]: fileId } } })
+    } else {
+      await stripe.accounts.update(account.id, { individual: { verification: { [slot]: { [side]: fileId } } } })
+    }
   } catch (error) {
+    if (error instanceof PaymentsProblem) throw error
     console.error("[stripe verification] attach document", `param=${(error as { param?: string })?.param ?? ""}`)
     throw new PaymentsProblem("That photo could not be added. Try again.")
   }
   await syncStripeAccount(creator.id, "creator")
 }
+

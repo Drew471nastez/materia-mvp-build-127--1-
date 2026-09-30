@@ -480,7 +480,6 @@ export async function beginStripeOnboarding(
             business_type: "company",
             email,
             company: { name: profile.businessName ?? undefined },
-            individual: { first_name: profile.firstName, last_name: profile.lastName, email },
             business_profile: businessProfile,
           }
         : {
@@ -490,10 +489,31 @@ export async function beginStripeOnboarding(
             business_profile: businessProfile,
           },
     )
+    if (profile.kind === "business") {
+      await upsertRepresentative(accountId, { first_name: profile.firstName, last_name: profile.lastName, email }, {})
+    }
   } catch (error) {
     console.error("[stripe connect] prefill name", stripeErrorMessage(error).slice(0, 160))
   }
   await syncStripeAccount(creator.id, "creator")
+}
+
+/**
+ * The one person Storelib adds to a business account: the representative who
+ * runs it (Stripe keeps a company's people apart from the account itself).
+ */
+export async function upsertRepresentative(
+  accountId: string,
+  person: Stripe.AccountUpdatePersonParams,
+  relationship: Stripe.AccountUpdatePersonParams.Relationship,
+): Promise<Stripe.Person> {
+  const found = await representativeOf(accountId)
+  const params = { ...person, relationship: { representative: true, executive: true, ...relationship } }
+  return found ? stripe.accounts.updatePerson(accountId, found.id, params) : stripe.accounts.createPerson(accountId, params as Stripe.AccountCreatePersonParams)
+}
+
+export async function representativeOf(accountId: string): Promise<Stripe.Person | null> {
+  return (await stripe.accounts.listPersons(accountId, { relationship: { representative: true }, limit: 1 })).data[0] ?? null
 }
 
 export type PayoutFacts = { accountName: string; currency: string | null; country: string | null; holderType: "individual" | "company"; inStorelib: boolean }
@@ -572,13 +592,12 @@ export async function submitStripePayoutProfile(creator: PaymentsCreatorRef, inp
     address,
   }
   try {
-    await stripe.accounts.update(accountId, profile.kind === "business"
-      ? {
-          business_type: "company",
-          company: { name: profile.businessName ?? undefined, phone: profile.phone, address },
-          individual: person,
-        }
-      : { business_type: "individual", individual: person })
+    if (profile.kind === "business") {
+      await stripe.accounts.update(accountId, { business_type: "company", company: { name: profile.businessName ?? undefined, phone: profile.phone, address } })
+      await upsertRepresentative(accountId, person, {})
+    } else {
+      await stripe.accounts.update(accountId, { business_type: "individual", individual: person })
+    }
   } catch (error) {
     console.error("[stripe connect] prefill", stripeErrorMessage(error).slice(0, 180))
   }
