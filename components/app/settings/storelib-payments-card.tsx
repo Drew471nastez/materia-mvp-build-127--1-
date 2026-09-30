@@ -34,27 +34,30 @@ function PaymentsCardHeader({
   const showActions = Boolean(status || statusPlaceholder || onRefresh)
 
   return (
-    <div className={cn("px-4 pt-4 sm:px-6 sm:pt-5", showActions ? "flex flex-col gap-2.5 pb-3 sm:flex-row sm:items-center sm:gap-3" : "pb-3")}>
-      <StorelibPaymentsBrand className="w-full min-w-0 sm:flex-1" size="lg" />
+    <div className="flex flex-col gap-2.5 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
+      <StorelibPaymentsBrand size="lg" />
       {showActions ? (
-      <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
-        {statusPlaceholder ? (
-          <span className="inline-flex rounded-full bg-[#f1f2f4] px-2.5 py-1 text-[11px] font-medium text-transparent max-sm:hidden" aria-hidden>····</span>
-        ) : status ? (
-          <StatusPill status={status} />
-        ) : null}
-        {onRefresh ? (
-          <button
-            type="button"
-            aria-label="Refresh status"
-            disabled={refreshing}
-            onClick={onRefresh}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#6b7280] shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f7f7f8] hover:text-[#1a1a2e] disabled:opacity-60 sm:h-8 sm:w-8"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-          </button>
-        ) : null}
-      </div>
+        <div className="flex w-full items-center justify-between gap-2">
+          {statusPlaceholder ? (
+            <span className="inline-flex rounded-full bg-[#f1f2f4] px-2.5 py-1 text-[11px] font-medium text-transparent" aria-hidden>····</span>
+          ) : status ? (
+            <StatusPill status={status} />
+          ) : (
+            <span className="flex-1" aria-hidden />
+          )}
+          {onRefresh ? (
+            <button
+              type="button"
+              aria-label="Refresh status"
+              disabled={refreshing}
+              onClick={onRefresh}
+              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#6b7280] shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f7f7f8] hover:text-[#1a1a2e] disabled:opacity-60"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -121,7 +124,7 @@ export function StorelibPaymentsCardLoading() {
       data-storelib-payments-card=""
       data-storelib-payments-loading-card=""
     >
-      <PaymentsCardHeader statusPlaceholder />
+      <PaymentsCardHeader />
       <div className="space-y-2.5 px-4 pb-4 sm:px-6">
         <ul className="space-y-2 rounded-xl bg-[#f7f7f8] px-3.5 py-3 text-[13px] text-[#1f2937]">
           {["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"].map((line) => (

@@ -6,6 +6,7 @@ import { AlertCircle, AlertTriangle, ChevronRight, Clock, CreditCard, Landmark, 
 import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
+import { ShimmerSwap } from "@/components/ui/shimmer"
 import { StorelibPaymentsCard, StorelibPaymentsCardLoading } from "@/components/app/settings/storelib-payments-card"
 import { PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
@@ -108,15 +109,9 @@ export function StorelibPaymentsSettings({
 
   if (panelOnly) return flow
 
-  if (!data && !error) {
-    return (
-      <div className={PAYMENTS_SURFACE} data-storelib-payments-loading="">
-        <StorelibPaymentsCardLoading />
-      </div>
-    )
-  }
+  const loading = !data && !error
 
-  if (!data) {
+  if (!data && error) {
     return (
       <div className={cn(PAYMENTS_SURFACE, "flex items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4 sm:px-6")}>
         <AlertCircle className="h-4 w-4 shrink-0 text-[#be123c]" />
@@ -128,18 +123,9 @@ export function StorelibPaymentsSettings({
     )
   }
 
-  if (!data.configured) {
-    return (
-      <div className={cn(PAYMENTS_SURFACE, "rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5 sm:px-6")}>
-        <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Storelib Payments</h3>
-        <p className="mt-1 text-[13px] text-[#6b7280]">Payments are not switched on yet.</p>
-      </div>
-    )
-  }
-
-  const status = data.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
+  const status = data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
   const hasAccount = beat !== "personal"
-  const canDisconnect = hasAccount && !data.chargesEnabled
+  const canDisconnect = hasAccount && !data?.chargesEnabled
 
   const disconnect = async () => {
     if (!confirmDisconnect) {
@@ -158,10 +144,10 @@ export function StorelibPaymentsSettings({
     }
   }
 
-  const primaryBal = data.balances[0]
+  const primaryBal = data?.balances[0]
 
-  return (
-    <div data-payments-hub="" data-badge={data.badge} className={cn(PAYMENTS_SURFACE, "space-y-3 animate-in fade-in-0 duration-300 ease-sheet")}>
+  const hub = data && data.configured ? (
+    <div data-payments-hub="" data-badge={data.badge} className="space-y-3">
       {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-[13px] text-[#9f1239]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -233,6 +219,17 @@ export function StorelibPaymentsSettings({
 
       {!compact ? statementDescriptorSlot : null}
       {flow}
+    </div>
+  ) : data ? (
+    <div className="rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5 sm:px-6">
+      <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Storelib Payments</h3>
+      <p className="mt-1 text-[13px] text-[#6b7280]">Payments are not switched on yet.</p>
+    </div>
+  ) : null
+
+  return (
+    <div className={PAYMENTS_SURFACE} data-storelib-payments-loading={loading ? "" : undefined}>
+      <ShimmerSwap loading={loading} skeleton={<StorelibPaymentsCardLoading />}>{hub}</ShimmerSwap>
     </div>
   )
 }
