@@ -67,6 +67,7 @@ export interface FulfilContext {
   origin?: OrderOrigin | null
   /** First and last touch and the property, the same on every line (lib/attribution). */
   attribution?: Attribution | null
+  feeAudit?: { planUsed: string | null; pricingTier: string | null; feeRuleVersion: string | null }
 }
 
 export interface FulfilledLine {
@@ -95,6 +96,9 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
       tip_cents: 0,
       fee_cents: feeCents,
       application_fee_cents: feeCents,
+      plan_used: ctx.feeAudit?.planUsed ?? null,
+      pricing_tier: ctx.feeAudit?.pricingTier ?? null,
+      fee_rule_version: ctx.feeAudit?.feeRuleVersion ?? null,
       currency: "usd",
       provider: ctx.provider ?? "stripe",
       status: "completed",

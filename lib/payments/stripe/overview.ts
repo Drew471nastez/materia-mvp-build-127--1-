@@ -72,7 +72,11 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
       const payoutList = await fetchStripePayouts(row.stripe_account_id)
       const upcoming = payoutList.find((p) => p.status === "pending" || p.status === "in_transit")
       if (upcoming) {
-        nextPayout = { amountMinor: upcoming.amountMinor, currency: upcoming.currency, arrivalDate: upcoming.createdAt }
+        nextPayout = {
+          amountMinor: upcoming.amountMinor,
+          currency: upcoming.currency,
+          arrivalDate: upcoming.arrivalDate ?? upcoming.createdAt,
+        }
       }
       payouts = payoutList.map((p) => {
         const mapped = payoutStatusOf(p.status)

@@ -20,7 +20,8 @@ Creators on Stripe (default) use the `creators` row as the payment account recor
 |-------|------|
 | `GET/POST /api/payments/*` | Unified hub (overview, start, component, refresh) |
 | `POST /api/checkout/stripe-session` | Checkout gate + PaymentIntent |
-| `POST /api/stripe/webhook` | Platform + Connect events (idempotent ledger) |
+| `POST /api/stripe/webhook` | Platform account events (payments, billing, disputes) |
+| `POST /api/stripe/webhook/connect` | Connected account events (`account.*`, payouts on connected accounts) |
 
 ## Environment
 
@@ -32,7 +33,10 @@ Creators on Stripe (default) use the `creators` row as the payment account recor
 
 1. Connect → Settings → Platform profile (losses / responsibilities).
 2. Enable embedded components for Connect.
-3. Webhook endpoint(s) for `account.updated`, `payment_intent.*`, `charge.*`, `payout.*`, subscription/invoice events as already configured in `app/api/stripe/webhook/route.ts`.
+3. Two webhook destinations (recommended):
+   - **Your account:** `https://<app>/api/stripe/webhook` — `STRIPE_WEBHOOK_SECRET`
+   - **Connect:** `https://<app>/api/stripe/webhook/connect` — `STRIPE_CONNECT_WEBHOOK_SECRET`
+4. Storelib fees: `lib/payments/fees/*` (Free 6%+$0.25 / Pro 3%+$0.25; micro tier under $4 USD equivalent).
 
 ## Sandbox testing
 

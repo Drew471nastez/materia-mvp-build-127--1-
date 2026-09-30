@@ -180,11 +180,11 @@ export async function syncStripeAccount(creatorId: string, actor: "webhook" | "c
   return mergeStripeAccount(
     {
       accountId,
-      chargesEnabled: row.charges_enabled === true,
-      payoutsEnabled: row.payouts_enabled === true,
-      detailsSubmitted: row.details_submitted === true,
+      chargesEnabled: false,
+      payoutsEnabled: false,
+      detailsSubmitted: false,
       disabledReason: null,
-      currentlyDue: row.stripe_requirements ?? [],
+      currentlyDue: [],
       pastDue: [],
       pendingVerification: [],
       hasExternalAccount: false,
@@ -246,6 +246,7 @@ export async function fetchStripePayouts(accountId: string) {
     currency: p.currency.toUpperCase(),
     status: p.status,
     createdAt: p.created ? new Date(p.created * 1000).toISOString() : null,
+    arrivalDate: p.arrival_date ? new Date(p.arrival_date * 1000).toISOString() : null,
   }))
 }
 

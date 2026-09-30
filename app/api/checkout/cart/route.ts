@@ -251,7 +251,11 @@ export async function POST(request: Request) {
         creator_id: creatorId,
         buyer_id: user?.id ?? "",
         platform_fee_cents: String(fee.platformFeeCents),
+        fee_percent: String(fee.feePercent),
+        fee_fixed_cents: String(fee.feeFixedCents),
         plan_used: fee.planId,
+        pricing_tier: fee.pricingTier ?? "standard",
+        fee_rule_version: fee.feeRuleVersion ?? "",
         ...(origin ? { [ORIGIN_METADATA_KEY]: origin } : {}),
         ...(coupon
           ? {

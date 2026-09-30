@@ -132,6 +132,11 @@ export async function fulfilCartSession(
     origin: orderOriginFrom(metadata),
     /* What the cart route checked and put on the session (lib/attribution). */
     attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
+    feeAudit: {
+      planUsed: metadata.plan_used || null,
+      pricingTier: metadata.pricing_tier || null,
+      feeRuleVersion: metadata.fee_rule_version || null,
+    },
   }
 
   const written = await writeBasket(admin, ctx, items, {

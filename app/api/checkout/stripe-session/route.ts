@@ -112,12 +112,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The smallest card payment is $0.50. Add a tip or remove the code." }, { status: 400 })
   }
 
-  /*
-    WHO TAKES THE MONEY. A creator on Storelib Payments' Airwallex rollout is
-    paid through Airwallex (lib/payments), and only once Airwallex says their
-    account is ACTIVE and they have a payout account; everyone else through
-    Stripe, exactly as before.
-  */
+  /* Storelib Payments (Stripe Connect): checkout only when the creator account can accept charges. */
   const account = creator.stripe_account_id
   if (!account || !account.startsWith("acct_")) {
     return NextResponse.json({ error: "This seller cannot take payments yet." }, { status: 400 })
@@ -202,6 +197,8 @@ export async function POST(request: Request) {
     fee_percent: String(fee.feePercent),
     fee_fixed_cents: String(fee.feeFixedCents),
     plan_used: fee.planId,
+    pricing_tier: fee.pricingTier ?? "standard",
+    fee_rule_version: fee.feeRuleVersion ?? "",
     variant_id: variant?.id || "",
     variant_name: String(variant?.name || "").slice(0, 200),
     /* What was paid for the option: a pay-what-you-want option's stored

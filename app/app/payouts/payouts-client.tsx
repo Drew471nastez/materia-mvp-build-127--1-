@@ -54,6 +54,7 @@ import React, {
   useLayoutEffect,
   type ButtonHTMLAttributes,
 } from "react";
+import { PayoutsSimpleView } from "./payouts-simple-view";
 import { createPortal } from "react-dom";
 import {
   AreaChart,
@@ -3144,9 +3145,9 @@ export function PayoutsClient({
   if (!paymentsReady) {
     return (
       <section aria-label="Set up payouts" data-payouts-setup="" className={cn(card, "mt-2 px-6 py-10 sm:py-12")}>
-        <h2 className="text-[16px] font-semibold text-[#1a1a2e]">Finish setting up Storelib Payments</h2>
+        <h2 className="text-[16px] font-semibold text-[#1a1a2e]">Set up payouts</h2>
         <p className="mt-1 max-w-[420px] text-[14px] leading-5 text-[#6b7280] sm:text-[13px]">
-          Complete your account before you can receive payouts.
+          Verify your details and add a bank account to receive your earnings.
         </p>
         <a
           href="/app/settings?tab=payments"
@@ -3155,6 +3156,18 @@ export function PayoutsClient({
           Continue setup
         </a>
       </section>
+    );
+  }
+
+  const legacyPayoutsDashboard = process.env.NEXT_PUBLIC_PAYOUTS_LEGACY === "1";
+
+  if (!legacyPayoutsDashboard) {
+    return (
+      <PayoutsSimpleView
+        availableMinor={availableBalance}
+        pendingMinor={pendingBalance}
+        currency={sourceCurrency}
+      />
     );
   }
 

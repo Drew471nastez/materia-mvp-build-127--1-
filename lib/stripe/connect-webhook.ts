@@ -2,11 +2,19 @@ import "server-only"
 
 import type Stripe from "stripe"
 import { syncStripeAccount } from "@/lib/payments/stripe/connect"
+import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { emit } from "@/lib/notify/outbox"
 import { createHash } from "node:crypto"
 
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+function connectedAccountId(event: Stripe.Event): string | null {
+  if (typeof event.account === "string" && event.account.startsWith("acct_")) return event.account
+  const obj = event.data.object as { id?: string }
+  if (typeof obj?.id === "string" && obj.id.startsWith("acct_")) return obj.id
+  return null
+}
 
 function payoutMethodFacts(ext: Stripe.ExternalAccount): Record<string, unknown> {
   return {
@@ -21,9 +29,6 @@ function payoutMethodFacts(ext: Stripe.ExternalAccount): Record<string, unknown>
 
 /** Connected-account webhook events (event.account must be set). */
 export async function handleConnectAccountEvent(event: Stripe.Event): Promise<void> {
-  const accountId = typeof event.account === "string" ? event.account : null
-  if (!accountId) return
-
   if (event.type === "account.updated") {
     const account = event.data.object as Stripe.Account
     const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id, payouts_enabled").eq("stripe_account_id", account.id).maybeSingle()
@@ -45,12 +50,12 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
     const due = [...new Set([...pastDue, ...currentlyDue])].sort()
     const payoutsEnabled = !!account.payouts_enabled
     const paused = previousPayoutsEnabled && !payoutsEnabled
-    const deadline = requirements.current_deadline ?? null
+    const deadline = requirements?.current_deadline ?? null
 
     if (paused || (due.length > 0 && account.details_submitted)) {
       const asked = createHash("sha256").update(`${due.join(",")}|${deadline ?? ""}`).digest("hex").slice(0, 16)
       await emit({
-        name: paused ? "payout.paused" : "payout.action_required",
+        name: "payout.action_required",
         key: paused ? `payout:paused:${account.id}` : `payout:req:${asked}`,
         userId,
         creatorId: creator.id as string,
@@ -60,20 +65,29 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
         payload: { dueCount: due.length },
       })
     }
+
+    const schedule = account.settings?.payouts?.schedule
+    if (schedule?.interval !== "manual") {
+      try {
+        await stripe.accounts.update(account.id, { settings: { payouts: { schedule: { interval: "manual" } } } })
+      } catch {
+        /* non-fatal */
+      }
+    }
     return
   }
 
   if (event.type === "account.external_account.created" || event.type === "account.external_account.updated") {
     const ext = event.data.object as Stripe.ExternalAccount
-    const connectedAccountId = event.account as string
-    if (!connectedAccountId || !ext?.id) return
+    const acctId = (typeof event.account === "string" ? event.account : null) ?? connectedAccountId(event)
+    if (!acctId || !ext?.id) return
 
     const previous = (event.data as { previous_attributes?: Record<string, unknown> }).previous_attributes || {}
     const becameDefault =
       event.type === "account.external_account.updated" && previous.default_for_currency === false && (ext as Stripe.BankAccount).default_for_currency === true
     if (event.type === "account.external_account.updated" && !becameDefault) return
 
-    const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id").eq("stripe_account_id", connectedAccountId).maybeSingle()
+    const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id").eq("stripe_account_id", acctId).maybeSingle()
     if (!creator) return
 
     await syncStripeAccount(creator.id as string, "webhook")
