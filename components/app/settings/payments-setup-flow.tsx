@@ -46,6 +46,8 @@ type Step = 0 | 1 | 2
 /* The app's calm field: a light hairline and a soft halo when focused, 16px on a phone so iOS does not zoom. */
 export const FIELD =
   "h-11 w-full rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] hover:border-[#d5d8dd] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
+const FIELD_COMPACT =
+  "h-10 w-full rounded-[10px] border border-[#e3e5e8] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] hover:border-[#d5d8dd] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-9 sm:rounded-lg sm:text-[13px]"
 const FIELD_BAD = "border-[#c4290c] hover:border-[#c4290c] focus:border-[#c4290c] focus:shadow-[0_0_0_3px_rgba(196,41,12,0.1)]"
 const PRIMARY = cn(primaryDepth, "h-11 gap-2 rounded-xl px-5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:rounded-lg")
 const SECONDARY = cn(secondaryDepth, "h-11 rounded-xl px-5 text-[14px] sm:h-10 sm:rounded-lg")
@@ -176,7 +178,7 @@ function Panel({
         aria-label={label}
         className={cn(
           "relative flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
-          compact ? "max-h-[min(640px,calc(100dvh-48px))] max-w-[min(640px,calc(100vw-48px))]" : "max-h-[min(760px,calc(100dvh-48px))] max-w-[min(680px,calc(100vw-48px))]",
+          compact ? "max-h-[min(580px,calc(100dvh-40px))] max-w-[min(720px,calc(100vw-40px))]" : "max-h-[min(760px,calc(100dvh-48px))] max-w-[min(680px,calc(100vw-48px))]",
           leaving ? "animate-out fade-out-0 zoom-out-95" : "animate-in fade-in-0 zoom-in-95",
         )}
       >
@@ -269,12 +271,28 @@ export function InfoTip({ label, children }: { label: string; children: React.Re
   )
 }
 
-function Field({ label, error, hint, tip, optional, children }: { label: string; error?: string; hint?: string; tip?: React.ReactNode; optional?: boolean; children: React.ReactElement<{ id?: string; "aria-invalid"?: boolean }> }) {
+function Field({
+  label,
+  error,
+  hint,
+  tip,
+  optional,
+  dense,
+  children,
+}: {
+  label: string
+  error?: string
+  hint?: string
+  tip?: React.ReactNode
+  optional?: boolean
+  dense?: boolean
+  children: React.ReactElement<{ id?: string; "aria-invalid"?: boolean; className?: string }>
+}) {
   const id = React.useId()
   return (
     <div className="min-w-0">
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <label htmlFor={id} className="text-[13px] font-medium text-[#1a1a2e]">
+      <div className={cn("flex items-center gap-1.5", dense ? "mb-1" : "mb-1.5")}>
+        <label htmlFor={id} className={cn("font-medium text-[#1a1a2e]", dense ? "text-[12px]" : "text-[13px]")}>
           {label}
           {optional ? <span className="font-normal text-[#9ca3af]"> (optional)</span> : null}
         </label>
@@ -282,9 +300,9 @@ function Field({ label, error, hint, tip, optional, children }: { label: string;
       </div>
       {React.cloneElement(children, { id, "aria-invalid": error ? true : undefined })}
       {error ? (
-        <span className="mt-1.5 block text-[12px] text-[#c4290c] animate-in fade-in-0 slide-in-from-top-1 duration-150">{error}</span>
+        <span className={cn("block text-[#c4290c] animate-in fade-in-0 slide-in-from-top-1 duration-150", dense ? "mt-1 text-[11px]" : "mt-1.5 text-[12px]")}>{error}</span>
       ) : hint ? (
-        <span className="mt-1.5 block text-[12px] text-[#6b7280]">{hint}</span>
+        <span className={cn("block text-[#6b7280]", dense ? "mt-1 text-[11px]" : "mt-1.5 text-[12px]")}>{hint}</span>
       ) : null}
     </div>
   )
@@ -302,7 +320,7 @@ function ErrorLine({ message }: { message: string | null }) {
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label: string }) {
   const index = options.findIndex((o) => o.value === value)
   return (
-    <div role="radiogroup" aria-label={label} className="relative grid h-11 rounded-xl bg-[#f1f2f4] p-1 sm:h-10" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+    <div role="radiogroup" aria-label={label} className="relative grid h-10 rounded-xl bg-[#f1f2f4] p-1 sm:h-9" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       <span
         aria-hidden
         className={cn(
@@ -339,9 +357,14 @@ function Reveal({ open, children }: { open: boolean; children: React.ReactNode }
   )
 }
 
-function Footer({ children }: { children: React.ReactNode }) {
+function Footer({ children, compact }: { children: React.ReactNode; compact?: boolean }) {
   return (
-    <div className="sticky bottom-0 mt-6 flex items-center justify-between gap-3 border-t border-[#f1f2f4] bg-white px-5 py-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 [&>*:last-child]:max-sm:flex-1">
+    <div
+      className={cn(
+        "sticky bottom-0 flex shrink-0 items-center justify-between gap-3 border-t border-[#f1f2f4] bg-white px-5 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 [&>*:last-child]:max-sm:flex-1",
+        compact ? "mt-3 py-3" : "mt-6 py-4",
+      )}
+    >
       {children}
     </div>
   )
@@ -442,7 +465,7 @@ export function PaymentsSetupFlow({
           ) : null}
         </div>
       ) : (
-        <div className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-6">
+        <div className={cn("flex shrink-0 flex-col px-6 pt-6", panelCompact ? "gap-3 pb-3" : "gap-4 pb-5")}>
           <div className="flex items-center gap-3">
             <h2 className="min-w-0 flex-1 text-[18px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
             <button
@@ -458,7 +481,7 @@ export function PaymentsSetupFlow({
         </div>
       )}
 
-      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", phone && "pt-5")}>
+      <div className={cn("min-h-0 flex-1 overscroll-contain", phone && "pt-5", panelCompact ? "overflow-y-auto sm:overflow-hidden" : "overflow-y-auto")}>
         {mode === "details" ? (
           <DetailsStep key={`details-${openCount}`} data={data} onBack={onClose} onDone={(next) => { onData(next); onFinished(); onClose() }} />
         ) : step === 0 ? (
@@ -737,9 +760,11 @@ const PHONE_EXAMPLE: Record<string, string> = {
 
 function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerificationView; mode: "setup" | "update"; onBack: () => void; onDone: (next: Overview) => void; intro?: React.ReactNode }) {
   const fields: DetailField[] = mode === "update" ? ["address", "phone"] : view.fields
+  const compact = mode === "setup"
   const has = (f: DetailField) => fields.includes(f)
   const country = view.country
   const [form, setForm] = React.useState<DetailsInput>({ pep: "" })
+  const [showLine2, setShowLine2] = React.useState(false)
   const [touched, setTouched] = React.useState<Record<string, boolean>>({})
   const [tried, setTried] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
@@ -751,7 +776,7 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
     value: (form[key] as string | undefined) ?? "",
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value })),
     onBlur: () => setTouched((t) => ({ ...t, [key]: true })),
-    className: cn(FIELD, issue(key as keyof typeof issues) && FIELD_BAD),
+    className: cn(compact ? FIELD_COMPACT : FIELD, issue(key as keyof typeof issues) && FIELD_BAD),
   })
   const idCopy = idNumberCopy(country)
   const today = new Date().toISOString().slice(0, 10)
@@ -773,96 +798,108 @@ function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerifi
     }
   }
 
+  const agreementShort =
+    view.agreement === "recipient" ? "Stripe Recipient Agreement" : "Stripe Connected Account Agreement"
+
   return (
-    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
-      <div className="flex-1 space-y-4 px-5 sm:px-6">
-        {intro ?? (
-          <p className="text-[13px] leading-5 text-[#6b7280]">Confirm a few details. This usually takes about a minute.</p>
-        )}
+    <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col" data-verify-form="">
+      <div className={cn("flex-1 px-5 sm:px-6", compact ? "space-y-2.5 sm:space-y-2" : "space-y-4")}>
+        {intro ?? (compact ? null : <p className="text-[13px] leading-5 text-[#6b7280]">Confirm a few details. This usually takes about a minute.</p>)}
         <ErrorLine message={error} />
 
-        {has("dob") ? (
-          <Field label="Date of birth" error={issue("dob")} tip="Confirms you're 18 or older. It must match the date on your ID.">
-            <BirthDateField value={form.dob ?? ""} max={today} invalid={!!issue("dob")} onChange={(v) => { setForm((f) => ({ ...f, dob: v })); setTouched((t) => ({ ...t, dob: true })) }} />
-          </Field>
-        ) : null}
+        <div className={cn(compact && (has("dob") || has("phone")) ? "grid gap-2.5 sm:grid-cols-2 sm:gap-x-4" : "contents")}>
+          {has("dob") ? (
+            <Field dense={compact} label="Date of birth" error={issue("dob")} tip="Must match your ID. You must be 18 or older.">
+              <BirthDateField compact={compact} value={form.dob ?? ""} max={today} invalid={!!issue("dob")} onChange={(v) => { setForm((f) => ({ ...f, dob: v })); setTouched((t) => ({ ...t, dob: true })) }} />
+            </Field>
+          ) : null}
+          {has("phone") ? (
+            <Field dense={compact} label="Phone" error={issue("phone")} tip="Include your country code. Used only if we need to confirm it's you.">
+              <input type="tel" inputMode="tel" autoComplete="tel" placeholder={PHONE_EXAMPLE[country] ?? "+ country code"} {...bind("phone")} />
+            </Field>
+          ) : null}
+        </div>
 
         {has("address") ? (
-          <div className="space-y-4">
-            <Field label="Home address" error={issue("line1")} tip={mode === "update" ? "Where you live now. Stripe may ask you to confirm it." : "Where you live now, as on your ID or a recent bill. PO boxes aren't accepted."}>
+          <div className={cn(compact ? "space-y-2.5" : "space-y-4")}>
+            <Field dense={compact} label="Address" error={issue("line1")} tip="Your home address as on your ID. No PO boxes.">
               <input autoComplete="address-line1" placeholder="Street and number" {...bind("line1")} />
             </Field>
-            <Field label="Apartment, suite, floor" optional>
-              <input autoComplete="address-line2" placeholder="Apartment or suite" {...bind("line2")} />
-            </Field>
-            <div className="grid grid-cols-[minmax(0,1fr)_116px] gap-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:gap-4">
-              <Field label="City" error={issue("city")}>
+            {compact && !showLine2 && !(form.line2 ?? "").trim() ? (
+              <button type="button" onClick={() => setShowLine2(true)} className="text-[12px] font-medium text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
+                Add apartment or suite
+              </button>
+            ) : (
+              <Field dense={compact} label="Apartment or suite" optional>
+                <input autoComplete="address-line2" placeholder="Optional" {...bind("line2")} />
+              </Field>
+            )}
+            <div
+              className={cn(
+                "grid gap-2.5",
+                has("state") ? "sm:grid-cols-[minmax(0,1fr)_108px_minmax(0,0.9fr)]" : "grid-cols-[minmax(0,1fr)_108px] sm:grid-cols-[minmax(0,1fr)_120px]",
+              )}
+            >
+              <Field dense={compact} label="City" error={issue("city")}>
                 <input autoComplete="address-level2" placeholder="City" {...bind("city")} />
               </Field>
-              <Field label="Postal code" error={issue("postalCode")}>
-                <input autoComplete="postal-code" autoCapitalize="characters" placeholder="Postal code" {...bind("postalCode")} />
+              <Field dense={compact} label="Postal" error={issue("postalCode")}>
+                <input autoComplete="postal-code" autoCapitalize="characters" placeholder="Code" {...bind("postalCode")} />
               </Field>
+              {has("state") ? (
+                <Field dense={compact} label={country === "US" ? "State" : "Region"} error={issue("state")}>
+                  <input autoComplete="address-level1" placeholder={country === "US" ? "State" : "Region"} {...bind("state")} />
+                </Field>
+              ) : null}
             </div>
-            {has("state") ? (
-              <Field label={country === "US" ? "State" : "State or region"} error={issue("state")}>
-                <input autoComplete="address-level1" placeholder={country === "US" ? "State" : "Region"} {...bind("state")} />
-              </Field>
-            ) : null}
           </div>
         ) : null}
 
-        {has("phone") ? (
-          <Field label="Phone number" error={issue("phone")} tip="Only used to confirm it's you if something looks unusual. Include your country code.">
-            <input type="tel" inputMode="tel" autoComplete="tel" placeholder={PHONE_EXAMPLE[country] ?? "+ country code and number"} {...bind("phone")} />
-          </Field>
-        ) : null}
-
         {has("idNumber") ? (
-          <Field label={idCopy.label} error={issue("idNumber")} tip={idCopy.tip}>
+          <Field dense={compact} label={idCopy.label} error={issue("idNumber")} tip={idCopy.tip}>
             <input inputMode={country === "US" || country === "RO" ? "numeric" : "text"} autoComplete="off" spellCheck={false} placeholder={idCopy.label} className={cn(bind("idNumber").className, "tabular-nums")} value={form.idNumber ?? ""} onChange={bind("idNumber").onChange} onBlur={bind("idNumber").onBlur} />
           </Field>
         ) : null}
 
         {has("ssnLast4") ? (
-          <Field label="Last 4 of your SSN" error={issue("ssnLast4")} tip="Only the last four digits of your Social Security number. Sent to Stripe only.">
+          <Field dense={compact} label="SSN last 4" error={issue("ssnLast4")} tip="Last four digits only. Sent to Stripe, not stored by Storelib.">
             <input inputMode="numeric" maxLength={4} autoComplete="off" placeholder="1234" className={cn(bind("ssnLast4").className, "tabular-nums")} value={form.ssnLast4 ?? ""} onChange={bind("ssnLast4").onChange} onBlur={bind("ssnLast4").onBlur} />
           </Field>
         ) : null}
 
         {has("pep") ? (
-          <div>
-            <div className="mb-1.5 flex items-center gap-1.5">
-              <span className="text-[13px] font-medium text-[#1a1a2e]">Do you hold a senior public role?</span>
-              <InfoTip label="Senior public role">For example a minister, judge, senior military officer or head of a state company, now or in the past year, or a close relative of one. Most people answer No.</InfoTip>
+          <div className={cn(compact ? "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4" : "")}>
+            <div className="flex items-center gap-1.5">
+              <span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>Senior public role?</span>
+              <InfoTip label="Senior public role">Minister, judge, senior military, or head of a state company, now or in the past year. Most people choose No.</InfoTip>
             </div>
-            <Segmented
-              label="Senior public role"
-              value={(form.pep || "unset") as "none" | "existing" | "unset"}
-              onChange={(v) => setForm((f) => ({ ...f, pep: v === "unset" ? "" : v }))}
-              options={[
-                { value: "none", label: "No" },
-                { value: "existing", label: "Yes" },
-              ]}
-            />
-            {issue("pep") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("pep")}</span> : null}
+            <div className={cn(compact ? "w-full sm:max-w-[200px]" : "")}>
+              <Segmented
+                label="Senior public role"
+                value={(form.pep || "unset") as "none" | "existing" | "unset"}
+                onChange={(v) => setForm((f) => ({ ...f, pep: v === "unset" ? "" : v }))}
+                options={[
+                  { value: "none", label: "No" },
+                  { value: "existing", label: "Yes" },
+                ]}
+              />
+            </div>
+            {issue("pep") ? <span className="text-[11px] text-[#c4290c] sm:col-span-2">{issue("pep")}</span> : null}
           </div>
         ) : null}
 
         {has("tos") ? (
-          <p className="text-[12px] leading-[18px] text-[#6b7280]">
-            By continuing, you agree to Storelib&apos;s{" "}
-            <a href="/terms" target="_blank" rel="noopener" className={LINK}>Terms</a> and the{" "}
-            <a href={AGREEMENT_URL[view.agreement]} target="_blank" rel="noopener noreferrer" className={LINK}>
-              Stripe {view.agreement === "recipient" ? "Recipient" : "Connected Account"} Agreement
-            </a>
-            , and you confirm these details are correct.
+          <p className="text-[11px] leading-[16px] text-[#6b7280] sm:text-[12px] sm:leading-[17px]">
+            By continuing you agree to the{" "}
+            <a href={AGREEMENT_URL[view.agreement]} target="_blank" rel="noopener noreferrer" className={LINK}>{agreementShort}</a> and{" "}
+            <a href="/terms" target="_blank" rel="noopener" className={LINK}>Storelib Terms</a>. Details go to Stripe only.
           </p>
-        ) : null}
-
-        <SecureLine>Sent securely to Stripe, our payments partner. Storelib doesn&apos;t store your ID details.</SecureLine>
+        ) : (
+          !compact ? <SecureLine>Sent securely to Stripe. Storelib doesn&apos;t store your ID details.</SecureLine> : null
+        )}
       </div>
 
-      <Footer>
+      <Footer compact={compact}>
         <button type="button" className={SECONDARY} onClick={onBack}>{mode === "update" ? "Cancel" : "Back"}</button>
         <button type="submit" className={PRIMARY} disabled={busy}>
           {busy ? <Spinner /> : null}

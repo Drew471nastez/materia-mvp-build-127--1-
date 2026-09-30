@@ -46,6 +46,7 @@ export function BirthDateField({
   className,
   invalid,
   max,
+  compact,
 }: {
   value: string
   onChange: (iso: string) => void
@@ -53,6 +54,7 @@ export function BirthDateField({
   className?: string
   invalid?: boolean
   max?: string
+  compact?: boolean
 }) {
   const phone = usePhone()
   const [open, setOpen] = React.useState(false)
@@ -76,7 +78,9 @@ export function BirthDateField({
       data-open={open ? "" : undefined}
       onClick={phone ? () => setOpen(true) : undefined}
       className={cn(
-        "flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-left text-[16px] transition-[border-color,box-shadow] duration-150 hover:border-[#d5d8dd] focus-visible:border-[#c9ccd3] focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]",
+        compact
+          ? "flex h-10 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 text-left text-[14px] transition-[border-color,box-shadow] duration-150 hover:border-[#d5d8dd] focus-visible:border-[#c9ccd3] focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-9 sm:rounded-lg sm:text-[13px]"
+          : "flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-left text-[16px] transition-[border-color,box-shadow] duration-150 hover:border-[#d5d8dd] focus-visible:border-[#c9ccd3] focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]",
         selected ? "text-[#1a1a2e]" : "text-[#9ca3af]",
         invalid && "border-[#c4290c]",
         open && "border-[#c9ccd3] shadow-[0_0_0_3px_rgba(17,17,19,0.06)]",

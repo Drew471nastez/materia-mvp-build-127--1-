@@ -3090,7 +3090,7 @@ export function PayoutsClient({
   */
   if (!paymentsReady) {
     return (
-      <div aria-label="Set up payouts" data-payouts-setup="" className="mx-auto mt-2 w-full max-w-[min(100%,960px)]">
+      <div aria-label="Set up payouts" data-payouts-setup="" className="mx-auto mt-2 w-full max-w-[min(100%,1040px)]">
         <StorelibPaymentsInline compact />
       </div>
     );
