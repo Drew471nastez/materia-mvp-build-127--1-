@@ -64,7 +64,7 @@ export default async function PayoutsPage() {
             <h1 className="text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
             <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">Set up payments</p>
           </PaneBar>
-          <div className={cn("mx-auto pb-10", ORDER_WIDTH, GUTTER)} data-payouts-setup="">
+          <div className={cn("mx-auto pb-24 md:pb-10", ORDER_WIDTH, GUTTER)} data-payouts-setup="">
             <StorelibPaymentsInline compact />
           </div>
         </>

@@ -176,17 +176,19 @@ export function StorelibPaymentsSettings({
         refreshing={refreshing}
         footer={
           canDisconnect && beat !== "review" ? (
-            <div className="mx-4 mb-4 flex items-center gap-3 rounded-xl border border-[#eceef1] bg-[#f9fafb] px-3.5 py-3 sm:mx-5">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-[#d97706]" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-[#1a1a2e]">Setup not finished</p>
-                <p className="text-[12px] text-[#6b7280]">Finish above, or disconnect to start over.</p>
+            <div className="mx-4 mb-4 flex flex-col gap-3 rounded-xl border border-[#eceef1] bg-[#f9fafb] px-3.5 py-3 sm:mx-5 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#d97706]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-[#1a1a2e]">Setup not finished</p>
+                  <p className="text-[12px] leading-[17px] text-[#6b7280]">Finish above, or disconnect to start over.</p>
+                </div>
               </div>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void disconnect()}
-                className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]", confirmDisconnect && "border-[#fecdd3] text-[#be123c]")}
+                className={cn(secondaryDepth, "h-10 w-full rounded-lg px-3 text-[13px] sm:h-8 sm:w-auto sm:shrink-0", confirmDisconnect && "border-[#fecdd3] text-[#be123c]")}
               >
                 {busy ? "Disconnecting" : confirmDisconnect ? "Confirm" : "Disconnect"}
               </button>
@@ -237,7 +239,7 @@ export function StorelibPaymentsSettings({
 
 function Empty({ icon, title, line, action, onClick }: { icon?: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void }) {
   return (
-    <div className="border-t border-[#f1f2f4] px-6 py-10 text-center sm:px-10 sm:py-12">
+    <div className="border-t border-[#f1f2f4] px-4 py-8 text-center sm:px-10 sm:py-12">
       {icon ? <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f3ff] text-[#635bff]">{icon}</span> : null}
       <h4 className={cn("text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]", icon ? "mt-3" : "")}>{title}</h4>
       <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{line}</p>

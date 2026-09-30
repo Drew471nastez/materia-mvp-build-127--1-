@@ -27,19 +27,27 @@ export function StripeMark({ className = "h-10 w-10" }: { className?: string }) 
 
 /** Header lockup: Storelib logo, title, and Stripe mark (7px corners on both marks). */
 export function StorelibPaymentsBrand({ className, size = "md" }: { className?: string; size?: "md" | "lg" }) {
-  const storelib = size === "lg" ? "h-11 w-11 sm:h-12 sm:w-12" : "h-10 w-10"
-  const stripe = size === "lg" ? "h-9 w-9 sm:h-10 sm:w-10" : "h-8 w-8"
+  const storelib = size === "lg" ? "h-10 w-10 shrink-0 sm:h-12 sm:w-12" : "h-9 w-9 shrink-0 sm:h-10 sm:w-10"
+  const stripeAside = size === "lg" ? "hidden h-10 w-10 shrink-0 sm:inline-flex" : "hidden h-8 w-8 shrink-0 sm:inline-flex"
+  const stripeInline = size === "lg" ? "inline-flex h-[15px] w-[15px] shrink-0 sm:hidden" : "inline-flex h-3.5 w-3.5 shrink-0 sm:hidden"
   const logoPx = size === "lg" ? 48 : 40
-  const title = size === "lg" ? "text-[16px] sm:text-[17px]" : "text-[15px]"
-  const sub = size === "lg" ? "text-[12px] sm:text-[13px]" : "text-[12px]"
+  const title = size === "lg" ? "text-[15px] leading-5 sm:text-[17px] sm:leading-6" : "text-[14px] leading-5 sm:text-[15px]"
+  const sub = size === "lg" ? "text-[11px] leading-4 sm:text-[13px]" : "text-[11px] leading-4 sm:text-[12px]"
   return (
-    <div className={cn("flex min-w-0 items-center gap-3", className)} data-storelib-payments-brand="">
+    <div className={cn("flex min-w-0 items-center gap-2.5 sm:gap-3", className)} data-storelib-payments-brand="">
       <StorelibLogo size={logoPx} fluid className={storelib} alt="" />
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate font-semibold leading-5 text-[#1a1a2e]", title)}>Storelib Payments</p>
-        <p className={cn("truncate leading-4 text-[#6b7280]", sub)}>Powered by Stripe</p>
+        <p className={cn("font-semibold text-[#1a1a2e]", title)}>Storelib Payments</p>
+        <p className={cn("mt-0.5 text-[#6b7280]", sub)}>
+          <span className="inline-flex items-center gap-1 sm:hidden">
+            Powered by
+            <StripeMark className={stripeInline} />
+            Stripe
+          </span>
+          <span className="hidden sm:inline">Powered by Stripe</span>
+        </p>
       </div>
-      <StripeMark className={stripe} />
+      <StripeMark className={stripeAside} />
     </div>
   )
 }
