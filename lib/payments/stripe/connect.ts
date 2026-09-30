@@ -8,6 +8,7 @@ import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 import { paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
 import { parsePayoutProfile, type PayoutProfileInput } from "./payout-profile"
+import { parsePersonal } from "./onboarding-steps"
 import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
 import { mergeStripeAccount, type StripeCreatorSnapshot } from "./facts"
 import { PaymentsProblem } from "../errors"
@@ -360,7 +361,27 @@ export async function fetchStripePayouts(accountId: string) {
   }))
 }
 
-export async function createStripeAccountSession(creatorId: string, purpose: StripeAccountSessionPurpose): Promise<{ clientSecret: string }> {
+function stripeKeyMode(key: string | undefined): "live" | "test" | "unknown" {
+  if (!key) return "unknown"
+  if (key.includes("_live_")) return "live"
+  if (key.includes("_test_")) return "test"
+  return "unknown"
+}
+
+export function publishableKeyForSession(): string {
+  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim()
+  const sk = process.env.STRIPE_SECRET_KEY?.trim()
+  if (!pk || !sk) throw new PaymentsProblem("Payments are not switched on yet.", 503)
+  const pkMode = stripeKeyMode(pk)
+  const skMode = stripeKeyMode(sk)
+  if (pkMode !== "unknown" && skMode !== "unknown" && pkMode !== skMode) {
+    throw new PaymentsProblem("Payments are not switched on correctly. Nothing was opened.", 503)
+  }
+  return pk
+}
+
+export async function createStripeAccountSession(creatorId: string, purpose: StripeAccountSessionPurpose): Promise<{ clientSecret: string; publishableKey: string }> {
+  const publishableKey = publishableKeyForSession()
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
 
@@ -388,7 +409,59 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
     components,
   })
   if (!session.client_secret) throw new PaymentsProblem("Could not open verification just now. Try again.", 502)
-  return { clientSecret: session.client_secret }
+  return { clientSecret: session.client_secret, publishableKey }
+}
+
+export async function beginStripeOnboarding(
+  creator: PaymentsCreatorRef,
+  input: { kind: string; country: string; firstName: string; lastName: string; businessName?: string },
+) {
+  const parsed = parsePersonal(input)
+  if (!parsed.ok) throw new PaymentsProblem(parsed.error)
+  const profile = parsed.value
+  const accountId = await ensureStripeAccount(creator, { kind: profile.kind, country: profile.country })
+  const row = await readCreatorStripe(creator.id)
+  const person = await profileForCreator(creator.userId)
+  const email = ownerAddress(person?.email || creator.email) || undefined
+  const handle = row?.username && /^[A-Za-z0-9._-]{2,64}$/.test(row.username) ? row.username : ""
+  const businessProfile = {
+    url: handle ? `${platformBusinessUrl()}/${handle}` : platformBusinessUrl(),
+    product_description: row?.bio?.trim().slice(0, 200) || "Digital products and services on Storelib",
+  }
+  try {
+    await stripe.accounts.update(
+      accountId,
+      profile.kind === "business"
+        ? {
+            business_type: "company",
+            email,
+            company: { name: profile.businessName ?? undefined },
+            individual: { first_name: profile.firstName, last_name: profile.lastName, email },
+            business_profile: businessProfile,
+          }
+        : {
+            business_type: "individual",
+            email,
+            individual: { first_name: profile.firstName, last_name: profile.lastName, email },
+            business_profile: businessProfile,
+          },
+    )
+  } catch (error) {
+    console.error("[stripe connect] prefill name", stripeErrorMessage(error).slice(0, 160))
+  }
+  await syncStripeAccount(creator.id, "creator")
+}
+
+export async function payoutFacts(accountId: string): Promise<{ accountName: string; currency: string | null } | null> {
+  try {
+    const account = await stripe.accounts.retrieve(accountId)
+    const person = [account.individual?.first_name, account.individual?.last_name].filter(Boolean).join(" ").trim()
+    const company = account.company?.name?.trim() || ""
+    const accountName = account.business_type === "company" ? company || person : person || company
+    return { accountName, currency: account.default_currency ? account.default_currency.toUpperCase() : null }
+  } catch {
+    return null
+  }
 }
 
 export async function submitStripePayoutProfile(creator: PaymentsCreatorRef, input: PayoutProfileInput) {

@@ -79,7 +79,7 @@ export type { CreatorRef, HubOverview } from "./hub-types"
 import type { CreatorRef, HubOverview } from "./hub-types"
 import { PaymentsProblem } from "./errors"
 import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
-import { disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
+import { beginStripeOnboarding, disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
 import type { PayoutProfileInput } from "./stripe/payout-profile"
 import { snapshotFromCreatorRow, stripeRowReady } from "./stripe/facts"
 
@@ -288,6 +288,15 @@ export interface StartInput {
  * so a double press makes one account; a failed creation gives the claim
  * back, so they can try again.
  */
+export async function beginOnboarding(
+  creator: CreatorRef,
+  input: { kind: string; country: string; firstName: string; lastName: string; businessName?: string },
+) {
+  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
+  await beginStripeOnboarding(creator, input)
+  return overview(creator)
+}
+
 export async function submitPayoutProfile(creator: CreatorRef, input: PayoutProfileInput) {
   if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
   return submitStripePayoutProfile(creator, input)
@@ -393,10 +402,8 @@ export async function componentAuth(
           : purpose === "stripe_payouts" || purpose === "payout_form"
             ? "payouts"
             : "balances"
-    const { clientSecret } = await stripeAccountSession(creator.id, stripePurpose)
-    const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-    if (!pk) throw new PaymentsProblem("Payments are not switched on yet.", 503)
-    return { clientSecret, publishableKey: pk }
+    const session = await stripeAccountSession(creator.id, stripePurpose)
+    return { clientSecret: session.clientSecret, publishableKey: session.publishableKey }
   }
   const cfg = requireConfigured()
   if (!cfg.embeddedComponents) throw new PaymentsProblem("This is not switched on for Storelib yet.", 503)

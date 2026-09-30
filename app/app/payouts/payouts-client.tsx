@@ -3152,7 +3152,7 @@ export function PayoutsClient({
   */
   if (!hasStripe) {
     return (
-      <div aria-label="Set up payouts" data-payouts-setup="" className="mt-2">
+      <div aria-label="Set up payouts" data-payouts-setup="" className="mx-auto mt-2 w-full max-w-[560px]">
         <StorelibPaymentsInline compact />
       </div>
     );
@@ -3321,7 +3321,9 @@ export function PayoutsClient({
       {slot === null && actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
       {actionsInBar}
 
-      <StorelibPaymentsInline compact />
+      <div className="mx-auto w-full max-w-[560px]">
+        <StorelibPaymentsInline compact />
+      </div>
 
       {notice}
 

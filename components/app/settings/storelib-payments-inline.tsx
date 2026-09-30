@@ -7,7 +7,7 @@ import { StorelibPaymentsSettings } from "@/components/app/settings/storelib-pay
 
 export function StorelibPaymentsInline({ compact }: { compact?: boolean }) {
   return (
-    <div className={compact ? "mt-2 max-w-[720px]" : undefined} data-storelib-payments-inline="">
+    <div className="mx-auto mt-2 w-full max-w-[560px]" data-storelib-payments-inline="">
       <StorelibPaymentsSettings compact={compact} />
     </div>
   )

@@ -9,11 +9,15 @@ import {
   fetchStripeBalances,
   fetchStripePayouts,
   maskExternalAccount,
+  payoutFacts,
+  profileForCreator,
   readCreatorStripe,
   resolveCountryForStart,
   syncStripeAccount,
 } from "./connect"
+import { countryCode } from "@/lib/checkout/countries"
 import { badgeFromUxState, BADGE_COPY } from "./creator-badge"
+import { beatFromRequirements, creatorStatusLabel } from "./onboarding-steps"
 import {
   paymentUxStateOf,
   snapshotFromCreatorRow,
@@ -23,8 +27,6 @@ import {
   stripeStageOf,
 } from "./facts"
 import { stripe } from "@/lib/stripe"
-
-const FRESH_MS = 60_000
 
 function mergeSnapshotFromRow(
   row: Awaited<ReturnType<typeof readCreatorStripe>>,
@@ -39,12 +41,9 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
   const configured = stripeConfigured()
   const publishableKey = stripePublishableKey()
   const rowBefore = await readCreatorStripe(creator.id)
-  const stale =
-    !rowBefore?.stripe_requirements_updated_at ||
-    Date.now() - Date.parse(rowBefore.stripe_requirements_updated_at) > FRESH_MS
 
   let snapshot = mergeSnapshotFromRow(rowBefore)
-  if (rowBefore?.stripe_account_id && stale) {
+  if (rowBefore?.stripe_account_id) {
     try {
       snapshot = await syncStripeAccount(creator.id, "system")
     } catch (e) {
@@ -53,10 +52,27 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
   }
 
   const row = await readCreatorStripe(creator.id)
+  const person = row ? await profileForCreator(row.user_id) : null
+  const facts = row?.stripe_account_id ? await payoutFacts(row.stripe_account_id) : null
 
   const stage = stripeStageOf(snapshot)
   const uxState = paymentUxStateOf(snapshot)
   const badge = badgeFromUxState(uxState)
+  const beat = beatFromRequirements({
+    hasAccount: !!snapshot.accountId,
+    detailsSubmitted: snapshot.detailsSubmitted,
+    hasBank: snapshot.hasExternalAccount,
+    currentlyDue: snapshot.currentlyDue,
+    pastDue: snapshot.pastDue,
+    pendingVerification: snapshot.pendingVerification,
+    chargesEnabled: snapshot.chargesEnabled,
+    payoutsEnabled: snapshot.payoutsEnabled,
+  })
+  const actionRequired =
+    snapshot.pastDue.length > 0 ||
+    !!snapshot.disabledReason ||
+    (snapshot.chargesEnabled && !snapshot.payoutsEnabled && beat !== "bank" && beat !== "done")
+  const statusLabel = creatorStatusLabel(beat, actionRequired)
   const copy = { ...stripeStageCopy(stage), title: `Storelib Payments`, line: BADGE_COPY[badge].line, action: BADGE_COPY[badge].cta ?? stripeStageCopy(stage).action }
 
   let balances: HubOverview["balances"] = []
@@ -122,6 +138,14 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
     uxState,
     chargesEnabled: snapshot.chargesEnabled,
     payoutsEnabled: snapshot.payoutsEnabled,
+    prefill: {
+      firstName: person?.first_name ?? "",
+      lastName: person?.last_name ?? "",
+      country: countryCode(person?.country),
+    },
+    payoutHint: facts,
+    beat,
+    statusLabel,
     nextPayout,
   }
 }

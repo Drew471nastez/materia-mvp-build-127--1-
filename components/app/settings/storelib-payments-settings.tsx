@@ -3,12 +3,24 @@
 import * as React from "react"
 import { AlertCircle } from "lucide-react"
 import type { StorelibPaymentsBadge } from "@/lib/payments/stripe/creator-badge"
+import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
+import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
-import { StorelibPaymentsCard, StorelibPaymentsCardSkeleton } from "@/components/app/settings/storelib-payments-card"
-import { StorelibPayoutSetupForm } from "@/components/app/settings/storelib-payout-setup-form"
+import { SetupSteps, StorelibPaymentsCard, StorelibPaymentsCardSkeleton } from "@/components/app/settings/storelib-payments-card"
+import { CountryPicker } from "@/components/app/settings/country-picker"
+import { countryLabel, countryOf } from "@/lib/account/country"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
+import { cn } from "@/lib/utils"
 
-const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-5 shadow-sm border border-[#e5e7eb]"
+const FIELD = "h-11 w-full rounded-xl border border-[#e5e7eb] bg-white px-3 text-[14px] text-[#111827] outline-none transition-colors focus:border-[#111827]"
+const LABEL = "mb-1 block text-[12px] font-medium text-[#374151]"
+
+function safeError(message: string): string {
+  if (/invalid_request|acct_|accs_|capability|requirement|sk_|whsec/i.test(message)) {
+    return "Something went wrong. Try again in a moment."
+  }
+  return message
+}
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/payments/${path}`, {
@@ -18,7 +30,7 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
     cache: "no-store",
   })
   const data = (await res.json().catch(() => ({}))) as T & { error?: string }
-  if (!res.ok) throw new Error(data.error || "Something went wrong. Try again in a moment.")
+  if (!res.ok) throw new Error(safeError(data.error || "Something went wrong. Try again in a moment."))
   return data
 }
 
@@ -31,10 +43,19 @@ export function StorelibPaymentsSettings({
 }) {
   const [data, setData] = React.useState<Overview | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState<string | null>(null)
+  const [busy, setBusy] = React.useState(false)
   const [refreshing, setRefreshing] = React.useState(false)
-  const [editing, setEditing] = React.useState(false)
-  const [verify, setVerify] = React.useState(false)
+  const [phase, setPhase] = React.useState<"idle" | "personal" | "embed">("idle")
+  const [embedStep, setEmbedStep] = React.useState<"verification" | "bank" | null>(null)
+  const [embedKey, setEmbedKey] = React.useState(0)
+  const [kind, setKind] = React.useState<"individual" | "business">("individual")
+  const [countryName, setCountryName] = React.useState("")
+  const [firstName, setFirstName] = React.useState("")
+  const [lastName, setLastName] = React.useState("")
+  const [businessName, setBusinessName] = React.useState("")
+  const [showIssues, setShowIssues] = React.useState(false)
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
+  const seeded = React.useRef(false)
 
   const load = React.useCallback(async (how: "overview" | "refresh" = "overview") => {
     try {
@@ -43,7 +64,7 @@ export function StorelibPaymentsSettings({
       setData(next)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load payments.")
+      setError(safeError(e instanceof Error ? e.message : "Could not load payments."))
     } finally {
       setRefreshing(false)
     }
@@ -53,42 +74,67 @@ export function StorelibPaymentsSettings({
     void load()
   }, [load])
 
-  const badge = (data?.badge ?? "setup") as StorelibPaymentsBadge
-  const status =
-    badge === "active"
-      ? { label: "Active", tone: "green" as const }
-      : badge === "review"
-        ? { label: "Under review", tone: "amber" as const }
-        : { label: "Action needed", tone: "amber" as const }
+  React.useEffect(() => {
+    if (!data?.prefill || seeded.current) return
+    seeded.current = true
+    if (data.prefill.firstName) setFirstName(data.prefill.firstName)
+    if (data.prefill.lastName) setLastName(data.prefill.lastName)
+    if (data.prefill.country) setCountryName(countryLabel(data.prefill.country))
+    if (data.kind === "business" || data.kind === "individual") setKind(data.kind)
+  }, [data])
 
-  const save = async (body: Record<string, string | boolean>) => {
-    if (busy) return
-    setBusy("save")
+  const badge = (data?.badge ?? "setup") as StorelibPaymentsBadge
+  const beat: OnboardingBeat = data?.beat ?? "personal"
+  const status = data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
+  const hasAccount = beat !== "personal"
+  const step: 1 | 2 | 3 =
+    phase === "personal" || (!hasAccount && phase !== "embed")
+      ? 1
+      : embedStep === "bank" || beat === "bank"
+        ? 3
+        : 2
+
+  const country = countryOf(countryName) ?? ""
+  const issues = personalIssues({ kind, country, firstName, lastName, businessName })
+  const issue = (key: "country" | "firstName" | "lastName" | "businessName") => ((touched[key] || showIssues) && issues[key]) || ""
+  const mark = (key: string) => setTouched((current) => ({ ...current, [key]: true }))
+
+  const begin = async () => {
+    setShowIssues(true)
+    if (Object.keys(issues).length > 0 || busy) return
+    setBusy(true)
     setError(null)
     try {
-      const result = await call<{ overview: Overview; needsVerification: boolean }>("profile", body)
-      setData(result.overview)
-      setEditing(false)
-      setVerify(result.needsVerification)
+      const next = await call<Overview>("begin", {
+        agree: true,
+        kind,
+        country,
+        firstName,
+        lastName,
+        businessName: kind === "business" ? businessName : "",
+      })
+      setData(next)
+      setEmbedStep(next.beat === "bank" ? "bank" : "verification")
+      setPhase("embed")
     } catch (e) {
-      setError(e instanceof Error ? e.message : "We could not save that.")
+      setError(safeError(e instanceof Error ? e.message : "We could not start setup just now."))
     } finally {
-      setBusy(null)
+      setBusy(false)
     }
   }
 
   const disconnect = async () => {
     if (busy) return
-    setBusy("disconnect")
+    setBusy(true)
     setError(null)
     try {
       setData(await call<Overview>("disconnect", {}))
-      setEditing(false)
-      setVerify(false)
+      setPhase("idle")
+      setEmbedStep(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not disconnect.")
+      setError(safeError(e instanceof Error ? e.message : "Could not disconnect."))
     } finally {
-      setBusy(null)
+      setBusy(false)
     }
   }
 
@@ -96,7 +142,7 @@ export function StorelibPaymentsSettings({
 
   if (!data) {
     return (
-      <div className={CARD}>
+      <div className="mx-auto w-full max-w-[560px] rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
         <p className="text-[14px] text-[#111827]">{error}</p>
         <button type="button" className="mt-3 inline-flex h-9 items-center rounded-lg border border-[#e5e7eb] px-3 text-[13px] font-medium" onClick={() => void load()}>
           Try again
@@ -107,7 +153,7 @@ export function StorelibPaymentsSettings({
 
   if (!data.configured) {
     return (
-      <div className={CARD}>
+      <div className="mx-auto w-full max-w-[560px] rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
         <h3 className="text-[15px] font-semibold text-[#111827]">Storelib Payments</h3>
         <p className="mt-1 text-[13px] text-[#6b7280]">Payments are not switched on yet.</p>
       </div>
@@ -115,96 +161,131 @@ export function StorelibPaymentsSettings({
   }
 
   const primaryBal = data.balances[0]
-  const hasAccount = data.stage !== "set_up"
-  const showDisconnect = hasAccount && !data.chargesEnabled
+  const hint = phase === "embed" || beat === "verification" || beat === "bank" ? data.payoutHint : null
+  const showDisconnect = hasAccount && !data.chargesEnabled && phase === "idle"
+  const openEmbed = () => {
+    setError(null)
+    setEmbedStep(beat === "bank" ? "bank" : "verification")
+    setEmbedKey((k) => k + 1)
+    setPhase("embed")
+  }
 
   return (
-    <div data-payments-hub="" data-badge={badge} className="space-y-[10px] sm:space-y-[14px]">
+    <div data-payments-hub="" data-badge={badge} className="mx-auto w-full max-w-[560px] space-y-3">
       {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="flex-1">{error}</span>
+          {phase === "embed" ? (
+            <button type="button" className="shrink-0 font-medium underline" onClick={openEmbed}>
+              Try again
+            </button>
+          ) : null}
         </div>
       ) : null}
 
       <StorelibPaymentsCard
         status={status}
+        quiet={phase !== "idle"}
         onRefresh={() => void load("refresh")}
         refreshing={refreshing}
         footer={
-          showDisconnect && !editing ? (
-            <div className="mx-4 mb-4 flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3.5 py-3 sm:mx-5">
-              <div>
-                <p className="text-[13px] font-medium text-[#111827]">Setup is not finished</p>
-                <p className="text-[12px] text-[#6b7280]">Finish the form above, or disconnect and start again.</p>
-              </div>
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={() => void disconnect()}
-                className="inline-flex h-8 shrink-0 items-center rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] font-medium text-[#374151] hover:bg-[#f9fafb] disabled:opacity-60"
-              >
+          showDisconnect ? (
+            <div className="mx-4 mb-4 flex justify-end sm:mx-5">
+              <button type="button" disabled={busy} onClick={() => void disconnect()} className="text-[12px] font-medium text-[#6b7280] hover:text-[#111827] disabled:opacity-60">
                 Disconnect
               </button>
             </div>
           ) : null
         }
       >
-        {verify ? (
-          <div className="border-t border-[#f3f4f6] px-4 py-4 sm:px-5">
-            <StripeConnectEmbedded
-              purpose="stripe_onboarding"
-              onClose={() => setVerify(false)}
-              onDone={async () => {
-                setVerify(false)
-                await load("refresh")
+        <div className="border-t border-[#f3f4f6] px-4 py-4 sm:px-5">
+          {beat !== "done" ? <SetupSteps step={step} /> : null}
+
+          {phase === "personal" ? (
+            <form
+              className="space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void begin()
               }}
-              onError={setError}
-            />
-          </div>
-        ) : editing ? (
-          <StorelibPayoutSetupForm busy={busy === "save"} onSubmit={save} />
-        ) : data.stage === "set_up" ? (
-          <AddInformation onStart={() => setEditing(true)} bankLine={data.payoutDestination?.last4} />
-        ) : (
-          <div className="border-t border-[#f3f4f6] px-4 py-5 text-center sm:px-5">
-            <p className="text-[15px] font-semibold text-[#111827]">
-              {badge === "active" ? "Payments and payouts are on" : "We still need a few details"}
-            </p>
-            <p className="mx-auto mt-1 max-w-md text-[13px] text-[#6b7280]">
-              {data.payoutDestination?.last4
-                ? `Bank account ending ${data.payoutDestination.last4}.`
-                : "Your bank account is not on file yet."}
-            </p>
-            {badge !== "active" ? (
-              <button
-                type="button"
-                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#111827] px-5 text-[14px] font-semibold text-white"
-                onClick={() => (badge === "action" ? setVerify(true) : setEditing(true))}
-              >
-                {badge === "action" ? "Add information" : "Continue setup"}
+            >
+              <div>
+                <span className={LABEL}>Country</span>
+                <div onBlur={() => mark("country")}>
+                  <CountryPicker value={countryName} onChange={(name) => { setCountryName(name); mark("country") }} />
+                </div>
+                {issue("country") ? <p className="mt-1 text-[12px] text-red-700">{issue("country")}</p> : null}
+              </div>
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#f3f4f6] p-1">
+                {(["individual", "business"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setKind(option)}
+                    className={cn("h-9 rounded-lg text-[13px] font-medium", kind === option ? "bg-white text-[#111827] shadow-sm" : "text-[#6b7280]")}
+                  >
+                    {option === "individual" ? "Individual" : "Business"}
+                  </button>
+                ))}
+              </div>
+              {kind === "business" ? (
+                <label className="block">
+                  <span className={LABEL}>Business name</span>
+                  <input className={FIELD} value={businessName} autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
+                  {issue("businessName") ? <span className="mt-1 block text-[12px] text-red-700">{issue("businessName")}</span> : null}
+                </label>
+              ) : null}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className={LABEL}>First name</span>
+                  <input className={FIELD} value={firstName} autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
+                  {issue("firstName") ? <span className="mt-1 block text-[12px] text-red-700">{issue("firstName")}</span> : null}
+                </label>
+                <label className="block">
+                  <span className={LABEL}>Last name</span>
+                  <input className={FIELD} value={lastName} autoComplete="family-name" onBlur={() => mark("lastName")} onChange={(e) => setLastName(e.target.value)} />
+                  {issue("lastName") ? <span className="mt-1 block text-[12px] text-red-700">{issue("lastName")}</span> : null}
+                </label>
+              </div>
+              <button type="submit" disabled={busy} className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#111827] text-[14px] font-semibold text-white hover:bg-[#1f2937] disabled:opacity-60">
+                {busy ? "Saving" : "Continue"}
               </button>
-            ) : null}
-          </div>
-        )}
+            </form>
+          ) : phase === "embed" ? (
+            <div>
+              <PayoutNote name={hint?.accountName ?? ""} currency={hint?.currency ?? null} />
+              <StripeConnectEmbedded
+                key={embedKey}
+                purpose="stripe_onboarding"
+                onStep={setEmbedStep}
+                onError={setError}
+                onExit={async () => {
+                  setPhase("idle")
+                  await load("refresh")
+                }}
+              />
+            </div>
+          ) : beat === "done" ? (
+            <p className="pb-1 text-center text-[13px] text-[#6b7280]">
+              {data.payoutDestination?.last4 ? `Bank ···· ${data.payoutDestination.last4}` : "Payouts are on."}
+            </p>
+          ) : beat === "review" ? (
+            <p className="pb-1 text-center text-[13px] text-[#6b7280]">Under review.</p>
+          ) : (
+            <div className="pb-1 text-center">
+              <PayoutNote name={data.payoutHint?.accountName ?? ""} currency={data.payoutHint?.currency ?? null} />
+              <button type="button" onClick={() => (hasAccount ? openEmbed() : setPhase("personal"))} className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#111827] text-[14px] font-semibold text-white hover:bg-[#1f2937]">
+                {hasAccount ? "Continue" : "Set up payments"}
+              </button>
+            </div>
+          )}
+        </div>
       </StorelibPaymentsCard>
 
-      {!compact ? (
-        <section className={CARD}>
-          <div className="flex items-center justify-between">
-            <h4 className="text-[14px] font-semibold text-[#111827]">Other payment providers</h4>
-          </div>
-          <div className="mt-3 flex items-center justify-between rounded-xl border border-[#e5e7eb] px-3.5 py-3">
-            <span className="text-[13px] text-[#111827]">PayPal</span>
-            <span className="text-[12px] text-[#9ca3af]">Coming soon</span>
-          </div>
-        </section>
-      ) : null}
-
-      {badge === "active" && primaryBal ? (
-        <section className={CARD}>
-          <h4 className="text-[13px] font-semibold text-[#111827]">Balance</h4>
-          <p className="mt-1 text-[22px] font-semibold tabular-nums text-[#111827]">{money(primaryBal.availableMinor, primaryBal.currency)}</p>
+      {badge === "active" && primaryBal && !compact ? (
+        <section className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4 shadow-sm">
+          <p className="text-[22px] font-semibold tabular-nums text-[#111827]">{money(primaryBal.availableMinor, primaryBal.currency)}</p>
           <p className="text-[12px] text-[#6b7280]">Available · {money(primaryBal.pendingMinor, primaryBal.currency)} pending</p>
         </section>
       ) : null}
@@ -214,16 +295,13 @@ export function StorelibPaymentsSettings({
   )
 }
 
-function AddInformation({ onStart, bankLine }: { onStart: () => void; bankLine?: string | null }) {
+function PayoutNote({ name, currency }: { name: string; currency: string | null }) {
+  if (!name && !currency) return null
   return (
-    <div className="border-t border-[#f3f4f6] px-4 py-8 text-center sm:px-5">
-      <p className="text-[15px] font-semibold text-[#111827]">Add information to start accepting money</p>
-      <p className="mx-auto mt-1 max-w-md text-[13px] leading-5 text-[#6b7280]">
-        Storelib uses Stripe to pay you and to keep your bank details off Storelib. {bankLine ? `Account ending ${bankLine}.` : "You will add the account payouts are sent to."}
-      </p>
-      <button type="button" onClick={onStart} className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#111827] px-5 text-[14px] font-semibold text-white hover:bg-[#1f2937]">
-        Add information
-      </button>
+    <div className="mb-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2.5 text-[13px] leading-5 text-[#78350f]">
+      <p className="font-medium text-[#92400e]">Payouts will fail unless this matches.</p>
+      {currency ? <p>Account must be in {currency}.</p> : null}
+      {name ? <p>Account must be in the name {name}.</p> : null}
     </div>
   )
 }

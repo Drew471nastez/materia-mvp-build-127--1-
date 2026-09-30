@@ -29,6 +29,7 @@ import {
   describe,
   hostedFlowUrl,
   noteFormStatus,
+  beginOnboarding,
   disconnectPayoutAccount,
   overview,
   PaymentsProblem,
@@ -146,6 +147,25 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         const amount = typeof body.amountMinor === "number" ? body.amountMinor : Number.NaN
         const currency = typeof body.currency === "string" ? body.currency : ""
         return NextResponse.json(await requestPayout(creator, amount, currency), { headers: NO_STORE })
+      }
+      case "begin": {
+        if (body.agree !== true) return NextResponse.json({ error: "Agree to continue." }, { status: 400, headers: NO_STORE })
+        const kind = body.kind === "business" ? "business" : body.kind === "individual" ? "individual" : null
+        if (!kind) return NextResponse.json({ error: "Choose individual or business." }, { status: 400, headers: NO_STORE })
+        const text = (key: string, max: number) => {
+          const value = body[key]
+          return typeof value === "string" ? value.slice(0, max) : ""
+        }
+        return NextResponse.json(
+          await beginOnboarding(creator, {
+            kind,
+            country: text("country", 64),
+            firstName: text("firstName", 80),
+            lastName: text("lastName", 80),
+            businessName: text("businessName", 120),
+          }),
+          { headers: NO_STORE },
+        )
       }
       case "profile": {
         if (body.agree !== true) return NextResponse.json({ error: "Agree to continue." }, { status: 400, headers: NO_STORE })

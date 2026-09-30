@@ -2,6 +2,7 @@ import type { PaymentsStage, PayoutStatus, RequirementNote, StageCopy } from "./
 import type { PayoutDestination } from "./store"
 import type { StorelibPaymentsBadge } from "./stripe/creator-badge"
 import type { PaymentUxState } from "./stripe/facts"
+import type { OnboardingBeat } from "./stripe/onboarding-steps"
 
 export interface HubOverview {
   provider: "stripe" | "airwallex"
@@ -30,6 +31,12 @@ export interface HubOverview {
   /** Stripe Connect flags. Absent on other providers. */
   chargesEnabled?: boolean
   payoutsEnabled?: boolean
+  prefill?: { firstName: string; lastName: string; country: string | null }
+  /** Live name and currency from Stripe. Currency is never guessed from the country. */
+  payoutHint?: { accountName: string; currency: string | null } | null
+  /** Where the creator is in setup. Requirement codes stay on the server. */
+  beat?: OnboardingBeat
+  statusLabel?: string
   nextPayout?: { amountMinor: number; currency: string; arrivalDate: string | null } | null
 }
 
