@@ -1765,9 +1765,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {activeTab === "notifications" && <NotificationPreferencesPanel />}
 
           {/* Payments Tab */}
-          {activeTab === "payments" && <PaymentsHub />}
-
-          {activeTab === "payments" && paymentsProvider === "stripe" && (
+          {activeTab === "payments" && (
+            <PaymentsHub
+              statementDescriptorSlot={
+                paymentsProvider === "stripe" ? (
             <div className="space-y-[10px] sm:space-y-[14px] pt-2">
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-5 shadow-sm border border-[#e5e7eb]">
                 <div className="space-y-1.5 max-w-[420px]">
@@ -1820,6 +1821,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 </div>
               </MobileBottomSheet>
             </div>
+                ) : null
+              }
+            />
           )}
 
           {/* Domains Tab */}

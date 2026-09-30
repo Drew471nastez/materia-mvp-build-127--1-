@@ -73,6 +73,7 @@ import {
 } from "./model"
 import { toMinor } from "./money"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { activePaymentProvider } from "./active-provider"
 
 export type { CreatorRef, HubOverview } from "./hub-types"
 import type { CreatorRef, HubOverview } from "./hub-types"
@@ -95,26 +96,8 @@ import { readCreatorStripe } from "./stripe/connect"
  *                                     they set up on Airwallex themselves
  *   otherwise                         Stripe
  */
-export async function providerFor(creatorId: string): Promise<PaymentProviderId> {
-  const reach = airwallexRollout(creatorId)
-  if (reach === "none") {
-    /* Not configured, or not in the rollout: only a row already there (from an earlier rollout) makes it Airwallex. */
-    if (!readAirwallexConfig().ok) return "stripe"
-  }
-  let row: AccountRow | null = null
-  try {
-    row = (await readAccount(creatorId)).row
-  } catch {
-    row = null
-  }
-  if (row) return "airwallex"
-  if (reach === "named") return "airwallex"
-  if (reach === "all") {
-    const { data } = await createAdminClient().from("creators").select("stripe_account_id").eq("id", creatorId).maybeSingle()
-    const stripeAccount = (data as { stripe_account_id: string | null } | null)?.stripe_account_id
-    return stripeAccount ? "stripe" : "airwallex"
-  }
-  return "stripe"
+export async function providerFor(_creatorId: string): Promise<PaymentProviderId> {
+  return activePaymentProvider()
 }
 
 /* ── Facts, from the provider ─────────────────────────────────────────── */
@@ -276,6 +259,9 @@ async function airwallexOverview(creator: CreatorRef): Promise<HubOverview> {
       requestPayout: checkoutOpen(facts),
     },
     unavailable,
+    badge: "setup",
+    uxState: "PAYMENTS_NOT_CONFIGURED",
+    nextPayout: null,
   }
 }
 

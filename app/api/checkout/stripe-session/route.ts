@@ -20,10 +20,7 @@ import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/l
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { randomUUID } from "node:crypto"
-import { checkoutReadyForCreator, factsOf, providerFor } from "@/lib/payments/service"
-import { readAccount } from "@/lib/payments/store"
-import { checkoutOpen } from "@/lib/payments/model"
-import { startAirwallexCheckout } from "@/lib/payments/checkout"
+import { checkoutReadyForCreator } from "@/lib/payments/service"
 
 /**
  * POST /api/checkout/stripe-session
@@ -121,22 +118,11 @@ export async function POST(request: Request) {
     account is ACTIVE and they have a payout account; everyone else through
     Stripe, exactly as before.
   */
-  const provider = await providerFor(creator.id)
-  let airwallexAccount: string | null = null
-  if (provider === "airwallex") {
-    const { row } = await readAccount(creator.id).catch(() => ({ row: null }))
-    if (!row?.provider_account_id || !checkoutOpen(factsOf(row))) {
-      return NextResponse.json({ error: "This seller cannot take payments yet. Try again later." }, { status: 400 })
-    }
-    airwallexAccount = row.provider_account_id
-  }
-
-  /* The seller has to be able to take the money, or it would land on the platform with nowhere to go. */
   const account = creator.stripe_account_id
-  if (provider === "stripe" && (!account || !account.startsWith("acct_"))) {
+  if (!account || !account.startsWith("acct_")) {
     return NextResponse.json({ error: "This seller cannot take payments yet." }, { status: 400 })
   }
-  if (provider === "stripe" && !(await checkoutReadyForCreator(creator.id))) {
+  if (!(await checkoutReadyForCreator(creator.id))) {
     return NextResponse.json({ error: "This seller cannot take payments yet. Try again later." }, { status: 400 })
   }
 
@@ -233,50 +219,6 @@ export async function POST(request: Request) {
   }
   /* Last, and only while Stripe's 50 keys allow: the payment never waits on it. */
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
-
-  /*
-    ON AIRWALLEX the same metadata goes on Airwallex's payment intent (it
-    keeps 50 keys too), Storelib's fee is what is NOT split to the creator,
-    and the buyer pays on Airwallex's own page. The order is made from the
-    payment exactly as Stripe's is (lib/checkout/fulfil-payment
-    fulfilAirwallexIntent), by the buyer's return or by the webhook.
-  */
-  if (provider === "airwallex" && airwallexAccount) {
-    try {
-      const started = await startAirwallexCheckout({
-        checkoutId: randomUUID(),
-        creatorId: creator.id,
-        accountId: airwallexAccount,
-        amountMinor: totals.totalCents,
-        currency: "USD",
-        platformFeeMinor: fee.platformFeeCents,
-        metadata,
-      })
-      const optedIn = body.emailOptIn === true
-      const source = contactSourceOfOrder(origin, product.id)
-      if (optedIn) {
-        after(async () => {
-          await recordCheckoutContactAndWelcome(admin, { creatorId: creator.id, email, name: `${firstName} ${lastName}`.trim(), basis: "ticked", bought: false, source })
-          await recordContactAttribution(admin, creator.id, email, attribution)
-        })
-      }
-      return NextResponse.json({
-        provider: "airwallex",
-        intentId: started.intentId,
-        clientSecret: started.clientSecret,
-        currency: started.currency,
-        env: started.env,
-        amountCents: started.amountMinor,
-      })
-    } catch (error) {
-      console.error("[stripe-session] Airwallex payment failed:", error instanceof Error ? error.message : error)
-      if (holder) await releaseCouponHold(admin, coupon?.id, holder)
-      return NextResponse.json({ error: "The payment could not be started. Nothing was charged. Try again." }, { status: 500 })
-    }
-  }
-
-  /* Only Stripe from here on, and only a seller whose account passed the check above. */
-  if (!account) return NextResponse.json({ error: "This seller cannot take payments yet." }, { status: 400 })
 
   const params: Stripe.PaymentIntentCreateParams = {
     amount: totals.totalCents,

@@ -1,5 +1,7 @@
 import type { PaymentsStage, PayoutStatus, RequirementNote, StageCopy } from "./model"
 import type { PayoutDestination } from "./store"
+import type { StorelibPaymentsBadge } from "./stripe/creator-badge"
+import type { PaymentUxState } from "./stripe/facts"
 
 export interface HubOverview {
   provider: "stripe" | "airwallex"
@@ -23,6 +25,9 @@ export interface HubOverview {
   }
   unavailable: string[]
   stripe?: { publishableKey: string | null }
+  badge: StorelibPaymentsBadge
+  uxState: PaymentUxState
+  nextPayout?: { amountMinor: number; currency: string; arrivalDate: string | null } | null
 }
 
 export interface CreatorRef {

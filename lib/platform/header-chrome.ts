@@ -59,8 +59,8 @@ export function headerChrome(light: boolean): HeaderChrome {
       deskSearchField:
         "bg-white/10 border-white/15 text-white placeholder:text-white/50 focus-visible:border-white/45 focus:border-white/45",
       deskSearchClear: "text-white/40 hover:text-white/70",
-      wishlistRing: "ring-[#111113]",
-      concaveBg: "bg-[#111113]",
+      wishlistRing: `ring-[${BUYER_HEADER_DARK_BG}]`,
+      concaveBg: `bg-[${BUYER_HEADER_DARK_BG}]`,
     }
   }
 

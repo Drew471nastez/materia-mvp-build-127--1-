@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
+import { checkoutReadyForCreator } from "@/lib/payments/service";
 import { TryProStrip } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
@@ -405,8 +406,11 @@ async function PayoutsBody({ creator }: { creator: any }) {
   const activeDisputeCount = disputed.length;
   const totalDisputedAmount = disputed.reduce((s, o) => s + (o.amount_cents || 0), 0);
 
+  const paymentsReady = await checkoutReadyForCreator(creator.id)
+
   return (
     <PayoutsClient
+      paymentsReady={paymentsReady}
       creator={{ ...creator, default_currency: detectedCurrency }}
       initialData={{
         totalEarnings,

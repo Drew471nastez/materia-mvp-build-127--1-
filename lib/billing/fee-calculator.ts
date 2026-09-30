@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { calculateStorelibFee, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
+import type { StorelibSellerPlan } from "@/lib/payments/fees/config"
 
 // ────────────────────────────────────────────────────────────────
 // TYPES
@@ -11,6 +13,8 @@ export interface FeeCalculation {
   sellerReceivesCents: number
   planId: string
   planName: string
+  pricingTier?: "standard" | "micro"
+  feeRuleVersion?: string
 }
 
 export interface SubscriptionPlan {
@@ -22,26 +26,28 @@ export interface SubscriptionPlan {
 
 type SellerPlan = "free" | "growth" | "pro"
 
-// ────────────────────────────────────────────────────────────────
-// HARDCODED FEE CONSTANTS — single source of truth
-// NEVER read fee_percent from the database; always use these.
-// ────────────────────────────────────────────────────────────────
-
-const PLAN_FEE_PERCENT: Record<SellerPlan, number> = {
-  free: 0.06,   // 6%
-  growth: 0.03, // 3%
-  pro: 0.015,   // 1.5%
-}
-
 const PLAN_NAMES: Record<SellerPlan, string> = {
   free: "Free",
   growth: "Growth",
   pro: "Professional",
 }
 
-// $0.25 fixed fee — ONLY applied when order amount >= $3.00 (300 cents)
-const FIXED_FEE_CENTS = 25
-const FIXED_FEE_THRESHOLD_CENTS = 300
+function toStorelibPlan(plan: SellerPlan): StorelibSellerPlan {
+  return plan === "free" ? "free" : "paid"
+}
+
+function fromStorelibFee(fee: StorelibFeeResult, planId: SellerPlan): FeeCalculation {
+  return {
+    platformFeeCents: fee.totalStorelibFeeMinor,
+    feePercent: fee.percentageRate,
+    feeFixedCents: fee.fixedFeeMinor,
+    sellerReceivesCents: fee.creatorProceedsMinor,
+    planId,
+    planName: PLAN_NAMES[planId],
+    pricingTier: fee.pricingTier,
+    feeRuleVersion: fee.feeRuleVersion,
+  }
+}
 
 // ────────────────────────────────────────────────────────────────
 // resolveSellerPlan — maps any plan ID string to SellerPlan
@@ -83,13 +89,11 @@ export function computeApplicationFee({
   unitAmount: number
   sellerPlan: SellerPlan
 }): number {
-  const percent = PLAN_FEE_PERCENT[sellerPlan] ?? PLAN_FEE_PERCENT.free
-  const percentFee = Math.round(unitAmount * percent)
-  const fixedFee = unitAmount >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
-  const applicationFee = percentFee + fixedFee
-
-  // Clamp: never negative, never exceed total charge
-  return Math.max(0, Math.min(applicationFee, unitAmount))
+  return calculateStorelibFee({
+    grossMinor: unitAmount,
+    currency: "USD",
+    sellerPlan: toStorelibPlan(sellerPlan),
+  }).totalStorelibFeeMinor
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -140,34 +144,23 @@ export async function calculatePlatformFee(
     console.error("[fee-calc] Exception fetching creator plan:", err?.message)
   }
 
-  const feePercent = PLAN_FEE_PERCENT[effectivePlan]
-  const percentFeeCents = Math.round(amountCents * feePercent)
-  const fixedFeeCents = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
-  const totalFeeCents = percentFeeCents + fixedFeeCents
-
-  // Clamp: never negative, never exceed total charge
-  const platformFeeCents = Math.max(0, Math.min(totalFeeCents, amountCents))
-  const sellerReceivesCents = amountCents - platformFeeCents
+  const fee = calculateStorelibFee({
+    grossMinor: amountCents,
+    currency: "USD",
+    sellerPlan: toStorelibPlan(effectivePlan),
+  })
 
   console.log("[fee-calc] Fee computation:", {
     plan: effectivePlan,
     amountCents,
-    feePercent: `${(feePercent * 100).toFixed(2)}%`,
-    percentFeeCents,
-    fixedFeeCents,
-    totalFeeCents,
-    platformFeeCents,
-    sellerReceivesCents,
+    tier: fee.pricingTier,
+    feePercent: `${(fee.percentageRate * 100).toFixed(2)}%`,
+    platformFeeCents: fee.totalStorelibFeeMinor,
+    sellerReceivesCents: fee.creatorProceedsMinor,
+    rule: fee.feeRuleVersion,
   })
 
-  return {
-    platformFeeCents,
-    feePercent,
-    feeFixedCents: fixedFeeCents,
-    sellerReceivesCents,
-    planId: effectivePlan,
-    planName: PLAN_NAMES[effectivePlan],
-  }
+  return fromStorelibFee(fee, effectivePlan)
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -181,24 +174,14 @@ export function calculateFeeWithPlan(
 ): FeeCalculation {
   // ALWAYS use hardcoded fee percent based on plan ID
   const resolved = resolveSellerPlan(plan.id)
-  const feePercent = PLAN_FEE_PERCENT[resolved]
-  const feeFixedCents = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
-
-  const percentageFeeCents = Math.round(amountCents * feePercent)
-  const totalFeeCents = percentageFeeCents + feeFixedCents
-
-  // Clamp: never negative, never exceed total charge
-  const platformFeeCents = Math.max(0, Math.min(totalFeeCents, amountCents))
-  const sellerReceivesCents = amountCents - platformFeeCents
-
-  return {
-    platformFeeCents,
-    feePercent,
-    feeFixedCents,
-    sellerReceivesCents,
-    planId: resolved,
-    planName: PLAN_NAMES[resolved],
-  }
+  return fromStorelibFee(
+    calculateStorelibFee({
+      grossMinor: amountCents,
+      currency: "USD",
+      sellerPlan: toStorelibPlan(resolved),
+    }),
+    resolved,
+  )
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -210,20 +193,14 @@ export function getFeePreview(
   planId: "free" | "growth" | "pro",
 ): FeeCalculation {
   const resolved = resolveSellerPlan(planId)
-  const feePercent = PLAN_FEE_PERCENT[resolved]
-  const fixedFee = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
-  const percentFee = Math.round(amountCents * feePercent)
-  const totalFee = percentFee + fixedFee
-  const platformFeeCents = Math.max(0, Math.min(totalFee, amountCents))
-
-  return {
-    platformFeeCents,
-    feePercent,
-    feeFixedCents: fixedFee,
-    sellerReceivesCents: amountCents - platformFeeCents,
-    planId: resolved,
-    planName: PLAN_NAMES[resolved],
-  }
+  return fromStorelibFee(
+    calculateStorelibFee({
+      grossMinor: amountCents,
+      currency: "USD",
+      sellerPlan: toStorelibPlan(resolved),
+    }),
+    resolved,
+  )
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -240,9 +217,9 @@ export function formatCentsToDollars(cents: number): string {
 
 export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
-    free: "6% + $0.25 per transaction",
-    growth: "3% + $0.25 per transaction",
-    pro: "1.5% + $0.25 per transaction",
+    free: "6% + $0.25 per sale ($4+); 12.25% under $4",
+    growth: "3% + $0.25 per sale ($4+); 9.25% under $4",
+    pro: "3% + $0.25 per sale ($4+); 9.25% under $4",
   }
   return descriptions[planId] || descriptions.free
 }

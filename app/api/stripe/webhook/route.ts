@@ -146,8 +146,8 @@ async function handleStripeEvent(request: Request) {
 
   let event: Stripe.Event | null = null
 
-  // Try main secret first, then Connect secret as fallback
-  const secretsToTry = [mainSecret, connectSecret].filter(Boolean) as string[]
+  const connectEndpointConfigured = !!connectSecret
+  const secretsToTry = connectEndpointConfigured && mainSecret ? [mainSecret] : ([mainSecret, connectSecret].filter(Boolean) as string[])
   for (const secret of secretsToTry) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, secret)
@@ -163,6 +163,16 @@ async function handleStripeEvent(request: Request) {
   }
 
   console.log("[Webhook] Event type:", event.type)
+
+  if (connectEndpointConfigured && event.account) {
+    return NextResponse.json({ received: true, ignored: true })
+  }
+
+  if (event.account && event.type.startsWith("account.")) {
+    const { handleConnectAccountEvent } = await import("@/lib/stripe/connect-webhook")
+    await handleConnectAccountEvent(event)
+    return NextResponse.json({ received: true })
+  }
 
   /*
     A BUYER'S MEMBERSHIP OF A CREATOR, first. Its subscription and invoices

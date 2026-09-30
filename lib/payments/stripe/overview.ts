@@ -13,7 +13,15 @@ import {
   resolveCountryForStart,
   syncStripeAccount,
 } from "./connect"
-import { snapshotFromCreatorRow, stripeCheckoutReady, stripeRequirementNotes, stripeStageCopy, stripeStageOf } from "./facts"
+import { badgeFromUxState, BADGE_COPY } from "./creator-badge"
+import {
+  paymentUxStateOf,
+  snapshotFromCreatorRow,
+  stripeCheckoutReady,
+  stripeRequirementNotes,
+  stripeStageCopy,
+  stripeStageOf,
+} from "./facts"
 import { stripe } from "@/lib/stripe"
 
 const FRESH_MS = 60_000
@@ -47,18 +55,25 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
   const row = await readCreatorStripe(creator.id)
 
   const stage = stripeStageOf(snapshot)
-  const copy = stripeStageCopy(stage)
+  const uxState = paymentUxStateOf(snapshot)
+  const badge = badgeFromUxState(uxState)
+  const copy = { ...stripeStageCopy(stage), title: `Storelib Payments`, line: BADGE_COPY[badge].line, action: BADGE_COPY[badge].cta ?? stripeStageCopy(stage).action }
 
   let balances: HubOverview["balances"] = []
   let payouts: HubOverview["payouts"] = []
   let payoutDestination = null as HubOverview["payoutDestination"]
   let balancesAt: string | null = null
+  let nextPayout: HubOverview["nextPayout"] = null
 
   if (row?.stripe_account_id && snapshot.chargesEnabled) {
     try {
       balances = await fetchStripeBalances(row.stripe_account_id)
       balancesAt = new Date().toISOString()
       const payoutList = await fetchStripePayouts(row.stripe_account_id)
+      const upcoming = payoutList.find((p) => p.status === "pending" || p.status === "in_transit")
+      if (upcoming) {
+        nextPayout = { amountMinor: upcoming.amountMinor, currency: upcoming.currency, arrivalDate: upcoming.createdAt }
+      }
       payouts = payoutList.map((p) => {
         const mapped = payoutStatusOf(p.status)
         return {
@@ -99,6 +114,9 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
     },
     unavailable: !publishableKey ? ["embedded_components"] : [],
     stripe: { publishableKey },
+    badge,
+    uxState,
+    nextPayout,
   }
 }
 
