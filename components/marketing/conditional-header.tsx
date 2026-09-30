@@ -8,7 +8,7 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 
 /**
  * Shown while PlatformHeaderClient suspends (SSR streaming / initial hydration).
- * Same bg-black + sticky positioning as the real header so the layout doesn't shift.
+ * Same surface + sticky positioning as the real header so the layout doesn't shift.
  */
 function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: boolean }) {
   // Height must match the real PlatformHeaderClient header so the layout
@@ -23,7 +23,7 @@ function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: bo
   return (
     <div
       id="platform-header-root"
-      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-[#f7f8f9]" : "sticky top-0 z-40 w-full bg-black"}
+      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-[#f7f8f9]" : "sticky top-0 z-40 w-full bg-[#131316]"}
       style={{ minHeight: 'max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))' }}
       aria-hidden
     />
