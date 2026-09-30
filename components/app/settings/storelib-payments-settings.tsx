@@ -2,19 +2,13 @@
 
 import * as React from "react"
 import { AlertCircle } from "lucide-react"
-import { CountryPicker } from "@/components/app/settings/country-picker"
-import { countryOf } from "@/lib/account/country"
-import type { HubOverview } from "@/lib/payments/hub-types"
-import { BADGE_COPY, type StorelibPaymentsBadge } from "@/lib/payments/stripe/creator-badge"
+import type { StorelibPaymentsBadge } from "@/lib/payments/stripe/creator-badge"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { StorelibPaymentsCard, StorelibPaymentsCardSkeleton } from "@/components/app/settings/storelib-payments-card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
+import { StorelibPayoutSetupForm } from "@/components/app/settings/storelib-payout-setup-form"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
 
 const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-5 shadow-sm border border-[#e5e7eb]"
-const PRIMARY =
-  "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#111827] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#1f2937] disabled:opacity-60 cursor-pointer disabled:cursor-default"
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/payments/${path}`, {
@@ -39,8 +33,8 @@ export function StorelibPaymentsSettings({
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
-  const [open, setOpen] = React.useState(false)
-  const [form, setForm] = React.useState<null | "stripe_onboarding" | "stripe_management">(null)
+  const [editing, setEditing] = React.useState(false)
+  const [verify, setVerify] = React.useState(false)
 
   const load = React.useCallback(async (how: "overview" | "refresh" = "overview") => {
     try {
@@ -57,35 +51,45 @@ export function StorelibPaymentsSettings({
 
   React.useEffect(() => {
     void load()
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void load()
-    }
-    document.addEventListener("visibilitychange", onVisible)
-    return () => document.removeEventListener("visibilitychange", onVisible)
   }, [load])
 
   const badge = (data?.badge ?? "setup") as StorelibPaymentsBadge
-  const badgeCopy = BADGE_COPY[badge]
-  const accepting = data?.chargesEnabled === true
-  const payingOut = data?.payoutsEnabled === true
-  const bankLine = data?.payoutDestination?.last4
-    ? `${data.payoutDestination.bankName ? `${data.payoutDestination.bankName} ` : ""}···· ${data.payoutDestination.last4}`
-    : "Add a bank account"
+  const status =
+    badge === "active"
+      ? { label: "Active", tone: "green" as const }
+      : badge === "review"
+        ? { label: "Under review", tone: "amber" as const }
+        : { label: "Action needed", tone: "amber" as const }
 
-  const openFlow = () => {
+  const save = async (body: Record<string, string | boolean>) => {
+    if (busy) return
+    setBusy("save")
     setError(null)
-    if (!data || data.stage === "set_up" || !data.kind) {
-      setForm(null)
-    } else {
-      setForm(badge === "active" ? "stripe_management" : "stripe_onboarding")
+    try {
+      const result = await call<{ overview: Overview; needsVerification: boolean }>("profile", body)
+      setData(result.overview)
+      setEditing(false)
+      setVerify(result.needsVerification)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We could not save that.")
+    } finally {
+      setBusy(null)
     }
-    setOpen(true)
   }
 
-  const closeFlow = () => {
-    setOpen(false)
-    setForm(null)
-    void load("refresh")
+  const disconnect = async () => {
+    if (busy) return
+    setBusy("disconnect")
+    setError(null)
+    try {
+      setData(await call<Overview>("disconnect", {}))
+      setEditing(false)
+      setVerify(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not disconnect.")
+    } finally {
+      setBusy(null)
+    }
   }
 
   if (!data && !error) return <StorelibPaymentsCardSkeleton />
@@ -111,11 +115,12 @@ export function StorelibPaymentsSettings({
   }
 
   const primaryBal = data.balances[0]
-  const manageLabel = badge === "setup" ? "Set up" : badge === "action" ? "Resolve" : badge === "review" ? "View" : "Manage"
+  const hasAccount = data.stage !== "set_up"
+  const showDisconnect = hasAccount && !data.chargesEnabled
 
   return (
     <div data-payments-hub="" data-badge={badge} className="space-y-[10px] sm:space-y-[14px]">
-      {error && !open ? (
+      {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="flex-1">{error}</span>
@@ -123,60 +128,71 @@ export function StorelibPaymentsSettings({
       ) : null}
 
       <StorelibPaymentsCard
-        accepting={accepting}
-        payingOut={payingOut}
-        bankLine={bankLine}
-        manageLabel={manageLabel}
-        onManage={openFlow}
-        manageDisabled={!!busy}
+        status={status}
         onRefresh={() => void load("refresh")}
         refreshing={refreshing}
-      />
-
-      <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeFlow())}>
-        <DialogContent className="max-h-[min(860px,92vh)] overflow-y-auto sm:max-w-[640px]">
-          <DialogHeader>
-            <DialogTitle>Storelib Payments</DialogTitle>
-          </DialogHeader>
-          {error ? (
-            <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span className="flex-1">{error}</span>
+        footer={
+          showDisconnect && !editing ? (
+            <div className="mx-4 mb-4 flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3.5 py-3 sm:mx-5">
+              <div>
+                <p className="text-[13px] font-medium text-[#111827]">Setup is not finished</p>
+                <p className="text-[12px] text-[#6b7280]">Finish the form above, or disconnect and start again.</p>
+              </div>
+              <button
+                type="button"
+                disabled={!!busy}
+                onClick={() => void disconnect()}
+                className="inline-flex h-8 shrink-0 items-center rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] font-medium text-[#374151] hover:bg-[#f9fafb] disabled:opacity-60"
+              >
+                Disconnect
+              </button>
             </div>
-          ) : null}
-          {!form ? (
-            <SetUp
-              onDone={(next) => {
-                setData(next)
-                setForm("stripe_onboarding")
-              }}
-              busy={busy}
-              setBusy={setBusy}
-              setError={setError}
-            />
-          ) : (
+          ) : null
+        }
+      >
+        {verify ? (
+          <div className="border-t border-[#f3f4f6] px-4 py-4 sm:px-5">
             <StripeConnectEmbedded
-              purpose={form}
-              onClose={closeFlow}
+              purpose="stripe_onboarding"
+              onClose={() => setVerify(false)}
               onDone={async () => {
-                setForm(null)
-                setOpen(false)
+                setVerify(false)
                 await load("refresh")
               }}
               onError={setError}
             />
-          )}
-          <p className="text-[12px] leading-5 text-[#6b7280]">{badgeCopy.line}</p>
-        </DialogContent>
-      </Dialog>
+          </div>
+        ) : editing ? (
+          <StorelibPayoutSetupForm busy={busy === "save"} onSubmit={save} />
+        ) : data.stage === "set_up" ? (
+          <AddInformation onStart={() => setEditing(true)} bankLine={data.payoutDestination?.last4} />
+        ) : (
+          <div className="border-t border-[#f3f4f6] px-4 py-5 text-center sm:px-5">
+            <p className="text-[15px] font-semibold text-[#111827]">
+              {badge === "active" ? "Payments and payouts are on" : "We still need a few details"}
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-[13px] text-[#6b7280]">
+              {data.payoutDestination?.last4
+                ? `Bank account ending ${data.payoutDestination.last4}.`
+                : "Your bank account is not on file yet."}
+            </p>
+            {badge !== "active" ? (
+              <button
+                type="button"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#111827] px-5 text-[14px] font-semibold text-white"
+                onClick={() => (badge === "action" ? setVerify(true) : setEditing(true))}
+              >
+                {badge === "action" ? "Add information" : "Continue setup"}
+              </button>
+            ) : null}
+          </div>
+        )}
+      </StorelibPaymentsCard>
 
       {!compact ? (
         <section className={CARD}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h4 className="text-[14px] font-semibold text-[#111827]">Additional payment providers</h4>
-              <p className="mt-0.5 text-[13px] text-[#6b7280]">Offer methods processed outside Storelib checkout.</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <h4 className="text-[14px] font-semibold text-[#111827]">Other payment providers</h4>
           </div>
           <div className="mt-3 flex items-center justify-between rounded-xl border border-[#e5e7eb] px-3.5 py-3">
             <span className="text-[13px] text-[#111827]">PayPal</span>
@@ -198,71 +214,15 @@ export function StorelibPaymentsSettings({
   )
 }
 
-function SetUp({
-  onDone,
-  busy,
-  setBusy,
-  setError,
-}: {
-  onDone: (o: HubOverview) => void
-  busy: string | null
-  setBusy: (b: string | null) => void
-  setError: (e: string | null) => void
-}) {
-  const [kind, setKind] = React.useState<"individual" | "business">("individual")
-  const [countryName, setCountryName] = React.useState("")
-  const [agree, setAgree] = React.useState(false)
-
-  const start = async () => {
-    if (busy) return
-    const country = countryOf(countryName)
-    if (!country) return setError("Choose your country.")
-    if (!agree) return setError("Agree to continue.")
-    setBusy("start")
-    setError(null)
-    try {
-      onDone(await call<Overview>("start", { kind, country, agree: true }))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "We could not start setup. Try again.")
-    } finally {
-      setBusy(null)
-    }
-  }
-
+function AddInformation({ onStart, bankLine }: { onStart: () => void; bankLine?: string | null }) {
   return (
-    <div className="space-y-3.5">
-      <fieldset>
-        <legend className="mb-1.5 text-[13px] font-medium text-[#374151]">You are selling as</legend>
-        <div role="radiogroup" className="inline-flex rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-0.5">
-          {(["individual", "business"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={kind === k}
-              onClick={() => setKind(k)}
-              className={cn(
-                "h-8 rounded-[10px] px-3.5 text-[13px] font-medium transition-colors cursor-pointer",
-                kind === k ? "bg-white text-[#111827] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#374151]",
-              )}
-            >
-              {k === "individual" ? "Individual" : "Business"}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <div>
-        <label htmlFor="payments-country" className="mb-1.5 block text-[13px] font-medium text-[#374151]">
-          {kind === "business" ? "Where the business is registered" : "Where you live"}
-        </label>
-        <CountryPicker id="payments-country" value={countryName} onChange={setCountryName} />
-      </div>
-      <label className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-5 text-[#4b5563]">
-        <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#111827]" />
-        <span>I agree to Storelib Payments and to identity checks required to pay me. Storelib does not store your full bank number.</span>
-      </label>
-      <button type="button" className={PRIMARY} disabled={busy !== null} onClick={() => void start()}>
-        {busy === "start" ? "Starting" : "Continue"}
+    <div className="border-t border-[#f3f4f6] px-4 py-8 text-center sm:px-5">
+      <p className="text-[15px] font-semibold text-[#111827]">Add information to start accepting money</p>
+      <p className="mx-auto mt-1 max-w-md text-[13px] leading-5 text-[#6b7280]">
+        Storelib uses Stripe to pay you and to keep your bank details off Storelib. {bankLine ? `Account ending ${bankLine}.` : "You will add the account payouts are sent to."}
+      </p>
+      <button type="button" onClick={onStart} className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#111827] px-5 text-[14px] font-semibold text-white hover:bg-[#1f2937]">
+        Add information
       </button>
     </div>
   )

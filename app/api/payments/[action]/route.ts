@@ -29,9 +29,11 @@ import {
   describe,
   hostedFlowUrl,
   noteFormStatus,
+  disconnectPayoutAccount,
   overview,
   PaymentsProblem,
   providerFor,
+  submitPayoutProfile,
   refreshPayoutAccount,
   refreshProviderAccount,
   requestPayout,
@@ -144,6 +146,39 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         const amount = typeof body.amountMinor === "number" ? body.amountMinor : Number.NaN
         const currency = typeof body.currency === "string" ? body.currency : ""
         return NextResponse.json(await requestPayout(creator, amount, currency), { headers: NO_STORE })
+      }
+      case "profile": {
+        if (body.agree !== true) return NextResponse.json({ error: "Agree to continue." }, { status: 400, headers: NO_STORE })
+        const kind = body.kind === "business" ? "business" : body.kind === "individual" ? "individual" : null
+        if (!kind) return NextResponse.json({ error: "Choose individual or business." }, { status: 400, headers: NO_STORE })
+        const text = (key: string, max: number) => {
+          const value = body[key]
+          return typeof value === "string" ? value.slice(0, max) : ""
+        }
+        const result = await submitPayoutProfile(creator, {
+          kind,
+          country: text("country", 80),
+          firstName: text("firstName", 80),
+          lastName: text("lastName", 80),
+          businessName: text("businessName", 120),
+          address: text("address", 160),
+          city: text("city", 80),
+          postalCode: text("postalCode", 16),
+          phone: text("phone", 24),
+          dob: text("dob", 10),
+          accountHolder: text("accountHolder", 100),
+          iban: text("iban", 42),
+          ibanConfirm: text("ibanConfirm", 42),
+          routing: text("routing", 16),
+          accountNumber: text("accountNumber", 20),
+          accountNumberConfirm: text("accountNumberConfirm", 20),
+          institution: text("institution", 8),
+          transit: text("transit", 8),
+        })
+        return NextResponse.json(result, { headers: NO_STORE })
+      }
+      case "disconnect": {
+        return NextResponse.json(await disconnectPayoutAccount(creator), { headers: NO_STORE })
       }
       case "refresh": {
         await refreshProviderAccount(creator.id, "creator")

@@ -6,7 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
-import { paymentsSetupErrorMessage, shouldRetryExpressAsController, stripeErrorMessage } from "./setup-errors"
+import { paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
+import { parsePayoutProfile, type PayoutProfileInput } from "./payout-profile"
 import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
 import { mergeStripeAccount, type StripeCreatorSnapshot } from "./facts"
 import { PaymentsProblem } from "../errors"
@@ -89,27 +90,21 @@ export async function ensureStripeAccount(
 
   const businessType = input.kind === "business" ? "company" : "individual"
   const email = ownerAddress(profile?.email || creator.email) || undefined
-  const first = profile?.first_name?.trim() || undefined
-  const last = profile?.last_name?.trim() || undefined
 
   const shared: Stripe.AccountCreateParams = {
     country,
     email,
     business_type: businessType,
-    capabilities: {
-      card_payments: { requested: true },
-      transfers: { requested: true },
-    },
     business_profile: {
       url: platformBusinessUrl(),
+      mcc: "5818",
       product_description: row.bio?.slice(0, 200) || "Digital products and services on Storelib",
     },
-    individual: businessType === "individual" && first && last ? { first_name: first, last_name: last } : undefined,
     metadata: { storelib_creator_id: creator.id, storelib_username: row.username ?? "" },
   }
 
   try {
-    const account = await createExpressAccount(shared)
+    const account = await createExpressAccount(shared, country)
     accountId = account.id
 
     const admin = createAdminClient()
@@ -158,36 +153,72 @@ function platformBusinessUrl(): string {
   }
 }
 
-async function createExpressAccount(shared: Stripe.AccountCreateParams): Promise<Stripe.Account> {
-  try {
-    return await stripe.accounts.create({ ...shared, type: "express" })
-  } catch (first) {
-    if (!shouldRetryExpressAsController(first)) throw first
-    console.error("[stripe connect] express type refused, retrying with controller", stripeErrorMessage(first).slice(0, 180))
+let platformCountryCache: string | null = null
+
+async function platformCountry(): Promise<string> {
+  if (platformCountryCache) return platformCountryCache
+  const account = await stripe.accounts.retrieve()
+  platformCountryCache = (account.country || "US").toUpperCase()
+  return platformCountryCache
+}
+
+/**
+ * Destination charges only need `transfers` on the connected account.
+ * A creator outside the platform country is a cross-border recipient:
+ * card_payments is not requested, and the recipient agreement is.
+ * Losses are acknowledged on the create call so a missing dashboard
+ * checkbox does not block Romania and other payout countries.
+ */
+async function createExpressAccount(shared: Stripe.AccountCreateParams, country: string): Promise<Stripe.Account> {
+  const platform = await platformCountry().catch(() => "")
+  const crossBorder = platform !== "" && country !== platform
+  const full: Stripe.AccountCreateParams.Capabilities = {
+    card_payments: { requested: true },
+    transfers: { requested: true },
+  }
+  const transfersOnly: Stripe.AccountCreateParams.Capabilities = { transfers: { requested: true } }
+  const acknowledged: Stripe.AccountCreateParams.Controller = {
+    stripe_dashboard: { type: "express" },
+    fees: { payer: "application" },
+    losses: { payments: "application" },
+    requirement_collection: "stripe",
+  }
+  const expressDefault: Stripe.AccountCreateParams.Controller = {
+    stripe_dashboard: { type: "express" },
+    fees: { payer: "account" },
+    losses: { payments: "stripe" },
+    requirement_collection: "stripe",
   }
 
-  const controllers: Stripe.AccountCreateParams.Controller[] = [
-    {
-      stripe_dashboard: { type: "express" },
-      fees: { payer: "account" },
-      losses: { payments: "stripe" },
-      requirement_collection: "stripe",
-    },
-    {
-      stripe_dashboard: { type: "express" },
-      fees: { payer: "application" },
-      losses: { payments: "application" },
-      requirement_collection: "stripe",
-    },
-  ]
+  const recipient = {
+    ...shared,
+    capabilities: transfersOnly,
+    tos_acceptance: { service_agreement: "recipient" },
+  }
+  const merchant = { ...shared, capabilities: full }
+
+  const attempts: Stripe.AccountCreateParams[] = crossBorder
+    ? [
+        { ...recipient, controller: acknowledged },
+        { ...recipient, controller: expressDefault },
+        { ...recipient, type: "express" },
+      ]
+    : [
+        { ...merchant, controller: acknowledged },
+        { ...merchant, type: "express" },
+        { ...recipient, controller: acknowledged },
+        { ...recipient, type: "express" },
+      ]
 
   let last: unknown
-  for (const controller of controllers) {
+  for (const params of attempts) {
     try {
-      return await stripe.accounts.create({ ...shared, controller })
+      return await stripe.accounts.create(params)
     } catch (error) {
       last = error
-      if (!shouldRetryExpressAsController(error) && !/losses|fees|payer/i.test(stripeErrorMessage(error))) throw error
+      const msg = stripeErrorMessage(error)
+      console.error("[stripe connect] create attempt", msg.replace(/\s+/g, " ").slice(0, 180))
+      if (/account has been rejected|invalid email/i.test(msg)) throw error
     }
   }
   throw last
@@ -337,6 +368,93 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
   })
   if (!session.client_secret) throw new PaymentsProblem("Could not open verification just now. Try again.", 502)
   return { clientSecret: session.client_secret }
+}
+
+export async function submitStripePayoutProfile(creator: PaymentsCreatorRef, input: PayoutProfileInput) {
+  const parsed = parsePayoutProfile(input)
+  if (!parsed.ok) throw new PaymentsProblem(parsed.error)
+  const profile = parsed.value
+  const accountId = await ensureStripeAccount(creator, { kind: profile.kind, country: profile.country })
+
+  const address = {
+    line1: profile.address,
+    city: profile.city,
+    postal_code: profile.postalCode,
+    country: profile.country,
+  }
+  const person = {
+    first_name: profile.firstName,
+    last_name: profile.lastName,
+    email: ownerAddress((await profileForCreator(creator.userId))?.email || creator.email) || undefined,
+    phone: profile.phone,
+    dob: profile.dob,
+    address,
+  }
+  try {
+    await stripe.accounts.update(accountId, profile.kind === "business"
+      ? {
+          business_type: "company",
+          company: { name: profile.businessName ?? undefined, phone: profile.phone, address },
+          individual: person,
+        }
+      : { business_type: "individual", individual: person })
+  } catch (error) {
+    console.error("[stripe connect] prefill", stripeErrorMessage(error).slice(0, 180))
+  }
+
+  if (profile.externalAccount) {
+    try {
+      await stripe.accounts.createExternalAccount(accountId, { external_account: profile.externalAccount })
+    } catch (error) {
+      const msg = stripeErrorMessage(error)
+      if (!/already has|already exists/i.test(msg)) {
+        console.error("[stripe connect] bank", msg.replace(/[A-Z]{2}\d{2}[A-Z0-9]{10,}/gi, "[iban]").slice(0, 180))
+        throw new PaymentsProblem(bankProblem(error))
+      }
+    }
+  }
+
+  const snapshot = await syncStripeAccount(creator.id, "creator")
+  const needsVerification =
+    profile.format === "stripe" ||
+    !snapshot.detailsSubmitted ||
+    snapshot.currentlyDue.some((field) => /document|verification|tos|external_account/i.test(field)) ||
+    snapshot.pastDue.length > 0
+  const { stripeOverview } = await import("./overview")
+  return { overview: await stripeOverview({ id: creator.id, userId: creator.userId, email: creator.email }), needsVerification }
+}
+
+function bankProblem(error: unknown): string {
+  const msg = stripeErrorMessage(error)
+  if (/iban|account number|routing|bsb/i.test(msg)) return "That bank account was not accepted. Check the number and that the name matches the account."
+  if (/currency/i.test(msg)) return "Payouts in that currency are not available for this country yet."
+  return paymentsSetupErrorMessage(error)
+}
+
+export async function disconnectIncompleteStripeAccount(creatorId: string) {
+  const row = await readCreatorStripe(creatorId)
+  if (!row?.stripe_account_id) return
+  if (row.charges_enabled) throw new PaymentsProblem("Payments are already on, so this account stays connected.")
+  try {
+    await stripe.accounts.del(row.stripe_account_id)
+  } catch (error) {
+    console.error("[stripe connect] disconnect", stripeErrorMessage(error).slice(0, 160))
+  }
+  const admin = createAdminClient()
+  await admin
+    .from("creators")
+    .update({
+      stripe_account_id: null,
+      stripe_onboarding_status: "not_connected",
+      stripe_connected_at: null,
+      charges_enabled: false,
+      payouts_enabled: false,
+      details_submitted: false,
+      stripe_requirements: [],
+      stripe_requirements_due_at: null,
+      stripe_requirements_updated_at: new Date().toISOString(),
+    })
+    .eq("id", creatorId)
 }
 
 export async function resolveCountryForStart(creator: PaymentsCreatorRef, countryInput: string): Promise<string> {

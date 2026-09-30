@@ -79,9 +79,9 @@ export type { CreatorRef, HubOverview } from "./hub-types"
 import type { CreatorRef, HubOverview } from "./hub-types"
 import { PaymentsProblem } from "./errors"
 import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
-import { syncStripeAccount } from "./stripe/connect"
+import { disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
+import type { PayoutProfileInput } from "./stripe/payout-profile"
 import { stripeCheckoutReady, snapshotFromCreatorRow } from "./stripe/facts"
-import { readCreatorStripe } from "./stripe/connect"
 
 /* ── Which provider ───────────────────────────────────────────────────── */
 
@@ -294,6 +294,17 @@ export interface StartInput {
  * so a double press makes one account; a failed creation gives the claim
  * back, so they can try again.
  */
+export async function submitPayoutProfile(creator: CreatorRef, input: PayoutProfileInput) {
+  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
+  return submitStripePayoutProfile(creator, input)
+}
+
+export async function disconnectPayoutAccount(creator: CreatorRef) {
+  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
+  await disconnectIncompleteStripeAccount(creator.id)
+  return overview(creator)
+}
+
 export async function startOnboarding(creator: CreatorRef, input: StartInput): Promise<AccountRow | HubOverview> {
   const provider = await providerFor(creator.id)
   if (provider === "stripe") {

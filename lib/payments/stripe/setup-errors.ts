@@ -19,7 +19,7 @@ export function paymentsSetupErrorMessage(error: unknown): string {
     return "Add a valid email address on your account, then try again."
   }
   if (/platform profile|activate your account|managing losses|cannot currently make live charges|connect is not enabled|signed up for connect/i.test(message)) {
-    return "Storelib Payments is not fully switched on yet. This is on our side, and nothing was saved."
+    return "Stripe is still blocking new accounts until the platform profile is saved. In Stripe, open Settings, then Connect, then Platform profile, save it, and try again. Nothing was saved on your account."
   }
   return "We could not start setup just now. Nothing was saved. Try again in a moment."
 }
