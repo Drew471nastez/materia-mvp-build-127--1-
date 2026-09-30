@@ -1,19 +1,22 @@
 "use client"
 
 /**
- * STORELIB PAYMENTS SETUP, ONE PANEL. A centred panel on a computer and the
- * shared sheet on a phone: Account (country, type, legal name), Verify (the
- * embedded Stripe form, in the page) and Bank (Storelib's own form; the
- * numbers go from this browser to Stripe as a token and never to Storelib).
+ * STORELIB PAYMENTS SETUP. A centred panel on a computer and a full screen
+ * subpage on a phone: Account (country, type, legal name), Verify (Storelib's
+ * own identity fields and ID upload, sent straight to Stripe) and Bank
+ * (Storelib's own form; the numbers go from this browser to Stripe as a
+ * token and never to Storelib).
  *
- * Not a Radix dialog: Stripe's embedded form opens its own layer over the
- * page, and a modal focus trap or pointer lock would leave it unclickable.
+ * Stripe's in-page form is drawn only when Stripe asks for something these
+ * steps do not know, on an account Storelib runs, where it has no sign-in
+ * window. Not a Radix dialog: that form opens its own layer over the page,
+ * and a modal focus trap or pointer lock would leave it unclickable.
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Check, Landmark, Lock, X } from "lucide-react"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Check, ChevronLeft, FileText, Info, Landmark, Lock, ShieldCheck, Upload, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { countryLabel, countryOf } from "@/lib/account/country"
@@ -25,33 +28,48 @@ import {
   type BankInput,
   type OnboardingBeat,
 } from "@/lib/payments/stripe/onboarding-steps"
+import {
+  AGREEMENT_URL,
+  detailsIssues,
+  idNumberCopy,
+  type DetailField,
+  type DetailsInput,
+  type StripeVerificationView,
+} from "@/lib/payments/stripe/details-fields"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { cn } from "@/lib/utils"
 
 export type SetupMode = "setup" | "bank" | "details"
 type Step = 0 | 1 | 2
 
+/* The app's calm field: a light hairline and a soft halo when focused, 16px on a phone so iOS does not zoom. */
 export const FIELD =
-  "h-11 w-full rounded-xl border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14px]"
-const FIELD_BAD = "border-[#e11d48] focus:border-[#e11d48] focus:shadow-[0_0_0_3px_rgba(225,29,72,0.10)]"
-const PRIMARY = cn(primaryDepth, "h-11 gap-2 rounded-xl px-5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60 sm:h-10")
-const SECONDARY = cn(secondaryDepth, "h-11 rounded-xl px-5 text-[14px] sm:h-10")
+  "h-11 w-full rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] hover:border-[#d5d8dd] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
+const FIELD_BAD = "border-[#c4290c] hover:border-[#c4290c] focus:border-[#c4290c] focus:shadow-[0_0_0_3px_rgba(196,41,12,0.1)]"
+const PRIMARY = cn(primaryDepth, "h-11 gap-2 rounded-xl px-5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:rounded-lg")
+const SECONDARY = cn(secondaryDepth, "h-11 rounded-xl px-5 text-[14px] sm:h-10 sm:rounded-lg")
+const LINK = "font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 transition-colors hover:decoration-[#1a1a2e]"
 
 function safe(message: string): string {
-  if (/invalid_request|acct_|accs_|btok_|capability|requirement|sk_|whsec/i.test(message)) return "Something went wrong. Try again in a moment."
+  if (/invalid_request|acct_|accs_|btok_|file_|capability|requirement|sk_|whsec/i.test(message)) return "Something went wrong. Try again in a moment."
   return message
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`/api/payments/${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  })
+async function read<T>(res: Response): Promise<T> {
   const data = (await res.json().catch(() => ({}))) as T & { error?: string }
   if (!res.ok) throw new Error(safe(data.error || "Something went wrong. Try again in a moment."))
   return data
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  return read<T>(
+    await fetch(`/api/payments/${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    }),
+  )
 }
 
 export function stepOfBeat(beat: OnboardingBeat): Step {
@@ -74,8 +92,9 @@ function usePhone(): boolean {
   return phone
 }
 
-function Panel({ open, onClose, label, children }: { open: boolean; onClose: () => void; label: string; children: React.ReactNode }) {
-  const phone = usePhone()
+const EXIT_MS = 220
+
+function Panel({ open, phone, onClose, label, children }: { open: boolean; phone: boolean; onClose: () => void; label: string; children: React.ReactNode }) {
   const [shown, setShown] = React.useState(open)
   const [leaving, setLeaving] = React.useState(false)
 
@@ -90,12 +109,12 @@ function Panel({ open, onClose, label, children }: { open: boolean; onClose: () 
     const t = window.setTimeout(() => {
       setShown(false)
       setLeaving(false)
-    }, 160)
+    }, EXIT_MS)
     return () => window.clearTimeout(t)
   }, [open, shown])
 
   React.useEffect(() => {
-    if (!open || phone) return
+    if (!open) return
     const prev = document.body.style.overflow
     document.body.style.overflow = "hidden"
     const onKey = (e: KeyboardEvent) => {
@@ -106,16 +125,28 @@ function Panel({ open, onClose, label, children }: { open: boolean; onClose: () 
       document.body.style.overflow = prev
       window.removeEventListener("keydown", onKey)
     }
-  }, [open, phone, onClose])
+  }, [open, onClose])
+
+  if (!shown || typeof document === "undefined") return null
 
   if (phone) {
-    return (
-      <BottomSheet isOpen={open} onClose={onClose} label={label} hideFrom={null} fill aboveKeyboard maxHeight="calc(var(--vv-h, 100dvh) * 0.92)">
+    return createPortal(
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        data-payments-setup-panel="subpage"
+        className={cn(
+          "fixed inset-0 z-[1000] flex h-[var(--vv-h,100dvh)] flex-col bg-white ease-sheet [will-change:transform]",
+          leaving ? "animate-out slide-out-to-right duration-200" : "animate-in slide-in-from-right duration-300",
+        )}
+      >
         {children}
-      </BottomSheet>
+      </div>,
+      document.body,
     )
   }
-  if (!shown || typeof document === "undefined") return null
+
   return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6" data-payments-setup-panel="">
       <div
@@ -128,7 +159,7 @@ function Panel({ open, onClose, label, children }: { open: boolean; onClose: () 
         aria-modal="true"
         aria-label={label}
         className={cn(
-          "relative flex max-h-[min(780px,calc(100dvh-48px))] w-full max-w-[560px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
+          "relative flex max-h-[min(820px,calc(100dvh-48px))] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
           leaving ? "animate-out fade-out-0 zoom-out-95" : "animate-in fade-in-0 zoom-in-95",
         )}
       >
@@ -139,7 +170,7 @@ function Panel({ open, onClose, label, children }: { open: boolean; onClose: () 
   )
 }
 
-/* ── the steps along the top ───────────────────────────────────────────── */
+/* ── small pieces ──────────────────────────────────────────────────────── */
 
 const STEP_LABELS = ["Account", "Verify", "Bank"] as const
 
@@ -151,17 +182,21 @@ function Stepper({ step }: { step: Step }) {
         const on = i === step
         return (
           <React.Fragment key={label}>
-            {i > 0 ? <li aria-hidden className={cn("h-px flex-1 transition-colors duration-300", i <= step ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]")} /> : null}
+            {i > 0 ? (
+              <li aria-hidden className="relative h-[2px] flex-1 overflow-hidden rounded-full bg-[#eceef1]">
+                <span className={cn("absolute inset-0 origin-left bg-[#1a1a2e] transition-transform duration-500 ease-sheet", i <= step ? "scale-x-100" : "scale-x-0")} />
+              </li>
+            ) : null}
             <li className="flex shrink-0 items-center gap-2" aria-current={on ? "step" : undefined}>
               <span
                 className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold transition-colors duration-300",
-                  done || on ? "bg-[#1a1a2e] text-white" : "bg-[#f1f2f4] text-[#6b7280]",
+                  "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold transition-[background-color,color,box-shadow] duration-300",
+                  done ? "bg-[#1a1a2e] text-white" : on ? "bg-[#1a1a2e] text-white shadow-[0_0_0_4px_rgba(26,26,46,0.08)]" : "bg-[#f1f2f4] text-[#6b7280]",
                 )}
               >
-                {done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : i + 1}
+                {done ? <Check className="h-3.5 w-3.5 animate-in zoom-in-50 duration-200" strokeWidth={3} /> : i + 1}
               </span>
-              <span className={cn("text-[13px]", on ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{label}</span>
+              <span className={cn("text-[13px] transition-colors duration-200", on ? "font-medium text-[#1a1a2e]" : "text-[#6b7280] max-[360px]:hidden")}>{label}</span>
             </li>
           </React.Fragment>
         )
@@ -170,13 +205,71 @@ function Stepper({ step }: { step: Step }) {
   )
 }
 
-function Field({ label, error, children, hint }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
+/** A short explanation: hover on a computer, tap on a phone. */
+export function InfoTip({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = React.useState(false)
+  const pointer = React.useRef<string>("")
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{label}</span>
-      {children}
-      {error ? <span className="mt-1.5 block text-[12px] text-[#be123c]">{error}</span> : hint ? <span className="mt-1.5 block text-[12px] text-[#6b7280]">{hint}</span> : null}
-    </label>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`About ${label}`}
+          data-info-tip=""
+          onPointerDown={(e) => (pointer.current = e.pointerType)}
+          onPointerEnter={(e) => {
+            pointer.current = e.pointerType
+            if (e.pointerType === "mouse") setOpen(true)
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType === "mouse") setOpen(false)
+          }}
+          onClick={(e) => {
+            if (pointer.current === "mouse") {
+              e.preventDefault()
+              setOpen(true)
+            }
+          }}
+          className="relative inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full text-[#9ca3af] outline-none transition-colors after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e] focus-visible:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 data-[state=open]:text-[#1a1a2e]"
+        >
+          <Info className="h-[15px] w-[15px]" strokeWidth={2} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        sideOffset={8}
+        collisionPadding={12}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onPointerEnter={() => pointer.current === "mouse" && setOpen(true)}
+        onPointerLeave={() => pointer.current === "mouse" && setOpen(false)}
+        className="w-auto max-w-[min(280px,calc(100vw-24px))] rounded-[10px] border-0 bg-[#1a1a2e] px-3 py-2 text-[12.5px] leading-[18px] text-white shadow-[0_12px_32px_-8px_rgba(15,17,21,0.45)]"
+      >
+        {children}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function Field({ label, error, hint, tip, optional, children }: { label: string; error?: string; hint?: string; tip?: React.ReactNode; optional?: boolean; children: React.ReactElement<{ id?: string; "aria-invalid"?: boolean }> }) {
+  const id = React.useId()
+  return (
+    <div className="min-w-0">
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <label htmlFor={id} className="text-[13px] font-medium text-[#1a1a2e]">
+          {label}
+          {optional ? <span className="font-normal text-[#9ca3af]"> (optional)</span> : null}
+        </label>
+        {tip ? <InfoTip label={label}>{tip}</InfoTip> : null}
+      </div>
+      {React.cloneElement(children, { id, "aria-invalid": error ? true : undefined })}
+      {error ? (
+        <span className="mt-1.5 block text-[12px] text-[#c4290c] animate-in fade-in-0 slide-in-from-top-1 duration-150">{error}</span>
+      ) : hint ? (
+        <span className="mt-1.5 block text-[12px] text-[#6b7280]">{hint}</span>
+      ) : null}
+    </div>
   )
 }
 
@@ -185,6 +278,66 @@ function ErrorLine({ message }: { message: string | null }) {
   return (
     <p role="alert" className="rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-[13px] text-[#9f1239] animate-in fade-in-0 duration-150">
       {message}
+    </p>
+  )
+}
+
+function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label: string }) {
+  const index = options.findIndex((o) => o.value === value)
+  return (
+    <div role="radiogroup" aria-label={label} className="relative grid h-11 rounded-xl bg-[#f1f2f4] p-1 sm:h-10" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      <span
+        aria-hidden
+        className={cn(
+          "absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.10),0_0_0_0.5px_rgba(16,24,40,0.06)] transition-[transform,opacity] duration-300 ease-sheet [will-change:transform]",
+          index < 0 && "opacity-0",
+        )}
+        style={{ width: `calc((100% - 8px) / ${options.length})`, transform: `translateX(${Math.max(0, index) * 100}%)` }}
+      />
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "relative z-[1] cursor-pointer select-none rounded-[9px] text-[14px] font-medium outline-none transition-[color,transform] duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:text-[13px]",
+            value === option.value ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Opens and closes its height smoothly, for a field that comes and goes. */
+function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div className={cn("-mx-[3px] grid transition-[grid-template-rows,opacity] duration-300 ease-sheet", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")} aria-hidden={!open}>
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  )
+}
+
+function Footer({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="sticky bottom-0 mt-6 flex items-center justify-between gap-3 border-t border-[#f1f2f4] bg-white px-5 py-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 [&>*:last-child]:max-sm:flex-1">
+      {children}
+    </div>
+  )
+}
+
+function Spinner({ dark }: { dark?: boolean }) {
+  return <span aria-hidden className={cn("h-4 w-4 animate-spin rounded-full border-2", dark ? "border-[#1a1a2e]/15 border-t-[#1a1a2e]" : "border-white/30 border-t-white")} />
+}
+
+function SecureLine({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-1.5 text-[12px] leading-[18px] text-[#6b7280]">
+      <Lock className="mt-[2px] h-3 w-3 shrink-0" /> <span>{children}</span>
     </p>
   )
 }
@@ -207,92 +360,111 @@ export function PaymentsSetupFlow({
   /** Setup or a bank change went through: the page can redraw. */
   onFinished: () => void
 }) {
+  const phone = usePhone()
   const beat: OnboardingBeat = data.beat ?? "personal"
   const [step, setStep] = React.useState<Step>(() => stepOfBeat(beat))
-  const [error, setError] = React.useState<string | null>(null)
-  const [embedKey, setEmbedKey] = React.useState(0)
+  const [back, setBack] = React.useState(false)
+  const [openCount, setOpenCount] = React.useState(0)
 
   React.useEffect(() => {
     if (!open) return
-    setError(null)
+    setBack(false)
     setStep(mode === "bank" ? 2 : stepOfBeat(beat))
-    setEmbedKey((k) => k + 1)
+    setOpenCount((k) => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode])
 
-  const afterVerify = async () => {
-    try {
-      const next = await post<Overview>("refresh", {})
-      onData(next)
-      const nextBeat = next.beat ?? "verification"
-      if (nextBeat === "verification") {
-        setEmbedKey((k) => k + 1)
-        return
-      }
-      if (nextBeat === "bank" || (nextBeat === "review" && !next.payoutDestination && next.payoutHint?.inStorelib)) {
-        setStep(2)
-        return
-      }
-      onFinished()
-      onClose()
-    } catch (e) {
-      setError(safe(e instanceof Error ? e.message : "Could not check your details."))
+  const go = (next: Step) => {
+    setBack(next < step)
+    setStep(next)
+  }
+
+  /** After Verify: the bank if it is still missing, otherwise setup is done. */
+  const afterVerify = (next: Overview) => {
+    onData(next)
+    const nextBeat = next.beat ?? "verification"
+    if (nextBeat === "bank" || (!next.payoutDestination && next.payoutHint?.inStorelib && nextBeat !== "verification")) {
+      go(2)
+      return
     }
+    onFinished()
+    onClose()
   }
 
   const title = mode === "bank" ? (data.payoutDestination ? "Update bank account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payments"
+  const onBack = mode === "setup" && step > 0 ? () => go((step - 1) as Step) : onClose
+  const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
 
   return (
-    <Panel open={open} onClose={onClose} label={title}>
-      <div className="flex shrink-0 flex-col gap-4 px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
-        <div className="flex items-center gap-3">
-          <h2 className="min-w-0 flex-1 text-[18px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="-mr-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 max-sm:hidden"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {mode === "setup" ? <Stepper step={step} /> : null}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {mode === "details" ? (
-          <div className="space-y-3 px-5 pb-6 sm:px-6">
-            <ErrorLine message={error} />
-            <StripeConnectEmbedded key={embedKey} purpose="stripe_management" onError={setError} onExit={async () => { onClose() }} />
+    <Panel open={open} phone={phone} onClose={onClose} label={title}>
+      {phone ? (
+        <div className="shrink-0 border-b border-[#f1f2f4] bg-white pt-[env(safe-area-inset-top)]">
+          <div className="flex h-14 items-center gap-1 px-2">
+            <button
+              type="button"
+              aria-label={mode === "setup" && step > 0 ? "Back" : "Close"}
+              onClick={onBack}
+              className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+            >
+              <ChevronLeft className="h-[22px] w-[22px]" strokeWidth={2.25} />
+            </button>
+            <h2 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
+            <span aria-hidden className="w-11" />
           </div>
+          {mode === "setup" ? (
+            <div className="px-5 pb-3.5">
+              <Stepper step={step} />
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-6">
+          <div className="flex items-center gap-3">
+            <h2 className="min-w-0 flex-1 text-[18px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="-mr-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {mode === "setup" ? <Stepper step={step} /> : null}
+        </div>
+      )}
+
+      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", phone && "pt-5")}>
+        {mode === "details" ? (
+          <DetailsStep key={`details-${openCount}`} data={data} onBack={onClose} onDone={(next) => { onData(next); onFinished(); onClose() }} />
         ) : step === 0 ? (
-          <AccountStep
-            key="account"
-            data={data}
-            onBack={onClose}
-            onDone={(next) => {
-              onData(next)
-              setStep(stepOfBeat(next.beat ?? "verification") === 2 ? 2 : 1)
-            }}
-          />
+          <div key={`account-${openCount}`} className={cn("flex min-h-full flex-col animate-in fade-in-0 duration-300 ease-sheet", slide)}>
+            <AccountStep
+              data={data}
+              onBack={onClose}
+              onDone={(next) => {
+                onData(next)
+                go(stepOfBeat(next.beat ?? "verification") === 2 ? 2 : 1)
+              }}
+            />
+          </div>
         ) : step === 1 ? (
-          <div key="verify" className="space-y-3 px-5 pb-6 animate-in fade-in-0 slide-in-from-right-2 duration-200 ease-sheet sm:px-6">
-            <p className="text-[13px] text-[#6b7280]">Confirm your identity. It takes about two minutes.</p>
-            <ErrorLine message={error} />
-            <StripeConnectEmbedded key={embedKey} purpose="stripe_onboarding" onError={setError} onExit={afterVerify} />
+          <div key={`verify-${openCount}`} className={cn("flex min-h-full flex-col animate-in fade-in-0 duration-300 ease-sheet", slide)}>
+            <VerifyStep data={data} onData={onData} onBack={() => go(0)} onDone={afterVerify} />
           </div>
         ) : (
-          <BankStep
-            key="bank"
-            data={data}
-            showBack={mode === "setup"}
-            onBack={() => (mode === "setup" ? setStep(1) : onClose())}
-            onDone={(next) => {
-              onData(next)
-              onFinished()
-              onClose()
-            }}
-          />
+          <div key={`bank-${openCount}`} className={cn("flex min-h-full flex-col animate-in fade-in-0 duration-300 ease-sheet", slide)}>
+            <BankStep
+              data={data}
+              showBack={mode === "setup"}
+              onBack={() => (mode === "setup" ? go(1) : onClose())}
+              onDone={(next) => {
+                onData(next)
+                onFinished()
+                onClose()
+              }}
+            />
+          </div>
         )}
       </div>
     </Panel>
@@ -334,13 +506,16 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex min-h-full flex-col animate-in fade-in-0 duration-200 ease-sheet">
-      <div className="flex-1 space-y-4 px-5 sm:px-6">
+    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-5 px-5 sm:px-6">
         <ErrorLine message={error} />
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">Country</span>
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="text-[13px] font-medium text-[#1a1a2e]">Country</span>
+            <InfoTip label="Country">Where you live or your business is registered. It sets your payout currency and can&apos;t be changed later.</InfoTip>
+          </div>
           {hasAccount && data.payoutHint?.country ? (
-            <div className="flex h-11 items-center gap-2 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] px-3 text-[14px] text-[#1a1a2e]">
+            <div className="flex h-11 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-[#f9fafb] px-3.5 text-[14px] text-[#1a1a2e] sm:h-10 sm:rounded-lg">
               <CountryFlag code={data.payoutHint.country} />
               <span className="flex-1 truncate">{countryLabel(data.payoutHint.country)}</span>
               <Lock className="h-3.5 w-3.5 text-[#9ca3af]" aria-label="Locked" />
@@ -350,50 +525,40 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
               <CountryPicker value={countryName} onChange={(name) => { setCountryName(name); mark("country") }} />
             </div>
           )}
-          {issue("country") ? <span className="mt-1.5 block text-[12px] text-[#be123c]">{issue("country")}</span> : null}
+          {issue("country") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("country")}</span> : null}
         </div>
 
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">Account type</span>
-          <div role="radiogroup" className="relative grid h-11 grid-cols-2 rounded-xl bg-[#f1f2f4] p-1">
-            <span
-              aria-hidden
-              className={cn(
-                "absolute bottom-1 top-1 w-[calc(50%-4px)] rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.10),0_0_0_0.5px_rgba(16,24,40,0.06)] transition-transform duration-200 ease-sheet",
-                kind === "business" ? "translate-x-[calc(100%+0px)]" : "translate-x-0",
-              )}
-              style={{ left: 4 }}
-            />
-            {(["individual", "business"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={kind === option}
-                onClick={() => setKind(option)}
-                className={cn("relative z-[1] cursor-pointer rounded-[9px] text-[14px] font-medium transition-colors", kind === option ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
-              >
-                {option === "individual" ? "Individual" : "Business"}
-              </button>
-            ))}
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="text-[13px] font-medium text-[#1a1a2e]">Selling as</span>
+            <InfoTip label="Selling as">Choose Individual if you sell under your own name. Choose Business if you have a registered company.</InfoTip>
           </div>
+          <Segmented
+            label="Selling as"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: "individual", label: "Individual" },
+              { value: "business", label: "Business" },
+            ]}
+          />
+          <Reveal open={kind === "business"}>
+            <div className="px-[3px] pb-[3px] pt-5">
+              <Field label="Legal business name" error={issue("businessName")} tip="The registered name of your company, exactly as on its official papers.">
+                <input className={cn(FIELD, issue("businessName") && FIELD_BAD)} value={businessName} tabIndex={kind === "business" ? undefined : -1} autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
+              </Field>
+            </div>
+          </Reveal>
         </div>
 
-        {kind === "business" ? (
-          <Field label="Legal business name" error={issue("businessName")}>
-            <input className={cn(FIELD, issue("businessName") && FIELD_BAD)} value={businessName} autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
-          </Field>
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="First name" error={issue("firstName")}>
+        <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
+          <Field label="First name" error={issue("firstName")} tip={kind === "business" ? "The first name of the person running the business, as on their ID." : "Your first name exactly as on your passport or ID card."}>
             <input className={cn(FIELD, issue("firstName") && FIELD_BAD)} value={firstName} autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
           </Field>
-          <Field label="Last name" error={issue("lastName")}>
+          <Field label="Last name" error={issue("lastName")} tip="Your last name exactly as on your ID, including any second last name.">
             <input className={cn(FIELD, issue("lastName") && FIELD_BAD)} value={lastName} autoComplete="family-name" onBlur={() => mark("lastName")} onChange={(e) => setLastName(e.target.value)} />
           </Field>
         </div>
-        <p className="text-[12px] text-[#6b7280]">Use your name exactly as it is on your ID.</p>
       </div>
 
       <Footer>
@@ -405,6 +570,448 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
       </Footer>
     </form>
   )
+}
+
+/* ── step 2: verify ────────────────────────────────────────────────────── */
+
+type VerifyStage = "loading" | "details" | "document" | "other" | "failed"
+
+function stageOf(view: StripeVerificationView | null | undefined): Exclude<VerifyStage, "loading" | "failed"> | "next" {
+  if (!view) return "next"
+  if (view.fields.length > 0) return "details"
+  if (view.document) return "document"
+  if (view.other) return "other"
+  return "next"
+}
+
+function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: (next: Overview) => void; onBack: () => void; onDone: (next: Overview) => void }) {
+  const [stage, setStage] = React.useState<VerifyStage>("loading")
+  const [view, setView] = React.useState<StripeVerificationView | null>(data.verification ?? null)
+  const [error, setError] = React.useState<string | null>(null)
+  const [embedKey, setEmbedKey] = React.useState(0)
+
+  const take = React.useCallback(
+    (next: Overview) => {
+      onData(next)
+      setView(next.verification ?? null)
+      const s = stageOf(next.verification)
+      if (s === "next") onDone(next)
+      else setStage(s)
+    },
+    [onData, onDone],
+  )
+
+  const prepare = React.useCallback(async () => {
+    setStage("loading")
+    setError(null)
+    try {
+      take(await post<Overview>("prepare", {}))
+    } catch (e) {
+      setError(safe(e instanceof Error ? e.message : "Verification can't open right now."))
+      setStage("failed")
+    }
+  }, [take])
+
+  React.useEffect(() => {
+    void prepare()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (stage === "loading") {
+    return (
+      <div className="flex-1 space-y-4 px-5 pb-6 sm:px-6" aria-busy="true" aria-label="Loading">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="space-y-2">
+            <span className="block h-3 w-28 animate-pulse rounded-full bg-[#f1f2f4]" />
+            <span className="block h-11 animate-pulse rounded-[10px] bg-[#f7f7f8] sm:h-10" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (stage === "failed") {
+    return (
+      <div className="flex min-h-full flex-1 flex-col">
+        <div className="flex-1 space-y-4 px-5 sm:px-6">
+          <ErrorLine message={error} />
+        </div>
+        <Footer>
+          <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+          <button type="button" className={PRIMARY} onClick={() => void prepare()}>Try again</button>
+        </Footer>
+      </div>
+    )
+  }
+
+  if (stage === "details" && view) {
+    return <DetailsForm view={view} mode="setup" onBack={onBack} onDone={take} />
+  }
+
+  if (stage === "document" && view) {
+    return <DocumentForm view={view} onBack={onBack} onDone={take} />
+  }
+
+  return (
+    <div className="flex-1 space-y-3 px-5 pb-6 sm:px-6">
+      <p className="text-[13px] text-[#6b7280]">A few more details are needed to finish verifying you.</p>
+      <ErrorLine message={error} />
+      <StripeConnectEmbedded
+        key={embedKey}
+        purpose="stripe_onboarding"
+        onError={setError}
+        onExit={async () => {
+          try {
+            const next = await post<Overview>("refresh", {})
+            if (stageOf(next.verification) === "other") {
+              onData(next)
+              setEmbedKey((k) => k + 1)
+              return
+            }
+            take(next)
+          } catch (e) {
+            setError(safe(e instanceof Error ? e.message : "Could not check your details."))
+          }
+        }}
+      />
+    </div>
+  )
+}
+
+const PHONE_EXAMPLE: Record<string, string> = {
+  US: "+1 555 000 0000",
+  CA: "+1 555 000 0000",
+  GB: "+44 7700 900000",
+  RO: "+40 712 345 678",
+  DE: "+49 151 23456789",
+  FR: "+33 6 12 34 56 78",
+  AU: "+61 412 345 678",
+}
+
+function DetailsForm({ view, mode, onBack, onDone, intro }: { view: StripeVerificationView; mode: "setup" | "update"; onBack: () => void; onDone: (next: Overview) => void; intro?: React.ReactNode }) {
+  const fields: DetailField[] = mode === "update" ? ["address", "phone"] : view.fields
+  const has = (f: DetailField) => fields.includes(f)
+  const country = view.country
+  const [form, setForm] = React.useState<DetailsInput>({ pep: "" })
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
+  const [tried, setTried] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  const issues = detailsIssues(form, fields, country)
+  const issue = (key: keyof typeof issues) => ((touched[key] || tried) && issues[key]) || undefined
+  const bind = (key: keyof DetailsInput) => ({
+    value: (form[key] as string | undefined) ?? "",
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value })),
+    onBlur: () => setTouched((t) => ({ ...t, [key]: true })),
+    className: cn(FIELD, issue(key as keyof typeof issues) && FIELD_BAD),
+  })
+  const idCopy = idNumberCopy(country)
+  const today = new Date().toISOString().slice(0, 10)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setTried(true)
+    const pending = { ...issues }
+    delete pending.tos
+    if (Object.keys(pending).length > 0 || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      onDone(await post<Overview>("details", { ...form, tos: has("tos"), mode }))
+    } catch (err) {
+      setError(safe(err instanceof Error ? err.message : "Those details were not accepted."))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-5 px-5 sm:px-6">
+        {intro ?? (
+          <div className="flex items-start gap-3 rounded-xl bg-[#f7f7f8] px-3.5 py-3">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1a1a2e]" />
+            <p className="text-[13px] leading-5 text-[#374151]">Financial rules require us to confirm who gets paid. This takes about a minute.</p>
+          </div>
+        )}
+        <ErrorLine message={error} />
+
+        {has("dob") ? (
+          <Field label="Date of birth" error={issue("dob")} tip="Confirms you're 18 or older. It must match the date on your ID.">
+            <input type="date" max={today} min="1900-01-01" autoComplete="bday" {...bind("dob")} className={cn(bind("dob").className, "appearance-none [&::-webkit-date-and-time-value]:text-left")} />
+          </Field>
+        ) : null}
+
+        {has("address") ? (
+          <div className="space-y-4">
+            <Field label="Home address" error={issue("line1")} tip={mode === "update" ? "Where you live now. Stripe may ask you to confirm it." : "Where you live now, as on your ID or a recent bill. PO boxes aren't accepted."}>
+              <input autoComplete="address-line1" placeholder="Street and number" {...bind("line1")} />
+            </Field>
+            <Field label="Apartment, suite, floor" optional>
+              <input autoComplete="address-line2" {...bind("line2")} />
+            </Field>
+            <div className="grid grid-cols-[minmax(0,1fr)_116px] gap-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:gap-4">
+              <Field label="City" error={issue("city")}>
+                <input autoComplete="address-level2" {...bind("city")} />
+              </Field>
+              <Field label="Postal code" error={issue("postalCode")}>
+                <input autoComplete="postal-code" autoCapitalize="characters" {...bind("postalCode")} />
+              </Field>
+            </div>
+            {has("state") ? (
+              <Field label={country === "US" ? "State" : "State or region"} error={issue("state")}>
+                <input autoComplete="address-level1" {...bind("state")} />
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
+
+        {has("phone") ? (
+          <Field label="Phone number" error={issue("phone")} tip="Only used to confirm it's you if something looks unusual. Include your country code.">
+            <input type="tel" inputMode="tel" autoComplete="tel" placeholder={PHONE_EXAMPLE[country] ?? "+ country code and number"} {...bind("phone")} />
+          </Field>
+        ) : null}
+
+        {has("idNumber") ? (
+          <Field label={idCopy.label} error={issue("idNumber")} tip={idCopy.tip}>
+            <input inputMode={country === "US" || country === "RO" ? "numeric" : "text"} autoComplete="off" spellCheck={false} className={cn(bind("idNumber").className, "tabular-nums")} value={form.idNumber ?? ""} onChange={bind("idNumber").onChange} onBlur={bind("idNumber").onBlur} />
+          </Field>
+        ) : null}
+
+        {has("ssnLast4") ? (
+          <Field label="Last 4 of your SSN" error={issue("ssnLast4")} tip="Only the last four digits of your Social Security number. Sent to Stripe only.">
+            <input inputMode="numeric" maxLength={4} autoComplete="off" className={cn(bind("ssnLast4").className, "tabular-nums")} value={form.ssnLast4 ?? ""} onChange={bind("ssnLast4").onChange} onBlur={bind("ssnLast4").onBlur} />
+          </Field>
+        ) : null}
+
+        {has("pep") ? (
+          <div>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className="text-[13px] font-medium text-[#1a1a2e]">Do you hold a senior public role?</span>
+              <InfoTip label="Senior public role">For example a minister, judge, senior military officer or head of a state company, now or in the past year, or a close relative of one. Most people answer No.</InfoTip>
+            </div>
+            <Segmented
+              label="Senior public role"
+              value={(form.pep || "unset") as "none" | "existing" | "unset"}
+              onChange={(v) => setForm((f) => ({ ...f, pep: v === "unset" ? "" : v }))}
+              options={[
+                { value: "none", label: "No" },
+                { value: "existing", label: "Yes" },
+              ]}
+            />
+            {issue("pep") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("pep")}</span> : null}
+          </div>
+        ) : null}
+
+        {has("tos") ? (
+          <p className="text-[12px] leading-[18px] text-[#6b7280]">
+            By continuing, you agree to Storelib&apos;s{" "}
+            <a href="/terms" target="_blank" rel="noopener" className={LINK}>Terms</a> and the{" "}
+            <a href={AGREEMENT_URL[view.agreement]} target="_blank" rel="noopener noreferrer" className={LINK}>
+              Stripe {view.agreement === "recipient" ? "Recipient" : "Connected Account"} Agreement
+            </a>
+            , and you confirm these details are correct.
+          </p>
+        ) : null}
+
+        <SecureLine>Sent securely to Stripe, our payments partner. Storelib doesn&apos;t store your ID details.</SecureLine>
+      </div>
+
+      <Footer>
+        <button type="button" className={SECONDARY} onClick={onBack}>{mode === "update" ? "Cancel" : "Back"}</button>
+        <button type="submit" className={PRIMARY} disabled={busy}>
+          {busy ? <Spinner /> : null}
+          {busy ? "Saving" : mode === "update" ? "Save" : has("tos") ? "Agree and continue" : "Continue"}
+        </button>
+      </Footer>
+    </form>
+  )
+}
+
+const DOC_TYPES = "image/jpeg,image/png,application/pdf"
+
+function DocumentForm({ view, onBack, onDone }: { view: StripeVerificationView; onBack: () => void; onDone: (next: Overview) => void }) {
+  const proof = view.document === "address_proof"
+  const [front, setFront] = React.useState<File | null>(null)
+  const [backFile, setBackFile] = React.useState<File | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [tried, setTried] = React.useState(false)
+
+  const upload = async (file: File, side: "front" | "back") => {
+    const body = new FormData()
+    body.set("file", file)
+    body.set("side", side)
+    return read<Overview>(await fetch("/api/payments/document", { method: "POST", body, cache: "no-store" }))
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setTried(true)
+    if (!front || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      let next = await upload(front, "front")
+      if (backFile && !proof) next = await upload(backFile, "back")
+      onDone(next)
+    } catch (err) {
+      setError(safe(err instanceof Error ? err.message : "That photo could not be uploaded."))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-5 px-5 sm:px-6">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{proof ? "Proof of address" : "Photo of your ID"}</h3>
+            <InfoTip label={proof ? "Proof of address" : "Photo of your ID"}>
+              {proof
+                ? "A bank statement, utility bill or tax letter from the last 3 months, showing your name and home address."
+                : "A passport, national ID card or driving licence. Show all four corners, with no glare or blur."}
+            </InfoTip>
+          </div>
+          <p className="mt-1 text-[13px] text-[#6b7280]">{proof ? "A recent document with your name and address." : "Passport, ID card or driving licence."}</p>
+        </div>
+        {view.problem ? (
+          <p className="rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2.5 text-[13px] text-[#92400e] animate-in fade-in-0 duration-150">{view.problem}</p>
+        ) : null}
+        <ErrorLine message={error} />
+
+        <div className={cn("grid gap-3", !proof && "min-[420px]:grid-cols-2")}>
+          <FileTile label={proof ? "Document" : "Front"} file={front} onFile={setFront} invalid={tried && !front} />
+          {proof ? null : <FileTile label="Back" optional file={backFile} onFile={setBackFile} />}
+        </div>
+        {tried && !front ? <span className="-mt-2 block text-[12px] text-[#c4290c]">Add a photo to continue.</span> : null}
+
+        <SecureLine>Sent straight to Stripe for verification. Storelib never keeps a copy.</SecureLine>
+      </div>
+
+      <Footer>
+        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+        <button type="submit" className={PRIMARY} disabled={busy}>
+          {busy ? <Spinner /> : null}
+          {busy ? "Uploading" : "Continue"}
+        </button>
+      </Footer>
+    </form>
+  )
+}
+
+function FileTile({ label, optional, file, onFile, invalid }: { label: string; optional?: boolean; file: File | null; onFile: (f: File | null) => void; invalid?: boolean }) {
+  const id = React.useId()
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        "group flex min-h-[112px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-4 text-center transition-[border-color,background-color] duration-150",
+        file ? "border-solid border-[#e3e5e8] bg-[#f9fafb]" : invalid ? "border-[#c4290c] bg-white" : "border-[#d5d8dd] bg-white hover:border-[#9ca3af] hover:bg-[#fafafa]",
+      )}
+    >
+      <input id={id} type="file" accept={DOC_TYPES} className="sr-only" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+      {file ? (
+        <>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dcfce7] text-[#166534] animate-in zoom-in-75 duration-200">
+            <Check className="h-4 w-4" strokeWidth={2.5} />
+          </span>
+          <span className="max-w-full truncate text-[13px] font-medium text-[#1a1a2e]">{file.name}</span>
+          <span className="text-[12px] text-[#6b7280] underline-offset-2 group-hover:underline">Replace</span>
+        </>
+      ) : (
+        <>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f1f2f4] text-[#6b7280] transition-colors group-hover:text-[#1a1a2e]">
+            {label === "Document" ? <FileText className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+          </span>
+          <span className="text-[13px] font-medium text-[#1a1a2e]">
+            {label}
+            {optional ? <span className="font-normal text-[#9ca3af]"> (if it has one)</span> : null}
+          </span>
+          <span className="text-[12px] text-[#6b7280]">JPG, PNG or PDF, up to 10 MB</span>
+        </>
+      )}
+    </label>
+  )
+}
+
+/* ── after setup: account details ──────────────────────────────────────── */
+
+function DetailsStep({ data, onBack, onDone }: { data: Overview; onBack: () => void; onDone: (next: Overview) => void }) {
+  const [fetched, setFetched] = React.useState<StripeVerificationView | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  const [loading, setLoading] = React.useState(!data.verification)
+  const view = data.verification ?? fetched
+
+  React.useEffect(() => {
+    if (data.verification) {
+      setLoading(false)
+      return
+    }
+    let live = true
+    setLoading(true)
+    post<Overview>("prepare", {})
+      .then((next) => live && setFetched(next.verification ?? null))
+      .catch((e) => live && setError(safe(e instanceof Error ? e.message : "Account details can't open right now.")))
+      .finally(() => live && setLoading(false))
+    return () => {
+      live = false
+    }
+  }, [data.verification])
+
+  const hint = data.payoutHint
+  const rows = [
+    { label: "Name", value: hint?.accountName || "—" },
+    { label: "Type", value: hint?.holderType === "company" ? "Business" : "Individual" },
+    { label: "Country", value: hint?.country ? countryLabel(hint.country) : "—", flag: hint?.country ?? null },
+  ]
+
+  const summary = (
+    <div className="space-y-3">
+      <dl className="divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center gap-3 px-3.5 py-3">
+            <dt className="w-20 shrink-0 text-[13px] text-[#6b7280]">{row.label}</dt>
+            <dd className="flex min-w-0 flex-1 items-center justify-end gap-2 text-[13px] font-medium text-[#1a1a2e]">
+              {row.flag ? <CountryFlag code={row.flag} /> : null}
+              <span className="truncate">{row.value}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="flex items-center gap-1.5 text-[12px] text-[#6b7280]">
+        <Lock className="h-3 w-3" /> Name, type and country are locked once verified.
+      </p>
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <div className="flex-1 space-y-3 px-5 pb-6 sm:px-6" aria-busy="true">
+        <span className="block h-[132px] animate-pulse rounded-xl bg-[#f7f7f8]" />
+        <span className="block h-11 animate-pulse rounded-[10px] bg-[#f7f7f8]" />
+      </div>
+    )
+  }
+
+  if (!view) {
+    return (
+      <div className="flex min-h-full flex-1 flex-col">
+        <div className="flex-1 space-y-4 px-5 sm:px-6">
+          {summary}
+          <ErrorLine message={error} />
+        </div>
+        <Footer>
+          <span />
+          <button type="button" className={SECONDARY} onClick={onBack}>Close</button>
+        </Footer>
+      </div>
+    )
+  }
+
+  return <DetailsForm view={view} mode="update" onBack={onBack} onDone={onDone} intro={<>{summary}<h3 className="pt-1 text-[14px] font-semibold text-[#1a1a2e]">Update address and phone</h3></>} />
 }
 
 /* ── step 3: bank ──────────────────────────────────────────────────────── */
@@ -469,45 +1076,48 @@ function BankStep({ data, showBack, onBack, onDone }: { data: Overview; showBack
   }
 
   const holderHint = data.payoutHint?.accountName ? `Must match ${data.payoutHint.accountName}.` : undefined
+  const routingLabel = format === "us" ? "Routing number" : format === "gb" ? "Sort code" : format === "au" ? "BSB" : "Bank code"
+  const routingTip =
+    format === "us"
+      ? "The 9 digit number at the bottom left of a cheque, or in your banking app."
+      : format === "gb"
+        ? "The 6 digit number for your branch, like 12-34-56. It's in your banking app."
+        : format === "au"
+          ? "Your 6 digit branch number, shown next to your account number."
+          : "A code some banks use to route payments. Leave it empty if yours doesn't."
 
   return (
-    <form onSubmit={submit} noValidate className="flex min-h-full flex-col animate-in fade-in-0 slide-in-from-right-2 duration-200 ease-sheet">
-      <div className="flex-1 space-y-4 px-5 sm:px-6">
+    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-5 px-5 sm:px-6">
         <ErrorLine message={error} />
         {format === "iban" ? (
           <>
-            <Field label="IBAN" error={issue("iban")}>{input("iban", { placeholder: `${country}00 0000 0000 0000 0000`, inputMode: "text", autoCapitalize: "characters" })}</Field>
+            <Field label="IBAN" error={issue("iban")} tip="Your international bank account number. It starts with your country code and is in your banking app.">
+              {input("iban", { placeholder: `${country}00 0000 0000 0000 0000`, inputMode: "text", autoCapitalize: "characters" })}
+            </Field>
             <Field label="Confirm IBAN" error={issue("ibanConfirm")}>{input("ibanConfirm", { autoCapitalize: "characters", onPaste: (e) => e.preventDefault() })}</Field>
           </>
         ) : (
           <>
             {format === "ca" ? (
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Transit number" error={issue("transit")}>{input("transit", { inputMode: "numeric", maxLength: 5 })}</Field>
-                <Field label="Institution number" error={issue("institution")}>{input("institution", { inputMode: "numeric", maxLength: 3 })}</Field>
+                <Field label="Transit number" error={issue("transit")} tip="The 5 digit branch number on a cheque.">{input("transit", { inputMode: "numeric", maxLength: 5 })}</Field>
+                <Field label="Institution number" error={issue("institution")} tip="The 3 digit number for your bank.">{input("institution", { inputMode: "numeric", maxLength: 3 })}</Field>
               </div>
             ) : format === "us" || format === "gb" || format === "au" || format === "other" ? (
-              <Field
-                label={format === "us" ? "Routing number" : format === "gb" ? "Sort code" : format === "au" ? "BSB" : "Bank code"}
-                error={issue("routing")}
-                hint={format === "other" ? "If your bank uses one." : undefined}
-              >
+              <Field label={routingLabel} error={issue("routing")} optional={format === "other"} tip={routingTip}>
                 {input("routing", { inputMode: format === "other" ? "text" : "numeric", maxLength: format === "us" ? 9 : format === "other" ? 20 : 8 })}
               </Field>
             ) : null}
-            <Field label="Account number" error={issue("account")}>{input("account", { inputMode: format === "other" ? "text" : "numeric", maxLength: 34 })}</Field>
+            <Field label="Account number" error={issue("account")} tip="The number of the account you want paid into. It's in your banking app.">
+              {input("account", { inputMode: format === "other" ? "text" : "numeric", maxLength: 34 })}
+            </Field>
             <Field label="Confirm account number" error={issue("accountConfirm")}>{input("accountConfirm", { inputMode: format === "other" ? "text" : "numeric", maxLength: 34, onPaste: (e) => e.preventDefault() })}</Field>
           </>
         )}
 
-        <Field label="Account holder name" error={issue("holder")} hint={holderHint}>
-          <input
-            className={cn(FIELD, issue("holder") && FIELD_BAD)}
-            value={form.holder}
-            onChange={(e) => setForm((f) => ({ ...f, holder: e.target.value }))}
-            onBlur={blur("holder")}
-            autoComplete="name"
-          />
+        <Field label="Account holder name" error={issue("holder")} hint={holderHint} tip="The name the bank has on the account. It must match your verified name, or payouts are returned.">
+          <input className={cn(FIELD, issue("holder") && FIELD_BAD)} value={form.holder} onChange={(e) => setForm((f) => ({ ...f, holder: e.target.value }))} onBlur={blur("holder")} autoComplete="name" />
         </Field>
 
         {currency ? (
@@ -516,7 +1126,10 @@ function BankStep({ data, showBack, onBack, onDone }: { data: Overview; showBack
               <Landmark className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium text-[#1a1a2e]">Payout currency</p>
+              <p className="flex items-center gap-1.5 text-[13px] font-medium text-[#1a1a2e]">
+                Payout currency
+                <InfoTip label="Payout currency">Your sales are paid out in this currency. Your bank account needs to accept it.</InfoTip>
+              </p>
               <p className="text-[12px] text-[#6b7280]">The account must hold {currency}.</p>
             </div>
             <span className="rounded-lg border border-[#e5e7eb] bg-white px-2 py-1 text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{currency}</span>
@@ -535,11 +1148,9 @@ function BankStep({ data, showBack, onBack, onDone }: { data: Overview; showBack
           />
           <span className="text-[13px] leading-5 text-[#374151]">This account is mine and I can use it.</span>
         </label>
-        {issue("owns") ? <span className="-mt-3 block text-[12px] text-[#be123c]">{issue("owns")}</span> : null}
+        {issue("owns") ? <span className="-mt-3 block text-[12px] text-[#c4290c]">{issue("owns")}</span> : null}
 
-        <p className="flex items-center gap-1.5 text-[12px] text-[#6b7280]">
-          <Lock className="h-3 w-3" /> Sent securely to Stripe. Storelib never stores your bank number.
-        </p>
+        <SecureLine>Sent securely to Stripe. Storelib never stores your bank number.</SecureLine>
       </div>
 
       <Footer>
@@ -551,16 +1162,4 @@ function BankStep({ data, showBack, onBack, onDone }: { data: Overview; showBack
       </Footer>
     </form>
   )
-}
-
-function Footer({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="sticky bottom-0 mt-6 flex items-center justify-between gap-3 border-t border-[#f1f2f4] bg-white px-5 py-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 [&>*:last-child]:max-sm:flex-1">
-      {children}
-    </div>
-  )
-}
-
-function Spinner() {
-  return <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
 }

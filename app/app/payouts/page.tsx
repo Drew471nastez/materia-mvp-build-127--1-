@@ -78,7 +78,7 @@ export default async function PayoutsPage() {
             {PayoutsBody({ creator })}
           </Suspense>
         ) : (
-          <div className="mx-auto mt-2 w-full max-w-[560px]" data-payouts-setup="">
+          <div className="mx-auto mt-2 w-full max-w-[720px]" data-payouts-setup="">
             <StorelibPaymentsInline compact />
           </div>
         )}

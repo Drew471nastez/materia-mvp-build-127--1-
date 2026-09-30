@@ -28,7 +28,7 @@ export function StorelibPaymentsCard({
 }) {
   return (
     <section
-      className="mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+      className="mx-auto w-full max-w-[720px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
       data-storelib-payments-card=""
     >
       <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
@@ -85,7 +85,7 @@ export function StorelibPaymentsCard({
 
 export function StorelibPaymentsCardSkeleton() {
   return (
-    <section className="mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-5" aria-busy="true" aria-label="Loading payments">
+    <section className="mx-auto w-full max-w-[720px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-5" aria-busy="true" aria-label="Loading payments">
       <div className="flex items-center gap-3">
         <span className="h-10 w-10 animate-pulse rounded-[10px] bg-[#f1f2f4]" />
         <div className="flex-1 space-y-2">

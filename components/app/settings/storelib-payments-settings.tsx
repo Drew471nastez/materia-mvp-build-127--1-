@@ -111,7 +111,7 @@ export function StorelibPaymentsSettings({
 
   if (!data) {
     return (
-      <div className="mx-auto flex w-full max-w-[560px] items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
+      <div className="mx-auto flex w-full max-w-[720px] items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
         <AlertCircle className="h-4 w-4 shrink-0 text-[#be123c]" />
         <p className="flex-1 text-[14px] text-[#1a1a2e]">{error}</p>
         <button type="button" className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")} onClick={() => void load()}>
@@ -123,7 +123,7 @@ export function StorelibPaymentsSettings({
 
   if (!data.configured) {
     return (
-      <div className="mx-auto w-full max-w-[560px] rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5">
+      <div className="mx-auto w-full max-w-[720px] rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5">
         <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Storelib Payments</h3>
         <p className="mt-1 text-[13px] text-[#6b7280]">Payments are not switched on yet.</p>
       </div>
@@ -154,7 +154,7 @@ export function StorelibPaymentsSettings({
   const primaryBal = data.balances[0]
 
   return (
-    <div data-payments-hub="" data-badge={data.badge} className="mx-auto w-full max-w-[560px] space-y-3">
+    <div data-payments-hub="" data-badge={data.badge} className="mx-auto w-full max-w-[720px] space-y-3">
       {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-[13px] text-[#9f1239]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
