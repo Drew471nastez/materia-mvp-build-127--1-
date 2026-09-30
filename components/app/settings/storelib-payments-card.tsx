@@ -126,10 +126,13 @@ export function StorelibPaymentsCardLoading() {
     >
       <PaymentsCardHeader statusPlaceholder />
       <PaymentsFeatures />
-      <Shimmer className="border-t border-[#f1f2f4] px-4 py-8 sm:px-10 sm:py-12" label="Loading">
-        <ShimmerBlock className="mx-auto h-5 w-[min(100%,280px)] rounded-full" />
-        <ShimmerBlock className="mx-auto mt-3 h-4 w-[min(100%,220px)] rounded-full" />
-        <ShimmerBlock className="mx-auto mt-6 h-11 w-full max-w-[200px] rounded-xl" />
+      {/* The answer's own text, unseen, holds its height so nothing jumps when it lands. */}
+      <Shimmer className="border-t border-[#f1f2f4] px-4 py-8 text-center sm:px-10 sm:py-12" label="Loading">
+        <div aria-hidden className="invisible">
+          <p className="text-[16px] font-semibold sm:text-[17px]">Add information to start accepting payments</p>
+          <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-5 sm:text-[14px]">Takes about five minutes. Everything stays in Storelib.</p>
+        </div>
+        <ShimmerBlock className="mx-auto mt-6 h-11 w-full rounded-xl sm:w-[200px]" />
       </Shimmer>
     </section>
   )
