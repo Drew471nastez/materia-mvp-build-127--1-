@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { handleConnectAccountEvent } from "@/lib/stripe/connect-webhook"
+import { handleConnectAccountEvent, isConnectStatusEvent, resyncConnectedAccount } from "@/lib/stripe/connect-webhook"
 import { handleConnectPayoutEvent, isConnectPayoutEvent } from "@/lib/stripe/connect-payout-webhook"
 import { noteStripeEvent, stripeEventHandled } from "@/lib/payments/ledger"
 import { createClient } from "@supabase/supabase-js"
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     } else if (isConnectPayoutEvent(event.type)) {
       await handleConnectPayoutEvent(supabaseAdmin, event)
     }
+    if (isConnectStatusEvent(event.type)) await resyncConnectedAccount(event.account)
     await noteStripeEvent(supabaseAdmin, { id: event.id, type: event.type, account: event.account, ok: true })
     return NextResponse.json({ received: true })
   } catch (error) {

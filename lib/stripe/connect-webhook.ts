@@ -41,9 +41,17 @@ function payoutMethodFacts(ext: Stripe.ExternalAccount): Record<string, unknown>
  * verification reminders read (lib/notify).
  *
  * account.external_account.*: a bank added, or made the default, is
- * payout_method.added or .changed, keyed by the bank account.
+ * payout_method.added or .changed, keyed by the bank account. Any other
+ * bank change (removed, or Stripe marking it errored) only re-reads the
+ * account, so the payments status follows.
  */
 export async function handleConnectAccountEvent(event: Stripe.Event): Promise<void> {
+  if (event.type === "account.external_account.deleted") {
+    const acctId = connectedAccountId(event)
+    if (acctId) await resyncConnectedAccount(acctId)
+    return
+  }
+
   if (event.type === "account.updated") {
     const account = event.data.object as Stripe.Account
     const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id, payouts_enabled").eq("stripe_account_id", account.id).maybeSingle()
@@ -100,10 +108,12 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
     const previous = (event.data as { previous_attributes?: Record<string, unknown> }).previous_attributes || {}
     const becameDefault =
       event.type === "account.external_account.updated" && previous.default_for_currency === false && (ext as Stripe.BankAccount).default_for_currency === true
-    if (event.type === "account.external_account.updated" && !becameDefault) return
-
     const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id").eq("stripe_account_id", acctId).maybeSingle()
     if (!creator) return
+    if (event.type === "account.external_account.updated" && !becameDefault) {
+      await syncStripeAccount(creator.id as string, "webhook")
+      return
+    }
 
     await syncStripeAccount(creator.id as string, "webhook")
 
@@ -129,4 +139,20 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
       payload: payoutMethodFacts(ext),
     })
   }
+}
+
+/**
+ * Re-reads one connected account from Stripe and caches its flags and
+ * Storelib status. For events that change the status but tell the creator
+ * nothing themselves: capability.updated, a payout paid or failed.
+ */
+export async function resyncConnectedAccount(accountId: string): Promise<void> {
+  const { data: creator } = await supabaseAdmin.from("creators").select("id").eq("stripe_account_id", accountId).maybeSingle()
+  if (!creator) return
+  await syncStripeAccount(creator.id as string, "webhook")
+}
+
+/** Events that only move the cached status. */
+export function isConnectStatusEvent(type: string): boolean {
+  return type === "capability.updated" || type === "payout.failed" || type === "payout.paid"
 }
