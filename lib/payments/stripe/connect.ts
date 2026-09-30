@@ -198,9 +198,9 @@ export async function syncStripeAccount(creatorId: string, actor: "webhook" | "c
       business_type: account.business_type,
       requirements: account.requirements
         ? {
-            currently_due: account.requirements.currently_due,
-            past_due: account.requirements.past_due,
-            pending_verification: account.requirements.pending_verification,
+            currently_due: account.requirements.currently_due ?? undefined,
+            past_due: account.requirements.past_due ?? undefined,
+            pending_verification: account.requirements.pending_verification ?? undefined,
           }
         : null,
     },
