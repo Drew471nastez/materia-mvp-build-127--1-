@@ -37,7 +37,7 @@ import "server-only"
  */
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
+import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { feePercentFor, type BillingInterval } from "./state"
 import type { Db, PlanRow } from "./server"
 
@@ -85,7 +85,7 @@ export async function membershipFee(
   amountCents: number,
   currency = "usd",
 ): Promise<{ cents: number; percent: number; planId: string }> {
-  const fee = await calculatePlatformFee(amountCents, creatorId, admin, currency)
+  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency)
   return { cents: fee.platformFeeCents, percent: feePercentFor(amountCents, fee.platformFeeCents), planId: fee.planId }
 }
 

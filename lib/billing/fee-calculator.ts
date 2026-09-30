@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateStorelibFee, UnsupportedFeeCurrencyError, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
+import type { StorelibFeeConfig } from "@/lib/payments/fees/types"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import type { StorelibSellerPlan } from "@/lib/payments/fees/config"
 
@@ -113,6 +114,7 @@ export async function calculatePlatformFee(
   creatorId: string,
   admin: SupabaseClient,
   currency?: string,
+  feeConfig?: StorelibFeeConfig,
 ): Promise<FeeCalculation> {
   let effectivePlan: SellerPlan = "free"
 
@@ -149,11 +151,14 @@ export async function calculatePlatformFee(
   }
 
   const chargeCurrency = (currency || platformChargeCurrencyUpper()).toUpperCase()
-  const fee = calculateStorelibFee({
-    grossMinor: amountCents,
-    currency: chargeCurrency,
-    sellerPlan: toStorelibPlan(effectivePlan),
-  })
+  const fee = calculateStorelibFee(
+    {
+      grossMinor: amountCents,
+      currency: chargeCurrency,
+      sellerPlan: toStorelibPlan(effectivePlan),
+    },
+    feeConfig,
+  )
 
   console.log("[fee-calc] Fee computation:", {
     plan: effectivePlan,

@@ -5,7 +5,8 @@ import { MIN_CHARGE_CENTS, priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { calculatePlatformFee, UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
+import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
+import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
@@ -200,9 +201,9 @@ export async function POST(request: Request) {
   }
 
   const chargeCurrency = platformChargeCurrency()
-  let fee: Awaited<ReturnType<typeof calculatePlatformFee>>
+  let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
-    fee = await calculatePlatformFee(totalCents, creatorId, admin, chargeCurrency)
+    fee = await calculatePlatformFeeForCheckout(totalCents, creatorId, admin, chargeCurrency)
   } catch (e) {
     if (e instanceof UnsupportedFeeCurrencyError) {
       return NextResponse.json({ error: "This currency is not available for checkout yet." }, { status: 400 })
