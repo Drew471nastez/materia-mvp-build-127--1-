@@ -80,3 +80,46 @@ export function StorelibPaymentsCard({
   )
 }
 
+/** Setup card frame while overview loads: brand and selling points only (spinner lives outside). */
+export function StorelibPaymentsCardLoading() {
+  return (
+    <section
+      className={cn(PAYMENTS_SURFACE, "overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)]")}
+      aria-busy="true"
+      aria-label="Loading payments"
+      data-storelib-payments-card=""
+      data-storelib-payments-loading-card=""
+    >
+      <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
+        <StorelibPaymentsBrand className="min-w-0 flex-1" size="lg" />
+        <span className="inline-flex shrink-0 whitespace-nowrap rounded-full bg-[#f1f2f4] px-2.5 py-1 text-[12px] font-medium text-transparent max-sm:hidden" aria-hidden>
+          ····
+        </span>
+      </div>
+      <div className="space-y-2.5 px-4 pb-4 sm:px-6">
+        <ul className="space-y-2 rounded-xl bg-[#f7f7f8] px-3.5 py-3 text-[13px] text-[#1f2937]">
+          {["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"].map((line) => (
+            <li key={line} className="flex items-start gap-2">
+              <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#16a34a]" strokeWidth={2.5} />
+              {line}
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center gap-2 rounded-xl border border-[#eceef1] px-3.5 py-2.5">
+          <span className="text-[13px] text-[#1a1a2e]">Payment methods</span>
+          <span className="ml-auto flex items-center gap-1.5">
+            <VisaMark />
+            <MastercardMark />
+            <AmexMark />
+            <span className="hidden items-center gap-1.5 sm:flex">
+              <ApplePayMark />
+              <GooglePayMark />
+            </span>
+          </span>
+        </div>
+      </div>
+      <div className="min-h-[88px] border-t border-[#f1f2f4] sm:min-h-[96px]" aria-hidden />
+    </section>
+  )
+}
+

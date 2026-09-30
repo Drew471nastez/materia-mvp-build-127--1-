@@ -7,7 +7,7 @@ import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { WaitingArea } from "@/components/ui/activity-spinner"
-import { StorelibPaymentsCard } from "@/components/app/settings/storelib-payments-card"
+import { StorelibPaymentsCard, StorelibPaymentsCardLoading } from "@/components/app/settings/storelib-payments-card"
 import { PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
 import { cn } from "@/lib/utils"
@@ -111,13 +111,9 @@ export function StorelibPaymentsSettings({
 
   if (!data && !error) {
     return (
-      <div
-        className={cn(PAYMENTS_SURFACE, "overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white")}
-        aria-busy="true"
-        aria-label="Loading payments"
-        data-storelib-payments-loading=""
-      >
-        <WaitingArea className="min-h-[min(420px,58dvh)] w-full" label="Loading payments" />
+      <div className={cn(PAYMENTS_SURFACE, "space-y-1")} data-storelib-payments-loading="">
+        <StorelibPaymentsCardLoading />
+        <WaitingArea className="flex min-h-[min(200px,32dvh)] w-full items-center justify-center" label="Loading payments" />
       </div>
     )
   }
