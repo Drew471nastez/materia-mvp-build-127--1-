@@ -182,6 +182,7 @@ const SUITES = [
   "tests/own-ai.test.ts",
   "tests/storelib-payments.test.ts",
   "tests/admin-payments-fees.test.ts",
+  "tests/payments-setup-errors.test.ts",
   "tests/theme-code-editor.test.ts",
   "tests/section-settings.test.ts",
   "tests/section-render.test.ts",

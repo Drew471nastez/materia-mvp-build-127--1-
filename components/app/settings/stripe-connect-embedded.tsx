@@ -44,7 +44,6 @@ export function StripeConnectEmbedded({
           publishableKey,
           fetchClientSecret: () => fetchClientSecret(purpose),
           appearance: {
-            overlays: "never",
             variables: {
               colorPrimary: "#1a1a2e",
               colorBackground: "#ffffff",
@@ -76,10 +75,10 @@ export function StripeConnectEmbedded({
   }, [purpose])
 
   return (
-    <div className="border-t border-[#f0f1f3] pt-4">
+    <div>
       <div className="mb-3">
-        <h4 className="text-[14px] font-semibold text-[#1a1a2e]">Verify your details</h4>
-        <p className="mt-0.5 text-[12px] text-[#6b7280]">Identity, business information and your bank account</p>
+        <h4 className="text-[14px] font-semibold text-[#111827]">Verify your details</h4>
+        <p className="mt-0.5 text-[12px] text-[#6b7280]">Identity and the bank account payouts are sent to. Storelib never shows your full account number.</p>
       </div>
       <div className="relative min-h-[420px] rounded-xl border border-[#e5e7eb] bg-[#fafafb]">
         {!ready ? (

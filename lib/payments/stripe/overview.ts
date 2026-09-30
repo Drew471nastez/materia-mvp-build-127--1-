@@ -120,6 +120,8 @@ export async function stripeOverview(creator: CreatorRef): Promise<HubOverview> 
     stripe: { publishableKey },
     badge,
     uxState,
+    chargesEnabled: snapshot.chargesEnabled,
+    payoutsEnabled: snapshot.payoutsEnabled,
     nextPayout,
   }
 }

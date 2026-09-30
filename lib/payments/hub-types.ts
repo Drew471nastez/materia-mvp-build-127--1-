@@ -27,6 +27,9 @@ export interface HubOverview {
   stripe?: { publishableKey: string | null }
   badge: StorelibPaymentsBadge
   uxState: PaymentUxState
+  /** Stripe Connect flags. Absent on other providers. */
+  chargesEnabled?: boolean
+  payoutsEnabled?: boolean
   nextPayout?: { amountMinor: number; currency: string; arrivalDate: string | null } | null
 }
 

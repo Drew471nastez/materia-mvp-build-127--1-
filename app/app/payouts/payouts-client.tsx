@@ -3155,11 +3155,14 @@ export function PayoutsClient({
 
   if (!legacyPayoutsDashboard) {
     return (
-      <PayoutsSimpleView
-        availableMinor={availableBalance}
-        pendingMinor={pendingBalance}
-        currency={sourceCurrency}
-      />
+      <div className="mt-2 space-y-4">
+        <StorelibPaymentsInline compact />
+        <PayoutsSimpleView
+          availableMinor={availableBalance}
+          pendingMinor={pendingBalance}
+          currency={sourceCurrency}
+        />
+      </div>
     );
   }
 
