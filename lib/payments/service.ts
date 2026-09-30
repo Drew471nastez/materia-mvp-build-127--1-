@@ -79,10 +79,8 @@ export type { CreatorRef, HubOverview } from "./hub-types"
 import type { CreatorRef, HubOverview } from "./hub-types"
 import { PaymentsProblem } from "./errors"
 import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
-import { prepareStorelibAccount, submitStripeDetails, uploadStripeDocument } from "./stripe/verification"
-import type { DetailsInput } from "./stripe/details-fields"
-import { attachStripeBank, beginStripeOnboarding, disconnectIncompleteStripeAccount, readCreatorStripe, submitStripePayoutProfile, syncStripeAccount } from "./stripe/connect"
-import type { PayoutProfileInput } from "./stripe/payout-profile"
+import { prepareStorelibAccount } from "./stripe/verification"
+import { beginStripeOnboarding, disconnectIncompleteStripeAccount, readCreatorStripe, syncStripeAccount } from "./stripe/connect"
 import { snapshotFromCreatorRow, stripeRowReady } from "./stripe/facts"
 
 /* ── Which provider ───────────────────────────────────────────────────── */
@@ -299,39 +297,11 @@ export async function beginOnboarding(
   return overview(creator)
 }
 
-export async function submitPayoutProfile(creator: CreatorRef, input: PayoutProfileInput) {
-  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
-  return submitStripePayoutProfile(creator, input)
-}
-
-export async function addStripeBank(creator: CreatorRef, token: string) {
-  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
-  await attachStripeBank(creator, token)
-  return overview(creator)
-}
-
 /** Swaps an untouched Stripe-hosted account for one Storelib runs, before the Verify step draws. */
 export async function prepareVerification(creator: CreatorRef) {
   if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
   await prepareStorelibAccount(creator)
   return stripeOverview(creator, { sync: false })
-}
-
-export async function submitVerificationDetails(
-  creator: CreatorRef,
-  input: DetailsInput,
-  consent: { ip: string | null; userAgent: string | null },
-  mode: "setup" | "update",
-) {
-  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
-  await submitStripeDetails(creator, input, consent, mode)
-  return overview(creator)
-}
-
-export async function uploadVerificationDocument(creator: CreatorRef, file: File | null, side: "front" | "back") {
-  if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
-  await uploadStripeDocument(creator, file, side)
-  return overview(creator)
 }
 
 export async function disconnectPayoutAccount(creator: CreatorRef) {

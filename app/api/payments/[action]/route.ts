@@ -9,16 +9,16 @@
  *   POST start           { kind, country, businessName?, agree: true }
  *                        creates their Airwallex account, once
  *   POST verify          the hosted verification page's address, to go to
- *   POST component       { purpose: "onboarding" | "payout_form" | "rfi" }
- *                        a one-time code for an embedded Airwallex form
+ *   POST component       { purpose }  a fresh, single-use session for an embedded form:
+ *                        Airwallex "onboarding" | "payout_form" | "rfi", or Stripe
+ *                        "stripe_onboarding" | "stripe_management" | "stripe_payouts"
  *   POST form-status     { status } what the embedded form said, for wording
  *   POST payout-account  { payload } the embedded payout form's submit()
  *   POST payout          { amountMinor, currency } a payout to their bank
  *   POST refresh         asks Airwallex again, now
- *   POST bank            { token } a Stripe.js bank token (btok_), never the number
+ *   POST begin           { kind, country, firstName, lastName, businessName?, agree }
+ *                        the Account step: creates or reuses their Stripe account
  *   POST prepare         makes sure the account is one Storelib runs, before Verify
- *   POST details         identity details, sent straight to Stripe, never stored
- *   POST document        multipart { file, side } an ID photo, to Stripe's Files API
  *
  * Errors are one sentence for the creator. Airwallex's own codes and
  * messages stay in the server log.
@@ -29,7 +29,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import {
   addPayoutAccount,
-  addStripeBank,
   componentAuth,
   describe,
   hostedFlowUrl,
@@ -40,9 +39,6 @@ import {
   PaymentsProblem,
   prepareVerification,
   providerFor,
-  submitVerificationDetails,
-  uploadVerificationDocument,
-  submitPayoutProfile,
   refreshPayoutAccount,
   refreshProviderAccount,
   requestPayout,
@@ -96,8 +92,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   const { action } = await context.params
   const creator = await paymentsCreator()
   if (creator instanceof NextResponse) return creator
-  const upload = action === "document" ? await request.formData().catch(() => null) : null
-  const body = upload ? {} : (((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>)
+  const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>
   const provider = await providerFor(creator.id)
 
   const moves = action === "payout"
@@ -134,7 +129,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
           body.purpose === "onboarding" ||
           body.purpose === "payout_form" ||
           body.purpose === "rfi" ||
-          body.purpose === "stripe_payouts"
+          body.purpose === "stripe_payouts" ||
+          body.purpose === "stripe_onboarding" ||
+          body.purpose === "stripe_management"
             ? body.purpose
             : null
         if (!purpose) return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
@@ -174,88 +171,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
           { headers: NO_STORE },
         )
       }
-      case "profile": {
-        if (body.agree !== true) return NextResponse.json({ error: "Agree to continue." }, { status: 400, headers: NO_STORE })
-        const kind = body.kind === "business" ? "business" : body.kind === "individual" ? "individual" : null
-        if (!kind) return NextResponse.json({ error: "Choose individual or business." }, { status: 400, headers: NO_STORE })
-        const text = (key: string, max: number) => {
-          const value = body[key]
-          return typeof value === "string" ? value.slice(0, max) : ""
-        }
-        const result = await submitPayoutProfile(creator, {
-          kind,
-          country: text("country", 80),
-          firstName: text("firstName", 80),
-          lastName: text("lastName", 80),
-          businessName: text("businessName", 120),
-          address: text("address", 160),
-          city: text("city", 80),
-          postalCode: text("postalCode", 16),
-          phone: text("phone", 24),
-          dob: text("dob", 10),
-          accountHolder: text("accountHolder", 100),
-          iban: text("iban", 42),
-          ibanConfirm: text("ibanConfirm", 42),
-          routing: text("routing", 16),
-          accountNumber: text("accountNumber", 20),
-          accountNumberConfirm: text("accountNumberConfirm", 20),
-          institution: text("institution", 8),
-          transit: text("transit", 8),
-        })
-        return NextResponse.json(result, { headers: NO_STORE })
-      }
-      case "bank": {
-        const token = typeof body.token === "string" ? body.token.slice(0, 80) : ""
-        return NextResponse.json(await addStripeBank(creator, token), { headers: NO_STORE })
-      }
       case "prepare": {
         return NextResponse.json(await prepareVerification(creator), { headers: NO_STORE })
-      }
-      case "details": {
-        const text = (key: string, max: number) => {
-          const value = body[key]
-          return typeof value === "string" ? value.slice(0, max) : undefined
-        }
-        return NextResponse.json(
-          await submitVerificationDetails(
-            creator,
-            {
-              firstName: text("firstName", 80),
-              lastName: text("lastName", 80),
-              title: text("title", 80),
-              dob: text("dob", 10),
-              nationality: text("nationality", 2),
-              line1: text("line1", 120),
-              line2: text("line2", 120),
-              city: text("city", 80),
-              state: text("state", 80),
-              postalCode: text("postalCode", 16),
-              phone: text("phone", 24),
-              idNumber: text("idNumber", 24),
-              ssnLast4: text("ssnLast4", 4),
-              pep: body.pep === "none" || body.pep === "existing" ? body.pep : "",
-              companyName: text("companyName", 120),
-              companyLine1: text("companyLine1", 120),
-              companyLine2: text("companyLine2", 120),
-              companyCity: text("companyCity", 80),
-              companyState: text("companyState", 80),
-              companyPostalCode: text("companyPostalCode", 16),
-              companyPhone: text("companyPhone", 24),
-              taxId: text("taxId", 24),
-              registrationNumber: text("registrationNumber", 30),
-              owners: body.owners === true,
-              tos: body.tos === true,
-            },
-            { ip: callerAddress(request), userAgent: request.headers.get("user-agent") },
-            body.mode === "update" ? "update" : "setup",
-          ),
-          { headers: NO_STORE },
-        )
-      }
-      case "document": {
-        const file = upload?.get("file")
-        const side = upload?.get("side") === "back" ? "back" : "front"
-        return NextResponse.json(await uploadVerificationDocument(creator, file instanceof File ? file : null, side), { headers: NO_STORE })
       }
       case "disconnect": {
         return NextResponse.json(await disconnectPayoutAccount(creator), { headers: NO_STORE })

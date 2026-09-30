@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { getMarketExchangeRate } from "@/lib/exchange-rate"
+import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/status"
 
 export async function GET() {
   try {
@@ -18,7 +19,7 @@ export async function GET() {
     // Strict isolation — only this user's creator row
     const { data: creator } = await adminSupabase
       .from("creators")
-      .select("id, stripe_account_id, default_currency")
+      .select("id, stripe_account_id, default_currency, stripe_connected_at")
       .eq("user_id", user.id)
       .single()
 
@@ -214,6 +215,21 @@ export async function GET() {
       },
     } : null
 
+    /* The same status the payments card shows, from the same account read. */
+    const banks = (accountResult as any)?.external_accounts?.data as Array<{ object?: string; status?: string | null }> | undefined
+    const paymentsStatus = accountResult
+      ? getStorelibPaymentsStatus(
+          statusFactsOf(
+            accountResult as any,
+            banks ? banks.filter((b) => b.object === "bank_account") : (accountResult as any).payouts_enabled ? [{ status: "new" }] : [],
+            {
+              everActive: !!(creator as { stripe_connected_at?: string | null }).stripe_connected_at,
+              lastPayoutFailed: (payoutsResult.data[0] as { status?: string } | undefined)?.status === "failed",
+            },
+          ),
+        )
+      : null
+
     // Fetch dispute data from ledger + active disputes from Stripe
     let disputeData: {
       negativeBalance: number
@@ -306,7 +322,7 @@ export async function GET() {
       /* Tax forms stay in email. The Express dashboard is not opened from here. */
     } catch { /* non-fatal */ }
 
-    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus, disputeData, taxData })
+    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus, paymentsStatus, disputeData, taxData })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

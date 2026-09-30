@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { AlertCircle, AlertTriangle, ChevronRight, Clock, CreditCard, Landmark, UserRound } from "lucide-react"
 import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
+import { STATUS_PILL, type StatusAction } from "@/lib/payments/stripe/status"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { ShimmerSwap } from "@/components/ui/shimmer"
@@ -84,11 +85,26 @@ export function StorelibPaymentsSettings({
   }, [data, router])
 
   const beat: OnboardingBeat = data?.beat ?? "personal"
+  const view = data?.paymentsStatus ?? null
+  const modeFor = (action: StatusAction | undefined): SetupMode => (action === "bank" || action === "change_bank" || beat === "done" ? "bank" : "setup")
 
   React.useEffect(() => {
-    if (manageRequest > 0 && data) setPanel({ open: true, mode: beat === "done" ? "bank" : "setup" })
+    if (manageRequest > 0 && data) setPanel({ open: true, mode: modeFor(view?.action) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manageRequest, !!data])
+
+  /* ?setup=1: the phone app sent the creator here to finish in the browser. Opened once. */
+  const handedOff = React.useRef(false)
+  React.useEffect(() => {
+    if (!data || handedOff.current || panelOnly) return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("setup") !== "1") return
+    handedOff.current = true
+    url.searchParams.delete("setup")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    if (view?.status !== "ACTIVE") setPanel({ open: true, mode: modeFor(view?.action) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!data])
 
   React.useEffect(() => {
     if (!confirmDisconnect) return
@@ -129,7 +145,9 @@ export function StorelibPaymentsSettings({
     )
   }
 
-  const status = data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
+  const status = view ? STATUS_PILL[view.status].label : data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
+  const live = view ? view.canCharge : beat === "done"
+  const needsSomething = !!view && view.status !== "ACTIVE" && !!view.action
   const hasAccount = beat !== "personal"
   const canDisconnect = hasAccount && !data?.chargesEnabled
 
@@ -188,29 +206,37 @@ export function StorelibPaymentsSettings({
           ) : null
         }
       >
-        {beat === "done" ? (
+        {live ? (
           <div className="border-t border-[#f1f2f4]">
+            {needsSomething && view ? (
+              <Notice
+                title={view.title}
+                line={view.line}
+                deadline={view.deadline}
+                action={view.actionLabel}
+                href={view.action === "support" ? "mailto:support@storelib.com" : undefined}
+                onClick={() => openPanel(modeFor(view.action))}
+              />
+            ) : null}
             <Row
               icon={<Landmark className="h-4 w-4" />}
               title="Payout account"
-              line={data.payoutDestination?.last4 ? `${data.payoutDestination.bankName || "Bank"} ···· ${data.payoutDestination.last4}${data.payoutDestination.currency ? ` · ${data.payoutDestination.currency.toUpperCase()}` : ""}` : "Bank account on file"}
-              action="Update"
+              line={data.payoutDestination?.last4 ? `${data.payoutDestination.bankName || "Bank"} •••• ${data.payoutDestination.last4}${data.payoutDestination.currency ? ` · ${data.payoutDestination.currency.toUpperCase()}` : ""}` : "Add a bank account"}
+              action={data.payoutDestination?.last4 ? "Change" : "Add"}
               onClick={() => openPanel("bank")}
             />
-            <Row icon={<UserRound className="h-4 w-4" />} title="Account details" line="Name, address and identity" action="Edit" onClick={() => openPanel("details")} />
+            <Row icon={<UserRound className="h-4 w-4" />} title="Account details" line="Name, address and identity" action="Review" onClick={() => openPanel("details")} />
           </div>
-        ) : beat === "review" ? (
-          <Empty
-            icon={<Clock className="h-5 w-5" />}
-            title="Your details are being reviewed"
-            line="This usually takes a few minutes. We will email you if anything else is needed."
-          />
+        ) : view?.status === "VERIFYING" || (!view && beat === "review") ? (
+          <Empty icon={<Clock className="h-5 w-5" />} title="We're checking your information" line="No action is needed right now. We'll email you if anything else is needed." />
+        ) : view?.action === "support" ? (
+          <Empty icon={<AlertCircle className="h-5 w-5" />} title={view.title} line={view.line} action={view.actionLabel ?? "Contact support"} href="mailto:support@storelib.com" />
         ) : (
           <Empty
-            title="Add information to start accepting payments"
-            line={hasAccount ? "Pick up where you left off." : "Takes about five minutes. Everything stays in Storelib."}
-            action={hasAccount ? "Continue setup" : "Add information"}
-            onClick={() => openPanel("setup")}
+            title={view && view.status !== "NOT_STARTED" ? view.title : "Add information to start accepting payments"}
+            line={view && view.status !== "NOT_STARTED" ? view.line : "Takes about five minutes. Everything stays in Storelib."}
+            action={view?.actionLabel ?? (hasAccount ? "Continue setup" : "Add information")}
+            onClick={() => openPanel(modeFor(view?.action))}
           />
         )}
       </StorelibPaymentsCard>
@@ -240,13 +266,17 @@ export function StorelibPaymentsSettings({
   )
 }
 
-function Empty({ icon, title, line, action, onClick }: { icon?: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void }) {
+function Empty({ icon, title, line, action, onClick, href }: { icon?: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void; href?: string }) {
   return (
     <div className="border-t border-[#f1f2f4] px-4 py-8 text-center sm:px-10 sm:py-12">
       {icon ? <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f3ff] text-[#635bff]">{icon}</span> : null}
       <h4 className={cn("text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]", icon ? "mt-3" : "")}>{title}</h4>
       <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{line}</p>
-      {action ? (
+      {action && href ? (
+        <a href={href} className={cn(primaryDepth, "mt-6 inline-flex h-11 items-center justify-center rounded-xl px-6 text-[14px] sm:min-w-[200px] max-sm:w-full")}>
+          {action}
+        </a>
+      ) : action ? (
         <button type="button" onClick={onClick} className={cn(primaryDepth, "mt-6 h-11 rounded-xl px-6 text-[14px] sm:min-w-[200px] max-sm:w-full")}>
           {action}
         </button>
@@ -272,5 +302,30 @@ function Row({ icon, title, line, action, onClick }: { icon: React.ReactNode; ti
         <ChevronRight className="h-4 w-4 text-[#9ca3af] transition-transform group-hover:translate-x-0.5" />
       </span>
     </button>
+  )
+}
+
+/** Payments are on, and Stripe wants something: one line, one action, and the date if there is one. */
+function Notice({ title, line, deadline, action, href, onClick }: { title: string; line: string; deadline: string | null; action: string | null; href?: string; onClick: () => void }) {
+  const by = deadline ? new Date(deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null
+  const cls = cn(primaryDepth, "inline-flex h-10 w-full items-center justify-center rounded-lg px-3 text-[13px] sm:h-8 sm:w-auto sm:shrink-0")
+  return (
+    <div role="status" data-payments-notice="" className="mx-4 my-3 flex flex-col gap-3 rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-3 sm:mx-5 sm:flex-row sm:items-center">
+      <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#d97706]" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium text-[#1a1a2e]">{title}</p>
+          <p className="text-[12px] leading-[17px] text-[#6b7280]">
+            {line}
+            {by ? ` Needed by ${by}.` : ""}
+          </p>
+        </div>
+      </div>
+      {action && href ? (
+        <a href={href} className={cls}>{action}</a>
+      ) : action ? (
+        <button type="button" onClick={onClick} className={cls}>{action}</button>
+      ) : null}
+    </div>
   )
 }

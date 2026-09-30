@@ -7,10 +7,11 @@ import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 import { paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
-import { parsePayoutProfile, type PayoutProfileInput } from "./payout-profile"
 import { parsePersonal } from "./onboarding-steps"
 import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
 import { mergeStripeAccount, type StripeCreatorSnapshot } from "./facts"
+import { getStorelibPaymentsStatus, statusFactsOf, type StorelibStatusView } from "./status"
+import { accountSessionComponents } from "./session-components"
 import { PaymentsProblem } from "../errors"
 
 export interface PaymentsCreatorRef {
@@ -20,7 +21,8 @@ export interface PaymentsCreatorRef {
 }
 import type { PayoutDestination } from "../store"
 
-export type StripeAccountSessionPurpose = "onboarding" | "management" | "payouts" | "balances"
+export type { StripeAccountSessionPurpose } from "./session-components"
+import type { StripeAccountSessionPurpose } from "./session-components"
 
 export async function readCreatorStripe(creatorId: string) {
   const { data, error } = await createAdminClient()
@@ -289,20 +291,42 @@ async function createConnectedAccount(
 }
 
 export async function syncStripeAccount(creatorId: string, actor: "webhook" | "creator" | "system"): Promise<StripeCreatorSnapshot> {
+  return (await syncStripeAccountFull(creatorId, actor)).snapshot
+}
+
+export interface StripeSyncResult {
+  snapshot: StripeCreatorSnapshot
+  account: Stripe.Account | null
+  banks: Stripe.BankAccount[]
+  status: StorelibStatusView
+}
+
+/**
+ * Re-reads the account from Stripe (so webhook order never matters), caches
+ * the flags and the Storelib status on the creator, and hands back what it read.
+ */
+export async function syncStripeAccountFull(creatorId: string, _actor: "webhook" | "creator" | "system"): Promise<StripeSyncResult> {
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) {
-    return mergeStripeAccount(
-      { accountId: null, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, disabledReason: null, currentlyDue: [], pastDue: [], pendingVerification: [], hasExternalAccount: false, accountKind: null },
-      {},
-      false,
-    )
+    return {
+      snapshot: mergeStripeAccount(
+        { accountId: null, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, disabledReason: null, currentlyDue: [], pastDue: [], pendingVerification: [], hasExternalAccount: false, accountKind: null },
+        {},
+        false,
+      ),
+      account: null,
+      banks: [],
+      status: getStorelibPaymentsStatus(statusFactsOf(null, [])),
+    }
   }
 
   const accountId = row.stripe_account_id
-  const [account, external] = await Promise.all([
+  const [account, external, lastPayout] = await Promise.all([
     stripe.accounts.retrieve(accountId),
-    stripe.accounts.listExternalAccounts(accountId, { object: "bank_account", limit: 1 }).catch(() => ({ data: [] })),
+    stripe.accounts.listExternalAccounts(accountId, { object: "bank_account", limit: 10 }).catch(() => ({ data: [] as Stripe.ExternalAccount[] })),
+    stripe.payouts.list({ limit: 1 }, { stripeAccount: accountId }).catch(() => ({ data: [] as Stripe.Payout[] })),
   ])
+  const banks = external.data.filter((e): e is Stripe.BankAccount => e.object === "bank_account")
 
   await enforceManualPayouts(accountId, account)
 
@@ -310,27 +334,39 @@ export async function syncStripeAccount(creatorId: string, actor: "webhook" | "c
   const payoutsEnabled = !!account.payouts_enabled
   const detailsSubmitted = !!account.details_submitted
   const connected = chargesEnabled && payoutsEnabled && detailsSubmitted
-  const status = connected ? "connected" : "pending"
   const requirements = (account.requirements ?? {}) as Stripe.Account.Requirements
   const due = [...new Set([...(requirements.past_due ?? []), ...(requirements.currently_due ?? [])])].sort()
+  const status = getStorelibPaymentsStatus(
+    statusFactsOf(account, banks, {
+      everActive: connected || !!row.stripe_connected_at,
+      lastPayoutFailed: lastPayout.data[0]?.status === "failed",
+    }),
+  )
+  const now = new Date().toISOString()
 
   const admin = createAdminClient()
   await admin
     .from("creators")
     .update({
-      stripe_onboarding_status: status,
+      stripe_onboarding_status: connected ? "connected" : "pending",
       charges_enabled: chargesEnabled,
       payouts_enabled: payoutsEnabled,
       details_submitted: detailsSubmitted,
-      stripe_connected_at: connected ? row.stripe_connected_at ?? new Date().toISOString() : null,
+      /* First time payments went live. Kept afterwards so a later hold reads as "restore", not "set up". */
+      stripe_connected_at: connected ? row.stripe_connected_at ?? now : row.stripe_connected_at,
       stripe_requirements: due,
       stripe_requirements_due_at: requirements.current_deadline ? new Date(requirements.current_deadline * 1000).toISOString() : null,
-      stripe_requirements_updated_at: new Date().toISOString(),
+      stripe_requirements_updated_at: now,
     })
     .eq("id", creatorId)
+  /* Separate write: the cache columns come from RUN_PAYMENTS_STATUS.sql and may not exist yet. */
+  const cached = await admin.from("creators").update({ payments_status: status.status, last_stripe_sync_at: now }).eq("id", creatorId)
+  if (cached.error && !/payments_status|last_stripe_sync_at|column/i.test(cached.error.message)) {
+    console.error("[stripe connect] status cache", cached.error.message.slice(0, 160))
+  }
 
-  const hasBank = external.data.length > 0
-  return mergeStripeAccount(
+  const hasBank = banks.length > 0
+  const snapshot = mergeStripeAccount(
     {
       accountId,
       chargesEnabled: false,
@@ -347,7 +383,7 @@ export async function syncStripeAccount(creatorId: string, actor: "webhook" | "c
       charges_enabled: account.charges_enabled,
       payouts_enabled: account.payouts_enabled,
       details_submitted: account.details_submitted,
-      disabled_reason: (account as { disabled_reason?: string | null }).disabled_reason ?? null,
+      disabled_reason: account.requirements?.disabled_reason ?? null,
       business_type: account.business_type,
       requirements: account.requirements
         ? {
@@ -359,6 +395,7 @@ export async function syncStripeAccount(creatorId: string, actor: "webhook" | "c
     },
     hasBank,
   )
+  return { snapshot, account, banks, status }
 }
 
 export function maskExternalAccount(ext: Stripe.ExternalAccount): PayoutDestination | null {
@@ -429,30 +466,9 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
 
   const account = await stripe.accounts.retrieve(row.stripe_account_id)
-  /* Storelib's own bank form adds the payout account, so the embedded forms
-     never open Stripe's sign-in window. Express accounts cannot turn it off. */
-  const features = runsInStorelib(account)
-    ? { external_account_collection: false, disable_stripe_user_authentication: true }
-    : { external_account_collection: true }
-
-  const components: Stripe.AccountSessionCreateParams.Components = {}
-  if (purpose === "onboarding") {
-    components.account_onboarding = { enabled: true, features }
-  } else if (purpose === "management") {
-    components.account_management = { enabled: true, features }
-    components.account_onboarding = { enabled: true, features }
-  } else if (purpose === "payouts") {
-    components.payouts = { enabled: true, features: { ...features, instant_payouts: false, standard_payouts: false, edit_payout_schedule: false } }
-    components.balances = { enabled: true, features: { ...features, instant_payouts: false, standard_payouts: false, edit_payout_schedule: false } }
-  } else {
-    components.balances = { enabled: true, features: { ...features, instant_payouts: false, standard_payouts: false, edit_payout_schedule: false } }
-  }
-
-  const session = await stripe.accountSessions.create({
-    account: row.stripe_account_id,
-    components,
-  })
-  if (!session.client_secret) throw new PaymentsProblem("Could not open verification just now. Try again.", 502)
+  const components = accountSessionComponents(purpose, runsInStorelib(account))
+  const session = await stripe.accountSessions.create({ account: row.stripe_account_id, components })
+  if (!session.client_secret) throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
   return { clientSecret: session.client_secret, publishableKey }
 }
 
@@ -544,93 +560,6 @@ export function payoutFactsOf(account: Stripe.Account): PayoutFacts {
  * number goes from the browser to Stripe; Storelib only ever holds the token.
  * The new account becomes the default and older bank accounts are removed.
  */
-export async function attachStripeBank(creator: PaymentsCreatorRef, token: string) {
-  if (!/^btok_[A-Za-z0-9]{6,}$/.test(token)) throw new PaymentsProblem("The bank details did not come through. Try again.")
-  const row = await readCreatorStripe(creator.id)
-  if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
-  const accountId = row.stripe_account_id
-
-  let added: Stripe.ExternalAccount
-  try {
-    added = await stripe.accounts.createExternalAccount(accountId, { external_account: token, default_for_currency: true })
-  } catch (error) {
-    console.error("[stripe connect] bank", stripeErrorMessage(error).replace(/[A-Z]{2}\d{2}[A-Z0-9]{10,}/gi, "[iban]").slice(0, 180))
-    throw new PaymentsProblem(bankProblem(error))
-  }
-
-  try {
-    const existing = await stripe.accounts.listExternalAccounts(accountId, { object: "bank_account", limit: 20 })
-    for (const old of existing.data) {
-      if (old.id === added.id) continue
-      await stripe.accounts.deleteExternalAccount(accountId, old.id).catch(() => undefined)
-    }
-  } catch (error) {
-    console.error("[stripe connect] old bank cleanup", stripeErrorMessage(error).slice(0, 160))
-  }
-
-  await syncStripeAccount(creator.id, "creator")
-}
-
-export async function submitStripePayoutProfile(creator: PaymentsCreatorRef, input: PayoutProfileInput) {
-  const parsed = parsePayoutProfile(input)
-  if (!parsed.ok) throw new PaymentsProblem(parsed.error)
-  const profile = parsed.value
-  const accountId = await ensureStripeAccount(creator, { kind: profile.kind, country: profile.country })
-
-  const address = {
-    line1: profile.address,
-    city: profile.city,
-    postal_code: profile.postalCode,
-    country: profile.country,
-  }
-  const person = {
-    first_name: profile.firstName,
-    last_name: profile.lastName,
-    email: ownerAddress((await profileForCreator(creator.userId))?.email || creator.email) || undefined,
-    phone: profile.phone,
-    dob: profile.dob,
-    address,
-  }
-  try {
-    if (profile.kind === "business") {
-      await stripe.accounts.update(accountId, { business_type: "company", company: { name: profile.businessName ?? undefined, phone: profile.phone, address } })
-      await upsertRepresentative(accountId, person, {})
-    } else {
-      await stripe.accounts.update(accountId, { business_type: "individual", individual: person })
-    }
-  } catch (error) {
-    console.error("[stripe connect] prefill", stripeErrorMessage(error).slice(0, 180))
-  }
-
-  if (profile.externalAccount) {
-    try {
-      await stripe.accounts.createExternalAccount(accountId, { external_account: profile.externalAccount })
-    } catch (error) {
-      const msg = stripeErrorMessage(error)
-      if (!/already has|already exists/i.test(msg)) {
-        console.error("[stripe connect] bank", msg.replace(/[A-Z]{2}\d{2}[A-Z0-9]{10,}/gi, "[iban]").slice(0, 180))
-        throw new PaymentsProblem(bankProblem(error))
-      }
-    }
-  }
-
-  const snapshot = await syncStripeAccount(creator.id, "creator")
-  const needsVerification =
-    profile.format === "stripe" ||
-    !snapshot.detailsSubmitted ||
-    snapshot.currentlyDue.some((field) => /document|verification|tos|external_account/i.test(field)) ||
-    snapshot.pastDue.length > 0
-  const { stripeOverview } = await import("./overview")
-  return { overview: await stripeOverview({ id: creator.id, userId: creator.userId, email: creator.email }), needsVerification }
-}
-
-function bankProblem(error: unknown): string {
-  const msg = stripeErrorMessage(error)
-  if (/iban|account number|routing|bsb/i.test(msg)) return "That bank account was not accepted. Check the number and that the name matches the account."
-  if (/currency/i.test(msg)) return "Payouts in that currency are not available for this country yet."
-  return paymentsSetupErrorMessage(error)
-}
-
 export async function disconnectIncompleteStripeAccount(creatorId: string) {
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) return

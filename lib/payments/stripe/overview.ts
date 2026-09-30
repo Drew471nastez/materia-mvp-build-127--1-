@@ -13,11 +13,12 @@ import {
   profileForCreator,
   readCreatorStripe,
   resolveCountryForStart,
-  syncStripeAccount,
+  syncStripeAccountFull,
+  type StripeSyncResult,
 } from "./connect"
 import { countryCode } from "@/lib/checkout/countries"
 import { badgeFromUxState, BADGE_COPY } from "./creator-badge"
-import { beatFromRequirements, creatorStatusLabel } from "./onboarding-steps"
+import { beatOfStatus, getStorelibPaymentsStatus, STATUS_PILL, statusFactsOf } from "./status"
 import {
   paymentUxStateOf,
   snapshotFromCreatorRow,
@@ -26,8 +27,7 @@ import {
   stripeStageCopy,
   stripeStageOf,
 } from "./facts"
-import { stripe } from "@/lib/stripe"
-import { prepareStorelibAccount, verificationView } from "./verification"
+import { prepareStorelibAccount } from "./verification"
 
 function mergeSnapshotFromRow(
   row: Awaited<ReturnType<typeof readCreatorStripe>>,
@@ -44,39 +44,45 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
   const rowBefore = await readCreatorStripe(creator.id)
 
   let snapshot = mergeSnapshotFromRow(rowBefore)
-  const shouldSync = options?.sync !== false
-  if (rowBefore?.stripe_account_id && shouldSync) {
+  let synced: StripeSyncResult | null = null
+  let unreachable = false
+  if (rowBefore?.stripe_account_id && options?.sync !== false) {
     try {
-      snapshot = await syncStripeAccount(creator.id, "system")
+      synced = await syncStripeAccountFull(creator.id, "system")
+      snapshot = synced.snapshot
     } catch (e) {
-      console.error("[payments/stripe] sync failed", e instanceof Error ? e.message : e)
+      unreachable = true
+      console.error("[payments/stripe] sync failed", e instanceof Error ? e.message.slice(0, 160) : "unknown")
     }
   }
 
-  const row = await readCreatorStripe(creator.id)
+  const row = synced ? rowBefore : await readCreatorStripe(creator.id)
   const person = row ? await profileForCreator(row.user_id) : null
-  const live = row?.stripe_account_id ? await stripe.accounts.retrieve(row.stripe_account_id).catch(() => null) : null
+  const live = synced?.account ?? null
   const facts = live ? payoutFactsOf(live) : null
-  const verification = live ? verificationView(live) : null
+  /* Without a fresh read, fall back to the cached flags; never to "active" unless Stripe said so last time. */
+  const paymentsStatus =
+    synced?.status ??
+    getStorelibPaymentsStatus(
+      statusFactsOf(
+        row?.stripe_account_id
+          ? {
+              charges_enabled: snapshot.chargesEnabled,
+              payouts_enabled: snapshot.payoutsEnabled,
+              details_submitted: snapshot.detailsSubmitted,
+              requirements: { currently_due: snapshot.currentlyDue },
+            }
+          : null,
+        snapshot.chargesEnabled && snapshot.payoutsEnabled ? [{ status: "new" }] : [],
+        { everActive: !!row?.stripe_connected_at },
+      ),
+    )
 
   const stage = stripeStageOf(snapshot)
   const uxState = paymentUxStateOf(snapshot)
   const badge = badgeFromUxState(uxState)
-  const beat = beatFromRequirements({
-    hasAccount: !!snapshot.accountId,
-    detailsSubmitted: snapshot.detailsSubmitted,
-    hasBank: snapshot.hasExternalAccount,
-    currentlyDue: snapshot.currentlyDue,
-    pastDue: snapshot.pastDue,
-    pendingVerification: snapshot.pendingVerification,
-    chargesEnabled: snapshot.chargesEnabled,
-    payoutsEnabled: snapshot.payoutsEnabled,
-  })
-  const actionRequired =
-    snapshot.pastDue.length > 0 ||
-    !!snapshot.disabledReason ||
-    (snapshot.chargesEnabled && !snapshot.payoutsEnabled && beat !== "bank" && beat !== "done")
-  const statusLabel = creatorStatusLabel(beat, actionRequired)
+  const beat = beatOfStatus(paymentsStatus.status)
+  const statusLabel = STATUS_PILL[paymentsStatus.status].label
   const copy = { ...stripeStageCopy(stage), title: `Storelib Payments`, line: BADGE_COPY[badge].line, action: BADGE_COPY[badge].cta ?? stripeStageCopy(stage).action }
 
   let balances: HubOverview["balances"] = []
@@ -84,6 +90,8 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
   let payoutDestination = null as HubOverview["payoutDestination"]
   let balancesAt: string | null = null
   let nextPayout: HubOverview["nextPayout"] = null
+  const bank = synced?.banks.find((b) => b.default_for_currency) ?? synced?.banks[0]
+  if (bank) payoutDestination = maskExternalAccount(bank)
 
   if (row?.stripe_account_id && snapshot.chargesEnabled) {
     try {
@@ -109,8 +117,6 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
           createdAt: p.createdAt,
         }
       })
-      const ext = await stripe.accounts.listExternalAccounts(row.stripe_account_id, { object: "bank_account", limit: 1 })
-      if (ext.data[0]) payoutDestination = maskExternalAccount(ext.data[0])
     } catch (e) {
       console.error("[payments/stripe] balances/payouts", e instanceof Error ? e.message : e)
     }
@@ -148,7 +154,8 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
       country: countryCode(person?.country),
     },
     payoutHint: facts,
-    verification,
+    paymentsStatus,
+    stripeUnreachable: unreachable,
     beat,
     statusLabel,
     nextPayout,

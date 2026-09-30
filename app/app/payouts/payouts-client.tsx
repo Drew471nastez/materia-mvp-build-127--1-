@@ -95,6 +95,7 @@ import { RowMenuButton, StatusBadge, card, iconButton } from "@/app/app/orders/o
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
 import { useToast } from "@/hooks/use-toast";
+import type { StorelibStatusView } from "@/lib/payments/stripe/status";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -930,7 +931,7 @@ function BalanceCard({
   const canCashOut = effectiveBalance > 0 && negativeBalance === 0;
 
   const helper = !payoutsEnabled
-    ? "Finish setting up Stripe to cash out."
+    ? "Finish setting up payments to cash out."
     : isNegative
       ? "Your balance is below zero after a refund or dispute. New sales cover it first, with nothing for you to do."
       : effectiveBalance <= 0
@@ -1508,8 +1509,12 @@ function OrderDetailsModal({
       });
       const json = await r.json();
       if (!r.ok || json.error) throw new Error(json.error || "Refund failed");
-      setRefundDone(true);
       setShowRefundConfirm(false);
+      if (json.pending) {
+        showNotification("Refund is processing");
+        return;
+      }
+      setRefundDone(true);
       // Pass the refunded amount so the parent can instantly update the balance UI
       onRefundSuccess?.(order.amount_cents);
       showNotification("Refund issued");
@@ -2449,7 +2454,7 @@ function PayoutMethodCard({ onManage }: { onManage: () => void }) {
     ? null
     : hasVerificationNeeded && friendlyReqs.length > 0
       ? {
-          title: hasPastDueRequirements ? "Stripe needs this to keep paying you" : "Stripe needs this before it pays you",
+          title: hasPastDueRequirements ? "More information is needed to keep payouts on" : "More information is needed before payouts start",
           body: `${friendlyReqs.slice(0, 3).join(", ")}${friendlyReqs.length > 3 ? `, and ${friendlyReqs.length - 3} more` : ""}`,
           action: "Complete verification",
         }
@@ -2757,18 +2762,8 @@ export function PayoutsClient({
     inTransitAmount: number;
   }>({ hasInTransit: false, hasFailed: false, totalPayouts: 0, failedAmount: 0, inTransitAmount: 0 });
 
-  // The account's state from Stripe, for the notice
-  const [accountStatus, setAccountStatus] = useState<{
-    charges_enabled: boolean;
-    payouts_enabled: boolean;
-    details_submitted: boolean;
-    requirements: {
-      currently_due: string[];
-      eventually_due: string[];
-      past_due: string[];
-      disabled_reason: string | null;
-    };
-  } | null>(null);
+  // The account's payments status, for the notice
+  const [paymentsStatus, setPaymentsStatus] = useState<StorelibStatusView | null>(null);
 
   // Dispute & negative balance state
   const [negativeBalance, setNegativeBalance] = useState(
@@ -2862,9 +2857,7 @@ export function PayoutsClient({
         // keep the existing state values from the server-side initial render.
       }
       // Update account status for the notice
-      if (json.accountStatus) {
-        setAccountStatus(json.accountStatus);
-      }
+      if (json.paymentsStatus) setPaymentsStatus(json.paymentsStatus);
       // Update dispute data
       if (json.disputeData) {
         setNegativeBalance(json.disputeData.negativeBalance || 0);
@@ -3148,43 +3141,22 @@ export function PayoutsClient({
 
     /* 2 to 4b: while the account is not ready, the Storelib Payments card above says it, with its button. */
     if (paymentsReady) {
-      // 2. Finish setup: onboarding incomplete, details not submitted
-      if (accountStatus && !accountStatus.details_submitted) {
+      /* 2 to 4: what Stripe needs, in Storelib's words, from the same status as the payments card. */
+      if (paymentsStatus && paymentsStatus.status !== "ACTIVE" && paymentsStatus.status !== "NOT_STARTED") {
+        const s = paymentsStatus;
+        const by = s.deadline ? ` Needed by ${new Date(s.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}.` : "";
         return (
           <Notice
-            tone="attention"
-            title="Finish setting up Stripe to get paid"
-            body="Stripe needs your details, your identity and a bank account before it can pay you."
-            action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
-          />
-        );
-      }
-
-      // 3. Verify identity: Stripe specifically asking for ID or documents
-      const idRequirements = accountStatus?.requirements?.currently_due?.filter(
-        (r: string) => r.includes("verification") || r.includes("id_number") || r.includes("ssn")
-      ) || [];
-      const hasPastDue = (accountStatus?.requirements?.past_due?.length || 0) > 0;
-
-      if (accountStatus && (idRequirements.length > 0 || hasPastDue)) {
-        return (
-          <Notice
-            tone="attention"
-            title={hasPastDue ? "Verify your identity to keep getting paid" : "Stripe needs to verify your identity"}
-            body="Stripe asks for this to keep your payouts turned on."
-            action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
-          />
-        );
-      }
-
-      // 4. Under review: details submitted, payouts or charges not yet on, nothing due
-      if (accountStatus && accountStatus.details_submitted && (!accountStatus.payouts_enabled || !accountStatus.charges_enabled) &&
-          (accountStatus.requirements?.currently_due?.length || 0) === 0) {
-        return (
-          <Notice
-            tone="neutral"
-            title="Stripe is reviewing your details"
-            body="Nothing to do. This usually takes a few minutes."
+            tone={s.action ? "attention" : "neutral"}
+            title={s.title}
+            body={`${s.line}${by}`}
+            action={
+              s.action === "support"
+                ? { label: s.actionLabel ?? "Contact support", onClick: () => { window.location.href = "mailto:support@storelib.com"; } }
+                : s.action && s.actionLabel
+                  ? { label: s.actionLabel, onClick: () => setManageRequest((n) => n + 1) }
+                  : undefined
+            }
           />
         );
       }
@@ -3194,7 +3166,7 @@ export function PayoutsClient({
         return (
           <Notice
             tone="attention"
-            title="Finish setting up Stripe to cash out"
+            title="Finish setting up payments to cash out"
             action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
           />
         );

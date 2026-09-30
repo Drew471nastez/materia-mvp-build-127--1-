@@ -1,18 +1,7 @@
 import { readFileSync } from "node:fs"
 import { paymentsSetupErrorMessage } from "@/lib/payments/stripe/setup-errors"
-import {
-  bankFormat,
-  bankIssues,
-  bankTokenFields,
-  ibanValid,
-  type BankInput,
-  beatFromRequirements,
-  creatorStatusLabel,
-  parsePersonal,
-  personalFields,
-  personalIssues,
-  type OnboardingBeat,
-} from "@/lib/payments/stripe/onboarding-steps"
+import { parsePersonal, personalFields, personalIssues } from "@/lib/payments/stripe/onboarding-steps"
+import { accountSessionComponents } from "@/lib/payments/stripe/session-components"
 
 let passed = 0
 let failed = 0
@@ -26,36 +15,8 @@ function check(name: string, ok: boolean) {
   }
 }
 
-const open = {
-  hasAccount: true,
-  detailsSubmitted: false,
-  hasBank: false,
-  currentlyDue: [] as string[],
-  pastDue: [] as string[],
-  pendingVerification: [] as string[],
-  chargesEnabled: false,
-  payoutsEnabled: false,
-}
-
 check("an individual is not asked for a company", personalFields("individual").join(",") === "firstName,lastName")
 check("a business is asked for the business name", personalFields("business").join(",") === "businessName,firstName,lastName")
-
-const formats: Record<string, string> = { RO: "iban", DE: "iban", FR: "iban", US: "us", GB: "gb", AU: "au", CA: "ca", NZ: "nz", JP: "other", AQ: "other" }
-for (const [country, format] of Object.entries(formats)) {
-  check(`${country} bank form is ${format}`, bankFormat(country) === format)
-}
-check("a real Romanian IBAN passes the checksum", ibanValid("RO49AAAA1B31007593840000"))
-check("a mistyped IBAN fails the checksum", !ibanValid("RO49AAAA1B31007593840001"))
-const roBank: BankInput = { format: "iban", holder: "Andrei Radu", iban: "RO49 AAAA 1B31 0075 9384 0000", ibanConfirm: "RO49AAAA1B31007593840000", owns: true }
-check("a Romanian IBAN account is ready", Object.keys(bankIssues(roBank, "RO")).length === 0)
-check("an IBAN from another country is refused", bankIssues({ ...roBank, iban: "DE89370400440532013000", ibanConfirm: "DE89370400440532013000" }, "RO").iban === "Use an IBAN from your country.")
-check("IBANs that differ are refused", bankIssues({ ...roBank, ibanConfirm: "RO49AAAA1B31007593840001" }, "RO").ibanConfirm === "The IBANs do not match.")
-check("the account must be confirmed as theirs", bankIssues({ ...roBank, owns: false }, "RO").owns !== undefined)
-const usBank: BankInput = { format: "us", holder: "Ada Lovelace", routing: "110000000", account: "000123456789", accountConfirm: "000123456789", owns: true }
-check("a US account needs routing and account", Object.keys(bankIssues(usBank, "US")).length === 0 && bankIssues({ ...usBank, routing: "12" }, "US").routing !== undefined)
-check("a US token has routing and account", JSON.stringify(bankTokenFields(usBank)) === JSON.stringify({ account_number: "000123456789", routing_number: "110000000" }))
-check("a Canadian token joins transit and institution", bankTokenFields({ format: "ca", holder: "A B", account: "1234567", transit: "11000", institution: "000", owns: true }).routing_number === "11000-000")
-check("an IBAN token carries the IBAN only", JSON.stringify(bankTokenFields(roBank)) === JSON.stringify({ account_number: "RO49AAAA1B31007593840000" }))
 
 const ro = parsePersonal({ kind: "individual", country: "ro", firstName: "Andrei", lastName: "Radu", businessName: "Ignored SRL" })
 check("Romania individual keeps the person only", ro.ok === true && ro.ok && ro.value.country === "RO" && ro.value.businessName === null && ro.value.kind === "individual")
@@ -85,54 +46,22 @@ check(
     "Payments are not available for that country yet. Choose another country, or write to support@storelib.com.",
 )
 
-check("no account starts at personal info", beatFromRequirements({ ...open, hasAccount: false }) === "personal")
+/* The exact Account Session components: one component per session, and only what that screen uses. */
+const inStorelib = { external_account_collection: true, disable_stripe_user_authentication: true }
 check(
-  "an existing account resumes at verification",
-  beatFromRequirements({ ...open, currentlyDue: ["individual.verification.document"] }) === "verification",
+  "onboarding enables account_onboarding only, bank in the form, no Stripe sign-in",
+  JSON.stringify(accountSessionComponents("onboarding", true)) === JSON.stringify({ account_onboarding: { enabled: true, features: inStorelib } }),
 )
 check(
-  "a bank requirement is the bank step",
-  beatFromRequirements({ ...open, detailsSubmitted: true, currentlyDue: ["external_account"] }) === "bank",
+  "account details enable account_management only",
+  JSON.stringify(accountSessionComponents("management", true)) === JSON.stringify({ account_management: { enabled: true, features: inStorelib } }),
 )
 check(
-  "US routing is still the bank step",
-  beatFromRequirements({ ...open, detailsSubmitted: true, currentlyDue: ["external_account"] }) === "bank",
+  "payouts never switch on money moves Storelib does not offer",
+  JSON.stringify(accountSessionComponents("payouts", true)) ===
+    JSON.stringify({ payouts: { enabled: true, features: { ...inStorelib, instant_payouts: false, standard_payouts: false, edit_payout_schedule: false } } }),
 )
-check(
-  "documents in review are under review",
-  beatFromRequirements({ ...open, detailsSubmitted: true, hasBank: true, pendingVerification: ["individual.verification.document"] }) === "review",
-)
-check(
-  "details in review with no bank yet goes to the bank",
-  beatFromRequirements({ ...open, detailsSubmitted: true, pendingVerification: ["individual.verification.document"] }) === "bank",
-)
-check(
-  "only the bank left, before Stripe marks the details sent, is the bank step",
-  beatFromRequirements({ ...open, currentlyDue: ["external_account"] }) === "bank",
-)
-check(
-  "extra verification after submit is not finished",
-  beatFromRequirements({ ...open, detailsSubmitted: true, hasBank: true, currentlyDue: ["individual.id_number"] }) === "verification",
-)
-const done: OnboardingBeat = beatFromRequirements({
-  ...open,
-  detailsSubmitted: true,
-  hasBank: true,
-  chargesEnabled: true,
-  payoutsEnabled: true,
-})
-check("charges and payouts on is done", done === "done")
-check(
-  "a past-due item is not treated as done",
-  beatFromRequirements({ ...open, detailsSubmitted: true, hasBank: true, chargesEnabled: true, payoutsEnabled: true, pastDue: ["individual.address.line1"] }) !== "done",
-)
-
-check("verify label", creatorStatusLabel("verification", false) === "Verify your details")
-check("payout label", creatorStatusLabel("bank", false) === "Add payout account")
-check("review label", creatorStatusLabel("review", false) === "Under review")
-check("action label", creatorStatusLabel("verification", true) === "Action required")
-check("active label", creatorStatusLabel("done", false) === "Payments active")
-check("personal label stays human", creatorStatusLabel("personal", false) === "Action required")
+check("an older Stripe-run account gets no platform-only features", JSON.stringify(accountSessionComponents("onboarding", false)) === JSON.stringify({ account_onboarding: { enabled: true, features: {} } }))
 
 const steps = readFileSync("lib/payments/stripe/onboarding-steps.ts", "utf8")
 check("payout currency is not hardcoded", !/\b(EUR|RON|USD|GBP)\b/.test(steps))
@@ -141,17 +70,31 @@ const ui = readFileSync("components/app/settings/storelib-payments-settings.tsx"
 const flow = readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8")
 const embedded = readFileSync("components/app/settings/stripe-connect-embedded.tsx", "utf8")
 const connect = readFileSync("lib/payments/stripe/connect.ts", "utf8")
+const route = readFileSync("app/api/payments/[action]/route.ts", "utf8")
+const overview = readFileSync("lib/payments/stripe/overview.ts", "utf8")
 check("the card holds no bank or identity fields", !/iban|routing|accountNumber|passport/i.test(ui))
-check("bank numbers become a Stripe token in the browser; only the token is sent", /createToken\("bank_account"/.test(flow) && /post<Overview>\("bank", \{ token: token\.id \}\)/.test(flow))
-check("the server takes a bank token and never a number", /\^btok_/.test(connect) && /external_account: token/.test(connect))
-check("setup calls begin", flow.includes('"begin"'))
-check("verification stays in the page", flow.includes("DetailsForm") && !/purpose="stripe_onboarding"|StripeConnectEmbedded/.test(flow) && !/window\.open|dashboard\.stripe/i.test(flow + ui))
+check("Storelib has no bank or identity form of its own", !/iban|routing_number|createToken|date of birth|id_number|DetailsForm|DocumentForm/i.test(flow))
+check("the server takes no bank numbers, ID fields or ID photos", !/case "(bank|details|document|profile)"/.test(route) && !/formData\(\)/.test(route))
+check("setup calls begin, then Stripe's embedded onboarding", flow.includes('"begin"') && /purpose="stripe_onboarding"/.test(flow))
+check("Verify asks only what is due now", /fields: "currently_due", futureRequirements: "omit"/.test(embedded) && !/eventually_due/.test(embedded + flow))
+check("Verify is headed as the brief says", flow.includes("Verify your identity") && flow.includes("We need a few details to activate payments."))
+check("the Account step's names are not asked again by Storelib", (flow.match(/autoComplete="given-name"/g) ?? []).length === 1)
+check("a missing bank opens the bank requirement only", /requirements: \{ only: \["external_account"\] \}/.test(flow))
+check("a bank on file shows its last four and a change button", /•••• \{bank\.last4\}/.test(flow) && flow.includes("Connected") && flow.includes("Change bank account") && /purpose="stripe_management"/.test(flow))
+check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
 check("steps are the three short ones", /\["Account", "Verify", "Bank"\]/.test(flow))
+check("the step comes from Stripe's status, not the form", /setupStepOf\(/.test(flow) && /post<Overview>\("refresh"/.test(flow))
+check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
+check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
+check("desktop panel is about 760 wide; phone stays full screen", /max-w-\[min\(760px/.test(flow) && /data-payments-setup-panel="subpage"/.test(flow) && /h-\[100dvh\]/.test(flow))
+check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-setup-scroll=""/.test(flow))
+check("the phone app hands off to the browser", /isNativeApp\(\)/.test(flow) && /openExternal\(/.test(flow))
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))
-check("those accounts' embedded forms never open Stripe's sign-in window", /disable_stripe_user_authentication: true/.test(connect) && /external_account_collection: false/.test(connect))
 check("an unfinished Express account is replaced, not duplicated", /storelibOnly: true/.test(connect) && /stripe\.accounts\.del\(replacing\)/.test(connect))
+check("sessions are made per view for the signed-in creator's own account", /stripe\.accountSessions\.create\(\{ account: row\.stripe_account_id, components \}\)/.test(connect) && !/stripe_account_id|accountId|account:/.test(embedded))
 check("the embed uses the server key", embedded.includes("publishableKey") && !embedded.includes("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"))
-check("session secrets are not stored", !/localStorage|sessionStorage/.test(embedded))
+check("session secrets are not stored or logged", !/localStorage|sessionStorage|console\./.test(embedded) && !/console\.[a-z]+\([^)]*client_secret/.test(connect))
+check("the overview reads status from Stripe", /syncStripeAccountFull\(/.test(overview) && /paymentsStatus/.test(overview))
 
 const payouts = readFileSync("app/app/payouts/payouts-client.tsx", "utf8")
 const payoutsPage = readFileSync("app/app/payouts/page.tsx", "utf8")

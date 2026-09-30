@@ -3,13 +3,21 @@
 import { Check, RefreshCw } from "lucide-react"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { cn } from "@/lib/utils"
+import { STATUS_PILL } from "@/lib/payments/stripe/status"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { AmexMark, ApplePayMark, GooglePayMark, MastercardMark, StorelibPaymentsBrand, VisaMark } from "./payment-marks"
 
+const TONE = {
+  green: "bg-[#dcfce7] text-[#166534]",
+  blue: "bg-[#e0e7ff] text-[#3730a3]",
+  amber: "bg-[#fef3c7] text-[#92400e]",
+  red: "bg-[#fee4e2] text-[#b42318]",
+  gray: "bg-[#f1f2f4] text-[#4b5563]",
+}
+
 function pillTone(status: string): string {
-  if (status === "Payments active") return "bg-[#dcfce7] text-[#166534]"
-  if (status === "Under review") return "bg-[#e0e7ff] text-[#3730a3]"
-  return "bg-[#fef3c7] text-[#92400e]"
+  const pill = Object.values(STATUS_PILL).find((p) => p.label === status)
+  return TONE[pill?.tone ?? "amber"]
 }
 
 function StatusPill({ status, className }: { status: string; className?: string }) {
