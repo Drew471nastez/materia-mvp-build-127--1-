@@ -358,7 +358,7 @@ export const HEADER_LOGO = { desktop: 39.71, marketingPhone: 37.91, phone: 34.3 
 
 /** A focus ring that reads on the black bar. */
 const DARK_FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+  "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131316]"
 
 /** Where a header link goes, and the click that gets it there (canonical host, native shell). */
 type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void }
@@ -1568,7 +1568,7 @@ export function PlatformHeaderClient({
           {...headerLink("/account")}
           aria-label="Your account"
           data-header-avatar=""
-          className="flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 ring-offset-black transition-shadow duration-150 ease-out hover:ring-2 hover:ring-violet-400 focus-visible:ring-2 focus-visible:ring-violet-400"
+          className="flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 ring-offset-[#131316] transition-shadow duration-150 ease-out hover:ring-2 hover:ring-violet-400 focus-visible:ring-2 focus-visible:ring-violet-400"
         >
           <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200" />
         </Link>
