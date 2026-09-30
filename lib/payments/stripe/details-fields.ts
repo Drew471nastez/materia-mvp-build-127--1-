@@ -29,7 +29,7 @@ export const AGREEMENT_URL = {
 } as const
 
 const NATIVE =
-  /^(individual\.(first_name|last_name|email|dob\.|address\.|phone|id_number|ssn_last_4|political_exposure|verification\.(document|additional_document))|tos_acceptance\.|business_profile\.|external_account|business_type)/
+  /^(individual\.(first_name|last_name|email|dob\.|address\.|phone|id_number|ssn_last_4|political_exposure|verification\.(document|additional_document|person(\.|$)))|tos_acceptance\.|business_profile\.|external_account|business_type)/
 
 /** Set by the server on every submit, never asked. */
 const SERVER_SET = /^(individual\.(first_name|last_name|email)|business_profile\.|business_type)/

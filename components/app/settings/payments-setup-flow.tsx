@@ -19,7 +19,7 @@ import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BirthDateField } from "@/components/app/settings/birth-date-field"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
-import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
+import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { countryLabel, countryOf } from "@/lib/account/country"
 import {
   bankFormat,
@@ -438,7 +438,7 @@ export function PaymentsSetupFlow({
 
   React.useEffect(() => {
     if (!open || step !== 1 || mode !== "setup") return
-    if (data.verification && data.payoutHint?.inStorelib) return
+    if (data.verification) return
     void post<Overview>("prepare", {}).then(onData).catch(() => undefined)
   }, [open, step, mode, data.verification, data.payoutHint?.inStorelib, onData])
 
@@ -638,12 +638,10 @@ function stageOf(view: StripeVerificationView | null | undefined): Exclude<Verif
 
 function verifyBoot(data: Overview): { stage: VerifyStage; view: StripeVerificationView | null } {
   const view = data.verification ?? null
-  if (view && data.payoutHint?.inStorelib) {
-    const s = stageOf(view)
-    if (s === "next") return { stage: "loading", view }
-    return { stage: s, view }
-  }
-  return { stage: "loading", view }
+  if (!view) return { stage: "loading", view: null }
+  const s = stageOf(view)
+  if (s === "next") return { stage: "loading", view }
+  return { stage: s, view }
 }
 
 function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: (next: Overview) => void; onBack: () => void; onDone: (next: Overview) => void }) {
@@ -651,7 +649,7 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
   const [stage, setStage] = React.useState<VerifyStage>(boot.stage)
   const [view, setView] = React.useState<StripeVerificationView | null>(boot.view)
   const [error, setError] = React.useState<string | null>(null)
-  const [embedKey, setEmbedKey] = React.useState(0)
+  const [retrying, setRetrying] = React.useState(false)
 
   const take = React.useCallback(
     (next: Overview) => {
@@ -666,10 +664,14 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
 
   const prepare = React.useCallback(async () => {
     setError(null)
-    if (data.verification && data.payoutHint?.inStorelib) {
+    if (data.verification) {
       const s = stageOf(data.verification)
-      if (s === "next") onDone(data)
-      else setStage(s)
+      if (s === "next") {
+        onDone(data)
+        return
+      }
+      setView(data.verification)
+      setStage(s)
       return
     }
     setStage("loading")
@@ -681,22 +683,40 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
     }
   }, [data, onDone, take])
 
+  const refreshVerify = React.useCallback(async () => {
+    setRetrying(true)
+    setError(null)
+    try {
+      take(await post<Overview>("refresh", {}))
+    } catch (e) {
+      setError(safe(e instanceof Error ? e.message : "Could not check your details."))
+    } finally {
+      setRetrying(false)
+    }
+  }, [take])
+
   React.useEffect(() => {
     if (boot.stage !== "loading") return
     void prepare()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  React.useEffect(() => {
+    if (stage !== "other") return
+    void refreshVerify()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage])
+
   if (stage === "loading") {
     return (
-      <div className="flex-1 space-y-4 px-5 pb-6 sm:px-6" aria-busy="true" aria-label="Loading">
+      <Shimmer className="flex-1 space-y-4 px-5 pb-6 sm:px-6" label="Loading verification">
         {[0, 1, 2].map((i) => (
           <div key={i} className="space-y-2">
-            <span className="block h-3 w-28 animate-pulse rounded-full bg-[#f1f2f4]" />
-            <span className="block h-11 animate-pulse rounded-[10px] bg-[#f7f7f8] sm:h-10" />
+            <ShimmerBlock className="h-3 w-28 rounded-full" />
+            <ShimmerBlock className="h-11 rounded-[10px] sm:h-10" />
           </div>
         ))}
-      </div>
+      </Shimmer>
     )
   }
 
@@ -722,28 +742,39 @@ function VerifyStep({ data, onData, onBack, onDone }: { data: Overview; onData: 
     return <DocumentForm view={view} onBack={onBack} onDone={take} />
   }
 
+  if (view?.pending) {
+    return (
+      <div className="flex min-h-full flex-1 flex-col">
+        <div className="flex-1 px-5 py-6 sm:px-6">
+          <p className="text-center text-[15px] font-semibold text-[#1a1a2e]">Your details are being reviewed</p>
+          <p className="mt-2 text-center text-[13px] text-[#6b7280]">This usually takes a few minutes. We will email you if anything else is needed.</p>
+        </div>
+        <Footer>
+          <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+          <button type="button" className={PRIMARY} disabled={retrying} onClick={() => void refreshVerify()}>
+            {retrying ? <Spinner /> : null}
+            {retrying ? "Checking" : "Check status"}
+          </button>
+        </Footer>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex-1 space-y-3 px-5 pb-6 sm:px-6">
-      <p className="text-[13px] text-[#6b7280]">A few more details are needed to finish verifying you.</p>
-      <ErrorLine message={error} />
-      <StripeConnectEmbedded
-        key={embedKey}
-        purpose="stripe_onboarding"
-        onError={setError}
-        onExit={async () => {
-          try {
-            const next = await post<Overview>("refresh", {})
-            if (stageOf(next.verification) === "other") {
-              onData(next)
-              setEmbedKey((k) => k + 1)
-              return
-            }
-            take(next)
-          } catch (e) {
-            setError(safe(e instanceof Error ? e.message : "Could not check your details."))
-          }
-        }}
-      />
+    <div className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-3 px-5 py-4 sm:px-6">
+        <p className="text-[13px] leading-5 text-[#6b7280]">
+          We could not open the next step just now. Everything stays in Storelib — Stripe&apos;s own setup screen is not used here.
+        </p>
+        <ErrorLine message={error} />
+      </div>
+      <Footer>
+        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+        <button type="button" className={PRIMARY} disabled={retrying} onClick={() => void refreshVerify()}>
+          {retrying ? <Spinner /> : null}
+          {retrying ? "Checking" : "Try again"}
+        </button>
+      </Footer>
     </div>
   )
 }

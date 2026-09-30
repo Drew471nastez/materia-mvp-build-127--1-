@@ -145,7 +145,7 @@ check("the card holds no bank or identity fields", !/iban|routing|accountNumber|
 check("bank numbers become a Stripe token in the browser; only the token is sent", /createToken\("bank_account"/.test(flow) && /post<Overview>\("bank", \{ token: token\.id \}\)/.test(flow))
 check("the server takes a bank token and never a number", /\^btok_/.test(connect) && /external_account: token/.test(connect))
 check("setup calls begin", flow.includes('"begin"'))
-check("verification stays in the page", flow.includes("StripeConnectEmbedded") && !/window\.open|dashboard\.stripe/i.test(flow + ui))
+check("verification stays in the page", flow.includes("DetailsForm") && !/purpose="stripe_onboarding"|StripeConnectEmbedded/.test(flow) && !/window\.open|dashboard\.stripe/i.test(flow + ui))
 check("steps are the three short ones", /\["Account", "Verify", "Bank"\]/.test(flow))
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))
 check("those accounts' embedded forms never open Stripe's sign-in window", /disable_stripe_user_authentication: true/.test(connect) && /external_account_collection: false/.test(connect))

@@ -6,7 +6,6 @@ import { AlertCircle, AlertTriangle, ChevronRight, Clock, CreditCard, Landmark, 
 import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
-import { WaitingArea } from "@/components/ui/activity-spinner"
 import { StorelibPaymentsCard, StorelibPaymentsCardLoading } from "@/components/app/settings/storelib-payments-card"
 import { PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
@@ -111,9 +110,8 @@ export function StorelibPaymentsSettings({
 
   if (!data && !error) {
     return (
-      <div className={cn(PAYMENTS_SURFACE, "space-y-1")} data-storelib-payments-loading="">
+      <div className={PAYMENTS_SURFACE} data-storelib-payments-loading="">
         <StorelibPaymentsCardLoading />
-        <WaitingArea className="flex min-h-[min(200px,32dvh)] w-full items-center justify-center" label="Loading payments" />
       </div>
     )
   }
@@ -163,7 +161,7 @@ export function StorelibPaymentsSettings({
   const primaryBal = data.balances[0]
 
   return (
-    <div data-payments-hub="" data-badge={data.badge} className={cn(PAYMENTS_SURFACE, "space-y-3")}>
+    <div data-payments-hub="" data-badge={data.badge} className={cn(PAYMENTS_SURFACE, "space-y-3 animate-in fade-in-0 duration-300 ease-sheet")}>
       {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-[13px] text-[#9f1239]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

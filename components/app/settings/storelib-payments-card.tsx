@@ -1,6 +1,7 @@
 "use client"
 
 import { Check, RefreshCw } from "lucide-react"
+import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { cn } from "@/lib/utils"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { AmexMark, ApplePayMark, GooglePayMark, MastercardMark, StorelibPaymentsBrand, VisaMark } from "./payment-marks"
@@ -118,7 +119,11 @@ export function StorelibPaymentsCardLoading() {
           </span>
         </div>
       </div>
-      <div className="min-h-[88px] border-t border-[#f1f2f4] sm:min-h-[96px]" aria-hidden />
+      <Shimmer className="border-t border-[#f1f2f4] px-6 py-10 sm:px-10 sm:py-12" label="Loading">
+        <ShimmerBlock className="mx-auto h-5 w-[min(100%,280px)] rounded-full" />
+        <ShimmerBlock className="mx-auto mt-3 h-4 w-[min(100%,220px)] rounded-full" />
+        <ShimmerBlock className="mx-auto mt-6 h-11 w-full max-w-[200px] rounded-xl" />
+      </Shimmer>
     </section>
   )
 }

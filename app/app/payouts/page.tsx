@@ -9,7 +9,8 @@ import { TryProStrip } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
-import { PaneBar } from "@/app/app/orders/order-parts"
+import { GUTTER, ORDER_WIDTH, PaneBar } from "@/app/app/orders/order-parts"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,15 +59,15 @@ export default async function PayoutsPage() {
           </div>
         </>
       ) : (
-        <div className="mx-auto max-w-[1200px] app-gutter pb-10 pt-5 sm:pt-6">
-          <header className="mb-4 sm:mb-5">
+        <>
+          <PaneBar width={ORDER_WIDTH} className="flex min-h-[66px] flex-col justify-end gap-0.5 pb-2 pt-[14px]">
             <h1 className="text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
-            <p className="mt-0.5 text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">Set up payments</p>
-          </header>
-          <div data-payouts-setup="">
+            <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">Set up payments</p>
+          </PaneBar>
+          <div className={cn("mx-auto pb-10", ORDER_WIDTH, GUTTER)} data-payouts-setup="">
             <StorelibPaymentsInline compact />
           </div>
-        </div>
+        </>
       )}
     </div>
   );
