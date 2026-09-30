@@ -15,10 +15,8 @@ import "server-only"
  * starting onboarding, the hosted flow, the embedded components' one-time
  * authorisation, the payout account, balances and payouts.
  *
- * STRIPE IS UNTOUCHED. A creator is on Airwallex only when the rollout names
- * them (./airwallex/config airwallexRollout) or they already have an
- * Airwallex account row; everyone else is answered "stripe" and every
- * existing Stripe screen and route goes on exactly as before.
+ * Stripe creators use ./stripe (Connect embedded + creators row). Airwallex
+ * creators use ./airwallex and payment_accounts (part 76).
  *
  * Every function takes the creator the CALLER already authenticated. None
  * of them reads a creator id from a request body.
@@ -76,11 +74,13 @@ import {
 import { toMinor } from "./money"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export interface CreatorRef {
-  id: string
-  userId: string
-  email: string | null
-}
+export type { CreatorRef, HubOverview } from "./hub-types"
+import type { CreatorRef, HubOverview } from "./hub-types"
+import { PaymentsProblem } from "./errors"
+import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
+import { syncStripeAccount } from "./stripe/connect"
+import { stripeCheckoutReady, snapshotFromCreatorRow } from "./stripe/facts"
+import { readCreatorStripe } from "./stripe/connect"
 
 /* ── Which provider ───────────────────────────────────────────────────── */
 
@@ -135,6 +135,15 @@ export function factsOf(row: AccountRow | null): ProviderAccountFacts {
  * Asks Airwallex for the account and writes down what it said. Answers the
  * row as it is now. Used by the webhook (always) and the hub (when stale).
  */
+export async function refreshProviderAccount(creatorId: string, actor: "webhook" | "creator" | "system" = "creator") {
+  const provider = await providerFor(creatorId)
+  if (provider === "stripe") {
+    await syncStripeAccount(creatorId, actor)
+    return
+  }
+  await syncAccount(creatorId, actor)
+}
+
 export async function syncAccount(creatorId: string, actor: "webhook" | "creator" | "system", c: AirwallexClient = airwallex()): Promise<AccountRow | null> {
   const { row } = await readAccount(creatorId)
   if (!row?.provider_account_id) return row
@@ -149,8 +158,27 @@ export async function syncAccount(creatorId: string, actor: "webhook" | "creator
   return (await readAccount(creatorId)).row
 }
 
-/** The facts checkout's gate reads. Never calls Airwallex: the row is kept current by webhooks and the hub. */
+/** The facts checkout's gate reads. Never calls the provider live on checkout. */
 export async function paymentFactsFor(creatorId: string): Promise<ProviderAccountFacts> {
+  const provider = await providerFor(creatorId)
+  if (provider === "stripe") {
+    const row = await readCreatorStripe(creatorId)
+    const snap = snapshotFromCreatorRow(row ?? {})
+    const lifecycle =
+      stripeCheckoutReady(snap)
+        ? "ACTIVE"
+        : snap.detailsSubmitted
+          ? "SUBMITTED"
+          : snap.accountId
+            ? "CREATED"
+            : "unknown"
+    return {
+      hasAccount: !!snap.accountId,
+      lifecycle,
+      formStatus: null,
+      hasPayoutDestination: snap.hasExternalAccount || snap.payoutsEnabled,
+    }
+  }
   try {
     return factsOf((await readAccount(creatorId)).row)
   } catch {
@@ -158,38 +186,27 @@ export async function paymentFactsFor(creatorId: string): Promise<ProviderAccoun
   }
 }
 
-/* ── The hub ──────────────────────────────────────────────────────────── */
-
-export interface HubOverview {
-  provider: "airwallex"
-  /** "sandbox" or "production": the hub marks a test account as one. */
-  environment: "sandbox" | "production"
-  configured: boolean
-  /** Part 76 has not been run: nothing can be stored yet. */
-  tableMissing: boolean
-  stage: PaymentsStage
-  copy: StageCopy
-  kind: "individual" | "business" | null
-  requirements: RequirementNote[]
-  checkoutOpen: boolean
-  balances: Array<{ currency: string; availableMinor: number; pendingMinor: number }>
-  balancesAt: string | null
-  payoutDestination: PayoutDestination | null
-  payouts: Array<{ id: string; amountMinor: number; currency: string; status: PayoutStatus; statusText: string; createdAt: string | null }>
-  /** What this platform can offer, from how Airwallex has set it up. */
-  can: {
-    embeddedOnboarding: boolean
-    hostedOnboarding: boolean
-    embeddedPayoutForm: boolean
-    requestPayout: boolean
+/** Whether checkout may charge for this creator (server gate). */
+export async function checkoutReadyForCreator(creatorId: string): Promise<boolean> {
+  const provider = await providerFor(creatorId)
+  if (provider === "stripe") {
+    const row = await readCreatorStripe(creatorId)
+    return stripeCheckoutReady(snapshotFromCreatorRow(row ?? {}))
   }
-  /** Things the platform has not switched on yet, for the hub to say plainly. */
-  unavailable: string[]
+  return checkoutOpen(await paymentFactsFor(creatorId))
 }
+
+/* ── The hub ──────────────────────────────────────────────────────────── */
 
 export { payoutStatusOf, type PayoutStatus } from "./model"
 
 export async function overview(creator: CreatorRef): Promise<HubOverview> {
+  const provider = await providerFor(creator.id)
+  if (provider === "stripe") return stripeOverview(creator)
+  return airwallexOverview(creator)
+}
+
+async function airwallexOverview(creator: CreatorRef): Promise<HubOverview> {
   const cfg = readAirwallexConfig()
   const configured = cfg.ok
   let { row, missing } = await readAccount(creator.id)
@@ -277,16 +294,7 @@ function toHubPayout(t: AwxTransfer): HubOverview["payouts"][number] {
 
 /* ── Starting ─────────────────────────────────────────────────────────── */
 
-export class PaymentsProblem extends Error {
-  /** A sentence for the creator. */
-  readonly userMessage: string
-  readonly status: number
-  constructor(userMessage: string, status = 400) {
-    super(userMessage)
-    this.userMessage = userMessage
-    this.status = status
-  }
-}
+export { PaymentsProblem } from "./errors"
 
 export interface StartInput {
   kind: "individual" | "business"
@@ -300,7 +308,12 @@ export interface StartInput {
  * so a double press makes one account; a failed creation gives the claim
  * back, so they can try again.
  */
-export async function startOnboarding(creator: CreatorRef, input: StartInput): Promise<AccountRow> {
+export async function startOnboarding(creator: CreatorRef, input: StartInput): Promise<AccountRow | HubOverview> {
+  const provider = await providerFor(creator.id)
+  if (provider === "stripe") {
+    if (!creator.email) throw new PaymentsProblem("Add an email address to your account first.")
+    return stripeStartOnboarding(creator, { kind: input.kind, country: input.country })
+  }
   requireConfigured()
   if (!creator.email) throw new PaymentsProblem("Add an email address to your account first.")
   const country = input.country.trim().toUpperCase()
@@ -372,7 +385,28 @@ export async function hostedFlowUrl(creator: CreatorRef, origin: string): Promis
  * goes to Airwallex, and the browser gets the code and the verifier for the
  * SDK's init. The code lives 30 seconds and is good once.
  */
-export async function componentAuth(creator: CreatorRef, purpose: "onboarding" | "payout_form" | "rfi"): Promise<{ authCode: string; codeVerifier: string; clientId: string; env: "sandbox" | "prod" }> {
+export async function componentAuth(
+  creator: CreatorRef,
+  purpose: "onboarding" | "payout_form" | "rfi" | "stripe_onboarding" | "stripe_management" | "stripe_payouts",
+): Promise<
+  | { authCode: string; codeVerifier: string; clientId: string; env: "sandbox" | "prod" }
+  | { clientSecret: string; publishableKey: string }
+> {
+  const provider = await providerFor(creator.id)
+  if (provider === "stripe") {
+    const stripePurpose =
+      purpose === "stripe_onboarding" || purpose === "onboarding"
+        ? "onboarding"
+        : purpose === "stripe_management" || purpose === "rfi"
+          ? "management"
+          : purpose === "stripe_payouts" || purpose === "payout_form"
+            ? "payouts"
+            : "balances"
+    const { clientSecret } = await stripeAccountSession(creator.id, stripePurpose)
+    const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    if (!pk) throw new PaymentsProblem("Payments are not switched on yet.", 503)
+    return { clientSecret, publishableKey: pk }
+  }
   const cfg = requireConfigured()
   if (!cfg.embeddedComponents) throw new PaymentsProblem("This is not switched on for Storelib yet.", 503)
   const { row } = await readAccount(creator.id)

@@ -2,9 +2,8 @@
  * ===========================================================================
  *  /api/payments/*: THE PAYMENTS HUB'S SERVER
  * ===========================================================================
- * For a creator on Storelib Payments' Airwallex rollout only. Each action
- * acts for the SIGNED IN creator, found from the session, never from the
- * body; a creator on Stripe gets 404 from all of it.
+ * Storelib Payments hub API (Stripe Connect or Airwallex). Each action acts
+ * for the signed-in creator only; connected account ids never come from the body.
  *
  *   GET  overview        what the hub draws (lib/payments/service overview)
  *   POST start           { kind, country, businessName?, agree: true }
@@ -34,6 +33,7 @@ import {
   PaymentsProblem,
   providerFor,
   refreshPayoutAccount,
+  refreshProviderAccount,
   requestPayout,
   startOnboarding,
   syncAccount,
@@ -57,11 +57,9 @@ async function signedInCreator(): Promise<CreatorRef | null> {
   return { id: row.id, userId: row.user_id, email: user.email ?? null }
 }
 
-/** The creator, when they are on Airwallex; otherwise the answer to send. */
-async function airwallexCreator(): Promise<CreatorRef | NextResponse> {
+async function paymentsCreator(): Promise<CreatorRef | NextResponse> {
   const creator = await signedInCreator()
   if (!creator) return NextResponse.json({ error: "Sign in to use this." }, { status: 401, headers: NO_STORE })
-  if ((await providerFor(creator.id)) !== "airwallex") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
   return creator
 }
 
@@ -74,7 +72,7 @@ function problem(e: unknown): NextResponse {
 export async function GET(_request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params
   if (action !== "overview") return NextResponse.json({ error: "Not found." }, { status: 404 })
-  const creator = await airwallexCreator()
+  const creator = await paymentsCreator()
   if (creator instanceof NextResponse) return creator
   try {
     return NextResponse.json(await overview(creator), { headers: NO_STORE })
@@ -85,9 +83,10 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ac
 
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params
-  const creator = await airwallexCreator()
+  const creator = await paymentsCreator()
   if (creator instanceof NextResponse) return creator
   const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>
+  const provider = await providerFor(creator.id)
 
   const moves = action === "payout"
   const limited = await rateLimit({
@@ -104,20 +103,30 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         if (body.agree !== true) return NextResponse.json({ error: "Agree to continue." }, { status: 400, headers: NO_STORE })
         const kind = body.kind === "business" ? "business" : body.kind === "individual" ? "individual" : null
         if (!kind) return NextResponse.json({ error: "Choose individual or business." }, { status: 400, headers: NO_STORE })
-        await startOnboarding(creator, {
+        const started = await startOnboarding(creator, {
           kind,
           country: typeof body.country === "string" ? body.country : "",
           businessName: typeof body.businessName === "string" ? body.businessName.slice(0, 120) : undefined,
           consent: { ip: callerAddress(request), userAgent: request.headers.get("user-agent") },
         })
+        if (provider === "stripe") return NextResponse.json(started, { headers: NO_STORE })
         return NextResponse.json(await overview(creator), { headers: NO_STORE })
       }
       case "verify": {
+        if (provider !== "airwallex") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const url = await hostedFlowUrl(creator, originOf(request))
         return NextResponse.json({ url }, { headers: NO_STORE })
       }
       case "component": {
-        const purpose = body.purpose === "onboarding" || body.purpose === "payout_form" || body.purpose === "rfi" ? body.purpose : null
+        const purpose =
+          body.purpose === "onboarding" ||
+          body.purpose === "payout_form" ||
+          body.purpose === "rfi" ||
+          body.purpose === "stripe_onboarding" ||
+          body.purpose === "stripe_management" ||
+          body.purpose === "stripe_payouts"
+            ? body.purpose
+            : null
         if (!purpose) return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         return NextResponse.json(await componentAuth(creator, purpose), { headers: NO_STORE })
       }
@@ -126,17 +135,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         return NextResponse.json({ ok: true }, { headers: NO_STORE })
       }
       case "payout-account": {
+        if (provider !== "airwallex") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const destination = await addPayoutAccount(creator, body.payload)
         return NextResponse.json({ destination }, { headers: NO_STORE })
       }
       case "payout": {
+        if (provider !== "airwallex") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const amount = typeof body.amountMinor === "number" ? body.amountMinor : Number.NaN
         const currency = typeof body.currency === "string" ? body.currency : ""
         return NextResponse.json(await requestPayout(creator, amount, currency), { headers: NO_STORE })
       }
       case "refresh": {
-        await syncAccount(creator.id, "creator")
-        await refreshPayoutAccount(creator).catch((e) => console.error("[payments api] payout account refresh", describe(e)))
+        await refreshProviderAccount(creator.id, "creator")
+        if (provider === "airwallex") {
+          await refreshPayoutAccount(creator).catch((e) => console.error("[payments api] payout account refresh", describe(e)))
+        }
         return NextResponse.json(await overview(creator), { headers: NO_STORE })
       }
       default:

@@ -3,8 +3,8 @@
  * Classes only; no CSS scale.
  */
 
-/** Dark mode bar: soft black, not pure #000. */
-export const BUYER_HEADER_DARK_BG = "#131316"
+/** Dark mode bar: near-black, not pure #000. */
+export const BUYER_HEADER_DARK_BG = "#0e0e10"
 export type HeaderChrome = {
   root: string
   header: string
@@ -33,13 +33,13 @@ const LIGHT_FOCUS =
   "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f8f9]"
 
 const DARK_FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131316]"
+  `outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[${BUYER_HEADER_DARK_BG}]`
 
 export function headerChrome(light: boolean): HeaderChrome {
   if (!light) {
     return {
-      root: "platform-header-depth z-40 w-full bg-[#131316] backdrop-blur supports-[backdrop-filter]:bg-[#131316]",
-      header: "w-full bg-[#131316]",
+      root: `platform-header-depth z-40 w-full bg-[${BUYER_HEADER_DARK_BG}] backdrop-blur supports-[backdrop-filter]:bg-[${BUYER_HEADER_DARK_BG}]`,
+      header: `w-full bg-[${BUYER_HEADER_DARK_BG}]`,
       headerBorder: "border-b border-white/10",
       focus: DARK_FOCUS,
       wordmark: "text-[21px] font-bold text-white tracking-tight",
@@ -59,8 +59,8 @@ export function headerChrome(light: boolean): HeaderChrome {
       deskSearchField:
         "bg-white/10 border-white/15 text-white placeholder:text-white/50 focus-visible:border-white/45 focus:border-white/45",
       deskSearchClear: "text-white/40 hover:text-white/70",
-      wishlistRing: "ring-[#131316]",
-      concaveBg: "bg-[#131316]",
+      wishlistRing: "ring-[#111113]",
+      concaveBg: "bg-[#111113]",
     }
   }
 

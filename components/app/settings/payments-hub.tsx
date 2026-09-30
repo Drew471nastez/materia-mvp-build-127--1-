@@ -31,7 +31,8 @@ import { WaitingArea } from "@/components/ui/activity-spinner"
 import { CountryPicker } from "@/components/app/settings/country-picker"
 import { countryOf } from "@/lib/account/country"
 import { decimalsOf } from "@/lib/payments/money"
-import type { HubOverview } from "@/lib/payments/service"
+import type { HubOverview } from "@/lib/payments/hub-types"
+import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { cn } from "@/lib/utils"
 
 const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-5 shadow-sm border border-[#e5e7eb]"
@@ -76,8 +77,7 @@ export function PaymentsHub() {
   const [data, setData] = React.useState<Overview | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
-  /* Which Airwallex form is open in place, if any. */
-  const [form, setForm] = React.useState<null | "onboarding" | "payout_form" | "rfi">(null)
+  const [form, setForm] = React.useState<null | "onboarding" | "payout_form" | "rfi" | "stripe_onboarding" | "stripe_management" | "stripe_payouts">(null)
 
   const load = React.useCallback(async (how: "overview" | "refresh" = "overview") => {
     try {
@@ -126,6 +126,10 @@ export function PaymentsHub() {
   const verify = () =>
     act("verify", async () => {
       if (!data) return
+      if (data.provider === "stripe") {
+        setForm("stripe_onboarding")
+        return
+      }
       if (data.can.embeddedOnboarding) {
         setForm("onboarding")
         return
@@ -139,6 +143,10 @@ export function PaymentsHub() {
   const resolve = () =>
     act("resolve", async () => {
       if (!data) return
+      if (data.provider === "stripe") {
+        setForm("stripe_management")
+        return
+      }
       if (data.can.hostedOnboarding) {
         const { url } = await call<{ url: string }>("verify", {})
         window.location.assign(url)
@@ -164,7 +172,7 @@ export function PaymentsHub() {
     )
   }
 
-  if (!data.configured || data.tableMissing) {
+  if (!data.configured || (data.provider === "airwallex" && data.tableMissing)) {
     return (
       <div className={CARD}>
         <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">Payments are not switched on yet</h3>
@@ -206,6 +214,10 @@ export function PaymentsHub() {
             <button type="button" className={PRIMARY} disabled={!!busy} onClick={() => void resolve()}>
               {busy === "resolve" ? "Opening" : copy.action}
             </button>
+          ) : data.stage === "payout" && data.provider === "stripe" ? (
+            <button type="button" className={PRIMARY} disabled={!!busy} onClick={() => setForm("stripe_onboarding")}>
+              {copy.action}
+            </button>
           ) : data.stage === "payout" && data.can.embeddedPayoutForm && form !== "payout_form" ? (
             <button type="button" className={PRIMARY} onClick={() => setForm("payout_form")}>
               {copy.action}
@@ -227,13 +239,34 @@ export function PaymentsHub() {
           </ul>
         ) : null}
 
-        {data.stage === "payout" && !data.can.embeddedPayoutForm ? (
+        {data.stage === "payout" && data.provider === "airwallex" && !data.can.embeddedPayoutForm ? (
           <p className="mt-3 border-t border-[#f0f1f3] pt-3 text-[13px] text-[#6b7280]">Adding a payout account is not switched on for Storelib yet. We will email you when it is.</p>
         ) : null}
 
-        {data.stage === "set_up" ? <SetUp onDone={(next) => setData(next)} busy={busy} setBusy={setBusy} setError={setError} /> : null}
+        {data.stage === "set_up" ? (
+          <SetUp
+            provider={data.provider}
+            onDone={(next) => {
+              setData(next)
+              if (data.provider === "stripe" && next.stage === "verify") setForm("stripe_onboarding")
+            }}
+            busy={busy}
+            setBusy={setBusy}
+            setError={setError}
+          />
+        ) : null}
 
-        {form ? (
+        {form === "stripe_onboarding" || form === "stripe_management" || form === "stripe_payouts" ? (
+          <StripeConnectEmbedded
+            purpose={form}
+            onClose={() => setForm(null)}
+            onDone={async () => {
+              setForm(null)
+              await load("refresh")
+            }}
+            onError={setError}
+          />
+        ) : form ? (
           <AirwallexForm
             purpose={form}
             onClose={() => setForm(null)}
@@ -248,6 +281,17 @@ export function PaymentsHub() {
 
       {/* ── Once verified: the money ────────────────────────────────── */}
       {verified ? <Balance data={data} onPaidOut={() => load("refresh")} setError={setError} /> : null}
+
+      {data.provider === "stripe" && data.stage === "active" ? (
+        <section className={CARD}>
+          <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Manage payments</h3>
+          <p className="mt-0.5 text-[13px] text-[#6b7280]">Update verification, payout account, or view balances in place.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" className={SECONDARY} onClick={() => setForm("stripe_management")}>Account</button>
+            <button type="button" className={SECONDARY} onClick={() => setForm("stripe_payouts")}>Payouts & balance</button>
+          </div>
+        </section>
+      ) : null}
 
       {verified && data.payoutDestination ? (
         <section className={CARD} aria-labelledby="payments-payout-account">
@@ -296,11 +340,13 @@ export function PaymentsHub() {
 /* ── Set up: who is selling, where, and the consent ─────────────────── */
 
 function SetUp({
+  provider,
   onDone,
   busy,
   setBusy,
   setError,
 }: {
+  provider: Overview["provider"]
   onDone: (o: Overview) => void
   busy: string | null
   setBusy: (b: string | null) => void
@@ -315,12 +361,19 @@ function SetUp({
     if (busy) return
     const country = countryOf(countryName)
     if (!country) return setError("Choose your country.")
-    if (kind === "business" && !businessName.trim()) return setError("Enter your business name.")
+    if (provider === "airwallex" && kind === "business" && !businessName.trim()) return setError("Enter your business name.")
     if (!agree) return setError("Agree to continue.")
     setBusy("start")
     setError(null)
     try {
-      onDone(await call<Overview>("start", { kind, country, businessName: kind === "business" ? businessName.trim() : undefined, agree: true }))
+      onDone(
+        await call<Overview>("start", {
+          kind,
+          country,
+          businessName: provider === "airwallex" && kind === "business" ? businessName.trim() : undefined,
+          agree: true,
+        }),
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : "We could not start setup. Try again.")
     } finally {
@@ -345,7 +398,7 @@ function SetUp({
                 kind === k ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#374151]",
               )}
             >
-              {k === "individual" ? "An individual" : "A business"}
+              {k === "individual" ? "Individual" : "Business"}
             </button>
           ))}
         </div>
@@ -358,7 +411,7 @@ function SetUp({
         <CountryPicker id="payments-country" value={countryName} onChange={setCountryName} />
       </div>
 
-      {kind === "business" ? (
+      {provider === "airwallex" && kind === "business" ? (
         <div>
           <label htmlFor="payments-business" className="mb-1.5 block text-[13px] font-medium text-[#374151]">
             Business name
@@ -377,11 +430,17 @@ function SetUp({
       <label className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-5 text-[#4b5563]">
         <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#8b5cf6]" />
         <span>
-          Storelib Payments is provided by Airwallex. I agree to the{" "}
-          <a href="https://www.airwallex.com/terms/scale-user-terms-global" target="_blank" rel="noopener noreferrer" className="font-medium text-[#6d28d9] underline-offset-2 hover:underline">
-            Airwallex terms
-          </a>{" "}
-          and to Storelib sharing my details with Airwallex so it can verify who I am.
+          {provider === "stripe"
+            ? "I agree to Storelib Payments and to Stripe collecting the verification details needed to pay me."
+            : (
+              <>
+                Storelib Payments is provided by Airwallex. I agree to the{" "}
+                <a href="https://www.airwallex.com/terms/scale-user-terms-global" target="_blank" rel="noopener noreferrer" className="font-medium text-[#6d28d9] underline-offset-2 hover:underline">
+                  Airwallex terms
+                </a>{" "}
+                and to Storelib sharing my details with Airwallex so it can verify who I am.
+              </>
+            )}
         </span>
       </label>
 
@@ -484,7 +543,12 @@ function Balance({ data, onPaidOut, setError }: { data: Overview; onPaidOut: () 
           </li>
         ))}
       </ul>
-      {data.balancesAt ? <p className="mt-1 text-[12px] text-[#9ca3af]">As Airwallex reported at {new Date(data.balancesAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}.</p> : null}
+      {data.balancesAt ? (
+        <p className="mt-1 text-[12px] text-[#9ca3af]">
+          {data.provider === "stripe" ? "Balance from Stripe" : "As Airwallex reported"} at {new Date(data.balancesAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}.
+          {data.provider === "stripe" ? " Cash out from Payouts in the app when funds are available." : null}
+        </p>
+      ) : null}
     </section>
   )
 }

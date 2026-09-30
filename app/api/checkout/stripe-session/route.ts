@@ -20,7 +20,7 @@ import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/l
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { randomUUID } from "node:crypto"
-import { factsOf, providerFor } from "@/lib/payments/service"
+import { checkoutReadyForCreator, factsOf, providerFor } from "@/lib/payments/service"
 import { readAccount } from "@/lib/payments/store"
 import { checkoutOpen } from "@/lib/payments/model"
 import { startAirwallexCheckout } from "@/lib/payments/checkout"
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
   if (provider === "stripe" && (!account || !account.startsWith("acct_"))) {
     return NextResponse.json({ error: "This seller cannot take payments yet." }, { status: 400 })
   }
-  if (provider === "stripe" && (creator.charges_enabled === false || creator.payouts_enabled === false || creator.stripe_onboarding_status !== "connected")) {
+  if (provider === "stripe" && !(await checkoutReadyForCreator(creator.id))) {
     return NextResponse.json({ error: "This seller cannot take payments yet. Try again later." }, { status: 400 })
   }
 

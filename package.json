@@ -61,6 +61,7 @@
     "@react-email/render": "latest",
     "@solar-icons/react": "2.1.0",
     "@sparticuz/chromium": "^153.0.0",
+    "@stripe/connect-js": "3.3.31",
     "@stripe/react-stripe-js": "5.4.1",
     "@stripe/stripe-js": "8.6.0",
     "@supabase/ssr": "0.8.0",
