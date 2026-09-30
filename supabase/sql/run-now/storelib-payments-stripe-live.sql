@@ -42,6 +42,12 @@ BEGIN
     ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS plan_used text;
     ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS pricing_tier text;
     ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS fee_rule_version text;
+    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS stripe_balance_transaction_id text;
+    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS stripe_processing_fee_cents integer;
+    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS storelib_net_margin_cents integer;
+    CREATE INDEX IF NOT EXISTS orders_stripe_balance_transaction_id_idx
+      ON public.orders (stripe_balance_transaction_id)
+      WHERE stripe_balance_transaction_id IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS orders_provider_payment_id_key
       ON public.orders (provider_payment_id)
       WHERE provider_payment_id IS NOT NULL;
@@ -111,10 +117,16 @@ CREATE INDEX IF NOT EXISTS stripe_webhook_events_unfinished_idx
 ALTER TABLE public.stripe_webhook_events ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.stripe_webhook_events FROM anon, authenticated;
 
--- ── 5. Seller ledger row per creator (if missing) ───────────────────────────
-INSERT INTO public.seller_ledger (creator_id)
-SELECT c.id FROM public.creators c
-WHERE NOT EXISTS (SELECT 1 FROM public.seller_ledger l WHERE l.creator_id = c.id)
-ON CONFLICT DO NOTHING;
+-- ── 5. Seller ledger row per creator (if table exists) ───────────────────────
+DO $$
+BEGIN
+  IF to_regclass('public.seller_ledger') IS NULL THEN
+    RAISE NOTICE 'seller_ledger missing — skip backfill';
+  ELSE
+    INSERT INTO public.seller_ledger (creator_id)
+    SELECT c.id FROM public.creators c
+    ON CONFLICT (creator_id) DO NOTHING;
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';

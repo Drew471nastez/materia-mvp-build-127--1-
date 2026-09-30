@@ -5,7 +5,8 @@ import { MIN_CHARGE_CENTS, priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
+import { calculatePlatformFee, UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
+import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
 import { chargeUnits, packItems } from "@/lib/checkout/cart-items"
@@ -198,7 +199,16 @@ export async function POST(request: Request) {
     }
   }
 
-  const fee = await calculatePlatformFee(totalCents, creatorId, admin)
+  const chargeCurrency = platformChargeCurrency()
+  let fee: Awaited<ReturnType<typeof calculatePlatformFee>>
+  try {
+    fee = await calculatePlatformFee(totalCents, creatorId, admin, chargeCurrency)
+  } catch (e) {
+    if (e instanceof UnsupportedFeeCurrencyError) {
+      return NextResponse.json({ error: "This currency is not available for checkout yet." }, { status: 400 })
+    }
+    throw e
+  }
 
   /* A line the code took to $0 is not a line Stripe will take; it is still
      in the basket, fulfilled from the metadata, and named on the page. */
@@ -216,7 +226,7 @@ export async function POST(request: Request) {
         chargeUnits(l.item).map((part) => ({
           quantity: part.quantity,
           price_data: {
-            currency: "usd",
+            currency: chargeCurrency,
             unit_amount: part.unitCents,
             product_data: {
               name: String(l.product.title ?? "Product"),

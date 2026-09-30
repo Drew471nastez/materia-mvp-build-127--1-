@@ -13,8 +13,8 @@ export const runtime = "nodejs"
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function POST(request: Request) {
-  const secret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET
-  if (!secret) return NextResponse.json({ error: "Webhook not configured" }, { status: 503 })
+  const secret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET
+  if (!secret) return NextResponse.json({ error: "Connect webhook not configured" }, { status: 503 })
 
   const body = await request.text()
   const sig = (await headers()).get("stripe-signature")

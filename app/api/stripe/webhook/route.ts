@@ -352,10 +352,11 @@ async function handleStripeEvent(request: Request) {
 
     const totalAmount = session.amount_total || 0
 
-    // Fallback fee: 6% + $0.25 (only if >= $3.00)
-    const fallbackFee = Math.round(totalAmount * 0.06) + (totalAmount >= 300 ? 25 : 0)
-    const platformFeeCents =
-      Number.parseInt(metadata.platform_fee_cents || "0", 10) || fallbackFee
+    const platformFeeCents = Number.parseInt(metadata.platform_fee_cents || "0", 10)
+    if (!Number.isFinite(platformFeeCents) || platformFeeCents < 0) {
+      console.error("[Webhook] checkout session missing platform_fee_cents:", session.id)
+      return NextResponse.json({ error: "Missing platform fee metadata" }, { status: 500 })
+    }
 
     let applicationFeeAmount = platformFeeCents
     let transferId: string | null = null

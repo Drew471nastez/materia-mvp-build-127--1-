@@ -1,24 +1,20 @@
 import {
   FEE_RULE_VERSION,
-  FREE_FIXED_FEE_USD_CENTS,
   FREE_MICRO_RATE,
   FREE_STANDARD_RATE,
-  MICRO_TRANSACTION_THRESHOLD_USD_CENTS,
-  PAID_FIXED_FEE_USD_CENTS,
   PAID_MICRO_RATE,
   PAID_STANDARD_RATE,
   type PricingTier,
   type StorelibSellerPlan,
 } from "./config"
+import { feeRuleForCurrency, normalizeChargeCurrency, UnsupportedFeeCurrencyError } from "./currency-rules"
+
+export { UnsupportedFeeCurrencyError } from "./currency-rules"
 
 export interface StorelibFeeInput {
-  /** Gross charge in smallest currency unit (checkout currently prices in USD cents). */
   grossMinor: number
-  /** ISO currency code for persistence; fee math uses grossMinor as authoritative. */
   currency: string
   sellerPlan: StorelibSellerPlan
-  /** When set, threshold/fixed fee use this USD-cent equivalent of gross (for non-USD later). */
-  grossUsdCents?: number
 }
 
 export interface StorelibFeeResult {
@@ -34,18 +30,11 @@ export interface StorelibFeeResult {
   feeRuleVersion: string
 }
 
-function resolveUsdCents(input: StorelibFeeInput): number {
-  if (typeof input.grossUsdCents === "number" && input.grossUsdCents >= 0) return input.grossUsdCents
-  const cur = input.currency.toUpperCase()
-  if (cur === "USD") return input.grossMinor
-  /* Checkout is USD today; without a deterministic FX table we treat minor as USD for fee tiers. */
-  return input.grossMinor
-}
-
 export function calculateStorelibFee(input: StorelibFeeInput): StorelibFeeResult {
   const gross = Math.max(0, Math.floor(input.grossMinor))
-  const usdCents = resolveUsdCents(input)
-  const micro = usdCents < MICRO_TRANSACTION_THRESHOLD_USD_CENTS
+  const currency = normalizeChargeCurrency(input.currency)
+  const rule = feeRuleForCurrency(currency)
+  const micro = gross < rule.microThresholdMinor
   const plan = input.sellerPlan
 
   const percentageRate = micro
@@ -56,8 +45,7 @@ export function calculateStorelibFee(input: StorelibFeeInput): StorelibFeeResult
       ? PAID_STANDARD_RATE
       : FREE_STANDARD_RATE
 
-  const fixedFeeMinor =
-    micro ? 0 : plan === "paid" ? PAID_FIXED_FEE_USD_CENTS : FREE_FIXED_FEE_USD_CENTS
+  const fixedFeeMinor = micro ? 0 : rule.fixedFeeMinor
 
   const percentageFeeMinor = Math.round(gross * percentageRate)
   const totalStorelibFeeMinor = Math.max(0, Math.min(gross, percentageFeeMinor + fixedFeeMinor))
@@ -65,7 +53,7 @@ export function calculateStorelibFee(input: StorelibFeeInput): StorelibFeeResult
 
   return {
     grossMinor: gross,
-    currency: input.currency.toUpperCase(),
+    currency,
     plan,
     pricingTier: micro ? "micro" : "standard",
     percentageRate,

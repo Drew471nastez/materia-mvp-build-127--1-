@@ -66,6 +66,7 @@ interface PaymentFacts {
   applicationFeeCents: number | null
   transferId: string | null
   destinationPaymentId: string | null
+  chargeId: string | null
 }
 
 export function paymentFacts(pi: Stripe.PaymentIntent): PaymentFacts {
@@ -77,9 +78,11 @@ export function paymentFacts(pi: Stripe.PaymentIntent): PaymentFacts {
     applicationFeeCents: null,
     transferId: null,
     destinationPaymentId: null,
+    chargeId: null,
   }
   const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as Stripe.Charge) : null
   if (!charge) return facts
+  facts.chargeId = charge.id
   if (typeof charge.application_fee_amount === "number") facts.applicationFeeCents = charge.application_fee_amount
   if (charge.transfer) {
     if (typeof charge.transfer === "string") facts.transferId = charge.transfer
@@ -228,8 +231,8 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     plan_used: m.plan_used || null,
     pricing_tier: m.pricing_tier || null,
     fee_rule_version: m.fee_rule_version || null,
+    currency: (paid.currency || m.currency || "usd").toLowerCase(),
     transfer_id: facts.transferId,
-    currency: "usd",
     provider: paid.provider,
     status: "completed",
     /* Stripe's column for Stripe; Airwallex's payment in its own (part 76), and only then, so a Stripe insert is the one it always was. */
@@ -325,6 +328,12 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
      (their wallet), so nothing is mirrored for them: the payment's fee record says it succeeded. */
   if (paid.provider === "stripe") {
     await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId }))
+    await step("stripe processing fee", async () => {
+      if (!facts.chargeId) return
+      const { processingFeeFromChargeId, persistOrderStripeEconomics } = await import("@/lib/payments/stripe/reconcile-processing-fee")
+      const econ = await processingFeeFromChargeId(facts.chargeId)
+      if (econ) await persistOrderStripeEconomics(admin, order.id, econ)
+    })
   } else {
     await step("fee record", () => markFeeRecord(paid.paymentId, { status: "succeeded" }))
   }

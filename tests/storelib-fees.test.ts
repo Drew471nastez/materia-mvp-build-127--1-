@@ -1,5 +1,5 @@
-import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
-import { MICRO_TRANSACTION_THRESHOLD_USD_CENTS } from "@/lib/payments/fees/config"
+import { calculateStorelibFee, UnsupportedFeeCurrencyError } from "@/lib/payments/fees/calculate"
+import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
 
 let passed = 0
 let failed = 0
@@ -21,7 +21,18 @@ const under = calculateStorelibFee({ grossMinor: 399, currency: "USD", sellerPla
 check("under $4 is micro", under.pricingTier === "micro" && under.fixedFeeMinor === 0)
 check("free micro 12.25% of 399", under.totalStorelibFeeMinor === Math.round(399 * 0.1225))
 
-check("threshold is 400 cents", MICRO_TRANSACTION_THRESHOLD_USD_CENTS === 400)
+const ronMicro = calculateStorelibFee({ grossMinor: 1839, currency: "RON", sellerPlan: "free" })
+check("RON under threshold is micro", ronMicro.pricingTier === "micro")
+
+let threw = false
+try {
+  calculateStorelibFee({ grossMinor: 100, currency: "XYZ", sellerPlan: "free" })
+} catch (e) {
+  threw = e instanceof UnsupportedFeeCurrencyError
+}
+check("unknown currency throws", threw)
+
+check("USD rule threshold 400", CURRENCY_FEE_RULES.USD.microThresholdMinor === 400)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { calculateStorelibFee, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
+import { calculateStorelibFee, UnsupportedFeeCurrencyError, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
+import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import type { StorelibSellerPlan } from "@/lib/payments/fees/config"
 
 // ────────────────────────────────────────────────────────────────
@@ -85,13 +86,15 @@ function resolveSellerPlan(planId: string | null | undefined): SellerPlan {
 export function computeApplicationFee({
   unitAmount,
   sellerPlan,
+  currency,
 }: {
   unitAmount: number
   sellerPlan: SellerPlan
+  currency?: string
 }): number {
   return calculateStorelibFee({
     grossMinor: unitAmount,
-    currency: "USD",
+    currency: (currency || platformChargeCurrencyUpper()).toUpperCase(),
     sellerPlan: toStorelibPlan(sellerPlan),
   }).totalStorelibFeeMinor
 }
@@ -109,6 +112,7 @@ export async function calculatePlatformFee(
   amountCents: number,
   creatorId: string,
   admin: SupabaseClient,
+  currency?: string,
 ): Promise<FeeCalculation> {
   let effectivePlan: SellerPlan = "free"
 
@@ -144,9 +148,10 @@ export async function calculatePlatformFee(
     console.error("[fee-calc] Exception fetching creator plan:", err?.message)
   }
 
+  const chargeCurrency = (currency || platformChargeCurrencyUpper()).toUpperCase()
   const fee = calculateStorelibFee({
     grossMinor: amountCents,
-    currency: "USD",
+    currency: chargeCurrency,
     sellerPlan: toStorelibPlan(effectivePlan),
   })
 
@@ -171,18 +176,20 @@ export async function calculatePlatformFee(
 export function calculateFeeWithPlan(
   amountCents: number,
   plan: SubscriptionPlan,
+  currency?: string,
 ): FeeCalculation {
-  // ALWAYS use hardcoded fee percent based on plan ID
   const resolved = resolveSellerPlan(plan.id)
   return fromStorelibFee(
     calculateStorelibFee({
       grossMinor: amountCents,
-      currency: "USD",
+      currency: (currency || platformChargeCurrencyUpper()).toUpperCase(),
       sellerPlan: toStorelibPlan(resolved),
     }),
     resolved,
   )
 }
+
+export { UnsupportedFeeCurrencyError }
 
 // ────────────────────────────────────────────────────────────────
 // getFeePreview — UI helper, no DB query
@@ -191,12 +198,13 @@ export function calculateFeeWithPlan(
 export function getFeePreview(
   amountCents: number,
   planId: "free" | "growth" | "pro",
+  currency?: string,
 ): FeeCalculation {
   const resolved = resolveSellerPlan(planId)
   return fromStorelibFee(
     calculateStorelibFee({
       grossMinor: amountCents,
-      currency: "USD",
+      currency: (currency || platformChargeCurrencyUpper()).toUpperCase(),
       sellerPlan: toStorelibPlan(resolved),
     }),
     resolved,

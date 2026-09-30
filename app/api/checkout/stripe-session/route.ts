@@ -11,7 +11,8 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
-import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
+import { calculatePlatformFee, UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
+import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, channelOf, encodeOrigin, orderSourceFromRequest, originOf } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
@@ -157,7 +158,16 @@ export async function POST(request: Request) {
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
-  const fee = await calculatePlatformFee(totals.totalCents, creator.id, admin)
+  const chargeCurrency = platformChargeCurrency()
+  let fee: Awaited<ReturnType<typeof calculatePlatformFee>>
+  try {
+    fee = await calculatePlatformFee(totals.totalCents, creator.id, admin, chargeCurrency)
+  } catch (e) {
+    if (e instanceof UnsupportedFeeCurrencyError) {
+      return NextResponse.json({ error: "This currency is not available for checkout yet." }, { status: 400 })
+    }
+    throw e
+  }
 
   /* Where the checkout began: the page's account, every field checked, or
      what its address says. Words and hosts only (lib/orders/order-source). */
@@ -219,7 +229,7 @@ export async function POST(request: Request) {
 
   const params: Stripe.PaymentIntentCreateParams = {
     amount: totals.totalCents,
-    currency: "usd",
+    currency: chargeCurrency,
     /* The methods the page's form loaded with, by name (lib/checkout/payment-methods). */
     payment_method_types: methodsFrom(body.paymentMethods),
     metadata,

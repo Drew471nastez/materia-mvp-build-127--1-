@@ -7,7 +7,6 @@ import type { PaymentProviderId } from "./model"
  * Airwallex code remains in the repo but is not selected for live flows.
  */
 export function activePaymentProvider(): PaymentProviderId {
-  const forced = (process.env.STORELIB_PAYMENTS_PROVIDER || "stripe").toLowerCase()
-  if (forced === "airwallex") return "airwallex"
+  /* Stripe is the only live Storelib Payments processor. Airwallex remains inert code. */
   return "stripe"
 }

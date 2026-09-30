@@ -79,8 +79,13 @@ export async function ensurePrice(admin: Db, plan: PlanRow, product: { id: strin
 }
 
 /** The platform fee for one payment of this amount, as the one time checkout computes it, and as the percent Stripe takes. */
-export async function membershipFee(admin: Db, creatorId: string, amountCents: number): Promise<{ cents: number; percent: number; planId: string }> {
-  const fee = await calculatePlatformFee(amountCents, creatorId, admin)
+export async function membershipFee(
+  admin: Db,
+  creatorId: string,
+  amountCents: number,
+  currency = "usd",
+): Promise<{ cents: number; percent: number; planId: string }> {
+  const fee = await calculatePlatformFee(amountCents, creatorId, admin, currency)
   return { cents: fee.platformFeeCents, percent: feePercentFor(amountCents, fee.platformFeeCents), planId: fee.planId }
 }
 
