@@ -22,7 +22,7 @@
  * grows one the moment this scrolls away. See lib/explore/use-search-handoff.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Search, X } from "lucide-react"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
 import { cn } from "@/lib/utils"
@@ -55,6 +55,17 @@ const ROLL_MS = 420
  *  separate ticks. */
 const COMMUNITIES_ENTER_MS = 380
 const ROLL_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+function useNarrowViewport() {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const mq = window.matchMedia("(max-width: 639px)")
+      mq.addEventListener("change", onStoreChange)
+      return () => mq.removeEventListener("change", onStoreChange)
+    },
+    () => window.matchMedia("(max-width: 639px)").matches,
+    () => false,
+  )
+}
 /** Breathing room above and below the word, inside the chip. */
 const CHIP_PAD_Y = 8
 /**
@@ -197,12 +208,24 @@ export function ExploreHero({
   }, [menuOpen])
 
   const communities = mode === "communities"
+  const narrow = useNarrowViewport()
   /* "communities" plus "Discover" overflows a phone at the default size and
      the chip drops to its own line. Slightly smaller type on small screens
-     only, and the pair is flex-nowrap so they stay one sentence. */
+     only, and the pair is flex-nowrap so they stay one sentence. The size
+     eases on the same curve and duration as the chip roll when the mode
+     changes, so the shrink does not snap. */
   const headingSize = communities
     ? "text-[28px] leading-[1.12] sm:text-[52px] sm:leading-[1.1]"
     : "text-[34px] leading-[1.15] sm:text-[52px] sm:leading-[1.1]"
+  const searchPlaceholderProducts = narrow
+    ? "Search products..."
+    : "Search products, creators, topics..."
+  const searchPlaceholderCommunities = narrow
+    ? "Search communities..."
+    : "Search communities, creators, topics..."
+  const searchAriaLabel = communities
+    ? "Search communities, creators and topics"
+    : "Search products, creators and topics"
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -280,7 +303,13 @@ export function ExploreHero({
       {/* Hidden from assistive tech piece by piece rather than as a whole,
           because the switcher inside the chip is a real control. */}
       <div className="text-center">
-        <p className={cn("font-bold tracking-[-0.02em] text-[#1a1a2e]", headingSize)}>
+        <p
+          className={cn(
+            "font-bold tracking-[-0.02em] text-[#1a1a2e]",
+            "motion-safe:transition-[font-size,line-height] motion-safe:duration-[380ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+            headingSize,
+          )}
+        >
           {/*
             MEASURED OUTSIDE THE CHIP, and that is not a detail.
 
@@ -468,7 +497,39 @@ export function ExploreHero({
             onQueryChange(draft.trim())
           }}
         >
-          <Search className="pointer-events-none absolute left-4 sm:left-5 top-1/2 h-[18px] w-[18px] sm:h-5 sm:w-5 -translate-y-1/2 text-neutral-400" />
+          <Search className="pointer-events-none absolute left-4 sm:left-5 top-1/2 z-[1] h-[18px] w-[18px] sm:h-5 sm:w-5 -translate-y-1/2 text-neutral-400" />
+          {/*
+            THE NATIVE PLACEHOLDER WAS CLIPPING ON PHONES, especially with
+            type=search: long copy showed the middle of the string ("ies,
+            creators, tc") with the start cut off. A label in the field, faded
+            between modes, truncates with an ellipsis at the end like a normal
+            line of text.
+          */}
+          {!draft && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-12 sm:left-14 right-12 z-[1] grid grid-cols-1 grid-rows-1 items-center overflow-hidden"
+            >
+              <span
+                className={cn(
+                  "col-start-1 row-start-1 min-w-0 truncate text-[15px] sm:text-[17px] text-neutral-400",
+                  "motion-safe:transition-opacity motion-safe:duration-[380ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  communities ? "opacity-0" : "opacity-100",
+                )}
+              >
+                {searchPlaceholderProducts}
+              </span>
+              <span
+                className={cn(
+                  "col-start-1 row-start-1 min-w-0 truncate text-[15px] sm:text-[17px] text-neutral-400",
+                  "motion-safe:transition-opacity motion-safe:duration-[380ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  communities ? "opacity-100" : "opacity-0",
+                )}
+              >
+                {searchPlaceholderCommunities}
+              </span>
+            </span>
+          )}
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -476,17 +537,18 @@ export function ExploreHero({
             inputMode="search"
             /* iOS labels the return key from this, so it reads Search. */
             enterKeyHint="search"
-            placeholder={communities ? "Search communities, creators, topics..." : "Search products, creators, topics..."}
-            aria-label={communities ? "Search communities, creators and topics" : "Search products, creators and topics"}
+            placeholder=" "
+            aria-label={searchAriaLabel}
             className={cn(
               /* 10px, per the owner. A pill reads as a chip; this is a field. */
-              "h-[52px] sm:h-[62px] w-full rounded-[10px] bg-white",
+              "h-[52px] sm:h-[62px] w-full appearance-none rounded-[10px] bg-white",
+              "[&::-webkit-search-decoration]:hidden [&::-webkit-search-results-decoration]:hidden",
               /* Ten per cent shallower than it was: offsets, blurs and both
                  alphas scaled by 0.9. It stays level with the chip above,
                  which sits at 0.05 and 0.30 against this field's 0.045 and
                  0.315, so the two still read as the same depth. */
               "border border-neutral-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.045),0_9px_27px_-16px_rgba(15,23,42,0.315)]",
-              "pl-12 sm:pl-14 pr-12 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-neutral-400",
+              "relative z-[2] pl-12 sm:pl-14 pr-12 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-transparent",
               /*
                 NO VIOLET HALO ON FOCUS. It bloomed a purple glow around the
                 whole field the moment it was tapped, which on a phone is the
