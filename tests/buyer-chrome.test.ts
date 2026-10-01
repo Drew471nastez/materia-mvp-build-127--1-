@@ -48,7 +48,7 @@ check("every page with the tab bar is a shop page or footerless", ["/explore", "
 
 const footer = code("components/marketing/conditional-footer.tsx")
 check("the footer asks the rule, with the header's record of who is signed in", /siteFooterFor\(pathname, \{ signedIn \}\)/.test(footer) && /useSyncExternalStore\(subscribeAuthSnapshot, readSignedIn, \(\) => false\)/.test(footer))
-check("signed in on explore gets the light compact footer on a computer, not the black one", /isShopPage\(pathname\) && signedIn/.test(footer) && /ShopCompactFooter/.test(footer))
+check("signed in on explore gets the light compact footer, not the black one", /isExploreBrowsePage\(pathname\)/.test(footer) && /signedIn && !isNativeApp\(\)/.test(footer) && /ShopCompactFooter/.test(footer))
 check("and hears a sign in or out without a reload", /\[pathname, searchParams, isHydrated, signedIn\]/.test(footer))
 
 console.log("\nThe phone header where the tab bar is")

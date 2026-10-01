@@ -3,15 +3,13 @@
 import Link from "next/link"
 
 /**
- * Light row of links for signed-in shop surfaces on a computer. The black
- * marketing footer stays off /explore when you are logged in; this is the
- * small strip that still sits at the bottom like the old explore footer.
+ * Thin link row for signed-in Explore. Real routes only — no mailto traps.
  */
 const LINKS = [
-  { label: "Community", href: "mailto:team@storelib.com?subject=Community" },
-  { label: "Affiliates", href: "mailto:team@storelib.com?subject=Affiliate%20Program" },
-  { label: "Support", href: "/help" },
-  { label: "Careers", href: "mailto:team@storelib.com?subject=Careers" },
+  { label: "Blog", href: "/blog" },
+  { label: "Help", href: "/help" },
+  { label: "Terms", href: "/terms" },
+  { label: "Privacy", href: "/privacy" },
 ] as const
 
 export function ShopCompactFooter() {
@@ -21,26 +19,16 @@ export function ShopCompactFooter() {
       data-shop-compact-footer=""
       aria-label="Site links"
     >
-      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-center gap-x-6 gap-y-2 px-4 py-5 sm:px-6 lg:px-8">
-        {LINKS.map((l) =>
-          l.href.startsWith("mailto:") ? (
-            <a
-              key={l.label}
-              href={l.href}
-              className="text-[13px] font-medium text-[#6b7280] transition-colors hover:text-[#374151]"
-            >
-              {l.label}
-            </a>
-          ) : (
-            <Link
-              key={l.label}
-              href={l.href}
-              className="text-[13px] font-medium text-[#6b7280] transition-colors hover:text-[#374151]"
-            >
-              {l.label}
-            </Link>
-          ),
-        )}
+      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-center gap-x-5 gap-y-1.5 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
+        {LINKS.map((l) => (
+          <Link
+            key={l.label}
+            href={l.href}
+            className="text-[12px] font-normal text-[#6b7280] transition-colors hover:text-[#374151]"
+          >
+            {l.label}
+          </Link>
+        ))}
       </div>
     </footer>
   )

@@ -5,7 +5,7 @@ import { useEffect, useState, useSyncExternalStore } from "react"
 import { MarketingFooter } from "@/components/marketing/footer"
 import { ShopCompactFooter } from "@/components/marketing/shop-compact-footer"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { isShopPage, siteFooterFor } from "@/lib/nav/site-footer"
+import { isExploreBrowsePage, siteFooterFor } from "@/lib/nav/site-footer"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -75,7 +75,8 @@ export function ConditionalFooter() {
       return
     }
 
-    if (isShopPage(pathname) && signedIn && !isNativeApp()) {
+    /* Signed-in Explore only: a thin link row instead of the black footer. */
+    if (signedIn && !isNativeApp() && isExploreBrowsePage(pathname)) {
       setFooterMode("compact")
       return
     }

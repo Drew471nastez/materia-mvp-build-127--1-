@@ -35,6 +35,11 @@ export function isShopPage(pathname: string): boolean {
   return under(pathname, "/explore") || under(pathname, "/wishlist")
 }
 
+/** Explore catalogue and category pages — not the full-screen search route. */
+export function isExploreBrowsePage(pathname: string): boolean {
+  return under(pathname, "/explore") && !under(pathname, "/explore/search")
+}
+
 /**
  * Whether a page of Storelib's own that has the footer at all keeps it for
  * this visitor. `signedIn` is the header's record of the session (lib/auth/
