@@ -51,9 +51,9 @@ const MODE_OPTIONS: { id: DiscoverMode; label: string }[] = [
 const HOLD_MS = 3600
 /** The roll itself. One movement, on the curve the rest of the product uses. */
 const ROLL_MS = 420
-/** A little slower per step when rolling forward into communities, so the
- *  mode change reads as one continuous reel rather than a hard cut. */
-const MODE_ROLL_MS = 520
+/** One glide onto "communities" from wherever the product reel was — not six
+ *  separate ticks. */
+const COMMUNITIES_ENTER_MS = 380
 const ROLL_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** Breathing room above and below the word, inside the chip. */
 const CHIP_PAD_Y = 8
@@ -136,18 +136,12 @@ function useRollingNoun(mode: DiscoverMode, paused: boolean) {
     setIndex((i) => (i >= NOUNS.length ? 0 : i))
   }, [mode])
 
+  /* After paint so the transform can run once from the current product word
+     straight to "communities". */
   useEffect(() => {
     if (mode !== "communities") return
     if (index >= COMMUNITIES_INDEX) return
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setIndex(COMMUNITIES_INDEX)
-      return
-    }
-    const t = window.setTimeout(
-      () => setIndex((i) => Math.min(i + 1, COMMUNITIES_INDEX)),
-      MODE_ROLL_MS,
-    )
-    return () => window.clearTimeout(t)
+    setIndex(COMMUNITIES_INDEX)
   }, [mode, index])
 
   useEffect(() => {
@@ -178,8 +172,7 @@ export function ExploreHero({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { index, box, measureRef, chipRef } = useRollingNoun(mode, menuOpen)
-  const rollingToCommunities = mode === "communities" && index < COMMUNITIES_INDEX
-  const rollMs = rollingToCommunities ? MODE_ROLL_MS : ROLL_MS
+  const rollMs = mode === "communities" ? COMMUNITIES_ENTER_MS : ROLL_MS
   const switcherRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLSpanElement>(null)
 
