@@ -126,12 +126,16 @@ function useRollingNoun(mode: DiscoverMode, paused: boolean) {
     return () => ro.disconnect()
   }, [])
 
+  /* Layout, not effect: leaving communities must not paint one frame of
+     "communities" in products mode, and arriving in products must land on a
+     product word before the visitor sees it. */
+  useLayoutEffect(() => {
+    if (mode === "communities") setIndex(COMMUNITIES_INDEX)
+    else setIndex((i) => (i >= NOUNS.length ? 0 : i))
+  }, [mode])
+
   useEffect(() => {
-    if (mode === "communities") {
-      setIndex(COMMUNITIES_INDEX)
-      return
-    }
-    setIndex((i) => (i >= NOUNS.length ? 0 : i))
+    if (mode !== "products") return
     /* Held while the switcher's menu is open: the menu hangs off the chip,
        and a chip changing width under it would drag its edge about. */
     if (paused) return
@@ -182,6 +186,12 @@ export function ExploreHero({
   }, [menuOpen])
 
   const communities = mode === "communities"
+  /* "communities" plus "Discover" overflows a phone at the default size and
+     the chip drops to its own line. Slightly smaller type on small screens
+     only, and the pair is flex-nowrap so they stay one sentence. */
+  const headingSize = communities
+    ? "text-[28px] leading-[1.12] sm:text-[52px] sm:leading-[1.1]"
+    : "text-[34px] leading-[1.15] sm:text-[52px] sm:leading-[1.1]"
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -259,8 +269,7 @@ export function ExploreHero({
       {/* Hidden from assistive tech piece by piece rather than as a whole,
           because the switcher inside the chip is a real control. */}
       <div className="text-center">
-        <p className="text-[34px] leading-[1.15] sm:text-[52px] sm:leading-[1.1] font-bold tracking-[-0.02em] text-[#1a1a2e]">
-          <span aria-hidden>Discover{" "}</span>
+        <p className={cn("font-bold tracking-[-0.02em] text-[#1a1a2e]", headingSize)}>
           {/*
             MEASURED OUTSIDE THE CHIP, and that is not a detail.
 
@@ -292,6 +301,9 @@ export function ExploreHero({
             ))}
           </span>
 
+          <span className="inline-flex max-w-[calc(100vw-2rem)] flex-nowrap items-center justify-center">
+          <span aria-hidden className="shrink-0">Discover{" "}</span>
+
           <span
             ref={chipRef}
             /* More depth, per the owner: an inset hairline so the chip has an edge,
@@ -300,7 +312,7 @@ export function ExploreHero({
             /* The right padding is the switcher's slot: the word keeps the
                left padding it always had, and the chevrons sit in the extra
                room on the right, inside the violet. */
-            className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 pl-2.5 pr-[26px] sm:pl-3.5 sm:pr-[34px] align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            className="relative inline-flex shrink-0 flex-col justify-center rounded-xl bg-violet-50 pl-2.5 pr-[26px] sm:pl-3.5 sm:pr-[34px] align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{
               width: box ? box.widths[index] + box.padL + box.padR : undefined,
               height: box ? box.height + CHIP_PAD_Y * 2 : undefined,
@@ -370,7 +382,7 @@ export function ExploreHero({
               aria-expanded={menuOpen}
               disabled={!onModeChange}
               onClick={() => setMenuOpen((o) => !o)}
-              className="absolute right-1 sm:right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-5 sm:h-8 sm:w-6 items-center justify-center rounded-md text-[#5b21b6]/50 hover:text-[#5b21b6] hover:bg-violet-100/70 aria-expanded:text-[#5b21b6] aria-expanded:bg-violet-100/70 outline-none focus-visible:ring-2 focus-visible:ring-violet-300 transition-colors cursor-pointer disabled:cursor-default"
+              className="absolute right-1 sm:right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-5 sm:h-8 sm:w-6 items-center justify-center rounded-md text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100/90 aria-expanded:text-neutral-700 aria-expanded:bg-neutral-100/90 outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 transition-colors cursor-pointer disabled:cursor-default"
             >
               <svg aria-hidden viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 sm:h-4 sm:w-4">
                 <path d="M5 6.25 8 3.25l3 3M5 9.75l3 3 3-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -404,10 +416,10 @@ export function ExploreHero({
                       if (!on) onModeChange?.(opt.id)
                     }}
                     className={cn(
-                      "block w-full whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-left text-[14px] font-medium leading-5 tracking-normal outline-none transition-colors cursor-pointer",
+                      "block w-full whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-left text-[14px] leading-5 tracking-normal outline-none transition-colors cursor-pointer",
                       on
-                        ? "bg-violet-50 text-[#5b21b6]"
-                        : "text-[#1a1a2e] hover:bg-neutral-50 focus-visible:bg-neutral-50",
+                        ? "bg-neutral-100 font-semibold text-[#1a1a2e]"
+                        : "font-medium text-neutral-600 hover:bg-neutral-50 focus-visible:bg-neutral-50",
                     )}
                   >
                     {opt.label}
@@ -415,6 +427,7 @@ export function ExploreHero({
                 )
               })}
             </span>
+          </span>
           </span>
         </p>
 

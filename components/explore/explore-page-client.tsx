@@ -489,7 +489,9 @@ export function ExplorePageClient({
 
   // Get Recommended section products (based on main category and subcategory)
   const recommendedProducts = useMemo(() => {
-    let products = communities ? initialProducts.filter(isCommunity) : [...initialProducts]
+    let products = communities
+      ? initialProducts.filter(isCommunity)
+      : initialProducts.filter((p) => !isCommunity(p))
     const searching = localSearchQuery.trim().length > 0
 
     /*
