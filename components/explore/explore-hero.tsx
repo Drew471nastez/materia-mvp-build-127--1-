@@ -497,39 +497,7 @@ export function ExploreHero({
             onQueryChange(draft.trim())
           }}
         >
-          <Search className="pointer-events-none absolute left-4 sm:left-5 top-1/2 z-[1] h-[18px] w-[18px] sm:h-5 sm:w-5 -translate-y-1/2 text-neutral-400" />
-          {/*
-            THE NATIVE PLACEHOLDER WAS CLIPPING ON PHONES, especially with
-            type=search: long copy showed the middle of the string ("ies,
-            creators, tc") with the start cut off. A label in the field, faded
-            between modes, truncates with an ellipsis at the end like a normal
-            line of text.
-          */}
-          {!draft && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-12 sm:left-14 right-12 z-[1] grid grid-cols-1 grid-rows-1 items-center overflow-hidden"
-            >
-              <span
-                className={cn(
-                  "col-start-1 row-start-1 min-w-0 truncate text-[15px] sm:text-[17px] text-neutral-400",
-                  "motion-safe:transition-opacity motion-safe:duration-[380ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  communities ? "opacity-0" : "opacity-100",
-                )}
-              >
-                {searchPlaceholderProducts}
-              </span>
-              <span
-                className={cn(
-                  "col-start-1 row-start-1 min-w-0 truncate text-[15px] sm:text-[17px] text-neutral-400",
-                  "motion-safe:transition-opacity motion-safe:duration-[380ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  communities ? "opacity-100" : "opacity-0",
-                )}
-              >
-                {searchPlaceholderCommunities}
-              </span>
-            </span>
-          )}
+          <Search className="pointer-events-none absolute left-4 sm:left-5 top-1/2 z-[2] h-[18px] w-[18px] sm:h-5 sm:w-5 -translate-y-1/2 text-neutral-400" />
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -537,18 +505,21 @@ export function ExploreHero({
             inputMode="search"
             /* iOS labels the return key from this, so it reads Search. */
             enterKeyHint="search"
-            placeholder=" "
+            /* Short copy on phones so WebKit does not clip; the painted hint
+               below crossfades on mode change. Native placeholder is the
+               fallback if the overlay is ever behind the field. */
+            placeholder={communities ? searchPlaceholderCommunities : searchPlaceholderProducts}
             aria-label={searchAriaLabel}
             className={cn(
               /* 10px, per the owner. A pill reads as a chip; this is a field. */
-              "h-[52px] sm:h-[62px] w-full appearance-none rounded-[10px] bg-white",
+              "relative z-0 h-[52px] sm:h-[62px] w-full appearance-none rounded-[10px] bg-white text-left",
               "[&::-webkit-search-decoration]:hidden [&::-webkit-search-results-decoration]:hidden",
               /* Ten per cent shallower than it was: offsets, blurs and both
                  alphas scaled by 0.9. It stays level with the chip above,
                  which sits at 0.05 and 0.30 against this field's 0.045 and
                  0.315, so the two still read as the same depth. */
               "border border-neutral-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.045),0_9px_27px_-16px_rgba(15,23,42,0.315)]",
-              "relative z-[2] pl-12 sm:pl-14 pr-12 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-transparent",
+              "pl-12 sm:pl-14 pr-12 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-transparent",
               /*
                 NO VIOLET HALO ON FOCUS. It bloomed a purple glow around the
                 whole field the moment it was tapped, which on a phone is the
@@ -578,6 +549,35 @@ export function ExploreHero({
               "focus:shadow-[0_1px_3px_rgba(15,23,42,0.054),0_11px_27px_-16px_rgba(15,23,42,0.36)]",
             )}
           />
+          {/*
+            Painted ON TOP of the input (pointer-events-none) so the white
+            field does not hide it. Long placeholders still truncate cleanly.
+          */}
+          {!draft.trim() && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-12 sm:left-14 right-12 z-[1] grid grid-cols-1 grid-rows-1 items-center overflow-hidden"
+            >
+              <span
+                className={cn(
+                  "col-start-1 row-start-1 min-w-0 truncate text-left text-[15px] sm:text-[17px] text-neutral-400",
+                  "motion-safe:transition-opacity motion-safe:duration-[380ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  communities ? "opacity-0" : "opacity-100",
+                )}
+              >
+                {searchPlaceholderProducts}
+              </span>
+              <span
+                className={cn(
+                  "col-start-1 row-start-1 min-w-0 truncate text-left text-[15px] sm:text-[17px] text-neutral-400",
+                  "motion-safe:transition-opacity motion-safe:duration-[380ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  communities ? "opacity-100" : "opacity-0",
+                )}
+              >
+                {searchPlaceholderCommunities}
+              </span>
+            </span>
+          )}
           {draft && (
             <button
               type="button"
