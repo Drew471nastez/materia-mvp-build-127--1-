@@ -542,7 +542,7 @@ function BecomeSellerRow({ link, onDone, state = "none" }: { link: HeaderLink; o
  * at 1x, 2x and 3x: within 0.35px, where the old badge was 0.54px low on a
  * 3x phone (0.7px at 2x) and up to 1.9px off in a fallback face.
  */
-export function CountBadge({ count, className, ringClass = "ring-black" }: { count: number; className?: string; ringClass?: string }) {
+export function CountBadge({ count, className }: { count: number; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   useLayoutEffect(() => {
     const el = ref.current
@@ -572,8 +572,7 @@ export function CountBadge({ count, className, ringClass = "ring-black" }: { cou
       ref={ref}
       data-count-badge=""
       className={cn(
-        "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white ring-2",
-        ringClass,
+        "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white",
         className,
       )}
     >
@@ -2060,7 +2059,7 @@ export function PlatformHeaderClient({
                         object on every app that has one. tabular-nums so 7
                         and 77 do not shift the disc sideways.
                       */
-                      <CountBadge count={wishlistCount} ringClass={chrome.wishlistRing} className="absolute -top-1.5 -right-2" />
+                      <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
                   )}
                 </span>
               </Link>
@@ -2113,7 +2112,7 @@ export function PlatformHeaderClient({
                       <span className="relative inline-flex">
                         <Heart className="h-[22px] w-[22px]" />
                         {wishlistCount > 0 && (
-                          <CountBadge count={wishlistCount} ringClass={chrome.wishlistRing} className="absolute -top-1.5 -right-2" />
+                          <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
                         )}
                       </span>
                     </Link>

@@ -25,7 +25,6 @@ export type HeaderChrome = {
   deskSearchIcon: string
   deskSearchField: string
   deskSearchClear: string
-  wishlistRing: string
   concaveBg: string
 }
 
@@ -59,7 +58,6 @@ export function headerChrome(light: boolean): HeaderChrome {
       deskSearchField:
         "bg-white/10 border-white/15 text-white placeholder:text-white/50 focus-visible:border-white/45 focus:border-white/45",
       deskSearchClear: "text-white/40 hover:text-white/70",
-      wishlistRing: `ring-[${BUYER_HEADER_DARK_BG}]`,
       concaveBg: `bg-[${BUYER_HEADER_DARK_BG}]`,
     }
   }
@@ -89,7 +87,6 @@ export function headerChrome(light: boolean): HeaderChrome {
     deskSearchField:
       "bg-white border-[rgba(16,18,27,0.08)] text-[#1a1a2e] placeholder:text-[#9aa3b2] shadow-[0_1px_2px_rgba(16,18,27,0.04)] focus-visible:border-[rgba(16,18,27,0.14)] focus:border-[rgba(16,18,27,0.14)]",
     deskSearchClear: "text-[#9aa3b2] hover:text-[#5c6574]",
-    wishlistRing: "ring-[#f7f8f9]",
     concaveBg: "bg-[#f7f8f9]",
   }
 }
