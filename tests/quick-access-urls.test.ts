@@ -292,11 +292,7 @@ function main() {
   const badges = header.match(/<CountBadge count=\{wishlistCount\} className="absolute -top-1\.5 -right-2" \/>/g) ?? []
   const badge = /export function CountBadge[\s\S]*?\n}\n/.exec(header)?.[0] ?? ""
   check("both badges were reworked, not just the one on screen", badges.length === 2, `${badges.length} found`)
-<<<<<<< HEAD
-  check("no white ring around the red count", !/ring-2|ringClass|wishlistRing/.test(badge + header))
-=======
   check("no white ring around the red count", !/ring-2|ringClass/.test(badge) && !/wishlistRing/.test(header))
->>>>>>> d6d7afcb (fix(header): remove white ring around wishlist count badge)
   check("and the digits do not shift the disc", /tabular-nums/.test(badge))
   /* "The number is not centred": the box that is centred is the figures (cap height to baseline), on an even disc. */
   check("the figures are what is centred, on an even 18px disc", /\[text-box:trim-both_cap_alphabetic\]/.test(badge) && /box-border flex h-\[18px\] min-w-\[18px\] items-center justify-center/.test(badge))
