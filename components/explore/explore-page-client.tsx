@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ExploreHero, type DiscoverMode } from "./explore-hero"
+import { writeDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { ProductCard } from "./product-card"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
@@ -357,6 +358,8 @@ interface ExplorePageClientProps {
   /** See lib/explore/interests. Empty and `enough: false` when signed out. */
   interests?: Interests
   searchQuery: string
+  discoverModeSwitcherEnabled?: boolean
+  initialDiscoverMode?: DiscoverMode
 }
 
 export function ExplorePageClient({
@@ -364,6 +367,8 @@ export function ExplorePageClient({
   initialCategory,
   interests = EMPTY_INTERESTS,
   searchQuery: urlSearchQuery,
+  discoverModeSwitcherEnabled = false,
+  initialDiscoverMode = "products",
 }: ExplorePageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -371,9 +376,13 @@ export function ExplorePageClient({
 
   /* Set from the switcher in the hero's chip, and written to the address as
      ?type=communities so Back from a community lands on communities. */
-  const [mode, setMode] = useState<DiscoverMode>(() =>
-    searchParams.get("type") === "communities" ? "communities" : "products",
-  )
+  const [mode, setMode] = useState<DiscoverMode>(() => {
+    const fromUrl = searchParams.get("type")
+    if (fromUrl === "communities") return "communities"
+    if (fromUrl === "products") return "products"
+    if (discoverModeSwitcherEnabled) return initialDiscoverMode
+    return "products"
+  })
   const communities = mode === "communities"
 
   // Main category (for Recommended section)
@@ -781,6 +790,7 @@ export function ExplorePageClient({
      communities, and the usual first pill for products. */
   const handleModeChange = useCallback((next: DiscoverMode) => {
     const firstCategory = next === "products" && interests.enough ? FOR_YOU_ID : "all"
+    if (discoverModeSwitcherEnabled) writeDiscoverModeCookie(next)
     setMode(next)
     setMainCategory(firstCategory)
     setBrowseCategory("all")
@@ -794,7 +804,7 @@ export function ExplorePageClient({
       if (urlSearchQuery) href += `&q=${urlSearchQuery}`
       router.replace(href, { scroll: false })
     }, 250)
-  }, [interests.enough, exploreHref, sortBy, urlSearchQuery, router])
+  }, [discoverModeSwitcherEnabled, interests.enough, exploreHref, sortBy, urlSearchQuery, router])
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))
@@ -1074,7 +1084,8 @@ export function ExplorePageClient({
         query={localSearchQuery}
         onQueryChange={setLocalSearchQuery}
         mode={mode}
-        onModeChange={handleModeChange}
+        onModeChange={discoverModeSwitcherEnabled ? handleModeChange : undefined}
+        discoverModeSwitcherEnabled={discoverModeSwitcherEnabled}
       />
 
       {/*

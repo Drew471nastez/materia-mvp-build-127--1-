@@ -418,6 +418,10 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
       if (url.origin !== window.location.origin) return
       const from = pendingRef.current?.href ?? pathRef.current
       const kind = moveOf(from, cleanPath(url.pathname))
+      if (kind === "tab") {
+        setPanelEnter(false)
+        return
+      }
       if (kind) begin(kind, cleanPath(url.pathname))
     }
     document.addEventListener("click", onClick)
@@ -489,7 +493,9 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
   /* The address changed: the screen that came, or its route's skeleton, is in the live slot now. */
   useLayoutEffect(() => {
     const path = cleanPath(pathname)
-    if (path === pathRef.current && !pendingRef.current) return
+    const prevPath = pathRef.current
+    if (path === prevPath && !pendingRef.current) return
+    const tabOnlyArrival = !pendingRef.current && moveOf(prevPath, path) === "tab"
     pathRef.current = path
     const p = pendingRef.current
     if (!p) {
@@ -497,6 +503,9 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
       if (traversal.current && scrolls.has(path)) jump(scrolls.get(path) ?? 0)
       traversal.current = false
       if (panelRef.current) panelRef.current.style.minHeight = ""
+      if (tabOnlyArrival && !reducedMotion()) {
+        requestAnimationFrame(() => setPanelEnter(true))
+      }
       return
     }
     traversal.current = false

@@ -6,6 +6,7 @@ import Link from "next/link"
  * Thin link row for signed-in Explore. Real routes only — no mailto traps.
  */
 const LINKS = [
+  { label: "Home", href: "/explore" },
   { label: "Blog", href: "/blog" },
   { label: "Help", href: "/help" },
   { label: "Terms", href: "/terms" },

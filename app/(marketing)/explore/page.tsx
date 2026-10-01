@@ -10,6 +10,9 @@ import { MostPopularSection } from "@/components/explore/most-popular-section"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
+import { cookies } from "next/headers"
+import { DISCOVER_MODE_COOKIE, parseDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
+import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-discover-mode-switcher"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -87,10 +90,10 @@ async function personalizationOn(
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; c?: string }>
+  searchParams: Promise<{ q?: string; category?: string; c?: string; type?: string }>
 }) {
   // Safely get search params
-  let params: { q?: string; category?: string; c?: string } = {}
+  let params: { q?: string; category?: string; c?: string; type?: string } = {}
   try {
     params = await searchParams
   } catch {
@@ -110,6 +113,17 @@ export default async function ExplorePage({
   */
   const rawCategory = (params?.c || params?.category || "all").toLowerCase()
   const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "all"
+
+  const discoverModeSwitcherEnabled = await isExploreDiscoverModeSwitcherEnabled()
+  const cookieMode = parseDiscoverModeCookie((await cookies()).get(DISCOVER_MODE_COOKIE)?.value)
+  const initialDiscoverMode =
+    params?.type === "communities"
+      ? "communities"
+      : params?.type === "products"
+        ? "products"
+        : discoverModeSwitcherEnabled && cookieMode
+          ? cookieMode
+          : "products"
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -259,6 +273,8 @@ export default async function ExplorePage({
           initialCategory={category}
           interests={interests}
           searchQuery={searchQuery}
+          discoverModeSwitcherEnabled={discoverModeSwitcherEnabled}
+          initialDiscoverMode={initialDiscoverMode}
         />
 
         {/*

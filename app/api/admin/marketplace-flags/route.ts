@@ -10,6 +10,11 @@ import {
   isExploreMarketplaceEnabled,
   setExploreMarketplaceEnabled,
 } from "@/lib/platform/explore-marketplace"
+import {
+  EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG,
+  isExploreDiscoverModeSwitcherEnabled,
+  setExploreDiscoverModeSwitcherEnabled,
+} from "@/lib/platform/explore-discover-mode-switcher"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -19,8 +24,15 @@ export async function GET() {
   const denied = await requireAdmin()
   if (denied) return denied
   try {
-    const [exploreEnabled, buyerHeaderLight] = await Promise.all([isExploreMarketplaceEnabled(), isBuyerHeaderLight()])
-    return NextResponse.json({ exploreEnabled, buyerHeaderLight }, { headers: { "Cache-Control": "no-store" } })
+    const [exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher] = await Promise.all([
+      isExploreMarketplaceEnabled(),
+      isBuyerHeaderLight(),
+      isExploreDiscoverModeSwitcherEnabled(),
+    ])
+    return NextResponse.json(
+      { exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher },
+      { headers: { "Cache-Control": "no-store" } },
+    )
   } catch (error) {
     return adminFailure("marketplace flags read", error, "Could not read marketplace flags.")
   }
@@ -31,7 +43,7 @@ export async function POST(request: NextRequest) {
   const denied = await requireAdmin()
   if (denied) return denied
 
-  let body: { exploreEnabled?: unknown; buyerHeaderLight?: unknown }
+  let body: { exploreEnabled?: unknown; buyerHeaderLight?: unknown; exploreDiscoverModeSwitcher?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -40,8 +52,11 @@ export async function POST(request: NextRequest) {
 
   const setExplore = typeof body.exploreEnabled === "boolean"
   const setHeader = typeof body.buyerHeaderLight === "boolean"
-  if (!setExplore && !setHeader) {
-    return NextResponse.json({ error: "Send exploreEnabled and/or buyerHeaderLight as booleans." }, { status: 400 })
+  const setDiscoverSwitcher = typeof body.exploreDiscoverModeSwitcher === "boolean"
+  if (!setExplore && !setHeader && !setDiscoverSwitcher) {
+    return NextResponse.json({
+      error: "Send exploreEnabled, buyerHeaderLight, and/or exploreDiscoverModeSwitcher as booleans.",
+    }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -55,6 +70,17 @@ export async function POST(request: NextRequest) {
         targetId: "explore_marketplace",
         targetLabel: body.exploreEnabled ? "on" : "off",
         detail: { exploreEnabled: body.exploreEnabled },
+      })
+    }
+    if (setDiscoverSwitcher) {
+      await setExploreDiscoverModeSwitcherEnabled(body.exploreDiscoverModeSwitcher as boolean)
+      revalidateTag(EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG)
+      await recordAdminAction(admin, {
+        action: "set_explore_discover_mode_switcher",
+        targetType: "platform",
+        targetId: "explore_discover_mode_switcher",
+        targetLabel: body.exploreDiscoverModeSwitcher ? "on" : "off",
+        detail: { exploreDiscoverModeSwitcher: body.exploreDiscoverModeSwitcher },
       })
     }
     if (setHeader) {
@@ -76,6 +102,13 @@ export async function POST(request: NextRequest) {
     return adminFailure("marketplace flags write", error, `Could not save. Nothing was changed.${hint}`)
   }
 
-  const [exploreEnabled, buyerHeaderLight] = await Promise.all([isExploreMarketplaceEnabled(), isBuyerHeaderLight()])
-  return NextResponse.json({ exploreEnabled, buyerHeaderLight }, { headers: { "Cache-Control": "no-store" } })
+  const [exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher] = await Promise.all([
+    isExploreMarketplaceEnabled(),
+    isBuyerHeaderLight(),
+    isExploreDiscoverModeSwitcherEnabled(),
+  ])
+  return NextResponse.json(
+    { exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher },
+    { headers: { "Cache-Control": "no-store" } },
+  )
 }

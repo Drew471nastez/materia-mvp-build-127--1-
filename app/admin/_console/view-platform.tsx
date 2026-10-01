@@ -9,6 +9,7 @@ import type { Route } from "./nav-state"
 import { WalletDomainsPanel } from "./panel-wallets"
 import { BuyerHeaderThemePanel } from "./panel-buyer-header-theme"
 import { ExploreMarketplacePanel } from "./panel-explore-marketplace"
+import { ExploreDiscoverModeSwitcherPanel } from "./panel-explore-discover-switcher"
 import { ViewHeader } from "./shell"
 import { DataList, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, reasonFor, type Column } from "./ui"
 
@@ -347,6 +348,7 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
       ) : null}
 
       <ExploreMarketplacePanel />
+      <ExploreDiscoverModeSwitcherPanel />
       <BuyerHeaderThemePanel />
       {/* The one panel here that changes something, and the last step for Apple Pay. */}
       <WalletDomainsPanel />

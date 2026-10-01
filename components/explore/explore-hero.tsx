@@ -26,6 +26,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { Search, X } from "lucide-react"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
 import { cn } from "@/lib/utils"
+import { DiscoverModeSegment } from "./discover-mode-segment"
 
 /** What the catalogue is made of, in the order it reads best out loud. */
 const NOUNS = ["templates", "courses", "ebooks", "tools", "software", "resources"] as const
@@ -175,29 +176,31 @@ export function ExploreHero({
   onQueryChange,
   mode = "products",
   onModeChange,
+  discoverModeSwitcherEnabled = false,
 }: {
   query: string
   onQueryChange: (value: string) => void
   mode?: DiscoverMode
   onModeChange?: (mode: DiscoverMode) => void
+  discoverModeSwitcherEnabled?: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { index, box, measureRef, chipRef } = useRollingNoun(mode, menuOpen)
   const rollMs = mode === "communities" ? COMMUNITIES_ENTER_MS : ROLL_MS
-  const switcherRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLSpanElement>(null)
+  const chipToggleRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!menuOpen) return
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node
-      if (switcherRef.current?.contains(t) || menuRef.current?.contains(t)) return
+      if (chipRef.current?.contains(t) || menuRef.current?.contains(t)) return
       setMenuOpen(false)
     }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return
       setMenuOpen(false)
-      switcherRef.current?.focus()
+      chipToggleRef.current?.focus()
     }
     document.addEventListener("pointerdown", onPointerDown)
     document.addEventListener("keydown", onKeyDown)
@@ -303,6 +306,9 @@ export function ExploreHero({
       {/* Hidden from assistive tech piece by piece rather than as a whole,
           because the switcher inside the chip is a real control. */}
       <div className="text-center">
+        {discoverModeSwitcherEnabled && onModeChange ? (
+          <DiscoverModeSegment mode={mode} onChange={onModeChange} />
+        ) : null}
         <p
           className={cn(
             "font-bold tracking-[-0.02em] text-[#1a1a2e]",
@@ -352,13 +358,28 @@ export function ExploreHero({
             /* The right padding is the switcher's slot: the word keeps the
                left padding it always had, and the chevrons sit in the extra
                room on the right, inside the violet. */
-            className="relative inline-flex shrink-0 flex-col justify-center rounded-xl bg-violet-50 pl-2.5 pr-[26px] sm:pl-3.5 sm:pr-[34px] align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            className={cn(
+              "relative inline-flex shrink-0 flex-col justify-center rounded-xl bg-violet-50 pl-2.5 align-middle",
+              onModeChange ? "pr-[26px] sm:pr-[34px]" : "pr-2.5 sm:pr-3.5",
+              "shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+            )}
             style={{
               width: box ? box.widths[index] + box.padL + box.padR : undefined,
               height: box ? box.height + CHIP_PAD_Y * 2 : undefined,
               transitionDuration: `${rollMs}ms`,
             }}
           >
+            {onModeChange ? (
+              <button
+                ref={chipToggleRef}
+                type="button"
+                aria-label="Choose what to discover"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((o) => !o)}
+                className="absolute inset-0 z-[1] cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-violet-200/80"
+              />
+            ) : null}
             {/*
               THE WINDOW IS EXACTLY ONE WORD TALL, and the chip's padding is
               OUTSIDE it. With the padding inside the clip, the window was
@@ -414,20 +435,16 @@ export function ExploreHero({
               </span>
             </span>
 
-            <button
-              ref={switcherRef}
-              type="button"
-              aria-label="Choose what to discover"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              disabled={!onModeChange}
-              onClick={() => setMenuOpen((o) => !o)}
-              className="absolute right-1 sm:right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-5 sm:h-8 sm:w-6 items-center justify-center rounded-md text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100/90 aria-expanded:text-neutral-700 aria-expanded:bg-neutral-100/90 outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 transition-colors cursor-pointer disabled:cursor-default"
-            >
-              <svg aria-hidden viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 sm:h-4 sm:w-4">
-                <path d="M5 6.25 8 3.25l3 3M5 9.75l3 3 3-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+            {onModeChange ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute right-1 sm:right-1.5 top-1/2 flex h-7 w-5 sm:h-8 sm:w-6 -translate-y-1/2 items-center justify-center text-neutral-400"
+              >
+                <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 sm:h-4 sm:w-4">
+                  <path d="M5 6.25 8 3.25l3 3M5 9.75l3 3 3-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            ) : null}
 
             {/* At least as wide as the chip, wider only if a label needs it.
                 Always mounted, so closing can fade out instead of vanishing. */}

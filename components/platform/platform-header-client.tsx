@@ -1752,8 +1752,8 @@ export function PlatformHeaderClient({
                       categoriesDropdownOpen ? chrome.catBtnOpen : chrome.catBtn,
                     )}
                   >
-                    <Menu className="w-[18px] h-[18px]" />
-                    <span>Categories</span>
+                    <Menu className="w-[18px] h-[18px]" aria-hidden />
+                    <span className="sr-only">Categories</span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
