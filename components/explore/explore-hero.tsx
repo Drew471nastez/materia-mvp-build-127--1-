@@ -51,6 +51,9 @@ const MODE_OPTIONS: { id: DiscoverMode; label: string }[] = [
 const HOLD_MS = 3600
 /** The roll itself. One movement, on the curve the rest of the product uses. */
 const ROLL_MS = 420
+/** A little slower per step when rolling forward into communities, so the
+ *  mode change reads as one continuous reel rather than a hard cut. */
+const MODE_ROLL_MS = 520
 const ROLL_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** Breathing room above and below the word, inside the chip. */
 const CHIP_PAD_Y = 8
@@ -126,13 +129,26 @@ function useRollingNoun(mode: DiscoverMode, paused: boolean) {
     return () => ro.disconnect()
   }, [])
 
-  /* Layout, not effect: leaving communities must not paint one frame of
-     "communities" in products mode, and arriving in products must land on a
-     product word before the visitor sees it. */
+  /* Back to products: drop off "communities" before paint. Stepping into
+     communities is animated in the effect below instead of snapping here. */
   useLayoutEffect(() => {
-    if (mode === "communities") setIndex(COMMUNITIES_INDEX)
-    else setIndex((i) => (i >= NOUNS.length ? 0 : i))
+    if (mode !== "products") return
+    setIndex((i) => (i >= NOUNS.length ? 0 : i))
   }, [mode])
+
+  useEffect(() => {
+    if (mode !== "communities") return
+    if (index >= COMMUNITIES_INDEX) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setIndex(COMMUNITIES_INDEX)
+      return
+    }
+    const t = window.setTimeout(
+      () => setIndex((i) => Math.min(i + 1, COMMUNITIES_INDEX)),
+      MODE_ROLL_MS,
+    )
+    return () => window.clearTimeout(t)
+  }, [mode, index])
 
   useEffect(() => {
     if (mode !== "products") return
@@ -162,6 +178,8 @@ export function ExploreHero({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { index, box, measureRef, chipRef } = useRollingNoun(mode, menuOpen)
+  const rollingToCommunities = mode === "communities" && index < COMMUNITIES_INDEX
+  const rollMs = rollingToCommunities ? MODE_ROLL_MS : ROLL_MS
   const switcherRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLSpanElement>(null)
 
@@ -301,8 +319,8 @@ export function ExploreHero({
             ))}
           </span>
 
-          <span className="inline-flex max-w-[calc(100vw-2rem)] flex-nowrap items-center justify-center">
-          <span aria-hidden className="shrink-0">Discover{" "}</span>
+          <span className="inline-flex max-w-[calc(100vw-2rem)] flex-nowrap items-center justify-center gap-2 sm:gap-2.5">
+          <span aria-hidden className="shrink-0">Discover</span>
 
           <span
             ref={chipRef}
@@ -316,7 +334,7 @@ export function ExploreHero({
             style={{
               width: box ? box.widths[index] + box.padL + box.padR : undefined,
               height: box ? box.height + CHIP_PAD_Y * 2 : undefined,
-              transitionDuration: `${ROLL_MS}ms`,
+              transitionDuration: `${rollMs}ms`,
             }}
           >
             {/*
@@ -355,7 +373,7 @@ export function ExploreHero({
                 className="flex flex-col motion-safe:transition-transform motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
                 style={{
                   transform: box ? `translateY(${-index * box.height}px)` : undefined,
-                  transitionDuration: `${ROLL_MS}ms`,
+                  transitionDuration: `${rollMs}ms`,
                 }}
               >
                 {box ? (
