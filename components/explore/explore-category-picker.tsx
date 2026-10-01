@@ -197,7 +197,7 @@ export function ExploreCategoryPicker({
         maxHeight="min(78dvh, 680px)"
         header={
           <div data-category-sheet="" className="px-4 pb-2 pt-2">
-            <p className="pb-3 text-[17px] font-semibold leading-6 text-[#1a1a2e]">Categories</p>
+            <p className="pb-3 text-[17px] font-medium leading-6 text-[#1a1a2e]">Categories</p>
             <BrowseSearch
               value={query}
               onChange={setQuery}

@@ -314,19 +314,17 @@ export function CategoryBrowser({
     ? "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 active:bg-[#f1f2f4]"
     : "flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] leading-5 hover:bg-[#f4f5f6] focus-visible:bg-[#f1f2f4]"
   /*
-    THE WEIGHT SAYS WHICH LEVEL A ROW IS ON. "Category and subcategory text
-    should have a heavier font weight": a category is 600 and a subcategory
-    500, on a phone and a computer alike, and the same in the search screen
-    (components/search/search-screen.tsx). It is the level that decides it,
-    never whether the row is chosen, so nothing reflows when a check moves.
+    THE WEIGHT SAYS WHICH LEVEL A ROW IS ON. Categories sit one step above
+    subcategories; both are lighter than the old 600/500 pairing so the sheet
+    does not shout. Level decides weight, never whether the row is chosen.
   */
-  const groupWeight = phone ? "font-medium" : "font-semibold"
-  const itemWeight = phone ? "font-normal" : "font-medium"
+  const groupWeight = "font-medium"
+  const itemWeight = "font-normal"
   const rowCommon =
     "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]"
   const labelCls = phone
-    ? "px-4 pb-1 pt-3 text-[13px] font-medium text-[#6b7280]"
-    : "px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#6b7280]"
+    ? "px-4 pb-1 pt-3 text-[13px] font-normal text-[#6b7280]"
+    : "px-2.5 pb-1 pt-2 text-[12px] font-normal text-[#6b7280]"
   const detailCls = "max-w-[45%] shrink-0 truncate text-[13px] text-[#9ca3af]"
 
   const onKeys = (paneOf: () => HTMLElement | null) => (e: React.KeyboardEvent) => {
@@ -435,7 +433,7 @@ export function CategoryBrowser({
           keyboardRef.current = e.detail === 0
           back()
         }}
-        className={cn(rowBase, rowCommon, phone ? "font-medium" : "font-semibold", phone ? "pl-2.5" : "pl-1")}
+        className={cn(rowBase, rowCommon, "font-medium", phone ? "pl-2.5" : "pl-1")}
       >
         <Chevron dir="left" className={cn("text-[#6b7280]", phone && "h-5 w-5")} />
         <span className="min-w-0 flex-1 truncate">{heldGroup.label}</span>
