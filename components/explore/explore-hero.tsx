@@ -30,6 +30,22 @@ import { cn } from "@/lib/utils"
 /** What the catalogue is made of, in the order it reads best out loud. */
 const NOUNS = ["templates", "courses", "ebooks", "tools", "software", "resources"] as const
 
+export type DiscoverMode = "products" | "communities"
+
+/**
+ * THE WORD COMMUNITIES MODE HOLDS, kept at the END of the stack so it is
+ * measured with the others and arriving at it is the same roll as any other
+ * word. The product cycle never reaches it: it wraps at NOUNS.length.
+ */
+const COMMUNITIES_WORD = "communities"
+const WORDS = [...NOUNS, COMMUNITIES_WORD] as const
+const COMMUNITIES_INDEX = NOUNS.length
+
+const MODE_OPTIONS: { id: DiscoverMode; label: string }[] = [
+  { id: "products", label: "Digital products" },
+  { id: "communities", label: "Communities" },
+]
+
 /** Long enough to read the word and sit with it. The owner asked for a
  *  second more than the 2.6s it was. */
 const HOLD_MS = 3600
@@ -75,9 +91,9 @@ const CHIP_PAD_X = { base: 10, sm: 14 }
  * one the browser gives for the text as rendered. A hidden copy of every word
  * is laid out once and re-measured whenever the box changes.
  */
-function useRollingNoun() {
-  const [index, setIndex] = useState(0)
-  const [box, setBox] = useState<{ widths: number[]; height: number; padX: number } | null>(null)
+function useRollingNoun(mode: DiscoverMode, paused: boolean) {
+  const [index, setIndex] = useState(mode === "communities" ? COMMUNITIES_INDEX : 0)
+  const [box, setBox] = useState<{ widths: number[]; height: number; padL: number; padR: number } | null>(null)
   const measureRef = useRef<HTMLSpanElement>(null)
   const chipRef = useRef<HTMLSpanElement>(null)
 
@@ -90,14 +106,16 @@ function useRollingNoun() {
       const kids = Array.from(el.children) as HTMLElement[]
       if (!kids.length) return
       /* Read from the chip rather than assumed, because the class that sets
-         it changes at the sm breakpoint and this has to follow. */
-      const padX = chipRef.current
-        ? parseFloat(getComputedStyle(chipRef.current).paddingLeft) || CHIP_PAD_X.base
-        : CHIP_PAD_X.base
+         it changes at the sm breakpoint and this has to follow. The right
+         side is wider than the left: it is where the switcher sits. */
+      const style = chipRef.current ? getComputedStyle(chipRef.current) : null
+      const padL = (style && parseFloat(style.paddingLeft)) || CHIP_PAD_X.base
+      const padR = (style && parseFloat(style.paddingRight)) || CHIP_PAD_X.base
       setBox({
         widths: kids.map((k) => Math.ceil(k.getBoundingClientRect().width)),
         height: Math.ceil(kids[0].getBoundingClientRect().height),
-        padX,
+        padL,
+        padR,
       })
     }
     measure()
@@ -109,12 +127,20 @@ function useRollingNoun() {
   }, [])
 
   useEffect(() => {
+    if (mode === "communities") {
+      setIndex(COMMUNITIES_INDEX)
+      return
+    }
+    setIndex((i) => (i >= NOUNS.length ? 0 : i))
+    /* Held while the switcher's menu is open: the menu hangs off the chip,
+       and a chip changing width under it would drag its edge about. */
+    if (paused) return
     /* A visitor who asked for less motion gets the first word and nothing
        else. The objection is the movement, not its speed. */
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const id = window.setInterval(() => setIndex((i) => (i + 1) % NOUNS.length), HOLD_MS)
     return () => window.clearInterval(id)
-  }, [])
+  }, [mode, paused])
 
   return { index, box, measureRef, chipRef }
 }
@@ -122,11 +148,40 @@ function useRollingNoun() {
 export function ExploreHero({
   query,
   onQueryChange,
+  mode = "products",
+  onModeChange,
 }: {
   query: string
   onQueryChange: (value: string) => void
+  mode?: DiscoverMode
+  onModeChange?: (mode: DiscoverMode) => void
 }) {
-  const { index, box, measureRef, chipRef } = useRollingNoun()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const { index, box, measureRef, chipRef } = useRollingNoun(mode, menuOpen)
+  const switcherRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node
+      if (switcherRef.current?.contains(t) || menuRef.current?.contains(t)) return
+      setMenuOpen(false)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      setMenuOpen(false)
+      switcherRef.current?.focus()
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("keydown", onKeyDown)
+    }
+  }, [menuOpen])
+
+  const communities = mode === "communities"
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -195,11 +250,17 @@ export function ExploreHero({
   return (
     <section className="pt-[42px] pb-[6px] sm:pt-[88px] sm:pb-[18.5px]">
       {/* The sentence, whole, for anything that reads rather than looks. */}
-      <h1 className="sr-only">Discover {NOUNS.slice(0, -1).join(", ")} and {NOUNS[NOUNS.length - 1]} from creators</h1>
+      <h1 className="sr-only">
+        {communities
+          ? "Discover communities from creators"
+          : `Discover ${NOUNS.slice(0, -1).join(", ")} and ${NOUNS[NOUNS.length - 1]} from creators`}
+      </h1>
 
-      <div aria-hidden className="text-center">
+      {/* Hidden from assistive tech piece by piece rather than as a whole,
+          because the switcher inside the chip is a real control. */}
+      <div className="text-center">
         <p className="text-[34px] leading-[1.15] sm:text-[52px] sm:leading-[1.1] font-bold tracking-[-0.02em] text-[#1a1a2e]">
-          Discover{" "}
+          <span aria-hidden>Discover{" "}</span>
           {/*
             MEASURED OUTSIDE THE CHIP, and that is not a detail.
 
@@ -226,7 +287,7 @@ export function ExploreHero({
                visibility still lays out, which is all the measuring needs. */
             className="pointer-events-none invisible fixed -left-[9999px] top-0 flex flex-col items-start whitespace-nowrap"
           >
-            {NOUNS.map((w) => (
+            {WORDS.map((w) => (
               <span key={w} className="block">{w}</span>
             ))}
           </span>
@@ -236,9 +297,12 @@ export function ExploreHero({
             /* More depth, per the owner: an inset hairline so the chip has an edge,
                and a soft violet cast under it so it sits on the page rather than
                being a flat wash of colour. No gradient. */
-            className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 px-2.5 sm:px-3.5 align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            /* The right padding is the switcher's slot: the word keeps the
+               left padding it always had, and the chevrons sit in the extra
+               room on the right, inside the violet. */
+            className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 pl-2.5 pr-[26px] sm:pl-3.5 sm:pr-[34px] align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{
-              width: box ? box.widths[index] + 2 * box.padX : undefined,
+              width: box ? box.widths[index] + box.padL + box.padR : undefined,
               height: box ? box.height + CHIP_PAD_Y * 2 : undefined,
               transitionDuration: `${ROLL_MS}ms`,
             }}
@@ -274,7 +338,7 @@ export function ExploreHero({
               measuring span above is untouched: it is `position: fixed` and
               was never in the flow.
             */}
-            <span className="block overflow-hidden" style={{ height: box ? box.height : undefined }}>
+            <span aria-hidden className="block overflow-hidden" style={{ height: box ? box.height : undefined }}>
               <span
                 className="flex flex-col motion-safe:transition-transform motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
                 style={{
@@ -283,7 +347,7 @@ export function ExploreHero({
                 }}
               >
                 {box ? (
-                  NOUNS.map((w) => (
+                  WORDS.map((w) => (
                     <span
                       key={w}
                       className="block whitespace-nowrap text-[#5b21b6]"
@@ -293,9 +357,63 @@ export function ExploreHero({
                     </span>
                   ))
                 ) : (
-                  <span className="block whitespace-nowrap text-[#5b21b6]">{NOUNS[index]}</span>
+                  <span className="block whitespace-nowrap text-[#5b21b6]">{WORDS[index]}</span>
                 )}
               </span>
+            </span>
+
+            <button
+              ref={switcherRef}
+              type="button"
+              aria-label="Choose what to discover"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              disabled={!onModeChange}
+              onClick={() => setMenuOpen((o) => !o)}
+              className="absolute right-1 sm:right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-5 sm:h-8 sm:w-6 items-center justify-center rounded-md text-[#5b21b6]/50 hover:text-[#5b21b6] hover:bg-violet-100/70 aria-expanded:text-[#5b21b6] aria-expanded:bg-violet-100/70 outline-none focus-visible:ring-2 focus-visible:ring-violet-300 transition-colors cursor-pointer disabled:cursor-default"
+            >
+              <svg aria-hidden viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 sm:h-4 sm:w-4">
+                <path d="M5 6.25 8 3.25l3 3M5 9.75l3 3 3-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            {/* At least as wide as the chip, wider only if a label needs it.
+                Always mounted, so closing can fade out instead of vanishing. */}
+            <span
+              ref={menuRef}
+              role="menu"
+              aria-label="Discover"
+              className={cn(
+                "absolute left-0 top-[calc(100%+6px)] z-30 block min-w-full origin-top rounded-[10px] border border-neutral-200/80 bg-white p-1 text-left",
+                "shadow-[0_1px_3px_rgba(15,23,42,0.045),0_9px_27px_-16px_rgba(15,23,42,0.315)]",
+                "transition-[opacity,scale,translate,visibility] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                menuOpen ? "visible opacity-100 scale-100 translate-y-0" : "invisible pointer-events-none opacity-0 scale-[0.96] -translate-y-1",
+              )}
+            >
+              {MODE_OPTIONS.map((opt) => {
+                const on = mode === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={on}
+                    tabIndex={menuOpen ? 0 : -1}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      if (!on) onModeChange?.(opt.id)
+                    }}
+                    className={cn(
+                      "block w-full whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-left text-[14px] font-medium leading-5 tracking-normal outline-none transition-colors cursor-pointer",
+                      on
+                        ? "bg-violet-50 text-[#5b21b6]"
+                        : "text-[#1a1a2e] hover:bg-neutral-50 focus-visible:bg-neutral-50",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
             </span>
           </span>
         </p>
@@ -308,7 +426,7 @@ export function ExploreHero({
 
           And mt-3 rather than mt-4: 12px under the heading instead of 16.
         */}
-        <p className="mt-3 text-[15px] sm:text-[17px] font-[450] text-neutral-600">
+        <p aria-hidden className="mt-3 text-[15px] sm:text-[17px] font-[450] text-neutral-600">
           Discover what creators are building across the internet.
         </p>
         {/* "or start selling your own" was here. The owner took it off: this
@@ -334,8 +452,8 @@ export function ExploreHero({
             inputMode="search"
             /* iOS labels the return key from this, so it reads Search. */
             enterKeyHint="search"
-            placeholder="Search products, creators, topics..."
-            aria-label="Search products, creators and topics"
+            placeholder={communities ? "Search communities, creators, topics..." : "Search products, creators, topics..."}
+            aria-label={communities ? "Search communities, creators and topics" : "Search products, creators and topics"}
             className={cn(
               /* 10px, per the owner. A pill reads as a chip; this is a field. */
               "h-[52px] sm:h-[62px] w-full rounded-[10px] bg-white",

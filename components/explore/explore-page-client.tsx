@@ -4,7 +4,7 @@ import { useState, useCallback, useTransition, useMemo, useEffect, useRef, useDe
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
-import { ExploreHero } from "./explore-hero"
+import { ExploreHero, type DiscoverMode } from "./explore-hero"
 import { ProductCard } from "./product-card"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
@@ -264,6 +264,33 @@ export const CATEGORY_PILLS = PILL_IDS
   .map((id) => CATEGORIES.find((c) => c.id === id))
   .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
 
+/**
+ * THE ROW IN COMMUNITIES MODE. Memberships have no category of their own, so
+ * these match through the creator's niche tags (the second test in the
+ * filter below); the ids are the shared taxonomy's, picked for what people
+ * gather around rather than what they download. No For you and no More:
+ * both are built from product signals and product subcategories.
+ */
+const COMMUNITY_PILL_IDS = [
+  "all",
+  "business",
+  "education",
+  "ai",
+  "marketing",
+  "development",
+  "design",
+  "social-media",
+  "freebies",
+] as const
+const COMMUNITY_PILL_LABELS: Record<string, string> = { freebies: "Free" }
+const COMMUNITY_PILLS = COMMUNITY_PILL_IDS
+  .map((id) => CATEGORIES.find((c) => c.id === id))
+  .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
+  .map((c) => ({ id: c.id, label: COMMUNITY_PILL_LABELS[c.id] ?? c.label }))
+
+/** A community is a product of type membership (lib/memberships/creator). */
+const isCommunity = (p: { type?: string | null }) => p.type === "membership"
+
 /** The same categories, as the More picker lists them: everything but "All", with their subcategories. */
 const PICKER_GROUPS: BrowseGroup[] = CATEGORIES.filter((c) => c.id !== "all").map((c) => ({
   id: c.id,
@@ -342,6 +369,13 @@ export function ExplorePageClient({
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
+  /* Set from the switcher in the hero's chip, and written to the address as
+     ?type=communities so Back from a community lands on communities. */
+  const [mode, setMode] = useState<DiscoverMode>(() =>
+    searchParams.get("type") === "communities" ? "communities" : "products",
+  )
+  const communities = mode === "communities"
+
   // Main category (for Recommended section)
   /*
     FOR YOU IS THE DEFAULT, for an account that has shown us enough. Arriving
@@ -351,7 +385,7 @@ export function ExplorePageClient({
   */
   const [mainCategory, setMainCategory] = useState(() => {
     const fromUrl = initialCategory.toLowerCase() || "all"
-    return fromUrl === "all" && interests.enough ? FOR_YOU_ID : fromUrl
+    return fromUrl === "all" && interests.enough && !communities ? FOR_YOU_ID : fromUrl
   })
 
   // Selected subcategory from modal
@@ -446,7 +480,7 @@ export function ExplorePageClient({
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, localSearchQuery])
+  }, [mode, mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, localSearchQuery])
 
   // Products for featured section
   const featuredProducts = useMemo(() => {
@@ -455,7 +489,7 @@ export function ExplorePageClient({
 
   // Get Recommended section products (based on main category and subcategory)
   const recommendedProducts = useMemo(() => {
-    let products = [...initialProducts]
+    let products = communities ? initialProducts.filter(isCommunity) : [...initialProducts]
     const searching = localSearchQuery.trim().length > 0
 
     /*
@@ -655,7 +689,7 @@ export function ExplorePageClient({
     }
 
     return products
-  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests])
+  }, [initialProducts, communities, mainCategory, selectedSubcategoryId, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -689,7 +723,7 @@ export function ExplorePageClient({
     nothing animates; anything different afterwards is a change the visitor
     made while looking at it.
   */
-  const productsGridToken = `products-${mainCategory}-${selectedSubcategoryId}-${recommendationFilter}-${deferredPrice}-${deferredSort}-${currentPage}`
+  const productsGridToken = `${mode}-${mainCategory}-${selectedSubcategoryId}-${recommendationFilter}-${deferredPrice}-${deferredSort}-${currentPage}`
   const productsGridEntrance = useEntranceOnChange(
     productsGridToken,
     "animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
@@ -730,15 +764,35 @@ export function ExplorePageClient({
    * link opens in the language it was shared from.
    */
   const exploreHref = useCallback(
-    (categoryId: string, sort: string = sortBy) => {
+    (categoryId: string, sort: string = sortBy, forMode: DiscoverMode = mode) => {
       const params = new URLSearchParams()
+      if (forMode === "communities") params.set("type", "communities")
       if (categoryId && categoryId !== "all" && categoryId !== FOR_YOU_ID) params.set("c", categoryId)
       params.set("lang", language)
       params.set("srt", sort)
       return `/explore?${params.toString()}`
     },
-    [language, sortBy],
+    [language, sortBy, mode],
   )
+
+  /* A different catalogue, so the category starts over: All for
+     communities, and the usual first pill for products. */
+  const handleModeChange = useCallback((next: DiscoverMode) => {
+    const firstCategory = next === "products" && interests.enough ? FOR_YOU_ID : "all"
+    setMode(next)
+    setMainCategory(firstCategory)
+    setBrowseCategory("all")
+    setSelectedSubcategoryId(null)
+    setSelectedSubcategoryLabel(null)
+    setCurrentPage(1)
+    chosenCategoryRef.current = firstCategory
+    if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
+    categoryChangeTimeoutRef.current = setTimeout(() => {
+      let href = exploreHref("all", sortBy, next)
+      if (urlSearchQuery) href += `&q=${urlSearchQuery}`
+      router.replace(href, { scroll: false })
+    }, 250)
+  }, [interests.enough, exploreHref, sortBy, urlSearchQuery, router])
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))
@@ -947,7 +1001,7 @@ export function ExplorePageClient({
     const raw = initialCategory.toLowerCase() || "all"
     /* The address has no word for For you: it is the absence of a category,
        same as All. Which of the two that means depends on the account. */
-    const normalizedCategory = raw === "all" && interests.enough ? FOR_YOU_ID : raw
+    const normalizedCategory = raw === "all" && interests.enough && !communities ? FOR_YOU_ID : raw
     /* A reply that has been overtaken. Ignore the category it carries; the
        rest of the effect still runs, because sub, srt and lang are not part
        of what was superseded. */
@@ -972,7 +1026,7 @@ export function ExplorePageClient({
       setSelectedSubcategoryId(subParam)
       // Find the label for this subcategory
       for (const cat of CATEGORIES) {
-        const foundSub = cat.subcategories.find(s => s.id === subParam)
+        const foundSub = (cat.subcategories as readonly { id: string; label: string }[]).find(s => s.id === subParam)
         if (foundSub) {
           setSelectedSubcategoryLabel(foundSub.label)
           break
@@ -985,6 +1039,7 @@ export function ExplorePageClient({
 
   /* A category chosen from More that has no pill of its own: the More pill holds it. */
   const moreHolds =
+    !communities &&
     mainCategory !== "all" &&
     mainCategory !== FOR_YOU_ID &&
     mainCategory !== pillRow.first.id &&
@@ -1013,7 +1068,12 @@ export function ExplorePageClient({
 
   return (
     <div className="space-y-8">
-      <ExploreHero query={localSearchQuery} onQueryChange={setLocalSearchQuery} />
+      <ExploreHero
+        query={localSearchQuery}
+        onQueryChange={setLocalSearchQuery}
+        mode={mode}
+        onModeChange={handleModeChange}
+      />
 
       {/*
         THE BANNER SLIDER IS GONE. A full-width carousel of one product at a
@@ -1090,7 +1150,10 @@ export function ExplorePageClient({
                 {/* "All", or "For you" for an account we know something about.
                     Same position, same globe, same behaviour: it is the pill
                     that clears the category, and it is first. */}
-                {[{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills].map((cat) => {
+                {(communities
+                  ? COMMUNITY_PILLS
+                  : [{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills]
+                ).map((cat) => {
                   const isSelected = mainCategory === cat.id
                   return (
                     <button
@@ -1133,7 +1196,7 @@ export function ExplorePageClient({
                   so nothing on screen said what the list was. The More pill
                   carries its name and the pressed look until another is chosen.
                 */}
-                <ExploreCategoryPicker
+                {!communities && <ExploreCategoryPicker
                   open={categorySelectorOpen}
                   onOpenChange={setCategorySelectorOpen}
                   groups={PICKER_GROUPS}
@@ -1152,7 +1215,7 @@ export function ExplorePageClient({
                 >
                   {moreHolds ? CATEGORIES.find((c) => c.id === mainCategory)?.label ?? "More" : "More"}
                   <Chevron dir="down" className="h-3.5 w-3.5 opacity-70" />
-                </ExploreCategoryPicker>
+                </ExploreCategoryPicker>}
               </div>
               </div>
 
@@ -1338,7 +1401,7 @@ export function ExplorePageClient({
               )}
 
               <p className="text-sm text-neutral-500 mt-4 text-center">
-                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} products
+                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} {communities ? "communities" : "products"}
               </p>
 
               {/*
@@ -1363,7 +1426,8 @@ export function ExplorePageClient({
                 name when there is one and says "Show All Products" when
                 there is not.
               */}
-              {hasCategoryPage(mainCategory) && (
+              {/* Category pages list products, so a community has nowhere to go. */}
+              {!communities && hasCategoryPage(mainCategory) && (
                 <div className="flex justify-center mt-8">
                   <Link
                     href={selectedSubcategoryId
@@ -1390,10 +1454,14 @@ export function ExplorePageClient({
             <div className="min-h-[60svh] flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
               <p className="text-neutral-500">
                 {localSearchQuery
-                  ? `No products found for "${localSearchQuery}"`
+                  ? `No ${communities ? "communities" : "products"} found for "${localSearchQuery}"`
                   : priceFilter !== "all"
-                    ? "No products match your filters. Try adjusting your price range."
-                    : `No products found in ${sectionTitle}.`
+                    ? `No ${communities ? "communities" : "products"} match your filters. Try adjusting your price range.`
+                    : communities
+                      ? mainCategory === "all"
+                        ? "No communities yet."
+                        : `No communities found in ${sectionTitle}.`
+                      : `No products found in ${sectionTitle}.`
                 }
               </p>
               {(activeFilterCount > 0 || selectedSubcategoryId) && (
@@ -1444,7 +1512,7 @@ export function ExplorePageClient({
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
-              <p className="text-neutral-500">No products found for "{urlSearchQuery}"</p>
+              <p className="text-neutral-500">No {communities ? "communities" : "products"} found for "{urlSearchQuery}"</p>
             </div>
           )}
         </section>
