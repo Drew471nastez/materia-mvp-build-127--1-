@@ -252,6 +252,18 @@ const HEADER_MENU_OPEN =
 const HEADER_MENU_LEAVING =
   "pointer-events-none opacity-0 scale-[0.98] -translate-y-1 duration-[140ms] ease-[cubic-bezier(0.4,0,1,1)]"
 
+/** Desktop header search results panel — same enter/leave as Categories. */
+const SEARCH_MODAL_PANEL =
+  "absolute top-full left-0 right-0 z-50 mt-2 max-h-[70vh] overflow-hidden overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl " +
+  "origin-top transition-[opacity,scale,translate] motion-reduce:transition-none"
+const SEARCH_MODAL_OPEN = HEADER_MENU_OPEN
+const SEARCH_MODAL_LEAVING = HEADER_MENU_LEAVING
+const SEARCH_BACKDROP =
+  "fixed inset-0 z-[35] bg-black/10 transition-opacity motion-reduce:transition-none"
+const SEARCH_BACKDROP_OPEN = "opacity-100 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+const SEARCH_BACKDROP_LEAVING =
+  "pointer-events-none opacity-0 duration-150 ease-[cubic-bezier(0.4,0,1,1)]"
+
 function useBelowMd(): boolean {
   const [below, setBelow] = useState(false)
   useEffect(() => {
@@ -778,7 +790,46 @@ export function PlatformHeaderClient({
   const mountedRef = useRef(true)
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "")
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [searchModalOpen, setSearchModalOpen] = useState(false)
+  const [searchModalPresent, setSearchModalPresent] = useState(false)
+  if (searchModalOpen && !searchModalPresent) setSearchModalPresent(true)
+  useEffect(() => {
+    if (searchModalOpen || !searchModalPresent) return
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const t = window.setTimeout(() => setSearchModalPresent(false), still ? 0 : 200)
+    return () => window.clearTimeout(t)
+  }, [searchModalOpen, searchModalPresent])
+  const closeSearchModal = useCallback(() => {
+    setSearchModalOpen(false)
+    searchInputRef.current?.blur()
+  }, [])
+  useEffect(() => {
+    if (!searchModalOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      closeSearchModal()
+    }
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement
+      if (
+        target.closest("[data-header-search-field]") ||
+        target.closest("[data-header-search-modal]") ||
+        target.closest("[data-app-sheet]") ||
+        target.closest("[data-mobile-bottom-sheet]") ||
+        target.closest("[data-mobile-top-sheet]")
+      ) {
+        return
+      }
+      closeSearchModal()
+    }
+    document.addEventListener("keydown", onKey)
+    document.addEventListener("pointerdown", onPointerDown, true)
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.removeEventListener("pointerdown", onPointerDown, true)
+    }
+  }, [searchModalOpen, closeSearchModal])
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
@@ -817,7 +868,6 @@ export function PlatformHeaderClient({
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
   const belowMd = useBelowMd()
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   /**
    * The language picker, opened from either account menu.
@@ -834,11 +884,11 @@ export function PlatformHeaderClient({
 
   // Close modals on route change
   useEffect(() => {
-    setSearchModalOpen(false)
+    closeSearchModal()
     setCategoriesDropdownOpen(false)
     setMobileMenuOpen(false)
     setMobileProfileOpen(false)
-  }, [pathname])
+  }, [pathname, closeSearchModal])
 
   // Close desktop dropdowns when clicking outside
   useEffect(() => {
@@ -1842,7 +1892,7 @@ export function PlatformHeaderClient({
             }`}
             style={deskHandoff.animate ? undefined : { transitionDuration: "0ms" }}
           >
-            <div className="relative w-full">
+            <div className="relative w-full" data-header-search-field="">
               <Search className={cn("absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 pointer-events-none z-10", chrome.deskSearchIcon)} />
               <Input
                 ref={searchInputRef}
@@ -1872,13 +1922,29 @@ export function PlatformHeaderClient({
             </div>
 
             {/* Search Modal Dropdown */}
-            {searchModalOpen && (
+            {searchModalPresent && (
               <>
                 <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setSearchModalOpen(false)}
+                  aria-hidden
+                  className={cn(
+                    SEARCH_BACKDROP,
+                    searchModalOpen ? SEARCH_BACKDROP_OPEN : SEARCH_BACKDROP_LEAVING,
+                  )}
+                  onClick={() => closeSearchModal()}
                 />
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[70vh] overflow-y-auto">
+                <div
+                  data-header-search-modal=""
+                  data-state={searchModalOpen ? "open" : "closed"}
+                  role="dialog"
+                  aria-label="Search"
+                  inert={searchModalOpen ? undefined : true}
+                  onTransitionEnd={(e) => {
+                    if (e.target === e.currentTarget && e.propertyName === "opacity" && !searchModalOpen) {
+                      setSearchModalPresent(false)
+                    }
+                  }}
+                  className={cn(SEARCH_MODAL_PANEL, searchModalOpen ? SEARCH_MODAL_OPEN : SEARCH_MODAL_LEAVING)}
+                >
                   {!query && (
                     <div className="p-4 border-b border-gray-100">
                       <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
@@ -1889,7 +1955,7 @@ export function PlatformHeaderClient({
                             href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
                             onClick={(e) => {
                               onCanonicalNav(e, cat.href + '&scroll=recommended')
-                              setSearchModalOpen(false)
+                              closeSearchModal()
                             }}
                             className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                           >
@@ -1916,7 +1982,7 @@ export function PlatformHeaderClient({
                           href={getCanonicalOrRelativePath(productPath(product))}
                           onClick={(e) => {
                             onCanonicalNav(e, productPath(product))
-                            setSearchModalOpen(false)
+                            closeSearchModal()
                           }}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
                         >
@@ -1965,7 +2031,7 @@ export function PlatformHeaderClient({
                         type="button"
                         onClick={() => {
                           navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
-                          setSearchModalOpen(false)
+                          closeSearchModal()
                         }}
                         className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
                       >
@@ -2510,7 +2576,7 @@ export function PlatformHeaderClient({
           */}
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             <div className="py-2 flex items-center gap-2">
-              <div className="relative flex-1 min-w-0">
+              <div className="relative flex-1 min-w-0" data-header-search-field="">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <Input
                   value={query}
@@ -2535,11 +2601,11 @@ export function PlatformHeaderClient({
                 )}
               </div>
               {/* The way out, since there is no scrim to tap any more. */}
-              {searchModalOpen && (
+              {searchModalPresent && (
                 <button
                   type="button"
                   onClick={() => {
-                    setSearchModalOpen(false)
+                    closeSearchModal()
                     setQuery("")
                     setSearchResults([])
                   }}
@@ -2556,9 +2622,24 @@ export function PlatformHeaderClient({
             visible viewport from components/viewport-vars, so this stops
             above the keyboard rather than running underneath it.
           */}
-          {searchModalOpen && (
+          {searchModalPresent && (
             <div
-              className="absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-b border-neutral-200 bg-white px-4 pb-4 pt-3 shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)]"
+              data-header-search-modal=""
+              data-state={searchModalOpen ? "open" : "closed"}
+              role="dialog"
+              aria-label="Search"
+              inert={searchModalOpen ? undefined : true}
+              onTransitionEnd={(e) => {
+                if (e.target === e.currentTarget && e.propertyName === "opacity" && !searchModalOpen) {
+                  setSearchModalPresent(false)
+                }
+              }}
+              className={cn(
+                "absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-b border-neutral-200 bg-white px-4 pb-4 pt-3 shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] origin-top transition-[opacity,translate] motion-reduce:transition-none",
+                searchModalOpen
+                  ? "opacity-100 translate-y-0 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  : "pointer-events-none opacity-0 -translate-y-1 duration-150 ease-[cubic-bezier(0.4,0,1,1)]",
+              )}
               style={{ maxHeight: `calc(var(--vv-h, 100dvh) - ${headerH + 56}px)` }}
             >
           {/* Categories */}
@@ -2572,7 +2653,7 @@ export function PlatformHeaderClient({
                     type="button"
                     onClick={() => {
                       navigateToExploreCategory(cat.href + '&scroll=recommended')
-                      setSearchModalOpen(false)
+                      closeSearchModal()
                     }}
                     className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
                   >
@@ -2602,7 +2683,7 @@ export function PlatformHeaderClient({
                     type="button"
                     onClick={() => {
                       navigateReliably(productPath(product))
-                      setSearchModalOpen(false)
+                      closeSearchModal()
                     }}
                     className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"
                   >
@@ -2655,7 +2736,7 @@ export function PlatformHeaderClient({
                 type="button"
                 onClick={() => {
                   navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
-                  setSearchModalOpen(false)
+                  closeSearchModal()
                 }}
                 className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
               >
