@@ -150,6 +150,13 @@ function show(el: HTMLElement | null) {
   el.style.pointerEvents = ""
 }
 
+/** fill:"both" on a fade can leave opacity at 0 after cancel — the next screen looks blank. */
+function clearLiveVisualState(el: HTMLElement | null) {
+  if (!el) return
+  el.getAnimations().forEach((a) => a.cancel())
+  el.style.opacity = ""
+}
+
 const MARKS = ["data-library-skeleton", "data-library-incoming", "data-library-live", "data-library-panel", "data-library-now", "data-library-stage"]
 
 /**
@@ -300,15 +307,16 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     liveFade.current?.cancel()
     liveFade.current = null
     const live = liveRef.current
-    if (live) {
-      live.style.opacity = "1"
-    }
+    clearLiveVisualState(live)
     if (panelRef.current) panelRef.current.style.isolation = ""
     show(nowRef.current)
     show(live)
     if (p.kind === "back") jump(scrolls.get(p.href) ?? 0)
     else if (p.kind === "open") jump(0)
-    else if (p.kind === "tab" && !reducedMotion()) setPanelEnter(true)
+    else if (p.kind === "tab" && !reducedMotion()) {
+      /* One entrance only: cross-fade first, then a light panel fade — not both at opacity 0. */
+      requestAnimationFrame(() => setPanelEnter(true))
+    }
     setPending(null)
     /* Keep min-height through the shape dissolve so the page does not jump shorter mid-fade. */
     if (release.current) window.clearTimeout(release.current)
@@ -344,6 +352,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
         kind === "tab" && !was && !reduce && !!live && typeof live.animate === "function"
       if (kind === "tab") setPanelEnter(false)
       if (under && live) {
+        clearLiveVisualState(live)
         if (panel) panel.style.isolation = "isolate"
         liveFade.current = startNow(live.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_IN_OUT, fill: "both" }))
       } else if (visible && !reduce) lastLeave.current = leaveCopy(visible, OUT_MS)
@@ -372,7 +381,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
         pendingRef.current = null
         liveFade.current?.cancel()
         liveFade.current = null
-        if (liveRef.current) liveRef.current.style.opacity = ""
+        clearLiveVisualState(liveRef.current)
         if (panelRef.current) panelRef.current.style.isolation = ""
         show(nowRef.current)
         show(liveRef.current)
@@ -391,7 +400,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     /* The route answered: swap content and fade the new panel in (settings-style), not a second fixed copy. */
     liveFade.current?.cancel()
     liveFade.current = null
-    live.style.opacity = "1"
+    clearLiveVisualState(live)
   }, [])
 
   /* Every plain press on a link to another library screen, wherever the link is. */

@@ -12,7 +12,6 @@ export function LibraryContentShell({ children, enter }: { children: ReactNode; 
   const path = cleanPath(usePathname())
   return (
     <div
-      key={path}
       data-library-screen=""
       data-probe-path={path}
       className={`min-h-[14rem] ${enter ? "library-panel" : ""}`}

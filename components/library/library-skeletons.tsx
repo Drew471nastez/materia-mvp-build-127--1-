@@ -232,7 +232,8 @@ export function TabsHeaderStill({ active }: { active: string }) {
 /** The shape of whatever is at `path`, or null for a screen that has none of its own here. */
 export function skeletonFor(path: string, still = false): React.ReactNode {
   if (path === "/library") return <ListSkeleton still={still} />
-  if (path === "/library/courses") return <CoursesSkeleton still={still} />
+  /* Empty-card shape while the stage waits: matches the common empty tab and avoids a list→empty jump. */
+  if (path === "/library/courses") return <CoursesSkeleton empty={still} still={still} />
   if (path === "/library/memberships") return <MembershipsSkeleton still={still} />
   if (path === "/library/reviews") return <RowsSkeleton rows={3} sections={2} still={still} />
   if (path === "/library/receipts") return <RowsSkeleton rows={4} still={still} />
