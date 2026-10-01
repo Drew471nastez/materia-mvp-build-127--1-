@@ -47,7 +47,7 @@ async function readFromDb(): Promise<boolean> {
   return false
 }
 
-/** Segmented Digital products / Communities control above Discover. Default off. */
+/** Gray headline pill (Digital products / Communities) above Discover — not the violet chip menu. Default off. */
 export const isExploreDiscoverModeSwitcherEnabled = unstable_cache(
   async () => readFromDb(),
   ["explore-discover-mode-switcher-enabled"],

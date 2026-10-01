@@ -358,7 +358,8 @@ interface ExplorePageClientProps {
   /** See lib/explore/interests. Empty and `enough: false` when signed out. */
   interests?: Interests
   searchQuery: string
-  discoverModeSwitcherEnabled?: boolean
+  /** Gray pill above “Discover” — admin / Health → Discover headline pill switch. */
+  discoverHeadlineSegmentEnabled?: boolean
   initialDiscoverMode?: DiscoverMode
 }
 
@@ -367,7 +368,7 @@ export function ExplorePageClient({
   initialCategory,
   interests = EMPTY_INTERESTS,
   searchQuery: urlSearchQuery,
-  discoverModeSwitcherEnabled = false,
+  discoverHeadlineSegmentEnabled = false,
   initialDiscoverMode = "products",
 }: ExplorePageClientProps) {
   const router = useRouter()
@@ -380,8 +381,7 @@ export function ExplorePageClient({
     const fromUrl = searchParams.get("type")
     if (fromUrl === "communities") return "communities"
     if (fromUrl === "products") return "products"
-    if (discoverModeSwitcherEnabled) return initialDiscoverMode
-    return "products"
+    return initialDiscoverMode
   })
   const communities = mode === "communities"
 
@@ -790,7 +790,7 @@ export function ExplorePageClient({
      communities, and the usual first pill for products. */
   const handleModeChange = useCallback((next: DiscoverMode) => {
     const firstCategory = next === "products" && interests.enough ? FOR_YOU_ID : "all"
-    if (discoverModeSwitcherEnabled) writeDiscoverModeCookie(next)
+    writeDiscoverModeCookie(next)
     setMode(next)
     setMainCategory(firstCategory)
     setBrowseCategory("all")
@@ -804,7 +804,7 @@ export function ExplorePageClient({
       if (urlSearchQuery) href += `&q=${urlSearchQuery}`
       router.replace(href, { scroll: false })
     }, 250)
-  }, [discoverModeSwitcherEnabled, interests.enough, exploreHref, sortBy, urlSearchQuery, router])
+  }, [interests.enough, exploreHref, sortBy, urlSearchQuery, router])
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))
@@ -1084,8 +1084,8 @@ export function ExplorePageClient({
         query={localSearchQuery}
         onQueryChange={setLocalSearchQuery}
         mode={mode}
-        onModeChange={discoverModeSwitcherEnabled ? handleModeChange : undefined}
-        discoverModeSwitcherEnabled={discoverModeSwitcherEnabled}
+        onModeChange={handleModeChange}
+        discoverHeadlineSegmentEnabled={discoverHeadlineSegmentEnabled}
       />
 
       {/*

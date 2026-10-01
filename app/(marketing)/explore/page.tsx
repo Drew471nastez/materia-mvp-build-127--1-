@@ -121,9 +121,7 @@ export default async function ExplorePage({
       ? "communities"
       : params?.type === "products"
         ? "products"
-        : discoverModeSwitcherEnabled && cookieMode
-          ? cookieMode
-          : "products"
+        : cookieMode ?? "products"
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -273,7 +271,7 @@ export default async function ExplorePage({
           initialCategory={category}
           interests={interests}
           searchQuery={searchQuery}
-          discoverModeSwitcherEnabled={discoverModeSwitcherEnabled}
+          discoverHeadlineSegmentEnabled={discoverModeSwitcherEnabled}
           initialDiscoverMode={initialDiscoverMode}
         />
 

@@ -176,13 +176,14 @@ export function ExploreHero({
   onQueryChange,
   mode = "products",
   onModeChange,
-  discoverModeSwitcherEnabled = false,
+  discoverHeadlineSegmentEnabled = false,
 }: {
   query: string
   onQueryChange: (value: string) => void
   mode?: DiscoverMode
   onModeChange?: (mode: DiscoverMode) => void
-  discoverModeSwitcherEnabled?: boolean
+  /** Admin-controlled gray pill above the heading only; chip menu is separate. */
+  discoverHeadlineSegmentEnabled?: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { index, box, measureRef, chipRef } = useRollingNoun(mode, menuOpen)
@@ -306,7 +307,7 @@ export function ExploreHero({
       {/* Hidden from assistive tech piece by piece rather than as a whole,
           because the switcher inside the chip is a real control. */}
       <div className="text-center">
-        {discoverModeSwitcherEnabled && onModeChange ? (
+        {discoverHeadlineSegmentEnabled && onModeChange ? (
           <DiscoverModeSegment mode={mode} onChange={onModeChange} />
         ) : null}
         <p

@@ -4,7 +4,7 @@ import * as React from "react"
 
 import { Button, Panel, Status } from "./ui"
 
-/** Segmented Digital products / Communities control above Discover on /explore. */
+/** Admin toggle for the gray pill above “Discover” on /explore (not the violet chip). */
 export function ExploreDiscoverModeSwitcherPanel() {
   const [enabled, setEnabled] = React.useState<boolean | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -21,7 +21,7 @@ export function ExploreDiscoverModeSwitcherPanel() {
       }
       const body = (await res.json().catch(() => null)) as { exploreDiscoverModeSwitcher?: boolean; error?: string } | null
       if (!res.ok || !body || typeof body.exploreDiscoverModeSwitcher !== "boolean") {
-        setError(body?.error || "Could not read the discover switcher flag.")
+        setError(body?.error || "Could not read the headline pill flag.")
         return
       }
       setEnabled(body.exploreDiscoverModeSwitcher)
@@ -56,8 +56,8 @@ export function ExploreDiscoverModeSwitcherPanel() {
       setEnabled(body.exploreDiscoverModeSwitcher)
       setSaid(
         next
-          ? "Discover shows the Digital products / Communities switch above the heading. Choice is remembered for 30 days."
-          : "Switcher hidden: Explore stays on digital products unless ?type=communities is in the link.",
+          ? "The gray Digital products / Communities pill shows above the Discover heading."
+          : "Headline pill hidden. Buyers can still use the chevrons on the violet word chip to switch.",
       )
     } catch {
       setError("Could not reach the server.")
@@ -69,14 +69,14 @@ export function ExploreDiscoverModeSwitcherPanel() {
   return (
     <Panel
       id="explore-discover-mode-switcher"
-      title="Discover catalogue switcher"
-      meta="Gray segmented control above “Discover” — products vs communities"
+      title="Discover headline pill switch"
+      meta="/explore — gray segmented control above “Discover” (Digital products / Communities)"
       action={
         enabled === null ? null : (
           <Button
             onClick={() => void save(!enabled)}
             disabled={busy}
-            aria-label={enabled ? "Turn discover switcher off" : "Turn discover switcher on"}
+            aria-label={enabled ? "Hide headline pill switch" : "Show headline pill switch"}
           >
             {busy ? "Saving…" : enabled ? "Turn off" : "Turn on"}
           </Button>
@@ -91,15 +91,16 @@ export function ExploreDiscoverModeSwitcherPanel() {
           <div className="flex items-center justify-between gap-3">
             <p className="text-[13px] text-[#c9c9d1]">
               {enabled
-                ? "Buyers can switch catalogues on /explore; the chip menu stays available too."
-                : "Off by default. Header categories and Explore marketplace are controlled separately."}
+                ? "On: the pill-shaped switch sits above the headline. Catalogue choice is still remembered for 30 days."
+                : "Off (default): no pill above the headline. The violet rotating-word chip and its menu still work."}
             </p>
             <Status value={enabled ? "ok" : null} label={enabled ? "On" : "Off"} />
           </div>
         ) : null}
         {error ? (
           <p className="text-[12px] text-[#6b6b76]">
-            Uses <code className="font-mono text-[#9b9ba6]">platform_settings</code>. Override:{" "}
+            Stored in <code className="font-mono text-[#9b9ba6]">platform_settings</code> as{" "}
+            <code className="font-mono text-[#9b9ba6]">explore_discover_mode_switcher</code>. Env override:{" "}
             <code className="font-mono text-[#9b9ba6]">EXPLORE_DISCOVER_MODE_SWITCHER</code>.
           </p>
         ) : null}
