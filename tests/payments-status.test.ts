@@ -118,7 +118,12 @@ is("the last payout failed", status(account({ details_submitted: true, charges_e
 
 const closed = is("rejected by Stripe", status(account({ details_submitted: true, reason: "rejected.fraud" }), bank), "SUSPENDED")
 check("a closed account points to support, not a form", closed.action === "support")
-is("paused by the platform", status(account({ details_submitted: true, charges_enabled: true, reason: "platform_paused" }), bank), "SUSPENDED")
+is(
+  "paused by the platform while charges are still on",
+  status(account({ details_submitted: true, charges_enabled: true, payouts_enabled: true, reason: "platform_paused" }), bank),
+  "ACTIVE",
+)
+is("paused by the platform with charges off", status(account({ details_submitted: true, charges_enabled: false, reason: "platform_paused" }), bank), "SUSPENDED")
 
 is("a capability still pending", status(account({ details_submitted: true, charges_enabled: true, capabilities: { card_payments: "active", transfers: "pending" } }), bank), "VERIFYING")
 is("something off with nothing to ask", status(account({ details_submitted: true, reason: "other" }), bank), "RESTRICTED")

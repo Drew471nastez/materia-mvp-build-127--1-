@@ -145,9 +145,15 @@ export function StorelibPaymentsSettings({
     )
   }
 
-  const status = view ? STATUS_PILL[view.status].label : data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
-  const live = view ? view.canCharge : beat === "done"
-  const needsSomething = !!view && view.status !== "ACTIVE" && !!view.action
+  const checkoutLive = !!data?.checkoutOpen
+  const status =
+    checkoutLive
+      ? STATUS_PILL.ACTIVE.label
+      : view
+        ? STATUS_PILL[view.status].label
+        : data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
+  const live = checkoutLive || (view ? view.canCharge : beat === "done")
+  const needsSomething = !checkoutLive && !!view && view.status !== "ACTIVE" && !!view.action
   const hasAccount = beat !== "personal"
   const canDisconnect = hasAccount && !data?.chargesEnabled
 
@@ -229,7 +235,7 @@ export function StorelibPaymentsSettings({
           </div>
         ) : view?.status === "VERIFYING" || (!view && beat === "review") ? (
           <Empty icon={<Clock className="h-5 w-5" />} title="We're checking your information" line="No action is needed right now. We'll email you if anything else is needed." />
-        ) : view?.action === "support" ? (
+        ) : view?.action === "support" && !checkoutLive ? (
           <Empty icon={<AlertCircle className="h-5 w-5" />} title={view.title} line={view.line} action={view.actionLabel ?? "Contact support"} href="mailto:support@storelib.com" />
         ) : (
           <Empty

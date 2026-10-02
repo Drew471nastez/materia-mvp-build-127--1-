@@ -86,7 +86,11 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
   if (!f.hasAccount) return view("NOT_STARTED", "Set up payments", "Accept payments and get paid to your bank.", "Set up payments", "setup")
 
   const reason = f.disabledReason ?? ""
-  if (/^rejected\./.test(reason) || reason === "platform_paused") {
+  /* Stripe can keep a disabled_reason after capabilities return; trust live flags for pause. */
+  if (/^rejected\./.test(reason)) {
+    return view("SUSPENDED", "Payments are turned off", "This account can't accept payments. Write to support@storelib.com and we'll help.", "Contact support", "support")
+  }
+  if (reason === "platform_paused" && !(f.chargesEnabled && f.payoutsEnabled)) {
     return view("SUSPENDED", "Payments are turned off", "This account can't accept payments. Write to support@storelib.com and we'll help.", "Contact support", "support")
   }
 
