@@ -17,7 +17,7 @@ import { PlatformHeaderClient } from "@/components/platform/platform-header-clie
 import { ShellFrame } from "@/components/community/member/shell-frame"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { ViewerView } from "@/lib/communities/types"
-import type { ShellCommunity, SpaceView } from "@/components/community/member/view-types"
+import type { ShellCommunity, TopBarData } from "@/components/community/member/view-types"
 
 const params = new URLSearchParams(location.hash.slice(1))
 const w = window as unknown as { __nav: { path: string; subs: Set<() => void> }; __who: string }
@@ -61,11 +61,13 @@ const viewer: ViewerView = {
   can: allowedActions("member"),
 }
 
-const spaces: SpaceView[] = [
-  { id: "s-general", slug: "general", name: "General", description: "Anything about the work.", icon: "messages-square", kind: "feed", canPost: true, commentsEnabled: true, unread: 0 },
-  { id: "s-ann", slug: "announcements", name: "Announcements", description: null, icon: "megaphone", kind: "announcements", canPost: false, commentsEnabled: true, unread: 0 },
-  { id: "s-chat", slug: "lounge", name: "Lounge", description: "Live chat.", icon: null, kind: "chat", canPost: true, commentsEnabled: true, unread: 4 },
-]
+const topBar: TopBarData = {
+  community: { id: community.id, slug: community.slug, name: community.name, logoUrl: null },
+  creator: { name: "Maya Okafor", href: "/mayao" },
+  me: { name: "Sam Carter", avatarUrl: null, profileHref: "/@samc" },
+  communities: [],
+  manageHref: null,
+}
 
 /* Tall enough that the page scrolls, which is when a sticky row has to hold. */
 const Posts = () => (
@@ -85,9 +87,10 @@ const community_page = w.__nav.path.startsWith("/community/")
 
 createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
-    <PlatformHeaderClient />
+    {/* As components/marketing/conditional-header.tsx decides: no Storelib header on a community's pages (round 2). */}
+    {community_page ? null : <PlatformHeaderClient />}
     {community_page ? (
-      <ShellFrame community={community} viewer={viewer} spaces={spaces} unreadNotifications={2}>
+      <ShellFrame community={community} viewer={viewer} topBar={topBar} unreadNotifications={2}>
         <Posts />
       </ShellFrame>
     ) : (

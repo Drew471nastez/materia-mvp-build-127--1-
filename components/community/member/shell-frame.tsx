@@ -4,69 +4,41 @@
  * ===========================================================================
  *  THE MEMBER AREA'S FRAME
  * ===========================================================================
- * Somebody's community, not a dashboard. On a computer a slim column on the
- * left holds the community (its picture, its name, how many members and, only
- * when presence says so, how many are here now), the places in it and its
- * spaces; the page sits to its right. From 1024px down there is no column: a
- * compact row with the community and the bell, then one row of pills in the
- * Library's style that scrolls sideways and stays under the header, and the
- * spaces in a sheet from the bottom.
+ * Somebody's community, not a dashboard, and not under Storelib's bar. At
+ * the top the community's own bar (top-bar.tsx: its picture, its name, whose
+ * it is, the switcher, Messages, the bell and the member's own menu), and
+ * under it ONE row of pills: Community, Classroom, Calendar, Members,
+ * Leaderboards, About, each only when the community has it on. Spaces are
+ * not in the frame at all: they are chips at the top of the Community feed
+ * (space-chips.tsx). Everything below is the community's content.
  *
- * The header above is the platform's and is sticky, so the frame measures it
- * once (ResizeObserver) and hands the height to everything that sticks
- * (--community-top) rather than guessing it twice.
+ * The bar and the pills stick together at the top. Their height is measured
+ * once (ResizeObserver) and shared as --community-top with everything that
+ * sticks under them or sits beside them (the feed's side card, the chat's
+ * height, the messages panel), rather than guessed twice.
+ *
+ * While a member page is on screen it tells the server the member is here,
+ * once a minute (POST /presence), so "Online" on the community is a real
+ * heartbeat and never a guess.
  */
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, Settings2 } from "lucide-react"
-import { Home2Icon as HomeLine } from "@solar-icons/react/linear/home-2"
-import { Home2Icon as HomeBold } from "@solar-icons/react/bold/home-2"
-import { NotebookIcon as ClassLine } from "@solar-icons/react/linear/notebook"
-import { NotebookIcon as ClassBold } from "@solar-icons/react/bold/notebook"
-import { CalendarIcon as EventsLine } from "@solar-icons/react/linear/calendar"
-import { CalendarIcon as EventsBold } from "@solar-icons/react/bold/calendar"
-import { UsersGroupRoundedIcon as MembersLine } from "@solar-icons/react/linear/users-group-rounded"
-import { UsersGroupRoundedIcon as MembersBold } from "@solar-icons/react/bold/users-group-rounded"
-import { CupStarIcon as BoardLine } from "@solar-icons/react/linear/cup-star"
-import { CupStarIcon as BoardBold } from "@solar-icons/react/bold/cup-star"
-import { BookmarkIcon as SavedLine } from "@solar-icons/react/linear/bookmark"
-import { BookmarkIcon as SavedBold } from "@solar-icons/react/bold/bookmark"
-import { BellIcon as BellLine } from "@solar-icons/react/linear/bell"
-import { BellIcon as BellBold } from "@solar-icons/react/bold/bell"
-import { ChatRoundDotsIcon as ChatLine } from "@solar-icons/react/linear/chat-round-dots"
-import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-round-dots"
-import { AppAvatar } from "@/components/app/app-avatar"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { memberCountLabel } from "@/lib/communities/format"
 import type { ViewerView } from "@/lib/communities/types"
+import { useLightChrome } from "@/lib/ui/light-chrome"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { navEntries, sectionFromPath } from "./nav"
-import { useOnlineCount, useUnreadNotifications } from "./realtime"
-import { SpaceIcon } from "./space-icon"
+import { navEntries, pillFor, sectionFromPath, type NavEntry, type PillKey } from "./nav"
 import { Toasts } from "./toast"
-import { ICON_BTN, PILL, PILL_OFF, PILL_ON } from "./ui"
-import type { ShellCommunity, ShellSection, SpaceView } from "./view-types"
+import { CommunityTopBar } from "./top-bar"
+import { PILL, PILL_OFF, PILL_ON } from "./ui"
+import type { ShellCommunity, ShellSection, TopBarData } from "./view-types"
 
-type IconComp = React.ComponentType<{ size?: number | string; className?: string }>
-const ICONS: Record<string, { line: IconComp; fill: IconComp }> = {
-  home: { line: HomeLine, fill: HomeBold },
-  classroom: { line: ClassLine, fill: ClassBold },
-  events: { line: EventsLine, fill: EventsBold },
-  members: { line: MembersLine, fill: MembersBold },
-  leaderboard: { line: BoardLine, fill: BoardBold },
-  saved: { line: SavedLine, fill: SavedBold },
-  notifications: { line: BellLine, fill: BellBold },
-}
-
-function countBadge(n: number): string {
-  return n > 99 ? "99+" : String(n)
-}
+export { CommunityMark } from "./top-bar"
 
 export interface ShellFrameProps {
   community: ShellCommunity
   viewer: ViewerView
-  spaces: SpaceView[]
+  topBar: TopBarData
   unreadNotifications: number
   /** Conversations with something unread; null when member messages are not available here. */
   unreadMessages?: number | null
@@ -74,241 +46,113 @@ export interface ShellFrameProps {
   children: React.ReactNode
 }
 
-export function ShellFrame({ community, viewer, spaces, unreadNotifications, unreadMessages = null, active, children }: ShellFrameProps) {
+/** How often a visible member page says the member is here. The server writes at most this often too. */
+export const HEARTBEAT_MS = 60_000
+
+/**
+ * The presence heartbeat: once now, then once a minute while the page is
+ * visible, and again when it comes back into view. A hidden tab sends
+ * nothing, so somebody who left a tab open in the background drops off the
+ * count after five minutes. Stops for good when the server says the column
+ * is not there yet (ready: false) or the member is not one any more.
+ */
+export function usePresenceHeartbeat(communityId: string, userId: string | null) {
+  useEffect(() => {
+    if (!userId) return
+    let stopped = false
+    let last = 0
+    const beat = async () => {
+      if (stopped || document.visibilityState !== "visible") return
+      if (Date.now() - last < HEARTBEAT_MS - 5_000) return
+      last = Date.now()
+      try {
+        const res = await fetch(`/api/community/${communityId}/presence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", keepalive: true })
+        if (res.status === 401 || res.status === 403 || res.status === 404) stopped = true
+        const data = (await res.json().catch(() => null)) as { ready?: boolean } | null
+        if (data && data.ready === false) stopped = true
+      } catch {
+        /* Offline for a moment: the next minute tries again. */
+      }
+    }
+    void beat()
+    const timer = window.setInterval(() => void beat(), HEARTBEAT_MS)
+    const onVisible = () => void beat()
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [communityId, userId])
+}
+
+export function ShellFrame({ community, viewer, topBar, unreadNotifications, unreadMessages = null, active, children }: ShellFrameProps) {
   const pathname = usePathname()
   const current: ShellSection = active ?? sectionFromPath(pathname, community.slug)
   const staff = !!viewer.can.manage_members
   const entries = useMemo(() => navEntries(community, staff), [community, staff])
-  const unread = useUnreadNotifications(community.id, viewer.userId, unreadNotifications)
   const [messages, refreshMessages] = useUnreadMessages(community.id, viewer.userId, unreadMessages)
-  const online = useOnlineCount(community.id, viewer.userId)
-  const base = `/community/${community.slug}`
-  const rootRef = useRef<HTMLDivElement>(null)
-  const [sheet, setSheet] = useState(false)
   const [chat, setChat] = useState<{ userId?: string } | null>(null)
 
-  /* The platform header's height, measured once and shared with everything that sticks under it. */
-  useLayoutEffect(() => {
-    const root = rootRef.current
-    const header = document.getElementById("platform-header-root")
-    if (!root) return
-    const set = () => {
-      const sticky = header && getComputedStyle(header).position !== "relative" && getComputedStyle(header).position !== "static"
-      root.style.setProperty("--community-top", `${sticky ? Math.round(header.getBoundingClientRect().height) : 0}px`)
-    }
-    set()
-    if (!header || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(set)
-    ro.observe(header)
-    return () => ro.disconnect()
-  }, [])
+  usePresenceHeartbeat(community.id, viewer.userId)
+  /* The bar is white, so the browser's bar and the phone's status bar are too. */
+  useLightChrome(true)
 
-  /* A new page closes the sheet. The messages panel is the member's, not the page's, so it stays. */
-  useEffect(() => setSheet(false), [pathname])
-
-  /* "Message" on a member's page, or anywhere else, opens the panel. */
+  /* "Message" on a member's page or a member row opens the panel. */
   useEffect(() => {
     const on = (e: Event) => setChat(((e as CustomEvent<{ userId?: string }>).detail ?? {}) as { userId?: string })
     window.addEventListener(MESSAGES_EVENT, on)
     return () => window.removeEventListener(MESSAGES_EVENT, on)
   }, [])
 
-  const activeSpace = current.startsWith("space:") ? spaces.find((s) => `space:${s.slug}` === current) : null
-  const onlineLine = online !== null && online > 1 ? `${online} online` : null
   /* Null until part 83 is in the database: no button rather than one that opens nothing. */
   const canMessage = messages !== null
 
   return (
-    /* The platform header's real heights until it is measured below: at 0px
-       everything sticky started at the top of the window and snapped down a
-       frame later, which is the jump people saw on every load. */
-    <div ref={rootRef} data-community-shell="" className="min-h-[calc(100svh-var(--community-top,0px))] bg-[#f8f9fa] [--community-top:65px] lg:[--community-top:71px]">
-      <div className="mx-auto flex w-full max-w-[1280px] gap-8 px-4 sm:px-6 lg:px-8">
-        {/* ── The column, from 1024px ─────────────────────────────────── */}
-        <aside data-community-rail="" className="hidden w-[232px] shrink-0 lg:block">
-          <div className="sticky top-[calc(var(--community-top,0px)+20px)] flex max-h-[calc(100svh-var(--community-top,0px)-40px)] flex-col overflow-y-auto pb-6 pt-6 scrollbar-hide">
-            <Link href={base} className="group/head flex items-center gap-3 rounded-xl px-1.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
-              <CommunityMark community={community} size={40} />
-              <span className="min-w-0">
-                <span className="block truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]">{community.name}</span>
-                <span className="block truncate text-[12.5px] leading-5 text-[#6b7280]" data-community-counts="">
-                  {memberCountLabel(community.memberCount)}
-                  {onlineLine ? (
-                    <>
-                      <span aria-hidden className="mx-1.5 inline-block h-1.5 w-1.5 -translate-y-px rounded-full bg-[#22a06b] align-middle" />
-                      <span data-community-online="">{onlineLine}</span>
-                    </>
-                  ) : null}
-                </span>
-              </span>
-            </Link>
+    /* The header's real heights until it is measured: no jump on the first frame. */
+    <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:109px] sm:[--community-top:117px]">
+      <CommunityTopBar
+        data={topBar}
+        messages={canMessage ? messages : null}
+        messagesOpen={!!chat}
+        onMessages={() => setChat((c) => (c ? null : {}))}
+        bell={viewer.userId ? { userId: viewer.userId, unread: unreadNotifications } : null}
+      >
+        <PillRow entries={entries} current={pillFor(current)} />
+      </CommunityTopBar>
 
-            <nav aria-label={community.name} className="mt-5 space-y-0.5">
-              {entries.map((e) => (
-                <RailLink key={e.key} href={e.href} label={e.label} icon={ICONS[e.key]} on={current === e.key} />
-              ))}
-              {canMessage ? <RailButton label="Messages" icon={{ line: ChatLine, fill: ChatBold }} on={!!chat} count={messages ?? 0} onClick={() => setChat({})} /> : null}
-              <RailLink href={`${base}/notifications`} label="Notifications" icon={ICONS.notifications} on={current === "notifications"} count={unread} />
-            </nav>
-
-            {spaces.length ? (
-              <div className="mt-6">
-                <div className="px-2.5 pb-1.5 text-[12px] font-medium text-[#8a8f98]">Spaces</div>
-                <div className="space-y-0.5" data-community-spaces="">
-                  {spaces.map((s) => (
-                    <SpaceLink key={s.id} space={s} href={`${base}/space/${s.slug}`} on={current === `space:${s.slug}`} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mt-6 space-y-0.5 border-t border-[#eceef1] pt-4">
-              <Link href={`${base}/about`} className="flex h-9 items-center rounded-[10px] px-2.5 text-[13.5px] text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]">
-                About this community
-              </Link>
-              {(viewer.isOwner || viewer.isCreatorAccount) && (viewer.can.manage_settings || viewer.can.review_reports) ? (
-                <a href={`/app/community/${community.id}`} className="flex h-9 items-center gap-2 rounded-[10px] px-2.5 text-[13.5px] text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]">
-                  <Settings2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Manage community
-                </a>
-              ) : null}
-            </div>
-          </div>
-        </aside>
-
-        {/* ── The page ───────────────────────────────────────────────── */}
-        <div className="min-w-0 flex-1">
-          {/* Below 1024px: the community, the bell, and the places as pills. */}
-          <div className="lg:hidden" data-community-phone-bar="">
-            <div className="flex items-center gap-2 pb-2 pt-3">
-              <Link href={base} className="flex min-w-0 flex-1 items-center gap-2.5">
-                <CommunityMark community={community} size={32} />
-                <span className="min-w-0">
-                  <span className="block truncate text-[16px] font-semibold leading-5 text-[#1a1a2e]">{community.name}</span>
-                  <span className="block truncate text-[12px] leading-4 text-[#6b7280]">
-                    {memberCountLabel(community.memberCount)}
-                    {onlineLine ? ` · ${onlineLine}` : ""}
-                  </span>
-                </span>
-              </Link>
-              {canMessage ? (
-                <button type="button" onClick={() => setChat({})} aria-label={messages ? `Messages, ${messages} unread` : "Messages"} className={`${ICON_BTN} relative`} data-community-messages-button="">
-                  <ChatLine size={22} />
-                  {messages && messages > 0 ? (
-                    <span className="absolute right-1 top-1 min-w-[18px] rounded-full bg-[#1a1a2e] px-1 text-center text-[10.5px] font-semibold leading-[18px] text-white ring-2 ring-[#f8f9fa]">{countBadge(messages)}</span>
-                  ) : null}
-                </button>
-              ) : null}
-              <Link href={`${base}/notifications`} aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className={`${ICON_BTN} relative -mr-1.5`} data-community-bell="">
-                {current === "notifications" ? <BellBold size={22} /> : <BellLine size={22} />}
-                {unread > 0 ? (
-                  <span className="absolute right-1 top-1 min-w-[18px] rounded-full bg-[#1a1a2e] px-1 text-center text-[10.5px] font-semibold leading-[18px] text-white ring-2 ring-[#f8f9fa]">{countBadge(unread)}</span>
-                ) : null}
-              </Link>
-            </div>
-          </div>
-          <PhonePills entries={entries} current={current} spaces={spaces} activeSpace={activeSpace ?? null} onSpaces={() => setSheet(true)} />
-          {/*
-            EVERY PAGE ARRIVES THE SAME WAY: a short fade, keyed on the
-            address, so moving between Home, a space, Members and the rest
-            reads as one surface changing rather than a blink. Opacity only,
-            so nothing shifts and nothing reflows.
-          */}
+      {/*
+        EVERY PAGE ARRIVES THE SAME WAY: a short fade, keyed on the address,
+        so moving between the feed, a space, Members and the rest reads as
+        one surface changing rather than a blink. Opacity only. About is the
+        community's own page, the same sheet a visitor reads, and brings its
+        own width; the classroom and events pages (their own worker's) draw
+        only their body, so the frame gives it the same room as the feed.
+      */}
+      {current === "about" ? (
+        <div key={pathname} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none">
+          {children}
+        </div>
+      ) : (
+        <div className="mx-auto w-full max-w-[1080px] px-4 sm:px-6 lg:px-8">
           <div key={pathname} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none">
-            {/* The classroom and events pages (their own worker's) draw only their body; the frame gives it the same room as the feed. */}
-            {current === "classroom" || current === "events" ? <div className="pb-16 pt-2 lg:pt-6" data-community-body="">{children}</div> : children}
+            {current === "classroom" || current === "events" ? <div className="pb-16 pt-5 lg:pt-7" data-community-body="">{children}</div> : children}
           </div>
         </div>
-      </div>
+      )}
 
-      <BottomSheet isOpen={sheet} onClose={() => setSheet(false)} title="Spaces" hideFrom={null}>
-        <div className="space-y-0.5 px-2 pb-[calc(16px+env(safe-area-inset-bottom))]" data-community-spaces-sheet="">
-          {spaces.map((s) => (
-            <SpaceLink key={s.id} space={s} href={`${base}/space/${s.slug}`} on={current === `space:${s.slug}`} big />
-          ))}
-        </div>
-      </BottomSheet>
       {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
       <Toasts />
     </div>
   )
 }
 
-/** The community's picture, or its initials on a quiet grey square. */
-export function CommunityMark({ community, size }: { community: Pick<ShellCommunity, "name" | "logoUrl">; size: number }) {
-  return <AppAvatar src={community.logoUrl} name={community.name} alt="" size={size} className="shrink-0 rounded-[10px]" markWhileLoading />
-}
-
-function RailLink({ href, label, icon, on, count = 0 }: { href: string; label: string; icon: { line: IconComp; fill: IconComp }; on: boolean; count?: number }) {
-  const Icon = on ? icon.fill : icon.line
-  return (
-    <Link
-      href={href}
-      aria-current={on ? "page" : undefined}
-      data-community-nav={label}
-      className={`flex h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${
-        on ? "bg-[#e9ebee] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
-      }`}
-    >
-      <Icon size={18} className="shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      {count > 0 ? <span className="rounded-full bg-[#1a1a2e] px-1.5 text-[11px] font-semibold leading-[18px] text-white">{countBadge(count)}</span> : null}
-    </Link>
-  )
-}
-
-/** A place in the rail that opens something here rather than going anywhere (Messages). */
-function RailButton({ label, icon, on, count = 0, onClick }: { label: string; icon: { line: IconComp; fill: IconComp }; on: boolean; count?: number; onClick: () => void }) {
-  const Icon = on ? icon.fill : icon.line
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-community-nav={label}
-      className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${
-        on ? "bg-[#e9ebee] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
-      }`}
-    >
-      <Icon size={18} className="shrink-0" />
-      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-      {count > 0 ? <span className="rounded-full bg-[#1a1a2e] px-1.5 text-[11px] font-semibold leading-[18px] text-white">{countBadge(count)}</span> : null}
-    </button>
-  )
-}
-
-function SpaceLink({ space, href, on, big = false }: { space: SpaceView; href: string; on: boolean; big?: boolean }) {
-  return (
-    <Link
-      href={href}
-      aria-current={on ? "page" : undefined}
-      data-community-space={space.slug}
-      className={`flex items-center gap-2.5 rounded-[10px] px-2.5 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${big ? "h-12 text-[15px]" : "h-9 text-[14px]"} ${
-        on ? "bg-[#e9ebee] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
-      }`}
-    >
-      <span className={`flex w-[18px] shrink-0 justify-center ${on ? "text-[#1a1a2e]" : "text-[#8a8f98]"}`}>
-        <SpaceIcon icon={space.icon} kind={space.kind} />
-      </span>
-      <span className={`min-w-0 flex-1 truncate ${space.unread > 0 ? "text-[#1a1a2e]" : ""}`}>{space.name}</span>
-      {space.unread > 0 ? <span className="rounded-full bg-[#1a1a2e] px-1.5 text-[11px] font-semibold leading-[18px] text-white">{countBadge(space.unread)}</span> : null}
-    </Link>
-  )
-}
-
-/** Below 1024px: the places as one row of pills that scrolls sideways and stays under the header. */
-function PhonePills({
-  entries,
-  current,
-  spaces,
-  activeSpace,
-  onSpaces,
-}: {
-  entries: { key: ShellSection; label: string; href: string }[]
-  current: ShellSection
-  spaces: SpaceView[]
-  activeSpace: SpaceView | null
-  onSpaces: () => void
-}) {
+/**
+ * The one row of places, in the Library's pills. It scrolls sideways when it
+ * does not fit (a phone with every place on), keeps the chosen pill in view,
+ * and fades at an edge only while there is more that way.
+ */
+export function PillRow({ entries, current }: { entries: NavEntry[]; current: PillKey }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   const measure = () => {
@@ -331,35 +175,23 @@ function PhonePills({
     ro.observe(el)
     return () => ro.disconnect()
   }, [current])
-  const unreadInSpaces = spaces.reduce((n, s) => n + s.unread, 0)
-  const [home, ...rest] = entries
   return (
-    <nav aria-label="Community" data-community-pills="" className="sticky top-[var(--community-top,0px)] z-20 -mx-4 bg-[#f8f9fa]/95 py-2 backdrop-blur-[2px] sm:-mx-6 lg:hidden">
-      {/* The fade at each end is a layer OVER the row, not a mask on it: measuring the
-          scroll then changes nothing about how the row paints, so it never flickers. */}
-      <div className="relative">
-      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-4 scrollbar-hide sm:px-6">
+    <nav aria-label="Community" data-community-pills="" className="relative mx-auto w-full max-w-[1080px]">
+      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-3 pb-2.5 pt-0.5 scrollbar-hide sm:px-6 lg:px-8">
         <div className="flex w-max items-center gap-2">
-          <Link href={home.href} data-on={current === "home" ? "true" : "false"} aria-current={current === "home" ? "page" : undefined} className={`${PILL} ${current === "home" ? PILL_ON : PILL_OFF}`}>
-            {home.label}
-          </Link>
-          {spaces.length ? (
-            <button type="button" onClick={onSpaces} data-on={activeSpace ? "true" : "false"} data-community-spaces-pill="" className={`${PILL} ${activeSpace ? PILL_ON : PILL_OFF}`} aria-haspopup="dialog">
-              <span className="max-w-[150px] truncate">{activeSpace ? activeSpace.name : "Spaces"}</span>
-              {unreadInSpaces > 0 && !activeSpace ? <span aria-label={`${unreadInSpaces} unread`} className="h-1.5 w-1.5 rounded-full bg-[#1a1a2e]" /> : null}
-              <ChevronDown className="-mr-1 h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            </button>
-          ) : null}
-          {rest.map((e) => (
-            <Link key={e.key} href={e.href} data-on={current === e.key ? "true" : "false"} aria-current={current === e.key ? "page" : undefined} className={`${PILL} ${current === e.key ? PILL_ON : PILL_OFF}`}>
-              {e.label}
-            </Link>
-          ))}
+          {entries.map((e) => {
+            const on = current === e.key
+            return (
+              <Link key={e.key} href={e.href} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${PILL} ${on ? PILL_ON : PILL_OFF}`}>
+                {e.label}
+              </Link>
+            )
+          })}
         </div>
       </div>
-      <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#f8f9fa] to-transparent transition-opacity duration-200 ${edges.left ? "opacity-100" : "opacity-0"}`} />
-      <span aria-hidden className={`pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f8f9fa] to-transparent transition-opacity duration-200 ${edges.right ? "opacity-100" : "opacity-0"}`} />
-      </div>
+      {/* The fade is a layer over the row, not a mask on it, so measuring the scroll never repaints the row. */}
+      <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent transition-opacity duration-200 ${edges.left ? "opacity-100" : "opacity-0"}`} />
+      <span aria-hidden className={`pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent transition-opacity duration-200 ${edges.right ? "opacity-100" : "opacity-0"}`} />
     </nav>
   )
 }

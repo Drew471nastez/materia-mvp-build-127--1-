@@ -29,6 +29,7 @@ import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./
 import { PollBlock } from "./poll"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD, ICON_BTN } from "./ui"
+import { memberHref } from "./person-href"
 import { roleTag } from "./view-types"
 
 export type PostUpdate = (id: string, fn: (p: FeedPostView) => FeedPostView | null) => void
@@ -202,7 +203,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
     <article className={`${CARD} px-4 pb-2 pt-4 sm:px-5 sm:pt-5`} data-post={post.id} data-pinned={post.pinned ? "true" : undefined}>
       <header className="flex items-start gap-3">
         {author ? (
-          <Link href={`${base}/members/${author.id}`} className="shrink-0 rounded-full">
+          <Link href={memberHref(slug, author)} className="shrink-0 rounded-full" data-person-link="">
             <AppAvatar src={author.avatarUrl} name={author.name} alt="" size={40} markWhileLoading />
           </Link>
         ) : (
@@ -211,7 +212,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[14.5px] leading-5">
             {author ? (
-              <Link href={`${base}/members/${author.id}`} className="truncate font-semibold text-[#1a1a2e] hover:underline">
+              <Link href={memberHref(slug, author)} className="truncate font-semibold text-[#1a1a2e] hover:underline" data-person-link="">
                 {author.name}
               </Link>
             ) : (

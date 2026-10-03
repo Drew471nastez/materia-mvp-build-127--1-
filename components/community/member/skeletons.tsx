@@ -40,7 +40,7 @@ function PostShape({ lines = 2 }: { lines?: number }) {
 /** The feed, a space, or Saved. */
 export function FeedSkeleton({ composer = true, title }: { composer?: boolean; title?: string }) {
   return (
-    <div className="max-w-[680px] pb-16 pt-2 lg:pt-6" aria-busy="true" aria-label="Loading posts">
+    <div className="max-w-[720px] pb-16 pt-4 lg:pt-6" aria-busy="true" aria-label="Loading posts">
       {title ? <h1 className="mb-4 text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[26px]">{title}</h1> : null}
       <div className="skeleton-deferred space-y-3">
         {composer ? (
@@ -60,7 +60,7 @@ export function FeedSkeleton({ composer = true, title }: { composer?: boolean; t
 /** One post with its comments. */
 export function PostSkeleton() {
   return (
-    <div className="max-w-[680px] pb-16 pt-2 lg:pt-6" aria-busy="true" aria-label="Loading the post">
+    <div className="max-w-[720px] pb-16 pt-4 lg:pt-6" aria-busy="true" aria-label="Loading the post">
       <div className="skeleton-deferred space-y-3">
         <PostShape lines={4} />
         <div className={`${CARD} space-y-4 p-4`}>
@@ -82,7 +82,7 @@ export function PostSkeleton() {
 /** A list of people: Members, the leaderboard. */
 export function PeopleSkeleton({ title }: { title: string }) {
   return (
-    <div className="max-w-[680px] pb-16 pt-2 lg:pt-6" aria-busy="true" aria-label={`Loading ${title.toLowerCase()}`}>
+    <div className="max-w-[720px] pb-16 pt-4 lg:pt-6" aria-busy="true" aria-label={`Loading ${title.toLowerCase()}`}>
       <h1 className="mb-4 text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[26px]">{title}</h1>
       <div className={`${CARD} skeleton-deferred divide-y divide-[#f1f2f4]`}>
         {Array.from({ length: 6 }, (_, i) => (

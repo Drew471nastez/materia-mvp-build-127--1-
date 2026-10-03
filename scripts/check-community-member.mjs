@@ -5,13 +5,13 @@
  * The real member components (scripts/render-community-member.tsx) with
  * fixtures, at 1440x900 and on a 390x844 phone, each photographed:
  *
- *   FEED       the column on the left from 1024px (name, counts, places,
- *              spaces), the feed no wider than 680px, the side column from
- *              1280px; on a phone no column: the community row with the bell,
- *              then the pills, which stay under the header while the page
- *              scrolls; pinned first; Latest and Popular
- *   ONLINE     the count beside the members comes from presence (the stub
- *              reports five), and is there only because presence said so
+ *   FEED       the community's own bar with one row of pills under it (no
+ *              left column since round 2), the spaces as chips, the feed no
+ *              wider than 720px, the side card from 1024px; the bar and the
+ *              pills stay put while the page scrolls; pinned first; Latest
+ *              and Popular. The frame itself is measured in detail by
+ *              scripts/check-community-shell.mjs.
+ *   ONLINE     the side card shows the heartbeat count it is handed
  *   COMPOSER   closed it is one line; pressed it opens into title, text and
  *              extras; a poll adds its editor; typing @ lists members; a
  *              link brings its card from the server's preview route
@@ -167,7 +167,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   const smallTargets = (p) =>
     p.evaluate(() => {
       const out = []
-      for (const el of document.querySelectorAll("button, [role=tab], [role=radio], a[data-community-nav], a[data-on], [data-community-bell], [data-like], [data-save], [data-comment-button], input:not([type=hidden]):not([type=checkbox]):not([type=file]), textarea, select")) {
+      for (const el of document.querySelectorAll("button, [role=tab], [role=radio], a[data-community-nav], a[data-on], a[data-space-chip], [data-community-bell], [data-like], [data-save], [data-comment-button], input:not([type=hidden]):not([type=checkbox]):not([type=file]), textarea, select")) {
         const r = el.getBoundingClientRect()
         if (!r.width || !r.height) continue
         const style = getComputedStyle(el)
@@ -212,10 +212,11 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           aside: rect("[data-community-aside]"),
           feed: rect("[data-feed]"),
           pills: rect("[data-community-pills]"),
-          bar: rect("[data-community-phone-bar]"),
+          bar: rect("[data-community-top-row]"),
+          chips: document.querySelectorAll("[data-space-chip]").length,
           firstPinned: cards[0]?.getAttribute("data-pinned") === "true",
           posts: cards.length,
-          online: document.querySelector("[data-community-online]")?.textContent || document.querySelector("[data-community-phone-bar]")?.textContent?.match(/\d+ online/)?.[0] || null,
+          online: [...document.querySelectorAll("[data-community-aside] [data-stat=online]")].filter((d) => d.getBoundingClientRect().width > 0).map((d) => d.textContent.trim())[0] || null,
           bg: getComputedStyle(document.querySelector("[data-community-shell]")).backgroundColor,
           composer: document.querySelector("[data-composer]")?.getAttribute("data-composer"),
           violet: [...document.querySelectorAll("[data-community-shell] *")].filter((e) => /139, 92, 246|124, 58, 237/.test(getComputedStyle(e).backgroundColor)).length,
@@ -225,41 +226,30 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(geo.violet === 0, "no violet fill anywhere a member looks", geo.violet)
       expect(geo.firstPinned && geo.posts === 5, "pinned first, then the rest", { firstPinned: geo.firstPinned, posts: geo.posts })
       expect(geo.composer === "closed", "the composer arrives closed: one line", geo.composer)
-      expect(geo.online === "5 online" || (geo.online || "").includes("5 online"), "ONLINE: the count comes from presence", geo.online)
-      expect(geo.feed && geo.feed.w <= 680, "the feed is at most 680px wide", geo.feed)
+      expect(geo.feed && geo.feed.w <= 720, "the feed is at most 720px wide", geo.feed)
+      /* Round 2: no left column; the community's own bar with one row of pills under it, at every width. */
+      expect(!geo.rail, "no left column any more", geo.rail)
+      expect(geo.bar && geo.pills && geo.pills.y >= geo.bar.y + geo.bar.h - 1, "the community's bar, then the pills", { bar: geo.bar, pills: geo.pills })
+      expect(geo.chips > 0, "the spaces are chips at the top of the feed", geo.chips)
       if (!phone) {
-        expect(geo.rail && geo.rail.w === 232, "the slim column on the left", geo.rail)
+        expect(geo.online === "5Online", "ONLINE: the side card's figure is the heartbeat count it is handed", geo.online)
         expect(geo.aside && geo.aside.x >= geo.feed.x + geo.feed.w, "the side column beside the feed, not over it", { aside: geo.aside, feed: geo.feed })
-        expect(!geo.pills, "no pills on a computer", geo.pills)
-        /* The column stays put while the page scrolls. */
-        const before = await p.evaluate(() => Math.round(document.querySelector("[data-community-rail] > div").getBoundingClientRect().top))
-        await p.evaluate(() => window.scrollTo(0, 900))
-        await sleep(100)
-        const after = await p.evaluate(() => Math.round(document.querySelector("[data-community-rail] > div").getBoundingClientRect().top))
-        expect(before === after && after === 20, "the column sticks while the feed scrolls", { before, after })
-        await p.evaluate(() => window.scrollTo(0, 0))
       } else {
-        expect(!geo.rail, "no column on a phone", geo.rail)
-        expect(geo.bar && geo.pills && geo.pills.y >= geo.bar.y + geo.bar.h - 1, "the community row, then the pills", { bar: geo.bar, pills: geo.pills })
-        const sticky = []
-        for (const y of [400, 1200, 2000]) {
-          await p.evaluate((v) => window.scrollTo(0, v), y)
-          await sleep(60)
-          sticky.push(await p.evaluate(() => Math.round(document.querySelector("[data-community-pills]").getBoundingClientRect().top)))
-        }
-        expect(sticky.every((t) => t === 0), "the pills stay under the header while the page scrolls", sticky)
-        await shot(p, `${label}-feed-scrolled`, false)
-        await p.evaluate(() => window.scrollTo(0, 0))
+        expect(!geo.aside, "no side column on a phone", geo.aside)
+      }
+      /* The bar and the pills stay put while the page scrolls. */
+      const sticky = []
+      for (const y of [400, 1200, 2000]) {
+        await p.evaluate((v) => window.scrollTo(0, v), y)
+        await sleep(60)
+        sticky.push(await p.evaluate(() => Math.round(document.querySelector("[data-community-pills]").getBoundingClientRect().top)))
+      }
+      expect(sticky.every((t) => t === geo.pills.y), "the pills stay under the bar while the page scrolls", { sticky, at: geo.pills.y })
+      await shot(p, `${label}-feed-scrolled`, false)
+      await p.evaluate(() => window.scrollTo(0, 0))
+      if (phone) {
         const small = await smallTargets(p)
         expect(small.length === 0, "every control is at least 40px tall", small.slice(0, 8))
-        /* Spaces in a sheet. */
-        await p.click("[data-community-spaces-pill]")
-        await sleep(600)
-        const sheet = await p.evaluate(() => [...document.querySelectorAll("[data-community-spaces-sheet] [data-community-space]")].map((a) => ({ name: a.textContent.trim(), h: Math.round(a.getBoundingClientRect().height) })))
-        expect(sheet.length === 5 && sheet.every((s) => s.h >= 44), "Spaces opens a sheet with every space, rows a thumb can hit", sheet)
-        await shot(p, `${label}-spaces-sheet`, false)
-        await p.keyboard.press("Escape")
-        await sleep(600)
       }
       expect((await overlaps(p, "[data-post]")).length === 0, "no post overlaps another")
 
@@ -393,7 +383,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await shot(p, `${label}-${name}`)
       const n = await p.evaluate((q) => [...document.querySelectorAll(q)].map((li) => Math.round(li.getBoundingClientRect().height)), sel)
       expect(n.length > 0 && n.every((h) => h >= 56), `${name}: rows a thumb can hit`, n)
-      const active = await p.evaluate(() => document.querySelector("[aria-current=page]")?.textContent?.trim() || null)
+      /* A place is its pill; the inbox is the bell in the bar. */
+      const active = await p.evaluate((n) => (n === "notifications" ? (document.querySelector("[data-community-bell][aria-current=page]") ? "notifications" : null) : document.querySelector("[data-community-pills] [aria-current=page]")?.textContent?.trim() || null), name)
       expect(active && active.toLowerCase().includes(name.slice(0, 6)), `${name}: the shell marks where you are`, active)
       const s = await sideScroll(p)
       expect(s.scroll <= s.width, `${name}: nothing scrolls sideways`, s)

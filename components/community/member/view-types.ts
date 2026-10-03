@@ -8,7 +8,7 @@ import type { AuthorView, CommentView, FeedPostView, MemberView, PostMedia, Role
 export type { AuthorView, CommentView, FeedPostView, MemberView }
 
 /** "home", "classroom", ..., or "space:<slug>". */
-export type ShellSection = "home" | "classroom" | "events" | "members" | "leaderboard" | "saved" | "notifications" | `space:${string}`
+export type ShellSection = "home" | "classroom" | "events" | "members" | "leaderboard" | "saved" | "notifications" | "about" | `space:${string}`
 
 /** A space as the shell and the composer list it. Only spaces the viewer may see are ever handed over. */
 export interface SpaceView {
@@ -41,6 +41,31 @@ export interface ShellCommunity {
   chatEnabled: boolean
   gamificationEnabled: boolean
   archived: boolean
+}
+
+/** A community as the top bar and its switcher draw it. */
+export interface TopBarCommunity {
+  id: string
+  slug: string
+  name: string
+  logoUrl: string | null
+}
+
+/**
+ * The community's own top bar, for everyone on a community's pages: whose it
+ * is, who is looking, and the other communities they are in. Built on the
+ * server (lib/communities/server/public.ts topBarData).
+ */
+export interface TopBarData {
+  community: TopBarCommunity
+  /** "By <name>", opening their page; null when the community has no creator on record. */
+  creator: { name: string; href: string | null } | null
+  /** The signed in person, or null for a visitor. */
+  me: { name: string; avatarUrl: string | null; profileHref: string } | null
+  /** Communities they are an active member of, most recently visited first (this one included when they are in it). */
+  communities: TopBarCommunity[]
+  /** /app/community/<id> for its owner and staff with a creator account; null for everybody else. */
+  manageHref: string | null
 }
 
 export interface ChatMessageView {
@@ -83,6 +108,8 @@ export interface LeaderboardRow {
   name: string
   username: string | null
   avatarUrl: string | null
+  /** They sell on Storelib, so their page is /<handle> rather than /@handle. */
+  hasStorefront?: boolean
 }
 
 export interface ProfileActivity {

@@ -13,5 +13,5 @@ export default async function CommunityMembersPage({ params }: { params: Promise
   const { community, viewer } = page
   if (!community.directory_enabled && !can(viewer.role, "manage_members")) notFound()
   const first = await listMembers(admin(), community.id, {})
-  return <MembersDirectory communityId={community.id} slug={community.slug} memberCount={community.member_count} initial={first} />
+  return <MembersDirectory communityId={community.id} slug={community.slug} memberCount={community.member_count} initial={first} meId={viewer.userId} canMessage={community.chat_enabled} />
 }

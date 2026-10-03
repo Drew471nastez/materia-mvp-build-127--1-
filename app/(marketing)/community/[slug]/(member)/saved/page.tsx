@@ -3,9 +3,9 @@ import { viewerView } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { listSaved } from "@/lib/communities/server/feed"
 import { FeedColumns } from "@/components/community/member/columns"
-import { memberPage } from "@/components/community/member/data"
+import { memberPage, shellData } from "@/components/community/member/data"
 import { FeedView } from "@/components/community/member/feed"
-import { PageTitle } from "@/components/community/member/headers"
+import { SpaceChips } from "@/components/community/member/space-chips"
 
 /** /community/<slug>/saved: the posts this member saved here, newest saved first. */
 export default async function CommunitySavedPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -13,10 +13,10 @@ export default async function CommunitySavedPage({ params }: { params: Promise<{
   const page = await memberPage(slug)
   if (page.state !== "member" || !page.community || !page.viewer) notFound()
   const { community, viewer } = page
-  const saved = await listSaved(admin(), community, viewer, null)
+  const [saved, shell] = await Promise.all([listSaved(admin(), community, viewer, null), shellData(community.id, viewer, community)])
   return (
     <FeedColumns
-      header={<PageTitle title="Saved" />}
+      header={<SpaceChips slug={community.slug} spaces={shell.spaces} active={null} savedOn />}
       main={<FeedView communityId={community.id} slug={community.slug} viewer={viewerView(viewer)} initial={{ pinned: [], posts: saved.posts, nextCursor: saved.nextCursor }} mode="saved" />}
     />
   )

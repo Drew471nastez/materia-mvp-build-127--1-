@@ -399,7 +399,8 @@ async function main() {
   check("and a creator's own domain keeps crawlers off its copy", CUSTOM_DOMAIN_DISALLOW.includes("/community$") && CUSTOM_DOMAIN_DISALLOW.includes("/community/"))
   check("storelib.com's own community pages stay open to crawlers", !PLATFORM_DISALLOW.some((r) => r.startsWith("/community")))
   check("and lists it among the framable first segments", /FRAME_RESERVED_FIRST_SEGMENT = new Set\(\[[^\]]*"community"/.test(proxy))
-  check("the platform header draws on it", /p === "\/community" \|\|\s*p\.startsWith\("\/community\/"\)/.test(code("components/marketing/conditional-header.tsx")))
+  /* Round 2: still a platform path, but every community page is its own screen with the community's own bar, so Storelib's is not drawn there. */
+  check("a platform path, drawn without the platform header (the community's own bar instead)", /p === "\/community" \|\|\s*p\.startsWith\("\/community\/"\)/.test(code("components/marketing/conditional-header.tsx")) && /function isOwnScreen\(p: string\): boolean \{[^}]*p\.startsWith\("\/community\/"\)/.test(code("components/marketing/conditional-header.tsx")))
   check("the buyer tab bar never covers a community", !buyerTabsBelongOn("/community/makers") && !buyerTabsBelongOn("/community") && !buyerTabsBelongOn("/community/makers/events", { sellerStore: true }) && buyerTabsBelongOn("/library"))
   const index = code("app/(marketing)/community/page.tsx")
   check("/community: Explore's communities when on, a 404 when off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)\s*redirect\("\/explore\/communities"\)/.test(index))

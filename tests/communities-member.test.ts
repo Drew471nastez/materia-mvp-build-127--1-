@@ -333,8 +333,11 @@ async function main() {
   check("a space is space:<slug>", sectionFromPath("/community/studio/space/lounge", "studio") === "space:lounge")
   check("the places are themselves; a post is home", sectionFromPath("/community/studio/events/1", "studio") === "events" && sectionFromPath("/community/studio/members/u", "studio") === "members" && sectionFromPath("/community/studio/post/p", "studio") === "home")
   const off = navEntries({ slug: "s", classroomEnabled: false, eventsEnabled: false, directoryEnabled: false, gamificationEnabled: false }, false)
-  check("switched off places are not drawn", off.map((e) => e.key).join() === "home,saved", off.map((e) => e.key).join())
-  check("staff see Members even with the directory off", navEntries({ slug: "s", classroomEnabled: true, eventsEnabled: true, directoryEnabled: false, gamificationEnabled: true }, true).map((e) => e.key).join() === "home,classroom,events,members,leaderboard,saved")
+  /* Round 2: one row of pills under the community's own bar (Community, Classroom, Calendar, Members, Leaderboards, About); Saved lives with the space chips. */
+  check("switched off places are not drawn", off.map((e) => e.key).join() === "home,about", off.map((e) => e.key).join())
+  const allOn = navEntries({ slug: "s", classroomEnabled: true, eventsEnabled: true, directoryEnabled: false, gamificationEnabled: true }, true)
+  check("staff see Members even with the directory off", allOn.map((e) => e.key).join() === "home,classroom,events,members,leaderboard,about")
+  check("the pills say Community, Classroom, Calendar, Members, Leaderboards, About", allOn.map((e) => e.label).join() === "Community,Classroom,Calendar,Members,Leaderboards,About")
   const modView = { can: allowedActions("moderator"), role: "moderator" as Role, userId: "me" }
   check("a moderator's menu: remove, pin, lock, mute and ban a member", JSON.stringify(moderationMenu(modView, { id: "x", role: "member" })) === JSON.stringify({ remove: true, pin: true, lock: true, mute: true, ban: true }))
   check("but never mute or ban an admin, or themselves", !moderationMenu(modView, { id: "x", role: "admin" }).ban && !moderationMenu(modView, { id: "me", role: "member" }).mute)
@@ -397,9 +400,10 @@ async function main() {
   check("a moderator's removal is written to the audit log", /action: "message\.removed"/.test(chatSrv))
   const rt = code("components/community/member/realtime.ts")
   check("the bell follows the member's own community_notifications rows", /table: "community_notifications", filter: `user_id=eq\.\$\{userId\}`/.test(rt))
-  check("the online count comes from a presence channel and is null until it answers", /presenceState\(\)/.test(rt) && /useState<number \| null>\(null\)/.test(rt))
-  check("presence keys are hashed, not user ids", /crypto\.subtle\.digest\("SHA-256"/.test(rt))
-  check("the shell draws an online count only from presence, and only when others are there", /online !== null && online > 1/.test(code("components/community/member/shell-frame.tsx")))
+  /* Round 2: Online is a server heartbeat (community_members.last_seen_at), not a realtime presence channel. */
+  const frame = code("components/community/member/shell-frame.tsx")
+  check("no presence channel any more: online is the heartbeat the server counts", !/presenceState\(\)/.test(rt) && !/presence/.test(frame.replace(/usePresenceHeartbeat|\/presence`/g, "")))
+  check("the frame sends the heartbeat once a minute while the page is visible", /fetch\(`\/api\/community\/\$\{communityId\}\/presence`, \{ method: "POST"/.test(frame) && /HEARTBEAT_MS = 60_000/.test(frame) && /document\.visibilityState !== "visible"/.test(frame) && /usePresenceHeartbeat\(community\.id, viewer\.userId\)/.test(frame))
   /* Found end to end against a real Supabase (QA): subscribing right after createClient() sent the
      join before the client had the session, so it joined as the visitor and part 81's members only
      reads refused every postgres change. The bell and the chat never moved. */

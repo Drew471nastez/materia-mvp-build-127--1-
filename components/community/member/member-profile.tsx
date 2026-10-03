@@ -8,13 +8,14 @@
  */
 import Link from "next/link"
 import { useState } from "react"
-import { ArrowUpRight, Flag } from "lucide-react"
+import { Flag } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import type { ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { ReportDialog, type ReportTargetRef } from "./dialogs"
 import { openMessages } from "./messages"
+import { personHref } from "./person-href"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, FIELD } from "./ui"
 import { roleTag, type MemberProfileView } from "./view-types"
@@ -26,6 +27,8 @@ export function MemberProfile({ communityId, slug, member, viewer, gamification,
   const [busy, setBusy] = useState(false)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const tag = roleTag(member.role)
+  /* Their own page across Storelib: the storefront when they sell, else their profile. */
+  const profileHref = member.creatorUrl ?? (member.username ? personHref({ username: member.username }) : null)
 
   const save = async () => {
     setBusy(true)
@@ -38,7 +41,7 @@ export function MemberProfile({ communityId, slug, member, viewer, gamification,
   }
 
   return (
-    <div className="max-w-[680px] space-y-3 pb-16 pt-2 lg:pt-6" data-member-profile="">
+    <div className="max-w-[720px] space-y-3 pb-16 pt-4 lg:pt-6" data-member-profile="">
       <section className={`${CARD} p-5 sm:p-6`}>
         <div className="flex items-start gap-4">
           <AppAvatar src={member.avatarUrl} name={member.name} alt="" size={72} markWhileLoading />
@@ -112,11 +115,10 @@ export function MemberProfile({ communityId, slug, member, viewer, gamification,
               {bio ? "Edit bio" : "Add a bio"}
             </button>
           ) : null}
-          {member.creatorUrl ? (
-            <a href={member.creatorUrl} className={BTN_SECONDARY}>
-              Storelib page
-              <ArrowUpRight className="h-4 w-4" aria-hidden />
-            </a>
+          {profileHref ? (
+            <Link href={profileHref} className={BTN_SECONDARY} data-person-link="">
+              View profile
+            </Link>
           ) : null}
           {!member.isSelf && viewer.can.report ? (
             <button type="button" className={BTN_GHOST} onClick={() => setReport({ type: "member", id: member.userId, what: member.name })}>

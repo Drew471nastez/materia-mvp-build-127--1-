@@ -29,6 +29,7 @@ import { actOnContent } from "./moderation"
 import { PostCard } from "./post-card"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, ICON_BTN } from "./ui"
+import { memberHref } from "./person-href"
 import { roleTag } from "./view-types"
 
 export interface PostPageProps {
@@ -339,7 +340,7 @@ function CommentItem({
     <div id={`c-${c.id}`} data-comment={c.id} className="scroll-mt-28">
       <div className="flex items-start gap-2.5">
         {c.author ? (
-          <Link href={`/community/${slug}/members/${c.author.id}`} className="mt-0.5 shrink-0 rounded-full">
+          <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="">
             <AppAvatar src={c.author.avatarUrl} name={c.author.name} alt="" size={small ? 28 : 32} markWhileLoading />
           </Link>
         ) : (
@@ -353,7 +354,7 @@ function CommentItem({
               <>
                 <div className="flex flex-wrap items-center gap-x-1.5 text-[13.5px] leading-5">
                   {c.author ? (
-                    <Link href={`/community/${slug}/members/${c.author.id}`} className="font-semibold text-[#1a1a2e] hover:underline">
+                    <Link href={memberHref(slug, c.author)} className="font-semibold text-[#1a1a2e] hover:underline" data-person-link="">
                       {c.author.name}
                     </Link>
                   ) : (

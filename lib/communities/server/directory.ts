@@ -53,13 +53,39 @@ async function profilesOf(db: Db, ids: string[]): Promise<Map<string, ProfileRow
   return out
 }
 
-/** Names, pictures, roles and levels for a page of people, in two reads. */
+/**
+ * WHICH OF THESE PEOPLE HAVE A STOREFRONT, so a name opens the right page:
+ * /<handle> for a storefront, /@handle for everybody else. One read for a
+ * whole page of people. A storefront is a finished creator onboarding, the
+ * same test /<handle> itself makes (lib/profile/storefront-gate.ts), so a
+ * link never lands on the redirect. Unreadable is "nobody": /@handle still
+ * opens, and a creator's /@handle sends them on to their storefront.
+ */
+export async function storefrontsOf(db: Db, ids: (string | null | undefined)[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  const list = [...new Set(ids.filter((id): id is string => typeof id === "string" && UUID.test(id)))]
+  if (!list.length) return out
+  try {
+    const { data, error } = await db.from("creators").select("user_id").in("user_id", list).eq("onboarding_completed", true)
+    if (error) {
+      if (!missing(error)) console.error(`[communities] storefronts read: ${reasonOf(error)}`)
+      return out
+    }
+    for (const c of (data as { user_id: string | null }[] | null) ?? []) if (c.user_id) out.add(c.user_id)
+  } catch (e) {
+    console.error(`[communities] storefronts read: ${reasonOf(e)}`)
+  }
+  return out
+}
+
+/** Names, pictures, roles and levels for a page of people, in three reads. */
 export async function authorViews(db: Db, communityId: string, userIds: (string | null | undefined)[]): Promise<Map<string, AuthorView>> {
   const ids = [...new Set(userIds.filter((id): id is string => typeof id === "string" && UUID.test(id)))]
   const out = new Map<string, AuthorView>()
   if (!ids.length) return out
-  const [profiles, members] = await Promise.all([
+  const [profiles, stores, members] = await Promise.all([
     profilesOf(db, ids),
+    storefrontsOf(db, ids),
     db
       .from("community_members")
       .select("user_id, role, level, status")
@@ -79,6 +105,7 @@ export async function authorViews(db: Db, communityId: string, userIds: (string 
       avatarUrl: p?.avatar_url ?? null,
       role: m && m.status === "active" ? m.role : null,
       level: m ? Number(m.level) || 1 : null,
+      hasStorefront: stores.has(id),
     })
   }
   return out
@@ -163,8 +190,9 @@ async function tierNames(db: Db, tierIds: (string | null)[]): Promise<Map<string
 
 async function toMemberViews(db: Db, communityId: string, rows: MemberRowLite[]): Promise<MemberView[]> {
   if (!rows.length) return []
-  const [profiles, levels, tiers] = await Promise.all([
+  const [profiles, stores, levels, tiers] = await Promise.all([
     profilesOf(db, rows.map((r) => r.user_id)),
+    storefrontsOf(db, rows.map((r) => r.user_id)),
     levelNames(db, communityId),
     tierNames(db, rows.map((r) => r.tier_id)),
   ])
@@ -185,6 +213,7 @@ async function toMemberViews(db: Db, communityId: string, rows: MemberRowLite[])
       bio: r.bio,
       joinedAt: r.joined_at,
       lastActiveAt: r.last_active_at,
+      hasStorefront: stores.has(r.user_id),
     }
   })
 }
@@ -350,10 +379,10 @@ export async function leaderboardRows(
   entries: { rank: number; userId: string; points: number; level: number }[],
 ): Promise<import("@/components/community/member/view-types").LeaderboardRow[]> {
   if (!entries.length) return []
-  const [profiles, levels] = await Promise.all([profilesOf(db, entries.map((e) => e.userId)), levelNames(db, communityId)])
+  const [profiles, stores, levels] = await Promise.all([profilesOf(db, entries.map((e) => e.userId)), storefrontsOf(db, entries.map((e) => e.userId)), levelNames(db, communityId)])
   return entries.map((e) => {
     const p = profiles.get(e.userId)
-    return { ...e, levelName: levels.get(e.level) ?? null, name: displayName(p), username: p?.username ?? null, avatarUrl: p?.avatar_url ?? null }
+    return { ...e, levelName: levels.get(e.level) ?? null, name: displayName(p), username: p?.username ?? null, avatarUrl: p?.avatar_url ?? null, hasStorefront: stores.has(e.userId) }
   })
 }
 

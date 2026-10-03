@@ -1,31 +1,41 @@
 import "server-only"
 
 /**
- * CommunityShell: the member area's frame around a page, for the route
- * group's layout (app/(marketing)/community/[slug]/(member)/layout.tsx) and
- * for the community's home (feed-page.tsx), which W3's /community/[slug]
- * renders for members. It reads the spaces this viewer may see, their unread
- * chat counts and the unread notifications, then hands plain data to the
- * client frame (shell-frame.tsx).
+ * CommunityShell: the member area's frame around every page of a community,
+ * drawn once by the community's layout (app/(marketing)/community/[slug]/
+ * layout.tsx) so it stays put while the member moves around. It reads the
+ * top bar's facts (whose it is, who is looking, their other communities),
+ * the unread notifications and messages, then hands plain data to the client
+ * frame (shell-frame.tsx).
+ *
+ * CommunityPublicShell is the same top bar alone, for somebody who is not a
+ * member: the sales page, the invite landing, a request waiting.
  *
  * `active` marks a section; left out, the frame works it out from the
  * address ("home" | "classroom" | "events" | "members" | "leaderboard" |
- * "saved" | "notifications" | "space:<slug>").
+ * "saved" | "notifications" | "about" | "space:<slug>").
  */
 import type { Viewer } from "@/lib/communities/server/context"
 import { viewerView } from "@/lib/communities/server/context"
+import { topBarData } from "@/lib/communities/server/public"
 import type { CommunityRow } from "@/lib/communities/types"
+import { CommunityPublicFrame } from "@/components/community/public/public-frame"
 import { shellData } from "./data"
 import { ShellFrame } from "./shell-frame"
 import type { ShellSection } from "./view-types"
 
 async function CommunityShellAsync({ community, viewer, active, children }: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) {
-  const data = await shellData(community.id, viewer, community)
+  const [data, topBar] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer)])
   return (
-    <ShellFrame community={data.community} viewer={viewerView(viewer)} spaces={data.spaces} unreadNotifications={data.unreadNotifications} unreadMessages={data.unreadMessages} active={active}>
+    <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadNotifications={data.unreadNotifications} unreadMessages={data.unreadMessages} active={active}>
       {children}
     </ShellFrame>
   )
+}
+
+async function CommunityPublicShellAsync({ community, viewer, children }: { community: CommunityRow; viewer: Viewer | null; children: React.ReactNode }) {
+  const topBar = await topBarData(community, viewer)
+  return <CommunityPublicFrame topBar={topBar}>{children}</CommunityPublicFrame>
 }
 
 /*
@@ -36,3 +46,6 @@ async function CommunityShellAsync({ community, viewer, active, children }: { co
   that uses it, without changing what renders.
 */
 export const CommunityShell = CommunityShellAsync as unknown as (props: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) => React.ReactElement
+
+/** The top bar alone around a community page, for somebody who is not a member. */
+export const CommunityPublicShell = CommunityPublicShellAsync as unknown as (props: { community: CommunityRow; viewer: Viewer | null; children: React.ReactNode }) => React.ReactElement

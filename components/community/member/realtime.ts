@@ -1,16 +1,14 @@
 "use client"
 
 /**
- * THE TWO LIVE NUMBERS IN THE SHELL, both from Supabase realtime and from
- * nothing else:
+ * THE BELL'S LIVE NUMBER, from Supabase realtime and from nothing else:
+ * the member's own community_notifications rows (part 81 lets a member read
+ * only theirs), counted up as new ones arrive and set by the notifications
+ * page when it marks them read.
  *
- *   unread    the member's own community_notifications rows (part 81 lets a
- *             member read only theirs), counted up as new ones arrive and
- *             set by the notifications page when it marks them read.
- *   online    a presence channel per community. Each open page joins with a
- *             key made from the member's id (hashed, so the channel does not
- *             hand anybody a list of ids), so two tabs are one person. No
- *             presence, no number: the shell draws nothing rather than a guess.
+ * Who is online is not a realtime channel any more: it is the presence
+ * heartbeat the frame sends to the server (shell-frame.tsx,
+ * usePresenceHeartbeat), counted from community_members.last_seen_at.
  */
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -79,48 +77,4 @@ export function useUnreadNotifications(communityId: string, userId: string | nul
     }
   }, [communityId, userId])
   return count
-}
-
-async function presenceKey(communityId: string, userId: string): Promise<string> {
-  try {
-    const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${communityId}:${userId}`))
-    return Array.from(new Uint8Array(bytes).slice(0, 12), (b) => b.toString(16).padStart(2, "0")).join("")
-  } catch {
-    return `m${Math.random().toString(36).slice(2, 12)}`
-  }
-}
-
-/** People with this community open right now, from presence; null until presence has answered. */
-export function useOnlineCount(communityId: string, userId: string | null): number | null {
-  const [online, setOnline] = useState<number | null>(null)
-  useEffect(() => {
-    if (!userId) return
-    let gone = false
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
-    void (async () => {
-      const key = await presenceKey(communityId, userId)
-      if (gone) return
-      try {
-        supabase = createClient()
-        await realtimeAuth(supabase)
-        if (gone) return
-        const ch = supabase.channel(`community-presence:${communityId}`, { config: { presence: { key } } })
-        channel = ch
-        ch.on("presence", { event: "sync" }, () => {
-          if (!gone) setOnline(Object.keys(ch.presenceState()).length)
-        })
-        ch.subscribe((status: string) => {
-          if (status === "SUBSCRIBED") void ch.track({ at: Date.now() })
-        })
-      } catch {
-        /* No presence: no number. */
-      }
-    })()
-    return () => {
-      gone = true
-      if (supabase && channel) supabase.removeChannel(channel)
-    }
-  }, [communityId, userId])
-  return online
 }

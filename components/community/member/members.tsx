@@ -4,22 +4,27 @@
  * THE MEMBER DIRECTORY. Search by name or username, narrow to the community's
  * team (owner, admins, moderators), and page through everybody newest first
  * (the server's keyset cursor). A row is a face, a name, a role, a level and
- * the short bio they wrote here; it opens their page.
+ * the short bio they wrote here; it opens their page across Storelib (their
+ * storefront, or their profile), and Message beside it opens a conversation
+ * here when the community has chat on.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Search } from "lucide-react"
+import { ChatRoundDotsIcon } from "@solar-icons/react/linear/chat-round-dots"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { memberCountLabel } from "@/lib/communities/format"
 import type { MemberView, Role } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
-import { BTN_SECONDARY, CARD, PILL, PILL_OFF, PILL_ON } from "./ui"
+import { openMessages } from "./messages"
+import { memberHref } from "./person-href"
+import { BTN_SECONDARY, CARD, ICON_BTN, PILL, PILL_OFF, PILL_ON } from "./ui"
 import { roleTag } from "./view-types"
 
 type Filter = "all" | "admin" | "moderator"
 
-export function MembersDirectory({ communityId, slug, memberCount, initial }: { communityId: string; slug: string; memberCount: number; initial: { members: MemberView[]; nextCursor: string | null } }) {
+export function MembersDirectory({ communityId, slug, memberCount, initial, meId = null, canMessage = false }: { communityId: string; slug: string; memberCount: number; initial: { members: MemberView[]; nextCursor: string | null }; meId?: string | null; canMessage?: boolean }) {
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
   const [members, setMembers] = useState(initial.members)
@@ -76,7 +81,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial }: { 
   ]
 
   return (
-    <div className="max-w-[760px] pb-16 pt-2 lg:pt-6" data-members="">
+    <div className="max-w-[760px] pb-16 pt-4 lg:pt-6" data-members="">
       <PageTitle title="Members" detail={memberCountLabel(memberCount)} />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <label className="relative flex-1">
@@ -101,7 +106,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial }: { 
       <ul className={`${CARD} mt-4 divide-y divide-[#f0f1f3] overflow-hidden transition-opacity ${loading && !cursor ? "opacity-60" : ""}`} data-member-list="">
         {members.map((m) => (
           <li key={m.userId}>
-            <MemberRow m={m} slug={slug} />
+            <MemberRow m={m} slug={slug} canMessage={canMessage && m.userId !== meId} />
           </li>
         ))}
         {members.length === 0 ? <li className="px-5 py-10 text-center text-[14px] text-[#6b7280]">{q ? "Nobody by that name here." : "No members yet."}</li> : null}
@@ -117,10 +122,11 @@ export function MembersDirectory({ communityId, slug, memberCount, initial }: { 
   )
 }
 
-export function MemberRow({ m, slug }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio">; slug: string }) {
+export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront">; slug: string; canMessage?: boolean }) {
   const tag = roleTag(m.role as Role)
   return (
-    <Link href={`/community/${slug}/members/${m.userId}`} className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-[#f8f9fa] sm:px-5">
+    <div className="flex items-center pr-2 transition-colors hover:bg-[#f8f9fa] sm:pr-3">
+    <Link href={memberHref(slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront })} data-person-link="" className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
       <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={44} markWhileLoading />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
@@ -131,5 +137,11 @@ export function MemberRow({ m, slug }: { m: Pick<MemberView, "userId" | "name" |
       </span>
       <span className="hidden shrink-0 text-[12.5px] text-[#8a8f98] sm:block">Level {m.level}</span>
     </Link>
+    {canMessage ? (
+      <button type="button" onClick={() => openMessages({ userId: m.userId })} aria-label={`Message ${m.name}`} className={ICON_BTN} data-member-message="">
+        <ChatRoundDotsIcon size={20} />
+      </button>
+    ) : null}
+    </div>
   )
 }

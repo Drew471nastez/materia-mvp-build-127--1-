@@ -19,6 +19,7 @@ import { createRoot } from "react-dom/client"
 import { ShellFrame } from "@/components/community/member/shell-frame"
 import { FeedAside, FeedColumns } from "@/components/community/member/columns"
 import { FeedView } from "@/components/community/member/feed"
+import { SpaceChips } from "@/components/community/member/space-chips"
 import { PostPage } from "@/components/community/member/post-page"
 import { ChatView } from "@/components/community/member/chat"
 import { MembersDirectory } from "@/components/community/member/members"
@@ -26,7 +27,7 @@ import { Leaderboard } from "@/components/community/member/leaderboard"
 import { NotificationsList } from "@/components/community/member/notifications"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { CommentView, FeedPostView, MemberView, Role, ViewerView } from "@/lib/communities/types"
-import type { ChatMessageView, LeaderboardRow, NotificationView, ShellCommunity, SpaceView } from "@/components/community/member/view-types"
+import type { ChatMessageView, LeaderboardRow, NotificationView, ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
 
 const NOW = Date.now()
 const MIN = 60_000
@@ -289,9 +290,17 @@ const params = new URLSearchParams(location.search)
 const which = params.get("case") || "feed"
 const me = { name: people.me.name, avatarUrl: people.me.avatarUrl }
 
+const topBar: TopBarData = {
+  community: { id: CID, slug: community.slug, name: community.name, logoUrl: community.logoUrl },
+  creator: { name: "Maya Okafor", href: "/mayao" },
+  me: { name: people.me.name, avatarUrl: people.me.avatarUrl, profileHref: "/@samc" },
+  communities: [{ id: CID, slug: community.slug, name: community.name, logoUrl: community.logoUrl }],
+  manageHref: null,
+}
+
 function Screen() {
   const shell = (children: React.ReactNode) => (
-    <ShellFrame community={community} viewer={viewer} spaces={spaces} unreadNotifications={2}>
+    <ShellFrame community={community} viewer={viewer} topBar={topBar} unreadNotifications={2}>
       {children}
     </ShellFrame>
   )
@@ -299,7 +308,13 @@ function Screen() {
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[1]} comments={{ comments: COMMENTS, nextCursor: null }} me={me} />} />)
   }
   if (which === "chat") {
-    return shell(<ChatView communityId={CID} slug={community.slug} space={spaces[4]} viewer={viewer} initial={{ messages: MESSAGES, hasMore: true }} />)
+    /* As app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx draws a chat space: under the chips. */
+    return shell(
+      <div className="max-w-[760px] pt-4 lg:pt-6">
+        <SpaceChips slug={community.slug} spaces={spaces} active={spaces[4].slug} />
+        <ChatView communityId={CID} slug={community.slug} space={spaces[4]} viewer={viewer} initial={{ messages: MESSAGES, hasMore: true }} />
+      </div>,
+    )
   }
   if (which === "members") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: "next" }} />)
   if (which === "leaderboard") return shell(<Leaderboard communityId={CID} slug={community.slug} initial={BOARD} me={{ userId: "u-me", points: 84, level: 3 }} levels={LEVELS} />)
@@ -307,6 +322,7 @@ function Screen() {
   const onboarding = which === "welcome" ? { name: community.name, welcome: "Glad you are here. Introduce yourself, then jump into a critique thread.", rules: [{ title: "Be specific", body: "Notes that name the problem help more than taste." }, { title: "No pitching", body: "" }], introHref: "/community/studio-notes/space/introductions" } : null
   return shell(
     <FeedColumns
+      header={<SpaceChips slug={community.slug} spaces={spaces} active={null} />}
       main={
         <FeedView
           communityId={CID}
@@ -317,7 +333,7 @@ function Screen() {
           composer={{ communityId: CID, userId: "u-me", me, spaces: spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }}
         />
       }
-      aside={<FeedAside community={community} upcoming={{ id: "e1", title: "Critique night: portfolios", startsAt: iso(NOW + 11 * DAY), endsAt: iso(NOW + 11 * DAY + 90 * MIN) }} />}
+      aside={<FeedAside community={community} stats={{ members: community.memberCount, online: 5, admins: 2 }} upcoming={{ id: "e1", title: "Critique night: portfolios", startsAt: iso(NOW + 11 * DAY), endsAt: iso(NOW + 11 * DAY + 90 * MIN) }} />}
     />,
   )
 }

@@ -29,17 +29,22 @@ import { cache } from "react"
 import { money } from "@/lib/memberships/state"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { readPublishedReviews } from "@/lib/reviews/store"
-import { getProductInternalPath, getStoreInternalPath } from "@/lib/url-helpers"
+import { getProductInternalPath } from "@/lib/url-helpers"
+import { personHref } from "@/components/community/member/person-href"
+import type { TopBarCommunity, TopBarData } from "@/components/community/member/view-types"
+import { parseGallery, payingTenure, type GalleryItemView } from "@/components/community/public/gallery"
 import { checkoutPath, communityPath } from "@/components/community/public/paths"
 import { decideJoin } from "@/components/community/public/join-state"
 import type { SeoFacts } from "@/components/community/public/seo"
 import type { AccessProductLink, JoinOption, LibraryCommunityRow, PublicCommunityView, PublicCreatorView, PublicReviewView, SalesPageData } from "@/components/community/public/types"
 import { priceLine } from "../format"
-import { meetsRole } from "../permissions"
+import { can, meetsRole } from "../permissions"
 import { TIER_COLUMNS, type CommunityCard, type CommunityRow, type Role, type TierRow } from "../types"
 import { communitiesEnabled } from "../flag"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
 import { admin, missing, reasonOf, type Db } from "./db"
+import { storefrontsOf } from "./directory"
+import { communityStats } from "./presence"
 
 /** What a card needs, and nothing as heavy as the description. */
 export const CARD_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, category, access, visibility, status, member_count, creator_id, created_at, trending_score"
@@ -77,6 +82,7 @@ interface CreatorLite {
   stripe_account_id: string | null
   stripe_onboarding_status: string | null
   charges_enabled: boolean | null
+  onboarding_completed?: boolean | null
 }
 
 interface ProfileLite {
@@ -87,7 +93,7 @@ interface ProfileLite {
 }
 
 const PRODUCT_COLUMNS = "id, title, slug, type, status, price_cents, creator_id, reviews_count, reviews_average"
-const CREATOR_COLUMNS = "id, user_id, slug, display_name, avatar_url, stripe_account_id, stripe_onboarding_status, charges_enabled"
+const CREATOR_COLUMNS = "id, user_id, slug, display_name, avatar_url, stripe_account_id, stripe_onboarding_status, charges_enabled, onboarding_completed"
 
 const uniq = (ids: (string | null | undefined)[]) => [...new Set(ids.filter((v): v is string => typeof v === "string" && v.length > 0))]
 
@@ -193,7 +199,8 @@ function creatorView(entry: { creator: CreatorLite; profile: ProfileLite | null 
   const { creator, profile } = entry
   const username = (profile?.username || creator.slug || "").toLowerCase() || null
   const name = profile?.display_name?.trim() || creator.display_name?.trim() || username || "Creator"
-  return { name, username, avatarUrl: profile?.avatar_url || creator.avatar_url || null, href: username ? getStoreInternalPath(username) : null }
+  /* Their page, by the one rule every name follows: the storefront once onboarding is done, the profile before. */
+  return { name, username, avatarUrl: profile?.avatar_url || creator.avatar_url || null, href: username ? personHref({ username, hasStorefront: !!creator.onboarding_completed }) : null }
 }
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
@@ -236,7 +243,15 @@ export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]
 
 /* ── The sales page ─────────────────────────────────────────────────────── */
 
-async function readReviews(db: Db, products: ProductLite[]): Promise<PublicCommunityView["reviews"]> {
+/**
+ * What members say: the published reviews of the products that sell a tier,
+ * newest first. Each reviewer's name opens their page, and the line "Still a
+ * paying member after 3 months" is added only when it is true today: they
+ * are an active member of THIS community through a paid source (payingTenure).
+ * Three reads for the whole list (members, profiles, storefronts), never one
+ * per review.
+ */
+async function readReviews(db: Db, communityId: string, products: ProductLite[], now: number = Date.now()): Promise<PublicCommunityView["reviews"]> {
   const rated = products.filter((p) => (p.reviews_count ?? 0) > 0).slice(0, 4)
   if (rated.length === 0) return null
   const pages = await Promise.all(
@@ -249,22 +264,102 @@ async function readReviews(db: Db, products: ProductLite[]): Promise<PublicCommu
   )
   const total = pages.reduce((n, p) => n + p.total, 0)
   if (total === 0) return null
-  const items: PublicReviewView[] = pages
+  const picked = pages
     .flatMap((p) => p.reviews)
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
     .slice(0, 6)
-    .map((r) => ({
+  const buyerIds = uniq(picked.map((r) => r.buyer?.id))
+  const [members, profiles, stores] = await Promise.all([
+    buyerIds.length
+      ? rows<{ user_id: string; status: string; source: string | null; joined_at: string | null }>("reviewer memberships", () =>
+          db.from("community_members").select("user_id, status, source, joined_at").eq("community_id", communityId).in("user_id", buyerIds),
+        )
+      : Promise.resolve([]),
+    buyerIds.length ? rows<{ id: string; username: string | null }>("reviewer profiles", () => db.from("profiles").select("id, username").in("id", buyerIds)) : Promise.resolve([]),
+    storefrontsOf(db, buyerIds),
+  ])
+  const memberOf = new Map(members.map((m) => [m.user_id, m]))
+  const usernameOf = new Map(profiles.map((p) => [p.id, p.username]))
+  const items: PublicReviewView[] = picked.map((r) => {
+    const buyer = r.buyer?.id ?? null
+    const username = buyer ? usernameOf.get(buyer) ?? null : null
+    const m = buyer ? memberOf.get(buyer) : undefined
+    return {
       id: r.id,
       rating: Math.max(1, Math.min(5, Math.round(r.rating))),
       content: r.content,
       name: r.reviewer_name?.trim() || r.buyer?.display_name?.trim() || "A member",
       avatarUrl: r.buyer?.avatar_url ?? null,
       createdAt: r.created_at,
-    }))
+      href: username ? personHref({ username, hasStorefront: buyer ? stores.has(buyer) : false }) : null,
+      payingFor: m ? payingTenure({ status: m.status, source: m.source, joinedAt: m.joined_at }, now) : null,
+    }
+  })
   /* The products' own averages, weighted by their counts: what each product page already says. */
   const counted = rated.reduce((n, p) => n + (p.reviews_count ?? 0), 0)
   const average = counted > 0 ? rated.reduce((s, p) => s + (p.reviews_average ?? 0) * (p.reviews_count ?? 0), 0) / counted : items.reduce((s, r) => s + r.rating, 0) / Math.max(1, items.length)
   return { average: Math.round(average * 10) / 10, total, items }
+}
+
+/* ── The gallery ────────────────────────────────────────────────────────── */
+
+/** communities.gallery, or null while part 85 has not added the column (or it cannot be read). */
+async function readGalleryColumn(db: Db, communityId: string): Promise<unknown[] | null> {
+  try {
+    const { data, error } = await db.from("communities").select("gallery").eq("id", communityId).maybeSingle()
+    if (error) {
+      const code = (error as { code?: string }).code
+      if (code !== "42703" && code !== "PGRST204" && !missing(error)) console.error(`[communities] gallery read: ${reasonOf(error)}`)
+      return null
+    }
+    const v = (data as { gallery?: unknown } | null)?.gallery
+    return Array.isArray(v) ? v : []
+  } catch (e) {
+    console.error(`[communities] gallery read: ${reasonOf(e)}`)
+    return null
+  }
+}
+
+/** Ready videos of this community, with their posters, in one read. */
+async function readyVideos(db: Db, communityId: string, ids: string[]): Promise<Map<string, string | null>> {
+  if (!ids.length) return new Map()
+  const found = await rows<{ id: string; thumbnail_url: string | null }>("gallery videos", () =>
+    db.from("media_videos").select("id, thumbnail_url").eq("community_id", communityId).eq("status", "ready").in("id", ids),
+  )
+  return new Map(found.map((v) => [v.id, v.thumbnail_url]))
+}
+
+/**
+ * What the about page shows at the top: the creator's gallery (pictures and
+ * ready videos of this community, in their order), or, before part 85 or
+ * when they chose none, the cover video and the cover picture. Empty when
+ * there is nothing at all, and the page then shows no media block.
+ */
+export async function communityGallery(db: Db, community: Pick<CommunityRow, "id" | "cover_url" | "cover_video_id">): Promise<GalleryItemView[]> {
+  const raw = await readGalleryColumn(db, community.id)
+  const chosen = parseGallery(raw ?? [])
+  const fallback = chosen.length === 0
+  const wanted = fallback ? (community.cover_video_id ? [{ type: "video" as const, videoId: community.cover_video_id }] : []) : chosen
+  const posters = await readyVideos(db, community.id, wanted.filter((g) => g.type === "video").map((g) => (g as { videoId: string }).videoId))
+  const out: GalleryItemView[] = []
+  for (const g of wanted) {
+    if (g.type === "image") out.push(g)
+    else if (posters.has(g.videoId)) out.push({ type: "video", videoId: g.videoId, posterUrl: posters.get(g.videoId) ?? community.cover_url ?? null })
+  }
+  if (fallback && community.cover_url) out.push({ type: "image", url: community.cover_url })
+  return out
+}
+
+/**
+ * Whether a video is in this community's gallery while its about page is
+ * open to everyone (published, not suspended): the one other video, beside
+ * the cover, a visitor may play (app/api/community/[communityId]/videos/
+ * [videoId]/play). Before part 85, never.
+ */
+export async function inPublicGallery(db: Db, community: CommunityRow, videoId: string): Promise<boolean> {
+  if (community.status !== "published" || !communityOpen(community)) return false
+  const raw = await readGalleryColumn(db, community.id)
+  return parseGallery(raw ?? []).some((g) => g.type === "video" && g.videoId === videoId)
 }
 
 const looksLikeHtml = (v: string) => /<[a-z][\s\S]*>/i.test(v)
@@ -353,7 +448,11 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
       return { productId: p.id, title: p.title || "Product", href: getProductInternalPath(p.slug as string, creator?.username ?? undefined), priceLine: line }
     })
 
-  const reviews = await readReviews(db, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published"))
+  const [reviews, gallery, stats] = await Promise.all([
+    readReviews(db, community.id, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published")),
+    communityGallery(db, community),
+    communityStats(db, community),
+  ])
 
   const raw = community.description ?? ""
   const view: PublicCommunityView = {
@@ -379,6 +478,9 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     accessProducts,
     reviews,
     url: communityPath(community.slug),
+    address: `storelib.com${communityPath(community.slug)}`,
+    gallery,
+    stats,
   }
 
   const member = viewer.member
@@ -417,6 +519,61 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
 /** Whether search engines may index this community's page: published, public, open. */
 export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility" | "suspended_at" | "deleted_at" | "platform_hidden">): boolean {
   return c.status === "published" && c.visibility === "public" && !c.suspended_at && !c.deleted_at && !c.platform_hidden
+}
+
+/* ── The community's own top bar ────────────────────────────────────────── */
+
+/**
+ * What the top bar draws on every page of a community, for this viewer:
+ * whose it is ("By <name>", to their page), who is looking (their name,
+ * picture and page) and the communities they are in, for the switcher.
+ * Four small reads, once per page load: a layout is kept while somebody
+ * moves around inside the community.
+ */
+export async function topBarData(community: CommunityRow, viewer: Viewer | null, db: Db = admin()): Promise<TopBarData> {
+  const userId = viewer?.userId ?? null
+  const [creators, me, stores, mine] = await Promise.all([
+    readCreators(db, [community.creator_id ?? ""]),
+    userId ? rows<ProfileLite>("top bar profile", () => db.from("profiles").select("id, username, display_name, avatar_url").eq("id", userId).limit(1)) : Promise.resolve([] as ProfileLite[]),
+    userId ? storefrontsOf(db, [userId]) : Promise.resolve(new Set<string>()),
+    userId
+      ? rows<{ community_id: string; role: Role }>("top bar communities", () =>
+          db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").order("last_active_at", { ascending: false, nullsFirst: false }).limit(20),
+        )
+      : Promise.resolve([] as { community_id: string; role: Role }[]),
+  ])
+  const ids = uniq(mine.map((m) => m.community_id))
+  const found = ids.length
+    ? await rows<{ id: string; slug: string; name: string; logo_url: string | null; status: string; suspended_at: string | null }>("top bar community names", () =>
+        db.from("communities").select("id, slug, name, logo_url, status, suspended_at").in("id", ids).is("deleted_at", null),
+      )
+    : []
+  const byId = new Map(found.map((c) => [c.id, c]))
+  const communities: TopBarCommunity[] = []
+  for (const m of mine) {
+    const c = byId.get(m.community_id)
+    /* Somewhere the row can take them: not suspended, and a draft only for its staff. */
+    if (!c || c.suspended_at || c.status === "suspended" || (c.status === "draft" && !meetsRole(m.role, "moderator"))) continue
+    communities.push({ id: c.id, slug: c.slug, name: c.name, logoUrl: c.logo_url })
+  }
+  const creator = community.creator_id ? creatorView(creators.get(community.creator_id)) : null
+  const profile = me[0] ?? null
+  const role = viewer?.active ? viewer.role : null
+  const staffAccount = !!viewer && (viewer.isOwner || viewer.isCreatorAccount)
+  return {
+    community: { id: community.id, slug: community.slug, name: community.name, logoUrl: community.logo_url },
+    creator: creator ? { name: creator.name, href: creator.href } : null,
+    me: userId
+      ? {
+          name: profile?.display_name?.trim() || profile?.username || "You",
+          avatarUrl: profile?.avatar_url ?? null,
+          /* No username yet: their account page, where one is set. */
+          profileHref: profile?.username ? personHref({ username: profile.username, hasStorefront: stores.has(userId) }) : "/account",
+        }
+      : null,
+    communities,
+    manageHref: staffAccount && (can(role, "manage_settings") || can(role, "review_reports")) ? `/app/community/${community.id}` : null,
+  }
 }
 
 /* ── A creator's page ───────────────────────────────────────────────────── */

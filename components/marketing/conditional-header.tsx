@@ -33,9 +33,14 @@ function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: bo
 /**
  * Screens that carry their own chrome and must not get the platform's on top.
  * The creator page editor is a full-screen workspace with a bar of its own.
+ * A community is somebody's own place: every page under /community/<slug>
+ * draws the community's top bar instead (its picture, its name, whose it
+ * is, a switcher back out to Explore), so Storelib's bar is never above it
+ * (app/(marketing)/community/[slug]/layout.tsx). Bare /community is only a
+ * redirect to Explore.
  */
 function isOwnScreen(p: string): boolean {
-  return p === "/creator-page" || p.startsWith("/creator-page/")
+  return p === "/creator-page" || p.startsWith("/creator-page/") || p.startsWith("/community/")
 }
 
 /** Paths that are always platform pages (never custom-domain seller pages). */
@@ -56,9 +61,10 @@ function isKnownPlatformPath(p: string): boolean {
        a page; and a word boundary, so /account-deletion stays its own entry. */
     ((p === "/account" || p.startsWith("/account/")) && !p.startsWith("/account/continue")) ||
     p.startsWith("/dashboard") ||
-    /* STORELIB COMMUNITIES. A community's page and member area keep the
-       platform header, as a product page does; the word boundary keeps a
-       creator called "communityx" a creator. */
+    /* STORELIB COMMUNITIES. A platform path, so a creator called
+       "communityx" stays a creator (the word boundary); but every page under
+       /community/<slug> is its own screen with the community's own bar
+       (isOwnScreen above), so the header itself is not drawn there. */
     p === "/community" ||
     p.startsWith("/community/") ||
     p.startsWith("/app") ||

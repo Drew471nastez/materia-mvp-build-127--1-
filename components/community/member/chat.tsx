@@ -31,6 +31,7 @@ import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } 
 import { SpaceIcon } from "./space-icon"
 import { toast } from "./toast"
 import { BTN_PRIMARY, BTN_SECONDARY, CARD, ICON_BTN } from "./ui"
+import { memberHref } from "./person-href"
 import { roleTag, type ChatMessageView, type SpaceView } from "./view-types"
 
 /** Messages from one person within this long of each other are drawn as one group. */
@@ -231,7 +232,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
     })
 
   return (
-    <div className="flex h-[calc(100dvh-var(--community-top,0px)-128px)] min-h-[420px] flex-col pb-3 pt-1 lg:h-[calc(100dvh-var(--community-top,0px)-24px)] lg:max-w-[760px] lg:pb-6 lg:pt-6" data-chat="">
+    <div className="flex h-[calc(100dvh-var(--community-top,0px)-88px)] min-h-[420px] flex-col pb-3 lg:h-[calc(100dvh-var(--community-top,0px)-104px)] lg:max-w-[760px] lg:pb-6" data-chat="">
       <div className={`${CARD} flex min-h-0 flex-1 flex-col overflow-hidden`}>
         <header className="flex items-center gap-2.5 border-b border-[#eceef1] px-4 py-3">
           <span className="text-[#6b7280]">
@@ -299,7 +300,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
                   <div className="w-9 shrink-0">
                     {start ? (
                       m.author ? (
-                        <Link href={`/community/${slug}/members/${m.author.id}`}>
+                        <Link href={memberHref(slug, m.author)} data-person-link="">
                           <AppAvatar src={m.author.avatarUrl} name={m.author.name} alt="" size={36} markWhileLoading />
                         </Link>
                       ) : (

@@ -1,11 +1,12 @@
 /**
  * WHICH SECTION OF THE MEMBER AREA AN ADDRESS IS, so the shell can mark it
  * without each page saying so (a route group's layout is not told the
- * path). Pure and browser safe.
+ * path), and THE ONE ROW OF PILLS under the community's top bar. Pure and
+ * browser safe.
  */
 import type { ShellSection } from "./view-types"
 
-const SECTIONS = ["classroom", "events", "members", "leaderboard", "saved", "notifications"] as const
+const SECTIONS = ["classroom", "events", "members", "leaderboard", "saved", "notifications", "about"] as const
 
 export function sectionFromPath(pathname: string | null | undefined, slug: string): ShellSection {
   const base = `/community/${slug}`
@@ -18,20 +19,33 @@ export function sectionFromPath(pathname: string | null | undefined, slug: strin
   return "home"
 }
 
+/** The pills: Community, Classroom, Calendar, Members, Leaderboards, About. */
+export type PillKey = "home" | "classroom" | "events" | "members" | "leaderboard" | "about"
+
 export interface NavEntry {
-  key: ShellSection
+  key: PillKey
   label: string
   href: string
 }
 
-/** The member area's places, each only when the community has it switched on. */
+/**
+ * The places in a community, in the one row of pills, each only when the
+ * community has it switched on. Members shows for staff even with the
+ * directory off (they run it); the community and About are always there.
+ */
 export function navEntries(c: { slug: string; classroomEnabled: boolean; eventsEnabled: boolean; directoryEnabled: boolean; gamificationEnabled: boolean }, staff: boolean): NavEntry[] {
   const base = `/community/${c.slug}`
-  const out: NavEntry[] = [{ key: "home", label: "Home", href: base }]
+  const out: NavEntry[] = [{ key: "home", label: "Community", href: base }]
   if (c.classroomEnabled) out.push({ key: "classroom", label: "Classroom", href: `${base}/classroom` })
-  if (c.eventsEnabled) out.push({ key: "events", label: "Events", href: `${base}/events` })
+  if (c.eventsEnabled) out.push({ key: "events", label: "Calendar", href: `${base}/events` })
   if (c.directoryEnabled || staff) out.push({ key: "members", label: "Members", href: `${base}/members` })
-  if (c.gamificationEnabled) out.push({ key: "leaderboard", label: "Leaderboard", href: `${base}/leaderboard` })
-  out.push({ key: "saved", label: "Saved", href: `${base}/saved` })
+  if (c.gamificationEnabled) out.push({ key: "leaderboard", label: "Leaderboards", href: `${base}/leaderboard` })
+  out.push({ key: "about", label: "About", href: `${base}/about` })
   return out
+}
+
+/** The pill a section lights: a space, a post, Saved and the inbox all live under Community. */
+export function pillFor(section: ShellSection): PillKey {
+  if (section === "classroom" || section === "events" || section === "members" || section === "leaderboard" || section === "about") return section
+  return "home"
 }

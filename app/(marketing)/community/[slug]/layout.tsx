@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
 import type React from "react"
 import { connection } from "next/server"
-import { memberPage } from "@/components/community/member/data"
-import { CommunityShell } from "@/components/community/member/shell"
+import { meetsRole } from "@/lib/communities/permissions"
+import { memberPage, type MemberPage } from "@/components/community/member/data"
+import { CommunityPublicShell, CommunityShell } from "@/components/community/member/shell"
 
 /**
  * EVERY PAGE INSIDE A COMMUNITY IS FOR ITS MEMBERS, so none of them is
@@ -11,17 +12,29 @@ import { CommunityShell } from "@/components/community/member/shell"
  * robots wins over its layout's), and only when the community is published
  * and public (components/community/public/seo.ts).
  *
- * ONE FRAME FOR A MEMBER, DRAWN ONCE. The member area's frame (the rail, the
- * pills, the bell, messages) used to be drawn twice over: by the community's
- * home page for itself, and by the (member) route group's layout for every
- * other page. Going from Home to a space, Members or a post, and back,
- * therefore threw the whole frame away and built a new one, so the column
- * blinked, the counts reloaded and the page shrank and grew again. It lives
- * here now, above both, and a layout is kept across navigation: only the
- * page inside it changes. Somebody who is not an active member gets the
- * page alone (the sales page, the join page, a state screen).
+ * ONE FRAME, DRAWN ONCE, AND IT IS THE COMMUNITY'S. There is no Storelib bar
+ * anywhere under /community/* (components/marketing/conditional-header.tsx
+ * leaves it out); the community's own top bar is drawn here instead, above
+ * every page, and a layout is kept across navigation, so moving between the
+ * feed, a space, Members and About only changes the page inside it. An
+ * active member gets the whole frame (the bar, the pills, Messages, the
+ * presence heartbeat); anybody else gets the bar alone around the page (the
+ * sales page, the invite landing, a request waiting).
+ *
+ * NOTHING ABOUT A COMMUNITY SOMEBODY MAY NOT SEE. A draft is its staff's
+ * and a suspended community is its owner's; for anybody else the page under
+ * this is a 404 or a plain state screen, and the bar (with the community's
+ * name and picture on it) is not drawn around it.
  */
 export const metadata: Metadata = { robots: { index: false, follow: false } }
+
+/** Whether this viewer may see the community's bar at all. */
+function barVisible(page: MemberPage): boolean {
+  const { community, viewer } = page
+  if (!community || page.state === "off" || page.state === "missing" || page.state === "closed") return false
+  if (community.status !== "draft") return true
+  return !!viewer && (viewer.isOwner || viewer.isCreatorAccount || meetsRole(viewer.role, "moderator"))
+}
 
 export default async function CommunitySlugLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   await connection()
@@ -32,6 +45,13 @@ export default async function CommunitySlugLayout({ children, params }: { childr
       <CommunityShell community={page.community} viewer={page.viewer}>
         {children}
       </CommunityShell>
+    )
+  }
+  if (page.community && barVisible(page)) {
+    return (
+      <CommunityPublicShell community={page.community} viewer={page.viewer}>
+        {children}
+      </CommunityPublicShell>
     )
   }
   return children

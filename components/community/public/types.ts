@@ -12,6 +12,9 @@
  * and reviews are published reviews of those products.
  */
 import type { CommunityAccess, CommunityVisibility, CommunityStatus, MemberStatus, Role, TierBilling, TierKind } from "@/lib/communities/types"
+import type { GalleryItemView } from "./gallery"
+
+export type { GalleryItemView }
 
 /** One way to belong, as the page offers it. */
 export interface JoinOption {
@@ -49,14 +52,25 @@ export interface PublicReviewView {
   name: string
   avatarUrl: string | null
   createdAt: string
+  /** The reviewer's page (their storefront or their profile), or null with no username. */
+  href: string | null
+  /** "3 months" in "Still a paying member after 3 months"; null unless it is true today. */
+  payingFor: string | null
 }
 
 export interface PublicCreatorView {
   name: string
   username: string | null
   avatarUrl: string | null
-  /** Their Storelib page, or null when they have no handle. */
+  /** Their page: /<handle> with a storefront, /@handle otherwise; null when they have no handle. */
   href: string | null
+}
+
+/** The three figures on the card. Online and admins are null when they cannot be known, and are then not drawn. */
+export interface CommunityStatsView {
+  members: number
+  online: number | null
+  admins: number | null
 }
 
 export interface PublicCommunityView {
@@ -85,6 +99,11 @@ export interface PublicCommunityView {
   reviews: { average: number; total: number; items: PublicReviewView[] } | null
   /** /community/<slug> */
   url: string
+  /** "storelib.com/community/<slug>", as the card prints it. */
+  address: string
+  /** The pictures and videos the creator chose; the cover alone before part 85 or when none were chosen. */
+  gallery: GalleryItemView[]
+  stats: CommunityStatsView
 }
 
 /**

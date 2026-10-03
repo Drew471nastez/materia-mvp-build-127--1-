@@ -14,6 +14,7 @@ import { listSpaces, spaceViews } from "@/lib/communities/server/feed"
 import { unreadCounts } from "@/lib/communities/server/chat"
 import { unreadConversations } from "@/lib/communities/server/direct"
 import { unreadNotificationCount } from "@/lib/communities/server/mentions"
+import { communityStats, type CommunityStats } from "@/lib/communities/server/presence"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView } from "./view-types"
@@ -85,6 +86,9 @@ export const shellData = cache(async (communityId: string, viewer: Viewer, commu
   ])
   return { community: toShellCommunity(community), spaces: spaceViews(rows, viewer, community, unread), rows, unreadNotifications: notifications, unreadMessages: messages }
 })
+
+/** Members, online (a real heartbeat, or null before part 85) and admins, once per request. */
+export const statsFor = cache(async (community: CommunityRow): Promise<CommunityStats> => communityStats(admin(), community))
 
 /** The product a creator's post files are uploaded under: one that sells this community, when it has one. */
 export async function fileProductFor(community: CommunityRow, viewer: Viewer): Promise<string | null> {

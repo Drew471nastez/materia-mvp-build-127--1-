@@ -600,6 +600,8 @@ export interface AuthorView {
   avatarUrl: string | null
   role: Role | null
   level: number | null
+  /** They sell on Storelib, so their page is /<handle> rather than /@handle. */
+  hasStorefront?: boolean
 }
 
 /** A community in a list: Explore, the library, a creator's page. */
@@ -690,6 +692,8 @@ export interface MemberView {
   bio: string | null
   joinedAt: string | null
   lastActiveAt: string | null
+  /** They sell on Storelib, so their page is /<handle> rather than /@handle. */
+  hasStorefront?: boolean
 }
 
 export interface EventView {

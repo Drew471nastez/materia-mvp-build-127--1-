@@ -84,6 +84,8 @@ export const RATE_LIMITS = {
   dmTouch: [{ limit: 240, seconds: 600 }],
   /** New conversations: enough to talk to people, not enough to message a whole community. */
   dmOpen: [{ limit: 20, seconds: 3600 }, { limit: 60, seconds: 86400 }],
+  /** The presence heartbeat: one a minute per open page, room for a few tabs, never a loop. */
+  presence: [{ limit: 40, seconds: 600 }],
   report: [{ limit: 10, seconds: 3600 }],
   invite: [{ limit: 50, seconds: 86400 }],
 } as const satisfies Record<string, readonly RateWindowSpec[]>
