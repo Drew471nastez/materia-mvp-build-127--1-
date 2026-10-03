@@ -258,9 +258,11 @@ async function main() {
       it at 12,905. ask_creator's picture fields: about 170 on the tools.
       13,600 with the rule that the header's navigation is the Main menu
       (edit_menu, never nav_link blocks), and read_menus and edit_menu add
-      about 400 to the tools.
+      about 400 to the tools. Tools 6,000: with every T and U round tool
+      merged (copy_section_to_code, read_menus, edit_menu, the picture
+      fields) they measured 5,935.
     */
-    check("the first request stays inside its budget", tokens(first.system) <= 13_600 && tokens(JSON.stringify(first.tools)) <= 5_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    check("the first request stays inside its budget", tokens(first.system) <= 13_600 && tokens(JSON.stringify(first.tools)) <= 6_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>

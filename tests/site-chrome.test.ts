@@ -105,8 +105,8 @@ async function main() {
   check("the AI's reference for the header is retrieved by a header request", !!chromeTopic && chromeTopic.triggers.test("make my header sticky like this screenshot"))
   const headerIds = new Set((SECTION_SCHEMAS.header.fields ?? []).map((f) => f.id))
   const footerIds = new Set((SECTION_SCHEMAS.footer.fields ?? []).map((f) => f.id))
-  /* Block and schema names, the setting types a header of the creator's own uses, and the theme setting the logo's name is, are not header settings. */
-  const named = [...(chromeTopic?.text ?? "").matchAll(/\b([a-z]+(?:_[a-z0-9]+)+)\b/g)].map((m) => m[1]).filter((id) => !["nav_link", "link_type", "parent_id", "footer_column", "footer_link", "link_list", "image_picker", "enabled_on", "brand_name"].includes(id))
+  /* Block and schema names, the setting types a header of the creator's own uses, the theme setting the logo's name is, a logo_mode value and the two menu tools are not header settings. */
+  const named = [...(chromeTopic?.text ?? "").matchAll(/\b([a-z]+(?:_[a-z0-9]+)+)\b/g)].map((m) => m[1]).filter((id) => !["nav_link", "link_type", "parent_id", "footer_column", "footer_link", "link_list", "image_picker", "enabled_on", "brand_name", "image_text", "read_menus", "edit_menu"].includes(id))
   const unknown = named.filter((id) => !headerIds.has(id) && !footerIds.has(id))
   check("and every setting it names is one the header or footer really has", named.length > 15 && unknown.length === 0, unknown)
 

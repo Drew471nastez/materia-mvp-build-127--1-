@@ -193,7 +193,7 @@ async function main() {
     const refined = GOOD.replace('"default": "A heading about this"', '"default": "Romania, in colour"')
     const { provider, seen } = recording([{ text: PLAN }, { text: GOOD }, { text: refined }])
     const out = await writeSection({ provider, model: "test", prompt: "a flag section", takenTypes: [], takenNames: [] })
-    check("a review that sends a better file replaces the first", out.ok === true && out.value.reviewed === "refined" && out.value.source.includes("Romania, in colour"), out.ok ? out.value.reviewed : out.error)
+    check("a review that sends a better file replaces the first", out.ok === true && out.value.reviewed === "refined" && out.value.source.includes("Romania, in colour"), out.ok ? out.value.reviewed : (out as { error: string }).error)
     check("the refined file kept its own type and name", out.ok === true && out.value.type === "romania_flag" && out.value.name === "Romania flag")
     check("and the review was asked for once", seen.length === 3)
   }
@@ -201,7 +201,7 @@ async function main() {
     const broken = GOOD.replace("</schema>", "")
     const { provider } = recording([{ text: PLAN }, { text: GOOD }, { text: broken.replace(/^/, "") }])
     const out = await writeSection({ provider, model: "test", prompt: "a flag section", takenTypes: [], takenNames: [] })
-    check("a review whose file would not compile leaves the first one standing", out.ok === true && out.value.source === GOOD && out.value.reviewed !== "refined", out.ok ? out.value.reviewed : out.error)
+    check("a review whose file would not compile leaves the first one standing", out.ok === true && out.value.source === GOOD && out.value.reviewed !== "refined", out.ok ? out.value.reviewed : (out as { error: string }).error)
   }
   {
     const { provider } = recording([{ text: PLAN }, { text: GOOD }])
@@ -220,7 +220,7 @@ async function main() {
     const throws = GOOD.replace("{{ settings.heading }}", "{{ settings.heading | nope_filter }}")
     const { provider, seen } = recording([{ text: PLAN }, { text: throws }, { text: GOOD }, { text: "OK" }])
     const out = await writeSection({ provider, model: "test", prompt: "a flag section", takenTypes: [], takenNames: [] })
-    check("a file the gate refuses is sent back with the reason, and the fixed one kept", out.ok === true && seen.length >= 3 && out.value.source === GOOD, out.ok ? "" : out.error)
+    check("a file the gate refuses is sent back with the reason, and the fixed one kept", out.ok === true && seen.length >= 3 && out.value.source === GOOD, out.ok ? "" : (out as { error: string }).error)
   }
   check("Code a section thinks on Deep by default, a page change on Standard", DEFAULT_CODE_STRENGTH === "deep" && defaultStrengthFor("code") === "deep" && defaultStrengthFor("change") === DEFAULT_STRENGTH && effortOf("deep") === "high")
   check("each mode keeps its own Strength", strengthKeyFor("code") !== strengthKeyFor("change"))
@@ -240,7 +240,7 @@ async function main() {
     const events: ThemeAgentEvent[] = []
     const loop = themeAgent({ provider, model: "test", prompt: "make the hero about Romania", state, page: "home", addable: ADDABLE_SECTIONS, selfCheck: true, maxReviews: 0 })
     let s = await loop.next()
-    for (; !s.done; s = await loop.next()) events.push(s.value)
+    for (; !s.done; s = await loop.next()) events.push(s.value as ThemeAgentEvent)
     const last = seen[seen.length - 1]
     const note = String((last.turns[last.turns.length - 1] as { content?: string }).content ?? "")
     check("it is asked to read its work back once before it finishes", seen.length === 3 && /BEFORE YOU FINISH, READ YOUR WORK BACK/.test(note), seen.length)
@@ -262,7 +262,7 @@ async function main() {
     const { provider } = recording([{ calls: [["update_section", { id: "hero-1", settingsJson: JSON.stringify({ heading: "x" }) }]] }, { text: "Done." }])
     const events: ThemeAgentEvent[] = []
     const loop = themeAgent({ provider, model: "test", prompt: "tighten this", state, page: "home", addable: ADDABLE_SECTIONS, selectedSectionId: "hero-1", lockToSelection: true })
-    for (let s = await loop.next(); !s.done; s = await loop.next()) events.push(s.value)
+    for (let s = await loop.next(); !s.done; s = await loop.next()) events.push(s.value as ThemeAgentEvent)
     const first = events.findIndex((e) => e.type === "subject")
     check("locked to a section, the run says Editing <name> before anything else it does", first === 0 && (events[0] as { text: string }).text === "Editing Pricing", events.slice(0, 2))
     const activity = events.reduce((a, e) => reduceActivity(a, e as unknown as Record<string, unknown>), EMPTY_ACTIVITY)
@@ -409,7 +409,7 @@ async function main() {
     const { provider } = recording([{ calls: [["ask_creator", { question: "Please upload or paste the portrait", options: ["Upload image", "Paste image URL"], why: "It goes in the hero.", imageSectionId: "hero-1", imageBlockId: "", imageSetting: "hero_image" }]] }])
     const events: ThemeAgentEvent[] = []
     const loop = themeAgent({ provider, model: "test", prompt: "add the president's portrait to the hero", state, page: "home", addable: ADDABLE_SECTIONS })
-    for (let s = await loop.next(); !s.done; s = await loop.next()) events.push(s.value)
+    for (let s = await loop.next(); !s.done; s = await loop.next()) events.push(s.value as ThemeAgentEvent)
     const q = events.find((e) => e.type === "question") as Extract<ThemeAgentEvent, { type: "question" }> | undefined
     check("the run's question names the setting", q?.target?.sectionId === "hero-1" && q.target.setting === "hero_image" && q.target.label === "Side image")
     const activity = reduceActivity(EMPTY_ACTIVITY, q as unknown as Record<string, unknown>)
@@ -479,25 +479,25 @@ async function main() {
     const state: ThemeState = { sections: [header, mk("hero-1", "hero"), mk("footer-1", "footer")], settings: { menus: { footer: footerMenu } } }
     check("read_menus says which menu the header shows, and every menu's links", /THE HEADER SHOWS: main-menu/.test(describeMenus(state)) && /- Shop -> \/shop/.test(describeMenus(state)) && /footer "Footer"/.test(describeMenus(state)))
     const added = editMenu(JSON.stringify({ menu: "main-menu", action: "add", link: "", title: "Pricing", url: "/pages/pricing", index: -1 }), state)
-    const themeOp = added.ops?.find((o) => o.kind === "update_theme") as { settings: { menus: Record<string, { links: { title: string }[] }> } } | undefined
+    const themeOp = added.ops?.find((o) => o.kind === "update_theme") as unknown as { settings: { menus: Record<string, { links: { title: string }[] }> } } | undefined
     check("adding a link writes the Main menu: the header's links, then the new one", themeOp?.settings.menus["main-menu"].links.map((l) => l.title).join() === "Shop,About,Pricing", themeOp?.settings.menus)
     check("every other menu is carried over as it was", JSON.stringify(themeOp?.settings.menus.footer) === JSON.stringify(footerMenu))
     check("the header is pointed at the Main menu, its own blocks untouched", added.ops?.some((o) => o.kind === "update_section" && o.id === "header-1" && (o.settings as { menu?: string }).menu === "main-menu") === true && !added.ops?.some((o) => o.kind === "add_block" || o.kind === "remove_block" || o.kind === "update_block"))
     let after = state
     for (const op of added.ops ?? []) after = { ...after, ...(op.kind === "update_theme" ? { settings: { ...after.settings, ...op.settings } } : { sections: after.sections.map((s) => (op.kind === "update_section" && s.id === op.id ? { ...s, settings: { ...s.settings, ...op.settings } } : s)) }) }
     const renamed = editMenu(JSON.stringify({ menu: "main-menu", action: "update", link: "shop", title: "Store", url: "", index: -1 }), after)
-    const renamedMenus = (renamed.ops?.find((o) => o.kind === "update_theme") as { settings: { menus: Record<string, { links: { title: string; url: string }[] }> } }).settings.menus
+    const renamedMenus = (renamed.ops?.find((o) => o.kind === "update_theme") as unknown as { settings: { menus: Record<string, { links: { title: string; url: string }[] }> } }).settings.menus
     check("a rename changes that link only, and the header is not pointed twice", renamedMenus["main-menu"].links.map((l) => `${l.title} ${l.url}`).join() === "Store /shop,About /pages/about,Pricing /pages/pricing" && renamed.ops?.length === 1)
     const removed = editMenu(JSON.stringify({ menu: "main-menu", action: "remove", link: "Nope", title: "", url: "", index: -1 }), after)
     check("a link that is not there is refused, naming the ones that are", removed.failed === true && /Shop, About, Pricing/.test(removed.output) && !removed.ops)
     const unsafe = editMenu(JSON.stringify({ menu: "main-menu", action: "add", link: "", title: "Bad", url: "javascript:alert(1)", index: 0 }), after)
-    const unsafeLink = (unsafe.ops?.find((o) => o.kind === "update_theme") as { settings: { menus: Record<string, { links: { title: string; url: string }[] }> } }).settings.menus["main-menu"].links[0]
+    const unsafeLink = (unsafe.ops?.find((o) => o.kind === "update_theme") as unknown as { settings: { menus: Record<string, { links: { title: string; url: string }[] }> } }).settings.menus["main-menu"].links[0]
     check("an unsafe address is made safe by the theme's own cleaner", unsafeLink.title === "Bad" && !/javascript/i.test(unsafeLink.url))
     const { provider } = recording([{ calls: [["edit_menu", { menu: "main-menu", action: "add", link: "", title: "Pricing", url: "/pages/pricing", index: -1 }]] }, { text: "Added Pricing to the menu." }])
     const events: ThemeAgentEvent[] = []
     const loop = themeAgent({ provider, model: "test", prompt: "add a Pricing link to the menu", state, page: "home", addable: ADDABLE_SECTIONS })
     let s = await loop.next()
-    for (; !s.done; s = await loop.next()) events.push(s.value)
+    for (; !s.done; s = await loop.next()) events.push(s.value as ThemeAgentEvent)
     check("through the loop: the run's operations are the menu edit, and they reach the editor", s.value.status === "succeeded" && s.value.ops.some((o) => o.kind === "update_theme") && events.some((e) => e.type === "op" && e.label === "Changed the menu"))
     const lockedLoop = themeAgent({ provider: recording([{ calls: [["edit_menu", { menu: "main-menu", action: "remove", link: "Shop", title: "", url: "", index: -1 }]] }, { text: "x" }]).provider, model: "test", prompt: "x", state, page: "home", addable: ADDABLE_SECTIONS, selectedSectionId: "hero-1", lockToSelection: true })
     let l = await lockedLoop.next()
