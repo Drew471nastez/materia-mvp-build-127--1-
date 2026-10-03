@@ -73,7 +73,12 @@ function main() {
     /<Slider\s+value=\{\[shown\]\}/.test(slider) && /onValueCommit=\{\(\) => flush\(\)\}/.test(slider) && /className="wb-black-slider"/.test(slider) && /useFrameCommit\(onChange\)/.test(slider))
   check("the image box says Add Image, with a spinner over the picture while it uploads",
     />Add Image</.test(picker) && /Click to upload or drag &amp; drop/.test(picker) && /animate-spin/.test(picker) && !/MediaField|progressbar/.test(picker))
-  check("a video is a link pasted into a box, as it was", /placeholder="Paste video URL\.\.\."/.test(editor))
+  /* A video file is uploaded or linked, and shown (controls/video-picker-control.tsx). */
+  check("a video is uploaded or linked, and the box shows the video",
+    /case "video_picker":\s*\n\s*return <VideoPickerControl/.test(read("components/website-builder/editor/controls/index.tsx")) &&
+      /from\("store-builder-images"\)\.upload\(path, file/.test(read("components/website-builder/editor/controls/video-picker-control.tsx")) &&
+      /<video src=\{text\}/.test(read("components/website-builder/editor/controls/video-picker-control.tsx")) &&
+      !/placeholder="Paste video URL\.\.\."/.test(editor))
   check("the header's layouts are the preview row and its own panel of cards",
     /Header layout \(desktop\)/.test(editor) && /Choose header layout/.test(editor) && /Choose mobile header layout/.test(editor))
   check("rich text is the field's own editor", /contentEditable/.test(rich) && /wb-richtext/.test(rich) && !/RichTextEditor/.test(rich))
@@ -97,7 +102,7 @@ function main() {
     /<WbSelect\s+label="Transparent on"/.test(editor) && /<WbSelect\s+label="Links"/.test(editor))
   check("a section's settings are listed one by one, the ones whose visible_if holds, with its other settings beside them",
     /const visible = visibleFields\(schema\.fields, section\.settings\)/.test(editor) &&
-      /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="p-4 space-y-4">\s*\{clean\.map\(field => \(/.test(editor))
+      /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="px-3\.5 py-3\.5 space-y-3\.5">\s*\{clean\.map\(field => \(/.test(editor))
   check("and a block's the same way, its conditions reading the section's settings as well",
     /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{visibleFields\(blockSchema\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)\.map\(field => \(/.test(editor))
   check("the newer controls are drawn by the controls folder first, and Insert shop data wraps every field",
@@ -106,7 +111,7 @@ function main() {
     /* "On hover it flickers ... make it how Shopify displays that": scripts/check-dynamic-source.mjs measures it. */
     const dyn = read("components/website-builder/editor/controls/dynamic-source-field.tsx").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\{\/\*[\s\S]*?\*\/\}/g, " ")
     check("Insert shop data is a square button at the end of the label row, named for a screen reader",
-      /export const INSERT_LABEL = "Insert shop data"/.test(dyn) && /aria-label=\{INSERT_LABEL\}/.test(dyn) && /data-dynamic-label=""/.test(dyn) && /inline-flex h-\[26px\] w-\[26px\]/.test(dyn) && /<Database /.test(dyn))
+      /export const INSERT_LABEL = "Insert shop data"/.test(dyn) && /aria-label=\{INSERT_LABEL\}/.test(dyn) && /data-dynamic-label=""/.test(dyn) && /inline-flex h-\[22px\] w-\[22px\]/.test(dyn) && !/TooltipContent/.test(dyn) && /<Database /.test(dyn))
     /*
       A LITTLE DEPTH, AND A BACKGROUND OF ITS OWN. 26px now, one shade of the
       app's light-surface depth (components/ui/depth-button.ts): a hairline
@@ -120,7 +125,7 @@ function main() {
       scripts/check-dynamic-source.mjs measures all of it in a browser.
     */
     check("it wears a little of the app's light-surface depth, with a background of its own",
-      /rounded-md bg-white/.test(dyn) &&
+      /rounded-\[5px\] bg-white/.test(dyn) &&
         /shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.08\),inset_0_-1px_0_rgba\(15,23,42,0\.06\),0_1px_1px_rgba\(15,23,42,0\.05\)\]/.test(dyn) &&
         /aria-expanded:shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.10\),inset_0_1px_2px_rgba\(15,23,42,0\.12\)\]/.test(dyn) &&
         !/hover:shadow/.test(dyn) && /\[-webkit-tap-highlight-color:transparent\]/.test(dyn))

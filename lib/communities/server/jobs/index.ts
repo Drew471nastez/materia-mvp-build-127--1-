@@ -10,6 +10,9 @@ import "server-only"
 import type { JobKind, JobRow } from "../../types"
 import type { Db } from "../db"
 import { recount } from "./recount"
+import { eventReminder } from "./event_reminder"
+import { fanoutEvent } from "./fanout_event"
+import { videoPoll } from "./video_poll"
 
 export interface JobContext {
   /** When the run's budget ends (ms since the epoch). A long handler checks it and hands back `again`. */
@@ -26,6 +29,9 @@ export type JobHandler = (db: Db, job: JobRow, ctx: JobContext) => Promise<JobOu
 
 export const JOB_HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   recount,
+  event_reminder: eventReminder,
+  fanout_event: fanoutEvent,
+  video_poll: videoPoll,
   rollup: (db, job, ctx) => import("./rollup").then((m) => m.rollup(db, job, ctx)),
   trending: (db, job, ctx) => import("./trending").then((m) => m.trending(db, job, ctx)),
 }

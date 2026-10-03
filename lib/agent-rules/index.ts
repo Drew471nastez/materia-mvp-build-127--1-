@@ -119,6 +119,7 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "A website is pages; a page is an ordered list of section instances; each section instance has a type, settings and blocks. A section type is one file, sections/<type>.storelib, with <template>, <style>, an optional <script> and <schema>. The format is in the developer docs (storelib_guide); read them rather than recalling them.",
       "Theme settings (fonts, type scale, colour schemes, buttons) apply to every section. Sections read them; they never redefine them.",
       "The header and footer are on every page and stay first and last. Page operations keep them there.",
+      "There is ONE header and ONE footer, the built-in sections of type header and footer. Never write a section file that is a header, a navigation bar or a footer, and never put one in a page body: it is refused on save and left out of an imported theme, because it would be a second header without the cart drawer, search, account, menus and sticky behaviour the real one has. To change the header or footer, change the section itself with storelib_create_safe_patch: update_section for its settings (layout, sticky, transparent, icons, logo, colour scheme) and add_block, update_block, move_block, remove_block for the header's nav_link links; storelib_update_styles for its colours. Every setting is listed in the developer docs, The header and footer.",
       "Every change is a DRAFT. Nothing reaches a visitor until the creator presses Publish. An agent never publishes.",
     ],
   },

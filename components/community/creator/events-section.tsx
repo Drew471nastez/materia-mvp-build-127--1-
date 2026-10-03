@@ -22,6 +22,7 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, EventEditView, RuleOptions } from "./view-types"
 import { EVENT_KIND_LABEL, checkEvent, utcToZonedParts } from "./logic"
 import { AccessEditor } from "./access-editor"
+import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { Confirm, Dialog, Empty, Notice, PicturePick, RowMenu, Segmented, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
 
 interface Draft {
@@ -314,7 +315,8 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                 <label htmlFor="ev-replay" className={label}>
                   Replay
                 </label>
-                <input id="ev-replay" value={draft.replay} onChange={(e) => set("replay", e.target.value.trim().slice(0, 300))} placeholder="A Storelib video id, or a link with one in it" aria-invalid={bad("replay") || undefined} className={cn(field, "h-11 font-mono text-[13px] sm:h-10", bad("replay") && "border-[#dc2626]")} />
+                <ReplayUpload communityId={head.id} onDone={(id) => set("replay", id)} onError={(m) => setError({ text: m, field: "replay" })} />
+                <input id="ev-replay" value={draft.replay} onChange={(e) => set("replay", e.target.value.trim().slice(0, 300))} placeholder="Or paste a Storelib video id" aria-invalid={bad("replay") || undefined} className={cn(field, "mt-2 h-11 font-mono text-[13px] sm:h-10", bad("replay") && "border-[#dc2626]")} />
                 <p className="mt-1 text-[12.5px] text-[#6b7280]">Members who could attend can watch it on the event page afterwards.</p>
               </div>
             ) : null}
@@ -324,6 +326,32 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
       </Dialog>
 
       <Confirm open={cancelling !== null} onClose={() => setCancelling(null)} title={`Cancel ${cancelling?.title ?? "this event"}?`} detail="It shows as cancelled to members. You can put it back on." action="Cancel event" danger busy={busy} onConfirm={() => cancelling && void setStatus(cancelling, "cancelled")} />
+    </div>
+  )
+}
+
+/** Uploads a replay through the community video route (W4's provider pipeline) and hands back its id. */
+function ReplayUpload({ communityId, onDone, onError }: { communityId: string; onDone: (videoId: string) => void; onError: (message: string) => void }) {
+  const input = React.useRef<HTMLInputElement>(null)
+  const [progress, setProgress] = React.useState<number | null>(null)
+  const upload = async (file: File | undefined) => {
+    if (!file) return
+    setProgress(0)
+    try {
+      const video = await uploadCommunityVideo({ endpoint: `/api/app/community/${communityId}/videos`, file, onProgress: setProgress })
+      onDone(video.id)
+    } catch (e) {
+      onError((e as { message?: string })?.message || "The video did not upload. Try again.")
+    } finally {
+      setProgress(null)
+    }
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = "" }} />
+      <button type="button" disabled={progress !== null} onClick={() => input.current?.click()} className={buttonSecondary} data-replay-upload="">
+        {progress !== null ? `Uploading ${progress}%` : "Upload the replay"}
+      </button>
     </div>
   )
 }

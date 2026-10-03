@@ -1,4 +1,5 @@
 import { communityHead, loadSettings, sectionPage } from "@/lib/communities/server/creator"
+import { providerStates } from "@/lib/video/provider"
 import { SettingsSection, type SettingsTab } from "@/components/community/creator/settings-section"
 
 export const dynamic = "force-dynamic"
@@ -12,5 +13,5 @@ export default async function CommunitySettingsPage({ params, searchParams }: { 
   if (!ctx) return null
   const [head, data] = await Promise.all([communityHead(ctx), loadSettings(ctx)])
   const tab = TABS.find((t) => t === query.tab) ?? "general"
-  return <SettingsSection head={head} data={data} tab={tab} />
+  return <SettingsSection head={head} data={data} tab={tab} videoProviders={providerStates()} />
 }

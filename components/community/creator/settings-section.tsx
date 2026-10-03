@@ -30,6 +30,7 @@ import type { CommunityFaq, CommunityLink, CommunityRule, NotifyLevel } from "@/
 import type { CommunityHead, SettingsData, TierView } from "./view-types"
 import { typeOf, type CommunityType, type PriceInterval } from "./logic"
 import { GamificationPanel } from "./gamification-panel"
+import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
 
 export type SettingsTab = "general" | "access" | "discovery" | "notifications" | "gamification" | "advanced"
@@ -43,7 +44,7 @@ const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can
   { value: "advanced", label: "Advanced", needs: "archive" },
 ]
 
-export function SettingsSection({ head, data, tab: initialTab }: { head: CommunityHead; data: SettingsData; tab: SettingsTab }) {
+export function SettingsSection({ head, data, tab: initialTab, videoProviders = [] }: { head: CommunityHead; data: SettingsData; tab: SettingsTab; videoProviders?: ProviderLine[] }) {
   const tabs = TABS.filter((t) => head.can[t.needs])
   const [tab, setTab] = React.useState<SettingsTab>(tabs.some((t) => t.value === initialTab) ? initialTab : "general")
   const choose = (t: SettingsTab) => {
@@ -77,7 +78,7 @@ export function SettingsSection({ head, data, tab: initialTab }: { head: Communi
       {tab === "discovery" ? <Discovery head={head} data={data} /> : null}
       {tab === "notifications" ? <Notifications head={head} data={data} /> : null}
       {tab === "gamification" ? <GamificationPanel head={head} levels={data.levels} badges={data.badges} /> : null}
-      {tab === "advanced" ? <Advanced head={head} /> : null}
+      {tab === "advanced" ? <Advanced head={head} videoProviders={videoProviders} /> : null}
     </div>
   )
 }
@@ -802,7 +803,7 @@ function Notifications({ head, data }: { head: CommunityHead; data: SettingsData
 
 /* ── Advanced ───────────────────────────────────────────────────────────── */
 
-function Advanced({ head }: { head: CommunityHead }) {
+function Advanced({ head, videoProviders }: { head: CommunityHead; videoProviders: ProviderLine[] }) {
   const router = useRouter()
   const toast = useToast()
   const [busy, setBusy] = React.useState<string | null>(null)
@@ -843,6 +844,11 @@ function Advanced({ head }: { head: CommunityHead }) {
               {busy === "publish" ? "Publishing" : "Publish"}
             </button>
           )}
+        </Section>
+      ) : null}
+      {videoProviders.length ? (
+        <Section title="Videos" hint="Where replays and videos you upload to this community are kept.">
+          <VideoProviders providers={videoProviders} />
         </Section>
       ) : null}
       <Section title={head.archived ? "Archived" : "Archive"} hint={head.archived ? "Members can read it; nobody can post. Bringing it back makes it a draft." : "Keep everything, stop new posts and new members. Members can still read it."}>

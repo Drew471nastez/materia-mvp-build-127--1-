@@ -1042,7 +1042,10 @@ export function WebsiteBuilderClient({
       "import",
       nameFromFile(file),
       (progress, sent) => importThemeFile(file, { progress, sent }),
-      (data) => `Imported ${typeof data.name === "string" ? data.name : nameFromFile(file)}${typeof data.media === "string" && data.media && data.media !== "nothing" ? ` with ${data.media}` : ""}`,
+      (data) =>
+        `Imported ${typeof data.name === "string" ? data.name : nameFromFile(file)}${typeof data.media === "string" && data.media && data.media !== "nothing" ? ` with ${data.media}` : ""}` +
+        /* A second header or footer the package wrote as a section, left out so the site keeps its own. */
+        (Array.isArray(data.left_out) && data.left_out.length ? `. Its extra ${data.left_out.join(" and ")} section was left out; the site's own is used` : ""),
       "Could not import that file",
       () => void importZip(file),
     )

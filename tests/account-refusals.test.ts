@@ -68,8 +68,10 @@ async function main() {
     check("the creator's payout account rejected: 409, account_rejected, and who to write to", account?.status === 409 && account.code === "account_rejected" && /support@storelib\.com/.test(account.error), account)
     const charges = stripeRefusal(new Error("Your account cannot currently make live charges."))
     check("no live charges: 503, and nothing was charged", charges?.status === 503 && charges.code === "platform_cannot_charge" && /nothing was charged/.test(charges.error), charges)
+    const restricted = stripeRefusal(new Error("We've temporarily restricted your ability to create this type of connected account due to suspicious activity. Please log in to the Stripe Dashboard to confirm that you intended to create these accounts."))
+    check("platform held for a check: 503, platform_restricted, not the creator's doing, and no raw Stripe words about logging in", restricted?.status === 503 && restricted.code === "platform_restricted" && /not yours/.test(restricted.error) && !/suspicious|Dashboard|log in/i.test(restricted.error), restricted)
     check("anything else is not taken for one of these", stripeRefusal(new Error("Your card was declined.")) === null && stripeRefusal(null) === null)
-    check("no em dash, no Stripe jargon in what the creator reads", [platform, account, charges].every((r) => r && !/—|express|connect/i.test(r.error)))
+    check("no em dash, no Stripe jargon in what the creator reads", [platform, account, charges, restricted].every((r) => r && !/—|express|connect/i.test(r.error)))
     for (const [route, where] of [["app/api/billing/subscription/create/route.ts", "billing/subscription/create"]]) {
       const src = read(route)
       check(`${where} answers with it before its generic failure`, src.indexOf("stripeRefusal(error)") > 0 && src.indexOf("stripeRefusal(error)") < src.lastIndexOf("console.error(") && src.includes(`logStripeRefusal("${where}", refusal)`))

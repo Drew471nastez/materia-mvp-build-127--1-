@@ -139,6 +139,24 @@ Behind **Advanced colors** in the builder, a creator can override a few of a sec
 
 `true` offers every slot, `false` offers none. When the schema has a `color_scheme` setting and says nothing, every slot is offered.
 
+### Colours of the section's own
+
+Some colours are not the scheme's at all: the stars on a review, the dot on a timeline, the scrim over a photo, a badge. Declare them as `color` settings. Each one is a row in the section's panel, under its settings, and the colour the creator picks there is for this section alone: it beats the scheme and Advanced colors, and nothing else on the site changes.
+
+Let it **follow the scheme until the creator picks one** by naming a scheme colour as its default:
+
+```json
+{ "type": "color", "id": "star_color", "label": "Stars", "default": "scheme.accent" }
+```
+
+```css
+.review__stars { color: {{ settings.star_color }}; }
+```
+
+Untouched, `settings.star_color` is this section's accent: it changes with the scheme, with Advanced colors and with the theme. The row says **Scheme** and shows that colour, greyed. Once the creator picks a colour the setting holds its hex, and the reset arrow beside it puts it back to following the scheme. Any name `scheme.<key>` has works: the names in the table above and the older ones (`scheme.bg`, `scheme.primary_btn_bg`).
+
+A plain hex default works too, and an empty default (`""`) means the section works the colour out itself, which the row calls **Auto**: write it as `{{ settings.star_color | default: scheme.accent }}`. The older colour settings the overrides already cover (`bg_color`, `text_color`, `button_color` and the rest) are not shown twice: Advanced colors edits them under their new names.
+
 ## Type
 
 The theme has three font roles and nine text styles, each with its own size at desktop, tablet and phone width, weight, line height, letter spacing and case.

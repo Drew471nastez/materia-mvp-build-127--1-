@@ -83,6 +83,7 @@ import { grantMembership, memberOf, revokeMembership } from "./membership"
 import { awardPoints } from "./points"
 import { queueJob } from "./notify"
 import { recordActivity } from "./activity"
+import { eventScheduled } from "./events"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { inviteCount } from "./invites"
 import { openReportCount, peopleOf } from "./moderation"
@@ -969,8 +970,8 @@ export async function createEvent(db: Db, a: { community: CommunityRow; actorId:
   }
   const e = data as EventRow
   await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.created", targetType: "event", targetId: e.id, targetLabel: e.title, detail: { startsAt: e.starts_at } })
-  /* Members hear about it from the event fan out (lib/communities/server/jobs/fanout_event.ts). */
-  await queueJob(db, { kind: "fanout_event", payload: { communityId: a.community.id, eventId: e.id }, idempotencyKey: `fanout_event:${e.id}` })
+  /* Members hear about it (the event fan out) and the reminders are set (lib/communities/server/events.ts). */
+  await eventScheduled(db, e, { announce: true })
   return { ok: true, event: eventView(e) }
 }
 
@@ -1008,6 +1009,7 @@ export async function updateEvent(db: Db, a: { community: CommunityRow; creatorI
   const { data, error } = await db.from("community_events").update(patch).eq("id", e.id).eq("community_id", a.community.id).select(EVENT_COLUMNS).single()
   if (error || !data) return no(500, "The event could not be saved. Try again.")
   await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.updated", targetType: "event", targetId: e.id, targetLabel: a.input.title, detail: { moved: patch.starts_at !== e.starts_at } })
+  if (patch.starts_at !== e.starts_at) await eventScheduled(db, data as EventRow, { announce: false })
   return { ok: true, event: eventView(data as EventRow) }
 }
 
@@ -1017,6 +1019,7 @@ export async function setEventCancelled(db: Db, a: { communityId: string; eventI
   const { error } = await db.from("community_events").update({ status: a.cancelled ? "cancelled" : "scheduled" }).eq("id", e.id).eq("community_id", a.communityId)
   if (error) return no(500, "That did not save. Try again.")
   await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: a.cancelled ? "event.cancelled" : "event.restored", targetType: "event", targetId: e.id, targetLabel: e.title })
+  if (!a.cancelled) await eventScheduled(db, { ...e, status: "scheduled" }, { announce: false })
   return { ok: true }
 }
 

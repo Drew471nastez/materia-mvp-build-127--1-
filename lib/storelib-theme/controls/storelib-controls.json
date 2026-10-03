@@ -182,7 +182,7 @@
     },
     "color": {
       "label": "Colour",
-      "description": "A hex colour.",
+      "description": "A hex colour. The default may name a scheme colour, \"scheme.accent\", which the setting follows until somebody picks one.",
       "value": "color",
       "fallback": "",
       "responsive": false,

@@ -27,7 +27,7 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
   return (
     <>
       <PageTitle aside={<button type="button" onClick={ctx.onAddPage} className={buttonClass}>Add page</button>}>
-        Pages & Navigation
+        Pages
       </PageTitle>
 
       <Card title="Pages" footer={GOES_LIVE}>
@@ -44,9 +44,9 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
       </Card>
 
       <Card title="Navigation">
-        <Row label="Menu" hint="The links in your header. They are part of the header section.">
-          <button type="button" onClick={ctx.onEditMenu} className={buttonClass}>
-            Edit menu
+        <Row label="Menus and links" hint="The header's links, the footer's columns and every menu.">
+          <button type="button" onClick={() => ctx.go("navigation")} className={buttonClass}>
+            Edit navigation
           </button>
         </Row>
       </Card>
