@@ -39,7 +39,8 @@ check("and on the live site the document is the page's colour, not white round i
 
 const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
 check("the header knows the home page from the page it is drawing, not from the address bar while it renders",
-  !/window\.location\.pathname/.test(header) && /const isHomePage = renderingInsideEditor \? true : pageTemplate === "index"/.test(header))
+  /* A link handler may read the address when it is clicked; the render may not. */
+  !/window\.location\.pathname/.test(header.replace(/const handleLinkClick = [\s\S]*?\n  \}\n/, "")) && /headerBorderHere\(borderEnabled, borderVisibility, pageTemplate\)/.test(header))
 
 const dir = "components/website-builder/sections/renderers"
 const vh = ["HeroSection", "LookbookSection", "VideoHeroSection", "GallerySection", "ProductSection", "HeaderSection"].filter((f) => /[^-(]\b\d+vh\b|"\d+vh"|\[\d+vh\]/.test(read(`${dir}/${f}.tsx`).replace(/var\(--sl-vh[^)]*\)/g, "")))

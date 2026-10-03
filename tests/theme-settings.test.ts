@@ -82,6 +82,8 @@ const CONSUMERS = [
   "lib/website-builder/announcement.ts",
   /* The menus, read for every section that shows one and for the header. */
   "lib/website-builder/storefront-data.ts",
+  /* The social links, read for the header's and the footer's icons. */
+  "lib/website-builder/social-links.ts",
   /* The Animations group, read by the runtime that reveals sections as they scroll in. */
   "lib/website-builder/section-anchors.ts",
 ]

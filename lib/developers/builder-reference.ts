@@ -238,6 +238,10 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   social_pinterest: { does: "Your Pinterest profile." },
   social_twitch: { does: "Your Twitch channel." },
   social_github: { does: "Your GitHub profile." },
+  social_threads: { does: "Your Threads profile." },
+  social_snapchat: { does: "Your Snapchat profile." },
+  social_bluesky: { does: "Your Bluesky profile." },
+  social_whatsapp: { does: "A wa.me link that opens a chat with you on WhatsApp." },
   social_show_in_header: { does: "Shows an icon for each filled-in profile in the header." },
   social_show_in_footer: { does: "Shows them in the footer." },
 

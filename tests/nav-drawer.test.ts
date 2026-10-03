@@ -64,7 +64,7 @@ function main() {
   )
   check(
     "and both of the site's drawers take the frame from the one module",
-    /useDrawerFrame\(open, !!scopedToPreview, onClose\)/.test(header),
+    /useDrawerFrame\(open, !!scopedToPreview, onClose, below\)/.test(header),
   )
   check(
     "absolute positioning is used only when the portal really went into the scroller",
@@ -134,7 +134,7 @@ function main() {
   )
   check(
     "a link closes the menu before it goes anywhere, in the editor as well as live",
-    /onClose\(\)\s*\n\s*\/\*[\s\S]{0,400}?const go = onEditorNavigate/.test(header)
+    /onClose\(\)\s*\n\s*\/\*[\s\S]{0,1400}?const go = onEditorNavigate/.test(header)
       && /window\.setTimeout\(go, CLOSE_MS\)/.test(header),
   )
   check(

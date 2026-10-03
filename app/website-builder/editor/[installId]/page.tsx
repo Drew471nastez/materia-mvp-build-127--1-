@@ -1356,6 +1356,30 @@ function HeaderSectionSettings({
               folder="logos"
             />
 
+            {/* Logo shows: lib/website-builder/header-settings.ts (logoParts). */}
+            <WbSelect
+              label="Logo shows"
+              value={typeof s.logo_mode === "string" ? s.logo_mode : (typeof s.logo_url === "string" && s.logo_url ? "image" : "text")}
+              onChange={v => onUpdateSetting("logo_mode", v)}
+              options={[
+                { label: "Image", value: "image" },
+                { label: "Text", value: "text" },
+                { label: "Image and text", value: "image_text" },
+              ]}
+            />
+            {(s.logo_mode === "text" || s.logo_mode === "image_text" || !(typeof s.logo_url === "string" && s.logo_url)) && (
+              <div className="space-y-1.5">
+                <p className="text-[13px] font-medium text-foreground">Name</p>
+                <input
+                  type="text"
+                  className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                  placeholder={typeof theme.brand_name === "string" && theme.brand_name ? theme.brand_name : "My Store"}
+                  value={typeof s.logo_text === "string" ? s.logo_text : ""}
+                  onChange={e => onUpdateSetting("logo_text", e.target.value)}
+                />
+              </div>
+            )}
+
             {/* Logo height slider */}
             {typeof s.logo_url === "string" && s.logo_url && (
               <WbSlider

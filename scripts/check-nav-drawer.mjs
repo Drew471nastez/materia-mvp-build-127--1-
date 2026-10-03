@@ -224,7 +224,9 @@ const SCRIPT = `(async () => {
     const fieldNow = inPreview('form[action="/search"]')
     r.searchOpenedTheField = !!fieldNow && getComputedStyle(fieldNow).pointerEvents !== "none"
     r.searchWentSomewhere = r.searchOpenedTheField || window.__nav.some((n) => n.href === "/search")
-    r.searchClosedTheDrawer = Math.round(inPreview('[role="dialog"][aria-label="Menu"]').getBoundingClientRect().right) <= 0
+    /* A closed drawer leaves the page (useDrawerPresence), or is off screen while it goes. */
+    const menuNow = inPreview('[role="dialog"][aria-label="Menu"]')
+    r.searchClosedTheDrawer = !menuNow || Math.round(menuNow.getBoundingClientRect().right) <= 0
 
     scroller.removeEventListener("click", canvasIntercept, true)
 

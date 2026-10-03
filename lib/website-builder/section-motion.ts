@@ -89,9 +89,11 @@ export function anchorOffset(root: Element, direction = 0): number {
   if (!header) return 0
   const cs = getComputedStyle(header)
   if (cs.position !== "sticky" && cs.position !== "fixed") return 0
-  /* Show on scroll up: gone by the end of a scroll down. The header marks
-     itself `will-change: transform` only in that mode (HeaderSection). */
-  if (direction > 0 && /transform/.test(cs.willChange)) return 0
+  /* Show on scroll up: gone by the end of a scroll down. The header says
+     which mode it is in with `data-sticky` (HeaderSection); `will-change:
+     transform`, which it carries only in that mode, is the older sign. */
+  const mode = header.getAttribute("data-sticky")
+  if (direction > 0 && (mode === "scroll-up" || (!mode && /transform/.test(cs.willChange)))) return 0
   const top = parseFloat(cs.top)
   return Math.max(0, Math.round(header.offsetHeight + (Number.isFinite(top) ? top : 0)))
 }

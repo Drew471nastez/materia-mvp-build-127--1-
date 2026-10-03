@@ -119,8 +119,9 @@ function main() {
     rather than faded; held to the same frame, all three begin together.
   */
   check(
-    "the header's fade begins on that frame too, so the three are not staggered by the commit",
-    /frame\.current = requestAnimationFrame\(start\)/.test(frame),
+    /* The header no longer fades at all: the menu opens under it (scripts/check-header-drawers.mjs, header opacity 1 throughout). */
+    "the header is left as it is, so nothing of it is staggered against the slide",
+    !/useHeaderUnderDrawer/.test(frame) && !/useHeaderUnderDrawer/.test(read(HEADER)),
   )
   check(
     "and the compositor layer is given back when the journey ends",
