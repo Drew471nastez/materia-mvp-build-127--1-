@@ -44,7 +44,7 @@ export const THEME_FORMAT = "storelib-theme" as const
  */
 export type ThemeFiles = Record<string, string>
 
-export const THEME_FOLDERS = ["config", "layout", "templates", "sections", "snippets", "assets", "locales"] as const
+export const THEME_FOLDERS = ["config", "layout", "templates", "sections", "blocks", "snippets", "assets", "locales"] as const
 export type ThemeFolder = (typeof THEME_FOLDERS)[number]
 
 /** `theme.json` */
@@ -85,12 +85,25 @@ export interface SectionInstanceData {
   [key: string]: unknown
 }
 
+/**
+ * One block in a section, or in another block. A theme block may hold blocks
+ * of its own, keyed and ordered exactly like a section's, to a depth of
+ * MAX_BLOCK_DEPTH. A STATIC block is one the template places itself with
+ * `{% content_for "block", type: "…", id: "…" %}`: it is kept under its id
+ * and is never in `block_order`, because its place is in the markup.
+ */
 export interface BlockInstanceData {
   type: string
   settings?: Record<string, unknown>
   hidden?: boolean
+  static?: boolean
+  blocks?: Record<string, BlockInstanceData>
+  block_order?: string[]
   [key: string]: unknown
 }
+
+/** How deep blocks may nest inside a section. The same eight levels Shopify allows. */
+export const MAX_BLOCK_DEPTH = 8
 
 /** `templates/<name>.json` */
 export interface Template {
@@ -146,6 +159,11 @@ export interface SettingDefinition {
   [key: string]: unknown
 }
 
+/**
+ * A block the section declares for itself, in its own schema: a "local"
+ * block. Its settings live here and nowhere else, and no other section can
+ * use it.
+ */
 export interface BlockDefinition {
   type: string
   name: string
@@ -155,11 +173,98 @@ export interface BlockDefinition {
   [key: string]: unknown
 }
 
+/**
+ * ===========================================================================
+ *  A PRESET, AS SHOPIFY WRITES ONE
+ * ===========================================================================
+ * What a section (or a theme block) is the moment somebody adds it: its
+ * settings and the blocks it arrives with. Two spellings are read.
+ *
+ * The keyed one is Shopify's, and the one a theme block tree needs, because
+ * a block placed by the template (`static`) has to be found again by its id:
+ *
+ *   "blocks": {
+ *     "heading": { "type": "text", "settings": { "text": "Hello" } },
+ *     "media":   { "type": "group", "blocks": { … }, "block_order": [ … ] }
+ *   },
+ *   "block_order": ["heading", "media"]
+ *
+ * The list is the older spelling and stays valid:
+ *
+ *   "blocks": [{ "type": "text", "settings": { … }, "blocks": [ … ] }]
+ *
+ * Both say the same thing, and lib/storelib-theme/blocks.ts reads either into
+ * one tree.
+ */
+export interface PresetBlock {
+  type: string
+  settings?: Record<string, unknown>
+  /** Placed by the template with `content_for "block"`. Needs an id. */
+  static?: boolean
+  /** In the list spelling, the id a static block is placed under. */
+  id?: string
+  blocks?: PresetBlock[] | Record<string, PresetBlock>
+  block_order?: string[]
+  [key: string]: unknown
+}
+
 export interface SectionPreset {
   name: string
+  /** Where Add section files it. Defaults to the section's own category. */
+  category?: string
   settings?: Record<string, unknown>
-  blocks?: { type: string; settings?: Record<string, unknown> }[]
+  blocks?: PresetBlock[] | Record<string, PresetBlock>
+  block_order?: string[]
   [key: string]: unknown
+}
+
+/**
+ * ===========================================================================
+ *  A THEME BLOCK: `blocks/<type>.storelib`
+ * ===========================================================================
+ * A block with a file of its own, which any section that accepts it can hold:
+ * Shopify's theme blocks, written in this language. Template, style and
+ * schema like a section, no script (behaviour belongs to the section the
+ * block sits in, which owns the sandbox).
+ *
+ * A file whose name starts with `_` is PRIVATE: `@theme` does not offer it,
+ * and only a section or block that names it can hold it. That is how a
+ * slideshow keeps its `_slide` from turning up in every other Add block menu.
+ */
+export interface ThemeBlockSchema {
+  schema_version: number
+  language_version?: number
+  /** The file's name: `blocks/heading.storelib` is "heading". */
+  type: string
+  name: string
+  description?: string
+  settings: SettingDefinition[]
+  /**
+   * What it may hold: `["@theme"]` for any public theme block, or the types
+   * by name. Absent means it holds nothing.
+   */
+  accepts?: string[]
+  max_blocks?: number
+  presets?: SectionPreset[]
+  /** The element wrapped round it. `null` for none, when the template prints `{{ block.storelib_attributes }}` itself. */
+  tag?: string | null
+  /** Classes on that element, beside `sl-block`. */
+  class?: string
+  [key: string]: unknown
+}
+
+/** A theme block, compiled: everything needed to draw any instance of it. */
+export interface CompiledBlock {
+  type: string
+  schema: ThemeBlockSchema
+  language_version: number
+  template: unknown
+  /** Scoped to `[data-block-type="<type>"]`, or per instance when it reads a setting. */
+  css: string
+  cssTemplate?: unknown
+  /** The blocks its template places itself, with `content_for "block"`. */
+  statics: { type: string; id: string }[]
+  sourceHash: string
 }
 
 /** The `<schema>` block of a `.storelib` file. */
@@ -177,7 +282,14 @@ export interface SectionSchema {
   description?: string
   icon?: string
   settings: SettingDefinition[]
+  /** The section's own blocks. */
   blocks?: BlockDefinition[]
+  /**
+   * The THEME blocks it accepts, read out of `blocks` where the schema wrote
+   * `{ "type": "@theme" }` or `{ "type": "heading" }`. A section holds its
+   * own blocks or theme blocks, never both, which is Shopify's rule too.
+   */
+  accepts?: string[]
   max_blocks?: number
   presets?: SectionPreset[]
   /** Where this section may be placed. Absent means anywhere. */
@@ -229,6 +341,8 @@ export interface CompiledSection {
   cssTemplate?: unknown
   /** The script's source, checked and wrapped; null when there is none. */
   script: string | null
+  /** The theme blocks its template places itself, with `content_for "block"`. */
+  statics?: { type: string; id: string }[]
   /** SHA-256 of the source it came from, for caching. */
   sourceHash: string
 }
@@ -349,7 +463,23 @@ export interface RenderContext {
   creator?: StorefrontData["creator"]
   /** The product this page is about. Present on the product template only. */
   product?: StorefrontData["product"]
+  /**
+   * Inside a theme block's template: the block being drawn. `settings` and
+   * `blocks` are then the block's own, and `section` is still the section
+   * it sits in, so `{{ section.settings.x }}` reads the section.
+   */
+  block?: Record<string, unknown>
+  /** The section's settings and blocks while a block inside it is drawn. */
+  sectionScope?: { settings: Record<string, unknown>; blocks: unknown[] }
+  /**
+   * What `{% content_for %}` draws here: the owner's theme blocks in order,
+   * or one static block by type and id. Set by render.ts; absent, both draw
+   * nothing.
+   */
+  contentFor?: (request: ContentForRequest) => string
 }
+
+export type ContentForRequest = { what: "blocks" } | { what: "block"; type: string; id: string }
 
 /**
  * The storefront's own facts, handed to a render by whoever has them. The

@@ -92,7 +92,7 @@ export const TOOLS = [
   {
     name: "storelib_list_files",
     description:
-      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. writable says whether you may write it: only sections/<type>.storelib, and never a built-in section. To change a built-in one, write a new section beside it.",
+      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. writable says whether you may write it: sections/<type>.storelib and blocks/<type>.storelib, never a built-in section or block. To change a built-in one, write a new one beside it.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -109,7 +109,7 @@ export const TOOLS = [
   {
     name: "storelib_write_section",
     description:
-      "Save a section file as a DRAFT. It is compiled first and refused with its errors if it does not compile. A new section appears on the page the creator has open in the builder; nothing reaches visitors until the creator publishes. Only sections/<type>.storelib, lower case.",
+      "Save a section or theme block file as a DRAFT. It is compiled first and refused with its errors if it does not compile. A new section appears on the page the creator has open in the builder; a new block appears in Add block for every section that accepts it. Nothing reaches visitors until the creator publishes. Only sections/<type>.storelib or blocks/<type>.storelib, lower case.",
     inputSchema: {
       type: "object",
       properties: {
@@ -128,13 +128,14 @@ const PAGE = { type: "string", description: 'A page key from storelib_read_proje
 const SETTINGS = { type: "object", description: "Setting id to value, using only ids the section, block or theme declares. Unknown ids and values a control cannot take are refused with the list of what it takes.", additionalProperties: true }
 const OP = {
   type: "object",
-  description: "One page operation. add_section: section_type, index?, settings?. update_section: section_id, settings. move_section: section_id, index. remove_section / set_section_visibility (hidden) / rename_section (name): section_id. add_block: section_id, block_type, index?, settings?. update_block / move_block / remove_block: section_id, block_id. update_theme: settings.",
+  description: "One page operation. add_section: section_type, index?, settings?. update_section: section_id, settings. move_section: section_id, index. remove_section / set_section_visibility (hidden) / rename_section (name): section_id. add_block: section_id, block_type, index?, settings?, parent_block_id? (a group's path, to add inside it). update_block / move_block / remove_block: section_id, block_id (a path such as outer/inner for a block inside another). update_theme: settings.",
   properties: {
     op: { type: "string", enum: PAGE_OP_NAMES },
     section_id: { type: "string" },
     section_type: { type: "string" },
     block_id: { type: "string" },
     block_type: { type: "string" },
+    parent_block_id: { type: "string" },
     index: { type: "number" },
     hidden: { type: "boolean" },
     name: { type: "string" },

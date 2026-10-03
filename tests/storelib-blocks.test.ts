@@ -139,10 +139,10 @@ function main() {
   section("Adding a block respects what the schema allows")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("a new block takes the defaults its block schema declares", /function blockDefaults\(/.test(editor) && /settings: \{ \.\.\.blockDefaults\(schema, blockType\), \.\.\.initialSettings \}/.test(editor))
-    check("the section's total is checked", /function blockRoom\(/.test(editor) && /blocks\.length >= max/.test(editor))
-    check("and so is the limit on that kind of block", /blocks\.filter\(\(b\) => b\.type === blockType\)\.length >= limit/.test(editor))
-    check("both are checked before adding and before duplicating", (editor.match(/blockRoom\(schema, section\.blocks \?\? \[\], /g) ?? []).length === 2)
+    check("a new block takes the defaults its block schema declares", /function blockDefaults\(/.test(editor) && /settings: \{ \.\.\.blockDefaults\(def\), \.\.\.\(opts\.preset\?\.settings \?\? \{\}\), \.\.\.initialSettings \}/.test(editor))
+    check("the section's total is checked", /function blockRoom\(/.test(editor) && /placed\.length >= max/.test(editor) && /countAll\(section\.blocks\) \+ room\.size > LIMITS\.blocksPerSection/.test(editor))
+    check("and so is the limit on that kind of block", /placed\.filter\(\(b\) => b\.type === blockType\)\.length >= limit/.test(editor))
+    check("both are checked before adding and before duplicating", (editor.match(/const room = blockRoom\(at\.owner, at\.siblings, /g) ?? []).length === 2)
     check("a refusal says which limit it is", /toast\.error\(room\.reason\)/.test(editor) && /holds \$\{limit\}/.test(editor))
   }
 
@@ -151,32 +151,32 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     check("every new block gets an id nothing else has", /function newBlockId\(\)/.test(editor) && /blockSeq \+= 1/.test(editor))
-    check("a duplicated block is a copy, not the same object", /const copy = \{ \.\.\.source, id: newBlockId\(\), settings: \{ \.\.\.source\.settings \} \}/.test(editor))
+    check("a duplicated block is a copy, not the same object", /const copy = cloneTree\(hit\.block, newBlockId\)/.test(editor) && /settings: \{ \.\.\.block\.settings \}/.test(readFileSync(join(root, "lib/website-builder/block-tree.ts"), "utf8")))
     /**
      * A spread copies the reference to the blocks array and to every block in
      * it, so a duplicated section and its original were the same blocks under
      * the same ids: one `data-block-id` matching two places on the page.
      */
-    check("and a duplicated SECTION copies its blocks rather than sharing them", /blocks: \(orig\.blocks \?\? \[\]\)\.map\(\(b\) => \(\{ \.\.\.b, id: newBlockId\(\), settings: \{ \.\.\.b\.settings \} \}\)\)/.test(editor))
+    check("and a duplicated SECTION copies its blocks rather than sharing them", /blocks: \(orig\.blocks \?\? \[\]\)\.map\(\(b\) => cloneTree\(b, newBlockId\)\)/.test(editor))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
   section("A block on the canvas is a block in the sidebar")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, id\)/.test(editor))
+    check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, path\.length \? pathKey\(path\) : null\)/.test(editor))
     check("the sidebar row opens and takes the ring",
-      /<SectionBlockList\s+blocks=\{section\.blocks \?\? \[\]\}\s+selectedId=\{selectedBlockId\}/.test(editor) &&
-        /data-block-row=\{block\.id\}/.test(blockList) &&
-        /const selected = selectedId === block\.id/.test(blockList) &&
-        /setOpen\(\(prev\) => \(prev\.has\(selectedId\) \? prev : new Set\(prev\)\.add\(selectedId\)\)\)/.test(blockList))
+      /selectedKey=\{selectedBlockId\}/.test(editor) && /selectedId=\{selectedKey\}/.test(editor) &&
+        /data-block-row=\{key\}/.test(blockList) &&
+        /const selected = selectedId === key/.test(blockList) &&
+        /setOpen\(\(prev\) => \(prev\.has\(row\) \? prev : new Set\(prev\)\.add\(row\)\)\)/.test(blockList))
     /**
      * By its own container, not by `scrollIntoView`, which walks EVERY
      * scrollable ancestor — so on a phone, where the sidebar is a sheet over
      * the canvas, bringing a row into view brought the canvas with it.
      */
     check("and is scrolled into view", /\[data-block-row="\$\{window\.CSS\.escape\(selectedBlockId\)\}"\]/.test(editor) && /scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(editor))
-    check("deleting the selected block clears the selection", /setSelectedBlockId\(prev => \(prev === blockId \? null : prev\)\)/.test(editor))
+    check("deleting the selected block clears the selection", /setSelectedBlockId\(prev => \(prev && \(prev === key \|\| prev === blockKey \|\| prev\.startsWith\(`\$\{key\}\/`\)\) \? null : prev\)\)/.test(editor))
     check("every section in the library that has blocks marks them for the canvas", (() => {
       const missing = ADDABLE_SECTIONS.filter((t) => {
         const s = STORELIB_SCHEMAS[t]
@@ -198,8 +198,8 @@ function main() {
    */
   {
     check("no Move up or Move down on a block row", !/aria-label="Move (up|down)"/.test(blockList) && !/aria-label="Move (up|down)" disabled=\{at/.test(editor))
-    check("the grip is the shared drag hook's", /useReorder<HTMLDivElement>\(/.test(blockList) && /\{\.\.\.gripProps\(i\)\}/.test(blockList) && /data-reorder-row=""/.test(blockList))
-    check("a drag commits once, through reorderBlocks", /onReorder=\{next => reorderBlocks\(section\.id, next\)\}/.test(editor) && /onReorder\(next\)/.test(blockList))
+    check("the grip is the shared drag hook's", /useReorder<HTMLDivElement>\(/.test(blockList) && /\{\.\.\.gripProps\(i\)\}/.test(blockList) && /data-reorder-row=\{still \? undefined : ""\}/.test(blockList))
+    check("a drag commits once, through reorderBlocks", /reorder: \(next, parentKey\) => reorderBlocks\(section\.id, next, parentKey\)/.test(editor) && /onReorder=\{\(next\) => ops\.reorder\(next, parentKey\)\}/.test(editor) && /onReorder\(next\)/.test(blockList))
     check("picking a row up closes the open ones first", /onStart: \(\) => setOpen\(/.test(blockList))
     check("the bin is grey, never red", !/red-/.test(blockList) && /aria-label=\{`Delete \$\{name\}`\}[^>]*className=\{ROW_ACTION\}/.test(blockList))
     check("rows are 40px, 48px on a phone", /h-10 max-sm:h-12/.test(blockList))

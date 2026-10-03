@@ -52,6 +52,9 @@ import {
   type ThemeState,
 } from "./operations"
 import { describeHouseStyle, readHouseStyle } from "./house-style"
+import { blockAt, countAll, resolvePath } from "../block-tree"
+import { addableBlocks, themeBlockCatalog } from "../storelib-schemas"
+import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import { describeFindings, reviewSections } from "./review"
 import { nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
 import { ASK_TOOL, questionText, readAsk } from "./ask"
@@ -165,7 +168,7 @@ Rules:
 - THERE IS ONE HEADER AND ONE FOOTER. "Make my header like this", "add a menu", "make the nav sticky" all mean read_section and update_section on the existing header (its settings, and its nav_link blocks for the links); the footer the same way. Never write a new section that is a header, a navigation bar or a footer: it is refused, and it would be a second header with no cart drawer, search or working menu.
 - PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
-- MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has.
+- MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has. Some sections take theme blocks (heading, text, button, image, video, spacer, group): a group holds blocks of its own, so to build a row, add a group and then add blocks inside it with parentBlockId. A block inside another is addressed by its path, outer/inner. A block marked static is placed by the template: change it, never remove it.
 - NOT EVERY MESSAGE IS AN EDIT. A greeting or a question ("what can you do?", "why is my header dark?") gets an answer, not a guess: make no changes and reply in one to three plain sentences. Never apologise at length and never describe your tools.
 - ASK ONLY WHAT YOU CANNOT READ. When a missing fact would change what you build (which of several products, which page, brand colours the site does not have, a business fact that is nowhere on the page or in the store) call ask_creator with one short question and two to four choices taken from what you read. The run stops there; their answer is their next message, with this conversation shown above it. Never ask what the page, the theme, the store or the conversation already answers, and never about taste you can decide.
 - ALWAYS CHANGE SOMETHING VISIBLE when you are asked to change something, unless you asked a question. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
@@ -314,12 +317,13 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
     {
       name: "add_block",
       description:
-        "Add a block to a section — one FAQ question, one pricing tier, one testimonial, one gallery image. THIS IS WHERE THE CONTENT LIVES for most sections: half the library keeps its real content in blocks, and changing a section's settings alone will not touch it. Call read_section first to see which block types it takes.",
+        "Add a block to a section — one FAQ question, one pricing tier, one testimonial, one gallery image, or a theme block (heading, text, image, button, video, group) in a section that accepts them. THIS IS WHERE THE CONTENT LIVES for most sections: half the library keeps its real content in blocks, and changing a section's settings alone will not touch it. A group holds blocks too: pass its path as parentBlockId to add inside it. Call read_section first to see which block types it takes.",
       parameters: {
         type: "object",
         properties: {
           sectionId: { type: "string", description: "The section to add it to." },
-          blockType: { type: "string", description: "A block type that section accepts." },
+          parentBlockId: { type: "string", description: 'The block to add it inside, by its [path] from read_section. "" for the section itself.' },
+          blockType: { type: "string", description: "A block type that section (or that parent block) accepts." },
           index: { type: "number", description: "Position among the blocks. -1 for the end." },
           settingsJson: {
             type: "string",
@@ -327,7 +331,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
               'A JSON OBJECT AS A STRING: block field id → value. e.g. {"question":"Do you ship worldwide?","answer":"<p>Yes.</p>"}',
           },
         },
-        required: ["sectionId", "blockType", "index", "settingsJson"],
+        required: ["sectionId", "parentBlockId", "blockType", "index", "settingsJson"],
         additionalProperties: false,
       },
     },
@@ -339,7 +343,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
         type: "object",
         properties: {
           sectionId: { type: "string" },
-          blockId: { type: "string", description: "The block id, from read_section." },
+          blockId: { type: "string", description: "The block's [path] from read_section (its id, for a block not inside another)." },
           settingsJson: {
             type: "string",
             description: "A JSON OBJECT AS A STRING: block field id → new value.",
@@ -1650,10 +1654,18 @@ function execute(
       if (!section) return { output: notFound(sectionId, state), failed: true }
 
       const blockType = typeof args.blockType === "string" ? args.blockType : ""
-      const specs = blockSpecs(section.type, schemas)
+      const parentKey = typeof args.parentBlockId === "string" ? args.parentBlockId.trim() : ""
+      const parentPath = parentKey ? resolvePath(section.blocks, parentKey) : []
+      if (!parentPath) return { output: `${section.type} has no block "${parentKey}" to add inside. Its blocks are listed by read_section.` }
+      const parentBlock = parentPath.length ? blockAt(section.blocks, parentPath)?.block ?? null : null
+      const catalog = themeBlockCatalog()
+      const specs = parentBlock
+        ? addableBlocks({ accepts: catalog[parentBlock.type]?.accepts }, catalog)
+        : blockSpecs(section.type, schemas)
       if (!specs.some((b) => b.type === blockType)) {
+        const where = parentBlock ? `A ${parentBlock.type} block` : section.type
         return {
-          output: `${section.type} does not take a "${blockType}" block. It takes: ${
+          output: `${where} does not take a "${blockType}" block. It takes: ${
             specs.map((b) => b.type).join(", ") || "no blocks at all"
           }.`,
         }
@@ -1662,13 +1674,22 @@ function execute(
       /**
        * The schema's own ceiling. A slideshow that declares four slides means
        * four; a fifth is a section that renders wrong rather than a section
-       * with more in it.
+       * with more in it. A block that holds blocks has its own, and a section
+       * holds LIMITS.blocksPerSection at every depth together.
        */
-      const cap = maxBlocks(section.type, schemas)
-      if (cap !== undefined && (section.blocks?.length ?? 0) >= cap) {
+      const siblings = (parentBlock ? parentBlock.blocks : section.blocks) ?? []
+      const cap = parentBlock ? catalog[parentBlock.type]?.max_blocks : maxBlocks(section.type, schemas)
+      const placed = siblings.filter((b) => !b.static).length
+      if (cap !== undefined && placed >= cap) {
         return {
-          output: `${section.type} takes at most ${cap} blocks and already has ${section.blocks?.length ?? 0}. Change one of the existing ones, or remove one first.`,
+          output: `${parentBlock ? `This ${parentBlock.type}` : section.type} takes at most ${cap} blocks and already has ${placed}. Change one of the existing ones, or remove one first.`,
         }
+      }
+      if (countAll(section.blocks) >= LIMITS.blocksPerSection) {
+        return { output: `A section holds ${LIMITS.blocksPerSection} blocks, counting the ones inside other blocks, and this one is full.` }
+      }
+      if (parentPath.length >= MAX_BLOCK_DEPTH) {
+        return { output: `Blocks nest ${MAX_BLOCK_DEPTH} deep at most.` }
       }
 
       const settings = parseSettings(args.settingsJson)
@@ -1676,7 +1697,7 @@ function execute(
         return { output: 'Send `settingsJson` as a JSON object in a string, e.g. {"question":"…"}.' }
       }
       const checked = checkSettings(
-        blockFieldsFor(section.type, blockType, schemas),
+        (specs.find((b) => b.type === blockType)?.fields ?? []).filter((f) => f.type !== "header" && f.type !== "paragraph"),
         settings,
         `a ${blockType} block`,
       )
@@ -1684,11 +1705,12 @@ function execute(
 
       const index = typeof args.index === "number" && args.index >= 0 ? args.index : undefined
       const blockId = newId(blockType)
+      const path = [...parentPath, blockId].join("/")
       return {
-        output: `Added a ${blockType} block [${blockId}] to ${section.type}.${
+        output: `Added a ${blockType} block [${path}] to ${parentBlock ? `the ${parentBlock.type} [${parentPath.join("/")}] in ` : ""}${section.type}.${
           checked.notes.length > 0 ? ` (${checked.notes.join("; ")})` : ""
         }`,
-        op: { kind: "add_block", sectionId, blockId, blockType, index, settings: checked.settings! },
+        op: { kind: "add_block", sectionId, blockId, blockType, index, settings: checked.settings!, ...(parentPath.length ? { parentId: parentPath.join("/") } : {}) },
       }
     }
 
@@ -1698,7 +1720,8 @@ function execute(
       if (!section) return { output: notFound(sectionId, state), failed: true }
 
       const blockId = typeof args.blockId === "string" ? args.blockId : ""
-      const block = (section.blocks ?? []).find((b) => b.id === blockId)
+      const blockPath = resolvePath(section.blocks, blockId)
+      const block = blockPath ? blockAt(section.blocks, blockPath)?.block : undefined
       if (!block) {
         return {
           output: `${section.type} has no block "${blockId}". Its blocks are: ${
@@ -1731,7 +1754,7 @@ function execute(
       const section = state.sections.find((s) => s.id === sectionId)
       if (!section) return { output: notFound(sectionId, state), failed: true }
       const blockId = typeof args.blockId === "string" ? args.blockId : ""
-      if (!(section.blocks ?? []).some((b) => b.id === blockId)) {
+      if (!resolvePath(section.blocks, blockId)) {
         return { output: `${section.type} has no block "${blockId}".` }
       }
       const index = typeof args.index === "number" ? args.index : NaN
@@ -1747,8 +1770,12 @@ function execute(
       const section = state.sections.find((s) => s.id === sectionId)
       if (!section) return { output: notFound(sectionId, state), failed: true }
       const blockId = typeof args.blockId === "string" ? args.blockId : ""
-      if (!(section.blocks ?? []).some((b) => b.id === blockId)) {
+      const removing = resolvePath(section.blocks, blockId)
+      if (!removing) {
         return { output: `${section.type} has no block "${blockId}".` }
+      }
+      if (blockAt(section.blocks, removing)?.block.static) {
+        return { output: `[${blockId}] is placed by the section's template, so it stays. Change its settings with update_block, or hide it.` }
       }
       return {
         output: `Removed block [${blockId}] from ${section.type}.`,

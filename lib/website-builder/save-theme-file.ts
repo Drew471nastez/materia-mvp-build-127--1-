@@ -14,7 +14,7 @@
  * and app/api/agent/v1.
  */
 import { LIMITS, type ThemeError } from "@/lib/storelib-theme/types"
-import { compileSection } from "@/lib/storelib-theme"
+import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
 import { CHROME_TYPES, chromeRefusal, chromeRoleOf } from "@/lib/storelib-theme/chrome"
 import { parseStorelib } from "@/lib/storelib-theme/storelib/parse"
 import { recordVersion, saveDraft, sourceMap, type FileRow } from "./theme-file-drafts"
@@ -104,7 +104,11 @@ export async function saveThemeFile(
    * page stores and what the library is keyed by; the schema's own `type`
    * line is documentation, so a copy saved under a new name saves.
    */
-  if (path.endsWith(".storelib")) {
+  if (path.endsWith(".storelib") && path.startsWith("blocks/")) {
+    /* A theme block: compiled by a block's rules (compile.ts, compileBlock). It is never a header or a footer, and its name is the Add block menu's, not Add section's. */
+    const r = compileThemeFile(content, { file: path })
+    if (r.ok === false) return { ok: false, status: 422, error: `${path} did not compile`, errors: r.errors }
+  } else if (path.endsWith(".storelib")) {
     const r = compileSection(content, { file: path })
     if (r.ok === false) return { ok: false, status: 422, error: `${path} did not compile`, errors: r.errors }
     /**

@@ -21,6 +21,7 @@
  * section (lib/agent-access/protected.ts).
  */
 
+import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { validateSection } from "@/lib/storelib-ai/validate"
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
@@ -84,11 +85,8 @@ type RecordedEvent =
   /** Whose account this run is on: null for Storelib AI, else the creator's own connection. */
   | { type: "account"; own: "anthropic" | "openai" | "openrouter" | null }
 
-const BlockSchema = z.object({
-  id: z.string().min(1).max(128),
-  type: z.string().min(1).max(64),
-  settings: z.record(z.unknown()),
-})
+/* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
+const BlockSchema = BlockInstanceSchema
 
 const SectionSchema = z.object({
   id: z.string().min(1).max(128),

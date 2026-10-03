@@ -47,8 +47,9 @@ async function main() {
         && /const header = sentHeader \? sanitizeSections\(\[sentHeader\], own\)\[0\] : null/.test(sync)
         && /const footer = sentFooter \? sanitizeSections\(\[sentFooter\], own\)\[0\] : null/.test(sync))
     check("held to the same block limit, before anything is read or written",
-      /\(s\.blocks\?\.length \?\? 0\) > LIMITS\.blocksPerSection/.test(sync)
-        && sync.indexOf("LIMITS.blocksPerSection") < sync.indexOf('.from("store_theme_pages")'))
+      /* Every block counts, at every depth: lib/website-builder/block-tree.ts, blockTreeProblem. */
+      /sent\.map\(\(s\) => blockTreeProblem\(s\)\)/.test(sync)
+        && sync.indexOf("blockTreeProblem(s)") < sync.indexOf('.from("store_theme_pages")'))
     check("a page that goes live is cleaned whole, as publishing cleans it",
       /\? \{ sections: sanitizeSections\(merged, pageOwn\), draft_sections: null \}/.test(sync))
     check("a failed read of the other pages is an error, not an empty success",

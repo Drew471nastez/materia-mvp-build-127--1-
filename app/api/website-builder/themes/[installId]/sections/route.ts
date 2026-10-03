@@ -1,3 +1,4 @@
+import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
@@ -18,11 +19,8 @@ type Params = { params: Promise<{ installId: string }> }
 // ── Request schema ───────────────────────────────────────────
 // We keep `settings` as a free-form record (section schemas vary widely)
 // but cap it to reasonable shapes so callers can't inject crazy payloads.
-const BlockSchema = z.object({
-  id: z.string().min(1).max(128),
-  type: z.string().min(1).max(64),
-  settings: z.record(z.unknown()),
-})
+/* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
+const BlockSchema = BlockInstanceSchema
 
 const SectionSchema = z.object({
   id: z.string().min(1).max(128),
@@ -243,13 +241,9 @@ export async function PUT(req: Request, { params }: Params) {
       { status: 413 },
     )
   }
-  const overfull = sections.find((s) => (s.blocks?.length ?? 0) > LIMITS.blocksPerSection)
-  if (overfull) {
-    return NextResponse.json(
-      { error: `A section holds ${LIMITS.blocksPerSection} blocks. "${overfull.name || overfull.type}" has ${overfull.blocks?.length}.` },
-      { status: 413 },
-    )
-  }
+  /* Every block counts, at every depth, and blocks nest no deeper than MAX_BLOCK_DEPTH. */
+  const overfull = sections.map((s) => blockTreeProblem(s)).find((problem) => problem !== null)
+  if (overfull) return NextResponse.json({ error: overfull }, { status: 413 })
 
   const update =
     mode === "publish"

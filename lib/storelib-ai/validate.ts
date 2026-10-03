@@ -18,7 +18,7 @@
  * waiting.
  */
 
-import { compileSection } from "@/lib/storelib-theme/storelib/compile"
+import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import { checkSectionQuality, describeQuality, qualityErrors, type QualityFinding } from "./quality"
 import { checkSectionIntegration } from "./integration"
@@ -51,6 +51,19 @@ const say = (errors: ThemeError[]) =>
  * is not held to them.
  */
 export function validateSection(source: string, opts: { path?: string; expectType?: string; strict?: boolean } = {}): Validation {
+  /* A theme block is held to a block's compile rules, which are its whole contract: it has no scheme or spacing of its own, it reads its section's. */
+  if (opts.path?.startsWith("blocks/")) {
+    const block = compileThemeFile(source, { file: opts.path })
+    if (block.ok === false) {
+      return {
+        ok: false,
+        reason: "compile",
+        errors: block.errors,
+        feedback: `That did not compile:\n${say(block.errors)}\n\nFix exactly that and send the whole file again. Change nothing else.`,
+      }
+    }
+    return { ok: true, type: block.value.type, name: block.value.schema.name.trim(), findings: [] }
+  }
   const compiled = compileSection(source, { file: opts.path, expectType: opts.expectType })
   if (compiled.ok === false) {
     return {

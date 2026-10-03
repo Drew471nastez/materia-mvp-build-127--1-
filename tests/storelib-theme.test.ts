@@ -513,7 +513,7 @@ section("A section written the way people write sections")
     const out = renderSection({
       compiled: c.value,
       id: "sec-1",
-      instance: { type: "faqsection", settings: {}, blocks: (preset?.blocks ?? []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} })) } as never,
+      instance: { type: "faqsection", settings: {}, blocks: (Array.isArray(preset?.blocks) ? preset.blocks : []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} })) } as never,
       theme: {},
       page: { template: "index" },
     })
