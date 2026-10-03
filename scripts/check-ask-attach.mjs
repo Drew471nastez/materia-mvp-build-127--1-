@@ -11,6 +11,11 @@
  * thumbnail, the cross that takes it back off, and whether Send is alive with
  * a picture and nothing typed.
  *
+ * And "attaching an image adds it twice": one picture chosen in the picker,
+ * pasted and dropped on the composer in the same moment must be ONE
+ * thumbnail, on the phone's sheet and on the computer's dock, and the same
+ * pixels again under another name must still be one.
+ *
  *   pnpm build && node scripts/check-ask-attach.mjs   (add KEEP_SHOT=1)
  */
 import { execFileSync } from "node:child_process"
@@ -40,10 +45,10 @@ export function createClient() {
   return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
     storage: { from: () => ({ upload: async () => ({ data: null, error: null }), getPublicUrl: () => ({ data: { publicUrl: "" } }) }) },
     from: () => chain(), channel: () => ({ on() { return this }, subscribe() { return this }, unsubscribe() {} }), removeChannel() {} }
-
-export const useLinkStatus = () => ({ pending: false })
 }
 `)
+/* Next's own useLinkStatus lives with Link, not with the database client. */
+writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\nexport const useLinkStatus = () => ({ pending: false })\n`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-attach-"))
 const bundle = join(out, "probe.js")
@@ -251,17 +256,72 @@ const DRIVE = `
             sendDisabled: sendButton() ? sendButton().disabled : null,
             composerHeight: box(field.closest("[data-chat-composer]")) ? box(field.closest("[data-chat-composer]")).h : null,
           }
-          report(result)
+          if (window.__hold) { report(result); return }
+          step5(field, function (simul) { result.simultaneous = simul; report(result) })
         }, 60)
       }, 120)
     }, 120)
+  }
+
+  /*
+   * ONE PICTURE, THREE WAYS, ONE MOMENT. The same file chosen in the picker,
+   * pasted into the box and dropped on the composer, all before the page has
+   * drawn again: exactly one thumbnail. Then the same pixels again under
+   * another name: still one, known by what it is rather than what it is
+   * called.
+   */
+  function step5(field, done) {
+    var c = document.createElement("canvas")
+    c.width = 320; c.height = 200
+    var g = c.getContext("2d")
+    g.fillStyle = "#123456"; g.fillRect(0, 0, 320, 200)
+    g.fillStyle = "#fcd116"; g.fillRect(107, 0, 106, 200)
+    c.toBlob(function (blob) {
+      var file = new File([blob], "same.png", { type: "image/png", lastModified: 1760000000000 })
+      var input = document.querySelector('input[type="file"][multiple]')
+      var dt1 = new DataTransfer(); dt1.items.add(file)
+      input.files = dt1.files
+      var dt2 = new DataTransfer(); dt2.items.add(file)
+      var dt3 = new DataTransfer(); dt3.items.add(file)
+      var composer = field.closest("[data-chat-composer]")
+      input.dispatchEvent(new Event("change", { bubbles: true }))
+      field.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt2, bubbles: true, cancelable: true }))
+      composer.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt3 }))
+      var settled = function (then) {
+        var tries = 0
+        ;(function wait() {
+          var busy = document.querySelector('[data-ask-thumb][data-state="preparing"]')
+          if (busy && tries++ < 600) { setTimeout(wait, 10); return }
+          setTimeout(then, 60)
+        })()
+      }
+      settled(function () {
+        var three = document.querySelectorAll("[data-ask-thumb]").length
+        var copy = new File([blob], "copy of same.png", { type: "image/png", lastModified: 1760000099999 })
+        var dt4 = new DataTransfer(); dt4.items.add(copy)
+        field.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt4, bubbles: true, cancelable: true }))
+        settled(function () {
+          done({ threeWays: three, samePixelsAgain: document.querySelectorAll("[data-ask-thumb]").length })
+        })
+      })
+    }, "image/png")
+  }
+  if (window.__only === "simultaneous") {
+    var t = 0
+    ;(function find() {
+      var f = document.querySelector("textarea")
+      if (!f && t++ < 400) { setTimeout(find, 10); return }
+      if (!f) { report({ error: "no composer after 4s" }); return }
+      step5(f, function (simul) { report({ simultaneous: simul }) })
+    })()
+    return
   }
   waitForComposer()
 })()
 </script>`
 
 const file = join(out, "index.html")
-const page = (hold) => `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style><style>
+const page = (hold, only) => `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style><style>
   body{margin:0;background:#f8f9fa;font-family:Inter,system-ui,sans-serif}
   #app{padding:16px}
   /*
@@ -272,11 +332,14 @@ const page = (hold) => `<!doctype html><html><head><meta charset="utf-8"><style>
    * itself is not measurable here and is not claimed to be.
    */
   *,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important}
-</style></head><body><div id="app"></div>${hold ? "<script>window.__hold=true</script>" : ""}<script src="probe.js"></script>${DRIVE}</body></html>`
+</style></head><body><div id="app"></div>${hold ? "<script>window.__hold=true</script>" : ""}${only ? `<script>window.__only=${JSON.stringify(only)}</script>` : ""}<script src="probe.js"></script>${DRIVE}</body></html>`
 writeFileSync(file, page(false))
 /** The same run with the picture left on, for looking at. */
 const held = join(out, "held.html")
 writeFileSync(held, page(true))
+/** The computer's dock, for the one picture, three ways count. */
+const dockPage = join(out, "dock.html")
+writeFileSync(dockPage, page(false, "simultaneous"))
 
 /*
   IN REAL TIME. This ran under --virtual-time-budget with --dump-dom, and a
@@ -295,6 +358,12 @@ try {
   const found = await tab.waitForSelector("#result", { timeout: 30000 }).catch(() => null)
   if (!found) fail("The composer never reported. Nothing was measured.")
   r = JSON.parse(await tab.$eval("#result", (e) => e.textContent))
+  /* The dock: the same three ways at once, counted on the computer's shape. */
+  const dockTab = await browser.newPage()
+  await dockTab.setViewport({ width: 1100, height: 760 })
+  await dockTab.goto(`file://${dockPage}#dock`)
+  const dockFound = await dockTab.waitForSelector("#result", { timeout: 30000 }).catch(() => null)
+  r.dock = dockFound ? JSON.parse(await dockTab.$eval("#result", (e) => e.textContent)) : { error: "the dock never reported" }
 } finally {
   await browser.close()
 }
@@ -319,6 +388,10 @@ console.log(`  placeholder while holding one: "${r.placeholder}"`)
 console.log(`  viewer: ${r.viewer.opened ? "opens" : "DID NOT OPEN"}, covers the screen: ${r.viewer.covers}, picture ${r.viewer.picture ? `${r.viewer.picture.w}x${r.viewer.picture.h}px` : "none"}, fits: ${r.viewer.fits}, closes on Escape: ${r.viewer.closedOnEscape}`)
 console.log(`  viewer left on body: ${r.viewer.bodyAfter} (scroll-locked while open: ${r.viewer.scrollLocked})`)
 console.log(`  drop target: ${r.dropTarget.shown ? `${r.dropTarget.size.w}x${r.dropTarget.size.h}px, pointer-events ${r.dropTarget.pointerEvents}` : "NEVER SHOWN"}, goes away again: ${r.dropTarget.goesAway}`)
+const simul = r.simultaneous ?? {}
+const dockSimul = r.dock?.simultaneous ?? {}
+console.log(`  one picture by the picker, a paste and a drop at once: ${simul.threeWays ?? "?"} thumbnail(s) on the phone's sheet, ${dockSimul.threeWays ?? "?"} on the computer's dock${r.dock?.error ? ` (${r.dock.error})` : ""}`)
+console.log(`  the same pixels again under another name: ${simul.samePixelsAgain ?? "?"} on the sheet, ${dockSimul.samePixelsAgain ?? "?"} on the dock`)
 
 const problems = []
 if (!r.before.attach) problems.push("there is no attach control in the composer")
@@ -377,6 +450,11 @@ else {
   if (!r.dropTarget.goesAway) problems.push("the drop target stays after the file leaves the panel")
 }
 if (r.afterRemove.thumbs !== 0) problems.push("the thumbnail survives being removed")
+/* "Attaching an image adds it twice." */
+if (simul.threeWays !== 1) problems.push(`one picture attached three ways at once made ${simul.threeWays} thumbnails on the sheet`)
+if (dockSimul.threeWays !== 1) problems.push(`one picture attached three ways at once made ${dockSimul.threeWays} thumbnails on the dock`)
+if (simul.samePixelsAgain !== 1) problems.push(`the same pixels under another name made ${simul.samePixelsAgain} thumbnails on the sheet`)
+if (dockSimul.samePixelsAgain !== 1) problems.push(`the same pixels under another name made ${dockSimul.samePixelsAgain} thumbnails on the dock`)
 if (r.afterRemove.sendDisabled !== true) problems.push("Send stays live after the last picture is taken off")
 if (r.afterRemove.composerHeight !== r.before.composerHeight) problems.push(`the composer does not return to its own height: ${r.before.composerHeight}px then ${r.afterRemove.composerHeight}px`)
 

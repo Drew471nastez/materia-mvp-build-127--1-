@@ -476,7 +476,7 @@ section("Selecting a section cannot move the canvas")
   )
   check(
     "a selection from the canvas arms the hold, and a touch or a wheel releases it",
-    /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null\) => \{[\s\S]*?pinScroll\(/.test(editor) &&
+    /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null, field\?: ClickTarget \| null\) => \{[\s\S]*?pinScroll\(/.test(editor) &&
       /touchingCanvas\.current = true\s*\n\s*if \(!isMobileView\) return/.test(editor) &&
       /onTouchEnd=\{\(\) => \{ touchingCanvas\.current = false \}\}/.test(editor) &&
       /onWheelCapture=\{\(\) => \{ touchingCanvas\.current = true \}\}/.test(editor),
@@ -536,7 +536,8 @@ section("Leaving a page always ends, one way or the other")
     "every way out of the builder goes through one function that cannot hang",
     /const leaveFor = useCallback\(\(href: string\) => \{[\s\S]*?navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(href\),\s*\n\s*\(\) => window\.location\.assign\(href\)/.test(editor) &&
       /leaveFor\(href\)\s*\n\s*\},\s*\n\s*\[isDirty, codeDirty, saving, publishing, leaveFor\]/.test(editor) &&
-      /if \(href\) leaveFor\(href\)/.test(editor) &&
+      /* The leave dialog's Discard and Save both end in it too (Back from the browser goes back instead). */
+      /else if \(href\) \{\s*\n\s*leaveAnswered\.current = true\s*\n\s*leaveFor\(href\)/.test(editor) &&
       !/setLeaving\(true\)\s*\n\s*router\.push\(href\)/.test(editor),
   )
   check(

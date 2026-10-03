@@ -66,7 +66,8 @@ function main() {
   check("it is attached to the section's markup",
     /onSubmitCapture=\{onSubmit\}/.test(host))
   check("the canvas never submits and never leaves the editor",
-    /if \(inCanvas\) \{\s*\n\s*e\.preventDefault\(\)/.test(host),
+    /* lib/website-builder/subscribe-client signupMode: in the canvas a form is a preview. */
+    /if \(signupMode\(\{ inEditor: inCanvas, creatorId \}\) === "preview"\) \{\s*\n\s*e\.preventDefault\(\)/.test(host),
     "designing a page is not signing up to it")
   check("a native form is let through untouched", /if \(intent === "native"\) return/.test(host))
   check("the result is written as text, never as markup",

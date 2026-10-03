@@ -1,12 +1,13 @@
 "use client"
 
-// Map embed — accepts either a Google Maps embed URL or a raw iframe.
+// Map embed: the address as a map, a Google Maps link, or a raw iframe.
 // The raw iframe is rendered via dangerouslySetInnerHTML because it
 // comes from the creator's own settings.
 
 import { MapPin, Phone, Mail, Clock } from "lucide-react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 import { useMemo } from "react"
+import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
 
 export function MapEmbedSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -26,7 +27,8 @@ export function MapEmbedSection({ section, theme, isEditing, isSelected, onClick
   /* Its own object, kept while the code is unchanged: a new one each render
      rewrote the embed and reloaded its iframe on every edit. See ../stable-html. */
   const embedHtml = useMemo(() => ({ __html: embedCode }), [embedCode])
-  const embedUrl = str(s.embed_url)
+  /* The address is the map; a link is only for pointing somewhere else. See lib/website-builder/map-embed.ts. */
+  const embedUrl = mapEmbedSrc(s.embed_url, [s.address_line1, s.address_line2, s.city_state_zip, s.country])
   const mapBlock = embedCode ? (
     <div
       className="w-full overflow-hidden"
@@ -47,7 +49,7 @@ export function MapEmbedSection({ section, theme, isEditing, isSelected, onClick
       className="w-full flex items-center justify-center text-sm opacity-60 border-2 border-dashed border-current"
       style={{ height, borderRadius: radius }}
     >
-      Paste a Google Maps embed URL in the settings panel.
+      Add an address to show it on a map.
     </div>
   )
 

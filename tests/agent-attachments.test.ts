@@ -217,17 +217,19 @@ check(
 )
 
 /**
- * "Create me something similar": the picture's layout, hierarchy and style,
- * built with this site's theme and filled with the creator's own words and
- * products. A picture is usually somebody else's page, so its words, logo
- * and prices are never copied onto the creator's site.
+ * "Copy this section", "build me a section like this image": the picture is
+ * the specification, layout, spacing, colours, type, imagery and the words
+ * read off it, described first and then built closely with this site's
+ * theme (U round). Another business's name, logo, products and prices are
+ * still never put on the creator's site: those are swapped for theirs.
  */
 check(
-  "the picture is the brief for layout and style, and the words are the creator's",
-  /reference for layout, hierarchy and style/.test(describeImages(one, true)) &&
-    /DO NOT COPY ITS WORDS, LOGOS OR BRAND/.test(describeImages(one, true)) &&
-    /read_store/.test(describeImages(one, true)) &&
-    !/WRITE THE WORDS THAT ARE IN THE PICTURE/.test(describeImages(one, true)),
+  "the picture is the specification, its words read off it, and another brand is swapped for the creator's",
+  /reference for layout, hierarchy and style, and the specification/.test(describeImages(one, true)) &&
+    /8\. THE WORDS\. Read every heading, label, button and line/.test(describeImages(one, true)) &&
+    /DESCRIBE IT BEFORE YOU BUILD IT/.test(describeImages(one, true)) &&
+    /NEVER ANOTHER BRAND'S NAME, LOGO OR CLAIMS/.test(describeImages(one, true)) &&
+    /read_store/.test(describeImages(one, true)),
 )
 
 check(
@@ -559,7 +561,7 @@ section("Code a section: the picture reaches that model too")
   const chat = read("components/website-builder/theme-chat.tsx")
   check(
     "the composer sends the pictures in code mode instead of dropping them",
-    /void writeOne\(prompt, images\)/.test(chat) &&
+    /else void writeOne\(prompt, images, quiet\)/.test(chat) &&
       /images: images\.map\(\(a\) => \(\{ mediaType: a\.mediaType, data: a\.data, name: a\.name \}\)\),/.test(chat),
   )
 }
@@ -733,7 +735,11 @@ section("The composer")
     /accept=\{\[\.\.\.ALLOWED_IMAGE_TYPES, "video\/\*"\]\.join\(","\)\}/.test(chat) && !/accept=\{[^}]*heic/.test(chat),
   )
   check("a pasted screenshot lands in it", /onPaste=/.test(chat) && /clipboardData\.files/.test(chat))
-  check("so does a dragged file", /onDrop=/.test(chat) && /dataTransfer\.files/.test(chat))
+  /* Once: the panel's handler, which the composer's drops bubble to. The composer had its own as well, and attached every dropped picture twice. */
+  check(
+    "so does a dragged file, once",
+    /onDrop: \(event: React\.DragEvent\) => \{[\s\S]{0,200}void attach\(event\.dataTransfer\.files\)/.test(chat) && (chat.match(/void attach\(event\.dataTransfer\.files\)/g) ?? []).length === 1,
+  )
   check("each attached picture can be taken back off", /onClick=\{\(\) => onRemove\(item\.id\)\}/.test(tray) && /onRemove=\{removeAttachment\}/.test(chat))
   check(
     "a screenshot is shrunk before it is sent, to the size the model reads at, as JPEG at 0.92 first",

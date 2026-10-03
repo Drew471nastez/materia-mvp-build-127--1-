@@ -386,7 +386,8 @@ async function main() {
         { text: good },
       ])
       const stages: string[] = []
-      const out = await writeSection({ provider, model: "test", prompt: "a long FAQ", takenTypes: [], takenNames: [], onStage: (s) => stages.push(s) })
+      /* The write loop on its own: the plan before it and the review after it are driven in tests/ask-images-u.test.ts. */
+      const out = await writeSection({ provider, model: "test", prompt: "a long FAQ", takenTypes: [], takenNames: [], plan: false, review: false, onStage: (s) => stages.push(s) })
       check("a cut-off file is asked for again, and the second is kept", out.ok === true && seen.length === 2)
       check("with the reason being its length, not a compile error", /cut off at the length limit/.test(seen[1].last) && /shorter/.test(seen[1].last))
       check("there is room for a whole file", (seen[0].maxOutputTokens ?? 0) >= 16000)
@@ -569,7 +570,8 @@ async function main() {
     budget("the page assistant's shared rules", pageAgentRules(), 10_000)
     /* 11,000 until the framework's own lists grew: eight setting types and the
        `lines` filter, which CORE_FORMAT names from the registry. Still a budget. */
-    budget("the section writer's rules", writeSectionRules(), 11_400)
+    /* 11,400 until CORE_FORMAT said which type a picture, a menu and a colour are, and colour per element: 400 characters. */
+    budget("the section writer's rules", writeSectionRules(), 11_800)
     budget("the section editor's rules", editSectionRules(), 8_000)
     budget("the sites agent's rules", sitesAgentRules(), 6_000)
   }

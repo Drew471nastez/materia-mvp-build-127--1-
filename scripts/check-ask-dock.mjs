@@ -651,7 +651,8 @@ async function states(browser) {
   const shine = await p.evaluate(() => { const w = document.querySelector("[data-ask-activity] .ask-shine-window"); return w ? getComputedStyle(w).animationName : null })
   await push({ type: "op", op: { kind: "add_section", id: "new-1", sectionType: "proof_testimonials" }, label: "Added Testimonials" })
   await push({ type: "tool", id: "save-1", label: "Saving", state: "running" })
-  await p.click("[data-ask-steps-toggle]")
+  /* Since the T round the steps are open under the line while it works (StepsTimeline), and the toggle comes with the answer. */
+  if (await p.$("[data-ask-steps-toggle]")) await p.click("[data-ask-steps-toggle]")
   await sleep(200)
   const steps = await p.$$eval("[data-ask-steps] li", (l) => l.map((x) => ({ t: x.textContent, icons: x.querySelectorAll("svg").length })))
   await p.screenshot({ path: join(shots, `${P}states-steps.png`) })
@@ -668,7 +669,8 @@ async function states(browser) {
   expect(seen.includes("Checking colours") && seen.includes("Added Testimonials") && seen.includes("Saving"), "a kind of line the chat never knew (status, tool) is shown the same way, and so is a change landing", seen)
   expect(morph.props.length > 0 && morph.props.every((x) => ["transform", "opacity"].includes(x)) && morph.outs > 0, "the old words rise out as the new rise in, on transform and opacity only", morph)
   expect(shine === "ask-shine-window", "with a band of light passing over the words in progress", shine)
-  expect(steps.length >= 2 && steps.every((s) => s.icons === 0), "the finished steps fold under a toggle: a plain list, no ticks, no spinners", steps)
+  /* A done step settles a small check in (the T round's StepsTimeline); never a spinner, never more than its one mark. */
+  expect(steps.length >= 2 && steps.every((s) => s.icons <= 1), "the steps are a calm list under the line: one mark each at most, no spinners", steps)
   const done = await p.evaluate(() => ({
     running: !!document.querySelector('[data-ask-exchange="running"]'),
     activity: !!document.querySelector("[data-ask-activity]"),

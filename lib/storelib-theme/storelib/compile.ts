@@ -24,6 +24,7 @@ import { createHash } from "node:crypto"
 
 import { DEFAULT_LANGUAGE_VERSION } from "../language"
 import { validateBlockSchema, validateSectionSchema } from "../schema/validate"
+import { ANIMATION_SETTING_ID } from "../schema/normalise"
 import { LIMITS, type CompiledBlock, type CompiledSection, type Result, type ThemeError } from "../types"
 import { blockScope, scopeCss } from "./css"
 import { parseSchemaJson, parseStorelib } from "./parse"
@@ -67,7 +68,7 @@ export interface CompileOptions {
  * now. That is a section with nothing typed into it yet, which is the normal
  * state of a section somebody just added.
  */
-const CONTEXT_ROOTS = new Set(["settings", "blocks", "products", "theme", "scheme", "page", "section", "forloop", "shop", "routes", "customer", "wishlist", "creator", "product"])
+const CONTEXT_ROOTS = new Set(["settings", "blocks", "products", "theme", "scheme", "page", "section", "forloop", "shop", "routes", "customer", "wishlist", "creator", "product", "collections"])
 const SECTION_KEYS = new Set(["id", "type", "settings", "blocks"])
 
 function checkReferences(
@@ -166,7 +167,34 @@ function staticsOf(tpl: CompiledTemplate): { type: string; id: string }[] {
   return out
 }
 
+/**
+ * WHATEVER ANYBODY WRITES, THE ANSWER IS WORDS. A file is written by people
+ * and by models, and the stages above were written for files that are at
+ * least shaped like one. Anything a stage did not expect is caught here and
+ * said in a sentence, never handed on as a stack trace to a person who only
+ * wanted to save a section.
+ */
+function plainFailure(file: string, e: unknown): Result<never> {
+  const why = e instanceof Error && e.message ? e.message.split("\n")[0].slice(0, 200) : "it is not in a shape Storelib can read"
+  return { ok: false, errors: [{ stage: "parse", file, message: `Storelib could not read this file: ${why}. Check that it has <template> and <schema> blocks and that the schema is valid JSON.` }] }
+}
+
 export function compileSection(source: string, opts: CompileOptions = {}): Result<CompiledSection> {
+  if (typeof source !== "string") return plainFailure(opts.file ?? "section.storelib", new Error("the file is empty"))
+  try {
+    return compileSectionUnguarded(source, opts)
+  } catch (e) {
+    return plainFailure(opts.file ?? "section.storelib", e)
+  }
+}
+
+/** `<img>` tags in a template with no alt at all: a screen reader reads the file name instead. */
+function imagesWithoutAlt(template: string): number {
+  const tags = template.replace(/\{#[\s\S]*?#\}/g, " ").match(/<img\b[^>]*>/gi) ?? []
+  return tags.filter((t) => !/\salt\s*=/.test(t)).length
+}
+
+function compileSectionUnguarded(source: string, opts: CompileOptions = {}): Result<CompiledSection> {
   const file = opts.file ?? "section.storelib"
   const errors: ThemeError[] = []
   const warnings: ThemeError[] = []
@@ -183,6 +211,8 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
   if (json.ok === false) return json
   const schema = validateSectionSchema(json.value, { file, line: src.schema.line, text: src.schema.text })
   if (schema.ok === false) return schema
+  /* What the schema meant rather than what it said (schema/normalise.ts), and its habits. */
+  if (schema.warnings) warnings.push(...schema.warnings)
   if (opts.expectType && schema.value.type !== opts.expectType) {
     errors.push({
       stage: "schema",
@@ -234,9 +264,15 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
   for (const s of schema.value.settings) {
     const control = s.type
     if (control === "header" || control === "paragraph" || control === "divider") continue
+    /* The section's animation is read by the page, not the template (schema/normalise.ts). */
+    if (s.id === ANIMATION_SETTING_ID) continue
     if (!read.has(s.id) && !s.id.startsWith("hdr_")) {
       warnings.push({ stage: "template", file, line: src.template.line, path: `settings.${s.id}`, message: `The template never reads settings.${s.id}` })
     }
+  }
+  const noAlt = imagesWithoutAlt(src.template.text)
+  if (noAlt) {
+    warnings.push({ stage: "template", file, line: src.template.line, message: `${noAlt === 1 ? "An image has" : `${noAlt} images have`} no alt. Give each one alt="{{ settings.image_alt }}" from a setting, or alt="" when it is decoration.` })
   }
 
   return {
@@ -276,6 +312,15 @@ const BLOCK_ROOTS = new Set([...CONTEXT_ROOTS, "block"])
 const BLOCK_KEYS = new Set(["id", "type", "settings", "blocks", "storelib_attributes"])
 
 export function compileBlock(source: string, opts: CompileOptions & { type: string }): Result<CompiledBlock> {
+  if (typeof source !== "string") return plainFailure(opts.file ?? `blocks/${opts.type}.storelib`, new Error("the file is empty"))
+  try {
+    return compileBlockUnguarded(source, opts)
+  } catch (e) {
+    return plainFailure(opts.file ?? `blocks/${opts.type}.storelib`, e)
+  }
+}
+
+function compileBlockUnguarded(source: string, opts: CompileOptions & { type: string }): Result<CompiledBlock> {
   const file = opts.file ?? `blocks/${opts.type}.storelib`
   const errors: ThemeError[] = []
 
@@ -372,6 +417,7 @@ export function compileBlock(source: string, opts: CompileOptions & { type: stri
       statics: staticsOf(tpl),
       sourceHash: sourceHash(source),
     },
+    ...(schema.warnings?.length ? { warnings: schema.warnings } : {}),
   }
 }
 

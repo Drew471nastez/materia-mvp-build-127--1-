@@ -489,10 +489,15 @@ section("The page")
     const css = read("app/globals.css")
     check("the upload goes by XMLHttpRequest and reports its progress", /new XMLHttpRequest\(\)/.test(incoming) && /xhr\.upload\.onprogress/.test(incoming) && /xhr\.upload\.onload/.test(incoming))
     check("  the button says Uploading with a percentage, then Importing", /`Uploading \$\{Math\.round\(incoming\.progress \* 100\)\}%`/.test(client) && /: "Importing"\) : "Import theme"/.test(client))
-    check("  the placeholder row is drawn after the library's rows, where the server puts a new website",
-      client.indexOf("<IncomingRow") > client.indexOf("{library.map((i) => {") && /showingIncoming && incoming && \(/.test(client))
-    check("  every route puts a new website after the others", ["app/api/website-builder/themes/add/route.ts", "app/api/website-builder/themes/[installId]/duplicate/route.ts", "app/api/website-builder/themes/import/route.ts"].every((p) => /nextSortOrder\(admin, creator\.id\)/.test(read(p))) &&
-      /\.order\("sort_order", \{ ascending: false \}\)/.test(read("lib/website-builder/library-limit.ts")))
+    /* An import first, where the server puts it; an added or copied website after the others. */
+    check("  the placeholder row is drawn where the server puts the new website: an import first, the others last",
+      client.indexOf('incoming.kind === "import" && (') !== -1 && client.indexOf('incoming.kind === "import" && (') < client.indexOf("{library.map((i) => {") &&
+        client.lastIndexOf("<IncomingRow") > client.indexOf("{library.map((i) => {") && /showingIncoming && incoming && incoming\.kind !== "import" && \(/.test(client))
+    check("  Add and Duplicate put a new website after the others, an import before them",
+      ["app/api/website-builder/themes/add/route.ts", "app/api/website-builder/themes/[installId]/duplicate/route.ts"].every((p) => /nextSortOrder\(admin, creator\.id\)/.test(read(p))) &&
+        /firstSortOrder\(admin, creator\.id\)/.test(read("app/api/website-builder/themes/import/route.ts")) &&
+        /\.order\("sort_order", \{ ascending: false \}\)/.test(read("lib/website-builder/library-limit.ts")) &&
+        /\.order\("sort_order", \{ ascending: true \}\)/.test(read("lib/website-builder/library-limit.ts")))
     check("  the real row replaces it in the same render, by id", /const landed = !!incoming\?\.installId && installs\.some\(\(i\) => i\.id === incoming\.installId\)/.test(client) && /const showingIncoming = !!incoming && !landed/.test(client))
     check("  then it is scrolled to the middle of the element that scrolls, not the window",
       /scrollToRow\(row, "center"\)/.test(client) && /export function scrollerOf/.test(incoming) && /scroller\.scrollTo\(\{ top: target, behavior: smooth \? "smooth" : "auto" \}\)/.test(incoming) && !/scrollIntoView/.test(incoming))
@@ -633,7 +638,7 @@ section("Choosing an icon, and choosing where a link goes")
     "and the nav and call to action links use the same field",
     !/function NavLinkPicker/.test(editorSrc) &&
       (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 2 &&
-      /<HeaderNavLinksEditor/.test(editorSrc) &&
+      /onPickMenu=\{pickHeaderMenu\}/.test(editorSrc) &&
       /<LinkPicker value=\{item\.url\}/.test(read("components/website-builder/editor/controls/link-list-editor.tsx")),
   )
   check(
@@ -641,7 +646,7 @@ section("Choosing an icon, and choosing where a link goes")
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
       /\.\.\.customPages\.map/.test(editorSrc) &&
       /\.\.\.products\.map/.test(editorSrc) &&
-      (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\}>/g) ?? []).length === 2,
+      (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\} sections=\{sectionSource\}>/g) ?? []).length === 2,
   )
 
   // Opening in the flow rather than floating: the sidebar is a scroller
@@ -974,7 +979,9 @@ section("Add Section is derived from the files, one card per preset")
   /* Ten categories. About has a fourth, the contact form every website's /contact page is made of;
      Products has Plans, and Content has Rows and Course Outline, for what creators sell and teach.
      Social Proof has the Community card, one of the creator's communities (added with communities). */
-  check("the library is thirty five sections across ten categories, About with the contact form", ADDABLE_SECTIONS.length === 35 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
+  /* And Breadcrumbs, in Content, for any page but home (lib/products/breadcrumbs.ts). */
+  /* And Collection list, Featured collection (Products) and Page content (Content): Shopify's sections for collections and pages. */
+  check("the library is thirty nine sections across ten categories, About with the contact form", ADDABLE_SECTIONS.length === 39 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
   /* "'Created by you' should be called 'Created' only." */
@@ -995,8 +1002,8 @@ section("Add Section is derived from the files, one card per preset")
   check("the cards are declared once, at the top level, and memoised", /^const LibraryCard = memo\(function LibraryCard\(/m.test(librarySrc) && !/^\s+const SectionCard = \(/m.test(librarySrc))
   check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(librarySrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(librarySrc) && /words\.every\(\(w\) => e\.haystack\.includes\(w\)\)/.test(librarySrc))
   /* First, not last: what somebody made themselves is what they come back for. */
-  check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /return \[\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{ownSectionTypes\}/.test(editorSrc))
-  check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
+  check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /return \[\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{libraryOwnTypes\}/.test(editorSrc) && /const libraryOwnTypes = useMemo\(\(\) => Object\.keys\(customSchemas\)/.test(editorSrc))
+  check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0, replaceConfirmed = false\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
 }
 
 /**
@@ -1048,7 +1055,8 @@ section("Add Section is derived from the files, one card per preset")
     )
     check(
       "handing the same name to the render and to the provider",
-      /(prerenderStorelibSections|renderWithSources)\([^)]*\btemplate, products(, undefined, dressed\.data)?\)/.test(site) &&
+      /* The page's extras (its title, for the breadcrumb trail) go beside it now. */
+      /(prerenderStorelibSections|renderWithSources)\([^)]*\btemplate, products(, (undefined|\{ title: pageTitleFromKey\(pageKey\) \}), dressed\.data)?\)/.test(site) &&
         /page=\{\{ template \}\}/.test(site),
     )
   }
@@ -1171,7 +1179,8 @@ section("A form that says it worked, did")
    */
   check(
     "the newsletter form posts somewhere",
-    /fetch\("\/api\/website-builder\/subscribe"/.test(newsletter) &&
+    /* Through the client every email box on a website shares, which posts to /api/website-builder/subscribe. */
+    (/fetch\("\/api\/website-builder\/subscribe"/.test(newsletter) || (/subscribeToCreator\(/.test(newsletter) && /fetch\("\/api\/website-builder\/subscribe"/.test(read("lib/website-builder/subscribe-client.ts")))) &&
       !/onSubmit=\{e => \{ e\.preventDefault\(\); setSubmitted\(true\) \}\}/.test(newsletter),
   )
   check(
@@ -1184,7 +1193,9 @@ section("A form that says it worked, did")
   )
   check(
     "and the builder's canvas still sends nothing",
-    /if \(isEditing \|\| inEditor \|\| !creatorId\)/.test(newsletter) &&
+    /* lib/website-builder/subscribe-client signupMode: the canvas is a preview, a page with no creator is not available. */
+    /const mode = signupMode\(\{ inEditor: isEditing \|\| inEditor, creatorId \}\)\s*if \(mode === "preview"\) \{ setSubmitted\(true\); return \}/.test(newsletter) &&
+      /if \(mode === "unavailable" \|\| !creatorId\)/.test(newsletter) &&
       /* The canvas now names its install so the header's search field can
          ask on its behalf. It still says `inEditor` and still hands over no
          creator, which are the two things this guard reads. */
@@ -1345,14 +1356,21 @@ section("A form that says it worked, did")
 
   check("the mode row is with the box you type into", /<ModeSwitch/.test(composer))
   check("and not only in the empty state", !/<ModeSwitch/.test(empty))
-  check("what the writer produced is reported there too", /\{written && \(/.test(composer) && !/\{written && \(/.test(empty))
-  check("so are its errors", /\{writeError && /.test(composer) && !/\{writeError && /.test(empty))
-  check("and so is the fact that it is working, on the same live line a run uses", /\{writing && writeLabel && <ActivityLine/.test(composer) && !/\{writing && /.test(empty))
-  check("and so is an answer, when it answered instead of writing", /\{writeReply && !writing && \(/.test(composer))
+  /*
+    THE WRITER IS A RUN IN THE THREAD NOW (U round), like a change to the
+    page: its steps, its line, its answer or its error are an exchange, so
+    nothing it says can be stranded anywhere, before or after the first
+    message.
+  */
+  const writeOne = chat.slice(chat.indexOf("const writeOne = React.useCallback("), chat.indexOf("const dispatch = React.useCallback("))
+  check("what the writer produced is reported there too", /written: \{ path: done\.written\.path, name: done\.written\.name \}/.test(writeOne) && /exchange\.written && onOpenCode/.test(chat))
+  check("so are its errors", /error: done\?\.error,/.test(writeOne) && /\{exchange\.error && \(/.test(chat))
+  check("and so is the fact that it is working, on the same live line a run uses", /const next = reduceActivity\(e\.activity, line\)/.test(writeOne) && /<ActivityLine label=\{sending && exchange\.images\?\.length \? "Sending your pictures" : activityLine\(activity, elapsed\)\} \/>/.test(chat))
+  check("and so is an answer, when it answered instead of writing", /reply: done\?\.reply,/.test(writeOne) && /if \(kept \|\| answered\) playAskSound\("done"\)/.test(writeOne))
   /* "Line 331: <schema> is never closed" is the compiler talking to a
      developer. The chat says what a creator can do, and offers to do it. */
   check("the compiler's words never reach the chat", !/d\.errors\[0\]\.message/.test(chat) && /plainWriteError\(/.test(chat))
-  check("a failed section can be asked for again in one press", /lastWrite\.current/.test(composer) && /Try again/.test(composer))
+  check("a failed section can be asked for again in one press", /if \(exchange\.kind === "code" && !exchange\.codeFocus\) void writeOne\(exchange\.prompt, images\)/.test(chat) && /Try again/.test(chat))
   check("it asks the writer for its stages as they happen", /Accept: "application\/x-ndjson"/.test(chat))
 
   check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{suggestions\}/.test(empty))
@@ -1602,7 +1620,7 @@ section("Two at once still make five, and an import that says what went wrong")
 
   check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",
     /onClick=\{toggleInspector\}/.test(editor) && /hapticTap\("soft"\)/.test(editor.slice(editor.indexOf("const toggleInspector"), editor.indexOf("const toggleInspector") + 600)) &&
-      /inspectorEnabled=\{canvasInspecting\}/.test(editor) && /const INSPECT_FADE_MS = 200/.test(editor) &&
+      /inspectorEnabled=\{canvasInspecting(?: && !fullSettled)?\}/.test(editor) && /const INSPECT_FADE_MS = 200/.test(editor) &&
       /startTransition\(\(\) => setCanvasInspecting\(false\)\)/.test(editor) && /startTransition\(\(\) => setCanvasInspecting\(true\)\)/.test(editor))
   check("  the rings fade on opacity over the same 200ms, and never pop",
     /\[data-wb-inspect\] \.wb-ring \{ transition: opacity 200ms/.test(css) && /\[data-wb-inspect="leaving"\] \.wb-ring,/.test(css) &&

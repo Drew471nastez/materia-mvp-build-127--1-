@@ -14,8 +14,10 @@
  *                  has said any ("Reading the FAQ", "Adding Testimonials").
  *                  It changes as the run moves: the old words rise out, the
  *                  new ones rise in, and a band of light passes over them.
- *   THE STEPS      what it finished, folded under "4 steps" until asked
- *                  for. A plain list: no ticks, no spinner, no counter.
+ *   THE STEPS      open under the line while it works, each in plain words
+ *                  ("Reading the Hero section", "Writing pricing.storelib",
+ *                  "Checking it compiles"), a check settling in as each is
+ *                  done; folded under "4 steps" once it is over.
  *   THE ANSWER     what it said it did, then how much changed, with Undo,
  *                  Copy and Report beside it.
  *
@@ -28,7 +30,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { Check, ChevronRight, Copy, Flag } from "lucide-react"
 
-import type { ActivityCode, ActivityStep } from "@/lib/website-builder/ask-activity"
+import type { ActivityCode, TimelineRow } from "@/lib/website-builder/ask-activity"
 import { cn } from "@/lib/utils"
 
 /* ── the line ──────────────────────────────────────────────────────────── */
@@ -105,68 +107,118 @@ export function StepsToggle({
   )
 }
 
-export function StepsList({
-  plan,
-  steps,
-  code,
+/**
+ * ===========================================================================
+ *  THE STEPS, WHILE IT WORKS AND AFTER
+ * ===========================================================================
+ * One list for the whole life of a run (rows from timelineRows in
+ * lib/website-builder/ask-activity.ts). While the run works it is open under
+ * the one line: each step fades and rises into place as it starts, a calm
+ * violet dot breathes beside the one running, and a check settles in when it
+ * is done. A thin rail joins the marks, violet where the work is done. When
+ * the run ends the same list folds away under "4 steps", and opens again
+ * from there.
+ *
+ * NOTHING ALREADY ON SCREEN MOVES. Rows are only ever appended, every row is
+ * one line tall whatever it says (a long label is cut, not wrapped), and a
+ * repeat counts up on its own row. The fold animates the list's own height
+ * from where it is; nothing above it changes. Measured by
+ * scripts/check-ask-states.mjs.
+ *
+ * CSS: `.ask-steps`, `.ask-step` in app/globals.css. Transform and opacity
+ * for every motion; under reduced motion the rows, marks and fold are still.
+ */
+export function StepsTimeline({
+  rows,
+  open,
   onOpenCode,
 }: {
-  plan?: string
-  steps: ActivityStep[]
-  code: ActivityCode[]
+  rows: TimelineRow[]
+  /** Open while the run works, and when asked for after. */
+  open: boolean
   onOpenCode?: (path: string) => void
 }) {
+  if (rows.length === 0) return null
   return (
-    <div data-ask-steps="" className="mt-1.5 min-w-0 border-l border-[#e5e7eb] pl-3">
-      {plan && <p data-plan="" className="mb-1.5 whitespace-pre-wrap text-[12.5px] leading-snug text-[#1a1a2e]/75">{plan}</p>}
-      {steps.length > 0 && (
-        <ol className="space-y-1 text-[12.5px] leading-snug text-[#6b7280]">
-          {steps.map((step) => (
-            <li key={step.id} data-step={step.state} className={cn("min-w-0", step.state === "failed" && "text-[#b45309]")}>
-              {step.label}
-              {step.state === "failed" && <span className="text-[#b45309]/80">, did not land</span>}
-            </li>
-          ))}
+    <div data-ask-steps-fold="" data-open={open ? "" : undefined} className="ask-steps-fold" aria-hidden={!open} inert={!open}>
+      <div className="min-h-0 overflow-hidden">
+        <ol data-ask-steps="" className="ask-steps">
+          {rows.map((row) => {
+            if (row.kind === "plan") {
+              return (
+                <li key={row.key} data-row={row.key} data-plan="" className="ask-plan">
+                  {row.text}
+                </li>
+              )
+            }
+            if (row.kind === "code") {
+              return (
+                <li key={row.key} data-row={row.key} data-ask-code-row="" className="ask-code">
+                  <CodePreview file={row.file} onOpenCode={onOpenCode} />
+                </li>
+              )
+            }
+            return (
+              <li key={row.key} data-row={row.key} data-step={row.state} className="ask-step">
+                <span aria-hidden className="ask-step-mark" data-state={row.state}>
+                  {row.state === "done" ? <Check className="h-3 w-3" strokeWidth={2.5} /> : <span className="ask-step-dot" />}
+                </span>
+                <span className="ask-step-label">{row.label}</span>
+                {row.count > 1 && <span className="ask-step-count">{row.count}</span>}
+                {row.state === "failed" && <span className="ask-step-note">did not work</span>}
+              </li>
+            )
+          })}
         </ol>
-      )}
-      {code.map((file) => (
-        <CodePreview key={file.path} file={file} onOpenCode={onOpenCode} />
-      ))}
+      </div>
     </div>
   )
 }
 
 /**
- * A section file it wrote, the way it was written. Capped in height: a
- * section is two hundred lines and the code editor, one press away, is where
- * it is read properly.
+ * A section file it wrote: ONE LINE, folded. "The chat shows a short result
+ * line, not the big code window." The file's name and a View code link; the
+ * source opens under it only when asked for, capped in height, and the code
+ * editor, one press away, is where it is read properly.
  */
 export function CodePreview({ file, onOpenCode }: { file: ActivityCode; onOpenCode?: (path: string) => void }) {
+  const [open, setOpen] = React.useState(false)
   const lines = file.source.split("\n").length
   return (
-    <div data-ask-code="" className="mt-2 min-w-0 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
-      <div className="flex items-center gap-2 border-b border-[#e5e7eb]/70 px-2.5 py-1.5">
-        <span data-code-path="" className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#6b7280]">
-          {file.path}
+    <div data-ask-code="" data-open={open ? "" : undefined} className="min-w-0">
+      <div className="flex min-w-0 items-center gap-2 text-[12px] leading-5 text-[#6b7280]">
+        <span data-code-path="" className="min-w-0 truncate font-mono text-[11px]">
+          {file.path.replace(/^sections\//, "")}
         </span>
-        <span className="shrink-0 text-[11px] tabular-nums text-[#6b7280]/70">{lines} lines</span>
-        {onOpenCode && (
+        <button
+          type="button"
+          data-ask-view-code=""
+          aria-expanded={open}
+          onClick={() => setOpen((was) => !was)}
+          className="relative shrink-0 font-medium text-[#1a1a2e]/80 underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
+        >
+          {open ? "Hide code" : "View code"}
+        </button>
+        {open && onOpenCode && (
           <button
             type="button"
             onClick={() => onOpenCode(file.path)}
-            className="relative shrink-0 text-[11.5px] font-medium text-[#1a1a2e] underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:underline"
+            className="relative shrink-0 font-medium text-[#1a1a2e]/80 underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
           >
-            Open
+            Open in editor
           </button>
         )}
       </div>
-      {/* The one thing in a thread that scrolls sideways, inside itself. */}
-      <pre
-        data-code-scroll=""
-        className="max-h-44 max-w-full overflow-auto overscroll-contain px-2.5 py-2 text-[11px] leading-[1.45] [overflow-wrap:normal] [touch-action:pan-x_pan-y]"
-      >
-        <code className="font-mono text-[#1a1a2e]/80">{file.source}</code>
-      </pre>
+      {open && (
+        /* The one thing in a thread that scrolls sideways, inside itself. */
+        <pre
+          data-code-scroll=""
+          aria-label={`${file.path}, ${lines} lines`}
+          className="mt-1.5 max-h-44 max-w-full overflow-auto overscroll-contain rounded-xl border border-[#e5e7eb] bg-white px-2.5 py-2 text-[11px] leading-[1.45] [overflow-wrap:normal] [touch-action:pan-x_pan-y]"
+        >
+          <code className="font-mono text-[#1a1a2e]/80">{file.source}</code>
+        </pre>
+      )}
     </div>
   )
 }

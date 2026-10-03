@@ -235,6 +235,15 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Reference",
   },
   {
+    slug: "shopify-parity",
+    title: "Shopify parity",
+    nav: "Shopify parity",
+    summary: "Shopify's theme settings, input types and pages, against Storelib's.",
+    description:
+      "How the Storelib website builder compares with Shopify's Online Store 2.0 theme editor: each theme settings group, each setting input type and each page template, marked Have, Partial or Missing.",
+    group: "Reference",
+  },
+  {
     slug: "changelog",
     title: "Changelog",
     nav: "Changelog",

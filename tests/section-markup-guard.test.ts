@@ -143,7 +143,9 @@ function main() {
   console.log("\nWhere it runs")
   const render = read("lib/storelib-theme/render.ts")
   check("at the one place every section is drawn, after the document tags are taken out",
-    /const inner = guardSectionMarkup\(stripDocumentMarkup\(renderTemplate\(compiled\.template as CompiledTemplate, ctx\)\)\)/.test(render))
+    /* The builder's setting marks (storelib/marks.ts) are turned into attributes first, so the guard sees the markup as it will be. */
+    /const drawn = renderTemplate\(compiled\.template as CompiledTemplate, ctx, \{ marks: inEditor \}\)/.test(render) &&
+      /const inner = guardSectionMarkup\(stripDocumentMarkup\(inEditor \? applySettingMarks\(drawn\) : drawn\)\)/.test(render))
   check("in the engine, so the builder's canvas draws the same thing the site does", /^export function guardSectionMarkup\(html: string\): string \{/m.test(read("lib/storelib-theme/storelib/raw-html.ts")))
   check("and a real browser is asked too", /guardSectionMarkup/.test(read("scripts/check-section-guard.mjs")))
 

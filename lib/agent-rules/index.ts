@@ -40,7 +40,7 @@
  * copy an agent reads (MCP, AGENTS.md, the builder), so a transcript says
  * which rules the agent was working to.
  */
-export const RULEBOOK_VERSION = "2026.09.25"
+export const RULEBOOK_VERSION = "2026.10.03"
 
 export type RuleSurface = "builder" | "outside"
 
@@ -119,7 +119,9 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "A website is pages; a page is an ordered list of section instances; each section instance has a type, settings and blocks. A section type is one file, sections/<type>.storelib, with <template>, <style>, an optional <script> and <schema>. The format is in the developer docs (storelib_guide); read them rather than recalling them.",
       "Theme settings (fonts, type scale, colour schemes, buttons) apply to every section. Sections read them; they never redefine them.",
       "The header and footer are on every page and stay first and last. Page operations keep them there.",
-      "There is ONE header and ONE footer, the built-in sections of type header and footer. Never write a section file that is a header, a navigation bar or a footer, and never put one in a page body: it is refused on save and left out of an imported theme, because it would be a second header without the cart drawer, search, account, menus and sticky behaviour the real one has. To change the header or footer, change the section itself with storelib_create_safe_patch: update_section for its settings (layout, sticky, transparent, icons, logo, colour scheme) and add_block, update_block, move_block, remove_block for the header's nav_link links; storelib_update_styles for its colours. Every setting is listed in the developer docs, The header and footer.",
+      "There is ONE header and ONE footer, the built-in sections of type header and footer. Connect to them; do not rebuild them. To change the header or footer, change the section itself with storelib_create_safe_patch: update_section for its settings (layout, sticky, transparent, icons, logo, colour scheme, menu) and add_block, update_block, move_block, remove_block for the header's nav_link links; storelib_update_styles for its colours. The logo, store name and social links are theme settings (logo_url, brand_name, social_*), which both already show. Every setting is listed in the developer docs, The header and footer.",
+      "Never write a section file that is a header, a navigation bar or a footer, and never put header or footer content in a page body: it is refused on save, because it would be a second header without the cart drawer, search, account, menus and sticky behaviour the real one has. The one exception is a creator who explicitly asks for a header (or footer) of their own: then write ONE section whose schema says \"kind\": \"header\" (or \"footer\"). It replaces the built-in one on every page and sits in the header group, never in the page. It reads the menu from a link_list setting (default \"main-menu\") and the logo from an image_picker setting or theme.logo.url. A theme has at most one of each kind; a second is refused.",
+      "A section that belongs above the header, such as an announcement bar, says \"enabled_on\": { \"groups\": [\"header\"] } (or has category \"announcement\"). Groups are header, footer and template.",
       "Every change is a DRAFT. Nothing reaches a visitor until the creator presses Publish. An agent never publishes.",
     ],
   },
@@ -152,6 +154,9 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "No literal id=\"...\": build ids from {{ section.id }}. A section works when it is on a page twice. Scripts query inside root only.",
       "Prefer HTML and CSS (details, popover, :checked, scroll-snap) to script. A script cannot fetch, read storage or reach window or document.",
       "A section plugs into the theme like a native one or it is refused: data-scheme=\"{{ settings.color_scheme }}\" on the root with colours from the scheme, no fixed colours or fonts, headings from var(--section-heading-size), buttons painted from the scheme's button and hover keys, padding_top and padding_bottom settings, every word, link and picture a setting. (lib/storelib-ai/integration.ts)",
+      "The type is what the value is. A picture is an image_picker (picked, or an address pasted under the picker), never a text or url setting holding an address. A menu is one link_list setting (default \"main-menu\"), looped {% for link in settings.menu.links %} with link.links for sub links, never link_1_label and link_1_url pairs. Both are refused for an agent. (lib/storelib-theme/schema/normalise.ts)",
+      "A colour setting for every element the section draws (heading, text, buttons, cards, borders), each defaulting to the scheme colour it follows (\"default\": \"scheme.heading\"), so the creator can change one colour without changing the scheme.",
+      "Read the theme's general settings, never retype them: theme.logo, shop.name, shop.socials, theme.buttons, theme.layout, theme.animation. A section's own entrance animation is a select with the id animation (theme, none, fade, fade_up, zoom); anything but theme overrides the theme's.",
     ],
   },
   {
@@ -181,6 +186,7 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "Show the store's real products: a product section reads products or a product picker. Never type a product, price or picture into markup or a default.",
       "A buy button links to the product's checkout_url, or a variant's own checkout_url for one option. Storelib checkout takes the payment and sends the buyer back to this site afterwards. Never build a payment form or load a payment script.",
       "A product that is not available shows its tag and no buy button. A store with no products gets no product section.",
+      "A product page is the main product section's blocks (title, price, variant_picker, buy_buttons and the rest), never a new section that redraws the product.",
     ],
   },
   {
@@ -307,6 +313,7 @@ export function agentRulesBrief(ctx: { siteName: string; agentName: string }): s
       "5. Repair. Fix what a test names; after three rounds, stop and say what is wrong.",
     ].join("\n"),
     "EDGES: one website only. Write sections/<type>.storelib, never a built-in one. Never publish, delete, or ask for orders, buyers, keys or secrets. No generic AI styling or copy. Buy buttons use a product's checkout_url.",
+    "HEADER AND FOOTER: configure the built-in ones (their settings, nav_link links, menu, and the theme's logo_url and brand_name). Never write a header, nav or footer section; only when the creator asks for a header of their own, ONE section with \"kind\": \"header\". Pictures are image_picker settings, menus link_list settings, and every element gets a color setting defaulting to a scheme colour.",
     "ASK, DON'T GUESS: when a missing fact changes the result and no tool has it, ask your user one short question with options.",
     "Call storelib_rules for the full rules and storelib_skills with the task in your own words.",
   ].join("\n\n")

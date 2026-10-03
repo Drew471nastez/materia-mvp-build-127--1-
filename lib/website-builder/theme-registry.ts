@@ -895,10 +895,11 @@ export function buildThemePreset(def: ThemeDefinition): ThemePreset {
   */
   const product: SectionInstance[] = [
     header,
+    /* Its blocks too: a product section with none draws only the pictures. */
     section("main-product", "product", "Product", {
       ...mainProductSection().settings,
       color_scheme: dark ? "black" : "white",
-    }),
+    }, mainProductSection().blocks),
     features("product-features", "What's included", "Everything you get with your purchase", [
       ["download", "Instant download", "Get immediate access to all files after purchase."],
       ["refresh-cw", "Free updates", "Receive all future updates at no extra cost."],

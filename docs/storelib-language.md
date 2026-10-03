@@ -86,6 +86,7 @@ the page, the server, another section, or anything not handed to it.
 | `settings.<id>` | this instance's settings, by the ids the schema declares |
 | `blocks` | this instance's blocks, in order |
 | `products` | the creator's published products, newest first, **shaped like blocks**: `product.id`, `product.settings.title`, `.price`, `.compare_price`, `.image`, `.url`, `.tag` |
+| `collections` | the creator's published collections the page was handed, shaped like blocks: `block.settings.title`, `.image`, `.url`, `.products_count`, `.products`. Every one on the collections page; elsewhere, the ones the page's settings name |
 | `section.id` | the instance's id, unique on the page |
 | `section.type` | the section's type |
 | `section.settings` | the same as `settings` |
@@ -258,12 +259,15 @@ Values that are references to something else:
 
 `image_picker` `image_gallery` `video_picker` `video_url` `file_picker`
 `icon_picker` `url` `page_picker` `product_picker` `product_list`
-`link_list` `community_picker`
+`link_list` `community_picker` `collection_picker` `collection_list`
 
 A `product_picker` prints as the product's address, as it always has, and
 also carries the product: `settings.product.title`, `.price`, `.image`. A
 `product_list` arrives as a list shaped like `products`, so one card body
-serves both. A `link_list` arrives as `{ handle, title, links }`.
+serves both. A `link_list` arrives as `{ handle, title, links }`. A
+`collection_picker` prints as the collection's address and carries
+`settings.collection.title`, `.image`, `.products_count` and `.products`;
+a `collection_list` arrives block-shaped, like the page's `collections`.
 
 Every value is checked against its type as the section is drawn. A saved
 value the type does not allow, such as a word in a `range` or an option a

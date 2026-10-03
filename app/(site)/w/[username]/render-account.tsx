@@ -43,7 +43,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
-export type AccountPageKey = "account" | "login" | "wishlist" | "contact"
+export type AccountPageKey = "account" | "login" | "wishlist" | "contact" | "password"
 
 /** Whether any section on the page asked to show the store's support email. */
 function wantsEmail(sections: SectionInstance[]): boolean {
@@ -74,11 +74,13 @@ export async function renderAccountPage(
     signIn?: { step: "email" | "code"; email: string; returnTo: string }
     /** /account: the profile field open for editing. */
     edit?: "name" | null
+    /** /password: where to land once in, and the owner's way in (lib/site-password). */
+    password?: { returnTo: string; ownerUrl: string }
   } = {},
 ) {
   const found = await publishedShopByName(username)
   /* Renamed for good: the same page at the new name, permanently (308), as every other page of a website. */
-  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}${ACCOUNT_PAGE_PATHS[key]}`)
+  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}${ACCOUNT_PAGE_PATHS[key] ?? "/"}`)
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
@@ -102,6 +104,10 @@ export async function renderAccountPage(
     page.step = extras.signIn.step
     page.email = extras.signIn.email
     page.return_to = extras.signIn.returnTo
+  }
+  if (extras.password) {
+    page.return_to = extras.password.returnTo
+    page.owner_url = extras.password.ownerUrl
   }
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, page, data, globals)
 

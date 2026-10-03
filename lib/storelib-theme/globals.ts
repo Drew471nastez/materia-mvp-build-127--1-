@@ -24,6 +24,7 @@
  * Pure and dependency free: the engine renders on the server, in the builder
  * and in tests with the same answer.
  */
+import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 
 export interface SocialLink {
   key: string
@@ -121,21 +122,14 @@ export const SITE_ROUTES = Object.freeze({
   /** POST `name`: the signed-in customer's name. */
   account_profile_url: "/api/site-account/profile",
   account_logout_url: "/account/logout",
+  /** The password page a website shows while it asks for a password. */
+  password_url: "/password",
+  /** POST `password` (and `return`, a path): lets the visitor in for thirty days. */
+  password_enter_url: "/api/site-password",
 })
 
-/** The theme's social links, in the order the footer draws them. */
-const SOCIALS: [string, string][] = [
-  ["social_instagram", "Instagram"],
-  ["social_twitter", "X"],
-  ["social_facebook", "Facebook"],
-  ["social_tiktok", "TikTok"],
-  ["social_youtube", "YouTube"],
-  ["social_linkedin", "LinkedIn"],
-  ["social_discord", "Discord"],
-  ["social_pinterest", "Pinterest"],
-  ["social_twitch", "Twitch"],
-  ["social_github", "GitHub"],
-]
+/** The theme's social links, in the order the footer draws them (lib/website-builder/social-links.ts). */
+const SOCIALS: [string, string][] = SOCIAL_PLATFORMS.map((p) => [p.key, p.label])
 
 const text = (v: unknown): string => (typeof v === "string" ? v.trim() : "")
 

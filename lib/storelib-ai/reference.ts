@@ -63,9 +63,15 @@ BUTTONS: a link with its words in a text setting and its address in a url settin
 
 LINKS: every href is a url setting through the url filter: href="{{ settings.button_url | default: '#' | url }}". Button words name what happens.
 
-IMAGES: an image_picker setting, printed behind {% if settings.image %} as <img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" loading="lazy" decoding="async">, with a width and height or an aspect-ratio so nothing jumps, and object-fit: cover where the crop matters.
+COLOUR PER ELEMENT: a color setting per element drawn, defaulting to the scheme colour it follows (heading_color "scheme.heading", text_color "scheme.text", button_color "scheme.primary_button_background", border_color "scheme.border"), printed on the root: --s-heading: {{ settings.heading_color }}.
 
-PRODUCTS: {% for block in products %} holds the creator's published products, newest first: block.id, block.settings.title, .price and .compare_price (already formatted: print them, never compute), .image, .images, .url (its page on the site), .checkout_url (Storelib checkout; empty when it cannot be bought), .available, .tag and .variants. A section offers the shop's products with a source select (shop, or blocks the creator fills). A product page has page.product. {% if products.size == 0 %} is the store with none.
+IMAGES: an image_picker setting (never text holding an address), printed behind {% if settings.image %} as <img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" loading="lazy" decoding="async">, with a width and height or an aspect-ratio, and object-fit: cover where the crop matters. The logo is theme.logo.url.
+
+MENUS: one link_list setting, default "main-menu", looped {% for link in settings.menu.links %}, sub links in link.links. Never link_1_label, link_1_url pairs.
+
+HEADER: built in; change its settings, never write one. Only a creator who asks for a header of their own gets ONE section with "kind": "header".
+
+PRODUCTS: {% for block in products %} holds the creator's published products, newest first: block.id, block.settings.title, .price and .compare_price (already formatted: print them, never compute), .image, .images, .url (its page on the site), .checkout_url (Storelib checkout; empty when it cannot be bought), .available, .tag, .variants, .category and .options. A section offers the shop's products with a source select (shop, or blocks the creator fills). A product page has page.product; its main product section is blocks. {% if products.size == 0 %} is the store with none.
 
 RESPONSIVE: container-type: inline-size on the root; the phone layout is the base CSS, widened with @container (min-width: 640px) and (min-width: 1024px), never @media for width. Nothing wider than a phone without a container query around it; tap targets 44px; motion stops inside @media (prefers-reduced-motion: reduce).
 
@@ -76,7 +82,7 @@ export const QUALITY_CHECKLIST = `A GOOD SECTION, CHECKED BEFORE YOU CALL ONE FI
 2. Spacing rhythm: the page's own padding values on padding_top and padding_bottom, gaps on the 4px scale, the same gap between the same kind of thing.
 3. One clear action: at most one primary button, its words naming what happens (Buy the preset pack, See the course); anything else is a secondary button or a link.
 4. Mobile first: one column that reads top to bottom on a phone, 44px taps, no sideways scroll; wider layouts added with @container.
-5. Scheme tokens, not raw colours: every colour a var(--s-*) from the section's colour scheme; white or black only over a photograph.
+5. Scheme tokens, not raw colours: every colour a var(--s-*) from the section's colour scheme, each element with its own color setting defaulting to a scheme colour; white or black only over a photograph.
 6. Real content: the creator's products (products, or the store you are shown), their names, prices and words; no lorem ipsum, no invented review, statistic, logo or customer count.
 7. Native: every word, link and picture a setting or a block, a preset that arrives filled, and nothing that breaks when the section is on the page twice.`
 

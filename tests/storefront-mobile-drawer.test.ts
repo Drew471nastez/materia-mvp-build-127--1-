@@ -137,19 +137,26 @@ check(
     && /if \(el\.hasAttribute\(SITE_DRAWER_OPEN_ATTRIBUTE\)\) return/.test(editor),
 )
 
-console.log("\n  and the header steps back under an open drawer")
+console.log("\n  and the header stays where it is, the menu opening under it")
 
+/*
+  The header used to fade out under an open drawer, which on a phone read as
+  the menu hiding the header. The menu opens below it now (Dawn's way): the
+  drawer and its backdrop start at the header's bottom, measured from the
+  header itself, and the hamburger, turned into an X, is the close.
+  Measured by scripts/check-header-drawers.mjs: header opacity 1 throughout.
+*/
 check(
-  "the header fades under the menu or the bag",
-  /const drawerOpen = mobileNavOpen \|\| \(showCart && cartOpen\)/.test(header) && /useHeaderUnderDrawer\(headerRef, drawerOpen\)/.test(header),
+  "the header does not fade under a drawer any more",
+  !/useHeaderUnderDrawer\(/.test(header) && !/el\.animate\(\[\{ opacity: from \}/.test(frame),
 )
 check(
-  "by opacity on the compositor, through the Web Animations API, not a transition show on scroll up would overwrite",
-  /el\.animate\(\[\{ opacity: from \}, \{ opacity: drawerOpen \? 0 : 1 \}\]/.test(frame),
+  "the menu is given the header to open under",
+  /below=\{headerRef\}/.test(header) && /useDrawerFrame\(open, !!scopedToPreview, onClose, below\)/.test(header),
 )
 check(
-  "and nothing is left holding its opacity once it is back",
-  /a\.cancel\(\); fade\.current = null/.test(frame),
+  "and starts at the header's bottom edge, or takes the whole height with its own close when the header is out of view",
+  /: \{ top: inset, bottom: 0 \}/.test(frame) && /\{!underHeader && \(/.test(header),
 )
 check(
   "show on scroll up stands still while a drawer is over the page",

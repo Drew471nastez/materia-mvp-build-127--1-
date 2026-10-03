@@ -19,6 +19,7 @@
  * generated, so the same page renders the same twice.
  */
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 
 /** The page keys, and the address each is served at. */
 export const ACCOUNT_PAGE_PATHS: Readonly<Record<string, string>> = Object.freeze({
@@ -28,16 +29,9 @@ export const ACCOUNT_PAGE_PATHS: Readonly<Record<string, string>> = Object.freez
   contact: "/contact",
 })
 
-function chrome(homeSections: SectionInstance[]) {
-  return {
-    header: homeSections.find((s) => s.type === "header"),
-    footer: homeSections.find((s) => s.type === "footer"),
-  }
-}
-
 function page(homeSections: SectionInstance[], main: SectionInstance): SectionInstance[] {
-  const { header, footer } = chrome(homeSections)
-  return [...(header ? [header] : []), main, ...(footer ? [footer] : [])]
+  /* The header group and the footer group, announcement bars included: lib/website-builder/universal-chrome.ts. */
+  return withUniversalChrome([main], chromeOf(homeSections))
 }
 
 /**
@@ -78,9 +72,22 @@ export function contactSections(homeSections: SectionInstance[]): SectionInstanc
   return page(homeSections, main("storelib-contact", "contact", "Contact form", homeSections))
 }
 
+/**
+ * THE PASSWORD PAGE stands on its own, the way Shopify's does: no header,
+ * no footer, nothing to click through to, because everything behind those
+ * links is behind the password too. One section, on the site's own ground.
+ * Served at /password while the website asks for a password
+ * (lib/site-password), and opened in the builder like any other page.
+ */
+export function passwordSections(homeSections: SectionInstance[]): SectionInstance[] {
+  return [main("storelib-password", "main_password", "Password page", homeSections)]
+}
+
 /** The generated page for a key, or null when the key is not one of these. */
 export function accountPageSections(key: string, homeSections: SectionInstance[]): SectionInstance[] | null {
   switch (key) {
+    case "password":
+      return passwordSections(homeSections)
     case "account":
       return accountSections(homeSections)
     case "login":

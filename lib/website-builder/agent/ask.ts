@@ -42,8 +42,15 @@ export const ASK_TOOL: ToolSpec<string> = {
         description: "Two to four short answers they can tap, under 48 characters each, taken from what you read: real product names, real page names.",
       },
       why: { type: "string", description: "Why it matters, in a few words. \"The hero sells one product.\"" },
+      imageSectionId: {
+        type: "string",
+        description:
+          'ONLY WHEN YOU NEED A PICTURE FROM THEM (their portrait, their product photo): the id of the section whose image setting it goes in, and options exactly "Upload image" and "Paste image URL". The chat turns those two into a file picker and an address box and puts the picture straight into that setting. "" for any other question.',
+      },
+      imageBlockId: { type: "string", description: 'The block path inside that section when the picture is a block\'s setting, else "".' },
+      imageSetting: { type: "string", description: 'The image_picker setting id the picture goes in, else "".' },
     },
-    required: ["question", "options", "why"],
+    required: ["question", "options", "why", "imageSectionId", "imageBlockId", "imageSetting"],
     additionalProperties: false,
   },
 }
@@ -92,6 +99,11 @@ export function readAsk(argumentsJson: string, id: string, ctx: AskContext): { q
           : "The store has one product, so that is the one. Use it without asking.",
     }
   }
+  /* A picture it needs, named by where it goes: checked against the page by the loop before it is offered. */
+  const sectionId = typeof args.imageSectionId === "string" ? args.imageSectionId.trim() : ""
+  const setting = typeof args.imageSetting === "string" ? args.imageSetting.trim() : ""
+  const blockId = typeof args.imageBlockId === "string" ? args.imageBlockId.trim() : ""
+  if (sectionId && setting) question.target = { sectionId, setting, ...(blockId ? { blockId } : {}) }
   return { question }
 }
 

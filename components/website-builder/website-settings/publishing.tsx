@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { AddressValue, Badge, Card, ErrorNote, PageTitle, Row, buttonClass, primaryButtonClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { PasswordCard } from "./password"
 
 function when(iso: string | null): string | null {
   if (!iso) return null
@@ -61,9 +62,11 @@ export function PublishingSettings({ ctx }: { ctx: SettingsContext }) {
         </Row>
       </Card>
 
+      <PasswordCard ctx={ctx} />
+
       {ctx.live && (
         <Card title="Take offline">
-          <Row label="Unpublish this website" hint="Your address shows a short “not published yet” page. Nothing is deleted, and you can publish again at any time.">
+          <Row label="Unpublish this website" hint="Your address shows a Coming soon page. Nothing is deleted, and you can publish again at any time.">
             {confirming ? (
               <span className="flex items-center gap-2">
                 <button type="button" onClick={() => setConfirming(false)} disabled={busy} className="h-11 rounded-lg px-3 text-[15px] text-white/70 hover:text-white md:h-9 md:text-[14px]">

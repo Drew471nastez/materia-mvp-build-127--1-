@@ -40,6 +40,7 @@
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { kindLookup } from "@/lib/storelib-theme/section-groups"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
@@ -61,7 +62,9 @@ import {
   withDynamicSources,
   type CreatorFacts,
   communityReferences,
+  pageWantsCollections,
 } from "@/lib/website-builder/storefront-data"
+import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/website-builder/storefront-data-server"
 import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
@@ -325,7 +328,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
    * was the only place the drift showed. See lib/website-builder/
    * universal-chrome.
    */
-  const dressed = applyUniversalChrome(pages)
+  const dressed = applyUniversalChrome(pages, "home", kindLookup(sources, SECTION_SCHEMAS as never))
   for (const key of Object.keys(dressed)) pages[key] = dressed[key]
 
   const sections = pages.home ?? []
@@ -399,7 +402,8 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
   const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(pageKey))
   /* `shop.name` falls back to the creator's public name when the store has
      none set: lib/storelib-theme/globals.ts. Nothing per visitor here. */
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, {
+  /* The page's title rides on `page` too, for the Breadcrumbs section's trail. */
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, { title: pageTitleFromKey(pageKey) }, data, {
     shop: { name: site.displayName },
   })
   return { kind: "site", site: { ...site, sections, prerendered } }
@@ -474,11 +478,30 @@ export async function dressPage(
           : read()
       })().catch(() => ({}))
     : undefined
+  /*
+    The creator's published collections, for a collection picker, a
+    collection list and the collections page: read only for a page that
+    uses them, a minute in the cache like the shop, and only while physical
+    commerce (where collections live) is on.
+  */
+  const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
+  const collections = pageWantsCollections(sections, schemaOf, sourceOf)
+    ? await (async () => {
+        const { isPhysicalCommerceEnabled } = await import("@/lib/platform/physical-commerce")
+        if (!(await isPhysicalCommerceEnabled())) return undefined
+        const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
+        const read = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
+        return opts.cached
+          ? unstable_cache(read, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
+          : read()
+      })().catch(() => undefined)
+    : undefined
   const data = storefrontData({
     dynamic,
     catalog: mergeCatalog(products, picked),
     menus: siteMenus(site.themeSettings, filled),
     communities,
+    collections,
   })
   return { sections: filled, data }
 }

@@ -201,8 +201,10 @@ async function measureOpenMenu(p, { label, pageTop, long, width }) {
     })
   }, hdrBefore)
   const hdrOpen = await headerOf()
-  check(cover.every((c) => /=(drawer|backdrop)$/.test(c)), `${label}: nothing of the header is on top at its own row: ${cover.join("  ")}`)
-  check(hdrOpen.opacity < 0.05, `${label}: the header is faded out while the menu is open (opacity ${hdrOpen.opacity})`)
+  /* Since the menu opens UNDER the header (Dawn's way), the header's own row
+     is the header's: nothing covers it and it does not fade or move. */
+  check(cover.every((c) => /=HEADER$/.test(c)), `${label}: the header is on top at its own row while the menu is open: ${cover.join("  ")}`)
+  check(hdrOpen.opacity > 0.99 && Math.abs(hdrOpen.rect.top - hdrBefore.rect.top) <= 1, `${label}: the header stays as it was while the menu is open (opacity ${hdrOpen.opacity}, top ${hdrBefore.rect.top} then ${hdrOpen.rect.top})`)
   check((hdrOpen.transform || "") === (hdrBefore.transform || ""), `${label}: the header's own slide is untouched while open (${hdrBefore.transform || "none"} then ${hdrOpen.transform || "none"})`)
 
   if (SHOTS) await page.screenshot({ path: join(SHOTS, `drawer-${label.replace(/[^a-z0-9]+/gi, "-")}.png`) })
@@ -278,7 +280,9 @@ async function measureOpenMenu(p, { label, pageTop, long, width }) {
   }
 
   /* Close with the X: the page is where it was on every frame. */
-  const x = await page.evaluate(() => window.__rect(window.__drawer().querySelector('button[aria-label="Close menu"]')))
+  /* The drawer's own X when it covers the header, otherwise the header's
+     hamburger, which is the close while the menu opens under it. */
+  const x = await page.evaluate(() => window.__rect(window.__drawer().querySelector('button[aria-label="Close menu"]') ?? window.__menuBtn()))
   await page.evaluate(() => { window.__long = [] })
   const closeSamples = await sampleWhile(page, pageTop, () => tap(centre(x).x, centre(x).y), 900)
   const closeLong = await page.evaluate(() => window.__long.splice(0))

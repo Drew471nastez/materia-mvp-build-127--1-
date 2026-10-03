@@ -167,6 +167,76 @@ export function fillFooterTokens(text: string, ctx: { year: number; shopName: st
   return filled.replace(/[ \t]+([.,;:])/g, "$1").replace(/[ \t]{2,}/g, " ")
 }
 
+/**
+ * ===========================================================================
+ *  THE FOOTER'S GRID, AT THE THREE WIDTHS THAT MATTER
+ * ===========================================================================
+ * It was a flex row with `justify-between`: the brand on the far left, the
+ * link columns pushed to the far right, and the whole middle of the footer
+ * empty. With a narrow grid of columns on the right, three columns of links
+ * wrapped into two and the footer came out tall and sparse.
+ *
+ * A grid now, the way Dawn lays one out, sized by the container the footer
+ * is drawn in (the canvas is the phone's width in phone preview):
+ *
+ *   wide (1000px and up)  brand | link columns | newsletter, one row
+ *   medium (640 to 999)   brand and newsletter side by side, the link
+ *                         columns as a full row under them; or, without a
+ *                         newsletter, brand and links in one row
+ *   narrow                one column: brand, links two to a row, newsletter
+ *
+ * `columns` (Link columns) is how many link columns sit side by side at
+ * medium widths before the next one wraps. From 1000px up they all share
+ * the one row (up to five), because a wide screen has the room and a
+ * wrapped second row is what made the footer tall.
+ */
+export interface FooterGrid {
+  /** How many link columns sit side by side from 1000px up. */
+  navTracks: number
+  /** And from 640px to 999px. */
+  navTracksMedium: number
+  /** grid-template-columns from 1000px up. */
+  wide: string
+  /** grid-template-columns from 640px to 999px. */
+  medium: string
+  /** At medium, the links take a row of their own under brand and newsletter. */
+  navOwnRowAtMedium: boolean
+}
+
+export function footerGrid(opts: { linkColumns: number; columnsSetting: unknown; newsletter: boolean }): FooterGrid {
+  const cap = Math.min(4, Math.max(1, Number.parseInt(String(opts.columnsSetting ?? "3"), 10) || 3))
+  const n = Math.max(0, opts.linkColumns)
+  const navTracks = Math.min(n, 5)
+  const navTracksMedium = Math.min(n, cap)
+  /* The link block grows with its columns, a little under one share each. */
+  const share = (tracks: number) => `minmax(0, ${(tracks * 0.85).toFixed(2)}fr)`
+  const wide = [
+    "minmax(0, 1.15fr)",
+    navTracks > 0 ? share(navTracks) : "",
+    opts.newsletter ? "minmax(0, 1.25fr)" : "",
+  ].filter(Boolean).join(" ")
+  const navOwnRowAtMedium = opts.newsletter && navTracks > 0
+  const medium = opts.newsletter || navTracks === 0
+    ? (opts.newsletter ? "minmax(0, 1fr) minmax(0, 1fr)" : "minmax(0, 1fr)")
+    : `minmax(0, 1fr) ${share(navTracksMedium)}`
+  return { navTracks, navTracksMedium, wide, medium, navOwnRowAtMedium }
+}
+
+/**
+ * The Contact column: an email and a phone number the creator typed, made
+ * into links a visitor can tap. Empty fields are left out, and with both
+ * empty there is no column.
+ */
+export function footerContactLinks(email: unknown, phone: unknown): FooterLink[] {
+  const out: FooterLink[] = []
+  const e = typeof email === "string" ? email.trim() : ""
+  if (/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]{2,}$/.test(e)) out.push({ id: "fcontact-email", label: e, url: `mailto:${e}` })
+  const p = typeof phone === "string" ? phone.trim() : ""
+  const digits = p.replace(/[^\d+]/g, "")
+  if (digits.replace(/\D/g, "").length >= 5) out.push({ id: "fcontact-phone", label: p, url: `tel:${digits}` })
+  return out
+}
+
 /** The footer's layouts. Anything unknown is the one every footer had. */
 export type FooterLayout = "columns" | "centered"
 

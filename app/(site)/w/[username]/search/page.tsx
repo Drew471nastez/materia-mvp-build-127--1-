@@ -6,6 +6,7 @@ import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { productMatchesQuery, searchSections } from "@/lib/website-builder/shop-page"
+import { catalogPage } from "@/lib/products/catalog-filters"
 import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
@@ -31,7 +32,8 @@ export const dynamic = "force-dynamic"
 
 interface PageProps {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ q?: string }>
+  /* `q`, and the filters and the sort beside it: lib/products/catalog-filters.ts. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -43,7 +45,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function SiteSearchPage({ params, searchParams }: PageProps) {
   const { username } = await params
-  const { q } = await searchParams.catch(() => ({ q: "" }) as { q?: string })
+  const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
+  const q = Array.isArray(asked.q) ? asked.q[0] : asked.q
   const query = (q ?? "").slice(0, 120)
 
   const found = await publishedShopByName(username)
@@ -69,8 +72,12 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
   const { sections, data } = await dressPage(site, arranged, products, productCount, "page.search", "Search")
   /* The query travels on the page rather than in the section's settings: it
      belongs to this request, not to anything the creator arranged. */
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.search", matches, {
+  /* The filters narrow what the words found, and say how many each would
+     leave. The words are matched above, description included, so not again. */
+  const { listed, filters } = catalogPage(matches, asked, "/search", { matchWords: false })
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.search", listed, {
     query,
+    filters,
   }, data)
 
   return (

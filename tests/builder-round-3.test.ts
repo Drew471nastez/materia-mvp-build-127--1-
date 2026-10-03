@@ -182,7 +182,8 @@ async function main() {
      */
     check("the sidebar row is scrolled by its own container, not by scrollIntoView", /const scroller = row\.closest\("\[data-sheet-scroll\], \[data-wb-sidebar-scroll\]"\)/.test(editor) && /scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(editor))
     check("and a row already in view is left alone", /if \(r\.top >= box\.top && r\.bottom <= box\.bottom\) return/.test(editor))
-    check("both sidebar scrollers are marked", (editor.match(/data-wb-sidebar-scroll/g) ?? []).length === 3)
+    /* Counted as attributes on the two scrollers, not as every selector that looks for them. */
+    check("both sidebar scrollers are marked", (editor.match(/<div [^>]*\bdata-wb-sidebar-scroll[\s>]/g) ?? []).length === 2)
   }
 
   // ═══════════════════════════════════════════════════════════════════════

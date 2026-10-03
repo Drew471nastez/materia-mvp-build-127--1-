@@ -133,6 +133,62 @@ The text styles, with their defaults. Each can be changed: font, weight, a size 
 
 @[theme-settings:animations]
 
+### Variant pills
+
+The buttons a product's options are picked with.
+
+@[theme-settings:variant_pills]
+
+### Inputs
+
+Every text box, dropdown and text area a section draws: search, sign in, newsletter, contact.
+
+@[theme-settings:inputs]
+
+### Product cards
+
+A product in a grid, a featured collection, the 404 page's suggestions. **Standard** puts the corners, outline and shadow on the picture; **Card** puts them round the whole card, on a faint fill of its own text colour, with the words inset.
+
+@[theme-settings:product_cards]
+
+### Collection cards
+
+The same choices, for a collection in a Collection list.
+
+@[theme-settings:collection_cards]
+
+### Content containers
+
+Boxes that hold text, such as a feature card or a plan.
+
+@[theme-settings:content_containers]
+
+### Media
+
+Pictures and videos in sections.
+
+@[theme-settings:media]
+
+### Dropdowns and pop-ups
+
+Menus that drop down from the header, and boxes that open over the page.
+
+@[theme-settings:popups]
+
+### Badges
+
+The Sale label on a product with a price to compare against, and the Sold out label on one whose stock has run out.
+
+@[theme-settings:badges]
+
+### Brand information
+
+A headline, a description and a picture about the shop. Any text setting can show them with **Insert shop data**, and a section reads them as `theme.brand`.
+
+@[theme-settings:brand]
+
+The groups from Variant pills to Badges change a page only once a value is chosen: a site that never opens them looks as it always did.
+
 ### Announcement bar
 
 A bar above the header on every page. With more than one message, the messages take turns, with arrows to move between them. The bar stops while the pointer or the keyboard is on it and does not move by itself for a visitor whose device asks for less motion.
@@ -149,9 +205,15 @@ Named lists of links that a section can show: a footer column, a second navigati
 
 @[theme-settings:social]
 
-### Shipping
+### Cart
+
+What Add to cart does, and the free shipping bar.
 
 @[theme-settings:cart]
+
+### Currency format
+
+@[theme-settings:currency]
 
 ### SEO
 
@@ -160,6 +222,12 @@ Named lists of links that a section can show: a footer column, a second navigati
 ### Cookie and privacy
 
 @[theme-settings:cookies]
+
+### Custom CSS
+
+Your own CSS for every page of the site, as Shopify's Custom CSS. A rule is kept inside the page: `.card__title { … }` styles the cards on your site and cannot reach the builder. `html`, `body` and `:root` mean the page itself. Left out, and listed under the box: `@import`, `@font-face`, the `<` character, backslash escapes, `expression()`, and any `url()` that is not https or one of your own paths. A media query that asks only about width becomes the same container query, so the phone preview shows your phone rules.
+
+@[theme-settings:custom_css]
 
 ## The canvas
 

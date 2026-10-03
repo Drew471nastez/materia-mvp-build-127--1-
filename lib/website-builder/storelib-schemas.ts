@@ -68,6 +68,10 @@ export function editorSchema(schema: EngineSchema): SectionSchema {
   if (schema.max_blocks !== undefined) out.max_blocks = schema.max_blocks
   // What the panel may change about the section's design. See design-support.ts.
   for (const key of DESIGN_SUPPORT_KEYS) if (schema[key] !== undefined) (out as unknown as Record<string, unknown>)[key] = schema[key]
+  // Where it may go, and whether it is the site's own header or footer.
+  if (schema.enabled_on) out.enabled_on = schema.enabled_on as SectionSchema["enabled_on"]
+  if (schema.disabled_on) out.disabled_on = schema.disabled_on as SectionSchema["disabled_on"]
+  if (schema.kind === "header" || schema.kind === "footer") out.kind = schema.kind
   if (schema.presets) out.presets = editorPresets(schema.type, schema.presets)
   return out
 }
@@ -263,6 +267,8 @@ export function customAddableSections(custom: Record<string, SectionSchema>): st
     .filter((t) => (custom[t].presets?.length ?? 0) > 0)
     /* A header or footer written as a section, saved before that was refused, is not offered for a page body. */
     .filter((t) => !chromeRoleOf({ schema: custom[t] as unknown as Record<string, unknown>, type: t }))
+    /* Nor is one that declares it IS the header or footer: its place is that group, never the page. */
+    .filter((t) => !custom[t].kind)
     .sort()
 }
 

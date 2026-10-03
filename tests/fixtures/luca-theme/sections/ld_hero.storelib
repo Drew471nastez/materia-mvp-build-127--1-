@@ -1,0 +1,279 @@
+{# The opening of the page: an eyebrow, a large headline, a short promise, two
+   actions and the writer's name. On the right, up to two sample drafts drawn as
+   cards, the second one stepped down. Every word and picture is a setting. #}
+
+<template>
+<section class="ldh" id="{{ settings.anchor }}" data-scheme="{{ settings.color_scheme }}" style="--ldh-pt: {{ settings.padding_top }}px; --ldh-pb: {{ settings.padding_bottom }}px; --ldh-hs: {{ settings.heading_size }}; --ldh-hsm: {{ settings.heading_size_mobile }}; --ldh-hw: {{ settings.heading_width }}; --ldh-accent: {{ settings.accent_color }}; --ldh-radius: {{ settings.card_radius }}px;">
+  <div class="ldh__in{% if blocks.size == 0 %} ldh__in--solo{% endif %}">
+    <div class="ldh__copy">
+      {% if settings.eyebrow %}<p class="ldh__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+      {% if settings.heading %}<h1 class="ldh__h">{{ settings.heading }}</h1>{% endif %}
+      {% if settings.text %}<p class="ldh__lead">{{ settings.text }}</p>{% endif %}
+
+      {% if settings.button_label or settings.link_label %}
+        <div class="ldh__actions">
+          {% if settings.button_label %}<a class="ldh__btn s__btn" href="{{ settings.button_url | url }}">{{ settings.button_label }}</a>{% endif %}
+          {% if settings.link_label %}<a class="ldh__link" href="{{ settings.link_url | url }}">{{ settings.link_label }}</a>{% endif %}
+        </div>
+      {% endif %}
+
+      {% if settings.show_author and settings.author_name %}
+        <div class="ldh__author">
+          {% if settings.author_image %}<img class="ldh__avatar" src="{{ settings.author_image }}" alt="{{ settings.author_name }}" width="56" height="56" loading="lazy">{% endif %}
+          <div>
+            <p class="ldh__name">{{ settings.author_name }}</p>
+            {% if settings.author_role %}<p class="ldh__role">{{ settings.author_role }}</p>{% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% for block in blocks %}
+      {% if forloop.first %}<div class="ldh__cards">{% endif %}
+      <article class="ldh__card" data-block-id="{{ block.id }}">
+        {% if block.settings.meta %}<p class="ldh__meta">{{ block.settings.meta }}</p>{% endif %}
+        {% if block.settings.brand %}
+          <p class="ldh__brand">
+            {% if block.settings.logo %}<img class="ldh__logo" src="{{ block.settings.logo }}" alt="" width="28" height="28" loading="lazy">{% endif %}
+            <span>{{ block.settings.brand }}</span>
+          </p>
+        {% endif %}
+        <p class="ldh__headline">{{ block.settings.headline }}</p>
+        {% if block.settings.link_label %}
+          <a class="ldh__open" href="{% if block.settings.file %}{{ block.settings.file | url }}{% else %}{{ block.settings.link_url | url }}{% endif %}" target="{% if block.settings.new_tab %}_blank{% else %}_self{% endif %}" rel="noopener">{{ block.settings.link_label }}</a>
+        {% endif %}
+      </article>
+      {% if forloop.last %}</div>{% endif %}
+    {% endfor %}
+  </div>
+</section>
+</template>
+
+<style>
+.ldh {
+  container-type: inline-size;
+  background: var(--scheme-background);
+  color: var(--scheme-text);
+  font-family: var(--theme-font-body, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  scroll-margin-top: 88px;
+}
+.ldh__in {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  max-width: calc(var(--theme-page-width, 1160px) + 2 * var(--theme-padding-x, 24px));
+  margin: 0 auto;
+  padding: calc(var(--ldh-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--ldh-pb) * var(--theme-spacing-scale, 1));
+}
+.ldh__copy { min-width: 0; }
+.ldh__eyebrow {
+  margin: 0 0 22px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--scheme-text);
+}
+.ldh__h {
+  margin: 0;
+  max-width: calc(var(--ldh-hw) * 1em);
+  font-family: var(--theme-font-heading, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(calc(var(--ldh-hsm) * 1px), calc(var(--ldh-hs) * 0.0715cqi), calc(var(--ldh-hs) * 1px));
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.042em;
+  color: var(--scheme-heading);
+  overflow-wrap: anywhere;
+}
+.ldh__lead {
+  margin: 28px 0 0;
+  max-width: 28.5em;
+  font-size: 20px;
+  line-height: 1.75;
+  color: var(--scheme-text);
+}
+.ldh__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 26px; margin-top: 34px; }
+.ldh__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 24px;
+  border: 1px solid var(--scheme-button-primary-border);
+  border-radius: 6px;
+  background: var(--scheme-button-primary);
+  color: var(--scheme-button-primary-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.ldh__btn:hover { background: var(--scheme-button-primary-hover); color: var(--scheme-button-primary-hover-text); }
+.ldh__link {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--scheme-heading);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 5px;
+}
+.ldh__link:hover { color: var(--ldh-accent); }
+
+.ldh__author { display: flex; align-items: center; gap: 16px; margin-top: 32px; }
+.ldh__avatar {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 3px var(--scheme-background), 0 0 0 4px var(--scheme-border);
+}
+.ldh__name { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--scheme-heading); }
+.ldh__role { margin: 2px 0 0; font-size: 14px; line-height: 1.4; color: var(--scheme-text); }
+
+.ldh__cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+  max-width: 520px;
+}
+.ldh__card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 26px 20px 28px;
+  border: 1px solid var(--scheme-border);
+  border-top: 3px solid var(--ldh-accent);
+  border-radius: var(--ldh-radius);
+  background: var(--scheme-background);
+  box-shadow: 0 10px 30px rgba(17, 20, 28, 0.06);
+}
+.ldh__card:nth-child(even) { margin-top: 56px; }
+.ldh__meta {
+  margin: 0 0 20px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--scheme-text-muted);
+}
+.ldh__brand { display: flex; align-items: center; gap: 9px; margin: 0 0 26px; font-size: 14px; font-weight: 600; color: var(--scheme-heading); }
+.ldh__logo { flex: none; width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.ldh__headline {
+  margin: 0 0 30px;
+  font-family: var(--theme-font-heading, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.32;
+  letter-spacing: -0.025em;
+  color: var(--scheme-heading);
+}
+.ldh__open {
+  align-self: flex-start;
+  margin-top: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--scheme-heading);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ldh__open:hover { color: var(--ldh-accent); }
+.ldh__btn:focus-visible, .ldh__link:focus-visible, .ldh__open:focus-visible { outline: 2px solid var(--ldh-accent); outline-offset: 3px; }
+
+@container (min-width: 900px) {
+  .ldh__in { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: 56px; }
+  .ldh__in--solo { grid-template-columns: minmax(0, 1fr); }
+  .ldh__cards { justify-self: end; width: 100%; }
+}
+@container (max-width: 520px) {
+  .ldh__eyebrow { margin-bottom: 16px; font-size: 12px; }
+  .ldh__lead { margin-top: 20px; font-size: 16px; line-height: 1.6; }
+  .ldh__actions { margin-top: 26px; }
+  .ldh__btn { min-height: 46px; padding: 0 20px; font-size: 14px; }
+  .ldh__link { font-size: 15px; }
+  .ldh__cards { gap: 12px; }
+  .ldh__card { padding: 20px 14px 22px; }
+  .ldh__card:nth-child(even) { margin-top: 36px; }
+  .ldh__meta { margin-bottom: 14px; font-size: 9px; }
+  .ldh__brand { margin-bottom: 18px; font-size: 12px; }
+  .ldh__logo { width: 22px; height: 22px; }
+  .ldh__headline { margin-bottom: 20px; font-size: 16px; }
+  .ldh__open { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ldh__btn { transition: none; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ld_hero",
+  "name": "LD Hero with drafts",
+  "category": "hero",
+  "description": "Large headline, two actions, the writer, and sample draft cards",
+  "supports_typography_overrides": false,
+  "settings": [
+    { "type": "header", "id": "hdr_content", "label": "Content" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "LinkedIn posts, written with you" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Put your experience into words." },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "I write LinkedIn posts from your notes and conversations, so potential clients can understand how you think and what you do." },
+    { "type": "header", "id": "hdr_actions", "label": "Actions" },
+    { "type": "text", "id": "button_label", "label": "Button text", "default": "Ask about two sample posts" },
+    { "type": "url", "id": "button_url", "label": "Button link", "default": "#contact" },
+    { "type": "text", "id": "link_label", "label": "Second link text", "default": "Read a sample" },
+    { "type": "url", "id": "link_url", "label": "Second link", "default": "#samples" },
+    { "type": "header", "id": "hdr_author", "label": "Writer" },
+    { "type": "toggle", "id": "show_author", "label": "Show the writer", "default": true },
+    { "type": "image_picker", "id": "author_image", "label": "Photo" },
+    { "type": "text", "id": "author_name", "label": "Name", "default": "Luca Dragoste" },
+    { "type": "text", "id": "author_role", "label": "Role", "default": "LinkedIn ghostwriter" },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "white" },
+    { "type": "color", "id": "accent_color", "label": "Card accent", "default": "scheme.accent" },
+    { "type": "range", "id": "heading_size", "label": "Heading size on a computer", "min": 40, "max": 120, "step": 2, "unit": "px", "default": 92 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on a phone", "min": 28, "max": 72, "step": 1, "unit": "px", "default": 42 },
+    { "type": "range", "id": "heading_width", "label": "Heading line length", "info": "Lower numbers break the heading into more lines", "min": 4, "max": 20, "step": 0.5, "default": 6.5 },
+    { "type": "range", "id": "card_radius", "label": "Card corners", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 10 },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "info": "Lets a link jump here, as #top" },
+    { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 80 }
+  ],
+  "blocks": [
+    {
+      "type": "draft",
+      "name": "Draft card",
+      "limit": 2,
+      "settings": [
+        { "type": "text", "id": "meta", "label": "Small label", "default": "Andrew Rullz · Unpublished draft" },
+        { "type": "image_picker", "id": "logo", "label": "Brand logo" },
+        { "type": "text", "id": "brand", "label": "Brand", "default": "Materia Themes" },
+        { "type": "textarea", "id": "headline", "label": "Opening line", "default": "Before I launched Materia 1.0.0, I spent months testing and refining it." },
+        { "type": "text", "id": "link_label", "label": "Link text", "default": "Open PDF · 3 pages" },
+        { "type": "file_picker", "id": "file", "label": "PDF file", "info": "Upload the PDF, or paste a link below" },
+        { "type": "url", "id": "link_url", "label": "Link", "default": "#samples" },
+        { "type": "toggle", "id": "new_tab", "label": "Open in a new tab", "default": false }
+      ]
+    }
+  ],
+  "max_blocks": 2,
+  "presets": [
+    {
+      "name": "LD Hero with drafts",
+      "blocks": [
+        { "type": "draft", "settings": { "brand": "Materia Themes", "headline": "Before I launched Materia 1.0.0, I spent months testing and refining it." } },
+        { "type": "draft", "settings": { "brand": "Storelib", "headline": "The first time I shared Storelib publicly, it was still in development." } }
+      ]
+    }
+  ]
+}
+</schema>

@@ -5,7 +5,7 @@ import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Minimize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   KeyboardSensor,
@@ -30,6 +30,7 @@ import {
 import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
+import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { SectionBlockList } from "@/components/website-builder/editor/section-block-list"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
@@ -42,6 +43,8 @@ import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-b
 import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
 import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
 import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
+import { CanvasHover } from "@/components/website-builder/canvas-hover"
+import { backThen } from "@/lib/navigation/go-back"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { PageList, PageSwitcher, type SwitcherPage } from "@/components/website-builder/page-switcher"
@@ -65,12 +68,29 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
+import { customPageSections } from "@/lib/website-builder/shop-page"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
-import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
+import { editorPageKeyOf, editorPagePath, resolveEditorHref } from "@/lib/website-builder/editor-navigation"
+import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
-import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { mainProductSection, withProductBlocks } from "@/lib/website-builder/product-page"
+import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
+import {
+  groupOf,
+  isKind,
+  kindLookup,
+  placeSection,
+  repairChrome,
+  sectionGroupsFor,
+  splitGroups,
+  toggleShown,
+  visibleOfKind,
+  type SectionGroup,
+  type SectionKind,
+} from "@/lib/storelib-theme/section-groups"
+import { ReplaceChromeConfirm } from "@/components/website-builder/editor/replace-chrome-confirm"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
@@ -79,10 +99,12 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
+import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
+import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementLike } from "@/lib/website-builder/click-to-edit"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
@@ -102,10 +124,11 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
+import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
-import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
+import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -120,17 +143,20 @@ import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
-import { HeaderNavLinksEditor } from "@/components/website-builder/editor/controls/link-list-editor"
+import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
-import type { StorefrontCommunity } from "@/lib/storelib-theme/types"
-import type { PickerCommunity } from "@/components/website-builder/editor/controls"
+import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-builder/main-menu"
+import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
+import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
 
 /** What /api/website-builder/themes/[installId] says about the creator's communities. */
 type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
+/** And about their collections: every one to pick, the published ones as a section reads them. */
+type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
+/** The sections that show the creator's collections, offered only while collections are on. */
+const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "collection_featured"])
 import { formatPrice } from "@/lib/website-builder/shop-products"
-import { cleanMenus } from "@/lib/storelib-theme/values"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
-import { OWN_AI_RETURN_KEY } from "@/components/website-builder/use-own-ai"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -945,6 +971,11 @@ export type DeviceMode = "desktop" | "mobile"
  * 375px phone too. The preview is worth nothing if it is not a real phone's
  * width.
  */
+/** Full screen preview, remembered for the tab's session (see `fullScreen` in the editor). */
+const FULL_SCREEN_KEY = "wb:full-screen"
+/** How long the sidebar takes to fold away or come back. */
+const FULL_SCREEN_MS = 320
+
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
 }
@@ -1290,10 +1321,7 @@ function HeaderSectionSettings({
   schema,
   onBack,
   onUpdateSetting,
-  onUpdateBlockSetting,
-  onAddBlock,
-  onRemoveBlock,
-  onReorderBlocks,
+  onPickMenu,
   theme,
   onEditScheme,
 }: {
@@ -1301,10 +1329,8 @@ function HeaderSectionSettings({
   schema: any
   onBack: () => void
   onUpdateSetting: (key: string, value: unknown) => void
-  onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
-  onAddBlock: (type: string, initialSettings?: Record<string, unknown>) => void
-  onRemoveBlock: (blockId: string) => void
-  onReorderBlocks: (blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
+  /** Which menu the header shows; picking the Main menu moves the header's links into it (main-menu.ts). */
+  onPickMenu: (handle: string) => void
   theme: ThemeSettingsValues
   onEditScheme: (schemeKey?: string) => void
 }) {
@@ -1313,7 +1339,7 @@ function HeaderSectionSettings({
 
   const tabs = [
     { id: "logo", label: "Store Logo" },
-    { id: "nav", label: "Navigation Links" },
+    { id: "nav", label: "Menu" },
     { id: "header", label: "Header Settings" },
   ]
 
@@ -1334,6 +1360,30 @@ function HeaderSectionSettings({
               aspectRatio="logo"
               folder="logos"
             />
+
+            {/* Logo shows: lib/website-builder/header-settings.ts (logoParts). */}
+            <WbSelect
+              label="Logo shows"
+              value={typeof s.logo_mode === "string" ? s.logo_mode : (typeof s.logo_url === "string" && s.logo_url ? "image" : "text")}
+              onChange={v => onUpdateSetting("logo_mode", v)}
+              options={[
+                { label: "Image", value: "image" },
+                { label: "Text", value: "text" },
+                { label: "Image and text", value: "image_text" },
+              ]}
+            />
+            {(s.logo_mode === "text" || s.logo_mode === "image_text" || !(typeof s.logo_url === "string" && s.logo_url)) && (
+              <div className="space-y-1.5">
+                <p className="text-[13px] font-medium text-foreground">Name</p>
+                <input
+                  type="text"
+                  className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                  placeholder={typeof theme.brand_name === "string" && theme.brand_name ? theme.brand_name : "My Store"}
+                  value={typeof s.logo_text === "string" ? s.logo_text : ""}
+                  onChange={e => onUpdateSetting("logo_text", e.target.value)}
+                />
+              </div>
+            )}
 
             {/* Logo height slider */}
             {typeof s.logo_url === "string" && s.logo_url && (
@@ -1424,37 +1474,15 @@ function HeaderSectionSettings({
         )
 
       case "nav": {
-        const allBlocks = section.blocks ?? []
-        /* A menu from Theme settings › Menus in place of these links: see header-settings.ts. */
-        const themeMenus = cleanMenus((theme as Record<string, unknown>).menus)
-        const menuHandle = typeof s.menu === "string" ? s.menu : ""
-        const usingMenu = !!menuHandle && !!themeMenus[menuHandle]
+        /* Shopify's header: it shows a menu, and the menu is edited in Menus (lib/website-builder/main-menu.ts). */
         return (
-          <div className="space-y-3">
-            {Object.keys(themeMenus).length > 0 && (
-              <WbSelect
-                label="Links"
-                value={usingMenu ? menuHandle : ""}
-                onChange={v => onUpdateSetting("menu", v)}
-                options={[
-                  { label: "These links", value: "" },
-                  ...Object.entries(themeMenus).map(([handle, m]) => ({ label: `The ${m.title} menu`, value: handle })),
-                ]}
-              />
-            )}
-            {usingMenu && (
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                The header shows the {themeMenus[menuHandle].title} menu. Change its links in Theme settings, Menus. These links are kept for when you switch back.
-              </p>
-            )}
-            <HeaderNavLinksEditor
-              blocks={allBlocks}
-              maxLinks={schema?.max_blocks || undefined}
-              disabled={usingMenu}
-              onUpdateBlockSetting={onUpdateBlockSetting}
-              onAddBlock={onAddBlock}
-              onRemoveBlock={onRemoveBlock}
-              onReorderBlocks={onReorderBlocks}
+          <div className="space-y-1.5" data-header-menu="">
+            <span className="block text-xs font-medium text-muted-foreground">Menu</span>
+            <MenuPickerControl
+              label="Menu"
+              value={typeof s.menu === "string" ? s.menu : ""}
+              noneLabel={null}
+              onChange={v => onPickMenu(v)}
             />
           </div>
         )
@@ -2331,7 +2359,7 @@ function BlockLevel({
             <>
               <SiblingSettingsProvider settings={block.settings}>
                 {visibleFields(def?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map((field) => (
-                  <div key={field.id}>
+                  <div key={field.id} data-block-field={field.id}>
                     {/* A block's colour follows its section's scheme the same way: SectionColorSetting. */}
                     {field.type === "color" ? (
                       <SectionColorSetting
@@ -2417,6 +2445,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * selects the block, and the sidebar brings it into view and rings it.
    */
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  /** The field a click on the canvas asked for: the sidebar scrolls to it and rings it. `n` makes a second click on the same thing count. */
+  const [fieldFocus, setFieldFocus] = useState<{ sectionId: string; block: string | null; setting: string; n: number } | null>(null)
+  const fieldFocusSeq = useRef(0)
   const [device, setDevice] = useState<DeviceMode>("desktop")
   // Inspector mode — when ON, hovering/clicking a section shows the blue
   // selection rectangle and opens its settings panel. When OFF the canvas
@@ -2453,6 +2484,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingExit, setPendingExit] = useState<string | null>(null)
   /** Where this page is on its way to, read by the watchdog that finishes the job. */
   const leavingHref = useRef<string | null>(null)
+  /** The leave dialog was answered (Save or Discard), so the browser's own question is not asked as well. */
+  const leaveAnswered = useRef(false)
   /** Reported by the code editor in its frame; see its postMessage. */
   const [codeDirty, setCodeDirty] = useState(false)
   /**
@@ -2490,16 +2523,58 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   /* The creator's own communities, for a community_picker and the Community card (null while communities are off). */
   const [builderCommunities, setBuilderCommunities] = useState<BuilderCommunities | null>(null)
+  /* The creator's collections, for a collection_picker, a collection_list and the collections page (null while physical commerce is off). */
+  const [builderCollections, setBuilderCollections] = useState<BuilderCollections | null>(null)
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
   /** The theme's blocks (blocks/*.storelib), this install's own files over them: what Add block can offer. */
   const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources), [storelibSources])
   const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
-  /* The Community card is offered only while communities are on: off, it would draw nothing on the site. */
-  const libraryAddable = useMemo(
-    () => [...ADDABLE_SECTIONS.filter((t) => t !== "community_card" || builderCommunities !== null), ...ownSectionTypes],
-    [ownSectionTypes, builderCommunities],
-  )
+  /* The Community card is offered only while communities are on, and the collection sections only while
+     collections are (physical commerce): off, they would draw nothing on the site. */
+  /** Which types are a header or a footer: the built-in two, and any section file that is one (lib/storelib-theme/section-groups.ts). */
+  const kindOfType = useMemo(() => kindLookup(storelibSources, SECTION_SCHEMAS as never), [storelibSources])
+  /**
+   * WHERE "ADD SECTION" WAS PRESSED: the Header group, the page, or the
+   * Footer group. Each offers what may go there, the way Shopify's section
+   * groups do: the Header group its announcement bars and headers, the page
+   * everything that goes on a page (an announcement bar too, which is then
+   * put in the Header group, above the header).
+   */
+  const [addGroup, setAddGroup] = useState<SectionGroup>("template")
+  /* Every section this creator wrote, a header of their own included, is filed under Created in the library. */
+  const libraryOwnTypes = useMemo(() => Object.keys(customSchemas), [customSchemas])
+  const libraryAddable = useMemo(() => {
+    const all = [
+      ...ADDABLE_SECTIONS.filter((t) => (t !== "community_card" || builderCommunities !== null) && (!COLLECTION_SECTIONS.has(t) || builderCollections !== null)),
+      ...ownSectionTypes,
+    ]
+    const groupsOf = (t: string) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) })
+    if (addGroup === "template") {
+      return all.filter((t) => {
+        const g = groupsOf(t)
+        return g.includes("template") || (g.includes("header") && !kindOfType(t))
+      })
+    }
+    /*
+      The built-in header (or footer) first, offered whether or not one is
+      drawn: picking it where one is drawn replaces it, after asking. Then the
+      creator's own header files, which Add section never offers for a page
+      (customAddableSections leaves them out), and what else fits the group.
+    */
+    const own = addGroup as "header" | "footer"
+    const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
+    const fits = all.filter((t) => groupsOf(t).includes(own))
+    return [...new Set([own, ...ownKinds, ...fits])]
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas])
+  /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
+  const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
+  /**
+   * Set when the creator deletes the header or the footer, so the next save
+   * takes it off every other page too. Without it, a page with no header is
+   * a page whose header has not been synced yet, and is left alone.
+   */
+  const chromeRemoved = useRef<{ header?: boolean; footer?: boolean }>({})
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       // Same-origin only: the frame is our own page and nothing else may
@@ -2553,21 +2628,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const wanted = settingsSectionFrom(url.searchParams.get("settings"))
     if (!wanted) return
     setGithubReturned(url.searchParams.get("github"))
-    /* Back from connecting OpenRouter (/api/ai-keys/openrouter/callback): Connections reads it once (own-ai.tsx). */
-    const ownAi = url.searchParams.get("ownai")
-    if (ownAi) {
-      try {
-        sessionStorage.setItem(OWN_AI_RETURN_KEY, ownAi)
-      } catch {
-        /* no storage: it opens on Connections all the same */
-      }
-    }
     setSettingsSection(wanted)
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
     url.searchParams.delete("settings")
     url.searchParams.delete("github")
-    url.searchParams.delete("ownai")
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -2815,6 +2880,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
+  const sidebarFoldRef = useRef<HTMLDivElement | null>(null)
   const SIDEBAR_MIN = 240
   const SIDEBAR_MAX = 560
   useEffect(() => {
@@ -2837,6 +2903,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const onMove = (ev: PointerEvent) => {
       latest = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (ev.clientX - startX)))
       if (sidebarRef.current) sidebarRef.current.style.width = `${latest}px`
+      /* The fold around it (full screen) is capped at the width, so it moves with it. */
+      if (sidebarFoldRef.current) sidebarFoldRef.current.style.maxWidth = `${latest}px`
     }
     const onUp = () => {
       handle.removeEventListener("pointermove", onMove)
@@ -2856,6 +2924,69 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     handle.addEventListener("pointercancel", onUp)
   }
   const [isMobileView, setIsMobileView] = useState(false)
+  /**
+   * ===========================================================================
+   *  FULL SCREEN: THE SITE AND NOTHING ELSE
+   * ===========================================================================
+   * The third way of looking at the page, beside desktop and phone: the
+   * sidebar folds away, the section toolbar, the rings and Ask Storelib's pill
+   * with it, and the site fills everything under the bar at desktop width.
+   * The bar stays, so the switch that turned it on is where it was, and Escape
+   * turns it off. Remembered for the tab's session, like the sidebar's width
+   * is remembered. A computer's idea: on a phone the canvas already fills the
+   * screen, so it is not offered there and a remembered one waits.
+   *
+   * The sidebar goes by its own width to nothing (and its opacity with it),
+   * not by unmounting: the canvas grows into the room continuously instead of
+   * jumping, and the panel underneath keeps its scroll and its open rows for
+   * when it comes back. FULL_SCREEN_MS in the check (scripts/check-full-screen.mjs).
+   */
+  const [fullScreen, setFullScreenState] = useState(false)
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem(FULL_SCREEN_KEY) === "1") setFullScreenState(true)
+    } catch {
+      /* no storage: it starts off, which is the ordinary editor */
+    }
+  }, [])
+  const setFullScreen = useCallback((on: boolean) => {
+    setFullScreenState(on)
+    if (on) setDevice("desktop")
+    try {
+      if (on) window.sessionStorage.setItem(FULL_SCREEN_KEY, "1")
+      else window.sessionStorage.removeItem(FULL_SCREEN_KEY)
+    } catch {
+      /* not remembered, still applied */
+    }
+  }, [])
+  /** Full screen as it applies right now: a computer, looking at the preview. */
+  const fullView = fullScreen && !isMobileView && previewMode === "preview"
+  /**
+   * THE SECTIONS FOLLOW ONE FOLD LATER. Turning the canvas's inspector off
+   * redraws every section, and doing that in the frame the fold starts made
+   * that frame long: the first step of the fold was a third of it at once
+   * (scripts/check-full-screen.mjs, 105px of 294). So the rings and the
+   * toolbar are hidden at once by the stylesheet (`data-wb-full`), and the
+   * sections are told only after the fold has finished, either way.
+   */
+  const [fullSettled, setFullSettled] = useState(false)
+  useEffect(() => {
+    const id = window.setTimeout(() => setFullSettled(fullView), FULL_SCREEN_MS + 40)
+    return () => window.clearTimeout(id)
+  }, [fullView])
+
+  /* Escape leaves it, unless the key belongs to something open on top (a dialog, a menu) or to a field. */
+  useEffect(() => {
+    if (!fullView) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="menu"]')) return
+      setFullScreen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [fullView, setFullScreen])
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [username, setUsername] = useState("")
   /* The creator's four public facts, for `{{ creator.name }}` on the canvas. See the install route. */
@@ -3130,18 +3261,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // not an undo step that undoes nothing.
     pushUndo()
     setSections(prev => {
-      const header = prev.find(s => s.type === "header")
-      const footer = prev.find(s => s.type === "footer")
-      const body = prev.filter(s => s.type !== "header" && s.type !== "footer")
-      const oldIdx = body.findIndex(s => s.id === active.id)
-      const newIdx = body.findIndex(s => s.id === over.id)
+      /* The page's own sections move; the Header and Footer groups keep their places around them. */
+      const g = splitGroups(prev)
+      const oldIdx = g.template.findIndex(s => s.id === active.id)
+      const newIdx = g.template.findIndex(s => s.id === over.id)
       if (oldIdx === -1 || newIdx === -1) return prev
-      const newBody = arrayMove(body, oldIdx, newIdx)
-      return [
-        ...(header ? [header] : []),
-        ...newBody,
-        ...(footer ? [footer] : []),
-      ]
+      return [...g.header, ...arrayMove(g.template, oldIdx, newIdx), ...g.footer]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -3159,20 +3284,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * still ask for a step past one, and an undo entry for a no-op is an undo
      * press that appears to do nothing.
      */
-    const body = sectionsRef.current.filter((x) => x.type !== "header" && x.type !== "footer")
+    /* Inside its own group: a page section among the page's, an announcement bar inside the Header group. */
+    const own = sectionsRef.current.find((x) => x.id === sectionId)
+    if (!own) return
+    const group = groupOf(own)
+    const body = splitGroups(sectionsRef.current)[group]
     const from = body.findIndex((x) => x.id === sectionId)
     const to = from + step
     if (from === -1 || to < 0 || to >= body.length) return
     pushUndo()
     hapticTap("light")
     setSections((prev) => {
-      const header = prev.find((x) => x.type === "header")
-      const footer = prev.find((x) => x.type === "footer")
-      const body = prev.filter((x) => x.type !== "header" && x.type !== "footer")
-      const from = body.findIndex((x) => x.id === sectionId)
+      const g = splitGroups(prev)
+      const list = g[group]
+      const from = list.findIndex((x) => x.id === sectionId)
       const to = from + step
-      if (from === -1 || to < 0 || to >= body.length) return prev
-      return [...(header ? [header] : []), ...arrayMove(body, from, to), ...(footer ? [footer] : [])]
+      if (from === -1 || to < 0 || to >= list.length) return prev
+      const next = { ...g, [group]: arrayMove(list, from, to) }
+      return [...next.header, ...next.template, ...next.footer]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -3182,15 +3311,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Every non-home page in the editor (and on the live site) renders using
   // home's header/footer rather than its own persisted copy, so custom/about/
   // contact/product pages can never drift visually from home.
-  const fetchHomeHeaderFooter = useCallback(async (): Promise<{ header?: SectionInstance; footer?: SectionInstance }> => {
+  const fetchHomeHeaderFooter = useCallback(async (): Promise<Chrome> => {
     const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=home`)
     if (!res.ok) return {}
     const data = await res.json()
     const loaded: SectionInstance[] = data.sections ?? []
-    return {
-      header: loaded.find(s => s.type === "header"),
-      footer: loaded.find(s => s.type === "footer"),
-    }
+    /* The whole Header and Footer groups: an announcement bar above the header is on every page too. */
+    return chromeOf(loaded)
   }, [installId])
 
   /**
@@ -3221,8 +3348,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return { ...sec, settings: rest }
     })
 
-    // Ensure header and footer exist on every page
-    if (!loaded.some(s => s.type === "header")) {
+    /**
+     * A HEADER AND A FOOTER ON A PAGE THAT HAS NOTHING, not on every page.
+     * A brand new page is given the theme's two. A page with sections and no
+     * header is a site whose header was deleted, or one whose header is a
+     * section file of its own (its Header group says which), and putting the
+     * built-in back on it every time it opened was the second header.
+     */
+    const empty = loaded.length === 0
+    if (empty) {
       const hs = SECTION_SCHEMAS["header"]
       if (hs) loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
     } else {
@@ -3243,7 +3377,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         }
       })
     }
-    if (!loaded.some(s => s.type === "footer")) {
+    if (empty) {
       const fs = SECTION_SCHEMAS["footer"]
       if (fs) loaded = [...loaded, { id: `footer-${Date.now()}`, type: "footer", name: fs.name, settings: fs.presets?.[0]?.settings ?? {}, blocks: fs.presets?.[0]?.blocks ?? [], hidden: false }]
     }
@@ -3253,11 +3387,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const ps = SECTION_SCHEMAS["product"]
       if (ps) {
         const headerIdx = loaded.findIndex(s => s.type === "header")
-        const newSection: SectionInstance = { id: `product-${Date.now()}`, type: "product", name: ps.name, settings: ps.presets?.[0]?.settings ?? {}, blocks: [], hidden: false }
+        const newSection: SectionInstance = { ...mainProductSection(`product-${Date.now()}`), name: ps.name }
         if (headerIdx !== -1) loaded.splice(headerIdx + 1, 0, newSection)
         else loaded.unshift(newSection)
       }
     }
+
+    /* A product section saved before it had blocks: the blocks its old
+       switches describe, in the sidebar where the creator can change them,
+       the same ones the live page draws (lib/website-builder/product-page.ts). */
+    loaded = loaded.map((s) => withProductBlocks(s))
 
     return loaded
   }, [installId])
@@ -3285,6 +3424,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (data.username) setUsername(data.username)
     if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
     setBuilderCommunities(data.communities && typeof data.communities === "object" ? (data.communities as BuilderCommunities) : null)
+    setBuilderCollections(data.collections && typeof data.collections === "object" ? (data.collections as BuilderCollections) : null)
     setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
 
     /**
@@ -3343,7 +3483,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // source of truth for header/footer.
     const [loadedRaw, homeHF] = await Promise.all([
       fetchPageSections(currentPage),
-      currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
+      currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<Chrome>({}),
     ])
     /**
      * HOME GETS THE RULE TOO, and that is not a no-op.
@@ -3355,7 +3495,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * everywhere else — which is the header that "is not universal". Home's
      * own chrome is the source, so it is what home is dressed in.
      */
-    const loaded = mergeWithHomeHeaderFooter(loadedRaw, currentPage !== "home" ? homeHF : chromeOf(loadedRaw))
+    /* The password page wears no chrome, on the live site or here (lib/website-builder/universal-chrome). */
+    const loaded = CHROMELESS_PAGES.has(currentPage) ? withoutChrome(loadedRaw) : mergeWithHomeHeaderFooter(loadedRaw, currentPage !== "home" ? homeHF : chromeOf(loadedRaw))
 
     // Sync logo between header section and theme settings on initial load
     const header = loaded.find(s => s.type === "header")
@@ -3462,14 +3603,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [])
 
-  // Warn about unsaved changes
+  /**
+   * CLOSING THE TAB, RELOADING, TYPING ANOTHER ADDRESS. The browser's own
+   * question is the only one a closing tab can ask, so it is asked for the
+   * same three things the builder's dialog asks about: edits not saved yet,
+   * a code file with changes, a save still going. Not after somebody has
+   * already answered Discard or Save in that dialog (`leaveAnswered`).
+   */
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (isDirty) { e.preventDefault(); e.returnValue = "" }
+      if (leaveAnswered.current) return
+      if (isDirty || codeDirty || saving || publishing) { e.preventDefault(); e.returnValue = "" }
     }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
-  }, [isDirty])
+  }, [isDirty, codeDirty, saving, publishing])
 
   /**
    * THE SAME LIST THE PUBLISHED PAGE IS GIVEN. The canvas draws a section
@@ -3554,7 +3702,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     url.searchParams.set("previewPath", previewPathForState(page, productSlug))
     url.searchParams.delete("page")
     url.searchParams.delete("product")
-    window.history.replaceState({}, "", url.toString())
+    /* Without the router's own mark, so the router takes the new address in; with the leave guard's (below), so the entry is still known as one. */
+    const guard = (window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard
+    window.history.replaceState(guard ? { wbLeaveGuard: true } : {}, "", url.toString())
   }, [])
 
   const handlePageChange = async (page: PageKey) => {
@@ -3596,13 +3746,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       // If leaving home, capture home's header/footer from in-memory state
       // so they remain the universal version. Otherwise, fetch from API.
-      const leavingHomeHF =
-        currentPage === "home"
-          ? {
-              header: sections.find(s => s.type === "header"),
-              footer: sections.find(s => s.type === "footer"),
-            }
-          : null
+      const leavingHomeHF = currentPage === "home" ? chromeOf(sections) : null
 
       /**
        * The sidebar's half of the switch happens now, because it is what the
@@ -3618,10 +3762,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         fetchPageSections(page),
         page !== "home"
           ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
-          : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
+          : Promise.resolve<Chrome>({}),
       ])
       /* Home included, for the reason on the initial load above. */
-      const merged = mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
+      const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
 
       /**
        * ═══════════════════════════════════════════════════════════════════
@@ -3677,11 +3821,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * `useLayoutEffect`, so it is done before the browser paints: a scroll
    * corrected after a paint is a scroll somebody saw.
    */
+  /** A section to scroll to on the page being opened, from a link like `/about#section-x`. */
+  const pendingAnchor = useRef<string | null>(null)
   useLayoutEffect(() => {
     /* The page is here, so the hold that kept the canvas still while it was
        being fetched ends now, before the one move it was protecting. */
     openingPage.current = false
     document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+  }, [currentPage, selectedProductPage])
+  /* Opened by a link to one of its sections (`/about#section-x`): from the
+     top down to it, once the canvas has drawn it. The canvas draws a
+     deferred copy, so it is looked for over a few frames. */
+  useEffect(() => {
+    const scroller = document.getElementById("wb-preview-root")
+    const anchor = pendingAnchor.current
+    pendingAnchor.current = null
+    if (!anchor || !scroller) return
+    let tries = 0
+    let frame = 0
+    const look = () => {
+      const root = themeRootOf(scroller.querySelector("[data-storelib-theme]"))
+      if (root && scrollToHash(root, anchor, { scroller })) return
+      if (++tries < 30) frame = requestAnimationFrame(look)
+    }
+    frame = requestAnimationFrame(look)
+    return () => cancelAnimationFrame(frame)
   }, [currentPage, selectedProductPage])
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
@@ -3697,13 +3861,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     // Product pages always use home's header/footer. If leaving home, grab
     // them from in-memory state; otherwise refetch from the API.
-    const leavingHomeHF =
-      currentPage === "home"
-        ? {
-            header: sections.find(s => s.type === "header"),
-            footer: sections.find(s => s.type === "footer"),
-          }
-        : null
+    const leavingHomeHF = currentPage === "home" ? chromeOf(sections) : null
 
     /**
      * The sidebar's half, which the click was aimed at and which does not
@@ -3979,10 +4137,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       case "ignore":
         return
 
+      /* A section of this page: the same scroll, curve and landing the live
+         site has (lib/website-builder/section-motion), inside the canvas. */
       case "anchor": {
         const scroller = document.getElementById("wb-preview-root")
-        const target = scroller?.querySelector<HTMLElement>(`#${window.CSS.escape(decision.id)}`)
-        if (scroller && target) scrollWithin(scroller, target)
+        const root = scroller ? themeRootOf(scroller.querySelector("[data-storelib-theme]")) : null
+        if (scroller && root) scrollToHash(root, decision.id, { scroller })
         return
       }
 
@@ -4007,6 +4167,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       case "page":
+        /* Opened at its top as always, then taken to the section the hash
+           names once it is drawn: see the effect after "you arrive at the top". */
+        pendingAnchor.current = decision.anchor ?? null
         holdCanvasWhileOpening()
         pageChangeRef.current(decision.key as PageKey)
         return
@@ -4030,9 +4193,39 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * too, so the two cannot disagree about a header dragged into the middle.
    */
   const bodyCount = useMemo(
-    () => sections.filter((s) => s.type !== "header" && s.type !== "footer").length,
+    () => sections.filter((s) => groupOf(s) === "template").length,
     [sections],
   )
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A SITE SAVED WITH TWO HEADERS IS OPENED WITH ONE
+   * ═════════════════════════════════════════════════════════════════════════
+   * An imported theme, or a site saved before section groups, can hold the
+   * built-in header and a header written as a section file sitting on the
+   * page under it, both drawn. When the page is open and its files are known
+   * (a section file says it is a header by its kind, its name or its
+   * markup), the header goes into the Header group and one header is drawn:
+   * the creator's own when it has their work in it, otherwise the built-in.
+   * The other is hidden, never removed, and its eye brings it back. The same
+   * for footers. Saved with the next save, which copies the groups to every
+   * page. Not an undo step: it is how the site was always meant to read.
+   */
+  useEffect(() => {
+    if (loading || sectionsLoading || switchingPage.current) return
+    const fixed = repairChrome(sections, kindOfType)
+    if (!fixed.changed) return
+    setSections(fixed.sections)
+    setIsDirty(true)
+    const names = (ids: string[]) => ids.map((id) => {
+      const s = fixed.sections.find((x) => x.id === id)
+      return s ? sectionDisplayName(s, librarySchemas) : id
+    })
+    if (fixed.hidden.length > 0) {
+      showNotification(`Hid ${names(fixed.hidden).join(" and ")}, a duplicate`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, kindOfType, loading, sectionsLoading])
 
   /*
     A SETTING SET TO WHAT IT ALREADY IS CHANGES NOTHING. Clicking the option
@@ -4394,14 +4587,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Hiding a section changes the page as much as deleting one does, and it
     // was the one change Undo could not take back.
     pushUndo()
-    setSections(prev => prev.map(s =>
-      s.id === sectionId ? { ...s, hidden: !s.hidden } : s
-    ))
+    /* Showing a header hides the one that is drawn: never two (lib/storelib-theme/section-groups.ts). */
+    setSections(prev => toggleShown(prev, sectionId, kindOfType))
     setIsDirty(true)
   }
 
   const removeSection = (sectionId: string) => {
     pushUndo()
+    /* The header or the footer itself, deleted: the next save takes it off every page. */
+    const gone = sectionsRef.current.find((s) => s.id === sectionId)
+    if (gone) {
+      for (const kind of ["header", "footer"] as const) {
+        if (groupOf(gone) !== kind || !isKind(gone, kind, kindOfType)) continue
+        const others = sectionsRef.current.filter((s) => s.id !== sectionId && groupOf(s) === kind && isKind(s, kind, kindOfType))
+        if (others.length === 0) chromeRemoved.current[kind] = true
+      }
+    }
     setSections(prev => prev.filter(s => s.id !== sectionId))
     if (selectedSectionId === sectionId) {
       setSelectedPanel({ type: "pages" })
@@ -4444,10 +4645,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
-  const addSection = (type: string, presetIndex = 0) => {
-    pushUndo()
+  const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {
     const schema = librarySchemas[type]
     if (!schema) return
+    /**
+     * WHERE IT GOES, BY WHAT IT IS (lib/storelib-theme/section-groups.ts). An
+     * announcement bar goes in the Header group above the header from
+     * wherever it was added; a header is the header. A header chosen while
+     * one is drawn asks first, and the one it replaces is hidden, not deleted.
+     */
+    const kind = kindOfType(type)
+    const groups = sectionGroupsFor(schema as never, { type, kind })
+    if (kind && !replaceConfirmed) {
+      const current = visibleOfKind(sections, kind, kindOfType)
+      if (current) {
+        setPendingReplace({ type, presetIndex, kind, current: sectionDisplayName(current, librarySchemas), next: schema.name })
+        return
+      }
+    }
+    pushUndo()
     const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
     const newSection: SectionInstance = {
       id: `${type}-${Date.now()}`,
@@ -4458,31 +4674,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       blocks: freshBlocks(preset?.blocks, newBlockId),
       hidden: false,
     }
-    const next = [...sections]
     /**
      * A canvas gap counts body sections, so it is turned into a list index
      * here — where the list is — rather than in the canvas, which does not
-     * know how much chrome is above it. The clamp below then applies to both
-     * kinds of insert.
+     * know how much chrome is above it. Then it is counted inside the page's
+     * own sections, which is where placeSection takes it, so an insert can
+     * never land above the header or below the footer.
      */
     const insertAt =
       canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
-    if (insertAt != null) {
-      // Clamp into the body range (between header and footer) so an insert
-      // divider can never land above the header or below the footer.
-      const headerIdx = sections.findIndex(s => s.type === "header")
-      const footerIdx = sections.findIndex(s => s.type === "footer")
-      const minIdx = headerIdx !== -1 ? headerIdx + 1 : 0
-      const maxIdx = footerIdx !== -1 ? footerIdx : sections.length
-      const clamped = Math.max(minIdx, Math.min(maxIdx, insertAt))
-      next.splice(clamped, 0, newSection)
-      setPendingInsertIndex(null)
-      setCanvasInsertAt(null)
-    } else {
-      // Default — append before footer if it exists
-      const footerIdx = sections.findIndex(s => s.type === "footer")
-      if (footerIdx !== -1) next.splice(footerIdx, 0, newSection)
-      else next.push(newSection)
+    const before = splitGroups(sections)
+    const requested: SectionGroup = canvasInsertAt != null ? "template" : addGroup
+    const placed = placeSection(sections, newSection, {
+      groups,
+      kind,
+      group: requested,
+      at: requested === "template" && insertAt != null ? Math.max(0, Math.min(before.template.length, insertAt - before.header.length)) : null,
+      kindOfType,
+    })
+    const next = placed.sections
+    setPendingInsertIndex(null)
+    setCanvasInsertAt(null)
+    if (kind) chromeRemoved.current[kind] = false
+    if (placed.replaced.length > 0) {
+      showNotification(`Replaced the ${kind}. Old one hidden.`)
     }
     /**
      * Where every section is BEFORE this one goes in, so the canvas can open
@@ -4586,14 +4801,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // site already uses. Falling back to the schema preset would show a
     // blank factory header on the new page until the next sync, breaking
     // the "universal header" contract.
-    const currentHeader = sections.find(s => s.type === "header")
-    const currentFooter = sections.find(s => s.type === "footer")
+    // The whole Header and Footer groups, announcement bars included. A site
+    // whose header was deleted gets a page without one, as every other page.
+    const currentGroups = splitGroups(sections)
     const headerSchema = SECTION_SCHEMAS["header"]
     const footerSchema = SECTION_SCHEMAS["footer"]
     const defaultSections: SectionInstance[] = []
-    if (currentHeader) {
-      defaultSections.push(currentHeader)
-    } else if (headerSchema) {
+    const freshSite = sections.length === 0
+    if (currentGroups.header.length > 0) {
+      defaultSections.push(...currentGroups.header)
+    } else if (freshSite && headerSchema) {
       defaultSections.push({
         id: `header-${Date.now()}`,
         type: "header",
@@ -4603,9 +4820,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         hidden: false,
       })
     }
-    if (currentFooter) {
-      defaultSections.push(currentFooter)
-    } else if (footerSchema) {
+    if (currentGroups.footer.length > 0) {
+      defaultSections.push(...currentGroups.footer)
+    } else if (freshSite && footerSchema) {
       defaultSections.push({
         id: `footer-${Date.now() + 1}`,
         type: "footer",
@@ -4616,13 +4833,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
     }
 
+    /* Shopify's default page template: the header, a Page content section
+       holding the title just typed, and the footer (lib/website-builder/shop-page). */
+    const starterSections = customPageSections(
+      defaultSections.find(s => s.type === "header"),
+      defaultSections.find(s => s.type === "footer"),
+      newPageTitle,
+      `page_content-${Date.now()}`,
+    )
+
     // Save sections for the new page. A page that did not save is not a
     // page, so the switcher is not told about one.
     try {
       const res = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: pageKey, sections: defaultSections, mode: "draft" }),
+        body: JSON.stringify({ page_key: pageKey, sections: starterSections, mode: "draft" }),
       })
       if (!res.ok) throw new Error(String(res.status))
     } catch {
@@ -4641,7 +4867,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setCurrentPage(pageKey)
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
-    setSections(defaultSections)
+    setSections(starterSections)
     setSectionsLoading(false)
   }
 
@@ -4732,17 +4958,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // Save header/footer to all pages so they stay universal
   const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft") => {
-    const header = sections.find(s => s.type === "header")
-    const footer = sections.find(s => s.type === "footer")
-    if (!header && !footer) return
+    /**
+     * THE HEADER AND FOOTER GROUPS, whole: an announcement bar above the
+     * header, a header written as a section file, a header hidden because
+     * another replaced it. An empty group is sent only when the creator
+     * deleted the header (or footer) here; otherwise an empty one means
+     * "nothing to copy", and the other pages keep theirs.
+     */
+    const g = splitGroups(sections)
+    const headerGroup = g.header.length > 0 ? g.header : chromeRemoved.current.header ? [] : null
+    const footerGroup = g.footer.length > 0 ? g.footer : chromeRemoved.current.footer ? [] : null
+    if (!headerGroup && !footerGroup) return
 
     // Fetch all pages for this install
     const res = await fetch(`/api/website-builder/themes/${installId}/sections/sync-global`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        header: header ?? null,
-        footer: footer ?? null,
+        header: null,
+        footer: null,
+        header_group: headerGroup,
+        footer_group: footerGroup,
         current_page: currentPage,
         mode,
       }),
@@ -5001,7 +5237,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the whole answer.
    */
   const selectSectionFromCanvas = useCallback(
-    (sectionId: string, blockId?: string | null) => {
+    (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => {
       /* Switched off, and the rings are still fading: a tap now is a preview's tap. */
       if (!inspectorRef.current) return
       const el = document.getElementById("wb-preview-root")
@@ -5028,9 +5264,88 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       setSelectedPanel({ type: "section", sectionId })
       setSelectedBlockId(blockId ?? null)
+      /**
+       * A CLICK ON ONE THING OPENS ITS FIELD. A heading clicked lands the
+       * sidebar on Heading, a picture on Image (the effect below). On a phone
+       * that is the one tap that brings the sheet up: the person pointed at
+       * something to change, not at the section as a whole. A tap on the
+       * section's empty space still leaves the sheet where it was.
+       */
+      if (field) {
+        setFieldFocus({ sectionId, block: field.block, setting: field.setting, n: ++fieldFocusSeq.current })
+        if (isMobileViewRef.current) {
+          setAiOpen(false)
+          setMobileSidebarOpen(true)
+        }
+      }
     },
     [],
   )
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE SIDEBAR LANDS ON THE FIELD
+   * ═════════════════════════════════════════════════════════════════════════
+   * The panel for the section (or the block's row) is drawn a render or two
+   * after the click, so the field is looked for each frame until it is there,
+   * for half a second at most. Then its own scroller is moved, and nothing
+   * above it (the reason the block row above scrolls by hand too), the field
+   * takes a violet ring that fades, and on a computer its input takes the
+   * focus without scrolling anything a second time. On a phone the input is
+   * not focused: that would bring the keyboard up over the sheet.
+   */
+  useEffect(() => {
+    if (!fieldFocus) return
+    let frame = 0
+    let tries = 0
+    const find = (): HTMLElement | null => {
+      const panel = document.querySelector<HTMLElement>(`[data-wb-section-panel="${window.CSS.escape(fieldFocus.sectionId)}"]`)
+      if (!panel) return null
+      if (fieldFocus.block) {
+        const row = panel.querySelector<HTMLElement>(`[data-block-row="${window.CSS.escape(fieldFocus.block)}"]`)
+        if (!row) return null
+        return Array.from(row.querySelectorAll<HTMLElement>(`[data-block-field="${window.CSS.escape(fieldFocus.setting)}"]`)).find((f) => f.closest("[data-block-row]") === row) ?? null
+      }
+      return Array.from(panel.querySelectorAll<HTMLElement>(`[data-setting-field="${window.CSS.escape(fieldFocus.setting)}"]`)).find((f) => !f.closest("[data-block-row]")) ?? null
+    }
+    const land = () => {
+      const el = find()
+      if (!el) {
+        if (++tries < 40) frame = requestAnimationFrame(land)
+        return
+      }
+      const scroller = el.closest("[data-sheet-scroll], [data-wb-sidebar-scroll]") as HTMLElement | null
+      if (scroller) {
+        const r = el.getBoundingClientRect()
+        const box = scroller.getBoundingClientRect()
+        /* What of the scroller is on the screen: on a phone the sheet's lower part is below it at the half stop. */
+        const seenBottom = Math.min(box.bottom, window.visualViewport?.height ?? window.innerHeight)
+        /* A third of the way down, so the field is read with what is above it; not moved when it is already in plain view. */
+        const fits = r.top >= box.top + 8 && r.bottom <= seenBottom - 8
+        if (!fits) scroller.scrollBy({ top: r.top - box.top - Math.min((seenBottom - box.top) / 3, 120), behavior: "smooth" })
+      }
+      /* Taken off and put back, so a second click on the same thing rings it again. */
+      el.removeAttribute("data-sl-flash")
+      void el.offsetWidth
+      const stamp = String(fieldFocus.n)
+      el.setAttribute("data-sl-flash", stamp)
+      window.setTimeout(() => {
+        if (el.getAttribute("data-sl-flash") === stamp) el.removeAttribute("data-sl-flash")
+      }, FIELD_FLASH_MS)
+      if (!isMobileViewRef.current) {
+        const input = el.querySelector<HTMLElement>('input:not([type="hidden"]):not([type="range"]):not([type="checkbox"]), textarea, [contenteditable="true"]')
+        input?.focus({ preventScroll: true })
+      }
+    }
+    /* Two frames: the block list opens its row in an effect of its own. On a
+       phone, after the sheet has finished rising, so what is on the screen is
+       measured where it stays. */
+    const wait = isMobileViewRef.current ? window.setTimeout(() => { frame = requestAnimationFrame(land) }, sheetMoveMs()) : 0
+    if (!wait) frame = requestAnimationFrame(() => { frame = requestAnimationFrame(land) })
+    return () => {
+      window.clearTimeout(wait)
+      cancelAnimationFrame(frame)
+    }
+  }, [fieldFocus])
   /**
    * AND THE SIDEBAR GOES TO IT. Selecting the ninth FAQ entry on the canvas
    * is only half an answer if its row is four screens down a list of twelve
@@ -5061,7 +5376,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => cancelAnimationFrame(id)
   }, [selectedBlockId])
 
-  const openAddSection = useCallback(() => setAddSectionOpen(true), [])
+  /** The name the canvas chip shows for a section: the one its row in the sidebar has. */
+  const hoverNameOf = useCallback((id: string) => {
+    const sec = sectionsRef.current.find((s) => s.id === id)
+    return sec ? sectionDisplayName(sec, librarySchemas) : ""
+  }, [librarySchemas])
+  const openAddSection = useCallback(() => {
+    setAddGroup("template")
+    setAddSectionOpen(true)
+  }, [])
   /**
    * STABLE, SO THE LIBRARY STAYS PUT. The library is mounted for the life of
    * the editor (its sheet keeps it, so opening it is instant), and it was
@@ -5102,8 +5425,52 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * disagree about what pages a site has: if it is somewhere you can open in
    * the editor, it is somewhere you can link to.
    */
+  /**
+   * THE SECTIONS OF THE PAGE THAT IS OPEN, for "Sections on this page". From
+   * the sections being edited, so a heading changed a second ago is the name
+   * in the list. Kept the same array while nothing a link shows has changed,
+   * or every keystroke anywhere would draw every link field again.
+   */
+  const openPagePath = selectedProductPage ? null : editorPagePath(currentPage, SHOP_PATH)
+  const sectionTargetsRef = useRef<{ key: string; list: LinkTarget[] }>({ key: "", list: [] })
+  const sectionTargets = useMemo(() => {
+    const list = sectionLinkTargets(sections, openPagePath, (s) => sectionDisplayName(s, librarySchemas))
+    const key = JSON.stringify(list)
+    if (key !== sectionTargetsRef.current.key) sectionTargetsRef.current = { key, list }
+    return sectionTargetsRef.current.list
+  }, [sections, openPagePath, librarySchemas])
+  /**
+   * Another page's sections, read when somebody opens that page's row in a
+   * link field. Its saved draft, through the same route the page switcher
+   * uses, once per page while this page is open.
+   */
+  const pageSectionsCache = useRef(new Map<string, Promise<LinkTarget[]>>())
+  useEffect(() => { pageSectionsCache.current.clear() }, [currentPage])
+  const baseTargetsRef = useRef<LinkTarget[]>([])
+  const sectionSource = useMemo<SectionLinkSource>(() => ({
+    currentPath: openPagePath,
+    load: (path: string) => {
+      const key = editorPageKeyOf(path, { shopPath: SHOP_PATH, customPageKeys: customPagesRef.current.map((p) => p.key) })
+      if (!key) return Promise.resolve([])
+      const hit = pageSectionsCache.current.get(key)
+      if (hit) return hit
+      const label = baseTargetsRef.current.find((t) => t.kind === "page" && t.href === path)?.label
+      const read = fetch(`/api/website-builder/themes/${installId}/sections?page=${encodeURIComponent(key)}`)
+        .then((r) => (r.ok ? r.json() : { sections: [] }))
+        .then((d: { sections?: SectionInstance[] }) =>
+          sectionLinkTargets(d.sections ?? [], path, (s) => sectionDisplayName(s, librarySchemas), label),
+        )
+        .catch(() => {
+          pageSectionsCache.current.delete(key)
+          return [] as LinkTarget[]
+        })
+      pageSectionsCache.current.set(key, read)
+      return read
+    },
+  }), [openPagePath, installId, librarySchemas])
   const linkTargets = useMemo<LinkTarget[]>(
     () => [
+      ...sectionTargets,
       { href: "/", label: "Home", kind: "page" },
       /**
        * `/products`, not `/shop`. The picker offered "Shop" pointing at
@@ -5129,8 +5496,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * the sections that say "collection" take hand-typed items.
        */
     ],
-    [customPages, products],
+    [customPages, products, sectionTargets],
   )
+  baseTargetsRef.current = linkTargets
   /**
    * Insert at a gap in the canvas. `at` counts BODY sections — 0 is above the
    * first — and `addSection` clamps whatever lands here into the range
@@ -5138,6 +5506,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the chrome is. Stable, for the same reason as the two above.
    */
   const openAddSectionAt = useCallback((at: number) => {
+    setAddGroup("template")
     setPendingInsertIndex(null)
     setCanvasInsertAt(at)
     setAddSectionOpen(true)
@@ -5185,7 +5554,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * while it was written, or its file could not be read back just now.
    */
   const handleWriteDone = useCallback(
-    async ({ type }: { type: string; name: string; path: string }): Promise<boolean> => {
+    /* The new section's id when it is on the page: the chat hands it back to aiRunFinished, which glides to it and rings it once. */
+    async ({ type }: { type: string; name: string; path: string }): Promise<string | false> => {
       const writing = aiWritingRef.current
       /* The file is new, so the canvas has to fetch it before it can draw it. */
       const files = await loadStorelibSources()
@@ -5205,7 +5575,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setIsDirty(true)
       setArrivedId(id)
       revealSection(id)
-      return true
+      return id
     },
     [loadStorelibSources, pushUndo, revealSection],
   )
@@ -5378,10 +5748,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const sitePages = useMemo<SwitcherPage[]>(
     () => [
-      ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
+      /* The collections page is listed while collections are on (physical commerce); off, the site has none to show. */
+      ...(Object.keys(PAGE_META) as PageKey[]).filter((k) => k !== "collections" || builderCollections !== null).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
       ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
     ],
-    [customPages],
+    [customPages, builderCollections],
   )
   const switcherProducts = useMemo(() => products.map((p) => ({ id: p.id, title: p.title })), [products])
   const selectProductById = (id: string) => {
@@ -5634,11 +6005,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                               ) : field.type === "image" ? (
                                 <>
                                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                  <WbImagePicker
-                                    value={typeof val === "string" ? val : undefined}
-                                    onChange={url => updateSetting(field.id, url ?? "")}
-                                    aspectRatio="video"
-                                    folder="sections"
+                                  <ImagePickerControl
+                                    value={typeof val === "string" ? val : ""}
+                                    onChange={url => updateSetting(field.id, url)}
+                                    label={field.label}
                                   />
                                 </>
                               ) : field.type === "color" ? (
@@ -5670,7 +6040,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     // ── Sections mode — PAGES panel (default — shows section list) ──
     if (selectedPanel.type === "pages") {
-      const header = sections.find(s => s.type === "header")
       const pageLabel = selectedProductPage
         ? selectedProductPage
         : (PAGE_META[currentPage]?.label ?? currentPage)
@@ -5724,8 +6093,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onDuplicate={duplicateSection}
                 onRemove={removeSection}
                 onMove={moveSectionBy}
-                onAdd={(at) => {
-                  setPendingInsertIndex(at === null ? null : (header ? 1 : 0) + at)
+                kindOfType={kindOfType}
+                onAdd={(at, group = "template") => {
+                  /* `at` counts the page's own sections; the list index is after the Header group. */
+                  setAddGroup(group)
+                  setPendingInsertIndex(at === null || group !== "template" ? null : splitGroups(sections).header.length + at)
+                  setCanvasInsertAt(null)
                   setAddSectionOpen(true)
                 }}
                 dnd={{
@@ -5758,10 +6131,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             schema={schema}
             onBack={() => setSelectedPanel({ type: "pages" })}
             onUpdateSetting={(key, val) => updateSectionSetting(section.id, key, val)}
-            onUpdateBlockSetting={(blockId, key, val) => updateBlockSetting(section.id, blockId, key, val)}
-            onAddBlock={(type, initialSettings) => addBlock(section.id, type, initialSettings)}
-            onRemoveBlock={(blockId) => removeBlock(section.id, blockId)}
-            onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
+            onPickMenu={pickHeaderMenu}
             theme={settingsDraft}
             onEditScheme={(schemeKey) => {
               if (schemeKey) setEditSchemeKey(schemeKey)
@@ -5774,7 +6144,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full" data-wb-section-panel={section.id}>
           {/**
             * ═══════════════════════════════════════════════════════════════
             *  THE SECTION IS NAMED ONCE
@@ -5857,7 +6227,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <SiblingSettingsProvider settings={section.settings}>
                 <div className="px-3.5 py-3.5 space-y-3.5">
                   {clean.map(field => (
-                    <div key={field.id}>
+                    <div key={field.id} data-setting-field={field.id}>
                       {field.type === "color" ? (
                         <SectionColorSetting
                           field={field}
@@ -6066,11 +6436,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             ) : field.type === "image" ? (
                               <>
                                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                <WbImagePicker
-                                  value={typeof val === "string" ? val : undefined}
-                                  onChange={url => updateSetting(field.id, url ?? "")}
-                                  aspectRatio="video"
-                                  folder="sections"
+                                <ImagePickerControl
+                                  value={typeof val === "string" ? val : ""}
+                                  onChange={url => updateSetting(field.id, url)}
+                                  label={field.label}
                                 />
                               </>
                             ) : field.type === "color" ? (
@@ -6128,14 +6497,53 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [products],
   )
   const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
-  const openMenus = useCallback(() => {
+  /** Which menu Menus opens at, when something asked for one (the header's Edit, a section's menu picker). */
+  const [menuRequest, setMenuRequest] = useState<{ handle: string; n: number } | null>(null)
+  const openMenus = useCallback((handle?: string) => {
     setSidebarMode("settings")
     setExpandedSettings("menus")
     setSelectedPanel({ type: "pages" })
+    if (handle) setMenuRequest((r) => ({ handle, n: (r?.n ?? 0) + 1 }))
+    if (isMobileViewRef.current) setMobileSidebarOpen(true)
   }, [])
+  /**
+   * THE HEADER READS THE MAIN MENU (lib/website-builder/main-menu.ts). The
+   * first time the Main menu is written, or picked for the header, the
+   * header's own links are written out as the Main menu and the header is
+   * pointed at it. Its blocks stay where they are.
+   */
+  const headerSection = sections.find((s) => s.type === "header") ?? null
+  const headerRef = useRef(headerSection)
+  headerRef.current = headerSection
+  const updateSectionSettingRef = useRef(updateSectionSetting)
+  updateSectionSettingRef.current = updateSectionSetting
+  const linkHeaderToMain = useCallback(() => {
+    const header = headerRef.current
+    if (!header || headerReadsMenu(header)) return
+    updateSectionSettingRef.current(header.id, "menu", MAIN_MENU)
+  }, [])
+  const pickHeaderMenu = (handle: string) => {
+    const header = headerRef.current
+    if (!header) return
+    if (handle === MAIN_MENU) {
+      const adopted = adoptHeaderLinks(settingsDraft.menus, header)
+      if (adopted && adopted.menus !== (settingsDraft.menus as unknown)) updateSetting("menus", adopted.menus)
+    }
+    updateSectionSetting(header.id, "menu", handle)
+  }
   const fieldEnv = useMemo<EditorFieldEnv>(
-    () => ({ products: pickerProducts, menus: canvasMenus, template: templateForPage(currentPage), openMenus, communities: builderCommunities?.choices ?? null }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, builderCommunities],
+    () => ({
+      products: pickerProducts,
+      menus: canvasMenus,
+      template: templateForPage(currentPage),
+      openMenus,
+      menuRequest,
+      header: headerSection,
+      linkHeaderToMain,
+      communities: builderCommunities?.choices ?? null,
+      collections: builderCollections?.choices ?? null,
+    }),
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -6157,8 +6565,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus, communities: builderCommunities?.cards }),
-    [canvasDynamic, shopCards, canvasMenus, builderCommunities],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards }),
+    [canvasDynamic, shopCards, canvasMenus, builderCommunities, builderCollections],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
@@ -6263,6 +6671,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const revive = () => {
       setLeaving(false)
       setPendingExit(null)
+      /* Still here, so the next way out asks again. */
+      leaveAnswered.current = false
     }
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) revive()
@@ -6577,6 +6987,124 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /**
    * ===========================================================================
+   *  THE BROWSER'S BACK, AND A PHONE'S, ASK TOO
+   * ===========================================================================
+   * Back in the bar went through `requestExit`; the browser's Back, Android's
+   * back button and an iOS edge swipe did not, and took unsaved edits with
+   * them. A history entry for the same address is put on top while there is
+   * something to lose. Back then lands on the entry under it, which is still
+   * this editor, and the question is asked there: Cancel puts the entry back,
+   * Save and Discard go on back. With nothing to lose the press carries on at
+   * once, so one press of Back is still one press.
+   *
+   * The entry carries the router's own state, so Next lets the push through
+   * and does nothing with it (the reason components/onepage/onepage-editor.tsx
+   * replaces state the same way).
+   */
+  const BACK_EXIT = "__back__"
+  const loseNow = hasSomethingToLose({ draft: isDirty, code: codeDirty, busy: saving || publishing })
+  const loseRef = useRef(loseNow)
+  loseRef.current = loseNow
+  const guardArmed = useRef(false)
+  const goingBack = useRef(false)
+  const armBackGuard = useCallback(() => {
+    if (guardArmed.current || typeof window === "undefined") return
+    try {
+      const state = (window.history.state ?? {}) as Record<string, unknown>
+      window.history.pushState({ ...state, wbLeaveGuard: true }, "", window.location.href)
+      guardArmed.current = true
+    } catch {
+      /* A history that refuses the entry: Back is then the browser's alone, and beforeunload still asks. */
+    }
+  }, [])
+  useEffect(() => {
+    if (loseNow) armBackGuard()
+  }, [loseNow, armBackGuard])
+  /* Arrived back ON a guard entry (back from the code editor on a phone): it is this editor's, and armed. */
+  useEffect(() => {
+    if ((window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard) guardArmed.current = true
+  }, [])
+  const goBackForReal = useCallback(() => {
+    goingBack.current = true
+    leaveAnswered.current = true
+    backThen(() => leaveFor("/app/website-builder"))
+  }, [leaveFor])
+  useEffect(() => {
+    const onPop = () => {
+      if (!guardArmed.current || goingBack.current) return
+      /* Forward onto the guard again: nothing has been left. */
+      if ((window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard) return
+      guardArmed.current = false
+      if (!loseRef.current) {
+        goBackForReal()
+        return
+      }
+      setPendingExit(BACK_EXIT)
+    }
+    /* Brought back from the back/forward cache: the editor is in use again, and its next Back is asked about again. */
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
+      goingBack.current = false
+      leaveAnswered.current = false
+      if (loseRef.current) armBackGuard()
+    }
+    window.addEventListener("popstate", onPop)
+    window.addEventListener("pageshow", onShow)
+    return () => {
+      window.removeEventListener("popstate", onPop)
+      window.removeEventListener("pageshow", onShow)
+    }
+  }, [goBackForReal, armBackGuard])
+
+  /**
+   * AND A LINK IN THE BUILDER'S OWN PANELS. The bar's Back and the actions
+   * menu go through `requestExit`, and so does Website settings; a plain link
+   * somewhere in a panel (a control's "Manage" link to another part of the
+   * app) did not, and was a full page load past the question. Same-origin
+   * links that leave the editor are sent through the same door. The canvas
+   * is not touched: it has its own rules for links (lib/website-builder/
+   * canvas-intercept.ts).
+   */
+  const requestExitRef = useRef(requestExit)
+  requestExitRef.current = requestExit
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return
+      if (a.closest("#wb-preview-root")) return
+      let url: URL
+      try {
+        url = new URL(a.href, window.location.href)
+      } catch {
+        return
+      }
+      if (url.origin !== window.location.origin) return
+      if (url.pathname.startsWith("/website-builder/")) return
+      e.preventDefault()
+      requestExitRef.current(url.pathname + url.search + url.hash)
+    }
+    /* Capture, so it is ahead of a Next <Link>, which stands down for a click already prevented. */
+    document.addEventListener("click", onClick, true)
+    return () => document.removeEventListener("click", onClick, true)
+  }, [])
+
+  /** Save, from the leave dialog: the draft is written and then the page goes where it was going. */
+  const saveThenLeave = async (): Promise<boolean> => {
+    const ok = await saveDraft({ quiet: true })
+    if (!ok) return false
+    const href = pendingExit
+    setPendingExit(null)
+    if (href === BACK_EXIT) goBackForReal()
+    else if (href) {
+      leaveAnswered.current = true
+      leaveFor(href)
+    }
+    return true
+  }
+
+  /**
+   * ===========================================================================
    *  THE ACTIONS MENU, BUILT ONLY WHEN WHAT IT SAYS CHANGES
    * ===========================================================================
    * Its rows were an array literal in the bar, so every render of this
@@ -6712,6 +7240,53 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
   }, [loadStorelibSources])
+  /**
+   * A SECTION FILE THE RUN HAS JUST WRITTEN, drawn now. It was compiled and
+   * drawn on the server before it was sent, and it is saved when the run
+   * ends; `reloadAiSources` then reads back what was stored. Only the one
+   * file changes, so every other section keeps its compiled copy and the
+   * canvas updates in place, with no reload and no flash.
+   */
+  const aiSourceWritten = useCallback((path: string, source: string) => {
+    setStorelibSources((previous) => (previous[path] === source ? previous : { ...previous, [path]: source }))
+  }, [])
+  /**
+   * WHAT STORELIB AI IS WORKING ON, AND WHAT IT JUST CHANGED: a faint sheen
+   * over the first while the run works, a violet ring that fades once over
+   * the second (components/website-builder/editor/ai-working-overlay.tsx).
+   * When the run ends the first section it changed is brought into view if
+   * it is not on screen, smoothly, by the same reveal Add section uses.
+   */
+  const [aiWorkingIds, setAiWorkingIds] = useState<string[]>([])
+  const [aiSettledIds, setAiSettledIds] = useState<string[]>([])
+  /* What the run is about ("Editing Pricing", "New section: Hero with flag"), shown on the section it marks. */
+  const [aiWorkingLabel, setAiWorkingLabel] = useState<string | undefined>(undefined)
+  const aiWorkingChange = useCallback((ids: string[], label?: string) => {
+    setAiWorkingIds((was) => (was.length === ids.length && was.every((id, i) => id === ids[i]) ? was : ids))
+    setAiWorkingLabel(ids.length ? label : undefined)
+  }, [])
+  const aiRunFinished = useCallback(
+    (ids: string[]) => {
+      /* A section placed this moment is on the page from the next render: looked for again a frame later. */
+      const settle = (again: boolean) => {
+        const order = sectionsRef.current.map((s) => s.id)
+        const onPage = ids.filter((id) => order.includes(id)).sort((a, b) => order.indexOf(a) - order.indexOf(b))
+        if (onPage.length === 0) {
+          if (again) requestAnimationFrame(() => requestAnimationFrame(() => settle(false)))
+          return
+        }
+        setAiSettledIds(onPage)
+        revealSection(onPage[0])
+      }
+      settle(true)
+    },
+    [revealSection],
+  )
+  useEffect(() => {
+    if (aiSettledIds.length === 0) return
+    const done = setTimeout(() => setAiSettledIds([]), SETTLE_MS + 100)
+    return () => clearTimeout(done)
+  }, [aiSettledIds])
   const openAiCodeFromSheet = useCallback((path: string) => {
     setAiOpen(false)
     void openCodeRef.current(path)
@@ -6742,6 +7317,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * at touchdown. See the opt-out in that component.
        */
       data-wb-no-bounce-guard=""
+      /* Full screen: the canvas's rings go at once, in the stylesheet, while the sections are told a fold later (fullSettled). */
+      data-wb-full={fullView ? "" : undefined}
       className={cn(
         // `fixed inset-0`, not `h-svh`. A 100svh element is CONTENT, and the
         // body adds its safe-area padding underneath it — one screen plus
@@ -6888,9 +7465,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipTrigger asChild>
               <button
                 className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
-                onClick={() => setDevice(device === "desktop" ? "mobile" : "desktop")}
+                onClick={() => {
+                  /* Phone is its own way of looking: it leaves full screen. */
+                  if (fullView) setFullScreen(false)
+                  setDevice(device === "desktop" ? "mobile" : "desktop")
+                }}
                 aria-label={device === "desktop" ? "Switch to phone preview" : "Switch to desktop preview"}
                 aria-pressed={device === "mobile"}
+                data-wb-device-switch=""
               >
                 {device === "desktop" ? (
                   <Monitor className="h-4 w-4" strokeWidth={1.75} />
@@ -6903,6 +7485,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {device === "desktop" ? "Switch to phone" : `Switch to desktop (phone is ${DEVICE_WIDTH.mobile}px)`}
             </TooltipContent>
           </Tooltip>
+          {/* Full screen, the third way of looking, beside desktop and phone. A computer only. */}
+          {!isMobileView && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn(
+                    "hidden sm:flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0",
+                    fullView ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]" : "text-[var(--wb-chrome-fg-3)]",
+                  )}
+                  onClick={() => {
+                    if (!fullView && previewMode !== "preview") setPreviewMode("preview")
+                    setFullScreen(!fullView)
+                  }}
+                  aria-label={fullView ? "Leave full screen" : "Full screen preview"}
+                  aria-pressed={fullView}
+                  data-wb-full-screen-switch=""
+                >
+                  {fullView ? <Minimize2 className="h-4 w-4" strokeWidth={1.75} /> : <Maximize2 className="h-4 w-4" strokeWidth={1.75} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{fullView ? "Leave full screen (Esc)" : "Full screen"}</TooltipContent>
+            </Tooltip>
+          )}
 
           {!isMobileView && (
           <PageSwitcher
@@ -7192,6 +7797,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           onRemoveBlock: removeBlock,
           onReorderBlocks: reorderBlocks,
           linkTargets,
+          linkSections: sectionSource,
           /* Policies: the open page goes through the writers above, any other through the sections route. */
           currentPageKey: currentPage,
           currentSections: sections,
@@ -7208,15 +7814,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Portalled, for the reason the sheets are: a z-index is only
           comparable inside one stacking context, and this has to cover sheets
           that render into the body. From in here it could not. */}
+      {/* The outline and the section's name under the pointer: components/website-builder/canvas-hover.tsx. */}
+      <CanvasHover enabled={canvasInspecting && !fullView && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
+
+      {/* A header (or footer) chosen while one is drawn: see addSection. */}
+      <ReplaceChromeConfirm
+        open={pendingReplace !== null}
+        kind={pendingReplace?.kind ?? "header"}
+        current={pendingReplace?.current ?? ""}
+        next={pendingReplace?.next ?? ""}
+        onCancel={() => setPendingReplace(null)}
+        onReplace={() => {
+          const r = pendingReplace
+          setPendingReplace(null)
+          if (r) addSection(r.type, r.presetIndex, true)
+        }}
+      />
+
       <LeaveConfirm
         open={pendingExit !== null}
         reason={leaveReason}
-        onCancel={() => setPendingExit(null)}
+        onCancel={() => {
+          /* Staying after the browser's Back: the entry that catches the next one goes back on top. */
+          if (pendingExit === BACK_EXIT) armBackGuard()
+          setPendingExit(null)
+        }}
         onLeave={() => {
           const href = pendingExit
           setPendingExit(null)
-          if (href) leaveFor(href)
+          if (href === BACK_EXIT) goBackForReal()
+          else if (href) {
+            leaveAnswered.current = true
+            leaveFor(href)
+          }
         }}
+        onSave={saveThenLeave}
       />
 
       {leaving && portalReady && createPortal(
@@ -7299,7 +7931,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       >
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
-          <div className="relative flex-shrink-0 flex h-full overflow-visible">
+          <div
+            ref={sidebarFoldRef}
+            className={cn("relative flex-shrink-0 flex h-full", fullView ? "overflow-hidden" : "overflow-visible")}
+            data-wb-sidebar-fold={fullView ? "folded" : "open"}
+            aria-hidden={fullView || undefined}
+            /* Full screen folds the sidebar by its own width, so the canvas grows into the room rather than jumping. */
+            style={{
+              maxWidth: fullView ? 0 : sidebarWidth,
+              opacity: fullView ? 0 : 1,
+              /* And the 6px seam beside it, so the canvas meets the edge. */
+              marginRight: fullView ? -6 : 0,
+              transition: `max-width ${FULL_SCREEN_MS}ms cubic-bezier(0.4, 0, 0.2, 1), margin-right ${FULL_SCREEN_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
+            }}
+            {...(fullView ? { inert: true } : {})}
+          >
             {/* Clipped HERE, on the box with the width, so the list's own
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
@@ -7324,7 +7970,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 {renderSidebarTabs()}
               </div>
               <div ref={desktopScrollRef} data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
-                <LinkTargetsProvider targets={linkTargets}>
+                <LinkTargetsProvider targets={linkTargets} sections={sectionSource}>
                 <EditorFieldProvider value={fieldEnv}>
                   <div
                     key={sidebarPanelKey}
@@ -7397,7 +8043,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 sat below the screen at the half stop with no way to scroll
                 it into view. scripts/check-sheet-reach.mjs measures it. */}
             <div data-wb-sidebar-scroll data-sheet-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
-              <LinkTargetsProvider targets={linkTargets}>
+              <LinkTargetsProvider targets={linkTargets} sections={sectionSource}>
               <EditorFieldProvider value={fieldEnv}>
                   <div
                     key={sidebarPanelKey}
@@ -7450,6 +8096,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiSheet}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onSourceWritten={aiSourceWritten}
+              onWorkingChange={aiWorkingChange}
+              onRunFinished={aiRunFinished}
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
               onWriteFailed={handleWriteFailed}
@@ -7800,6 +8449,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               if (inNav && internal && !ownsItsExit) {
                 e.stopPropagation()
                 handleEditorNavigate(href, true)
+              } else if (anchor && !ownsItsExit && href.includes("#")) {
+                /*
+                  A LINK TO A SECTION OF THIS PAGE SCROLLS THE CANVAS TO IT,
+                  wherever the link is: a button in a hero, a footer link
+                  written as `#faq`. Only when the editor's own rule says it
+                  is an anchor here, which is never for a section's link
+                  while the inspector is on (a tap there selects). A section
+                  that also follows its own links asks for the same scroll,
+                  and the second ask is the same scroll (section-motion.ts).
+                */
+                const decision = resolveEditorHref(href, {
+                  currentPage: currentPageRef.current,
+                  inspectorEnabled: inspectorRef.current,
+                  fromNav: inNav,
+                  shopPath: SHOP_PATH,
+                  customPageKeys: customPagesRef.current.map((p) => p.key),
+                })
+                if (decision.kind === "anchor") handleEditorNavigate(href, inNav)
               }
             }}
             onSubmitCapture={(e) => e.preventDefault()}
@@ -7934,7 +8601,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 storefrontData={canvasData}
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
-                inspectorEnabled={canvasInspecting}
+                inspectorEnabled={canvasInspecting && !fullSettled}
                 selectedSectionId={selectedSectionId}
                 device={device}
                 /**
@@ -7962,6 +8629,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 shopCards={shopCards}
                 installId={installId}
               />
+              {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
+              <AiWorkingOverlay working={aiWorkingIds} settled={aiSettledIds} label={aiWorkingLabel} />
               </div>
             )}
             </div>
@@ -7972,12 +8641,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* The selected section's own toolbar, over the canvas. Only with
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}
-          {canvasInspecting && !isMobileView && previewMode === "preview" && (() => {
-            const body = sections.filter((x) => x.type !== "header" && x.type !== "footer")
-            const idx = body.findIndex((x) => x.id === selectedSectionId)
+          {canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && (() => {
             const current = sections.find((x) => x.id === selectedSectionId)
             if (!current) return null
-            const chrome = current.type === "header" || current.type === "footer"
+            /* Moved inside its own group; the header and the footer themselves are not moved, copied or deleted from here. */
+            const group = groupOf(current)
+            const body = splitGroups(sections)[group]
+            const idx = body.findIndex((x) => x.id === selectedSectionId)
+            const chrome = group !== "template" && isKind(current, group, kindOfType)
             return (
               <SectionToolbar
                 sectionId={selectedSectionId}
@@ -8015,7 +8686,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <ThemeChat
               variant="dock"
               hidden={!aiOpen}
-              suspended={previewMode !== "preview" || projectSettingsOpen}
+              suspended={previewMode !== "preview" || projectSettingsOpen || fullView}
               openRequest={aiAsk}
               installId={installId}
               page={currentPage}
@@ -8031,6 +8702,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiDock}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onSourceWritten={aiSourceWritten}
+              onWorkingChange={aiWorkingChange}
+              onRunFinished={aiRunFinished}
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
               onWriteFailed={handleWriteFailed}
@@ -8047,7 +8721,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onAddSection={addSectionStable}
         schemas={librarySchemas}
         addable={libraryAddable}
-        ownTypes={ownSectionTypes}
+        ownTypes={libraryOwnTypes}
         sources={storelibSources}
       />
 
@@ -8528,7 +9202,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   /** The canvas card's top radius, so a ring inside it is cut to match. */
   canvasRadiusPx: number
   bodyCount: number
-  onSelectSection: (sectionId: string, blockId?: string | null) => void
+  onSelectSection: (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => void
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
   onEditorNavigate: (href: string, fromNav?: boolean) => void
@@ -8653,7 +9327,13 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
                   if (bid) path.unshift(bid)
                   hit = hit.parentElement?.closest?.("[data-block-id], [data-section-id]") ?? null
                 }
-                onSelectSection(section.id, path.length ? pathKey(path) : null)
+                /* AND THE FIELD FOR WHAT WAS CLICKED: a heading opens at Heading (lib/website-builder/click-to-edit.ts). */
+                const box = e.currentTarget as HTMLElement
+                const field = clickTarget(
+                  chainFrom(target as unknown as ElementLike, (el) => el === (box as unknown as ElementLike) || !!el.getAttribute("data-section-box")),
+                  section,
+                )
+                onSelectSection(section.id, field ? field.block : path.length ? pathKey(path) : null, field)
               }
             : undefined,
           deviceMode: device,

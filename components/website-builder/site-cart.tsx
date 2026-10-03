@@ -56,7 +56,23 @@ interface SiteCartValue {
   live: boolean
   /** The shop this cart belongs to, for the physical checkout's address. */
   shopId: string | null
+  /** The line just added, while Theme settings › Cart type is Notification and the notice is up. */
+  notice: CartLine | null
+  dismissNotice: () => void
 }
+
+/**
+ * THEME SETTINGS › CART › CART TYPE, Shopify's three answers to "what
+ * happens when somebody presses Add to cart":
+ *
+ *   drawer        the cart opens over the page (what it always did)
+ *   page          the visitor is taken to /cart, once the line is saved
+ *   notification  a short notice says what was added, with View cart, and
+ *                 the visitor stays where they were
+ *
+ * In the builder there is no /cart to go to, so Page opens the drawer there.
+ */
+export type CartType = "drawer" | "page" | "notification"
 
 const EMPTY: SiteCartValue = {
   lines: [],
@@ -71,6 +87,8 @@ const EMPTY: SiteCartValue = {
   clear: () => {},
   live: false,
   shopId: null,
+  notice: null,
+  dismissNotice: () => {},
 }
 
 const SiteCartContext = createContext<SiteCartValue>(EMPTY)
@@ -79,10 +97,13 @@ export function useSiteCart(): SiteCartValue {
   return useContext(SiteCartContext)
 }
 
-export function SiteCartProvider({ shopId, children }: { shopId?: string; children: ReactNode }) {
+export function SiteCartProvider({ shopId, cartType = "drawer", children }: { shopId?: string; cartType?: CartType; children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([])
   const [ready, setReady] = useState(false)
   const [open, setOpen] = useState(false)
+  const [notice, setNotice] = useState<CartLine | null>(null)
+  /* Set by Add to cart under the Page type: go to /cart once the line is written, never before. */
+  const goToCart = useRef(false)
   const key = shopId ? cartStorageKey(shopId) : null
 
   /* Writes are skipped until the read has happened, or the empty first
@@ -109,6 +130,10 @@ export function SiteCartProvider({ shopId, children }: { shopId?: string; childr
       /* Out of quota or storage refused. The cart still works for this
          page; it just will not survive a reload. */
     }
+    if (goToCart.current) {
+      goToCart.current = false
+      window.location.assign("/cart")
+    }
   }, [key, lines])
 
   /* The same shop open in a second tab. Without this, adding something
@@ -126,8 +151,12 @@ export function SiteCartProvider({ shopId, children }: { shopId?: string; childr
 
   const add = useCallback((line: CartLine) => {
     setLines((current) => addLine(current, line))
-    setOpen(true)
-  }, [])
+    if (cartType === "page" && shopId) goToCart.current = true
+    else if (cartType === "notification") setNotice(line)
+    else setOpen(true)
+  }, [cartType, shopId])
+
+  const dismissNotice = useCallback(() => setNotice(null), [])
 
   const setQty = useCallback((k: string, quantity: number) => {
     setLines((current) => setQuantity(current, k, quantity))
@@ -152,7 +181,9 @@ export function SiteCartProvider({ shopId, children }: { shopId?: string; childr
     clear,
     live: !!shopId,
     shopId: shopId ?? null,
-  }), [lines, ready, open, add, setQty, remove, clear, shopId])
+    notice,
+    dismissNotice,
+  }), [lines, ready, open, add, setQty, remove, clear, shopId, notice, dismissNotice])
 
   return <SiteCartContext.Provider value={value}>{children}</SiteCartContext.Provider>
 }

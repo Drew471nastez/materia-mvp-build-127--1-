@@ -8,10 +8,17 @@
  * business's notifications off it. Now a notification for one business goes
  * to every device of the login, its title naming the business on a device
  * that has another open, and never to anybody outside the login.
+ *
+ * A notification about setting up to get paid (payouts, Stripe, payments,
+ * identity) never names anybody in its title: a business is often named
+ * after the person, and "Ana Popescu: Set up payments to get paid" read as
+ * the app calling them by name. The line under it says which business.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { devicesFor, titleOn, type TokenRow } from "../lib/push/recipients"
+import { bodyOn, devicesFor, isSetupPush, SETUP_PUSH_KINDS, titleOn, type TokenRow } from "../lib/push/recipients"
+import { COVERS_PAYMENT_SETUP, RULES } from "../lib/notifications/rules"
+import { pushPayloadOf } from "../lib/notifications/push"
 
 let passed = 0
 let failed = 0
@@ -44,13 +51,34 @@ check("on a device that has another business of the login open, the business's n
 check("  and as it is when the name is not known", titleOn(phone, A, "New sale", null) === "New sale" && titleOn(phone, A, "New sale", "  ") === "New sale")
 check("  in plain words, no dashes", !/[–—]/.test(titleOn(phone, A, "New sale", "Loudlib")))
 
+console.log("\nSetting up to get paid: a plain title, the business said under it")
+const setupPush = pushPayloadOf({ kind: "payouts_not_connected", category: "critical", title: "Set up payments to get paid", pushTitle: null, href: "/app/payouts" })
+check("the payouts push, on the business's own device: its plain title and line",
+  titleOn(laptop, A, setupPush.title, "Ana Popescu", setupPush.data) === "Set up payments to get paid" && bodyOn(laptop, A, setupPush.body, "Ana Popescu", setupPush.data) === setupPush.body)
+check("  and on a device that has another business open: still no name in the title",
+  titleOn(phone, A, setupPush.title, "Ana Popescu", setupPush.data) === "Set up payments to get paid", titleOn(phone, A, setupPush.title, "Ana Popescu", setupPush.data))
+check("  the line under it says which business",
+  bodyOn(phone, A, setupPush.body, "Ana Popescu", setupPush.data) === `For Ana Popescu. ${setupPush.body}`, bodyOn(phone, A, setupPush.body, "Ana Popescu", setupPush.data))
+check("  and is the plain line when the name is not known", bodyOn(phone, A, setupPush.body, null, setupPush.data) === setupPush.body)
+const setupKinds = ["payouts_not_connected", "stripe_restricted", "stripe_requirements_due", "verification_unfinished", "payout_failed", "setup_next_step", "website_not_published"]
+check("every setup kind: payouts, Stripe, its details, identity, a failed payout, the next setup step",
+  setupKinds.every((k) => SETUP_PUSH_KINDS.has(k)) && COVERS_PAYMENT_SETUP.every((k) => SETUP_PUSH_KINDS.has(k)))
+check("  each one a real rule's kind", [...SETUP_PUSH_KINDS].every((k) => RULES.some((r) => r.kind === k)), [...SETUP_PUSH_KINDS].filter((k) => !RULES.some((r) => r.kind === k)))
+check("  and no setup rule titles itself with a name: none reads \"Name, ...\" or \"Name: ...\"",
+  RULES.filter((r) => SETUP_PUSH_KINDS.has(r.kind)).every((r) => !/\b(creator|first|display|user|business)_?name\b/i.test(String(r.evaluate))))
+const sale = { type: "notification", kind: "sales_milestone", url: "/app" }
+check("a sale is not setup: it keeps the business's name in front, as before",
+  !isSetupPush(sale) && titleOn(phone, A, "Your 10th sale", "Loudlib", sale) === "Loudlib: Your 10th sale" && bodyOn(phone, A, "Open Storelib to see it.", "Loudlib", sale) === "Open Storelib to see it.")
+check("  and neither is a push that is not a notification", !isSetupPush({ type: "sale", orderId: "x" }) && !isSetupPush(undefined))
+
 console.log("\nThe sender")
 const sender = readFileSync(join(process.cwd(), "lib/push/sender.ts"), "utf8")
 check("it reads the login's accounts on the server, and falls back to this account alone",
   /const accounts = await businessGroup\(userId\)\.then\(\(g\) => groupIds\(g, userId\)\)\.catch\(\(\) => \[userId\]\)/.test(sender))
 check("  asks for the tokens of those accounts only", /\.in\("user_id", accounts\)/.test(sender) && !/\.eq\("user_id", userId\)\s*\n\s*\n\s*if \(error\)/.test(sender))
 check("  sends each device its own title, phones and browsers alike",
-  /const title = titleOn\(device, userId, payload\.title, businessName\)/.test(sender) && /sendToBrowser\(token, \{ \.\.\.payload, title \}\)/.test(sender) && /notification: \{\s*title,/.test(sender))
+  /const title = titleOn\(device, userId, payload\.title, businessName, payload\.data\)/.test(sender) && /const body = bodyOn\(device, userId, payload\.body, businessName, payload\.data\)/.test(sender) &&
+    /sendToBrowser\(token, \{ \.\.\.payload, title, body \}\)/.test(sender) && /notification: \{\s*title,\s*body,\s*\}/.test(sender))
 check("  and only asks for the business's name when a device is on another business", /tokens\.some\(\(t\) => t\.user_id !== userId\)\s*\?\s*await listBusinesses\(userId\)/.test(sender))
 
 console.log(`\n${passed} passed, ${failed} failed`)

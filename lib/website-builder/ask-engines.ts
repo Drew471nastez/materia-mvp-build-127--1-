@@ -61,8 +61,28 @@ export type Effort = Strength["effort"]
 export const DEFAULT_STRENGTH: StrengthId = "standard"
 export const STRENGTH_KEY = "storelib.theme-chat.strength"
 
-export function strengthFromSaved(saved: unknown): StrengthId {
-  return STRENGTHS.some((s) => s.id === saved) ? (saved as StrengthId) : DEFAULT_STRENGTH
+/**
+ * CODE A SECTION THINKS LONGER BY DEFAULT. A section is planned, written,
+ * drawn, read back against the request and refined, and every one of those
+ * is better for the time: a page change is a few settings and stays on
+ * Standard. Each mode remembers its own choice, so picking Light for a quick
+ * colour change does not make the next section a rushed one.
+ */
+export const DEFAULT_CODE_STRENGTH: StrengthId = "deep"
+export const CODE_STRENGTH_KEY = "storelib.theme-chat.strength.code"
+
+/** The Strength a mode starts on when this browser has not chosen one for it. */
+export function defaultStrengthFor(mode: "change" | "code"): StrengthId {
+  return mode === "code" ? DEFAULT_CODE_STRENGTH : DEFAULT_STRENGTH
+}
+
+/** Where a mode's Strength is remembered. */
+export function strengthKeyFor(mode: "change" | "code"): string {
+  return mode === "code" ? CODE_STRENGTH_KEY : STRENGTH_KEY
+}
+
+export function strengthFromSaved(saved: unknown, fallback: StrengthId = DEFAULT_STRENGTH): StrengthId {
+  return STRENGTHS.some((s) => s.id === saved) ? (saved as StrengthId) : fallback
 }
 
 export function effortOf(id: StrengthId): Effort {

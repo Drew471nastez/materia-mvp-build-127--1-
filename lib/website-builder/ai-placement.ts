@@ -20,17 +20,23 @@
  * editor (tests/ai-section-placement.test.ts).
  */
 import { freshBlocks } from "./block-tree"
+import { groupOf } from "@/lib/storelib-theme/section-groups"
 import type { BlockInstance, SectionInstance } from "./types"
 
 /** The type and id of the placeholder. Nothing real can have either. */
 export const WRITING_SECTION_TYPE = "__storelib_writing__"
 export const WRITING_SECTION_ID = "__storelib_writing__"
 
-/** The first and last index a body section may take: after the header, before the footer. */
+/** The first and last index a body section may take: after the header group, before the footer group. */
 function bodyRange(sections: SectionInstance[]): { min: number; max: number } {
-  const header = sections.findIndex((s) => s.type === "header")
-  const footer = sections.findIndex((s) => s.type === "footer")
-  return { min: header !== -1 ? header + 1 : 0, max: footer !== -1 ? footer : sections.length }
+  let lastHeader = -1
+  let firstFooter = -1
+  sections.forEach((s, i) => {
+    const g = groupOf(s)
+    if (g === "header") lastHeader = i
+    else if (g === "footer" && firstFooter === -1) firstFooter = i
+  })
+  return { min: lastHeader + 1, max: firstFooter !== -1 ? Math.max(lastHeader + 1, firstFooter) : sections.length }
 }
 
 function clampToBody(sections: SectionInstance[], index: number): number {
@@ -73,7 +79,7 @@ export function writingAnchor(
   let index: number
   const selected = opts.selectedId ? sections.findIndex((s) => s.id === opts.selectedId) : -1
   if (opts.chosenIndex != null) index = clampToBody(sections, opts.chosenIndex)
-  else if (selected !== -1 && sections[selected].type !== "header" && sections[selected].type !== "footer") {
+  else if (selected !== -1 && groupOf(sections[selected]) === "template") {
     index = clampToBody(sections, selected + 1)
   } else index = bodyRange(sections).max
   const above = sections[index - 1]
@@ -123,7 +129,7 @@ export function placeWrittenSection(
  * after it is one fewer.
  */
 export function gapWithoutPlaceholder(canvas: SectionInstance[], at: number): number | null {
-  const body = canvas.filter((s) => s.type !== "header" && s.type !== "footer")
+  const body = canvas.filter((s) => groupOf(s) === "template")
   const held = body.findIndex((s) => s.id === WRITING_SECTION_ID)
   if (held === -1 || at <= held) return at
   if (at === held + 1) return null

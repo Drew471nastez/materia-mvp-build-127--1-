@@ -30,10 +30,10 @@
       {% else %}
         <div class="grid">
           {% for block in blocks %}
-          <article class="card card__wrap" data-block-id="{{ block.id }}">
-            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+          <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
-              {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
+              {% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
             {% if settings.show_price and block.settings.price %}
@@ -44,16 +44,81 @@
           {% endfor %}
         </div>
       {% endif %}
+    {% elsif settings.show_filters and page.filters %}
+      {# Filters beside what was found, kept with the words searched for:
+         lib/products/catalog-filters.ts. #}
+      <div class="cat">
+        <form class="cat__form" action="{{ page.filters.path | url }}" method="get" data-storelib-filters>
+          {% if page.filters.q %}<input type="hidden" name="q" value="{{ page.filters.q }}">{% endif %}
+          <input class="cat__toggle" type="checkbox" id="{{ section.id }}-filters" aria-hidden="true" tabindex="-1">
+          <div class="cat__bar">
+            <label class="cat__open" for="{{ section.id }}-filters">{{ settings.filter_label }}{% if page.filters.active_count > 0 %} ({{ page.filters.active_count }}){% endif %}</label>
+            <p class="cat__count" aria-live="polite">{{ page.filters.count_label }}</p>
+            <label class="cat__sort"><span class="cat__sortl">{{ settings.sort_label }}</span>
+              <select name="sort">{% for o in page.filters.sort_options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}</select>
+            </label>
+          </div>
+          <div class="cat__panel" role="group" aria-label="{{ settings.filter_label }}">
+            {% if page.filters.price.show %}
+            <fieldset class="cat__group">
+              <legend class="cat__legend">Price</legend>
+              <div class="cat__range">
+                <label class="cat__num"><span>$</span><input type="number" name="price_min" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.min }}" value="{{ page.filters.price.from }}" aria-label="Lowest price"></label>
+                <span class="cat__to">to</span>
+                <label class="cat__num"><span>$</span><input type="number" name="price_max" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.max }}" value="{{ page.filters.price.to }}" aria-label="Highest price"></label>
+              </div>
+            </fieldset>
+            {% endif %}
+            {% for g in page.filters.groups %}
+            <fieldset class="cat__group">
+              <legend class="cat__legend">{{ g.label }}</legend>
+              {% for v in g.values %}
+              <label class="cat__opt{% if v.disabled %} cat__opt--off{% endif %}"><input type="checkbox" name="{{ g.param }}" value="{{ v.value }}"{% if v.checked %} checked{% endif %}{% if v.disabled %} disabled{% endif %}>{% if v.swatch %}<span class="cat__sw" style="background: {{ v.swatch }};"></span>{% endif %}<span class="cat__lab">{{ v.label }}</span><span class="cat__n">{{ v.count }}</span></label>
+              {% endfor %}
+            </fieldset>
+            {% endfor %}
+            <div class="cat__actions">
+              <button type="submit" class="cat__apply">{{ settings.apply_label }}</button>
+              {% if page.filters.active %}<a class="cat__clear" href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a>{% endif %}
+            </div>
+          </div>
+        </form>
+        <div class="cat__results">
+          {% if page.filters.chips.size > 0 %}
+          <div class="cat__chips">{% for c in page.filters.chips %}<a class="cat__chip" href="{{ c.url | url }}" aria-label="Remove {{ c.label }}">{{ c.label }}<span aria-hidden="true">×</span></a>{% endfor %}<a class="cat__chip cat__chip--clear" href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a></div>
+          {% endif %}
+          {% if products.size == 0 %}
+            <div class="cat__empty"><p>{% if page.filters.active %}{{ settings.no_match }}{% else %}{{ settings.empty_text }}{% endif %}</p>{% if page.filters.active %}<a href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a>{% endif %}</div>
+          {% else %}
+      <div class="grid">
+        {% for block in products %}
+        <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
+          <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
+            {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+            {% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}
+            {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
+          </div>
+          <h3 class="card__title">{{ block.settings.title }}</h3>
+          {% if settings.show_price and block.settings.price %}
+            <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+          {% endif %}
+          {% if block.settings.url %}<a class="card__link" href="{{ block.settings.url | url }}"><span class="sr">{{ block.settings.title }}</span></a>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+          {% endif %}
+        </div>
+      </div>
     {% else %}
     {% if products.size == 0 %}
       <p class="empty">{{ settings.empty_text }}</p>
     {% else %}
       <div class="grid">
         {% for block in products %}
-        <article class="card card__wrap" data-block-id="{{ block.id }}">
-          <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+        <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
+          <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
             {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
-            {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
+            {% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}
             {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
           </div>
           <h3 class="card__title">{{ block.settings.title }}</h3>
@@ -148,6 +213,65 @@
 .heart:active { transform: scale(0.92); }
 .heart:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .heart, .heart svg { transition: none; } }
+
+/* ── Filters: a sidebar beside the grid on a computer, a panel that opens
+   under the bar on a phone. A plain GET form: the address is the state, so
+   a filtered list can be linked and reloaded, and it works before any
+   script. The page submits it as soon as a box is ticked. ── */
+.cat { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "side" "main"; column-gap: 40px; margin-top: 8px; }
+.cat__form { display: contents; }
+.cat__toggle { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.cat__bar { grid-area: bar; display: flex; align-items: center; gap: 12px; padding: 0 0 16px; border-bottom: 1px solid var(--s-border); }
+.cat__open {
+  display: inline-flex; flex: 0 0 auto; align-items: center; height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  color: var(--s-heading); border: 1px solid var(--s-border); border-radius: var(--s-radius); -webkit-tap-highlight-color: transparent;
+}
+.cat__toggle:checked ~ .cat__bar .cat__open { border-color: var(--s-heading); }
+.cat__toggle:focus-visible ~ .cat__bar .cat__open { outline: 2px solid var(--s-heading); outline-offset: 2px; }
+.cat__count { margin: 0; min-width: 0; font-size: 14px; color: var(--s-para); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat__sort { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--s-para); }
+.cat__sortl { display: none; }
+.cat__sort select {
+  height: 40px; max-width: 44vw; padding: 0 30px 0 12px; font: inherit; font-size: 14px; color: var(--s-heading); background-color: var(--s-bg);
+  border: 1px solid var(--s-border); border-radius: var(--s-radius); -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 15px) 18px, calc(100% - 10px) 18px; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.cat__panel { grid-area: side; display: none; padding: 8px 0 16px; border-bottom: 1px solid var(--s-border); }
+.cat__toggle:checked ~ .cat__panel { display: block; }
+.cat__group { margin: 0; padding: 14px 0; border: 0; border-top: 1px solid var(--s-border); min-width: 0; }
+.cat__group:first-child { border-top: 0; }
+/* Floated, so the fieldset's rule runs above it rather than through it. */
+.cat__legend { float: left; width: 100%; padding: 0; margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--s-heading); }
+.cat__legend + * { clear: both; }
+.cat__opt { display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 14px; color: var(--s-text); cursor: pointer; }
+.cat__opt input { width: 18px; height: 18px; margin: 0; accent-color: var(--s-heading); flex: 0 0 auto; }
+.cat__opt--off { opacity: 0.45; cursor: default; }
+.cat__sw { width: 18px; height: 18px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); flex: 0 0 auto; }
+.cat__lab { flex: 1 1 auto; min-width: 0; }
+.cat__n { font-size: 13px; color: var(--s-para); opacity: 0.75; font-variant-numeric: tabular-nums; }
+.cat__range { display: flex; align-items: center; gap: 8px; }
+.cat__num { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; border: 1px solid var(--s-border); border-radius: var(--s-radius); color: var(--s-para); }
+.cat__num input { width: 100%; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; font-size: 16px; color: var(--s-heading); -moz-appearance: textfield; }
+.cat__num input::-webkit-outer-spin-button, .cat__num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cat__to { font-size: 13px; color: var(--s-para); }
+.cat__actions { display: flex; align-items: center; gap: 16px; padding-top: 14px; }
+.cat__apply { height: 40px; padding: 0 20px; font: inherit; font-size: 14px; font-weight: 600; color: var(--s-btn-text); background: var(--s-btn); border: 1px solid var(--s-btn); border-radius: var(--s-radius); cursor: pointer; }
+.cat__clear { font-size: 14px; color: var(--s-heading); text-underline-offset: 3px; }
+.cat__results { grid-area: main; min-width: 0; container-type: inline-size; padding-top: 20px; }
+.cat__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.cat__chip { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; font-size: 13px; color: var(--s-heading); text-decoration: none; border: 1px solid var(--s-border); border-radius: 999px; }
+.cat__chip--clear { border-color: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.cat__empty { padding: 48px 0; text-align: center; font-size: 15px; color: var(--s-para); }
+.cat__empty a { display: inline-block; margin-top: 10px; color: var(--s-heading); }
+.cat .grid { margin-top: 0; }
+@container (min-width: 900px) {
+  .cat { grid-template-columns: 240px minmax(0, 1fr); grid-template-areas: "side bar" "side main"; }
+  .cat__open { display: none; }
+  .cat__sortl { display: inline; }
+  .cat__panel { display: block; align-self: start; padding: 0; border-bottom: 0; }
+  .cat__group:first-child { padding-top: 4px; }
+}
 </style>
 
 <schema>
@@ -226,6 +350,13 @@
       "default": true,
       "info": "On your shop's products. Saved ones are listed on the Wishlist page."
     },
+    {"type": "header", "id": "hdr_filters", "label": "Filters"},
+    {"type": "toggle", "id": "show_filters", "label": "Show filters", "default": true},
+    {"type": "text", "id": "filter_label", "label": "Filter button", "default": "Filter", "visible_if": "{{ section.settings.show_filters }}"},
+    {"type": "text", "id": "sort_label", "label": "Sort label", "default": "Sort by", "visible_if": "{{ section.settings.show_filters }}"},
+    {"type": "text", "id": "apply_label", "label": "Apply button", "default": "Apply", "visible_if": "{{ section.settings.show_filters }}"},
+    {"type": "text", "id": "clear_label", "label": "Clear link", "default": "Clear all", "visible_if": "{{ section.settings.show_filters }}"},
+    {"type": "text", "id": "no_match", "label": "When nothing matches the filters", "default": "No products match these filters.", "visible_if": "{{ section.settings.show_filters }}"},
     {
       "type": "range",
       "id": "columns",

@@ -50,7 +50,8 @@ import {
 } from "./values"
 import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
-import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
+import { shopObject } from "./globals"
+import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCollection, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
 
 export interface ResolveOptions {
   /** `asset://…` → URL. Missing references resolve to "". */
@@ -69,6 +70,12 @@ export interface ResolveOptions {
    * communities switched off), and the setting is empty.
    */
   communities?: Record<string, StorefrontCommunity>
+  /**
+   * The creator's published collections a `collection_picker` or
+   * `collection_list` may name, by id. Absent, or an id that is not here
+   * (somebody else's, unpublished, deleted), and the setting is empty.
+   */
+  collections?: Record<string, StorefrontCollection>
 }
 
 /** A product as a section is handed it: `{ id, type, settings: { title, price, … } }`. */
@@ -187,9 +194,19 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
       return v === "" ? "" : cleanDatetime(v) || undefined
     case "focal_point":
       return v === "" ? "" : cleanFocalPoint(v) || undefined
-    case "image_picker":
+    case "image_picker": {
       if (typeof v !== "string") return undefined
-      return safeMediaUrl(isAssetRef(v) ? (opts.assets?.[v] ?? "") : v)
+      const url = safeMediaUrl(isAssetRef(v) ? (opts.assets?.[v] ?? "") : v)
+      /*
+        A picture the schema declared as text (schema/normalise.ts) may hold
+        something that is not an address: a word somebody typed while it was
+        a text box. It is drawn as it was before rather than dropped, so
+        reading the setting as a picture never loses what was saved. Only a
+        script address is refused, as it would be anywhere.
+      */
+      if (url === "" && def.declared_type && !isAssetRef(v) && v.trim() !== "" && !/^\s*(javascript|vbscript|data):/i.test(v)) return v
+      return url
+    }
     case "video_picker":
     case "file_picker": {
       if (typeof v !== "string") return undefined
@@ -219,6 +236,10 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
       return typeof v === "string" ? productRef(v, opts) : undefined
     case "product_list":
       return Array.isArray(v) ? productList(v, def, opts) : undefined
+    case "collection_picker":
+      return typeof v === "string" ? collectionRef(v, opts) : undefined
+    case "collection_list":
+      return Array.isArray(v) ? collectionList(v, def, opts) : undefined
     case "link_list":
       return typeof v === "string" ? menuFor(v, opts) : undefined
     case "header":
@@ -278,6 +299,59 @@ function communityRef(v: string, opts: ResolveOptions): unknown {
   return new Linked(safeHref(item.url), { ...item, id: key } as Record<string, unknown>)
 }
 
+/**
+ * A collection picker holds an id. When the page knows that collection (the
+ * creator's own and published), the setting becomes a Linked value that
+ * prints as its address and carries its title, picture, count and first
+ * products. Any other id is empty.
+ */
+function collectionRef(v: string, opts: ResolveOptions): unknown {
+  const item = collectionById(v, opts)
+  if (!item) return ""
+  return new Linked(safeHref(item.url), collectionFields(item))
+}
+
+function collectionById(v: string, opts: ResolveOptions): StorefrontCollection | undefined {
+  const key = v.trim().toLowerCase()
+  if (key === "" || !opts.collections) return undefined
+  return Object.prototype.hasOwnProperty.call(opts.collections, key) ? opts.collections[key] : undefined
+}
+
+/** What a template reads off a collection: plain values, its address made safe. */
+function collectionFields(c: StorefrontCollection): Record<string, unknown> {
+  return {
+    id: c.id,
+    title: c.title,
+    handle: c.handle,
+    description: c.description,
+    image: safeMediaUrl(c.image),
+    url: safeHref(c.url),
+    products_count: c.products_count,
+    products: c.products,
+  }
+}
+
+/** A collection, block-shaped like a product in `products`, for a loop. */
+export function collectionBlock(c: StorefrontCollection): { id: string; type: string; settings: Record<string, unknown> } {
+  return { id: c.id, type: "collection", settings: collectionFields(c) }
+}
+
+/** The chosen collections, in the creator's order, each once, up to the limit. */
+function collectionList(v: unknown[], def: SettingDefinition, opts: ResolveOptions): CatalogItem[] {
+  const limit = typeof def.limit === "number" && Number.isInteger(def.limit) ? Math.min(24, Math.max(1, def.limit)) : 12
+  const seen = new Set<string>()
+  const out: CatalogItem[] = []
+  for (const raw of v) {
+    if (typeof raw !== "string") continue
+    const item = collectionById(raw, opts)
+    if (!item || seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push(collectionBlock(item))
+    if (out.length >= limit) break
+  }
+  return out
+}
+
 /** The chosen products, in the creator's order, each once, up to the limit. */
 function productList(v: unknown[], def: SettingDefinition, opts: ResolveOptions): CatalogItem[] {
   const limit = typeof def.limit === "number" && Number.isInteger(def.limit) ? Math.min(24, Math.max(1, def.limit)) : 12
@@ -315,7 +389,21 @@ export function resolveOne(def: SettingDefinition, saved: unknown, opts: Resolve
   const control = controlFor(def.type)
   if (!control || control.value === "none") return undefined
   const type = resolveControlType(def.type)!
-  const fallback = def.default !== undefined ? def.default : control.fallback
+  /*
+    A range or number with no default starts at its lowest value, not at the
+    registry's 0: a heading size declared 40 to 120 with no default is 40,
+    never a heading 0px tall. The validator says so as a warning.
+  */
+  const lowest = (type === "range" || type === "number") && def.default === undefined && typeof def.min === "number" && Number.isFinite(def.min) && (control.fallback as number) < def.min ? def.min : undefined
+  const fallback = def.default !== undefined ? def.default : lowest !== undefined ? lowest : control.fallback
+  /*
+    A colour that follows the scheme by default and holds "" is following it.
+    The builder's Advanced colors writes a heading or button override into
+    the scheme and blanks the older field beside it (heading_color,
+    button_color: lib/website-builder/section-overrides.ts), so "" here means
+    "the scheme's colour, override included", never "no colour at all".
+  */
+  if (type === "color" && saved === "" && schemeTokenName(def.default) !== null) saved = undefined
   const pick = (v: unknown, fb: unknown): unknown => {
     const ok = v === undefined ? undefined : allowed(type, v, def, opts)
     if (ok !== undefined) return ok
@@ -523,7 +611,85 @@ export function themeTokens(settings: Record<string, unknown>): Record<string, u
       pill: 9999,
     },
     spacing: { small: 16, medium: 32, large: 64, xlarge: 96 },
+    ...themeGlobals(settings),
     settings,
+  }
+}
+
+/**
+ * ===========================================================================
+ *  THE THEME'S GENERAL SETTINGS, AS A SECTION READS THEM
+ * ===========================================================================
+ * Shopify gives every section `settings.logo`, the social links and the
+ * button style. Here a section's `settings` are its own, so the theme's are
+ * under `theme`: the logo, the buttons, the page layout, the entrance
+ * animation and the social links, each with Theme settings' own default
+ * filled in, because a site that never opened a panel has none of these
+ * keys saved and a section reading `theme.settings.logo_width` got nothing.
+ * The defaults are the ones lib/website-builder/theme-settings-schema.ts
+ * gives, and tests/section-framework-t.test.ts holds the two together.
+ */
+export function themeGlobals(settings: Record<string, unknown>): Record<string, unknown> {
+  const str = (k: string, d = "") => (typeof settings[k] === "string" && (settings[k] as string).trim() !== "" ? (settings[k] as string).trim() : d)
+  const num = (k: string, d: number) => {
+    const v = typeof settings[k] === "number" ? (settings[k] as number) : typeof settings[k] === "string" ? Number(settings[k]) : NaN
+    return Number.isFinite(v) ? v : d
+  }
+  const bool = (k: string, d: boolean) => (typeof settings[k] === "boolean" ? (settings[k] as boolean) : d)
+  const logo = safeMediaUrl(str("logo_url"))
+  const mobileLogo = bool("use_mobile_logo", false) ? safeMediaUrl(str("mobile_logo_url")) : ""
+  return {
+    logo: {
+      url: logo,
+      width: num("logo_width", 120),
+      mobile_url: mobileLogo || logo,
+      mobile_width: num("mobile_logo_width", num("logo_width", 120)),
+      /* What a header prints when there is no picture: the store's name. */
+      text: str("brand_name"),
+    },
+    favicon: safeMediaUrl(str("favicon_url")),
+    buttons: {
+      style: str("button_style", "filled"),
+      shape: str("button_shape", "rounded"),
+      radius: num("button_border_radius", 8),
+      size: str("button_size", "md"),
+      weight: str("button_font_weight", "600"),
+      shadow: bool("button_shadow", false),
+      hover: str("button_transition", "fade"),
+    },
+    layout: {
+      page_width: num("page_width", 1240),
+      padding_x: num("content_padding_x", 32),
+      section_gap: num("section_gap", 0),
+      spacing_scale: num("spacing_scale", 1),
+      card_radius: num("border_radius", 8),
+      image_radius: num("image_border_radius", 8),
+      card_shadow: str("card_shadow", "sm"),
+    },
+    animation: {
+      enabled: bool("animations_enabled", true),
+      style: str("animation_style", "fade-up"),
+      duration: num("animation_duration", 600),
+      stagger: num("animation_stagger", 80),
+    },
+    socials: shopObject(settings).socials,
+    /* Theme settings › Brand information, Shopify's shop.brand. */
+    brand: {
+      headline: str("brand_headline"),
+      description: str("brand_description"),
+      image: safeMediaUrl(str("brand_image")),
+      image_width: num("brand_image_width", 100),
+    },
+    /* Theme settings › Badges: whether a discounted product says Sale, and in what words. */
+    badges: {
+      sale: bool("badge_sale_show", true),
+      sale_text: str("badge_sale_text", "Sale"),
+      position: str("badge_position", "top_left"),
+    },
+    /* Theme settings › Cart › Cart type: drawer, page or notification. */
+    cart: { type: ["page", "notification"].includes(str("cart_type")) ? str("cart_type") : "drawer" },
+    /* Theme settings › Currency format. */
+    currency: { code: "USD", show_code: bool("currency_code_enabled", false) },
   }
 }
 

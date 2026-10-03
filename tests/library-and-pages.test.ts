@@ -90,7 +90,7 @@ async function main() {
     check("named plainly: Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other",
       PAGE_GROUP_ORDER.map((g) => PAGE_GROUP_LABELS[g]).join(", ") === "Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other")
     check("home on its own", keysOf("home").join(",") === "home")
-    check("the shop, then its search", keysOf("shop").join(",") === "products,search")
+    check("the shop, its collections, then its search", keysOf("shop").join(",") === "products,collections,search", keysOf("shop").join(","))
     check("the product page under Products", keysOf("products").join(",") === "product")
     check("About first among the pages, then the creator's own in the order they came", keysOf("pages").join(",") === "about,lookbook,faq", keysOf("pages").join(","))
     check("the visitor's account, sign in and wishlist together", keysOf("accounts").join(",") === "account,login,wishlist")
@@ -100,7 +100,8 @@ async function main() {
     check("no page is left out or listed twice", groups.reduce((n, g) => n + g.pages.length, 0) === pages.length)
     check("a key nobody knows is one of the creator's pages", pageGroupOf("size-guide") === "pages")
     /* Every site draws a page for an address it does not have (main's e85caf74), and the builder opens it. */
-    check("the 404 page is a page of its own, under Other, at the end", keysOf("other").join(",") === NOT_FOUND_PAGE_KEY && groups[groups.length - 1].key === "other")
+    /* And the password page beside it (lib/site-password): a page visitors land on, never one a menu links to. */
+    check("the 404 page is a page of its own, under Other, at the end, with the password page", keysOf("other").join(",") === `${NOT_FOUND_PAGE_KEY},password` && groups[groups.length - 1].key === "other", keysOf("other").join(","))
     check("the visitor's pages are exactly the ones account-pages.ts serves, contact aside",
       keysOf("accounts").join(",") === Object.keys(ACCOUNT_PAGE_PATHS).filter((k) => k !== "contact").join(","))
     check("an empty group is not there", groupPages([{ key: "home", name: "Home", path: "/" }]).length === 1)
@@ -194,7 +195,9 @@ async function main() {
     check("no where line in either shell", !/data-library-where|where\?: string|\{where &&/.test(libraryCode))
     check("and the editor no longer works one out", !/libraryWhere|whereItGoes|where=\{/.test(code(editor)))
     check("the creator's own category is called Created", manifest.section_categories.yours === "Created" && SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] === "Created")
-    check("and Ask Storelib calls it the same", /Add it from Add Section, under Created\./.test(chat) && !/Created by you/.test(chat))
+    /* The line Code a section ends on is written in lib/website-builder/ask-code-run.ts now. */
+    const codeRun = read("lib/website-builder/ask-code-run.ts")
+    check("and Ask Storelib calls it the same", /Add it from Add Section, under Created\./.test(codeRun) && !/Created by you/.test(chat + codeRun))
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -289,7 +292,7 @@ async function main() {
   console.log("\nAFTER: on a phone the sheet comes up on the new section's settings")
   // ═════════════════════════════════════════════════════════════════════════
   {
-    const add = editor.slice(editor.indexOf("const addSection = (type: string, presetIndex = 0) => {"), editor.indexOf("// Add custom page"))
+    const add = editor.slice(editor.indexOf("const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {"), editor.indexOf("// Add custom page"))
     check("adding selects the section and puts the sidebar on it, whichever tab it was on",
       /setSelectedPanel\(\{ type: "section", sectionId: newSection\.id \}\)\s*\n[\s\S]{0,240}setPageBrowserOpen\(false\)\s*\n\s*setSidebarMode\("sections"\)/.test(add))
     check("on a phone the canvas brings it into the room above the risen sheet", /bottomInset: isMobileView \? sheetCoverAbovePeek\(document\.documentElement\.style\) : undefined/.test(add))

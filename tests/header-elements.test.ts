@@ -189,8 +189,9 @@ function main() {
   const sitePages = read("lib/website-builder/site-pages.ts")
   /* The shop, the search page and the 404 page, and the account pages and
      contact (lib/website-builder/account-pages), named in one set. */
+  /* And the collections page, Shopify's list-collections (lib/website-builder/shop-page). */
   check("the generated keys are named once",
-    /GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set\(\["products", "search", "404", "account", "login", "wishlist", "contact"\]\)/.test(sitePages))
+    /GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set\(\["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections"\]\)/.test(sitePages))
   check("and are built in, so they are not listed as pages somebody made",
     /BUILT_IN_PAGE_KEYS[^\n]*"products", "search"/.test(sitePages))
   check("the sections route generates them from the same builders the live site uses",
@@ -209,7 +210,8 @@ function main() {
      (sitePages, from PAGE_META), where the shop and its search are grouped under Shop. */
   check("and both are in the page lists",
     /products: \{ label: "Shop"/.test(read("lib/website-builder/types.ts")) && /search: \{ label: "Search"/.test(read("lib/website-builder/types.ts")) &&
-      /\.\.\.\(Object\.keys\(PAGE_META\) as PageKey\[\]\)\.map\(\(k\) => \(\{ key: k, name: PAGE_META\[k\]\.label, path: pagePath\(k\) \}\)\)/.test(editor) &&
+      /* The collections page is filtered out while collections are off; every other key is listed. */
+      /\.\.\.\(Object\.keys\(PAGE_META\) as PageKey\[\]\)(\.filter\(\(k\) => k !== "collections" \|\| builderCollections !== null\))?\.map\(\(k\) => \(\{ key: k, name: PAGE_META\[k\]\.label, path: pagePath\(k\) \}\)\)/.test(editor) &&
       /<PageSwitcher\s*\n\s*pages=\{sitePages\}/.test(editor) && /pages=\{sitePages\}/.test(editor.slice(editor.indexOf("const renderPageBrowser"))))
   check("the live shop and search prefer what the creator saved",
     /site\.pages\.products/.test(read("app/(site)/w/[username]/products/page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))
@@ -304,10 +306,14 @@ function main() {
     the logo in both: on a theme set to Playfair Display for headings, the
     wordmark came out in DM Sans.
   */
+  /* The stack is a rule in lib/website-builder/header-settings.ts now, which
+     also skips the schema's "inherit": inside a list it voided the whole
+     declaration. */
+  const headerRules = read("lib/website-builder/header-settings.ts")
   check("the wordmark names the heading face rather than inheriting one",
-    /const logoFontStack = \[/.test(header) && /"var\(--theme-font-heading\)",/.test(header))
+    /const logoFontStack = wordmarkFont\(s\.logo_font\)/.test(header) && /"var\(--theme-font-heading\)"/.test(headerRules))
   check("with a fallback that is the site's own type, not the browser's serif",
-    /"ui-sans-serif",\s*\n\s*"system-ui",\s*\n\s*"sans-serif",/.test(header))
+    /"var\(--theme-font-heading\)", "ui-sans-serif", "system-ui", "sans-serif"/.test(headerRules))
   check("and nothing inherits the anchor's font any more",
     !/fontFamily: str\(s\.logo_font, "inherit"\)/.test(header))
   check("measured on both surfaces rather than argued about",

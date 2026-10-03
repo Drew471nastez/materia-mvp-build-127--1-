@@ -14,6 +14,7 @@
  * card link. Nothing new to keep in step.
  */
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 
 /** The id is fixed, not generated: the same page must render the same twice. */
 const SEARCH_ID = "storelib-search"
@@ -39,8 +40,6 @@ export function shopSections(
   homeSections: SectionInstance[],
   theme: ThemeSettingsValues,
 ): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
 
   /**
    * The heading is the shop's own name, not a sentence about shopping. The
@@ -62,6 +61,9 @@ export function shopSections(
       columns: { desktop: 3, tablet: 2, mobile: 1 },
       shape: "1 / 1",
       show_price: true,
+      /* The shop is where a visitor narrows the list: price, stock, type,
+         options and an order, from the address (lib/products/catalog-filters.ts). */
+      show_filters: true,
       // No "See everything" button: this is everything.
       button_text: "",
       button_url: "",
@@ -74,7 +76,8 @@ export function shopSections(
     hidden: false,
   }
 
-  return [...(header ? [header] : []), grid, ...(footer ? [footer] : [])]
+  /* The header group and the footer group, announcement bars included: lib/website-builder/universal-chrome.ts. */
+  return withUniversalChrome([grid], chromeOf(homeSections))
 }
 
 /**
@@ -99,8 +102,6 @@ export function shopSections(
  * designing it.
  */
 export function searchSections(homeSections: SectionInstance[]): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
 
   const search: SectionInstance = {
     id: SEARCH_ID,
@@ -124,7 +125,8 @@ export function searchSections(homeSections: SectionInstance[]): SectionInstance
     hidden: false,
   }
 
-  return [...(header ? [header] : []), search, ...(footer ? [footer] : [])]
+  /* The header group and the footer group, announcement bars included: lib/website-builder/universal-chrome.ts. */
+  return withUniversalChrome([search], chromeOf(homeSections))
 }
 
 /**
@@ -138,8 +140,6 @@ export function searchSections(homeSections: SectionInstance[]): SectionInstance
  * other once the creator opens the 404 page from the page switcher.
  */
 export function notFoundSections(homeSections: SectionInstance[]): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
 
   const notFound: SectionInstance = {
     id: NOT_FOUND_ID,
@@ -164,7 +164,81 @@ export function notFoundSections(homeSections: SectionInstance[]): SectionInstan
     hidden: false,
   }
 
-  return [...(header ? [header] : []), notFound, ...(footer ? [footer] : [])]
+  /* The header group and the footer group, announcement bars included: lib/website-builder/universal-chrome.ts. */
+  return withUniversalChrome([notFound], chromeOf(homeSections))
+}
+
+/**
+ * ===========================================================================
+ *  THE COLLECTIONS PAGE: EVERY COLLECTION, IN THE SITE'S CHROME
+ * ===========================================================================
+ * Shopify's list-collections template, at /collections: the creator's
+ * header and footer around one Collection list showing every published
+ * collection. Like the shop and the 404 page it is generated until the
+ * creator opens it in the builder, and stored from their first save.
+ */
+const COLLECTIONS_ID = "storelib-collections"
+
+export function collectionsPageSections(homeSections: SectionInstance[]): SectionInstance[] {
+  const header = homeSections.find((s) => s.type === "header")
+  const footer = homeSections.find((s) => s.type === "footer")
+  const list: SectionInstance = {
+    id: COLLECTIONS_ID,
+    type: "collections_grid",
+    name: "Collection list",
+    settings: {
+      source: "all",
+      chosen: [],
+      heading: "Collections",
+      subheading: "",
+      align: "left",
+      columns: { desktop: 3, tablet: 2, mobile: 1 },
+      shape: "4 / 5",
+      show_count: true,
+      count_one: "product",
+      count_many: "products",
+      show_description: false,
+      button_text: "",
+      button_url: "/collections",
+      color_scheme: chromeScheme(homeSections),
+      padding_top: 72,
+      padding_bottom: 96,
+    },
+    blocks: [],
+    hidden: false,
+  }
+  return [...(header ? [header] : []), list, ...(footer ? [footer] : [])]
+}
+
+/**
+ * ===========================================================================
+ *  A PAGE THE CREATOR ADDS: SHOPIFY'S DEFAULT PAGE TEMPLATE
+ * ===========================================================================
+ * The site's header, a Page content section holding the title they typed
+ * and a place to write, and the footer. It used to be the header and the
+ * footer with nothing between them, so a new page opened as an empty gap
+ * and the first thing to do was find a section that could hold words.
+ *
+ * `id` is passed in: two pages made in one session must not share one.
+ */
+export function customPageSections(header: SectionInstance | undefined, footer: SectionInstance | undefined, title: string, id: string): SectionInstance[] {
+  const body: SectionInstance = {
+    id,
+    type: "page_content",
+    name: "Page content",
+    settings: {
+      heading: title.trim().slice(0, 200),
+      content: "",
+      width: "narrow",
+      align: "left",
+      color_scheme: "white",
+      padding_top: 72,
+      padding_bottom: 72,
+    },
+    blocks: [],
+    hidden: false,
+  }
+  return [...(header ? [header] : []), body, ...(footer ? [footer] : [])]
 }
 
 /**
@@ -175,7 +249,11 @@ export function notFoundSections(homeSections: SectionInstance[]): SectionInstan
 export function productMatchesQuery(product: any, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  const fields = [product?.title, product?.description, product?.category, product?.categoryName]
+  /* A row from the database (the header's search) or a shop card (the search
+     page), whose fields are under `settings`. The page used to read a card
+     as a row, found no title on it, and matched nothing for any word. */
+  const s = product?.settings ?? {}
+  const fields = [product?.title, product?.description, product?.category, product?.categoryName, s.title, s.description, s.category]
   return fields.some((value) => typeof value === "string" && value.toLowerCase().includes(q))
 }
 
@@ -194,7 +272,5 @@ export function productMatchesQuery(product: any, query: string): boolean {
  * policies, and those are exactly what this creator already designed.
  */
 export function chromeSections(homeSections: SectionInstance[]): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
-  return [...(header ? [header] : []), ...(footer ? [footer] : [])]
+  return withUniversalChrome([], chromeOf(homeSections))
 }

@@ -115,7 +115,7 @@ async function main() {
      * product's own page already shows a visitor. Still nothing private.
      */
     const keys = Object.keys(c.settings).sort()
-    const API = ["available", "checkout_url", "compare_price", "currency", "free", "image", "images", "kind", "pay_what_you_want", "price", "slug", "tag", "title", "url", "variants"]
+    const API = ["available", "category", "checkout_url", "compare_price", "currency", "free", "image", "images", "kind", "options", "pay_what_you_want", "price", "slug", "tag", "title", "url", "variants"]
     check("a card carries exactly the documented product fields", JSON.stringify(keys) === JSON.stringify(API), keys.join(", "))
     check("and nothing private: no description, cost, files, buyer or creator", !keys.some((k) => /description|cost|file|buyer|creator|email|order/.test(k)))
     const selling = read("content/developers/selling.md")
@@ -183,7 +183,7 @@ async function main() {
       return {
         titles: [...r.html.matchAll(/class="card__title">([^<]*)</g)].map((m) => m[1]),
         prices: [...r.html.matchAll(/class="card__price">([^<]*)</g)].map((m) => m[1]),
-        tags: [...r.html.matchAll(/class="tag">([^<]*)</g)].map((m) => m[1]),
+        tags: [...r.html.matchAll(/class="tag"[^>]*>([^<]*)</g)].map((m) => m[1]),
       }
     }
 

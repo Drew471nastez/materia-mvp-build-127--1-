@@ -40,6 +40,7 @@
 import type { RenderContext, Result, ThemeError } from "../types"
 import { Linked, formatDatetime, plainText, safeHref } from "../values"
 import { guardRawHtml, isScriptScheme } from "./raw-html"
+import { markFor, stripMarks } from "./marks"
 
 // ── AST ─────────────────────────────────────────────────────────────────────
 
@@ -796,6 +797,43 @@ export interface RenderOptions {
    * declaration or a block instead, since no legitimate CSS value holds one.
    */
   mode?: "html" | "css"
+  /**
+   * The builder is drawing: every output of a section's or a block's own
+   * setting is preceded by a mark naming the setting, which
+   * `applySettingMarks` (./marks.ts) turns into `data-sl-setting` on the
+   * element it lands in. Never on a published page. Ignored in "css" mode.
+   */
+  marks?: boolean
+}
+
+/** The setting an output reads, when it reads one of the section's or a block's own. */
+function markOf(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): string {
+  let base = e
+  while (base.t === "filter") base = base.e
+  if (base.t !== "path") return ""
+  const segs = base.segs
+  /* `settings.x` is the block's own inside a block's file, and the section's anywhere else. */
+  if (segs[0] === "settings" && segs.length >= 2 && scope.settings === ctx.settings) {
+    const id = ctx.block && typeof ctx.block.id === "string" ? ctx.block.id : null
+    return markFor(segs[1], id)
+  }
+  if (segs[0] === "section" && segs[1] === "settings" && segs.length >= 3) return markFor(segs[2], null)
+  if (segs[1] === "settings" && segs.length >= 3) {
+    const root = scope[segs[0]]
+    if (root && typeof root === "object" && isOwnBlock(root, ctx)) {
+      const id = (root as { id?: unknown }).id
+      if (typeof id === "string" && id) return markFor(segs[2], id)
+    }
+  }
+  return ""
+}
+
+/** A block of this section (or the block being drawn), not a product card or anything else shaped like one. */
+function isOwnBlock(v: object, ctx: RenderContext): boolean {
+  if (v === ctx.block) return true
+  const inTree = (list: unknown): boolean =>
+    Array.isArray(list) && list.some((b) => b === v || (!!b && typeof b === "object" && inTree((b as { blocks?: unknown }).blocks)))
+  return inTree(ctx.blocks) || inTree(ctx.sectionScope?.blocks)
 }
 
 /**
@@ -814,6 +852,7 @@ function cssValue(s: string): string {
 
 export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: RenderOptions = {}): string {
   const css = opts.mode === "css"
+  const marks = opts.marks === true && !css
   const out: string[] = []
   /**
    * `settings` and `section.settings` are the same settings, and so are
@@ -828,6 +867,8 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     blocks: ctx.blocks,
     // Block-shaped, so a template loops over it with the body it already has.
     products: ctx.products ?? [],
+    /* The creator's published collections the page was handed, block-shaped like products. */
+    collections: ctx.collections ?? [],
     theme: ctx.theme,
     scheme: ctx.scheme,
     page: ctx.page,
@@ -848,8 +889,14 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
         case "text": out.push(n.value); break
         case "output": {
           const v = evaluate(n.expr, scope, ctx)
+          if (marks) {
+            const mark = markOf(n.expr, scope, ctx)
+            if (mark) out.push(mark)
+          }
           /* In a stylesheet `raw` is checked with the whole sheet, in render.ts. */
-          out.push(v instanceof Safe ? (css ? v.html : guardRawHtml(v.html)) : css ? cssValue(str(v)) : escapeHtml(str(v)))
+          const printed = v instanceof Safe ? (css ? v.html : guardRawHtml(v.html)) : css ? cssValue(str(v)) : escapeHtml(str(v))
+          /* A value cannot carry a mark of its own into the markup: only the engine writes them. */
+          out.push(marks ? stripMarks(printed) : printed)
           break
         }
         case "if": {

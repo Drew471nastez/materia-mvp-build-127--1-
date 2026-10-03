@@ -58,7 +58,7 @@
       "id": "success_message",
       "label": "Success message",
       "type": "text",
-      "default": "You're in! Check your inbox for a confirmation.",
+      "default": "Thanks, you're on the list.",
       "placeholder": "Shown after successful signup"
     },
     {
@@ -172,7 +172,7 @@
         "show_name_field": false,
         "button_text": "Subscribe",
         "disclaimer": "We respect your privacy. Unsubscribe at any time.",
-        "success_message": "You're in! Check your inbox for a confirmation.",
+        "success_message": "Thanks, you're on the list.",
         "layout": "centered",
         "bg_overlay_opacity": 40,
         "padding_top": 60,

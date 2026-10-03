@@ -295,10 +295,34 @@ export interface SectionSchema {
   /** Where this section may be placed. Absent means anywhere. */
   allowed_templates?: string[]
   disabled_templates?: string[]
+  /**
+   * The section groups it may sit in, Shopify's spelling:
+   * `{ "groups": ["header"] }` for an announcement bar that sits above the
+   * header. Absent, a section is a page section (the "template" group), and
+   * an `announcement` category means the header group. See
+   * schema/normalise.ts, sectionGroupsOf.
+   */
+  enabled_on?: SectionPlacement
+  /** The groups it may not sit in. One of enabled_on or disabled_on, never both. */
+  disabled_on?: SectionPlacement
+  /**
+   * "header" or "footer": this section IS the site's header (or footer), and
+   * replaces the built-in one wherever it is used. One per theme. Only for a
+   * creator who asked for a header of their own: the built-in one is
+   * configured, not rebuilt.
+   */
+  kind?: "header" | "footer"
   /** What the script may reach. Absent means nothing beyond `root`. */
   capabilities?: string[]
   /** Renames of setting ids across versions, oldest first. */
   migrations?: { from: string; to: string; since: string }[]
+  [key: string]: unknown
+}
+
+/** `enabled_on` and `disabled_on`: section groups, and optionally page templates. */
+export interface SectionPlacement {
+  groups?: ("header" | "footer" | "template")[]
+  templates?: string[]
   [key: string]: unknown
 }
 
@@ -417,6 +441,14 @@ export interface RenderContext {
    * here; see lib/website-builder/shop-products.ts.
    */
   products?: { id: string; type: string; settings: Record<string, unknown> }[]
+  /**
+   * The creator's published collections the page was handed, block-shaped
+   * like `products`: `{% for block in collections %}` with
+   * `block.settings.title`, `image`, `url`, `products_count`. The
+   * collections page is handed every one; other pages only the ones their
+   * settings name. Empty when absent.
+   */
+  collections?: { id: string; type: string; settings: Record<string, unknown> }[]
   /** Theme tokens: colors, typography, radius, spacing, schemes, and the raw settings. */
   theme: Record<string, unknown>
   /**
@@ -515,11 +547,39 @@ export interface StorefrontCommunity {
   join_label: string
 }
 
+/**
+ * One of the creator's collections, as a section reads it: a published
+ * collection of this creator's and nothing else. `products` holds the first
+ * of its published products, block-shaped like `products`.
+ */
+export interface StorefrontCollection {
+  id: string
+  title: string
+  /** The collection's slug, as Shopify calls it. */
+  handle: string
+  /** Plain words, never markup. */
+  description: string
+  /** Its own picture, or its first product's, or "". */
+  image: string
+  /** /collections/<handle>. */
+  url: string
+  /** How many published products are in it. */
+  products_count: number
+  products: { id: string; type: string; settings: Record<string, unknown> }[]
+}
+
 export interface StorefrontData {
   /** Products a `product_picker` or `product_list` may name, block-shaped. */
   catalog?: { id: string; type?: string; settings: Record<string, unknown> }[]
   /** The creator's communities a `community_picker` may name, by id. */
   communities?: Record<string, StorefrontCommunity>
+  /**
+   * The creator's published collections a `collection_picker` or
+   * `collection_list` may name, by id, in the creator's order. The same
+   * list is the page's `collections`. Absent means none, and every
+   * collection setting is empty.
+   */
+  collections?: Record<string, StorefrontCollection>
   /** Menus by handle, for `link_list`. */
   menus?: Record<string, Menu>
   shop?: { name?: string; description?: string; url?: string; product_count?: number }

@@ -29,6 +29,26 @@ async function creatorCommunitiesForBuilder(creatorId: string) {
   }
 }
 
+/**
+ * The creator's own collections for a collection picker, a collection list
+ * and the collections page: every one as a choice, saying whether a visitor
+ * sees it, and the published ones as a section reads them, so the canvas
+ * draws them as the live site will. Read by this signed in creator's id
+ * alone. Nothing while physical commerce, where collections live, is off.
+ */
+async function creatorCollectionsForBuilder(creatorId: string) {
+  try {
+    const { isPhysicalCommerceEnabled } = await import("@/lib/platform/physical-commerce")
+    if (!(await isPhysicalCommerceEnabled())) return null
+    const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const { collections, choices } = await siteCollections(createAdminClient(), creatorId, { published: false })
+    return { choices, cards: collections }
+  } catch {
+    return null
+  }
+}
+
 // ── Auth helper ──────────────────────────────────────────────
 async function getCreatorAndInstall(installId: string) {
   const supabase = await createClient()
@@ -128,12 +148,13 @@ export async function GET(_req: Request, { params }: Params) {
     public profile comes along for the canvas to fill `{{ creator.name }}`
     the way the live site will: the same four public facts, nothing else.
   */
-  const [lookup, facts, communities] = await Promise.all([
+  const [lookup, facts, communities, collections] = await Promise.all([
     customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
     creatorFacts(supabase! as never, creator!.id),
     creatorCommunitiesForBuilder(creator!.id),
+    creatorCollectionsForBuilder(creator!.id),
   ])
-  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities })
+  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections })
 }
 
 // PATCH /api/website-builder/themes/[installId]

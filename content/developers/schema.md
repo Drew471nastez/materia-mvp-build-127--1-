@@ -37,6 +37,8 @@ This is the schema of the library's Accordion FAQ, `sections/faq_accordion.store
 | `supports_color_overrides` | no | Which colours Advanced colors offers for this section: `true`, `false`, or a list. See [Styling](/developers/styling#a-sections-own-colour-overrides). |
 | `supports_typography_overrides` | no | `false` hides the Heading style and Body style controls. Shown unless it says `false`. |
 | `allowed_templates`, `disabled_templates` | no | Meant to limit the pages a section may be placed on; one or the other, never both. Validated and kept. **Nothing uses them yet**: Add Section offers every section on every page. |
+| `enabled_on`, `disabled_on` | no | Which section groups it may sit in, Shopify's spelling: `{ "groups": ["header"] }`. The groups are `header`, `footer` and `template` (the page's own sections), or `"*"` for all three. One or the other, never both. Unset, a section is a page section, and one with `"category": "announcement"` belongs to the header group. See [Where a section may go](#where-a-section-may-go). |
+| `kind` | no | `"header"` or `"footer"`: this section IS the site's header or footer, and replaces the built-in one on every page. Only for a creator who asked for one of their own; at most one of each per theme. See [The header and footer](/developers/header-and-footer#a-header-of-your-own). |
 | `migrations` | no | Meant for renaming a setting across versions. Validated and kept. **Nothing applies them yet**; see [Changing a section safely](#changing-a-section-safely). |
 
 A key the engine does not recognise is kept in the schema, not stripped.
@@ -56,11 +58,51 @@ A key the engine does not recognise is kept in the schema, not stripped.
 | `responsive` | `true`, on a `number`, `range` or `alignment`, makes the value `{ desktop, tablet, mobile }` and puts a Desktop, Tablet, Phone switch above the control. |
 | `content` | For `paragraph`: the line of help it shows. |
 | `visible_if` | When the panel shows the setting, such as `"{{ section.settings.source == 'chosen' }}"`. See [Showing a setting only when it matters](#showing-a-setting-only-when-it-matters). |
-| `limit` | For `product_list`: how many products it holds, 1 to 24. 12 unless set. |
+| `limit` | For `product_list` and `collection_list`: how many it holds, 1 to 24. 12 unless set. |
+| `unit` | For `number` and `range`: the unit shown beside the value, such as `px`, `%` or `s`. |
 | `accept` | For `video_url`: the hosts it takes, from `["youtube", "vimeo"]`. Both unless set. |
 | `image` | For `focal_point`: the id of the `image_picker` beside it, which the creator taps to choose the spot. |
 
 `header`, `paragraph` and `divider` draw in the panel and hold no value. They still need an `id`, and take no default. An id starting `hdr_` is how the library names its headers.
+
+### Choosing the type
+
+Pick the type by what the value is, because the type decides the control the creator gets:
+
+| The value is | Type | The creator gets |
+| --- | --- | --- |
+| A picture: a logo, a photo, an avatar, a background | `image_picker` | The image picker, with an address box under it. Choosing a file replaces a typed address. |
+| Where something links to | `url` | The link picker: a page, a product, a section on the page, or any address. |
+| One of the creator's collections | `collection_picker` | Their collections with a picture and a product count, and a search box. |
+| Several collections, in an order | `collection_list` | The same list, with Add collection, Up, Down and Remove. |
+| A size, a count, a time | `number` with `unit`, or `range` | A number box with the unit inside it, or a slider. |
+| Alignment of text | `alignment` (Shopify's `text_alignment`) | Left, centre and right. |
+| A font for one part of the section | `font_picker` | The fonts Theme settings offers, each in its own face. The page loads the one picked. |
+| Markup pasted from another service | `html` (Shopify's `liquid` is read as this) | A code box. Scripts, forms and unknown frames are removed. |
+| A list of links: a menu, a nav, footer links | `link_list` | A choice of the site's menus. See [Menus](/developers/dynamic-values#menus). |
+| A colour of one element | `color` with `"default": "scheme.<name>"` | A colour row that follows the scheme until they pick one. See [Styling](/developers/styling#a-colour-setting-for-each-element). |
+| Words | `text`, `textarea`, `inline_richtext`, `richtext` | A box to type in. |
+
+**A picture declared as `text` or `url` is read as a picture.** When a setting's id or label names a picture (image, logo, photo, picture, avatar, src) and its default is a picture's address or empty, the engine treats it as an `image_picker`: the panel draws the picker with the address box under it, and the compile says so as a warning. The file is not changed and neither is anything stored under the setting: an address saved while it was a text box is the picture, and a word typed there is still drawn as it was. Declare it as `image_picker` to make the warning go away. An agent's file that does this is refused until it does.
+
+**A menu typed out as pairs** (`link_1_label`, `link_1_url`, `link_2_label`...) compiles, with a warning that names `link_list`, and an agent's file that does it is refused.
+
+### A section's own animation
+
+A section enters the page the way Theme settings, Animations says. A section that needs its own declares a `select` with the id `animation`:
+
+```json
+{ "type": "select", "id": "animation", "label": "Animation", "default": "theme",
+  "options": [
+    { "label": "Theme default", "value": "theme" },
+    { "label": "None", "value": "none" },
+    { "label": "Fade", "value": "fade" },
+    { "label": "Fade up", "value": "fade_up" },
+    { "label": "Zoom", "value": "zoom" }
+  ] }
+```
+
+`theme` follows the theme. Any other value **overrides the theme's animation for this section**, including `none` on a site whose theme animates everything. The page reads the setting itself, so the template does not print it and the compile does not warn that it is unread. A value other than these five plays as `theme`, and the compile warns about it.
 
 ### Showing a setting only when it matters
 
@@ -118,7 +160,7 @@ The builder stores a single value while all three are the same and the object th
 
 ## Settings that name the shop's own things
 
-A `product_picker`, a `product_list` and a `link_list` each store a name, and each arrives in the template as the thing it names.
+A `product_picker`, a `product_list`, a `collection_picker`, a `collection_list` and a `link_list` each store a name, and each arrives in the template as the thing it names. Every one of them is read on the server for the site's own creator: a setting holding somebody else's product or collection id finds nothing, the same as a deleted one.
 
 **A `product_picker`** stores a product's address or id. It prints as the address, so `href="{{ settings.product | url }}"` works as it always has, and it carries the product's own fields: `title`, `price`, `compare_price`, `image`, `url` and `tag`.
 
@@ -141,6 +183,20 @@ A product that is unpublished, deleted or somebody else's is an address with no 
 
 They come in the order the creator chose them, each once. One that has since been unpublished or deleted is left out rather than drawn empty.
 
+**A `collection_picker`** stores one of the creator's collections from Products › Collections, by id. It prints as the collection's address, `/collections/<handle>`, and carries `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`, its first twelve published products shaped like `products`:
+
+```storelib
+{% if settings.collection.title %}
+  <h2>{{ settings.collection.title }}</h2>
+  {% for block in settings.collection.products %}
+    <a href="{{ block.settings.url | url }}">{{ block.settings.title }} {{ block.settings.price }}</a>
+  {% endfor %}
+  <a href="{{ settings.collection | url }}">See all {{ settings.collection.products_count }}</a>
+{% endif %}
+```
+
+A collection that is unpublished, deleted or somebody else's is empty. **A `collection_list`** stores up to `limit` of them and arrives block-shaped, `{% for block in settings.collections %}` with `block.settings.title`. On the collections page, `collections` is every published one, in the same shape. The library's Collection list and Featured collection sections are written this way.
+
 **A `link_list`** stores a menu's handle and arrives as `{ handle, title, links }`, each link `{ title, url, links }` with one level of links under it:
 
 ```storelib
@@ -152,7 +208,22 @@ They come in the order the creator chose them, each once. One that has since bee
 </nav>
 ```
 
-A creator makes menus in Theme settings, Menus. `main-menu` is always there and is the header's own links, so a section showing the main menu never has them typed twice. A handle with no menu behind it is an empty menu, never an error.
+A creator makes menus in Website settings, Navigation. `main-menu` is always there and is the header's own links, so a section showing the main menu never has them typed twice. A handle with no menu behind it is an empty menu, never an error. Every field is in [Dynamic values](/developers/dynamic-values#menus).
+
+## Where a section may go
+
+A page has three groups: the header group, the page's own sections (`template`) and the footer group. A section says which it belongs to:
+
+```json
+{ "name": "Announcement bar", "category": "announcement", "enabled_on": { "groups": ["header"] } }
+```
+
+- **Nothing said**: a page section. This is almost every section.
+- **`"enabled_on": { "groups": ["header"] }`**: it sits in the header group, above the site's header, the way an announcement bar does. `"category": "announcement"` means the same when `enabled_on` is not given.
+- **`"disabled_on": { "groups": ["header", "footer"] }`**: anywhere but those.
+- **`"kind": "header"`**: it is the header. It replaces the built-in header on every page and is never placed in a page's own sections. `"kind": "footer"` likewise. If `enabled_on` is given too, it must include that group.
+
+The validator refuses a group that is not `header`, `footer`, `template` or `"*"`, both `enabled_on` and `disabled_on`, and a `kind` other than `header` or `footer`. A second file of the same kind in one theme is refused when it is saved.
 
 ## Shop data in a setting
 
@@ -210,4 +281,20 @@ Each refusal names the path, such as `settings[3].default`, and the line in the 
 - a `visible_if` that does not parse, or reads a setting that is not declared,
 - a `product_list` whose `limit` is not a whole number from 1 to 24, a `video_url` that accepts a host Storelib does not play, or a `focal_point` whose `image` is not an `image_picker` beside it,
 - a `schema_version` or `language_version` newer than the engine,
-- more than 120 settings.
+- more than 120 settings,
+- an `enabled_on` or `disabled_on` group that is not `header`, `footer`, `template` or `"*"`, both of them at once, or a `kind` other than `header` or `footer`.
+
+A schema that is not JSON is refused with the line and what was expected there. A key that is missing or of the wrong kind is said in words, such as `"name" is missing` or `"settings" should be an array, not an object`.
+
+## What the compile warns about
+
+A warning never stops a save. Each is said in a sentence that names the fix:
+
+- a picture declared as `text` or `url` (it is drawn as an `image_picker`; see [Choosing the type](#choosing-the-type)),
+- links typed out as numbered label and address settings, where a `link_list` belongs,
+- a `range` with no default, which then starts at its `min` rather than at 0,
+- an `animation` setting with a value the page does not play,
+- an `<img>` with no `alt`,
+- a setting the template never reads.
+
+A file that is not a section at all, or one the compiler did not expect, is answered with what it could not read. It is never a stack trace.

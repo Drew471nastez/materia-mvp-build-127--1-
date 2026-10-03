@@ -43,6 +43,79 @@ export function kindOf(file: { type?: string; name?: string }): AttachKind {
   return "other"
 }
 
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   ONE PICTURE IS ONE THUMBNAIL
+  ═══════════════════════════════════════════════════════════════════════════
+  "Attaching an image adds it twice." A file dropped on the composer reached
+  two drop handlers, the composer's and the panel's around it, and each
+  attached it; a paste can carry the same picture twice over (a PNG and the
+  same image as a TIFF, from a Mac); and a picture chosen again by mistake is
+  the same picture. So a picture is known two ways:
+
+    BY THE FILE     name, size, type and modified time, before any of it is
+                    read: the same file arriving by two routes in one moment
+                    is refused at the door (fileKey).
+    BY ITS PIXELS   once it is prepared, a fingerprint of the bytes that
+                    would be sent: the same picture by another name, or in
+                    another format, is let go (pictureFingerprint).
+*/
+
+/** The same file, however it arrived: the picker, a paste, a drop. */
+export function fileKey(file: { name?: string; size?: number; type?: string; lastModified?: number }): string {
+  return [file.name ?? "", file.size ?? 0, (file.type ?? "").toLowerCase(), file.lastModified ?? 0].join("|")
+}
+
+/**
+ * A fingerprint of a prepared picture's base64: FNV-1a over every character,
+ * with the length. Two pictures that would send the same bytes have the same
+ * one. Not a security hash: it only has to tell a duplicate from a new one.
+ */
+export function pictureFingerprint(data: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < data.length; i++) {
+    h ^= data.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return `${data.length.toString(36)}:${h.toString(36)}`
+}
+
+/**
+ * What a paste really holds. A copied image can arrive as several files that
+ * are one picture (image.png and image.tiff); the first of a name is kept.
+ * Two different screenshots, with different names, are both kept.
+ */
+export function pastedFiles<T extends { name?: string; type?: string }>(files: T[]): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const file of files) {
+    const base = (file.name ?? "").replace(/\.[a-z0-9]+$/i, "").toLowerCase()
+    const key = kindOf(file) === "other" ? `other:${file.name}` : base || `${out.length}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(file)
+  }
+  return out
+}
+
+/**
+ * The files from one gesture that are not already attached or arriving.
+ * `taken` is every key in the composer and in flight; the result's keys are
+ * added to it by the caller in the same tick, so a second route a moment
+ * later finds them taken.
+ */
+export function newFiles<T extends { name?: string; size?: number; type?: string; lastModified?: number }>(files: T[], taken: ReadonlySet<string>): T[] {
+  const seen = new Set(taken)
+  const out: T[] = []
+  for (const file of files) {
+    const key = fileKey(file)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(file)
+  }
+  return out
+}
+
 /** "1.2 MB", "340 KB". */
 export function sizeLabel(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`

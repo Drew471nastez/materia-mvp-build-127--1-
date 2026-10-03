@@ -149,15 +149,17 @@ function main() {
   const writeOne = chat.slice(chat.indexOf("const writeOne = React.useCallback("), chat.indexOf("const submit = React.useCallback("))
   check("the spot is held before the request goes", writeOne.indexOf("onWriteStart?.(prompt)") > -1
     && writeOne.indexOf("onWriteStart?.(prompt)") < writeOne.indexOf("await fetch("))
-  check("a section that was kept is handed over by type", /onWriteDone\?\.\(section\)/.test(writeOne) && /const section = \{ type, name: d\.name, path: d\.path \}/.test(writeOne))
-  check("anything else lets go of the spot, and says why", /finally \{\s*if \(!kept\) onWriteFailed\?\.\(reason, answered\)/.test(writeOne))
+  /* The ending is lib/website-builder/ask-code-run.ts (finishWrite), driven for real in tests/ask-images-u.test.ts. */
+  const codeRun = read("lib/website-builder/ask-code-run.ts")
+  check("a section that was kept is handed over by type", /place: \(section\) => \(onWriteDone \? onWriteDone\(section\) : false\)/.test(writeOne) && /const section = \{ type, name: answer\.name, path: answer\.path \}/.test(codeRun))
+  check("anything else lets go of the spot, and says why", /finally \{[\s\S]{0,200}if \(!kept\) onWriteFailed\?\.\(done\?\.reply \?\? done\?\.error \?\? "The section could not be written\.", answered\)/.test(writeOne))
   check("the editor failing to place it is not reported as the write failing",
-    /\.catch\(\(\) => false\)/.test(writeOne))
+    /\} catch \{\s*placed = false\s*\}/.test(codeRun) && /is written\. Add it from Add Section, under Created\./.test(codeRun))
   check("the request reads the settings and sections of now, not of the first render",
-    /\[installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed, dock\]/.test(writeOne))
+    /settings: live\.current\.settings,/.test(writeOne) && /live\.current\.sections\.map\(\(s\) => s\.type\)/.test(writeOne))
   /* The creator's own category is called Created now, and the message names it the same way. */
   check("the message says where it went",
-    /is on the page/.test(chat) && /Add it from Add Section, under Created\./.test(chat) && !/under Created by you/.test(chat))
+    /Added \$\{answer\.name\} to the page\./.test(codeRun) && /Add it from Add Section, under Created\./.test(codeRun) && !/under Created by you/.test(chat + codeRun))
   check("and no longer tells the creator to go and find it",
     !/It is in Add Section under Created by you, and not published until you publish/.test(chat))
 

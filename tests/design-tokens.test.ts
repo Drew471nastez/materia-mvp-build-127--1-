@@ -282,10 +282,13 @@ section("Typography compiles to tokens at three widths")
   check("a section of theme blocks takes the heading style through the Heading block", /--section-heading-size/.test(readFileSync(join(root, "themes/default/blocks/heading.storelib"), "utf8")))
   check(
     "every one of the theme's own sections reads the section heading style",
-    // The hero is the exception and says so in its schema: it has a heading
-    // size slider of its own, so it declares supports_typography_overrides
-    // false rather than offering two controls for one size.
-    notReading.length === 1 && notReading[0] === "hero.storelib",
+    // The exceptions say so in their schema. The hero has a heading size
+    // slider of its own, and Breadcrumbs has no heading at all, so each
+    // declares supports_typography_overrides false rather than offering a
+    // control that changes nothing.
+    notReading.includes("hero.storelib") &&
+      notReading.every((f: string) => /"supports_typography_overrides":\s*false/.test(readFileSync(join(dir, f), "utf8"))) &&
+      notReading.every((f: string) => ["hero.storelib", "breadcrumbs.storelib"].includes(f)),
     notReading.join(", "),
   )
 }

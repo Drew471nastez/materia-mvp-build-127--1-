@@ -7,6 +7,7 @@ import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { previewTokenFrom, pageSections } from "@/lib/website-builder/preview-link"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { shopSections } from "@/lib/website-builder/shop-page"
+import { catalogPage } from "@/lib/products/catalog-filters"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { previewInstall } from "../../../render-site"
 
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic"
 
 interface PageProps {
   params: Promise<{ username: string; token: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 function tokenOf(raw: string): string | null {
@@ -31,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: "Products", robots: { index: false, follow: false } }
 }
 
-export default async function PreviewShopPage({ params }: PageProps) {
+export default async function PreviewShopPage({ params, searchParams }: PageProps) {
   const { username, token } = await params
   const clean = tokenOf(token)
   if (!clean) notFound()
@@ -48,7 +50,9 @@ export default async function PreviewShopPage({ params }: PageProps) {
   const home = sanitizeSections(pageSections<SectionInstance[]>(homeData as never, preview) ?? [])
   const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
   const { sections, data } = await dressPage(owner, shopSections(home, themeSettings), products, productCount, "page.products", "Shop", undefined, { cached: false })
-  const prerendered = renderWithSources(owner.sources, sections, themeSettings, "page.products", products, undefined, data)
+  /* Filtered from the address, as the live shop page is (lib/products/catalog-filters.ts). */
+  const { listed, filters } = catalogPage(products ?? [], (await searchParams?.catch(() => undefined)) ?? {}, "/products")
+  const prerendered = renderWithSources(owner.sources, sections, themeSettings, "page.products", listed, { filters }, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>

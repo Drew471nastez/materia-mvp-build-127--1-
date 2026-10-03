@@ -433,6 +433,9 @@ which settings the editor draws.
 | `presets` | No | What Add Section produces. A section with no preset is not offered. |
 | `allowed_templates` | No | Where it may be placed. Absent means anywhere. |
 | `disabled_templates` | No | Where it may not. Not with `allowed_templates`. |
+| `enabled_on` | No | Shopify's spelling: `{ "groups": ["header"] }`. The section groups it may sit in, `header`, `footer`, `template` or `"*"`. Absent means a page section, or the header group for `"category": "announcement"`. |
+| `disabled_on` | No | The groups it may not sit in. Not with `enabled_on`. |
+| `kind` | No | `"header"` or `"footer"`: the section IS the site's header or footer and replaces the built-in one. One of each per theme. |
 | `capabilities` | No | What the script and the template may reach. Absent means nothing. |
 | `supports_color_scheme` | No | Whether the panel offers a scheme picker. Defaults to true when a `color_scheme` setting exists. |
 | `supports_color_overrides` | No | `true`, `false`, or the list of slots this section allows. |
@@ -480,7 +483,7 @@ Every setting is an object with `type`, `id` and usually `label`, plus
   "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64, "responsive": true }
 ```
 
-These are all 33 control types, with what they hold, what a template sees when
+These are all 35 control types, with what they hold, what a template sees when
 nothing was set, and whether they may carry a value per breakpoint.
 
 | Type | Holds | Default when unset | Responsive | Extra keys |
@@ -515,6 +518,8 @@ nothing was set, and whether they may carry a value per breakpoint.
 | `product_list` | reference list | `[]` | no | `limit` |
 | `link_list` | string | `""` | no | |
 | `community_picker` | string | `""` | no | |
+| `collection_picker` | string | `""` | no | |
+| `collection_list` | reference list | `[]` | no | `limit` |
 | `header` | nothing | | no | |
 | `paragraph` | nothing | | no | `content` |
 | `divider` | nothing | | no | |
@@ -526,12 +531,14 @@ Six older names still validate and mean the same as their current one: `link`
 is `url`, `image` is `image_picker`, `video` is `video_picker`, `icon` is
 `icon_picker`, `font` is `font_picker`, and `spacing` is `range`.
 
-Three of Shopify's names are accepted for the same reason, so a section
+Five of Shopify's names are accepted for the same reason, so a section
 brought across from a Shopify theme validates: `text_alignment` is
-`alignment`, `product` is `product_picker`, and `page` is `page_picker`.
-Shopify types with nothing to point at here (`collection`, `collection_list`,
-`blog`, `article`, `metaobject`, `metaobject_list`, `liquid`,
-`color_scheme_group`) are refused with the reason.
+`alignment`, `product` is `product_picker`, `page` is `page_picker`,
+`collection` is `collection_picker`, and `liquid` is `html` (the markup is
+kept and cleaned; a Liquid tag in it is printed as text, never run).
+`collection_list` is a type of its own under Shopify's name. Shopify types
+with nothing to point at here (`blog`, `article`, `metaobject`,
+`metaobject_list`, `color_scheme_group`) are refused with the reason.
 
 What the newer types hold:
 
@@ -553,9 +560,33 @@ What the newer types hold:
 - `product_list` holds product ids and arrives as a list shaped like
   `products`, with live titles, prices and pictures. `limit` is 12 unless
   given, at most 24.
+- `collection_picker` holds one of the creator's collection ids (Products ›
+  Collections). It prints as the collection's address, `/collections/<handle>`,
+  and carries `title`, `handle`, `description`, `image`, `url`,
+  `products_count` and `products` (its first twelve published products,
+  shaped like `products`). An id that is not a published collection of this
+  creator's is empty.
+- `collection_list` holds collection ids and arrives block-shaped, each
+  `block.settings` carrying what a collection picker carries. `limit` is 12
+  unless given, at most 24.
+- `number` draws its `unit` inside the field's right edge.
+- `font_picker` offers the fonts Theme settings › Typography offers, and a
+  family a section picks is loaded on the page.
 - `link_list` holds a menu's handle and arrives as `{ handle, title, links }`,
   each link `{ title, url, links }`, every address already made safe.
   `main-menu` is the header's own links unless a menu of that name exists.
+  A menu is always this one setting, never `link_1_label` and `link_1_url`
+  pairs, which compile with a warning and are refused for an agent.
+- `image_picker` is drawn as the image picker with an address box under it.
+  Typing an address sets the picture; choosing a file replaces the address.
+  A `text` or `url` setting whose id or label names a picture (image, logo,
+  photo, picture, avatar, src) and whose default is a picture's address or
+  empty is READ as an `image_picker` (schema/normalise.ts): the panel draws
+  the picker, the compile warns, and nothing in the file or the stored page
+  changes. A value that is not an address is still drawn as it was.
+- A `select` with the id `animation` and the values `theme`, `none`, `fade`,
+  `fade_up` and `zoom` is the section's own entrance animation. The page reads
+  it; anything but `theme` overrides the theme's animation for that section.
 
 Every value is checked against its type as the section is drawn. A value the
 type does not allow is drawn as the setting's default and kept as it was in
@@ -578,10 +609,10 @@ hidden setting keeps its value and a template still reads it.
 
 What the validator refuses:
 
-- A type that is not one of the 33, with the list in the message.
+- A type that is not one of the 35, with the list in the message.
 - A `visible_if` that does not parse, reads a setting that is not declared,
   reads a block's settings from a section setting, or reads its own setting.
-- A `product_list` `limit` outside 1 to 24, a `video_url` `accept` naming a
+- A `product_list` or `collection_list` `limit` outside 1 to 24, a `video_url` `accept` naming a
   host other than `youtube` or `vimeo`, and a `focal_point` whose `image` is
   not an `image_picker` beside it.
 - A `select` or `radio` with no options, or a default that is not one of them.
@@ -803,8 +834,21 @@ theme.typography.styles.{h1, h2, h3, h4, body_large, body, body_small, button, c
 theme.radius.{small, medium, large, pill}
 theme.spacing.{small, medium, large, xlarge}
 theme.schemes.<key>
+theme.logo.{url, width, mobile_url, mobile_width, text}
+theme.favicon
+theme.buttons.{style, shape, radius, size, weight, shadow, hover}
+theme.layout.{page_width, padding_x, section_gap, spacing_scale, card_radius, image_radius, card_shadow}
+theme.animation.{enabled, style, duration, stagger}
+theme.socials           the social links that are set, as shop.socials
 theme.settings.*        the raw settings, for anything a token does not cover
 ```
+
+`theme.logo`, `theme.buttons`, `theme.layout` and `theme.animation` are what a
+Shopify section reads as `settings.logo` and the other general settings. Each
+carries Theme settings' own default, so a site that never opened a panel still
+has a value: `theme.logo.width` is 120, `theme.buttons.style` is `filled`.
+`theme.settings.*` has only what was saved. The store's name and social links
+are also `shop.name` and `shop.socials`.
 
 The theme also compiles to CSS custom properties on the page root, which is
 how a theme setting reaches a section without either side knowing about the
@@ -924,7 +968,19 @@ accent (render.ts swaps the name for the colour, after the section's
 overrides are applied), so it follows the scheme and the theme. Picking one
 stores its hex; the reset arrow goes back to following. Any key `scheme` has
 works, semantic or legacy. An empty default means the template decides:
-`{{ settings.star_color | default: scheme.accent }}`.
+`{{ settings.star_color | default: scheme.accent }}`. A colour whose default
+names a scheme colour and holds `""` follows the scheme too, which is what
+Advanced colors leaves behind when it takes over `heading_color`,
+`text_color`, `button_color` and the other older ids.
+
+Every element a section draws gets one of these: `heading_color`
+(`scheme.heading`), `text_color` (`scheme.text`), `button_color` and
+`button_text_color` (the primary button's), `card_color`
+(`scheme.background_secondary`), `border_color` (`scheme.border`). Untouched,
+the section looks exactly like its scheme; a creator can then change one
+element's colour the way Shopify's custom colours allow, without moving the
+scheme every other section uses. Agents are held to it: a section they write
+with no colour setting is handed back with the list of elements that need one.
 
 ### 8.4 Text styles
 
@@ -1206,13 +1262,16 @@ the filter did not recognise renders empty rather than loading it.
 
 A template is a page: which section instances it has, in what order, with what
 settings. A theme ships `home`, `product`, `about` and `contact`, and a creator
-can add their own. Three more exist on every site before anybody arranges
+can add their own. A page a creator adds starts as Shopify's default page
+template: the header, a `page_content` section holding the title they typed and
+a rich text body, and the footer. Four more exist on every site before anybody arranges
 them, generated from the home page's header and footer and one section each,
 and stored like any other page once the creator opens and saves one:
 
 | Page | Address | Its section | `page.template` |
 | --- | --- | --- | --- |
 | Shop | `/products` | `product_grid` reading the shop | `page.products` |
+| Collections | `/collections` | `collections_grid` showing every collection | `page.collections` |
 | Search | `/search` | `search` | `page.search` |
 | 404 | any address the site does not have | `not_found` | `page.404` |
 
@@ -1253,13 +1312,25 @@ account and wishlist links, the phone menu with sub-menus, sticky and
 hide-on-scroll behaviour, the transparent header over a hero, the logo from
 Theme settings and the menus from Website settings.
 
-A section file that IS a header or a footer is refused at every door (the
-code editor, Ask AI, MCP, the agent API, a GitHub push) and left out of an
-imported theme, with its uses taken off the pages. It is recognised by
-`"group": "header"` or Shopify's `enabled_on.groups`, by its type or name
+A section file that IS a header or a footer, and does not say so with
+`kind`, is refused at every door (the code editor, Ask AI, MCP, the agent
+API, a GitHub push) and left out of an imported theme, with its uses taken
+off the pages. It is recognised by `"group": "header"`, by its type or name
 (Header, Site header, Navbar, Navigation bar, Top bar, Footer), or by an
 outermost `<header>` holding a `<nav>`. The rule is
-lib/storelib-theme/chrome.ts.
+lib/storelib-theme/chrome.ts. Shopify's `enabled_on.groups` says where a
+section may go, not what it is: an announcement bar with
+`"enabled_on": { "groups": ["header"] }` (or `"category": "announcement"`)
+sits in the header group above the header and is saved like any section.
+
+A creator who asks for a header of their own gets ONE section whose schema
+says `"kind": "header"` (or `"footer"`). It replaces the built-in one on
+every page and never sits in a page's own sections. A theme holds at most one
+of each kind; the save refuses a second. Its menu is a `link_list` setting
+defaulting to `main-menu`, its logo an `image_picker` or `theme.logo.url`.
+The schema keys are validated by lib/storelib-theme/schema/validate.ts, and
+lib/storelib-theme/schema/normalise.ts (`sectionGroupsOf`) says which group
+a schema belongs to.
 
 To make a site's header look like a reference, change the real one: its
 layout settings, `header_sticky_enabled` and `header_sticky_on_scroll_up`,
@@ -1605,6 +1676,7 @@ For anybody writing a section, including a model asked to write one.
 | `page` | `.template`, `.in_editor`. |
 | `forloop` | `.index`, `.index0`, `.first`, `.last`, `.length`. |
 | `products` | The creator's published products, block-shaped. |
+| `collections` | The creator's published collections the page was handed, block-shaped. Every one on the collections page. |
 | `shop` | `.name`, `.description`, `.url`, `.product_count`. |
 | `creator` | `.name`, `.headline`, `.bio`, `.avatar`. |
 | `product` | On the product page only: the product it shows. |
@@ -1629,7 +1701,8 @@ Values somebody types or picks: `text`, `textarea`, `richtext`,
 
 References to something else: `image_picker`, `image_gallery`, `video_picker`,
 `video_url`, `file_picker`, `icon_picker`, `url`, `page_picker`,
-`product_picker`, `product_list`, `link_list`, `community_picker`.
+`product_picker`, `product_list`, `link_list`, `community_picker`,
+`collection_picker`, `collection_list`.
 
 Presentational, holding no value: `header`, `paragraph`, `divider`.
 
@@ -1657,7 +1730,29 @@ Presentational, holding no value: `header`, `paragraph`, `divider`.
 --theme-button-radius --theme-button-weight --theme-button-padding
 --theme-font-heading  --theme-font-body     --theme-font-accent
 --theme-animation-duration    --theme-animation-stagger
+
+Written only once the creator sets the setting behind them:
+--theme-input-radius  --theme-input-border-width  --theme-input-border-opacity
+--theme-pill-radius   --theme-pill-border-width
+--theme-product-card-radius  --theme-product-card-border
+--theme-product-card-shadow  --theme-product-card-image-padding
+--theme-collection-card-radius  --theme-collection-card-border
+--theme-collection-card-shadow  --theme-collection-card-image-padding
+--theme-container-radius  --theme-container-border  --theme-container-shadow
+--theme-media-border  --theme-media-shadow
+--theme-popup-radius  --theme-popup-border  --theme-popup-shadow
+--theme-badge-radius  --theme-badge-top  --theme-badge-bottom
+--theme-badge-left    --theme-badge-right
+--theme-badge-sale-bg  --theme-badge-sale-color
+--theme-badge-soldout-bg  --theme-badge-soldout-color
 ```
+
+Attributes a section puts on its elements so Theme settings reach them:
+`data-card="product"` or `data-card="collection"` on a card, with
+`data-card-media` on its picture; `data-badges` round a card's labels and
+`data-badge="sale"`, `"soldout"` or `"tag"` on each; `data-container` on a box
+that holds text; `data-media` on a picture or video frame; `data-popup` on
+anything that drops down or pops up; `data-variant-pill` on an option button.
 
 ### Glossary
 

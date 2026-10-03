@@ -21,7 +21,7 @@
  *   Customer accounts  /account, /account/login, /wishlist
  *   Contact            /contact
  *   Policies           /refund-policy, /privacy-policy, /terms-of-service
- *   Other              the 404 page
+ *   Other              the 404 page, the password page
  *
  * These are the pages the code has: BUILT_IN_PAGE_KEYS and
  * NOT_FOUND_PAGE_KEY in site-pages.ts, the account pages in
@@ -56,12 +56,13 @@ export const PAGE_GROUP_LABELS: Readonly<Record<PageGroupKey, string>> = {
 /** Which group a page is listed under, by its key. */
 export function pageGroupOf(key: string): PageGroupKey {
   if (key === "home") return "home"
-  if (key === "products" || key === "search") return "shop"
+  if (key === "products" || key === "search" || key === "collections") return "shop"
   if (key === "product") return "products"
   if (ACCOUNT_KEYS.includes(key)) return "accounts"
   if (key === "contact") return "contact"
   if (POLICY_PAGE_KEYS.includes(key) || key === SHIPPING_POLICY.key) return "policies"
-  if (key === NOT_FOUND_PAGE_KEY) return "other"
+  /* The 404 page and the password page: pages a visitor lands on, not ones a menu links to. */
+  if (key === NOT_FOUND_PAGE_KEY || key === "password") return "other"
   return "pages"
 }
 
@@ -73,7 +74,8 @@ export function pageGroupOf(key: string): PageGroupKey {
  */
 const WITHIN: Readonly<Record<string, number>> = {
   products: 0,
-  search: 1,
+  collections: 1,
+  search: 2,
   about: -1,
   ...Object.fromEntries(ACCOUNT_KEYS.map((k, i) => [k, i])),
   ...Object.fromEntries(POLICY_PAGE_KEYS.map((k, i) => [k, i])),

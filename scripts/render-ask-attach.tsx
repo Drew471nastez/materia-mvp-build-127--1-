@@ -7,6 +7,11 @@
  * little cross on it is something a thumb could hit, and whether Send comes
  * alive with a picture and no words. That is geometry, so it is measured
  * here rather than asserted.
+ *
+ * `#dock` mounts the computer's shape (the pill over a canvas) instead of
+ * the phone's sheet: the same picture attached three ways at once is
+ * counted on both, because each shape has its own drop handler around the
+ * composer and that is where the second copy came from.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -25,17 +30,20 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return new Response(JSON.stringify({ exchanges: [] }), { status: 200, headers: { "content-type": "application/json" } })
 }
 
+const dock = window.location.hash === "#dock"
 const host = document.getElementById("app")!
 createRoot(host).render(
-  <div style={{ width: 380, height: 620, display: "flex", flexDirection: "column" }}>
+  <div style={{ width: dock ? 900 : 380, height: 620, display: "flex", flexDirection: "column", position: "relative" }}>
     <ThemeChat
       installId="probe-install"
       page="home"
       sections={sections}
       settings={{}}
+      variant={dock ? "dock" : "sheet"}
       onRunStart={() => {}}
       onRunEnd={() => {}}
       onOp={() => {}}
+      onClose={() => {}}
     />
   </div>,
 )

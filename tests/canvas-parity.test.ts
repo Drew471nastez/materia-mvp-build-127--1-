@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { themeStylesheet } from "@/lib/website-builder/theme-css"
+import { revealPlan } from "@/lib/website-builder/section-anchors"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
@@ -21,8 +22,11 @@ function check(name: string, ok: boolean, detail = "") {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 const css = themeStylesheet({ animations_enabled: true } as ThemeSettingsValues)
+/* Sections arrive as they scroll in (lib/website-builder/section-motion.ts), the
+   same runtime on both surfaces; the stylesheet only says what pending looks like. */
 check("the section under the header does not fade in on load; the ones after it do",
-  /\[data-section-box\]:not\(\[data-chrome\]\) ~ \[data-section-box\]:not\(\[data-chrome\]\) \[data-section\]\{animation:storelibSectionIn/.test(css) && !/\] \[data-section\]:not\(\[data-chrome\]\)\{animation:/.test(css))
+  !/\{animation:storelibSectionIn/.test(css) && /\[data-reveal="pending"\]\{opacity:0;\}/.test(css) &&
+    revealPlan([{ type: "header", chrome: true }, { type: "hero", chrome: false }, { type: "text", chrome: false }], { animations_enabled: true }).join(",") === ",,fade_up")
 
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
 check("the canvas puts no box of its own around a section, so the section gap applies as it does live",
@@ -35,7 +39,8 @@ check("and on the live site the document is the page's colour, not white round i
 
 const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
 check("the header knows the home page from the page it is drawing, not from the address bar while it renders",
-  !/window\.location\.pathname/.test(header) && /const isHomePage = renderingInsideEditor \? true : pageTemplate === "index"/.test(header))
+  /* A link handler may read the address when it is clicked; the render may not. */
+  !/window\.location\.pathname/.test(header.replace(/const handleLinkClick = [\s\S]*?\n  \}\n/, "")) && /headerBorderHere\(borderEnabled, borderVisibility, pageTemplate\)/.test(header))
 
 const dir = "components/website-builder/sections/renderers"
 const vh = ["HeroSection", "LookbookSection", "VideoHeroSection", "GallerySection", "ProductSection", "HeaderSection"].filter((f) => /[^-(]\b\d+vh\b|"\d+vh"|\[\d+vh\]/.test(read(`${dir}/${f}.tsx`).replace(/var\(--sl-vh[^)]*\)/g, "")))

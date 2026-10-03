@@ -2135,13 +2135,13 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   )
   check(
     "the scope chip and the whole-page button truncate instead of pushing the row wider",
-    /<span className="min-w-0 truncate">Only \{name\}<\/span>/.test(parts) &&
+    /<span className="min-w-0 truncate">\s*<span className="text-\[#6b7280\]">Editing:<\/span> \{name\}\s*<\/span>/.test(parts) &&
       /<span className="min-w-0 truncate">Limit to \{name\}<\/span>/.test(parts) &&
       /data-ask-mode-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2"/.test(chat),
   )
   check(
     "a code block scrolls sideways inside itself, and only it",
-    /<pre\s*\n\s*data-code-scroll=""\s*\n\s*className="max-h-44 max-w-full overflow-auto[^"]*\[touch-action:pan-x_pan-y\]/.test(panel),
+    /<pre\s*\n\s*data-code-scroll=""\s*\n(\s*aria-label=[^\n]*\n)?\s*className="(mt-1\.5 )?max-h-44 max-w-full overflow-auto[^"]*\[touch-action:pan-x_pan-y\]/.test(panel),
   )
   check(
     "the sheet clips rather than hides, so no script can scroll its content out of place",
@@ -2759,7 +2759,7 @@ section("The panel says the true thing, and does not make you wait to type")
   )
   check(
     "and a message typed during a run is queued rather than dropped",
-    /setQueued\(prompt\)/.test(chat) && /if \(busy \|\| !queued\) return/.test(chat),
+    /setQueued\(\{ text: prompt, mode \}\)/.test(chat) && /if \(busy \|\| writing \|\| !queued\) return/.test(chat),
   )
   check("a failed exchange can be sent again without retyping it", /Try again/.test(chat))
   check("the box grows with what is in it", /field\.style\.height = `\$\{Math\.min/.test(chat))
@@ -3094,7 +3094,7 @@ check(
   check(
     "the panel shows what the edit is limited to, before you type it, in two words and a title rather than a sentence",
     /<ScopeChip\s*\n\s*name=\{selectedSection\.name\}\s*\n\s*locked=\{locked\}/.test(chat) &&
-      /Only \{name\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")) &&
+      /Editing:<\/span> \{name\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")) &&
       /title=\{`Only \$\{name\} will change`\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")),
   )
   check("it is on by default when a section is selected", /useState\(true\)/.test(chat))
@@ -3107,8 +3107,8 @@ check(
 }
 
 check(
-  "and the endpoint only honours it with a section actually selected",
-  /lockToSelection: body\.lockToSelection === true && !!body\.selectedSectionId/.test(
+  "and the endpoint only honours it with a section actually selected, one that is on the page",
+  /lockToSelection: body\.lockToSelection === true && !!selected/.test(
     readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"),
   ),
 )
@@ -3658,7 +3658,8 @@ section("Asking for something good has to get the good model")
   const pages = ["build me a landing page for my sample packs", "make the whole website", "design a home page from scratch"]
   const short = pages.filter((p) => classifyRequest(p).maxTurns < 36 || !classifyRequest(p).wholePage)
   check("a whole page is recognised and gets the turns six sections take", short.length === 0, short.join(" | "))
-  check("and one section is still one section's worth of turns", classifyRequest("design a complete FAQ section").maxTurns === 24)
+  /* 32 since the U round: a section's worth of turns, plus room to read the work back against the request and fix what it finds (SELF_CHECK). */
+  check("and one section is still one section's worth of turns", classifyRequest("design a complete FAQ section").maxTurns === 32)
 
   const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
   check(
@@ -3832,9 +3833,10 @@ section("A setting is one way to make a change, not the limit of what is possibl
     /name: "read_section_code"/.test(loop) && /name: "write_section_code"/.test(loop),
   )
   check(
-    "the two tools are offered only when there is a theme to edit",
+    "the code tools are offered whenever the run is given a way to read sections, and the route always gives one",
     /tools: toolSpecs\(addable, schemas, !!input\.code\)/.test(loop) &&
-      /code\?: \{\s*\n\s*read\(sectionType: string\): string \| null/.test(loop),
+      /code\?: \{[\s\S]{0,200}read\(sectionType: string\): string \| null/.test(loop) &&
+      /const code = \{\s*\n\s*read\(sectionType: string\): string \| null/.test(route),
   )
   check(
     "the prompt no longer says there is no file to write",
@@ -3857,7 +3859,7 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "a source that does not compile is refused, and nothing is stored",
-    /const compiled = compileSection\(source, \{ file: path \}\)/.test(route) &&
+    /const compiled = compileSection\(source, \{ file: path[^}]*\}\)/.test(route) &&
       /did not compile/.test(route) &&
       /A refused write did not happen/.test(loop),
   )
@@ -3871,7 +3873,7 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "and the canvas is told, so it stops drawing the old source",
-    /if \(result\.wroteCode\) send\(\{ type: "sources-changed" \}\)/.test(route) &&
+    /if \(result\.wroteCode \|\| codeLost\) send\(\{ type: "sources-changed" \}\)/.test(route) &&
       /\{ type: "sources-changed" \}/.test(loop) &&
       /onSourcesChanged\?\.\(\)/.test(readFileSync(join(process.cwd(), "components/website-builder/theme-chat.tsx"), "utf8")) &&
       /* A stable callback now, so the memoised chat is not re-rendered by a new arrow every edit. */

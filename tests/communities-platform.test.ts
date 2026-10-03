@@ -534,7 +534,7 @@ async function main() {
     check("its schema has a community_picker and a preset", !!schema && (schema.presets?.length ?? 0) > 0 && (schema.fields ?? []).some((f) => f.type === "community_picker"))
     check("the control says what it carries", /members_label/.test(CONTROLS.community_picker.description) && /published and public/.test(CONTROLS.community_picker.description))
     const controls = code("components/website-builder/editor/controls/index.tsx")
-    check("the editor draws it as a picker of the creator's communities", /case "community_picker":\s*\n\s*return <CommunityPickerControl/.test(controls) && /"community_picker",\s*\n\] as const/.test(controls))
+    check("the editor draws it as a picker of the creator's communities", /case "community_picker":\s*\n\s*return <CommunityPickerControl/.test(controls) && /"community_picker",[\s\S]*?\] as const/.test(controls))
     const editor = code("app/website-builder/editor/[installId]/page.tsx")
     check("not as a text box any more", !/kind === "community_picker"\) \{/.test(editor) && /if \(kind === "file_picker"\) \{/.test(editor))
     check("the canvas hands the communities to the engine and the picker", /communities: builderCommunities\?\.cards/.test(editor) && /communities: builderCommunities\?\.choices \?\? null/.test(editor))

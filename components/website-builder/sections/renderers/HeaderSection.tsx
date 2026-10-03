@@ -18,8 +18,9 @@ import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProp
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
-import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, prefersStill, useBackdropDismiss, useComposedRef, useDrawerFrame, useDrawerMotion, useDrawerTouchGuard, useHeaderUnderDrawer } from "../../drawer-frame"
+import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerSafeArea, prefersStill, useBackdropDismiss, useComposedRef, useDrawerFrame, useDrawerMotion, useDrawerPresence, useDrawerTouchGuard, useFocusTrap } from "../../drawer-frame"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
+import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
 import { useStorefront } from "../../theme/storefront-context"
 import { lineKey } from "@/lib/website-builder/cart"
@@ -39,7 +40,8 @@ import {
 } from "../_shared"
 import { useStorelibPage } from "../storelib-sources"
 import { cleanMenus } from "@/lib/storelib-theme/values"
-import { headerMenuBlocks, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
+import { headerBorderHere, headerMenuBlocks, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
+import { MENU_DRAWER_MAX_WIDTH, menuDrawerExists } from "@/lib/website-builder/header-drawers"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
@@ -76,9 +78,15 @@ function HeaderMobileNavDrawer({
   cta,
   onOpenSearch,
   menuStyle = "left",
+  phoneOnly,
+  below,
 }: {
   /** Header › Menu on phones: from the left, from the right, or over the whole screen. */
   menuStyle?: MobileMenuStyle
+  /** Published: hidden by CSS from the tablet breakpoint up, where the header has its links in the row. */
+  phoneOnly?: boolean
+  /** The header: the menu opens under it and leaves it showing. */
+  below?: { current: HTMLElement | null }
   open: boolean
   onClose: () => void
   items: MobileNavItem[]
@@ -97,14 +105,18 @@ function HeaderMobileNavDrawer({
     the cart drawer, so they live in one place. See components/website-builder
     /drawer-frame.ts for the three bugs they answer.
   */
-  const { mounted, target, positionClass, frameStyle } = useDrawerFrame(open, !!scopedToPreview, onClose)
-  if (!mounted || !target) return null
+  const { mounted, target, positionClass, frameStyle, inset } = useDrawerFrame(open, !!scopedToPreview, onClose, below)
+  /* Only in the page while open or closing: see useDrawerPresence. */
+  const present = useDrawerPresence(open)
+  if (!mounted || !target || !present) return null
 
   // Filter out empty/placeholder items so the drawer only shows real links
   const visibleItems = items.filter(it => it.label && it.label.trim().length > 0)
 
   const drawer = (
     <MobileDrawerInner
+      /* A new node per style, so a changed setting never inherits the old edge's transform. */
+      key={menuStyle}
       open={open}
       onClose={onClose}
       visibleItems={visibleItems}
@@ -119,6 +131,8 @@ function HeaderMobileNavDrawer({
       cta={cta ?? null}
       onOpenSearch={onOpenSearch ?? null}
       menuStyle={menuStyle}
+      phoneOnly={!!phoneOnly}
+      underHeader={inset > 0}
     />
   )
 
@@ -730,9 +744,44 @@ function HeaderCartDrawer({
   scopedToPreview: boolean
   onEditorNavigate?: (href: string, fromNav?: boolean) => void
 }) {
-  const { lines, open, setOpen, setQty, remove, subtotalCents, count } = useSiteCart()
+  const { open, setOpen } = useSiteCart()
   const onClose = useCallback(() => setOpen(false), [setOpen])
   const { mounted, target, positionClass, frameStyle } = useDrawerFrame(open, scopedToPreview, onClose)
+  /* Only in the page while open or closing: see useDrawerPresence. */
+  const present = useDrawerPresence(open)
+  if (!mounted || !target || !present) return null
+  return createPortal(
+    <CartDrawerInner
+      open={open}
+      onClose={onClose}
+      scheme={scheme}
+      scopedToPreview={scopedToPreview}
+      onEditorNavigate={onEditorNavigate}
+      positionClass={positionClass}
+      frameStyle={frameStyle}
+    />,
+    target,
+  )
+}
+
+function CartDrawerInner({
+  open,
+  onClose,
+  scheme,
+  scopedToPreview,
+  onEditorNavigate,
+  positionClass,
+  frameStyle,
+}: {
+  open: boolean
+  onClose: () => void
+  scheme: ColorSchemeValues
+  scopedToPreview: boolean
+  onEditorNavigate?: (href: string, fromNav?: boolean) => void
+  positionClass: string
+  frameStyle: CSSProperties
+}) {
+  const { lines, setQty, remove, subtotalCents, count } = useSiteCart()
   /*
     THE SLIDE AND THE FADE ARE WRITTEN TO THE NODES, ON THE FRAME THEY BEGIN.
 
@@ -747,12 +796,14 @@ function HeaderCartDrawer({
   const pressBackdrop = useBackdropDismiss(open, onClose)
   const touchGuard = useDrawerTouchGuard()
   const dismissBackdrop = useComposedRef(pressBackdrop, fadeBackdrop)
-  const guardPanel = useComposedRef(touchGuard, slidePanel)
-  if (!mounted || !target) return null
+  const panelRef = useRef<HTMLElement | null>(null)
+  const keepPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node }, [])
+  const guardPanel = useComposedRef(useComposedRef(touchGuard, slidePanel), keepPanel)
+  useFocusTrap(open, panelRef, !scopedToPreview)
 
   const stop = (e: React.MouseEvent) => { if (onEditorNavigate) { e.preventDefault(); e.stopPropagation() } }
 
-  const drawer = (
+  return (
     <>
       <div
         aria-hidden
@@ -768,6 +819,7 @@ function HeaderCartDrawer({
         ref={guardPanel}
         role="dialog"
         aria-label="Cart"
+        data-site-drawer="cart"
         aria-hidden={!open}
         /* See the menu drawer below for why this says so while it is open. */
         aria-modal={open ? true : undefined}
@@ -783,6 +835,7 @@ function HeaderCartDrawer({
           background: scheme.bg,
           color: scheme.heading,
           pointerEvents: open ? "auto" : "none",
+          ...(scopedToPreview ? {} : drawerSafeArea("right")),
         }}
       >
         <div
@@ -803,6 +856,7 @@ function HeaderCartDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close cart"
+            data-drawer-focus=""
             className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
           >
             <X className="h-5 w-5" strokeWidth={2} />
@@ -908,8 +962,6 @@ function HeaderCartDrawer({
       </aside>
     </>
   )
-
-  return createPortal(drawer, target)
 }
 
 // Inner render — kept as its own component so the expanded-submenu state
@@ -930,8 +982,13 @@ function MobileDrawerInner({
   cta,
   onOpenSearch,
   menuStyle = "left",
+  phoneOnly,
+  underHeader,
 }: {
   menuStyle?: MobileMenuStyle
+  phoneOnly: boolean
+  /** Opened under a header that is on screen, whose hamburger is the close. */
+  underHeader: boolean
   open: boolean
   onClose: () => void
   visibleItems: MobileNavItem[]
@@ -968,14 +1025,21 @@ function MobileDrawerInner({
   const slidePanel = useDrawerMotion(
     open,
     "transform",
-    menuStyle === "full" ? "translate3d(0, -101%, 0)" : menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
+    /* Covers the screen slides in from the side too: from the top it would
+       travel across the header it now opens under. */
+    menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
     "translate3d(0, 0, 0)",
   )
   const fadeBackdrop = useDrawerMotion(open, "opacity", "0", "1")
   const pressBackdrop = useBackdropDismiss(open, onClose)
   const touchGuard = useDrawerTouchGuard()
   const dismissBackdrop = useComposedRef(pressBackdrop, fadeBackdrop)
-  const guardPanel = useComposedRef(touchGuard, slidePanel)
+  /* The panel, for the focus trap: Tab goes round the menu, not out to the page. */
+  const panelRef = useRef<HTMLElement | null>(null)
+  const keepPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node }, [])
+  const guardPanel = useComposedRef(useComposedRef(touchGuard, slidePanel), keepPanel)
+  /* Under the header the hamburger is the close, so Tab goes round it and the menu. */
+  useFocusTrap(open, panelRef, !scopedToPreview, underHeader)
   const railRef = useRef<HTMLDivElement | null>(null)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
   /* The saved count for the heart, and Sign in or Account for this visitor. */
@@ -1001,6 +1065,29 @@ function MobileDrawerInner({
     ? visibleItems.find(i => i.id === activeSubmenuId) ?? null
     : null
   const inSubmenu = !!activeSubmenuItem
+
+  /*
+    INTO A SUB-MENU AND BACK, WITH THE KEYBOARD TOO. Going in puts focus on
+    Back, the one control the new pane is entered by; coming back puts it on
+    the row that was opened, so a keyboard is where it left off. Only when
+    focus is already in the menu, so a tap does not draw a focus ring.
+  */
+  const backRef = useRef<HTMLButtonElement | null>(null)
+  const openSubmenu = (id: string) => {
+    const keyboard = !!panelRef.current?.contains(document.activeElement) && document.activeElement !== document.body
+    setActiveSubmenuId(id)
+    if (keyboard) window.setTimeout(() => backRef.current?.focus({ preventScroll: true }), 0)
+  }
+  const goBack = () => {
+    const from = activeSubmenuId
+    const keyboard = document.activeElement === backRef.current
+    setActiveSubmenuId(null)
+    if (keyboard && from) {
+      window.setTimeout(() => {
+        panelRef.current?.querySelector<HTMLElement>(`[data-submenu-trigger="${CSS.escape(from)}"]`)?.focus({ preventScroll: true })
+      }, 0)
+    }
+  }
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -1059,9 +1146,11 @@ function MobileDrawerInner({
        than content being edited, so the editor follows it with the
        inspector on. See SectionProps.onEditorNavigate for what used to
        decide that. */
+    /* A section of the page that is open: the drawer is gone by now, and the
+       page scrolls to it on the live site's curve (section-motion.ts). */
     const go = onEditorNavigate
       ? () => { onEditorNavigate(href, true) }
-      : () => { window.location.assign(href) }
+      : () => { if (!followSectionLink(href)) window.location.assign(href) }
     window.setTimeout(go, CLOSE_MS)
   }
 
@@ -1073,7 +1162,7 @@ function MobileDrawerInner({
         aria-hidden
         data-site-drawer-backdrop=""
         ref={dismissBackdrop}
-        className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z)}
+        className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z, phoneOnly && "md:hidden")}
         style={{
           ...frameStyle,
           pointerEvents: open ? "auto" : "none",
@@ -1083,6 +1172,8 @@ function MobileDrawerInner({
         ref={guardPanel}
         role="dialog"
         aria-label="Menu"
+        data-site-drawer="menu"
+        data-menu-style={menuStyle}
         aria-hidden={!open}
         /*
           ═══════════════════════════════════════════════════════════════════
@@ -1132,6 +1223,8 @@ function MobileDrawerInner({
           positionClass,
           "flex flex-col",
           DRAWER_PANEL_Z,
+          /* Never on a desktop layout: the header has its links in the row there. */
+          phoneOnly && "md:hidden",
           open && "shadow-2xl",
           /*
             WHERE IT COMES FROM: Header › Menu on phones. From the left is
@@ -1151,51 +1244,40 @@ function MobileDrawerInner({
           background: scheme.bg,
           color: scheme.heading,
           pointerEvents: open ? "auto" : "none",
+          /* Clear of the notch and the home bar on an iPhone; nought in a browser. */
+          ...(scopedToPreview ? {} : drawerSafeArea(menuStyle === "right" ? "right" : menuStyle === "full" ? "both" : "left")),
         }}
       >
-        {/* Header bar: back button + title + X close.
-            On the ROOT menu: "Menu" title, back button hidden.
-            Inside a submenu: back button appears on the left, title is
-            the submenu's label — exactly like the iOS Settings app. */}
-        <div
-          className="flex items-center px-3 h-[60px] shrink-0 gap-1"
-          /*
-            THE SCHEME, NOT A FIXED BLACK. This was `#0f0f10` on `#ffffff`,
-            so a drawer whose body is painted from `scheme.bg` opened with a
-            black slab across the top of it — on a coral header, on a cream
-            one, on every scheme anybody picks. `heading` on `background` is
-            the same pairing the panel below it already uses.
-          */
-          style={{ background: scheme.bg, color: scheme.heading }}
-        >
-          {/* Back button — mounted but invisible/non-interactive on root
-              so the title's position stays stable during the slide. */}
-          <button
-            type="button"
-            onClick={() => setActiveSubmenuId(null)}
-            aria-label="Back to main menu"
-            className={cn(
-              "theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-all",
-              inSubmenu ? "opacity-100" : "opacity-0 pointer-events-none",
-            )}
-            style={{
-              transition: "opacity 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-            }}
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+           UNDER THE HEADER, THE HEADER IS THE TOP OF THE MENU
+          ═══════════════════════════════════════════════════════════════════
+          The menu used to cover the whole screen with a row of its own,
+          "Menu" and an X, while the site's header faded out behind it. Now it
+          opens below the header the way Dawn's does: the logo stays, and the
+          hamburger, which has turned into an X, is the close. This row is
+          only drawn when there is no header above the drawer to close it
+          from (a header scrolled out of view), so there is always one way
+          out on screen and never two.
+        */}
+        {!underHeader && (
+          <div
+            className="flex items-center px-3 h-[60px] shrink-0 gap-1"
+            /* The scheme's heading on its background, the same pairing as the panel. */
+            style={{ background: scheme.bg, color: scheme.heading }}
           >
-            <ChevronLeft className="h-5 w-5" strokeWidth={2} />
-          </button>
-          <span className="flex-1 text-[18px] font-semibold truncate px-1">
-            {inSubmenu ? activeSubmenuItem!.label : "Menu"}
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close menu"
-            className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
-          >
-            <X className="h-5 w-5" strokeWidth={2} />
-          </button>
-        </div>
+            <span className="flex-1 text-[18px] font-semibold truncate px-2">Menu</span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close menu"
+              data-drawer-focus=""
+              className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
+            >
+              <X className="h-5 w-5" strokeWidth={2} />
+            </button>
+          </div>
+        )}
 
         {/* Scrollable link list — uses a 2-track slide. The ROOT pane and
             the SUBMENU pane live side-by-side inside a 200%-wide rail;
@@ -1212,7 +1294,7 @@ function MobileDrawerInner({
             style={{
               width: "200%",
               transform: inSubmenu ? "translateX(-50%)" : "translateX(0%)",
-              transition: "transform 340ms cubic-bezier(0.32, 0.72, 0, 1)",
+              transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
               willChange: "transform",
             }}
           >
@@ -1220,6 +1302,8 @@ function MobileDrawerInner({
             <div
               className="site-slim-scroll w-1/2 h-full overflow-y-auto"
               aria-hidden={inSubmenu}
+              /* The pane that is slid away takes no Tab and no tap. */
+              inert={inSubmenu}
               style={{ overscrollBehavior: "contain" }}
             >
               {visibleItems.map((item, idx) => {
@@ -1229,7 +1313,8 @@ function MobileDrawerInner({
                     {hasChildren ? (
                       <button
                         type="button"
-                        onClick={() => setActiveSubmenuId(item.id)}
+                        data-submenu-trigger={item.id}
+                        onClick={() => openSubmenu(item.id)}
                         className="w-full flex items-center justify-between px-5 py-4 text-left theme-tint-hover transition-colors"
                         style={{ color: scheme.nav_link }}
                         aria-haspopup="menu"
@@ -1261,8 +1346,21 @@ function MobileDrawerInner({
             <div
               className="site-slim-scroll w-1/2 h-full overflow-y-auto"
               aria-hidden={!inSubmenu}
+              inert={!inSubmenu}
               style={{ overscrollBehavior: "contain" }}
             >
+              {/* Back, at the top of the level it leaves, named for where it is. */}
+              <button
+                type="button"
+                ref={backRef}
+                onClick={goBack}
+                aria-label="Back to main menu"
+                className="flex w-full items-center gap-2 border-b border-black/10 px-4 py-3.5 text-left text-[15px] font-semibold theme-tint-hover transition-colors"
+                style={{ color: scheme.heading }}
+              >
+                <ChevronLeft className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
+                <span className="truncate">{activeSubmenuItem?.label ?? ""}</span>
+              </button>
               {activeSubmenuItem?.children?.map((child, idx) => (
                 <a
                   key={child.id}
@@ -1495,6 +1593,65 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const searchOpensInHeader = str(s.search_behaviour, "header") !== "page"
   const [searchOpen, setSearchOpen] = useState(false)
   const showCart = headerIconOn(s.show_cart_icon, s.show_cart)
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     ONE DRAWER AT A TIME
+    ═══════════════════════════════════════════════════════════════════════
+    The menu, the cart and search each close the other two as they open.
+    The cart can also open itself (Add to cart anywhere on the page), so it
+    is watched rather than only asked. The rule is lib/website-builder
+    /header-drawers.ts; the scroll lock they share is counted in
+    drawer-frame.ts, so a handover never lets go of the page in between.
+  */
+  const { open: cartOpen, setOpen: setCartOpen } = useSiteCart()
+  /* Does this surface have a phone menu at all? Not on a desktop canvas. */
+  const hasMenuDrawer = menuDrawerExists(deviceMode)
+  const openMenu = useCallback(() => {
+    setSearchOpen(false)
+    setCartOpen(false)
+    setMobileNavOpen(true)
+  }, [setCartOpen])
+  const toggleMenu = () => { if (mobileNavOpen) setMobileNavOpen(false); else openMenu() }
+  const toggleSearch = () => {
+    if (searchOpen) { setSearchOpen(false); return }
+    setMobileNavOpen(false)
+    setCartOpen(false)
+    setSearchOpen(true)
+  }
+  useEffect(() => {
+    if (!cartOpen) return
+    setMobileNavOpen(false)
+    setSearchOpen(false)
+  }, [cartOpen])
+  /* A desktop canvas has no phone menu, so switching the preview to it closes one that was open. */
+  useEffect(() => { if (!hasMenuDrawer) setMobileNavOpen(false) }, [hasMenuDrawer])
+  /*
+    AND PUBLISHED, WIDENING THE WINDOW PAST THE PHONE LAYOUT CLOSES IT. The
+    drawer is hidden there by CSS; closing it as well lets go of the page,
+    which would otherwise stay locked under a menu nobody can see.
+  */
+  useEffect(() => {
+    if (deviceMode || !mobileNavOpen || typeof window.matchMedia !== "function") return
+    const wide = window.matchMedia(`(min-width: ${MENU_DRAWER_MAX_WIDTH + 1}px)`)
+    if (wide.matches) { setMobileNavOpen(false); return }
+    const onChange = () => { if (wide.matches) setMobileNavOpen(false) }
+    wide.addEventListener("change", onChange)
+    return () => wide.removeEventListener("change", onChange)
+  }, [deviceMode, mobileNavOpen])
+  /*
+    PREVIEWING Menu on phones SHOWS THE REAL DRAWER, AT THE REAL SIZE. In
+    the editor's phone preview a change to the setting opens the menu, so
+    the creator sees where it now comes from. In the desktop preview there
+    is no phone menu to show, and nothing opens.
+  */
+  const menuStyleSetting = mobileMenuStyle(s.mobile_menu_style)
+  const lastMenuStyle = useRef(menuStyleSetting)
+  useEffect(() => {
+    if (lastMenuStyle.current === menuStyleSetting) return
+    lastMenuStyle.current = menuStyleSetting
+    if (renderingInsideEditor && deviceMode === "mobile") openMenu()
+  }, [menuStyleSetting, renderingInsideEditor, deviceMode, openMenu])
   // Hover style for desktop menu links — mirrors the select in Header Settings.
   // Values: "inherit" | "none" | "underline" | "underline_reverse" | "fade_siblings"
   const menuHoverStyle = str(s.menu_link_hover_style, "inherit")
@@ -1775,6 +1932,43 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       clear()
     }
   }, [renderingInsideEditor, headerStickyEnabled, headerStickyOnScrollUp])
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A SEE-THROUGH HEADER IS SOLID ONCE IT IS PINNED OVER THE PAGE
+    ═══════════════════════════════════════════════════════════════════════
+    Transparent is for sitting over the picture at the top of a page. Sticky
+    as well, it went on being see-through over everything below the picture,
+    text over text. It is clear at the top and takes its scheme's background
+    from the moment it pins, the way Dawn's does, in the canvas's scroller and
+    in the window alike. An attribute, not React state, so a scroll never
+    re-renders the header.
+  */
+  const transparentSetting = bool(s.header_transparent, bool(s.transparent_on_hero, false))
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    if (!transparentSetting || !(headerStickyEnabled || headerStickyOnScrollUp)) { el.removeAttribute("data-scrolled"); return }
+    const preview = renderingInsideEditor ? document.getElementById("wb-preview-root") : null
+    const target: HTMLElement | Window = preview ?? window
+    const top = () => (preview ? preview.getBoundingClientRect().top : 0)
+    const offset = () => (preview ? preview.scrollTop : window.scrollY)
+    let frame = 0
+    const decide = () => {
+      frame = 0
+      if (drawerOverPage.current) return
+      const pinned = offset() > 0 && el.getBoundingClientRect().top - top() <= 0.5
+      if (pinned) el.setAttribute("data-scrolled", "")
+      else el.removeAttribute("data-scrolled")
+    }
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(decide) }
+    decide()
+    target.addEventListener("scroll", onScroll as EventListener, { passive: true })
+    return () => {
+      target.removeEventListener("scroll", onScroll as EventListener)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [transparentSetting, headerStickyEnabled, headerStickyOnScrollUp, renderingInsideEditor])
   const transparentOnHero = transparent
   // A control at last, rather than a value nobody could set. Read by the
   // default "logo left, nav right" layout.
@@ -1843,13 +2037,11 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * control exists, and falls through to the heading face rather than to the
    * browser's default, which is a serif nobody asked for.
    */
-  const logoFontStack = [
-    str(s.logo_font).trim() || null,
-    "var(--theme-font-heading)",
-    "ui-sans-serif",
-    "system-ui",
-    "sans-serif",
-  ].filter(Boolean).join(", ")
+  /* The rule is in lib/website-builder/header-settings.ts: a chosen family
+     first, then the heading face, then the system's sans. "inherit", which
+     the schema stores for no choice, is skipped, because inside a list it
+     invalidated the whole declaration. */
+  const logoFontStack = wordmarkFont(s.logo_font)
 
   const branding = theme as Record<string, unknown>
   const headerLogo = str(s.logo_url) || str(branding.logo_url)
@@ -1884,59 +2076,53 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     ? `translateX(${mobileLogoOffsetPx}px)`
     : undefined
 
-  const renderLogo = () => {
-    if (!headerLogo) {
-      return (
-        <span
-          className="text-[17px] font-bold whitespace-nowrap"
-          style={{
-            color: textColor,
-            fontFamily: logoFontStack,
-            transform: forceMobile ? mobileLogoTransform : desktopLogoTransform,
-          }}
-        >
-          {str(s.logo_text, theme.brand_name ?? "My Store")}
-        </span>
-      )
-    }
-    if (hasDeviceMode) {
-      return (
-        <img
-          src={forceMobile ? mobileLogoSrc : headerLogo}
-          alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-          className="object-contain"
-          style={{
-            height: `${forceMobile ? mobileLogoH : desktopLogoH}px`,
-            maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined,
-            transform: forceMobile ? mobileLogoTransform : desktopLogoTransform,
-          }}
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
-        />
-      )
-    }
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     LOGO SHOWS: THE PICTURE, THE NAME, OR BOTH
+    ═══════════════════════════════════════════════════════════════════════
+    Header › Logo shows. Both is the picture with the store's name beside
+    it, centred on the same line, the way a mark and a wordmark sit together.
+    A header that never set it keeps what it drew: the picture when there is
+    one, the name when there is not (logoParts).
+
+    One drawing per shell. The phone shell asks for the phone's picture, its
+    height and its nudge, the desktop shell for the desktop's, so a published
+    page and the editor's preview of either device draw the same thing.
+  */
+  const logoName = str(s.logo_text, theme.brand_name ?? "My Store")
+  const renderLogo = (mobile: boolean) => {
+    const parts = logoParts(s.logo_mode, !!headerLogo)
+    const height = mobile ? mobileLogoH : desktopLogoH
     return (
-      <>
-        <img
-          src={headerLogo}
-          alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-          className="object-contain hidden md:block"
-          style={{ height: `${desktopLogoH}px`, maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined, transform: desktopLogoTransform }}
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
-        />
-        <img
-          src={mobileLogoSrc}
-          alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-          className="object-contain md:hidden"
-          style={{ height: `${mobileLogoH}px`, maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined, transform: mobileLogoTransform }}
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
-        />
-      </>
+      <span
+        className="inline-flex min-w-0 items-center gap-2.5"
+        data-logo-mode={parts.image && parts.text ? "image_text" : parts.image ? "image" : "text"}
+        style={{ transform: mobile ? mobileLogoTransform : desktopLogoTransform }}
+      >
+        {parts.image && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mobile ? mobileLogoSrc : headerLogo}
+            alt={parts.text ? "" : str(s.logo_text, theme.brand_name ?? "Logo")}
+            className="block shrink-0 object-contain"
+            style={{
+              height: `${height}px`,
+              maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined,
+            }}
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+          />
+        )}
+        {parts.text && (
+          <span
+            className={cn("min-w-0 truncate font-bold leading-tight", mobile ? "text-[16px]" : "text-[17px]")}
+            style={{ color: textColor, fontFamily: logoFontStack }}
+          >
+            {logoName}
+          </span>
+        )}
+      </span>
     )
   }
 
@@ -2250,7 +2436,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             type="button"
             aria-label="Search"
             aria-expanded={searchOpen}
-            onClick={(e) => { e.stopPropagation(); setSearchOpen((v) => !v) }}
+            onClick={(e) => { e.stopPropagation(); toggleSearch() }}
             className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -2366,7 +2552,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           : "flex md:hidden",
       )}
       style={{ color: navLinkColor }}
-      onClick={e => { e.preventDefault(); setMobileNavOpen(o => !o) }}
+      onClick={e => { e.preventDefault(); toggleMenu() }}
     >
       {/*
         ═══════════════════════════════════════════════════════════════════
@@ -2484,12 +2670,13 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * editor it changes the page being edited rather than taking the builder
    * to storelib.com.
    */
-  const logoNode = (
-    <div className="flex items-center gap-2 shrink-0">
+  const logoFor = (mobile: boolean) => (
+    /* A phone may shorten a long store name rather than push the icons off. */
+    <div className={cn("flex items-center gap-2", mobile ? "min-w-0" : "shrink-0")}>
       <a
         href="/"
         aria-label="Go to the home page"
-        className="inline-flex items-center no-underline"
+        className="inline-flex min-w-0 items-center no-underline"
         style={{ color: "inherit" }}
         onClick={(e) => {
           if (!onEditorNavigate) return
@@ -2498,10 +2685,12 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           onEditorNavigate("/", true)
         }}
       >
-        {renderLogo()}
+        {renderLogo(mobile)}
       </a>
     </div>
   )
+  const logoNode = logoFor(false)
+  const phoneLogoNode = logoFor(true)
 
   // ── Mobile shell (driven by `mobile_header_layout`) ──────
   const mobileLayout = str(s.mobile_header_layout, "logo_center_hamburger_left")
@@ -2509,7 +2698,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     if (mobileLayout === "logo_left_hamburger_right") {
       return (
         <div className="w-full flex items-center justify-between gap-3">
-          <div className="flex items-center min-w-0">{logoNode}</div>
+          <div className="flex items-center min-w-0">{phoneLogoNode}</div>
           <div className="flex items-center gap-1">
             {renderIcons(true)}
             {renderHamburger()}
@@ -2521,7 +2710,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       return (
         <div className="w-full flex items-center gap-3">
           {renderHamburger()}
-          <div className="flex items-center min-w-0">{logoNode}</div>
+          <div className="flex items-center min-w-0">{phoneLogoNode}</div>
           <div className="flex-1" />
           {renderIcons(true)}
         </div>
@@ -2531,7 +2720,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     return (
       <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <div className="flex items-center justify-start">{renderHamburger()}</div>
-        <div className="flex items-center justify-center min-w-0">{logoNode}</div>
+        <div className="flex items-center justify-center min-w-0">{phoneLogoNode}</div>
         <div className="flex items-center justify-end">{renderIcons(true)}</div>
       </div>
     )
@@ -2709,13 +2898,26 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
 
   const headerRef = useRef<HTMLDivElement | null>(null)
   /*
-    A DRAWER OVER THE PAGE, the menu or the bag: the header fades under it and
-    its show on scroll up stands still. See useHeaderUnderDrawer.
+    ONE REF CALLBACK FOR THE LIFE OF THE HEADER. An inline arrow is a new
+    callback every render, and React detaches the old one (null) before the
+    drawers inside the header run their layout effects: the menu measured a
+    header that was not there, and opened over it instead of under it.
   */
-  const { open: cartOpen } = useSiteCart()
+  const attachHeader = useCallback((el: HTMLDivElement | null) => {
+    headerRef.current = el
+    scrollAnchorRef.current = el
+  }, [])
+  /*
+    A DRAWER OVER THE PAGE, the menu or the bag: the header's show on scroll
+    up stands still, so the lock is not read as a scroll.
+  */
   const drawerOpen = mobileNavOpen || (showCart && cartOpen)
   drawerOverPage.current = drawerOpen
-  useHeaderUnderDrawer(headerRef, drawerOpen)
+  /*
+    THE HEADER STAYS. It used to fade out under an open drawer, which on a
+    phone read as the menu hiding the header. The menu opens below it now,
+    and the cart's backdrop dims it like the rest of the page.
+  */
   const [measuredH, setMeasuredH] = useState(0)
   useLayoutEffect(() => {
     // Measure for both the live fixed header (so the spacer reserves the
@@ -2735,7 +2937,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       ro.disconnect()
       window.removeEventListener("resize", update)
     }
-  }, [headerStickyEnabled])
+  }, [headerStickyEnabled, transparent])
 
   // ── Bottom border + depth shadow (Header settings) ──────────
   //
@@ -2766,16 +2968,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     also drew the border on /about. The page's template is in context on
     the live page and in the canvas alike: "index" is the front page.
   */
-  const isHomePage = renderingInsideEditor ? true : pageTemplate === "index"
-  const shouldShowBorder = borderEnabled && (
-    borderVisibility === "all"
-      ? true
-      : borderVisibility === "home_only"
-        ? isHomePage
-        : borderVisibility === "inner_only"
-          ? !isHomePage
-          : false // "none"
-  )
+  /* And the canvas asks the same question of the page it is drawing, so
+     "Inner pages only" shows its border on an inner page in the editor too.
+     It used to call every page in the editor the home page. */
+  const shouldShowBorder = headerBorderHere(borderEnabled, borderVisibility, pageTemplate)
   // Depth shadow — default ON. A very soft 1–2px shadow that gives the
   // header subtle physical depth. Sits on the OUTER wrapper so it
   // doesn't get clipped by the inner content.
@@ -2787,7 +2983,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // leaving an empty bar behind.
   const headerInner = (
     <div
-      className="relative"
+      className={cn("relative", transparent && useSticky && "transition-[background-color] duration-200 [[data-scrolled]>&]:!bg-[var(--hdr-solid)]")}
       style={{
         background: bg,
         // Border rendered INSIDE the header (inset) so it doesn't add any
@@ -2906,12 +3102,21 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     />
   ) : null
 
-  const mobileDrawer = (
+  /*
+    THE PHONE MENU EXISTS ONLY WHERE THERE IS A PHONE LAYOUT. In the editor
+    that is the phone preview and nowhere else; published, it is drawn for
+    every width and CSS hides it from the tablet breakpoint up (phoneOnly).
+    A desktop canvas has no element for it at all, so no setting can put a
+    phone menu over a desktop page.
+  */
+  const mobileDrawer = hasMenuDrawer ? (
     <HeaderMobileNavDrawer
       open={mobileNavOpen}
       onClose={closeMobileNav}
       scheme={scheme}
-      menuStyle={mobileMenuStyle(s.mobile_menu_style)}
+      menuStyle={menuStyleSetting}
+      phoneOnly={!deviceMode}
+      below={headerRef}
       // CRITICAL: use `renderingInsideEditor`, NOT `isEditing`. `isEditing`
       // flips with the Inspector toggle — when the user turns Inspector off
       // the drawer would portal into `document.body` with `position: fixed`
@@ -2955,7 +3160,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         }
       })}
     />
-  )
+  ) : null
 
   /**
    * THE TRANSPARENT HEADER TAKES NO SPACE.
@@ -3000,11 +3205,16 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         onClick={onClick}
         disableWrapperTransition
         canvasRoundedTopPx={canvasRoundedTopPx}
+        dataSticky={revealEnabled ? "scroll-up" : "always"}
         className={cn(
           "sticky top-0 z-[60] isolate",
           // Only when it actually animates — the reveal effect above writes
           // the transform straight to this node on scroll.
           revealEnabled && "will-change-transform",
+          /* A see-through header that has pinned over the page takes its
+             scheme's background, or its links sit on whatever scrolls under
+             them. `data-scrolled` is written by the effect above. */
+          transparent && "transition-[background-color] duration-200 [&[data-scrolled]]:!bg-[var(--hdr-solid)]",
           // Suppress the hover ring on the sticky header — it looks broken
           // when it appears over the sliding transform. The SELECTED ring
           // (blue) must remain so the user can see which section is
@@ -3016,6 +3226,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           // bleed-through from the content behind it).
           backgroundColor: bg,
           opacity: 1,
+          ...(transparent ? ({ "--hdr-solid": scheme.bg } as CSSProperties) : {}),
           // Absent entirely when the reveal is off, so the header is a plain
           // sticky box with no compositor layer of its own.
           // NOT set here. `transform`, `transition` and `pointerEvents` are
@@ -3024,10 +3235,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           // prop cannot overwrite them on an unrelated re-render.
           ...overlayMargin,
         }}
-        forwardRef={(el: HTMLDivElement | null) => {
-          headerRef.current = el
-          scrollAnchorRef.current = el
-        }}
+        forwardRef={attachHeader}
       >
         {headerInner}
         {mobileDrawer}
@@ -3048,11 +3256,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       isSelected={isSelected}
       onClick={onClick}
       canvasRoundedTopPx={canvasRoundedTopPx}
+      dataSticky="none"
       className={transparent ? "z-[60]" : undefined}
       style={overlayMargin}
-      forwardRef={(el: HTMLDivElement | null) => {
-        headerRef.current = el
-      }}
+      forwardRef={attachHeader}
     >
       {headerInner}
       {mobileDrawer}

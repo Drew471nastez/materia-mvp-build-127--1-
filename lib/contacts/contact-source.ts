@@ -42,7 +42,7 @@ import { isOnePageHost } from "@/lib/onepage/address"
 export const CONTACT_SURFACES = ["website", "profile", "onepage", "product", "checkout", "import", "manual", "api"] as const
 export type ContactSurface = (typeof CONTACT_SURFACES)[number]
 
-export const FORMS = ["newsletter", "footer", "contact", "section", "popup", "lead_magnet", "bar"] as const
+export const FORMS = ["newsletter", "footer", "contact", "section", "popup", "lead_magnet", "bar", "password"] as const
 export type ContactForm = (typeof FORMS)[number]
 
 export interface ContactSource {
@@ -86,6 +86,7 @@ export const FORM_NAME: Record<ContactForm, string> = {
   popup: "Subscribe button",
   lead_magnet: "Free download",
   bar: "Subscribe bar",
+  password: "Coming soon page",
 }
 
 /** Every field checked on its own; null when nothing is left. */

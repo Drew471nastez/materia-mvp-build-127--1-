@@ -14,11 +14,12 @@
  */
 import { followScheme, resolveSectionColors, styleAttr } from "./color-schemes"
 import { resolveControlType } from "./controls/registry"
-import { resolveInstance, resolveSettings, themeTokens, type ResolvedBlock } from "./resolve"
+import { collectionBlock, resolveInstance, resolveSettings, themeTokens, type ResolvedBlock } from "./resolve"
 import { sectionTypography } from "./typography"
 import { cssForBlockInstance, cssForInstance } from "./storelib/css"
 import { guardSectionMarkup, guardStyleText } from "./storelib/raw-html"
 import { engineHtml, renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
+import { applySettingMarks } from "./storelib/marks"
 import { MAX_BLOCK_DEPTH, type CompiledBlock, type CompiledSection, type ContentForRequest, type RenderContext, type SectionInstanceData, type StorefrontData } from "./types"
 import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 
@@ -66,12 +67,59 @@ export interface Rendered {
   script: string | null
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  "$48.00 USD": THEME SETTINGS › CURRENCY FORMAT
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Shopify's Show currency codes. Prices reach a section already formatted
+ * (lib/website-builder/shop-products.ts: templates do not do money), so the
+ * code is added here, to every price the page was handed, once per list.
+ * Off, the lists go through untouched.
+ */
+const SHOP_CURRENCY_CODE = "USD"
+const coded = new WeakMap<object, unknown>()
+
+function withCode(price: unknown): unknown {
+  if (typeof price !== "string" || price === "" || price.includes(SHOP_CURRENCY_CODE)) return price
+  return price.replace(/^(\$[\d,]+(?:\.\d+)?)/, `$1 ${SHOP_CURRENCY_CODE}`)
+}
+
+function codedCard<T extends { settings: Record<string, unknown> }>(card: T): T {
+  const s = card.settings
+  const variants = Array.isArray(s.variants)
+    ? (s.variants as Record<string, unknown>[]).map((v) => ({ ...v, price: withCode(v.price), compare_price: withCode(v.compare_price) }))
+    : s.variants
+  return { ...card, settings: { ...s, price: withCode(s.price), compare_price: withCode(s.compare_price), ...(variants !== undefined ? { variants } : {}) } }
+}
+
+function codedList<T extends { settings: Record<string, unknown> }>(list: T[] | undefined): T[] | undefined {
+  if (!list) return list
+  const hit = coded.get(list)
+  if (hit) return hit as T[]
+  const out = list.map(codedCard)
+  coded.set(list, out)
+  return out
+}
+
+function codedCollections(map: StorefrontData["collections"]): StorefrontData["collections"] {
+  if (!map) return map
+  const hit = coded.get(map)
+  if (hit) return hit as StorefrontData["collections"]
+  const out = Object.fromEntries(Object.entries(map).map(([k, c]) => [k, { ...c, products: codedList(c.products) ?? [] }]))
+  coded.set(map, out)
+  return out
+}
+
 export function renderSection(input: RenderInput): Rendered {
   const { compiled, id, instance } = input
   const assets = input.assets ?? {}
-  const data = input.data ?? {}
+  const showCode = input.theme.currency_code_enabled === true
+  const handed = input.data ?? {}
+  const data: StorefrontData = showCode
+    ? { ...handed, catalog: codedList(handed.catalog as { id: string; settings: Record<string, unknown> }[] | undefined), collections: codedCollections(handed.collections) }
+    : handed
+  if (showCode) input = { ...input, products: codedList(input.products) }
   const blockOf = input.blocks ?? (() => null)
-  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus, communities: data.communities }
+  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus, communities: data.communities, collections: data.collections }
   const { settings, blocks, statics } = resolveInstance(compiled.schema, instance, {
     ...resolveOpts,
     themeBlock: (type) => blockOf(type)?.schema ?? null,
@@ -105,6 +153,8 @@ export function renderSection(input: RenderInput): Rendered {
     scheme,
     page: input.page,
     products: input.products ?? [],
+    /* Every published collection of the creator's the page was handed, in their order, block-shaped. */
+    collections: Object.values(data.collections ?? {}).map(collectionBlock),
     section: { id, type: compiled.type },
     assets,
     /* The store: the theme's globals (globals.ts), with what only the server knows (storefront-data.ts). */
@@ -151,7 +201,7 @@ export function renderSection(input: RenderInput): Rendered {
       sectionScope: { settings, blocks },
       contentFor: contentForOf(node, depth),
     }
-    const inner = renderTemplate(cb.template as CompiledTemplate, blockCtx)
+    const inner = renderTemplate(cb.template as CompiledTemplate, blockCtx, { marks: inEditor })
     if (cb.css) {
       if (cb.cssTemplate) {
         /* Per instance, and only for an id that cannot leave a selector. */
@@ -189,7 +239,9 @@ export function renderSection(input: RenderInput): Rendered {
      setting held: storelib/template.ts, DOCUMENT_MARKUP. And nothing drawn
      runs anything, however the template spelled it: storelib/raw-html.ts,
      guardSectionMarkup. */
-  const inner = guardSectionMarkup(stripDocumentMarkup(renderTemplate(compiled.template as CompiledTemplate, ctx)))
+  /* In the builder, each output of a setting names its element first: storelib/marks.ts. Before the guards, so they see the markup as it will be. */
+  const drawn = renderTemplate(compiled.template as CompiledTemplate, ctx, { marks: inEditor })
+  const inner = guardSectionMarkup(stripDocumentMarkup(inEditor ? applySettingMarks(drawn) : drawn))
   const typo = sectionTypography(settings)
   const attrs = [
     `data-section-id="${escapeAttr(id)}"`,

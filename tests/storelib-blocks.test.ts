@@ -164,7 +164,7 @@ function main() {
   section("A block on the canvas is a block in the sidebar")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, path\.length \? pathKey\(path\) : null\)/.test(editor))
+    check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, field \? field\.block : path\.length \? pathKey\(path\) : null, field\)/.test(editor))
     check("the sidebar row opens and takes the ring",
       /selectedKey=\{selectedBlockId\}/.test(editor) && /selectedId=\{selectedKey\}/.test(editor) &&
         /data-block-row=\{key\}/.test(blockList) &&
