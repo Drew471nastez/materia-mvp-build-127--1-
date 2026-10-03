@@ -5,7 +5,7 @@ import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Minimize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   KeyboardSensor,
@@ -948,6 +948,11 @@ export type DeviceMode = "desktop" | "mobile"
  * 375px phone too. The preview is worth nothing if it is not a real phone's
  * width.
  */
+/** Full screen preview, remembered for the tab's session (see `fullScreen` in the editor). */
+const FULL_SCREEN_KEY = "wb:full-screen"
+/** How long the sidebar takes to fold away or come back. */
+const FULL_SCREEN_MS = 320
+
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
 }
@@ -2796,6 +2801,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
+  const sidebarFoldRef = useRef<HTMLDivElement | null>(null)
   const SIDEBAR_MIN = 240
   const SIDEBAR_MAX = 560
   useEffect(() => {
@@ -2818,6 +2824,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const onMove = (ev: PointerEvent) => {
       latest = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (ev.clientX - startX)))
       if (sidebarRef.current) sidebarRef.current.style.width = `${latest}px`
+      /* The fold around it (full screen) is capped at the width, so it moves with it. */
+      if (sidebarFoldRef.current) sidebarFoldRef.current.style.maxWidth = `${latest}px`
     }
     const onUp = () => {
       handle.removeEventListener("pointermove", onMove)
@@ -2837,6 +2845,55 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     handle.addEventListener("pointercancel", onUp)
   }
   const [isMobileView, setIsMobileView] = useState(false)
+  /**
+   * ===========================================================================
+   *  FULL SCREEN: THE SITE AND NOTHING ELSE
+   * ===========================================================================
+   * The third way of looking at the page, beside desktop and phone: the
+   * sidebar folds away, the section toolbar, the rings and Ask Storelib's pill
+   * with it, and the site fills everything under the bar at desktop width.
+   * The bar stays, so the switch that turned it on is where it was, and Escape
+   * turns it off. Remembered for the tab's session, like the sidebar's width
+   * is remembered. A computer's idea: on a phone the canvas already fills the
+   * screen, so it is not offered there and a remembered one waits.
+   *
+   * The sidebar goes by its own width to nothing (and its opacity with it),
+   * not by unmounting: the canvas grows into the room continuously instead of
+   * jumping, and the panel underneath keeps its scroll and its open rows for
+   * when it comes back. FULL_SCREEN_MS in the check (scripts/check-full-screen.mjs).
+   */
+  const [fullScreen, setFullScreenState] = useState(false)
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem(FULL_SCREEN_KEY) === "1") setFullScreenState(true)
+    } catch {
+      /* no storage: it starts off, which is the ordinary editor */
+    }
+  }, [])
+  const setFullScreen = useCallback((on: boolean) => {
+    setFullScreenState(on)
+    if (on) setDevice("desktop")
+    try {
+      if (on) window.sessionStorage.setItem(FULL_SCREEN_KEY, "1")
+      else window.sessionStorage.removeItem(FULL_SCREEN_KEY)
+    } catch {
+      /* not remembered, still applied */
+    }
+  }, [])
+  /** Full screen as it applies right now: a computer, looking at the preview. */
+  const fullView = fullScreen && !isMobileView && previewMode === "preview"
+  /* Escape leaves it, unless the key belongs to something open on top (a dialog, a menu) or to a field. */
+  useEffect(() => {
+    if (!fullView) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="menu"]')) return
+      setFullScreen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [fullView, setFullScreen])
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [username, setUsername] = useState("")
   /* The creator's four public facts, for `{{ creator.name }}` on the canvas. See the install route. */
@@ -5071,9 +5128,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (scroller) {
         const r = el.getBoundingClientRect()
         const box = scroller.getBoundingClientRect()
+        /* What of the scroller is on the screen: on a phone the sheet's lower part is below it at the half stop. */
+        const seenBottom = Math.min(box.bottom, window.visualViewport?.height ?? window.innerHeight)
         /* A third of the way down, so the field is read with what is above it; not moved when it is already in plain view. */
-        const fits = r.top >= box.top + 8 && r.bottom <= box.bottom - 8
-        if (!fits) scroller.scrollBy({ top: r.top - box.top - Math.min(box.height / 3, 120), behavior: "smooth" })
+        const fits = r.top >= box.top + 8 && r.bottom <= seenBottom - 8
+        if (!fits) scroller.scrollBy({ top: r.top - box.top - Math.min((seenBottom - box.top) / 3, 120), behavior: "smooth" })
       }
       /* Taken off and put back, so a second click on the same thing rings it again. */
       el.removeAttribute("data-sl-flash")
@@ -5088,9 +5147,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         input?.focus({ preventScroll: true })
       }
     }
-    /* Two frames: the block list opens its row in an effect of its own. */
-    frame = requestAnimationFrame(() => { frame = requestAnimationFrame(land) })
-    return () => cancelAnimationFrame(frame)
+    /* Two frames: the block list opens its row in an effect of its own. On a
+       phone, after the sheet has finished rising, so what is on the screen is
+       measured where it stays. */
+    const wait = isMobileViewRef.current ? window.setTimeout(() => { frame = requestAnimationFrame(land) }, sheetMoveMs()) : 0
+    if (!wait) frame = requestAnimationFrame(() => { frame = requestAnimationFrame(land) })
+    return () => {
+      window.clearTimeout(wait)
+      cancelAnimationFrame(frame)
+    }
   }, [fieldFocus])
   /**
    * AND THE SIDEBAR GOES TO IT. Selecting the ninth FAQ entry on the canvas
@@ -7109,9 +7174,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipTrigger asChild>
               <button
                 className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
-                onClick={() => setDevice(device === "desktop" ? "mobile" : "desktop")}
+                onClick={() => {
+                  /* Phone is its own way of looking: it leaves full screen. */
+                  if (fullView) setFullScreen(false)
+                  setDevice(device === "desktop" ? "mobile" : "desktop")
+                }}
                 aria-label={device === "desktop" ? "Switch to phone preview" : "Switch to desktop preview"}
                 aria-pressed={device === "mobile"}
+                data-wb-device-switch=""
               >
                 {device === "desktop" ? (
                   <Monitor className="h-4 w-4" strokeWidth={1.75} />
@@ -7124,6 +7194,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {device === "desktop" ? "Switch to phone" : `Switch to desktop (phone is ${DEVICE_WIDTH.mobile}px)`}
             </TooltipContent>
           </Tooltip>
+          {/* Full screen, the third way of looking, beside desktop and phone. A computer only. */}
+          {!isMobileView && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn(
+                    "hidden sm:flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0",
+                    fullView ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]" : "text-[var(--wb-chrome-fg-3)]",
+                  )}
+                  onClick={() => {
+                    if (!fullView && previewMode !== "preview") setPreviewMode("preview")
+                    setFullScreen(!fullView)
+                  }}
+                  aria-label={fullView ? "Leave full screen" : "Full screen preview"}
+                  aria-pressed={fullView}
+                  data-wb-full-screen-switch=""
+                >
+                  {fullView ? <Minimize2 className="h-4 w-4" strokeWidth={1.75} /> : <Maximize2 className="h-4 w-4" strokeWidth={1.75} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{fullView ? "Leave full screen (Esc)" : "Full screen"}</TooltipContent>
+            </Tooltip>
+          )}
 
           {!isMobileView && (
           <PageSwitcher
@@ -7430,7 +7523,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           comparable inside one stacking context, and this has to cover sheets
           that render into the body. From in here it could not. */}
       {/* The outline and the section's name under the pointer: components/website-builder/canvas-hover.tsx. */}
-      <CanvasHover enabled={canvasInspecting && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
+      <CanvasHover enabled={canvasInspecting && !fullView && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
 
       <LeaveConfirm
         open={pendingExit !== null}
@@ -7532,7 +7625,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       >
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
-          <div className="relative flex-shrink-0 flex h-full overflow-visible">
+          <div
+            ref={sidebarFoldRef}
+            className={cn("relative flex-shrink-0 flex h-full", fullView ? "overflow-hidden" : "overflow-visible")}
+            data-wb-sidebar-fold={fullView ? "folded" : "open"}
+            aria-hidden={fullView || undefined}
+            /* Full screen folds the sidebar by its own width, so the canvas grows into the room rather than jumping. */
+            style={{
+              maxWidth: fullView ? 0 : sidebarWidth,
+              opacity: fullView ? 0 : 1,
+              /* And the 6px seam beside it, so the canvas meets the edge. */
+              marginRight: fullView ? -6 : 0,
+              transition: `max-width ${FULL_SCREEN_MS}ms cubic-bezier(0.32, 0.72, 0, 1), margin-right ${FULL_SCREEN_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
+            }}
+            {...(fullView ? { inert: true } : {})}
+          >
             {/* Clipped HERE, on the box with the width, so the list's own
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
@@ -8167,7 +8274,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 storefrontData={canvasData}
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
-                inspectorEnabled={canvasInspecting}
+                inspectorEnabled={canvasInspecting && !fullView}
                 selectedSectionId={selectedSectionId}
                 device={device}
                 /**
@@ -8205,7 +8312,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* The selected section's own toolbar, over the canvas. Only with
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}
-          {canvasInspecting && !isMobileView && previewMode === "preview" && (() => {
+          {canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && (() => {
             const body = sections.filter((x) => x.type !== "header" && x.type !== "footer")
             const idx = body.findIndex((x) => x.id === selectedSectionId)
             const current = sections.find((x) => x.id === selectedSectionId)
@@ -8248,7 +8355,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <ThemeChat
               variant="dock"
               hidden={!aiOpen}
-              suspended={previewMode !== "preview" || projectSettingsOpen}
+              suspended={previewMode !== "preview" || projectSettingsOpen || fullView}
               openRequest={aiAsk}
               installId={installId}
               page={currentPage}

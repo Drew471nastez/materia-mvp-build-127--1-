@@ -30,6 +30,7 @@ const read = (p: string) => readFileSync(join(root, p), "utf8")
 const header: SectionInstance = {
   id: "h",
   type: "header",
+  name: "Header",
   settings: { menu: "" },
   blocks: [
     { id: "a", type: "nav_link", settings: { label: "Home", url: "/" } },

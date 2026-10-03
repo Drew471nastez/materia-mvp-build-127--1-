@@ -1176,14 +1176,15 @@ html.capacitor body {
   /*
    * WHAT THE POINTER IS OVER ON THE CANVAS (editor page.tsx, CanvasHover):
    * a thin outline round the one thing a click would open, and the section's
-   * name on a chip at its top left, the way Shopify's editor marks them.
+   * name on a chip at its top left, the way Shopify's editor marks them,
+   * in the canvas selection blue (#3b82f6, SectionWrapper's rings).
    */
   .wb-hover-outline {
     position: fixed;
     z-index: 60;
     pointer-events: none;
     border-radius: 4px;
-    box-shadow: 0 0 0 1.5px rgba(139, 92, 246, 0.85);
+    box-shadow: 0 0 0 1.5px rgba(59, 130, 246, 0.85);
     transition: opacity 120ms ease-out;
   }
   .wb-hover-chip {
@@ -1195,7 +1196,7 @@ html.capacitor body {
     text-overflow: ellipsis;
     white-space: nowrap;
     border-radius: 6px;
-    background: #8b5cf6;
+    background: #3b82f6;
     color: #fff;
     font: 600 11px/1 Inter, system-ui, sans-serif;
     padding: 5px 7px;

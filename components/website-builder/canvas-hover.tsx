@@ -31,7 +31,7 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
       setBox(null)
       return
     }
-    if (typeof window === "undefined" || !window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) return
+    /* A mouse's own moves only (pointerType below): a finger has no hover, and its tap goes straight to the field. */
     let frame = 0
     let last: Element | null = null
     const measure = () => {

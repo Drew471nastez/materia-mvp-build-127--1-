@@ -98,8 +98,9 @@ function main() {
   */
   check("the header's Menu on phones is the old select, under the phone layout's preview row",
     /\{mobilePreviewSummary\}[\s\S]{0,600}<WbSelect\s+label="Menu on phones"/.test(editor) && /onUpdateSetting\("mobile_menu_style", v\)/.test(editor))
-  check("and Transparent on and the header's Links are the old select too",
-    /<WbSelect\s+label="Transparent on"/.test(editor) && /<WbSelect\s+label="Links"/.test(editor))
+  /* The header's links are its menu now, picked with the menu picker and edited in Menus (tests/menus-main-menu.test.ts). */
+  check("and Transparent on is the old select too, and the header's links are its Menu",
+    /<WbSelect\s+label="Transparent on"/.test(editor) && /<MenuPickerControl\s+label="Menu"/.test(editor))
   check("a section's settings are listed one by one, the ones whose visible_if holds, with its other settings beside them",
     /const visible = visibleFields\(schema\.fields, section\.settings\)/.test(editor) &&
       /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="px-3\.5 py-3\.5 space-y-3\.5">\s*\{clean\.map\(field => \(/.test(editor))

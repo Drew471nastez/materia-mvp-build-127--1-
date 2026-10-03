@@ -181,6 +181,7 @@ check("every link row is 36px", side.bars.length === 6 && side.bars.every((h) =>
 const indent = await desk.js(INDENT("#sidebar", "1", "1/0"))
 check("a sub-link's name starts 20px in from its parent's", indent === 20, indent)
 check("each row says where it goes, in 12px type", side.dests.length === 6 && side.dests.every((d) => d.size === "12px") && side.dests[3].text !== "" && side.dests[5].text === "instagram.com", side.dests)
+check("and says nothing when that is only its own name again", side.dests[0].text === "" && side.dests[1].text === "" && side.dests[4].text === "", side.dests.map((d) => d.text))
 check("no card inside the editor: rows and hairlines only", side.cards.length === 0, side.cards)
 check("no paragraph explaining the editor", side.paragraphs.length === 0, side.paragraphs)
 await desk.shot("menus-sidebar-main")
@@ -212,7 +213,7 @@ const input = await desk.js(centre("#sidebar", '[data-link-row="2"] [data-link-p
 await desk.click(input.x, input.y)
 await desk.type(" us")
 await sleep(200)
-const writes = await desk.js("window.__writes")
+const writes = await desk.js("window.__menuWrites")
 const main = (writes.find((w) => w.menus) || {}).menus?.["main-menu"]
 check("the first edit writes every header link into the Main menu", !!main && main.links.length === 4 && main.links[1].links.length === 2 && main.links[2].title === "About us", main)
 check("and points the header at it", writes.some((w) => w.header === "main-menu"), writes.map((w) => Object.keys(w)[0]))

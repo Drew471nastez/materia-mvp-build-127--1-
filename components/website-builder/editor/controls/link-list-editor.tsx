@@ -185,8 +185,12 @@ function LinkRow({
             >
               {name || "Untitled"}
             </span>
+            {/* Where it goes, unless that is only its own name again ("Shop" to the Shop page). */}
             <span data-link-dest="" className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground max-sm:text-[13px]">
-              {describeLink(item.url, ctx.targets)}
+              {(() => {
+                const where = describeLink(item.url, ctx.targets)
+                return where.toLowerCase() === name.toLowerCase() ? "" : where
+              })()}
             </span>
           </button>
           <ResponsiveActionMenu

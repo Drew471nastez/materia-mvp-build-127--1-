@@ -10,7 +10,7 @@
  *   #settings   in Website Settings › Navigation (dark), inside its Card,
  *               on the list of menus
  *
- * `window.__writes` records what each editor wrote, so the check can see the
+ * `window.__menuWrites` records what each editor wrote, so the check can see the
  * first edit of the Main menu point the header at it.
  */
 import React from "react"
@@ -24,10 +24,10 @@ import type { Menu } from "@/lib/storelib-theme/values"
 declare global {
   interface Window {
     __ready: boolean
-    __writes: { menus?: Record<string, Menu>; header?: string }[]
+    __menuWrites: { menus?: Record<string, Menu>; header?: string }[]
   }
 }
-window.__writes = []
+window.__menuWrites = []
 
 const HEADER = {
   settings: { menu: "" } as Record<string, unknown>,
@@ -58,11 +58,11 @@ function Editor({ openHandle }: { openHandle?: string }) {
       header={header}
       openHandle={openHandle}
       onChange={(next) => {
-        window.__writes.push({ menus: next })
+        window.__menuWrites.push({ menus: next })
         setMenus(next)
       }}
       onLinkHeader={() => {
-        window.__writes.push({ header: "main-menu" })
+        window.__menuWrites.push({ header: "main-menu" })
         setHeader((h) => ({ ...h, settings: { ...h.settings, menu: "main-menu" } }))
       }}
     />

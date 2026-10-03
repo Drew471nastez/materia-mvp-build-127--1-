@@ -48,9 +48,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 async function open(vp, touch) {
   const page = await browser.newPage()
   await page.setViewport({ ...vp, isMobile: !!touch, hasTouch: !!touch })
-  if (!touch) {
-    await page.emulateMediaFeatures([{ name: "hover", value: "hover" }, { name: "pointer", value: "fine" }])
-  }
   const errors = []
   page.on("pageerror", (e) => errors.push(String(e.message).slice(0, 200)))
   await page.goto(origin, { waitUntil: "load" })
@@ -68,7 +65,8 @@ async function target(page, type, sel, index = 0) {
     const sc = document.getElementById("wb-preview-root")
     const box = document.querySelector(`#wb-preview-root [data-section-type="${t}"]`)
     if (!box) return null
-    const el = box.querySelectorAll(s)[i]
+    /* Only what can be seen: a closed FAQ answer is marked too, and has no box to press. */
+    const el = [...box.querySelectorAll(s)].filter((e) => e.getBoundingClientRect().height > 0)[i]
     if (!el) return null
     const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top
     if (top < 60 || top > sc.clientHeight - 120) sc.scrollTop += top - 160
@@ -90,7 +88,7 @@ const READ_FIELD = (setting, block, ringAt) => new Promise((resolve) => {
         field = [...panel.querySelectorAll(`[data-setting-field="${setting}"]`)].find((f) => !f.closest("[data-block-row]")) || null
       }
     }
-    if (!field) return { found: false, panel: !!panel }
+    if (!field) return { found: false, panel: panel ? panel.getAttribute("data-wb-section-panel") : null, rows: panel ? [...panel.querySelectorAll("[data-block-row]")].map((r) => r.getAttribute("data-block-row")).slice(0, 6) : [] }
     const scroller = field.closest("[data-sheet-scroll], [data-wb-sidebar-scroll]")
     const r = field.getBoundingClientRect()
     const b = scroller.getBoundingClientRect()
@@ -149,6 +147,12 @@ try {
         return { outline: !!o, chip: c ? c.textContent : null, dx: r ? Math.round(r.left - h.left) : null, dw: r ? Math.round(r.width - h.width) : null, shadow: o ? getComputedStyle(o).boxShadow : null }
       })
       expect(hover.outline && hover.dx === -2 && hover.dw === 4, "hovering the heading outlines it, 2px clear on each side", hover)
+      expect(/59, 130, 246/.test(hover.shadow || ""), "in the canvas selection blue", hover.shadow)
+      const ring = await page.evaluate(() => {
+        const r = [...document.querySelectorAll('#wb-preview-root [data-section-type="hero_centered"] span.wb-ring')].find((s) => !s.textContent)
+        return r ? getComputedStyle(r).boxShadow : null
+      })
+      expect(/59, 130, 246/.test(ring || ""), "and the section's own hover ring is blue too", ring)
       expect(!!hover.chip, "and names its section on a chip", hover.chip)
 
       const r = await pressAndRead(page, heading, false)
@@ -162,14 +166,51 @@ try {
     }
 
     /* A field far down the panel: the sidebar has to scroll to it. */
-    for (const [type, sel] of [["hero_centered", '[data-sl-setting]:not([data-sl-setting="heading"])'], ["features_grid", "[data-sl-block][data-sl-setting]"], ["faq_accordion", "[data-sl-block][data-sl-setting]"]]) {
-      const all = await page.evaluate((t, s) => [...document.querySelectorAll(`#wb-preview-root [data-section-type="${t}"] ${s}`)].length, type, sel)
+    for (const [type, sel] of [["hero_centered", '[data-sl-setting]:not([data-sl-setting="heading"])'], ["features_grid", "[data-sl-block][data-sl-setting]"], ["faq_accordion", '[data-sl-setting="question"]'], ["faq_accordion", '[data-sl-setting="answer"]']]) {
+      const all = await page.evaluate((t, s) => [...document.querySelectorAll(`#wb-preview-root [data-section-type="${t}"] ${s}`)].filter((e) => e.getBoundingClientRect().height > 0).length, type, sel)
       const at = await target(page, type, sel, Math.max(0, all - 1))
       if (!at) { expect(false, `${type}: a marked element to press`, sel); continue }
       const r = await pressAndRead(page, at, false)
-      expect(r.found && r.visible && r.flash, `${type}: "${at.text}" lands on ${at.block ? "its block's" : "the"} ${at.setting} field, in view and ringed`, { scrolledFrom: r.before, to: r.scrollTop, top: r.top, bottom: r.bottom, focused: r.focused })
+      expect(r.found && r.visible && r.flash, `${type}: "${at.text}" lands on ${at.block ? "its block's" : "the"} ${at.setting} field, in view and ringed`, { scrolledFrom: r.before, to: r.scrollTop, top: r.top, bottom: r.bottom, focused: r.focused, found: r.found, panel: r.panel, rows: r.rows, mark: at.block })
       await sleep(400)
     }
+
+    /* Unsaved work, then the browser's Back and a plain link: the builder asks, in its own words. */
+    console.log("\ndesktop editor, leaving with unsaved work")
+    const again = await target(page, "hero_centered", '[data-sl-setting="heading"]')
+    await page.mouse.click(again.x, again.y)
+    await sleep(500)
+    await page.keyboard.type("!")
+    await sleep(80)
+    const armed = await page.evaluate(() => !!(history.state && history.state.wbLeaveGuard))
+    expect(armed, "an edit puts a guard entry on top of the history", armed)
+    await page.evaluate(() => history.back())
+    await sleep(500)
+    const dialog = await page.evaluate(() => {
+      const d = document.querySelector("[data-leave-dialog]")
+      return d ? { title: d.querySelector("h2")?.textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent.trim()) } : null
+    })
+    expect(!!dialog && dialog.title === "Save changes before leaving?", "the browser's Back asks first", dialog)
+    expect(!!dialog && ["Discard", "Cancel", "Save"].every((b) => dialog.buttons.includes(b)), "with Save, Discard and Cancel", dialog && dialog.buttons)
+    await page.evaluate(() => document.querySelector("[data-leave-cancel]")?.click())
+    await sleep(300)
+    const stayed = await page.evaluate(() => ({ open: !!document.querySelector("[data-leave-dialog]"), rearmed: !!(history.state && history.state.wbLeaveGuard) }))
+    expect(!stayed.open && stayed.rearmed, "Cancel stays, and the next Back is caught again", stayed)
+    await page.keyboard.type("!")
+    await sleep(80)
+    await page.evaluate(() => {
+      const a = document.createElement("a")
+      a.href = "/app/products"
+      a.textContent = "Products"
+      a.id = "probe-leave-link"
+      document.body.appendChild(a)
+    })
+    await page.click("#probe-leave-link")
+    await sleep(300)
+    const viaLink = await page.evaluate(() => ({ open: !!document.querySelector("[data-leave-dialog]"), path: location.pathname }))
+    expect(viaLink.open && viaLink.path.startsWith("/website-builder/"), "a plain link in the builder asks too, and does not leave", viaLink)
+    await page.evaluate(() => document.querySelector("[data-leave-cancel]")?.click())
+
     expect(errors.length === 0, "no page errors", errors)
     await page.close()
   }
@@ -180,7 +221,8 @@ try {
     console.log("\nphone editor, 390x844, taps")
     const heading = await target(page, "hero_centered", '[data-sl-setting="heading"]')
     if (heading) {
-      const r = await pressAndRead(page, heading, true, 900)
+      /* The sheet rises first (sheetMoveMs), then the field is scrolled to: read once both have finished. */
+      const r = await pressAndRead(page, heading, true, 1300)
       expect(r.found, "a tap on the heading brings the sheet up on the hero's Heading field", r)
       expect(r.visible, "the field is on screen inside the sheet", { top: r.top, bottom: r.bottom })
       expect(r.flash, "and wears the ring", r.outline)

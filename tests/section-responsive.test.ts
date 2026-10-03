@@ -2284,9 +2284,10 @@ check(
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
     /const openAddSection = useCallback\(\(\) => setAddSectionOpen\(true\), \[\]\)/.test(editor) &&
     // Still one stable callback from the parent, now carrying which block
-    // was clicked as well as which section: see selectSectionFromCanvas.
+    // was clicked as well as which section, and which field the click was
+    // for (tests/builder-click-edit.test.ts): see selectSectionFromCanvas.
     /onClick: inspectorEnabled\s*\n\s*\? \(e: React\.MouseEvent<HTMLElement>\) => \{/.test(editor) &&
-    /onSelectSection\(section\.id, path\.length \? pathKey\(path\) : null\)/.test(editor),
+    /onSelectSection\(section\.id, field \? field\.block : path\.length \? pathKey\(path\) : null, field\)/.test(editor),
 )
 
 check(
@@ -2319,8 +2320,8 @@ check(
     /scroller\.addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(editor) &&
     /if \(!frame\) frame = requestAnimationFrame\(measure\)/.test(editor) &&
     /<SectionToolbar/.test(editor) &&
-    /* What the canvas draws trails the switch by one fade (toggleInspector). */
-    /canvasInspecting && !isMobileView && previewMode === "preview" && \(\(\) => \{/.test(editor),
+    /* What the canvas draws trails the switch by one fade (toggleInspector). Not in full screen, which is the site alone (scripts/check-full-screen.mjs). */
+    /canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && \(\(\) => \{/.test(editor),
 )
 
 check(
