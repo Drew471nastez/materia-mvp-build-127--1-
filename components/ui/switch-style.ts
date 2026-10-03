@@ -21,6 +21,24 @@ const KNOB =
 export const switchTrack = (on: boolean) => cn(TRACK, on ? TRACK_ON : TRACK_OFF)
 export const switchKnob = (on: boolean) => cn(KNOB, on ? "translate-x-4" : "translate-x-0")
 
+/**
+ * THE SAME SWITCH ON A DARK SURFACE (Website Settings, which stands over the
+ * builder and is dark). The same track, knob, size and curve; the colours
+ * are the light switch's turned over, because near black on near black is
+ * no switch at all: on is a near white track with a near black knob, off a
+ * faint track with a white knob. The knob's colour changes over the same
+ * 200ms as its move.
+ */
+const TRACK_ON_DARK = "bg-[#f2f2f3] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]"
+const TRACK_OFF_DARK = "bg-white/[0.16] shadow-[inset_0_1px_2px_rgba(0,0,0,0.45),inset_0_0_0_0.5px_rgba(255,255,255,0.06)]"
+export const switchTrackDark = (on: boolean) => cn(TRACK, on ? TRACK_ON_DARK : TRACK_OFF_DARK)
+export const switchKnobDark = (on: boolean) =>
+  cn(
+    KNOB,
+    "transition-[transform,translate,background-color]",
+    on ? "translate-x-4 bg-[#111113] shadow-[0_1px_2px_rgba(0,0,0,0.35)]" : "translate-x-0 bg-white",
+  )
+
 /** The same drawing for a Radix switch, which says on or off with data-state. */
 export const radixSwitchTrack = cn(
   TRACK,

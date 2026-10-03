@@ -369,7 +369,7 @@ async function sidebarFields(p, label) {
   /* A link opened: its two fields, and the actions under them. */
   await p.evaluate(() => document.querySelector("#link-list").scrollIntoView({ block: "center" }))
   await p.click("#link-list [data-link-row='home'] button[aria-expanded]")
-  await sleep(200)
+  await sleep(320)
   const links = await p.evaluate(() => {
     const panel = document.querySelector("#link-list [data-link-panel]")
     const cs = getComputedStyle(panel)
@@ -393,10 +393,12 @@ async function sidebarFields(p, label) {
 
   await p.evaluate(() => document.querySelector("#menus").scrollIntoView({ block: "center" }))
   await p.click("#menus [aria-expanded]")
-  await sleep(200)
+  /* Past the 200ms a menu takes to open by its height. */
+  await sleep(320)
   const menus = await p.evaluate(() => {
     const open = [...document.querySelectorAll("#menus [aria-expanded='true']")][0]
-    const body = open.nextElementSibling
+    /* The opened part is a Reveal (components/ui/reveal.tsx); its padded content is marked. */
+    const body = open.parentElement.querySelector("[data-menu-panel]") ?? open.nextElementSibling
     const cs = getComputedStyle(body)
     const bb = body.getBoundingClientRect()
     const box = { left: bb.left + parseFloat(cs.paddingLeft), right: bb.right - parseFloat(cs.paddingRight) }
