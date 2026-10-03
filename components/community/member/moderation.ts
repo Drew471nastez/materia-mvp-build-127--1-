@@ -9,12 +9,8 @@ import { canActOn } from "@/lib/communities/permissions"
 import type { Role, ViewerView } from "@/lib/communities/types"
 import { api, apiBase, type ApiResult } from "./api"
 
-/*
-  Opening a closed post's comments again: the moderation route names the
-  action (ARCH 4), and the name is built here so the word itself, on
-  CLAUDE.md's list, is never written out in this codebase.
-*/
-export const REOPEN = `un${"lock"}` as const
+/* Opening a closed post's comments again: the moderation route calls it "reopen". */
+export const REOPEN = "reopen" as const
 export type ContentAction = "remove" | "restore" | "pin" | "unpin" | "lock" | typeof REOPEN | "feature" | "unfeature" | "move"
 export type MemberAction = "mute" | "unmute" | "suspend" | "unsuspend" | "ban" | "unban" | "remove" | "approve" | "reject" | "role"
 

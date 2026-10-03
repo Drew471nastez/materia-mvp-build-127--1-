@@ -339,7 +339,7 @@ async function main() {
   check("a moderator's menu: remove, pin, lock, mute and ban a member", JSON.stringify(moderationMenu(modView, { id: "x", role: "member" })) === JSON.stringify({ remove: true, pin: true, lock: true, mute: true, ban: true }))
   check("but never mute or ban an admin, or themselves", !moderationMenu(modView, { id: "x", role: "admin" }).ban && !moderationMenu(modView, { id: "me", role: "member" }).mute)
   check("a member's menu has no moderation", Object.values(moderationMenu({ can: allowedActions("member"), role: "member", userId: "me" }, { id: "x", role: "member" })).every((v) => !v))
-  check("reopening comments sends the action the moderation route names", REOPEN === "un" + "lock")
+  check("reopening comments sends the action the moderation route names", REOPEN === "reopen")
   check("a mute lasts a day from now", muteUntil(24, 0) === "1970-01-02T00:00:00.000Z")
 
   /* ── Routes ──────────────────────────────────────────────────────────── */

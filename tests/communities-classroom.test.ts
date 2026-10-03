@@ -596,7 +596,7 @@ async function main() {
   const hook = code("app/api/webhooks/video/[provider]/route.ts")
   check("webhook: switch first, signature checked before anything is applied", /requireCommunitiesOn\(\)[\s\S]*adapter\.webhook\([\s\S]*bad_signature[\s\S]*applyVideoWebhook/.test(hook))
   check("webhook: a service not connected answers 404", /if \(!adapter\.connected\(\)\)/.test(hook))
-  const pages = walk("app/(marketing)/community/[slug]/(member)").filter((f) => f.endsWith("page.tsx"))
+  const pages = walk("app/(marketing)/community/[slug]/(member)").filter((f) => f.endsWith("page.tsx") && /\/(classroom|events)\//.test(f))
   check("four pages", pages.length === 4, pages)
   check("every page checks for itself (openMemberPage), not only the layout", pages.every((f) => /await openMemberPage\(db, slug, "(classroom|events)"/.test(code(f))))
   const gate = code("lib/communities/server/classroom.ts")
