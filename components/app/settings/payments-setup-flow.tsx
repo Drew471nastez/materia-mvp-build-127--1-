@@ -31,18 +31,16 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Check, ChevronLeft, Clock, ExternalLink, Info, Landmark, Lock, X } from "lucide-react"
+import { Check, ChevronLeft, Clock, Info, Landmark, Lock, Upload, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
 import { useLightChrome } from "@/lib/ui/light-chrome"
-import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { countryLabel, countryOf } from "@/lib/account/country"
 import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
-import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { cn } from "@/lib/utils"
 
@@ -452,7 +450,6 @@ export function PaymentsSetupFlow({
   const [back, setBack] = React.useState(false)
   const [openCount, setOpenCount] = React.useState(0)
   const [ending, setEnding] = React.useState<Outcome | null>(null)
-  const native = React.useMemo(() => (typeof window === "undefined" ? false : isNativeApp()), [])
 
   React.useEffect(() => {
     if (!open) return
@@ -468,7 +465,7 @@ export function PaymentsSetupFlow({
     setStep(next)
   }
 
-  /** Stripe's form closed: ask Stripe (through the server) what is left. */
+  /** The form was sent: ask Stripe (through the server) what is left. */
   const settle = async (from: "verify" | "bank") => {
     let next = data
     try {
@@ -496,9 +493,6 @@ export function PaymentsSetupFlow({
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
   const shownStep: Step = ending === "done" || ending === "checking" ? 2 : step
 
-  /* In the phone app, the one way on if Stripe's form itself will not load. */
-  const fallback = native ? <OpenInBrowser /> : undefined
-
   let body: React.ReactNode
   if (ending) {
     body = (
@@ -512,7 +506,7 @@ export function PaymentsSetupFlow({
       />
     )
   } else if (mode === "details") {
-    body = <ManageStep key={`details-${openCount}`} onDone={finish} fallback={fallback} />
+    body = <DetailsStep key={`details-${openCount}`} onBack={onClose} onNext={() => void settle("verify")} onData={onData} />
   } else if (step === 0) {
     body = (
       <AccountStep
@@ -526,9 +520,21 @@ export function PaymentsSetupFlow({
       />
     )
   } else if (step === 1) {
-    body = <VerifyStep key={`verify-${openCount}`} data={data} onExit={() => settle("verify")} fallback={fallback} />
+    body = <DetailsStep key={`verify-${openCount}`} onBack={() => go(0)} onNext={(form) => (form.needs.bank ? go(2) : void settle("verify"))} onData={onData} />
   } else {
-    body = <BankStep key={`bank-${openCount}`} data={data} onExit={() => settle("bank")} onDone={finish} fallback={fallback} />
+    const has = !!data.payoutDestination?.last4
+    const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
+    body = (
+      <BankForm
+        key={`bank-${openCount}`}
+        title={failed ? "Your payout account needs attention" : has ? "Change bank account" : "Add your bank account"}
+        line={failed ? "A payout didn't go through. Add the account you want paid into." : has ? "The new account is used for your next payout." : "Where your payouts are sent."}
+        onBack={mode === "bank" ? onClose : () => go(1)}
+        backLabel={mode === "bank" ? "Cancel" : "Back"}
+        onDone={() => void settle("bank")}
+        onData={onData}
+      />
+    )
   }
 
   const subtitle =
@@ -724,128 +730,435 @@ function StepIntro({ title, line }: { title: string; line: string }) {
   )
 }
 
-/**
- * IDENTITY IS PART OF SETUP, NOT SOMETHING FOR LATER. Stripe's embedded
- * onboarding collects everything it will need for this account
- * (`eventually_due`), which includes the ID document and, in most countries,
- * a selfie check, so payments do not pause the first time sales grow and
- * Stripe asks. Payments only turn on once Stripe has verified it; there is
- * no way to finish setup around it. A creator who comes back later (Stripe
- * asks for more, or a document was declined) lands here too and sees only
- * what is still missing.
- */
-export const VERIFY_COLLECTION = { fields: "eventually_due", futureRequirements: "omit" } as const
+/* ── step 2: your details (Storelib's own form) ────────────────────────── */
 
-function VerifyStep({ data, onExit, fallback }: { data: Overview; onExit: () => void; fallback?: React.ReactNode }) {
-  const s = data.paymentsStatus
-  const later = s && s.status !== "NOT_STARTED" && s.status !== "INCOMPLETE" && s.action === "onboarding"
+type DetailField = "dob" | "address" | "state" | "phone" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
+interface DetailsForm {
+  needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean }
+  country: string
+  idNumber: { label: string; hint: string }
+  bank: { kind: "iban" | "routing"; routingLabel?: string; routingPattern?: string; accountLabel?: string; currency: string | null; holderName: string; last4: string | null }
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+const STRIPE_AGREEMENT = "https://stripe.com/legal/connect-account"
+
+/** A phone photo is often 4 to 8 MB: drawn again at most 2000px wide as a JPEG, it is a sharp, readable ID under 4 MB. */
+async function shrinkPhoto(file: File): Promise<Blob> {
+  if (file.type === "application/pdf") return file
+  if (file.size < 2_500_000 && (file.type === "image/jpeg" || file.type === "image/png")) return file
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error("unreadable"))
+      i.src = url
+    })
+    const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight))
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(img.naturalWidth * scale)
+    canvas.height = Math.round(img.naturalHeight * scale)
+    canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height)
+    for (const q of [0.88, 0.78, 0.68]) {
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", q))
+      if (blob && blob.size < 3_800_000) return blob
+    }
+    throw new Error("too large")
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+function UploadTile({ label, hint, done, busy, onPick }: { label: string; hint?: string; done: boolean; busy: boolean; onPick: (file: File) => void }) {
+  const input = React.useRef<HTMLInputElement>(null)
   return (
-    <div className="flex-1 px-5 pb-6 sm:px-7">
-      {later ? (
-        <StepIntro title={s.title} line={s.line} />
-      ) : (
-        <StepIntro title="Verify your identity" line="Have your passport, ID card or driving licence ready. Stripe checks it once, securely, and payments turn on." />
+    <button
+      type="button"
+      onClick={() => input.current?.click()}
+      disabled={busy}
+      data-upload-tile=""
+      className={cn(
+        "flex min-h-[64px] w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed px-3.5 py-3 text-left outline-none transition-[border-color,background-color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
+        done ? "border-[#abefc6] bg-[#f6fef9]" : "border-[#d5d8dd] bg-white hover:border-[#b9bdc5] hover:bg-[#fafafb]",
       )}
-      <StripeConnectEmbedded purpose="stripe_onboarding" collection={VERIFY_COLLECTION} onExit={onExit} fallback={fallback} />
-    </div>
+    >
+      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", done ? "bg-[#dcfae6] text-[#067647]" : "bg-[#f3f4f6] text-[#4b5563]")}>
+        {busy ? <Spinner dark /> : done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Upload className="h-4 w-4" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-medium text-[#1a1a2e]">{label}</span>
+        <span className="block text-[12.5px] text-[#6b7280]">{busy ? "Uploading securely to Stripe" : done ? "Uploaded. Tap to replace it." : hint ?? "A clear photo or PDF"}</span>
+      </span>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/heic,image/*,application/pdf"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ""
+          if (f) onPick(f)
+        }}
+      />
+    </button>
+  )
+}
+
+async function postForm<T>(path: string, form: FormData): Promise<T> {
+  return read<T>(await fetch(`/api/payments/${path}`, { method: "POST", body: form, cache: "no-store" }))
+}
+
+function useDetailsForm() {
+  const [form, setForm] = React.useState<DetailsForm | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  const load = React.useCallback(async () => {
+    setError(null)
+    try {
+      setForm(await post<DetailsForm>("details-form", {}))
+    } catch (err) {
+      setError(safe(err instanceof Error ? err.message : "We could not load this step."))
+    }
+  }, [])
+  React.useEffect(() => {
+    void load()
+  }, [load])
+  return { form, setForm, error, load }
+}
+
+function FormWaiting({ error, onRetry }: { error: string | null; onRetry: () => void }) {
+  if (error) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+        <p className="text-[14px] text-[#6b7280]">{error}</p>
+        <button type="button" className={cn(SECONDARY, "mt-4")} onClick={onRetry}>Try again</button>
+      </div>
+    )
+  }
+  return (
+    <Shimmer className="flex flex-1 flex-col gap-4 px-5 sm:px-7" label="Loading">
+      <ShimmerBlock className="h-4 w-40 rounded-full" />
+      <ShimmerBlock className="h-11 w-full rounded-[10px] sm:h-10" />
+      <ShimmerBlock className="h-4 w-32 rounded-full" />
+      <ShimmerBlock className="h-11 w-full rounded-[10px] sm:h-10" />
+    </Shimmer>
+  )
+}
+
+/**
+ * YOUR DETAILS. Storelib's own fields, only the ones Stripe lists for this
+ * account in this country (lib/payments/stripe/own-form-rules needsOf), and
+ * the ID photo uploaded straight to Stripe. Nothing here is kept by Storelib:
+ * it goes to Stripe from the server and is never read back.
+ */
+function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (form: DetailsForm) => void; onData: (next: Overview) => void }) {
+  const { form, setForm, error: loadError, load } = useDetailsForm()
+  const [dob, setDob] = React.useState({ day: "", month: "", year: "" })
+  const [address, setAddress] = React.useState({ line1: "", line2: "", city: "", postalCode: "", state: "" })
+  const [phone, setPhone] = React.useState("")
+  const [idNumber, setIdNumber] = React.useState("")
+  const [ssnLast4, setSsnLast4] = React.useState("")
+  const [pep, setPep] = React.useState(false)
+  const [agree, setAgree] = React.useState(false)
+  const [uploaded, setUploaded] = React.useState<Record<string, boolean>>({})
+  const [uploading, setUploading] = React.useState<string | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [tried, setTried] = React.useState(false)
+
+  /* Nothing left to ask here: straight on. */
+  const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos
+  React.useEffect(() => {
+    if (form && empty) onNext(form)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, empty])
+
+  if (!form || empty) return <FormWaiting error={loadError} onRetry={load} />
+
+  const has = (f: DetailField) => form.needs.fields.includes(f)
+  const issue = (key: string, bad: boolean, text: string) => (tried && bad ? text : undefined)
+  const dobBad = !dob.day || !dob.month || !/^\d{4}$/.test(dob.year)
+
+  const upload = async (which: "document" | "proofOfAddress", side: "front" | "back", file: File) => {
+    const key = `${which}-${side}`
+    setUploading(key)
+    setError(null)
+    try {
+      const blob = await shrinkPhoto(file)
+      const data = new FormData()
+      data.set("which", which)
+      data.set("side", side)
+      data.set("file", blob, blob.type === "application/pdf" ? "document.pdf" : "document.jpg")
+      const res = await postForm<{ form: DetailsForm }>("document", data)
+      setUploaded((u) => ({ ...u, [key]: true }))
+      setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
+    } catch (err) {
+      setError(safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : "That photo could not be used. Try a clear JPG or PNG under 4 MB."))
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  const missingDoc = has("document") && !uploaded["document-front"]
+  const missingProof = has("proofOfAddress") && !uploaded["proofOfAddress-front"]
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setTried(true)
+    if (busy) return
+    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("idNumber") && idNumber.trim().length < 4) || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree)) {
+      setError("Check the fields marked in red.")
+      return
+    }
+    if (missingDoc) return setError("Add a photo of the front of your ID.")
+    if (missingProof) return setError("Add a document that shows your address.")
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await post<{ form: DetailsForm; overview: Overview }>("details", {
+        dob: has("dob") ? { day: Number(dob.day), month: Number(dob.month), year: Number(dob.year) } : undefined,
+        address: has("address") ? address : undefined,
+        phone: has("phone") ? phone : undefined,
+        idNumber: has("idNumber") ? idNumber : undefined,
+        ssnLast4: has("ssnLast4") ? ssnLast4 : undefined,
+        politicalExposure: has("politicalExposure") ? (pep ? "existing" : "none") : undefined,
+        acceptTos: form.needs.tos ? agree : undefined,
+      })
+      onData(res.overview)
+      /* Stripe can ask for one more thing once it has checked these (an ID photo after an ID number it could not match). */
+      const left = res.form.needs.fields.filter((f) => !((f === "document" && uploaded["document-front"]) || (f === "proofOfAddress" && uploaded["proofOfAddress-front"])))
+      if (left.length || res.form.needs.tos) {
+        setTried(false)
+        setForm({ ...res.form, needs: { ...res.form.needs, fields: left } })
+      } else {
+        onNext(res.form)
+      }
+    } catch (err) {
+      setError(safe(err instanceof Error ? err.message : "Those details were not saved. Try again."))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-5 px-5 sm:px-7">
+        <StepIntro title="Your details" line="What Stripe needs to verify you in your country. It goes straight to Stripe and Storelib never keeps it." />
+        <ErrorLine message={error} />
+
+        {has("dob") ? (
+          <div>
+            <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">Date of birth</span>
+            <div className="grid grid-cols-[1fr_1.6fr_1.2fr] gap-2">
+              <input className={cn(FIELD, tried && !dob.day && FIELD_BAD)} inputMode="numeric" placeholder="Day" maxLength={2} autoComplete="bday-day" aria-label="Day" value={dob.day} onChange={(e) => setDob({ ...dob, day: e.target.value.replace(/\D/g, "") })} />
+              <select className={cn(FIELD, "appearance-none", !dob.month && "text-[#9ca3af]", tried && !dob.month && FIELD_BAD)} aria-label="Month" autoComplete="bday-month" value={dob.month} onChange={(e) => setDob({ ...dob, month: e.target.value })}>
+                <option value="">Month</option>
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={String(i + 1)}>{m}</option>
+                ))}
+              </select>
+              <input className={cn(FIELD, tried && !/^\d{4}$/.test(dob.year) && FIELD_BAD)} inputMode="numeric" placeholder="Year" maxLength={4} autoComplete="bday-year" aria-label="Year" value={dob.year} onChange={(e) => setDob({ ...dob, year: e.target.value.replace(/\D/g, "") })} />
+            </div>
+            <span className="mt-1.5 block text-[12px] text-[#6b7280]">You need to be 18 or older to be paid out.</span>
+          </div>
+        ) : null}
+
+        {has("address") ? (
+          <div className="space-y-3">
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">Home address</span>
+            <input className={cn(FIELD, tried && !address.line1.trim() && FIELD_BAD)} placeholder="Street and number" autoComplete="address-line1" aria-label="Street and number" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} />
+            <input className={FIELD} placeholder="Apartment, floor (optional)" autoComplete="address-line2" aria-label="Apartment or floor" value={address.line2} onChange={(e) => setAddress({ ...address, line2: e.target.value })} />
+            <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+              <input className={cn(FIELD, tried && !address.city.trim() && FIELD_BAD)} placeholder="City" autoComplete="address-level2" aria-label="City" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
+              <input className={cn(FIELD, tried && !address.postalCode.trim() && FIELD_BAD)} placeholder="Postal code" autoComplete="postal-code" aria-label="Postal code" value={address.postalCode} onChange={(e) => setAddress({ ...address, postalCode: e.target.value })} />
+            </div>
+            {has("state") ? (
+              <input className={cn(FIELD, tried && !address.state.trim() && FIELD_BAD)} placeholder="State, county or region" autoComplete="address-level1" aria-label="State, county or region" value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} />
+            ) : null}
+            <span className="block text-[12px] text-[#6b7280]">Where you live. A PO box or military address cannot be verified.</span>
+          </div>
+        ) : null}
+
+        {has("phone") ? (
+          <Field label="Phone number" error={issue("phone", phone.replace(/\D/g, "").length < 7, "Enter your phone number, with the country code.")}>
+            <input className={FIELD} type="tel" inputMode="tel" placeholder="+40 712 345 678" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </Field>
+        ) : null}
+
+        {has("idNumber") ? (
+          <Field label={form.idNumber.label} hint={form.idNumber.hint} error={issue("idNumber", idNumber.trim().length < 4, "Enter your ID number exactly as on your document.")}>
+            <input className={FIELD} inputMode={form.country === "US" || form.country === "RO" ? "numeric" : undefined} autoComplete="off" spellCheck={false} value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
+          </Field>
+        ) : null}
+
+        {has("ssnLast4") ? (
+          <Field label="Last 4 digits of your SSN" error={issue("ssnLast4", !/^\d{4}$/.test(ssnLast4), "Enter the last four digits of your SSN.")}>
+            <input className={FIELD} inputMode="numeric" maxLength={4} autoComplete="off" value={ssnLast4} onChange={(e) => setSsnLast4(e.target.value.replace(/\D/g, ""))} />
+          </Field>
+        ) : null}
+
+        {has("document") ? (
+          <div className="space-y-2">
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">Photo of your ID</span>
+            <span className="block text-[12px] leading-[18px] text-[#6b7280]">Passport, national ID card or driving licence. All four corners in the photo, nothing covered, no glare.</span>
+            <div className="grid gap-2 min-[480px]:grid-cols-2">
+              <UploadTile label="Front" done={!!uploaded["document-front"]} busy={uploading === "document-front"} onPick={(f) => void upload("document", "front", f)} />
+              <UploadTile label="Back" hint="Not needed for a passport" done={!!uploaded["document-back"]} busy={uploading === "document-back"} onPick={(f) => void upload("document", "back", f)} />
+            </div>
+          </div>
+        ) : null}
+
+        {has("proofOfAddress") ? (
+          <div className="space-y-2">
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">Proof of address</span>
+            <span className="block text-[12px] leading-[18px] text-[#6b7280]">A utility bill, bank statement or rental agreement from the last three months, with your name and this address.</span>
+            <UploadTile label="Document" done={!!uploaded["proofOfAddress-front"]} busy={uploading === "proofOfAddress-front"} onPick={(f) => void upload("proofOfAddress", "front", f)} />
+          </div>
+        ) : null}
+
+        {has("politicalExposure") ? (
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#eceef1] px-3.5 py-3">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={pep} onChange={(e) => setPep(e.target.checked)} />
+            <span className="text-[13px] leading-[19px] text-[#4b5563]">I hold, or have held in the last year, a prominent public role (a politically exposed person). Leave it unticked if not.</span>
+          </label>
+        ) : null}
+
+        {form.needs.tos ? (
+          <label className={cn("flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-3", tried && !agree ? "border-[#f3b8ab] bg-[#fff8f6]" : "border-[#eceef1]")}>
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+            <span className="text-[13px] leading-[19px] text-[#4b5563]">
+              I agree to Storelib's{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">Terms</a>{" "}
+              and the{" "}
+              <a href={STRIPE_AGREEMENT} target="_blank" rel="noopener noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">Stripe Connected Account Agreement</a>, and confirm these details are true.
+            </span>
+          </label>
+        ) : null}
+
+        <p className="flex items-center gap-1.5 pb-1 text-[12px] text-[#9ca3af]">
+          <Lock className="h-3 w-3 shrink-0" />
+          Sent securely to Stripe. Storelib never stores your ID, ID number or bank details.
+        </p>
+      </div>
+
+      <Footer>
+        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+        <button type="submit" className={PRIMARY} disabled={busy || !!uploading}>
+          {busy ? <Spinner /> : null}
+          {busy ? "Saving" : "Continue"}
+        </button>
+      </Footer>
+    </form>
   )
 }
 
 /* ── step 3: bank ──────────────────────────────────────────────────────── */
 
 /**
- * With a bank on file: its last four digits and a way to change it, in
- * Stripe's embedded account management. Without one: Stripe's onboarding,
- * narrowed to the bank account alone. Any country's bank format works;
- * Stripe draws the right fields.
+ * THE BANK, IN THE COUNTRY'S OWN FORMAT: an IBAN where the country uses one
+ * (checked with its own mod 97 before it leaves the page), account and
+ * routing number where it does not. It becomes the payout account for the
+ * account's currency; the old one, if any, stops being used.
  */
-function BankStep({ data, onExit, onDone, fallback }: { data: Overview; onExit: () => void; onDone: () => void; fallback?: React.ReactNode }) {
-  const bank = data.payoutDestination
-  const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
-  const [changing, setChanging] = React.useState(false)
+function BankForm({ title, line, onBack, backLabel = "Back", onDone, onData }: { title: string; line: string; onBack: () => void; backLabel?: string; onDone: () => void; onData: (next: Overview) => void }) {
+  const { form, error: loadError, load } = useDetailsForm()
+  const [holder, setHolder] = React.useState<string | null>(null)
+  const [iban, setIban] = React.useState("")
+  const [accountNumber, setAccountNumber] = React.useState("")
+  const [routing, setRouting] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [tried, setTried] = React.useState(false)
 
-  if (!bank?.last4) {
-    return (
-      <div className="flex-1 px-5 pb-6 sm:px-7">
-        <StepIntro title="Add your bank account" line="Add the account where you'd like to receive payouts." />
-        <StripeConnectEmbedded
-          purpose="stripe_onboarding"
-          failedTitle="Couldn't load your bank details"
-          collection={{ fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } }}
-          onExit={onExit}
-          fallback={fallback}
-        />
-      </div>
-    )
-  }
+  if (!form) return <FormWaiting error={loadError} onRetry={load} />
+  const bank = form.bank
+  const name = holder ?? bank.holderName
+  const ibanOk = ibanLooksValid(iban, form.country)
+  const routingOk = !bank.routingPattern || new RegExp(bank.routingPattern).test(routing.replace(/\s/g, "").toUpperCase())
 
-  if (changing || failed) {
-    return (
-      <>
-        <div className="flex-1 px-5 pb-2 sm:px-7">
-          <StepIntro
-            title={failed ? "Your payout account needs attention" : "Change bank account"}
-            line={failed ? "A payout didn't go through. Update your bank account to get paid." : "Your new account is used for the next payout."}
-          />
-          <StripeConnectEmbedded purpose="stripe_management" failedTitle="Couldn't load your bank details" fallback={fallback} />
-        </div>
-        <Footer>
-          <button type="button" className={SECONDARY} onClick={() => (failed ? onDone() : setChanging(false))}>
-            {failed ? "Close" : "Back"}
-          </button>
-          <button type="button" className={PRIMARY} onClick={onDone}>Done</button>
-        </Footer>
-      </>
-    )
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setTried(true)
+    if (busy) return
+    if (name.trim().length < 2 || (bank.kind === "iban" ? !ibanOk : accountNumber.replace(/[\s-]/g, "").length < 4 || !routingOk)) {
+      setError("Check the fields marked in red.")
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await post<{ form: DetailsForm; overview: Overview }>("bank", bank.kind === "iban" ? { holderName: name, iban } : { holderName: name, accountNumber, routingNumber: routing })
+      onData(res.overview)
+      onDone()
+    } catch (err) {
+      setError(safe(err instanceof Error ? err.message : "That bank account was not saved. Try again."))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <>
-      <div className="flex-1 px-5 sm:px-7">
-        <div className="flex items-center gap-3 rounded-xl border border-[#eceef1] px-4 py-3.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#eceef1] bg-[#f7f7f8] text-[#6b7280]">
-            <Landmark className="h-4 w-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">
-              {bank.bankName || "Bank account"} •••• {bank.last4}
-            </span>
-            <span className="block text-[12px] text-[#6b7280]">{bank.currency ? `Payouts in ${bank.currency.toUpperCase()}` : "Payout account"}</span>
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf3] px-2 py-0.5 text-[12px] font-medium text-[#067647]">
-            <Check className="h-3 w-3" strokeWidth={3} /> Connected
-          </span>
-        </div>
-        <p className="mt-3 flex items-start gap-1.5 text-[12px] leading-[18px] text-[#6b7280]">
-          <Lock className="mt-[2px] h-3 w-3 shrink-0" /> <span>Bank numbers go straight to our payment partner. Storelib only sees the last four digits.</span>
+    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-5 px-5 sm:px-7">
+        <StepIntro title={title} line={line} />
+        <ErrorLine message={error} />
+        {bank.last4 ? (
+          <div className="flex items-center gap-3 rounded-xl border border-[#eceef1] px-3.5 py-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#4b5563]"><Landmark className="h-4 w-4" /></span>
+            <span className="text-[13.5px] text-[#4b5563]">Current account ending in <span className="font-medium tabular-nums text-[#1a1a2e]">{bank.last4}</span></span>
+          </div>
+        ) : null}
+        <Field label="Account holder name" hint="Your name, as your bank has it." error={tried && name.trim().length < 2 ? "Enter the name on the account." : undefined}>
+          <input className={FIELD} autoComplete="name" value={name} onChange={(e) => setHolder(e.target.value)} />
+        </Field>
+        {bank.kind === "iban" ? (
+          <Field label="IBAN" hint={bank.currency ? `Payouts arrive in ${bank.currency}.` : undefined} error={tried && !ibanOk ? "That IBAN does not look right. Check it in your bank app." : undefined}>
+            <input className={cn(FIELD, "font-mono tracking-[0.02em]")} autoComplete="off" spellCheck={false} autoCapitalize="characters" placeholder={`${form.country}00 0000 0000 0000 0000`} value={iban} onChange={(e) => setIban(formatIban(e.target.value))} />
+          </Field>
+        ) : (
+          <>
+            <Field label={bank.routingLabel ?? "Bank code"} error={tried && !routingOk ? `Check your ${(bank.routingLabel ?? "bank code").toLowerCase()}.` : undefined}>
+              <input className={FIELD} autoComplete="off" spellCheck={false} inputMode={form.country === "IN" ? undefined : "numeric"} value={routing} onChange={(e) => setRouting(e.target.value)} />
+            </Field>
+            <Field label={bank.accountLabel ?? "Account number"} hint={bank.currency ? `Payouts arrive in ${bank.currency}.` : undefined} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? "Enter your account number." : undefined}>
+              <input className={FIELD} autoComplete="off" spellCheck={false} inputMode="numeric" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+            </Field>
+          </>
+        )}
+        <p className="flex items-center gap-1.5 pb-1 text-[12px] text-[#9ca3af]">
+          <Lock className="h-3 w-3 shrink-0" />
+          Sent securely to Stripe. Storelib only ever sees the last four digits.
         </p>
       </div>
       <Footer>
-        <button type="button" className={SECONDARY} onClick={() => setChanging(true)}>Change bank account</button>
-        <button type="button" className={PRIMARY} onClick={onDone}>Done</button>
+        <button type="button" className={SECONDARY} onClick={onBack}>{backLabel}</button>
+        <button type="submit" className={PRIMARY} disabled={busy}>
+          {busy ? <Spinner /> : null}
+          {busy ? "Saving" : bank.last4 ? "Save account" : "Add account"}
+        </button>
       </Footer>
-    </>
+    </form>
   )
 }
 
-/* ── after setup: account details ──────────────────────────────────────── */
-
-function ManageStep({ onDone, fallback }: { onDone: () => void; fallback?: React.ReactNode }) {
-  return (
-    <>
-      <div className="flex-1 px-5 pb-2 sm:px-7">
-        <StepIntro title="Account details" line="Review or update the details on your payments account." />
-        <StripeConnectEmbedded purpose="stripe_management" failedTitle="Couldn't load your account details" fallback={fallback} />
-      </div>
-      <Footer>
-        <span />
-        <button type="button" className={PRIMARY} onClick={onDone}>Done</button>
-      </Footer>
-    </>
-  )
+/** Groups of four, as a bank prints it. */
+function formatIban(v: string): string {
+  return v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 34).replace(/(.{4})/g, "$1 ").trim()
 }
 
-/* ── when Stripe's form closes ─────────────────────────────────────────── */
+/** The IBAN's own check (mod 97), so a typo is caught on the page. */
+function ibanLooksValid(input: string, country: string): boolean {
+  const iban = input.replace(/\s/g, "").toUpperCase()
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban) || (country && iban.slice(0, 2) !== country)) return false
+  let rest = 0
+  for (const ch of iban.slice(4) + iban.slice(0, 4)) {
+    const v = /\d/.test(ch) ? ch : String(ch.charCodeAt(0) - 55)
+    for (const d of v) rest = (rest * 10 + Number(d)) % 97
+  }
+  return rest === 1
+}
+
+/* ── when the form is sent ─────────────────────────────────────────────── */
 
 function Outcome({ outcome, onContinue, onDone }: { outcome: Outcome; onContinue: () => void; onDone: () => void }) {
   const copy =
@@ -883,22 +1196,3 @@ function Outcome({ outcome, onContinue, onDone }: { outcome: Outcome; onContinue
   )
 }
 
-/**
- * THE WAY ON WHEN A FORM WILL NOT LOAD IN THE PHONE APP. Stripe's forms run
- * in the app now, so this is not the step a creator meets: it is drawn under
- * Try again if the form itself failed, and opens the same page in a browser,
- * where it is already known to work.
- */
-function OpenInBrowser() {
-  return (
-    <button
-      type="button"
-      data-open-in-browser=""
-      onClick={() => openExternal(`${window.location.origin}/app/payouts?setup=1`)}
-      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
-    >
-      <ExternalLink className="h-3.5 w-3.5" />
-      Open in your browser instead
-    </button>
-  )
-}

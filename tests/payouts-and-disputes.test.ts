@@ -155,7 +155,7 @@ console.log("\nSetup asks for identity, and says so")
 {
   const flow = read("components/app/settings/payments-setup-flow.tsx")
   const rules = read("lib/notifications/rules/payments.ts")
-  check("verification collects everything the account needs, not only today's", /fields: "eventually_due"/.test(flow))
+  check("verification collects everything the account needs, not only today's", /eventually_due/.test(read("lib/payments/stripe/own-form-rules.ts")) && /function DetailsStep/.test(flow))
   check("an account left half set up is told, published products or not", /kind: "verification_unfinished"/.test(rules) && /needs: \["creator"\]/.test(rules.slice(rules.indexOf('kind: "verification_unfinished"'))))
   check("  it is critical and pushed, like the rest of the money rules", /verification_unfinished[\s\S]{0,200}category: "critical"[\s\S]{0,200}push: true/.test(rules))
   check("  and it stands in for the setup to-do rather than doubling it", /"verification_unfinished"/.test(read("lib/notifications/rules/index.ts")))

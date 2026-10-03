@@ -311,15 +311,19 @@ export default function PrivacyPolicyPage() {
               </SubSection>
               <SubSection title="6.3 Identity Verification and Biometric Data">
                 <p>
-                  Verification is required by law and by the card networks before a Seller can be paid. It is
-                  carried out by Stripe inside Storelib&apos;s interface using Stripe&apos;s own secure embedded
-                  forms. Stripe may collect a government issued identity document, a photograph or selfie, a date
-                  of birth and an address, and may process the images with biometric technology to confirm that the
-                  document belongs to the person presenting it.
+                  Verification is required by law and by the card networks before a Seller can be paid. The
+                  Seller enters what Stripe requires for their country in Storelib&apos;s payout form: typically a
+                  date of birth, a home address, a phone number, a national identification number and a photograph
+                  of a government issued identity document, and sometimes a proof of address. Stripe may process
+                  the document images with automated and biometric technology to confirm that the document is
+                  genuine and belongs to the Seller.
                 </p>
                 <p>
-                  Storelib does not receive, process or store identity documents, selfies or biometric data at any
-                  point. Stripe is an independent controller of that data, retains it for the period its own
+                  Storelib passes these details to Stripe over an encrypted connection as they are submitted and
+                  does not store them: no identity document, identification number, date of birth or full bank
+                  account number is written to Storelib&apos;s databases or logs. Afterwards Storelib holds only
+                  the Seller&apos;s name, country, verification status and the last four digits of their payout
+                  account. Stripe is an independent controller of that data, retains it for the period its own
                   policies and applicable law require, and a Seller may ask Stripe to delete their verification
                   data as described in Stripe&apos;s privacy policy. Verification cannot be skipped: without it,
                   Storelib cannot accept payments on a Seller&apos;s behalf.

@@ -19,6 +19,12 @@
  *   POST begin           { kind, country, firstName, lastName, businessName?, agree }
  *                        the Account step: creates or reuses their Stripe account
  *   POST prepare         makes sure the account is one Storelib runs, before Verify
+ *   POST details-form    what Storelib's own form must still ask (no personal values back)
+ *   POST details         { dob, address, phone, idNumber, ssnLast4, politicalExposure, acceptTos }
+ *                        written straight to the creator's Stripe account, never kept
+ *   POST document        multipart { which, side, file }: an ID photo or proof of
+ *                        address, uploaded to Stripe and attached in one call
+ *   POST bank            { holderName, iban } or { holderName, accountNumber, routingNumber }
  *
  * Errors are one sentence for the creator. Airwallex's own codes and
  * messages stay in the server log.
@@ -27,6 +33,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
+import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
 import {
   addPayoutAccount,
   componentAuth,
@@ -92,7 +99,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   const { action } = await context.params
   const creator = await paymentsCreator()
   if (creator instanceof NextResponse) return creator
-  const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>
+  /* A document arrives as a file; everything else is JSON. */
+  const form = action === "document" ? await request.formData().catch(() => null) : null
+  const body = action === "document" ? {} : (((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>)
   const provider = await providerFor(creator.id)
 
   const moves = action === "payout"
@@ -170,6 +179,27 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
           }),
           { headers: NO_STORE },
         )
+      }
+      case "details-form": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        await prepareVerification(creator)
+        return NextResponse.json(await detailsForm(creator), { headers: NO_STORE })
+      }
+      case "details": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        const form = await submitDetails(creator, body, { ip: callerAddress(request), userAgent: request.headers.get("user-agent") })
+        return NextResponse.json({ form, overview: await overview(creator) }, { headers: NO_STORE })
+      }
+      case "document": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        const file = form?.get("file")
+        const result = await uploadDocument(creator, { which: String(form?.get("which") ?? ""), side: String(form?.get("side") ?? ""), file: file instanceof File ? file : null })
+        return NextResponse.json({ form: result }, { headers: NO_STORE })
+      }
+      case "bank": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        const form = await addBank(creator, body)
+        return NextResponse.json({ form, overview: await overview(creator) }, { headers: NO_STORE })
       }
       case "prepare": {
         return NextResponse.json(await prepareVerification(creator), { headers: NO_STORE })

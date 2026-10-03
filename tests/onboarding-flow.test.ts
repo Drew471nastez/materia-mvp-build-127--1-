@@ -73,17 +73,20 @@ const connect = readFileSync("lib/payments/stripe/connect.ts", "utf8")
 const route = readFileSync("app/api/payments/[action]/route.ts", "utf8")
 const overview = readFileSync("lib/payments/stripe/overview.ts", "utf8")
 check("the card holds no bank or identity fields", !/iban|routing|accountNumber|passport/i.test(ui))
-check("Storelib has no bank or identity form of its own", !/iban|routing_number|createToken|date of birth|id_number|DetailsForm|DocumentForm/i.test(flow))
-check("the server takes no bank numbers, ID fields or ID photos", !/case "(bank|details|document|profile)"/.test(route) && !/formData\(\)/.test(route))
-check("setup calls begin, then Stripe's embedded onboarding", flow.includes('"begin"') && /purpose="stripe_onboarding"/.test(flow))
+/* The owner, October 2026: "like Gumroad, our own component, don't embed Stripe's setup". Storelib's own form, asking only what Stripe lists for the account. */
+const own = readFileSync("lib/payments/stripe/own-form.ts", "utf8")
+const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
+check("setup is Storelib's own form, no Stripe screen inside it", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && !/StripeConnectEmbedded|purpose="stripe_/.test(flow))
+check("the server keeps none of it: no table write and no value in a log", !/createAdminClient|\.from\("|\.insert\(|\.upsert\(/.test(own) && /replace\(\/\\d\{2,\}\/g, "#"\)/.test(own) && !/console\.(log|error)\([^)]*(iban|idNumber|id_number|account_number|dob)\b/i.test(own))
+check("the account is always the signed-in creator's own, never one from the browser", /readCreatorStripe\(creator\.id\)/.test(own) && !/body\.(account|stripeAccount|accountId)/.test(route))
 /* The owner, October 2026: identity verification is part of setup, required to continue, not left for later. */
-check("Verify collects everything the account will need, identity included", /VERIFY_COLLECTION = \{ fields: "eventually_due", futureRequirements: "omit" \} as const/.test(flow) && /collection=\{VERIFY_COLLECTION\}/.test(flow))
+check("it asks what Stripe will need, not only today's, so a creator is asked once", /eventually_due/.test(rules) && /currently_due/.test(rules) && /past_due/.test(rules))
 check("  there is no way to finish setup around verification", !/>Later</.test(flow) && flow.includes("Continue verification") && flow.includes("Payments turn on once Stripe has verified your identity."))
-check("  a bank change still asks only for the bank", /fields: "currently_due", futureRequirements: "omit", requirements: \{ only: \["external_account"\] \}/.test(flow))
-check("Verify is headed as the brief says", flow.includes("Verify your identity") && flow.includes("Have your passport, ID card or driving licence ready."))
+check("  the bank is the country's own format, with the IBAN checked before it is sent", /IBAN_COUNTRIES/.test(rules) && /ibanValid\(iban, country\)/.test(own) && /ibanLooksValid\(/.test(flow))
+check("Your details is headed and says where it goes", flow.includes('title="Your details"') && flow.includes("Storelib never stores your ID, ID number or bank details."))
 check("the Account step's names are not asked again by Storelib", (flow.match(/autoComplete="given-name"/g) ?? []).length === 1)
-check("a missing bank opens the bank requirement only", /requirements: \{ only: \["external_account"\] \}/.test(flow))
-check("a bank on file shows its last four and a change button", /•••• \{bank\.last4\}/.test(flow) && flow.includes("Connected") && flow.includes("Change bank account") && /purpose="stripe_management"/.test(flow))
+check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
+check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))
 check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
 check("steps are the three short ones", /\["Account", "Verify", "Bank"\]/.test(flow))
 check("the step comes from Stripe's status, not the form", /setupStepOf\(/.test(flow) && /post<Overview>\("refresh"/.test(flow))
@@ -116,12 +119,8 @@ check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-
   )
 }
 check(
-  "Stripe's forms run in the phone app, and a browser is offered only if one will not load",
-  /isNativeApp\(\)/.test(flow) &&
-    /openExternal\(/.test(flow) &&
-    /const fallback = native \? <OpenInBrowser \/> : undefined/.test(flow) &&
-    !/if \(native && embedded\)/.test(flow) &&
-    /fallback \? <div className="mt-3">\{fallback\}<\/div> : null/.test(embedded),
+  "nothing in setup needs a Stripe frame to load, so it runs the same in the phone app",
+  !/StripeConnectEmbedded|OpenInBrowser|openExternal\(/.test(flow),
 )
 {
   /* The app gets its own, much narrower frame-src: Stripe's embedded forms

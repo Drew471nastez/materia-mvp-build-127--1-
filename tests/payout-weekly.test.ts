@@ -8,6 +8,7 @@ import { dayOf, paymentsComplete, wantsPayoutNudge, PAYOUT_NUDGES } from "@/lib/
 import { unfinished } from "@/lib/notify/workflows/unfinished"
 import { REGISTRY } from "@/lib/notify/registry"
 import { renderEmail } from "@/lib/notify/templates"
+import { bankFormat, detailIssues, ibanValid, idNumberName, needsOf } from "@/lib/payments/stripe/own-form-rules"
 
 let passed = 0
 let failed = 0
@@ -56,6 +57,25 @@ check("a new account is an individual", /data\.kind === "business" \? "business"
 const connect = read("lib/payments/stripe/connect.ts")
 const begin = connect.slice(connect.indexOf("export async function beginStripeOnboarding"), connect.indexOf("export async function upsertRepresentative"))
 check("begin keeps the full business profile, so Stripe never asks what the business does", /creatorBusinessProfile\(/.test(begin) && !/product_description: row\?\.bio/.test(begin))
+
+console.log("\nStorelib's own form asks only what Stripe lists")
+const ro = needsOf({ currently_due: ["individual.dob.day", "individual.address.line1", "individual.id_number", "tos_acceptance.date", "external_account", "business_profile.url", "individual.email"], eventually_due: ["individual.verification.document"] })
+check("a Romanian account: date of birth, address, CNP, ID photo, agreement, bank", JSON.stringify(ro.fields) === JSON.stringify(["dob", "address", "idNumber", "document"]) && ro.tos && ro.bank, ro)
+check("  never the business profile or the email, which are Storelib's", ro.other.length === 0 && !ro.fields.some((f) => String(f).startsWith("business")))
+const us = needsOf({ currently_due: ["individual.ssn_last_4", "individual.phone", "individual.address.state", "individual.address.city"] })
+check("a US account: last four of the SSN, phone, address with a state", JSON.stringify(us.fields) === JSON.stringify(["address", "state", "phone", "ssnLast4"]), us)
+const waiting = needsOf({ currently_due: [], pending_verification: ["individual.verification.document"] })
+check("something Stripe is checking is not asked again", waiting.fields.length === 0 && waiting.checking)
+check("an unknown requirement is not hidden", needsOf({ currently_due: ["individual.nationality"] }).other[0] === "individual.nationality")
+check("the ID number is named as the country does", idNumberName("RO").label.startsWith("CNP") && idNumberName("US").label === "Social Security number" && idNumberName("ZZ").label === "Personal ID number")
+check("IBAN in Romania and Germany, sort code in the UK, routing in the US", bankFormat("RO").kind === "iban" && bankFormat("DE").kind === "iban" && bankFormat("GB").routingLabel === "Sort code" && bankFormat("US").routingLabel === "Routing number")
+check("a real IBAN passes its check", ibanValid("RO49 AAAA 1B31 0075 9384 0000", "RO") && ibanValid("DE89370400440532013000", "DE"))
+check("one wrong digit is caught", !ibanValid("RO49 AAAA 1B31 0075 9384 0001", "RO"))
+check("  and an IBAN from another country than the account's", !ibanValid("DE89370400440532013000", "RO"))
+const today = new Date("2026-10-03T00:00:00Z")
+check("under 18 cannot be paid out", !!detailIssues({ dob: { day: 4, month: 10, year: 2008 } }, ["dob"], { tos: false, now: today }).dob && !detailIssues({ dob: { day: 3, month: 10, year: 2008 } }, ["dob"], { tos: false, now: today }).dob)
+check("a PO box is refused, as Stripe would", /PO box/.test(detailIssues({ address: { line1: "PO Box 12", city: "Bucharest", postalCode: "010101" } }, ["address"], { tos: false }).address ?? ""))
+check("the agreement has to be ticked", !!detailIssues({}, [], { tos: true }).tos && !detailIssues({ acceptTos: true }, [], { tos: true }).tos)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1) }
