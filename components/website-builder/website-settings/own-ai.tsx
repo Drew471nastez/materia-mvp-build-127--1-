@@ -7,13 +7,15 @@
  * "Let people connect their own Claude or ChatGPT, easy setup, so they code
  * right in the Storelib AI chat and it does not use Storelib AI credits."
  *
- * Three lines, the same rows as the tools under them:
+ * Two lines, the same rows as the tools under them:
  *
  *   OpenRouter   one click: sign in there, approve Storelib, back here.
- *                Claude and ChatGPT both answer on the creator's
- *                OpenRouter credit. The easiest, so it is first.
- *   Claude       a key from console.anthropic.com, pasted once.
+ *                ChatGPT answers on the creator's OpenRouter credit. The
+ *                easiest, so it is first.
  *   OpenAI       a key from platform.openai.com, pasted once.
+ *
+ * Storelib AI runs on ChatGPT only for now (lib/sites/agent/provider.ts), so
+ * the Claude key line is hidden; a key kept from before is not deleted.
  *
  * Whatever is connected answers the chat's models on the creator's account
  * (a key for that vendor first, else OpenRouter), and those edits do not
@@ -28,7 +30,7 @@
 
 import { useEffect, useState, type ReactNode } from "react"
 import { Loader2, Route } from "lucide-react"
-import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
+import { OpenAIMark } from "@/components/website-builder/connection-marks"
 import { acceptOwnAi, OWN_AI_RETURN_KEY, useOwnAi, type OwnKey, type OwnSource } from "@/components/website-builder/use-own-ai"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "./connection-row"
@@ -51,12 +53,12 @@ const SOURCES: {
   paste?: { placeholder: string; where: string; href: string }
 }[] = [
   { id: "openrouter", name: "OpenRouter", mark: <Route className="h-5 w-5" strokeWidth={1.9} /> },
-  {
-    id: "anthropic",
-    name: "Claude",
-    mark: <ClaudeMark className="h-5 w-5 text-[#D97757]" />,
-    paste: { placeholder: "sk-ant-...", where: "console.anthropic.com", href: "https://console.anthropic.com/settings/keys" },
-  },
+  /*
+    No Claude line while Storelib AI runs on ChatGPT only (lib/sites/agent/provider.ts,
+    OFFERED). A Claude key connected before is still stored, unused and unshown;
+    the line comes back here, with ClaudeMark and console.anthropic.com, when
+    Claude is offered again.
+  */
   {
     id: "openai",
     name: "ChatGPT (OpenAI)",
@@ -123,10 +125,10 @@ export function OwnAiSettings({ installId }: { installId: string }) {
             Connect my AI
           </a>
           <p className="mt-3 text-[13.5px] leading-relaxed text-white/50 md:text-[13px]">
-            It takes about a minute. You sign in with OpenRouter, press approve, and you land back here. OpenRouter is what lets Storelib use Claude or ChatGPT on your account, and you put a few dollars of credit on it, which goes a long way.
+            It takes about a minute. You sign in with OpenRouter, press approve, and you land back here. OpenRouter is what lets Storelib use ChatGPT on your account, and you put a few dollars of credit on it, which goes a long way.
           </p>
           <p className="mt-3 text-[13.5px] leading-relaxed text-white/40 md:text-[13px]">
-            Already have a Claude or OpenAI key?{" "}
+            Already have an OpenAI key?{" "}
             <InlineButton onClick={() => setKeys(true)}>Add it instead</InlineButton>
           </p>
         </div>
@@ -215,7 +217,7 @@ function SourceBody({
       setSaved(
         body.unchecked
           ? "Saved. We could not reach the provider to check it just now; your next message will."
-          : `Connected. Storelib AI now answers ${source.id === "anthropic" ? "Claude" : "ChatGPT"} on your key.`,
+          : "Connected. Storelib AI now answers on your OpenAI key.",
       )
     } catch {
       setError("Could not reach Storelib. Check your connection and try again.")
@@ -253,7 +255,7 @@ function SourceBody({
         <>
           {!current && (
             <RowNote>
-              Sign in to OpenRouter and approve Storelib. Claude and ChatGPT then answer on your OpenRouter credit, and you can see every request there.
+              Sign in to OpenRouter and approve Storelib. ChatGPT then answers on your OpenRouter credit, and you can see every request there.
             </RowNote>
           )}
           <div className="mt-4 flex flex-wrap items-center gap-2.5">

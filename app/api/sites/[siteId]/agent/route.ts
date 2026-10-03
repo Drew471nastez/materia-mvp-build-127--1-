@@ -18,7 +18,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { currentCreatorId, getSite } from "@/lib/sites/projects"
-import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
+import { plainRunError } from "@/lib/sites/agent/plain-errors"
 import { chooseTier } from "@/lib/sites/agent/models"
 import { canAnswer, modelFor, resolveForCreator } from "@/lib/sites/agent/provider"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
     // 503, not 500: nothing is broken, the deployment is not configured. The
     // editor shows this sentence rather than "something went wrong".
     return NextResponse.json(
-      { error: "Storelib AI is not configured yet — no model key is set." },
+      { error: "Storelib AI is not set up on this deployment yet: no model key is set." },
       { status: 503 },
     )
   }
@@ -155,8 +155,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
           plan,
           prompt,
           /**
-           * CLAUDE BY DEFAULT for the coding agent — the harder half of the
-           * product and the one the stronger model is for.
+           * CHATGPT, like every Storelib AI run now (lib/sites/agent/provider.ts),
+           * and the stronger model when the change is big: this is the harder
+           * half of the product.
            *
            * The model comes from here rather than from inside run.ts because a
            * model id is one VENDOR's name for a difficulty. `chooseTier`
@@ -176,15 +177,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
           send(event)
         }
       } catch (error) {
-        send({
-          type: "error",
-          message:
-            error instanceof MissingKeyError
-              ? "Storelib AI is not configured yet — no model key is set."
-              : error instanceof Error && error.name === "OwnKeyError"
-                ? error.message
-                : "The edit failed. Nothing was changed.",
-        })
+        /* The creator's own key refusing is said in its words; anything else in plain ones (lib/sites/agent/plain-errors). */
+        send({ type: "error", message: plainRunError(error, "code agent", "The edit failed. Nothing was changed.") })
       } finally {
         // Closing an already-closed controller throws too, and by this point
         // the run has finished and been recorded — there is nothing left to

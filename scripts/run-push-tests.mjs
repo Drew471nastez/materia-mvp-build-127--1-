@@ -181,6 +181,7 @@ const SUITES = [
   "tests/footer-complete.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",
+  "tests/ai-chatgpt-only.test.ts",
   "tests/own-ai.test.ts",
   "tests/storelib-payments.test.ts",
   "tests/admin-payments-fees.test.ts",

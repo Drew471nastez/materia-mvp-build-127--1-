@@ -19,6 +19,7 @@ import { z } from "zod"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
 import { resolveForCreator } from "@/lib/sites/agent/provider"
+import { plainRunError } from "@/lib/sites/agent/plain-errors"
 import { writeSection, type WriteStage } from "@/lib/website-builder/agent/write-section"
 import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
              and spreading it here overwrote the event's. */
           line({ type: "result", status: done.status, answer: done.body })
         } catch (e) {
-          line({ type: "result", status: 500, answer: { error: e instanceof Error ? e.message : "The section could not be written." } })
+          line({ type: "result", status: 500, answer: { error: plainRunError(e, "section writer", "The section could not be written.") } })
         } finally {
           try {
             controller.close()

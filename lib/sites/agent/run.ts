@@ -107,7 +107,7 @@ export async function monthlyQuotaError(creatorId: string, plan: SitePlan, provi
     .not("provider", "like", "own:%")
 
   if ((count ?? 0) < limit) return null
-  return `You have used all ${limit} AI edits this month on your plan. They reset on the 1st, or connect your own Claude or ChatGPT (Website settings, Connections) to keep going on your account.`
+  return `You have used all ${limit} AI edits this month on your plan. They reset on the 1st, or connect your own AI (Website settings, Connections) to keep going on your account.`
 }
 
 export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {

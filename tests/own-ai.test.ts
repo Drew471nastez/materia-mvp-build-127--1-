@@ -141,7 +141,10 @@ async function main() {
   check("the monthly count leaves own runs out", /\.not\("provider", "like", "own:%"\)/.test(run))
   check("a run on their account is not stopped by the monthly allowance", /if \(providerId\.startsWith\("own:"\)\) return null/.test(run) && /await monthlyQuotaError\(creatorId, plan, provider\.id\)/.test(run))
   check("and costs Storelib nothing on the books", /provider\.id\.startsWith\("own:"\) \? \{ usd: 0, priced: true \}/.test(run))
-  check("their key for that vendor first, then OpenRouter, then Storelib's", provider.indexOf("const direct = wanted") < provider.indexOf("const router = keys.openrouter") && provider.indexOf("const router = keys.openrouter") < provider.lastIndexOf("return resolveProvider(input)"))
+  check("their OpenAI key first, then OpenRouter, then Storelib's", provider.indexOf("const direct = keys.openai") > 0 && provider.indexOf("const direct = keys.openai") < provider.indexOf("const router = keys.openrouter") && provider.indexOf("const router = keys.openrouter") < provider.lastIndexOf("return resolveProvider(input)"))
+  /* Storelib AI runs on ChatGPT only for now: a Claude key kept from before is not deleted, and not used. */
+  check("a Claude key kept from before answers nothing, and is not deleted", !/keys\.anthropic/.test(provider) && /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai", "openrouter"\]/.test(provider) && !/removeKey\(creatorId, "anthropic"\)/.test(read("app/api/ai-keys/route.ts")))
+  check("and a new one is not taken", /if \(source !== "openai"\) return NextResponse\.json\(\{ error: "Add an OpenAI key, or connect OpenRouter\." \}, \{ status: 400 \}\)/.test(read("app/api/ai-keys/route.ts")))
   const routes = [
     "app/api/website-builder/themes/[installId]/agent/route.ts",
     "app/api/website-builder/themes/[installId]/sections/code/route.ts",
@@ -176,8 +179,10 @@ async function main() {
   check("it says what will happen, in plain words, including the credit",
     /sign in with OpenRouter/.test(panel) && /few dollars of credit/.test(panel) && /about a minute/.test(panel))
   check("a key is for people who already have one, behind a line of text",
-    /Already have a Claude or OpenAI key\?/.test(panel) && /setKeys\(true\)/.test(panel) &&
+    /Already have an OpenAI key\?/.test(panel) && /setKeys\(true\)/.test(panel) &&
     /SOURCES\.filter\(\(s\) => s\.id === "openrouter"\)/.test(panel))
+  check("Connections offers OpenRouter and OpenAI, and no Claude key line for now",
+    /id: "openrouter"/.test(panel) && /id: "openai"/.test(panel) && !/id: "anthropic"/.test(panel) && !/sk-ant-/.test(panel) && !/Claude or OpenAI key|Claude and ChatGPT then|use Claude or ChatGPT on your account/.test(panel))
   check("and the rows come back once something is connected", /connected\.length > 0 \|\| keys/.test(panel))
 
   section("Where the creator finds it")

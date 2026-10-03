@@ -95,6 +95,20 @@ import {
 } from "@/components/website-builder/ask-activity"
 import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components/website-builder/ask-history"
 import { ModelPicker } from "@/components/website-builder/ask-model-picker"
+import {
+  DEFAULT_ENGINE,
+  DEFAULT_STRENGTH,
+  effortOf,
+  ENGINE_KEY,
+  ENGINES,
+  engineFromSaved,
+  STRENGTH_KEY,
+  STRENGTHS,
+  strengthFromSaved,
+  type EngineId,
+  type StrengthId,
+} from "@/lib/website-builder/ask-engines"
+import { plainChatError } from "@/lib/sites/agent/plain-errors"
 import { ownFor, useOwnAi } from "@/components/website-builder/use-own-ai"
 import { FadeImage, PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
 import { ConnectAiButton, ModeSwitch, QuestionChoices, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
@@ -185,43 +199,6 @@ interface Exchange {
   undone?: boolean
 }
 
-/**
- * The three choices, as a person would describe them rather than as model ids.
- *
- * `provider` and `tier` are what the endpoint takes: the vendor, and how hard
- * a model within it. Keeping the ids out of the UI means a price change or a
- * model rename is a one line change on the server and nothing here.
- */
-const ENGINES = [
-  {
-    id: "claude",
-    label: "Claude Sonnet",
-    short: "Sonnet",
-    detail: "Quick, and right for most changes",
-    provider: "anthropic",
-    tier: "fast",
-  },
-  {
-    id: "claude-opus",
-    label: "Claude Opus",
-    short: "Opus",
-    detail: "Slower. For a change you know is hard",
-    provider: "anthropic",
-    tier: "strong",
-  },
-  {
-    id: "openai",
-    label: "ChatGPT",
-    short: "ChatGPT",
-    detail: "OpenAI's model",
-    provider: "openai",
-    tier: "fast",
-  },
-] as const
-
-type EngineId = (typeof ENGINES)[number]["id"]
-
-const ENGINE_KEY = "storelib.theme-chat.engine"
 
 /**
  * How near the end of the thread still counts as reading the newest message.
@@ -336,7 +313,7 @@ function plainWriteError(status: number, error: string | undefined, compileError
   if (status === 429 || status >= 500 || /reach|fetch|network|timeout|overload|rate limit/i.test(raw)) {
     return "Storelib AI is busy right now. Try again in a moment."
   }
-  return raw || "That did not work. Try again."
+  return raw ? plainChatError(raw) : "That did not work. Try again."
 }
 
 /** The section writer's stages, as the live line says them. */
@@ -544,7 +521,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
         <div className={cn("space-y-1.5", arrive)}>
           <p className={cn("flex items-start gap-1.5 text-red-600", phone ? "text-[14px]" : "text-[12.5px]")}>
             <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-            {exchange.error}
+            {/* Plain words only: a provider's JSON kept in an older history still reads as a sentence. */}
+            {plainChatError(exchange.error)}
           </p>
           {/*
             A failed run leaves the request sitting there with no way to make
@@ -790,22 +768,24 @@ function ThemeChatPanel({
   /**
    * WHICH MODEL ANSWERS.
    *
-   * Claude Sonnet by default: it is the everyday model and what the
-   * deployment is configured for. Opus is there for a change somebody already
-   * knows is hard, and it is their choice rather than the model's: a model
-   * that can promote itself to the five times dearer tier eventually will,
-   * and the bill is theirs.
+   * ChatGPT's everyday model by default (lib/website-builder/ask-engines.ts).
+   * The stronger one is there for a change somebody already knows is hard,
+   * and it is their choice rather than the model's: a model that can promote
+   * itself to the ten times dearer tier eventually will, and the bill is
+   * theirs. Strength, how long it thinks, is the second choice in the same
+   * menu.
    *
-   * Remembered per browser. Somebody who has chosen ChatGPT has chosen it for
-   * more than one message.
+   * Remembered per browser. A choice saved before the list changed (the
+   * Claude models) reads as the default.
    */
-  const [engine, setEngine] = React.useState<EngineId>("claude")
+  const [engine, setEngine] = React.useState<EngineId>(DEFAULT_ENGINE)
+  const [strength, setStrength] = React.useState<StrengthId>(DEFAULT_STRENGTH)
   const [engineOpen, setEngineOpen] = React.useState(false)
 
   React.useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(ENGINE_KEY)
-      if (saved && ENGINES.some((e) => e.id === saved)) setEngine(saved as EngineId)
+      setEngine(engineFromSaved(window.localStorage.getItem(ENGINE_KEY)))
+      setStrength(strengthFromSaved(window.localStorage.getItem(STRENGTH_KEY)))
     } catch {
       // A browser with site data blocked still gets the default.
     }
@@ -817,6 +797,17 @@ function ThemeChatPanel({
     setEngineOpen(false)
     try {
       window.localStorage.setItem(ENGINE_KEY, id)
+    } catch {
+      /* per-browser convenience only */
+    }
+  }, [])
+
+  /* The menu stays open: somebody setting how hard it thinks is often choosing the model next. */
+  const chooseStrength = React.useCallback((id: string) => {
+    if (!STRENGTHS.some((s) => s.id === id)) return
+    setStrength(id as StrengthId)
+    try {
+      window.localStorage.setItem(STRENGTH_KEY, id)
     } catch {
       /* per-browser convenience only */
     }
@@ -880,8 +871,9 @@ function ThemeChatPanel({
    * the person changed by hand while it was open, or the model plans against
    * a page that no longer exists and addresses sections by ids that moved.
    */
-  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine, conversation })
-  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine, conversation }
+  const effort = effortOf(strength)
+  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, conversation })
+  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, conversation }
 
   /**
    * WHAT TO ASK NEXT, from where the creator is: the section they have open,
@@ -1354,6 +1346,8 @@ function ThemeChatPanel({
             lockToSelection: live.current.locked,
             provider: live.current.engine.provider,
             tier: live.current.engine.tier,
+            /* How hard it thinks: Light, Standard or Deep (lib/website-builder/ask-engines.ts). */
+            effort: live.current.effort,
             /* The conversation on screen; the route opens a new one for null. */
             conversationId: live.current.conversation.id,
             continueEarlier: live.current.conversation.earlier,
@@ -2579,7 +2573,7 @@ function ThemeChatPanel({
 
   /*
     WHICH MODEL, where the message is written: it is a per-message decision
-    ("this one is hard, use Opus"), and a choice buried two screens away is
+    ("this one is hard, use Terra"), and a choice buried two screens away is
     one nobody makes. While a recording runs, its clock sits in the same
     place, over the model's button, so nothing on the row moves.
   */
@@ -2590,6 +2584,9 @@ function ThemeChatPanel({
           engines={ENGINES}
           value={engine}
           onChange={chooseEngine}
+          strengths={STRENGTHS}
+          strength={strength}
+          onStrengthChange={chooseStrength}
           open={engineOpen}
           onOpenChange={setEngineOpen}
           phone={phone}
