@@ -1,0 +1,660 @@
+{
+  "sections": {
+    "header-ld": {
+      "type": "header",
+      "name": "Header",
+      "hidden": false,
+      "settings": {
+        "logo_text": "Luca Dragoste",
+        "logo_url": "https://lucadragoste.ro/logo-ld.png",
+        "logo_font": "inherit",
+        "logo_height": 40,
+        "logo_horizontal_offset_enabled": false,
+        "logo_horizontal_offset_px": 0,
+        "use_mobile_logo": true,
+        "mobile_logo_url": "https://lucadragoste.ro/logo-ld.png",
+        "mobile_logo_height": 32,
+        "mobile_logo_horizontal_offset_enabled": false,
+        "mobile_logo_horizontal_offset_px": 0,
+        "header_layout": "logo_left_nav_right",
+        "nav_alignment": "right",
+        "mobile_header_layout": "hamburger_left_logo_left",
+        "mobile_menu_style": "right",
+        "header_width": "wide",
+        "vertical_padding": {
+          "desktop": 14,
+          "tablet": 12,
+          "mobile": 10
+        },
+        "link_spacing": 26,
+        "header_sticky_enabled": true,
+        "header_sticky_on_scroll_up": false,
+        "header_transparent": false,
+        "header_transparent_scope": "all",
+        "show_bottom_border": true,
+        "border_style": "subtle",
+        "border_visibility": "all",
+        "header_depth_shadow": false,
+        "color_scheme": "white",
+        "menu_link_hover_style": "underline",
+        "show_search_icon": false,
+        "search_behaviour": "page",
+        "search_placeholder": "Search",
+        "show_account_icon": false,
+        "show_wishlist_icon": false,
+        "show_cart_icon": false,
+        "show_cta_button": true,
+        "cta_text": "Ask about two sample posts",
+        "cta_url": "/#contact",
+        "cta_color": "#4C7BF4",
+        "cta_text_color": "#ffffff"
+      },
+      "blocks": {
+        "nav-ld-1": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Ghostwriting",
+            "url": "/#ghostwriting",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        },
+        "nav-ld-2": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Portfolio",
+            "url": "/#samples",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        },
+        "nav-ld-3": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Pricing",
+            "url": "/#pricing",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        },
+        "nav-ld-4": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Templates",
+            "url": "/#templates",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        }
+      },
+      "block_order": [
+        "nav-ld-1",
+        "nav-ld-2",
+        "nav-ld-3",
+        "nav-ld-4"
+      ]
+    },
+    "ld_mode_bar-1791000000001": {
+      "type": "ld_mode_bar",
+      "name": "LD Service switch",
+      "settings": {
+        "title": "Done for you",
+        "text": "I write and edit your LinkedIn posts.",
+        "first_label": "Done for you",
+        "first_url": "#ghostwriting",
+        "second_label": "Do it yourself",
+        "second_url": "#templates",
+        "active": "first",
+        "color_scheme": "white",
+        "anchor": "ghostwriting"
+      },
+      "hidden": false,
+      "blocks": {},
+      "block_order": []
+    },
+    "ld_hero-1791000000002": {
+      "type": "ld_hero",
+      "name": "LD Hero with drafts",
+      "settings": {
+        "eyebrow": "LinkedIn posts, written with you",
+        "heading": "Put your experience into words.",
+        "text": "I write LinkedIn posts from your notes and conversations, so potential clients can understand how you think and what you do.",
+        "button_label": "Ask about two sample posts",
+        "button_url": "#contact",
+        "link_label": "Read a sample",
+        "link_url": "#samples",
+        "show_author": true,
+        "author_image": "https://lucadragoste.ro/luca-dragoste.webp",
+        "author_name": "Luca Dragoste",
+        "author_role": "LinkedIn ghostwriter",
+        "color_scheme": "white",
+        "anchor": "top"
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-hero-1": {
+          "type": "draft",
+          "settings": {
+            "meta": "Andrew Rullz · Unpublished draft",
+            "logo": "https://lucadragoste.ro/materia-logo.png",
+            "brand": "Materia Themes",
+            "headline": "Before I launched Materia 1.0.0, I spent months testing and refining it.",
+            "link_label": "Open PDF · 3 pages",
+            "link_url": "#samples",
+            "new_tab": false
+          }
+        },
+        "block-ld-hero-2": {
+          "type": "draft",
+          "settings": {
+            "meta": "Andrew Rullz · Unpublished draft",
+            "logo": "https://lucadragoste.ro/storelib-logo.png",
+            "brand": "Storelib",
+            "headline": "The first time I shared Storelib publicly, it was still in development.",
+            "link_label": "Open PDF · 3 pages",
+            "link_url": "#samples",
+            "new_tab": false
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-hero-1",
+        "block-ld-hero-2"
+      ]
+    },
+    "ld_highlights-1791000000003": {
+      "type": "ld_highlights",
+      "name": "LD Highlight strip",
+      "settings": {
+        "color_scheme": "white",
+        "show_lines": true,
+        "columns": 4
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-hl-1": {
+          "type": "point",
+          "settings": {
+            "text": "Two drafts for Andrew Rullz",
+            "url": "#samples"
+          }
+        },
+        "block-ld-hl-2": {
+          "type": "point",
+          "settings": {
+            "text": "Free drafts for selected prospects",
+            "url": ""
+          }
+        },
+        "block-ld-hl-3": {
+          "type": "point",
+          "settings": {
+            "text": "One writer from research to final edit",
+            "url": ""
+          }
+        },
+        "block-ld-hl-4": {
+          "type": "point",
+          "settings": {
+            "text": "Focused only on LinkedIn",
+            "url": ""
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-hl-1",
+        "block-ld-hl-2",
+        "block-ld-hl-3",
+        "block-ld-hl-4"
+      ]
+    },
+    "ld_compare-1791000000004": {
+      "type": "ld_compare",
+      "name": "LD Before and after",
+      "settings": {
+        "eyebrow": "A simpler publishing routine",
+        "heading": "Turn a customer conversation into a post.",
+        "text": "Here is how we can work from something you already know. The example below illustrates the process.",
+        "color_scheme": "light",
+        "anchor": "process"
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-cmp-1": {
+          "type": "card",
+          "settings": {
+            "label": "On your own",
+            "title": "The idea stays in your notes.",
+            "text": "You have something useful to share after a customer call. Writing it up becomes another task to get back to.",
+            "points": "Ideas scattered across notes and voice memos\nA draft waiting for a clearer opening\nFinding time to write and edit",
+            "highlight": false
+          }
+        },
+        "block-ld-cmp-2": {
+          "type": "card",
+          "settings": {
+            "label": "Working with me",
+            "title": "A draft you can review.",
+            "text": "Send the material you already have. I work through it, write the post, and make changes from your feedback.",
+            "points": "Your experience supplies the subject\nI handle the writing and editing\nYou approve every post before publishing",
+            "highlight": true
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-cmp-1",
+        "block-ld-cmp-2"
+      ]
+    },
+    "ld_steps-1791000000005": {
+      "type": "ld_steps",
+      "name": "LD How it works",
+      "settings": {
+        "heading": "How it works",
+        "note": "As a starting point, set aside 15 to 30 minutes a week to share material and review drafts. This is a planning estimate; we agree a routine that works for you.",
+        "columns": 3,
+        "show_numbers": true,
+        "color_scheme": "white",
+        "anchor": "how-it-works"
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-st-1": {
+          "type": "step",
+          "settings": {
+            "title": "Tell me who you want to reach",
+            "text": "Share an old post or a voice note. I ask a few questions about your audience, your experience, and the points you want to make. We can do this by email."
+          }
+        },
+        "block-ld-st-2": {
+          "type": "step",
+          "settings": {
+            "title": "Review two drafts",
+            "text": "I choose an angle from your material and write two posts. Tell me which phrases feel right and which you would change; I use that feedback in the edit."
+          }
+        },
+        "block-ld-st-3": {
+          "type": "step",
+          "settings": {
+            "title": "Agree a monthly routine",
+            "text": "If the drafts fit, we plan the next month. You approve and publish each post. We keep a record of your feedback so I can get closer to your voice. We also look at the questions and replies your posts receive to choose the next angles."
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-st-1",
+        "block-ld-st-2",
+        "block-ld-st-3"
+      ]
+    },
+    "ld_samples-1791000000006": {
+      "type": "ld_samples",
+      "name": "LD Writing samples",
+      "settings": {
+        "heading": "Work you can read now",
+        "text": "Two LinkedIn drafts prepared for Andrew Rullz, founder of Materia Themes and Storelib, with his permission to write in his name. Both are unpublished; the final wording remains subject to his review.",
+        "color_scheme": "light",
+        "anchor": "samples"
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-sm-1": {
+          "type": "sample",
+          "settings": {
+            "meta": "Andrew Rullz · Unpublished draft",
+            "logo": "https://lucadragoste.ro/materia-logo.png",
+            "brand": "Materia Themes",
+            "headline": "Before I launched Materia 1.0.0, I spent months testing and refining it.",
+            "pages": "3 pages",
+            "title": "Andrew Rullz on Materia Themes",
+            "description": "A first-person draft about giving Shopify store owners more control over their product pages, with notes on the writing.",
+            "note": "Written with Andrew’s permission. Unpublished sample; no performance results are claimed.",
+            "link_label": "Open the 3-page PDF",
+            "file": "",
+            "link_url": "",
+            "new_tab": true
+          }
+        },
+        "block-ld-sm-2": {
+          "type": "sample",
+          "settings": {
+            "meta": "Andrew Rullz · Unpublished draft",
+            "logo": "https://lucadragoste.ro/storelib-logo.png",
+            "brand": "Storelib",
+            "headline": "The first time I shared Storelib publicly, it was still in development.",
+            "pages": "3 pages",
+            "title": "Andrew Rullz on Storelib",
+            "description": "A first-person draft about helping creators deliver a digital product after purchase, with notes on the writing.",
+            "note": "Written with Andrew’s permission. Unpublished sample; no performance results are claimed.",
+            "link_label": "Open the 3-page PDF",
+            "file": "",
+            "link_url": "",
+            "new_tab": true
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-sm-1",
+        "block-ld-sm-2"
+      ]
+    },
+    "ld_pricing-1791000000007": {
+      "type": "ld_pricing",
+      "name": "LD Pricing plans",
+      "settings": {
+        "eyebrow": "Two free drafts for selected prospects",
+        "heading": "Ghostwriting prices",
+        "text": "Choose the monthly cadence that fits how often you want to publish. Every paid post includes research from your material, a finished LinkedIn draft, and one edit round.",
+        "note": "All prices are in USD. The free test is for selected direct prospects only, not Upwork. I do not promise reach, followers, leads, or viral posts.",
+        "show_switch": true,
+        "first_label": "Done for you",
+        "first_url": "#pricing",
+        "second_label": "Do it yourself",
+        "second_url": "#templates",
+        "active": "first",
+        "columns": 3,
+        "color_scheme": "white",
+        "anchor": "pricing"
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-pr-1": {
+          "type": "plan",
+          "settings": {
+            "name": "Two free posts",
+            "price": "Free",
+            "price_size": "normal",
+            "period": "",
+            "features": "For selected direct prospects\nTwo finished drafts from your material\nSee whether the writing fits before paying",
+            "button_label": "Ask if it fits",
+            "button_url": "#contact",
+            "featured": true
+          }
+        },
+        "block-ld-pr-2": {
+          "type": "plan",
+          "settings": {
+            "name": "Consistent",
+            "price": "$200",
+            "price_size": "normal",
+            "period": "/ month",
+            "features": "Four finished LinkedIn posts\nAbout one post each week\nFounding price for the first three clients",
+            "button_label": "Choose Consistent",
+            "button_url": "#contact",
+            "featured": false
+          }
+        },
+        "block-ld-pr-3": {
+          "type": "plan",
+          "settings": {
+            "name": "Editorial",
+            "price": "$800 to $1,500",
+            "price_size": "compact",
+            "period": "/ month",
+            "features": "Eight to twelve posts\nFor a regular publishing rhythm\nScope and timing agreed before the month starts",
+            "button_label": "Ask about Editorial",
+            "button_url": "#contact",
+            "featured": false
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-pr-1",
+        "block-ld-pr-2",
+        "block-ld-pr-3"
+      ]
+    },
+    "ld_diy-1791000000008": {
+      "type": "ld_diy",
+      "name": "LD Do it yourself",
+      "settings": {
+        "eyebrow": "Do it yourself",
+        "heading": "One free place to start.",
+        "text": "Prefer to write your own posts? Start with the same templates I use to turn notes and customer conversations into LinkedIn drafts.",
+        "source": "cards",
+        "columns": 3,
+        "color_scheme": "light",
+        "anchor": "templates"
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-dy-1": {
+          "type": "resource",
+          "settings": {
+            "badge": "Free",
+            "title": "LinkedIn post planner",
+            "text": "A simple weekly plan for choosing a topic, collecting notes and drafting one post.",
+            "button_label": "Get the template",
+            "button_url": "#contact"
+          }
+        },
+        "block-ld-dy-2": {
+          "type": "resource",
+          "settings": {
+            "badge": "Free",
+            "title": "Customer call to post worksheet",
+            "text": "Questions to answer straight after a call, so the useful part becomes the start of a draft.",
+            "button_label": "Get the worksheet",
+            "button_url": "#contact"
+          }
+        },
+        "block-ld-dy-3": {
+          "type": "resource",
+          "settings": {
+            "badge": "Free",
+            "title": "Edit checklist",
+            "text": "The checks I run before a post is ready: the opening, the facts, the length and the ending.",
+            "button_label": "Get the checklist",
+            "button_url": "#contact"
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-dy-1",
+        "block-ld-dy-2",
+        "block-ld-dy-3"
+      ]
+    },
+    "ld_about-1791000000009": {
+      "type": "ld_about",
+      "name": "LD About me",
+      "settings": {
+        "image": "https://lucadragoste.ro/luca-dragoste.webp",
+        "image_focus": "50% 30%",
+        "image_alt": "Luca Dragoste",
+        "eyebrow": "About me",
+        "heading": "One writer, from research to final edit.",
+        "content": "<p>I’m Luca Dragoste, an Advertising student at SNSPA in Bucharest, and I write LinkedIn posts for founders.</p><p>You work directly with me. I ask about the details behind an idea, check the facts, and revise the wording with you.</p>",
+        "color_scheme": "white",
+        "anchor": "about"
+      },
+      "hidden": false,
+      "blocks": {},
+      "block_order": []
+    },
+    "ld_faq-1791000000010": {
+      "type": "ld_faq",
+      "name": "LD Questions",
+      "settings": {
+        "eyebrow": "Before we start",
+        "heading": "Before we work together",
+        "one_at_a_time": true,
+        "color_scheme": "light",
+        "anchor": "faq"
+      },
+      "hidden": false,
+      "blocks": {
+        "block-ld-fq-1": {
+          "type": "qa",
+          "settings": {
+            "question": "Will it sound like me?",
+            "answer": "<p>That is the aim. I write from your notes, your old posts and how you talk about your work. You mark the phrases that feel right and the ones you would change, and each draft gets closer to your voice.</p>",
+            "open": false
+          }
+        },
+        "block-ld-fq-2": {
+          "type": "qa",
+          "settings": {
+            "question": "Do you use AI?",
+            "answer": "<p>I may use AI tools for research and to check a draft, but the angle, the writing and the edits are mine, and every post is built from your own material. Nothing is published without your approval.</p>",
+            "open": false
+          }
+        },
+        "block-ld-fq-3": {
+          "type": "qa",
+          "settings": {
+            "question": "How much of my time does it take?",
+            "answer": "<p>As a starting point, set aside 15 to 30 minutes a week to share material and review drafts. We agree a routine that works for you.</p>",
+            "open": false
+          }
+        },
+        "block-ld-fq-4": {
+          "type": "qa",
+          "settings": {
+            "question": "What if I don't like the first posts?",
+            "answer": "<p>The first two drafts are free for selected prospects, so you can see whether the writing fits before paying. If it does not, you owe nothing.</p>",
+            "open": false
+          }
+        }
+      },
+      "block_order": [
+        "block-ld-fq-1",
+        "block-ld-fq-2",
+        "block-ld-fq-3",
+        "block-ld-fq-4"
+      ]
+    },
+    "ld_contact-1791000000011": {
+      "type": "ld_contact",
+      "name": "LD Contact form",
+      "settings": {
+        "eyebrow": "Let’s start with your ideas",
+        "heading": "Tell me what you need",
+        "text": "Send a short note and I will reply by email.",
+        "email_intro": "You can also write to",
+        "email": "contact@lucadragoste.ro",
+        "show_author": true,
+        "author_image": "https://lucadragoste.ro/luca-dragoste.webp",
+        "author_name": "Luca Dragoste",
+        "author_role": "LinkedIn ghostwriter",
+        "mode": "storelib",
+        "button_label": "Send message",
+        "message_label": "Who do you want to reach, and what would you like to write about?",
+        "color_scheme": "white",
+        "anchor": "contact"
+      },
+      "hidden": false,
+      "blocks": {},
+      "block_order": []
+    },
+    "footer-ld": {
+      "type": "footer",
+      "name": "Footer",
+      "hidden": false,
+      "settings": {
+        "logo_text": "Luca Dragoste",
+        "logo_url": "https://lucadragoste.ro/logo-ld.png",
+        "tagline": "LinkedIn posts, written with you.",
+        "copyright": "© {{ date.year }} Luca Dragoste. All rights reserved.",
+        "menu": "",
+        "menu_heading": "",
+        "menu_2": "",
+        "menu_2_heading": "",
+        "show_default_links": false,
+        "show_policies": true,
+        "show_contact_link": false,
+        "show_newsletter": false,
+        "show_social": true,
+        "show_payment_icons": false,
+        "color_scheme": "light",
+        "divider_color": "#e3e6ed",
+        "layout": "columns",
+        "columns": "2",
+        "max_width": "wide",
+        "padding_top": 64,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "fcol-ld-1": {
+          "type": "footer_column",
+          "settings": {
+            "heading": "Services"
+          }
+        },
+        "flink-ld-2": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Ghostwriting",
+            "url": "/#ghostwriting"
+          }
+        },
+        "flink-ld-3": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Pricing",
+            "url": "/#pricing"
+          }
+        },
+        "flink-ld-4": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Samples",
+            "url": "/#samples"
+          }
+        },
+        "flink-ld-5": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Templates",
+            "url": "/#templates"
+          }
+        },
+        "fcol-ld-6": {
+          "type": "footer_column",
+          "settings": {
+            "heading": "Contact"
+          }
+        },
+        "flink-ld-7": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Send a message",
+            "url": "/#contact"
+          }
+        },
+        "flink-ld-8": {
+          "type": "footer_link",
+          "settings": {
+            "label": "contact@lucadragoste.ro",
+            "url": "mailto:contact@lucadragoste.ro"
+          }
+        }
+      },
+      "block_order": [
+        "fcol-ld-1",
+        "flink-ld-2",
+        "flink-ld-3",
+        "flink-ld-4",
+        "flink-ld-5",
+        "fcol-ld-6",
+        "flink-ld-7",
+        "flink-ld-8"
+      ]
+    }
+  },
+  "order": [
+    "header-ld",
+    "ld_mode_bar-1791000000001",
+    "ld_hero-1791000000002",
+    "ld_highlights-1791000000003",
+    "ld_compare-1791000000004",
+    "ld_steps-1791000000005",
+    "ld_samples-1791000000006",
+    "ld_pricing-1791000000007",
+    "ld_diy-1791000000008",
+    "ld_about-1791000000009",
+    "ld_faq-1791000000010",
+    "ld_contact-1791000000011",
+    "footer-ld"
+  ]
+}

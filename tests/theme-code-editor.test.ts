@@ -192,7 +192,8 @@ section("A file shows what that file is")
   check(
     "the product template seeds a product section, as the editor does",
     product.sections.order.includes("product") &&
-      /type: "product", name: ps\.name/.test(editor),
+      /* The section the editor adds is the preset's own, blocks and all (lib/website-builder/product-page.ts). */
+      (/type: "product", name: ps\.name/.test(editor) || /\.\.\.mainProductSection\(`product-\$\{Date\.now\(\)\}`\), name: ps\.name/.test(editor)),
     JSON.stringify(product.sections.order),
   )
   const home = JSON.parse(getDefaultFileContent("templates/home.json"))
@@ -262,8 +263,8 @@ section("It is reachable, and it works on a file longer than the window")
         && homeFromElsewhere.kind === "page" && homeFromElsewhere.key === "home"
         && anchor.kind === "anchor" && anchor.id === "reviews"
     })() &&
-      /* And the canvas still does the scrolling for an anchor. */
-      /case "anchor": \{[\s\S]{0,400}?scrollWithin\(scroller, target\)/.test(editor),
+      /* And the canvas still does the scrolling for an anchor, with the live site's scroll. */
+      /case "anchor": \{[\s\S]{0,400}?scrollToHash\(root, decision\.id, \{ scroller \}\)/.test(editor),
   )
   check(
     "on a phone the code editor is its own page: the builder saves the draft, then navigates to the code route with a way back",
@@ -523,7 +524,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   // The call grew a products argument when sections learned to draw the
   // shop. What this guard is about is unchanged: the SAVED sources are what
   // the canvas renders from.
-  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template, in_editor: inEditor === true \}, sources, products(, data)?(, globals)?\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
+  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ (\.\.\.extras, )?template, in_editor: inEditor === true \}, sources, products(, data)?(, globals)?\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
   // Done in one place now, for every public route rather than the storefront
   // alone: see prerenderStorelibSections, and the route list in
   // tests/website-builder.test.ts.
@@ -531,7 +532,9 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check(
     "the published page draws the saved sections too, not the bundled ones",
     /\.from\("store_theme_custom_files"\)/.test(prerender)
-      && /renderStorelibSection\(section, theme, \{ \.\.\.pageExtras, template \}, sources, products(, data)?(, globals)?\)/.test(prerender)
+      /* The page object is built once per page now (with the breadcrumb trail), from the same extras and template. */
+      && (/renderStorelibSection\(section, theme, \{ \.\.\.pageExtras, template \}, sources, products(, data)?(, globals)?\)/.test(prerender)
+        || (/renderStorelibSection\(section, theme, page, sources, products(, data)?(, globals)?\)/.test(prerender) && /\.\.\.pageExtras,\s*template,/.test(prerender)))
       && (/prerenderStorelibSections\(/.test(creator) || /renderWithSources\(owner\.sources,/.test(creator)),
   )
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))

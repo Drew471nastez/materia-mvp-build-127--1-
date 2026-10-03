@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import webpush from "web-push"
 import { vapidKeys } from "./web-vapid"
 import { endpointOf, forgetOnAccount, readKept, tokenOf } from "./web-subscriptions"
-import { devicesFor, titleOn, type TokenRow } from "./recipients"
+import { bodyOn, devicesFor, titleOn, type TokenRow } from "./recipients"
 import { businessGroup, listBusinesses } from "@/lib/businesses/server"
 import { groupIds } from "@/lib/businesses/rules"
 
@@ -115,10 +115,11 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   await Promise.all(
     tokens.map(async (device) => {
       const { id, token, platform } = device
-      /* On a device that is on another business of the login, the title says which business this is. */
-      const title = titleOn(device, userId, payload.title, businessName)
+      /* On a device that is on another business of the login, the title says which business this is; a setup notification says it under the title. */
+      const title = titleOn(device, userId, payload.title, businessName, payload.data)
+      const body = bodyOn(device, userId, payload.body, businessName, payload.data)
       if (platform === "web") {
-        const result = await sendToBrowser(token, { ...payload, title })
+        const result = await sendToBrowser(token, { ...payload, title, body })
         if (result === "gone") invalidIds.push(id)
         return
       }
@@ -127,7 +128,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         token,
         notification: {
           title,
-          body: payload.body,
+          body,
         },
         data: payload.data ?? {},
         ...(platform === "ios"

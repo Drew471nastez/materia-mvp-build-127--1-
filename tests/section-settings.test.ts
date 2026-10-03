@@ -151,7 +151,15 @@ for (const type of types) {
     continue
   }
   const path = file ? join(RENDERERS, `${file}.tsx`) : ""
-  sources.set(type, path && existsSync(path) ? stripComments(readFileSync(path, "utf8")) : "")
+  const own = path && existsSync(path) ? readFileSync(path, "utf8") : ""
+  /* A renderer split into files of its own (ProductSection and its
+     ./product/ blocks and media) is read with them: a setting read in one of
+     them is read by the section. */
+  const parts = [...own.matchAll(/from "\.\/([\w/-]+)"/g)]
+    .map((m) => join(RENDERERS, `${m[1]}.tsx`))
+    .filter((p) => existsSync(p))
+    .map((p) => readFileSync(p, "utf8"))
+  sources.set(type, stripComments([own, ...parts].join("\n")))
 }
 
 function settingIds(schema: Schema): string[] {

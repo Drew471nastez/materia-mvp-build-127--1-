@@ -204,8 +204,9 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
  * The basket on a creator's website (app/api/checkout/cart) and its code
  * box (app/api/coupons/validate) both price here, from product ids and
  * quantities alone. Each line is the database's price for its product or
- * option (baseFor, as above: pay what you want is its minimum, because a
- * basket has no amount box), and the code comes off with the same rules and
+ * option (baseFor, as above: pay what you want is the amount the buyer named
+ * on the product page, held to the minimum, or the minimum when none was
+ * named), and the code comes off with the same rules and
  * the same rounding as a single product's (lib/checkout/coupons
  * checkCouponLines, which checkCoupon is one line of).
  *
@@ -260,12 +261,15 @@ export interface CartRequest {
 
 export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const incoming = Array.isArray(req.items) ? (req.items as any[]).slice(0, MAX_LINES) : []
-  const wanted = new Map<string, { variantId: string | null; quantity: number }>()
+  const wanted = new Map<string, { variantId: string | null; quantity: number; customPriceCents: unknown }>()
   for (const raw of incoming) {
     if (typeof raw?.productId !== "string" || raw.productId === "") continue
     const variantId = typeof raw.variantId === "string" && raw.variantId !== "" ? raw.variantId : null
     const quantity = Math.max(1, Math.min(MAX_QUANTITY, Math.floor(Number(raw.quantity) || 1)))
-    wanted.set(`${raw.productId}::${variantId ?? ""}`, { variantId, quantity })
+    /* The amount a buyer named for a pay what you want product, as sent. It
+       is checked against that product's own minimum below (baseFor), and
+       means nothing for a product with a price of its own. */
+    wanted.set(`${raw.productId}::${variantId ?? ""}`, { variantId, quantity, customPriceCents: raw.customPriceCents })
   }
   const productIds = [...new Set([...wanted.keys()].map((k) => k.split("::")[0]))]
   if (productIds.length === 0) return { ok: false, status: 400, error: "Your cart is empty" }
@@ -322,9 +326,14 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     const variant = want.variantId ? variantsById.get(want.variantId) : null
     if (want.variantId && (!variant || variant.product_id !== productId)) { dropped.push(product.title); continue }
     if (variant && soldOut.has(variant.id)) { dropped.push(product.title); continue }
-    /* Pay what you want in a basket is its minimum: there is no amount box. */
-    const priced = baseFor(variant ?? product, undefined)
-    const priceCents = priced.ok ? priced.cents : 0
+    /* Pay what you want is the amount the buyer named on the product page,
+       held to the product's (or the option's) own minimum and to the
+       ceiling; a line that named none is its minimum. An amount under the
+       minimum refuses the basket with the reason, rather than charging
+       something the buyer did not choose. */
+    const priced = baseFor(variant ?? product, want.customPriceCents)
+    if (priced.ok === false) return { ok: false, status: 400, error: `${product.title}: ${priced.error}` }
+    const priceCents = priced.cents
     /* A free product is a download, not a payment. It has no place in a
        basket that is going to a card form, and Stripe will not take a zero
        line anyway. */

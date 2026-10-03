@@ -226,7 +226,11 @@ async function main() {
        * per-block stylesheet is the mistake that turns a long FAQ into a
        * megabyte of CSS, so it is worth holding to.
        */
-      check("and the section's CSS does not grow with its blocks", r.css.length < 12_000, `${(r.css.length / 1024).toFixed(1)}KB`)
+      /* Measured against the same section with one block: the product grid's
+         stylesheet carries the shop's filters too, so a fixed size says less
+         than the comparison does. The ceiling still catches a runaway. */
+      const one = renderSection({ compiled: c.value, id: big.id, instance: toInstanceData(instance(type, 1, 1)), theme: {}, page: { template: "index" } })
+      check("and the section's CSS does not grow with its blocks", r.css.length === one.css.length && r.css.length < 16_000, `${(r.css.length / 1024).toFixed(1)}KB with ${big.blocks?.length} blocks, ${(one.css.length / 1024).toFixed(1)}KB with one`)
     }
   }
 

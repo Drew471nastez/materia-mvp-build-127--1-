@@ -1,28 +1,24 @@
 /**
  * ===========================================================================
- *  ONE HEADER AND ONE FOOTER, AND NO SECTION FILE MAY BE EITHER
+ *  WHICH SECTION IS THE HEADER, AND WHICH THE FOOTER
  * ===========================================================================
- * Every Storelib site has exactly one header and one footer. They are the
- * built-in `header` and `footer` sections, shared by every page, and they
- * carry the parts of a shop a section file cannot rebuild on its own: the
- * cart drawer and its count, the search modal, the account and wishlist
- * links for a signed-in visitor, the phone menu with its sub-menus, sticky
- * and hide-on-scroll behaviour, the transparent header over a hero, the
- * logo and brand name from Theme settings, the menus from Website settings,
- * policy links, and the payment and social icons.
- *
- * An AI asked to "build a header" writes a new section called Header and
- * puts it in the page body: a second header under the real one, with a
- * cart icon that opens nothing, a search box that searches nothing, and a
- * menu that is a hard-coded copy of the real one. That is the bug this
- * module exists to refuse. A section file that IS a header or a footer is
- * named here, and every door that writes one (the code editor, Ask AI,
- * Claude Code or Codex over MCP, a GitHub push, a theme import) turns it
- * away with what to do instead: change the header's own settings.
+ * Every Storelib site draws one header and one footer. Usually they are the
+ * built-in `header` and `footer` sections, which carry the parts of a shop a
+ * section file does not rebuild on its own: the cart drawer and its count,
+ * the search, the account and wishlist links, the phone menu, sticky and
+ * transparent behaviour, the logo from Theme settings, the menus from
+ * Website settings, policy links, payment and social icons.
  *
  * A creator who asks for a header of their own gets ONE section that says
  * `"kind": "header"`, which replaces the built-in one: see declaredKind
- * below. That is not refused. Everything else that is a header is.
+ * below. Saving one is not refused; saving a header that does not say so is,
+ * with what to write instead (lib/website-builder/save-theme-file.ts).
+ *
+ * A header file that is already there (an imported theme, a site saved
+ * before this) is never dropped: it is placed where a header goes, in the
+ * Header group as THE header, with the built-in one hidden rather than drawn
+ * twice (lib/storelib-theme/section-groups.ts). That placement asks this
+ * module "is this file a header or a footer".
  *
  * HOW A FILE IS RECOGNISED, strongest signal first:
  *
@@ -31,11 +27,15 @@
  *      (an announcement bar in the header group), not what it is.
  *   2. Its type or name is a header's or a footer's: "Header", "Site
  *      header", "Navbar", "Navigation bar", "Top bar", "Footer", with a
- *      version or a "section" on the end. A "Page header" or a "Collection
- *      header" is a heading band on a page, not the site's header, and is
- *      left alone.
+ *      version or a "section" on the end, or a brand and a dash in front
+ *      ("Luca" then an em dash then "Header"). A "Page header" or a
+ *      "Collection header" is a heading band on a page and is left alone.
  *   3. Its markup is one: the outermost element is <header> holding a
  *      <nav>, or <footer>, and its name says header, nav, menu or footer.
+ *
+ * `sections/header.storelib` and `sections/footer.storelib` are always
+ * refused: they would shadow the built-in sections every page's header and
+ * footer settings are stored for.
  *
  * PURE, so the rule is the same in the browser, on the server and in a test.
  */
@@ -62,11 +62,20 @@ function bareName(value: string): string {
     .trim()
 }
 
+/** A brand in front of a spaced dash, bar or colon taken off: "Luca", an em dash, "Header" is "Header". */
+function afterBrand(value: string): string | null {
+  const parts = value.split(/\s+[—–|:]\s+|\s+-\s+/)
+  return parts.length > 1 ? parts[parts.length - 1] : null
+}
+
 function roleFromName(value: unknown): ChromeRole | null {
   if (typeof value !== "string" || !value.trim()) return null
-  const name = bareName(value)
-  if (HEADER_NAME.test(name)) return "header"
-  if (FOOTER_NAME.test(name)) return "footer"
+  for (const candidate of [value, afterBrand(value)]) {
+    if (!candidate) continue
+    const name = bareName(candidate)
+    if (HEADER_NAME.test(name)) return "header"
+    if (FOOTER_NAME.test(name)) return "footer"
+  }
   return null
 }
 
@@ -141,7 +150,7 @@ export function chromeRoleOf(input: {
   )
 }
 
-/** The built-in section a role is, and the file names a section file may never take. */
+/** The built-in section a role is, and the two file names a section file may never take. */
 export const CHROME_TYPES: Record<ChromeRole, string> = { header: "header", footer: "footer" }
 
 /**

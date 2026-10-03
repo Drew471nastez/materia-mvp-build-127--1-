@@ -12,9 +12,9 @@ How the Storelib website builder compares with Shopify's Online Store 2.0 theme 
 | Layout | Layout | Have | Page width, side padding, section gap, spacing scale, card radius and shadow. |
 | Animations | Animations | Have | Entrance style, duration and stagger. |
 | Buttons | Buttons | Have | Style, shape, radius, size, weight, shadow, hover. |
-| Variant pills | Variant pills | Partial | Corner radius and border thickness, drawn on every `[data-variant-pill]`. The default theme's product page has no option pills yet. |
+| Variant pills | Variant pills | Have | Corner radius and border thickness on the product page's option buttons, and on every `[data-variant-pill]`. |
 | Inputs | Inputs | Have | Corner radius, border thickness and border opacity on every text box, dropdown and text area in a section. |
-| Product cards | Product cards | Have | Standard or Card, image padding, text alignment, radius, border, shadow, on every `[data-card="product"]`: Product Grid, Featured Products, Featured collection, the 404 page. |
+| Product cards | Product cards | Have | Standard or Card, image padding, text alignment, radius, border, shadow, on every `[data-card="product"]`: Product Grid, Featured Products, Featured collection, search results, the 404 page. |
 | Collection cards | Collection cards | Have | The same six, on every `[data-card="collection"]`: Collection list and the collections page. |
 | Blog cards | none | Missing | A Storelib website has no blog. |
 | Content containers | Content containers | Have | Radius, border, shadow on every `[data-container]`: Feature Cards, Plans. |

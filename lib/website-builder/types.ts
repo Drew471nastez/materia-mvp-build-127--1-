@@ -269,6 +269,13 @@ export interface SectionInstance {
   settings: Record<string, unknown>
   blocks?: BlockInstance[]
   hidden?: boolean
+  /**
+   * The section group it sits in, when it is not on the page itself: an
+   * announcement bar above the header, a header written as a section file.
+   * The built-in header and footer are in theirs without it. See
+   * lib/storelib-theme/section-groups.ts.
+   */
+  group?: "header" | "footer"
 }
 
 export interface BlockInstance {
@@ -302,7 +309,7 @@ export interface ThemePage {
  * footer and a section each until the creator opens one in the builder,
  * after which what they saved is what is served.
  */
-export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist" | "collections"
+export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist" | "password" | "collections"
 
 /**
  * The account, its sign in page and the wishlist are pages every website
@@ -322,6 +329,8 @@ export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   account: { label: "Account", icon: "user" },
   login: { label: "Sign in", icon: "user" },
   wishlist: { label: "Wishlist", icon: "heart" },
+  /* What visitors see while the website asks for a password: Website Settings, Publishing. */
+  password: { label: "Password page", icon: "lock" },
 }
 
 // ── Custom files ─────────────────────────────────────────────

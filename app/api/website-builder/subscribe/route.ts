@@ -49,6 +49,7 @@ const CONSENT: Record<string, string> = {
   footer: "Subscribed via the sign-up box in the footer of this creator's website",
   contact: "Ticked \"Keep me updated\" on the contact form of this creator's website",
   section: "Subscribed via a sign-up form on this creator's website",
+  password: "Asked to be told when this creator's website opens, on its coming soon page",
 }
 
 function consentFor(placement: unknown): string {
@@ -56,7 +57,7 @@ function consentFor(placement: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { creator_id?: unknown; email?: unknown; name?: unknown; source?: unknown; placement?: unknown; origin?: unknown }
+  let body: { creator_id?: unknown; email?: unknown; name?: unknown; source?: unknown; placement?: unknown; origin?: unknown; company?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -71,6 +72,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 })
   }
 
+  /* A form's invisible field filled in is a script: told it worked, and nothing is written (lib/site-contact, looksAutomated). */
+  if (typeof body.company === "string" && body.company.trim() !== "") return NextResponse.json({ ok: true })
+
   /* Counted before anything is read or written. See lib/api/rate-limit.ts. */
   const limited = await rateLimit({
     bucket: "subscribe",
@@ -84,8 +88,11 @@ export async function POST(req: NextRequest) {
 
   // A creator that does not exist writes nothing. Without this, anybody
   // could fill the table with rows belonging to no account.
-  const { data: creator } = await db.from("creators").select("id").eq("id", creatorId).maybeSingle()
+  // A banned creator's website answers as no site (lib/seo/bans.ts), so it
+  // collects nobody either. Read whole: a database without the column has no bans.
+  const { data: creator } = await db.from("creators").select("*").eq("id", creatorId).maybeSingle()
   if (!creator) return NextResponse.json({ error: "Unknown site" }, { status: 404 })
+  if ((creator as { banned_at?: string | null }).banned_at) return NextResponse.json({ error: "Unknown site" }, { status: 404 })
 
   const { data: existing } = await db
     .from("subscribers")

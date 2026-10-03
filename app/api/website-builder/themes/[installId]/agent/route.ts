@@ -79,7 +79,7 @@ type RecordedEvent =
   | { type: "recorded"; messageId: string }
   | { type: "unsaved"; what: "chat" | "pictures"; reason: "not_set_up" | "failed"; kept?: number; of?: number }
   /** Whose account this run is on: null for Storelib AI, else the creator's own connection. */
-  | { type: "account"; own: "anthropic" | "openai" | "openrouter" | null }
+  | { type: "account"; own: "anthropic" | "openai" | null }
 
 /* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
 const BlockSchema = BlockInstanceSchema
@@ -91,6 +91,8 @@ const SectionSchema = z.object({
   settings: z.record(z.unknown()),
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),
+  /* Which section group it sits in, kept rather than stripped: lib/storelib-theme/section-groups.ts. */
+  group: z.enum(["header", "footer"]).optional(),
 })
 
 const BodySchema = z.object({
@@ -168,8 +170,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   if (!install) return NextResponse.json({ error: "Theme not found." }, { status: 404 })
 
   /**
-   * Storelib's OpenAI key, or one of the creator's own: somebody who has
-   * connected their own OpenAI key or OpenRouter is answered on it.
+   * Storelib's OpenAI key, or the creator's own: somebody who has
+   * connected their own OpenAI key is answered on it.
    *
    * 503, not 500: nothing is broken, the deployment is not configured.
    */

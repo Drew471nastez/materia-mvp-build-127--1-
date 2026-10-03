@@ -156,9 +156,7 @@ export function resolveProvider(input: { requested?: unknown; tier?: unknown }):
  * how hard it thinks), answered on their account when it can be:
  *
  *   1. their own OpenAI key, straight to OpenAI;
- *   2. otherwise their OpenRouter account, on the same models by
- *      OpenRouter's names;
- *   3. otherwise Storelib's, exactly as before.
+ *   2. otherwise Storelib's, exactly as before.
  *
  * A Claude key a creator connected before is kept, and not used while
  * Claude is not offered: Connections no longer shows it, and removing it is
@@ -182,22 +180,10 @@ export async function resolveForCreator(
   if (direct) {
     return {
       id: wanted,
-      provider: plainFailures(ownAccount(createOpenAIProvider(once(() => openAIClientFor(direct, "openai"))), "openai", creatorId)),
+      provider: plainFailures(ownAccount(createOpenAIProvider(once(() => openAIClientFor(direct))), "openai", creatorId)),
       model,
       substitutedFor: null,
       own: "openai",
-    }
-  }
-  const router = keys.openrouter
-  if (router) {
-    return {
-      id: wanted,
-      provider: plainFailures(
-        ownAccount(createOpenAIProvider(once(() => openAIClientFor(router, "openrouter")), { modelPrefix: "openai/" }), "openrouter", creatorId),
-      ),
-      model,
-      substitutedFor: null,
-      own: "openrouter",
     }
   }
   return resolveProvider(input)
@@ -207,7 +193,7 @@ export async function resolveForCreator(
 export const OWN_PREFIX = "own:"
 
 /** The creator's own connections that can answer today: a Claude key alone cannot. */
-export const ANSWERING_SOURCES: readonly KeySource[] = ["openai", "openrouter"]
+export const ANSWERING_SOURCES: readonly KeySource[] = ["openai"]
 
 /** Whether a creator could be answered at all: Storelib's key, or one of their own. */
 export async function canAnswer(creatorId: string | null | undefined): Promise<boolean> {

@@ -21,7 +21,7 @@
  *   Customer accounts  /account, /account/login, /wishlist
  *   Contact            /contact
  *   Policies           /refund-policy, /privacy-policy, /terms-of-service
- *   Other              the 404 page
+ *   Other              the 404 page, the password page
  *
  * These are the pages the code has: BUILT_IN_PAGE_KEYS and
  * NOT_FOUND_PAGE_KEY in site-pages.ts, the account pages in
@@ -61,7 +61,8 @@ export function pageGroupOf(key: string): PageGroupKey {
   if (ACCOUNT_KEYS.includes(key)) return "accounts"
   if (key === "contact") return "contact"
   if (POLICY_PAGE_KEYS.includes(key) || key === SHIPPING_POLICY.key) return "policies"
-  if (key === NOT_FOUND_PAGE_KEY) return "other"
+  /* The 404 page and the password page: pages a visitor lands on, not ones a menu links to. */
+  if (key === NOT_FOUND_PAGE_KEY || key === "password") return "other"
   return "pages"
 }
 

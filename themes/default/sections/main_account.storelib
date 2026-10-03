@@ -1,6 +1,6 @@
 <template>
 <section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
-  <div class="s__in acct">
+  <div class="s__in acct acct--{{ settings.max_width }}">
     {% if customer %}
       {# The page is the customer's, laid out the way a shop's account page
          is: its title and the way out, then orders, profile and what they
@@ -67,7 +67,7 @@
             <form class="row row--edit" method="post" action="{{ routes.account_profile_url }}" data-storelib-form="native">
               <label class="row__label" for="{{ section.id }}-name">{{ settings.name_label }}</label>
               <div class="edit">
-                <input class="edit__input" id="{{ section.id }}-name" name="name" type="text" value="{{ customer.name }}" maxlength="120" autocomplete="name" autofocus>
+                <input class="edit__input" id="{{ section.id }}-name" name="name" type="text" value="{{ customer.name }}" maxlength="120" autocomplete="name" placeholder="{{ settings.name_placeholder }}" autofocus>
                 <button class="s__btn s__btn--primary" type="submit">{{ settings.save_label }}</button>
                 <a class="acct__link" href="{{ routes.account_url }}#profile">{{ settings.cancel_label }}</a>
               </div>
@@ -85,6 +85,22 @@
           </div>
         </div>
       </div>
+
+      {# The addresses this customer's orders from this shop went to, newest
+         first, as the checkout took them. Shown only when there is one: a
+         shop that sells files has no addresses to list. #}
+      {% if settings.show_addresses and customer.addresses.size > 0 %}
+        <div class="acct__block" id="addresses">
+          <h2 class="acct__h2">{{ settings.addresses_heading }}</h2>
+          <ul class="addrs">
+            {% for address in customer.addresses %}
+            <li class="addr{% if customer.sample %} is-sample{% endif %}">
+              {% for line in address.lines %}<span class="addr__line">{{ line }}</span>{% endfor %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
 
       {% if settings.show_wishlist %}
         <div class="acct__block">
@@ -115,6 +131,8 @@
   padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1));
 }
 .acct { max-width: 760px; }
+.acct--narrow { max-width: 600px; }
+.acct--wide { max-width: 1040px; }
 .s__h {
   margin: 0;
   font-size: var(--section-heading-size, 32px);
@@ -181,7 +199,13 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
   font: inherit; font-size: 16px; color: var(--s-text); background: var(--s-bg);
   border: 1px solid var(--s-border); border-radius: var(--s-radius); -webkit-appearance: none; appearance: none;
 }
+.edit__input::placeholder { color: var(--s-para); opacity: 0.75; }
 .edit__input:focus { outline: 2px solid var(--s-heading); outline-offset: 1px; border-color: var(--s-heading); }
+
+.addrs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0 32px; }
+@container (min-width: 560px) { .addrs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.addr { display: flex; flex-direction: column; padding: 16px 0; border-bottom: 1px solid var(--s-border); font-size: var(--section-text-size, 15px); line-height: 1.5; color: var(--s-heading); overflow-wrap: anywhere; }
+.addr.is-sample { color: var(--s-para); }
 
 .entry {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px;
@@ -233,8 +257,12 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
     { "type": "text", "id": "name_empty", "label": "When there is no name", "default": "Not added" },
     { "type": "text", "id": "email_label", "label": "Email", "default": "Email" },
     { "type": "text", "id": "edit_label", "label": "Edit link", "default": "Edit" },
+    { "type": "text", "id": "name_placeholder", "label": "Name field placeholder", "default": "Your name" },
     { "type": "text", "id": "save_label", "label": "Save button", "default": "Save" },
     { "type": "text", "id": "cancel_label", "label": "Cancel link", "default": "Cancel" },
+    { "type": "header", "id": "hdr_addresses", "label": "Addresses" },
+    { "type": "toggle", "id": "show_addresses", "label": "Show addresses", "default": true, "info": "The addresses their orders were sent to. Hidden when there are none." },
+    { "type": "text", "id": "addresses_heading", "label": "Heading", "default": "Addresses" },
     { "type": "header", "id": "hdr_saved", "label": "Wishlist" },
     { "type": "toggle", "id": "show_wishlist", "label": "Show the wishlist", "default": true },
     { "type": "text", "id": "wishlist_heading", "label": "Heading", "default": "Wishlist" },
@@ -245,6 +273,14 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
     { "type": "text", "id": "signed_out_text", "label": "Line", "default": "Sign in to see your orders and saved items." },
     { "type": "text", "id": "signin_label", "label": "Button", "default": "Sign in" },
     { "type": "header", "id": "hdr_style", "label": "Style" },
+    {
+      "type": "select", "id": "max_width", "label": "Width", "default": "medium",
+      "options": [
+        { "label": "Narrow", "value": "narrow" },
+        { "label": "Medium", "value": "medium" },
+        { "label": "Wide", "value": "wide" }
+      ]
+    },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
     { "type": "range", "id": "padding_top", "label": "Top padding", "default": 56, "min": 0, "max": 160, "step": 4, "unit": "px" },
     { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "default": 88, "min": 0, "max": 160, "step": 4, "unit": "px" }

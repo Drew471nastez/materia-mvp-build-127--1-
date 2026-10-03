@@ -803,7 +803,7 @@ check(
   // And the question is answered by whoever draws the chrome, not by the
   // editor reading theme flags — that is how the bar came to exist four times.
   /export function headerTouchesTop\(theme: ThemeSettingsValues\): boolean/.test(themePage) &&
-    /render\(section, "header", headerTouchesTop\(theme\)\)/.test(themePage) &&
+    /render\(section, "header", i === 0 && headerTouchesTop\(theme\)\)/.test(themePage) &&
     /renderSection=\{\(section, role, atTop\) =>/.test(editor) &&
     /canvasRoundedTopPx=\{atTop && canvasRadiusPx \? canvasRadiusPx : undefined\}/.test(editor),
 )
@@ -910,7 +910,7 @@ check(
     /settingsRef\.current = settingsDraft/.test(editor) &&
     /const pushUndo = useCallback\(\(\) => \{\s*\n\s*setUndoStack\(prev => \[\.\.\.prev\.slice\(-30\), snapshotNow\(\)\]\)/.test(editor) &&
     // the three that were missing
-    /pushUndo\(\)\s*\n\s*setSections\(prev => prev\.map\(s =>\s*\n\s*s\.id === sectionId \? \{ \.\.\.s, hidden: !s\.hidden \}/.test(editor) &&
+    /pushUndo\(\)\s*\n\s*\/\*[^*]*\*\/\s*\n\s*setSections\(prev => toggleShown\(prev, sectionId, kindOfType\)\)/.test(editor) &&
     /if \(from === -1 \|\| to < 0 \|\| to >= body\.length\) return\s*\n\s*pushUndo\(\)/.test(editor) &&
     /if \(!over \|\| active\.id === over\.id\) return\s*\n[\s\S]{0,180}?pushUndo\(\)/.test(editor) &&
     // and both handlers read the stack from a ref rather than a stale closure
@@ -928,7 +928,7 @@ check(
    */
   /label=\{hidden \? `Show \$\{displayName\}` : `Hide \$\{displayName\}`\}/.test(sectionsList) &&
     /shown=\{hidden \|\| isSelected\}/.test(sectionsList) &&
-    /onToggleHide=\{\(\) => onToggleHide\(s\.id\)\}\s*\n\s*chrome=\{role\}/.test(sectionsList) &&
+    /onToggleHide=\{\(\) => onToggleHide\(s\.id\)\}[\s\S]{0,400}?chrome=\{chrome\}/.test(sectionsList) &&
     /onToggleHide=\{toggleSectionHidden\}/.test(editor) &&
     /nameOf=\{\(s\) => sectionDisplayName\(s, librarySchemas\)\}/.test(editor),
 )
@@ -1437,7 +1437,7 @@ check(
 )
 
 check(
-  "Add section is under the header, at the top of the page's own sections, and again at their end",
+  "Add section in each group: the Header group's, the end of the page, the Footer group's",
   /**
    * The owner asked for it the way a shop's theme editor has it: one under
    * the Header group, which adds at the top of the page, and one at the foot
@@ -1445,10 +1445,18 @@ check(
    * where the thumb already is, which is what the old phone-only button at
    * the top of the sheet was for.
    */
-  /<GroupLabel>Header<\/GroupLabel>[\s\S]{0,200}?<AddSectionButton onClick=\{\(\) => onAdd\(0\)\} \/>/.test(sectionsList) &&
-    /<\/DndContext>\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null\)\} \/>/.test(sectionsList) &&
-    (sectionsList.match(/<AddSectionButton /g) ?? []).length === 2 &&
-    /setPendingInsertIndex\(at === null \? null : \(header \? 1 : 0\) \+ at\)/.test(editor),
+  /**
+   * Then the owner asked for Shopify's section groups: the Header group's
+   * Add section offers what goes there (an announcement bar, a header), and
+   * the Footer group has its own. The top of the page is the insert line
+   * above the first section.
+   */
+  /<GroupLabel>\{GROUP_LABELS\.header\}<\/GroupLabel>[\s\S]{0,240}?<AddSectionButton onClick=\{\(\) => onAdd\(null, "header"\)\} \/>/.test(sectionsList) &&
+    /<\/DndContext>\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null, "template"\)\} \/>/.test(sectionsList) &&
+    /<AddSectionButton onClick=\{\(\) => onAdd\(null, "footer"\)\} \/>/.test(sectionsList) &&
+    /<InsertSectionDivider onClick=\{\(\) => onAdd\(0, "template"\)\} \/>/.test(sectionsList) &&
+    (sectionsList.match(/<AddSectionButton /g) ?? []).length === 3 &&
+    /setPendingInsertIndex\(at === null \|\| group !== "template" \? null : splitGroups\(sections\)\.header\.length \+ at\)/.test(editor),
 )
 
 check(
@@ -2116,7 +2124,7 @@ check(
     /aria-label=\{`More for \$\{displayName\}`\}/.test(sectionsList) &&
     /<DropdownMenuTrigger asChild>\s*<button\s*type="button"\s*aria-label=\{`More for \$\{displayName\}`\}/.test(sectionsList) &&
     /<DropdownMenu open=\{menuOpen\} onOpenChange=\{setMenuOpen\} modal=\{false\}>/.test(sectionsList) &&
-    /onContextMenu=\{\(e\) => \{\s*\n\s*if \(chrome\) return\s*\n\s*e\.preventDefault\(\)\s*\n\s*setMenuOpen\(true\)/.test(sectionsList) &&
+    /onContextMenu=\{\(e\) => \{\s*\n\s*e\.preventDefault\(\)\s*\n\s*setMenuOpen\(true\)/.test(sectionsList) &&
     /Duplicate\s*<\/DropdownMenuItem>/.test(sectionsList) &&
     /Move up\s*<\/DropdownMenuItem>/.test(sectionsList) &&
     /Delete\s*<\/DropdownMenuItem>/.test(sectionsList) &&
@@ -2126,8 +2134,9 @@ check(
 
 check(
   "the header and the footer carry a badge saying which piece of chrome they are",
-  /chromeRow\(header, "header"\)/.test(sectionsList) &&
-    /chromeRow\(footer, "footer"\)/.test(sectionsList) &&
+  /const chrome = isKind\(s, role, kindOfType\) \? role : undefined/.test(sectionsList) &&
+    /\{groupRows\("header"\)\}/.test(sectionsList) &&
+    /\{groupRows\("footer"\)\}/.test(sectionsList) &&
     /chrome === "header" \? <PanelTop/.test(sectionsList) &&
     /<PanelBottom/.test(sectionsList),
 )
@@ -2282,7 +2291,7 @@ check(
     /<EditorCanvasPage\s*\n\s*theme=\{canvasThemeSettings\}/.test(editor) &&
     /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
-    /const openAddSection = useCallback\(\(\) => setAddSectionOpen\(true\), \[\]\)/.test(editor) &&
+    /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&
     // Still one stable callback from the parent, now carrying which block
     // was clicked as well as which section: see selectSectionFromCanvas.
     /onClick: inspectorEnabled\s*\n\s*\? \(e: React\.MouseEvent<HTMLElement>\) => \{/.test(editor) &&

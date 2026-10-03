@@ -16,6 +16,10 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
+- [The main product section](/developers/selling#the-main-product-section) is blocks: title, price, variant picker with swatches, pay what you want, quantity, buy buttons, low stock, badges, description, collapsible tabs, text, icon with text, share, wishlist, divider, breadcrumbs, file list and custom code. Its media is stacked, a grid, a slideshow with thumbnails or a carousel, swipes on a phone, opens larger with zoom, and shows the chosen variant's picture.
+- [Filtering the shop](/developers/selling#filtering-the-shop): `page.filters` on the shop and search pages, from the address.
+- [Breadcrumbs](/developers/selling#breadcrumbs): `page.breadcrumbs` on every page but home, `page.title`, and a Breadcrumbs section.
+- `products` carry `category` and, for a product that ships, `options`.
 - [Where a section may go](/developers/schema#where-a-section-may-go): `enabled_on` and `disabled_on` with section groups (`header`, `footer`, `template`), Shopify's spelling, and `"category": "announcement"` meaning the header group.
 - [A header of your own](/developers/header-and-footer#a-header-of-your-own): `"kind": "header"` (or `"footer"`) makes one section the site's header in place of the built-in one. One of each per theme.
 - [A section's own animation](/developers/schema#a-sections-own-animation): a `select` with the id `animation` and the values `theme`, `none`, `fade`, `fade_up` and `zoom` overrides the theme's animation for that section.

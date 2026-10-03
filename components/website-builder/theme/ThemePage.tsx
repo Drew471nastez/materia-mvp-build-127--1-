@@ -43,6 +43,8 @@ import { fontStylesheetHref, sectionFamilies } from "@/lib/website-builder/font-
 import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
+import { useSiteMotion } from "./use-site-motion"
+import { splitGroups } from "@/lib/storelib-theme/section-groups"
 
 export type SectionRole = "header" | "body" | "footer"
 
@@ -438,10 +440,13 @@ export function ThemePage({
    * HEADER FIRST, FOOTER LAST, whatever order they were saved in. A header is
    * chrome, not content: an editor that lets you drag it into the middle of
    * the page should not produce a page with a navigation bar halfway down it.
+   *
+   * By GROUP, not by type: the Header group is the header and whatever was
+   * placed above or below it (an announcement bar, a marquee, a header
+   * written as a section file), and the Footer group likewise
+   * (lib/storelib-theme/section-groups.ts).
    */
-  const headers = sections.filter((s) => s.type === "header")
-  const footers = sections.filter((s) => s.type === "footer")
-  const body = sections.filter((s) => s.type !== "header" && s.type !== "footer")
+  const { header: headers, footer: footers, template: body } = splitGroups(sections)
 
   const render =
     renderSection ??
@@ -459,6 +464,14 @@ export function ThemePage({
         theme={theme}
       />
     ))
+
+  /**
+   * LINKS TO A SECTION SCROLL TO IT, AND SECTIONS ARRIVE AS THEY COME INTO
+   * VIEW, here and therefore everywhere this page is drawn: the canvas and
+   * every published route alike. See lib/website-builder/section-motion.ts.
+   */
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  useSiteMotion(rootRef, theme, sections, storefront?.inEditor === true)
 
   const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>, sectionFamilies(sections))
   /**
@@ -507,6 +520,7 @@ export function ThemePage({
     */}
     <SiteWishlistProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
     <div
+      ref={rootRef}
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
       /* Theme settings › Cart › Cart type, where the cart and Add to cart read it. */
       data-cart-type={themeCartType(theme)}
@@ -547,7 +561,7 @@ export function ThemePage({
       <AnnouncementBar theme={theme} />
       <FreeShippingBar theme={theme} />
 
-      {headers.map((section) => render(section, "header", headerTouchesTop(theme)))}
+      {headers.map((section, i) => render(section, "header", i === 0 && headerTouchesTop(theme)))}
 
       {/*
         THE HEADER IS ALWAYS THE TOP OF THE PAGE.

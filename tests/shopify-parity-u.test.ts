@@ -270,6 +270,11 @@ async function main() {
     const unscoped = lines.flatMap((l) => topLevel(l.split("{")[0])).filter((sel) => !sel.trim().startsWith(root))
     check("every selector starts at the page root, so nothing reaches the editor", unscoped.length === 0, unscoped.slice(0, 4))
     check("Card style frames the whole card; centred words are centred", /\[data-card="product"\]\{[^}]*background:color-mix/.test(css) && /\[data-card="product"\]\{text-align:center;\}/.test(css))
+    const blocks = read("components/website-builder/sections/renderers/product/product-blocks.tsx")
+    check("the product page's option pills take Variant pills once set, their own radius until then",
+      /data-variant-pill=""/.test(blocks) && /borderRadius: `var\(--theme-pill-radius, \$\{ctx\.radius\}\)`/.test(blocks) && /borderWidth: "var\(--theme-pill-border-width, 1px\)"/.test(blocks))
+    const search = DEFAULT_THEME_SOURCES["sections/search.storelib"]
+    check("search results are product cards too", (search.match(/data-card="product"/g) ?? []).length >= 3 && /data-card-media/.test(search))
     check("the header's dropdown is a pop-up too, without the header changing", css.includes(`${root} [data-section] .theme-nav-dropdown`))
     check("each rule outweighs a section's own (0,2,0), so a chosen value is what shows", lines.every((l) => topLevel(l.split("{")[0]).every((sel) => sel.trim().startsWith(`${root} [data-section] `) || sel.trim() === `${root} [data-popup]`)))
 

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 
 // GET - Fetch creator's products for the website builder editor
 export async function GET(request: Request) {
@@ -26,9 +28,11 @@ export async function GET(request: Request) {
 
     // Single product with full details (for product page preview)
     if (productId) {
+      /* The creator's own product, read as THEM: the creator filter and their
+         row level security both say whose it is. Only then is the rest read. */
       const { data: product, error } = await supabase
         .from("products")
-        .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, whats_included, status, type")
+        .select("*")
         .eq("id", productId)
         .eq("creator_id", creator.id)
         .single()
@@ -37,17 +41,13 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Product not found" }, { status: 404 })
       }
 
-      // Fetch digital assets for file info
-      const { data: assets } = await supabase
-        .from("digital_assets")
-        .select("id, file_name, file_size, mime_type")
-        .eq("product_id", productId)
-        .eq("upload_status", "completed")
-        .order("created_at", { ascending: true })
-
-      return NextResponse.json({
-        product: { ...product, files: assets ?? [] },
-      })
+      /* What the product section draws, read the way the live product page
+         reads it (lib/products/product-section-data.ts), so the canvas shows
+         the variants, the pictures and the stock a visitor will see. Stock
+         and options sit in tables only the server reads, and this product
+         has just been shown to be this creator's. */
+      const data = await productSectionData(createAdminClient(), product as ProductSectionRow, { files: true })
+      return NextResponse.json({ product: { ...data, status: (product as { status?: string }).status ?? null } })
     }
 
     // List all published products

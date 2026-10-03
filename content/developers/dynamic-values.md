@@ -124,6 +124,9 @@ The instance's blocks in order. Each is `{ id, type, settings }`, and each block
 | `page.in_editor` | `true` while the builder draws the page, and absent on the live site. |
 | `page.query` | On the live search page, what was searched for, up to 120 characters. Absent everywhere else. |
 | `page.product` | On a product page, the product it is about: the fields of a product in `products` and its description. Empty everywhere else. See [Selling](/developers/selling#the-product-page-pageproduct). |
+| `page.title` | The page's own title, such as `About`, on the creator's own pages. |
+| `page.breadcrumbs` | Where the page is, as a list of `{ label, url }`: Home, then Shop and the product on a product page, or the page's title. The last has no `url`. Empty on home. See [Selling](/developers/selling#breadcrumbs). |
+| `page.filters` | On the shop and search pages, the filter form: groups, values, counts and the sort. See [Selling](/developers/selling#filtering-the-shop). |
 
 `page.template` on each page:
 
@@ -254,7 +257,8 @@ Which products a page has:
 | Where | `products` |
 | --- | --- |
 | Home, the shop and your own pages, live | The newest 24 published products. A change to a product reaches the site within about a minute. |
-| Search results, live | Those of the 24 that match `page.query`. |
+| Search results, live | Those of the 24 that match `page.query` and the filters in the address, in the order asked for. |
+| The shop, live, with filters in the address | Those of the 24 that pass them, in the order asked for. |
 | A product page, live | The newest 24 published products. The product the page is about is `page.product`. |
 | The builder | Up to 100 of the newest published products, on every page. |
 
@@ -306,6 +310,8 @@ The addresses every Storelib website answers on. Link to them by name rather tha
 | `routes.account_verify_url` | Where the code form posts `code`. Signs the visitor in. |
 | `routes.account_profile_url` | Where the account page's form posts `name`. |
 | `routes.account_logout_url` | `/account/logout`. Post a form to it: `<form method="post" action="{{ routes.account_logout_url }}" data-storelib-form="native">` |
+| `routes.password_url` | `/password`, the page a website shows while its owner asks visitors for a password. |
+| `routes.password_enter_url` | Where the password page's form posts `password` (and `return`). Lets the visitor in for thirty days. |
 
 Post these forms with `data-storelib-form="native"`, so the browser sends them and the page follows where the answer leads.
 
