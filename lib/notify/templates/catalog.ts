@@ -43,6 +43,13 @@ const MEMBERSHIP_KEYS = [
   "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4",
 ] as const
 
+/**
+ * What a community email reads (lib/communities/server/email.ts fills them):
+ * the community's id, name and address, who runs it, and per kind the
+ * announcement, the event, the course or the invite it is about.
+ */
+const COMMUNITY_KEYS = ["communityId", "communityName", "communitySlug", "creatorName"] as const
+
 /** The data keys each template reads. Workflows fill these; every one is optional. */
 export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   WELCOME_TO_STORELIB: ["storeName"],
@@ -94,6 +101,12 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   MEMBERSHIP_PAYMENT_FAILED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_CANCELED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_ENDED: [...MEMBERSHIP_KEYS],
+  COMMUNITY_WELCOME: [...COMMUNITY_KEYS, "welcomeText"],
+  COMMUNITY_JOIN_APPROVED: [...COMMUNITY_KEYS, "needsPayment", "priceLine"],
+  COMMUNITY_INVITE: [...COMMUNITY_KEYS, "inviterName", "inviteCode", "tagline", "expiresAt"],
+  COMMUNITY_ANNOUNCEMENT: [...COMMUNITY_KEYS, "postId", "title", "excerpt", "authorName"],
+  COMMUNITY_EVENT_REMINDER: [...COMMUNITY_KEYS, "eventId", "eventTitle", "startsAt", "endsAt", "timezone", "lead", "location", "online"],
+  COMMUNITY_COURSE_AVAILABLE: [...COMMUNITY_KEYS, "courseTitle", "courseProductId"],
 }
 
 /* ── Canonical paths ───────────────────────────────────────────────────── */
@@ -133,6 +146,9 @@ export const PATHS = {
   /** A member's page for one membership: its posts, what it includes, and Manage. */
   memberships: "/library/memberships",
   membership: (id: string) => (id ? `/library/memberships/${id}` : "/library/memberships"),
+  /** A member's communities, and one community's pages by its address (app/(marketing)/community/[slug]). */
+  communities: "/library/communities",
+  community: (slug: string, rest = "") => (slug ? `/community/${slug}${rest}` : "/library/communities"),
 } as const
 
 /* ── Reading data ──────────────────────────────────────────────────────── */
@@ -1396,6 +1412,179 @@ export const CATALOG: Record<NotificationType, Entry> = {
       facts: [["Membership", m.title], ["By", m.creator]],
       action: { label: "See your memberships", path: PATHS.memberships },
       inApp: { title: "Membership ended", body: m.title ? `${m.title} has ended.` : "Your membership has ended.", actionLabel: "Open", actionPath: PATHS.memberships },
+    }
+  },
+
+  /* ── A member of a community ────────────────────────────────────────── */
+  COMMUNITY_WELCOME: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_WELCOME(d, ctx),
+  COMMUNITY_JOIN_APPROVED: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_JOIN_APPROVED(d, ctx),
+  COMMUNITY_INVITE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_INVITE(d, ctx),
+  COMMUNITY_ANNOUNCEMENT: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_ANNOUNCEMENT(d, ctx),
+  COMMUNITY_EVENT_REMINDER: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx),
+  COMMUNITY_COURSE_AVAILABLE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx),
+}
+
+/** What every community email says the same way: its name, who runs it, and its address. */
+function communityOf(d: Data): { name: string; creator: string; slug: string; home: string } {
+  const slug = d.id("communitySlug")
+  return { name: d.text("communityName", 60), creator: d.text("creatorName", 40), slug, home: PATHS.community(slug) }
+}
+
+/** Why an optional community email came, and where to turn that kind off. */
+function memberNote(c: { name: string }, what: string): string {
+  return join(`You get ${what} because you are a member${c.name ? ` of ${c.name}` : ""}.`, "You can turn them off in the community's notification settings.")
+}
+
+/** An event's time, in the zone the event was set in: "Tue, Mar 4, 6:00 PM GMT+1". */
+function eventWhen(d: Data): string {
+  const starts = d.text("startsAt", 40)
+  const t = Date.parse(starts)
+  if (!starts || !Number.isFinite(t)) return ""
+  const zone = d.text("timezone", 60)
+  const opts = (timeZone?: string): Intl.DateTimeFormatOptions => ({ weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short", ...(timeZone ? { timeZone } : { timeZone: "UTC" }) })
+  let text: string
+  try {
+    text = new Intl.DateTimeFormat("en-US", opts(zone || undefined)).format(t)
+  } catch {
+    text = new Intl.DateTimeFormat("en-US", opts()).format(t)
+  }
+  return text.replace(/[\u202f\u00a0]/g, " ")
+}
+
+/* ── A member of a community ──────────────────────────────────────────── */
+
+const COMMUNITY_ENTRIES: Record<
+  "COMMUNITY_WELCOME" | "COMMUNITY_JOIN_APPROVED" | "COMMUNITY_INVITE" | "COMMUNITY_ANNOUNCEMENT" | "COMMUNITY_EVENT_REMINDER" | "COMMUNITY_COURSE_AVAILABLE",
+  Entry
+> = {
+  COMMUNITY_WELCOME: (d) => {
+    const c = communityOf(d)
+    const welcome = d.text("welcomeText", 400)
+    return {
+      family: "base",
+      audience: "customer",
+      subject: fitSubject("Welcome to ", c.name, "") || "Welcome to the community",
+      preview: c.creator ? `You are in. ${c.creator} runs it.` : "You are in.",
+      heading: c.name ? `Welcome to ${c.name}` : "Welcome to the community",
+      paragraphs: [
+        welcome || join("You are a member now.", "Say hello in the feed, read the rules, and see what is coming up."),
+        "Your communities are always in your Storelib library, under Communities.",
+      ],
+      facts: [["Community", c.name], ["Run by", c.creator]],
+      action: { label: "Open the community", path: c.home },
+      inApp: { title: "You are a member", body: c.name ? `Welcome to ${c.name}.` : "Welcome to the community.", actionLabel: "Open", actionPath: c.home },
+    }
+  },
+
+  COMMUNITY_JOIN_APPROVED: (d) => {
+    const c = communityOf(d)
+    const pay = d.bool("needsPayment") === true
+    const price = d.text("priceLine", 40)
+    return {
+      family: "success",
+      audience: "customer",
+      subject: fitSubject("You can join ", c.name, " now") || "Your request to join was approved",
+      preview: pay ? "Finish joining when you are ready." : "You are a member now.",
+      heading: "Your request was approved",
+      paragraphs: [
+        join(c.creator ? `${c.creator} approved your request` : "Your request was approved", c.name ? `to join ${c.name}.` : "."),
+        pay ? join("To finish joining, open the community and complete the payment", price ? `(${price}).` : ".") : "You are a member now, so the feed, the events and everything else for members are open to you.",
+      ],
+      facts: [["Community", c.name], ["Price", pay ? price : ""]],
+      action: { label: pay ? "Finish joining" : "Open the community", path: c.home },
+      inApp: { title: "Request approved", body: c.name ? `You can join ${c.name} now.` : "You can join the community now.", actionLabel: "Open", actionPath: c.home },
+    }
+  },
+
+  COMMUNITY_INVITE: (d) => {
+    const c = communityOf(d)
+    const inviter = d.text("inviterName", 40) || c.creator
+    const code = d.id("inviteCode")
+    const path = code && c.slug ? PATHS.community(c.slug, `/join?invite=${code}`) : c.home
+    const until = d.date("expiresAt")
+    return {
+      family: "base",
+      audience: "customer",
+      subject: fitSubject("You are invited to ", c.name, "") || "You are invited to a community",
+      preview: inviter ? `${inviter} invited you to join.` : "You have an invite to join.",
+      heading: c.name ? `Join ${c.name}` : "You are invited",
+      paragraphs: [
+        join(inviter ? `${inviter} invited you to join` : "You are invited to join", c.name ? `${c.name} on Storelib.` : "a community on Storelib."),
+        d.text("tagline", 160),
+        until ? `The invite works until ${until}.` : "",
+      ].filter(Boolean),
+      facts: [["Community", c.name], ["Run by", c.creator]],
+      action: { label: "Accept the invite", path },
+      note: "If you were not expecting this, you can ignore it. Nothing happens unless you accept.",
+      greet: false,
+      inApp: { title: "You are invited", body: c.name ? `Join ${c.name}.` : "You have an invite to a community.", actionLabel: "Open", actionPath: path },
+    }
+  },
+
+  COMMUNITY_ANNOUNCEMENT: (d) => {
+    const c = communityOf(d)
+    const title = d.text("title", 120)
+    const excerpt = d.text("excerpt", 400)
+    const author = d.text("authorName", 40)
+    const post = d.id("postId")
+    const path = post && c.slug ? PATHS.community(c.slug, `/post/${post}`) : c.home
+    const subject = title ? fitSubject("", title, c.name ? ` in ${c.name}` : "") || fitSubject("", title, "") : fitSubject("New announcement in ", c.name, "")
+    return {
+      family: "base",
+      audience: "customer",
+      subject: subject || "A new announcement in your community",
+      preview: excerpt ? excerpt.slice(0, 120) : author ? `From ${author}.` : "A new announcement for members.",
+      heading: title || "A new announcement",
+      paragraphs: [excerpt, join(author ? `Posted by ${author}` : "Posted", c.name ? `in ${c.name}.` : "in your community.")].filter(Boolean),
+      action: { label: "Read it in the community", path },
+      note: memberNote(c, "announcement emails"),
+      greet: false,
+      unsubscribeLabel: null,
+      inApp: { title: title || "New announcement", body: c.name ? `In ${c.name}.` : "In your community.", actionLabel: "Read", actionPath: path },
+    }
+  },
+
+  COMMUNITY_EVENT_REMINDER: (d) => {
+    const c = communityOf(d)
+    const title = d.text("eventTitle", 120)
+    const when = eventWhen(d)
+    const lead = d.text("lead", 8)
+    const soon = lead === "1h" ? "in an hour" : lead === "24h" ? "tomorrow" : "soon"
+    const event = d.id("eventId")
+    const path = event && c.slug ? PATHS.community(c.slug, `/events/${event}`) : c.home
+    const where = d.bool("online") === true ? "Online. The link is on the event page from 15 minutes before it starts." : d.text("location", 120)
+    return {
+      family: "transaction",
+      audience: "customer",
+      subject: fitSubject("", title, ` starts ${soon}`) || `Your event starts ${soon}`,
+      preview: when || `It starts ${soon}.`,
+      heading: title ? `${title} starts ${soon}` : `Your event starts ${soon}`,
+      paragraphs: [join("A reminder for an event you said you are going to", c.name ? `in ${c.name}.` : "."), when ? `It starts ${when}.` : ""].filter(Boolean),
+      facts: [["Event", title], ["When", when], ["Place", where], ["Community", c.name]],
+      action: { label: "Open the event", path },
+      note: memberNote(c, "event reminders"),
+      greet: false,
+      inApp: { title: title ? `${title} starts ${soon}` : `An event starts ${soon}`, body: when || (c.name ? `In ${c.name}.` : "In your community."), actionLabel: "Open", actionPath: path },
+    }
+  },
+
+  COMMUNITY_COURSE_AVAILABLE: (d) => {
+    const c = communityOf(d)
+    const course = d.text("courseTitle", 80)
+    const id = d.id("courseProductId")
+    const path = id && c.slug ? PATHS.community(c.slug, `/classroom/${id}`) : c.slug ? PATHS.community(c.slug, "/classroom") : c.home
+    return {
+      family: "base",
+      audience: "customer",
+      subject: fitSubject("", course, " is open in your classroom") || fitSubject("A new course in ", c.name, "") || "A new course is open to you",
+      preview: c.name ? `In the ${c.name} classroom.` : "In your community's classroom.",
+      heading: course ? `${course} is open to you` : "A new course is open to you",
+      paragraphs: [join(course ? `${course} is` : "A course is", "now open to you", c.name ? `in the ${c.name} classroom.` : "in your community's classroom."), "Your progress is saved as you go, so you can stop and pick it up any time."],
+      facts: [["Course", course], ["Community", c.name]],
+      action: { label: "Start the course", path },
+      note: memberNote(c, "classroom emails"),
+      greet: false,
+      inApp: { title: "New course", body: course ? `${course} is open to you.` : "A new course is open to you.", actionLabel: "Start", actionPath: path },
     }
   },
 }
