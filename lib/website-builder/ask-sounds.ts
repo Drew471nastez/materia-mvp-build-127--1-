@@ -2,40 +2,52 @@
  * ===========================================================================
  *  ASK STORELIB'S SOUNDS
  * ===========================================================================
- * "The send sound must be smoother and cleaner, a modern satisfying sound
- * with reverb, made like a real producer would. The sound when the chat
- * finishes, when it asks a question, and the other states too."
+ * "They sound like a whale." The first set rang through a 1.5s hall, with
+ * notes a few cents apart beating against each other and ticks that slid in
+ * pitch. These are made the way UI sounds in a shipped app are: short, a
+ * soft wooden strike over a little low thump, a small tight room, and no
+ * note that moves once it has started.
  *
- *   record-start   a soft tick gliding up a fifth, as the microphone opens
- *   record-stop    the same tick gliding down, as it closes
- *   sent           a soft pluck, A5 then E6 70ms later: a message leaving
- *   question       D5 then B5, a sixth up, the top note left hanging the way
- *                  a voice rises at the end of a question
- *   done           C, E and G rolled quickly into a warm major chord: the
- *                  answer is in, or a section is written
- *   error          a soft low minor third falling, E4 to C#4
+ *   sent           a soft "tock" up: a quiet E5 grace, then A5 38ms later
+ *   upload         a light double tick, G6 twice, 75ms apart
+ *   question       D5 then F#5, a major third up, a little slower
+ *   done           C5, E5 and G5 rolled quickly into a warm major chord
+ *   error          a low soft pair falling, E4 to C#4, darker than the rest
+ *   record-start   one tick, E6, as the microphone opens
+ *   record-stop    one lower tick, B5, as it closes
  *
- * HOW EACH IS MADE, as a producer would in a synth:
+ * HOW EACH STRIKE IS MADE:
  *
- *   voice     two oscillators a few cents apart (a little width and life,
- *             no chorus wobble), a quiet octave partial that fades first,
- *             a short attack (4 to 12ms, never a click) and an exponential
- *             release, through a gentle low pass that closes as the note
- *             decays, so each starts bright and settles warm. Panned a
- *             little left or right, so the notes sit beside each other.
- *   room      every voice sends a little of itself to one shared reverb:
- *             a ConvolverNode playing an impulse response made here, 1.5s
- *             of stereo noise falling 60 dB, darkening as it goes, after a
- *             15ms pre-delay. Made once per sample rate and kept. Mixed low,
- *             about a fifth of the dry level, so it is air around the
- *             sound rather than a hall.
- *   master    dry and wet meet in a limiter (a DynamicsCompressorNode at
- *             -6 dBFS, ratio 12) that nothing reaches on its own; it is
- *             there so two sounds landing together can never clip.
+ *   note      a sine at the note with a soft 3 to 8ms attack and an
+ *             exponential fall. One oscillator per partial, never two
+ *             detuned ones, so nothing beats or wobbles; no glide, no
+ *             vibrato: every frequency is set once.
+ *   partials  the second harmonic and a quick fourth over the note, each
+ *             falling faster than it: the marimba and soft bell colour,
+ *             bright at the strike and warm as it fades.
+ *   body      a low sine thump, the note folded down into 120 to 240Hz,
+ *             over in under a tenth of a second: weight under the strike,
+ *             felt more than heard.
+ *   click     a few milliseconds of band passed noise at the start, the
+ *             mallet touching the bar, quiet enough to be a texture.
+ *   tone      a fixed low pass per sound (darkest for error), then panned a
+ *             little left or right so a pair of notes sits side by side.
+ *
+ * THE ROOM AND THE MASTER, shared by every sound on a context:
+ *
+ *   room      a ConvolverNode on an impulse made here: 0.4s of stereo noise
+ *             falling 60 dB, darkening as it goes, after a 6ms pre-delay,
+ *             then a 3.2kHz high cut so the tail is never watery. Each
+ *             sound sends 10 to 14 percent of itself to it.
+ *   master    a 60Hz high pass (no mud under the thump), then a limiter (a
+ *             DynamicsCompressorNode at -6 dBFS, ratio 12) that nothing
+ *             reaches on its own; it is there so two sounds landing
+ *             together can never clip.
  *
  * SYNTHESISED, NOT FILES. Nothing to download, nothing to decode, the same
- * on every device. QUIET: the loudest moment of any of them is about -20
- * dBFS (PEAK_GAIN), measured on the real graph by scripts/check-ask-ai.mjs.
+ * on every device. Every sound peaks at about -16 dBFS (PEAK_GAIN),
+ * rendered offline in Chromium and measured by scripts/check-ask-sounds.mjs
+ * (peak, RMS, spectral centroid, the tail to -60 dB).
  *
  * WHEN IT MAY PLAY. Browsers only let audio start from a person's gesture,
  * and iOS (Safari and the app's WKWebView) only from a tap's end. So the one
@@ -57,12 +69,13 @@
  * connection, ramp and stop, and builds it on the server without one.
  */
 
-export type AskSound = "record-start" | "record-stop" | "sent" | "question" | "done" | "error"
+export type AskSound = "record-start" | "record-stop" | "sent" | "upload" | "question" | "done" | "error"
 
-export const ASK_SOUNDS: readonly AskSound[] = ["record-start", "record-stop", "sent", "question", "done", "error"]
+export const ASK_SOUNDS: readonly AskSound[] = ["record-start", "record-stop", "sent", "upload", "question", "done", "error"]
 
-/** The loudest any sound gets, after the room and the limiter: 0.1 of full scale, -20 dBFS. */
-export const PEAK_GAIN = 0.1
+/** The loudest any sound gets, after the room and the limiter: -16 dBFS. */
+export const PEAK_DBFS = -16
+export const PEAK_GAIN = Math.pow(10, PEAK_DBFS / 20)
 
 /** Remembered per browser; on unless somebody turned them off. */
 export const SOUNDS_KEY = "storelib.ask.sounds"
@@ -133,15 +146,21 @@ export interface ContextLike {
   resume?(): Promise<void>
 }
 
-/* ── The room: one reverb and one limiter per context ──────────────────── */
+/* ── The room: one reverb, one high pass and one limiter per context ───── */
 
-/** Silence for an exponential ramp, which cannot reach zero. */
+/** Silence for an exponential ramp, which cannot reach zero: -80 dBFS, 64 dB under the loudest. */
 const FLOOR = 0.0001
 
-/** The reverb's impulse: how long it rings, and the gap before it starts. */
-export const REVERB = { seconds: 1.5, preDelay: 0.015, decayDb: 60 } as const
+/** The reverb's impulse: how long it rings, and the gap before it starts. A small room, not a hall. */
+export const REVERB = { seconds: 0.4, preDelay: 0.006, decayDb: 60 } as const
 
-/** The limiter. Set well above PEAK_GAIN, so it only ever catches two sounds landing together. */
+/** The high cut after the reverb, so its tail stays dry and never sounds watery. */
+export const ROOM_HIGH_CUT = 3200
+
+/** The high pass on the master: nothing under it but rumble that reads as mud on laptop speakers. */
+export const HIGH_PASS = 60
+
+/** The limiter. Set 10 dB above PEAK_GAIN, so it only ever catches two sounds landing together. */
 export const LIMITER = { threshold: -6, knee: 0, ratio: 12, attack: 0.002, release: 0.12 } as const
 
 /**
@@ -178,10 +197,10 @@ const impulses = new Map<number, [Float32Array, Float32Array]>()
  * THE IMPULSE RESPONSE, made once per sample rate. Stereo noise, a different
  * seed per side so the tail is wide, shaped by:
  *
- *   pre-delay   15ms of nothing, so the first note is heard clean before
- *               the room answers it
- *   envelope    an 8ms fade in, then an exponential fall of 60 dB over 1.5s
- *   damping     a one pole low pass that closes from about 7kHz to 1kHz
+ *   pre-delay   6ms of nothing, so the strike is heard clean before the room
+ *               answers it
+ *   envelope    a 2ms fade in, then an exponential fall of 60 dB over 0.4s
+ *   damping     a one pole low pass that closes from about 6kHz to 1.2kHz
  *               along the tail, as real rooms lose their highs first
  *
  * Scaled to unit energy per side and played with `normalize` off, so the wet
@@ -193,11 +212,11 @@ export function impulseResponse(sampleRate: number): [Float32Array, Float32Array
   const rate = sampleRate > 0 ? sampleRate : 48000
   const length = Math.max(1, Math.round(rate * REVERB.seconds))
   const delay = Math.round(rate * REVERB.preDelay)
-  const fadeIn = Math.max(1, Math.round(rate * 0.008))
+  const fadeIn = Math.max(1, Math.round(rate * 0.002))
   const tail = Math.max(1, length - delay)
   /* Per sample: the envelope's fall, and the cutoff's, as multipliers, so the loop has no pow or exp in it. */
   const fall = Math.exp(-((REVERB.decayDb / 20) * Math.LN10) / tail)
-  const darken = Math.pow(1000 / 7000, 1 / tail)
+  const darken = Math.pow(1200 / 6000, 1 / tail)
   const sides: Float32Array[] = []
   for (const seed of [0x51a7e, 0x2c0ffee]) {
     const data = new Float32Array(length)
@@ -205,7 +224,7 @@ export function impulseResponse(sampleRate: number): [Float32Array, Float32Array
     let y = 0
     let energy = 0
     let level = 1
-    let cutoff = 7000
+    let cutoff = 6000
     let a = 1
     for (let i = delay; i < length; i++) {
       /* One pole low pass, its coefficient worked out every 32 samples: the cutoff barely moves in between. */
@@ -226,14 +245,30 @@ export function impulseResponse(sampleRate: number): [Float32Array, Float32Array
   return pair
 }
 
+const noises = new Map<number, Float32Array>()
+
+/** The click's noise: 30ms of white noise, made once per sample rate, the same every time. */
+export function clickNoise(sampleRate: number): Float32Array {
+  const cached = noises.get(sampleRate)
+  if (cached) return cached
+  const rate = sampleRate > 0 ? sampleRate : 48000
+  const data = new Float32Array(Math.max(1, Math.round(rate * 0.03)))
+  const noise = seeded(0x7a11)
+  for (let i = 0; i < data.length; i++) data[i] = noise()
+  noises.set(sampleRate, data)
+  return data
+}
+
 interface Bus {
   out: NodeLike
   /** The context's clock when the limiter has settled (LIMITER_SETTLE). */
   readyAt: number
-  /** Into the limiter untouched. */
+  /** Into the high pass and the limiter untouched. */
   dry: NodeLike
-  /** Into the reverb; null where there is no convolver, and the voice sends nothing. */
+  /** Into the reverb; null where there is no convolver, and the strike sends nothing. */
   room: NodeLike | null
+  /** The click's noise as a buffer of this context, made once. */
+  noise: BufferLike
 }
 
 const buses = new WeakMap<object, Bus>()
@@ -242,8 +277,8 @@ const buses = new WeakMap<object, Bus>()
  * The shared end of every sound on a context, built the first time a sound
  * plays there and kept:
  *
- *   dry ──────────────────────────────┐
- *   room → convolver → low pass 5kHz ─┴→ limiter → trim → out
+ *   dry ────────────────────────────────────┐
+ *   room → convolver → low pass (high cut) ─┴→ high pass 60Hz → limiter → trim → out
  */
 function busFor(ctx: ContextLike, out: NodeLike): Bus {
   const known = buses.get(ctx)
@@ -267,9 +302,15 @@ function busFor(ctx: ContextLike, out: NodeLike): Bus {
   }
   trim.connect(out)
 
+  const highPass = ctx.createBiquadFilter()
+  highPass.type = "highpass"
+  highPass.frequency.value = HIGH_PASS
+  highPass.Q.value = Math.SQRT1_2
+  highPass.connect(master)
+
   const dry = ctx.createGain()
   dry.gain.value = 1
-  dry.connect(master)
+  dry.connect(highPass)
 
   let room: NodeLike | null = null
   if (ctx.createConvolver) {
@@ -280,52 +321,83 @@ function busFor(ctx: ContextLike, out: NodeLike): Bus {
     buffer.getChannelData(0).set(left)
     buffer.getChannelData(1).set(right)
     convolver.buffer = buffer
-    const tone = ctx.createBiquadFilter()
-    tone.type = "lowpass"
-    tone.frequency.value = 5000
-    tone.Q.value = 0.5
+    const cut = ctx.createBiquadFilter()
+    cut.type = "lowpass"
+    cut.frequency.value = ROOM_HIGH_CUT
+    cut.Q.value = 0.5
     const input = ctx.createGain()
     input.gain.value = 1
     input.connect(convolver)
-    convolver.connect(tone)
-    tone.connect(master)
+    convolver.connect(cut)
+    cut.connect(highPass)
     room = input
   }
 
-  const bus = { out, readyAt, dry, room }
+  const samples = clickNoise(ctx.sampleRate)
+  const noise = ctx.createBuffer(1, samples.length, ctx.sampleRate)
+  noise.getChannelData(0).set(samples)
+
+  const bus = { out, readyAt, dry, room, noise }
   buses.set(ctx, bus)
   return bus
 }
 
-/* ── One note ──────────────────────────────────────────────────────────── */
+/* ── One strike ────────────────────────────────────────────────────────── */
 
-export interface Voice {
-  /** Hz, where the note starts. */
+export interface Strike {
+  /** Hz. Set once: nothing glides. */
   frequency: number
   /** Seconds after the sound starts. */
   offset: number
-  /** The note's loudest, before the room. */
-  peak: number
-  /** Seconds to the peak: 4ms or more, so nothing clicks. */
+  /** Against the sound's other strikes, 0 to 1. */
+  level: number
+  /** Seconds to the peak: 3 to 8ms, soft, never a click of its own. */
   attack: number
-  /** Seconds from the start to silence, an exponential fall. */
+  /** Seconds from the strike to silence (FLOOR), an exponential fall. */
   decay: number
-  wave: "sine" | "triangle"
-  /** Cents either side for the two oscillators. */
-  detune: number
-  /** The octave partial's level against the note; it fades in half the time. */
-  overtone: number
-  /** The low pass at the attack, and where it has closed to by the end. */
-  bright: number
-  dark: number
+  /** The low thump's level against the note; 0 for none. */
+  body: number
+  /** The mallet noise's level against the note; 0 for none. */
+  click: number
   /** -1 left to 1 right. */
   pan: number
-  /** A glide: the frequency it reaches, and how fast. */
-  glideTo?: number
-  glideTime?: number
 }
 
-/** Lets go of a voice's nodes once its last source has played, so a long session does not collect them. */
+/** A partial over the note: its ratio, its level against the note, and how much of the note's decay it lasts. */
+export interface Overtone {
+  ratio: number
+  level: number
+  decay: number
+}
+
+export interface SoundDesign {
+  strikes: Strike[]
+  /** The whole sound's level: calibrated so it peaks at PEAK_GAIN through the room and the limiter. */
+  gain: number
+  /** How much of each strike goes to the room, against its dry level. */
+  wet: number
+  /** The low pass every strike of this sound goes through, Hz. */
+  tone: number
+  /** The click's band, Hz. */
+  clickBand: number
+  partials: readonly Overtone[]
+}
+
+/** The thump's pitch: the note folded down by octaves into 120 to 240Hz. */
+export function bodyFrequency(note: number): number {
+  let f = note
+  while (f >= 240) f /= 2
+  while (f < 120) f *= 2
+  return f
+}
+
+/** How long the thump lasts: short, so it is weight and not a second note. */
+export const BODY_DECAY = 0.09
+
+/** How long the mallet noise lasts. */
+export const CLICK_DECAY = 0.018
+
+/** Lets go of a strike's nodes once its last source has played, so a long session does not collect them. */
 function releaseWhenDone(source: SourceLike, nodes: NodeLike[]) {
   source.onended = () => {
     for (const node of nodes) {
@@ -338,73 +410,78 @@ function releaseWhenDone(source: SourceLike, nodes: NodeLike[]) {
   }
 }
 
-function envelopeGain(ctx: ContextLike, at: number, peak: number, attack: number, end: number): GainLike {
+function envelopeGain(ctx: ContextLike, at: number, peak: number, attack: number, length: number): GainLike {
   const gain = ctx.createGain()
   gain.gain.setValueAtTime(FLOOR, at)
   gain.gain.linearRampToValueAtTime(Math.max(peak, FLOOR * 2), at + attack)
-  gain.gain.exponentialRampToValueAtTime(FLOOR, at + end)
+  gain.gain.exponentialRampToValueAtTime(FLOOR, at + Math.max(length, attack + 0.005))
   return gain
 }
 
-function oscillator(ctx: ContextLike, at: number, wave: string, voice: Voice, ratio: number, cents: number): OscillatorLike {
+function sine(ctx: ContextLike, at: number, frequency: number): OscillatorLike {
   const osc = ctx.createOscillator()
-  osc.type = wave
-  osc.frequency.setValueAtTime(voice.frequency * ratio, at)
-  if (voice.glideTo) osc.frequency.exponentialRampToValueAtTime(voice.glideTo * ratio, at + (voice.glideTime ?? 0.05))
-  if (cents) osc.detune.setValueAtTime(cents, at)
+  osc.type = "sine"
+  osc.frequency.setValueAtTime(frequency, at)
   return osc
 }
 
 /**
- * One note: two detuned oscillators and a quiet octave into an envelope,
- * through a closing low pass, panned, then to the dry bus and a little of it
- * to the room.
+ * One strike: the note and its partials, the thump under it and the click
+ * on top, each with its own envelope, through the sound's low pass, panned,
+ * then to the dry bus and a little of it to the room.
  */
-function playVoice(ctx: ContextLike, start: number, bus: Bus, voice: Voice, wet: number): number {
-  const at = start + voice.offset
-  const end = at + voice.decay
-  const stopAt = end + 0.02
+function playStrike(ctx: ContextLike, start: number, bus: Bus, design: SoundDesign, strike: Strike): number {
+  const at = start + strike.offset
+  const stopAt = at + strike.decay + STOP_PAD
+  const peak = design.gain * strike.level
   const made: NodeLike[] = []
 
-  /* Each oscillator at half the note, so the pair together reaches its peak. */
-  const body = envelopeGain(ctx, at, voice.peak / 2, voice.attack, voice.decay)
-  made.push(body)
-  const sources: OscillatorLike[] = []
-  for (const cents of [-voice.detune, voice.detune]) {
-    const osc = oscillator(ctx, at, voice.wave, voice, 1, cents)
-    osc.connect(body)
+  const tone = ctx.createBiquadFilter()
+  tone.type = "lowpass"
+  tone.frequency.setValueAtTime(design.tone, at)
+  tone.Q.setValueAtTime(0.5, at)
+  made.push(tone)
+
+  const sources: SourceLike[] = []
+  const voice = (frequency: number, level: number, attack: number, length: number) => {
+    const env = envelopeGain(ctx, at, peak * level, attack, length)
+    const osc = sine(ctx, at, frequency)
+    osc.connect(env)
+    env.connect(tone)
+    made.push(env)
     sources.push(osc)
   }
+  voice(strike.frequency, 1, strike.attack, strike.decay)
+  for (const p of design.partials) voice(strike.frequency * p.ratio, p.level, strike.attack, strike.decay * p.decay)
+  if (strike.body > 0) voice(bodyFrequency(strike.frequency), strike.body, Math.max(strike.attack, 0.004), Math.min(BODY_DECAY, strike.decay))
 
-  const filter = ctx.createBiquadFilter()
-  filter.type = "lowpass"
-  filter.Q.setValueAtTime(0.5, at)
-  filter.frequency.setValueAtTime(voice.bright, at)
-  filter.frequency.exponentialRampToValueAtTime(voice.dark, at + voice.decay * 0.6)
-  made.push(filter)
-  body.connect(filter)
-
-  if (voice.overtone > 0) {
-    const shine = envelopeGain(ctx, at, voice.peak * voice.overtone, voice.attack, voice.decay * 0.5)
-    const osc = oscillator(ctx, at, "sine", voice, 2, 0)
-    osc.connect(shine)
-    shine.connect(filter)
-    made.push(shine)
-    sources.push(osc)
+  if (strike.click > 0) {
+    const noise = ctx.createBufferSource()
+    noise.buffer = bus.noise
+    const band = ctx.createBiquadFilter()
+    band.type = "bandpass"
+    band.frequency.setValueAtTime(design.clickBand, at)
+    band.Q.setValueAtTime(0.9, at)
+    const env = envelopeGain(ctx, at, peak * strike.click, 0.001, CLICK_DECAY)
+    noise.connect(band)
+    band.connect(env)
+    env.connect(tone)
+    made.push(band, env)
+    sources.push(noise)
   }
 
-  let tail: NodeLike = filter
+  let tail: NodeLike = tone
   if (ctx.createStereoPanner) {
     const panner = ctx.createStereoPanner()
-    panner.pan.setValueAtTime(voice.pan, at)
-    filter.connect(panner)
+    panner.pan.setValueAtTime(strike.pan, at)
+    tone.connect(panner)
     made.push(panner)
     tail = panner
   }
   tail.connect(bus.dry)
-  if (bus.room && wet > 0) {
+  if (bus.room && design.wet > 0) {
     const send = ctx.createGain()
-    send.gain.setValueAtTime(wet, at)
+    send.gain.setValueAtTime(design.wet, at)
     tail.connect(send)
     send.connect(bus.room)
     made.push(send)
@@ -415,87 +492,128 @@ function playVoice(ctx: ContextLike, start: number, bus: Bus, voice: Voice, wet:
     source.stop(stopAt)
   }
   made.push(...sources)
-  /* Every source stops at the same moment; the first one's end lets the whole voice go. */
+  /* Every source stops at the same moment; the note's own end lets the whole strike go. */
   releaseWhenDone(sources[0], made)
   return stopAt
 }
 
+/** A little past the last envelope's end, so no source is cut while still sounding. */
+const STOP_PAD = 0.01
+
 /* ── The sounds ────────────────────────────────────────────────────────── */
 
-export interface SoundDesign {
-  voices: Voice[]
-  /** How much of each voice goes to the room, against its dry level. */
-  wet: number
-}
+/** The marimba and soft bell colour every sound but error shares: the octave, and a quick double octave. */
+const WOOD: readonly Overtone[] = [
+  { ratio: 2, level: 0.22, decay: 0.45 },
+  { ratio: 4, level: 0.07, decay: 0.2 },
+]
 
-const note = (v: Partial<Voice> & Pick<Voice, "frequency" | "peak" | "decay">): Voice => ({
+/** Error's: the octave only, quieter. Rounder and darker. */
+const SOFT: readonly Overtone[] = [{ ratio: 2, level: 0.14, decay: 0.45 }]
+
+const strike = (s: Partial<Strike> & Pick<Strike, "frequency" | "decay">): Strike => ({
   offset: 0,
-  attack: 0.008,
-  wave: "sine",
-  detune: 4,
-  overtone: 0.15,
-  bright: 4200,
-  dark: 1500,
+  level: 1,
+  attack: 0.004,
+  body: 0.45,
+  click: 0.3,
   pan: 0,
-  ...v,
+  ...s,
 })
 
 /**
- * Every sound, as notes. The peaks are calibrated so each one, rendered
- * through the room and the limiter, reaches PEAK_GAIN (measured offline in
- * Chromium by scripts/check-ask-ai.mjs; the stub test holds the shapes).
+ * Every sound, as strikes. `gain` is calibrated so each one, rendered
+ * through the room and the limiter, peaks at PEAK_GAIN (measured offline in
+ * Chromium by scripts/check-ask-sounds.mjs; the stub test holds the shapes).
  */
 export const SOUND_DESIGN: Record<AskSound, SoundDesign> = {
-  /* A tick, not a note: triangle for a little edge, a 4ms attack, a fifth of glide, almost dry. */
+  /* A single tick, high, almost dry: the microphone is open. */
   "record-start": {
-    wet: 0.08,
-    voices: [note({ frequency: 740, glideTo: 1110, glideTime: 0.05, peak: 0.147, attack: 0.004, decay: 0.12, wave: "triangle", detune: 3, overtone: 0, bright: 3800, dark: 1800 })],
+    gain: 0.182,
+    wet: 0.1,
+    tone: 7000,
+    clickBand: 4200,
+    partials: WOOD,
+    strikes: [strike({ frequency: 1318.51, attack: 0.003, decay: 0.075, body: 0.3, click: 0.3 })],
   },
+  /* The same tick a fourth lower: closed. */
   "record-stop": {
-    wet: 0.08,
-    voices: [note({ frequency: 1110, glideTo: 740, glideTime: 0.05, peak: 0.147, attack: 0.004, decay: 0.12, wave: "triangle", detune: 3, overtone: 0, bright: 3800, dark: 1800 })],
+    gain: 0.18,
+    wet: 0.1,
+    tone: 7000,
+    clickBand: 3600,
+    partials: WOOD,
+    strikes: [strike({ frequency: 987.77, attack: 0.003, decay: 0.075, body: 0.3, click: 0.3 })],
   },
-  /* A pluck: triangle under a filter that shuts fast, two notes a fifth apart, rising, left then right. */
+  /* A soft tock up: a quiet grace a fourth below, then the note, left then right. */
   sent: {
-    wet: 0.22,
-    voices: [
-      note({ frequency: 880, peak: 0.113, attack: 0.005, decay: 0.24, wave: "triangle", overtone: 0.2, bright: 5200, dark: 1300, pan: -0.18 }),
-      note({ frequency: 1318.51, offset: 0.07, peak: 0.102, attack: 0.005, decay: 0.34, wave: "triangle", overtone: 0.2, bright: 5200, dark: 1300, pan: 0.18 }),
+    gain: 0.123,
+    wet: 0.14,
+    tone: 6500,
+    clickBand: 3400,
+    partials: WOOD,
+    strikes: [
+      strike({ frequency: 659.25, level: 0.55, attack: 0.003, decay: 0.07, body: 0.5, click: 0.35, pan: -0.08 }),
+      strike({ frequency: 880, offset: 0.038, attack: 0.004, decay: 0.12, body: 0.6, click: 0.35, pan: 0.08 }),
     ],
   },
-  /* Rounder and slower: sines, a softer attack, the upper note held longer, unresolved. */
+  /* Two light ticks, the same high note: something is in. Less body, a brighter click. */
+  upload: {
+    gain: 0.166,
+    wet: 0.12,
+    tone: 7500,
+    clickBand: 4600,
+    partials: WOOD,
+    strikes: [
+      strike({ frequency: 1567.98, level: 1, attack: 0.003, decay: 0.06, body: 0.25, click: 0.35, pan: -0.06 }),
+      strike({ frequency: 1567.98, offset: 0.075, level: 0.75, attack: 0.003, decay: 0.065, body: 0.25, click: 0.35, pan: 0.06 }),
+    ],
+  },
+  /* Up a major third, a softer attack, the top note a little longer: a voice rising at the end of a question. */
   question: {
-    wet: 0.25,
-    voices: [
-      note({ frequency: 587.33, peak: 0.113, attack: 0.012, decay: 0.3, overtone: 0.12, bright: 3200, dark: 1600, pan: -0.12 }),
-      note({ frequency: 987.77, offset: 0.14, peak: 0.118, attack: 0.012, decay: 0.55, overtone: 0.12, bright: 3200, dark: 1600, pan: 0.12 }),
+    gain: 0.121,
+    wet: 0.14,
+    tone: 5200,
+    clickBand: 3000,
+    partials: WOOD,
+    strikes: [
+      strike({ frequency: 587.33, level: 0.85, attack: 0.006, decay: 0.13, body: 0.5, click: 0.2, pan: -0.1 }),
+      strike({ frequency: 739.99, offset: 0.09, attack: 0.006, decay: 0.16, body: 0.45, click: 0.2, pan: 0.1 }),
     ],
   },
-  /* C major, rolled from the bottom in 100ms, spread left to right, ringing out. */
+  /* C major rolled up in 110ms, the root's thump under it, spread left to right. */
   done: {
-    wet: 0.22,
-    voices: [
-      note({ frequency: 523.25, peak: 0.079, decay: 0.75, pan: -0.25, detune: 5, overtone: 0.18, bright: 3800 }),
-      note({ frequency: 659.25, offset: 0.05, peak: 0.073, decay: 0.8, pan: 0, detune: 5, overtone: 0.18, bright: 3800 }),
-      note({ frequency: 783.99, offset: 0.1, peak: 0.07, decay: 0.9, pan: 0.25, detune: 5, overtone: 0.18, bright: 3800 }),
+    gain: 0.127,
+    wet: 0.14,
+    tone: 5400,
+    clickBand: 3000,
+    partials: WOOD,
+    strikes: [
+      strike({ frequency: 523.25, level: 0.9, attack: 0.005, decay: 0.2, body: 0.7, click: 0.22, pan: -0.15 }),
+      strike({ frequency: 659.25, offset: 0.055, level: 0.85, attack: 0.005, decay: 0.21, body: 0.35, click: 0.18, pan: 0 }),
+      strike({ frequency: 783.99, offset: 0.11, attack: 0.005, decay: 0.24, body: 0.3, click: 0.18, pan: 0.15 }),
     ],
   },
-  /* Low, dark and soft: triangle through a closed filter, a minor third falling. */
+  /* Low, soft and dark: a minor third falling, the slowest attack, a closed filter, a muffled click. */
   error: {
-    wet: 0.18,
-    voices: [
-      note({ frequency: 329.63, peak: 0.098, attack: 0.012, decay: 0.3, wave: "triangle", overtone: 0.4, bright: 2200, dark: 1000, pan: 0.1 }),
-      note({ frequency: 277.18, offset: 0.13, peak: 0.098, attack: 0.012, decay: 0.45, wave: "triangle", overtone: 0.4, bright: 2200, dark: 1000, pan: -0.1 }),
+    gain: 0.127,
+    wet: 0.12,
+    tone: 2600,
+    clickBand: 1600,
+    partials: SOFT,
+    strikes: [
+      strike({ frequency: 329.63, attack: 0.008, decay: 0.12, body: 0.6, click: 0.12, pan: 0.06 }),
+      strike({ frequency: 277.18, offset: 0.09, level: 0.95, attack: 0.008, decay: 0.16, body: 0.6, click: 0.1, pan: -0.06 }),
     ],
   },
 }
 
 /**
  * When each one's sources stop, in seconds from its start. The room rings on
- * after this, falling away over REVERB.seconds.
+ * a little after this, falling 60 dB over REVERB.seconds.
  */
 export const SOUND_LENGTH: Record<AskSound, number> = Object.fromEntries(
-  ASK_SOUNDS.map((sound) => [sound, Math.max(...SOUND_DESIGN[sound].voices.map((v) => v.offset + v.decay + 0.02))]),
+  ASK_SOUNDS.map((sound) => [sound, Math.max(...SOUND_DESIGN[sound].strikes.map((s) => s.offset + s.decay + STOP_PAD))]),
 ) as Record<AskSound, number>
 
 /**
@@ -508,7 +626,7 @@ export function scheduleSound(ctx: ContextLike, sound: AskSound, at: number, out
   const bus = busFor(ctx, out)
   const start = Math.max(at, bus.readyAt)
   let end = start
-  for (const voice of design.voices) end = Math.max(end, playVoice(ctx, start, bus, voice, design.wet))
+  for (const s of design.strikes) end = Math.max(end, playStrike(ctx, start, bus, design, s))
   return end
 }
 

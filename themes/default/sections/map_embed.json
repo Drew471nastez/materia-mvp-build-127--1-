@@ -30,13 +30,14 @@
     },
     {
       "id": "embed_url",
-      "label": "Google Maps embed URL",
+      "label": "Google Maps link",
       "type": "text",
-      "placeholder": "https://www.google.com/maps/embed?pb=..."
+      "placeholder": "Empty shows the address below",
+      "info": "Any link from Google Maps works, or a place name."
     },
     {
       "id": "embed_code",
-      "label": "Custom embed HTML (overrides URL)",
+      "label": "Embed code (replaces the map)",
       "type": "textarea",
       "placeholder": "<iframe src=\"...\" ...></iframe>"
     },

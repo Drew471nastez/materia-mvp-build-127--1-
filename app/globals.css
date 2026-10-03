@@ -1156,8 +1156,56 @@ html.capacitor body {
   [data-wb-inspect="leaving"] .wb-ring,
   [data-wb-inspect="off"] .wb-ring { opacity: 0 !important; }
   [data-wb-inspect="entering"] .wb-ring { animation: wb-ring-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+  /* Full screen preview (editor page.tsx, fullView): the site alone, from the first frame of the fold. */
+  [data-wb-full] #wb-preview-root .wb-ring { opacity: 0 !important; }
   @keyframes wb-ring-in { from { opacity: 0; } }
+  /*
+   * THE FIELD A CANVAS CLICK LANDED ON (editor page.tsx, fieldFocus). A violet
+   * ring round the field, held for a moment and then faded, 1600ms in all
+   * (FIELD_FLASH_MS). An outline, so it takes no room and moves nothing.
+   */
+  [data-sl-flash] {
+    border-radius: 10px;
+    outline: 2px solid rgba(139, 92, 246, 0.6);
+    outline-offset: 4px;
+    animation: sl-field-flash 1600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  @keyframes sl-field-flash {
+    0% { outline-color: rgba(139, 92, 246, 0); }
+    10%, 55% { outline-color: rgba(139, 92, 246, 0.6); }
+    100% { outline-color: rgba(139, 92, 246, 0); }
+  }
+  /*
+   * WHAT THE POINTER IS OVER ON THE CANVAS (editor page.tsx, CanvasHover):
+   * a thin outline round the one thing a click would open, and the section's
+   * name on a chip at its top left, the way Shopify's editor marks them,
+   * in the canvas selection blue (#3b82f6, SectionWrapper's rings).
+   */
+  .wb-hover-outline {
+    position: fixed;
+    z-index: 60;
+    pointer-events: none;
+    border-radius: 4px;
+    box-shadow: 0 0 0 1.5px rgba(59, 130, 246, 0.85);
+    transition: opacity 120ms ease-out;
+  }
+  .wb-hover-chip {
+    position: fixed;
+    z-index: 61;
+    pointer-events: none;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 6px;
+    background: #3b82f6;
+    color: #fff;
+    font: 600 11px/1 Inter, system-ui, sans-serif;
+    padding: 5px 7px;
+    transition: opacity 120ms ease-out;
+  }
   @media (prefers-reduced-motion: reduce) {
+    [data-sl-flash] { animation-duration: 1ms; animation-delay: 1200ms; outline-color: rgba(139, 92, 246, 0.6); }
     .wb-inspector, .wb-inspector svg { animation: none; transition: none; }
     [data-wb-inspect] .wb-ring { transition: none; animation: none; }
   }

@@ -836,8 +836,9 @@ function ThemeChatPanel({
   )
 
   /**
-   * SOUNDS: a tick as the microphone opens and closes, a whoosh as a message
-   * goes, a chime when the answer is in (lib/website-builder/ask-sounds.ts).
+   * SOUNDS: a tick as the microphone opens and closes, a soft tock as a
+   * message goes, a double tick as a picture is added, a chime when the
+   * answer is in (lib/website-builder/ask-sounds.ts).
    * On unless this browser turned them off, from the menu under the model
    * button. Arming only listens for the first press on the page, where the
    * audio may be woken; nothing plays until something is sent or recorded.
@@ -882,7 +883,7 @@ function ThemeChatPanel({
     const out: Record<string, string | null> = {}
     for (const e of ENGINES) {
       const source = ownFor(ownAi.keys, e.provider)
-      out[e.id] = source ? (source === "openrouter" ? "Your OpenRouter" : "Your key") : null
+      out[e.id] = source ? "Your key" : null
     }
     return out
   }, [ownAi.keys])
@@ -1243,6 +1244,7 @@ function ThemeChatPanel({
       const problems: string[] = []
       /* Counted from the keys, which are written at once, not from the box, which is written on the next render. */
       let room = MAX_IMAGES - Math.max(attachedRef.current.length, new Set(attachKeys.current.values()).size)
+      const roomBefore = room
       for (const file of picked) {
         const problem = attachProblem(file)
         if (problem) {
@@ -1305,6 +1307,8 @@ function ThemeChatPanel({
         void prepare(id, file)
       }
       if (problems.length) setAttachError(problems[0])
+      /* The light double tick, once per pick, when anything was taken. */
+      if (room < roomBefore) playAskSound("upload")
     },
     [prepare, patchPicture],
   )

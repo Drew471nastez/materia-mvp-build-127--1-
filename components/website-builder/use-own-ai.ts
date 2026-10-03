@@ -4,16 +4,13 @@
  * The creator's own AI connections, as the chat and Connections both read
  * them (GET /api/ai-keys): which sources are connected, never a key. One
  * fetch shared by every reader on the page, refreshed when something
- * changes one (`refreshOwnAi`) or the tab comes back into view, since
- * OpenRouter's sign in happens in another page.
+ * changes one (`refreshOwnAi`) or the tab comes back into view, since a
+ * key may have been added or removed in another tab.
  */
 
 import { useCallback, useEffect, useState } from "react"
 
-/** Set by the editor when OpenRouter sends the creator back (?ownai=), read once by Connections. */
-export const OWN_AI_RETURN_KEY = "storelib.ownai.returned"
-
-export type OwnSource = "anthropic" | "openai" | "openrouter"
+export type OwnSource = "anthropic" | "openai"
 
 export interface OwnKey {
   source: OwnSource
@@ -58,15 +55,13 @@ export function refreshOwnAi(): Promise<void> {
   return inflight
 }
 
-/** Which of the creator's connections answers for a vendor: their own key for it first, then OpenRouter. */
+/** Which of the creator's connections answers for a vendor: their own key for it, else none. */
 export function ownFor(keys: OwnKey[], vendor: "anthropic" | "openai"): OwnSource | null {
-  if (keys.some((k) => k.source === vendor)) return vendor
-  if (keys.some((k) => k.source === "openrouter")) return "openrouter"
-  return null
+  return keys.some((k) => k.source === vendor) ? vendor : null
 }
 
 export function ownLabel(source: OwnSource): string {
-  return source === "anthropic" ? "Your Claude key" : source === "openai" ? "Your OpenAI key" : "Your OpenRouter"
+  return source === "anthropic" ? "Your Claude key" : "Your OpenAI key"
 }
 
 export function useOwnAi(): OwnAiState & { refresh: () => Promise<void> } {

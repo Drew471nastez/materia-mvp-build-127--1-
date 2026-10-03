@@ -52,6 +52,7 @@
  */
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
+import { uniqueImages } from "@/lib/products/product-page-model"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
@@ -105,6 +106,10 @@ export interface ProductCard {
     checkout_url: string
     /** Its options, cheapest first. Empty when it has none. */
     variants: ProductVariantCard[]
+    /** Its category as the creator filed it, or "". */
+    category?: string
+    /** A shipped product's options, such as Size and Colour, with their values. Empty for the rest. */
+    options?: { name: string; values: string[] }[]
   }
 }
 
@@ -142,6 +147,7 @@ interface ProductRow {
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
   description?: string | null
+  category?: string | null
 }
 
 export interface VariantRow {
@@ -180,18 +186,14 @@ function wasPrice(now: number, was: number | null | undefined): string {
   return typeof was === "number" && was > now ? formatPrice(was) : ""
 }
 
-/** Picture addresses a page can load: http(s) or a path of ours. */
+/**
+ * Picture addresses a page can load (http(s) or a path of ours), each once.
+ * The main picture is usually the gallery's first entry as well, and the
+ * same picture under two query strings is still one picture: the one rule
+ * the product page uses too (lib/products/product-page-model.ts).
+ */
 function pictures(row: ProductRow): string[] {
-  const all = [row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])]
-  const out: string[] = []
-  for (const u of all) {
-    if (typeof u !== "string") continue
-    const url = u.trim()
-    if (!/^(https?:\/\/|\/(?!\/))/i.test(url) || out.includes(url)) continue
-    out.push(url)
-    if (out.length >= MAX_IMAGES) break
-  }
-  return out
+  return uniqueImages([row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])], MAX_IMAGES)
 }
 
 /** One option, as a section reads it. */
@@ -219,7 +221,7 @@ export function soldOut(row: { inventory_count?: number | null }): boolean {
 }
 
 /** A row to the card a section draws. Exported so a test can drive it. */
-export function toCard(row: ProductRow, variants: VariantRow[] = []): ProductCard {
+export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows: OptionRow[] = []): ProductCard {
   const cents = askingCents(row)
   const images = pictures(row)
   const available = !soldOut(row)
@@ -247,7 +249,38 @@ export function toCard(row: ProductRow, variants: VariantRow[] = []): ProductCar
       tag: available ? "" : "Sold out",
       checkout_url: available ? checkoutUrl(row.id) : "",
       variants: options,
+      category: typeof row.category === "string" ? row.category : "",
+      options: optionRows
+        .filter((o) => o.product_id === row.id && typeof o.name === "string" && Array.isArray(o.values))
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .map((o) => ({ name: o.name.trim(), values: o.values.filter((v): v is string => typeof v === "string" && v.trim() !== "").map((v) => v.trim()) }))
+        .filter((o) => o.name && o.values.length > 0),
     },
+  }
+}
+
+/** One option of a shipped product, as product_options holds it. */
+export interface OptionRow {
+  product_id: string
+  name: string
+  values: unknown[]
+  position?: number | null
+}
+
+/**
+ * The options (Size, Colour) of these products, for the shop's filters. Only
+ * shipped products have them. Never throws: a shop whose options will not
+ * load is filtered without them.
+ */
+export async function productOptions(db: Db, productIds: string[]): Promise<OptionRow[]> {
+  if (productIds.length === 0) return []
+  try {
+    const q = db.from("product_options").select("product_id, name, values, position")
+    if (typeof q.in !== "function") return []
+    const { data, error } = await q.in("product_id", productIds).order("position", { ascending: true })
+    return error ? [] : ((data ?? []) as OptionRow[])
+  } catch {
+    return []
   }
 }
 
@@ -302,6 +335,8 @@ type Db = { from: (table: string) => { select: (cols: string) => Filter & Partia
 
 /** Everything the data API reads, and what an older database can answer. */
 /* With the column that marks a product selling a community tier, which the shop does not list (lib/communities/listing). */
+/* And with the category the shop's filters read. */
+const PRODUCT_COLUMNS_WITH_CATEGORY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id, category"
 const PRODUCT_COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id"
 const PRODUCT_COLUMNS = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents"
 const PRODUCT_COLUMNS_MINIMAL = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status"
@@ -346,7 +381,7 @@ export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_P
   const n = Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS))
   try {
     let rows: ProductRow[] | null = null
-    for (const cols of [PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
+    for (const cols of [PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
       const { data, error } = await db
         .from("products")
         .select(cols)
@@ -359,8 +394,9 @@ export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_P
       break
     }
     if (!rows) return []
-    const variants = await productVariants(db, rows.map((r) => r.id))
-    return rows.map((r) => toCard(r, variants))
+    const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
+    const [variants, options] = await Promise.all([productVariants(db, rows.map((r) => r.id)), productOptions(db, physical)])
+    return rows.map((r) => toCard(r, variants, options))
   } catch {
     return []
   }

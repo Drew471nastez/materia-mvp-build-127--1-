@@ -309,12 +309,12 @@ section("Which model answers")
     /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: wantsTier \}\)/.test(route) &&
       !/provider: openAIProvider/.test(route),
   )
-  /* Storelib's key for an offered provider, or the creator's own OpenAI key or OpenRouter: a Claude key alone answers nothing now. */
+  /* Storelib's key for an offered provider, or the creator's own OpenAI key: a Claude key alone answers nothing now. */
   check(
     "Storelib's OpenAI key, or one of the creator's own that can answer, is enough for the endpoint to be considered configured",
     /!\(await canAnswer\(/.test(route) &&
       /OFFERED\.some\(isConfigured\)/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")) &&
-      /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai", "openrouter"\]/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")),
+      /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai"\]/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")),
   )
   check("failures are reported in plain words, never the provider's", /plainRunError\(thrown, "theme agent"\)/.test(route) && !/thrown\.message/.test(route))
 }

@@ -140,15 +140,6 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
   }
 }
 
-/** How each animation style enters. */
-const ANIMATION_FROM: Record<string, string> = {
-  "fade-up": "opacity: 0; transform: translateY(16px);",
-  "fade-in": "opacity: 0;",
-  "slide-left": "opacity: 0; transform: translateX(24px);",
-  "slide-right": "opacity: 0; transform: translateX(-24px);",
-  "zoom-in": "opacity: 0; transform: scale(0.96);",
-}
-
 /**
  * The rules a theme owns, scoped to the page root.
  *
@@ -279,40 +270,28 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
   }
 
   // ── Motion ──────────────────────────────────────────────────────────────
-  if (t.animations_enabled) {
-    const from = ANIMATION_FROM[str(t.animation_style, "fade-up")] ?? ANIMATION_FROM["fade-up"]
-    rules.push(
-      `@keyframes storelibSectionIn{from{${from}}to{opacity:1;transform:none;}}`,
-      /**
-       * NOT THE HEADER, NOT THE FOOTER.
-       *
-       * Measured in Chromium: with the animation on every section, a sticky
-       * header sat 16px below where it should — `translateY(16px)` is the
-       * from-state of "fade up", and the header's own `transform` is what
-       * slides it away on scroll, so the two were fighting over the same
-       * property. Chrome appears with the page; only content enters.
-       */
-      /**
-       * NOT THE FIRST SECTION EITHER. It is the one right under the header,
-       * on screen the moment the page is, and animating it in from
-       * transparent and 16px low left the page's background showing between
-       * the header and it for the length of the animation: on every load of
-       * the live site, a band under the header the canvas never showed,
-       * because there the animation plays once, under the loader. The first
-       * section appears with the page, like the header; the ones after it
-       * come in. `~` from the first body box selects every body box after it,
-       * in the editor too, where the insert strips sit between them.
-       */
-      `${root} [data-section-box]:not([data-chrome]) ~ [data-section-box]:not([data-chrome]) [data-section]{animation:storelibSectionIn var(--theme-animation-duration) cubic-bezier(0.22,1,0.36,1) both;}`,
-      // Each section a little after the one above it, capped so the tenth
-      // section is not still waiting a second after the page has settled.
-      ...Array.from({ length: 8 }, (_, i) =>
-        `${root} [data-section]:not([data-chrome]):nth-of-type(${i + 2}){animation-delay:calc(var(--theme-animation-stagger) * ${i + 1});}`,
-      ),
-      // Somebody who has asked their system for less motion has asked.
-      `@media (prefers-reduced-motion:reduce){${root} [data-section]{animation:none;}}`,
-    )
-  }
+  /**
+   * SECTIONS ARRIVE AS THEY SCROLL INTO VIEW, NOT AS THE PAGE LOADS.
+   *
+   * This was a CSS animation on every section after the first, played the
+   * moment the page loaded: on a long page it had finished long before
+   * anybody scrolled to the sections it was for. The movement is now
+   * lib/website-builder/section-motion.ts, which marks only the sections
+   * wholly below the screen `data-reveal="pending"` once it is running and
+   * brings each in as it arrives. The header, the footer and the first
+   * section never move, as before. All the stylesheet has to say is what
+   * pending looks like, so without JavaScript nothing is ever hidden.
+   *
+   * And where a section lands when the browser jumps to it on its own (a
+   * hash in the address, focus moving into it): under the sticky header,
+   * by the height the same file measures.
+   */
+  rules.push(
+    `${root} [data-section-box],${root} [data-section-box] [id]{scroll-margin-top:var(--sl-anchor-offset,0px);}`,
+    `${root} [data-reveal="pending"]{opacity:0;}`,
+    // Somebody who has asked their system for less motion has asked.
+    `@media (prefers-reduced-motion:reduce){${root} [data-reveal]{opacity:1;}}`,
+  )
 
   return rules.join("\n")
 }

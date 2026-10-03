@@ -53,13 +53,20 @@ function main() {
      * address, says it is not published, and offers the creator page as a
      * link rather than as a destination.
      */
+    /*
+      AND NOW IT SAYS COMING SOON. The owner asked for what a shop shows
+      before it opens: Coming soon and a box to be told when it does (the
+      creator's Subscribers). Still on its own address, still no redirect,
+      still the creator page as a link and not a destination.
+    */
     check(
       "a site with nothing published stays on its own address and says so",
-      /found\.kind === "unpublished"\) return <SiteNotPublished username=\{username\} displayName=\{found\.displayName\} \/>/.test(w) &&
+      /found\.kind === "unpublished"\) return <SiteNotPublished username=\{username\} displayName=\{found\.displayName\} creatorId=\{/.test(w) &&
         !/found\.kind === "unpublished"\) redirect\(/.test(w) &&
         !/Coming Soon/.test(w) &&
         ((page) =>
-          /This website is not published yet/.test(page) &&
+          /Coming soon/.test(page) &&
+          /<ComingSoonSignup creatorId=\{creatorId\} \/>/.test(page) &&
           /See \{name\} on Storelib/.test(page) &&
           /const creator = `https:\/\/\$\{getMainDomain\(\)\}\/\$\{lower\}`/.test(page))(
             readFileSync(join(root, "app/(site)/w/[username]/not-published.tsx"), "utf8"),

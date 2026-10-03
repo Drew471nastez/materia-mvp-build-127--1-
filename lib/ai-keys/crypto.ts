@@ -4,7 +4,7 @@ import "server-only"
  * ===========================================================================
  *  A CREATOR'S OWN AI KEY, SEALED
  * ===========================================================================
- * The key somebody pastes (or OpenRouter hands back) is stored encrypted,
+ * The key somebody pastes is stored encrypted,
  * never as text: AES-256-GCM, a fresh 12 byte nonce each time, and the tag,
  * as `v1.<nonce>.<tag>.<ciphertext>` in base64url. A row read out of the
  * database on its own opens nothing.

@@ -14,6 +14,7 @@
  * card link. Nothing new to keep in step.
  */
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 
 /** The id is fixed, not generated: the same page must render the same twice. */
 const SEARCH_ID = "storelib-search"
@@ -39,8 +40,6 @@ export function shopSections(
   homeSections: SectionInstance[],
   theme: ThemeSettingsValues,
 ): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
 
   /**
    * The heading is the shop's own name, not a sentence about shopping. The
@@ -62,6 +61,9 @@ export function shopSections(
       columns: { desktop: 3, tablet: 2, mobile: 1 },
       shape: "1 / 1",
       show_price: true,
+      /* The shop is where a visitor narrows the list: price, stock, type,
+         options and an order, from the address (lib/products/catalog-filters.ts). */
+      show_filters: true,
       // No "See everything" button: this is everything.
       button_text: "",
       button_url: "",
@@ -74,7 +76,8 @@ export function shopSections(
     hidden: false,
   }
 
-  return [...(header ? [header] : []), grid, ...(footer ? [footer] : [])]
+  /* The header group and the footer group, announcement bars included: lib/website-builder/universal-chrome.ts. */
+  return withUniversalChrome([grid], chromeOf(homeSections))
 }
 
 /**
@@ -99,8 +102,6 @@ export function shopSections(
  * designing it.
  */
 export function searchSections(homeSections: SectionInstance[]): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
 
   const search: SectionInstance = {
     id: SEARCH_ID,
@@ -124,7 +125,8 @@ export function searchSections(homeSections: SectionInstance[]): SectionInstance
     hidden: false,
   }
 
-  return [...(header ? [header] : []), search, ...(footer ? [footer] : [])]
+  /* The header group and the footer group, announcement bars included: lib/website-builder/universal-chrome.ts. */
+  return withUniversalChrome([search], chromeOf(homeSections))
 }
 
 /**
@@ -138,8 +140,6 @@ export function searchSections(homeSections: SectionInstance[]): SectionInstance
  * other once the creator opens the 404 page from the page switcher.
  */
 export function notFoundSections(homeSections: SectionInstance[]): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
 
   const notFound: SectionInstance = {
     id: NOT_FOUND_ID,
@@ -164,7 +164,8 @@ export function notFoundSections(homeSections: SectionInstance[]): SectionInstan
     hidden: false,
   }
 
-  return [...(header ? [header] : []), notFound, ...(footer ? [footer] : [])]
+  /* The header group and the footer group, announcement bars included: lib/website-builder/universal-chrome.ts. */
+  return withUniversalChrome([notFound], chromeOf(homeSections))
 }
 
 /**
@@ -175,7 +176,11 @@ export function notFoundSections(homeSections: SectionInstance[]): SectionInstan
 export function productMatchesQuery(product: any, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  const fields = [product?.title, product?.description, product?.category, product?.categoryName]
+  /* A row from the database (the header's search) or a shop card (the search
+     page), whose fields are under `settings`. The page used to read a card
+     as a row, found no title on it, and matched nothing for any word. */
+  const s = product?.settings ?? {}
+  const fields = [product?.title, product?.description, product?.category, product?.categoryName, s.title, s.description, s.category]
   return fields.some((value) => typeof value === "string" && value.toLowerCase().includes(q))
 }
 
@@ -194,7 +199,5 @@ export function productMatchesQuery(product: any, query: string): boolean {
  * policies, and those are exactly what this creator already designed.
  */
 export function chromeSections(homeSections: SectionInstance[]): SectionInstance[] {
-  const header = homeSections.find((s) => s.type === "header")
-  const footer = homeSections.find((s) => s.type === "footer")
-  return [...(header ? [header] : []), ...(footer ? [footer] : [])]
+  return withUniversalChrome([], chromeOf(homeSections))
 }

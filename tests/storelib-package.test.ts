@@ -201,7 +201,8 @@ async function main() {
     const importRoute = readFileSync(join(process.cwd(), "app/api/website-builder/themes/import/route.ts"), "utf8")
     const client = readFileSync(join(process.cwd(), "app/app/website-builder/website-builder-client.tsx"), "utf8")
 
-    check("export builds a package through the engine, not a zip of its own", /buildPackage\(\{/.test(exportRoute) && /templateFromSections\(/.test(exportRoute))
+    /* Its templates and its header and footer group files come from lib/website-builder/theme-pages.ts, which writes them with templateFromSections. */
+    check("export builds a package through the engine, not a zip of its own", /buildPackage\(\{/.test(exportRoute) && /packageFilesFromPages\(/.test(exportRoute) && /templateFromSections\(/.test(readFileSync(join(process.cwd(), "lib/website-builder/theme-pages.ts"), "utf8")))
     check("and carries the section sources with it — the theme's, and the ones this creator edited", /for \(const \[path, content\] of Object\.entries\(DEFAULT_THEME_SOURCES\)\) files\[path\] = saved\.get\(path\) \?\? content/.test(exportRoute) && /\.from\("store_theme_custom_files"\)/.test(exportRoute))
     check("every image becomes an asset named by its bytes, and every reference an asset://", /sha256\(bytes\)/.test(exportRoute) && /urlToRef\[url\] = `asset:\/\/\$\{hash\}`/.test(exportRoute))
     check("no install id, publish state or account row goes into the package", !/install_id:/.test(exportRoute.split("const pkg = await buildPackage")[0].split("const files: Record<string, string> = {}")[1] ?? ""))

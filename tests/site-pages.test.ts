@@ -160,7 +160,8 @@ function main() {
        make a page by either name. */
     /* Ten now: the 404 page, and the visitor's account, its sign in page and
        the wishlist (lib/website-builder/account-pages). */
-    check("and the ten are the ten", BUILT_IN_PAGE_KEYS.size === 10 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Eleven: and the password page a website shows while it asks for one (lib/site-password). */
+    check("and the eleven are the eleven", BUILT_IN_PAGE_KEYS.size === 11 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))
@@ -220,8 +221,8 @@ function main() {
     check("and /products is a page now", /export default async function SiteShopPage/.test(shop))
     check(
       "built from the site's own header and footer, not a second design",
-      /const header = homeSections\.find\(\(s\) => s\.type === "header"\)/.test(shopPage) &&
-        /const footer = homeSections\.find\(\(s\) => s\.type === "footer"\)/.test(shopPage),
+      /* The whole Header and Footer groups from home, announcement bars and a header section file included. */
+      /return withUniversalChrome\(\[grid\], chromeOf\(homeSections\)\)/.test(shopPage),
     )
     check(
       "and one product grid reading the shop, which is a section that already exists",

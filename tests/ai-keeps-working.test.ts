@@ -26,7 +26,8 @@ const chat = read("components/website-builder/theme-chat.tsx")
 check("the desktop dock stays mounted once opened, and is hidden when closed",
   /\{!isMobileView && aiMounted && \(\s*<ThemeChat\s*\n\s*variant="dock"\s*\n\s*hidden=\{!aiOpen\}/.test(editor) && !/\{!isMobileView && aiOpen && \(/.test(editor))
 check("and while the canvas shows the code or the settings it folds away, still mounted",
-  /suspended=\{previewMode !== "preview" \|\| projectSettingsOpen\}/.test(editor) &&
+  /* And in full screen, which is the site alone (scripts/check-full-screen.mjs). */
+  /suspended=\{previewMode !== "preview" \|\| projectSettingsOpen \|\| fullView\}/.test(editor) &&
     /if \(!hidden && !suspended\) return\s*\n\s*setExpanded\(false\)/.test(chat))
 check("so does the phone's sheet", /\{isMobileView && aiMounted && \(\s*<MobileEditorSheet open=\{aiOpen\}/.test(editor))
 check("closing the panel only hides it; nothing in the chat stops a run on close", !/onClose[^\n]*abort/.test(chat) && !/return \(\) => [^\n]*abortRef/.test(chat))

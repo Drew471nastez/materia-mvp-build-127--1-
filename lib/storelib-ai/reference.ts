@@ -71,7 +71,7 @@ MENUS: one link_list setting, default "main-menu", looped {% for link in setting
 
 HEADER: built in; change its settings, never write one. Only a creator who asks for a header of their own gets ONE section with "kind": "header".
 
-PRODUCTS: {% for block in products %} holds the creator's published products, newest first: block.id, block.settings.title, .price and .compare_price (already formatted: print them, never compute), .image, .images, .url (its page on the site), .checkout_url (Storelib checkout; empty when it cannot be bought), .available, .tag and .variants. A section offers the shop's products with a source select (shop, or blocks the creator fills). A product page has page.product. {% if products.size == 0 %} is the store with none.
+PRODUCTS: {% for block in products %} holds the creator's published products, newest first: block.id, block.settings.title, .price and .compare_price (already formatted: print them, never compute), .image, .images, .url (its page on the site), .checkout_url (Storelib checkout; empty when it cannot be bought), .available, .tag, .variants, .category and .options. A section offers the shop's products with a source select (shop, or blocks the creator fills). A product page has page.product; its main product section is blocks. {% if products.size == 0 %} is the store with none.
 
 RESPONSIVE: container-type: inline-size on the root; the phone layout is the base CSS, widened with @container (min-width: 640px) and (min-width: 1024px), never @media for width. Nothing wider than a phone without a container query around it; tap targets 44px; motion stops inside @media (prefers-reduced-motion: reduce).
 

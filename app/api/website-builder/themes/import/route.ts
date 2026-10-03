@@ -13,7 +13,7 @@ import { type CoverResult, coverForNewWebsite, isPackagedCover, renderOrigin, st
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, firstSortOrder, isLibraryFullError, keptWithinLimit, librarySlotsLeft } from "@/lib/website-builder/library-limit"
 import { screenInBackground } from "@/lib/storage/upload-guard"
 import { inspectHead, inspectUpload } from "@/lib/security/uploads/inspect"
 import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
@@ -27,7 +27,9 @@ import {
   ALLOWED_IMAGE_EXTENSIONS,
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
-import { readPackage, sectionsFromTemplate } from "@/lib/storelib-theme"
+import { readPackage } from "@/lib/storelib-theme"
+import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
+import { pagesFromPackageFiles } from "@/lib/website-builder/theme-pages"
 import { readEntryCapped } from "@/lib/storelib-theme/package"
 import {
   MAX_BYTES,
@@ -278,20 +280,22 @@ export async function POST(req: Request) {
     )
     /* The package's own section files say which of their settings are rich text. */
     const own = ownSectionFields(Object.entries(pkg.files).map(([path, content]) => ({ path, content })))
-    const pages: { page_key: string; sections: unknown }[] = []
-    for (const [path, text] of Object.entries(pkg.files)) {
-      const m = path.match(/^templates\/([A-Za-z0-9_.\-]+)\.json$/)
-      if (!m) continue
-      pages.push({
-        page_key: m[1],
-        sections: sanitizeSections(
-          rewriteUrls(sectionsFromTemplate(JSON.parse(text)), refToUrl) as SectionInstance[],
-          own,
-        ),
-      })
-    }
+    /**
+     * ONE HEADER AND ONE FOOTER, from the package's group files when it has
+     * them and from its templates when it does not. A header the package
+     * wrote as a section file is placed as the header; the built-in one is
+     * hidden, not dropped, and so is any second header. Every page is the
+     * Header group, its own sections, the Footer group (lib/website-builder/
+     * theme-pages.ts).
+     */
+    const packageKinds = kindLookup(pkg.files, SECTION_SCHEMAS as never)
+    const pages: { page_key: string; sections: unknown }[] = pagesFromPackageFiles(pkg.files, packageKinds).map((page) => ({
+      page_key: page.page_key,
+      sections: sanitizeSections(rewriteUrls(page.sections, refToUrl) as SectionInstance[], own),
+    }))
 
-    const sortOrder = await nextSortOrder(admin, creator.id)
+    /* FIRST in the library, where the page draws it while it is being made (lib/website-builder/library-limit.ts, firstSortOrder). */
+    const sortOrder = await firstSortOrder(admin, creator.id)
     const installName = String(pkg.theme.name ?? "Imported theme").slice(0, 80)
     const made = await createInstall(admin, creator.id, {
       theme_id: await catalogThemeId(admin, pkg.theme.source_theme_id),
@@ -341,8 +345,8 @@ export async function POST(req: Request) {
       migrated: pkg.legacy,
       /** What came with it, so the reply can say so rather than leaving somebody to scroll the page looking. */
       media: describeMedia(imported),
-      /** A header or footer the package wrote as a section file, left out: lib/storelib-theme/chrome.ts. */
-      left_out: [...new Set((read.warnings ?? []).map((w) => w.message.match(/ is a (header|footer)\. /)?.[1]).filter(Boolean))],
+      /** A section file that took the built-in header's or footer's own name, left out: lib/storelib-theme/package.ts. */
+      left_out: [...new Set((read.warnings ?? []).map((w) => w.message.match(/ takes the built-in (header|footer)'s own name/)?.[1]).filter(Boolean))],
       ...first,
     })
   }
@@ -413,7 +417,7 @@ export async function POST(req: Request) {
   const importedSettings = sanitizeThemeSettings(rewriteUrls(manifest.settings ?? {}, localToRemote) as Record<string, unknown>)
   /* Same reasoning as the package path above: cleaned before it is stored. */
   const importedPages = (rewriteUrls(manifest.pages ?? [], localToRemote) as { page_key: string; sections: unknown }[])
-    .map(p => ({ ...p, sections: sanitizeSections(p.sections as SectionInstance[]) }))
+    .map(p => ({ ...p, sections: repairChrome(sanitizeSections(p.sections as SectionInstance[]), kindLookup(undefined, SECTION_SCHEMAS as never)).sections }))
 
   // Stage 3 forward-compat: if the manifest includes a `theme_pack`
   // block (schema-only overrides shipped by the creator), stash it
@@ -429,8 +433,8 @@ export async function POST(req: Request) {
     importedSettings._theme_pack = manifest.theme_pack
   }
 
-  // Create a new install (a draft, sorted to the end)
-  const nextOrder = await nextSortOrder(admin, creator.id)
+  // Create a new install (a draft, first in the library)
+  const nextOrder = await firstSortOrder(admin, creator.id)
 
   const installName = (manifest.install?.name ?? "Imported Theme").slice(0, 80)
 
@@ -481,7 +485,7 @@ async function catalogThemeId(admin: Admin, claimed: unknown): Promise<string> {
 
 /**
  * The new install's row: a draft ("unpublished" means a site that was live
- * and was taken offline, and this one never was), after every website
+ * and was taken offline, and this one never was), before every website
  * already there. Two imports at once cannot make a sixth: the database
  * refuses, or the recount backs this one out (lib/website-builder/library-limit.ts).
  */

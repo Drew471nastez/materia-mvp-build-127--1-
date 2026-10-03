@@ -46,8 +46,17 @@ export interface EditorFieldEnv {
   menus: Record<string, Menu>
   /** The open page as `page.template` names it: "index", "product", "page.about". */
   template: string
-  /** Opens Theme settings at Menus. */
-  openMenus?: () => void
+  /** Opens Theme settings at Menus, at one menu when a handle is given. */
+  openMenus?: (handle?: string) => void
+  /** The menu Menus should open at, asked for by `openMenus(handle)`. `n` makes the same request twice count. */
+  menuRequest?: { handle: string; n: number } | null
+  /**
+   * The header, for the Main menu: its links are the Main menu until the
+   * Main menu is first edited (lib/website-builder/main-menu.ts).
+   */
+  header?: { settings: Record<string, unknown>; blocks?: { id: string; type: string; settings: Record<string, unknown> }[] } | null
+  /** Points the header at the Main menu, the first time the Main menu is written. */
+  linkHeaderToMain?: () => void
   /** The creator's own communities; null while communities are switched off on Storelib. */
   communities?: PickerCommunity[] | null
 }

@@ -446,6 +446,7 @@ export const SKILLS: Skill[] = [
       "storelib_site lists the published products with id, url, price, checkout_url and variants. With none, say so and add no product section.",
       "A list or grid: a built-in product section with source \"shop\" stays in step with the shop; a new section loops over products.",
       "One chosen product: loop over products and keep the one whose url or id matches a product_picker setting. On the product page, read page.product.",
+      "The product page already has the main product section (type product): its blocks are title, price, variant_picker, pay_what_you_want, quantity, buy_buttons, low_stock, badges, description, collapsible_tab, text, icon_with_text, share, wishlist, divider, breadcrumbs, files and custom_code. Add, order and style those blocks; it handles variants, pictures, stock, the cart and pay what you want.",
       "Buy buttons link to checkout_url, or a variant's checkout_url for one option. Checkout returns the buyer to this site; never add payment code.",
       "storelib_run_tests, then storelib_run_preview on a product page.",
     ],

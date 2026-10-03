@@ -99,12 +99,12 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
         <div className="text-sm py-4" role="status">{str(s.success_message, "Thanks! Your message has been sent.")}</div>
       ) : (
         <>
-          {bool(s.show_name, true) && <input type="text" name="name" placeholder="Name" autoComplete="name" maxLength={120} required className={inputClass} style={inputStyle} />}
-          <input type="email" name="email" placeholder="Email" autoComplete="email" maxLength={254} required className={inputClass} style={inputStyle} />
+          {bool(s.show_name, true) && <input type="text" name="name" placeholder={str(s.name_placeholder, "Your name")} autoComplete="name" maxLength={120} required className={inputClass} style={inputStyle} />}
+          <input type="email" name="email" placeholder={str(s.email_placeholder, "you@example.com")} autoComplete="email" maxLength={254} required className={inputClass} style={inputStyle} />
           {bool(s.show_company, false) && <input type="text" name="company" placeholder="Company" className={inputClass} style={inputStyle} />}
           {bool(s.show_phone, false) && <input type="tel" name="phone" placeholder="Phone" className={inputClass} style={inputStyle} />}
-          {bool(s.show_subject, true) && <input type="text" name="subject" placeholder="Subject" maxLength={150} className={inputClass} style={inputStyle} />}
-          {bool(s.show_message, true) && <textarea name="message" placeholder="Message" rows={5} maxLength={5000} required className={inputClass} style={inputStyle} />}
+          {bool(s.show_subject, true) && <input type="text" name="subject" placeholder={str(s.subject_placeholder, "What it is about")} maxLength={150} className={inputClass} style={inputStyle} />}
+          {bool(s.show_message, true) && <textarea name="message" placeholder={str(s.message_placeholder, "Write your message")} rows={5} maxLength={5000} required className={inputClass} style={inputStyle} />}
           {/* For scripts only: nobody sees it or can tab to it. */}
           <div aria-hidden="true" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clipPath: "inset(50%)", opacity: 0, pointerEvents: "none" }}>
             <input type="text" name="hp_company" tabIndex={-1} autoComplete="off" />

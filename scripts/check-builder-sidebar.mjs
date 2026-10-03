@@ -216,8 +216,10 @@ const VIOLET = "rgb(139, 92, 246)"
 /* A canvas reads a translucent colour back premultiplied, so a channel may be one off. */
 const near = (rgba, want) => { const m = (rgba || "").match(/[\d.]+/g); return !!m && m.length === 4 && m.every((v, i) => Math.abs(+v - want[i]) <= (i === 3 ? 0.05 : 2)) }
 check("Add section's plus is Storelib violet and its words the darker violet step", rest.violet.addDisc === VIOLET && rest.violet.addText === "rgb(124, 58, 237)", rest.violet)
-check("the selected section's ring is a 2px violet line, and its Selected badge white on violet",
-  /^rgb\(139, 92, 246\) 0px 0px 0px 2px inset$/.test(rest.violet.selRing?.shadow ?? "") && rest.violet.badgeBg === VIOLET && rest.violet.badgeText === "rgb(255, 255, 255)", rest.violet)
+/* The canvas selection is blue, as it was and as Shopify draws it (the owner asked for it back); the builder chrome around it stays violet. */
+const BLUE = "rgb(59, 130, 246)"
+check("the selected section's ring is a 2px blue line, and its Selected badge white on blue",
+  /^rgb\(59, 130, 246\) 0px 0px 0px 2px inset$/.test(rest.violet.selRing?.shadow ?? "") && rest.violet.badgeBg === BLUE && rest.violet.badgeText === "rgb(255, 255, 255)", rest.violet)
 check("at rest the insert line between rows is not drawn", rest.violet.insDiscOpacity === "0" && rest.violet.insLine === "none", rest.violet)
 check("at rest a section under no pointer has no ring", rest.violet.hovRing?.opacity === "0", rest.violet.hovRing)
 await desk.mouse(rest.violet.insAt.x, rest.violet.insAt.y)
@@ -227,7 +229,7 @@ check("under the pointer the insert line and its plus are violet", onInsert.viol
 await desk.mouse(rest.violet.hovAt.x, rest.violet.hovAt.y)
 await sleep(300)
 const onSection = await desk.js(READ)
-check("and a section under the pointer takes a half violet ring", onSection.violet.hovRing?.opacity === "1" && /^rgba\(139, 92, 246, 0\.5\) 0px 0px 0px 2px inset$/.test(onSection.violet.hovRing?.shadow ?? ""), onSection.violet.hovRing)
+check("and a section under the pointer takes a half blue ring", onSection.violet.hovRing?.opacity === "1" && /^rgba\(59, 130, 246, 0\.5\) 0px 0px 0px 2px inset$/.test(onSection.violet.hovRing?.shadow ?? ""), onSection.violet.hovRing)
 await desk.mouse(0, 0)
 await sleep(200)
 check("at rest a row shows no actions", !rest.deleteA && !rest.hideA && !rest.moreA, rest)

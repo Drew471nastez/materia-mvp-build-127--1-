@@ -508,17 +508,18 @@ export function SectionWrapper({
         <span
           aria-hidden
           className="wb-ring absolute inset-0 pointer-events-none z-[9997] opacity-0 group-hover/section:opacity-100 transition-opacity"
-          style={{ boxShadow: "inset 0 0 0 2px rgba(139, 92, 246, 0.5)", ...ringRadiusStyle }}
+          style={{ boxShadow: "inset 0 0 0 2px rgba(59, 130, 246, 0.5)", ...ringRadiusStyle }}
         />
       )}
-      {/* Selected ring: solid Storelib violet (#8b5cf6, the editor's accent, not
-          a blue), above all children so opaque child backgrounds (header
+      {/* Selected ring: solid blue (#3b82f6), the canvas selection colour the
+          owner asked to keep, as Shopify marks a selection. The builder chrome
+          stays violet. Above all children so opaque child backgrounds (header
           inner div, footer, etc.) can't hide it. */}
       {isEditing && isSelected && (
         <span
           aria-hidden
           className="wb-ring absolute inset-0 pointer-events-none z-[9998]"
-          style={{ boxShadow: "inset 0 0 0 2px #8b5cf6", ...ringRadiusStyle }}
+          style={{ boxShadow: "inset 0 0 0 2px #3b82f6", ...ringRadiusStyle }}
         />
       )}
       {/* "Selected" badge — anchored to bottom-right so it never overlaps
@@ -527,7 +528,7 @@ export function SectionWrapper({
         <span
           className="wb-ring absolute bottom-2 right-2 z-[9999] pointer-events-none select-none"
           style={{
-            background: "#8b5cf6",
+            background: "#3b82f6",
             color: "#fff",
             fontSize: "11px",
             fontWeight: 600,

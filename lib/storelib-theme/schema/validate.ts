@@ -289,9 +289,9 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
   }
 
   checkPlacement(s as unknown as Record<string, unknown>, err)
-  checkAnimation(s.settings, "settings", warn)
-  ;(s.blocks ?? []).forEach((b, i) => { if (b.settings) checkAnimation(b.settings, `blocks[${i}].settings`, warn) })
-  checkHabits(s.settings, "settings", warn)
+  checkAnimation(s.settings as Parameters<typeof checkAnimation>[0], "settings", warn)
+  ;(s.blocks ?? []).forEach((b, i) => { if (b.settings) checkAnimation(b.settings as Parameters<typeof checkAnimation>[0], `blocks[${i}].settings`, warn) })
+  checkHabits(s.settings as Parameters<typeof checkHabits>[0], "settings", warn)
 
   if (errors.length) return { ok: false, errors }
   const value = { ...s, schema_version: s.schema_version ?? SECTION_SCHEMA_VERSION } as SectionSchema

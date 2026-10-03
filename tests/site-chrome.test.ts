@@ -7,6 +7,11 @@
  * cart drawer, the search or a working menu. And a section could not offer a
  * colour of its own, because the panel hid every colour setting.
  *
+ * A new header file that does not say "kind": "header" is still refused at
+ * every door. One that is already there (an imported theme, a site saved
+ * before) is kept and placed in the Header group as the one header, with the
+ * built-in hidden (tests/section-groups.test.ts drives that).
+ *
  * Each check below drives the code that decides, with the inputs a real
  * session sends:
  *
@@ -31,6 +36,8 @@ import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { DEFAULT_COLOR_SCHEMES } from "@/lib/storelib-theme/color-schemes"
 import { ALL_TOPICS } from "@/lib/storelib-ai/knowledge"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
+import { groupOf, kindLookup, splitGroups } from "@/lib/storelib-theme/section-groups"
+import { pagesFromPackageFiles } from "@/lib/website-builder/theme-pages"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -78,7 +85,7 @@ async function main() {
   check("but a <header> around a heading is a heading",
     chromeRoleOf({ schema: { name: "Intro" }, template: "<header class='x'><h1>Title</h1></header>" }) === null)
 
-  console.log("\nThe save door refuses one, for everybody")
+  console.log("\nThe save door refuses a header that does not say so, for everybody")
   const untouched = { from: () => { throw new Error("the database was reached") } }
   const asHeader = await saveThemeFile(untouched, "install-1", "sections/site_header.storelib", renamed("site_header", "Site header"))
   check("a section file named Site header is refused, before the database", asHeader.ok === false && asHeader.status === 422, asHeader)
@@ -103,7 +110,7 @@ async function main() {
   const unknown = named.filter((id) => !headerIds.has(id) && !footerIds.has(id))
   check("and every setting it names is one the header or footer really has", named.length > 15 && unknown.length === 0, unknown)
 
-  console.log("\nA theme back from ChatGPT keeps the site's own header")
+  console.log("\nA theme back from ChatGPT keeps its header file, and draws one header")
   const pkgFiles: Record<string, string> = {
     "config/settings.json": "{}\n",
     "sections/site_header.storelib": renamed("site_header", "Site header"),
@@ -111,7 +118,8 @@ async function main() {
     "templates/index.json": JSON.stringify({
       sections: {
         h: { type: "header", settings: {} },
-        sh: { type: "site_header", settings: {} },
+        /* The AI put its work in it: the header the creator meant. */
+        sh: { type: "site_header", settings: { heading: "Brand" } },
         p: { type: "promo", settings: {} },
         f: { type: "footer", settings: {} },
       },
@@ -122,16 +130,22 @@ async function main() {
   const pkg = await readPackage(bytes, { knownTypes: ["header", "footer"] })
   check("the package is read, not refused", pkg.ok === true, pkg.ok === false ? pkg.errors : undefined)
   if (pkg.ok === true) {
-    const t = JSON.parse(pkg.value.files["templates/index.json"])
-    check("its header file is left out", !("sections/site_header.storelib" in pkg.value.files))
-    check("and so is its use on the page, while the real header, the footer and the other section stay", t.order.join(",") === "h,p,f", t.order)
-    check("and the import says so", (pkg.warnings ?? []).some((w) => /site_header\.storelib is a header/.test(w.message)))
+    check("its header file is kept", "sections/site_header.storelib" in pkg.value.files)
+    const kinds = kindLookup(pkg.value.files, SECTION_SCHEMAS as never)
+    const page = pagesFromPackageFiles(pkg.value.files, kinds).find((p) => p.page_key === "index")?.sections ?? []
+    const drawnHeaders = page.filter((s) => !s.hidden && groupOf(s) === "header" && (s.type === "header" || kinds(s.type) === "header"))
+    check("and on the page it is the one header, in the Header group", drawnHeaders.map((s) => s.id).join(",") === "sh", page.map((s) => `${s.id}:${groupOf(s)}${s.hidden ? ":hidden" : ""}`))
+    check("the built-in header is kept, hidden", page.some((s) => s.id === "h" && s.hidden === true))
+    check("the other section and the footer stay where they were", splitGroups(page).template.map((s) => s.id).join(",") === "p" && splitGroups(page).footer.map((s) => s.id).join(",") === "f")
     check("a section that is not a header is kept", "sections/promo.storelib" in pkg.value.files)
   }
 
-  console.log("\nAdd Section does not offer one saved before")
+  console.log("\nAdd Section offers a header file in the Header group, never for a page body")
   const custom = { site_header: { ...SECTION_SCHEMAS.header, type: "site_header", name: "Site header", presets: [{ name: "x" }] }, promo: { type: "promo", name: "Promo", fields: [], presets: [{ name: "x" }] } }
   check("an old header-like section is not offered for a page body", customAddableSections(custom as never).join(",") === "promo")
+  const editorSrc = read("app/website-builder/editor/[installId]/page.tsx")
+  check("the page's own Add section leaves headers out; the Header group's lists the creator's own",
+    /return g\.includes\("template"\) \|\| \(g\.includes\("header"\) && !kindOfType\(t\)\)/.test(editorSrc) && /kindOfType\(t\) === own\)/.test(editorSrc))
 
   console.log("\nA section's own colour follows its scheme until somebody picks one")
   const colourSrc = `<template>
@@ -208,13 +222,13 @@ async function main() {
   /* "Template" was the theme editors' word; the owner asked for a better one. The group's data name stays. */
   const groupLabels = [...html.matchAll(/<p class="px-2 pb-1 pt-2[^"]*">([^<]+)<\/p>/g)].map((m) => m[1])
   check("the groups read Header, Page and Footer, and nothing says Template", groupLabels.join(",") === "Header,Page,Footer" && !/>Template</.test(html), groupLabels)
-  check("Add section under the header and at the end of the page, nowhere else", (html.match(/data-add-section=""/g) ?? []).length === 2)
+  check("Add section in the Header group, at the end of the page and in the Footer group", (html.match(/data-add-section=""/g) ?? []).length === 3)
   const headerGroup = html.slice(html.indexOf('data-section-group="header"'), html.indexOf('data-section-group="template"'))
   const templateGroup = html.slice(html.indexOf('data-section-group="template"'), html.indexOf('data-section-group="footer"'))
   check("the header row is in the Header group, and only there", /data-section-row="h"/.test(headerGroup) && !/data-section-row="h"/.test(templateGroup))
   check("the page's own sections are in the Page group", /data-section-row="a"/.test(templateGroup) && /data-section-row="b"/.test(templateGroup))
   check("a body row has Hide, Delete and a menu", /aria-label="Hide Hero"/.test(templateGroup) && /aria-label="Delete Hero"/.test(templateGroup) && /aria-label="More for Hero"/.test(templateGroup))
-  check("the header has no Delete and no menu", !/Delete Header/.test(headerGroup) && !/More for Header/.test(headerGroup))
+  check("the header can be deleted from its menu, never from a bin under the pointer", !/aria-label="Delete Header"/.test(headerGroup) && /aria-label="More for Header"/.test(headerGroup))
   const eye = templateGroup.match(/<button[^>]*aria-label="Show FAQ"[^>]*>/)?.[0] ?? ""
   check("a hidden row keeps its eye in view, to bring it back", /class="[^"]*\bflex\b/.test(eye) && !/class="[^"]*\bhidden\b/.test(eye), eye)
   const bin = templateGroup.match(/<button[^>]*aria-label="Delete Hero"[^>]*>/)?.[0] ?? ""

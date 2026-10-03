@@ -123,8 +123,9 @@ async function main() {
     const route = read("app/api/website-builder/themes/import/route.ts")
     check("the import route reads the package's own section files for the schema",
       /const own = ownSectionFields\(Object\.entries\(pkg\.files\)\.map\(\(\[path, content\]\) => \(\{ path, content \}\)\)\)/.test(route))
+    /* Every page, header and footer groups included, comes from lib/website-builder/theme-pages.ts and is cleaned on the way in. */
     check("and hands them to the cleaner for every page",
-      /sanitizeSections\(\s*\n\s*rewriteUrls\(sectionsFromTemplate\(JSON\.parse\(text\)\), refToUrl\) as SectionInstance\[\],\s*\n\s*own,\s*\n\s*\)/.test(route))
+      /pagesFromPackageFiles\(pkg\.files, packageKinds\)\.map\(\(page\) => \(\{\s*\n\s*page_key: page\.page_key,\s*\n\s*sections: sanitizeSections\(rewriteUrls\(page\.sections, refToUrl\) as SectionInstance\[\], own\),/.test(route))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
