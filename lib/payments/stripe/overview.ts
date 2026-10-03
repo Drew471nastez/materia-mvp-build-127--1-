@@ -12,6 +12,7 @@ import {
   payoutFactsOf,
   profileForCreator,
   readCreatorStripe,
+  hadConnection,
   resolveCountryForStart,
   syncStripeAccountFull,
   type StripeSyncResult,
@@ -56,7 +57,9 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
     }
   }
 
-  const row = synced ? rowBefore : await readCreatorStripe(creator.id)
+  /* A sync that let an unreachable account go has changed the row: read it again, so nothing below uses the old id. */
+  const row = synced && !synced.released ? rowBefore : await readCreatorStripe(creator.id)
+  const reconnect = !row?.stripe_account_id && row ? await hadConnection(creator.id, row.stripe_connected_at) : false
   const person = row ? await profileForCreator(row.user_id) : null
   const live = synced?.account ?? null
   const facts = live ? payoutFactsOf(live) : null
@@ -74,7 +77,7 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
             }
           : null,
         snapshot.chargesEnabled && snapshot.payoutsEnabled ? [{ status: "new" }] : [],
-        { everActive: !!row?.stripe_connected_at },
+        { everActive: !!row?.stripe_connected_at, reconnect },
       ),
     )
 

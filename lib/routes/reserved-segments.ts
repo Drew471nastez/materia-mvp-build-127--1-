@@ -32,6 +32,9 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "blog",
   "c",
   "checkout",
+  /* Storelib Communities: a community's public page and its member area
+     (/community/<slug>). Moved here from the extras when it got a route. */
+  "community",
   /* The page a website cover's screenshot is taken of. A username of this
      would put a creator's profile at the same address. */
   "cover-render",
@@ -96,7 +99,6 @@ export const RESERVED_ROOT_EXTRAS: readonly string[] = [
   "about",
   "analytics",
   "assets",
-  "community",
   "contact",
   "courses",
   "favicon",

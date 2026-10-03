@@ -1,7 +1,11 @@
 # Everything still to run, in three files
 
 The same SQL as `all-last-14-days/` and `run-four/`, in three files instead of
-four: every part in `supabase/sql/run-now/` (01 to 78), then the storage
+<<<<<<< HEAD
+four: every part in `supabase/sql/run-now/` (01 to 81), then the storage
+=======
+four: every part in `supabase/sql/run-now/` (01 to 81), then the storage
+>>>>>>> wt-cfound
 policies and the check. Run one folder, not several: a part that already ran
 changes nothing the second time.
 

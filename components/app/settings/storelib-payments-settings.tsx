@@ -15,7 +15,7 @@ import { money, type Overview } from "@/components/app/settings/payments-hub-sha
 import { cn } from "@/lib/utils"
 
 function safeError(message: string): string {
-  if (/invalid_request|acct_|accs_|capability|requirement|sk_|whsec/i.test(message)) {
+  if (/invalid_request|acct_|accs_|req_|pi_|ch_|capability|requirement|sk_|rk_|pk_|whsec|\n\s+at\s|\{\s*"/i.test(message)) {
     return "Something went wrong. Try again in a moment."
   }
   return message
@@ -165,7 +165,8 @@ export function StorelibPaymentsSettings({
     setBusy(true)
     setError(null)
     try {
-      setData(await call<Overview>("disconnect", {}))
+      /* The button has already asked twice (Disconnect, then Confirm): that is the creator's yes. */
+      setData(await call<Overview>("disconnect", { confirm: true }))
       setConfirmDisconnect(false)
     } catch (e) {
       setError(safeError(e instanceof Error ? e.message : "Could not disconnect."))

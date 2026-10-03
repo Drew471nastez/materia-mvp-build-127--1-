@@ -66,10 +66,10 @@ check("checkout and Payouts read the same gate", /return stripeRowReady\(row\)/.
 
 console.log("\nWebhooks: both secrets")
 const hook = code("app/api/stripe/webhook/route.ts")
-check("the main endpoint checks the platform and the Connect secret, always", /const secretsToTry = \[mainSecret, connectSecret\]\.filter\(Boolean\)/.test(hook))
+check("the main endpoint checks the platform and the Connect secret, each for its own kind of event", /verifyStripeEvent\(\s*body,\s*signature,\s*\{ platform: process\.env\.STRIPE_WEBHOOK_SECRET, connect: process\.env\.STRIPE_CONNECT_WEBHOOK_SECRET \}/.test(hook))
 check("the main endpoint no longer ignores connected-account events", !/ignored: true/.test(hook.slice(hook.indexOf("async function handleStripeEvent"))))
 check("account events are re-read from Stripe on either endpoint", /handleConnectAccountEvent\(event\)/.test(hook) && /handleConnectAccountEvent\(event\)/.test(code("app/api/stripe/webhook/connect/route.ts")))
-check("the Connect endpoint verifies with its own secret", /constructEvent\(body, sig, secret\)/.test(code("app/api/stripe/webhook/connect/route.ts")) && /STRIPE_CONNECT_WEBHOOK_SECRET/.test(code("app/api/stripe/webhook/connect/route.ts")))
+check("the Connect endpoint verifies with its own secret only", /verifyStripeEvent\(body, sig, \{ connect: secret \}/.test(code("app/api/stripe/webhook/connect/route.ts")) && /STRIPE_CONNECT_WEBHOOK_SECRET/.test(code("app/api/stripe/webhook/connect/route.ts")))
 check("both endpoints share one record of handled events", /stripeEventHandled/.test(hook) && /stripeEventHandled/.test(code("app/api/stripe/webhook/connect/route.ts")))
 
 console.log("\nStripe's amounts and accounts")

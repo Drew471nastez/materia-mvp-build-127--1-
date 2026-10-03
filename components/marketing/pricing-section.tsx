@@ -90,7 +90,7 @@ export function PricingSection({
               {headingOverride || "Start free. Upgrade when you sell more."}
             </h2>
             <p className="mt-3 text-[16px] leading-relaxed text-[#6b7280] text-balance">
-              {subtitleOverride || "Two plans. Pro is $29 a month and lowers the fee on every sale from 6% to 3%."}
+              {subtitleOverride || "Two plans. Pro is $29 a month and lowers the fee on every sale from 5% to 3%."}
             </p>
           </div>
         </AnimateOnScroll>

@@ -30,6 +30,7 @@ import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { paymentFacts, recordCustomer, recordSale } from "@/lib/checkout/fulfil-payment"
 import { fieldsFromSubscription, graceEndsAt, grantsAccess, isMembershipSubscription, transitions, type Transition } from "./state"
 import { MEMBERSHIP_COLUMNS, receiptTokenFor, siteUrl, type Db, type MembershipRow } from "./server"
+import { communityAccessAfterMembership } from "@/lib/communities/server/payment-hooks"
 
 export async function retrieveSubscription(id: string): Promise<Stripe.Subscription> {
   return stripe.subscriptions.retrieve(id, { expand: ["default_payment_method", "pending_setup_intent"] })
@@ -112,6 +113,14 @@ async function applyEffects(admin: Db, before: MembershipRow | null, row: Member
   if (changed.includes("cancel_scheduled"))
     await quietly("cancel notice", () => notice(admin, row, "membership.canceled", `membership:${row.id}:canceled:${row.current_period_end ?? "now"}`, { endsAt: row.current_period_end }))
   if (changed.includes("ended")) await quietly("ended notice", () => notice(admin, row, "membership.ended", `membership:${row.id}:ended`))
+  /*
+    THE COMMUNITIES THIS MEMBERSHIP OPENS follow it on every sync, not only
+    on a change, for the same reason as the library rows above. Access that
+    has just started may bring back a member who had left; a renewal never
+    does. Caught twice over (payment-hooks catches everything), so a
+    community can never stop a membership from syncing.
+  */
+  await quietly("community access", () => communityAccessAfterMembership(admin, row, { fresh: changed.includes("access_on") }))
   void before
 }
 

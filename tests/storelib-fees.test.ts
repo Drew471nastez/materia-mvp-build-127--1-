@@ -15,11 +15,11 @@ function check(name: string, ok: boolean) {
 
 const at4 = calculateStorelibFee({ grossMinor: 400, currency: "USD", sellerPlan: "free" })
 check("free at $4 uses standard tier", at4.pricingTier === "standard" && at4.fixedFeeMinor === 25)
-check("free at $4 fee is 49c", at4.totalStorelibFeeMinor === 49)
+check("free at $4 fee is 45c", at4.totalStorelibFeeMinor === 45)
 
 const under = calculateStorelibFee({ grossMinor: 399, currency: "USD", sellerPlan: "free" })
 check("under $4 is micro", under.pricingTier === "micro" && under.fixedFeeMinor === 0)
-check("free micro 12.25% of 399", under.totalStorelibFeeMinor === Math.round(399 * 0.1225))
+check("free micro 11.25% of 399", under.totalStorelibFeeMinor === Math.round(399 * 0.1125))
 
 const ronMicro = calculateStorelibFee({ grossMinor: 1839, currency: "RON", sellerPlan: "free" })
 check("RON under threshold is micro", ronMicro.pricingTier === "micro")

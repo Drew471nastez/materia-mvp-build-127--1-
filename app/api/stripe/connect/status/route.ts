@@ -1,94 +1,70 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { stripe } from "@/lib/stripe"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { readCreatorStripe, syncStripeAccountFull } from "@/lib/payments/stripe/connect"
 
-function tryCreateAdminClient() {
-  try {
-    const { createAdminClient } = require("@/lib/supabase/admin")
-    return createAdminClient()
-  } catch {
-    return null
-  }
-}
-
+/**
+ * ===========================================================================
+ *  THE OLDER STATUS ROUTE, NOW THE SAME ANSWER AS THE PAYMENTS PAGE
+ * ===========================================================================
+ * Two older settings screens still ask here (components/app/payments-content,
+ * components/app/settings-form-new). It had its own copy of the logic, and
+ * that copy was dangerous in three ways:
+ *
+ *   IT WIPED THE ACCOUNT ON ANY ERROR. A timeout, a 500 or a rate limit from
+ *   Stripe cleared stripe_account_id, so a network blip could disconnect a
+ *   creator's real account, with its balance and history, and make the next
+ *   setup create a second one. lib/payments/stripe/connect.ts has a narrow
+ *   test for "this account is really gone" (accountIsGone) precisely to stop
+ *   that; this route bypassed it.
+ *
+ *   IT SENT THE ACCOUNT ID TO THE BROWSER, and the raw error message.
+ *
+ *   IT REWROTE stripe_connected_at EVERY TIME, which is the field that says a
+ *   creator once had payments working, so a paused account read as never set
+ *   up and the status lost its "restore" wording.
+ *
+ * It is the canonical sync now (syncStripeAccountFull): an account the current
+ * Stripe platform cannot reach is let go cleanly so the creator can reconnect,
+ * a blip changes nothing and answers with what is already known, and nothing
+ * here names an account or repeats Stripe's words.
+ */
 export async function GET() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Sign in to see your payments." }, { status: 401 })
+
+  /* The signed in person's own creator row, found by their id: never an account named by the browser. */
+  const { data: creator } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  if (!creator) return NextResponse.json({ error: "Creator profile not found." }, { status: 404 })
+
   try {
-    const supabase = await createClient()
-    const dbClient = tryCreateAdminClient() || supabase
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    const { data: creator } = await dbClient.from("creators").select("*").eq("user_id", user.id).single()
-    if (!creator) return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
-
-    const stripeAccountId = (creator as any).stripe_account_id || null
-    if (!stripeAccountId) {
-      return NextResponse.json({
-        connected: false,
-        status: "not_connected",
-        chargesEnabled: false,
-        payoutsEnabled: false,
-        detailsSubmitted: false,
-      })
-    }
-
-    let account
-    try {
-      account = await stripe.accounts.retrieve(stripeAccountId)
-    } catch {
-      await dbClient
-        .from("creators")
-        .update({
-          stripe_account_id: null,
-          stripe_onboarding_status: "not_connected",
-          charges_enabled: false,
-          payouts_enabled: false,
-          details_submitted: false,
-          stripe_connected_at: null,
-        })
-        .eq("id", creator.id)
-
-      return NextResponse.json({
-        connected: false,
-        status: "not_connected",
-        chargesEnabled: false,
-        payoutsEnabled: false,
-        detailsSubmitted: false,
-      })
-    }
-
-    const chargesEnabled = !!account.charges_enabled
-    const payoutsEnabled = !!account.payouts_enabled
-    const detailsSubmitted = !!account.details_submitted
+    const synced = await syncStripeAccountFull(creator.id, "creator")
+    const chargesEnabled = !!synced.account?.charges_enabled
+    const payoutsEnabled = !!synced.account?.payouts_enabled
+    const detailsSubmitted = !!synced.account?.details_submitted
     const connected = chargesEnabled && payoutsEnabled && detailsSubmitted
-    const status = connected ? "connected" : "pending"
-
-    await dbClient
-      .from("creators")
-      .update({
-        stripe_onboarding_status: status,
-        charges_enabled: chargesEnabled,
-        payouts_enabled: payoutsEnabled,
-        details_submitted: detailsSubmitted,
-        stripe_connected_at: connected ? new Date().toISOString() : null,
-      })
-      .eq("id", creator.id)
-
     return NextResponse.json({
       connected,
-      status,
-      accountId: `acct_****${stripeAccountId.slice(-4)}`,
-      fullAccountId: stripeAccountId,
+      status: synced.account ? (connected ? "connected" : "pending") : "not_connected",
       chargesEnabled,
       payoutsEnabled,
       detailsSubmitted,
     })
-  } catch (error: any) {
-    console.error("[Stripe Connect Status Error]", error)
-    return NextResponse.json({ error: error.message || "Failed to fetch Stripe Connect status" }, { status: 500 })
+  } catch (error) {
+    /* A blip: nothing is cleared. Answer with the last state Storelib knew. */
+    console.error("[stripe connect status]", error instanceof Error ? error.message.slice(0, 160) : "unknown")
+    const row = await readCreatorStripe(creator.id).catch(() => null)
+    const connected = !!(row?.charges_enabled && row?.payouts_enabled && row?.details_submitted)
+    return NextResponse.json({
+      connected,
+      status: row?.stripe_account_id ? (connected ? "connected" : "pending") : "not_connected",
+      chargesEnabled: !!row?.charges_enabled,
+      payoutsEnabled: !!row?.payouts_enabled,
+      detailsSubmitted: !!row?.details_submitted,
+      stale: true,
+    })
   }
 }

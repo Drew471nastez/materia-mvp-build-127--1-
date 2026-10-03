@@ -117,7 +117,6 @@ console.log("\nNo face is a question mark")
     ["components/store-builder/sticky-desktop-creator-bar.tsx", 1],
     ["app/(marketing)/p/[slug]/page.tsx", 2],
     ["app/(marketing)/u/[username]/page.tsx", 1],
-    ["app/dashboard/communities/page.tsx", 1],
     /* The library no longer draws the buyer's own face (that is /account).
        A product row draws the seller once. The library home draws them once
        too, in the one list both sizes use, not again as pills and a strip. */

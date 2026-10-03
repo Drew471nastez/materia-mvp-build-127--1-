@@ -133,7 +133,7 @@ const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8
   `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}}</script><script>${script}</script></body></html>`
 
 /* An account on Free with three invoices from an earlier Pro spell. */
-const FREE = { id: "free", name: "Free", price_cents: 0, fee_percent: 0.06, fee_fixed_cents: 30 }
+const FREE = { id: "free", name: "Free", price_cents: 0, fee_percent: 0.05, fee_fixed_cents: 25 }
 const invoices = [0, 1, 2].map((i) => ({
   id: `in_${i}`,
   amount_cents: 2900,

@@ -266,7 +266,7 @@ try {
       expect(m.planLines[0] === "Everything in Free", "Pro's own lines", m.planLines[0])
     } else {
       expect(m.planName === "Free" && m.planButton === "Upgrade to Pro" && m.planHref === "/app/settings/billing/upgrade", "Free, with Upgrade to Pro", `${m.planName} / ${m.planButton}`)
-      expect(/6% \+ \$0\.25 per sale/.test(m.planLines[0]) && m.planLines.some((l) => /1 GB of file storage/.test(l)), "Free's own lines", m.planLines.join(" | "))
+      expect(/5% \+ \$0\.25 per sale/.test(m.planLines[0]) && m.planLines.some((l) => /1 GB of file storage/.test(l)), "Free's own lines", m.planLines.join(" | "))
     }
 
     /* The globe turns by itself. */

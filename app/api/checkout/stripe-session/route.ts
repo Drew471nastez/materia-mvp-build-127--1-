@@ -23,6 +23,7 @@ import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { randomUUID } from "node:crypto"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
+import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 
 /**
  * POST /api/checkout/stripe-session
@@ -296,8 +297,35 @@ export async function POST(request: Request) {
     console.error("[stripe-session] PaymentIntent failed:", error instanceof Error ? error.message : error)
     /* Nothing to pay, so no place kept under the code's limit. */
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    /*
+      A SELLER STILL LINKED TO THE OLD STRIPE PLATFORM. Their row can say
+      "ready" from before the move, so the gate above lets the checkout
+      through, and Stripe then refuses the destination: the buyer was told to
+      try again, which would fail the same way forever, and nothing ever let
+      the dead account go. Only when Stripe's refusal is about the destination
+      is the account itself asked about, and only when it is gone from this
+      platform (accountIsGone, the same narrow test the payments page uses) is
+      it released, which closes the gate for everyone after this buyer and
+      shows the creator Reconnect payments. Nothing was charged: this is the
+      PaymentIntent being created, not confirmed.
+    */
+    if (refusedDestination(error)) {
+      const gone = await stripe.accounts.retrieve(account).then(() => false, (e: unknown) => accountIsGone(e))
+      if (gone) {
+        await releaseConnectedAccount(creator.id, account, "legacy_platform").catch((e) =>
+          console.error("[stripe-session] release", e instanceof Error ? e.message.slice(0, 160) : "unknown"),
+        )
+        return NextResponse.json({ error: "This seller cannot take payments right now. Nothing was charged." }, { status: 409 })
+      }
+    }
     return NextResponse.json({ error: "The payment could not be started. Nothing was charged. Try again." }, { status: 500 })
   }
+}
+
+/** Stripe refused the transfer destination (the connected account), rather than anything else about the payment. */
+function refusedDestination(error: unknown): boolean {
+  const e = error as { param?: string; message?: string } | null
+  return /destination/i.test(e?.param ?? "") || /destination|connected account/i.test(e?.message ?? "")
 }
 
 function clean(value: unknown, max: number): string {

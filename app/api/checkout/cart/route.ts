@@ -3,6 +3,7 @@ import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { MIN_CHARGE_CENTS, priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
+import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
@@ -173,8 +174,9 @@ export async function POST(request: Request) {
   if (
     !creator.stripe_account_id ||
     !String(creator.stripe_account_id).startsWith("acct_") ||
-    creator.charges_enabled === false ||
-    creator.payouts_enabled === false ||
+    /* Only a creator Stripe has said yes to: an unknown (null) state is not ready. */
+    creator.charges_enabled !== true ||
+    creator.payouts_enabled !== true ||
     creator.stripe_onboarding_status !== "connected"
   ) {
     return NextResponse.json(
@@ -303,6 +305,23 @@ export async function POST(request: Request) {
     console.error("[checkout/cart] session creation failed:", error?.message)
     /* No page, no payment: the place goes back. */
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    /*
+      A seller still linked to the old Stripe platform: the same narrow test
+      the single product checkout uses (app/api/checkout/stripe-session).
+      Only a refusal about the destination asks after the account, and only an
+      account gone from this platform is let go, which closes this shop's
+      checkout and shows its creator Reconnect payments. Nothing was charged.
+    */
+    const destination = String(creator.stripe_account_id || "")
+    if (destination && (/destination/i.test(error?.param ?? "") || /destination|connected account/i.test(error?.message ?? ""))) {
+      const gone = await stripe.accounts.retrieve(destination).then(() => false, (e: unknown) => accountIsGone(e))
+      if (gone) {
+        await releaseConnectedAccount(creator.id, destination, "legacy_platform").catch((e) =>
+          console.error("[checkout/cart] release", e instanceof Error ? e.message.slice(0, 160) : "unknown"),
+        )
+        return NextResponse.json({ error: "This shop cannot take payments right now. Nothing was charged." }, { status: 409 })
+      }
+    }
     return NextResponse.json({ error: "Could not start the checkout" }, { status: 500 })
   }
 }

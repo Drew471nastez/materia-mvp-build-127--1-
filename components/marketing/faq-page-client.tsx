@@ -62,7 +62,7 @@ const FAQ_CATEGORIES = [
       },
       {
         q: "Does Storelib take a commission on my sales?",
-        a: "Yes, a fee on each sale that depends on your plan: 6% + $0.25 on Free and 3% + $0.25 on Pro. The $0.25 is added to orders of $3.00 or more. Stripe's standard processing fees apply on top.",
+        a: "Yes, a fee on each sale that depends on your plan: 5% + $0.25 on Free and 3% + $0.25 on Pro. The $0.25 is added to orders of $4.00 or more. Stripe's standard processing fees apply on top.",
       },
       {
         q: "How do I set up payouts?",
@@ -79,7 +79,7 @@ const FAQ_CATEGORIES = [
       },
       {
         q: "What's included in Pro?",
-        a: "Pro is $29 a month. It lowers the fee on each sale from 6% to 3%, lets you connect your own domain, removes Storelib branding, adds the verified badge, and gives you 25 GB of file storage instead of 1 GB. The Pricing page has the full list.",
+        a: "Pro is $29 a month. It lowers the fee on each sale from 5% to 3%, lets you connect your own domain, removes Storelib branding, adds the verified badge, and gives you 25 GB of file storage instead of 1 GB. The Pricing page has the full list.",
       },
       {
         q: "Can I cancel my subscription anytime?",

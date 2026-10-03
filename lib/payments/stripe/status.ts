@@ -45,6 +45,13 @@ export interface StatusFacts {
   lastPayoutFailed?: boolean
   /** The account was active before (payments once on). */
   everActive?: boolean
+  /**
+   * There is no live account, but there was one: it was let go because the
+   * current Stripe platform cannot reach it (every creator linked before the
+   * move to the new platform), or the creator chose Start over. Setting up
+   * again is "Reconnect", not a first-time "Set up".
+   */
+  reconnect?: boolean
 }
 
 export interface StorelibStatusView {
@@ -83,7 +90,17 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
     ...base,
   })
 
-  if (!f.hasAccount) return view("NOT_STARTED", "Set up payments", "Accept payments and get paid to your bank.", "Set up payments", "setup")
+  if (!f.hasAccount) {
+    /*
+      A CONNECTION THAT WAS LET GO IS RECONNECTED, NOT SET UP. The first step
+      is the same either way (a fresh account under the current platform),
+      but a creator who had payments working and now sees "Set up payments"
+      reads it as their account having been wiped. Their orders and payouts
+      are all still there; only the link to Stripe is new.
+    */
+    if (f.reconnect) return view("NOT_STARTED", "Reconnect payments", "Set up payments again to keep selling. Your orders and payout history are safe.", "Reconnect payments", "setup")
+    return view("NOT_STARTED", "Set up payments", "Accept payments and get paid to your bank.", "Set up payments", "setup")
+  }
 
   const reason = f.disabledReason ?? ""
   /* Stripe can keep a disabled_reason after capabilities return; trust live flags for pause. */
@@ -183,7 +200,7 @@ export function statusFactsOf(
     capabilities?: object | null
   } | null,
   externalAccounts: Array<{ status?: string | null }>,
-  extra: { lastPayoutFailed?: boolean; everActive?: boolean } = {},
+  extra: { lastPayoutFailed?: boolean; everActive?: boolean; reconnect?: boolean } = {},
 ): StatusFacts {
   const r = account?.requirements ?? null
   const caps: Record<string, string> = {}
@@ -203,5 +220,6 @@ export function statusFactsOf(
     externalAccounts: externalAccounts.map((e) => ({ status: e.status ?? null })),
     lastPayoutFailed: extra.lastPayoutFailed,
     everActive: extra.everActive,
+    reconnect: extra.reconnect,
   }
 }

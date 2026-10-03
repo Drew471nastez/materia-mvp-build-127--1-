@@ -86,7 +86,7 @@ check("steps are the three short ones", /\["Account", "Verify", "Bank"\]/.test(f
 check("the step comes from Stripe's status, not the form", /setupStepOf\(/.test(flow) && /post<Overview>\("refresh"/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
-check("desktop panel is about 760 wide; phone stays full screen", /max-w-\[min\(760px/.test(flow) && /data-payments-setup-panel="subpage"/.test(flow) && /h-\[100dvh\]/.test(flow))
+check("desktop panel is about 760 wide, a little wider (840) only on a large desktop; phone stays full screen", /"max-w-\[min\(760px,calc\(100vw-40px\)\)\] xl:max-w-\[840px\]"/.test(flow) && !/(?:^|\s)(?:sm|md|lg):max-w-\[(?:8|9)\d\dpx\]/.test(flow) && /data-payments-setup-panel="subpage"/.test(flow) && /h-\[100dvh\]/.test(flow))
 check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-setup-scroll=""/.test(flow))
 check("the phone app hands off to the browser", /isNativeApp\(\)/.test(flow) && /openExternal\(/.test(flow))
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))

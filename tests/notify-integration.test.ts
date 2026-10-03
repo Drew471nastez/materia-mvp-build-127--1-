@@ -114,7 +114,7 @@ console.log("\nThe other paths an order, a refund or a payout is made by")
   check("the Orders page under the same key", has(route, /name: "order\.refunded",\s*key: `refund:\$\{orderId\}:\$\{refund\.id\}`/))
   check("the admin refund under the same key", has(adminRefund, /name: "order\.refunded",\s*key: `refund:\$\{o\.id\}:\$\{refundId\}`/))
 
-  for (const f of ["app/api/stripe/cashout/route.ts", "app/api/stripe/withdraw/route.ts"]) {
+  for (const f of ["app/api/stripe/cashout/route.ts"]) {
     const src = readCode(f)
     check(`${f}: payout.scheduled under the webhook's key, no email`, has(src, /name: "payout\.scheduled",\s*key: `payout:\$\{stripePayout\.id\}:scheduled`/) && !/sendPayoutCreatedEmail|from\("profiles"\)/.test(src))
   }
@@ -122,7 +122,7 @@ console.log("\nThe other paths an order, a refund or a payout is made by")
 
 console.log("\nEvery caller uses the outbox's emit()")
 {
-  for (const f of ["app/api/stripe/webhook/route.ts", "lib/stripe/refund-sync.ts", "app/api/stripe/refund/route.ts", "app/api/admin/orders/refund/route.ts", "app/api/stripe/cashout/route.ts", "app/api/stripe/withdraw/route.ts", "app/api/auth/password-changed/route.ts"]) {
+  for (const f of ["app/api/stripe/webhook/route.ts", "lib/stripe/refund-sync.ts", "app/api/stripe/refund/route.ts", "app/api/admin/orders/refund/route.ts", "app/api/stripe/cashout/route.ts", "app/api/auth/password-changed/route.ts"]) {
     check(`${f} imports emit from lib/notify/outbox`, /import \{ emit(, type EmitInput)? \} from "@\/lib\/notify\/outbox"/.test(readCode(f)))
   }
 }

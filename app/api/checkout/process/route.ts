@@ -14,6 +14,7 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { priceOrder } from "@/lib/checkout/pricing"
 import { recordCouponUse } from "@/lib/checkout/coupons"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
+import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 
 export const runtime = "nodejs"
 
@@ -220,6 +221,14 @@ export async function POST(request: Request) {
           community_access: Boolean(product.includes_community),
         })
       })
+    }
+    /* A product that opens a community lets the buyer in. Never throws (lib/communities/server/payment-hooks). */
+    if (user) {
+      try {
+        await communityAccessAfterEntitlement(admin, { userId: user.id, productId: product.id, orderId: order.id, granted: true })
+      } catch (e) {
+        console.error("[checkout/process] community access:", e instanceof Error ? e.message : e)
+      }
     }
 
     if (coupon) await step("coupon use", () => recordCouponUse(admin, coupon.id, holder))

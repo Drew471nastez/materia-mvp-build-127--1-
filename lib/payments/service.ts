@@ -80,7 +80,7 @@ import type { CreatorRef, HubOverview } from "./hub-types"
 import { PaymentsProblem } from "./errors"
 import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./stripe/overview"
 import { prepareStorelibAccount } from "./stripe/verification"
-import { beginStripeOnboarding, disconnectIncompleteStripeAccount, readCreatorStripe, syncStripeAccount } from "./stripe/connect"
+import { beginStripeOnboarding, disconnectStripeAccount, readCreatorStripe, syncStripeAccount } from "./stripe/connect"
 import { snapshotFromCreatorRow, stripeRowReady } from "./stripe/facts"
 
 /* ── Which provider ───────────────────────────────────────────────────── */
@@ -304,9 +304,10 @@ export async function prepareVerification(creator: CreatorRef) {
   return stripeOverview(creator, { sync: false })
 }
 
-export async function disconnectPayoutAccount(creator: CreatorRef) {
+/** Disconnect / start over. `confirmed` is the creator's explicit yes, required for an account that was ever started. */
+export async function disconnectPayoutAccount(creator: CreatorRef, options: { confirmed?: boolean } = {}) {
   if ((await providerFor(creator.id)) !== "stripe") throw new PaymentsProblem("This setup is not available.")
-  await disconnectIncompleteStripeAccount(creator.id)
+  await disconnectStripeAccount(creator.id, { confirmed: options.confirmed === true })
   return overview(creator)
 }
 
