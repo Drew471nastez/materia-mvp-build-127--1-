@@ -84,6 +84,26 @@ async function tellIfNowReady(creatorId: string, userId: string | null, accountI
  * account, so the payments status follows.
  */
 export async function handleConnectAccountEvent(event: Stripe.Event): Promise<void> {
+  /*
+   * STORELIB WAS DISCONNECTED FROM STRIPE'S SIDE. The account is no longer
+   * reachable from this platform, so it is let go at once rather than left
+   * reading "ready" until something notices: the sync and the reconcile
+   * sweep both find it eventually (accountIsGone), but "eventually" here is
+   * a window in which checkout would take money for an account Storelib
+   * can no longer pay out from. The creator's orders and payout history are
+   * untouched, and Payouts offers Reconnect.
+   */
+  if (event.type === "account.application.deauthorized") {
+    const acctId = connectedAccountId(event)
+    if (!acctId) return
+    const { data: creator } = await supabaseAdmin.from("creators").select("id").eq("stripe_account_id", acctId).maybeSingle()
+    if (!creator) return
+    const { releaseConnectedAccount } = await import("@/lib/payments/stripe/connect")
+    await releaseConnectedAccount(creator.id as string, acctId, "creator_disconnect")
+    await noteLastEvent(creator.id as string, event)
+    return
+  }
+
   if (event.type === "account.external_account.deleted") {
     const acctId = connectedAccountId(event)
     if (acctId) await resyncConnectedAccount(acctId)

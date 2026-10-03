@@ -29,6 +29,7 @@ import { creatorForRequest } from "@/lib/auth/request-scope"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { monthlyValue } from "@/lib/memberships/state"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
+import { queueCommunityFanout } from "@/lib/notifications/fanout"
 import { parseAccessRule } from "../access"
 import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
@@ -656,6 +657,8 @@ export async function setPublished(db: Db, a: { community: CommunityRow; actorId
   if (error) return no(500, "That did not save. Try again.")
   await syncTierProducts(db, data as CommunityRow, a.publish)
   await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: a.publish ? "community.published" : "community.unpublished", targetType: "community", targetId: c.id, targetLabel: c.name })
+  /* The owner's followers hear about a new community once (lib/notifications/fanout.ts; never throws). */
+  if (a.publish) await queueCommunityFanout(db, { communityId: c.id, ownerUserId: (data as CommunityRow).owner_user_id ?? c.owner_user_id })
   return { ok: true, community: data as CommunityRow }
 }
 
