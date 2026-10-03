@@ -30,6 +30,7 @@ import {
 import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
+import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { SectionBlockList } from "@/components/website-builder/editor/section-block-list"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
@@ -5634,11 +5635,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                               ) : field.type === "image" ? (
                                 <>
                                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                  <WbImagePicker
-                                    value={typeof val === "string" ? val : undefined}
-                                    onChange={url => updateSetting(field.id, url ?? "")}
-                                    aspectRatio="video"
-                                    folder="sections"
+                                  <ImagePickerControl
+                                    value={typeof val === "string" ? val : ""}
+                                    onChange={url => updateSetting(field.id, url)}
+                                    label={field.label}
                                   />
                                 </>
                               ) : field.type === "color" ? (
@@ -6066,11 +6066,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             ) : field.type === "image" ? (
                               <>
                                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                <WbImagePicker
-                                  value={typeof val === "string" ? val : undefined}
-                                  onChange={url => updateSetting(field.id, url ?? "")}
-                                  aspectRatio="video"
-                                  folder="sections"
+                                <ImagePickerControl
+                                  value={typeof val === "string" ? val : ""}
+                                  onChange={url => updateSetting(field.id, url)}
+                                  label={field.label}
                                 />
                               </>
                             ) : field.type === "color" ? (

@@ -20,10 +20,15 @@
  * Claude Code or Codex over MCP, a GitHub push, a theme import) turns it
  * away with what to do instead: change the header's own settings.
  *
+ * A creator who asks for a header of their own gets ONE section that says
+ * `"kind": "header"`, which replaces the built-in one: see declaredKind
+ * below. That is not refused. Everything else that is a header is.
+ *
  * HOW A FILE IS RECOGNISED, strongest signal first:
  *
- *   1. It says so. `"group": "header"` (or footer), or Shopify's
- *      `"enabled_on": { "groups": ["header"] }`.
+ *   1. It says so without declaring a kind: `"group": "header"` (or
+ *      footer). Shopify's `enabled_on.groups` is where a section may go
+ *      (an announcement bar in the header group), not what it is.
  *   2. Its type or name is a header's or a footer's: "Header", "Site
  *      header", "Navbar", "Navigation bar", "Top bar", "Footer", with a
  *      version or a "section" on the end. A "Page header" or a "Collection
@@ -65,21 +70,31 @@ function roleFromName(value: unknown): ChromeRole | null {
   return null
 }
 
+/**
+ * `"group": "header"` is not a Storelib key, but a model writing a header
+ * reaches for it, so it still marks one. Shopify's `enabled_on.groups` does
+ * NOT: it says where a section may go, and an announcement bar that sits in
+ * the header group is not the header. Only `kind` says a section IS one.
+ */
 function roleFromGroup(schema: Record<string, unknown>): ChromeRole | null {
   const say = (v: unknown): ChromeRole | null => (v === "header" || v === "footer" ? v : null)
-  const direct = say(schema.group) ?? say(schema.section_group) ?? say(schema.sectionGroup)
-  if (direct) return direct
-  const enabled = schema.enabled_on
-  if (enabled && typeof enabled === "object" && !Array.isArray(enabled)) {
-    const groups = (enabled as Record<string, unknown>).groups
-    if (Array.isArray(groups)) {
-      for (const g of groups) {
-        const r = typeof g === "string" ? say(g.replace(/^\*$/, "")) : null
-        if (r) return r
-      }
-    }
-  }
-  return null
+  return say(schema.group) ?? say(schema.section_group) ?? say(schema.sectionGroup)
+}
+
+/**
+ * ===========================================================================
+ *  A HEADER OF ITS OWN, SAID OUT LOUD
+ * ===========================================================================
+ * `"kind": "header"` (or "footer") is a section that says it IS the site's
+ * header, written because the creator asked for a header of their own. It
+ * is not refused: the builder puts it in the header group in place of the
+ * built-in one, on every page. One per theme, which the save holds
+ * (lib/website-builder/save-theme-file.ts). What is refused is a header
+ * that does not say so: a nav bar dropped into a page under the real one.
+ */
+export function declaredKind(schema: Record<string, unknown> | null | undefined): ChromeRole | null {
+  const k = schema?.kind
+  return k === "header" || k === "footer" ? k : null
 }
 
 /** The first element a template draws, ignoring comments and Storelib tags around it. */
@@ -115,6 +130,8 @@ export function chromeRoleOf(input: {
   template?: string
 }): ChromeRole | null {
   const schema = input.schema ?? {}
+  /* A section that declares its kind is a replacement the creator asked for, not a stray copy. */
+  if (declaredKind(schema)) return null
   return (
     roleFromGroup(schema) ??
     roleFromName(input.type) ??
@@ -140,6 +157,7 @@ export function chromeRefusal(role: ChromeRole): string {
       "Change the site's header instead: it is the section of type \"header\".",
       "Its settings cover the logo and store name (Theme settings), the menu links (its nav_link blocks, or a menu from Website settings, Navigation), the desktop and phone layouts, sticky, sticky on scroll up and transparent, the search, account, wishlist and cart icons with their drawers, a call to action button, its colour scheme and its border.",
       "In the editor that is Sections, Header. In the builder's AI it is update_section on the header, with add_block and update_block for its nav_link links. Over MCP it is storelib_create_safe_patch with those same operations, or storelib_update_styles for its colours.",
+      "Only if the creator asked for a header of their own: write ONE section with \"kind\": \"header\" in its schema, a link_list setting for the menu (default \"main-menu\") and an image_picker for the logo. It replaces the built-in header on every page.",
     ].join(" ")
   }
   return [
@@ -147,5 +165,11 @@ export function chromeRefusal(role: ChromeRole): string {
     "Change the site's footer instead: it is the section of type \"footer\".",
     "Its settings cover the logo, tagline and copyright, two menus from Website settings, Navigation, its own link columns (footer_column and footer_link blocks), the policy and contact links, a newsletter sign up, social and payment icons, its layout and its colour scheme.",
     "In the editor that is Sections, Footer. In the builder's AI it is update_section on the footer; over MCP, storelib_create_safe_patch with update_section, or storelib_update_styles for its colours.",
+    "Only if the creator asked for a footer of their own: write ONE section with \"kind\": \"footer\" in its schema, with link_list settings for its menus. It replaces the built-in footer on every page.",
   ].join(" ")
+}
+
+/** Said when a second section declares the same kind. */
+export function kindTaken(role: ChromeRole, existing: string): string {
+  return `This theme already has a ${role} of its own: ${existing}. A site has one ${role}. Change that file, or take "kind" out of one of them.`
 }

@@ -20,6 +20,7 @@ import { VIDEO_HOSTS } from "../values"
 import { parseCondition } from "../storelib/template"
 import { readLanguageVersion } from "../language"
 import { LIMITS, MAX_BLOCK_DEPTH, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeBlockSchema, type ThemeError } from "../types"
+import { ANIMATION_SETTING_ID, SECTION_ANIMATIONS, SECTION_GROUPS, SECTION_KINDS, normaliseSettings, numberedLinkPairs, type NormaliseNote } from "./normalise"
 
 const ID = /^[a-z][a-z0-9_]*$/
 const TYPE = /^[a-z][a-z0-9_-]*$/
@@ -92,6 +93,14 @@ const preset = z
   })
   .passthrough()
 
+/** `enabled_on` / `disabled_on`: which section groups, and which page templates. */
+const placement = z
+  .object({
+    groups: z.array(z.string()).optional(),
+    templates: z.array(z.string()).optional(),
+  })
+  .passthrough()
+
 /** The `<schema>` of a theme block file, blocks/<type>.storelib. */
 export const themeBlockSchemaShape = z
   .object({
@@ -125,10 +134,33 @@ export const sectionSchemaShape = z
     presets: z.array(preset).optional(),
     allowed_templates: z.array(z.string()).optional(),
     disabled_templates: z.array(z.string()).optional(),
+    enabled_on: placement.optional(),
+    disabled_on: placement.optional(),
+    kind: z.string().optional(),
     capabilities: z.array(z.string()).optional(),
     migrations: z.array(z.object({ from: z.string(), to: z.string(), since: z.string() }).passthrough()).optional(),
   })
   .passthrough()
+
+/**
+ * A zod complaint in words a person can act on. zod says "Required" and
+ * "Expected string, received number"; the path says which key, and this
+ * says what is wrong with it.
+ */
+type ZodIssueLike = { code: string; message: string; path: (string | number)[]; expected?: unknown; received?: unknown; minimum?: unknown; maximum?: unknown; type?: unknown }
+export function plainIssue(issue: ZodIssueLike): string {
+  const last = issue.path[issue.path.length - 1]
+  const name = last === undefined ? "the schema" : typeof last === "number" ? "this entry" : `"${last}"`
+  if (issue.code === "invalid_type") {
+    if (issue.received === "undefined") return `${name} is missing`
+    const article = (w: unknown) => (/^[aeiou]/.test(String(w)) ? `an ${String(w)}` : `a ${String(w)}`)
+    return `${name} should be ${article(issue.expected)}, not ${article(issue.received)}`
+  }
+  if (issue.code === "too_small" && issue.type === "string") return `${name} is empty`
+  if (issue.code === "too_big" && issue.type === "string") return `${name} is longer than ${String(issue.maximum)} characters`
+  if (issue.code === "too_small" && issue.type === "number") return `${name} is below ${String(issue.minimum)}`
+  return issue.message
+}
 
 export interface ValidateOptions {
   file?: string
@@ -169,14 +201,21 @@ function lineOf(path: string, opts: ValidateOptions): number | undefined {
 
 export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}): Result<SectionSchema> {
   const errors: ThemeError[] = []
+  const warnings: ThemeError[] = []
   const err = (path: string, message: string) =>
     errors.push({ stage: "schema", file: opts.file, path, line: lineOf(path, opts), message })
+  const warn = (path: string, message: string) =>
+    warnings.push({ stage: "schema", file: opts.file, path, line: lineOf(path, opts), message })
 
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    err("(root)", `The schema is one JSON object: { "name": "...", "settings": [...] }`)
+    return { ok: false, errors }
+  }
   const parsed = sectionSchemaShape.safeParse(input)
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const path = issue.path.map((p) => (typeof p === "number" ? `[${p}]` : `.${p}`)).join("").replace(/^\./, "")
-      err(path || "(root)", issue.message)
+      err(path || "(root)", plainIssue(issue as unknown as ZodIssueLike))
     }
     return { ok: false, errors }
   }
@@ -249,6 +288,11 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
     }
   }
 
+  checkPlacement(s as unknown as Record<string, unknown>, err)
+  checkAnimation(s.settings, "settings", warn)
+  ;(s.blocks ?? []).forEach((b, i) => { if (b.settings) checkAnimation(b.settings, `blocks[${i}].settings`, warn) })
+  checkHabits(s.settings, "settings", warn)
+
   if (errors.length) return { ok: false, errors }
   const value = { ...s, schema_version: s.schema_version ?? SECTION_SCHEMA_VERSION } as SectionSchema
   if (refs.length) {
@@ -257,7 +301,89 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
   } else if (s.blocks) {
     value.blocks = local.map((b) => ({ ...b, name: b.name ?? b.type, settings: b.settings ?? [] })) as SectionSchema["blocks"]
   }
-  return { ok: true, value }
+  /* Pictures declared as text are read as pictures (./normalise.ts): the panel draws a picker, the stored value is kept. */
+  const notes: NormaliseNote[] = []
+  value.settings = normaliseSettings(value.settings, "settings", notes)
+  if (value.blocks) {
+    value.blocks = value.blocks.map((b, i) => {
+      const settings = normaliseSettings(b.settings, `blocks[${(s.blocks ?? []).indexOf(local[i])}].settings`, notes)
+      return settings === b.settings ? b : { ...b, settings }
+    })
+  }
+  for (const n of notes) warn(n.path, n.message)
+  return warnings.length ? { ok: true, value, warnings } : { ok: true, value }
+}
+
+/**
+ * ===========================================================================
+ *  WHERE A SECTION MAY GO, AND WHETHER IT IS THE HEADER
+ * ===========================================================================
+ * `enabled_on` and `disabled_on` are Shopify's: `{ "groups": ["header"] }`
+ * for an announcement bar. `kind` says the section IS the site's header or
+ * footer. Their spelling is checked where it is written, because a group
+ * name with a typo is a section that never appears anywhere.
+ */
+function checkPlacement(s: Record<string, unknown>, err: (path: string, message: string) => void): void {
+  if (s.enabled_on !== undefined && s.disabled_on !== undefined) {
+    err("enabled_on", `use enabled_on or disabled_on, not both`)
+  }
+  for (const key of ["enabled_on", "disabled_on"] as const) {
+    const v = s[key] as { groups?: unknown[] } | undefined
+    if (!v) continue
+    ;(v.groups ?? []).forEach((g, i) => {
+      if (g === "*" || (SECTION_GROUPS as readonly unknown[]).includes(g)) return
+      err(`${key}.groups[${i}]`, `"${String(g)}" is not a section group. The groups are ${SECTION_GROUPS.map((x) => `"${x}"`).join(", ")}, or "*" for all three`)
+    })
+  }
+  if (s.kind === undefined) return
+  if (!(SECTION_KINDS as readonly unknown[]).includes(s.kind)) {
+    err("kind", `kind is "header" or "footer", for a section that replaces the site's own header or footer. Leave it out for any other section`)
+    return
+  }
+  const kind = String(s.kind)
+  const on = (s.enabled_on as { groups?: unknown[] } | undefined)?.groups
+  if (Array.isArray(on) && !on.includes(kind) && !on.includes("*")) {
+    err("enabled_on.groups", `a section of kind "${kind}" sits in the ${kind} group. Add "${kind}" to enabled_on.groups, or leave enabled_on out`)
+  }
+  const off = (s.disabled_on as { groups?: unknown[] } | undefined)?.groups
+  if (Array.isArray(off) && (off.includes(kind) || off.includes("*"))) {
+    err("disabled_on.groups", `a section of kind "${kind}" cannot be disabled in the ${kind} group`)
+  }
+}
+
+/**
+ * A setting called `animation` is the section's own entrance animation, read
+ * by the runtime, and it overrides Theme settings › Animations. A value the
+ * runtime does not know plays as "theme", so it is said here.
+ */
+function checkAnimation(list: { id: string; type: string; options?: { value: string }[] }[], at: string, warn: (path: string, message: string) => void): void {
+  const i = list.findIndex((f) => f.id === ANIMATION_SETTING_ID)
+  if (i < 0) return
+  const f = list[i]
+  const known = SECTION_ANIMATIONS as readonly string[]
+  const t = resolveControlType(f.type)
+  if (t !== "select" && t !== "radio") {
+    warn(`${at}[${i}].type`, `"animation" is the section's own entrance animation: a select with the values ${known.map((v) => `"${v}"`).join(", ")}. As a ${f.type} it is not played`)
+    return
+  }
+  const odd = (f.options ?? []).map((o) => o.value).filter((v) => !known.includes(v))
+  if (odd.length) warn(`${at}[${i}].options`, `the section animation knows ${known.map((v) => `"${v}"`).join(", ")}. ${odd.map((v) => `"${v}"`).join(", ")} plays as "theme"`)
+}
+
+/**
+ * Things that compile and draw, and still leave the creator worse off. Said
+ * as warnings, never refused: each has a reason it might be meant.
+ */
+function checkHabits(list: { id: string; type: string; default?: unknown; min?: number }[], at: string, warn: (path: string, message: string) => void): void {
+  const pairs = numberedLinkPairs(list)
+  if (pairs >= 2) {
+    warn(at, `This section types out ${pairs} links as numbered label and address settings. A menu is one setting: { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" }, which lets the creator pick one of the site's menus (Website settings, Navigation); loop {% for link in settings.menu.links %}`)
+  }
+  list.forEach((f, i) => {
+    if (resolveControlType(f.type) === "range" && f.default === undefined && typeof f.min === "number" && f.min > 0) {
+      warn(`${at}[${i}].default`, `"${f.id}" has no default, so it starts at its lowest value, ${f.min}. Give it the value it should have`)
+    }
+  })
 }
 
 const BLOCK_REF = /^_?[a-z][a-z0-9_-]*$/
@@ -365,11 +491,15 @@ export function validateBlockSchema(input: unknown, opts: ValidateOptions & { ty
   const err = (path: string, message: string) =>
     errors.push({ stage: "schema", file: opts.file, path, line: lineOf(path, opts), message })
 
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    err("(root)", `The schema is one JSON object: { "name": "...", "settings": [...] }`)
+    return { ok: false, errors }
+  }
   const parsed = themeBlockSchemaShape.safeParse(input)
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const path = issue.path.map((p) => (typeof p === "number" ? `[${p}]` : `.${p}`)).join("").replace(/^\./, "")
-      err(path || "(root)", issue.message)
+      err(path || "(root)", plainIssue(issue as unknown as ZodIssueLike))
     }
     return { ok: false, errors }
   }
@@ -414,6 +544,11 @@ export function validateBlockSchema(input: unknown, opts: ValidateOptions & { ty
   const value = { ...s, type: opts.type, schema_version: s.schema_version ?? SECTION_SCHEMA_VERSION } as ThemeBlockSchema
   delete (value as { blocks?: unknown }).blocks
   if (accepts.length) value.accepts = accepts
+  const notes: NormaliseNote[] = []
+  value.settings = normaliseSettings(value.settings, "settings", notes)
+  if (notes.length) {
+    return { ok: true, value, warnings: notes.map((n) => ({ stage: "schema" as const, file: opts.file, path: n.path, line: lineOf(n.path, opts), message: n.message.replace(/settings\./g, "block.settings.") })) }
+  }
   return { ok: true, value }
 }
 

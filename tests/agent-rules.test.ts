@@ -70,7 +70,7 @@ async function main() {
   check("the rules are a page of the developer hub", !!devPage("rules") && /# Rules before you ship/.test(rules))
   for (const [what, re] of [
     ["what may change", /Never a built-in section/],
-    ["links, buttons and menus as settings and blocks", /Menus and link lists\*\* are blocks/],
+    ["links, buttons and menus as settings and blocks", /\*\*A menu\*\* is one `link_list` setting/],
     ["a screenshot split into sections", /Split it into sections/],
     ["menus, sheets and dialogs", /popovertarget/],
     ["motion that stops for reduced motion", /prefers-reduced-motion/],

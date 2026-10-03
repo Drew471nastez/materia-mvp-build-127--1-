@@ -69,7 +69,10 @@ async function main() {
     check(`"${name}" is a section like any other`, chromeRoleOf({ schema: { name } }) === null)
   }
   check("a schema that says group: header is one", chromeRoleOf({ schema: { name: "Brand", group: "header" } }) === "header")
-  check("and Shopify's enabled_on groups", chromeRoleOf({ schema: { name: "X", enabled_on: { groups: ["footer"] } } }) === "footer")
+  /* enabled_on says where a section may go, not what it is: an announcement bar sits in the header group. Only `kind` says it IS one, and then it is not refused. */
+  check("Shopify's enabled_on groups place a section, they do not make it a header", chromeRoleOf({ schema: { name: "X", enabled_on: { groups: ["footer"] } } }) === null)
+  check("but enabled_on on a footer by name is still a footer", chromeRoleOf({ schema: { name: "Footer", enabled_on: { groups: ["footer"] } } }) === "footer")
+  check("and a section that declares kind is the creator's own, never refused", chromeRoleOf({ schema: { name: "Footer", kind: "footer" } }) === null)
   check("an outermost <header> holding a <nav> and named for it",
     chromeRoleOf({ schema: { name: "Brand nav" }, template: "<header><nav><a href='/'>a</a></nav></header>" }) === "header")
   check("but a <header> around a heading is a heading",
@@ -95,7 +98,8 @@ async function main() {
   check("the AI's reference for the header is retrieved by a header request", !!chromeTopic && chromeTopic.triggers.test("make my header sticky like this screenshot"))
   const headerIds = new Set((SECTION_SCHEMAS.header.fields ?? []).map((f) => f.id))
   const footerIds = new Set((SECTION_SCHEMAS.footer.fields ?? []).map((f) => f.id))
-  const named = [...(chromeTopic?.text ?? "").matchAll(/\b([a-z]+(?:_[a-z0-9]+)+)\b/g)].map((m) => m[1]).filter((id) => !["nav_link", "link_type", "parent_id", "footer_column", "footer_link"].includes(id))
+  /* Block and schema names, the setting types a header of the creator's own uses, and the theme setting the logo's name is, are not header settings. */
+  const named = [...(chromeTopic?.text ?? "").matchAll(/\b([a-z]+(?:_[a-z0-9]+)+)\b/g)].map((m) => m[1]).filter((id) => !["nav_link", "link_type", "parent_id", "footer_column", "footer_link", "link_list", "image_picker", "enabled_on", "brand_name"].includes(id))
   const unknown = named.filter((id) => !headerIds.has(id) && !footerIds.has(id))
   check("and every setting it names is one the header or footer really has", named.length > 15 && unknown.length === 0, unknown)
 

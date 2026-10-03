@@ -123,6 +123,30 @@ export const THEME_TOKEN_DOCS: Record<string, string> = {
   "typography.heading": "Typography › Heading font, `font_heading`",
   "typography.body": "Typography › Body font, `font_body`",
   "typography.accent": "Typography › Accent font, `font_accent`, or the heading font when it is empty",
+  "logo.url": "Branding › Logo image, `logo_url`. Empty when there is none, so a header prints `theme.logo.text`",
+  "logo.width": "Branding › Logo width, `logo_width`, in px",
+  "logo.mobile_url": "The phone logo, `mobile_logo_url`, when `use_mobile_logo` is on; otherwise the logo",
+  "logo.mobile_width": "`mobile_logo_width`, else the logo width",
+  "logo.text": "Branding › Store name, `brand_name`",
+  favicon: "Branding › Favicon, `favicon_url`",
+  "buttons.style": "Buttons › Default style, `button_style`: `filled`, `outline` or `ghost`",
+  "buttons.shape": "Buttons › Button shape, `button_shape`: `square`, `rounded` or `pill`",
+  "buttons.radius": "Buttons › Border radius, `button_border_radius`, in px",
+  "buttons.size": "Buttons › Default size, `button_size`: `sm`, `md`, `lg` or `xl`",
+  "buttons.weight": "Buttons › Font weight, `button_font_weight`",
+  "buttons.shadow": "Buttons › Button shadow, `button_shadow`",
+  "buttons.hover": "Buttons › Hover animation, `button_transition`: `none`, `fade`, `lift` or `scale`",
+  "layout.page_width": "Layout › Max page width, `page_width`, in px",
+  "layout.padding_x": "Layout › Side padding, `content_padding_x`, in px",
+  "layout.section_gap": "Layout › Section gap, `section_gap`, in px",
+  "layout.spacing_scale": "Layout › Spacing scale, `spacing_scale`",
+  "layout.card_radius": "Layout › Card border radius, `border_radius`, in px",
+  "layout.image_radius": "Layout › Image border radius, `image_border_radius`, in px",
+  "layout.card_shadow": "Layout › Card shadow, `card_shadow`: `none`, `sm`, `md` or `lg`",
+  "animation.enabled": "Animations › Enable scroll animations, `animations_enabled`",
+  "animation.style": "Animations › Animation style, `animation_style`. A section's own `animation` setting overrides it",
+  "animation.duration": "Animations › Duration, `animation_duration`, in ms",
+  "animation.stagger": "Animations › Stagger delay, `animation_stagger`, in ms",
 }
 
 /**
@@ -212,6 +236,11 @@ export function themeTokenLeaves(): [string, unknown][] {
     ...leaves(t.radius, "radius"),
     ...leaves(t.spacing, "spacing"),
     ...(["heading", "body", "accent"] as const).map((k): [string, unknown] => [`typography.${k}`, typography[k]]),
+    ...leaves(t.logo, "logo"),
+    ["favicon", t.favicon],
+    ...leaves(t.buttons, "buttons"),
+    ...leaves(t.layout, "layout"),
+    ...leaves(t.animation, "animation"),
   ]
 }
 
@@ -415,7 +444,7 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
         kind: "table",
         head: ["Path", "When the theme sets nothing", "Comes from"],
         rows: [
-          ...themeTokenLeaves().map(([path, value]) => [code(`theme.${path}`), code(typeof value === "string" ? value : String(value)), THEME_TOKEN_DOCS[path] ?? ""]),
+          ...themeTokenLeaves().map(([path, value]) => [code(`theme.${path}`), code(value === "" ? "\"\"" : typeof value === "string" ? value : String(value)), THEME_TOKEN_DOCS[path] ?? ""]),
           [code("theme.typography.styles.<style>"), "the text style", "Typography › the nine text styles, each with `font`, `weight`, `size.desktop`, `size.tablet`, `size.mobile`, `line_height`, `letter_spacing` and `transform`"],
           [code("theme.schemes.<key>.<colour>"), "every scheme", "Colors: each scheme by key, under the same names `scheme` has"],
           [code("theme.settings.<id>"), "as saved", "Every theme setting, as stored. See [Themes](/developers/themes#theme-settings)."],

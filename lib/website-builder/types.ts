@@ -479,6 +479,15 @@ export interface SectionSchema {
   supportsColorOverrides?: boolean | string[]
   supports_typography_overrides?: boolean
   supportsTypographyOverrides?: boolean
+  /**
+   * Where it may be placed, from a .storelib schema: Shopify's enabled_on
+   * and disabled_on (`{ groups: ["header"] }`), and `kind` for a section
+   * that replaces the built-in header or footer. See
+   * lib/storelib-theme/schema/normalise.ts, sectionGroupsOf.
+   */
+  enabled_on?: { groups?: string[]; templates?: string[] }
+  disabled_on?: { groups?: string[]; templates?: string[] }
+  kind?: "header" | "footer"
 }
 
 // ── Editor state ─────────────────────────────────────────────

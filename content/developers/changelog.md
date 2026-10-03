@@ -16,6 +16,21 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
+- [Where a section may go](/developers/schema#where-a-section-may-go): `enabled_on` and `disabled_on` with section groups (`header`, `footer`, `template`), Shopify's spelling, and `"category": "announcement"` meaning the header group.
+- [A header of your own](/developers/header-and-footer#a-header-of-your-own): `"kind": "header"` (or `"footer"`) makes one section the site's header in place of the built-in one. One of each per theme.
+- [A section's own animation](/developers/schema#a-sections-own-animation): a `select` with the id `animation` and the values `theme`, `none`, `fade`, `fade_up` and `zoom` overrides the theme's animation for that section.
+- [The theme's general settings](/developers/dynamic-values#the-themes-general-settings) as a section reads them: `theme.logo`, `theme.favicon`, `theme.buttons`, `theme.layout`, `theme.animation` and `theme.socials`, each with Theme settings' default.
+- [Menus](/developers/dynamic-values#menus) documented in full: a `link_list` with its links and their sub links, read live in the builder and on the site.
+- The image control draws an address box under the picker. Typing an address sets the picture; choosing a file replaces it.
+
+**Changed**
+
+- A picture declared as `text` or `url` is read as an `image_picker`, with a warning; nothing stored changes. See [Choosing the type](/developers/schema#choosing-the-type).
+- `enabled_on.groups` no longer marks a file as a header: an announcement bar in the header group is saved like any section.
+- A colour setting whose default names a scheme colour and holds `""` follows the scheme, so a colour picked in Advanced colors reaches it.
+- A `range` with no default starts at its `min`, not at 0.
+- New compile warnings: numbered link pairs, a range with no default, an unknown animation value, an `<img>` with no `alt`. Schema errors say which key is missing or of the wrong kind, in words.
+
 - [Theme blocks](/developers/blocks#theme-blocks), the way Shopify has them: a file each in `blocks/`, accepted by a section with `{ "type": "@theme" }` or by name, drawn with `{% content_for "blocks" %}`, private when the file name starts with `_`. Heading, Text, Button, Image, Video, Spacer and Group ship with every theme.
 - Blocks inside blocks, eight levels deep: a theme block that accepts blocks draws them with the same tag. Group makes rows and columns out of any blocks.
 - [Static blocks](/developers/blocks#static-blocks), placed by the template with `{% content_for "block", type: "…", id: "…" %}`: edited and hidden, never moved or deleted.

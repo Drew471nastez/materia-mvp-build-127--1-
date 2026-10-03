@@ -64,6 +64,7 @@ import { PROGRESS_LABELS, ProgressTrail, progress, savingLabel, writingLabel, ty
 import { checkSectionQuality, describeQuality, pageAgentRules, qualityErrors } from "@/lib/storelib-ai"
 import { builderAgentRules } from "@/lib/agent-rules"
 import { pageAgentReference } from "@/lib/storelib-ai/reference"
+import { sectionAdvice } from "@/lib/storelib-ai/integration"
 import { skillContext } from "@/lib/agent-skills"
 import type { AgentQuestion } from "@/lib/sites/agent/questions"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
@@ -166,7 +167,7 @@ Rules:
 - update_section MERGES the settings you send. Send only the fields you are changing; everything you leave out keeps its value.
 - EVERY SETTING IS A CONTROL, and the control decides what it will take. A select takes one of its listed choices and nothing else. A toggle takes true or false. A slider takes a number inside its range. A colour takes a hex value like "#1a1a1a". A field id that does not exist, and a value the control cannot take, are BOTH silently ignored by the renderer — the change would look like it worked and do nothing. read_section lists every control on a section and what each one accepts; read_section_type does the same for a type you have not added yet.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
-- THERE IS ONE HEADER AND ONE FOOTER. "Make my header like this", "add a menu", "make the nav sticky" all mean read_section and update_section on the existing header (its settings, and its nav_link blocks for the links); the footer the same way. Never write a new section that is a header, a navigation bar or a footer: it is refused, and it would be a second header with no cart drawer, search or working menu.
+- THERE IS ONE HEADER AND ONE FOOTER, built in: CONNECT TO THEM, never rebuild them. "Make my header like this", "add a menu", "put my logo in", "make the nav sticky" all mean read_section and update_section on the existing header (layout, sticky, logo_url, colour scheme, button), its nav_link blocks, or its menu setting set to one of the site's menus; the logo, store name and socials are theme settings (update_theme: logo_url, brand_name, social_*). The footer the same way. Never write a header, nav bar or footer section and never put their content in the page: it is refused, and it would be a second header with no cart drawer, search or working menu. Only when the creator explicitly asks for a header of their own is it ONE section file with "kind": "header" (it replaces the built-in one; menu from a link_list, logo from an image_picker or theme.logo.url). Never two headers.
 - PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has. Some sections take theme blocks (heading, text, button, image, video, spacer, group): a group holds blocks of its own, so to build a row, add a group and then add blocks inside it with parentBlockId. A block inside another is addressed by its path, outer/inner. A block marked static is placed by the template: change it, never remove it.
@@ -1419,10 +1420,12 @@ async function runCodeTool(
 
   const written = await code.write(sectionType, source)
   if (written.ok === true) {
+    /* Saved, and what it should still have: a colour setting per element it draws (lib/storelib-ai/integration.ts). */
+    const advice = sectionAdvice(source)
     return {
       ok: true,
       source,
-      output: `sections/${sectionType}.storelib was compiled and saved. It is live on the canvas. If the change was meant to be visible, say what you changed in one sentence when you finish.`,
+      output: `sections/${sectionType}.storelib was compiled and saved. It is live on the canvas.${advice.length ? ` Still worth doing in this file:\n${describeQuality(advice)}\n` : " "}If the change was meant to be visible, say what you changed in one sentence when you finish.`,
     }
   }
   return {

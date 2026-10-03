@@ -162,11 +162,70 @@ The theme's tokens, which a section reads directly, and every theme setting as i
 
 `theme.colors` are the page's own colours, behind and between sections, not a section's. Paint a section from `scheme`, which follows the colour scheme the creator chose for it.
 
-`theme.settings` has everything else: `theme.settings.brand_name`, `theme.settings.logo_url`, `theme.settings.tagline`, `theme.settings.social_instagram`. A key a website has never set may be absent, so give it a fallback:
+### The theme's general settings
+
+What a Shopify theme reads as `settings.logo` and the other general settings, a Storelib section reads under `theme`, because a section's own `settings` are its own. Each has Theme settings' default filled in, so a site that never opened a panel still gives a value:
+
+| Path | What it is |
+| --- | --- |
+| `theme.logo.url` | The logo from Theme settings › Branding, or `""`. |
+| `theme.logo.width` | Its width in px. |
+| `theme.logo.mobile_url`, `theme.logo.mobile_width` | The phone logo and its width, or the logo when there is no phone logo. |
+| `theme.logo.text` | The store's name, for when there is no logo picture. |
+| `theme.favicon` | The favicon's address, or `""`. |
+| `theme.buttons` | `.style` (`filled`, `outline`, `ghost`), `.shape`, `.radius`, `.size`, `.weight`, `.shadow`, `.hover`. |
+| `theme.layout` | `.page_width`, `.padding_x`, `.section_gap`, `.spacing_scale`, `.card_radius`, `.image_radius`, `.card_shadow`. |
+| `theme.animation` | `.enabled`, `.style`, `.duration`, `.stagger`. A section's own `animation` setting overrides it: see [Schema](/developers/schema#a-sections-own-animation). |
+| `theme.socials` | The social links that are set, the same list as `shop.socials`. |
+| `theme.schemes` | Every colour scheme, by key. |
+| `theme.typography` | The fonts and the nine text styles. |
+
+```storelib
+<a class="brand" href="{{ routes.root_url }}">
+  {% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ theme.logo.text }}" width="{{ theme.logo.width }}" height="40">{% else %}{{ theme.logo.text | default: shop.name }}{% endif %}
+</a>
+{% for link in shop.socials %}<a href="{{ link.url | url }}">{{ link.label }}</a>{% endfor %}
+```
+
+The same values reach CSS as custom properties on the page, `var(--theme-page-width)`, `var(--theme-button-radius)`, `var(--theme-spacing-scale)` and the rest, listed in [Styling](/developers/styling#the-page-a-section-sees).
+
+`theme.settings` has every theme setting exactly as stored: `theme.settings.brand_name`, `theme.settings.logo_url`, `theme.settings.tagline`, `theme.settings.social_instagram`. A key a website has never set is absent there, so prefer the paths above, or give it a fallback:
 
 ```storelib
 <a class="brand" href="/">{{ theme.settings.brand_name | default: "Shop" }}</a>
 ```
+
+## Menus
+
+A `link_list` setting is one of the site's menus, chosen by the creator. Menus are made in Website settings, Navigation, and `main-menu` is always there: it is the header's own links, sub links included, unless the creator made a menu by that name.
+
+```json
+{ "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" }
+```
+
+| Path | What it is |
+| --- | --- |
+| `settings.menu.handle` | The menu's handle, such as `main-menu`. |
+| `settings.menu.title` | Its name, such as Main menu. |
+| `settings.menu.links` | Its links in order. |
+| `link.title`, `link.url` | One link's words and address. The address is already made safe. |
+| `link.links` | The links under it, the same shape, two levels deep at most. Empty when it has none. |
+
+```storelib
+<nav aria-label="{{ settings.menu.title }}">
+  {% for link in settings.menu.links %}
+    {% if link.links.size > 0 %}
+      <details><summary>{{ link.title }}</summary>
+        {% for child in link.links %}<a href="{{ child.url | url }}">{{ child.title }}</a>{% endfor %}
+      </details>
+    {% else %}
+      <a href="{{ link.url | url }}">{{ link.title }}</a>
+    {% endif %}
+  {% endfor %}
+</nav>
+```
+
+A menu is read live on every page, in the builder and on the published site, so a link the creator adds in Navigation appears in every section that shows that menu. A handle with no menu behind it is an empty menu, never an error.
 
 ## products
 
