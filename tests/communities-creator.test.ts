@@ -283,6 +283,14 @@ async function main() {
   const sidebar = code("components/app/sidebar.tsx")
   check("the Community row exists only while the switch is on", /communitiesEnabled \? \[\{ href: "\/app\/community", label: "Community", icon: NAV_ICONS_EXTRA\.community \}\] : \[\]/.test(sidebar) && /\.\.\.communityItem,/.test(sidebar))
   check("its icon is a Solar line and bold pair", /community: \{ line: CommunityLinear, fill: CommunityBold \}/.test(code("components/app/sidebar-desktop-nav.tsx")) && /@solar-icons\/react\/bold\/users-group-rounded/.test(read("components/app/sidebar-desktop-nav.tsx")))
+  /* Found end to end (QA): the floating Setup pill sat on the settings' sticky Save. */
+  {
+    const re = (sidebar.match(/const COMMUNITY_SETTINGS_PATH = (\/.*\/)\n/) || [])[1]
+    const rx = re ? new Function(`return ${re}`)() as RegExp : null
+    check("the Setup pill is hidden on a community's settings, where the sticky Save bar sits",
+      !!rx && rx.test("/app/community/0b6c/settings") && rx.test("/app/community/0b6c/settings/") && !rx.test("/app/community/0b6c") && !rx.test("/app/community/0b6c/members")
+        && /COMMUNITY_SETTINGS_PATH\.test\(pathname\)\) && "!hidden"/.test(sidebar))
+  }
   check("the /app layout reads the switch and hands it to the sidebar", /communitiesEnabled\(\)\.catch\(\(\) => false\)/.test(code("app/app/layout.tsx")) && /communitiesEnabled=\{communitiesOn\}/.test(code("app/app/layout.tsx")))
   check("search does not offer Community while it is off", !matchPages("community").some((p) => p.href === "/app/community"))
   check("and offers it while it is on", matchPages("community", 5, { communities: true })[0]?.href === "/app/community")
