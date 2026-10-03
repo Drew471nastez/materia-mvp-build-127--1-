@@ -395,8 +395,8 @@ export function ColorChip({
           <span className={cn("min-w-0 flex-1 truncate text-[12px] tabular-nums", muted ? "text-muted-foreground" : "text-foreground")}>
             {isTransparent ? "None" : value.toUpperCase()}
           </span>
-          {/* "Scheme" is said by the grey of the value and read out to a screen reader; only "Auto" is written, and it fits beside a full hex. */}
-          {hint && hint !== "Scheme" ? <span className="shrink-0 text-[10.5px] text-muted-foreground/80">{hint}</span> : null}
+          {/* "Scheme" and "Default" are said by the grey of the value and read out to a screen reader; only "Auto" is written, and it fits beside a full hex. */}
+          {hint === "Auto" ? <span className="shrink-0 text-[10.5px] text-muted-foreground/80">{hint}</span> : null}
         </button>
         {popup}
       </>

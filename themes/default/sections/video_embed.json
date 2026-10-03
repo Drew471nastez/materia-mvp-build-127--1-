@@ -28,7 +28,7 @@
     {
       "id": "video_url",
       "label": "Video URL",
-      "type": "video",
+      "type": "video_url",
       "default": "",
       "placeholder": "https://youtube.com/watch?v=..."
     },

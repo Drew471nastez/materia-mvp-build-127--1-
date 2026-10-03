@@ -34,7 +34,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 async function main() {
   console.log("\nWhat an agent may write")
-  for (const ok of ["sections/price_table.storelib", "sections/hero_custom.storelib", "sections/nav_bar.storelib"]) {
+  for (const ok of ["sections/price_table.storelib", "sections/hero_custom.storelib", "sections/page_links.storelib"]) {
     check(`may write a new section, ${ok}`, agentMayWrite(ok).ok)
   }
   for (const no of ["templates/home.json", "config/settings_schema.json", "layout/theme.storelib", "snippets/button.json", "assets/styles.css", "theme.json", "sections/../config/x.storelib"]) {
@@ -102,15 +102,15 @@ async function main() {
   check("and CLAUDE.md does too", /developers\/rules/.test(CLAUDE_MD))
   check("and llms.txt", /developers\/rules/.test(read("lib/developers/llms.ts")))
 
-  console.log("\nThe header the rules point to is real")
-  const nav = compileSection(read("content/developers/examples/nav_bar.storelib"), { file: "sections/nav_bar.storelib" })
-  check("the navigation bar example compiles", nav.ok === true)
-  if (nav.ok === true) {
-    const s = nav.value.schema
-    check("its menu links are blocks with a label and a url", !!s.blocks?.find((b) => b.type === "link" && b.settings?.some((x) => x.type === "url") && b.settings?.some((x) => x.id === "label")))
-    check("its button has its own url setting", s.settings.some((x) => x.type === "url" && x.id === "button_url"))
-    check("and it is not a built-in, so an agent could have written it", agentMayWrite("sections/nav_bar.storelib").ok)
+  console.log("\nThe example the rules point to is real, and it is not a header")
+  const links = compileSection(read("content/developers/examples/page_links.storelib"), { file: "sections/page_links.storelib" })
+  check("the page links example compiles", links.ok === true)
+  if (links.ok === true) {
+    const s = links.value.schema
+    check("its links are blocks with a label and a url", !!s.blocks?.find((b) => b.type === "link" && b.settings?.some((x) => x.type === "url") && b.settings?.some((x) => x.id === "label")))
+    check("and it is not a built-in, so an agent could have written it", agentMayWrite("sections/page_links.storelib").ok)
   }
+  check("the rules send an agent to the built-in header, not to writing one", /Do not build the header or footer/.test(read("content/developers/rules.md")) && !/Build the header and footer the same way/.test(read("content/developers/rules.md")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

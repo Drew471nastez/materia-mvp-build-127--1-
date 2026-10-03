@@ -5,13 +5,9 @@ import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
-  DndContext,
-  DragOverlay,
-  MeasuringStrategy,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -24,12 +20,8 @@ import {
 } from "@dnd-kit/core"
 import {
   arrayMove,
-  SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -42,6 +34,7 @@ import { Collapse } from "@/components/website-builder/editor/collapse"
 import { SectionBlockList } from "@/components/website-builder/editor/section-block-list"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
+import { SectionsList } from "@/components/website-builder/editor/sections-list"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
@@ -49,13 +42,6 @@ import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-b
 import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
 import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
 import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { PageList, PageSwitcher, type SwitcherPage } from "@/components/website-builder/page-switcher"
@@ -73,7 +59,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
   PageKey, EditorPanel, SchemaField, SectionSchema } from "@/lib/website-builder/types"
-import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
+import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionColorSetting, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
+import { designSupport } from "@/lib/website-builder/design-support"
+import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
@@ -468,7 +456,7 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
   return (
     <input
       type="text"
-      className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+      className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
       placeholder={placeholder}
       value={shown}
       onChange={e => set(e.target.value)}
@@ -635,7 +623,7 @@ function FieldControl({
     return (
       <div className="relative">
         <select
-          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+          className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
           value={typeof raw === "string" ? raw : String(field.default ?? "")}
           onChange={e => onChange(e.target.value)}
         >
@@ -681,7 +669,7 @@ function FieldControl({
     return (
       <input
         type="number"
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+        className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
         min={field.min}
         max={field.max}
         step={field.step ?? 1}
@@ -717,35 +705,10 @@ function FieldControl({
     )
   }
 
-  if (kind === "video_picker") {
-    return (
-      <div className="space-y-2">
-        {typeof raw === "string" && raw && (
-          <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-muted">
-            <video src={raw} className="w-full h-full object-cover" muted />
-            <button
-              className="absolute top-1.5 right-1.5 h-6 w-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors"
-              onClick={() => onChange("")}
-            >
-              <X className="h-3 w-3 text-white" />
-            </button>
-          </div>
-        )}
-        <input
-          type="text"
-          className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-          placeholder="Paste video URL..."
-          value={typeof raw === "string" ? raw : ""}
-          onChange={e => onChange(e.target.value)}
-        />
-      </div>
-    )
-  }
-
   if (kind === "font_picker") {
     return (
       <select
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+        className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
         value={typeof raw === "string" ? raw : String(field.default ?? "")}
         onChange={e => onChange(e.target.value)}
         style={{ fontFamily: typeof raw === "string" ? raw : String(field.default ?? "") }}
@@ -777,7 +740,7 @@ function FieldControl({
     return (
       <div className="relative">
         <select
-          className={cn("w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
+          className={cn("w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
           value={typeof raw === "string" && keys.includes(raw) ? raw : keys[0]}
           onChange={e => onChange(e.target.value)}
         >
@@ -831,7 +794,7 @@ function FieldControl({
     return (
       <div className="relative">
         <select
-          className={cn("w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
+          className={cn("w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
           value={current}
           onChange={e => onChange(e.target.value)}
         >
@@ -848,7 +811,7 @@ function FieldControl({
     return (
       <input
         type="text"
-        className={"w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"}
+        className={"w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"}
         placeholder={field.placeholder ?? (kind === "file_picker" ? "Paste a file URL" : "Community id")}
         value={typeof raw === "string" ? raw : ""}
         onChange={e => onChange(e.target.value)}
@@ -864,7 +827,7 @@ function FieldControl({
       return (
         <div className="relative">
           <select
-            className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+            className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
             value={current}
             onChange={e => onChange(e.target.value)}
           >
@@ -886,7 +849,7 @@ function FieldControl({
               type="button"
               onClick={() => onChange(opt.value)}
               className={cn(
-                "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
+                "flex-1 py-1 px-2.5 text-[12.5px] font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
                 isSelected
                   ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
                   : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
@@ -904,7 +867,7 @@ function FieldControl({
   return (
     <input
       type="text"
-      className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background"
+      className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background"
       value={String(raw ?? "")}
       onChange={e => onChange(e.target.value)}
     />
@@ -1011,7 +974,7 @@ function BrandingTabPanel({
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Store name</label>
         <input
           type="text"
-          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+          className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           placeholder="My Store"
           value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""}
           onChange={e => updateSetting("brand_name", e.target.value)}
@@ -1088,7 +1051,7 @@ function BrandingTabPanel({
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Tagline</label>
         <input
           type="text"
-          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+          className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           placeholder="Your trusted digital store"
           value={typeof settingsDraft.tagline === "string" ? settingsDraft.tagline : ""}
           onChange={e => updateSetting("tagline", e.target.value)}
@@ -1139,7 +1102,7 @@ function WbSlider({
   const num = typeof value === "number" ? value : defaultValue
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{label}</p>
+      <p className="text-[13px] font-medium text-foreground">{label}</p>
       <SliderNumberControl
         value={num}
         onChange={onChange}
@@ -1168,7 +1131,7 @@ function WbToggle({
   return (
     <label className="flex items-center justify-between py-1.5 cursor-pointer select-none group">
       <div className="flex-1 min-w-0 pr-3">
-        <p className="text-sm font-medium text-foreground transition-colors">{label}</p>
+        <p className="text-[13px] font-medium text-foreground transition-colors">{label}</p>
         {info && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{info}</p>}
       </div>
       <button
@@ -1199,10 +1162,10 @@ function WbSelect({
   const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
   return (
     <div className="space-y-1.5">
-      <p className="text-sm font-medium text-foreground">{label}</p>
+      <p className="text-[13px] font-medium text-foreground">{label}</p>
       <div className="relative">
         <select
-          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+          className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
           value={selected}
           onChange={e => onChange(e.target.value)}
         >
@@ -1233,10 +1196,10 @@ function WbRadioSegment({
   if (options.length > 3) {
     return (
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-[13px] font-medium text-foreground">{label}</p>
         <div className="relative">
           <select
-            className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+            className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
             value={selected}
             onChange={e => onChange(e.target.value)}
           >
@@ -1251,7 +1214,7 @@ function WbRadioSegment({
   }
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{label}</p>
+      <p className="text-[13px] font-medium text-foreground">{label}</p>
       <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
         {options.map(opt => (
           <button
@@ -1259,7 +1222,7 @@ function WbRadioSegment({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
+              "flex-1 py-1 px-2.5 text-[12.5px] font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
               selected === opt.value
                 ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
                 : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
@@ -1657,10 +1620,10 @@ function HeaderSectionSettings({
                 onEditScheme={onEditScheme}
               />
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground block">Menu link hover style</label>
+                <label className="text-[13px] font-medium text-foreground block">Menu link hover style</label>
                 <div className="relative">
                   <select
-                    className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+                    className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
                     value={typeof s.menu_link_hover_style === "string" ? s.menu_link_hover_style : "inherit"}
                     onChange={e => onUpdateSetting("menu_link_hover_style", e.target.value)}
                   >
@@ -1687,10 +1650,10 @@ function HeaderSectionSettings({
                   content on desktop / large screens. Narrow/Medium/Wide map
                   to 960/1140/1280px caps; Full is edge-to-edge. */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground block">Header width</label>
+                <label className="text-[13px] font-medium text-foreground block">Header width</label>
                 <div className="relative">
                   <select
-                    className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+                    className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
                     value={typeof s.header_width === "string" ? s.header_width : "wide"}
                     onChange={e => onUpdateSetting("header_width", e.target.value)}
                   >
@@ -1831,10 +1794,10 @@ function HeaderSectionSettings({
                     ]}
                   />
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground block">Show border on</label>
+                    <label className="text-[13px] font-medium text-foreground block">Show border on</label>
                     <div className="relative">
                       <select
-                        className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+                        className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
                         value={borderVisibilityValue}
                         onChange={e => onUpdateSetting("border_visibility", e.target.value)}
                       >
@@ -1895,7 +1858,7 @@ function HeaderSectionSettings({
                     <p className="text-sm font-medium text-foreground">When search is clicked</p>
                     <div className="relative">
                       <select
-                        className="w-full h-10 pl-3 pr-8 text-sm border border-border rounded-lg bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                        className="w-full h-8 pl-2.5 pr-8 text-[13px] border border-border rounded-md bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
                         value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
                         onChange={e => onUpdateSetting("search_behaviour", e.target.value)}
                       >
@@ -1909,7 +1872,7 @@ function HeaderSectionSettings({
                     <p className="text-sm font-medium text-foreground">Search placeholder</p>
                     <input
                       type="text"
-                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                      className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
                       placeholder="Search"
                       value={typeof s.search_placeholder === "string" ? s.search_placeholder : ""}
                       onChange={e => onUpdateSetting("search_placeholder", e.target.value)}
@@ -1956,7 +1919,7 @@ function HeaderSectionSettings({
                     <p className="text-sm font-medium text-foreground">Button text</p>
                     <input
                       type="text"
-                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                      className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
                       placeholder="Shop Now"
                       value={typeof s.cta_text === "string" ? s.cta_text : ""}
                       onChange={e => onUpdateSetting("cta_text", e.target.value)}
@@ -5440,8 +5403,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // ── Sections mode — PAGES panel (default — shows section list) ──
     if (selectedPanel.type === "pages") {
       const header = sections.find(s => s.type === "header")
-      const footer = sections.find(s => s.type === "footer")
-      const bodySection = sections.filter(s => s.type !== "header" && s.type !== "footer")
       const pageLabel = selectedProductPage
         ? selectedProductPage
         : (PAGE_META[currentPage]?.label ?? currentPage)
@@ -5449,13 +5410,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return (
         <div className="flex flex-col h-full">
           {/* Page selector — opens Pages panel */}
-          <div className="px-3 py-3 border-b border-border shrink-0">
+          <div className="px-2.5 py-2.5 border-b border-border shrink-0">
             <button
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium cursor-pointer"
+              className="w-full flex h-8 max-sm:h-11 items-center justify-between px-2.5 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors text-[13px] max-sm:text-[15px] font-medium cursor-pointer"
               onClick={() => setPageBrowserOpen(true)}
             >
               <span className="truncate">{pageLabel}</span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground ml-2" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground ml-2" />
             </button>
           </div>
 
@@ -5478,169 +5439,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             flash of grey before it.
           */}
           {sectionsLoading || loading ? (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll skeleton-deferred p-3 space-y-2" aria-busy="true">
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll skeleton-deferred px-2 py-2 space-y-1.5" aria-busy="true">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-12 rounded-lg bg-[#f3f4f6]" />
+                <div key={i} className="h-8 rounded-md bg-[#f3f4f6]" />
               ))}
             </div>
           ) : (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-0.5">
-              {/* ── Add section, ABOVE everything on a phone ──
-                  At the bottom of the list it is below the header, every body
-                  section and every insert slot: on a phone that is a scroll
-                  to the end of a sheet before you can add anything, and the
-                  sheet is the only way in. The list grows, so the control
-                  gets further away the more you have built.
-
-                  Above the list on a phone, where the thumb already is. The
-                  desktop keeps it at the bottom, where the list is fully
-                  visible and the button reads as the end of it. */}
-              {isMobileView && (
-                <button
-                  className="mb-3 w-full flex items-center gap-2.5 px-3 py-3 text-sm text-foreground/70 active:bg-muted active:text-foreground rounded-lg transition-colors font-medium"
-                  onClick={() => { setPendingInsertIndex(null); setAddSectionOpen(true) }}
-                >
-                  <div className="h-8 w-8 rounded-lg border border-dashed border-border flex items-center justify-center">
-                    <Plus className="h-4 w-4" />
-                  </div>
-                  Add section
-                </button>
-              )}
-
-              {/* Header (global) */}
-              {header && (
-                <div className="border border-border rounded-lg mb-3">
-                  <SidebarSectionRow
-                    section={header}
-                    displayName={sectionDisplayName(header, librarySchemas)}
-                    isSelected={selectedSectionId === header.id}
-                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: header.id }); revealSection(header.id) }}
-                    onToggleHide={() => toggleSectionHidden(header.id)}
-                    onDuplicate={() => duplicateSection(header.id)}
-                    onRemove={() => removeSection(header.id)}
-                    isStructure
-                    structureRole="header"
-                  />
-                </div>
-              )}
-
-              {/* Body sections — no connector line */}
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={dragModifiers}
-                /**
-                 * Re-measure the rows while the drag is in flight.
-                 *
-                 * The default measures them once, when the drag starts, and
-                 * then works from that snapshot. But the rows MOVE during a
-                 * reorder, so every swap put the real rows further from where
-                 * dnd-kit believed they were, and by the third or fourth one
-                 * the row under the finger was not the row that lit up. That
-                 * is the whole of "it is not accurate". Measuring always
-                 * costs a layout per animation frame of the drag and buys
-                 * back a drop that lands where it was aimed.
-                 */
-                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragCancel={handleDragCancel}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                  {(() => {
-                    const bodyStart = header ? 1 : 0
-                    const openInsert = (relIdx: number) => {
-                      setPendingInsertIndex(bodyStart + relIdx)
-                      setAddSectionOpen(true)
-                    }
-                    return (
-                      <div className="space-y-0.5">
-                        {/* Insert slot above the first body section */}
-                        {bodySection.length > 0 && (
-                          <InsertSectionDivider onClick={() => openInsert(0)} />
-                        )}
-                        {bodySection.map((section, idx) => (
-                          <div key={section.id}>
-                            <SortableSectionRow
-                              section={section}
-                              displayName={sectionDisplayName(section, librarySchemas)}
-                              isSelected={selectedSectionId === section.id}
-                              onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); revealSection(section.id) }}
-                              onToggleHide={() => toggleSectionHidden(section.id)}
-                              onDuplicate={() => duplicateSection(section.id)}
-                              onRemove={() => removeSection(section.id)}
-                            />
-                            {/* Insert slot after this section (also before next, or before "Add section" button) */}
-                            <InsertSectionDivider onClick={() => openInsert(idx + 1)} />
-                          </div>
-                        ))}
-                        {/* The same control, at the end of the list, where a
-                            desktop can see the whole list above it. A phone
-                            has one at the top instead: see above. */}
-                        {!isMobileView && (
-                          <button
-                            className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-colors font-medium"
-                            onClick={() => { setPendingInsertIndex(null); setAddSectionOpen(true) }}
-                          >
-                            <div className="h-8 w-8 rounded-lg border border-dashed border-border flex items-center justify-center">
-                              <Plus className="h-4 w-4" />
-                            </div>
-                            Add section
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })()}
-                </SortableContext>
-                {/**
-                 * THE ROW IN THE AIR IS A SEPARATE ROW.
-                 *
-                 * Without this the row being dragged is the row in the list,
-                 * moved by a transform: it is laid out with its neighbours,
-                 * clipped by whatever clips them, and it repaints inside the
-                 * scrolling list on every frame. The overlay is one fixed
-                 * element on its own layer that follows the pointer, so the
-                 * finger has something that tracks it exactly while the list
-                 * underneath quietly reflows into the new order.
-                 *
-                 * `dropAnimation` is left at the default, which flies the
-                 * overlay back to the placeholder's final rectangle. That
-                 * flight is the confirmation that the drop was taken.
-                 */}
-                <DragOverlay>
-                  {draggingId ? (
-                    <div className="wb-drag-lift rounded-lg bg-white">
-                      <SidebarSectionRow
-                        section={sections.find((x) => x.id === draggingId) ?? bodySection[0]}
-                        displayName={sectionDisplayName(sections.find((x) => x.id === draggingId) ?? bodySection[0], librarySchemas)}
-                        isSelected={false}
-                        onSelect={() => {}}
-                        onToggleHide={() => {}}
-                        onDuplicate={() => {}}
-                        onRemove={() => {}}
-                      />
-                    </div>
-                  ) : null}
-                </DragOverlay>
-              </DndContext>
-
-              {/* Footer (global) */}
-              {footer && (
-                <div className="border border-border rounded-lg mt-3">
-                  <SidebarSectionRow
-                    section={footer}
-                    displayName={sectionDisplayName(footer, librarySchemas)}
-                    isSelected={selectedSectionId === footer.id}
-                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: footer.id }); revealSection(footer.id) }}
-                    onToggleHide={() => toggleSectionHidden(footer.id)}
-                    onDuplicate={() => duplicateSection(footer.id)}
-                    onRemove={() => removeSection(footer.id)}
-                    isStructure
-                    structureRole="footer"
-                  />
-                </div>
-              )}
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2">
+              {/* Header, Template and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
+              <SectionsList
+                sections={sections}
+                nameOf={(s) => sectionDisplayName(s, librarySchemas)}
+                selectedId={selectedSectionId}
+                onSelect={(id) => { setSelectedPanel({ type: "section", sectionId: id }); revealSection(id) }}
+                onToggleHide={toggleSectionHidden}
+                onDuplicate={duplicateSection}
+                onRemove={removeSection}
+                onMove={moveSectionBy}
+                onAdd={(at) => {
+                  setPendingInsertIndex(at === null ? null : (header ? 1 : 0) + at)
+                  setAddSectionOpen(true)
+                }}
+                dnd={{
+                  sensors,
+                  modifiers: dragModifiers,
+                  draggingId,
+                  onDragStart: handleDragStart,
+                  onDragOver: handleDragOver,
+                  onDragCancel: handleDragCancel,
+                  onDragEnd: handleDragEnd,
+                }}
+              />
             </div>
           )}
         </div>
@@ -5725,13 +5554,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             />
 
             {schema?.fields && schema.fields.length > 0 && (() => {
-              // Colors are driven by the section's Color Scheme — hide any
-              // color fields so sidebars only expose content + layout.
-              // Also drop "header"/"paragraph" dividers that only separated
-              // color groups and end up as orphans once the colors are gone.
+              /**
+               * THE SECTION'S OWN COLOURS ARE SHOWN; ONLY THE COPIES ARE NOT.
+               *
+               * Every colour field used to be hidden here, on the reasoning
+               * that colours come from the scheme. That also hid the colours
+               * a section declares for itself (stars, a timeline's dot, the
+               * scrim over a photo), so a section could not offer a colour
+               * just for itself at all. What is hidden now is only an older
+               * field that Advanced colors above already edits under its new
+               * name (bg_color as Background, button_color as the primary
+               * button's fill: section-overrides.ts), so no colour is in the
+               * panel twice. Design settings the panel above draws are
+               * hidden too, and a "header" divider left with nothing under it.
+               */
               const DESIGN_FIELDS = new Set(["color_scheme", "heading_style", "body_style", "custom_heading", "custom_body", "color_overrides"])
+              const support = designSupport(schema)
+              const covered = new Set(support.colorOverrides.flatMap(k => LEGACY_OVERRIDE_FIELDS[k] ?? []))
               // And a setting whose `visible_if` does not hold for this section's values.
-              const visible = visibleFields(schema.fields, section.settings).filter(f => f.type !== "color" && f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id))
+              const visible = visibleFields(schema.fields, section.settings).filter(f => f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id) && !(f.type === "color" && covered.has(f.id)))
               const clean: typeof visible = []
               for (let i = 0; i < visible.length; i++) {
                 const f = visible[i]
@@ -5746,15 +5587,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               if (clean.length === 0) return null
               return (
                 <SiblingSettingsProvider settings={section.settings}>
-                <div className="p-4 space-y-4">
+                <div className="px-3.5 py-3.5 space-y-3.5">
                   {clean.map(field => (
                     <div key={field.id}>
+                      {field.type === "color" ? (
+                        <SectionColorSetting
+                          field={field}
+                          value={section.settings[field.id]}
+                          settings={section.settings}
+                          theme={settingsDraft}
+                          onChange={val => updateSectionSetting(section.id, field.id, val)}
+                        />
+                      ) : (
                       <FieldEditor
                         label={fieldCarriesOwnLabel(field) ? undefined : field.label}
                         field={field}
                         value={section.settings[field.id]}
                         onChange={val => updateSectionSetting(section.id, field.id, val)}
                       />
+                      )}
                       {field.type !== "header" && field.type !== "paragraph" && field.info && (
                         <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
                       )}
@@ -5767,7 +5618,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
             {/* Blocks */}
             {schema?.blocks && (
-              <div className="border-t border-border p-4">
+              <div className="border-t border-border px-3.5 py-3.5">
                 <p className="text-xs font-semibold mb-3">
                   {schema.blocks[0]?.name ? `${schema.blocks[0].name}s` : "Blocks"}
                 </p>
@@ -5792,12 +5643,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       <SiblingSettingsProvider settings={block.settings}>
                       {visibleFields(blockSchema?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map(field => (
                         <div key={field.id}>
+                          {/* A block's colour follows its section's scheme the same way: SectionColorSetting. */}
+                          {field.type === "color" ? (
+                            <SectionColorSetting
+                              field={field}
+                              value={block.settings[field.id]}
+                              settings={section.settings}
+                              theme={settingsDraft}
+                              onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
+                            />
+                          ) : (
                           <FieldEditor
                             label={fieldCarriesOwnLabel(field) ? undefined : field.label}
                             field={field}
                             value={block.settings[field.id]}
                             onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
                           />
+                          )}
                         </div>
                       ))}
                       </SiblingSettingsProvider>
@@ -5808,7 +5670,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 {(!schema.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
                   <button
                     type="button"
-                    className="mt-2 w-full flex h-10 max-sm:h-12 items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
+                    className="mt-2 w-full flex h-9 max-sm:h-12 items-center justify-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
                     onClick={() => addBlock(section.id, schema.blocks![0].type)}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -5870,7 +5732,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <button
               type="button"
               className={cn(
-                "flex-auto min-w-0 h-10 px-1.5 flex items-center justify-center rounded-xl text-[13px] font-semibold transition-colors duration-150",
+                "flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg text-[13px] font-semibold transition-colors duration-150",
                 section.hidden
                   ? "bg-[#1a1a2e] text-white active:bg-[#2a2a44]"
                   : "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9eaee] active:bg-[#e3e4e9]",
@@ -5881,14 +5743,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </button>
             <button
               type="button"
-              className="flex-auto min-w-0 h-10 px-1.5 flex items-center justify-center rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e9eaee] active:bg-[#e3e4e9]"
+              className="flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e9eaee] active:bg-[#e3e4e9]"
               onClick={() => duplicateSection(section.id)}
             >
               <span className="truncate">Duplicate</span>
             </button>
             <button
               type="button"
-              className="flex-auto min-w-0 h-10 px-1.5 flex items-center justify-center rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#fee2e2] hover:text-[#dc2626] active:bg-[#fecaca] active:text-[#b91c1c]"
+              className="flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#fee2e2] hover:text-[#dc2626] active:bg-[#fecaca] active:text-[#b91c1c]"
               onClick={() => removeSection(section.id)}
             >
               <span className="truncate">Delete</span>
@@ -7084,6 +6946,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onPublish={() => setPublishOpen(true)}
         onUnpublished={() => setInstall((cur) => (cur ? { ...cur, status: "unpublished" } : cur))}
         onNavigate={requestExit}
+        /* Website Settings › Navigation edits the header and footer through the same writers the sidebar uses. */
+        navigation={{
+          header: sections.find((sec) => sec.type === "header"),
+          footer: sections.find((sec) => sec.type === "footer"),
+          onSectionSetting: updateSectionSetting,
+          onBlockSetting: updateBlockSetting,
+          onAddBlock: addBlock,
+          onRemoveBlock: removeBlock,
+          onReorderBlocks: reorderBlocks,
+          linkTargets,
+        }}
       />
 
       {/* Leaving. Rendered the moment Back is pressed: going back can take a
@@ -8084,72 +7957,6 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
   )
 }
 
-function InsertSectionDivider({ onClick }: { onClick: () => void }) {
-  /**
-   * ===========================================================================
-   *  WHY THIS STOPPED FLICKERING
-   * ===========================================================================
-   * It was `h-3 -my-1` holding a 20px pill. Two separate problems, both
-   * producing the same symptom — a list that jumps and flashes as the cursor
-   * moves down it.
-   *
-   *   THE NEGATIVE MARGIN made every divider overlap the rows above and below
-   *   it, so a few pixels of every row belonged to two hover targets at once.
-   *   Moving down the list crossed those zones repeatedly and the hover states
-   *   fought over which was active.
-   *
-   *   THE PILL WAS BIGGER THAN ITS STRIP — 20px inside 12px — so it stuck out
-   *   into the rows and took the pointer with it, and `group-hover:scale`
-   *   moved that boundary again while the cursor sat on it.
-   *
-   * Now: no negative margin, so the strip owns its own space; the pill does
-   * not take the pointer at all, so the strip is the only hover target there
-   * is; and nothing under the cursor changes size.
-   */
-  return (
-    <div
-      className="group relative flex h-2.5 cursor-pointer select-none items-center justify-center"
-      onClick={onClick}
-    >
-      {/* Always drawn, faintly. A list of rows with nothing between them
-          reads as one block of text on a phone, where there is no cursor to
-          reveal a hover line — which is what made this list look unfinished.
-          It brightens under a pointer, where the strip is also a target. */}
-      <div className="pointer-events-none absolute inset-x-2 h-px bg-border/50 transition-colors duration-150 group-hover:bg-foreground/50" />
-      <div className="pointer-events-none relative z-10 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-        <Plus className="h-2.5 w-2.5 text-foreground" strokeWidth={2.5} />
-      </div>
-    </div>
-  )
-}
-
-
-// ── Sortable wrapper for drag-and-drop ───────────────────────
-function SortableSectionRow(props: Parameters<typeof SidebarSectionRow>[0]) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.section.id })
-  /**
-   * While this row is in the air the overlay is drawing it, so what is left
-   * here is the gap it came out of. It was drawn at half opacity, which is
-   * a second, ghostly copy of the row sliding around under the real one.
-   *
-   * The rows that are NOT being dragged are the ones that animate, and they
-   * are hinted for it only while a drag is actually happening: a permanent
-   * `will-change` on every row in a long list is a permanent layer for every
-   * row in a long list.
-   */
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0 : 1,
-    willChange: transform ? "transform" : undefined,
-  }
-  return (
-    <div ref={setNodeRef} style={style}>
-      <SidebarSectionRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
-    </div>
-  )
-}
-
 /**
  * ===========================================================================
  *  THE SELECTED SECTION'S OWN TOOLBAR
@@ -8704,244 +8511,3 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   )
 })
 
-// ── Sidebar section row ──────────────────────────────────────
-function SidebarSectionRow({
-  section,
-  isSelected,
-  onSelect,
-  onToggleHide,
-  onDuplicate,
-  onRemove,
-  isStructure = false,
-  structureRole,
-  dragHandleProps,
-  displayName,
-}: {
-  section: SectionInstance
-  /**
-   * What this section is called, resolved from its schema by the caller.
-   * NOT `section.name`: that is a copy taken when the section was added and
-   * it goes stale the moment somebody renames the section in its code.
-   */
-  displayName: string
-  isSelected: boolean
-  onSelect: () => void
-  onToggleHide: () => void
-  onDuplicate: () => void
-  onRemove: () => void
-  isStructure?: boolean
-  /** Which piece of chrome this is, so it can carry its own icon. */
-  structureRole?: "header" | "footer"
-  dragHandleProps?: Record<string, unknown>
-}) {
-  const [contextMenuOpen, setContextMenuOpen] = useState(false)
-  const rowRef = useRef<HTMLDivElement>(null)
-
-  return (
-    <div className="relative" ref={rowRef}>
-      <div
-        className={cn(
-          "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors",
-          /* Explicit, for the same reason the category chips are: these are
-             the app's semantic tokens, defined once on `:root` and again
-             under `.dark`, and the builder is a light surface by decision.
-             Under a dark root the selected row went near-white on near-white.
-             The badge inside it already assumes a dark selected row — it goes
-             `bg-white/15 text-white` when selected — so this was the half
-             that could disagree with itself. */
-          isSelected ? "bg-[#1a1a2e] text-white" : "hover:bg-[#f3f4f6] text-[#1a1a2e]",
-          section.hidden && "opacity-50",
-        )}
-        onClick={onSelect}
-        onContextMenu={e => {
-          if (isStructure) return
-          e.preventDefault()
-          setContextMenuOpen(true)
-        }}
-      >
-        {!isStructure && (
-          /**
-           * The grip, always drawn. A handle that only appears under the
-           * pointer is a handle nobody knows is there until they happen to
-           * pass over it, and the whole point of a grip is that the list
-           * looks reorderable at rest. The target is a 28px square rather
-           * than the 14px glyph, because a handle you have to aim at is a
-           * handle people give up on, and the grab cursor lives on it alone.
-           */
-          <span
-            {...(dragHandleProps ?? {})}
-            aria-label={`Drag ${displayName} to reorder`}
-            className={cn(
-              "-ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none",
-              "cursor-grab active:cursor-grabbing transition-colors",
-              isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
-            )}
-            onClick={e => e.stopPropagation()}
-          >
-            <GripVertical
-              className={cn("h-4 w-4 transition-opacity", isSelected ? "opacity-70" : "opacity-40 group-hover:opacity-70")}
-              strokeWidth={1.75}
-            />
-          </span>
-        )}
-        {/* The header and the footer are chrome, and chrome gets a badge so
-            they are not mistaken for sections: a dark tile with the piece
-            drawn on it. These two rows are the only ones in the list that
-            cannot be moved, duplicated or deleted, and the badge is what says
-            so before you try. Its shade has moved on the owner's word: grey,
-            then black, and now a dark grey (#4d5058), still the darkest thing
-            in the list but no longer a black hole in it. */}
-        {isStructure && structureRole && (
-          <span
-            aria-hidden
-            className={cn(
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-              isSelected ? "bg-white/15 text-white" : "bg-[#4d5058] text-white",
-            )}
-          >
-            {structureRole === "header" ? (
-              <PanelTop className="h-4 w-4" strokeWidth={1.75} />
-            ) : (
-              <PanelBottom className="h-4 w-4" strokeWidth={1.75} />
-            )}
-          </span>
-        )}
-        <span className="flex-1 text-sm font-medium truncate">{displayName}</span>
-
-        {/**
-         * ===================================================================
-         *  THE EYE IS A BUTTON, AND FOR THE HEADER IT IS THE ONLY ONE
-         * ===================================================================
-         * This was a static icon: a row that had been hidden said so and gave
-         * you nothing to do about it. For an ordinary section that was merely
-         * a detour, since the three dots beside it carry Show. For the header
-         * and the footer it was a dead end — they are chrome, so they have no
-         * three dots, and their settings panel is a bespoke one with no
-         * Hide/Show in it. Hiding the header was therefore a one-way door:
-         * the row greyed out, the site lost its header, and there was no
-         * control anywhere in the editor to bring it back.
-         *
-         * So the eye toggles. It is drawn at rest whenever the row is hidden,
-         * because that is the row that needs a way out, and under the pointer
-         * on the header and the footer, which have nothing else.
-         */}
-        {(section.hidden || isStructure) && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={section.hidden ? `Show ${displayName}` : `Hide ${displayName}`}
-                aria-pressed={section.hidden}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleHide()
-                }}
-                className={cn(
-                  "h-6 w-6 shrink-0 rounded-md flex items-center justify-center",
-                  // `scale`, not `transform`: Tailwind v4 compiles `scale-90`
-                  // to the standalone `scale` property, so a transition naming
-                  // `transform` animates nothing and the press just snaps.
-                  "transition-[opacity,background-color,scale] duration-150 active:scale-90",
-                  section.hidden || isSelected
-                    ? "opacity-100"
-                    : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-                  isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
-                )}
-              >
-                {section.hidden ? (
-                  <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{section.hidden ? "Show" : "Hide"}</TooltipContent>
-          </Tooltip>
-        )}
-
-        {/* One button under the pointer, and the choices in a menu, rather
-            than an eye and a bin sitting on every row you pass. The menu is
-            the same one a right-click opens. */}
-        {!isStructure && (
-          /* The three dots ARE the menu's trigger, so opening and closing is
-             the dropdown's own business: a button that toggled state by hand
-             reopened on the same click that had just closed it, because the
-             pointer-down outside closes before the click lands. A right-click
-             on the row opens the same menu. */
-          /* `modal={false}` IS THE WHOLE FIX FOR "SELECT A SECTION AND IT
-             FREEZES". Radix defaults a dropdown to modal, and a modal one
-             mounts react-remove-scroll, which adds a NON-PASSIVE touchmove
-             listener on the document and calls preventDefault() on every
-             gesture outside the menu. That is right for a dialog. For a
-             three-dot menu on a row it means the canvas cannot be scrolled
-             while it is open — and when the lock is not released on close, it
-             cannot be scrolled at all, ever, until the page is reloaded.
-
-             Measured on the real editor by scripts/check-editor-scroll.mjs:
-             open this menu, close it, wait three seconds, and 6 of 6
-             touchmoves over the canvas are still cancelled, on a phone and a
-             desktop alike. The stack named react-remove-scroll.
-
-             Nothing already shipped could clear it: removing
-             `data-scroll-locked` from the body does not detach that listener,
-             and the lock stack it consults is private. The only reliable
-             answer is not to take the lock. A menu you can still scroll
-             behind is also the right behaviour: this is an editor, not a
-             dialog. */
-          <DropdownMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen} modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Options for ${displayName}`}
-                className={cn(
-                  "h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-[opacity,background-color] duration-150",
-                  // Under the pointer only. The grip is drawn at rest because
-                  // it says the list can be reordered; a column of menu
-                  // buttons says nothing and is six more marks on the page.
-                  isSelected || contextMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-                  isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
-                )}
-                onClick={e => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </DropdownMenuTrigger>
-            {/* The app's own dropdown, the one every other menu on the page
-                is, not a hand-drawn card. Delete is a row like the others: a
-                red row shouts at somebody who has not decided anything yet,
-                and Undo takes a deletion back in one keystroke. */}
-            <DropdownMenuContent align="end" sideOffset={4} className="w-44" onClick={e => e.stopPropagation()}>
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100"
-                onClick={() => onDuplicate()}
-              >
-                <Copy className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100"
-                onClick={() => onToggleHide()}
-              >
-                {section.hidden ? (
-                  <Eye className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                ) : (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                )}
-                {section.hidden ? "Show" : "Hide"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100"
-                onClick={() => onRemove()}
-              >
-                <Trash2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-
-    </div>
-  )
-}
