@@ -35,9 +35,13 @@ export default async function ProductsPage() {
     .eq("creator_id", creator.id)
     .order("created_at", { ascending: false })
 
+  /* A product that sells a community's access is managed in Community settings
+     (its price, its members), so it is not listed here as a second copy. */
+  const listed = (products || []).filter((p: { community_id?: string | null }) => !p.community_id)
+
   return (
     <ProductsClient
-      products={products || []}
+      products={listed}
       creatorUsername={creatorUsername}
     />
   )

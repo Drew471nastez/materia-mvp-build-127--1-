@@ -205,8 +205,14 @@ export type CreatorList = { available: false } | { available: true; rows: Creato
 const STAT_COLUMNS = "product_id, status, billing_interval, amount_cents, current_period_end, past_due_since"
 
 export async function loadCreatorMemberships(admin: Db, creatorId: string): Promise<CreatorList> {
-  const { data: products, error } = await admin.from("products").select("id, title, status, thumbnail_url, created_at").eq("creator_id", creatorId).eq("type", "membership").neq("status", "archived").order("created_at", { ascending: false })
+  /* A membership that sells a community's access is managed in Community
+     settings, so it is left out here. Before the communities part has run there
+     is no community_id column, and the list is read without it. */
+  const read = (columns: string) => admin.from("products").select(columns).eq("creator_id", creatorId).eq("type", "membership").neq("status", "archived").order("created_at", { ascending: false })
+  let { data: products, error } = await read("id, title, status, thumbnail_url, created_at, community_id")
+  if (error && tableMissing(error)) ({ data: products, error } = await read("id, title, status, thumbnail_url, created_at"))
   if (error) return { available: false }
+  products = ((products as { community_id?: string | null }[] | null) ?? []).filter((p) => !p.community_id)
   const ids = ((products as { id: string }[] | null) ?? []).map((p) => p.id)
   const [plans, members] = await Promise.all([
     ids.length ? admin.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents").in("product_id", ids) : Promise.resolve({ data: [], error: null }),

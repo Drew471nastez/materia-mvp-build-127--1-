@@ -1,0 +1,1379 @@
+import "server-only"
+
+/**
+ * ===========================================================================
+ *  A CREATOR'S COMMUNITIES, ON THE SERVER
+ * ===========================================================================
+ * Everything /app/community reads and writes, with the service role, after
+ * the checks: a page asks creatorCommunityPage (the signed in creator owns
+ * the community, or is one of its admins or moderators) and a route asks
+ * requireCreatorCommunity (lib/communities/server/context.ts) with the
+ * action it is about to take, and every decision after that is can().
+ *
+ * Sections, in the order the screens show them: the list, the create flow,
+ * the Overview's figures and next steps, settings, spaces, the classroom,
+ * events, the feed, gamification and members. Prices and tiers are in
+ * tiers.ts, invites in invites.ts, moderation in moderation.ts, the
+ * analytics in analytics.ts.
+ *
+ * Nothing here loads a whole table. Lists are keyset pages; figures are
+ * counts (head requests) or the counters the triggers keep; the one sum
+ * (monthly revenue) reads the linked memberships a page at a time, and
+ * only the three columns it needs.
+ */
+import { cache } from "react"
+import { notFound } from "next/navigation"
+import { communitiesEnabled } from "../flag"
+import { pageUser } from "@/lib/auth/page-user"
+import { creatorForRequest } from "@/lib/auth/request-scope"
+import { rateLimit } from "@/lib/api/rate-limit"
+import { monthlyValue } from "@/lib/memberships/state"
+import { ownImageUrl } from "@/lib/memberships/plan"
+import { sanitizeDescription } from "@/lib/rich-text/sanitize"
+import { parseAccessRule } from "../access"
+import { priceLine } from "../format"
+import { LENGTHS, MAX_SPACES } from "../limits"
+import { allowedActions, can, meetsRole, type CommunityAction } from "../permissions"
+import { slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
+import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type Role, type SpaceRow } from "../types"
+import {
+  accessForType,
+  checkBenefits,
+  checkFaq,
+  checkLinks,
+  checkRules,
+  csvRow,
+  decodeCursor,
+  encodeCursor,
+  htmlToText,
+  isUuid,
+  keysetOr,
+  nextSteps,
+  replayVideoId,
+  taglineFrom,
+  textToHtml,
+  MEMBERS_PAGE,
+  type CommunityType,
+  type CreateInput,
+  type EventInput,
+  type LevelInput,
+  type MemberQuery,
+  type SpaceInput,
+} from "@/components/community/creator/logic"
+import type {
+  BadgeView,
+  CommunityHead,
+  CommunityListRow,
+  CourseView,
+  EventEditView,
+  FeedRowView,
+  LevelView,
+  MemberPage,
+  MemberRowView,
+  OverviewData,
+  PickProduct,
+  SettingsData,
+  SpaceView,
+  UpcomingEvent,
+} from "@/components/community/creator/view-types"
+import { audit } from "./audit"
+import { createCommunity } from "./create"
+import { loadCommunity, viewerContext, type Viewer } from "./context"
+import { grantMembership, memberOf, revokeMembership } from "./membership"
+import { awardPoints } from "./points"
+import { queueJob } from "./notify"
+import { recordActivity } from "./activity"
+import { eventScheduled } from "./events"
+import { admin, missing, nowIso, reasonOf, type Db } from "./db"
+import { inviteCount } from "./invites"
+import { openReportCount, peopleOf } from "./moderation"
+import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
+
+export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
+const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
+
+const DAY = 86_400_000
+const sinceIso = (days: number, now = Date.now()) => new Date(now - days * DAY).toISOString()
+
+/* ── Writes are counted: one bucket for the creator's management writes ─── */
+
+/** 300 changes in 10 minutes per person: far above any real editing, far below a script. */
+export const MANAGE_WINDOWS = [{ limit: 300, seconds: 600 }] as const
+
+/** The rate limit every creator write route asks first (posts and invites use their own buckets). */
+export function manageLimit(userId: string) {
+  return rateLimit({ bucket: "community-manage", subjects: [`user:${userId}`], windows: MANAGE_WINDOWS, message: "That is a lot of changes at once. Wait a minute and try again." })
+}
+
+/* ── Pictures: only our own storage ─────────────────────────────────────── */
+
+function storageHost(): string | null {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname
+  } catch {
+    return null
+  }
+}
+
+/** A picture URL the creator uploaded (our storage or storelib.com), or null. */
+export function ownPicture(value: unknown): string | null {
+  return ownImageUrl(value, storageHost())
+}
+
+/* ── The page gate ──────────────────────────────────────────────────────── */
+
+export interface CreatorPageContext {
+  userId: string
+  creatorId: string
+  creatorName: string
+  community: CommunityRow
+  viewer: Viewer
+  role: Role
+  db: Db
+  paymentsReady: boolean
+}
+
+/**
+ * The signed in creator and this community, for a page under
+ * /app/community/<id>: null when they may not see it (not found, not theirs,
+ * a plain member), or "no-session" when the session could not be read in
+ * time. Cached for the request, so the layout and the page read it once
+ * between them.
+ */
+export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPageContext | "no-session" | null> => {
+  if (!isUuid(id)) return null
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
+  if (!user) return "no-session"
+  const creator = await creatorForRequest(user.id)
+  if (!creator) return null
+  const db = admin()
+  const community = await loadCommunity(db, { id })
+  if (!community) return null
+  const viewer = await viewerContext(db, community, user.id)
+  const ownsIt = community.creator_id === creator.id || community.owner_user_id === user.id
+  const role: Role | null = ownsIt ? "owner" : viewer.role
+  if (!role || role === "member") return null
+  return {
+    userId: user.id,
+    creatorId: creator.id,
+    creatorName: creator.display_name || creator.username || creator.slug || "A creator",
+    community,
+    viewer,
+    role,
+    db,
+    paymentsReady: Boolean(creator.stripe_account_id) && creator.stripe_onboarding_status === "connected" && creator.charges_enabled !== false,
+  }
+})
+
+/**
+ * The first line of every section page: the context when this person may
+ * take the section's action, a 404 when communities are off or they may
+ * not, and null when the session is still being recovered (the page then
+ * renders nothing and the /app gate takes over).
+ */
+export async function sectionPage(id: string, action: CommunityAction): Promise<CreatorPageContext | null> {
+  if (!(await communitiesEnabled())) notFound()
+  const ctx = await creatorCommunityPage(id)
+  if (ctx === "no-session") return null
+  if (!ctx || !can(ctx.role, action)) notFound()
+  return ctx
+}
+
+/** Whether the payments behind a paid community are connected, for a route that has the creator id. */
+export async function creatorPaymentsReady(db: Db, creatorId: string): Promise<boolean> {
+  const { data } = await db.from("creators").select("stripe_account_id, stripe_onboarding_status, charges_enabled").eq("id", creatorId).maybeSingle()
+  return Boolean(data?.stripe_account_id) && data?.stripe_onboarding_status === "connected" && data?.charges_enabled !== false
+}
+
+/** The header every section shows; cached per request with the context, so the layout and the page share it. */
+export const communityHead = cache(async (ctx: CreatorPageContext): Promise<CommunityHead> => {
+  const c = ctx.community
+  const openReports = can(ctx.role, "review_reports") ? await openReportCount(ctx.db, c.id) : 0
+  return {
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    tagline: c.tagline,
+    logoUrl: c.logo_url,
+    coverUrl: c.cover_url,
+    status: c.status,
+    access: c.access,
+    visibility: c.visibility,
+    memberCount: c.member_count,
+    postCount: c.post_count,
+    archived: c.status === "archived" || Boolean(c.archived_at),
+    suspended: Boolean(c.suspended_at) || c.status === "suspended",
+    gamificationEnabled: c.gamification_enabled,
+    classroomEnabled: c.classroom_enabled,
+    eventsEnabled: c.events_enabled,
+    role: ctx.role,
+    can: allowedActions(ctx.role),
+    openReports,
+  }
+})
+
+/* ── The list ───────────────────────────────────────────────────────────── */
+
+/** The communities this creator owns, and the ones they help run as an admin or a moderator. */
+export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string): Promise<{ available: boolean; rows: CommunityListRow[] }> {
+  const LIST_COLUMNS = "id, slug, name, logo_url, status, access, visibility, member_count, post_count, created_at, creator_id, owner_user_id"
+  const [owned, staff] = await Promise.all([
+    db.from("communities").select(LIST_COLUMNS).eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
+    db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
+  ])
+  if (owned.error) {
+    if (missing(owned.error)) return { available: false, rows: [] }
+    console.error(`[communities] creator list: ${reasonOf(owned.error)}`)
+  }
+  type Lite = { id: string; slug: string; name: string; logo_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string }
+  const rows = new Map<string, Lite & { role: Role }>()
+  for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: "owner" })
+  const staffRoles = new Map(((staff.data as { community_id: string; role: Role }[] | null) ?? []).map((m) => [m.community_id, m.role]))
+  const extra = [...staffRoles.keys()].filter((id) => !rows.has(id))
+  if (extra.length) {
+    const { data } = await db.from("communities").select(LIST_COLUMNS).in("id", extra).is("deleted_at", null)
+    for (const c of (data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: staffRoles.get(c.id) ?? "moderator" })
+  }
+  const list = [...rows.values()]
+  const paidIds = list.filter((c) => c.access === "paid").map((c) => c.id)
+  const prices = new Map<string, string>()
+  if (paidIds.length) {
+    const { data: tiers } = await db.from("community_tiers").select("community_id, billing, product_id, is_default").in("community_id", paidIds).eq("kind", "paid").is("archived_at", null).order("position", { ascending: true })
+    const first = new Map<string, { billing: string | null; product_id: string | null }>()
+    for (const t of (tiers as { community_id: string; billing: string | null; product_id: string | null; is_default: boolean }[] | null) ?? []) if (!first.has(t.community_id) || t.is_default) first.set(t.community_id, t)
+    const productIds = [...first.values()].map((t) => t.product_id).filter((x): x is string => Boolean(x))
+    if (productIds.length) {
+      const [plans, products] = await Promise.all([
+        db.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents").in("product_id", productIds),
+        db.from("products").select("id, price_cents").in("id", productIds),
+      ])
+      const planOf = new Map(((plans.data as { product_id: string; monthly_price_cents: number | null; yearly_price_cents: number | null }[] | null) ?? []).map((p) => [p.product_id, p]))
+      const priceOf = new Map(((products.data as { id: string; price_cents: number | null }[] | null) ?? []).map((p) => [p.id, p.price_cents]))
+      for (const [cid, t] of first) {
+        if (!t.product_id) continue
+        const plan = planOf.get(t.product_id)
+        const line = priceLine({ kind: "paid", billing: t.billing === "one_time" ? "one_time" : "recurring", monthlyCents: plan?.monthly_price_cents, yearlyCents: plan?.yearly_price_cents, priceCents: t.billing === "one_time" ? priceOf.get(t.product_id) : null })
+        if (line) prices.set(cid, line)
+      }
+    }
+  }
+  return {
+    available: true,
+    rows: list
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        name: c.name,
+        logoUrl: c.logo_url,
+        status: c.status,
+        access: c.access,
+        visibility: c.visibility,
+        memberCount: c.member_count,
+        postCount: c.post_count,
+        role: c.role,
+        priceLine: c.access === "paid" ? (prices.get(c.id) ?? null) : c.access === "invite_only" ? "Invite only" : "Free",
+        createdAt: c.created_at,
+      })),
+  }
+}
+
+/* ── Create ─────────────────────────────────────────────────────────────── */
+
+/**
+ * The create flow: the community with its spaces, levels and owner row
+ * (create.ts), its description, and for a paid one the tier and the product
+ * that sells it (tiers.ts). If the price cannot be saved the community is
+ * taken back, so a paid community never exists without a price.
+ */
+export async function createFromFlow(db: Db, a: { creatorId: string; userId: string; input: CreateInput }): Promise<Result<{ community: CommunityRow }>> {
+  const { access, visibility } = accessForType(a.input.type)
+  const made = await createCommunity(db, {
+    creatorId: a.creatorId,
+    ownerUserId: a.userId,
+    name: a.input.name,
+    tagline: taglineFrom(a.input.description),
+    access,
+    visibility,
+    logoUrl: ownPicture(a.input.logoUrl),
+    coverUrl: ownPicture(a.input.coverUrl),
+  })
+  if (!made.ok) {
+    if (made.error === "not_set_up") return no(503, "Communities are not set up on Storelib yet.")
+    if (made.error === "invalid_name") return no(400, "Give your community a name up to 80 characters.", "name")
+    return no(500, "The community could not be made. Try again.")
+  }
+  let community = made.community
+  if (a.input.description) {
+    const html = sanitizeDescription(textToHtml(a.input.description))
+    const { data } = await db.from("communities").update({ description: html }).eq("id", community.id).select(COMMUNITY_COLUMNS).single()
+    if (data) community = data as CommunityRow
+  }
+  if (a.input.type === "paid" && a.input.price) {
+    const tier = await createPaidTier(db, { creatorId: a.creatorId, community, name: "Members", interval: a.input.price.interval, cents: a.input.price.cents, actorId: a.userId })
+    if (!tier.ok) {
+      await db.from("communities").delete().eq("id", community.id)
+      return no(tier.status, tier.error, "price")
+    }
+  }
+  return { ok: true, community }
+}
+
+/* ── Overview ───────────────────────────────────────────────────────────── */
+
+async function count(q: PromiseLike<{ count: number | null; error: unknown }>): Promise<number> {
+  const { count: n, error } = await q
+  return error ? 0 : (n ?? 0)
+}
+
+/** Monthly recurring revenue from the memberships that sell this community, a page of 1000 at a time. */
+async function monthlyRevenue(db: Db, productIds: string[]): Promise<{ cents: number; currency: string }> {
+  if (productIds.length === 0) return { cents: 0, currency: "usd" }
+  let cents = 0
+  let currency = "usd"
+  let after: string | null = null
+  for (let page = 0; page < 50; page++) {
+    let q = db.from("memberships").select("id, status, billing_interval, amount_cents, currency").in("product_id", productIds).in("status", ["active", "past_due"])
+    if (after) q = q.gt("id", after)
+    const { data, error } = await q.order("id", { ascending: true }).limit(1000)
+    if (error) break
+    const rows = (data as { id: string; status: string; billing_interval: string; amount_cents: number; currency: string | null }[] | null) ?? []
+    for (const m of rows) cents += monthlyValue(m)
+    if (rows[0]?.currency) currency = rows[0].currency
+    if (rows.length < 1000) break
+    after = rows[rows.length - 1].id
+  }
+  return { cents, currency }
+}
+
+export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewData> {
+  const { db, community: c } = ctx
+  const now = Date.now()
+  const d30 = sinceIso(30, now)
+  const d7 = sinceIso(7, now)
+  const members = () => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", c.id)
+  const recurring = await recurringProductIds(db, c.id)
+  const [active30d, new30d, paidMembers, pending, posts7d, comments7d, openReports, revenue, cancellations, invites, courses, events, anyPost, upcomingRows, sells] = await Promise.all([
+    count(members().eq("status", "active").gte("last_active_at", d30)),
+    count(members().eq("status", "active").gte("joined_at", d30)),
+    count(members().eq("status", "active").in("source", [...PAID_SOURCES])),
+    count(members().eq("status", "pending")),
+    count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
+    count(db.from("community_feed_comments").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
+    openReportCount(db, c.id),
+    monthlyRevenue(db, recurring),
+    recurring.length ? count(db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring).gte("canceled_at", d30)) : Promise.resolve(0),
+    inviteCount(db, c.id),
+    count(db.from("community_courses").select("product_id", { count: "exact", head: true }).eq("community_id", c.id)),
+    count(db.from("community_events").select("id", { count: "exact", head: true }).eq("community_id", c.id)),
+    count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", c.id)),
+    db.from("community_events").select("id, title, starts_at, ends_at, timezone, going_count, capacity, kind").eq("community_id", c.id).eq("status", "scheduled").gte("starts_at", nowIso(now - 60 * 60_000)).order("starts_at", { ascending: true }).limit(3),
+    count(db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid")),
+  ])
+  const base = `/app/community/${c.id}`
+  const upcoming: UpcomingEvent[] = ((upcomingRows.data as { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string; going_count: number; capacity: number | null; kind: UpcomingEvent["kind"] }[] | null) ?? []).map((e) => ({
+    id: e.id,
+    title: e.title,
+    startsAt: e.starts_at,
+    endsAt: e.ends_at,
+    timezone: e.timezone,
+    goingCount: e.going_count,
+    capacity: e.capacity,
+    kind: e.kind,
+  }))
+  return {
+    figures: {
+      members: c.member_count,
+      active30d,
+      new30d,
+      paidMembers,
+      mrrCents: revenue.cents,
+      currency: revenue.currency,
+      cancellations30d: cancellations,
+      posts7d,
+      comments7d,
+      openReports,
+      pendingRequests: pending,
+    },
+    upcoming,
+    sells: sells > 0,
+    publicUrl: `/community/${c.slug}`,
+    steps:
+      ctx.role === "owner" || ctx.role === "admin"
+        ? nextSteps(
+            {
+              published: c.status === "published",
+              paid: c.access === "paid",
+              paymentsReady: ctx.paymentsReady,
+              members: c.member_count,
+              invites,
+              posts: anyPost,
+              courses,
+              events,
+              customized: (Array.isArray(c.benefits) && c.benefits.length > 0) || (Array.isArray(c.rules) && c.rules.length > 0),
+              classroomEnabled: c.classroom_enabled,
+              eventsEnabled: c.events_enabled,
+            },
+            base,
+          ).filter((s) => s.id !== "payouts" || ctx.role === "owner")
+        : [],
+  }
+}
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+
+export async function loadLevels(db: Db, communityId: string): Promise<LevelView[]> {
+  const { data } = await db.from("community_levels").select("level, name, min_points, reward").eq("community_id", communityId).order("level", { ascending: true }).limit(20)
+  return ((data as { level: number; name: string; min_points: number; reward: string | null }[] | null) ?? []).map((l) => ({ level: l.level, name: l.name, minPoints: l.min_points, reward: l.reward }))
+}
+
+export async function loadBadges(db: Db, communityId: string): Promise<BadgeView[]> {
+  const { data } = await db.from("community_badges").select("id, name, description, icon").eq("community_id", communityId).order("created_at", { ascending: true }).limit(50)
+  const rows = (data as { id: string; name: string; description: string | null; icon: string | null }[] | null) ?? []
+  const counts = await Promise.all(rows.map((b) => count(db.from("community_member_badges").select("user_id", { count: "exact", head: true }).eq("badge_id", b.id))))
+  return rows.map((b, i) => ({ ...b, awarded: counts[i] }))
+}
+
+export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsData> {
+  const { db, community: c } = ctx
+  const [tiers, products, me, levels, badges] = await Promise.all([
+    loadTiers(db, c.id),
+    can(ctx.role, "manage_pricing") ? pickableProducts(db, ctx.creatorId) : Promise.resolve([] as PickProduct[]),
+    memberOf(db, c.id, ctx.userId),
+    loadLevels(db, c.id),
+    loadBadges(db, c.id),
+  ])
+  return {
+    description: htmlToText(c.description),
+    tagline: c.tagline,
+    category: c.category,
+    rules: Array.isArray(c.rules) ? c.rules : [],
+    faq: Array.isArray(c.faq) ? c.faq : [],
+    benefits: Array.isArray(c.benefits) ? c.benefits : [],
+    links: Array.isArray(c.links) ? c.links : [],
+    onboarding: c.onboarding && typeof c.onboarding === "object" ? c.onboarding : {},
+    discoveryEnabled: c.discovery_enabled,
+    platformHidden: c.platform_hidden,
+    approvalRequired: c.approval_required,
+    directoryEnabled: c.directory_enabled,
+    chatEnabled: c.chat_enabled,
+    seoTitle: c.seo_title,
+    seoDescription: c.seo_description,
+    tiers,
+    products,
+    paymentsReady: ctx.paymentsReady,
+    myNotify: { level: me?.notify_level ?? "important", emailAnnouncements: me?.email_announcements ?? true, emailEvents: me?.email_events ?? true },
+    levels,
+    badges,
+  }
+}
+
+const SETTING_FLAGS = {
+  discoveryEnabled: "discovery_enabled",
+  approvalRequired: "approval_required",
+  directoryEnabled: "directory_enabled",
+  classroomEnabled: "classroom_enabled",
+  eventsEnabled: "events_enabled",
+  chatEnabled: "chat_enabled",
+  gamificationEnabled: "gamification_enabled",
+} as const
+
+/** The permission each settings field needs: access (who may join) is money, so the owner's; the rest is settings. */
+export function settingNeeds(field: string): CommunityAction {
+  if (field === "type") return "manage_pricing"
+  if (field === "gamificationEnabled") return "manage_gamification"
+  if (field === "slug") return "manage_settings"
+  return "manage_settings"
+}
+
+/**
+ * Saves whatever settings the body carries, each checked on its own; a
+ * field that is not there is left as it is. Answers the community as it now
+ * is, or the first field that was refused.
+ */
+export async function updateSettings(db: Db, a: { community: CommunityRow; role: Role; actorId: string; creatorId: string; body: Record<string, unknown> }): Promise<Result<{ community: CommunityRow }>> {
+  const b = a.body
+  const c = a.community
+  const patch: Record<string, unknown> = {}
+  const changed: string[] = []
+  for (const key of Object.keys(b)) {
+    if (!can(a.role, settingNeeds(key))) return no(403, "forbidden", key)
+  }
+  if (b.name !== undefined) {
+    const name = typeof b.name === "string" ? b.name.replace(/\s+/g, " ").trim() : ""
+    if (!name || name.length > LENGTHS.communityName.max) return no(400, `A name is 1 to ${LENGTHS.communityName.max} characters.`, "name")
+    patch.name = name
+  }
+  if (b.tagline !== undefined) {
+    const t = typeof b.tagline === "string" ? b.tagline.replace(/\s+/g, " ").trim() : ""
+    if (t.length > LENGTHS.tagline.max) return no(400, `A tagline is up to ${LENGTHS.tagline.max} characters.`, "tagline")
+    patch.tagline = t || null
+  }
+  if (b.description !== undefined) {
+    const text = typeof b.description === "string" ? b.description.slice(0, 10_000) : ""
+    patch.description = text.trim() ? sanitizeDescription(textToHtml(text)) : null
+  }
+  if (b.slug !== undefined) {
+    const slug = typeof b.slug === "string" ? b.slug.trim().toLowerCase() : ""
+    if (!validSlug(slug)) return no(400, "An address is 3 to 48 lowercase letters, numbers and single hyphens.", "slug")
+    if (slug !== c.slug) {
+      const { data: taken } = await db.from("communities").select("id").eq("slug", slug).maybeSingle()
+      if (taken) return no(409, "That address is taken.", "slug")
+      patch.slug = slug
+    }
+  }
+  for (const key of ["logoUrl", "coverUrl"] as const) {
+    if (b[key] === undefined) continue
+    if (b[key] === null || b[key] === "") patch[key === "logoUrl" ? "logo_url" : "cover_url"] = null
+    else {
+      const url = ownPicture(b[key])
+      if (!url) return no(400, "Upload the picture again.", key)
+      patch[key === "logoUrl" ? "logo_url" : "cover_url"] = url
+    }
+  }
+  if (b.category !== undefined) patch.category = typeof b.category === "string" && b.category.trim() ? b.category.trim().slice(0, 60) : null
+  if (b.rules !== undefined) {
+    const r = checkRules(b.rules)
+    if (!r.ok) return no(400, r.error, r.field)
+    patch.rules = r.value
+  }
+  if (b.faq !== undefined) {
+    const r = checkFaq(b.faq)
+    if (!r.ok) return no(400, r.error, r.field)
+    patch.faq = r.value
+  }
+  if (b.benefits !== undefined) {
+    const r = checkBenefits(b.benefits)
+    if (!r.ok) return no(400, r.error, r.field)
+    patch.benefits = r.value
+  }
+  if (b.links !== undefined) {
+    const r = checkLinks(b.links)
+    if (!r.ok) return no(400, r.error, r.field)
+    patch.links = r.value
+  }
+  if (b.onboarding !== undefined) {
+    const o = (b.onboarding && typeof b.onboarding === "object" ? b.onboarding : {}) as Record<string, unknown>
+    const welcome = typeof o.welcome === "string" ? o.welcome.trim().slice(0, 2000) : ""
+    patch.onboarding = { enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+  }
+  for (const [key, column] of Object.entries(SETTING_FLAGS)) {
+    if (b[key] === undefined) continue
+    if (typeof b[key] !== "boolean") return no(400, "On or off.", key)
+    patch[column] = b[key]
+  }
+  if (b.seoTitle !== undefined) {
+    const t = typeof b.seoTitle === "string" ? b.seoTitle.trim() : ""
+    if (t.length > LENGTHS.seoTitle.max) return no(400, `Up to ${LENGTHS.seoTitle.max} characters.`, "seoTitle")
+    patch.seo_title = t || null
+  }
+  if (b.seoDescription !== undefined) {
+    const t = typeof b.seoDescription === "string" ? b.seoDescription.trim() : ""
+    if (t.length > LENGTHS.seoDescription.max) return no(400, `Up to ${LENGTHS.seoDescription.max} characters.`, "seoDescription")
+    patch.seo_description = t || null
+  }
+  if (b.visibility !== undefined) {
+    if (!isOneOf(COMMUNITY_VISIBILITIES, b.visibility)) return no(400, "Pick who can find it.", "visibility")
+    patch.visibility = b.visibility
+  }
+  if (b.type !== undefined) {
+    const type = b.type as CommunityType
+    if (type !== "free" && type !== "paid" && type !== "private") return no(400, "Pick who can join.", "type")
+    const { access, visibility } = accessForType(type)
+    if (type === "paid") {
+      const { count: paid } = await db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid").is("archived_at", null)
+      if (!paid) return no(409, "Add a paid tier with a price first.", "type")
+    } else {
+      await ensureFreeDefault(db, c.id)
+    }
+    patch.access = access
+    if (b.visibility === undefined) patch.visibility = visibility
+  }
+  if (Object.keys(patch).length === 0) return { ok: true, community: c }
+  for (const k of Object.keys(patch)) changed.push(k)
+  const { data, error } = await db.from("communities").update(patch).eq("id", c.id).select(COMMUNITY_COLUMNS).single()
+  if (error) {
+    if (error.code === "23505") return no(409, "That address is taken.", "slug")
+    console.error(`[communities] settings ${c.id}: ${reasonOf(error)}`)
+    return no(500, "The settings could not be saved. Try again.")
+  }
+  await audit(db, {
+    communityId: c.id,
+    actorId: a.actorId,
+    actorKind: "member",
+    action: "community.settings_changed",
+    targetType: "community",
+    targetId: c.id,
+    targetLabel: (patch.name as string | undefined) ?? c.name,
+    detail: { fields: changed },
+  })
+  return { ok: true, community: data as CommunityRow }
+}
+
+/** A free or invite only community joins on a free tier: there is one, and it is the default. */
+async function ensureFreeDefault(db: Db, communityId: string): Promise<void> {
+  const { data } = await db.from("community_tiers").select("id, kind, is_default, archived_at").eq("community_id", communityId).limit(50)
+  const rows = (data as { id: string; kind: string; is_default: boolean; archived_at: string | null }[] | null) ?? []
+  let free = rows.find((t) => t.kind === "free" && !t.archived_at)
+  if (!free) {
+    const { data: made } = await db.from("community_tiers").insert({ community_id: communityId, name: "Members", kind: "free", is_default: false, position: rows.length }).select("id, kind, is_default, archived_at").single()
+    if (!made) return
+    free = made
+  }
+  if (free && !free.is_default) {
+    await db.from("community_tiers").update({ is_default: false }).eq("community_id", communityId).eq("is_default", true)
+    await db.from("community_tiers").update({ is_default: true }).eq("id", free.id)
+  }
+}
+
+/**
+ * Publishes or takes back to a draft. A paid community needs a live paid
+ * tier to publish. The tiers' products go on and off sale with it.
+ */
+export async function setPublished(db: Db, a: { community: CommunityRow; actorId: string; publish: boolean }): Promise<Result<{ community: CommunityRow }>> {
+  const c = a.community
+  if (c.suspended_at || c.status === "suspended") return no(409, "Storelib suspended this community. Contact support.")
+  if (c.status === "archived") return no(409, "Bring it back from the archive first.")
+  if (a.publish && c.access === "paid") {
+    const { count: paid } = await db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid").is("archived_at", null)
+    if (!paid) return no(409, "Add a price before you publish a paid community.")
+  }
+  const status = a.publish ? "published" : "draft"
+  const { data, error } = await db.from("communities").update({ status }).eq("id", c.id).select(COMMUNITY_COLUMNS).single()
+  if (error) return no(500, "That did not save. Try again.")
+  await syncTierProducts(db, data as CommunityRow, a.publish)
+  await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: a.publish ? "community.published" : "community.unpublished", targetType: "community", targetId: c.id, targetLabel: c.name })
+  return { ok: true, community: data as CommunityRow }
+}
+
+/** Archived: kept to read, nothing new; off sale. Brought back as a draft. */
+export async function setArchived(db: Db, a: { community: CommunityRow; actorId: string; archived: boolean }): Promise<Result<{ community: CommunityRow }>> {
+  const c = a.community
+  const patch = a.archived ? { status: "archived", archived_at: nowIso() } : { status: "draft", archived_at: null }
+  const { data, error } = await db.from("communities").update(patch).eq("id", c.id).select(COMMUNITY_COLUMNS).single()
+  if (error) return no(500, "That did not save. Try again.")
+  await syncTierProducts(db, data as CommunityRow, false)
+  await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: a.archived ? "community.archived" : "community.unarchived", targetType: "community", targetId: c.id, targetLabel: c.name })
+  return { ok: true, community: data as CommunityRow }
+}
+
+/**
+ * Deleted, after the name is typed back: hidden everywhere (deleted_at),
+ * archived, off sale. Rows, posts and orders are kept. Refused while
+ * members are still paying, because their billing would carry on for a
+ * community they can no longer open.
+ */
+export async function deleteCommunity(db: Db, a: { community: CommunityRow; actorId: string; confirm: unknown }): Promise<Result> {
+  const c = a.community
+  const typed = typeof a.confirm === "string" ? a.confirm.trim() : ""
+  if (typed !== c.name.trim() && typed !== c.slug) return no(400, "Type the community's name exactly to delete it.", "confirm")
+  const paying = await count(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "active").eq("source", "subscription"))
+  if (paying > 0) return no(409, `${paying} ${paying === 1 ? "member still pays" : "members still pay"} for this community. Archive it instead, so their access matches what they pay for.`)
+  const { error } = await db.from("communities").update({ status: "archived", archived_at: c.archived_at ?? nowIso(), deleted_at: nowIso() }).eq("id", c.id)
+  if (error) return no(500, "That did not save. Try again.")
+  await syncTierProducts(db, { ...c, status: "archived" }, false)
+  await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: "community.deleted", targetType: "community", targetId: c.id, targetLabel: c.name })
+  return { ok: true }
+}
+
+/** The owner's own notification choices in this community (their member row). */
+export async function updateMyNotify(db: Db, a: { communityId: string; userId: string; body: Record<string, unknown> }): Promise<Result> {
+  const patch: Record<string, unknown> = {}
+  if (a.body.level !== undefined) {
+    if (!isOneOf(NOTIFY_LEVELS, a.body.level)) return no(400, "Pick what you hear about.", "level")
+    patch.notify_level = a.body.level
+  }
+  if (typeof a.body.emailAnnouncements === "boolean") patch.email_announcements = a.body.emailAnnouncements
+  if (typeof a.body.emailEvents === "boolean") patch.email_events = a.body.emailEvents
+  if (Object.keys(patch).length === 0) return { ok: true }
+  const { error } = await db.from("community_members").update(patch).eq("community_id", a.communityId).eq("user_id", a.userId)
+  if (error) return no(500, "That did not save. Try again.")
+  return { ok: true }
+}
+
+/** The tiers and levels an access rule can name, for the editors. */
+export async function ruleOptions(db: Db, communityId: string): Promise<{ tiers: { id: string; name: string }[]; levels: { level: number; name: string }[] }> {
+  const [tiers, levels] = await Promise.all([
+    db.from("community_tiers").select("id, name").eq("community_id", communityId).is("archived_at", null).order("position", { ascending: true }).limit(50),
+    db.from("community_levels").select("level, name").eq("community_id", communityId).order("level", { ascending: true }).limit(20),
+  ])
+  return { tiers: (tiers.data as { id: string; name: string }[] | null) ?? [], levels: (levels.data as { level: number; name: string }[] | null) ?? [] }
+}
+
+/* ── Spaces ─────────────────────────────────────────────────────────────── */
+
+/** Access rules keep only this community's own tiers. */
+async function ownRule(db: Db, communityId: string, rule: AccessRuleJson): Promise<AccessRuleJson> {
+  const r = parseAccessRule(rule)
+  if (r.tierIds?.length) {
+    const { data } = await db.from("community_tiers").select("id").eq("community_id", communityId).in("id", r.tierIds)
+    const ok = new Set(((data as { id: string }[] | null) ?? []).map((t) => t.id))
+    r.tierIds = r.tierIds.filter((id) => ok.has(id))
+    if (!r.tierIds.length) delete r.tierIds
+  }
+  delete r.productIds
+  return r
+}
+
+export async function loadSpaces(db: Db, communityId: string): Promise<SpaceView[]> {
+  const { data, error } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).limit(MAX_SPACES + 10)
+  if (error) return []
+  const rows = (data as SpaceRow[] | null) ?? []
+  const posts = await Promise.all(rows.map((s) => count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", s.id))))
+  const messages = await Promise.all(rows.map((s, i) => (s.kind === "chat" && posts[i] === 0 ? count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", s.id)) : Promise.resolve(0))))
+  return rows.map((s, i) => ({
+    id: s.id,
+    slug: s.slug,
+    name: s.name,
+    description: s.description,
+    icon: s.icon,
+    kind: s.kind,
+    position: s.position,
+    postRole: s.post_role,
+    commentsEnabled: s.comments_enabled,
+    viewAccess: parseAccessRule(s.view_access),
+    archived: Boolean(s.archived_at),
+    posts: posts[i] + messages[i],
+  }))
+}
+
+export async function createSpace(db: Db, a: { communityId: string; actorId: string; input: SpaceInput }): Promise<Result<{ space: SpaceView }>> {
+  const { data: existing } = await db.from("community_spaces").select("slug, position").eq("community_id", a.communityId).limit(MAX_SPACES + 10)
+  const rows = (existing as { slug: string; position: number }[] | null) ?? []
+  if (rows.length >= MAX_SPACES) return no(400, `A community has up to ${MAX_SPACES} spaces.`)
+  let base = slugify(a.input.name, 40)
+  if (!validSpaceSlug(base)) base = "space"
+  const taken = new Set(rows.map((r) => r.slug))
+  let slug = base
+  for (let n = 2; taken.has(slug); n++) slug = slugWithSuffix(base, n)
+  const { data, error } = await db
+    .from("community_spaces")
+    .insert({
+      community_id: a.communityId,
+      slug,
+      name: a.input.name,
+      description: a.input.description,
+      icon: a.input.icon,
+      kind: a.input.kind,
+      position: rows.reduce((m, r) => Math.max(m, r.position + 1), 0),
+      view_access: await ownRule(db, a.communityId, a.input.viewAccess),
+      post_role: a.input.postRole,
+      comments_enabled: a.input.commentsEnabled,
+    })
+    .select(SPACE_COLUMNS)
+    .single()
+  if (error || !data) return no(500, "The space could not be made. Try again.")
+  const s = data as SpaceRow
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "space.created", targetType: "space", targetId: s.id, targetLabel: s.name, detail: { kind: s.kind } })
+  return { ok: true, space: { id: s.id, slug: s.slug, name: s.name, description: s.description, icon: s.icon, kind: s.kind, position: s.position, postRole: s.post_role, commentsEnabled: s.comments_enabled, viewAccess: parseAccessRule(s.view_access), archived: false, posts: 0 } }
+}
+
+async function spaceOf(db: Db, communityId: string, spaceId: string): Promise<SpaceRow | null> {
+  if (!isUuid(spaceId)) return null
+  const { data } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("id", spaceId).eq("community_id", communityId).maybeSingle()
+  return (data as SpaceRow | null) ?? null
+}
+
+export async function updateSpace(db: Db, a: { communityId: string; spaceId: string; actorId: string; input: SpaceInput; archived?: boolean }): Promise<Result> {
+  const space = await spaceOf(db, a.communityId, a.spaceId)
+  if (!space) return no(404, "That space is not in this community.")
+  if (space.kind !== a.input.kind && (space.kind === "chat" || a.input.kind === "chat")) {
+    const used = (await count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", space.id))) + (await count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", space.id)))
+    if (used > 0) return no(409, "A space with posts cannot change between chat and posts. Make a new space instead.", "kind")
+  }
+  const patch: Record<string, unknown> = {
+    name: a.input.name,
+    description: a.input.description,
+    icon: a.input.icon,
+    kind: a.input.kind,
+    post_role: a.input.postRole,
+    comments_enabled: a.input.commentsEnabled,
+    view_access: await ownRule(db, a.communityId, a.input.viewAccess),
+  }
+  if (a.archived !== undefined) patch.archived_at = a.archived ? (space.archived_at ?? nowIso()) : null
+  const { error } = await db.from("community_spaces").update(patch).eq("id", space.id)
+  if (error) return no(500, "The space could not be saved. Try again.")
+  await audit(db, {
+    communityId: a.communityId,
+    actorId: a.actorId,
+    actorKind: "member",
+    action: a.archived === true && !space.archived_at ? "space.archived" : a.archived === false && space.archived_at ? "space.restored" : "space.updated",
+    targetType: "space",
+    targetId: space.id,
+    targetLabel: a.input.name,
+  })
+  return { ok: true }
+}
+
+/** New order for the spaces: every id must be one of this community's. */
+export async function reorderSpaces(db: Db, a: { communityId: string; actorId: string; ids: unknown }): Promise<Result> {
+  const ids = Array.isArray(a.ids) ? a.ids.filter(isUuid) : []
+  const { data } = await db.from("community_spaces").select("id").eq("community_id", a.communityId).limit(MAX_SPACES + 10)
+  const own = new Set(((data as { id: string }[] | null) ?? []).map((s) => s.id))
+  if (ids.length === 0 || ids.length !== own.size || ids.some((id) => !own.has(id)) || new Set(ids).size !== ids.length) return no(400, "Send every space once.")
+  const results = await Promise.all(ids.map((id, i) => db.from("community_spaces").update({ position: i }).eq("id", id).eq("community_id", a.communityId)))
+  if (results.some((r: { error: unknown }) => r.error)) return no(500, "The order could not be saved. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "space.reordered", targetType: "community", targetId: a.communityId })
+  return { ok: true }
+}
+
+/** Only an empty space is deleted; one with posts or messages is archived instead, so nothing anybody wrote is lost. */
+export async function deleteSpace(db: Db, a: { communityId: string; spaceId: string; actorId: string }): Promise<Result> {
+  const space = await spaceOf(db, a.communityId, a.spaceId)
+  if (!space) return no(404, "That space is not in this community.")
+  const used = (await count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", space.id))) + (await count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", space.id)))
+  if (used > 0) return no(409, "It has posts in it. Archive it instead.")
+  const { count: total } = await db.from("community_spaces").select("id", { count: "exact", head: true }).eq("community_id", a.communityId).is("archived_at", null)
+  if ((total ?? 0) <= 1 && !space.archived_at) return no(409, "Keep at least one space.")
+  const { error } = await db.from("community_spaces").delete().eq("id", space.id).eq("community_id", a.communityId)
+  if (error) return no(500, "The space could not be deleted. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "space.deleted", targetType: "space", targetId: space.id, targetLabel: space.name })
+  return { ok: true }
+}
+
+/* ── Classroom ──────────────────────────────────────────────────────────── */
+
+export async function loadClassroom(db: Db, communityId: string, creatorId: string): Promise<{ attached: CourseView[]; available: PickProduct[] }> {
+  const [{ data: links }, { data: courses }] = await Promise.all([
+    db.from("community_courses").select("product_id, position, access, drip_days").eq("community_id", communityId).order("position", { ascending: true }).limit(200),
+    db.from("products").select("id, title, status, thumbnail_url, type").eq("creator_id", creatorId).eq("type", "course").neq("status", "archived").order("created_at", { ascending: false }).limit(200),
+  ])
+  const rows = (links as { product_id: string; position: number; access: AccessRuleJson; drip_days: number | null }[] | null) ?? []
+  const all = (courses as { id: string; title: string; status: string; thumbnail_url: string | null; type: string }[] | null) ?? []
+  const byId = new Map(all.map((p) => [p.id, p]))
+  const missingIds = rows.map((r) => r.product_id).filter((id) => !byId.has(id))
+  if (missingIds.length) {
+    const { data } = await db.from("products").select("id, title, status, thumbnail_url, type").in("id", missingIds)
+    for (const p of (data as { id: string; title: string; status: string; thumbnail_url: string | null; type: string }[] | null) ?? []) byId.set(p.id, p)
+  }
+  const attachedIds = new Set(rows.map((r) => r.product_id))
+  return {
+    attached: rows.map((r) => {
+      const p = byId.get(r.product_id)
+      return { productId: r.product_id, title: p?.title || "Course", cover: p?.thumbnail_url ?? null, status: p?.status ?? "archived", position: r.position, access: parseAccessRule(r.access), dripDays: r.drip_days }
+    }),
+    available: all.filter((p) => !attachedIds.has(p.id)).map((p) => ({ id: p.id, title: p.title || "Course", type: p.type, status: p.status, cover: p.thumbnail_url })),
+  }
+}
+
+export async function attachCourse(db: Db, a: { communityId: string; creatorId: string; productId: string; actorId: string }): Promise<Result> {
+  if (!isUuid(a.productId)) return no(404, "That course is not yours.")
+  const { data: p } = await db.from("products").select("id, creator_id, type, title").eq("id", a.productId).maybeSingle()
+  if (!p || p.creator_id !== a.creatorId || p.type !== "course") return no(404, "That course is not yours.")
+  const { data: rows } = await db.from("community_courses").select("position").eq("community_id", a.communityId).limit(200)
+  const position = ((rows as { position: number }[] | null) ?? []).reduce((m, r) => Math.max(m, r.position + 1), 0)
+  const { error } = await db.from("community_courses").insert({ community_id: a.communityId, product_id: p.id, position })
+  if (error && error.code !== "23505") return no(500, "The course could not be added. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "course.attached", targetType: "course", targetId: p.id, targetLabel: p.title })
+  return { ok: true }
+}
+
+export async function updateCourse(db: Db, a: { communityId: string; productId: string; actorId: string; access?: AccessRuleJson; dripDays?: unknown }): Promise<Result> {
+  const { data: row } = await db.from("community_courses").select("product_id").eq("community_id", a.communityId).eq("product_id", a.productId).maybeSingle()
+  if (!row) return no(404, "That course is not in this community.")
+  const patch: Record<string, unknown> = {}
+  if (a.access !== undefined) patch.access = await ownRule(db, a.communityId, a.access)
+  if (a.dripDays !== undefined) {
+    if (a.dripDays === null || a.dripDays === "" || a.dripDays === 0) patch.drip_days = null
+    else {
+      const n = Number(a.dripDays)
+      if (!Number.isInteger(n) || n < 1 || n > 3650) return no(400, "Days after joining is a whole number from 1.", "dripDays")
+      patch.drip_days = n
+    }
+  }
+  if (Object.keys(patch).length === 0) return { ok: true }
+  const { error } = await db.from("community_courses").update(patch).eq("community_id", a.communityId).eq("product_id", a.productId)
+  if (error) return no(500, "That did not save. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "course.updated", targetType: "course", targetId: a.productId, detail: patch })
+  return { ok: true }
+}
+
+export async function reorderCourses(db: Db, a: { communityId: string; actorId: string; ids: unknown }): Promise<Result> {
+  const ids = Array.isArray(a.ids) ? a.ids.filter(isUuid) : []
+  const { data } = await db.from("community_courses").select("product_id").eq("community_id", a.communityId).limit(200)
+  const own = new Set(((data as { product_id: string }[] | null) ?? []).map((s) => s.product_id))
+  if (ids.length === 0 || ids.length !== own.size || ids.some((id) => !own.has(id)) || new Set(ids).size !== ids.length) return no(400, "Send every course once.")
+  await Promise.all(ids.map((id, i) => db.from("community_courses").update({ position: i }).eq("community_id", a.communityId).eq("product_id", id)))
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "course.reordered", targetType: "community", targetId: a.communityId })
+  return { ok: true }
+}
+
+export async function detachCourse(db: Db, a: { communityId: string; productId: string; actorId: string }): Promise<Result> {
+  const { data: row } = await db.from("community_courses").select("product_id").eq("community_id", a.communityId).eq("product_id", a.productId).maybeSingle()
+  if (!row) return no(404, "That course is not in this community.")
+  const { error } = await db.from("community_courses").delete().eq("community_id", a.communityId).eq("product_id", a.productId)
+  if (error) return no(500, "That did not save. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "course.detached", targetType: "course", targetId: a.productId })
+  return { ok: true }
+}
+
+/* ── Events ─────────────────────────────────────────────────────────────── */
+
+function eventView(e: EventRow): EventEditView {
+  return {
+    id: e.id,
+    title: e.title,
+    description: htmlToText(e.description),
+    coverUrl: e.cover_url,
+    kind: e.kind,
+    startsAt: e.starts_at,
+    endsAt: e.ends_at,
+    timezone: e.timezone,
+    location: e.location,
+    meetingUrl: e.meeting_url,
+    livestreamUrl: e.livestream_url,
+    capacity: e.capacity,
+    goingCount: e.going_count,
+    access: parseAccessRule(e.access),
+    replayVideoId: e.replay_video_id,
+    status: e.status,
+  }
+}
+
+/** Upcoming events oldest first, and the latest past ones. */
+export async function loadEvents(db: Db, communityId: string): Promise<{ upcoming: EventEditView[]; past: EventEditView[] }> {
+  const cut = nowIso(Date.now() - 2 * 60 * 60_000)
+  const [up, past] = await Promise.all([
+    db.from("community_events").select(EVENT_COLUMNS).eq("community_id", communityId).gte("starts_at", cut).order("starts_at", { ascending: true }).limit(100),
+    db.from("community_events").select(EVENT_COLUMNS).eq("community_id", communityId).lt("starts_at", cut).order("starts_at", { ascending: false }).limit(30),
+  ])
+  return { upcoming: ((up.data as EventRow[] | null) ?? []).map(eventView), past: ((past.data as EventRow[] | null) ?? []).map(eventView) }
+}
+
+function eventColumns(input: EventInput): Record<string, unknown> {
+  return {
+    title: input.title,
+    description: input.description ? sanitizeDescription(textToHtml(input.description)) : null,
+    kind: input.kind,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+    timezone: input.timezone,
+    location: input.location,
+    meeting_url: input.meetingUrl,
+    livestream_url: input.livestreamUrl,
+    capacity: input.capacity,
+    cover_url: ownPicture(input.coverUrl),
+  }
+}
+
+export async function createEvent(db: Db, a: { community: CommunityRow; actorId: string; input: EventInput }): Promise<Result<{ event: EventEditView }>> {
+  const { data, error } = await db
+    .from("community_events")
+    .insert({ community_id: a.community.id, ...eventColumns(a.input), access: await ownRule(db, a.community.id, a.input.access), host_id: a.actorId, created_by: a.actorId, status: "scheduled" })
+    .select(EVENT_COLUMNS)
+    .single()
+  if (error || !data) {
+    if (missing(error)) return no(503, "Communities are not set up on Storelib yet.")
+    console.error(`[communities] event: ${reasonOf(error)}`)
+    return no(500, "The event could not be saved. Try again.")
+  }
+  const e = data as EventRow
+  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.created", targetType: "event", targetId: e.id, targetLabel: e.title, detail: { startsAt: e.starts_at } })
+  /* Members hear about it (the event fan out) and the reminders are set (lib/communities/server/events.ts). */
+  await eventScheduled(db, e, { announce: true })
+  return { ok: true, event: eventView(e) }
+}
+
+async function eventOf(db: Db, communityId: string, eventId: string): Promise<EventRow | null> {
+  if (!isUuid(eventId)) return null
+  const { data } = await db.from("community_events").select(EVENT_COLUMNS).eq("id", eventId).eq("community_id", communityId).maybeSingle()
+  return (data as EventRow | null) ?? null
+}
+
+/** A replay must be a ready video of this creator's (media_videos). */
+async function checkReplay(db: Db, creatorId: string, communityId: string, raw: unknown): Promise<string | null | false> {
+  const id = replayVideoId(raw)
+  if (id === null || id === false) return id
+  const { data, error } = await db.from("media_videos").select("id, creator_id, community_id, status").eq("id", id).maybeSingle()
+  if (error || !data) return false
+  if (data.creator_id !== creatorId && data.community_id !== communityId) return false
+  return data.status === "failed" ? false : data.id
+}
+
+export async function updateEvent(db: Db, a: { community: CommunityRow; creatorId: string; eventId: string; actorId: string; input: EventInput; replay?: unknown }): Promise<Result<{ event: EventEditView }>> {
+  const e = await eventOf(db, a.community.id, a.eventId)
+  if (!e) return no(404, "That event is not in this community.")
+  const patch: Record<string, unknown> = { ...eventColumns(a.input), access: await ownRule(db, a.community.id, a.input.access) }
+  if (a.input.coverUrl === null && e.cover_url && !ownPicture(a.input.coverUrl)) patch.cover_url = null
+  if (a.replay !== undefined) {
+    const replay = await checkReplay(db, a.creatorId, a.community.id, a.replay)
+    if (replay === false) return no(400, "No video with that id in your Storelib videos.", "replay")
+    patch.replay_video_id = replay
+  }
+  /* A new time means the reminders are due again. */
+  if (patch.starts_at !== e.starts_at) {
+    patch.reminder_24h_at = null
+    patch.reminder_1h_at = null
+  }
+  const { data, error } = await db.from("community_events").update(patch).eq("id", e.id).eq("community_id", a.community.id).select(EVENT_COLUMNS).single()
+  if (error || !data) return no(500, "The event could not be saved. Try again.")
+  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.updated", targetType: "event", targetId: e.id, targetLabel: a.input.title, detail: { moved: patch.starts_at !== e.starts_at } })
+  if (patch.starts_at !== e.starts_at) await eventScheduled(db, data as EventRow, { announce: false })
+  return { ok: true, event: eventView(data as EventRow) }
+}
+
+export async function setEventCancelled(db: Db, a: { communityId: string; eventId: string; actorId: string; cancelled: boolean }): Promise<Result> {
+  const e = await eventOf(db, a.communityId, a.eventId)
+  if (!e) return no(404, "That event is not in this community.")
+  const { error } = await db.from("community_events").update({ status: a.cancelled ? "cancelled" : "scheduled" }).eq("id", e.id).eq("community_id", a.communityId)
+  if (error) return no(500, "That did not save. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: a.cancelled ? "event.cancelled" : "event.restored", targetType: "event", targetId: e.id, targetLabel: e.title })
+  if (!a.cancelled) await eventScheduled(db, { ...e, status: "scheduled" }, { announce: false })
+  return { ok: true }
+}
+
+/* ── Feed ───────────────────────────────────────────────────────────────── */
+
+export const FEED_PAGE = 20
+
+/** The feed as the creator manages it: newest first, removed posts included so they can be put back. */
+export async function loadFeedRows(db: Db, communityId: string, opts: { cursor: string | null; show: "all" | "removed" }): Promise<{ rows: FeedRowView[]; next: string | null }> {
+  let q = db.from("community_feed_posts").select("id, kind, title, body_text, space_id, author_id, pinned, locked, featured, status, reaction_count, comment_count, created_at").eq("community_id", communityId)
+  q = opts.show === "removed" ? q.eq("status", "removed") : q.in("status", ["published", "removed"])
+  const c = decodeCursor(opts.cursor)
+  if (c && typeof c.sort === "string") q = q.or(keysetOr("created_at", c.sort, c.id))
+  const { data, error } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(FEED_PAGE + 1)
+  if (error) return { rows: [], next: null }
+  type Lite = { id: string; kind: FeedRowView["kind"]; title: string | null; body_text: string; space_id: string | null; author_id: string | null; pinned: boolean; locked: boolean; featured: boolean; status: FeedRowView["status"]; reaction_count: number; comment_count: number; created_at: string }
+  const all = (data as Lite[] | null) ?? []
+  const rows = all.slice(0, FEED_PAGE)
+  const spaceIds = [...new Set(rows.map((r) => r.space_id).filter((x): x is string => Boolean(x)))]
+  const [people, spaces] = await Promise.all([
+    peopleOf(db, rows.map((r) => r.author_id).filter((x): x is string => Boolean(x))),
+    spaceIds.length ? db.from("community_spaces").select("id, name").in("id", spaceIds) : Promise.resolve({ data: [] }),
+  ])
+  const spaceName = new Map(((spaces.data as { id: string; name: string }[] | null) ?? []).map((s) => [s.id, s.name]))
+  const last = rows[rows.length - 1]
+  return {
+    rows: rows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      title: r.title,
+      excerpt: (r.body_text || "").slice(0, 240),
+      spaceName: r.space_id ? (spaceName.get(r.space_id) ?? null) : null,
+      authorName: r.author_id ? (people.get(r.author_id)?.name ?? "Member") : "Deleted account",
+      pinned: r.pinned,
+      locked: r.locked,
+      featured: r.featured,
+      status: r.status,
+      reactionCount: r.reaction_count,
+      commentCount: r.comment_count,
+      createdAt: r.created_at,
+    })),
+    next: all.length > FEED_PAGE && last ? encodeCursor(last.created_at, last.id) : null,
+  }
+}
+
+/**
+ * A post from the creator's Feed screen, written as a member's post is: in
+ * a space they may post in, sanitized, counted by the trigger, in the
+ * activity feed. In the Announcements space it is an announcement, and
+ * members hear about it through the announcement fan out.
+ */
+export async function createCreatorPost(db: Db, a: { community: CommunityRow; role: Role; actorId: string; spaceId: unknown; title: unknown; body: unknown; pin?: boolean }): Promise<Result<{ id: string }>> {
+  if (a.community.status === "archived" || a.community.archived_at) return no(403, "archived")
+  if (!isUuid(a.spaceId)) return no(400, "Pick a space.", "space")
+  const space = await spaceOf(db, a.community.id, a.spaceId)
+  if (!space || space.archived_at || space.kind === "chat") return no(404, "That space is not in this community.", "space")
+  if (!can(a.role, "post") || !meetsRole(a.role, space.post_role)) return no(403, "forbidden", "space")
+  const announcement = space.kind === "announcements"
+  if (announcement && !can(a.role, "announce")) return no(403, "forbidden", "space")
+  const title = typeof a.title === "string" ? a.title.replace(/\s+/g, " ").trim() : ""
+  if (title.length > LENGTHS.postTitle.max) return no(400, `A title is up to ${LENGTHS.postTitle.max} characters.`, "title")
+  const text = typeof a.body === "string" ? a.body.replace(/\r\n?/g, "\n").trim() : ""
+  if (!text && !title) return no(400, "Write something first.", "body")
+  if (text.length > 10_000) return no(400, "A post is up to 10,000 characters.", "body")
+  const now = nowIso()
+  const { data, error } = await db
+    .from("community_feed_posts")
+    .insert({
+      community_id: a.community.id,
+      space_id: space.id,
+      author_id: a.actorId,
+      kind: announcement ? "announcement" : "post",
+      title: title || null,
+      body: text ? sanitizeDescription(textToHtml(text)) : "",
+      body_text: text,
+      pinned: a.pin === true && can(a.role, "pin"),
+      last_activity_at: now,
+    })
+    .select("id")
+    .single()
+  if (error || !data) {
+    console.error(`[communities] creator post: ${reasonOf(error)}`)
+    return no(500, "The post could not be published. Try again.")
+  }
+  await recordActivity(db, { communityId: a.community.id, userId: a.actorId, kind: "post", targetType: "post", targetId: data.id })
+  if (announcement) await queueJob(db, { kind: "fanout_announcement", payload: { communityId: a.community.id, postId: data.id }, idempotencyKey: `fanout_announcement:${data.id}` })
+  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: announcement ? "announcement.posted" : "post.created", targetType: "post", targetId: data.id, targetLabel: title || text.slice(0, 80) })
+  return { ok: true, id: data.id as string }
+}
+
+/* ── Gamification ───────────────────────────────────────────────────────── */
+
+/**
+ * The levels, as the editor sent them, and every member moved to the level
+ * their points now reach: one update per level, never one per member.
+ */
+export async function saveLevels(db: Db, a: { communityId: string; actorId: string; levels: LevelInput[] }): Promise<Result> {
+  const rows = a.levels.map((l) => ({ community_id: a.communityId, level: l.level, name: l.name, min_points: l.minPoints, reward: l.reward }))
+  const { error } = await db.from("community_levels").upsert(rows, { onConflict: "community_id,level" })
+  if (error) return no(500, "The levels could not be saved. Try again.")
+  await db.from("community_levels").delete().eq("community_id", a.communityId).gt("level", a.levels.length)
+  for (let i = 0; i < a.levels.length; i++) {
+    const l = a.levels[i]
+    const next = a.levels[i + 1]
+    let q = db.from("community_members").update({ level: l.level }).eq("community_id", a.communityId).gte("points", l.minPoints).neq("level", l.level)
+    if (next) q = q.lt("points", next.minPoints)
+    const { error: moveError } = await q
+    if (moveError) console.error(`[communities] level ${l.level} recompute: ${reasonOf(moveError)}`)
+  }
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "levels.saved", targetType: "community", targetId: a.communityId, detail: { levels: a.levels.length } })
+  return { ok: true }
+}
+
+export async function createBadge(db: Db, a: { communityId: string; actorId: string; name: unknown; description: unknown; icon: unknown }): Promise<Result<{ badge: BadgeView }>> {
+  const name = typeof a.name === "string" ? a.name.replace(/\s+/g, " ").trim() : ""
+  if (!name || name.length > LENGTHS.badgeName.max) return no(400, `A badge name is 1 to ${LENGTHS.badgeName.max} characters.`, "name")
+  const description = typeof a.description === "string" ? a.description.trim().slice(0, 300) || null : null
+  const icon = typeof a.icon === "string" ? a.icon.trim().slice(0, 16) || null : null
+  const { count: existing } = await db.from("community_badges").select("id", { count: "exact", head: true }).eq("community_id", a.communityId)
+  if ((existing ?? 0) >= 50) return no(400, "A community has up to 50 badges.")
+  const { data, error } = await db.from("community_badges").insert({ community_id: a.communityId, name, description, icon, kind: "manual" }).select("id, name, description, icon").single()
+  if (error || !data) return no(500, "The badge could not be made. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "badge.created", targetType: "badge", targetId: data.id, targetLabel: name })
+  return { ok: true, badge: { ...data, awarded: 0 } }
+}
+
+export async function deleteBadge(db: Db, a: { communityId: string; badgeId: string; actorId: string }): Promise<Result> {
+  const { data: b } = await db.from("community_badges").select("id, name").eq("id", a.badgeId).eq("community_id", a.communityId).maybeSingle()
+  if (!b) return no(404, "That badge is not in this community.")
+  const { error } = await db.from("community_badges").delete().eq("id", b.id)
+  if (error) return no(500, "That did not save. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "badge.deleted", targetType: "badge", targetId: b.id, targetLabel: b.name })
+  return { ok: true }
+}
+
+export async function awardBadge(db: Db, a: { communityId: string; badgeId: string; userId: string; actorId: string; on: boolean }): Promise<Result> {
+  const { data: b } = await db.from("community_badges").select("id, name").eq("id", a.badgeId).eq("community_id", a.communityId).maybeSingle()
+  if (!b) return no(404, "That badge is not in this community.")
+  const m = await memberOf(db, a.communityId, a.userId)
+  if (!m || m.status !== "active") return no(404, "They are not a member.")
+  if (a.on) {
+    const { error } = await db.from("community_member_badges").insert({ badge_id: b.id, user_id: a.userId, community_id: a.communityId, awarded_by: a.actorId })
+    if (error && error.code !== "23505") return no(500, "That did not save. Try again.")
+  } else {
+    await db.from("community_member_badges").delete().eq("badge_id", b.id).eq("user_id", a.userId)
+  }
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: a.on ? "badge.awarded" : "badge.taken_back", targetType: "member", targetId: a.userId, targetLabel: b.name })
+  return { ok: true }
+}
+
+/** Points by hand: a positive award or a negative adjustment, each its own key so it counts once. */
+export async function givePoints(db: Db, a: { communityId: string; userId: string; actorId: string; points: number; note: string | null }): Promise<Result<{ level: number | null }>> {
+  const m = await memberOf(db, a.communityId, a.userId)
+  if (!m || m.status !== "active") return no(404, "They are not a member.")
+  const key = `admin:${a.actorId}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`
+  const done = await awardPoints(db, { communityId: a.communityId, userId: a.userId, points: a.points, reason: a.points > 0 ? "admin_award" : "admin_adjust", sourceKey: key, actorId: a.actorId })
+  if (!done.awarded) return no(500, "The points were not added. Try again.")
+  await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "points.given", targetType: "member", targetId: a.userId, reason: a.note, detail: { points: a.points } })
+  return { ok: true, level: done.level }
+}
+
+/* ── Members ────────────────────────────────────────────────────────────── */
+
+const LIST_MEMBER_COLUMNS = "id, user_id, status, role, tier_id, source, joined_at, requested_at, request_note, last_active_at, muted_until, points, level, approved_by, created_at"
+type ListMember = Pick<MemberRow, "id" | "user_id" | "status" | "role" | "tier_id" | "source" | "joined_at" | "requested_at" | "request_note" | "last_active_at" | "muted_until" | "points" | "level" | "approved_by" | "created_at">
+
+/** Letters, digits, spaces and the few marks in names and emails; nothing PostgREST reads as syntax. */
+export function safeSearch(q: string): string {
+  return q.replace(/[^\p{L}\p{N}@.\-' ]/gu, "").trim().slice(0, 60)
+}
+
+const SEARCH_CAP = 300
+
+async function searchUserIds(db: Db, q: string, withEmail: boolean): Promise<{ ids: string[]; capped: boolean }> {
+  const s = safeSearch(q)
+  if (s.length < 2) return { ids: [], capped: false }
+  const parts = [`display_name.ilike.*${s}*`, `username.ilike.*${s.replace(/^@/, "")}*`]
+  if (withEmail && s.includes("@")) parts.push(`email.ilike.*${s}*`)
+  const { data, error } = await db.from("profiles").select("id").or(parts.join(",")).limit(SEARCH_CAP)
+  if (error) return { ids: [], capped: false }
+  const ids = ((data as { id: string }[] | null) ?? []).map((p) => p.id)
+  return { ids, capped: ids.length >= SEARCH_CAP }
+}
+
+function sortColumn(status: MemberQuery["status"]): "joined_at" | "requested_at" | "created_at" {
+  if (status === "active") return "joined_at"
+  if (status === "pending") return "requested_at"
+  return "created_at"
+}
+
+function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "status" | "role" | "tierId">) {
+  let q = db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId).eq("status", query.status)
+  if (query.role) q = q.eq("role", query.role)
+  if (query.tierId) q = q.eq("tier_id", query.tierId)
+  const col = sortColumn(query.status)
+  if (col !== "created_at") q = q.not(col, "is", null)
+  return q
+}
+
+async function memberViews(db: Db, communityId: string, rows: ListMember[], withEmail: boolean): Promise<MemberRowView[]> {
+  const [people, tiers] = await Promise.all([
+    peopleOf(db, rows.map((r) => r.user_id), { email: withEmail }),
+    db.from("community_tiers").select("id, name").eq("community_id", communityId).limit(50),
+  ])
+  const tierName = new Map(((tiers.data as { id: string; name: string }[] | null) ?? []).map((t) => [t.id, t.name]))
+  return rows.map((r) => {
+    const p = people.get(r.user_id)
+    return {
+      userId: r.user_id,
+      name: p?.name ?? "Member",
+      username: p?.username ?? null,
+      avatarUrl: p?.avatarUrl ?? null,
+      email: withEmail ? (p?.email ?? null) : null,
+      role: r.role,
+      status: r.status,
+      source: r.source,
+      tierId: r.tier_id,
+      tierName: r.tier_id ? (tierName.get(r.tier_id) ?? null) : null,
+      level: r.level,
+      points: r.points,
+      joinedAt: r.joined_at,
+      requestedAt: r.requested_at,
+      requestNote: r.request_note,
+      lastActiveAt: r.last_active_at,
+      mutedUntil: r.muted_until && Date.parse(r.muted_until) > Date.now() ? r.muted_until : null,
+      approved: Boolean(r.approved_by),
+    }
+  })
+}
+
+/**
+ * One page of members (50), newest first by when they joined (requests by
+ * when they asked), on the community's (community_id, status, joined_at)
+ * index. A search finds the matching accounts first (at most 300) and
+ * reads their rows here; past that it asks for a narrower search rather
+ * than reading the whole list.
+ */
+export async function listMembers(db: Db, communityId: string, query: MemberQuery, opts: { withEmail: boolean }): Promise<MemberPage> {
+  const col = sortColumn(query.status)
+  if (query.q) {
+    const found = await searchUserIds(db, query.q, opts.withEmail)
+    if (found.ids.length === 0) return { rows: [], next: null, capped: false }
+    const chunks: string[][] = []
+    for (let i = 0; i < found.ids.length; i += 100) chunks.push(found.ids.slice(i, i + 100))
+    const reads = await Promise.all(chunks.map((ids) => memberQuery(db, communityId, query).in("user_id", ids).order(col, { ascending: false }).limit(MEMBERS_PAGE + 1)))
+    const rows = reads
+      .flatMap((r: { data: ListMember[] | null }) => r.data ?? [])
+      .sort((a: ListMember, b: ListMember) => String((b as unknown as Record<string, unknown>)[col] ?? "").localeCompare(String((a as unknown as Record<string, unknown>)[col] ?? "")))
+    return { rows: await memberViews(db, communityId, rows.slice(0, MEMBERS_PAGE), opts.withEmail), next: null, capped: found.capped || rows.length > MEMBERS_PAGE }
+  }
+  let q = memberQuery(db, communityId, query)
+  const c = decodeCursor(query.cursor)
+  if (c && typeof c.sort === "string") q = q.or(keysetOr(col, c.sort, c.id))
+  const { data, error } = await q.order(col, { ascending: false }).order("id", { ascending: false }).limit(MEMBERS_PAGE + 1)
+  if (error) {
+    if (!missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
+    return { rows: [], next: null, capped: false }
+  }
+  const all = (data as ListMember[] | null) ?? []
+  const rows = all.slice(0, MEMBERS_PAGE)
+  const last = rows[rows.length - 1]
+  const lastSort = last ? ((last as unknown as Record<string, string | null>)[col] ?? null) : null
+  return { rows: await memberViews(db, communityId, rows, opts.withEmail), next: all.length > MEMBERS_PAGE && last && lastSort ? encodeCursor(lastSort, last.id) : null, capped: false }
+}
+
+/** How many members each status has, for the filter's counts (head requests). */
+export async function memberCounts(db: Db, communityId: string): Promise<Record<string, number>> {
+  const statuses = ["active", "pending", "paused", "banned", "removed", "expired", "cancelled"] as const
+  const counts = await Promise.all(statuses.map((s) => count(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId).eq("status", s))))
+  return Object.fromEntries(statuses.map((s, i) => [s, counts[i]]))
+}
+
+/**
+ * The members as CSV, written a page of 500 at a time while it is read, so
+ * an export of 10,000 members never holds them all at once.
+ */
+export function membersCsv(db: Db, community: CommunityRow, query: Pick<MemberQuery, "status" | "role" | "tierId">, opts: { withEmail: boolean }): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder()
+  const col = sortColumn(query.status)
+  let cursor: { sort: string; id: string } | null = null
+  let started = false
+  let pages = 0
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        if (!started) {
+          started = true
+          controller.enqueue(encoder.encode(csvRow(["Name", "Username", ...(opts.withEmail ? ["Email"] : []), "Role", "Status", "Tier", "Level", "Points", "Joined", "Last active", "Source"])))
+          return
+        }
+        let q = memberQuery(db, community.id, query)
+        if (cursor) q = q.or(keysetOr(col, cursor.sort, cursor.id))
+        const { data, error } = await q.order(col, { ascending: false }).order("id", { ascending: false }).limit(500)
+        if (error) throw new Error(reasonOf(error))
+        const rows = (data as ListMember[] | null) ?? []
+        if (rows.length === 0 || pages >= 400) {
+          controller.close()
+          return
+        }
+        pages++
+        const views = await memberViews(db, community.id, rows, opts.withEmail)
+        controller.enqueue(encoder.encode(views.map((v) => csvRow([v.name, v.username ?? "", ...(opts.withEmail ? [v.email ?? ""] : []), v.role, v.status, v.tierName ?? "", v.level, v.points, v.joinedAt ?? "", v.lastActiveAt ?? "", v.source])).join("")))
+        const last = rows[rows.length - 1]
+        const sort = (last as unknown as Record<string, string | null>)[col]
+        if (rows.length < 500 || !sort) controller.close()
+        else cursor = { sort, id: last.id }
+      } catch (e) {
+        console.error(`[communities] members export ${community.id}: ${reasonOf(e)}`)
+        controller.error(e)
+      }
+    },
+  })
+}
+
+/**
+ * Complimentary access: somebody the creator lets in without paying, on a
+ * tier of their choice. Found by account email when they are not a member
+ * yet (only an owner or admin sees and types emails). Taking it back ends
+ * it (expired), never a paid membership.
+ */
+export async function grantComplimentary(db: Db, a: { community: CommunityRow; actorId: string; userId?: unknown; email?: unknown; tierId: unknown }): Promise<Result<{ userId: string }>> {
+  let userId = isUuid(a.userId) ? a.userId : null
+  if (!userId && typeof a.email === "string" && a.email.includes("@")) {
+    const email = a.email.trim().toLowerCase().slice(0, 254)
+    const { data } = await db.from("profiles").select("id").eq("email", email).limit(1)
+    userId = ((data as { id: string }[] | null) ?? [])[0]?.id ?? null
+    if (!userId) return no(404, "No Storelib account uses that email. Send them an invite instead.", "email")
+  }
+  if (!userId) return no(400, "Pick a member.", "user")
+  if (!isUuid(a.tierId)) return no(400, "Pick a tier.", "tier")
+  const { data: tier } = await db.from("community_tiers").select("id, name, archived_at").eq("id", a.tierId).eq("community_id", a.community.id).maybeSingle()
+  if (!tier || tier.archived_at) return no(404, "That tier is not in this community.", "tier")
+  const existing = await memberOf(db, a.community.id, userId)
+  if (existing && (existing.status === "banned" || existing.status === "removed")) return no(409, "They were banned or removed. Bring them back from their row first.")
+  if (existing?.role === "owner") return no(409, "That is the owner.")
+  if (existing?.status === "active" && PAID_SOURCES.some((s) => s === existing.source)) return no(409, "They pay for their membership. Complimentary access would not change it.")
+  let row: MemberRow | null = null
+  if (existing && existing.status === "active") {
+    const { data, error } = await db.from("community_members").update({ source: "manual", tier_id: tier.id, source_membership_id: null, source_product_id: null }).eq("id", existing.id).select(MEMBER_COLUMNS).single()
+    if (error) return no(500, "That did not save. Try again.")
+    row = data as MemberRow
+  } else {
+    row = await grantMembership(db, { communityId: a.community.id, userId, source: "manual", tierId: tier.id, status: "active", actorId: a.actorId })
+  }
+  if (!row) return no(503, "Communities are not set up on Storelib yet.")
+  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "member.complimentary", targetType: "member", targetId: userId, targetLabel: tier.name })
+  return { ok: true, userId }
+}
+
+export async function revokeComplimentary(db: Db, a: { community: CommunityRow; actorId: string; userId: unknown }): Promise<Result> {
+  if (!isUuid(a.userId)) return no(404, "not_found")
+  const m = await memberOf(db, a.community.id, a.userId)
+  if (!m || m.status !== "active") return no(404, "They are not a member.")
+  if (m.source !== "manual") return no(409, "Their access is not complimentary.")
+  await revokeMembership(db, { communityId: a.community.id, userId: a.userId, status: "expired", reason: "complimentary access ended", actorId: a.actorId })
+  return { ok: true }
+}
