@@ -81,6 +81,9 @@ const CONSUMERS = [
   "lib/website-builder/announcement.ts",
   /* The menus, read for every section that shows one and for the header. */
   "lib/website-builder/storefront-data.ts",
+  /* `theme.*` as a section reads it (themeGlobals: badges, brand, cart, currency) and the currency code on prices. */
+  "lib/storelib-theme/resolve.ts",
+  "lib/storelib-theme/render.ts",
 ]
 const consumed = CONSUMERS.map((f) => stripComments(readFileSync(join(root, f), "utf8"))).join("\n")
 

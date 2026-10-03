@@ -17,10 +17,10 @@
       {% else %}
         <div class="grid">
           {% for block in products %}
-          <article class="card card__wrap" data-block-id="{{ block.id }}">
-            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+          <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
-              {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
+              {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
               {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
@@ -41,10 +41,10 @@
       {% else %}
         <div class="grid">
           {% for block in settings.chosen %}
-          <article class="card card__wrap" data-block-id="{{ block.id }}">
-            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+          <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
-              {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
+              {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
             {% if settings.show_price and block.settings.price %}
@@ -61,11 +61,11 @@
       {% else %}
         <div class="grid">
           {% for block in blocks %}
-          <article class="card card__wrap" data-block-id="{{ block.id }}">
-            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+          <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {# No photo of its own: the photo of the product the card goes to. #}
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% elsif block.settings.url.image %}<img src="{{ block.settings.url.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
-              {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
+              {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
             {% if settings.show_price and block.settings.price %}
@@ -148,7 +148,9 @@
 .empty { margin: 0; text-align: center; font-size: 14px; color: var(--s-para); opacity: 0.55; }
 
 .card__media { position: relative; }
-.tag { position: absolute; top: 10px; left: 10px; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--s-btn); color: var(--s-btn-text); }
+/* The badges stack in one corner, so Sale and Sold out never sit on top of each other. Where, and their colours, are Theme settings › Badges. */
+.badges { position: absolute; top: 10px; left: 10px; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 20px); }
+.tag { padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--s-btn); color: var(--s-btn-text); }
 .more { justify-content: center; margin-top: 36px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 /* The heart: over the card's link and above it, so pressing it saves the

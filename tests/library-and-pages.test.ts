@@ -90,7 +90,7 @@ async function main() {
     check("named plainly: Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other",
       PAGE_GROUP_ORDER.map((g) => PAGE_GROUP_LABELS[g]).join(", ") === "Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other")
     check("home on its own", keysOf("home").join(",") === "home")
-    check("the shop, then its search", keysOf("shop").join(",") === "products,search")
+    check("the shop, its collections, then its search", keysOf("shop").join(",") === "products,collections,search", keysOf("shop").join(","))
     check("the product page under Products", keysOf("products").join(",") === "product")
     check("About first among the pages, then the creator's own in the order they came", keysOf("pages").join(",") === "about,lookbook,faq", keysOf("pages").join(","))
     check("the visitor's account, sign in and wishlist together", keysOf("accounts").join(",") === "account,login,wishlist")

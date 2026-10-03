@@ -3,7 +3,15 @@
 // Drives the "Theme settings" panel in the Store Editor
 // ============================================================
 import { COOKIE_ACCEPT_TEXT, COOKIE_DECLINE_TEXT, SITE_COOKIE_TEXT } from "@/lib/consent/copy"
-import type { ThemeSettingsGroup } from "./types"
+import type { SelectOption, ThemeSettingsGroup } from "./types"
+
+/** The four shadows the theme has, as every Shadow control offers them. */
+const SHADOWS_OPTIONS: SelectOption[] = [
+  { label: "None", value: "none" },
+  { label: "Small", value: "sm" },
+  { label: "Medium", value: "md" },
+  { label: "Large", value: "lg" },
+]
 
 export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
   {
@@ -202,7 +210,7 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
           { label: "Large", value: "lg" },
         ],
       },
-      { id: "image_border_radius", label: "Image border radius", type: "range", min: 0, max: 24, step: 1, default: 8, unit: "px" },
+      /* Image border radius moved to Media, where Shopify files it: same setting, same key. */
     ],
   },
   {
@@ -226,6 +234,199 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       },
       { id: "animation_duration", label: "Duration (ms)", type: "range", min: 200, max: 1200, step: 50, default: 600, unit: "ms" },
       { id: "animation_stagger", label: "Stagger delay (ms)", type: "range", min: 0, max: 200, step: 10, default: 80, unit: "ms" },
+    ],
+  },
+  {
+    /**
+     * THE OPTION BUTTONS A PRODUCT'S VARIANTS ARE PICKED WITH. Compiled to
+     * `--theme-pill-radius` and `--theme-pill-border-width` and drawn on
+     * every `[data-variant-pill]`, once set.
+     */
+    id: "variant_pills",
+    label: "Variant pills",
+    icon: "layout",
+    fields: [
+      { id: "pill_radius", label: "Corner radius", type: "range", min: 0, max: 40, step: 1, default: 40, unit: "px" },
+      { id: "pill_border_width", label: "Border thickness", type: "range", min: 0, max: 4, step: 1, default: 1, unit: "px" },
+    ],
+  },
+  {
+    /** Every text box, dropdown and text area a section draws: search, sign in, newsletter, contact. */
+    id: "inputs",
+    label: "Inputs",
+    icon: "layout",
+    fields: [
+      { id: "input_radius", label: "Corner radius", type: "range", min: 0, max: 24, step: 1, default: 8, unit: "px" },
+      { id: "input_border_width", label: "Border thickness", type: "range", min: 0, max: 4, step: 1, default: 1, unit: "px" },
+      { id: "input_border_opacity", label: "Border opacity", type: "range", min: 10, max: 100, step: 5, default: 25, unit: "%" },
+    ],
+  },
+  {
+    /**
+     * PRODUCT CARDS, AS SHOPIFY'S THEME SETTINGS HAVE THEM. Drawn by the
+     * theme stylesheet (lib/website-builder/theme-css.ts) on every element
+     * marked `data-card="product"`, and only once a value is set here, so
+     * a site that never opened the group looks exactly as it did.
+     */
+    id: "product_cards",
+    label: "Product cards",
+    icon: "layout",
+    fields: [
+      {
+        id: "product_card_style",
+        label: "Style",
+        type: "radio",
+        default: "standard",
+        options: [
+          { label: "Standard", value: "standard" },
+          { label: "Card", value: "card" },
+        ],
+      },
+      { id: "product_card_image_padding", label: "Image padding", type: "range", min: 0, max: 24, step: 2, default: 0, unit: "px" },
+      {
+        id: "product_card_align",
+        label: "Text alignment",
+        type: "radio",
+        default: "left",
+        options: [
+          { label: "Left", value: "left" },
+          { label: "Center", value: "center" },
+        ],
+      },
+      { id: "product_card_radius", label: "Corner radius", type: "range", min: 0, max: 40, step: 1, default: 8, unit: "px" },
+      { id: "product_card_border", label: "Border thickness", type: "range", min: 0, max: 4, step: 1, default: 0, unit: "px" },
+      { id: "product_card_shadow", label: "Shadow", type: "select", default: "none", options: [
+          { label: "None", value: "none" },
+          { label: "Small", value: "sm" },
+          { label: "Medium", value: "md" },
+          { label: "Large", value: "lg" },
+        ] },
+    ],
+  },
+  {
+    /**
+     * COLLECTION CARDS, AS SHOPIFY'S THEME SETTINGS HAVE THEM. Drawn by the
+     * theme stylesheet (lib/website-builder/theme-css.ts) on every element
+     * marked `data-card="collection"`, and only once a value is set here, so
+     * a site that never opened the group looks exactly as it did.
+     */
+    id: "collection_cards",
+    label: "Collection cards",
+    icon: "layout",
+    fields: [
+      {
+        id: "collection_card_style",
+        label: "Style",
+        type: "radio",
+        default: "standard",
+        options: [
+          { label: "Standard", value: "standard" },
+          { label: "Card", value: "card" },
+        ],
+      },
+      { id: "collection_card_image_padding", label: "Image padding", type: "range", min: 0, max: 24, step: 2, default: 0, unit: "px" },
+      {
+        id: "collection_card_align",
+        label: "Text alignment",
+        type: "radio",
+        default: "left",
+        options: [
+          { label: "Left", value: "left" },
+          { label: "Center", value: "center" },
+        ],
+      },
+      { id: "collection_card_radius", label: "Corner radius", type: "range", min: 0, max: 40, step: 1, default: 8, unit: "px" },
+      { id: "collection_card_border", label: "Border thickness", type: "range", min: 0, max: 4, step: 1, default: 0, unit: "px" },
+      { id: "collection_card_shadow", label: "Shadow", type: "select", default: "none", options: [
+          { label: "None", value: "none" },
+          { label: "Small", value: "sm" },
+          { label: "Medium", value: "md" },
+          { label: "Large", value: "lg" },
+        ] },
+    ],
+  },
+  {
+    /** Boxes text sits in: the panel over an image, a column with a background. `[data-container]`. */
+    id: "content_containers",
+    label: "Content containers",
+    icon: "layout",
+    fields: [
+      { id: "container_radius", label: "Corner radius", type: "range", min: 0, max: 40, step: 1, default: 8, unit: "px" },
+      { id: "container_border", label: "Border thickness", type: "range", min: 0, max: 4, step: 1, default: 0, unit: "px" },
+      { id: "container_shadow", label: "Shadow", type: "select", default: "none", options: SHADOWS_OPTIONS },
+    ],
+  },
+  {
+    /**
+     * Pictures and videos in sections, marked `[data-media]`. The radius
+     * is the Layout group's old Image border radius, the same setting under
+     * the name Shopify files it.
+     */
+    id: "media",
+    label: "Media",
+    icon: "image",
+    fields: [
+      { id: "image_border_radius", label: "Corner radius", type: "range", min: 0, max: 24, step: 1, default: 8, unit: "px" },
+      { id: "media_border", label: "Border thickness", type: "range", min: 0, max: 4, step: 1, default: 0, unit: "px" },
+      { id: "media_shadow", label: "Shadow", type: "select", default: "none", options: SHADOWS_OPTIONS },
+    ],
+  },
+  {
+    /** Menus that drop down and boxes that pop up over the page: `[data-popup]`. */
+    id: "popups",
+    label: "Dropdowns and pop-ups",
+    icon: "layout",
+    fields: [
+      { id: "popup_radius", label: "Corner radius", type: "range", min: 0, max: 24, step: 1, default: 12, unit: "px" },
+      { id: "popup_border", label: "Border thickness", type: "range", min: 0, max: 4, step: 1, default: 1, unit: "px" },
+      { id: "popup_shadow", label: "Shadow", type: "select", default: "md", options: SHADOWS_OPTIONS },
+    ],
+  },
+  {
+    /**
+     * The Sale and Sold out labels on a product card. Sale appears when a
+     * product has a price to compare against; Sold out when its stock has
+     * run out. Their colours are the badges', not the section's.
+     */
+    id: "badges",
+    label: "Badges",
+    icon: "layout",
+    fields: [
+      {
+        id: "badge_position",
+        label: "Position on cards",
+        type: "select",
+        default: "top_left",
+        options: [
+          { label: "Top left", value: "top_left" },
+          { label: "Top right", value: "top_right" },
+          { label: "Bottom left", value: "bottom_left" },
+        ],
+      },
+      { id: "badge_radius", label: "Corner radius", type: "range", min: 0, max: 40, step: 1, default: 40, unit: "px" },
+      { id: "badge_sale_show", label: "Show Sale on discounted products", type: "toggle", default: true },
+      { id: "badge_sale_text", label: "Sale label", type: "text", placeholder: "Sale" },
+      { id: "badge_sale_bg", label: "Sale background", type: "color", default: "#dc2626" },
+      { id: "badge_sale_color", label: "Sale text", type: "color", default: "#ffffff" },
+      { id: "badge_soldout_bg", label: "Sold out background", type: "color", default: "#1a1a2e" },
+      { id: "badge_soldout_color", label: "Sold out text", type: "color", default: "#ffffff" },
+    ],
+  },
+  {
+    /**
+     * WHO THE SHOP IS, in Shopify's words: a headline, a description and a
+     * picture. Any text setting can show them through Insert shop data
+     * (`{{ shop.brand_headline }}`), and a section reads them as
+     * `theme.brand`.
+     */
+    id: "brand",
+    label: "Brand information",
+    icon: "image",
+    fields: [
+      { id: "brand_headline", label: "Headline", type: "text", placeholder: "Small batch candles, poured in Leeds" },
+      { id: "brand_description", label: "Description", type: "textarea", placeholder: "A few lines about what you make and why" },
+      { id: "brand_image", label: "Image", type: "image" },
+      { id: "brand_image_width", label: "Image width", type: "range", min: 50, max: 550, step: 5, default: 100, unit: "px" },
     ],
   },
   {
@@ -289,13 +490,43 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
      *
      * The free shipping bar stays because it is a bar, it draws, and a
      * creator who ships something physical can say what it costs.
+     *
+     * The cart is real now (site-cart.tsx, /cart, the cart checkout), so
+     * Cart type came back, as a control over something: tests/site-pages
+     * holds it to the cart doing what it says.
      */
     id: "cart",
-    label: "Shipping",
+    label: "Cart",
     icon: "shopping-bag",
     fields: [
-      { id: "free_shipping_threshold", label: "Free shipping threshold ($)", type: "number", min: 0, default: 0 },
+      /*
+        WHAT ADD TO CART DOES, as Shopify asks it: open the cart drawer, go
+        to the cart page, or show a short notice and stay. The value is the
+        theme's, read as `theme.cart.type` and on the page root as
+        `data-cart-type`; SiteCartProvider (site-cart.tsx) does it on Add to cart.
+      */
+      {
+        id: "cart_type",
+        label: "Cart type",
+        type: "select",
+        default: "drawer",
+        options: [
+          { label: "Drawer", value: "drawer" },
+          { label: "Page", value: "page" },
+          { label: "Notification", value: "notification" },
+        ],
+      },
+      { id: "free_shipping_threshold", label: "Free shipping threshold ($)", type: "number", min: 0, default: 0, unit: "$" },
       { id: "free_shipping_bar", label: "Show free shipping progress bar", type: "toggle", default: false },
+    ],
+  },
+  {
+    /** Shopify's Currency format: "$48.00 USD" rather than "$48.00", on every price a section draws. */
+    id: "currency",
+    label: "Currency format",
+    icon: "shopping-bag",
+    fields: [
+      { id: "currency_code_enabled", label: "Show currency codes", type: "toggle", default: false },
     ],
   },
   {
@@ -329,5 +560,17 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       { id: "cookie_bg", label: "Banner background", type: "color", default: "#0f172a" },
       { id: "cookie_text_color", label: "Text color", type: "color", default: "#ffffff" },
     ],
+  },
+  {
+    /**
+     * THE CREATOR'S OWN CSS, for the whole storefront. Stored as typed and
+     * drawn through cleanCustomCss (lib/storelib-theme/custom-css.ts): scoped
+     * to the page, never able to leave its <style>, with what was left out
+     * named under the box.
+     */
+    id: "custom_css",
+    label: "Custom CSS",
+    icon: "code",
+    fields: [{ id: "custom_css", label: "Custom CSS", type: "css", placeholder: ".card__title { letter-spacing: 0.02em; }" }],
   },
 ]

@@ -25,6 +25,7 @@ import { TYPE_STYLE_KEYS, typographyVars, themeTypography } from "@/lib/storelib
 import { themeVars } from "@/lib/website-builder/theme-css"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { THEME_PAGES } from "@/lib/website-builder/theme-file-tree"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 
 const root = process.cwd()
@@ -113,7 +114,10 @@ section("Every token a section can read is in the manual")
   check("and every type property it names is one the code emits", wrong.length === 0, wrong.join(", "))
   check("it names the whole shape of a style", ["font", "size", "weight", "line-height", "tracking", "transform"].every((p) => written.some((v) => v.endsWith(`-${p}`))))
 
-  const theme = Object.keys(themeVars({} as ThemeSettingsValues))
+  /* Some properties are written only once their setting has a value (Inputs, cards, badges and the other
+     Shopify groups: theme-css.ts, parityVars), so the theme as it ships, every default set, is what is read. */
+  const shipped = Object.fromEntries(THEME_SETTINGS_GROUPS.flatMap((g) => g.fields.filter((f) => f.default !== undefined).map((f) => [f.id, f.default])))
+  const theme = [...new Set([...Object.keys(themeVars({} as ThemeSettingsValues)), ...Object.keys(themeVars(shipped as unknown as ThemeSettingsValues))])]
   const documented = theme.filter((v) => manual.includes(v))
   check(
     "the theme properties the manual lists all exist",

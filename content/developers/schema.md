@@ -58,7 +58,8 @@ A key the engine does not recognise is kept in the schema, not stripped.
 | `responsive` | `true`, on a `number`, `range` or `alignment`, makes the value `{ desktop, tablet, mobile }` and puts a Desktop, Tablet, Phone switch above the control. |
 | `content` | For `paragraph`: the line of help it shows. |
 | `visible_if` | When the panel shows the setting, such as `"{{ section.settings.source == 'chosen' }}"`. See [Showing a setting only when it matters](#showing-a-setting-only-when-it-matters). |
-| `limit` | For `product_list`: how many products it holds, 1 to 24. 12 unless set. |
+| `limit` | For `product_list` and `collection_list`: how many it holds, 1 to 24. 12 unless set. |
+| `unit` | For `number` and `range`: the unit shown beside the value, such as `px`, `%` or `s`. |
 | `accept` | For `video_url`: the hosts it takes, from `["youtube", "vimeo"]`. Both unless set. |
 | `image` | For `focal_point`: the id of the `image_picker` beside it, which the creator taps to choose the spot. |
 
@@ -72,6 +73,12 @@ Pick the type by what the value is, because the type decides the control the cre
 | --- | --- | --- |
 | A picture: a logo, a photo, an avatar, a background | `image_picker` | The image picker, with an address box under it. Choosing a file replaces a typed address. |
 | Where something links to | `url` | The link picker: a page, a product, a section on the page, or any address. |
+| One of the creator's collections | `collection_picker` | Their collections with a picture and a product count, and a search box. |
+| Several collections, in an order | `collection_list` | The same list, with Add collection, Up, Down and Remove. |
+| A size, a count, a time | `number` with `unit`, or `range` | A number box with the unit inside it, or a slider. |
+| Alignment of text | `alignment` (Shopify's `text_alignment`) | Left, centre and right. |
+| A font for one part of the section | `font_picker` | The fonts Theme settings offers, each in its own face. The page loads the one picked. |
+| Markup pasted from another service | `html` (Shopify's `liquid` is read as this) | A code box. Scripts, forms and unknown frames are removed. |
 | A list of links: a menu, a nav, footer links | `link_list` | A choice of the site's menus. See [Menus](/developers/dynamic-values#menus). |
 | A colour of one element | `color` with `"default": "scheme.<name>"` | A colour row that follows the scheme until they pick one. See [Styling](/developers/styling#a-colour-setting-for-each-element). |
 | Words | `text`, `textarea`, `inline_richtext`, `richtext` | A box to type in. |
@@ -153,7 +160,7 @@ The builder stores a single value while all three are the same and the object th
 
 ## Settings that name the shop's own things
 
-A `product_picker`, a `product_list` and a `link_list` each store a name, and each arrives in the template as the thing it names.
+A `product_picker`, a `product_list`, a `collection_picker`, a `collection_list` and a `link_list` each store a name, and each arrives in the template as the thing it names. Every one of them is read on the server for the site's own creator: a setting holding somebody else's product or collection id finds nothing, the same as a deleted one.
 
 **A `product_picker`** stores a product's address or id. It prints as the address, so `href="{{ settings.product | url }}"` works as it always has, and it carries the product's own fields: `title`, `price`, `compare_price`, `image`, `url` and `tag`.
 
@@ -175,6 +182,20 @@ A product that is unpublished, deleted or somebody else's is an address with no 
 ```
 
 They come in the order the creator chose them, each once. One that has since been unpublished or deleted is left out rather than drawn empty.
+
+**A `collection_picker`** stores one of the creator's collections from Products › Collections, by id. It prints as the collection's address, `/collections/<handle>`, and carries `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`, its first twelve published products shaped like `products`:
+
+```storelib
+{% if settings.collection.title %}
+  <h2>{{ settings.collection.title }}</h2>
+  {% for block in settings.collection.products %}
+    <a href="{{ block.settings.url | url }}">{{ block.settings.title }} {{ block.settings.price }}</a>
+  {% endfor %}
+  <a href="{{ settings.collection | url }}">See all {{ settings.collection.products_count }}</a>
+{% endif %}
+```
+
+A collection that is unpublished, deleted or somebody else's is empty. **A `collection_list`** stores up to `limit` of them and arrives block-shaped, `{% for block in settings.collections %}` with `block.settings.title`. On the collections page, `collections` is every published one, in the same shape. The library's Collection list and Featured collection sections are written this way.
 
 **A `link_list`** stores a menu's handle and arrives as `{ handle, title, links }`, each link `{ title, url, links }` with one level of links under it:
 

@@ -197,6 +197,11 @@ const STRUCTURAL: Record<string, string[]> = {
   /* The 404 page's section draws the shop's own products, which arrive
      block-shaped (`block.settings.title`) and are no setting of its own. */
   not_found: ["image", "title", "price", "url"],
+  /* The collection sections draw the creator's collections and a collection's
+     products, which arrive block-shaped from a collection_picker, a
+     collection_list or the page's `collections`: none is a setting of theirs. */
+  collection_featured: ["image", "title", "tag", "compare_price", "price", "url"],
+  collections_grid: ["image", "title", "products_count", "description", "url"],
 }
 
 /**

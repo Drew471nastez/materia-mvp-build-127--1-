@@ -36,6 +36,8 @@ Every `type` a schema setting may use is here, and only these. A setting's `type
 | [`product_list`](#product_list) | reference_list | `[]` | no | `limit` |
 | [`link_list`](#link_list) | string | `""` | no |  |
 | [`community_picker`](#community_picker) | string | `""` | no |  |
+| [`collection_picker`](#collection_picker) | string | `""` | no |  |
+| [`collection_list`](#collection_list) | reference_list | `[]` | no | `limit` |
 | [`header`](#header) | none | `undefined` | no |  |
 | [`paragraph`](#paragraph) | none | `undefined` | no | `content` |
 | [`divider`](#divider) | none | `undefined` | no |  |
@@ -58,16 +60,15 @@ A schema written for a Shopify theme may use Shopify's names for the controls St
 - `text_alignment` → `alignment`
 - `product` → `product_picker`
 - `page` → `page_picker`
+- `collection` → `collection_picker`
+- `liquid` → `html`
 
 These Shopify types have nothing to point at on Storelib and are refused with the reason:
 
-- `collection`: Storelib has no collections. Use product_list for chosen products, or the section's `products` for the whole shop.
-- `collection_list`: Storelib has no collections. Use product_list for chosen products.
-- `blog`: A Storelib site has no blog of its own yet.
-- `article`: A Storelib site has no blog of its own yet.
+- `blog`: A Storelib website has no blog of its own yet, so there is no blog to pick.
+- `article`: A Storelib website has no blog of its own yet, so there are no posts to pick.
 - `metaobject`: Storelib has no metaobjects. Use blocks for repeated content.
 - `metaobject_list`: Storelib has no metaobjects. Use blocks for repeated content.
-- `liquid`: A section's template is its code. Write the markup in <template>, or make a section of your own in the code editor.
 - `color_scheme_group`: Colour schemes are the theme's, edited in Theme settings › Colors. A section picks one with color_scheme.
 
 ## text
@@ -639,6 +640,42 @@ These Shopify types have nothing to point at on Storelib and are refused with th
   "type": "community_picker",
   "id": "community",
   "label": "Community"
+}
+```
+
+## collection_picker
+
+**Collection.** One of the creator's own collections, from Products › Collections, stored by id. Printed on its own it is the collection's address, `/collections/<handle>`, so `href="{{ settings.collection | url }}"` works; it also carries `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`, the first twelve of its published products block-shaped like `products`, read as `settings.collection.title`. Only a published collection of this creator's: any other id is empty, so `{% if settings.collection.title %}` draws nothing for it.
+
+- Value: string
+- Default when the schema gives none: `""`
+- Responsive: no
+- Editor control: `CollectionPicker`
+
+```json
+{
+  "type": "collection_picker",
+  "id": "collection",
+  "label": "Collection"
+}
+```
+
+## collection_list
+
+**Collection list.** Several of the creator's collections, chosen and ordered by the creator, stored by id. The template receives them block-shaped, `{% for block in settings.collections %}`, each `block.settings` holding the same fields a collection picker carries. A collection that is unpublished or gone is left out. `limit` caps how many, 12 unless given, never more than 24.
+
+- Value: reference_list
+- Default when the schema gives none: `[]`
+- Responsive: no
+- Editor control: `CollectionListPicker`
+- Reads these extra keys: `limit`
+
+```json
+{
+  "type": "collection_list",
+  "id": "collections",
+  "label": "Collections",
+  "limit": 6
 }
 ```
 

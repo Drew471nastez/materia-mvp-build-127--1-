@@ -33,12 +33,13 @@ import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
 import { SiteCartProvider } from "../site-cart"
 import { SiteWishlistProvider } from "../site-wishlist"
+import { CartNotice } from "./cart-notice"
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { announcementMessages, announcementSeconds } from "@/lib/website-builder/announcement"
 import { cn } from "@/lib/utils"
 
-import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
-import { fontStylesheetHref } from "@/lib/website-builder/font-link"
+import { THEME_ROOT_ATTRIBUTE, themeCartType, themeCustomCss, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
+import { fontStylesheetHref, sectionFamilies } from "@/lib/website-builder/font-link"
 import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
@@ -459,7 +460,7 @@ export function ThemePage({
       />
     ))
 
-  const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>)
+  const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>, sectionFamilies(sections))
   /**
    * The theme's stylesheet, built and handed to React once per theme. Inline,
    * it was rebuilt on every render and, because React 19 compares the prop
@@ -468,6 +469,11 @@ export function ThemePage({
    * every keystroke in the builder. See ../sections/stable-html.
    */
   const themeCss = useMemo(() => ({ __html: themeStylesheet(theme) }), [theme])
+  /* Theme settings › Custom CSS, cleaned and scoped (lib/storelib-theme/custom-css.ts). Null when there is none. */
+  const customCss = useMemo(() => {
+    const css = themeCustomCss(theme)
+    return css ? { __html: css } : null
+  }, [theme])
   const pageColor = typeof (theme as Record<string, unknown>).background_color === "string" ? String((theme as Record<string, unknown>).background_color).trim() : ""
   const documentBackground = useMemo(
     () =>
@@ -493,7 +499,7 @@ export function ThemePage({
       basket, and absent in the editor's canvas, where the cart is memory
       only and nothing is written to the browser.
     */}
-    <SiteCartProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
+    <SiteCartProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId} cartType={themeCartType(theme)}>
     {/*
       THE SAVED LIST, beside the cart and for the same reason: the heart in
       the header and the hearts on the products are both on the page. Keyed
@@ -502,6 +508,8 @@ export function ThemePage({
     <SiteWishlistProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
     <div
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
+      /* Theme settings › Cart › Cart type, where the cart and Add to cart read it. */
+      data-cart-type={themeCartType(theme)}
       /* Website Settings › General › Language. Absent until one is chosen,
          so the document's own `lang` stands. */
       lang={siteLanguage(theme as Record<string, unknown>)}
@@ -583,6 +591,11 @@ export function ThemePage({
       {footers.map((section) => render(section, "footer", false))}
 
       <SiteCookieStyle theme={theme} />
+      {/* Cart type Notification: what Add to cart just added (./cart-notice). */}
+      <CartNotice />
+
+      {/* After every section, so the creator's own rules win a tie with a section's. */}
+      {customCss ? <style data-storelib-custom-css="" dangerouslySetInnerHTML={customCss} /> : null}
     </div>
     </SiteWishlistProvider>
     </SiteCartProvider>

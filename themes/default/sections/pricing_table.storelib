@@ -28,7 +28,7 @@
 
     {% for block in blocks %}
       {% if forloop.first %}<div class="pt__grid pt__grid--{{ blocks.size }}">{% endif %}
-      <article class="plan{% if block.settings.highlight %} plan--pick{% endif %}" data-block-id="{{ block.id }}">
+      <article class="plan{% if block.settings.highlight %} plan--pick{% endif %}" data-container data-block-id="{{ block.id }}">
         <div class="plan__body">
         {% if block.settings.label %}<p class="plan__label">{{ block.settings.label }}</p>{% endif %}
         <h3 class="plan__name">{{ block.settings.name }}</h3>

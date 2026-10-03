@@ -54,6 +54,8 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
   "account",
   "login",
   "wishlist",
+  /* Every collection, Shopify's list-collections page. /collections/<handle> is a collection's own. */
+  "collections",
 ])
 
 /**
@@ -136,10 +138,10 @@ export const NOT_FOUND_PAGE_KEY = "404"
  * stored contact page is served as it is, and a site without one gets the
  * generated page instead of a 404.
  */
-export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact"])
+export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact", "collections"])
 
 /** The pages the theme ships with. Everything else is one a person made. */
-export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist"])
+export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "collections"])
 
 /**
  * Where a page is served, when that is not `/<key>`: the sign in page is

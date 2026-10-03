@@ -13,6 +13,7 @@ A section's template prints values with `{{ }}` and decides what to draw with `{
 | `scheme` | The colour scheme this instance uses, with its own colour overrides applied. |
 | `theme` | The theme's tokens and every theme setting. |
 | `products` | The creator's published products, shaped like blocks. |
+| `collections` | The creator's published collections the page was handed, shaped like blocks: `block.settings.title`, `handle`, `description`, `image`, `url`, `products_count` and `products`. Every one on the collections page; elsewhere, the ones a `collection_picker` or `collection_list` names, and empty where nothing does. |
 | `shop` | The store: its name, tagline, logo, social links and, where a section asks for it, its support email; with `shop.description` and `shop.product_count` on a published page. |
 | `routes` | The addresses every website answers on, such as the cart, the account and the contact page. |
 | `customer` | The signed-in visitor and their orders, on the account page. `null` everywhere else. |
@@ -177,6 +178,10 @@ What a Shopify theme reads as `settings.logo` and the other general settings, a 
 | `theme.layout` | `.page_width`, `.padding_x`, `.section_gap`, `.spacing_scale`, `.card_radius`, `.image_radius`, `.card_shadow`. |
 | `theme.animation` | `.enabled`, `.style`, `.duration`, `.stagger`. A section's own `animation` setting overrides it: see [Schema](/developers/schema#a-sections-own-animation). |
 | `theme.socials` | The social links that are set, the same list as `shop.socials`. |
+| `theme.brand` | Theme settings › Brand information: `.headline`, `.description`, `.image`, `.image_width`. |
+| `theme.badges` | `.sale` (whether a discounted product shows Sale), `.sale_text`, `.position` (`top_left`, `top_right`, `bottom_left`). |
+| `theme.cart` | `.type`: `drawer`, `page` or `notification`, what Add to cart does. |
+| `theme.currency` | `.code` (`USD`) and `.show_code`, whether prices carry it. Prices a section is handed already do. |
 | `theme.schemes` | Every colour scheme, by key. |
 | `theme.typography` | The fonts and the nine text styles. |
 

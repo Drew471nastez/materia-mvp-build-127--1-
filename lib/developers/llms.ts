@@ -63,6 +63,7 @@ export function llmsTxt(): string {
     "## Reference",
     "",
     line("data-model"),
+    line("shopify-parity"),
     "",
     "## Optional",
     "",

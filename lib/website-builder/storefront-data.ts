@@ -153,6 +153,37 @@ export function communityReferences(
   return [...ids]
 }
 
+/**
+ * ===========================================================================
+ *  WHETHER A PAGE NEEDS THE CREATOR'S COLLECTIONS
+ * ===========================================================================
+ * Collections are read on the server, a minute in the cache like the shop,
+ * and only for a page that uses them: one with a `collection_picker` or
+ * `collection_list` setting, or a section whose template loops over the
+ * page's `collections` (the collections page's own section, or one a
+ * creator wrote). A page that does neither reads nothing.
+ */
+export function pageWantsCollections(
+  sections: SectionInstance[],
+  schemaOf: (type: string) => SectionSchema | undefined,
+  sourceOf: (type: string) => string | undefined = () => undefined,
+): boolean {
+  for (const s of sections) {
+    const source = sourceOf(s.type)
+    if (source && /\bin\s+collections\b|\bcollections\.size\b/.test(source)) return true
+    const schema = schemaOf(s.type)
+    if (!schema) continue
+    const named = (fields: SchemaField[] | undefined) =>
+      (fields ?? []).some((f) => {
+        const kind = resolveControlType(f.type)
+        return kind === "collection_picker" || kind === "collection_list"
+      })
+    if (named(schema.fields)) return true
+    if ((s.blocks ?? []).some((b) => named(schema.blocks?.find((d) => d.type === b.type)?.fields))) return true
+  }
+  return false
+}
+
 /** The shop's newest products and any picked ones it did not include, once each. */
 export function mergeCatalog(...lists: (ProductCard[] | undefined)[]): ProductCard[] {
   const seen = new Set<string>()
@@ -247,6 +278,10 @@ export function dynamicContext(input: {
       description: str(t.seo_description),
       url: input.siteUrl ?? "",
       product_count: typeof input.productCount === "number" ? input.productCount : undefined,
+      /* Theme settings › Brand information. */
+      brand_headline: str(t.brand_headline),
+      brand_description: str(t.brand_description),
+      brand_image: str(t.brand_image),
     },
     creator: {
       name: input.creator?.name ?? "",
@@ -268,11 +303,14 @@ export function storefrontData(input: {
   menus?: Record<string, Menu>
   /** The creator's communities a `community_picker` may name, read on the server; absent means none. */
   communities?: StorefrontData["communities"]
+  /** The creator's published collections, read on the server; absent means none. */
+  collections?: StorefrontData["collections"]
 }): StorefrontData {
   return {
     catalog: input.catalog,
     menus: input.menus,
     ...(input.communities ? { communities: input.communities } : {}),
+    ...(input.collections ? { collections: input.collections } : {}),
     shop: input.dynamic.shop,
     creator: input.dynamic.creator,
     product: input.dynamic.product ?? null,

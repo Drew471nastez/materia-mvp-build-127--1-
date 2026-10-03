@@ -51,7 +51,7 @@ import {
 import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
 import { shopObject } from "./globals"
-import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
+import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCollection, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
 
 export interface ResolveOptions {
   /** `asset://…` → URL. Missing references resolve to "". */
@@ -70,6 +70,12 @@ export interface ResolveOptions {
    * communities switched off), and the setting is empty.
    */
   communities?: Record<string, StorefrontCommunity>
+  /**
+   * The creator's published collections a `collection_picker` or
+   * `collection_list` may name, by id. Absent, or an id that is not here
+   * (somebody else's, unpublished, deleted), and the setting is empty.
+   */
+  collections?: Record<string, StorefrontCollection>
 }
 
 /** A product as a section is handed it: `{ id, type, settings: { title, price, … } }`. */
@@ -230,6 +236,10 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
       return typeof v === "string" ? productRef(v, opts) : undefined
     case "product_list":
       return Array.isArray(v) ? productList(v, def, opts) : undefined
+    case "collection_picker":
+      return typeof v === "string" ? collectionRef(v, opts) : undefined
+    case "collection_list":
+      return Array.isArray(v) ? collectionList(v, def, opts) : undefined
     case "link_list":
       return typeof v === "string" ? menuFor(v, opts) : undefined
     case "header":
@@ -287,6 +297,59 @@ function communityRef(v: string, opts: ResolveOptions): unknown {
   const item = opts.communities?.[key]
   if (!item) return ""
   return new Linked(safeHref(item.url), { ...item, id: key } as Record<string, unknown>)
+}
+
+/**
+ * A collection picker holds an id. When the page knows that collection (the
+ * creator's own and published), the setting becomes a Linked value that
+ * prints as its address and carries its title, picture, count and first
+ * products. Any other id is empty.
+ */
+function collectionRef(v: string, opts: ResolveOptions): unknown {
+  const item = collectionById(v, opts)
+  if (!item) return ""
+  return new Linked(safeHref(item.url), collectionFields(item))
+}
+
+function collectionById(v: string, opts: ResolveOptions): StorefrontCollection | undefined {
+  const key = v.trim().toLowerCase()
+  if (key === "" || !opts.collections) return undefined
+  return Object.prototype.hasOwnProperty.call(opts.collections, key) ? opts.collections[key] : undefined
+}
+
+/** What a template reads off a collection: plain values, its address made safe. */
+function collectionFields(c: StorefrontCollection): Record<string, unknown> {
+  return {
+    id: c.id,
+    title: c.title,
+    handle: c.handle,
+    description: c.description,
+    image: safeMediaUrl(c.image),
+    url: safeHref(c.url),
+    products_count: c.products_count,
+    products: c.products,
+  }
+}
+
+/** A collection, block-shaped like a product in `products`, for a loop. */
+export function collectionBlock(c: StorefrontCollection): { id: string; type: string; settings: Record<string, unknown> } {
+  return { id: c.id, type: "collection", settings: collectionFields(c) }
+}
+
+/** The chosen collections, in the creator's order, each once, up to the limit. */
+function collectionList(v: unknown[], def: SettingDefinition, opts: ResolveOptions): CatalogItem[] {
+  const limit = typeof def.limit === "number" && Number.isInteger(def.limit) ? Math.min(24, Math.max(1, def.limit)) : 12
+  const seen = new Set<string>()
+  const out: CatalogItem[] = []
+  for (const raw of v) {
+    if (typeof raw !== "string") continue
+    const item = collectionById(raw, opts)
+    if (!item || seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push(collectionBlock(item))
+    if (out.length >= limit) break
+  }
+  return out
 }
 
 /** The chosen products, in the creator's order, each once, up to the limit. */
@@ -610,6 +673,23 @@ export function themeGlobals(settings: Record<string, unknown>): Record<string, 
       stagger: num("animation_stagger", 80),
     },
     socials: shopObject(settings).socials,
+    /* Theme settings › Brand information, Shopify's shop.brand. */
+    brand: {
+      headline: str("brand_headline"),
+      description: str("brand_description"),
+      image: safeMediaUrl(str("brand_image")),
+      image_width: num("brand_image_width", 100),
+    },
+    /* Theme settings › Badges: whether a discounted product says Sale, and in what words. */
+    badges: {
+      sale: bool("badge_sale_show", true),
+      sale_text: str("badge_sale_text", "Sale"),
+      position: str("badge_position", "top_left"),
+    },
+    /* Theme settings › Cart › Cart type: drawer, page or notification. */
+    cart: { type: ["page", "notification"].includes(str("cart_type")) ? str("cart_type") : "drawer" },
+    /* Theme settings › Currency format. */
+    currency: { code: "USD", show_code: bool("currency_code_enabled", false) },
   }
 }
 

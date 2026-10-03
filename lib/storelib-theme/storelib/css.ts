@@ -25,6 +25,9 @@
 import postcss, { type AtRule, type Rule } from "postcss"
 
 import { LIMITS, type Result, type ThemeError } from "../types"
+import { canvasSafeUnits, widthQueryAsContainer } from "./css-units"
+
+export { canvasSafeUnits, widthQueryAsContainer }
 
 /** Replaced with the instance id when rendering. */
 export const SCOPE_PLACEHOLDER = "__SECTION_ID__"
@@ -272,30 +275,6 @@ export function canvasSafeSelector(selector: string): string {
   return selector
     .replace(/(?<!:):popover-open(?![\w-])/gi, ":is(:popover-open, [data-sl-open])")
     .replace(/(?<!:):modal(?![\w-])/gi, ":is(:modal, [data-sl-open])")
-}
-
-const VIEWPORT_UNIT = /(^|[^\w.-])(-?\d*\.?\d+)(dvh|svh|lvh|vh|dvw|svw|lvw|vw|vmin|vmax)(?![\w-])/gi
-
-export function canvasSafeUnits(value: string): string {
-  if (!/\d(dvh|svh|lvh|vh|dvw|svw|lvw|vw|vmin|vmax)/i.test(value)) return value
-  return value.replace(VIEWPORT_UNIT, (_m, lead: string, n: string, unit: string) => {
-    const u = unit.toLowerCase()
-    const vh = `var(--sl-vh, 1${u.endsWith("h") ? u : "vh"})`
-    const vw = `var(--sl-vw, 1${u.endsWith("w") ? u : "vw"})`
-    const one = u === "vmin" ? `min(${vw}, ${vh})` : u === "vmax" ? `max(${vw}, ${vh})` : u.endsWith("h") ? vh : vw
-    return `${lead}calc(${n} * ${one})`
-  })
-}
-
-const WIDTH_FEATURE = /^\(\s*(?:(?:min-|max-)?width\s*:\s*[^()]+|[^()]*\bwidth\b\s*(?:<=|>=|<|>|=)\s*[^()]+|[^()]+(?:<=|>=|<|>)\s*width\b[^()]*)\)$/i
-
-/** The container query a width-only media query means, or null when it asks about more than width. */
-export function widthQueryAsContainer(params: string): string | null {
-  if (params.includes(",")) return null
-  const rest = params.trim().replace(/^(only\s+)?(screen|all)\s+and\s+/i, "").trim()
-  if (!rest || /^(only\s+)?(screen|all|print)$/i.test(rest)) return null
-  const conditions = rest.split(/\s+and\s+/i).map((c) => c.trim())
-  return conditions.every((c) => WIDTH_FEATURE.test(c)) ? conditions.join(" and ") : null
 }
 
 /** Fill the placeholder for one instance. */

@@ -51,9 +51,28 @@ export function chosenFamilies(theme: Record<string, unknown> | null | undefined
   return out
 }
 
+/**
+ * THE FAMILIES A SECTION PICKED FOR ITSELF. A `font_picker` setting in a
+ * section names a family the theme's three fonts may not, and a name that
+ * nothing loads draws in the browser's fallback. Every setting whose id
+ * says font and whose value is one of the offered families is one: the
+ * offered list is the filter, so a word that is not a font asks for nothing.
+ */
+export function sectionFamilies(sections: { settings?: Record<string, unknown> }[] | null | undefined): string[] {
+  const out: string[] = []
+  for (const s of sections ?? []) {
+    for (const [key, v] of Object.entries(s.settings ?? {})) {
+      if (!/font/i.test(key) || typeof v !== "string") continue
+      const family = v.trim()
+      if (family && OFFERED_FAMILIES.has(family) && !out.includes(family)) out.push(family)
+    }
+  }
+  return out
+}
+
 /** The stylesheet URL, or null when there is nothing to load. */
-export function fontStylesheetHref(theme: Record<string, unknown> | null | undefined): string | null {
-  const families = chosenFamilies(theme)
+export function fontStylesheetHref(theme: Record<string, unknown> | null | undefined, extra: string[] = []): string | null {
+  const families = [...new Set([...chosenFamilies(theme), ...extra.filter((f) => OFFERED_FAMILIES.has(f))])]
   if (families.length === 0) return null
   const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@${WEIGHTS}`).join("&")
   return `https://fonts.googleapis.com/css2?${q}&display=swap`

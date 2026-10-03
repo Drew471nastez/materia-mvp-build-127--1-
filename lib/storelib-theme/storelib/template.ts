@@ -828,6 +828,8 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     blocks: ctx.blocks,
     // Block-shaped, so a template loops over it with the body it already has.
     products: ctx.products ?? [],
+    /* The creator's published collections the page was handed, block-shaped like products. */
+    collections: ctx.collections ?? [],
     theme: ctx.theme,
     scheme: ctx.scheme,
     page: ctx.page,

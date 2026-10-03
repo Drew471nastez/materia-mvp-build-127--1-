@@ -35,8 +35,8 @@
         <div class="nf__grid">
           {% for block in products %}
             {% if forloop.index <= settings.product_count %}
-            <article class="card" data-block-id="{{ block.id }}">
-              <div class="card__media">
+            <article class="card" data-card="product" data-block-id="{{ block.id }}">
+              <div class="card__media" data-card-media>
                 {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
               </div>
               <h3 class="card__title">{{ block.settings.title }}</h3>

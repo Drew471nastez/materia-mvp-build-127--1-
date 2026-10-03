@@ -66,6 +66,9 @@ export const DYNAMIC_SOURCES: readonly DynamicSource[] = [
   { id: "shop.description", label: "Shop description", group: "Shop", kind: "text", description: "The site's description from SEO." },
   { id: "shop.url", label: "Shop address", group: "Shop", kind: "url", description: "The site's own address, such as https://drew.storelib.com." },
   { id: "shop.product_count", label: "Number of products", group: "Shop", kind: "number", description: "How many products the shop has published." },
+  { id: "shop.brand_headline", label: "Brand headline", group: "Shop", kind: "text", description: "The headline from Theme settings › Brand information." },
+  { id: "shop.brand_description", label: "Brand description", group: "Shop", kind: "text", description: "The description from Theme settings › Brand information." },
+  { id: "shop.brand_image", label: "Brand image", group: "Shop", kind: "image", description: "The image from Theme settings › Brand information." },
   { id: "creator.name", label: "Creator name", group: "Creator", kind: "text", description: "The creator's public name." },
   { id: "creator.headline", label: "Creator headline", group: "Creator", kind: "text", description: "The one line under the creator's name on their Storelib page." },
   { id: "creator.bio", label: "Creator bio", group: "Creator", kind: "text", description: "The creator's bio." },
@@ -96,7 +99,7 @@ export function dynamicSource(id: string): DynamicSource | undefined {
  * product placeholder there comes out empty.
  */
 export interface DynamicContext {
-  shop?: { name?: string; description?: string; url?: string; product_count?: number }
+  shop?: { name?: string; description?: string; url?: string; product_count?: number; brand_headline?: string; brand_description?: string; brand_image?: string }
   creator?: { name?: string; headline?: string; bio?: string; avatar?: string }
   product?: {
     title?: string
@@ -121,6 +124,9 @@ function valueOf(id: string, ctx: DynamicContext): unknown {
     case "shop.description": return ctx.shop?.description
     case "shop.url": return ctx.shop?.url
     case "shop.product_count": return ctx.shop?.product_count
+    case "shop.brand_headline": return ctx.shop?.brand_headline
+    case "shop.brand_description": return ctx.shop?.brand_description
+    case "shop.brand_image": return ctx.shop?.brand_image
     case "creator.name": return ctx.creator?.name
     case "creator.headline": return ctx.creator?.headline
     case "creator.bio": return ctx.creator?.bio

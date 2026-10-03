@@ -40,6 +40,17 @@ export interface PickerCommunity {
   why: string | null
 }
 
+/** One of the creator's collections, as the collection pickers list it. */
+export interface PickerCollection {
+  id: string
+  title: string
+  /** A picture's address, or empty. */
+  image: string
+  /** Whether a visitor would see it. */
+  published: boolean
+  products_count: number
+}
+
 export interface EditorFieldEnv {
   products: PickerProduct[]
   /** Every menu a section may name, the header's links as main-menu included. */
@@ -50,6 +61,8 @@ export interface EditorFieldEnv {
   openMenus?: () => void
   /** The creator's own communities; null while communities are switched off on Storelib. */
   communities?: PickerCommunity[] | null
+  /** The creator's own collections; null while physical commerce, where collections live, is off. */
+  collections?: PickerCollection[] | null
 }
 
 const EditorFieldContext = createContext<EditorFieldEnv | null>(null)
