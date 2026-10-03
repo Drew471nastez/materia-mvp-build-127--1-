@@ -26,4 +26,6 @@ export type JobHandler = (db: Db, job: JobRow, ctx: JobContext) => Promise<JobOu
 
 export const JOB_HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   recount,
+  rollup: (db, job, ctx) => import("./rollup").then((m) => m.rollup(db, job, ctx)),
+  trending: (db, job, ctx) => import("./trending").then((m) => m.trending(db, job, ctx)),
 }

@@ -1,0 +1,50 @@
+import { NextResponse } from "next/server"
+import { requireCommunitiesOn } from "@/lib/communities/flag"
+import { requireMember } from "@/lib/communities/server/context"
+import { admin } from "@/lib/communities/server/db"
+import { createClient } from "@/lib/supabase/server"
+import { readJson } from "@/lib/email-campaigns/route-auth"
+import { manageLimit } from "@/lib/communities/server/creator"
+import { CONTENT_ACTIONS, CONTENT_TARGETS, actOnContent, contentActionNeeds } from "@/lib/communities/server/moderation"
+import { isOneOf } from "@/lib/communities/types"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+const noStore = { "Cache-Control": "no-store" }
+
+/**
+ * POST /api/community/<communityId>/moderation/act
+ *   { action: remove|restore|pin|unpin|lock|unlock|feature|unfeature|move,
+ *     targetType: post|comment|message, targetId, reason?, spaceId? } -> { status }
+ * For the moderator menus on posts, comments and chat. The action's own
+ * permission (can()), the target must be this community's, and nobody acts
+ * on the content of somebody ranked the same or above them. A removed chat
+ * message has its body blanked in the same update.
+ */
+export async function POST(request: Request, { params }: { params: Promise<{ communityId: string }> }) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
+  const { communityId } = await params
+  const body = await readJson(request)
+  if (!isOneOf(CONTENT_ACTIONS, body.action) || !isOneOf(CONTENT_TARGETS, body.targetType)) return NextResponse.json({ error: "Unknown action." }, { status: 400, headers: noStore })
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser()
+  const db = admin()
+  const gate = await requireMember(db, communityId, user?.id ?? null, contentActionNeeds(body.action))
+  if (gate instanceof NextResponse) return gate
+  const limited = await manageLimit(gate.viewer.userId as string)
+  if (limited) return limited
+  const done = await actOnContent(db, {
+    community: gate.community,
+    actor: { userId: gate.viewer.userId as string, role: gate.viewer.role! },
+    action: body.action,
+    targetType: body.targetType,
+    targetId: String(body.targetId ?? ""),
+    reason: typeof body.reason === "string" ? body.reason : null,
+    spaceId: typeof body.spaceId === "string" ? body.spaceId : null,
+  })
+  if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
+  return NextResponse.json({ status: done.status }, { headers: noStore })
+}
