@@ -15,6 +15,7 @@ export type SectionType =
   | "reviews" // Added reviews section type
   | "about" // About seller section
   | "faq" // FAQ section for product pages
+  | "community" // One of the creator's communities, with live previews (components/store-builder/community-section.tsx)
 
 export type DeviceType = "desktop" | "mobile"
 
@@ -378,6 +379,27 @@ export interface FAQSettings extends BaseSectionSettings {
   allFaqs?: FAQItem[]
 }
 
+/**
+ * One of the creator's own communities on their page. The live part (the
+ * name, the figures, the previews) is read on the server for the page
+ * (lib/communities/server/blocks.ts); these are only the creator's choices.
+ * Nothing draws while the communities switch is off, or when the community
+ * is not published and public.
+ */
+export interface CommunitySettings extends BaseSectionSettings {
+  /** The community's id, one of this creator's. Empty until one is picked. */
+  communityId: string
+  /** Shown above the card; empty means the community's own name is the heading. */
+  headline: string
+  showStats: boolean
+  showEvents: boolean
+  showPosts: boolean
+  showMembers: boolean
+  showLeaderboard: boolean
+  showReviews: boolean
+  showJoin: boolean
+}
+
 // Union of all section settings
 export type SectionSettings =
   | ImageTextSettings
@@ -390,6 +412,7 @@ export type SectionSettings =
   | ReviewsSettings
   | AboutSettings
   | FAQSettings
+  | CommunitySettings
 
 // Section definition
 export interface Section {

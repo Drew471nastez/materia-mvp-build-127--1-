@@ -72,6 +72,7 @@ import {
   ToggleLeft,
   ToggleRight,
   RefreshCw,
+  Users,
 } from "lucide-react"
 import type {
   Section,
@@ -147,6 +148,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { getIconComponent as sectionIcon } from "./section-icons"
+import { CommunitySettingsForm } from "./community-settings-form"
+import type { CommunitySettings } from "@/lib/store-builder/types"
 
 // Niche categories (mirrored from onboarding)
 const NICHE_PRIMARY = [
@@ -368,6 +371,7 @@ const sectionIcons: Record<
   reviews: <Star className="h-5 w-5" />,
   about: <Info className="h-5 w-5" />,
   faq: <HelpCircle className="h-5 w-5" />,
+  community: <Users className="h-5 w-5" />,
 }
 
 const sectionNames: Record<
@@ -395,6 +399,7 @@ const sectionNames: Record<
   reviews: "Reviews",
   about: "About",
   faq: "FAQ",
+  community: "Community",
 }
 
 interface SortableSectionItemProps {
@@ -2789,6 +2794,8 @@ function SectionSettingsForm({
       {section.type === "reviews" && <ReviewsSettingsForm settings={settings as ReviewsSettings} onChange={onChange} />}
 
       {section.type === "about" && <AboutSettingsForm settings={settings as AboutSettings} onChange={onChange} />}
+
+      {section.type === "community" && <CommunitySettingsForm settings={settings as CommunitySettings} onChange={onChange} />}
 
       {section.type === "featured-products" ? (
         <ProductSpacingSettings

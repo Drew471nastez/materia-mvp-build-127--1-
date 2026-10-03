@@ -15,6 +15,7 @@ import type {
   ProductCreatorBarSettings,
   StickyAddToCartSettings,
   ReviewsSettings,
+  CommunitySettings,
   AboutSettings,
   FAQSettings,
   GlobalStoreSettings,
@@ -2168,6 +2169,41 @@ export const defaultFAQSettings: FAQSettings = {
   },
 }
 
+export const defaultCommunitySettings: CommunitySettings = {
+  visible: true,
+  communityId: "",
+  headline: "",
+  showStats: true,
+  showEvents: true,
+  showPosts: true,
+  showMembers: true,
+  showLeaderboard: false,
+  showReviews: true,
+  showJoin: true,
+  spacing: {
+    paddingTop: 40,
+    paddingBottom: 40,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  mobileSpacing: {
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  colors: {
+    backgroundColor: "transparent",
+    textColor: "",
+    accentColor: "",
+  },
+  typography: {
+    fontSize: 20,
+    fontWeight: "semibold",
+    textAlign: "left",
+  },
+}
+
 // Section library for adding new sections
 export const sectionLibrary: SectionLibraryItem[] = [
   {
@@ -2213,6 +2249,14 @@ export const sectionLibrary: SectionLibraryItem[] = [
     description: "Customer reviews and ratings",
     icon: "star",
     defaultSettings: defaultReviewsSettings,
+  },
+  /* Offered only on the shop page and only while communities are on (components/store-builder/add-section-modal.tsx). */
+  {
+    type: "community",
+    name: "Community",
+    description: "One of your communities, with its members, events and latest posts",
+    icon: "users",
+    defaultSettings: defaultCommunitySettings,
   },
 ]
 

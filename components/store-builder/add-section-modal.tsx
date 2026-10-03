@@ -16,6 +16,8 @@ import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/de
 import type { SectionLibraryItem, SectionSettings, Section } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import { UnifiedSectionRenderer } from "./unified-section-renderer"
+import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
+import { CommunitySectionSample } from "./community-section"
 
 interface AddSectionModalProps {
   open: boolean
@@ -29,6 +31,7 @@ const SECTION_CATEGORIES = [
   { key: "marketing", label: "Marketing" },
   { key: "commerce", label: "Products" },
   { key: "info", label: "Information" },
+  { key: "community", label: "Community" },
 ]
 
 const CATEGORY_FILTER: Record<string, string[]> = {
@@ -37,12 +40,22 @@ const CATEGORY_FILTER: Record<string, string[]> = {
   marketing: ["announcement-bar"],
   commerce: ["featured-products"],
   info: ["reviews"],
+  community: ["community"],
 }
 
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
   const { draftConfig, addSection, products } = useStoreBuilder()
   const [activeCategory, setActiveCategory] = useState("all")
   const [isMobileLayout, setIsMobileLayout] = useState(false)
+  /*
+    THE COMMUNITY SECTION IS OFFERED ONLY WHERE IT CAN DRAW: on the shop page
+    (a product page is about the product), and only while communities are on
+    across Storelib. Off, the category goes too, rather than an empty one.
+  */
+  const communitiesOn = useCommunitiesEnabled()
+  const offersCommunity = communitiesOn && draftConfig.pageType === "shop"
+  const library = offersCommunity ? sectionLibrary : sectionLibrary.filter((item) => item.type !== "community")
+  const categories = offersCommunity ? SECTION_CATEGORIES : SECTION_CATEGORIES.filter((c) => c.key !== "community")
 
   useEffect(() => {
     const check = () => setIsMobileLayout(window.innerWidth < 640)
@@ -64,8 +77,8 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
 
   const filteredSections =
     activeCategory === "all"
-      ? sectionLibrary
-      : sectionLibrary.filter((item) => CATEGORY_FILTER[activeCategory]?.includes(item.type))
+      ? library
+      : library.filter((item) => CATEGORY_FILTER[activeCategory]?.includes(item.type))
 
   // ── Mobile: bottom sheet ──────────────────────────────────────────────────
   /*
@@ -105,7 +118,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         {/* Horizontal category pills */}
         <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="flex gap-2 w-max">
-            {SECTION_CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat.key}
                 onClick={() => setActiveCategory(cat.key)}
@@ -166,7 +179,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left categories sidebar */}
           <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
-            {SECTION_CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat.key}
                 onClick={() => setActiveCategory(cat.key)}
@@ -453,6 +466,15 @@ export function SectionPreview({
   // Products section needs special handling — full renderer returns null with no products
   if (type === "featured-products") {
     return <ProductsPlaceholderPreview containerWidth={containerWidth} products={products} />
+  }
+
+  /* The community section draws from a real community the creator has not picked yet, so the modal shows its layout. */
+  if (type === "community") {
+    return (
+      <div style={{ width: 700, zoom: containerWidth / 700, pointerEvents: "none", userSelect: "none" }}>
+        <CommunitySectionSample />
+      </div>
+    )
   }
 
   const RENDER_WIDTH = 700
