@@ -7,11 +7,13 @@ The biggest differences first:
 - **A section is one `.storelib` file** with `<template>`, `<style>`, `<script>` and `<schema>` blocks. The template language reads like Liquid (`{{ }}`, `{% if %}`, `{% for %}`, `{% content_for %}`, filters) but is smaller: no `assign`, no `capture`, no `render` or snippets. See [Sections](/developers/sections).
 - **Theme blocks work as they do in Shopify**: a file each in `blocks/`, accepted with `{ "type": "@theme" }`, drawn with `{% content_for "blocks" %}`, nested, static, private with a leading `_`, and preset in the keyed form with `block_order`. See [Blocks](/developers/blocks).
 - **CSS is scoped for you**, and a script runs in a sandbox against a copy of the section. See [Styling](/developers/styling) and [JavaScript](/developers/javascript).
-- **Storelib is for creators**, not merchants with warehouses. There are no collections, no blog and no metaobjects, so the settings that pick those do not exist. What a creator sells is `products`, and what they arrange is sections.
+- **Storelib is for creators**, not merchants with warehouses. There is no blog and there are no metaobjects, so the settings that pick those do not exist. What a creator sells is `products`, grouped in collections, and what they arrange is sections.
+
+How close the builder is to Shopify's theme editor, setting by setting and page by page, is in [Shopify parity](/developers/shopify-parity).
 
 ## Setting types
 
-Shopify's name, then Storelib's. A schema may use either name where both are listed: `product`, `page` and `text_alignment` are read as `product_picker`, `page_picker` and `alignment`.
+Shopify's name, then Storelib's. A schema may use either name where both are listed: `product`, `page`, `collection`, `text_alignment` and `liquid` are read as `product_picker`, `page_picker`, `collection_picker`, `alignment` and `html`.
 
 | Shopify | Storelib | Notes |
 | --- | --- | --- |
@@ -20,6 +22,7 @@ Shopify's name, then Storelib's. A schema may use either name where both are lis
 | `text`, `textarea`, `richtext` | the same names | |
 | `inline_richtext` | `inline_richtext` | Bold, italic and links, on one line. |
 | `html` | `html` | Cleaned against an allow list: no scripts, no event attributes, no frames. |
+| `liquid` | `html` | The markup is kept and cleaned. A Liquid tag in it is printed as text, never run: logic belongs in the section's template. |
 | `url` | `url` | Every link setting refuses `javascript:` and other schemes. |
 | `video_url` | `video_url` | YouTube and Vimeo; `accept` narrows it. |
 | `video` | `video_picker` | An uploaded video. |
@@ -33,6 +36,8 @@ Shopify's name, then Storelib's. A schema may use either name where both are lis
 | `page` | `page_picker` | |
 | `product` | `product_picker` | Prints as the product's address and carries its title, price and picture. |
 | `product_list` | `product_list` | Up to `limit` products, shaped like `products`. |
+| `collection` | `collection_picker` | Prints as the collection's address and carries its title, picture, count and first twelve products. |
+| `collection_list` | `collection_list` | Up to `limit` collections, block-shaped. |
 | `header`, `paragraph` | the same names | Also `divider`. |
 | none | `datetime` | A date, or a date and a time, read as written. Format it with the `date` filter. |
 | none | `focal_point` | Where the important part of a picture is, as `object-position` reads it. Shopify keeps this on the image; Storelib keeps it beside the setting. |
@@ -42,10 +47,8 @@ Shopify types Storelib does not have are refused with the reason, rather than as
 
 | Shopify | Why not |
 | --- | --- |
-| `collection`, `collection_list` | A creator's shop has no collections. Use `product_list` for chosen products, or `products` for the whole shop. |
 | `blog`, `article`, `article_list` | A Storelib site has no blog of its own yet. |
 | `metaobject`, `metaobject_list` | There are no metaobjects. Repeated content is blocks. |
-| `liquid` | A section's template is its code. Write the markup in `<template>`, or make a section in the code editor. |
 | `color_scheme_group` | Colour schemes belong to the theme and are edited in Theme settings, Colors. A section picks one. |
 
 ## Schema keys
@@ -76,14 +79,15 @@ Every site has these pages from the day it is published. The ones marked generat
 | `collection` | Shop, at `/products`: every published product, generated | `page.products` |
 | `search` | Search, at `/search`, generated | `page.search` |
 | `404` | 404 page, generated, drawn inside the site's header and footer for any address the site does not have, with a real 404 status | `page.404` |
-| `page` | About, Contact, and any page the creator makes | `page.<key>` |
+| `page` | About, Contact, and any page the creator makes. A new page starts as Shopify's: the header, a Page content section with the page's title and a rich text body, and the footer. | `page.<key>` |
+| `list-collections` | Collections, at `/collections`: every published collection, generated | `page.collections` |
 | `cart` | Cart, at `/cart`: the site's header and footer around the visitor's cart. Not arranged with sections, because a cart is one visitor's list. | none |
 | `customers/account`, `customers/login` | Account at `/account` and Sign in at `/account/login`, generated | `page.account`, `page.login` |
 | none | Wishlist at `/wishlist`, generated | `page.wishlist` |
 | `page.contact` | Contact at `/contact`, generated when the creator has not made one | `page.contact` |
 | policy pages | Refund, privacy and terms pages, from the creator's own policies | `page.<key>` |
 | `robots.txt.liquid`, sitemap | Each site answers its own `robots.txt` and `sitemap.xml` | none |
-| `blog`, `article`, `list-collections`, `gift_card`, `password` | none. There is no blog, no collection list and no gift card. A site that is not ready is left unpublished, and visitors see that it is not published rather than a password form. | |
+| `blog`, `article`, `gift_card`, `password` | none. There is no blog and no gift card. A site that is not ready is left unpublished, and visitors see that it is not published rather than a password form. | |
 
 A header and a footer are the same on every page, like Shopify's header and footer groups: the builder keeps one of each and the site draws it on every page. The announcement bar is a theme setting above the header, with several messages that take turns.
 
@@ -94,7 +98,9 @@ The library's sections against Dawn's:
 | Dawn | Storelib |
 | --- | --- |
 | Image banner, Slideshow | Centered Hero, Split Hero, Product Hero. A slideshow is not offered: it hides all but one message behind a timer. Older pages that used one still draw it. |
-| Featured collection | Product Grid: cards you fill in, products you choose, or the whole shop, newest first |
+| Featured collection | Featured collection, from Products › Collections; or Product Grid: cards you fill in, products you choose, or the whole shop, newest first |
+| Collection list | Collection list: every collection, or the ones you choose |
+| Main page | Page content, on every page you add |
 | Featured product | Featured Products, Product Spotlight |
 | Multicolumn | Feature Grid, Feature Cards, Two Column Content |
 | Multirow | Rows |
@@ -112,7 +118,7 @@ The library's sections against Dawn's:
 | none | Plans, for a course, a membership or a service sold more than one way |
 | none | Course Outline, the modules of a course and the lessons in each |
 | none | Testimonials, logos, countdown, announcement, founder story and timeline sections |
-| Featured blog, Collection list, Apps, Pickup availability, Quick order list | none: no blog, no collections, no app blocks, nothing to pick up and no wholesale orders |
+| Featured blog, Apps, Pickup availability, Quick order list | none: no blog, no app blocks, nothing to pick up and no wholesale orders |
 
 ## Dynamic sources
 

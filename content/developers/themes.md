@@ -42,7 +42,39 @@ A few keys are written by panels of their own rather than listed in a group:
 | `page_seo` | Each page's own search title, description and whether search engines may list it, by page key. | Website settings › Pages & Navigation |
 | `site_language` | The language the site is written in, for the page's `lang`. | Website settings › General |
 
-A template reads theme settings through `theme`: the tokens under `theme.colors`, `theme.typography`, `theme.radius` and `theme.spacing`, and every setting as stored under `theme.settings`. The full list, with defaults, is in [Dynamic values](/developers/dynamic-values#theme).
+A template reads theme settings through `theme`: the tokens under `theme.colors`, `theme.typography`, `theme.radius` and `theme.spacing`, and every setting as stored under `theme.settings`. The full list, with defaults, is in [Dynamic values](/developers/dynamic-values#theme). The groups Shopify's theme settings have that a template reads as values are there too: `theme.brand` (`headline`, `description`, `image`, `image_width`), `theme.badges` (`sale`, `sale_text`, `position`), `theme.cart.type` (`drawer`, `page` or `notification`) and `theme.currency` (`code`, `show_code`).
+
+### Settings that reach a section by attribute
+
+Inputs, Variant pills, Product cards, Collection cards, Content containers, Media, Dropdowns and pop-ups and Badges are drawn by the theme, not by each section. The theme's stylesheet puts them on elements a section marks with an attribute, and only once a value is set, so a site that never opened the groups looks as it always did:
+
+| Group | Reaches | Custom properties |
+| --- | --- | --- |
+| Inputs | every `input`, `select` and `textarea` in a section | `--theme-input-radius`, `--theme-input-border-width`, `--theme-input-border-opacity` |
+| Variant pills | `[data-variant-pill]` | `--theme-pill-radius`, `--theme-pill-border-width` |
+| Product cards | `[data-card="product"]` and its `[data-card-media]` | `--theme-product-card-radius`, `-border`, `-shadow`, `-image-padding` |
+| Collection cards | `[data-card="collection"]` and its `[data-card-media]` | `--theme-collection-card-radius`, `-border`, `-shadow`, `-image-padding` |
+| Content containers | `[data-container]` | `--theme-container-radius`, `-border`, `-shadow` |
+| Media | `[data-media]` | `--theme-image-radius`, `--theme-media-border`, `--theme-media-shadow` |
+| Dropdowns and pop-ups | `[data-popup]` and the header's dropdown | `--theme-popup-radius`, `-border`, `-shadow` |
+| Badges | `[data-badges]` and each `[data-badge="sale"]`, `"soldout"` or `"tag"` | `--theme-badge-radius`, `--theme-badge-top`, `-bottom`, `-left`, `-right`, `--theme-badge-sale-bg`, `-color`, `--theme-badge-soldout-bg`, `-color` |
+
+A section of your own gets them by marking its elements the same way:
+
+```storelib
+<article class="card" data-card="product">
+  <div class="card__media" data-card-media>
+    <img src="{{ block.settings.image }}" alt="{{ block.settings.title }}">
+    {% if theme.badges.sale and block.settings.compare_price %}
+      <span class="badges" data-badges><span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span></span>
+    {% endif %}
+  </div>
+</article>
+```
+
+**Currency format.** With Show currency codes on, every price the page hands a section reads `$48.00 USD`: `products`, a product list, a collection's products.
+
+**Custom CSS.** Theme settings › Custom CSS is CSS for every page of the site, kept inside the page root: each selector is put under it, `html`, `body` and `:root` mean the root itself, and a media query that asks only about width becomes a container query, so the builder's phone preview shows the phone rules. Left out, and named under the box: `@import`, `@font-face`, `@charset`, `@namespace`, the `<` character, backslash escapes, `expression()`, `behavior`, `-moz-binding`, and any `url()` that is not https or one of the site's own paths. What was typed is stored as typed, so nothing is lost; what is drawn is the cleaned copy, in its own `<style>` after every section.
 
 ## Colour schemes
 
@@ -177,4 +209,4 @@ The theme settings object, exactly as the builder stores it, with every media UR
 
 A visitor's page is drawn from three things: the website's live pages, its live theme settings, and its section files, which are the theme's own 33 with the website's changed and added files in their place. The code editor shows more files than that, laid out the way a Shopify theme is: `theme.json`, `config/settings_schema.json`, `config/settings_data.json`, `templates/*.json`, two files under `snippets` and `assets/styles.css` and `assets/theme.js`. Those are views of the theme's data. Saving an edit to one stores the file, and **nothing on the site reads it**. Only `sections/*.storelib` and `blocks/*.storelib` change what a page draws.
 
-There is no stylesheet for the whole site that you can write yet. A section's CSS is always scoped to that section; see [Styling](/developers/styling).
+A section's CSS is always scoped to that section; see [Styling](/developers/styling). CSS for the whole site goes in Theme settings › Custom CSS, above.

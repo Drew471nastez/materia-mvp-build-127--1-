@@ -60,6 +60,7 @@ const CONTROL_DRAWN_AS: Record<ControlType, SpecimenControl> = {
   paragraph: "paragraph", divider: "divider",
   color_background: "color", inline_richtext: "richtext", html: "textarea", datetime: "text",
   focal_point: "image", video_url: "url", product_list: "picker", link_list: "picker",
+  collection_picker: "picker", collection_list: "picker",
 }
 
 /** How the section panel draws each type, beyond what the registry says it is. */
@@ -67,7 +68,7 @@ export const CONTROL_PANEL_NOTES: Partial<Record<ControlType, string>> = {
   text: "A one-line box. A text setting whose id or label says gradient is drawn as the gradient editor instead.",
   textarea: "A box that grows as you type.",
   richtext: "A small editor with Paragraph, Heading 2 to 4, Bold, Italic, Link, bulleted and numbered lists. Pasting brings in plain text.",
-  number: "A number box that keeps to its min, max and step. With `responsive`, a Desktop, Tablet, Phone switch sits above it.",
+  number: "A number box that keeps to its min, max and step, with the `unit` (px, %, s) inside its right edge. With `responsive`, a Desktop, Tablet, Phone switch sits above it.",
   toggle: "A switch.",
   checkbox: "The same switch as toggle. Prefer toggle in new sections.",
   select: "A dropdown.",
@@ -75,7 +76,7 @@ export const CONTROL_PANEL_NOTES: Partial<Record<ControlType, string>> = {
   range: "A slider with the number and unit beside it. Can be responsive.",
   color: "A swatch and its hex. It opens in place with a colour field, a hue slider, the hex and the colours already on the page. Hidden in a section panel, where colours come from the scheme.",
   color_scheme: "The scheme picker at the top of the section panel, each scheme painted in its own colours, with Edit beside each one.",
-  font_picker: "A dropdown whose options are drawn in their own font.",
+  font_picker: "A dropdown of the fonts Theme settings › Typography offers, each drawn in its own face, with The theme's font at the top. A family picked here is loaded on the page.",
   alignment: "Three buttons: left, centre, right. Can be responsive.",
   image_picker: "A dashed box: Add Image, click to upload or drag in. Filled, it shows the picture with Replace and Remove. JPEG, PNG, GIF, WebP, SVG or AVIF under 5 MB.",
   image_gallery: "A stack of image pickers, with an empty one at the end to add another.",
@@ -96,6 +97,8 @@ export const CONTROL_PANEL_NOTES: Partial<Record<ControlType, string>> = {
   focal_point: "The picture it belongs to, with a point to drag or tap to where the picture should stay in view when it is cropped.",
   video_url: "A box to paste a YouTube or Vimeo link. It says which video it found, or why the link is not one.",
   product_list: "Your products in the order you chose, each with Up, Down and Remove, and Add product to pick more from your shop.",
+  collection_picker: "Your collection with its picture and how many products are in it, a Change button that opens your collections with a search box, and an X to clear it. A hidden collection is marked Hidden.",
+  collection_list: "Your collections in the order you chose, each with Up, Down and Remove, and Add collection to pick more.",
   link_list: "A dropdown of the site's menus. Menus are made in Theme settings › Menus; the header's own links are always there as Main menu.",
 }
 
@@ -210,12 +213,58 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   spacing_scale: { does: "Multiplies every section's own spacing: below 1 tighter, above 1 roomier." },
   border_radius: { does: "How round the corners of cards are." },
   card_shadow: { does: "How much shadow a card casts." },
-  image_border_radius: { does: "How round the corners of images are." },
+  image_border_radius: { does: "How round the corners of pictures and videos are. In Media, where Shopify files it." },
 
   animations_enabled: { does: "Sections ease in as they scroll into view. Visitors who ask their device for less motion never see it." },
   animation_style: { does: "How a section arrives: rising, fading, sliding or growing." },
   animation_duration: { does: "How long the arrival takes." },
   animation_stagger: { does: "The delay between items arriving in a row, such as cards." },
+
+  pill_radius: { does: "How round the option buttons a product's variants are picked with are. Drawn on every `[data-variant-pill]` once set." },
+  pill_border_width: { does: "The thickness of those buttons' outline." },
+
+  input_radius: { does: "How round every text box, dropdown and text area in a section is: search, sign in, newsletter, contact." },
+  input_border_width: { does: "The thickness of their outline." },
+  input_border_opacity: { does: "How strong that outline is, as a share of the section's text colour." },
+
+  product_card_style: { does: "Standard puts the frame on the picture; Card puts it round the whole card, on a faint fill, with the words inset. On every `[data-card=\"product\"]`." },
+  product_card_image_padding: { does: "Space between a product card's picture and its frame." },
+  product_card_align: { does: "Product cards' words on the left or centred." },
+  product_card_radius: { does: "How round a product card's corners are." },
+  product_card_border: { does: "The thickness of a product card's outline. 0 is none." },
+  product_card_shadow: { does: "How much shadow a product card casts." },
+
+  collection_card_style: { does: "The same choice for collection cards: frame the picture, or the whole card. On every `[data-card=\"collection\"]`." },
+  collection_card_image_padding: { does: "Space between a collection card's picture and its frame." },
+  collection_card_align: { does: "Collection cards' words on the left or centred." },
+  collection_card_radius: { does: "How round a collection card's corners are." },
+  collection_card_border: { does: "The thickness of a collection card's outline." },
+  collection_card_shadow: { does: "How much shadow a collection card casts." },
+
+  container_radius: { does: "How round boxes that hold text are, such as a feature card or a plan. On every `[data-container]`." },
+  container_border: { does: "The thickness of their outline." },
+  container_shadow: { does: "How much shadow they cast." },
+
+  media_border: { does: "An outline round pictures and videos in sections, on every `[data-media]`." },
+  media_shadow: { does: "How much shadow they cast." },
+
+  popup_radius: { does: "How round menus that drop down and boxes that pop up are, the header's dropdown among them." },
+  popup_border: { does: "The thickness of their outline." },
+  popup_shadow: { does: "How much shadow they cast." },
+
+  badge_position: { does: "Which corner of a product card's picture the Sale and Sold out labels sit in." },
+  badge_radius: { does: "How round those labels are." },
+  badge_sale_show: { does: "A Sale label on a product with a price to compare against." },
+  badge_sale_text: { does: "The words of that label. Sale unless you type others." },
+  badge_sale_bg: { does: "The Sale label's colour." },
+  badge_sale_color: { does: "The Sale label's text colour." },
+  badge_soldout_bg: { does: "The Sold out label's colour." },
+  badge_soldout_color: { does: "The Sold out label's text colour." },
+
+  brand_headline: { does: "A line about the shop. Any text setting can show it with Insert shop data, `{{ shop.brand_headline }}`, and a section reads it as `theme.brand.headline`." },
+  brand_description: { does: "A few lines about the shop, `{{ shop.brand_description }}` or `theme.brand.description`." },
+  brand_image: { does: "A picture for the brand, `{{ shop.brand_image }}` or `theme.brand.image`." },
+  brand_image_width: { does: "How wide a section draws that picture, `theme.brand.image_width`." },
 
   announcement_bar_enabled: { does: "A thin bar across the top of every page." },
   announcement_bar_text: { does: "What the bar says." },
@@ -245,6 +294,8 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   social_show_in_header: { does: "Shows an icon for each filled-in profile in the header." },
   social_show_in_footer: { does: "Shows them in the footer." },
 
+  cart_type: { does: "What Add to cart does: open the cart drawer, go to the cart page, or show a short notice. Read as `theme.cart.type` and as `data-cart-type` on the page." },
+  currency_code_enabled: { does: "Prices read $48.00 USD rather than $48.00, on every price a section draws from the shop." },
   free_shipping_threshold: { does: "The order total above which shipping is free. 0 turns it off." },
   free_shipping_bar: { does: "Shows the cart how far it is from free shipping." },
 
@@ -262,6 +313,11 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   cookie_bg: { does: "The banner's colour." },
   cookie_text_color: { does: "The banner's text colour." },
 
+  custom_css: {
+    does: "Your own CSS for every page of the site. Each rule is kept inside the page, so it cannot reach the builder; `@import`, scripts in values and addresses that are not https are left out, and the box says which.",
+    as: { control: "textarea", value: ".card__title { letter-spacing: 0.02em; }" },
+  },
+
   menus: {
     does: "Named lists of links, two levels deep, that a section shows through a `link_list` setting. Each menu gets a handle from its first name, such as `footer`, which is what a section stores. The header's own links are the menu `main-menu` without being made here.",
     as: { control: "picker", value: "Main menu, Footer" },
@@ -271,7 +327,7 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
 const THEME_DRAWN_AS: Record<string, SpecimenControl> = {
   text: "text", textarea: "textarea", richtext: "richtext", number: "number", toggle: "toggle", checkbox: "toggle",
   select: "select", radio: "radio", range: "range", color: "color", font: "font", font_picker: "font", image: "image",
-  image_picker: "image", link: "url", url: "url", color_scheme: "color_scheme",
+  image_picker: "image", link: "url", url: "url", color_scheme: "color_scheme", css: "textarea",
 }
 
 function fieldSpecimen(f: SchemaField): Specimen {

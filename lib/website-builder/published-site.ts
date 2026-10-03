@@ -62,7 +62,9 @@ import {
   withDynamicSources,
   type CreatorFacts,
   communityReferences,
+  pageWantsCollections,
 } from "@/lib/website-builder/storefront-data"
+import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/website-builder/storefront-data-server"
 import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
@@ -476,11 +478,30 @@ export async function dressPage(
           : read()
       })().catch(() => ({}))
     : undefined
+  /*
+    The creator's published collections, for a collection picker, a
+    collection list and the collections page: read only for a page that
+    uses them, a minute in the cache like the shop, and only while physical
+    commerce (where collections live) is on.
+  */
+  const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
+  const collections = pageWantsCollections(sections, schemaOf, sourceOf)
+    ? await (async () => {
+        const { isPhysicalCommerceEnabled } = await import("@/lib/platform/physical-commerce")
+        if (!(await isPhysicalCommerceEnabled())) return undefined
+        const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
+        const read = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
+        return opts.cached
+          ? unstable_cache(read, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
+          : read()
+      })().catch(() => undefined)
+    : undefined
   const data = storefrontData({
     dynamic,
     catalog: mergeCatalog(products, picked),
     menus: siteMenus(site.themeSettings, filled),
     communities,
+    collections,
   })
   return { sections: filled, data }
 }

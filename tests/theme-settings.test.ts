@@ -84,6 +84,9 @@ const CONSUMERS = [
   "lib/website-builder/storefront-data.ts",
   /* The social links, read for the header's and the footer's icons. */
   "lib/website-builder/social-links.ts",
+  /* `theme.*` as a section reads it (themeGlobals: badges, brand, cart, currency) and the currency code on prices. */
+  "lib/storelib-theme/resolve.ts",
+  "lib/storelib-theme/render.ts",
   /* The Animations group, read by the runtime that reveals sections as they scroll in. */
   "lib/website-builder/section-anchors.ts",
 ]

@@ -25,6 +25,7 @@
  */
 
 import { buttonSelector, themeTypography, typographyStylesheet, typographyVars } from "@/lib/storelib-theme/typography"
+import { cleanCustomCss } from "@/lib/storelib-theme/custom-css"
 import type { ThemeSettingsValues } from "./types"
 
 /** A setting that arrived as `"1280"`, or as nothing at all. */
@@ -137,7 +138,236 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     // ── Motion ────────────────────────────────────────────────────────────
     "--theme-animation-duration": `${num(t.animation_duration, 600)}ms`,
     "--theme-animation-stagger": `${num(t.animation_stagger, 80)}ms`,
+
+    // ── Inputs, pills, cards, containers, media, pop-ups, badges ─────────────
+    ...parityVars(t),
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  THE REST OF SHOPIFY'S THEME SETTINGS
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Inputs, Variant pills, Product cards, Collection cards, Content
+ * containers, Media, Dropdowns and pop-ups, and Badges, as Dawn has them.
+ *
+ * ONLY WHAT WAS SET. Each property below is written once its setting has a
+ * value, and each rule in parityRules once the property it reads exists. A
+ * site that never opened these groups keeps the look its sections always
+ * had, so adding the groups changed nobody's page; choosing a value is what
+ * changes it, on every section that draws that kind of thing.
+ *
+ * The elements are found by attribute, not by class: `data-card="product"`,
+ * `data-card-media`, `data-badges`, `data-badge`, `data-container`,
+ * `data-media`, `data-popup`, `data-variant-pill`. A section names what its
+ * elements ARE, and the theme decides how they look, the way a Dawn section
+ * uses `card-wrapper` and `media`. docs: content/developers/themes.md.
+ */
+
+/** Whether a setting has a value of its own, rather than its group's default. */
+function isSet(t: Record<string, unknown>, key: string): boolean {
+  const v = t[key]
+  return v !== undefined && v !== null && v !== ""
+}
+
+/** The two kinds of card the settings cover, and the keys each one's group stores. */
+const CARD_KINDS = ["product", "collection"] as const
+const CARD_KEYS = {
+  product: {
+    style: "product_card_style",
+    image_padding: "product_card_image_padding",
+    align: "product_card_align",
+    radius: "product_card_radius",
+    border: "product_card_border",
+    shadow: "product_card_shadow",
+  },
+  collection: {
+    style: "collection_card_style",
+    image_padding: "collection_card_image_padding",
+    align: "collection_card_align",
+    radius: "collection_card_radius",
+    border: "collection_card_border",
+    shadow: "collection_card_shadow",
+  },
+} as const
+
+/** Badge corners, by the position name the panel stores. */
+const BADGE_POSITIONS: Record<string, { top: string; bottom: string; left: string; right: string }> = {
+  top_left: { top: "10px", bottom: "auto", left: "10px", right: "auto" },
+  top_right: { top: "10px", bottom: "auto", left: "auto", right: "10px" },
+  bottom_left: { top: "auto", bottom: "10px", left: "10px", right: "auto" },
+}
+
+const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+const colour = (v: unknown) => (typeof v === "string" && HEX.test(v.trim()) ? v.trim() : "")
+
+/** The custom properties for the groups above, for the settings that have a value. */
+export function parityVars(t: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  const px = (key: string, name: string, fallback: number, max: number) => {
+    if (isSet(t, key)) out[name] = `${Math.min(max, Math.max(0, num(t[key], fallback)))}px`
+  }
+  const shadow = (key: string, name: string) => {
+    if (isSet(t, key)) out[name] = SHADOWS[str(t[key], "none")] ?? "none"
+  }
+
+  px("input_radius", "--theme-input-radius", 8, 24)
+  px("input_border_width", "--theme-input-border-width", 1, 4)
+  if (isSet(t, "input_border_opacity")) out["--theme-input-border-opacity"] = `${Math.min(100, Math.max(0, num(t.input_border_opacity, 25)))}%`
+
+  px("pill_radius", "--theme-pill-radius", 40, 40)
+  px("pill_border_width", "--theme-pill-border-width", 1, 4)
+
+  for (const kind of CARD_KINDS) {
+    const keys = CARD_KEYS[kind]
+    px(keys.radius, `--theme-${kind}-card-radius`, 8, 40)
+    px(keys.border, `--theme-${kind}-card-border`, 0, 4)
+    px(keys.image_padding, `--theme-${kind}-card-image-padding`, 0, 24)
+    shadow(keys.shadow, `--theme-${kind}-card-shadow`)
+  }
+
+  px("container_radius", "--theme-container-radius", 8, 40)
+  px("container_border", "--theme-container-border", 0, 4)
+  shadow("container_shadow", "--theme-container-shadow")
+
+  px("media_border", "--theme-media-border", 0, 4)
+  shadow("media_shadow", "--theme-media-shadow")
+
+  px("popup_radius", "--theme-popup-radius", 12, 24)
+  px("popup_border", "--theme-popup-border", 1, 4)
+  shadow("popup_shadow", "--theme-popup-shadow")
+
+  px("badge_radius", "--theme-badge-radius", 40, 40)
+  if (isSet(t, "badge_position")) {
+    const at = BADGE_POSITIONS[str(t.badge_position, "top_left")] ?? BADGE_POSITIONS.top_left
+    out["--theme-badge-top"] = at.top
+    out["--theme-badge-bottom"] = at.bottom
+    out["--theme-badge-left"] = at.left
+    out["--theme-badge-right"] = at.right
+  }
+  for (const [key, name] of [
+    ["badge_sale_bg", "--theme-badge-sale-bg"],
+    ["badge_sale_color", "--theme-badge-sale-color"],
+    ["badge_soldout_bg", "--theme-badge-soldout-bg"],
+    ["badge_soldout_color", "--theme-badge-soldout-color"],
+  ] as const) {
+    const c = colour(t[key])
+    if (c) out[name] = c
+  }
+  return out
+}
+
+/** The rules that put those properties on the elements, for the ones that exist. */
+function parityRules(t: Record<string, unknown>, root: string): string[] {
+  const vars = parityVars(t)
+  const has = (name: string) => name in vars
+  /*
+    Every selector of a rule starts at the root, so nothing here reaches the
+    editor around the canvas, and goes through `[data-section]`, which is
+    what lets it win. A section's own rule is `[data-section-id="…"] .tag`,
+    0,2,0, and comes later in the page; `[root] [data-badge]` is 0,2,0 too
+    and lost every tie, so a badge colour chosen here changed nothing.
+    `[root] [data-section] [data-badge]` is 0,3,0.
+  */
+  const at = (...parts: string[]) => parts.map((p) => `${root} [data-section] ${p}`).join(",")
+  const rules: string[] = []
+
+  // ── Inputs ──────────────────────────────────────────────────────────────
+  const field = ":is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=color]):not([type=file]):not([type=submit]):not([type=button]),select,textarea)"
+  const input: string[] = []
+  if (has("--theme-input-radius")) input.push("border-radius:var(--theme-input-radius)")
+  if (has("--theme-input-border-width")) input.push("border-width:var(--theme-input-border-width)", "border-style:solid")
+  if (has("--theme-input-border-opacity")) input.push("border-color:color-mix(in srgb,currentColor var(--theme-input-border-opacity),transparent)")
+  if (input.length) rules.push(`${at(field)}{${input.join(";")};}`)
+
+  // ── Variant pills ───────────────────────────────────────────────────────
+  const pill: string[] = []
+  if (has("--theme-pill-radius")) pill.push("border-radius:var(--theme-pill-radius)")
+  if (has("--theme-pill-border-width")) pill.push("border-width:var(--theme-pill-border-width)", "border-style:solid")
+  if (pill.length) rules.push(`${at("[data-variant-pill]")}{${pill.join(";")};}`)
+
+  // ── Product and collection cards ────────────────────────────────────────
+  for (const kind of CARD_KINDS) {
+    const card = `[data-card="${kind}"]`
+    const media = `${card} [data-card-media]`
+    const v = (part: string) => `--theme-${kind}-card-${part}`
+    const keys = CARD_KEYS[kind]
+    const asCard = isSet(t, keys.style) && str(t[keys.style], "standard") === "card"
+    const frame: string[] = []
+    if (has(v("radius"))) frame.push(`border-radius:var(${v("radius")})`)
+    if (has(v("border"))) frame.push(`border:var(${v("border")}) solid color-mix(in srgb,currentColor 18%,transparent)`)
+    if (has(v("shadow"))) frame.push(`box-shadow:var(${v("shadow")})`)
+    if (asCard) {
+      /* Card: the whole card is the frame, on a faint fill of its own text colour, the words inset from its edge. */
+      rules.push(`${at(card)}{${[...frame, "overflow:hidden", "background:color-mix(in srgb,currentColor 4%,transparent)", `padding:var(${v("image-padding")},0px) var(${v("image-padding")},0px) 14px`].join(";")};}`)
+      rules.push(`${at(`${card} > :not([data-card-media]):not(a)`)}{padding-inline:12px;}`)
+      /* The picture keeps a radius only when it is inset; flush, it is the card's own top. */
+      rules.push(`${at(media)}{border-radius:min(max(0px,calc(var(${v("radius")},8px) - var(${v("image-padding")},0px))),calc(var(${v("image-padding")},0px) * 1000));}`)
+    } else {
+      if (frame.length) rules.push(`${at(media)}{${frame.join(";")};}`)
+      if (has(v("image-padding"))) {
+        rules.push(`${at(media)}{padding:var(${v("image-padding")});background:color-mix(in srgb,currentColor 4%,transparent);}`)
+        rules.push(`${at(`${media} img`)}{border-radius:max(0px,calc(var(${v("radius")},8px) - var(${v("image-padding")})));}`)
+      }
+    }
+    if (isSet(t, keys.align) && str(t[keys.align], "left") === "center") {
+      rules.push(`${at(card)}{text-align:center;}`, `${at(`${card} :is(p,div):not([data-card-media])`)}{justify-content:center;}`)
+    }
+  }
+
+  // ── Content containers ──────────────────────────────────────────────────
+  const box: string[] = []
+  if (has("--theme-container-radius")) box.push("border-radius:var(--theme-container-radius)")
+  if (has("--theme-container-border")) box.push("border:var(--theme-container-border) solid color-mix(in srgb,currentColor 18%,transparent)")
+  if (has("--theme-container-shadow")) box.push("box-shadow:var(--theme-container-shadow)")
+  if (box.length) rules.push(`${at("[data-container]")}{${box.join(";")};}`)
+
+  // ── Media ───────────────────────────────────────────────────────────────
+  const pic: string[] = []
+  if (isSet(t, "image_border_radius")) pic.push("border-radius:var(--theme-image-radius)", "overflow:hidden")
+  if (has("--theme-media-border")) pic.push("border:var(--theme-media-border) solid color-mix(in srgb,currentColor 18%,transparent)")
+  if (has("--theme-media-shadow")) pic.push("box-shadow:var(--theme-media-shadow)")
+  if (pic.length) rules.push(`${at("[data-media]")}{${pic.join(";")};}`)
+
+  // ── Dropdowns and pop-ups ───────────────────────────────────────────────
+  /* The header's own dropdown is one, by its class, so the setting reaches it without the header changing. */
+  const pop: string[] = []
+  if (has("--theme-popup-radius")) pop.push("border-radius:var(--theme-popup-radius)")
+  if (has("--theme-popup-border")) pop.push("border:var(--theme-popup-border) solid color-mix(in srgb,currentColor 14%,transparent)")
+  if (has("--theme-popup-shadow")) pop.push("box-shadow:var(--theme-popup-shadow)")
+  if (pop.length) rules.push(`${root} [data-popup],${at("[data-popup]", ".theme-nav-dropdown")}{${pop.join(";")};}`)
+
+  // ── Badges ──────────────────────────────────────────────────────────────
+  if (has("--theme-badge-top")) {
+    rules.push(`${at("[data-badges]")}{top:var(--theme-badge-top);bottom:var(--theme-badge-bottom);left:var(--theme-badge-left);right:var(--theme-badge-right);}`)
+    /* Top right is where the wishlist heart sits: the badges stand to its left. */
+    if (str(t.badge_position, "") === "top_right") rules.push(`${at("[data-card-media]:has([data-storelib-wishlist]) [data-badges]")}{right:56px;}`)
+  }
+  if (has("--theme-badge-radius")) rules.push(`${at("[data-badge]")}{border-radius:var(--theme-badge-radius);}`)
+  if (has("--theme-badge-sale-bg") || has("--theme-badge-sale-color")) {
+    rules.push(`${at('[data-badge="sale"]')}{${[has("--theme-badge-sale-bg") ? "background:var(--theme-badge-sale-bg)" : "", has("--theme-badge-sale-color") ? "color:var(--theme-badge-sale-color)" : ""].filter(Boolean).join(";")};}`)
+  }
+  if (has("--theme-badge-soldout-bg") || has("--theme-badge-soldout-color")) {
+    rules.push(`${at('[data-badge="soldout"]')}{${[has("--theme-badge-soldout-bg") ? "background:var(--theme-badge-soldout-bg)" : "", has("--theme-badge-soldout-color") ? "color:var(--theme-badge-soldout-color)" : ""].filter(Boolean).join(";")};}`)
+  }
+  return rules
+}
+
+/**
+ * THE CREATOR'S CUSTOM CSS, cleaned and scoped to the page root
+ * (lib/storelib-theme/custom-css.ts). Its own <style>, drawn after every
+ * section, so a rule as specific as a section's own wins, the way custom
+ * CSS does on Shopify. Empty when there is none.
+ */
+export function themeCustomCss(theme: ThemeSettingsValues): string {
+  const t = theme as Record<string, unknown>
+  return cleanCustomCss(t.custom_css, `[${THEME_ROOT_ATTRIBUTE}]`).css
+}
+
+/** What Add to cart does: "drawer", "page" or "notification". Shopify's Cart type. */
+export function themeCartType(theme: ThemeSettingsValues): "drawer" | "page" | "notification" {
+  const t = theme as Record<string, unknown>
+  const v = str(t.cart_type, "drawer")
+  return v === "page" || v === "notification" ? v : "drawer"
 }
 
 /**
@@ -268,6 +498,8 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
         : `${unpainted}{background:transparent;border:1px solid currentColor;}`,
     )
   }
+
+  rules.push(...parityRules(t, root))
 
   // ── Motion ──────────────────────────────────────────────────────────────
   /**

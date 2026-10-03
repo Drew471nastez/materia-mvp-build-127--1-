@@ -173,7 +173,8 @@ async function main() {
     const page = pageAgentReference().length
     const writer = writerReference().length
     /* 23,000 until the framework said how to type a picture, a menu and a colour per element, and that the header is configured: 600 characters. */
-    check(`the page assistant's reference stays under ~5.9k tokens (${Math.round(page / 4)})`, page <= 23_600, `${page} chars`)
+    /* 23,600 until the control list gained collection_picker and collection_list (about 10 tokens). */
+    check(`the page assistant's reference stays under ~5.9k tokens (${Math.round(page / 4)})`, page <= 23_650, `${page} chars`)
     check(`Code section's reference stays under ~8.25k tokens (${Math.round(writer / 4)})`, writer <= 33_000, `${writer} chars`)
     check("the framework itself stays short", FRAMEWORK_REFERENCE.length <= 6_600 && QUALITY_CHECKLIST.length <= 1_400, `${FRAMEWORK_REFERENCE.length} / ${QUALITY_CHECKLIST.length}`)
   }

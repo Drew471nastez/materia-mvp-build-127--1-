@@ -16,8 +16,8 @@
       {% else %}
         <div class="grid">
           {% for block in products %}
-          <article class="card feat" data-block-id="{{ block.id }}">
-            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+          <article class="card feat" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
             </div>
             <div class="feat__body">
@@ -39,8 +39,8 @@
       {% else %}
         <div class="grid">
           {% for block in blocks %}
-          <article class="card feat" data-block-id="{{ block.id }}">
-            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+          <article class="card feat" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
             </div>
             <div class="feat__body">

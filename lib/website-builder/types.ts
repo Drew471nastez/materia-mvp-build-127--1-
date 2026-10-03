@@ -309,7 +309,7 @@ export interface ThemePage {
  * footer and a section each until the creator opens one in the builder,
  * after which what they saved is what is served.
  */
-export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist" | "password"
+export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist" | "password" | "collections"
 
 /**
  * The account, its sign in page and the wishlist are pages every website
@@ -323,6 +323,7 @@ export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   about: { label: "About page", icon: "info" },
   contact: { label: "Contact page", icon: "mail" },
   products: { label: "Shop", icon: "grid" },
+  collections: { label: "Collections", icon: "grid" },
   search: { label: "Search", icon: "search" },
   "404": { label: "404 page", icon: "search" },
   account: { label: "Account", icon: "user" },
@@ -395,6 +396,12 @@ export type SchemaFieldType =
   | "text_alignment"
   | "product"
   | "page"
+  | "collection_picker"
+  | "collection_list"
+  | "collection"
+  | "liquid"
+  /* The theme's custom CSS, in Theme settings › Custom CSS. Not a section setting. */
+  | "css"
   /* The theme's menus, edited in Theme settings › Menus. Not a section setting. */
   | "menus"
 

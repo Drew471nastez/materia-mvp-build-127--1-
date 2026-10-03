@@ -606,9 +606,9 @@ function settingChecks(err: (path: string, message: string) => void, sectionValu
       if (f.min !== undefined && f.max !== undefined && f.min >= f.max) err(p, `min ${f.min} is not below max ${f.max}`)
       /* The keys the newer controls read, checked where they are declared
          rather than discovered as a blank control in the panel. */
-      if (canonical === "product_list" && f.limit !== undefined) {
+      if ((canonical === "product_list" || canonical === "collection_list") && f.limit !== undefined) {
         const n = f.limit as unknown
-        if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > 24) err(`${p}.limit`, `a product_list's limit is a whole number from 1 to 24`)
+        if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > 24) err(`${p}.limit`, `a ${canonical}'s limit is a whole number from 1 to 24`)
       }
       if (canonical === "video_url" && f.accept !== undefined) {
         const hosts = f.accept as unknown

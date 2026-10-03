@@ -441,6 +441,14 @@ export interface RenderContext {
    * here; see lib/website-builder/shop-products.ts.
    */
   products?: { id: string; type: string; settings: Record<string, unknown> }[]
+  /**
+   * The creator's published collections the page was handed, block-shaped
+   * like `products`: `{% for block in collections %}` with
+   * `block.settings.title`, `image`, `url`, `products_count`. The
+   * collections page is handed every one; other pages only the ones their
+   * settings name. Empty when absent.
+   */
+  collections?: { id: string; type: string; settings: Record<string, unknown> }[]
   /** Theme tokens: colors, typography, radius, spacing, schemes, and the raw settings. */
   theme: Record<string, unknown>
   /**
@@ -539,11 +547,39 @@ export interface StorefrontCommunity {
   join_label: string
 }
 
+/**
+ * One of the creator's collections, as a section reads it: a published
+ * collection of this creator's and nothing else. `products` holds the first
+ * of its published products, block-shaped like `products`.
+ */
+export interface StorefrontCollection {
+  id: string
+  title: string
+  /** The collection's slug, as Shopify calls it. */
+  handle: string
+  /** Plain words, never markup. */
+  description: string
+  /** Its own picture, or its first product's, or "". */
+  image: string
+  /** /collections/<handle>. */
+  url: string
+  /** How many published products are in it. */
+  products_count: number
+  products: { id: string; type: string; settings: Record<string, unknown> }[]
+}
+
 export interface StorefrontData {
   /** Products a `product_picker` or `product_list` may name, block-shaped. */
   catalog?: { id: string; type?: string; settings: Record<string, unknown> }[]
   /** The creator's communities a `community_picker` may name, by id. */
   communities?: Record<string, StorefrontCommunity>
+  /**
+   * The creator's published collections a `collection_picker` or
+   * `collection_list` may name, by id, in the creator's order. The same
+   * list is the page's `collections`. Absent means none, and every
+   * collection setting is empty.
+   */
+  collections?: Record<string, StorefrontCollection>
   /** Menus by handle, for `link_list`. */
   menus?: Record<string, Menu>
   shop?: { name?: string; description?: string; url?: string; product_count?: number }

@@ -302,9 +302,12 @@ function VariantPicker({ s, ctx }: { s: S; ctx: ProductCtx }) {
                     aria-pressed={chosen}
                     onClick={(e) => { e.stopPropagation(); ctx.choose(i, value) }}
                     className={cn("border px-4 text-[14px] font-medium transition-colors", !open && "line-through opacity-50")}
+                    /* Theme settings › Variant pills: its radius and border once set (lib/website-builder/theme-css.ts), this section's until then. */
+                    data-variant-pill=""
                     style={{
                       minHeight: h,
-                      borderRadius: ctx.radius,
+                      borderRadius: `var(--theme-pill-radius, ${ctx.radius})`,
+                      borderWidth: "var(--theme-pill-border-width, 1px)",
                       borderColor: chosen ? selBg : line,
                       background: chosen ? selBg : "transparent",
                       color: chosen ? selFg : ink,

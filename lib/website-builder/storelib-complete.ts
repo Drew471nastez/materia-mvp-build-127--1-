@@ -44,6 +44,7 @@ export const ROOTS: { name: string; detail: string }[] = [
   { name: "settings", detail: "this section's settings, by the ids its schema declares" },
   { name: "blocks", detail: "this section's blocks, in order" },
   { name: "products", detail: "the creator's published products, newest first, shaped like blocks" },
+  { name: "collections", detail: "the creator's published collections the page was handed, shaped like blocks" },
   { name: "section", detail: "id, type, settings and blocks" },
   { name: "theme", detail: "the theme's own settings: colours, typography, radius, spacing" },
   { name: "scheme", detail: "the colours of this section's colour scheme" },

@@ -12,6 +12,7 @@ A website is a set of pages, and a page is an ordered list of sections. Each pag
 | `contact` | `/contact` | The same. |
 | `products` | `/products` | The shop. Until it is edited, it is built from the home page's header and footer and a product grid. |
 | `search` | `/search?q=` | Search results over the newest 24 published products. Built the same way until it is edited. |
+| `collections` | `/collections` | Every published collection, Shopify's list-collections page: the header and footer around a Collection list. Built the same way until it is edited. Listed, and served, while collections are on. A collection's own page, `/collections/<handle>`, is the address each collection links to. |
 | `404` | any address the site does not have | The page a visitor gets for a missing address: the header and footer around the Page not found section, with a search box and a few products. Built the same way until it is edited, and opened from the page switcher as **404 page**. |
 
 A new website starts with its home and product pages stored. The shop, search and 404 pages exist on the live site from the first publish, whether or not anyone has opened them. Generated, each takes the header's colour scheme, so a dark site's shop is dark too.
@@ -26,7 +27,7 @@ Three **policy pages** are added the first time a website opens in the builder, 
 
 **Create page**, in the page switcher at the top of the builder, and **Add page** in Website settings › Pages, ask for a name and make the key from it: letters with accents plain, lower case, and every run of anything that is not a letter or digit turned into one `-`. "Size Guide!" becomes `size-guide`. A key is 1 to 63 characters of `a` to `z`, `0` to `9` and `-`, starting with a letter or digit. The name you type is not stored: the builder lists the page by its key, so `size-guide` reads as Size guide.
 
-A new page starts with the site's header and footer and nothing between, saved as a draft. It is on the live site after the next publish.
+A new page starts as Shopify's default page template: the site's header, a **Page content** section holding the name you typed as its title and a rich text body to write the page in, and the footer, saved as a draft. Page content is a section like any other: it can be moved, hidden, removed, or added again from the library. The page is on the live site after the next publish.
 
 These keys are never a page you make, because the platform answers at those addresses or keeps them for later:
 
@@ -85,6 +86,7 @@ A section can ask which page it is on through `page.template`. Home is `index`, 
 | Home | `index` | `index` |
 | A product page | `product` | `page.product` |
 | The shop | `page.products` | `page.products` |
+| Every collection | `page.collections` | `page.collections` |
 | Search results | `page.search`, with the search as `page.query` | `page.search` |
 | The 404 page | `page.404` | `page.404` |
 | Any other page | `page.<key>` | `page.<key>` |

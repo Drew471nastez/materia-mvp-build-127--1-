@@ -169,6 +169,79 @@ export function notFoundSections(homeSections: SectionInstance[]): SectionInstan
 }
 
 /**
+ * ===========================================================================
+ *  THE COLLECTIONS PAGE: EVERY COLLECTION, IN THE SITE'S CHROME
+ * ===========================================================================
+ * Shopify's list-collections template, at /collections: the creator's
+ * header and footer around one Collection list showing every published
+ * collection. Like the shop and the 404 page it is generated until the
+ * creator opens it in the builder, and stored from their first save.
+ */
+const COLLECTIONS_ID = "storelib-collections"
+
+export function collectionsPageSections(homeSections: SectionInstance[]): SectionInstance[] {
+  const header = homeSections.find((s) => s.type === "header")
+  const footer = homeSections.find((s) => s.type === "footer")
+  const list: SectionInstance = {
+    id: COLLECTIONS_ID,
+    type: "collections_grid",
+    name: "Collection list",
+    settings: {
+      source: "all",
+      chosen: [],
+      heading: "Collections",
+      subheading: "",
+      align: "left",
+      columns: { desktop: 3, tablet: 2, mobile: 1 },
+      shape: "4 / 5",
+      show_count: true,
+      count_one: "product",
+      count_many: "products",
+      show_description: false,
+      button_text: "",
+      button_url: "/collections",
+      color_scheme: chromeScheme(homeSections),
+      padding_top: 72,
+      padding_bottom: 96,
+    },
+    blocks: [],
+    hidden: false,
+  }
+  return [...(header ? [header] : []), list, ...(footer ? [footer] : [])]
+}
+
+/**
+ * ===========================================================================
+ *  A PAGE THE CREATOR ADDS: SHOPIFY'S DEFAULT PAGE TEMPLATE
+ * ===========================================================================
+ * The site's header, a Page content section holding the title they typed
+ * and a place to write, and the footer. It used to be the header and the
+ * footer with nothing between them, so a new page opened as an empty gap
+ * and the first thing to do was find a section that could hold words.
+ *
+ * `id` is passed in: two pages made in one session must not share one.
+ */
+export function customPageSections(header: SectionInstance | undefined, footer: SectionInstance | undefined, title: string, id: string): SectionInstance[] {
+  const body: SectionInstance = {
+    id,
+    type: "page_content",
+    name: "Page content",
+    settings: {
+      heading: title.trim().slice(0, 200),
+      content: "",
+      width: "narrow",
+      align: "left",
+      color_scheme: "white",
+      padding_top: 72,
+      padding_bottom: 72,
+    },
+    blocks: [],
+    hidden: false,
+  }
+  return [...(header ? [header] : []), body, ...(footer ? [footer] : [])]
+}
+
+/**
  * Does this product answer the query? Title, description and category, the
  * same three the platform's own search reads, so a word that finds something
  * on Explore finds it here too.

@@ -483,7 +483,7 @@ Every setting is an object with `type`, `id` and usually `label`, plus
   "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64, "responsive": true }
 ```
 
-These are all 33 control types, with what they hold, what a template sees when
+These are all 35 control types, with what they hold, what a template sees when
 nothing was set, and whether they may carry a value per breakpoint.
 
 | Type | Holds | Default when unset | Responsive | Extra keys |
@@ -518,6 +518,8 @@ nothing was set, and whether they may carry a value per breakpoint.
 | `product_list` | reference list | `[]` | no | `limit` |
 | `link_list` | string | `""` | no | |
 | `community_picker` | string | `""` | no | |
+| `collection_picker` | string | `""` | no | |
+| `collection_list` | reference list | `[]` | no | `limit` |
 | `header` | nothing | | no | |
 | `paragraph` | nothing | | no | `content` |
 | `divider` | nothing | | no | |
@@ -529,12 +531,14 @@ Six older names still validate and mean the same as their current one: `link`
 is `url`, `image` is `image_picker`, `video` is `video_picker`, `icon` is
 `icon_picker`, `font` is `font_picker`, and `spacing` is `range`.
 
-Three of Shopify's names are accepted for the same reason, so a section
+Five of Shopify's names are accepted for the same reason, so a section
 brought across from a Shopify theme validates: `text_alignment` is
-`alignment`, `product` is `product_picker`, and `page` is `page_picker`.
-Shopify types with nothing to point at here (`collection`, `collection_list`,
-`blog`, `article`, `metaobject`, `metaobject_list`, `liquid`,
-`color_scheme_group`) are refused with the reason.
+`alignment`, `product` is `product_picker`, `page` is `page_picker`,
+`collection` is `collection_picker`, and `liquid` is `html` (the markup is
+kept and cleaned; a Liquid tag in it is printed as text, never run).
+`collection_list` is a type of its own under Shopify's name. Shopify types
+with nothing to point at here (`blog`, `article`, `metaobject`,
+`metaobject_list`, `color_scheme_group`) are refused with the reason.
 
 What the newer types hold:
 
@@ -556,6 +560,18 @@ What the newer types hold:
 - `product_list` holds product ids and arrives as a list shaped like
   `products`, with live titles, prices and pictures. `limit` is 12 unless
   given, at most 24.
+- `collection_picker` holds one of the creator's collection ids (Products ›
+  Collections). It prints as the collection's address, `/collections/<handle>`,
+  and carries `title`, `handle`, `description`, `image`, `url`,
+  `products_count` and `products` (its first twelve published products,
+  shaped like `products`). An id that is not a published collection of this
+  creator's is empty.
+- `collection_list` holds collection ids and arrives block-shaped, each
+  `block.settings` carrying what a collection picker carries. `limit` is 12
+  unless given, at most 24.
+- `number` draws its `unit` inside the field's right edge.
+- `font_picker` offers the fonts Theme settings › Typography offers, and a
+  family a section picks is loaded on the page.
 - `link_list` holds a menu's handle and arrives as `{ handle, title, links }`,
   each link `{ title, url, links }`, every address already made safe.
   `main-menu` is the header's own links unless a menu of that name exists.
@@ -593,10 +609,10 @@ hidden setting keeps its value and a template still reads it.
 
 What the validator refuses:
 
-- A type that is not one of the 33, with the list in the message.
+- A type that is not one of the 35, with the list in the message.
 - A `visible_if` that does not parse, reads a setting that is not declared,
   reads a block's settings from a section setting, or reads its own setting.
-- A `product_list` `limit` outside 1 to 24, a `video_url` `accept` naming a
+- A `product_list` or `collection_list` `limit` outside 1 to 24, a `video_url` `accept` naming a
   host other than `youtube` or `vimeo`, and a `focal_point` whose `image` is
   not an `image_picker` beside it.
 - A `select` or `radio` with no options, or a default that is not one of them.
@@ -1246,13 +1262,16 @@ the filter did not recognise renders empty rather than loading it.
 
 A template is a page: which section instances it has, in what order, with what
 settings. A theme ships `home`, `product`, `about` and `contact`, and a creator
-can add their own. Three more exist on every site before anybody arranges
+can add their own. A page a creator adds starts as Shopify's default page
+template: the header, a `page_content` section holding the title they typed and
+a rich text body, and the footer. Four more exist on every site before anybody arranges
 them, generated from the home page's header and footer and one section each,
 and stored like any other page once the creator opens and saves one:
 
 | Page | Address | Its section | `page.template` |
 | --- | --- | --- | --- |
 | Shop | `/products` | `product_grid` reading the shop | `page.products` |
+| Collections | `/collections` | `collections_grid` showing every collection | `page.collections` |
 | Search | `/search` | `search` | `page.search` |
 | 404 | any address the site does not have | `not_found` | `page.404` |
 
@@ -1657,6 +1676,7 @@ For anybody writing a section, including a model asked to write one.
 | `page` | `.template`, `.in_editor`. |
 | `forloop` | `.index`, `.index0`, `.first`, `.last`, `.length`. |
 | `products` | The creator's published products, block-shaped. |
+| `collections` | The creator's published collections the page was handed, block-shaped. Every one on the collections page. |
 | `shop` | `.name`, `.description`, `.url`, `.product_count`. |
 | `creator` | `.name`, `.headline`, `.bio`, `.avatar`. |
 | `product` | On the product page only: the product it shows. |
@@ -1681,7 +1701,8 @@ Values somebody types or picks: `text`, `textarea`, `richtext`,
 
 References to something else: `image_picker`, `image_gallery`, `video_picker`,
 `video_url`, `file_picker`, `icon_picker`, `url`, `page_picker`,
-`product_picker`, `product_list`, `link_list`, `community_picker`.
+`product_picker`, `product_list`, `link_list`, `community_picker`,
+`collection_picker`, `collection_list`.
 
 Presentational, holding no value: `header`, `paragraph`, `divider`.
 
@@ -1709,7 +1730,29 @@ Presentational, holding no value: `header`, `paragraph`, `divider`.
 --theme-button-radius --theme-button-weight --theme-button-padding
 --theme-font-heading  --theme-font-body     --theme-font-accent
 --theme-animation-duration    --theme-animation-stagger
+
+Written only once the creator sets the setting behind them:
+--theme-input-radius  --theme-input-border-width  --theme-input-border-opacity
+--theme-pill-radius   --theme-pill-border-width
+--theme-product-card-radius  --theme-product-card-border
+--theme-product-card-shadow  --theme-product-card-image-padding
+--theme-collection-card-radius  --theme-collection-card-border
+--theme-collection-card-shadow  --theme-collection-card-image-padding
+--theme-container-radius  --theme-container-border  --theme-container-shadow
+--theme-media-border  --theme-media-shadow
+--theme-popup-radius  --theme-popup-border  --theme-popup-shadow
+--theme-badge-radius  --theme-badge-top  --theme-badge-bottom
+--theme-badge-left    --theme-badge-right
+--theme-badge-sale-bg  --theme-badge-sale-color
+--theme-badge-soldout-bg  --theme-badge-soldout-color
 ```
+
+Attributes a section puts on its elements so Theme settings reach them:
+`data-card="product"` or `data-card="collection"` on a card, with
+`data-card-media` on its picture; `data-badges` round a card's labels and
+`data-badge="sale"`, `"soldout"` or `"tag"` on each; `data-container` on a box
+that holds text; `data-media` on a picture or video frame; `data-popup` on
+anything that drops down or pops up; `data-variant-pill` on an option button.
 
 ### Glossary
 

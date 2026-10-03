@@ -226,7 +226,7 @@ function main() {
        before they reach these branches and never appear as one. */
     const drawn = [...new Set([
       ...[...body.matchAll(/kind === "([a-z_]+)"/g)].map((m) => m[1]),
-      ...(/renderRegisteredControl\(kind,/.test(body) ? [...registeredBody.matchAll(/case "([a-z_]+)":/g)].map((m) => m[1]).filter((k) => k !== "menus") : []),
+      ...(/renderRegisteredControl\(kind,/.test(body) ? [...registeredBody.matchAll(/case "([a-z_]+)":/g)].map((m) => m[1]).filter((k) => k !== "menus" && k !== "css") : []),
     ])].sort()
 
     const missing = defined.filter((t) => !drawn.includes(t))

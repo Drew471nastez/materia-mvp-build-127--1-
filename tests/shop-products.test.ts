@@ -183,7 +183,7 @@ async function main() {
       return {
         titles: [...r.html.matchAll(/class="card__title">([^<]*)</g)].map((m) => m[1]),
         prices: [...r.html.matchAll(/class="card__price">([^<]*)</g)].map((m) => m[1]),
-        tags: [...r.html.matchAll(/class="tag">([^<]*)</g)].map((m) => m[1]),
+        tags: [...r.html.matchAll(/class="tag"[^>]*>([^<]*)</g)].map((m) => m[1]),
       }
     }
 

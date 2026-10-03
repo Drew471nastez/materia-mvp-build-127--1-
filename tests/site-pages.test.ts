@@ -160,8 +160,9 @@ function main() {
        make a page by either name. */
     /* Ten now: the 404 page, and the visitor's account, its sign in page and
        the wishlist (lib/website-builder/account-pages). */
-    /* Eleven: and the password page a website shows while it asks for one (lib/site-password). */
-    check("and the eleven are the eleven", BUILT_IN_PAGE_KEYS.size === 11 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Twelve: the password page a website shows while it asks for one (lib/site-password), and the
+       collections page, Shopify's list-collections (lib/website-builder/shop-page). */
+    check("and the twelve are the twelve", BUILT_IN_PAGE_KEYS.size === 12 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))
@@ -372,7 +373,20 @@ function main() {
     )
     check(
       "and the old settings that configured the fake one did not come back",
-      !/cart_type|cart_show_count|cart_show_subtotal/.test(themeSettings),
+      !/cart_show_count|cart_show_subtotal/.test(themeSettings),
+    )
+    /*
+      CART TYPE CAME BACK WITH A CART TO CONFIGURE. It was removed as a
+      control over nothing; the cart is real now, and Cart type is Shopify's
+      drawer, page or notification, which SiteCartProvider does on Add to
+      cart. So it may be in the panel only while the cart reads it.
+    */
+    const cart = read("components/website-builder/site-cart.tsx")
+    check(
+      "Cart type is in the panel only because the cart does what it says",
+      !/cart_type/.test(themeSettings) ||
+        (/cartType === "page" && shopId/.test(cart) && /cartType === "notification"/.test(cart) && /window\.location\.assign\("\/cart"\)/.test(cart) &&
+          /cartType=\{themeCartType\(theme\)\}/.test(read("components/website-builder/theme/ThemePage.tsx"))),
     )
     /*
       ═══════════════════════════════════════════════════════════════════════

@@ -68,6 +68,7 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
+import { customPageSections } from "@/lib/website-builder/shop-page"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { editorPageKeyOf, editorPagePath, resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
@@ -145,11 +146,15 @@ import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, contr
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
 import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-builder/main-menu"
-import type { StorefrontCommunity } from "@/lib/storelib-theme/types"
-import type { PickerCommunity } from "@/components/website-builder/editor/controls"
+import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
+import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
 
 /** What /api/website-builder/themes/[installId] says about the creator's communities. */
 type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
+/** And about their collections: every one to pick, the published ones as a section reads them. */
+type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
+/** The sections that show the creator's collections, offered only while collections are on. */
+const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "collection_featured"])
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 
@@ -2518,12 +2523,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   /* The creator's own communities, for a community_picker and the Community card (null while communities are off). */
   const [builderCommunities, setBuilderCommunities] = useState<BuilderCommunities | null>(null)
+  /* The creator's collections, for a collection_picker, a collection_list and the collections page (null while physical commerce is off). */
+  const [builderCollections, setBuilderCollections] = useState<BuilderCollections | null>(null)
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
   /** The theme's blocks (blocks/*.storelib), this install's own files over them: what Add block can offer. */
   const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources), [storelibSources])
   const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
-  /* The Community card is offered only while communities are on: off, it would draw nothing on the site. */
+  /* The Community card is offered only while communities are on, and the collection sections only while
+     collections are (physical commerce): off, they would draw nothing on the site. */
   /** Which types are a header or a footer: the built-in two, and any section file that is one (lib/storelib-theme/section-groups.ts). */
   const kindOfType = useMemo(() => kindLookup(storelibSources, SECTION_SCHEMAS as never), [storelibSources])
   /**
@@ -2537,7 +2545,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* Every section this creator wrote, a header of their own included, is filed under Created in the library. */
   const libraryOwnTypes = useMemo(() => Object.keys(customSchemas), [customSchemas])
   const libraryAddable = useMemo(() => {
-    const all = [...ADDABLE_SECTIONS.filter((t) => t !== "community_card" || builderCommunities !== null), ...ownSectionTypes]
+    const all = [
+      ...ADDABLE_SECTIONS.filter((t) => (t !== "community_card" || builderCommunities !== null) && (!COLLECTION_SECTIONS.has(t) || builderCollections !== null)),
+      ...ownSectionTypes,
+    ]
     const groupsOf = (t: string) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) })
     if (addGroup === "template") {
       return all.filter((t) => {
@@ -2555,7 +2566,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
     return [...new Set([own, ...ownKinds, ...fits])]
-  }, [ownSectionTypes, builderCommunities, addGroup, librarySchemas, kindOfType, customSchemas])
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
   const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
   /**
@@ -3413,6 +3424,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (data.username) setUsername(data.username)
     if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
     setBuilderCommunities(data.communities && typeof data.communities === "object" ? (data.communities as BuilderCommunities) : null)
+    setBuilderCollections(data.collections && typeof data.collections === "object" ? (data.collections as BuilderCollections) : null)
     setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
 
     /**
@@ -4821,13 +4833,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
     }
 
+    /* Shopify's default page template: the header, a Page content section
+       holding the title just typed, and the footer (lib/website-builder/shop-page). */
+    const starterSections = customPageSections(
+      defaultSections.find(s => s.type === "header"),
+      defaultSections.find(s => s.type === "footer"),
+      newPageTitle,
+      `page_content-${Date.now()}`,
+    )
+
     // Save sections for the new page. A page that did not save is not a
     // page, so the switcher is not told about one.
     try {
       const res = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: pageKey, sections: defaultSections, mode: "draft" }),
+        body: JSON.stringify({ page_key: pageKey, sections: starterSections, mode: "draft" }),
       })
       if (!res.ok) throw new Error(String(res.status))
     } catch {
@@ -4846,7 +4867,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setCurrentPage(pageKey)
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
-    setSections(defaultSections)
+    setSections(starterSections)
     setSectionsLoading(false)
   }
 
@@ -5727,10 +5748,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const sitePages = useMemo<SwitcherPage[]>(
     () => [
-      ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
+      /* The collections page is listed while collections are on (physical commerce); off, the site has none to show. */
+      ...(Object.keys(PAGE_META) as PageKey[]).filter((k) => k !== "collections" || builderCollections !== null).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
       ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
     ],
-    [customPages],
+    [customPages, builderCollections],
   )
   const switcherProducts = useMemo(() => products.map((p) => ({ id: p.id, title: p.title })), [products])
   const selectProductById = (id: string) => {
@@ -6519,8 +6541,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       header: headerSection,
       linkHeaderToMain,
       communities: builderCommunities?.choices ?? null,
+      collections: builderCollections?.choices ?? null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -6542,8 +6565,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus, communities: builderCommunities?.cards }),
-    [canvasDynamic, shopCards, canvasMenus, builderCommunities],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards }),
+    [canvasDynamic, shopCards, canvasMenus, builderCommunities, builderCollections],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(

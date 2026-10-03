@@ -13,7 +13,7 @@
     {% else %}
       <div class="grid">
         {% for block in blocks %}
-          <div class="fc" data-block-id="{{ block.id }}">
+          <div class="fc" data-container data-block-id="{{ block.id }}">
 
               {% if settings.marker == 'image' and block.settings.image %}
                 <img class="mark mark--img" src="{{ block.settings.image | asset }}" alt="" loading="lazy" decoding="async">

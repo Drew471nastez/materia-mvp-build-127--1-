@@ -980,7 +980,8 @@ section("Add Section is derived from the files, one card per preset")
      Products has Plans, and Content has Rows and Course Outline, for what creators sell and teach.
      Social Proof has the Community card, one of the creator's communities (added with communities). */
   /* And Breadcrumbs, in Content, for any page but home (lib/products/breadcrumbs.ts). */
-  check("the library is thirty six sections across ten categories, About with the contact form", ADDABLE_SECTIONS.length === 36 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
+  /* And Collection list, Featured collection (Products) and Page content (Content): Shopify's sections for collections and pages. */
+  check("the library is thirty nine sections across ten categories, About with the contact form", ADDABLE_SECTIONS.length === 39 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
   /* "'Created by you' should be called 'Created' only." */
