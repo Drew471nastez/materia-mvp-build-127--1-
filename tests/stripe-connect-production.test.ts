@@ -97,7 +97,7 @@ console.log("\nStatus")
   const bank = [{ status: "verified" }]
   const s = (a: ReturnType<typeof acct> | null, b = bank, extra = {}) => getStorelibPaymentsStatus(statusFactsOf(a, b, extra))
 
-  check("no account: Set up payments", s(null).status === "NOT_STARTED" && s(null).title === "Set up payments")
+  check("no account: Set up payouts", s(null).status === "NOT_STARTED" && s(null).title === "Set up payouts")
   check("a connection let go: Reconnect payments, and the history is safe", s(null, [], { reconnect: true }).title === "Reconnect payments" && /history are safe/.test(s(null, [], { reconnect: true }).line))
   check("charges and payouts on, a bank, nothing due: Payments active", s(acct()).status === "ACTIVE")
   check("an account id alone is never active", s(acct({ charges_enabled: false, payouts_enabled: false, details_submitted: false, capabilities: {} }), []).status !== "ACTIVE")
@@ -134,7 +134,7 @@ console.log("\nOld accounts and disconnect")
   const single = read("app/api/checkout/stripe-session/route.ts")
   const cart = read("app/api/checkout/cart/route.ts")
   check("checkout for one product waits for a ready account", /checkoutReadyForCreator\(creator\.id\)/.test(single))
-  check("the cart waits for charges and payouts both said yes, not just not no", /charges_enabled !== true/.test(cart) && /payouts_enabled !== true/.test(cart))
+  check("the cart waits for the same ready account as one product", /checkoutReadyForCreator\(creator\.id as string\)/.test(cart) && !/charges_enabled === false/.test(cart))
   check("an account Stripe refuses at checkout is let go, with nothing charged", /releaseConnectedAccount\(/.test(single) && /releaseConnectedAccount\(/.test(cart) && /Nothing was charged/.test(single) && /Nothing was charged/.test(cart))
   check("the old withdraw route, a second way to pay out, is gone", !existsSync(join(root, "app/api/stripe/withdraw/route.ts")))
 }

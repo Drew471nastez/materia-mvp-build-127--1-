@@ -73,7 +73,7 @@ const SHELL_CREATOR_COLUMNS =
  * creator to /sell. They are read with the service role for the row the
  * caller's own client already returned, so nobody reads anyone else's.
  */
-const SHELL_PRIVATE_CREATOR_COLUMNS = "stripe_onboarding_status, stripe_account_id, subscription_plan_id"
+const SHELL_PRIVATE_CREATOR_COLUMNS = "stripe_onboarding_status, stripe_account_id, subscription_plan_id, details_submitted, stripe_requirements, stripe_connected_at"
 
 export interface RequestCreator {
   id: string
@@ -89,6 +89,10 @@ export interface RequestCreator {
   charges_enabled: boolean | null
   stripe_onboarding_status: string | null
   stripe_account_id: string | null
+  /* What Home says about payments (lib/payments/stripe/readiness homePaymentsState). */
+  details_submitted?: boolean | null
+  stripe_requirements?: string[] | null
+  stripe_connected_at?: string | null
   store_published: boolean | null
   /** The plan: "free", "growth" (Pro) or the earlier "pro" (lib/billing/plans). */
   subscription_plan_id: string | null

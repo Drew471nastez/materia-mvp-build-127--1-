@@ -11,6 +11,8 @@ import { buyerCustomer, buyerMessageFor, createSubscription, ensurePrice, intent
 import { syncSubscription } from "@/lib/memberships/sync"
 import { grantsAccess, type BillingInterval } from "@/lib/memberships/state"
 import { MEMBERSHIP_COLUMNS, NOT_SET_UP, PLAN_COLUMNS, UUID, tableMissing, type MembershipRow, type PlanRow } from "@/lib/memberships/server"
+import { checkoutReadyForCreator } from "@/lib/payments/service"
+import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 
 export const runtime = "nodejs"
 
@@ -93,9 +95,14 @@ export async function POST(request: Request) {
     .eq("id", product.creator_id)
     .maybeSingle()
   const account = creator?.stripe_account_id as string | null | undefined
-  if (!creator || !account || !account.startsWith("acct_")) return NextResponse.json({ error: "This creator cannot take payments yet." }, { status: 400 })
-  if (creator.charges_enabled === false || creator.payouts_enabled === false || creator.stripe_onboarding_status !== "connected") {
-    return NextResponse.json({ error: "This creator cannot take payments yet. Try again later." }, { status: 400 })
+  /*
+   * Storelib's one readiness rule (lib/payments/stripe/readiness), read from
+   * what the last sync worked out. This used to accept charges_enabled
+   * "not false", so a creator Stripe had not answered for yet got through.
+   * The buyer is told nothing about the creator's verification.
+   */
+  if (!creator || !account || !account.startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string))) {
+    return NextResponse.json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, { status: 409 })
   }
 
   /* Every membership this address or account has had of this product: a current one, one to continue, a used trial. */

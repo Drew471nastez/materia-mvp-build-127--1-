@@ -161,7 +161,7 @@ try {
     })
     expect(arrived.bank, "the bank sits on the details page", arrived)
     expect(!arrived.change, "and a first bank is never worded as a change", arrived)
-    expect(arrived.steps === 3, "three steps: Account, ID check, Details", arrived)
+    expect(arrived.steps === 2, "no ID asked, so no ID step: Account, Details", arrived)
     await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Back")?.click())
     await new Promise((r) => setTimeout(r, 900))
     const back = await p.evaluate(() => {
@@ -171,6 +171,93 @@ try {
     expect(back.onAccount && !back.bouncedBack, "Back goes to Account, never bounced forward again", back)
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.screenshot({ path: join(out, "back-past-verify-390.png") })
+    await p.close()
+  }
+  {
+    /* The Account step: where, and how they sell. Individual is already picked and nothing about a company shows. */
+    console.log("\nThe Account step (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const u = r.url()
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) return r.respond({ status: 200, contentType: "application/json", body: "{}" })
+      if (u.startsWith("data:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts?fresh=1")
+    await p.waitForSelector("[data-account-kind]", { timeout: 8000 }).catch(() => {})
+    const start = await p.evaluate(() => {
+      const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
+      const radios = [...document.querySelectorAll("[data-account-kind] [role=radio]")]
+      return {
+        where: /Where are you based\?/.test(t),
+        how: /How are you selling\?/.test(t),
+        individual: radios.find((b) => b.textContent === "Individual")?.getAttribute("aria-checked") === "true",
+        noCompany: !/Legal business name/.test(t),
+        steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
+      }
+    })
+    expect(start.where && start.how, "it asks where they are based and how they sell", start)
+    expect(start.individual && start.noCompany, "Individual is picked and no company field shows", start)
+    expect(!start.steps.some((s) => /ID check/.test(s ?? "")), "and no ID check step is promised before Stripe asks for one", start.steps)
+    await p.evaluate(() => [...document.querySelectorAll("[data-account-kind] [role=radio]")].find((b) => b.textContent === "Business")?.click())
+    await new Promise((r) => setTimeout(r, 200))
+    expect(await p.evaluate(() => /Legal business name/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? "")), "Business asks for the legal business name")
+    await p.screenshot({ path: join(out, "account-step-390.png") })
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
+    await p.close()
+  }
+  {
+    /* Stripe offers the ID as its alternative to the CNP: the ID step says so, and the number is the other way. */
+    console.log("\nThe CNP instead of the ID (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    const either = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [] }
+    const sentHere = {}
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        if (action === "details") sentHere.details = r.postData()
+        if (action === "identity") return json({ ok: false, reason: "not_enabled" })
+        if (action === "details-form") return json(form(either))
+        if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
+        if (action === "bank") return json({ form: form({ ...needsNow, fields: [], tos: false, bank: false }), overview: doneOverview })
+        return json({})
+      }
+      if (u.startsWith("data:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts")
+    await p.waitForSelector("[data-id-number-instead]", { timeout: 8000 }).catch(() => {})
+    const idStep = await p.evaluate(() => ({
+      link: document.querySelector("[data-id-number-instead]")?.textContent?.trim(),
+      steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
+    }))
+    expect(idStep.link === "Use my CNP instead", "the ID step offers the CNP as Stripe's other way", idStep)
+    expect(idStep.steps.some((s) => /ID check/.test(s ?? "")), "and only now, with Stripe asking, is ID check a step", idStep.steps)
+    await p.evaluate(() => document.querySelector("[data-id-number-instead]")?.click())
+    await p.waitForSelector('[autocomplete="bday-day"]', { timeout: 6000 }).catch(() => {})
+    const details = await p.evaluate(() => ({
+      cnp: [...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
+      noId: !document.querySelector("[data-id-photo]"),
+    }))
+    expect(details.cnp && details.noId, "the details page then simply asks for the CNP, with no ID photo", details)
+    await p.screenshot({ path: join(out, "cnp-instead-390.png") })
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.close()
   }
   {

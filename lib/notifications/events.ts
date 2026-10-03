@@ -98,11 +98,20 @@ export async function saleMilestone(input: { userId: string }): Promise<{ title:
 export function stripeAccountFacts(account: {
   charges_enabled?: boolean | null
   payouts_enabled?: boolean | null
+  capabilities?: object | null
   requirements?: { currently_due?: string[] | null; past_due?: string[] | null; current_deadline?: number | null; disabled_reason?: string | null } | null
 }): StripeAccountFacts {
   const r = account.requirements ?? {}
+  /*
+   * "Can buyers pay you", in Storelib's charge model: a sale is a destination
+   * charge, so the account must be able to receive the transfer
+   * (lib/payments/stripe/readiness). A seller in another country than the
+   * platform has a transfers-only account whose charges_enabled is false for
+   * good, and was told "Stripe turned off card payments" forever.
+   */
+  const transfers = (account.capabilities as Record<string, unknown> | null | undefined)?.transfers
   return {
-    chargesEnabled: account.charges_enabled === true,
+    chargesEnabled: typeof transfers === "string" ? transfers === "active" : account.charges_enabled === true,
     payoutsEnabled: account.payouts_enabled === true,
     currentlyDue: Array.isArray(r.currently_due) ? r.currently_due.filter((x) => typeof x === "string") : [],
     pastDue: Array.isArray(r.past_due) ? r.past_due.filter((x) => typeof x === "string") : [],

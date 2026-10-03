@@ -813,7 +813,8 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
       return {
         provider: "stripe",
         stripeAccountId: typeof c.stripe_account_id === "string" ? c.stripe_account_id : null,
-        chargesEnabled: c.charges_enabled === true,
+        /* "Connected" comes from Storelib's readiness rule (lib/payments/stripe/readiness), which a transfers-only account reaches with charges_enabled false. */
+        chargesEnabled: c.charges_enabled === true || c.stripe_onboarding_status === "connected",
         payoutsEnabled: c.payouts_enabled === true,
         detailsSubmitted: c.details_submitted === true,
         status: typeof c.stripe_onboarding_status === "string" ? c.stripe_onboarding_status : null,

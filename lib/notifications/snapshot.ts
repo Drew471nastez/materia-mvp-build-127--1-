@@ -47,7 +47,7 @@ const MAX_PAGES = 10
 /** Queries a batch runs side by side. */
 const PARALLEL = 6
 
-const CREATOR_COLUMNS = "id, user_id, created_at, stripe_account_id, charges_enabled, payouts_enabled, details_submitted, bio, avatar_url"
+const CREATOR_COLUMNS = "id, user_id, created_at, stripe_account_id, charges_enabled, payouts_enabled, details_submitted, stripe_onboarding_status, bio, avatar_url"
 /** Whether checkout would take a card, and the plan's payment state. */
 const CREATOR_STATE_COLUMNS = "stripe_onboarding_status, subscription_plan_id, subscription_status"
 const PRODUCT_COLUMNS = "id, creator_id, title, status, type, created_at"
@@ -184,7 +184,8 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
           createdAt: c.created_at ?? null,
           stripeAccountId: c.stripe_account_id ?? null,
           ...(onAirwallex.has(c.id) ? { airwallex: onAirwallex.get(c.id) } : {}),
-          chargesEnabled: typeof c.charges_enabled === "boolean" ? c.charges_enabled : null,
+          /* "Connected" is written from Storelib's readiness rule, which a transfers-only account reaches with charges_enabled false. */
+          chargesEnabled: c.stripe_onboarding_status === "connected" ? true : typeof c.charges_enabled === "boolean" ? c.charges_enabled : null,
           payoutsEnabled: typeof c.payouts_enabled === "boolean" ? c.payouts_enabled : null,
           detailsSubmitted: typeof c.details_submitted === "boolean" ? c.details_submitted : null,
           ...("stripe_onboarding_status" in c ? { onboardingStatus: c.stripe_onboarding_status ?? null } : {}),

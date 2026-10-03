@@ -2006,6 +2006,21 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
           </div>
         )}
 
+        {/*
+          A paid product, and checkout cannot take money for this seller yet
+          (lib/payments/stripe/readiness). Small, and never a reason not to
+          publish: the product goes live, buyers just cannot pay until setup is
+          done, and nothing is unpublished.
+        */}
+        {creator.payments_ready === false && sellsForMoney ? (
+          <div data-payout-setup-notice="" className="mb-3 flex items-center gap-3 rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-2.5 lg:mb-4">
+            <p className="min-w-0 flex-1 text-[13.5px] leading-5 text-[#93370d]">Finish your payout setup to start accepting payments.</p>
+            <Link href="/app/payouts" className="shrink-0 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-[#93370d] underline-offset-2 hover:underline">
+              Finish setup
+            </Link>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(272px,1fr)] lg:items-start">
           <div data-editor-main="" className="flex min-w-0 flex-col gap-3 sm:gap-4">
               {/* About Section */}

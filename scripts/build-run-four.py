@@ -63,7 +63,8 @@ for name,label,what,ps in GROUPS:
     out.append("notify pgrst, 'reload schema';")
     out.append(f"select 'Storelib file {label} ran. Next file.' as done;")
     open(OUT+name,'w').write("\n".join(out)+"\n")
-missing=sorted(set(parts)-used-{'00','90','91','99'})
+# 91 and 92 are run on their own, as their READMEs say, like 90 and 99: never folded into the four files.
+missing=sorted(set(parts)-used-{'00','90','91','92','99'})
 assert missing==[], missing
 # file 4: storage policies (skips itself when this role cannot own them) + the check
 p90=open(RN+'90_storage_policies_needs_owner.sql').read().rstrip('\n').split('\n')

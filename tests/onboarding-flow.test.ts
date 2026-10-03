@@ -76,7 +76,8 @@ check("the card holds no bank or identity fields", !/iban|routing|accountNumber|
 /* The owner, October 2026: "like Gumroad, our own component, don't embed Stripe's setup". Storelib's own form, asking only what Stripe lists for the account. */
 const own = readFileSync("lib/payments/stripe/own-form.ts", "utf8")
 const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
-check("setup is Storelib's own form, no Stripe screen inside it", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && !/StripeConnectEmbedded|purpose="stripe_/.test(flow))
+/* An individual's setup is Storelib's own form. A business is asked in Stripe's embedded form (inside the page, an Account Session made on the server): its fields differ by country and an individual's form has none of them. */
+check("an individual's setup is Storelib's own form, no Stripe screen inside it", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && (flow.match(/<StripeConnectEmbedded/g) ?? []).length === 1 && /function BusinessDetailsStep[\s\S]*?<StripeConnectEmbedded purpose="stripe_onboarding"/.test(flow))
 check("the server keeps none of it: no table write and no value in a log", !/createAdminClient|\.from\("|\.insert\(|\.upsert\(/.test(own) && /replace\(\/\\d\{2,\}\/g, "#"\)/.test(own) && !/console\.(log|error)\([^)]*(iban|idNumber|id_number|account_number|dob)\b/i.test(own))
 check("the account is always the signed-in creator's own, never one from the browser", /readCreatorStripe\(creator\.id\)/.test(own) && !/body\.(account|stripeAccount|accountId)/.test(route))
 /* The owner, October 2026: identity verification is part of setup, required to continue, not left for later. */
@@ -85,7 +86,9 @@ check("  there is no way to finish setup around verification", !/>Later</.test(f
 check("  the bank is the country's own format, with the IBAN checked before it is sent", /IBAN_COUNTRIES/.test(rules) && /ibanValid\(iban, country\)/.test(own) && /ibanLooksValid\(/.test(flow))
 check("Your details is headed, and no lock-and-promise line under it", flow.includes('title="Your details"') && !/Sent securely to Stripe|Secured by Stripe\. Storelib never sees/.test(flow))
 /* The owner, October 2026: the ID check has to be on the form from the start, not sprung weeks later. */
-check("the ID check is offered as soon as Stripe will ever want it", /eventually\.includes\("individual\.verification\.document"\)/.test(own) && /needs\.offered = \[\.\.\.needs\.offered, "document"\]/.test(own))
+/* The owner, October 2026, the payments brief: progressive KYC. "A seller who does not currently need identity verification should never see Upload your passport just because Stripe may request it in the future." */
+check("the ID is never asked early: nothing is offered from eventually_due", !/eventually\.includes\("individual\.verification\.document"\)/.test(own) && !/needs\.offered = \[\.\.\.needs\.offered, "document"\]/.test(own))
+check("  and Stripe's identity check only starts when the document is due now", !/eventually_due/.test(readFileSync("lib/payments/stripe/identity.ts", "utf8").split("function documentDue")[1]?.split("\n}\n")[0] ?? "eventually_due"))
 check("a step is answered from the write Stripe just acknowledged, not another read", /return viewOf\(creator, saved\)/.test(own) && !/await syncStripeAccount\(creator\.id, "creator"\)\.catch\(\(\) => undefined\)\s*\n\s*return detailsForm/.test(own))
 check("the Account step's names are not asked again by Storelib", (flow.match(/autoComplete="given-name"/g) ?? []).length === 1)
 check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
@@ -97,7 +100,7 @@ check("  the ID check is its own step, drawn apart from the details", /only === 
 check("  the ID number is not asked again once Stripe holds the document", /given\?: DetailField\[\]/.test(flow) && /needs\.given = given/.test(own))
 check("the step comes from Stripe's status", /setupStepOf\(/.test(flow))
 /* The owner, October 2026: going on "takes to much", and "We're verifying your details" appearing out of nowhere. */
-check("  the next step reads the overview the write returned, with no second sync", !/post<Overview>\("refresh"/.test(flow) && /const settle = async \(sent: Overview, left: DetailsForm \| null\)/.test(flow))
+check("  the next step reads the overview the write returned, with no second sync", (flow.match(/post<Overview>\("refresh"/g) ?? []).length === 1 && /function BusinessDetailsStep[\s\S]*?post<Overview>\("refresh"/.test(flow) && /const settle = async \(sent: Overview, left: DetailsForm \| null\)/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /stillAsking && \(outcome === "checking" \|\| outcome === "done"\)/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
@@ -128,8 +131,8 @@ check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-
   )
 }
 check(
-  "nothing in setup needs a Stripe frame to load, so it runs the same in the phone app",
-  !/StripeConnectEmbedded|OpenInBrowser|openExternal\(/.test(flow),
+  "nothing in an individual's setup needs a Stripe frame, and nothing opens a browser",
+  !/OpenInBrowser|openExternal\(/.test(flow) && /business \? STEP_LABELS_NO_ID|const business = data\.kind === "business"/.test(flow),
 )
 {
   /* The app gets its own, much narrower frame-src: Stripe's embedded forms

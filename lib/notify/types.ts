@@ -39,6 +39,7 @@ export const DOMAIN_EVENTS = [
   /* The weekly sweep (lib/notify/payout-weekly.ts): payments still not set up, said again once a week. */
   "payment_setup.weekly_check",
   "payout_method.added",
+  "payout_method.problem",
   "payout_method.changed",
   "payout.scheduled",
   "payout.sent",
@@ -140,6 +141,7 @@ export const NOTIFICATION_TYPES = [
   "PAYMENT_VERIFICATION_REQUIRED",
   "PAYMENT_SETUP_FAILED",
   "PAYOUT_METHOD_ADDED",
+  "PAYOUT_METHOD_PROBLEM",
   "PAYOUT_METHOD_CHANGED",
   "PAYOUT_SCHEDULED",
   "PAYOUT_SENT",

@@ -57,7 +57,10 @@ check("a disabled account is paused", stripeStageOf({ ...active, disabledReason:
 console.log("\nCheckout's gate is never stricter than the one live sellers passed before")
 check("connected, flags on, details never written: still sells", stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: true, payouts_enabled: true, details_submitted: false }))
 check("connected with the flags never written: still sells", stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: null, payouts_enabled: null }))
-check("charges switched off: does not sell", !stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: false, payouts_enabled: true }))
+/* Storelib's charge model is a destination charge: a seller in another country is a transfers-only account, whose charges_enabled is false for good. The sync writes "connected" from the transfers-aware rule (lib/payments/stripe/readiness), so connected with charges off is that account, and it sells. */
+check("a transfers-only account the sync marked connected: sells", stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: false, payouts_enabled: true }))
+check("charges off and never connected: does not sell", !stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "pending", charges_enabled: false, payouts_enabled: true, details_submitted: true }))
+check("the sync's own answer wins: can_accept_payments false does not sell", !stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: true, payouts_enabled: true, can_accept_payments: false }))
 check("payouts switched off: does not sell", !stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: true, payouts_enabled: false }))
 check("synced all on, status word stale: sells", stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "pending", charges_enabled: true, payouts_enabled: true, details_submitted: true }))
 check("pending and not all on: does not sell", !stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "pending", charges_enabled: true, payouts_enabled: true, details_submitted: false }))

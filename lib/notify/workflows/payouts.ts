@@ -9,6 +9,8 @@
  *   payout.action_required    PAYOUT_ACTION_REQUIRED, critical
  *   payout_method.added       PAYOUT_METHOD_ADDED, security, always sent
  *   payout_method.changed     PAYOUT_METHOD_CHANGED, security, always sent
+ *   payout_method.problem     PAYOUT_METHOD_PROBLEM, critical: Stripe could not
+ *                             verify the bank, or marked it errored
  *
  * A payout is its own entity (the Stripe payout id), so a failed payout and
  * a later failed payout are two notifications, and the same failure raised
@@ -32,6 +34,8 @@ export const payouts: Workflow = (event, ctx) => {
       return plan([job("PAYOUT_METHOD_ADDED", event, ctx, { entityType: "creator", entityId: ctx.creatorId })])
     case "payout_method.changed":
       return plan([job("PAYOUT_METHOD_CHANGED", event, ctx, { entityType: "creator", entityId: ctx.creatorId })])
+    case "payout_method.problem":
+      return plan([job("PAYOUT_METHOD_PROBLEM", event, ctx, { entityType: "creator", entityId: ctx.creatorId })])
     default:
       return null
   }

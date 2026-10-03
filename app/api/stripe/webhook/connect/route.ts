@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     } else if (isConnectPayoutEvent(event.type)) {
       await handleConnectPayoutEvent(supabaseAdmin, event)
     }
-    if (isConnectStatusEvent(event.type)) await resyncConnectedAccount(event.account)
+    if (isConnectStatusEvent(event.type)) await resyncConnectedAccount(event.account, event)
     await noteStripeEvent(supabaseAdmin, { id: event.id, type: event.type, account: event.account, ok: true })
     return NextResponse.json({ received: true })
   } catch (error) {

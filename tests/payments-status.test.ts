@@ -27,7 +27,8 @@ function account(over: Partial<NonNullable<Acct>> & { due?: string[]; past?: str
     charges_enabled: false,
     payouts_enabled: false,
     details_submitted: false,
-    capabilities: { card_payments: "inactive", transfers: "inactive" },
+    /* As Stripe reports them: an account it lets take charges has its capabilities active. */
+    capabilities: rest.charges_enabled ? { card_payments: "active", transfers: "active" } : { card_payments: "inactive", transfers: "inactive" },
     requirements: { currently_due: due, past_due: past, pending_verification: pending, disabled_reason: reason, current_deadline: deadline },
     future_requirements: { currently_due: future, past_due: [] },
     ...rest,
@@ -60,7 +61,7 @@ const checking = is(
   status(account({ details_submitted: true, pending: ["individual.verification.document"], reason: "requirements.pending_verification" }), bank),
   "VERIFYING",
 )
-check("checking asks nothing of the creator", checking.action === null && checking.title === "We're checking your information" && checking.line === "No action is needed right now.")
+check("checking asks nothing of the creator", checking.action === null && checking.title === "Verification in progress" && checking.line === "We're checking your information. No action is needed right now.")
 
 const idDue = is(
   "Stripe asks for an ID photo after submit",
@@ -93,7 +94,7 @@ const later = is(
   status(account({ details_submitted: true, charges_enabled: true, payouts_enabled: true, due: ["individual.id_number"], deadline: 1_900_000_000 }), bank, { everActive: true }),
   "ACTION_REQUIRED",
 )
-check("later asks keep payments active and say so", later.title === "More information needed" && later.line === "We need a little more information to keep your payments active." && later.actionLabel === "Update details")
+check("later asks keep payments active and say so", later.title === "More information needed" && later.line === "Update your payout details to keep your account active." && later.actionLabel === "Update details")
 check("the deadline is passed on as a date", later.deadline === new Date(1_900_000_000 * 1000).toISOString())
 
 const future = is(
@@ -108,12 +109,12 @@ const restricted = is(
   status(account({ details_submitted: true, past: ["individual.verification.document"], reason: "requirements.past_due" }), bank, { everActive: true }),
   "RESTRICTED",
 )
-check("restore copy for a paused account", restricted.title === "Payments need attention" && restricted.line === "Complete your verification to restore payments and payouts." && restricted.actionLabel === "Complete verification")
+check("restore copy for a paused account", restricted.title === "Payouts are temporarily paused" && restricted.line === "Complete the requested verification to resume payouts." && restricted.actionLabel === "Fix now")
 
 is("past due before ever being active", status(account({ details_submitted: true, past: ["individual.address.line1"], reason: "requirements.past_due" }), bank), "RESTRICTED")
 
 const failedBank = is("Stripe marked the bank errored", status(account({ details_submitted: true, charges_enabled: true, payouts_enabled: false }), [{ status: "errored" }]), "PAYOUT_FAILED")
-check("a failed bank opens the bank change", failedBank.action === "change_bank" && failedBank.actionLabel === "Update bank account")
+check("a failed bank opens the bank change", failedBank.action === "change_bank" && failedBank.actionLabel === "Update payout account")
 is("the last payout failed", status(account({ details_submitted: true, charges_enabled: true, payouts_enabled: true }), bank, { lastPayoutFailed: true }), "PAYOUT_FAILED")
 
 const closed = is("rejected by Stripe", status(account({ details_submitted: true, reason: "rejected.fraud" }), bank), "SUSPENDED")
@@ -132,6 +133,19 @@ check("waiting items are not asked again", status(account({ details_submitted: t
 check("Storelib form state can never make an account active", status(account({ details_submitted: true, due: [] }), bank).status !== "ACTIVE")
 
 check("every status is reachable", all.every((s) => seen.has(s)))
+
+/* Storelib's charge model: a destination charge needs the seller's transfers capability, not card_payments. */
+is(
+  "a recipient account (transfers only) with transfers active",
+  status(account({ details_submitted: true, charges_enabled: false, payouts_enabled: true, capabilities: { transfers: "active" } }), bank, { everActive: true }),
+  "ACTIVE",
+)
+is(
+  "charges on but the transfers capability not active",
+  status(account({ details_submitted: true, charges_enabled: true, payouts_enabled: true, capabilities: { card_payments: "active", transfers: "inactive" } }), bank),
+  "RESTRICTED",
+)
+
 check("every status has a pill", all.every((s) => typeof STATUS_PILL[s]?.label === "string"))
 const copy = all.map((s) => JSON.stringify(STATUS_PILL[s]))
 const views = [fresh, checking, idDue, ownersDue, active, later, restricted, failedBank, closed]

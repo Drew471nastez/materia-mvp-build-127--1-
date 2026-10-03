@@ -69,6 +69,7 @@
  * products, subscribers who can be mailed, emails sent, automations on,
  * coupons used, money made, the creator page on its own domain).
  */
+import { homePaymentsState, rowCanAcceptPayments, type HomePaymentsState } from "@/lib/payments/stripe/readiness"
 import { homeTotals } from "@/lib/analytics/home-figures"
 import type { OrderRow } from "@/lib/orders/order-view"
 
@@ -81,6 +82,8 @@ export interface ProgressFacts {
   publishedProducts: number
   /** Stripe can take charges and pay out. */
   paymentsReady: boolean
+  /** What Home says about payments when they are not ready (lib/payments/stripe/readiness homePaymentsState). */
+  paymentsState?: HomePaymentsState
   /** A website is published right now. */
   websiteLive: boolean
   /** A custom domain whose DNS has been verified, for anything. */
@@ -138,6 +141,11 @@ export const WEBSITE_LIVE_STATUS = "published"
 export const SENT_CAMPAIGN_STATUSES: readonly string[] = ["sent", "partially_failed"]
 
 export interface PaymentsRow {
+  stripe_account_id?: string | null
+  stripe_requirements?: string[] | null
+  stripe_connected_at?: string | null
+  can_accept_payments?: boolean | null
+  details_submitted?: boolean | null
   stripe_onboarding_status?: string | null
   charges_enabled?: boolean | null
   payouts_enabled?: boolean | null
@@ -150,11 +158,11 @@ export interface PaymentsRow {
 }
 
 /** Stripe can take a buyer's money and pay it out, or Airwallex can. Payouts alone is not enough: a card could not be charged. */
+/** Checkout can take money for this creator: Storelib's one rule (lib/payments/stripe/readiness), or Airwallex's answer. */
 export function paymentsReadyFrom(creator: PaymentsRow | null | undefined): boolean {
   if (!creator) return false
   if (creator.provider_payments_ready === true) return true
-  if (creator.stripe_onboarding_status === "connected") return true
-  return creator.charges_enabled === true && creator.payouts_enabled === true
+  return rowCanAcceptPayments(creator)
 }
 
 /** Pro is "growth" now and was "pro" before (lib/billing/plans). */
@@ -219,6 +227,7 @@ export function factsFromRows(rows: ProgressRows): ProgressFacts {
     products: products.length,
     publishedProducts: products.filter((p) => p.status === "published").length,
     paymentsReady: paymentsReadyFrom(rows.creator),
+    paymentsState: paymentsReadyFrom(rows.creator) ? "ready" : homePaymentsState(rows.creator),
     websiteLive: rows.websiteLive === true,
     ...domainFactsFrom(rows.domains),
     ...(rows.sales ? { sales: n(rows.sales.sales), revenueCents: n(rows.sales.revenueCents) } : salesFrom(rows.orders)),

@@ -52,6 +52,20 @@ export const PRIVATE_CREATOR_COLUMNS = [
   "stripe_previous_account_id",
   "stripe_account_reset_at",
   "stripe_account_reset_reason",
+  /* What the last Stripe sync worked out (supabase/sql/run-now/84_seller_payment_state.sql). */
+  "can_accept_payments",
+  "stripe_disabled_reason",
+  "stripe_account_country",
+  "stripe_business_type",
+  "stripe_pending_verification",
+  "stripe_eventually_due",
+  "stripe_requirement_errors",
+  "stripe_transfers_status",
+  "payout_destination",
+  "stripe_requirements_cleared_at",
+  "last_stripe_event_id",
+  "last_stripe_event_type",
+  "last_stripe_event_at",
 ] as const
 
 export const PRIVATE_PROFILE_COLUMNS = [

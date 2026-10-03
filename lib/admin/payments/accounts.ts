@@ -1,7 +1,9 @@
 import "server-only"
 
 import { paymentUxStateOf, snapshotFromCreatorRow } from "@/lib/payments/stripe/facts"
-import { fetchStripeBalances, maskExternalAccount, syncStripeAccount } from "@/lib/payments/stripe/connect"
+import { fetchStripeBalances, maskExternalAccount, readCreatorStripe, syncStripeAccount } from "@/lib/payments/stripe/connect"
+import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/status"
+import { canAcceptPayments, sellerFactsOfAccount } from "@/lib/payments/stripe/readiness"
 import { stripe } from "@/lib/stripe"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,10 +52,12 @@ export async function getPaymentAccountDetail(db: Db, creatorId: string) {
   let bankMasked: { bankName: string | null; last4: string | null; country: string | null } | null = null
   let recentPayouts: unknown[] = []
   let recentPayments: unknown[] = []
+  let live: Awaited<ReturnType<typeof stripe.accounts.retrieve>> | null = null
 
   if (process.env.STRIPE_SECRET_KEY?.trim()) {
     try {
       const acct = await stripe.accounts.retrieve(creator.stripe_account_id)
+      live = acct
       stripeAccount = {
         id: acct.id,
         charges_enabled: acct.charges_enabled,
@@ -106,6 +110,32 @@ export async function getPaymentAccountDetail(db: Db, creatorId: string) {
     db.from("stripe_webhook_events").select("event_id, type, account, received_at, processed_at, last_error").eq("account", creator.stripe_account_id).order("received_at", { ascending: false }).limit(20),
   ])
 
+  /*
+   * THE SUMMARY THE ADMIN SCREEN DRAWS: what Stripe says, read live, beside
+   * what Storelib cached from it. Masked bank only; never a document, never a
+   * full account number, never an identity payload.
+   */
+  const cached = await readCreatorStripe(creatorId).catch(() => null)
+  const lastWebhook = (webhooks.data ?? [])[0] as { event_id?: string; type?: string; received_at?: string } | undefined
+  const summary = {
+    connectedAccountId: creator.stripe_account_id,
+    country: live?.country ?? null,
+    accountType: live?.business_type ?? null,
+    chargesEnabled: live ? !!live.charges_enabled : snap.chargesEnabled,
+    payoutsEnabled: live ? !!live.payouts_enabled : snap.payoutsEnabled,
+    transfers: (live?.capabilities as Record<string, string> | undefined)?.transfers ?? cached?.stripe_transfers_status ?? null,
+    canAcceptPayments: live ? canAcceptPayments(sellerFactsOfAccount(live)) : cached?.can_accept_payments ?? null,
+    storelibStatus: live ? getStorelibPaymentsStatus(statusFactsOf(live, live.external_accounts?.data ?? [], { everActive: !!cached?.stripe_connected_at })).status : cached?.payments_status ?? null,
+    disabledReason: live?.requirements?.disabled_reason ?? cached?.stripe_disabled_reason ?? null,
+    currentlyDue: live?.requirements?.currently_due ?? [],
+    pastDue: live?.requirements?.past_due ?? [],
+    eventuallyDue: live?.requirements?.eventually_due ?? cached?.stripe_eventually_due ?? [],
+    pendingVerification: live?.requirements?.pending_verification ?? cached?.stripe_pending_verification ?? [],
+    errors: (live?.requirements?.errors ?? []).map((e) => ({ requirement: e.requirement, code: e.code })),
+    lastSynced: cached?.last_stripe_sync_at ?? null,
+    latestWebhook: lastWebhook ? { id: lastWebhook.event_id ?? null, type: lastWebhook.type ?? null, at: lastWebhook.received_at ?? null } : null,
+  }
+
   return {
     ok: true as const,
     creator: {
@@ -114,6 +144,7 @@ export async function getPaymentAccountDetail(db: Db, creatorId: string) {
       storelibState: paymentUxStateOf(snap),
       snapshot: snap,
     },
+    summary,
     stripeAccount,
     bankMasked,
     balances,

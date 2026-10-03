@@ -7,6 +7,7 @@ import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 import { paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
+import { canAcceptPayments, sellerFactsOfAccount } from "./readiness"
 import { parsePersonal } from "./onboarding-steps"
 import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
 import { mergeStripeAccount, type StripeCreatorSnapshot } from "./facts"
@@ -25,30 +26,53 @@ import type { PayoutDestination } from "../store"
 export type { StripeAccountSessionPurpose } from "./session-components"
 import type { StripeAccountSessionPurpose } from "./session-components"
 
-export async function readCreatorStripe(creatorId: string) {
-  const { data, error } = await createAdminClient()
-    .from("creators")
-    .select(
-      "id, user_id, username, display_name, bio, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, details_submitted, stripe_requirements, stripe_requirements_updated_at, stripe_connected_at",
-    )
-    .eq("id", creatorId)
-    .maybeSingle()
+const CREATOR_STRIPE_COLUMNS =
+  "id, user_id, username, display_name, bio, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, details_submitted, stripe_requirements, stripe_requirements_updated_at, stripe_connected_at"
+/* What the last sync worked out (supabase/sql/run-now/84_seller_payment_state.sql). Read when the columns are there. */
+const SELLER_STATE_COLUMNS =
+  "can_accept_payments, stripe_transfers_status, stripe_disabled_reason, stripe_pending_verification, stripe_eventually_due, payout_destination, payments_status, last_stripe_sync_at, stripe_requirements_cleared_at"
+/* Learnt once per server instance: before the SQL part runs, every read would otherwise fail first and retry. */
+let sellerStateColumns: boolean | null = null
+
+export interface CreatorStripeRow {
+  id: string
+  user_id: string
+  username: string | null
+  display_name: string | null
+  bio: string | null
+  stripe_account_id: string | null
+  stripe_onboarding_status: string | null
+  charges_enabled: boolean | null
+  payouts_enabled: boolean | null
+  details_submitted: boolean | null
+  stripe_requirements: string[] | null
+  stripe_requirements_updated_at: string | null
+  stripe_connected_at: string | null
+  can_accept_payments?: boolean | null
+  stripe_transfers_status?: string | null
+  stripe_disabled_reason?: string | null
+  stripe_pending_verification?: string[] | null
+  stripe_eventually_due?: string[] | null
+  payout_destination?: { bankName?: string | null; last4?: string | null; country?: string | null; currency?: string | null } | null
+  payments_status?: string | null
+  last_stripe_sync_at?: string | null
+  stripe_requirements_cleared_at?: string | null
+}
+
+export async function readCreatorStripe(creatorId: string): Promise<CreatorStripeRow | null> {
+  const db = createAdminClient()
+  if (sellerStateColumns !== false) {
+    const { data, error } = await db.from("creators").select(`${CREATOR_STRIPE_COLUMNS}, ${SELLER_STATE_COLUMNS}`).eq("id", creatorId).maybeSingle()
+    if (!error) {
+      sellerStateColumns = true
+      return data as CreatorStripeRow | null
+    }
+    if (!/column|does not exist|schema cache/i.test(error.message)) throw new Error(error.message)
+    sellerStateColumns = false
+  }
+  const { data, error } = await db.from("creators").select(CREATOR_STRIPE_COLUMNS).eq("id", creatorId).maybeSingle()
   if (error) throw new Error(error.message)
-  return data as {
-    id: string
-    user_id: string
-    username: string | null
-    display_name: string | null
-    bio: string | null
-    stripe_account_id: string | null
-    stripe_onboarding_status: string | null
-    charges_enabled: boolean | null
-    payouts_enabled: boolean | null
-    details_submitted: boolean | null
-    stripe_requirements: string[] | null
-    stripe_requirements_updated_at: string | null
-    stripe_connected_at: string | null
-  } | null
+  return data as CreatorStripeRow | null
 }
 
 export async function profileForCreator(userId: string) {
@@ -438,7 +462,15 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
   const chargesEnabled = !!account.charges_enabled
   const payoutsEnabled = !!account.payouts_enabled
   const detailsSubmitted = !!account.details_submitted
-  const connected = chargesEnabled && payoutsEnabled && detailsSubmitted
+  /*
+   * "Connected" is Storelib's one readiness rule (lib/payments/stripe/readiness):
+   * the account can receive Storelib's transfer for a sale and be paid out.
+   * It was charges_enabled && payouts_enabled, which a recipient account (a
+   * seller in another country than the platform, transfers only) can never
+   * reach: Stripe reports charges_enabled false for it for good.
+   */
+  const sellerFacts = sellerFactsOfAccount(account)
+  const connected = canAcceptPayments(sellerFacts)
   const requirements = (account.requirements ?? {}) as Stripe.Account.Requirements
   const due = [...new Set([...(requirements.past_due ?? []), ...(requirements.currently_due ?? [])])].sort()
   const status = getStorelibPaymentsStatus(
@@ -469,6 +501,38 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
   if (cached.error && !/payments_status|last_stripe_sync_at|column/i.test(cached.error.message)) {
     console.error("[stripe connect] status cache", cached.error.message.slice(0, 160))
   }
+  /*
+   * WHAT THE REST OF STORELIB READS INSTEAD OF ASKING STRIPE (part 84).
+   * Separate again, so a database without that part keeps everything above.
+   * The bank is masked (name, last four, country, currency) and nothing more.
+   * Stripe's error codes are kept for support, never shown to a buyer.
+   *
+   * stripe_requirements_cleared_at moves when the list of things Stripe
+   * wants goes from something to nothing. The "Stripe needs more" email is
+   * keyed by it (lib/stripe/connect-webhook.ts), so the same request coming
+   * back after it was dealt with is told again, while Stripe repeating
+   * itself over and over is told once.
+   */
+  const masked = banks.find((b) => b.default_for_currency) ?? banks[0]
+  const hadDue = (row.stripe_requirements ?? []).length > 0
+  const state = await admin
+    .from("creators")
+    .update({
+      can_accept_payments: connected,
+      stripe_transfers_status: sellerFacts.transfersStatus,
+      stripe_disabled_reason: requirements.disabled_reason ?? null,
+      stripe_account_country: account.country ?? null,
+      stripe_business_type: account.business_type ?? null,
+      stripe_pending_verification: requirements.pending_verification ?? [],
+      stripe_eventually_due: requirements.eventually_due ?? [],
+      stripe_requirement_errors: [...new Set((requirements.errors ?? []).map((e) => e.code).filter(Boolean))].slice(0, 20),
+      payout_destination: masked ? { bankName: masked.bank_name ?? null, last4: masked.last4 ?? null, country: masked.country ?? null, currency: masked.currency?.toUpperCase() ?? null } : null,
+      ...(hadDue && due.length === 0 ? { stripe_requirements_cleared_at: now } : {}),
+    })
+    .eq("id", creatorId)
+  if (state.error && !/column|does not exist|schema cache/i.test(state.error.message)) {
+    console.error("[stripe connect] seller state", state.error.message.slice(0, 160))
+  }
 
   const hasBank = banks.length > 0
   const snapshot = mergeStripeAccount(
@@ -490,6 +554,7 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
       details_submitted: account.details_submitted,
       disabled_reason: account.requirements?.disabled_reason ?? null,
       business_type: account.business_type,
+      capabilities: account.capabilities,
       requirements: account.requirements
         ? {
             currently_due: account.requirements.currently_due ?? undefined,
@@ -500,7 +565,7 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
     },
     hasBank,
   )
-  return { snapshot, account, banks, status }
+  return { snapshot: { ...snapshot, canAcceptPayments: connected }, account, banks, status }
 }
 
 export function maskExternalAccount(ext: Stripe.ExternalAccount): PayoutDestination | null {

@@ -17,6 +17,8 @@ import { fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
 import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
 import { attributionForCheckout, attributionToMetadata, type Attribution } from "@/lib/attribution/server"
 import { cookies } from "next/headers"
+import { checkoutReadyForCreator } from "@/lib/payments/service"
+import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 
 export const runtime = "nodejs"
 
@@ -171,18 +173,14 @@ export async function POST(request: Request) {
     )
   }
 
-  if (
-    !creator.stripe_account_id ||
-    !String(creator.stripe_account_id).startsWith("acct_") ||
-    /* Only a creator Stripe has said yes to: an unknown (null) state is not ready. */
-    creator.charges_enabled !== true ||
-    creator.payouts_enabled !== true ||
-    creator.stripe_onboarding_status !== "connected"
-  ) {
-    return NextResponse.json(
-      { error: "This shop cannot take payments yet. Please contact the seller." },
-      { status: 400 },
-    )
+  /*
+   * Storelib's one readiness rule (lib/payments/stripe/readiness). This used
+   * to want charges_enabled true, which a seller in another country than the
+   * platform (a transfers-only account) never has. The buyer is told nothing
+   * about the seller's verification.
+   */
+  if (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string))) {
+    return NextResponse.json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, { status: 409 })
   }
 
   /* A code with a use limit keeps a place under it while this Stripe page is

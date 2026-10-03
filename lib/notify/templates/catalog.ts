@@ -75,6 +75,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PAYOUT_SENT: ["payoutId", "amountCents", "currency", "arrivalDate", "bankLast4"],
   PAYOUT_FAILED: ["payoutId", "amountCents", "currency", "reason", "bankLast4"],
   PAYOUT_ACTION_REQUIRED: ["reason", "dueBy", "needsWords"],
+  PAYOUT_METHOD_PROBLEM: ["bankLast4"],
   VERIFICATION_REMINDER: ["requirements", "requirementCount", "identity", "dueBy"],
   VERIFICATION_REMINDER_2: ["requirements", "requirementCount", "identity", "dueBy"],
   PAYOUT_RESTRICTED: ["reason"],
@@ -765,7 +766,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
     return {
       family: "lifecycle",
       audience: "creator",
-      subject: started ? "Your payout setup is not finished" : "Your product is live and payments are not on",
+      subject: started ? "Finish setting up your Storelib payouts" : "Your product is live and payments are not on",
       preview: "You cannot be paid until this is done.",
       heading: "Finish setting up your payouts",
       paragraphs: [
@@ -836,15 +837,14 @@ export const CATALOG: Record<NotificationType, Entry> = {
       : {
           family: "success",
           audience: "creator",
-          subject: "Payments are set up",
-          preview: "You can now get paid for your sales.",
-          heading: "You are ready to get paid",
+          subject: "Your Storelib payments are ready",
+          preview: "Buyers can check out, and you get paid to your bank.",
+          heading: "Your payments are ready",
           paragraphs: [
-            "Your payment details are confirmed. Money from your sales goes to your balance and pays out to your bank on your payout schedule.",
-            "You can see your balance and upcoming payouts any time.",
+            "Your details are confirmed. Buyers can check out now, and your earnings are paid to your bank.",
           ],
           action: { label: "View payouts", path: PATHS.payouts },
-          inApp: { title: "Payments are set up", body: "You can now get paid for your sales.", actionLabel: "View payouts", actionPath: PATHS.payouts },
+          inApp: { title: "Payments active", body: "Buyers can check out now.", actionLabel: "View payouts", actionPath: PATHS.payouts },
         },
 
   PAYMENT_VERIFICATION_REQUIRED: (d) => {
@@ -968,23 +968,60 @@ export const CATALOG: Record<NotificationType, Entry> = {
     }
   },
 
+  /*
+     Two emails, one template. Stripe asking for something while payouts still run ("requirements_due") is
+     "Action needed for your Storelib payouts"; payouts actually switched off ("payouts_paused") is the higher
+     one, "Action needed to continue receiving payouts". Both name what is wanted in words and go straight to
+     Payouts, where the same setup form opens with only that.
+  */
   PAYOUT_ACTION_REQUIRED: (d) => {
     const due = d.date("dueBy")
     /* What Stripe is asking for, in words. Falls back to its reason when the webhook sent no list. */
     const needs = d.text("needsWords", 120)
+    const paused = d.text("reason", 40) === "payouts_paused"
     return {
       family: "action_required",
       audience: "creator",
-      subject: "Action needed to keep your payouts going",
-      preview: "Stripe needs something from you before the next payout.",
-      heading: "Your payouts need your attention",
+      subject: paused ? "Action needed to continue receiving payouts" : "Action needed for your Storelib payouts",
+      preview: paused ? "Your payouts are paused until this is done." : "Storelib needs a little more information to keep paying you.",
+      heading: paused ? "Your payouts are paused" : "We need a little more information",
       paragraphs: [
-        needs ? `Your next payout is on hold until Stripe has a bit more from you: ${needs.toLowerCase()}.` : "Your next payout is on hold until Stripe gets a bit more information from you.",
-        due ? `Please take care of it by ${due}. It usually takes a few minutes.` : "It usually takes a few minutes.",
+        paused
+          ? needs
+            ? `Your payouts are on hold until we have ${needs.toLowerCase()}.`
+            : "Your payouts are on hold until the requested verification is complete."
+          : needs
+            ? `To keep paying you, we need ${needs.toLowerCase()}.`
+            : "To keep paying you, we need some additional verification information.",
+        due ? `Please complete it by ${due}. It usually takes a few minutes.` : "It usually takes a few minutes.",
       ],
       facts: [["What is needed", needs || d.readable("reason")], ["Due by", due]],
-      action: { label: "Review payout details", path: PATHS.payments },
-      inApp: { title: "Payouts need your attention", body: needs ? `Stripe needs ${needs.toLowerCase()} before your next payout.` : "Stripe needs more information before your next payout.", actionLabel: "Review", actionPath: PATHS.payments },
+      action: { label: "Complete verification", path: PATHS.payments },
+      inApp: {
+        title: paused ? "Payouts are temporarily paused" : "More information needed",
+        body: needs ? `We need ${needs.toLowerCase()}.` : paused ? "Complete the requested verification to resume payouts." : "Update your payout details to keep your account active.",
+        actionLabel: paused ? "Fix now" : "Complete verification",
+        actionPath: PATHS.payments,
+      },
+    }
+  },
+
+  /* A bank account Stripe could not verify, or one it marked errored: before any payout bounces off it. */
+  PAYOUT_METHOD_PROBLEM: (d) => {
+    const last4 = d.last4("bankLast4")
+    return {
+      family: "action_required",
+      audience: "creator",
+      subject: "Update your payout account",
+      preview: "We couldn't verify your bank account.",
+      heading: "Update your payout account",
+      paragraphs: [
+        last4 ? `We couldn't verify the bank account ending in ${last4}.` : "We couldn't verify your bank account.",
+        "Check the account details or add another payout account so your earnings can reach you.",
+      ],
+      facts: [["Bank account", ending(last4)]],
+      action: { label: "Update payout account", path: PATHS.payments },
+      inApp: { title: "Update your payout account", body: "We couldn't verify your bank account.", actionLabel: "Update", actionPath: PATHS.payments },
     }
   },
 

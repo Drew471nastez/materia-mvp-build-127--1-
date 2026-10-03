@@ -2,7 +2,7 @@ import "server-only"
 
 import { after } from "next/server"
 import type Stripe from "stripe"
-import { syncStripeAccount } from "@/lib/payments/stripe/connect"
+import { readCreatorStripe, syncStripeAccount, syncStripeAccountFull } from "@/lib/payments/stripe/connect"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { emit } from "@/lib/notify/outbox"
@@ -27,6 +27,43 @@ function payoutMethodFacts(ext: Stripe.ExternalAccount): Record<string, unknown>
     currency: ext.currency || null,
     country: (ext as Stripe.BankAccount).country || null,
   }
+}
+
+/*
+ * THE LAST STRIPE EVENT, on the creator, for the admin screen (part 84). A
+ * database without the columns skips it quietly.
+ */
+async function noteLastEvent(creatorId: string, event: Stripe.Event): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("creators")
+    .update({ last_stripe_event_id: event.id, last_stripe_event_type: event.type, last_stripe_event_at: new Date(event.created * 1000).toISOString() })
+    .eq("id", creatorId)
+  if (error && !/column|does not exist|schema cache/i.test(error.message)) console.error("[connect webhook] last event", error.message.slice(0, 120))
+}
+
+/*
+ * READY, TOLD ONCE PER TIME IT HAPPENS. Storelib's readiness rule
+ * (lib/payments/stripe/readiness) going from no to yes is "Your Storelib
+ * payments are ready". Keyed by the account and the last time Stripe's list
+ * of asks emptied, so becoming ready again after a hold is told again, and
+ * the many account.updated events around one change are told once. This was
+ * only ever sent for Airwallex; a Stripe seller never heard it.
+ */
+async function tellIfNowReady(creatorId: string, userId: string | null, accountId: string, wasReady: boolean, event: Stripe.Event): Promise<void> {
+  const synced = await syncStripeAccountFull(creatorId, "webhook")
+  const nowReady = synced.snapshot.canAcceptPayments === true
+  if (wasReady || !nowReady) return
+  const row = await readCreatorStripe(creatorId).catch(() => null)
+  await emit({
+    name: "payment_setup.completed",
+    key: `stripe_ready:${accountId}:${row?.stripe_requirements_cleared_at ?? "first"}`,
+    userId,
+    creatorId,
+    entityType: "payment_setup",
+    entityId: creatorId,
+    correlationId: event.id,
+    payload: { provider: "stripe" },
+  })
 }
 
 /**
@@ -55,12 +92,15 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
 
   if (event.type === "account.updated") {
     const account = event.data.object as Stripe.Account
-    const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id, payouts_enabled").eq("stripe_account_id", account.id).maybeSingle()
+    const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id, payouts_enabled, stripe_onboarding_status").eq("stripe_account_id", account.id).maybeSingle()
     if (!creator) return
 
     const previousPayoutsEnabled = (creator as { payouts_enabled?: boolean }).payouts_enabled ?? false
-    /* Also writes the requirements the reminders read, and keeps payouts manual. */
-    await syncStripeAccount(creator.id as string, "webhook")
+    /* "Connected" is written from Storelib's readiness rule, so it is the before of the ready transition. */
+    const wasReady = (creator as { stripe_onboarding_status?: string | null }).stripe_onboarding_status === "connected"
+    /* Re-reads the account (so webhook order never matters), writes the requirements the reminders read, keeps payouts manual, and tells "ready" when it turns. */
+    await tellIfNowReady(creator.id as string, (creator as { user_id?: string }).user_id ?? null, account.id, wasReady, event)
+    await noteLastEvent(creator.id as string, event)
 
     /* Payouts or card payments off, or Stripe asking by a deadline: the creator's notices, after the answer. */
     const accountCreatorId = creator.id as string
@@ -77,7 +117,14 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
     const deadline = typeof requirements?.current_deadline === "number" ? requirements.current_deadline : null
 
     if (paused || (due.length > 0 && account.details_submitted)) {
-      const asked = createHash("sha256").update(`${due.join(",")}|${deadline ?? ""}`).digest("hex").slice(0, 16)
+      /*
+       * Told once per request: the same list and deadline is the same key, so
+       * Stripe repeating account.updated sends nothing more. The key also
+       * carries when the list last emptied (written by the sync), so the same
+       * request coming back after it was dealt with is a new one and is told.
+       */
+      const cleared = (await readCreatorStripe(accountCreatorId).catch(() => null))?.stripe_requirements_cleared_at ?? ""
+      const asked = createHash("sha256").update(`${due.join(",")}|${deadline ?? ""}|${cleared}`).digest("hex").slice(0, 16)
       await emit({
         name: "payout.action_required",
         key: paused ? `stripe:${event.id}` : `stripe_requirements:${account.id}:${asked}`,
@@ -113,8 +160,23 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
       event.type === "account.external_account.updated" && previous.default_for_currency === false && (ext as Stripe.BankAccount).default_for_currency === true
     const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id").eq("stripe_account_id", acctId).maybeSingle()
     if (!creator) return
+    await noteLastEvent(creator.id as string, event)
     if (event.type === "account.external_account.updated" && !becameDefault) {
       await syncStripeAccount(creator.id as string, "webhook")
+      /* Stripe could not verify the bank, or marked it errored: "Update your payout account", once per bank and state. */
+      const bankStatus = (ext as Stripe.BankAccount).status
+      if (bankStatus === "verification_failed" || bankStatus === "errored") {
+        await emit({
+          name: "payout_method.problem",
+          key: `bank_problem:${ext.id}:${bankStatus}`,
+          userId: (creator as { user_id?: string }).user_id ?? null,
+          creatorId: creator.id as string,
+          entityType: "payment_setup",
+          entityId: creator.id as string,
+          correlationId: event.id,
+          payload: { bankLast4: (ext as Stripe.BankAccount).last4 ?? null, status: bankStatus },
+        })
+      }
       return
     }
 
@@ -149,9 +211,16 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
  * Storelib status. For events that change the status but tell the creator
  * nothing themselves: capability.updated, a payout paid or failed.
  */
-export async function resyncConnectedAccount(accountId: string): Promise<void> {
-  const { data: creator } = await supabaseAdmin.from("creators").select("id").eq("stripe_account_id", accountId).maybeSingle()
+export async function resyncConnectedAccount(accountId: string, event?: Stripe.Event): Promise<void> {
+  const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id, stripe_onboarding_status").eq("stripe_account_id", accountId).maybeSingle()
   if (!creator) return
+  /* A capability turning active is often the very moment a seller becomes ready (a transfers-only account has nothing else to wait for). */
+  if (event?.type === "capability.updated") {
+    const wasReady = (creator as { stripe_onboarding_status?: string | null }).stripe_onboarding_status === "connected"
+    await tellIfNowReady(creator.id as string, (creator as { user_id?: string }).user_id ?? null, accountId, wasReady, event)
+    await noteLastEvent(creator.id as string, event)
+    return
+  }
   await syncStripeAccount(creator.id as string, "webhook")
 }
 

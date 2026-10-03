@@ -70,6 +70,8 @@ export interface StorelibStatusView {
 
 const BANK = /^external_account$/
 const IDENTITY = /verification\.(document|additional_document|proof_of_liveness)|\.id_number|ssn_last_4|\.dob\./
+/* Stripe wants to SEE an ID (a document, a liveness check), not a detail typed in: that is "Verify your identity". */
+const DOCUMENT = /verification\.(document|additional_document|proof_of_liveness)/
 
 function userDue(f: StatusFacts): { all: string[]; past: string[] } {
   const waiting = new Set(f.pendingVerification)
@@ -80,7 +82,14 @@ function userDue(f: StatusFacts): { all: string[]; past: string[] } {
 export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
   const deadline = f.currentDeadline ? new Date(f.currentDeadline * 1000).toISOString() : null
   const upcoming = f.futureDue.length > 0
-  const base = { deadline, upcoming, canCharge: f.chargesEnabled }
+  /*
+   * A Storelib sale is a destination charge, so what this account has to be
+   * able to do is receive the transfer (lib/payments/stripe/readiness). A
+   * recipient account, a seller in another country than the platform, never
+   * has charges_enabled, and read that way it was stuck on "paused" forever.
+   */
+  const takes = f.capabilities.transfers ? f.capabilities.transfers === "active" : f.chargesEnabled
+  const base = { deadline, upcoming, canCharge: takes && f.payoutsEnabled && f.detailsSubmitted }
   const view = (status: StorelibPaymentsStatus, title: string, line: string, actionLabel: string | null, action: StatusAction): StorelibStatusView => ({
     status,
     title,
@@ -99,7 +108,7 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
       are all still there; only the link to Stripe is new.
     */
     if (f.reconnect) return view("NOT_STARTED", "Reconnect payments", "Set up payments again to keep selling. Your orders and payout history are safe.", "Reconnect payments", "setup")
-    return view("NOT_STARTED", "Set up payments", "Accept payments and get paid to your bank.", "Set up payments", "setup")
+    return view("NOT_STARTED", "Set up payouts", "Get paid directly to your bank account.", "Set up payouts", "setup")
   }
 
   const reason = f.disabledReason ?? ""
@@ -107,13 +116,13 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
   if (/^rejected\./.test(reason)) {
     return view("SUSPENDED", "Payments are turned off", "This account can't accept payments. Write to support@storelib.com and we'll help.", "Contact support", "support")
   }
-  if (reason === "platform_paused" && !(f.chargesEnabled && f.payoutsEnabled)) {
+  if (reason === "platform_paused" && !(takes && f.payoutsEnabled)) {
     return view("SUSPENDED", "Payments are turned off", "This account can't accept payments. Write to support@storelib.com and we'll help.", "Contact support", "support")
   }
 
   const bankFailed = f.lastPayoutFailed || f.externalAccounts.some((b) => b.status === "errored" || b.status === "verification_failed")
   if (bankFailed) {
-    return view("PAYOUT_FAILED", "Your payout account needs attention", "A payout to your bank didn't go through. Update your bank account to get paid.", "Update bank account", "change_bank")
+    return view("PAYOUT_FAILED", "Update your payout account", "We couldn't verify this bank account. Check the account details or add another payout account.", "Update payout account", "change_bank")
   }
 
   const due = userDue(f)
@@ -126,30 +135,34 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
       return view("INCOMPLETE", "Finish setting up payments", "Pick up where you left off.", "Continue setup", "onboarding")
     }
     if (pastDetails.length > 0 || reason === "requirements.past_due") {
-      if (f.everActive) return view("RESTRICTED", "Payments need attention", "Complete your verification to restore payments and payouts.", "Complete verification", "onboarding")
+      if (f.everActive) return view("RESTRICTED", "Payouts are temporarily paused", "Complete the requested verification to resume payouts.", "Fix now", "onboarding")
       return identity
         ? view("RESTRICTED", "Verify your identity", "One more step is needed to activate payments.", "Continue verification", "onboarding")
         : view("RESTRICTED", "More information needed", "More information is needed to activate payments.", "Continue", "onboarding")
     }
-    if (f.chargesEnabled) return view("ACTION_REQUIRED", "More information needed", "We need a little more information to keep your payments active.", "Update details", "onboarding")
+    if (takes) {
+      return details.some((k) => DOCUMENT.test(k))
+        ? view("ACTION_REQUIRED", "Verify your identity", "Verify your identity to keep receiving payouts.", "Verify identity", "onboarding")
+        : view("ACTION_REQUIRED", "More information needed", "Update your payout details to keep your account active.", "Update details", "onboarding")
+    }
     return identity
       ? view("ACTION_REQUIRED", "Verify your identity", "One more step is needed to activate payments.", "Continue verification", "onboarding")
       : view("ACTION_REQUIRED", "More information needed", "More information is needed to activate payments.", "Continue", "onboarding")
   }
 
   const checking = f.pendingVerification.length > 0 || reason === "requirements.pending_verification" || reason === "under_review" || reason === "listed"
-  if (checking && !(f.chargesEnabled && f.payoutsEnabled)) {
-    return view("VERIFYING", "We're checking your information", "No action is needed right now.", null, null)
+  if (checking && !(takes && f.payoutsEnabled)) {
+    return view("VERIFYING", "Verification in progress", "We're checking your information. No action is needed right now.", null, null)
   }
 
   const bankMissing = f.externalAccounts.length === 0 || due.all.some((k) => BANK.test(k))
   if (bankMissing) return view("BANK_REQUIRED", "Add your bank account", "Add the account where you'd like to receive payouts.", "Add bank account", "bank")
 
-  if (f.chargesEnabled && f.payoutsEnabled) return view("ACTIVE", "Payments active", "You're ready to accept payments.", null, null)
+  if (takes && f.payoutsEnabled) return view("ACTIVE", "Payments active", "You're ready to accept payments.", null, null)
 
   const capabilityPending = Object.values(f.capabilities).some((s) => s === "pending")
   if (capabilityPending || (!f.detailsSubmitted && !f.everActive)) {
-    return view("VERIFYING", "We're checking your information", "No action is needed right now.", null, null)
+    return view("VERIFYING", "Verification in progress", "We're checking your information. No action is needed right now.", null, null)
   }
   return view("RESTRICTED", "Payments need attention", "Our payment partner paused this account. Write to support@storelib.com and we'll sort it out.", "Contact support", "support")
 }

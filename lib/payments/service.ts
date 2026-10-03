@@ -177,9 +177,10 @@ export async function checkoutReadyForCreator(creatorId: string): Promise<boolea
 
 export { payoutStatusOf, type PayoutStatus } from "./model"
 
-export async function overview(creator: CreatorRef): Promise<HubOverview> {
+/** `sync: "stale"` (opening Payouts) asks Stripe only when the cached state is old; writes always read it fresh. */
+export async function overview(creator: CreatorRef, options?: { sync?: boolean | "stale" }): Promise<HubOverview> {
   const provider = await providerFor(creator.id)
-  if (provider === "stripe") return stripeOverview(creator)
+  if (provider === "stripe") return stripeOverview(creator, options)
   return airwallexOverview(creator)
 }
 

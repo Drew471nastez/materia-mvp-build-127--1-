@@ -39,7 +39,7 @@ async function settle<T>(query: PromiseLike<Result<T>>): Promise<Result<T>> {
 }
 
 /** The creator row's columns the rules read. */
-export const PROGRESS_CREATOR_COLUMNS = "id, stripe_onboarding_status, charges_enabled, payouts_enabled, subscription_plan_id"
+export const PROGRESS_CREATOR_COLUMNS = "id, stripe_onboarding_status, stripe_account_id, charges_enabled, payouts_enabled, details_submitted, stripe_requirements, stripe_connected_at, subscription_plan_id"
 
 export type ChallengeCounts = Pick<ProgressFacts, "subscribers" | "emailsSent" | "automationsOn" | "couponUses">
 

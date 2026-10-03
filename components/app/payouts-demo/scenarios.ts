@@ -14,7 +14,20 @@ import type { Overview } from "@/components/app/settings/payments-hub-shared"
  * the page's requests itself).
  */
 
-export type ScenarioId = "active" | "first_sales" | "dispute" | "payout_failed" | "action_required" | "verifying" | "setup"
+export type ScenarioId =
+  | "active"
+  | "first_sales"
+  | "dispute"
+  | "payout_failed"
+  | "action_required"
+  | "id_required"
+  | "info_required"
+  | "bank_required"
+  | "verifying"
+  | "under_review"
+  | "restricted"
+  | "disabled"
+  | "setup"
 
 export const SCENARIOS: Array<{ id: ScenarioId; label: string }> = [
   { id: "active", label: "Active, selling" },
@@ -22,7 +35,13 @@ export const SCENARIOS: Array<{ id: ScenarioId; label: string }> = [
   { id: "dispute", label: "Dispute open" },
   { id: "payout_failed", label: "Payout failed" },
   { id: "action_required", label: "Stripe needs details" },
-  { id: "verifying", label: "Being verified" },
+  { id: "id_required", label: "ID verification needed" },
+  { id: "info_required", label: "More information needed" },
+  { id: "bank_required", label: "Bank account needed" },
+  { id: "verifying", label: "Verification pending" },
+  { id: "under_review", label: "Under review" },
+  { id: "restricted", label: "Payouts paused" },
+  { id: "disabled", label: "Permanently disabled" },
   { id: "setup", label: "Not set up" },
 ]
 
@@ -322,6 +341,36 @@ export function buildScenario(id: ScenarioId, c: DemoCurrency, now = Date.now())
     case "verifying": {
       const status = account({ charges: false, payouts: false, submitted: true, bank: "verified", pending: ["individual.verification.document"], reason: "requirements.pending_verification" })
       return base(status, [], [], 0, 0)
+    }
+    /* Selling, and Stripe now wants to see an ID: only then is the seller asked for one. */
+    case "id_required": {
+      const orders = makeOrders(12, 30, c, now, 8)
+      const status = account({ charges: true, payouts: true, submitted: true, bank: "verified", everActive: true, due: ["individual.verification.document"], deadline })
+      return base(status, orders, payoutsFrom(orders, c, now, { count: 2 }), price(380, c), price(90, c))
+    }
+    case "info_required": {
+      const orders = makeOrders(10, 30, c, now, 6)
+      const status = account({ charges: true, payouts: true, submitted: true, bank: "verified", everActive: true, due: ["individual.address.line1", "individual.address.city", "individual.address.postal_code"], deadline })
+      return base(status, orders, payoutsFrom(orders, c, now, { count: 2 }), price(260, c), price(70, c))
+    }
+    case "bank_required": {
+      const status = account({ charges: false, payouts: false, submitted: true, bank: null, due: ["external_account"] })
+      return base(status, [], [], 0, 0)
+    }
+    /* Everything sent, nothing pending by name: Stripe is still switching the account on. */
+    case "under_review": {
+      const status = account({ charges: false, payouts: false, submitted: true, bank: "verified" })
+      return base(status, [], [], 0, 0)
+    }
+    case "restricted": {
+      const orders = makeOrders(20, 45, c, now, 12)
+      const status = account({ charges: false, payouts: false, submitted: true, bank: "verified", everActive: true, pastDue: ["individual.verification.document"], reason: "requirements.past_due" })
+      return base(status, orders, payoutsFrom(orders, c, now, { count: 3 }), price(720, c), price(150, c))
+    }
+    case "disabled": {
+      const orders = makeOrders(6, 30, c, now, 20)
+      const status = account({ charges: false, payouts: false, submitted: true, bank: "verified", everActive: true, reason: "rejected.other" })
+      return base(status, orders, payoutsFrom(orders, c, now, { count: 1 }), 0, 0)
     }
     case "setup":
     default: {

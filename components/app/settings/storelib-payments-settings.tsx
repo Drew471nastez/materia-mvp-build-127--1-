@@ -258,21 +258,21 @@ export function StorelibPaymentsSettings({
             <Row
               icon={<Landmark className="h-4 w-4" />}
               title="Payout account"
-              line={data.payoutDestination?.last4 ? `${data.payoutDestination.bankName || "Bank"} •••• ${data.payoutDestination.last4}${data.payoutDestination.currency ? ` · ${data.payoutDestination.currency.toUpperCase()}` : ""}` : "Add a bank account"}
+              line={data.payoutDestination?.last4 ? maskedBank(data.payoutDestination) : "Add a bank account"}
               action={data.payoutDestination?.last4 ? "Change" : "Add"}
               onClick={() => openPanel("bank")}
             />
             <Row icon={<UserRound className="h-4 w-4" />} title="Account details" line="Name, address and identity" action="Review" onClick={() => openPanel("details")} />
           </div>
         ) : view?.status === "VERIFYING" || (!view && beat === "review") ? (
-          <Empty icon={<Clock className="h-5 w-5" />} title="We're checking your information" line="No action is needed right now. We'll email you if anything else is needed." />
+          <Empty icon={<Clock className="h-5 w-5" />} title="Verification in progress" line="We're checking your information. No action is needed right now." />
         ) : view?.action === "support" && !checkoutLive ? (
           <Empty icon={<AlertCircle className="h-5 w-5" />} title={view.title} line={view.line} action={view.actionLabel ?? "Contact support"} href="mailto:support@storelib.com" />
         ) : (
           <Empty
-            title={view && view.status !== "NOT_STARTED" ? view.title : "Add information to start accepting payments"}
-            line={view && view.status !== "NOT_STARTED" ? view.line : "Takes about five minutes. Everything stays in Storelib."}
-            action={view?.actionLabel ?? (hasAccount ? "Continue setup" : "Add information")}
+            title={view && view.status !== "NOT_STARTED" ? view.title : "Get paid with Storelib"}
+            line={view && view.status !== "NOT_STARTED" ? view.line : "Receive earnings directly to your bank account."}
+            action={view?.actionLabel ?? (hasAccount ? "Continue setup" : "Set up payouts")}
             onClick={() => openPanel(modeFor(view?.action))}
           />
         )}
@@ -301,6 +301,12 @@ export function StorelibPaymentsSettings({
       <ShimmerSwap loading={loading} skeleton={<StorelibPaymentsCardLoading />}>{hub}</ShimmerSwap>
     </div>
   )
+}
+
+/** "RO•• •••• •••• 4821 · RON": the country and the last four, never more. */
+function maskedBank(b: { country?: string | null; last4?: string | null; currency?: string | null; bankName?: string | null }): string {
+  const lead = b.country ? `${b.country.toUpperCase()}•• •••• •••• ` : `${b.bankName || "Bank"} •••• `
+  return `${lead}${b.last4}${b.currency ? ` · ${b.currency.toUpperCase()}` : ""}`
 }
 
 function Empty({ icon, title, line, action, onClick, href }: { icon?: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void; href?: string }) {

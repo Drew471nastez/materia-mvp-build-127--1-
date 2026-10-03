@@ -75,7 +75,12 @@ function main() {
   check("signed up and nothing else: the welcome, then payouts and the first product, then what the builder does",
     same(ids(state()), ["welcome", "payouts", "first-product", "builder-intro"]), ids(state()))
   check("the welcome says the three steps and opens the guide that walks them",
-    find(state(), "welcome")?.action === "guide" && /A product, Stripe, then your link\./.test(find(state(), "welcome")!.line))
+    find(state(), "welcome")?.action === "guide" && /A product, payouts, then your link\./.test(find(state(), "welcome")!.line))
+  /* The payments brief, October 2026: Home says where payments are, in Storelib's words, and never "Connect Stripe". */
+  check("payments card: verify identity when Stripe wants to see an ID", find(state({ paymentsState: "identity" }), "payouts")?.title === "Verify your identity" && find(state({ paymentsState: "identity" }), "payouts")?.cta === "Verify now")
+  check("payments card: payouts paused is critical and says Fix now", find(state({ paymentsState: "paused", hasProduct: true }), "payouts")?.tone === "critical" && find(state({ paymentsState: "paused", hasProduct: true }), "payouts")?.cta === "Fix now")
+  check("payments card: under review is information, and only with something for sale", find(state({ paymentsState: "review", hasProduct: true }), "payouts")?.tone === "next" && !ids(state({ paymentsState: "review" })).includes("payouts"))
+  check("payments card: never says Stripe", (["not_started", "setup", "identity", "info", "paused", "review"] as const).every((k) => !/stripe/i.test(JSON.stringify(find(state({ paymentsState: k, hasProduct: true }), "payouts") ?? {}))))
   check("and it goes once anything is done: a product, or payouts",
     !ids(state({ hasProduct: true })).includes("welcome") && !ids(state({ hasPayouts: true })).includes("welcome") && !ids(state({ hasProduct: true })).includes("builder-intro"))
   check("a product and no payouts: payouts, then the website",

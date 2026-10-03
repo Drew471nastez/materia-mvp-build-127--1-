@@ -104,11 +104,18 @@ async function accountAndPerson(creator: PaymentsCreatorRef): Promise<{ account:
   return { account, personId }
 }
 
-/** Whether Stripe is still waiting on the document for this account. */
+/**
+ * Whether Stripe needs the document NOW: due today, or Stripe's own
+ * alternative to something due today (the national ID number, or the ID).
+ * Not eventually_due: a check, and its cost, only when Stripe asks for it.
+ */
 function documentDue(account: Stripe.Account): boolean {
-  const due = [...(account.requirements?.past_due ?? []), ...(account.requirements?.currently_due ?? []), ...(account.requirements?.eventually_due ?? [])]
-  const pending = new Set(account.requirements?.pending_verification ?? [])
-  return due.some((k) => /^individual\.verification\.(document|additional_document)$/.test(k) && !pending.has(k))
+  const req = account.requirements
+  const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? [])])
+  const pending = new Set(req?.pending_verification ?? [])
+  const isDoc = (k: string) => /^individual\.verification\.(document|additional_document)$/.test(k) && !pending.has(k)
+  if ([...due].some(isDoc)) return true
+  return (req?.alternatives ?? []).some((alt) => alt.alternative_fields_due.some(isDoc) && alt.original_fields_due.some((k) => due.has(k) && !pending.has(k)))
 }
 
 /**

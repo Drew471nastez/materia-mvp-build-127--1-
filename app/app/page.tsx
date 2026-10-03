@@ -37,7 +37,7 @@ const homeProfile = cache(async (userId: string) => {
 const homeCreator = cache(async (userId: string) => {
   const { data } = await createAdminClient()
     .from("creators")
-    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id")
+    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, stripe_onboarding_status, stripe_account_id, details_submitted, stripe_requirements, stripe_connected_at, store_published, subscription_plan_id")
     .eq("user_id", userId)
     .maybeSingle()
   return data

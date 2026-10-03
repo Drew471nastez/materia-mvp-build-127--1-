@@ -87,17 +87,20 @@ async function ownAccount(creator: PaymentsCreatorRef): Promise<Stripe.Account> 
 async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Promise<DetailsFormView> {
   const needs = needsOf(account.requirements as never)
   /*
-   * THE ID CHECK IS OFFERED AS SOON AS STRIPE WILL EVER WANT IT. Asking only
-   * for what is due today meant a new account was never shown the check at
-   * all, and met it weeks later as an interruption. It is on the form from
-   * the start, and is only required once Stripe actually requires it.
+   * PROGRESSIVE: ONLY WHAT STRIPE NEEDS NOW. needsOf reads past_due and
+   * currently_due and nothing else. eventually_due is what Stripe MAY ask for
+   * as sales grow, and asking for it at setup is exactly the "upload your
+   * passport" a seller who does not need it yet should never see. When Stripe
+   * moves something into currently_due later, account.updated syncs it,
+   * Payouts and Home say so, the seller gets an email, and this same form
+   * opens with only that.
+   *
+   * The one way an ID photo appears early is Stripe's own alternative to a
+   * field it needs today ("the national ID number, or a photo of your ID"):
+   * that is still only what is due now, offered in the form the seller finds
+   * easier.
    */
-  const eventually = account.requirements?.eventually_due ?? []
   const pending = new Set(account.requirements?.pending_verification ?? [])
-  if (eventually.includes("individual.verification.document") && !pending.has("individual.verification.document") && !needs.fields.includes("document")) {
-    needs.fields = [...needs.fields, "document"]
-    needs.offered = [...needs.offered, "document"]
-  }
   /*
    * WHAT STRIPE ALREADY HOLDS. The ID check is its own step now, so the page
    * that comes after it opens fresh and has no idea the document went in a

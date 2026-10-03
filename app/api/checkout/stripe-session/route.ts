@@ -24,6 +24,7 @@ import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttri
 import { randomUUID } from "node:crypto"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
+import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 
 /**
  * POST /api/checkout/stripe-session
@@ -124,10 +125,10 @@ export async function POST(request: Request) {
   /* Storelib Payments (Stripe Connect): checkout only when the creator account can accept charges. */
   const account = creator.stripe_account_id
   if (!account || !account.startsWith("acct_")) {
-    return NextResponse.json({ error: "This seller cannot take payments yet." }, { status: 400 })
+    return NextResponse.json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, { status: 409 })
   }
   if (!(await checkoutReadyForCreator(creator.id))) {
-    return NextResponse.json({ error: "This seller cannot take payments yet. Try again later." }, { status: 400 })
+    return NextResponse.json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, { status: 409 })
   }
 
   /* Owning this exact thing already: the same variant, or the product without one. */

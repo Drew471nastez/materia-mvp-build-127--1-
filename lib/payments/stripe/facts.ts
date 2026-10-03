@@ -2,6 +2,7 @@
  * Stripe connected-account state → Storelib payments stages (pure).
  */
 
+import { canAcceptPayments, rowCanAcceptPayments } from "./readiness"
 import { STAGE_COPY, type PaymentsStage, type RequirementNote, type StageCopy } from "../model"
 
 export type PaymentUxState =
@@ -23,6 +24,10 @@ export interface StripeCreatorSnapshot {
   pendingVerification: string[]
   hasExternalAccount: boolean
   accountKind: "individual" | "business" | null
+  /** Stripe's status of the transfers capability, which is what a Storelib sale needs (lib/payments/stripe/readiness). */
+  transfersStatus?: string | null
+  /** Storelib's readiness as the last sync worked it out (creators.can_accept_payments), when the row has it. */
+  canAcceptPayments?: boolean | null
 }
 
 export function snapshotFromCreatorRow(row: {
@@ -31,6 +36,10 @@ export function snapshotFromCreatorRow(row: {
   payouts_enabled?: boolean | null
   details_submitted?: boolean | null
   stripe_requirements?: string[] | null
+  stripe_transfers_status?: string | null
+  can_accept_payments?: boolean | null
+  stripe_disabled_reason?: string | null
+  stripe_pending_verification?: string[] | null
 }): StripeCreatorSnapshot {
   const req = Array.isArray(row.stripe_requirements) ? row.stripe_requirements : []
   return {
@@ -38,12 +47,14 @@ export function snapshotFromCreatorRow(row: {
     chargesEnabled: row.charges_enabled === true,
     payoutsEnabled: row.payouts_enabled === true,
     detailsSubmitted: row.details_submitted === true,
-    disabledReason: null,
+    disabledReason: row.stripe_disabled_reason ?? null,
     currentlyDue: req,
     pastDue: [],
-    pendingVerification: [],
+    pendingVerification: Array.isArray(row.stripe_pending_verification) ? row.stripe_pending_verification : [],
     hasExternalAccount: false,
     accountKind: null,
+    transfersStatus: row.stripe_transfers_status ?? null,
+    canAcceptPayments: typeof row.can_accept_payments === "boolean" ? row.can_accept_payments : null,
   }
 }
 
@@ -55,6 +66,7 @@ export function mergeStripeAccount(
     details_submitted?: boolean
     disabled_reason?: string | null
     business_type?: string | null
+    capabilities?: object | null
     requirements?: {
       currently_due?: string[]
       past_due?: string[]
@@ -76,35 +88,31 @@ export function mergeStripeAccount(
     pendingVerification: req.pending_verification ?? [],
     hasExternalAccount,
     accountKind: account.business_type === "company" ? "business" : account.business_type === "individual" ? "individual" : base.accountKind,
+    transfersStatus: (() => {
+      const t = (account.capabilities as Record<string, unknown> | null | undefined)?.transfers
+      return typeof t === "string" ? t : base.transfersStatus ?? null
+    })(),
+    canAcceptPayments: null,
   }
 }
 
+/** Checkout may take money for this seller: the one rule in lib/payments/stripe/readiness, from a snapshot. */
 export function stripeCheckoutReady(s: StripeCreatorSnapshot): boolean {
-  if (!s.accountId?.startsWith("acct_")) return false
-  if (!s.chargesEnabled || !s.payoutsEnabled || !s.detailsSubmitted) return false
-  if (s.pastDue.length > 0) return false
-  if (s.disabledReason) return false
-  return true
+  if (typeof s.canAcceptPayments === "boolean") return !!s.accountId?.startsWith("acct_") && s.canAcceptPayments
+  return canAcceptPayments({
+    accountId: s.accountId,
+    detailsSubmitted: s.detailsSubmitted,
+    chargesEnabled: s.chargesEnabled,
+    payoutsEnabled: s.payoutsEnabled,
+    transfersStatus: s.transfersStatus ?? null,
+    pastDue: s.pastDue,
+    disabledReason: s.disabledReason,
+  })
 }
 
-/**
- * CHECKOUT'S GATE, FROM THE CREATORS ROW ALONE (no Stripe call on a buyer's
- * Pay). Never stricter than the gate every live seller passed before
- * Storelib Payments: an `acct_` account, charges and payouts not switched
- * off, and marked connected. A row the sync has since filled in (all three
- * flags true) passes too, whatever its old status word says.
- */
-export function stripeRowReady(row: {
-  stripe_account_id?: string | null
-  stripe_onboarding_status?: string | null
-  charges_enabled?: boolean | null
-  payouts_enabled?: boolean | null
-  details_submitted?: boolean | null
-} | null | undefined): boolean {
-  if (!row?.stripe_account_id?.startsWith("acct_")) return false
-  if (row.charges_enabled === false || row.payouts_enabled === false) return false
-  if (row.stripe_onboarding_status === "connected") return true
-  return row.charges_enabled === true && row.payouts_enabled === true && row.details_submitted === true
+/** Checkout's gate from the creators row alone (no Stripe call on a buyer's Pay): lib/payments/stripe/readiness rowCanAcceptPayments. */
+export function stripeRowReady(row: Parameters<typeof rowCanAcceptPayments>[0]): boolean {
+  return rowCanAcceptPayments(row)
 }
 
 export function paymentUxStateOf(s: StripeCreatorSnapshot): PaymentUxState {

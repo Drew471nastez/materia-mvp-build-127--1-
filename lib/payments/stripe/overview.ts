@@ -39,7 +39,15 @@ function mergeSnapshotFromRow(
   return snapshotFromCreatorRow(row)
 }
 
-export async function stripeOverview(creator: CreatorRef, options?: { sync?: boolean }): Promise<HubOverview> {
+/*
+ * HOW OLD A COPY MAY BE before opening Payouts asks Stripe again. The
+ * account.updated and capability.updated webhooks keep the creators row
+ * current; this is the fallback that reconciles anything a webhook missed,
+ * without three Stripe calls every time somebody opens the page.
+ */
+const FRESH_FOR_MS = 60_000
+
+export async function stripeOverview(creator: CreatorRef, options?: { sync?: boolean | "stale" }): Promise<HubOverview> {
   const configured = stripeConfigured()
   const publishableKey = stripePublishableKey()
   const rowBefore = await readCreatorStripe(creator.id)
@@ -47,7 +55,9 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
   let snapshot = mergeSnapshotFromRow(rowBefore)
   let synced: StripeSyncResult | null = null
   let unreachable = false
-  if (rowBefore?.stripe_account_id && options?.sync !== false) {
+  const syncedAt = rowBefore?.last_stripe_sync_at ? Date.parse(rowBefore.last_stripe_sync_at) : 0
+  const freshEnough = options?.sync === "stale" && typeof rowBefore?.can_accept_payments === "boolean" && Date.now() - syncedAt < FRESH_FOR_MS
+  if (rowBefore?.stripe_account_id && options?.sync !== false && !freshEnough) {
     try {
       synced = await syncStripeAccountFull(creator.id, "system")
       snapshot = synced.snapshot
@@ -73,10 +83,11 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
               charges_enabled: snapshot.chargesEnabled,
               payouts_enabled: snapshot.payoutsEnabled,
               details_submitted: snapshot.detailsSubmitted,
-              requirements: { currently_due: snapshot.currentlyDue },
+              requirements: { currently_due: snapshot.currentlyDue, pending_verification: snapshot.pendingVerification, disabled_reason: snapshot.disabledReason },
+              capabilities: snapshot.transfersStatus ? { transfers: snapshot.transfersStatus } : {},
             }
           : null,
-        snapshot.chargesEnabled && snapshot.payoutsEnabled ? [{ status: "new" }] : [],
+        row?.payout_destination || (snapshot.chargesEnabled && snapshot.payoutsEnabled) ? [{ status: "new" }] : [],
         { everActive: !!row?.stripe_connected_at, reconnect },
       ),
     )
@@ -95,6 +106,11 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
   let nextPayout: HubOverview["nextPayout"] = null
   const bank = synced?.banks.find((b) => b.default_for_currency) ?? synced?.banks[0]
   if (bank) payoutDestination = maskExternalAccount(bank)
+  else if (!synced && row?.payout_destination) {
+    /* The masked copy the last sync kept: never a full number. */
+    const kept = row.payout_destination
+    payoutDestination = { bankName: kept.bankName ?? null, country: kept.country ?? null, currency: kept.currency ?? null, last4: kept.last4 ?? null, holder: null }
+  }
 
   if (row?.stripe_account_id && snapshot.chargesEnabled) {
     try {

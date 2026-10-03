@@ -64,7 +64,7 @@ const ro = needsOf({ currently_due: ["individual.dob.day", "individual.address.l
 check("like Gumroad, setup asks only what is needed now: date of birth, address, CNP, agreement, bank", JSON.stringify(ro.fields) === JSON.stringify(["dob", "address", "idNumber"]) && ro.tos && ro.bank, ro)
 check("  the ID photo Stripe will want later is not asked yet", !ro.fields.includes("document") && needsOf({ eventually_due: ["individual.verification.document"] }, "all").fields.includes("document"))
 const later = needsOf({ currently_due: ["individual.verification.document"], errors: [{ code: "verification_document_not_readable", requirement: "individual.verification.document" }] })
-check("when Stripe asks for it later, it is asked with Stripe's reason in plain words", later.fields[0] === "document" && /sharper photo/.test(later.problems[0] ?? ""), later)
+check("when Stripe asks for it later, it is asked with Stripe's reason in plain words", later.fields[0] === "document" && /clearer photo/.test(later.problems[0] ?? ""), later)
 const reg = needsOf({ currently_due: ["individual.registered_address.line1", "individual.nationality"] })
 check("a registered address is the same address, and nationality is asked when listed", reg.registeredAddress && reg.fields.includes("address") && reg.fields.includes("nationality"))
 check("  never the business profile or the email, which are Storelib's", ro.other.length === 0 && !ro.fields.some((f) => String(f).startsWith("business")))

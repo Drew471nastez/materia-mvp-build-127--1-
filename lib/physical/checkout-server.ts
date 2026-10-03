@@ -57,6 +57,8 @@ import { isPickupOptionId } from "./pickup"
 import { addOrderEvent } from "./events-server"
 import { queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
 import type { Address, PricedLine } from "./types"
+import { checkoutReadyForCreator } from "@/lib/payments/service"
+import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
@@ -164,15 +166,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const free = totals.totalCents === 0
   if (!free && totals.totalCents < MIN_CHARGE_CENTS) return { ok: false, status: 400, error: "The smallest card payment is $0.50." }
-  if (
-    !free &&
-    (!creator.stripe_account_id ||
-      !String(creator.stripe_account_id).startsWith("acct_") ||
-      creator.charges_enabled === false ||
-      creator.payouts_enabled === false ||
-      creator.stripe_onboarding_status !== "connected")
-  ) {
-    return { ok: false, status: 400, error: "This shop can't take payments yet. Please contact the seller." }
+  /* Storelib's one readiness rule (lib/payments/stripe/readiness); the buyer is told nothing about the seller's verification. */
+  if (!free && (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string)))) {
+    return { ok: false, status: 409, error: BUYER_UNAVAILABLE }
   }
 
   /* The same press again: the checkout it made, and its page while it is open. */

@@ -27,6 +27,7 @@
  */
 import { emit } from "./outbox"
 import type { AdminDb } from "./store"
+import { rowCanAcceptPayments } from "@/lib/payments/stripe/readiness"
 
 export const WEEK_MS = 7 * 24 * 3600 * 1000
 const PAGE = 500
@@ -48,7 +49,7 @@ export interface CreatorPaymentRow {
 
 /** Payments that can take a card and pay out, the way payment_setup_incomplete reads them (conditions.ts). */
 export function paymentsComplete(c: CreatorPaymentRow): boolean {
-  return c.stripe_onboarding_status === "connected" || (c.charges_enabled === true && c.payouts_enabled === true && c.details_submitted === true)
+  return rowCanAcceptPayments(c)
 }
 
 /** Whether this creator is one the weekly email is for, before asking whether they were told this week. */

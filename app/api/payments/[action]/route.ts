@@ -93,7 +93,8 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ac
   const creator = await paymentsCreator()
   if (creator instanceof NextResponse) return creator
   try {
-    return NextResponse.json(await overview(creator), { headers: NO_STORE })
+    /* Opening Payouts: the webhook keeps the account current, so Stripe is only asked when the copy is old. */
+    return NextResponse.json(await overview(creator, { sync: "stale" }), { headers: NO_STORE })
   } catch (e) {
     return problem(e)
   }

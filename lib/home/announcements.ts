@@ -40,6 +40,7 @@
  * Pure and client safe, so tests/home-announcements.test.ts runs every rule
  * against fixture states without a browser.
  */
+import type { HomePaymentsState } from "@/lib/payments/stripe/readiness"
 import { groupOrders, isSale, type OrderRow } from "../orders/order-view"
 import { moneyOf } from "../analytics/reports"
 import { computeApplicationFee } from "../billing/fee-calculator"
@@ -104,6 +105,8 @@ export interface HomeProgress {
   plan: string
   hasProduct: boolean
   hasPayouts: boolean
+  /** Why payouts are not ready, when they are not (lib/payments/stripe/readiness homePaymentsState). */
+  paymentsState?: HomePaymentsState
   websitePublished: boolean
   hasDomain: boolean
   sales: SalesSummary
@@ -272,26 +275,44 @@ export const RULES: readonly Rule[] = [
       tone: "next",
       eyebrow: "Welcome to Storelib",
       title: "Your store opens in three steps",
-      line: "A product, Stripe, then your link.",
+      line: "A product, payouts, then your link.",
       cta: "Show me how",
       href: "/app/products/new",
       action: "guide",
     }),
   },
+  /*
+    PAYMENTS, SAID FOR WHERE THE SELLER IS. One card, worded by
+    homePaymentsState (from the creators row the webhook keeps current): set
+    up, finish, verify, more information, paused, or under review. Storelib's
+    words, not Stripe's. Under review is information, not an alarm, and it is
+    only shown while there is something for sale.
+  */
   {
     id: "payouts",
     priority: 100,
-    applies: (p) => !p.hasPayouts,
-    write: (p) => ({
-      tone: "critical",
-      eyebrow: "Needed to sell",
-      title: "Connect Stripe to get paid",
-      line: p.hasProduct
-        ? "Buyers can't check out until you do."
-        : "So your first product can sell right away.",
-      cta: "Connect Stripe",
-      href: "/app/payouts",
-    }),
+    applies: (p) => !p.hasPayouts && (p.paymentsState !== "review" || p.hasProduct),
+    write: (p) => {
+      const state = p.paymentsState ?? "not_started"
+      if (state === "identity")
+        return { tone: "critical", eyebrow: "Action required", title: "Verify your identity", line: "We need a little more information before payouts can continue.", cta: "Verify now", href: "/app/payouts" }
+      if (state === "info")
+        return { tone: "critical", eyebrow: "Action required", title: "More information needed", line: "Update your payout details to keep your account active.", cta: "Update details", href: "/app/payouts" }
+      if (state === "paused")
+        return { tone: "critical", eyebrow: "Action required", title: "Payouts are temporarily paused", line: "Complete the requested verification to resume payouts.", cta: "Fix now", href: "/app/payouts" }
+      if (state === "review")
+        return { tone: "next", eyebrow: "Payments", title: "Verification in progress", line: "We're checking your information. No action is needed right now.", cta: "View payouts", href: "/app/payouts" }
+      if (state === "setup")
+        return { tone: "critical", eyebrow: "Needed to sell", title: "Finish setting up payments", line: "Add your payout account to start accepting payments.", cta: "Finish setup", href: "/app/payouts" }
+      return {
+        tone: "critical",
+        eyebrow: "Needed to sell",
+        title: "Set up payouts",
+        line: p.hasProduct ? "Buyers can't check out until you do." : "Get paid directly to your bank account.",
+        cta: "Set up payouts",
+        href: "/app/payouts",
+      }
+    },
   },
   {
     id: "first-product",
@@ -556,6 +577,7 @@ export function fromFacts(facts: ProgressFacts, sales: SalesSummary, plan: strin
     plan,
     hasProduct: done.hasProduct,
     hasPayouts: done.hasPayouts,
+    paymentsState: facts.paymentsState,
     websitePublished: done.websitePublished,
     hasDomain: done.hasDomain,
     sales,

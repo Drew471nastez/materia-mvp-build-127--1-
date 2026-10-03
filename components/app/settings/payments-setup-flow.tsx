@@ -44,6 +44,7 @@ import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { openInApp } from "@/lib/native-bridge"
 import { IdCamera, armCameraSounds, type IdSide } from "@/components/app/settings/id-camera"
+import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { openIdentity } from "@/lib/payments/identity-client"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
@@ -286,11 +287,18 @@ export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { op
  * bank is all that is being changed (Update bank on Payouts).
  */
 const STEP_LABELS = ["Account", "ID check", "Details"] as const
+/*
+ * THE ID CHECK IS ONLY A STEP WHEN STRIPE WANTS IT. A seller Stripe does not
+ * need an ID from right now never sees "ID check" in the steps at all: the
+ * stepper is Account, Details until the ID step has loaded and found that
+ * Stripe is asking for it today.
+ */
+const STEP_LABELS_NO_ID = ["Account", "Details"] as const
 
-function Stepper({ step, done: all }: { step: Step; done?: boolean }) {
+function Stepper({ step, done: all, labels = STEP_LABELS }: { step: number; done?: boolean; labels?: readonly string[] }) {
   return (
     <ol className="flex items-center gap-2" aria-label="Setup steps">
-      {STEP_LABELS.map((label, i) => {
+      {labels.map((label, i) => {
         const done = all || i < step
         const on = !all && i === step
         return (
@@ -475,12 +483,15 @@ export function PaymentsSetupFlow({
    * it looked like Continue. Once it has said it is empty, Back goes past it.
    */
   const [idEmpty, setIdEmpty] = React.useState(false)
+  /* Stripe wants an ID today: known once the ID step has loaded. */
+  const [idNeeded, setIdNeeded] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
     setBack(false)
     setEnding(null)
     setIdEmpty(false)
+    setIdNeeded(false)
     setStep(setupStepOf(status) === 0 ? 0 : 1)
     setOpenCount((k) => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -527,10 +538,14 @@ export function PaymentsSetupFlow({
     onClose()
   }
 
-  const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payments"
+  const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payouts"
   const onBack = mode === "setup" && step > 0 && !ending ? () => go((step - 1) as Step) : onClose
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
-  const shownStep: Step = ending === "done" || ending === "checking" ? 2 : step
+  /* A business is Account, then Stripe's embedded form for its details; an individual has the ID step only when Stripe asks. */
+  const business = data.kind === "business"
+  const labels = !business && idNeeded ? STEP_LABELS : STEP_LABELS_NO_ID
+  const last = labels.length - 1
+  const shownStep = ending === "done" || ending === "checking" ? last : labels === STEP_LABELS ? step : Math.min(step, 1)
 
   let body: React.ReactNode
   if (ending) {
@@ -547,6 +562,8 @@ export function PaymentsSetupFlow({
   } else if (mode === "bank") {
     const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
     body = <BankForm key={`bank-${openCount}`} failed={failed} onBack={onClose} backLabel="Cancel" onDone={() => void settle(data, null)} onData={onData} />
+  } else if (mode === "details" && data.kind === "business") {
+    body = <BusinessDetailsStep key={`business-more-${openCount}`} onBack={onClose} onDone={(sent) => void settle(sent, null)} />
   } else if (mode === "details") {
     body = <DetailsStep key={`details-${openCount}`} withBank onBack={onClose} onNext={(left, sent) => void settle(sent ?? data, left)} onData={onData} />
   } else if (step === 0) {
@@ -560,6 +577,8 @@ export function PaymentsSetupFlow({
         }}
       />
     )
+  } else if (business) {
+    body = <BusinessDetailsStep key={`business-${openCount}`} onBack={() => go(0)} onDone={(sent) => void settle(sent, null)} />
   } else if (step === 1) {
     body = (
       <DetailsStep
@@ -567,6 +586,7 @@ export function PaymentsSetupFlow({
         only="id"
         onBack={() => go(0)}
         onEmpty={() => setIdEmpty(true)}
+        onAsking={() => setIdNeeded(true)}
         onNext={() => go(2)}
         onData={onData}
       />
@@ -637,7 +657,7 @@ export function PaymentsSetupFlow({
           {phone ? (
             mode === "setup" ? (
               <div className="px-5 pt-4">
-                <Stepper step={shownStep} done={ending === "done"} />
+                <Stepper step={shownStep} labels={labels} done={ending === "done"} />
               </div>
             ) : null
           ) : (
@@ -646,7 +666,7 @@ export function PaymentsSetupFlow({
               <p className="mt-1 text-[14px] leading-5 text-[#6b7280]">{subtitle}</p>
               {mode === "setup" ? (
                 <div className="mt-5">
-                  <Stepper step={shownStep} done={ending === "done"} />
+                  <Stepper step={shownStep} labels={labels} done={ending === "done"} />
                 </div>
               ) : null}
             </div>
@@ -668,13 +688,14 @@ export function PaymentsSetupFlow({
 function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => void; onDone: (next: Overview) => void }) {
   const hasAccount = (data.beat ?? "personal") !== "personal"
   /*
-   * NO "ARE YOU A BUSINESS?" Somebody selling under their own name is an
-   * individual to Stripe (a sole seller, the way Gumroad treats them), and
-   * that is nearly everybody here, so the question is gone and setup is just
-   * country, name as on the ID, Stripe's ID check and the bank. An account
-   * that was already made as a business stays one, and keeps its name field.
+   * HOW ARE YOU SELLING? Two choices, Individual first and already picked,
+   * because somebody selling under their own name is nearly everybody here.
+   * An individual is never shown a company field. A business gives its legal
+   * name now and only what Stripe needs today after that. Fixed once the
+   * account exists: Stripe cannot change an account's type.
    */
-  const kind: "individual" | "business" = data.kind === "business" ? "business" : "individual"
+  const [kindChoice, setKindChoice] = React.useState<"individual" | "business">(data.kind === "business" ? "business" : "individual")
+  const kind: "individual" | "business" = hasAccount ? (data.kind === "business" ? "business" : "individual") : kindChoice
   const [countryName, setCountryName] = React.useState(data.payoutHint?.country ? countryLabel(data.payoutHint.country) : data.prefill?.country ? countryLabel(data.prefill.country) : "")
   const [firstName, setFirstName] = React.useState(data.prefill?.firstName ?? "")
   const [lastName, setLastName] = React.useState(data.prefill?.lastName ?? "")
@@ -710,7 +731,7 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
         <ErrorLine message={error} />
         <div>
           <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-[13px] font-medium text-[#1a1a2e]">Country</span>
+            <span className="text-[13px] font-medium text-[#1a1a2e]">Where are you based?</span>
             <InfoTip label="Country">
               {hasAccount
                 ? "Locked once your payments account is created. It sets your payout currency and tax rules. Disconnect below and start over if you chose the wrong country."
@@ -732,6 +753,31 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
           )}
           {issue("country") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("country")}</span> : null}
         </div>
+
+        <fieldset data-account-kind="">
+          <legend className="mb-1.5 text-[13px] font-medium text-[#1a1a2e]">How are you selling?</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(["individual", "business"] as const).map((k) => {
+              const on = kind === k
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  disabled={hasAccount && !on}
+                  onClick={() => !hasAccount && setKindChoice(k)}
+                  className={cn(
+                    "h-11 rounded-[10px] border text-[14px] font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.08)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:rounded-lg",
+                    on ? "border-[#1a1a2e] bg-[#1a1a2e]/[0.03] text-[#1a1a2e]" : "border-[#e3e5e8] bg-white text-[#4b5563] hover:border-[#c9ccd3]",
+                  )}
+                >
+                  {k === "individual" ? "Individual" : "Business"}
+                </button>
+              )
+            })}
+          </div>
+        </fieldset>
 
         {kind === "business" ? (
           <Field label="Legal business name" error={issue("businessName")} tip="The registered name of your company, exactly as on its official papers.">
@@ -901,6 +947,7 @@ function DetailsStep({
   onEmpty,
   withBank = false,
   only,
+  onAsking,
 }: {
   onBack: () => void
   /** What Stripe is still asking for after this was sent, and the overview it answered with. */
@@ -910,6 +957,8 @@ function DetailsStep({
   withBank?: boolean
   /** "id" draws only the ID check, "details" everything but it. Undefined draws both. */
   only?: "id" | "details"
+  /** Loaded, and Stripe is asking for something on this step today. */
+  onAsking?: () => void
 }) {
   const { form, setForm, error: loadError, load } = useDetailsForm()
   const [dob, setDob] = React.useState({ day: "", month: "", year: "" })
@@ -1020,7 +1069,11 @@ function DetailsStep({
       ? !idAsked
       : sectionFields.length === 0 && !form.needs.tos && form.needs.other.length === 0 && !bankHere
   React.useEffect(() => {
-    if (!form || !empty) return
+    if (!form) return
+    if (!empty) {
+      onAsking?.()
+      return
+    }
     onEmpty?.()
     onNext(form, null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1072,7 +1125,8 @@ function DetailsStep({
   const front = !!uploaded["document-front"] || idVerified || docGiven
   const idEither = form.needs.either.some((e) => e.original.includes("idNumber") && e.alternative.includes("document"))
   const docDue = has("document") && !form.needs.offered.includes("document")
-  const idShown = has("idNumber") && (!idEither || typeIdInstead || idNumber.trim().length > 0)
+  /* On the details page after the ID step was passed over for the number, the number is simply asked for. */
+  const idShown = has("idNumber") && (!idEither || typeIdInstead || idNumber.trim().length > 0 || (only === "details" && !front))
   const idBad = has("idNumber") && (idEither ? idNumber.trim().length > 0 && idNumber.trim().length < 4 : idNumber.trim().length < 4)
   const missingDoc = (docDue && !front) || (idEither && !front && !idNumber.trim())
   const openCamera = (side: IdSide) => {
@@ -1110,7 +1164,7 @@ function DetailsStep({
       return
     }
     if (idState === "waiting") return setError("Finish the check with Stripe first, or add a photo of your ID instead.")
-    if (missingDoc) return setError(idEither ? `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.` : "Add a photo of the front of your ID.")
+    if (missingDoc) return setError(idEither ? (only === "details" ? `Enter your ${form.idNumber.label.split(" (")[0]}.` : `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.`) : "Add a photo of the front of your ID.")
     if (missingProof) return setError("Add a document that shows your address.")
     setBusy(true)
     setError(null)
@@ -1459,6 +1513,12 @@ function DetailsStep({
 
         {!idEither ? idPhoto : null}
 
+        {only === "id" && idEither && !front ? (
+          <button type="button" onClick={() => onNext(form, null)} className="-mt-1 text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-number-instead="">
+            Use my {form.idNumber.label.split(" (")[0]} instead
+          </button>
+        ) : null}
+
         {has("proofOfAddress") ? (
           <div className="space-y-2">
             <span className="block text-[13px] font-medium text-[#1a1a2e]">Proof of address</span>
@@ -1479,7 +1539,7 @@ function DetailsStep({
         {bankHere ? (
           <div className="space-y-4 border-t border-[#f1f2f4] pt-5" data-details-bank="">
             <div>
-              <span className="block text-[15px] font-semibold text-[#1a1a2e]">Where you get paid</span>
+              <span className="block text-[15px] font-semibold text-[#1a1a2e]">Where should we send your money?</span>
               <span className="mt-0.5 block text-[12.5px] text-[#6b7280]">{bank.currency ? `Payouts arrive in ${bank.currency}.` : "The account your payouts go to."}</span>
             </div>
             <Field label="Account holder name" error={tried && holderName.trim().length < 2 ? "Enter the name on the account." : undefined}>
@@ -1531,6 +1591,47 @@ function DetailsStep({
         </button>
       </Footer>
     </form>
+  )
+}
+
+/* ── a business: Stripe's own embedded form, inside Storelib ──────────── */
+
+/**
+ * A BUSINESS IS ASKED FOR WHAT STRIPE NEEDS TODAY, IN STRIPE'S EMBEDDED FORM.
+ * A company has things an individual never does (its registration number,
+ * the people who own and run it, a representative), and they differ by
+ * country. Storelib's own form is written for an individual; rather than ask
+ * a business to email support, its details are collected by Stripe's embedded
+ * onboarding drawn inside this page (an Account Session made on the server for
+ * the signed in seller only), set to what is due now and nothing Stripe may
+ * want later (StripeConnectEmbedded's default: currently_due, future omitted).
+ * The bank is collected in the same form. No Stripe login, no new tab.
+ */
+function BusinessDetailsStep({ onBack, onDone }: { onBack: () => void; onDone: (sent: Overview) => void }) {
+  const [busy, setBusy] = React.useState(false)
+  const finish = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      onDone(await post<Overview>("refresh", {}))
+    } catch {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 px-5 sm:px-7">
+        <StepIntro title="Business details" line="Only what's needed to verify your business today." />
+        <StripeConnectEmbedded purpose="stripe_onboarding" onExit={finish} className="min-h-[320px]" />
+      </div>
+      <Footer>
+        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+        <button type="button" className={PRIMARY} onClick={() => void finish()} disabled={busy}>
+          {busy ? <Spinner /> : null}
+          {busy ? "Checking" : "Done"}
+        </button>
+      </Footer>
+    </div>
   )
 }
 
