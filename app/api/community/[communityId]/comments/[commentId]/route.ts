@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server"
+import { rateLimit } from "@/lib/api/rate-limit"
+import { requireCommunitiesOn } from "@/lib/communities/flag"
+import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
+import { deleteComment, updateComment } from "@/lib/communities/server/comments"
+import { requireMember } from "@/lib/communities/server/context"
+import { admin } from "@/lib/communities/server/db"
+import { NO_STORE, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+type Params = { params: Promise<{ communityId: string; commentId: string }> }
+
+/** PATCH { body }: the author edits their comment. */
+export async function PATCH(request: Request, { params }: Params) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
+  const { communityId, commentId } = await params
+  const db = admin()
+  const gate = await requireMember(db, communityId, await sessionUserId(), "comment")
+  if (gate instanceof NextResponse) return gate
+  const limited = await rateLimit({ bucket: rateBucket("comment"), subjects: [memberSubject(String(gate.viewer.userId))], windows: RATE_LIMITS.comment })
+  if (limited) return limited
+  const result = await updateComment({ db, community: gate.community, viewer: gate.viewer }, commentId, await readJson(request))
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
+  return NextResponse.json({ comment: result.value }, { headers: NO_STORE })
+}
+
+/** DELETE: the author deletes their comment; its replies stay under "Deleted". */
+export async function DELETE(_request: Request, { params }: Params) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
+  const { communityId, commentId } = await params
+  const db = admin()
+  const gate = await requireMember(db, communityId, await sessionUserId(), "view")
+  if (gate instanceof NextResponse) return gate
+  const limited = await rateLimit({ bucket: rateBucket("comment"), subjects: [memberSubject(String(gate.viewer.userId))], windows: RATE_LIMITS.comment })
+  if (limited) return limited
+  const result = await deleteComment({ db, community: gate.community, viewer: gate.viewer }, commentId)
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
+  return NextResponse.json({ ok: true }, { headers: NO_STORE })
+}
