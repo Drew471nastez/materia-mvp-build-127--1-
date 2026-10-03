@@ -5,7 +5,9 @@
  * a computer, the header on a phone), picked by ?case=:
  *
  *   list, create, create-paid, overview, members, members-pending,
- *   settings, settings-access, feed, events, moderation, analytics
+ *   settings (the Page tab, with its gallery), settings-access,
+ *   settings-features, feed, events, spaces, classroom, moderation,
+ *   moderation-restricted, moderation-rules, analytics
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -20,10 +22,18 @@ import { FeedSection } from "@/components/community/creator/feed-section"
 import { EventsSection } from "@/components/community/creator/events-section"
 import { ModerationSection } from "@/components/community/creator/moderation-section"
 import { AnalyticsSection } from "@/components/community/creator/analytics-section"
+import { SpacesSection } from "@/components/community/creator/spaces-section"
+import { ClassroomSection } from "@/components/community/creator/classroom-section"
 import { nextSteps } from "@/components/community/creator/logic"
 import type { AnalyticsView, CommunityHead, MemberRowView, SettingsData } from "@/components/community/creator/view-types"
 
 const params = new URLSearchParams(location.search)
+
+/** A flat picture drawn here (no network in the probe): a ground, a sun and a hill. */
+function picture(ground: string, ink: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="${ground}"/><circle cx="470" cy="130" r="56" fill="${ink}" opacity="0.55"/><path d="M0 330 L220 200 L380 300 L520 230 L640 300 L640 400 L0 400Z" fill="${ink}"/></svg>`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
 const which = params.get("case") || "overview"
 const ID = "6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"
 const NOW = Date.now()
@@ -104,6 +114,15 @@ const settings: SettingsData = {
     { level: 3, name: "Contributor", minPoints: 60, reward: null },
   ],
   badges: [],
+  gallery: [
+    { type: "image", url: picture("#d9c7a7", "#8b6b47") },
+    { type: "video", videoId: "11111111-1111-4111-8111-111111111111" },
+    { type: "image", url: picture("#c9d6c3", "#4f6b4a") },
+    { type: "image", url: picture("#d6cfe0", "#5b5470") },
+    { type: "image", url: picture("#e6d0cb", "#8a4a3f") },
+  ],
+  galleryReady: params.get("gallery") !== "missing",
+  galleryVideos: { "11111111-1111-4111-8111-111111111111": { status: "ready", thumbnailUrl: null, durationSeconds: 94 } },
 }
 
 const series = (n: number, f: (i: number) => number) => Array.from({ length: n }, (_, i) => ({ day: new Date(NOW - (n - i) * 86_400_000).toISOString().slice(0, 10), value: Math.max(0, Math.round(f(i))) }))
@@ -178,7 +197,7 @@ function App() {
             head={head}
             meId={members[0].userId}
             initial={{ rows: which === "members" ? members : pending, next: "abc", capped: false }}
-            counts={{ active: 1284, pending: 4, paused: 1, banned: 2, removed: 0, expired: 37, cancelled: 12 }}
+            counts={{ active: 1284, pending: 4, muted: 1, paused: 1, banned: 2, removed: 0, expired: 37, cancelled: 12 }}
             status={which === "members" ? "active" : "pending"}
             tiers={[{ id: "t1", name: "Members", kind: "paid" }, { id: "t2", name: "Lifetime", kind: "paid" }]}
             canEmail
@@ -190,9 +209,41 @@ function App() {
       )
     case "settings":
     case "settings-access":
+    case "settings-features":
       return (
         <Shell section="settings">
-          <SettingsSection head={head} data={settings} tab={which === "settings" ? "general" : "access"} />
+          <SettingsSection head={head} data={settings} tab={which === "settings" ? "page" : which === "settings-access" ? "access" : "features"} />
+        </Shell>
+      )
+    case "spaces":
+      return (
+        <Shell section="spaces">
+          <SpacesSection
+            head={head}
+            options={{ tiers: [{ id: "t1", name: "Members" }, { id: "t2", name: "Lifetime" }], levels: settings.levels }}
+            initial={[
+              { id: "s1", slug: "general", name: "General", description: "Say hello", icon: null, kind: "feed", position: 0, postRole: "member", commentsEnabled: true, viewAccess: {}, archived: false, posts: 2810 },
+              { id: "s2", slug: "announcements", name: "Announcements", description: null, icon: null, kind: "announcements", position: 1, postRole: "admin", commentsEnabled: true, viewAccess: {}, archived: false, posts: 42 },
+              { id: "s3", slug: "chat", name: "Morning chat", description: null, icon: null, kind: "chat", position: 2, postRole: "member", commentsEnabled: true, viewAccess: {}, archived: false, posts: 9120 },
+              { id: "s4", slug: "inner", name: "Inner circle", description: null, icon: "🔥", kind: "feed", position: 3, postRole: "member", commentsEnabled: true, viewAccess: { tierIds: ["t2"] }, archived: false, posts: 140 },
+            ]}
+          />
+        </Shell>
+      )
+    case "classroom":
+      return (
+        <Shell section="classroom">
+          <ClassroomSection
+            head={head}
+            options={{ tiers: [{ id: "t1", name: "Members" }, { id: "t2", name: "Lifetime" }], levels: settings.levels }}
+            initial={{
+              attached: [
+                { productId: "c1", title: "The 30 day writing course", cover: picture("#d9c7a7", "#8b6b47"), status: "published", position: 0, access: {}, dripDays: null },
+                { productId: "c2", title: "Editing your first draft", cover: null, status: "draft", position: 1, access: { tierIds: ["t2"] }, dripDays: 14 },
+              ],
+              available: [],
+            }}
+          />
         </Shell>
       )
     case "feed":
@@ -228,16 +279,37 @@ function App() {
         </Shell>
       )
     case "moderation":
+    case "moderation-restricted":
+    case "moderation-rules":
       return (
         <Shell section="moderation">
           <ModerationSection
             head={head}
-            initialAudit={{ rows: [], next: null }}
+            meId={members[0].userId}
+            initialTab={which === "moderation-restricted" ? "restricted" : which === "moderation-rules" ? "rules" : "reports"}
+            rules={[
+              { title: "Be kind", body: "Feedback is about the words, never the person." },
+              { title: "Post your own words", body: "Share what you wrote. Links to sell something go in the Wins space." },
+            ]}
+            restricted={{
+              muted: { rows: [member(5, { mutedUntil: ahead(1) })], next: null, capped: false },
+              paused: { rows: [member(7, { status: "paused" })], next: null, capped: false },
+              banned: { rows: [member(9, { status: "banned", name: "Spam Account", email: "spam@example.com" })], next: null, capped: false },
+            }}
+            tiers={[{ id: "t1", name: "Members", kind: "paid" }]}
+            initialAudit={{
+              next: null,
+              rows: [
+                { id: 3, action: "post.removed", actorName: "Priya Raman", actorKind: "member", targetType: "post", targetLabel: "Buy my course", reason: "Spam", createdAt: ago(0.1) },
+                { id: 2, action: "member.muted", actorName: "Ana Popescu", actorKind: "member", targetType: "member", targetLabel: null, reason: null, createdAt: ago(0.5) },
+                { id: 1, action: "community.settings_changed", actorName: "Ana Popescu", actorKind: "member", targetType: "community", targetLabel: "The Morning Writers", reason: null, createdAt: ago(3) },
+              ],
+            }}
             initialReports={{
               next: null,
               rows: [
-                { id: "r1", targetType: "post", targetId: "p3", reason: "spam", note: "Same post in every space", status: "open", createdAt: ago(0.1), reporterName: "Priya Raman", preview: "Buy my course, link in bio", subject: { userId: "u9", name: "Spam Account", role: "member" }, targetState: "published", resolution: null },
-                { id: "r2", targetType: "comment", targetId: "c1", reason: "harassment", note: null, status: "reviewing", createdAt: ago(1), reporterName: "Jonah Brooks", preview: "Nobody wants to read this.", subject: { userId: "u8", name: "Lukas Novak", role: "member" }, targetState: "published", resolution: null },
+                { id: "r1", targetType: "post", targetId: "p3", reason: "spam", note: "Same post in every space", status: "open", createdAt: ago(0.1), reporterName: "Priya Raman", preview: "Buy my course, link in bio", subject: { userId: "00000000-0000-4000-8000-000000000099", name: "Spam Account", role: "member", member: { role: "member", status: "active", source: "free", mutedUntil: null } }, targetState: "published", resolution: null },
+                { id: "r2", targetType: "comment", targetId: "c1", reason: "harassment", note: null, status: "reviewing", createdAt: ago(1), reporterName: "Jonah Brooks", preview: "Nobody wants to read this.", subject: { userId: "00000000-0000-4000-8000-000000000098", name: "Lukas Novak", role: "member", member: { role: "member", status: "active", source: "free", mutedUntil: null } }, targetState: "published", resolution: null },
               ],
             }}
           />
@@ -260,7 +332,7 @@ function App() {
               upcoming: [{ id: "e1", title: "Friday feedback call", startsAt: ahead(2), endsAt: new Date(Date.parse(ahead(2)) + 3_600_000).toISOString(), timezone: "Europe/Bucharest", goingCount: 64, capacity: 100, kind: "live" }],
               sells: true,
               publicUrl: "/community/morning-writers",
-              steps: nextSteps({ published: false, paid: true, paymentsReady: true, members: 1, invites: 0, posts: 0, courses: 0, events: 1, customized: false, classroomEnabled: true, eventsEnabled: true }, `/app/community/${ID}`),
+              steps: nextSteps({ published: false, paid: true, paymentsReady: true, members: 1, invites: 0, posts: 0, courses: 0, events: 1, customized: false, rules: 0, classroomEnabled: true, eventsEnabled: true }, `/app/community/${ID}`),
             }}
           />
         </Shell>

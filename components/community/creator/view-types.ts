@@ -30,7 +30,7 @@ import type {
   TierBilling,
   TierKind,
 } from "@/lib/communities/types"
-import type { NextStep } from "./logic"
+import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
 export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "gamification" | "settings"
@@ -161,6 +161,18 @@ export interface SettingsData {
   myNotify: { level: NotifyLevel; emailAnnouncements: boolean; emailEvents: boolean }
   levels: LevelView[]
   badges: BadgeView[]
+  /** The pictures and videos at the top of the page (communities.gallery), in order. */
+  gallery: GalleryItem[]
+  /** False until the database update that adds communities.gallery has run. */
+  galleryReady: boolean
+  /** What the editor shows for each video in the gallery. */
+  galleryVideos: Record<string, GalleryVideoView>
+}
+
+export interface GalleryVideoView {
+  status: "uploading" | "processing" | "ready" | "failed"
+  thumbnailUrl: string | null
+  durationSeconds: number | null
 }
 
 export interface SpaceView {
@@ -277,8 +289,8 @@ export interface ReportView {
   reporterName: string | null
   /** What was reported: a post's title or opening, a comment, a message, a member's name. */
   preview: string
-  /** The author of the reported content, or the reported member. */
-  subject: { userId: string; name: string; role: Role | null } | null
+  /** The author of the reported content, or the reported member: `role` while they are active, `member` their row as it is (null when they never joined). */
+  subject: { userId: string; name: string; role: Role | null; member?: { role: Role; status: MemberStatus; source: MemberSource; mutedUntil: string | null } | null } | null
   /** The content's own state: still up, removed, deleted, or gone. */
   targetState: "published" | "removed" | "deleted" | "missing" | "member"
   resolution: string | null

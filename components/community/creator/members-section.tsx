@@ -5,33 +5,40 @@
  *  MEMBERS
  * ===========================================================================
  * Everyone in the community, 50 at a time (keyset paged on the server, so
- * the hundredth page costs what the first does), by status: active,
- * requests to join, suspended, banned, removed, expired, left. Search by
- * name (and by email for the owner and admins, the only ones who see
- * emails), filter by role and tier. Each row's menu holds what this person
- * may do to that one (can() and canActOn: never to somebody ranked the
- * same or above): approve or decline, change a role, mute, suspend,
- * remove, ban, complimentary access, points and badges.
+ * the hundredth page costs what the first does), in one card the way
+ * Products and a membership's Members draw a list: the views in its first
+ * row (active, requests to join, muted, suspended, banned, removed,
+ * expired, left, each with its count) with Export and Invite beside them;
+ * the search (by name, and by email for the owner and admins, the only
+ * ones who see emails) and the role and tier filters in the second; then a
+ * light table on a computer and a list on a phone.
+ *
+ * Each row's menu holds what this person may do to that one, from
+ * ./member-actions (the same rules the server applies: can() and never to
+ * somebody ranked the same or above): a role, complimentary access, points
+ * and badges, mute for a while, suspend, remove, ban; and on the other
+ * views, bring back and unban. A request to join has Approve and Decline
+ * on the row itself.
  *
  * Invite opens one sheet for the three ways in: an email invite, a link to
  * share (with uses and an end date), or adding an existing Storelib
  * account directly. Export streams a CSV a page at a time.
  */
 import * as React from "react"
-import { Download, Link2, Mail, Search, UserPlus } from "lucide-react"
+import { Download, Link2, Mail, UserPlus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
-import { assignableRoles, canActOn } from "@/lib/communities/permissions"
 import { relativeTime } from "@/lib/communities/format"
-import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { BadgeView, CommunityHead, InviteView, MemberPage, MemberRowView } from "./view-types"
 import { MEMBER_STATUS_FILTERS, ROLE_LABEL, type MemberStatusFilter } from "./logic"
-import { Confirm, Dialog, Empty, Notice, RowMenu, Section, Segmented, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, shortDate, useToast } from "./parts"
+import { useMemberActions, type ActOnPerson } from "./member-actions"
+import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast } from "./parts"
 
 const STATUS_LABEL: Record<MemberStatusFilter, string> = {
   active: "Active",
   pending: "Requests",
+  muted: "Muted",
   paused: "Suspended",
   banned: "Banned",
   removed: "Removed",
@@ -52,15 +59,9 @@ interface Props {
   badges: BadgeView[]
 }
 
-type Pending =
-  | { kind: "confirm"; member: MemberRowView; action: "remove" | "ban" | "suspend" | "reject"; title: string; detail: string; verb: string }
-  | { kind: "comp"; member: MemberRowView | null }
-  | { kind: "points"; member: MemberRowView }
-  | { kind: "badge"; member: MemberRowView }
-  | null
+const person = (m: MemberRowView): ActOnPerson => ({ userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil, approved: m.approved, points: m.points })
 
 export function MembersSection(p: Props) {
-  const toast = useToast()
   const base = `/api/app/community/${p.head.id}`
   const [status, setStatus] = React.useState<MemberStatusFilter>(p.status)
   const [q, setQ] = React.useState("")
@@ -73,8 +74,6 @@ export function MembersSection(p: Props) {
   const [error, setError] = React.useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = React.useState(p.openInvite)
   const [invites, setInvites] = React.useState(p.invites)
-  const [pending, setPending] = React.useState<Pending>(null)
-  const [busy, setBusy] = React.useState(false)
   const first = React.useRef(true)
   const request = React.useRef(0)
 
@@ -133,91 +132,56 @@ export function MembersSection(p: Props) {
     setPage((x) => ({ rows: [...x.rows, ...(res.data.rows ?? [])], next: res.data.next ?? null, capped: x.capped }))
   }
 
-  const act = async (m: MemberRowView, action: string, extra: Record<string, unknown> = {}, done?: string) => {
-    setBusy(true)
-    const res = await send(`${base}/members/${m.userId}`, "PATCH", { action, ...extra })
-    setBusy(false)
-    if (!res.ok) {
-      toast(errorText(res.data.error))
-      return false
-    }
-    setPending(null)
-    toast(done ?? "Saved")
-    await load(true)
-    return true
-  }
-
-  const myRole = p.head.role
-  const menuFor = (m: MemberRowView): ActionMenuItem[] => {
-    if (m.userId === p.meId || m.role === "owner") return []
-    if (!canActOn(myRole, m.role)) return []
-    const c = p.head.can
-    const items: ActionMenuItem[] = []
-    if (m.status === "pending" && c.approve_member) {
-      items.push({ label: "Approve", onClick: () => void act(m, "approve", {}, `${m.name} approved`) })
-      items.push({ label: "Decline", onClick: () => setPending({ kind: "confirm", member: m, action: "reject", title: `Decline ${m.name}?`, detail: "They can ask again later.", verb: "Decline" }) })
-      return items
-    }
-    if (m.status === "active") {
-      const roles = assignableRoles(myRole).filter((r) => r !== m.role)
-      roles.forEach((r, i) => items.push({ label: r === "member" ? "Make a member" : `Make ${r === "admin" ? "an admin" : "a moderator"}`, onClick: () => void act(m, "role", { role: r }, `${m.name} is now ${r === "admin" ? "an admin" : r === "moderator" ? "a moderator" : "a member"}`), section: i === 0 ? "Role" : undefined }))
-      if (c.manage_members) {
-        if (m.source === "manual") items.push({ label: "End complimentary access", onClick: () => void endComp(m), separatorBefore: true })
-        else if (!["subscription", "purchase", "product"].includes(m.source)) items.push({ label: "Give complimentary access", onClick: () => setPending({ kind: "comp", member: m }), separatorBefore: true })
-      }
-      if (p.head.gamificationEnabled && c.award_points) {
-        items.push({ label: "Give points", onClick: () => setPending({ kind: "points", member: m }), separatorBefore: !c.manage_members })
-        if (p.badges.length) items.push({ label: "Give a badge", onClick: () => setPending({ kind: "badge", member: m }) })
-      }
-      if (c.mute) items.push(m.mutedUntil ? { label: "Unmute", onClick: () => void act(m, "unmute", {}, `${m.name} can post again`), separatorBefore: true } : { label: "Mute for 24 hours", onClick: () => void act(m, "mute", { until: 24 }, `${m.name} is muted for 24 hours`), separatorBefore: true })
-      if (c.suspend) items.push({ label: "Suspend", onClick: () => setPending({ kind: "confirm", member: m, action: "suspend", title: `Suspend ${m.name}?`, detail: "They lose access until you bring them back. Their posts stay.", verb: "Suspend" }) })
-      if (c.remove_member) items.push({ label: "Remove", variant: "destructive", onClick: () => setPending({ kind: "confirm", member: m, action: "remove", title: `Remove ${m.name}?`, detail: "They lose access now. A paid membership keeps billing until they cancel it.", verb: "Remove" }) })
-      if (c.ban) items.push({ label: "Ban", variant: "destructive", onClick: () => setPending({ kind: "confirm", member: m, action: "ban", title: `Ban ${m.name}?`, detail: "They lose access and cannot join again unless you unban them.", verb: "Ban" }) })
-    }
-    if (m.status === "paused" && c.suspend) items.push({ label: "Bring back", onClick: () => void act(m, "unsuspend", {}, `${m.name} is back`) })
-    if (m.status === "banned" && c.ban) items.push({ label: "Unban", onClick: () => void act(m, "unban", {}, `${m.name} is unbanned`) })
-    return items
-  }
-
-  const endComp = async (m: MemberRowView) => {
-    const res = await send(`${base}/members`, "POST", { action: "end_complimentary", userId: m.userId })
-    if (!res.ok) return toast(errorText(res.data.error))
-    toast("Complimentary access ended")
-    await load(true)
-  }
+  const actions = useMemberActions({ head: p.head, meId: p.meId, tiers: p.tiers, badges: p.badges, onDone: () => void load(true) })
 
   const statuses = MEMBER_STATUS_FILTERS.filter((s) => s === "active" || s === "pending" || (counts[s] ?? 0) > 0 || s === status)
   const showLevel = p.head.gamificationEnabled
   const rows = page.rows
+  const pending = status === "pending"
+  const roleOptions = [{ value: "", label: "All roles" }, ...(["owner", "admin", "moderator", "member"] as const).map((r) => ({ value: r, label: `${ROLE_LABEL[r]}s` }))]
+  const tierOptions = [{ value: "", label: "All tiers" }, ...p.tiers.map((t) => ({ value: t.id, label: t.name }))]
+
+  /* Approve and Decline sit on a request's row; the rest are in its menu. */
+  const rowActions = (m: MemberRowView, phone: boolean) => {
+    const choices = actions.choicesFor(person(m))
+    const approve = choices.find((c) => c.action === "approve")
+    const reject = choices.find((c) => c.action === "reject")
+    return (
+      <span className="inline-flex items-center justify-end gap-1.5">
+        {reject && !phone ? (
+          <button type="button" disabled={actions.busy} onClick={() => actions.run(reject, person(m))} className={buttonSecondary}>
+            Decline
+          </button>
+        ) : null}
+        {approve ? (
+          <button type="button" disabled={actions.busy} onClick={() => actions.run(approve, person(m))} className={cn(buttonPrimary, phone && "h-10 px-3.5")} data-approve="">
+            Approve
+          </button>
+        ) : null}
+        <RowMenu items={actions.menuItems(person(m), phone ? ["approve"] : ["approve", "reject"])} label={`Actions for ${m.name}`} />
+      </span>
+    )
+  }
+
+  const line = (m: MemberRowView) =>
+    pending
+      ? [m.requestNote || (m.approved ? "Approved, waiting for payment" : null), shortDate(m.requestedAt)].filter(Boolean).join(" · ")
+      : [m.role !== "member" ? ROLE_LABEL[m.role] : null, m.tierName, showLevel ? `Level ${m.level}` : null, m.email, `Joined ${shortDate(m.joinedAt)}`].filter(Boolean).join(" · ")
 
   return (
     <div className="space-y-4" data-members="">
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <div role="tablist" aria-label="Member status" className="app-gutter-bleed -my-1 flex min-w-0 items-center gap-1 overflow-x-auto py-1 scrollbar-hide md:mx-0 md:px-0">
-            {statuses.map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="tab"
-                aria-selected={status === s}
-                data-status={s}
-                onClick={() => setStatus(s)}
-                className={cn(
-                  "inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13.5px] font-medium transition-colors duration-100 md:h-9",
-                  status === s ? "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07)]" : "border-[#e4e7ec] bg-white text-[#6b7280] hover:text-[#1a1a2e]",
-                )}
-              >
-                {STATUS_LABEL[s]}
-                <span className={cn("tabular-nums", s === "pending" && (counts[s] ?? 0) > 0 ? "text-[#b45309]" : "text-[#9ca3af]")}>{(counts[s] ?? 0).toLocaleString("en-US")}</span>
-              </button>
-            ))}
-          </div>
-          <div className="hidden shrink-0 items-center gap-2 md:flex">
+      {error ? <Notice>{error}</Notice> : null}
+
+      <ListCard
+        data-members-table=""
+        busy={loading}
+        head={<FilterTabs label="Member status" value={status} onChange={setStatus} tabs={statuses.map((s) => ({ value: s, label: STATUS_LABEL[s], count: counts[s] ?? 0, attention: s === "pending" }))} />}
+        actions={
+          <>
             {p.canEmail ? (
-              <a href={`${base}/members/export?${queryString()}`} className={buttonSecondary} download>
+              <a href={`${base}/members/export?${queryString()}`} className={cn(buttonSecondary, "max-sm:w-10 max-sm:px-0")} download aria-label="Export members as CSV">
                 <Download aria-hidden className="h-4 w-4" />
-                Export
+                <span className="max-sm:hidden">Export</span>
               </a>
             ) : null}
             {p.head.can.invite ? (
@@ -226,51 +190,17 @@ export function MembersSection(p: Props) {
                 Invite
               </button>
             ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-[1_1_220px]">
-            <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-            <input value={q} onChange={(e) => setQ(e.target.value.slice(0, 80))} placeholder={p.canEmail ? "Search by name or email" : "Search by name"} aria-label="Search members" className={cn(field, "h-11 pl-9 sm:h-10")} />
-          </div>
-          <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role" className={cn(selectField, "w-auto min-w-[132px] flex-[1_1_140px] md:flex-[0_1_160px]")}>
-            <option value="">Every role</option>
-            {(["owner", "admin", "moderator", "member"] as const).map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABEL[r]}s
-              </option>
-            ))}
-          </select>
-          {p.tiers.length > 1 ? (
-            <select value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Tier" className={cn(selectField, "w-auto min-w-[132px] flex-[1_1_140px] md:flex-[0_1_180px]")}>
-              <option value="">Every tier</option>
-              {p.tiers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          ) : null}
-          <div className="flex w-full items-center gap-2 md:hidden">
-            {p.head.can.invite ? (
-              <button type="button" onClick={() => setInviteOpen(true)} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px]")}>
-                <UserPlus aria-hidden className="h-4 w-4" />
-                Invite
-              </button>
-            ) : null}
-            {p.canEmail ? (
-              <a href={`${base}/members/export?${queryString()}`} className={cn(buttonSecondary, "h-11 rounded-xl px-4 text-[14px]")} download>
-                <Download aria-hidden className="h-4 w-4" />
-                Export
-              </a>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      {error ? <Notice>{error}</Notice> : null}
-
-      <section className={cn(card, "overflow-hidden")} aria-busy={loading || undefined} data-members-table="">
+          </>
+        }
+        toolbar={
+          <>
+            <SearchField value={q} onChange={setQ} placeholder="Search members" label={p.canEmail ? "Search members by name or email" : "Search members by name"} />
+            <ToolbarDivider />
+            <PickButton name="role" title="Role" options={roleOptions} value={role} onPick={setRole} align="end" />
+            {p.tiers.length > 1 ? <PickButton name="tier" title="Tier" options={tierOptions} value={tier} onPick={setTier} align="end" /> : null}
+          </>
+        }
+      >
         {rows.length === 0 ? (
           loading ? (
             <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">Loading</p>
@@ -284,33 +214,33 @@ export function MembersSection(p: Props) {
                 </button>
               ) : null}
             </Empty>
-          ) : status === "pending" ? (
-            <Empty title="No requests to join." detail={undefined} />
+          ) : pending ? (
+            <Empty title="No requests to join." />
           ) : (
             <Empty title={`Nobody ${STATUS_LABEL[status].toLowerCase()}.`} />
           )
         ) : (
           <>
-            <table className="hidden w-full table-fixed md:table">
+            <table className="hidden w-full table-fixed border-separate border-spacing-0 md:table">
               <thead>
-                <tr className="border-b border-[#f1f2f4] bg-[#fafbfb]">
-                  <th className="h-9 w-[38%] px-4 text-left text-[12px] font-medium text-[#4b5563]">Member</th>
-                  <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">{status === "pending" ? "Note" : "Role"}</th>
-                  {status !== "pending" ? <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Tier</th> : null}
-                  {showLevel && status !== "pending" ? <th className="h-9 w-[96px] px-3 text-left text-[12px] font-medium text-[#4b5563]">Level</th> : null}
-                  <th className="h-9 w-[112px] px-3 text-left text-[12px] font-medium text-[#4b5563]">{status === "pending" ? "Asked" : "Joined"}</th>
-                  {status !== "pending" ? <th className="h-9 w-[112px] px-3 text-left text-[12px] font-medium text-[#4b5563]">Last active</th> : null}
-                  <th className={cn("h-9 px-3", status === "pending" ? "w-[196px]" : "w-[56px]")} />
+                <tr className="h-9 text-left text-[12px] text-[#6b7280]">
+                  <th className="w-[38%] border-b border-[#eef0f2] pl-4 pr-3 font-medium">Member</th>
+                  <th className="border-b border-[#eef0f2] px-3 font-medium">{pending ? "Note" : "Role"}</th>
+                  {!pending ? <th className="border-b border-[#eef0f2] px-3 font-medium">Tier</th> : null}
+                  {showLevel && !pending ? <th className="w-[96px] border-b border-[#eef0f2] px-3 font-medium">Level</th> : null}
+                  <th className="w-[104px] border-b border-[#eef0f2] px-3 font-medium">{pending ? "Asked" : "Joined"}</th>
+                  {!pending ? <th className="w-[104px] border-b border-[#eef0f2] px-3 font-medium">Last active</th> : null}
+                  <th className={cn("border-b border-[#eef0f2] pr-3", pending ? "w-[208px]" : "w-[56px]")} aria-label="Actions" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f1f2f4]">
+              <tbody>
                 {rows.map((m) => (
-                  <tr key={m.userId} className="hover:bg-[#fafbfb]" data-member-row="">
-                    <td className="h-[60px] px-4">
+                  <tr key={m.userId} className="group/row hover:bg-[#fafbfb]" data-member-row="">
+                    <td className="h-[58px] border-b border-[#f1f2f4] pl-4 pr-3 group-last/row:border-b-0">
                       <div className="flex min-w-0 items-center gap-3">
                         <AppAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" />
                         <div className="min-w-0">
-                          <p className="flex min-w-0 items-center gap-1.5 truncate text-[13.5px] font-medium text-[#1a1a2e]">
+                          <p className="flex min-w-0 items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e]">
                             <span className="truncate">{m.name}</span>
                             {m.mutedUntil ? <StatusBadge tone="attention">Muted</StatusBadge> : null}
                             {m.source === "manual" ? <StatusBadge tone="neutral">Complimentary</StatusBadge> : null}
@@ -319,29 +249,16 @@ export function MembersSection(p: Props) {
                         </div>
                       </div>
                     </td>
-                    <td className="truncate px-3 text-[13px] text-[#1a1a2e]">{status === "pending" ? <span className="text-[#4b5563]">{m.requestNote || (m.approved ? "Approved, waiting for payment" : "")}</span> : ROLE_LABEL[m.role]}</td>
-                    {status !== "pending" ? <td className="truncate px-3 text-[13px] text-[#4b5563]">{m.tierName ?? ""}</td> : null}
-                    {showLevel && status !== "pending" ? (
-                      <td className="px-3 text-[13px] tabular-nums text-[#4b5563]">
+                    <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#1a1a2e] group-last/row:border-b-0">{pending ? <span className="text-[#4b5563]">{m.requestNote || (m.approved ? "Approved, waiting for payment" : "")}</span> : ROLE_LABEL[m.role]}</td>
+                    {!pending ? <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{m.tierName ?? ""}</td> : null}
+                    {showLevel && !pending ? (
+                      <td className="border-b border-[#f1f2f4] px-3 text-[13px] tabular-nums text-[#4b5563] group-last/row:border-b-0">
                         {m.level} <span className="text-[#9ca3af]">· {m.points}</span>
                       </td>
                     ) : null}
-                    <td className="whitespace-nowrap px-3 text-[13px] text-[#4b5563]">{shortDate(status === "pending" ? m.requestedAt : m.joinedAt)}</td>
-                    {status !== "pending" ? <td className="whitespace-nowrap px-3 text-[13px] text-[#4b5563]">{m.lastActiveAt ? relativeTime(m.lastActiveAt) : ""}</td> : null}
-                    <td className="px-3 text-right">
-                      {status === "pending" && p.head.can.approve_member && !m.approved ? (
-                        <span className="inline-flex gap-1.5">
-                          <button type="button" disabled={busy} onClick={() => setPending({ kind: "confirm", member: m, action: "reject", title: `Decline ${m.name}?`, detail: "They can ask again later.", verb: "Decline" })} className={buttonSecondary}>
-                            Decline
-                          </button>
-                          <button type="button" disabled={busy} onClick={() => void act(m, "approve", {}, `${m.name} approved`)} className={buttonPrimary}>
-                            Approve
-                          </button>
-                        </span>
-                      ) : (
-                        <RowMenu items={menuFor(m)} label={`Actions for ${m.name}`} />
-                      )}
-                    </td>
+                    <td className="whitespace-nowrap border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{shortDate(pending ? m.requestedAt : m.joinedAt)}</td>
+                    {!pending ? <td className="whitespace-nowrap border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{m.lastActiveAt ? relativeTime(m.lastActiveAt) : ""}</td> : null}
+                    <td className="border-b border-[#f1f2f4] pr-3 text-right group-last/row:border-b-0">{rowActions(m, false)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -349,31 +266,22 @@ export function MembersSection(p: Props) {
 
             <ul className="divide-y divide-[#f1f2f4] md:hidden">
               {rows.map((m) => (
-                <li key={m.userId} className="flex min-h-[64px] items-center gap-3 px-4 py-2.5" data-member-row="">
+                <li key={m.userId} className="flex min-h-[64px] items-center gap-3 py-2.5 pl-4 pr-2" data-member-row="">
                   <AppAvatar src={m.avatarUrl ?? undefined} name={m.name} size={36} className="h-9 w-9 shrink-0 rounded-full" />
                   <div className="min-w-0 flex-1">
                     <p className="flex min-w-0 items-center gap-1.5 text-[14.5px] font-medium text-[#1a1a2e]">
                       <span className="truncate">{m.name}</span>
                       {m.mutedUntil ? <StatusBadge tone="attention">Muted</StatusBadge> : null}
                     </p>
-                    <p className="truncate text-[12.5px] text-[#6b7280]">
-                      {status === "pending"
-                        ? [m.requestNote || (m.approved ? "Approved, waiting for payment" : null), shortDate(m.requestedAt)].filter(Boolean).join(" · ")
-                        : [m.role !== "member" ? ROLE_LABEL[m.role] : null, m.tierName, showLevel ? `Level ${m.level}` : null, m.email, `Joined ${shortDate(m.joinedAt)}`].filter(Boolean).join(" · ")}
-                    </p>
+                    <p className="truncate text-[12.5px] text-[#6b7280]">{line(m)}</p>
                   </div>
-                  {status === "pending" && p.head.can.approve_member && !m.approved ? (
-                    <button type="button" disabled={busy} onClick={() => void act(m, "approve", {}, `${m.name} approved`)} className={cn(buttonPrimary, "h-10 px-3.5")}>
-                      Approve
-                    </button>
-                  ) : null}
-                  <RowMenu items={menuFor(m)} label={`Actions for ${m.name}`} />
+                  {rowActions(m, true)}
                 </li>
               ))}
             </ul>
           </>
         )}
-      </section>
+      </ListCard>
 
       {page.capped ? <p className="px-1 text-[13px] text-[#6b7280]">Showing the first matches. Type more of the name to narrow it down.</p> : null}
       {page.next ? (
@@ -395,23 +303,7 @@ export function MembersSection(p: Props) {
         onMade={(inv) => setInvites((x) => ({ ...x, rows: [inv, ...x.rows] }))}
         onAdded={() => void load(true)}
       />
-
-      {pending?.kind === "confirm" ? (
-        <Confirm
-          open
-          onClose={() => setPending(null)}
-          title={pending.title}
-          detail={pending.detail}
-          action={pending.verb}
-          danger={pending.action === "ban" || pending.action === "remove"}
-          busy={busy}
-          reason={pending.action !== "reject"}
-          onConfirm={(reason) => void act(pending.member, pending.action, { reason: reason || undefined }, pending.action === "reject" ? "Request declined" : pending.action === "ban" ? `${pending.member.name} is banned` : pending.action === "remove" ? `${pending.member.name} was removed` : `${pending.member.name} is suspended`)}
-        />
-      ) : null}
-      {pending?.kind === "comp" ? <CompDialog base={base} tiers={p.tiers} member={pending.member} onClose={() => setPending(null)} onDone={() => { setPending(null); toast("Complimentary access given"); void load(true) }} /> : null}
-      {pending?.kind === "points" ? <PointsDialog base={base} member={pending.member} onClose={() => setPending(null)} onDone={(n) => { setPending(null); toast(`${n > 0 ? "+" : ""}${n} points for ${pending.member.name}`); void load() }} /> : null}
-      {pending?.kind === "badge" ? <BadgeDialog base={base} badges={p.badges} member={pending.member} onClose={() => setPending(null)} onDone={(b) => { setPending(null); toast(`${b} given to ${pending.member.name}`) }} /> : null}
+      {actions.dialogs}
     </div>
   )
 }
@@ -447,12 +339,12 @@ function InvitesList({ base, invites, setInvites }: { base: string; invites: { r
     if (res.ok) setInvites((x) => ({ rows: [...x.rows, ...(res.data.rows ?? [])], next: res.data.next ?? null }))
   }
   return (
-    <Section title="Invites" hint="A revoked invite stops working at once, even if the link was shared.">
-      <ul className="-my-1 divide-y divide-[#f1f2f4]" data-invites="">
+    <ListCard head={<p className="px-2 text-[14px] font-semibold text-[#1a1a2e]">Invites</p>} actions={<ListNote>A revoked invite stops working at once.</ListNote>} data-invites="">
+      <ul className="divide-y divide-[#f1f2f4]">
         {invites.rows.map((i) => {
           const live = !i.revokedAt && !(i.expiresAt && Date.parse(i.expiresAt) < Date.now()) && !(i.maxUses && i.uses >= i.maxUses)
           return (
-            <li key={i.id} className="flex min-h-12 items-center gap-3 py-2">
+            <li key={i.id} className="flex min-h-14 items-center gap-3 py-2 pl-4 pr-3">
               <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f1f2f4] text-[#4b5563]">
                 {i.email ? <Mail className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
               </span>
@@ -470,11 +362,13 @@ function InvitesList({ base, invites, setInvites }: { base: string; invites: { r
         })}
       </ul>
       {invites.next ? (
-        <button type="button" onClick={() => void loadMore()} disabled={more} className={cn(buttonSecondary, "mt-3 h-9")}>
-          {more ? "Loading" : "Show more"}
-        </button>
+        <div className="border-t border-[#f1f2f4] px-4 py-2.5">
+          <button type="button" onClick={() => void loadMore()} disabled={more} className={cn(buttonSecondary, "h-10 sm:h-8")}>
+            {more ? "Loading" : "Show more"}
+          </button>
+        </div>
       ) : null}
-    </Section>
+    </ListCard>
   )
 }
 
@@ -632,155 +526,6 @@ function InviteDialog({ open, onClose, base, tiers, canAdd, onMade, onAdded }: {
           </div>
         ) : null}
       </div>
-    </Dialog>
-  )
-}
-
-/* ── Complimentary access, points, badges ───────────────────────────────── */
-
-function CompDialog({ base, tiers, member, onClose, onDone }: { base: string; tiers: { id: string; name: string; kind: string }[]; member: MemberRowView | null; onClose: () => void; onDone: () => void }) {
-  const [tier, setTier] = React.useState(tiers.find((t) => t.kind === "paid")?.id ?? tiers[0]?.id ?? "")
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const submit = async () => {
-    setBusy(true)
-    const res = await send(`${base}/members`, "POST", { action: "complimentary", userId: member?.userId, tierId: tier })
-    setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error))
-    onDone()
-  }
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={`Complimentary access for ${member?.name ?? "a member"}`}
-      footer={
-        <>
-          <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
-          </button>
-          <button type="button" onClick={() => void submit()} disabled={busy || !tier} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? "Working" : "Give access"}
-          </button>
-        </>
-      }
-    >
-      <p className="mb-3 text-[13.5px] leading-snug text-[#4b5563]">They get this tier without paying, until you end it.</p>
-      <label htmlFor="comp-tier" className={label}>
-        Tier
-      </label>
-      <select id="comp-tier" value={tier} onChange={(e) => setTier(e.target.value)} className={selectField}>
-        {tiers.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
-      {error ? (
-        <div className="mt-3">
-          <Notice>{error}</Notice>
-        </div>
-      ) : null}
-    </Dialog>
-  )
-}
-
-function PointsDialog({ base, member, onClose, onDone }: { base: string; member: MemberRowView; onClose: () => void; onDone: (n: number) => void }) {
-  const [points, setPoints] = React.useState("10")
-  const [note, setNote] = React.useState("")
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const submit = async () => {
-    setBusy(true)
-    const n = Number(points)
-    const res = await send(`${base}/gamification/points`, "POST", { userId: member.userId, points: n, note })
-    setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error))
-    onDone(n)
-  }
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={`Points for ${member.name}`}
-      footer={
-        <>
-          <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
-          </button>
-          <button type="button" onClick={() => void submit()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? "Working" : "Give points"}
-          </button>
-        </>
-      }
-    >
-      <p className="mb-3 text-[13px] text-[#6b7280]">They have {member.points} now. A negative number takes points away.</p>
-      <div className="grid grid-cols-[120px_1fr] gap-3">
-        <div>
-          <label htmlFor="pts-n" className={label}>
-            Points
-          </label>
-          <input id="pts-n" inputMode="numeric" value={points} onChange={(e) => setPoints(e.target.value.replace(/[^\d-]/g, "").slice(0, 6))} className={cn(field, "h-11 tabular-nums sm:h-10")} />
-        </div>
-        <div>
-          <label htmlFor="pts-note" className={label}>
-            What for
-          </label>
-          <input id="pts-note" value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Optional" className={cn(field, "h-11 sm:h-10")} />
-        </div>
-      </div>
-      {error ? (
-        <div className="mt-3">
-          <Notice>{error}</Notice>
-        </div>
-      ) : null}
-    </Dialog>
-  )
-}
-
-function BadgeDialog({ base, badges, member, onClose, onDone }: { base: string; badges: BadgeView[]; member: MemberRowView; onClose: () => void; onDone: (name: string) => void }) {
-  const [badge, setBadge] = React.useState(badges[0]?.id ?? "")
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const submit = async () => {
-    setBusy(true)
-    const res = await send(`${base}/gamification/badges/${badge}`, "POST", { userId: member.userId, on: true })
-    setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error))
-    onDone(badges.find((b) => b.id === badge)?.name ?? "Badge")
-  }
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={`A badge for ${member.name}`}
-      footer={
-        <>
-          <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
-          </button>
-          <button type="button" onClick={() => void submit()} disabled={busy || !badge} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? "Working" : "Give badge"}
-          </button>
-        </>
-      }
-    >
-      <ul className="space-y-1">
-        {badges.map((b) => (
-          <li key={b.id}>
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-[#f7f7f8]">
-              <input type="radio" name="badge" checked={badge === b.id} onChange={() => setBadge(b.id)} className="h-4 w-4 accent-[#1a1a2e]" />
-              <span className="text-[18px] leading-none">{b.icon || "🏅"}</span>
-              <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{b.name}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      {error ? (
-        <div className="mt-3">
-          <Notice>{error}</Notice>
-        </div>
-      ) : null}
     </Dialog>
   )
 }

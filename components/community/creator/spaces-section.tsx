@@ -21,7 +21,7 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, RuleOptions, SpaceView } from "./view-types"
 import { SPACE_KIND_LABEL, checkSpace } from "./logic"
 import { AccessEditor, describeRule } from "./access-editor"
-import { Confirm, Dialog, Empty, Notice, RowMenu, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
+import { Confirm, Dialog, Empty, ListCard, ListNote, Notice, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
 
 const KIND_ICON: Record<SpaceKind, string> = { feed: "💬", chat: "⚡", announcements: "📣", resources: "📚" }
 const POST_ROLE_LABEL: Record<PostRole, string> = { member: "Members post", moderator: "Moderators post", admin: "Admins post" }
@@ -115,14 +115,20 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
 
   return (
     <div className="space-y-4" data-spaces="">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[13.5px] text-[#6b7280]">Members see the spaces in this order.</p>
-        <button type="button" onClick={() => { setError(null); setDraft({ ...blank }) }} className={cn(buttonPrimary, "max-md:h-10 max-md:px-3.5")} data-space-new="">
-          <Plus aria-hidden className="h-4 w-4" />
-          New space
-        </button>
-      </div>
-      <section className={cn(card, "overflow-hidden")}>
+      <ListCard
+        head={
+          <ListNote>
+            {spaces.length} {spaces.length === 1 ? "space" : "spaces"}
+            <span className="max-sm:hidden">, in the order members see them</span>
+          </ListNote>
+        }
+        actions={
+          <button type="button" onClick={() => { setError(null); setDraft({ ...blank }) }} className={buttonPrimary} data-space-new="">
+            <Plus aria-hidden className="h-4 w-4" />
+            New space
+          </button>
+        }
+      >
         {spaces.length === 0 ? (
           <Empty title="No spaces yet." detail="Add a space for members to post in." />
         ) : (
@@ -154,7 +160,7 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
             ))}
           </ul>
         )}
-      </section>
+      </ListCard>
 
       <Dialog
         open={draft !== null}

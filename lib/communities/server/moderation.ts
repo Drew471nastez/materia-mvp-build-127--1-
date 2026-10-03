@@ -24,7 +24,7 @@ import "server-only"
  * written to the audit log.
  */
 import { assignableRoles, can, canActOn, ROLE_RANK, type CommunityAction } from "../permissions"
-import { MEMBER_COLUMNS, REPORT_STATUSES, isOneOf, type CommunityRow, type MemberRow, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
+import { MEMBER_COLUMNS, REPORT_STATUSES, isOneOf, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
 import { decodeCursor, encodeCursor, isUuid, keysetOr } from "@/components/community/creator/logic"
 import type { AuditView, ReportView } from "@/components/community/creator/view-types"
 import { audit } from "./audit"
@@ -403,9 +403,11 @@ export async function listReports(db: Db, communityId: string, opts: { status: "
   const subjectIds = [...memberIds, ...[...content.values()].map((c) => c.author_id).filter((x): x is string => Boolean(x))]
   const [people, roles] = await Promise.all([
     peopleOf(db, [...subjectIds, ...rows.map((r) => r.reporter_id).filter((x): x is string => Boolean(x))]),
-    subjectIds.length ? db.from("community_members").select("user_id, role, status").eq("community_id", communityId).in("user_id", [...new Set(subjectIds)].slice(0, 200)) : Promise.resolve({ data: [] }),
+    subjectIds.length ? db.from("community_members").select("user_id, role, status, source, muted_until").eq("community_id", communityId).in("user_id", [...new Set(subjectIds)].slice(0, 200)) : Promise.resolve({ data: [] }),
   ])
-  const roleOfUser = new Map(((roles.data as { user_id: string; role: Role; status: string }[] | null) ?? []).map((m) => [m.user_id, m.status === "active" ? m.role : null]))
+  type SubjectRow = { user_id: string; role: Role; status: MemberStatus; source: MemberSource; muted_until: string | null }
+  const memberRows = new Map(((roles.data as SubjectRow[] | null) ?? []).map((m) => [m.user_id, m]))
+  const roleOfUser = new Map([...memberRows.values()].map((m) => [m.user_id, m.status === "active" ? m.role : null]))
   const last = rows[rows.length - 1]
   return {
     rows: rows.map((r) => {
@@ -429,7 +431,13 @@ export async function listReports(db: Db, communityId: string, opts: { status: "
         createdAt: r.created_at,
         reporterName: r.reporter_id ? (people.get(r.reporter_id)?.name ?? null) : null,
         preview,
-        subject: subjectId ? { userId: subjectId, name: people.get(subjectId)?.name ?? "Member", role: roleOfUser.get(subjectId) ?? null } : null,
+        subject: subjectId
+          ? (() => {
+              const m = memberRows.get(subjectId)
+              const muted = m?.muted_until && Date.parse(m.muted_until) > Date.now() ? m.muted_until : null
+              return { userId: subjectId, name: people.get(subjectId)?.name ?? "Member", role: roleOfUser.get(subjectId) ?? null, member: m ? { role: m.role, status: m.status, source: m.source, mutedUntil: muted } : null }
+            })()
+          : null,
         targetState: r.target_type === "member" ? "member" : c ? c.status : "missing",
         resolution: r.resolution,
       }

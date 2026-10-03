@@ -21,7 +21,7 @@ import type { AccessRuleJson } from "@/lib/communities/types"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, CourseView, PickProduct, RuleOptions } from "./view-types"
 import { AccessEditor, describeRule } from "./access-editor"
-import { Confirm, Dialog, Empty, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
+import { Confirm, Dialog, Empty, ListCard, ListNote, Notice, RowMenu, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
 
 const NEW_COURSE = "/app/products/new?type=course"
 
@@ -99,20 +99,25 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
 
   return (
     <div className="space-y-4" data-classroom="">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[13.5px] text-[#6b7280]">Courses members take inside the community.</p>
-        <div className="flex items-center gap-2">
-          <Link href={NEW_COURSE} className={cn(buttonSecondary, "max-md:h-10")}>
-            New course
-          </Link>
-          <button type="button" onClick={() => setAdding(true)} className={cn(buttonPrimary, "max-md:h-10")} data-course-add="">
-            <Plus aria-hidden className="h-4 w-4" />
-            Add a course
-          </button>
-        </div>
-      </div>
-
-      <section className={cn(card, "overflow-hidden")}>
+      <ListCard
+        head={
+          <ListNote>
+            {data.attached.length} {data.attached.length === 1 ? "course" : "courses"}
+            <span className="max-sm:hidden"> members take inside the community</span>
+          </ListNote>
+        }
+        actions={
+          <>
+            <Link href={NEW_COURSE} className={cn(buttonSecondary, "max-sm:hidden")}>
+              New course
+            </Link>
+            <button type="button" onClick={() => setAdding(true)} className={buttonPrimary} data-course-add="">
+              <Plus aria-hidden className="h-4 w-4" />
+              Add a course
+            </button>
+          </>
+        }
+      >
         {data.attached.length === 0 ? (
           <Empty title="No courses yet." detail="Add a course you already sell, or make a new one. Members open it here without buying it separately.">
             <button type="button" onClick={() => setAdding(true)} className={cn(buttonPrimary, "h-10 px-4")}>
@@ -144,7 +149,7 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
             ))}
           </ul>
         )}
-      </section>
+      </ListCard>
       {data.attached.some((c) => c.status === "draft") ? <Notice tone="warn">A draft course is not ready for members yet. Publish it in the product editor first.</Notice> : null}
 
       <Dialog open={adding} onClose={() => setAdding(false)} title="Add a course" footer={<Link href={NEW_COURSE} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>Make a new course</Link>}>

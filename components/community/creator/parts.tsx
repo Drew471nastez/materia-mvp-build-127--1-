@@ -12,13 +12,14 @@
  */
 import * as React from "react"
 import Link from "next/link"
-import { ImagePlus, Loader2, X } from "lucide-react"
+import { ChevronsUpDown, ImagePlus, Loader2, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buttonPrimary as appPrimary, buttonSecondary as appSecondary, card, RowMenuButton } from "@/app/app/orders/order-parts"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
+import { PickSheet, type PickOption } from "@/app/app/products/pick-sheet"
 
 /* The app's buttons, 40px tall on a phone so a thumb finds them; 32px on a computer as everywhere in /app. */
 export const buttonPrimary = cn(appPrimary, "max-sm:h-10 max-sm:px-3.5")
@@ -127,6 +128,141 @@ export function Section({ title, hint, action, children, className, id }: { titl
   )
 }
 
+/* ── Lists: one white card whose first row is its toolbar ────────────────── */
+
+export interface FilterTab<T extends string> {
+  value: T
+  label: string
+  count?: number
+  /** The count in amber: something is waiting (requests, open reports). */
+  attention?: boolean
+}
+
+/**
+ * The views of a list, as the memberships screen draws its member filters:
+ * a word and a count, the one on filled grey, no borders. 40px tall on a
+ * phone, 32px from 768px. They scroll sideways when they do not fit.
+ */
+export function FilterTabs<T extends string>({ tabs, value, onChange, label: name, className }: { tabs: FilterTab<T>[]; value: T; onChange: (v: T) => void; label: string; className?: string }) {
+  const strip = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const s = strip.current
+    const el = s?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (!s || !el) return
+    const left = el.offsetLeft - s.offsetLeft
+    if (left < s.scrollLeft || left + el.offsetWidth > s.scrollLeft + s.clientWidth) s.scrollTo({ left: Math.max(0, left - 16) })
+  }, [value])
+  return (
+    <div ref={strip} role="tablist" aria-label={name} data-filter-tabs="" className={cn("flex min-w-0 items-center gap-0.5 overflow-x-auto scrollbar-hide", className)}>
+      {tabs.map((t) => (
+        <button
+          key={t.value}
+          type="button"
+          role="tab"
+          aria-selected={value === t.value}
+          data-filter={t.value}
+          onClick={() => onChange(t.value)}
+          className={cn(
+            "inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[14px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:px-2.5 md:text-[13px]",
+            value === t.value ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+          )}
+        >
+          {t.label}
+          {typeof t.count === "number" ? <span className={cn("tabular-nums", t.attention && t.count > 0 ? "text-[#b45309]" : "text-[#9ca3af]")}>{t.count.toLocaleString("en-US")}</span> : null}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * A list in one card, the way Products and a membership's Members draw
+ * theirs: the card's first row holds the views on the left and the list's
+ * actions on the right, a second optional row the search and filters, then
+ * the rows. Nothing floats above the card, so a section is one box.
+ */
+export function ListCard({ head, actions, toolbar, children, className, busy, ...rest }: { head?: React.ReactNode; actions?: React.ReactNode; toolbar?: React.ReactNode; children: React.ReactNode; className?: string; busy?: boolean } & React.HTMLAttributes<HTMLElement>) {
+  return (
+    <section {...rest} aria-busy={busy || undefined} className={cn(card, "overflow-hidden", className)}>
+      {head || actions ? (
+        <div data-list-head="" className="flex min-h-[52px] items-center gap-2 border-b border-[#eef0f2] py-1.5 pl-1.5 pr-2 md:min-h-12 md:pl-2 md:pr-3">
+          <div className="min-w-0 flex-1">{head}</div>
+          {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
+        </div>
+      ) : null}
+      {toolbar ? (
+        <div data-toolbar="" className="flex min-h-12 items-center gap-1 border-b border-[#eef0f2] pl-1 pr-1.5 md:min-h-11 md:pl-2 md:pr-3">
+          {toolbar}
+        </div>
+      ) : null}
+      {children}
+    </section>
+  )
+}
+
+/** A short line of quiet words in a list card's head, where a list has no views (Spaces, Classroom). */
+export function ListNote({ children }: { children: React.ReactNode }) {
+  return <p className="truncate px-2 text-[13px] text-[#6b7280]">{children}</p>
+}
+
+/** The products search: no box of its own, a magnifier, and the rest of the row. 16px on a phone so iOS does not zoom. */
+export function SearchField({ value, onChange, placeholder, label: name }: { value: string; onChange: (v: string) => void; placeholder: string; label: string }) {
+  return (
+    <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-2 md:h-9">
+      <Search aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
+      <input
+        type="search"
+        enterKeyHint="search"
+        aria-label={name}
+        value={value}
+        onChange={(e) => onChange(e.target.value.slice(0, 80))}
+        placeholder={placeholder}
+        className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13.5px] [&::-webkit-search-cancel-button]:hidden"
+      />
+      {value ? (
+        <button type="button" aria-label="Clear search" onClick={() => onChange("")} className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] hover:text-[#4b5563] md:h-8 md:w-8">
+          <X aria-hidden className="h-4 w-4" />
+        </button>
+      ) : null}
+    </label>
+  )
+}
+
+/** A thin upright line between two parts of a toolbar. */
+export function ToolbarDivider() {
+  return <span aria-hidden className="h-6 w-px shrink-0 bg-[#e5e7eb] md:h-5" />
+}
+
+/**
+ * A filter as Products picks its view: the choice as a word with an up and
+ * down chevron, opening a sheet on a phone and the app's dropdown from 768px
+ * (app/app/products/pick-sheet).
+ */
+export function PickButton({ name, title, options, value, onPick, align = "start" }: { name: string; title: string; options: readonly PickOption[]; value: string; onPick: (v: string) => void; align?: "start" | "end" }) {
+  const current = options.find((o) => o.value === value)?.label ?? options[0]?.label ?? ""
+  return (
+    <PickSheet
+      name={name}
+      title={title}
+      options={options}
+      value={value}
+      onPick={onPick}
+      align={align}
+      trigger={
+        <button
+          type="button"
+          data-pick={name}
+          aria-label={`${title}: ${current}. Change`}
+          className="flex h-11 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] md:h-8 md:px-2 md:text-[13px] md:hover:bg-[#f4f4f6] md:data-open:bg-[#ececef]"
+        >
+          <span>{current}</span>
+          <ChevronsUpDown aria-hidden className="h-4 w-4 text-[#6b7280] md:h-[15px] md:w-[15px]" />
+        </button>
+      }
+    />
+  )
+}
+
 /** The short line when a list has nothing in it, and the one thing to do about it. */
 export function Empty({ title, detail, children }: { title: string; detail?: string; children?: React.ReactNode }) {
   return (
@@ -202,7 +338,27 @@ export function Segmented<T extends string>({ value, onChange, options, label: n
 }
 
 /** Choices with a line under each, one picked: who can join, what a space is for. */
-export function ChoiceCards<T extends string>({ value, onChange, options, label: name, columns = 3 }: { value: T; onChange: (v: T) => void; options: { value: T; title: string; detail: string }[]; label: string; columns?: 2 | 3 }) {
+export function ChoiceCards<T extends string>({ value, onChange, options, label: name, columns = 3, rows }: { value: T; onChange: (v: T) => void; options: { value: T; title: string; detail: string }[]; label: string; columns?: 2 | 3; rows?: boolean }) {
+  /* Inside a card: radio rows with a hairline between them, no box round each one (no card inside a card). */
+  if (rows)
+    return (
+      <div role="radiogroup" aria-label={name} className="-my-1 divide-y divide-[#f1f2f4]">
+        {options.map((o) => {
+          const on = value === o.value
+          return (
+            <button key={o.value} type="button" role="radio" aria-checked={on} data-choice={o.value} onClick={() => onChange(o.value)} className="flex min-h-[52px] w-full cursor-pointer items-start gap-3 py-2.5 text-left">
+              <span aria-hidden className={cn("mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors", on ? "border-[#1a1a2e]" : "border-[#b5b5bd]")}>
+                {on ? <span className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-medium text-[#1a1a2e]">{o.title}</span>
+                <span className="mt-0.5 block text-[12.5px] leading-snug text-[#6b7280]">{o.detail}</span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    )
   return (
     <div role="radiogroup" aria-label={name} className={cn("grid grid-cols-1 gap-2", columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
       {options.map((o) => {
@@ -313,8 +469,9 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
 /* ── Menus and dialogs ──────────────────────────────────────────────────── */
 
 /** A row's three dots: a dropdown on a computer, a bottom sheet on a phone. */
-export function RowMenu({ items, label: name }: { items: ActionMenuItem[]; label: string }) {
-  if (items.length === 0) return null
+export function RowMenu({ items, label: name, keepSpace }: { items: ActionMenuItem[]; label: string; keepSpace?: boolean }) {
+  /* A row with nothing in its menu keeps the menu's place, so the buttons beside it line up with the other rows'. */
+  if (items.length === 0) return keepSpace ? <span aria-hidden className="inline-block h-8 w-8 shrink-0 max-sm:h-10 max-sm:w-10" /> : null
   return <ResponsiveActionMenu align="end" title={name} items={items} trigger={<RowMenuButton label={name} className="max-sm:h-10 max-sm:w-10" />} />
 }
 
