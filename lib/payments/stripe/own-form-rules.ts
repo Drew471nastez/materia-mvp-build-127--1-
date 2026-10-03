@@ -49,6 +49,13 @@ export interface DetailsNeeds {
   either: Array<{ original: DetailField[]; alternative: DetailField[] }>
   /** Fields on the form only as an alternative: not due by themselves. */
   offered: DetailField[]
+  /**
+   * Already on file at Stripe: a document whose front is uploaded, or an
+   * identity check Stripe has accepted. The form reads this on a fresh open,
+   * so a step that was done before does not ask again, and the ID number is
+   * not asked for once the document that stands in for it has been given.
+   */
+  given: DetailField[]
 }
 
 /**
@@ -165,7 +172,7 @@ export function needsOf(
     either.push({ original, alternative })
   }
   const problems = [...new Set((req?.errors ?? []).filter((e) => !e.requirement || due.has(e.requirement)).map((e) => problemWords(e.code)))]
-  return { fields: ORDER.filter((f) => fields.has(f)), tos, bank, name, other, checking: due.size === 0 && pending.size > 0, registeredAddress, problems, either, offered: ORDER.filter((f) => fields.has(f) && !dueOnItsOwn.has(f)) }
+  return { fields: ORDER.filter((f) => fields.has(f)), tos, bank, name, other, checking: due.size === 0 && pending.size > 0, registeredAddress, problems, either, offered: ORDER.filter((f) => fields.has(f) && !dueOnItsOwn.has(f)), given: [] }
 }
 
 /* ── the ID number, named as the creator knows it ───────────────────────── */

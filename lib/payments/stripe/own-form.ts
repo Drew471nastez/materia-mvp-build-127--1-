@@ -98,6 +98,18 @@ async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Pro
     needs.fields = [...needs.fields, "document"]
     needs.offered = [...needs.offered, "document"]
   }
+  /*
+   * WHAT STRIPE ALREADY HOLDS. The ID check is its own step now, so the page
+   * that comes after it opens fresh and has no idea the document went in a
+   * moment ago. Stripe does: the document's front is on the account, or it is
+   * sitting in pending_verification while Stripe looks at it. Either way the
+   * step is done, and the ID number that the document stands in for is not
+   * asked for again.
+   */
+  const given: DetailField[] = []
+  if (account.individual?.verification?.document?.front || pending.has("individual.verification.document")) given.push("document")
+  if (account.individual?.verification?.additional_document?.front || pending.has("individual.verification.additional_document")) given.push("proofOfAddress")
+  needs.given = given
   const country = (account.country ?? "").toUpperCase()
   const ext = account.external_accounts?.data?.find((e) => e.object === "bank_account") as Stripe.BankAccount | undefined
   const person = account.individual

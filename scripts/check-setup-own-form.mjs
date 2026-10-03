@@ -56,7 +56,7 @@ const css = await appCss(root)
 const inter = interFaces(root).replace(/url\(file:\/\//g, "url(http://probe.test/__file")
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
 
-const needsNow = { fields: ["dob", "address", "idNumber"], tos: true, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [] }
+const needsNow = { fields: ["dob", "address", "idNumber"], tos: true, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [], given: [] }
 const form = (needs) => ({
   needs,
   country: "RO",
@@ -136,7 +136,7 @@ try {
     const errors = []
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const nothing = { fields: [], tos: false, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [] }
+    const nothing = { fields: [], tos: false, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [], given: [] }
     p.on("request", (r) => {
       const u = r.url()
       const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
@@ -161,7 +161,7 @@ try {
     })
     expect(arrived.bank, "the bank sits on the details page", arrived)
     expect(!arrived.change, "and a first bank is never worded as a change", arrived)
-    expect(arrived.steps === 2, "two steps, not three", arrived)
+    expect(arrived.steps === 3, "three steps: Account, ID check, Details", arrived)
     await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Back")?.click())
     await new Promise((r) => setTimeout(r, 900))
     const back = await p.evaluate(() => {
@@ -299,7 +299,7 @@ try {
     const sent = {}
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"] }
+    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [] }
     p.on("request", (r) => {
       const u = r.url()
       const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
@@ -311,7 +311,9 @@ try {
         if (action === "details") sent.detailsBody = r.postData()
         if (action === "document") sent.documentType = r.headers()["content-type"] ?? ""
         if (action === "identity") return json({ ok: false, reason: "not_enabled" })
-        if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(eitherNeeds) } : form(eitherNeeds))
+        /* Once the document is on file Stripe says so, and the page after the ID step reads that. */
+        const withDoc = { ...eitherNeeds, given: sent.document ? ["document"] : [] }
+        if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(withDoc) } : form(withDoc))
         if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
         if (action === "bank") return json({ form: form({ ...needsNow, fields: [], tos: false, bank: false }), overview: doneOverview })
         return json({})
@@ -333,10 +335,10 @@ try {
     await new Promise((r) => setTimeout(r, 300))
     const start = await p.evaluate(() => ({
       cnpHidden: ![...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
-      offer: document.body.textContent?.includes("Rather type your CNP instead?"),
+      noDetails: !document.querySelector('[autocomplete="bday-day"]'),
       photoFirst: document.body.textContent?.includes("Verify with your ID"),
     }))
-    expect(start.photoFirst && start.cnpHidden && start.offer, "the photo comes first and the CNP is only an option", start)
+    expect(start.photoFirst && start.cnpHidden && start.noDetails, "the ID check is a step of its own, with no CNP and no details on it", start)
     await p.screenshot({ path: join(out, "id-choice-390.png") })
 
     await p.evaluate(() => document.querySelector("[data-id-camera-open]")?.click())
@@ -360,9 +362,22 @@ try {
     expect(await p.evaluate(() => /Back of your ID/.test(document.querySelector("[data-id-camera]")?.textContent ?? "")), "and the camera turns to the back")
     await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("No back"))?.click())
     await new Promise((r) => setTimeout(r, 400))
-    const after = await p.evaluate(() => ({ closed: !document.querySelector("[data-id-camera]"), text: document.querySelector("[data-id-photo]")?.textContent ?? "" }))
-    expect(after.closed && /Added/.test(after.text) && /passport/.test(after.text), "No back closes it, front added, back not needed", after)
+    const closed = await p.evaluate(() => ({ closed: !document.querySelector("[data-id-camera]"), text: document.querySelector("[data-id-photo]")?.textContent ?? "" }))
+    expect(closed.closed && /Added/.test(closed.text) && /passport/.test(closed.text), "No back closes it, front added, back not needed", closed)
     await p.screenshot({ path: join(out, "id-added-390.png") })
+
+    /* The ID is in: Continue goes on to the details, which no longer ask for the CNP. */
+    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
+    await p.waitForSelector('[autocomplete="bday-day"]', { timeout: 6000 })
+    await new Promise((r) => setTimeout(r, 300))
+    const after = await p.evaluate(() => ({
+      cnpAsked: [...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
+      offer: document.body.textContent?.includes("Rather type your CNP instead?"),
+      noId: !document.querySelector("[data-id-photo]"),
+    }))
+    expect(!after.cnpAsked && !after.offer, "with the ID given, the CNP is not asked for at all, not even offered", after)
+    expect(after.noId, "and the ID check is not drawn twice", after)
+    await p.screenshot({ path: join(out, "details-after-id-390.png") })
 
     await p.type('[autocomplete="bday-day"]', "14")
     await p.select('select[aria-label="Month"]', "3")

@@ -91,8 +91,14 @@ check("the Account step's names are not asked again by Storelib", (flow.match(/a
 check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
 check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))
 check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
-check("setup is two steps, the bank on the details page", /\["Account", "Details"\]/.test(flow) && /data-details-bank/.test(flow))
-check("the step comes from Stripe's status, not the form", /setupStepOf\(/.test(flow) && /post<Overview>\("refresh"/.test(flow))
+check("setup is Account, the ID check, then the details with the bank on them", /\["Account", "ID check", "Details"\]/.test(flow) && /data-details-bank/.test(flow) && /only\?: "id" \| "details"/.test(flow))
+/* The owner, October 2026: "the kyc photo id needs to be separate step", and the CNP "should not be needed". */
+check("  the ID check is its own step, drawn apart from the details", /only === "id" \? f === "document"/.test(flow))
+check("  the ID number is not asked again once Stripe holds the document", /given\?: DetailField\[\]/.test(flow) && /needs\.given = given/.test(own))
+check("the step comes from Stripe's status", /setupStepOf\(/.test(flow))
+/* The owner, October 2026: going on "takes to much", and "We're verifying your details" appearing out of nowhere. */
+check("  the next step reads the overview the write returned, with no second sync", !/post<Overview>\("refresh"/.test(flow) && /const settle = async \(sent: Overview, left: DetailsForm \| null\)/.test(flow))
+check("  verifying is never shown while Stripe is still asking for something", /stillAsking && \(outcome === "checking" \|\| outcome === "done"\)/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
 /* The owner, October 2026: "3 layers of backdrop, fade, I don't like those", and the modal "should not have that much width". */

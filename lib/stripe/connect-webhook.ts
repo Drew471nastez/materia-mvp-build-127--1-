@@ -6,6 +6,7 @@ import { syncStripeAccount } from "@/lib/payments/stripe/connect"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { emit } from "@/lib/notify/outbox"
+import { readableRequirements } from "@/lib/notify/conditions"
 import { createHash } from "node:crypto"
 
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
@@ -92,6 +93,8 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
           pastDue: pastDue.length > 0,
           requirementCount: due.length,
           requirements: due.slice(0, 10),
+          /* The same words the verification reminders use, so the email names what Stripe wants rather than "requirements_due". */
+          needsWords: readableRequirements(due),
           deadline: deadline ? new Date(deadline * 1000).toISOString() : null,
           disabledReason: requirements?.disabled_reason || null,
         },

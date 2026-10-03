@@ -74,7 +74,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PAYOUT_SCHEDULED: ["payoutId", "amountCents", "currency", "arrivalDate", "bankLast4"],
   PAYOUT_SENT: ["payoutId", "amountCents", "currency", "arrivalDate", "bankLast4"],
   PAYOUT_FAILED: ["payoutId", "amountCents", "currency", "reason", "bankLast4"],
-  PAYOUT_ACTION_REQUIRED: ["reason", "dueBy"],
+  PAYOUT_ACTION_REQUIRED: ["reason", "dueBy", "needsWords"],
   VERIFICATION_REMINDER: ["requirements", "requirementCount", "identity", "dueBy"],
   VERIFICATION_REMINDER_2: ["requirements", "requirementCount", "identity", "dueBy"],
   PAYOUT_RESTRICTED: ["reason"],
@@ -970,6 +970,8 @@ export const CATALOG: Record<NotificationType, Entry> = {
 
   PAYOUT_ACTION_REQUIRED: (d) => {
     const due = d.date("dueBy")
+    /* What Stripe is asking for, in words. Falls back to its reason when the webhook sent no list. */
+    const needs = d.text("needsWords", 120)
     return {
       family: "action_required",
       audience: "creator",
@@ -977,12 +979,12 @@ export const CATALOG: Record<NotificationType, Entry> = {
       preview: "Stripe needs something from you before the next payout.",
       heading: "Your payouts need your attention",
       paragraphs: [
-        "Your next payout is on hold until Stripe gets a bit more information from you.",
+        needs ? `Your next payout is on hold until Stripe has a bit more from you: ${needs.toLowerCase()}.` : "Your next payout is on hold until Stripe gets a bit more information from you.",
         due ? `Please take care of it by ${due}. It usually takes a few minutes.` : "It usually takes a few minutes.",
       ],
-      facts: [["What is needed", d.readable("reason")], ["Due by", due]],
+      facts: [["What is needed", needs || d.readable("reason")], ["Due by", due]],
       action: { label: "Review payout details", path: PATHS.payments },
-      inApp: { title: "Payouts need your attention", body: "Stripe needs more information before your next payout.", actionLabel: "Review", actionPath: PATHS.payments },
+      inApp: { title: "Payouts need your attention", body: needs ? `Stripe needs ${needs.toLowerCase()} before your next payout.` : "Stripe needs more information before your next payout.", actionLabel: "Review", actionPath: PATHS.payments },
     }
   },
 
