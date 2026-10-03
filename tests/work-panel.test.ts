@@ -275,9 +275,16 @@ section("The panel shows the run and does not invent one")
     "there is no timer in the reading of it, so nothing can be paced to look busy",
     !/setInterval|setTimeout/.test(lib),
   )
+  /*
+    The owner asked for the steps back on screen while a run works, with a
+    check that settles as each is done (T round). Still no spinner and no
+    "3/5" counter: the mark is a dot that breathes, then a check.
+  */
   check(
-    "the finished steps are a plain list: no ticks, no spinner, no counter",
-    !/Loader2|<Check /.test(view.slice(view.indexOf("export function StepsList"), view.indexOf("export function CodePreview"))) && !/\/\{steps\.length\}|done\}\/\{/.test(view),
+    "the steps are a list of rows with a check when done: no spinner, no counter",
+    /<Check className="h-3 w-3"/.test(view.slice(view.indexOf("export function StepsTimeline"), view.indexOf("export function CodePreview"))) &&
+      !/Loader2/.test(view.slice(view.indexOf("export function StepsTimeline"), view.indexOf("export function CodePreview"))) &&
+      !/\/\{steps\.length\}|done\}\/\{/.test(view),
   )
   check(
     "code it wrote is capped in height rather than filling the thread",
@@ -291,21 +298,23 @@ section("The panel shows the run and does not invent one")
     "the loop names a step before running the call, not after",
     (() => {
       const body = loop.slice(loop.indexOf("for (const call of turn.toolCalls)"))
-      const named = body.indexOf("const stepLabel = describeCall")
+      const named = body.indexOf("const stepLabel = toolStepLabel(")
       const ran = body.indexOf("} = execute(")
       return named > 0 && ran > 0 && named < ran
     })(),
   )
   /**
-   * The source sent is the file as it was saved: for a whole-file write the
+   * The source sent is the file as it was kept: for a whole-file write the
    * model's own string untouched, for a patch (edit_section_code) the file
-   * with the edits applied, and only once the save succeeded.
+   * with the edits applied, and only once it compiled and was kept.
    */
   check(
     "and the source of a section it wrote is sent as it was written",
-    /yield \{ type: "code", path: `sections\/\$\{codeType\}\.storelib`, source: saved\.source \}/.test(loop) &&
-      /source = typeof args\.source === "string" \? args\.source : ""/.test(loop) &&
-      /const wrote = writing && saved\.ok/.test(loop),
+    (() => {
+      const kept = loop.indexOf("const kept = await code.write(codeType, prepared.source)")
+      const sent = loop.indexOf('yield { type: "code", path, source: prepared.source }')
+      return kept > 0 && sent > kept && /const source = typeof args\.source === "string" \? args\.source : ""/.test(loop)
+    })(),
   )
 }
 

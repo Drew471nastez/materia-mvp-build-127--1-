@@ -78,9 +78,22 @@ export function contactSections(homeSections: SectionInstance[]): SectionInstanc
   return page(homeSections, main("storelib-contact", "contact", "Contact form", homeSections))
 }
 
+/**
+ * THE PASSWORD PAGE stands on its own, the way Shopify's does: no header,
+ * no footer, nothing to click through to, because everything behind those
+ * links is behind the password too. One section, on the site's own ground.
+ * Served at /password while the website asks for a password
+ * (lib/site-password), and opened in the builder like any other page.
+ */
+export function passwordSections(homeSections: SectionInstance[]): SectionInstance[] {
+  return [main("storelib-password", "main_password", "Password page", homeSections)]
+}
+
 /** The generated page for a key, or null when the key is not one of these. */
 export function accountPageSections(key: string, homeSections: SectionInstance[]): SectionInstance[] | null {
   switch (key) {
+    case "password":
+      return passwordSections(homeSections)
     case "account":
       return accountSections(homeSections)
     case "login":

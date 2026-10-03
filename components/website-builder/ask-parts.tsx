@@ -220,8 +220,10 @@ export function QuestionChoices({
 
 /**
  * THE SCOPE OF THE EDIT, where you are about to type it. On by default when
- * a section is selected, because that is what selecting one means; one
- * press clears it to edit the whole page, and one puts it back.
+ * a section is selected, because that is what selecting one means: "Editing:
+ * Pricing" says the next message changes that section (its settings, its
+ * blocks, or its code) and nothing else. The x clears it to edit the whole
+ * page; one press puts it back.
  */
 export function ScopeChip({
   name,
@@ -246,11 +248,13 @@ export function ScopeChip({
           phone ? "h-9" : "h-7",
         )}
       >
-        <span className="min-w-0 truncate">Only {name}</span>
+        <span className="min-w-0 truncate">
+          <span className="text-[#6b7280]">Editing:</span> {name}
+        </span>
         <button
           type="button"
           onClick={onUnlock}
-          aria-label={`Stop limiting edits to ${name}`}
+          aria-label={`Stop editing only ${name}`}
           title="Edit the whole page instead"
           className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors after:absolute after:-inset-3 after:content-[''] hover:bg-black/[0.06] hover:text-[#1a1a2e]"
         >

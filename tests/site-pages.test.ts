@@ -160,7 +160,8 @@ function main() {
        make a page by either name. */
     /* Ten now: the 404 page, and the visitor's account, its sign in page and
        the wishlist (lib/website-builder/account-pages). */
-    check("and the ten are the ten", BUILT_IN_PAGE_KEYS.size === 10 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Eleven: and the password page a website shows while it asks for one (lib/site-password). */
+    check("and the eleven are the eleven", BUILT_IN_PAGE_KEYS.size === 11 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))

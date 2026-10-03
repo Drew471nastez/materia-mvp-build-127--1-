@@ -4,8 +4,9 @@
  * ===========================================================================
  *  EMAILS, IN THE SAME LANGUAGE AS ORDERS AND ANALYTICS
  * ===========================================================================
- * The list screen of /app/emails: subscribers, automations and the emails
- * sent, scheduled and drafted, drawn with the Orders page's parts
+ * The list screen of /app/emails: subscribers, the messages people wrote
+ * through a website's contact form, automations and the emails sent,
+ * scheduled and drafted, drawn with the Orders page's parts
  * (app/app/orders/order-parts.tsx): the pane's bar, a metrics strip, a dense
  * table whose first column stays put on a phone, and each row's actions in
  * the menu that is a dropdown on a desktop and a sheet on a phone.
@@ -45,7 +46,23 @@ import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, St
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
 
-export type EmailsTab = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
+export type EmailsTab = "subscribers" | "messages" | "flows" | "published" | "scheduled" | "drafts"
+
+/** A message from a contact form on one of the creator's websites (site_contact_messages, lib/site-contact). */
+export interface MessageRow {
+  id: string
+  email: string
+  name: string | null
+  subject: string | null
+  message: string
+  site: string | null
+  page: string | null
+  consent?: boolean | null
+  subscriber_id?: string | null
+  created_at: string
+  /** When the creator opened it. Null is new. */
+  read_at: string | null
+}
 
 export interface SubscriberRow {
   id: string
@@ -120,6 +137,14 @@ export interface EmailsHomeProps {
   onCopyEmail: (email: string) => void
   onRemoveSubscriber: (id: string) => void
 
+  messages: MessageRow[]
+  /** The messages table exists (its SQL part has run). */
+  messagesAvailable: boolean
+  /** A message's row: the message opens over the list, as a contact does. */
+  onOpenMessage: (message: MessageRow) => void
+  onToggleRead: (message: MessageRow) => void
+  onDeleteMessage: (id: string) => void
+
   flows: FlowRow[]
   onToggleFlow: (flow: FlowRow) => void
   onDeleteFlow: (id: string) => void
@@ -144,6 +169,7 @@ export interface EmailsHomeProps {
 
 export const TABS: { id: EmailsTab; label: string }[] = [
   { id: "subscribers", label: "Subscribers" },
+  { id: "messages", label: "Messages" },
   { id: "flows", label: "Automations" },
   { id: "published", label: "Sent" },
   { id: "scheduled", label: "Scheduled" },
@@ -227,7 +253,7 @@ export function EmailsHome(props: EmailsHomeProps) {
             </Link>
           </div>
         </div>
-        <Tabs tab={tab} onTab={props.onTab} onIntent={props.onTabIntent} />
+        <Tabs tab={tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
       </PaneBar>
 
       <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} data-tab-content={tab}>
@@ -235,6 +261,7 @@ export function EmailsHome(props: EmailsHomeProps) {
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? "Emails"} className={cn(card, "mt-4 overflow-hidden")}>
           {tab === "subscribers" ? <SubscribersTable {...props} /> : null}
+          {tab === "messages" ? <MessagesTable {...props} /> : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
         </section>
@@ -245,7 +272,7 @@ export function EmailsHome(props: EmailsHomeProps) {
 
 /* ─── The tabs, in the bar ───────────────────────────────────────────── */
 
-function Tabs({ tab, onTab, onIntent }: { tab: EmailsTab; onTab: (t: EmailsTab) => void; onIntent?: (t: EmailsTab) => void }) {
+function Tabs({ tab, onTab, onIntent, counts }: { tab: EmailsTab; onTab: (t: EmailsTab) => void; onIntent?: (t: EmailsTab) => void; counts?: Partial<Record<EmailsTab, number>> }) {
   const stripRef = React.useRef<HTMLDivElement>(null)
   /* The chosen tab scrolled into view on a phone, without moving the page. */
   React.useLayoutEffect(() => {
@@ -276,6 +303,8 @@ function Tabs({ tab, onTab, onIntent }: { tab: EmailsTab; onTab: (t: EmailsTab) 
             )}
           >
             {t.label}
+            {/* New messages, counted in the tab's own quiet type: a number, not a pill. */}
+            {counts?.[t.id] ? <span className="ml-1.5 tabular-nums text-[#8b5cf6]" data-tab-count="">{counts[t.id]}</span> : null}
           </button>
         )
       })}
@@ -357,6 +386,14 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
       { label: "At checkout", help: "Buyers who asked to hear from you when they paid.", value: n(fromCheckout) },
       { label: "Customers", help: "Buyers who did not ask for news. They get emails about what they bought, never one you send to your list.", value: n(customers) },
       { label: "Unsubscribed", help: "People who asked to stop getting your emails. They are never sent another.", value: n(p.subscribers.filter((s) => s.status === "unsubscribed").length) },
+    ]
+  }
+  if (p.tab === "messages") {
+    const week = Date.now() - 7 * 86_400_000
+    return [
+      { label: "Messages", help: "Messages people sent through the contact form on your website. Each one is emailed to you too.", value: n(p.messages.length) },
+      { label: "New", help: "Messages you have not opened here yet.", value: n(p.messages.filter((m) => !m.read_at).length) },
+      { label: "Last 7 days", help: "Messages sent in the last seven days.", value: n(p.messages.filter((m) => Date.parse(m.created_at) >= week).length) },
     ]
   }
   if (p.tab === "flows") {
@@ -717,6 +754,111 @@ function SubscribersTable(props: EmailsHomeProps) {
         )}
       </ShimmerSwap>
       <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
+    </>
+  )
+}
+
+/** "maralind.storelib.com/contact": where on which website a message was written. */
+export function messageWhere(m: Pick<MessageRow, "site" | "page">): string {
+  const page = m.page && m.page !== "home" ? `/${m.page}` : ""
+  return m.site ? `${m.site}${page}` : page ? page.slice(1) : ""
+}
+
+/** A reply in the creator's own mail app, to the person who wrote, on the same subject. */
+export function replyHref(m: Pick<MessageRow, "email" | "subject">): string {
+  const subject = m.subject ? `?subject=${encodeURIComponent(`Re: ${m.subject}`)}` : ""
+  return `mailto:${encodeURIComponent(m.email)}${subject}`
+}
+
+/**
+ * THE MESSAGES. What people wrote through the contact form on the creator's
+ * websites, newest first, as Shopify keeps a store's contact form messages
+ * in its inbox: who, what about, where, when, and new ones in bold with the
+ * accent's dot. A row opens the message over the list (./message-detail);
+ * its menu replies in the creator's own mail app, marks it read or new, and
+ * deletes it.
+ */
+function MessagesTable(props: EmailsHomeProps) {
+  const press = usePress()
+  const [page, setPage] = React.useState(1)
+  const pages = Math.max(1, Math.ceil(props.messages.length / PAGE_SIZE))
+  const shown = props.messages.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  return (
+    <>
+      <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
+        {props.loading ? null : props.messages.length === 0 ? (
+          <Empty
+            title="No messages yet"
+            body={
+              props.messagesAvailable
+                ? "When somebody writes to you through the contact form on your website, the message shows here and in your email."
+                : "Messages from your website's contact form are emailed to you. They show here once Storelib has finished setting this up."
+            }
+          />
+        ) : (
+          <ScrollEdge>
+            <table className="w-full min-w-[720px] border-collapse" data-messages-table="">
+              <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                <tr>
+                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>From</th>
+                  <th className={th}>Message</th>
+                  <th className={th}>Sent from</th>
+                  <th className={th}>Received</th>
+                  <th className={cn(th, "w-12")} aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f1f2f4]">
+                {shown.map((m) => {
+                  const fresh = !m.read_at
+                  const who = m.name || m.email
+                  const preview = m.message.replace(/\s+/g, " ").trim()
+                  return (
+                    <tr
+                      key={m.id}
+                      data-message-row={m.id}
+                      data-unread={fresh ? "true" : undefined}
+                      data-order-id={m.id}
+                      className={cn("orders-row", pressable)}
+                      onClick={() => props.onOpenMessage(m)}
+                      {...press(m.id)}
+                    >
+                      <td data-scroll-edge="" className={cn(td, sticky)}>
+                        <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[240px]">
+                          {fresh ? <span aria-label="New" className="h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]" /> : <span aria-hidden className="w-2 shrink-0" />}
+                          <span className={cn("truncate", fresh ? "font-semibold" : "font-medium")}>{who}</span>
+                        </span>
+                      </td>
+                      <td className={td}>
+                        <span className="flex max-w-[420px] items-baseline gap-1.5">
+                          {m.subject ? <span className={cn("max-w-[200px] shrink-0 truncate", fresh ? "font-semibold" : "font-medium")}>{m.subject}</span> : null}
+                          <span className="min-w-0 truncate text-[#6b7280]">{preview}</span>
+                        </span>
+                      </td>
+                      <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[220px] truncate">{messageWhere(m) || "–"}</span></td>
+                      <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatWhen(m.created_at)}</td>
+                      <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
+                        <ResponsiveActionMenu
+                          title={who}
+                          align="end"
+                          trigger={<RowMenuButton label={`Actions for the message from ${who}`} />}
+                          items={[
+                            { label: "Open", onClick: () => props.onOpenMessage(m) },
+                            { label: "Reply", onClick: () => { window.location.href = replyHref(m) } },
+                            { label: fresh ? "Mark as read" : "Mark as new", onClick: () => props.onToggleRead(m) },
+                            { label: "Copy email", onClick: () => props.onCopyEmail(m.email) },
+                            { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </ScrollEdge>
+        )}
+      </ShimmerSwap>
+      <Pager page={page} pages={pages} total={props.messages.length} onPage={setPage} />
     </>
   )
 }

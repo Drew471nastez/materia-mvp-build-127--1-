@@ -262,8 +262,8 @@ section("It is reachable, and it works on a file longer than the window")
         && homeFromElsewhere.kind === "page" && homeFromElsewhere.key === "home"
         && anchor.kind === "anchor" && anchor.id === "reviews"
     })() &&
-      /* And the canvas still does the scrolling for an anchor. */
-      /case "anchor": \{[\s\S]{0,400}?scrollWithin\(scroller, target\)/.test(editor),
+      /* And the canvas still does the scrolling for an anchor, with the live site's scroll. */
+      /case "anchor": \{[\s\S]{0,400}?scrollToHash\(root, decision\.id, \{ scroller \}\)/.test(editor),
   )
   check(
     "on a phone the code editor is its own page: the builder saves the draft, then navigates to the code route with a way back",

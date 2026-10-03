@@ -20,6 +20,7 @@ import { CommunityPickerControl } from "./community-picker-control"
 import { DateTimeControl } from "./datetime-control"
 import { FocalPointControl } from "./focal-point-control"
 import { HtmlControl } from "./html-control"
+import { ImagePickerControl } from "./image-picker-control"
 import { InlineRichTextControl } from "./inline-richtext-control"
 import { MenuPickerControl } from "./menu-picker-control"
 import { MenusEditor } from "./menus-editor"
@@ -32,7 +33,7 @@ export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [
-  "inline_richtext", "html", "color_background", "datetime", "focal_point", "video_url", "video_picker", "product_list", "link_list", "menus", "community_picker",
+  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "video_url", "video_picker", "product_list", "link_list", "menus", "community_picker",
 ] as const
 
 /** Controls that print their own name, so the panel does not label them twice. */
@@ -59,6 +60,9 @@ export function renderRegisteredControl(
       return <DateTimeControl value={str} onChange={onChange} label={field.label} />
     case "focal_point":
       return <FocalPointControl value={str || fallback || "50% 50%"} onChange={onChange} imageSetting={field.image} label={field.label} />
+    case "image_picker":
+      /* The picker, and an address box under it: a picture chosen, or linked. */
+      return <ImagePickerControl value={str} onChange={onChange} label={field.label} />
     case "video_picker":
       return <VideoPickerControl value={str} onChange={onChange} label={field.label} />
     case "video_url":

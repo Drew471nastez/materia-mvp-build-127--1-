@@ -219,10 +219,10 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
         default: "fade-up",
         options: [
           { label: "Fade up", value: "fade-up" },
-          { label: "Fade in", value: "fade-in" },
+          { label: "Fade", value: "fade-in" },
           { label: "Slide left", value: "slide-left" },
           { label: "Slide right", value: "slide-right" },
-          { label: "Zoom in", value: "zoom-in" },
+          { label: "Zoom", value: "zoom-in" },
         ],
       },
       { id: "animation_duration", label: "Duration (ms)", type: "range", min: 200, max: 1200, step: 50, default: 600, unit: "ms" },

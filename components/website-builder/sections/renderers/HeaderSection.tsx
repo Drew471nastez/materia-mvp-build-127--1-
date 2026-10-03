@@ -20,6 +20,7 @@ import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
 import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerSafeArea, prefersStill, useBackdropDismiss, useComposedRef, useDrawerFrame, useDrawerMotion, useDrawerPresence, useDrawerTouchGuard, useFocusTrap } from "../../drawer-frame"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
+import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
 import { useStorefront } from "../../theme/storefront-context"
 import { lineKey } from "@/lib/website-builder/cart"
@@ -1163,9 +1164,11 @@ function MobileDrawerInner({
        than content being edited, so the editor follows it with the
        inspector on. See SectionProps.onEditorNavigate for what used to
        decide that. */
+    /* A section of the page that is open: the drawer is gone by now, and the
+       page scrolls to it on the live site's curve (section-motion.ts). */
     const go = onEditorNavigate
       ? () => { onEditorNavigate(href, true) }
-      : () => { window.location.assign(href) }
+      : () => { if (!followSectionLink(href)) window.location.assign(href) }
     window.setTimeout(go, CLOSE_MS)
   }
 

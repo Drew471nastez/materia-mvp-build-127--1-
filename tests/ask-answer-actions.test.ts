@@ -173,7 +173,11 @@ async function main() {
     const settled = settleActivity(a)
     check("when it is over nothing is still running", settled.steps.every((s) => s.state !== "running"))
     check("and it folds into a count of steps and a summary by name", finishedSteps(settled).length === 5 && changeSummary(settled) === "Changed Testimonials", `${finishedSteps(settled).length} ${changeSummary(settled)}`)
-    check("the steps are folded until asked for", /const \[stepsOpen, setStepsOpen\] = React\.useState\(false\)/.test(panel) && /\{stepsOpen && hasWork && <StepsList/.test(panel))
+    check(
+      "the steps are open while it works and folded once it is done, until asked for",
+      /const \[stepsOpen, setStepsOpen\] = React\.useState\(false\)/.test(panel) &&
+        /<StepsTimeline rows=\{rows\} open=\{exchange\.running \|\| \(stepsOpen && hasWork\)\}/.test(panel),
+    )
     check("while it runs the line is drawn, then under the answer the count, Undo, Copy and Report", /\{exchange\.running && \(\s*\n\s*<div className="min-w-0">\s*\n\s*<ActivityLine/.test(panel) && /\{!exchange\.running && \(exchange\.reply \|\| exchange\.error \|\| count \|\| hasWork \|\| question\) && \(/.test(panel))
     check("a line saying the chat could not be kept is not a step", reduceActivity(EMPTY_ACTIVITY, { type: "unsaved", what: "chat", reason: "not_set_up" }) === EMPTY_ACTIVITY)
   }

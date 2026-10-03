@@ -641,7 +641,7 @@ section("Choosing an icon, and choosing where a link goes")
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
       /\.\.\.customPages\.map/.test(editorSrc) &&
       /\.\.\.products\.map/.test(editorSrc) &&
-      (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\}>/g) ?? []).length === 2,
+      (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\} sections=\{sectionSource\}>/g) ?? []).length === 2,
   )
 
   // Opening in the flow rather than floating: the sidebar is a scroller
@@ -1171,7 +1171,8 @@ section("A form that says it worked, did")
    */
   check(
     "the newsletter form posts somewhere",
-    /fetch\("\/api\/website-builder\/subscribe"/.test(newsletter) &&
+    /* Through the client every email box on a website shares, which posts to /api/website-builder/subscribe. */
+    (/fetch\("\/api\/website-builder\/subscribe"/.test(newsletter) || (/subscribeToCreator\(/.test(newsletter) && /fetch\("\/api\/website-builder\/subscribe"/.test(read("lib/website-builder/subscribe-client.ts")))) &&
       !/onSubmit=\{e => \{ e\.preventDefault\(\); setSubmitted\(true\) \}\}/.test(newsletter),
   )
   check(
@@ -1184,7 +1185,9 @@ section("A form that says it worked, did")
   )
   check(
     "and the builder's canvas still sends nothing",
-    /if \(isEditing \|\| inEditor \|\| !creatorId\)/.test(newsletter) &&
+    /* lib/website-builder/subscribe-client signupMode: the canvas is a preview, a page with no creator is not available. */
+    /const mode = signupMode\(\{ inEditor: isEditing \|\| inEditor, creatorId \}\)\s*if \(mode === "preview"\) \{ setSubmitted\(true\); return \}/.test(newsletter) &&
+      /if \(mode === "unavailable" \|\| !creatorId\)/.test(newsletter) &&
       /* The canvas now names its install so the header's search field can
          ask on its behalf. It still says `inEditor` and still hands over no
          creator, which are the two things this guard reads. */

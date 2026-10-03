@@ -29,6 +29,12 @@ import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+/**
+ * THREE MODEL CALLS AND A COMPILE AFTER EACH, at up to 16,000 tokens a file.
+ * Without a number here the platform's default decided, and a long section
+ * was killed mid write with nothing said: a spinner, then nothing.
+ */
+export const maxDuration = 300
 
 const BodySchema = z.object({
   /**
@@ -137,6 +143,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * The whole job, start to answer. `onStage` is how the panel is told what
    * is happening while it waits, when it asked to be (below).
    */
+  /**
+   * THE WRITING DOES NOT STOP WHEN THE TAB DOES. A section the creator asked
+   * for is finished and saved even if they closed the window meanwhile: it
+   * is in Add section under their own sections when they come back. What
+   * stops it is the deadline, fifteen seconds before the platform would,
+   * so it can still say why.
+   */
+  const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
   const run = async (onStage?: (stage: WriteStage, attempt: number) => void): Promise<{ status: number; body: Record<string, unknown> }> => {
     const written = await writeSection({
       provider: resolved.provider,
@@ -152,7 +166,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           name: SECTION_SCHEMAS[type]?.name ?? mine[type]?.name,
         })),
       },
-      signal: request.signal,
+      signal: deadline,
       onStage,
     })
 
@@ -161,6 +175,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     if (written.ok === false && written.reply) return { status: 200, body: { reply: written.reply } }
 
     if (written.ok === false) {
+      if (deadline.aborted) return { status: 504, body: { error: "Writing that section took too long. Try again, or describe a smaller section." } }
       return { status: 422, body: { error: written.error, errors: written.errors, source: written.source } }
     }
 

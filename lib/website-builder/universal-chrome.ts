@@ -42,6 +42,18 @@ export interface Chrome {
   footer?: SectionInstance
 }
 
+/**
+ * THE ONE PAGE THAT WEARS NONE: the password page, which stands on its own
+ * the way Shopify's does, because every link a header or footer holds leads
+ * behind the password too. Its own sections only, here and in the builder.
+ */
+export const CHROMELESS_PAGES: ReadonlySet<string> = new Set(["password"])
+
+/** The page's sections with any header or footer taken off. */
+export function withoutChrome(pageSections: SectionInstance[] | null | undefined): SectionInstance[] {
+  return (pageSections ?? []).filter((s) => !isHeader(s) && !isFooter(s))
+}
+
 /** The header and footer a whole site should be wearing. */
 export function chromeOf(homeSections: SectionInstance[] | null | undefined): Chrome {
   const home = homeSections ?? []
@@ -86,7 +98,7 @@ export function applyUniversalChrome(
   if (!chrome.header && !chrome.footer) return pages
   const out: Record<string, SectionInstance[]> = {}
   for (const [key, sections] of Object.entries(pages)) {
-    out[key] = withUniversalChrome(sections, chrome)
+    out[key] = CHROMELESS_PAGES.has(key) ? withoutChrome(sections) : withUniversalChrome(sections, chrome)
   }
   return out
 }

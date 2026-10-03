@@ -25,11 +25,13 @@
  */
 
 import { parseStorelib } from "@/lib/storelib-theme/storelib/parse"
-import { chromeRefusal, chromeRoleOf } from "@/lib/storelib-theme/chrome"
+import { chromeRefusal, chromeRoleOf, declaredKind } from "@/lib/storelib-theme/chrome"
+import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
+import { isImageInDisguise, numberedLinkPairs } from "@/lib/storelib-theme/schema/normalise"
 import type { QualityFinding } from "./quality"
 
-type SchemaSetting = { id?: string; type?: string }
-type Schema = { category?: string; settings?: SchemaSetting[]; blocks?: { settings?: SchemaSetting[] }[] }
+type SchemaSetting = { id?: string; type?: string; label?: string; default?: unknown }
+type Schema = { category?: string; kind?: string; settings?: SchemaSetting[]; blocks?: { settings?: SchemaSetting[] }[] }
 
 /** Sections that are the page's frame rather than a band on it: no top and bottom padding of their own. */
 const FRAME = /^(header|footer|announcement|navigation|nav|bar|sticky)/i
@@ -129,7 +131,7 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   const settings = Array.isArray(schema.settings) ? schema.settings : []
   const ids = new Set(settings.map((s) => s?.id).filter(Boolean) as string[])
   const types = new Set(settings.map((s) => s?.type))
-  const frame = FRAME.test(schema.category ?? "")
+  const frame = FRAME.test(schema.category ?? "") || !!declaredKind(schema as Record<string, unknown>)
   const out: QualityFinding[] = []
   const err = (id: string, message: string) => out.push({ id, severity: "error", message })
 
@@ -137,6 +139,22 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   /* Alone, and first: nothing else about the file matters if it should not exist (lib/storelib-theme/chrome.ts). */
   const chrome = chromeRoleOf({ schema: schema as Record<string, unknown>, template: parsed.value.template.text })
   if (chrome) return [{ id: "integration-chrome", severity: "error", message: chromeRefusal(chrome) }]
+
+  /* ── a header of the creator's own reads the site's menu ───────────── */
+  const kind = declaredKind(schema as Record<string, unknown>)
+  const allTypes = [...settings, ...(schema.blocks ?? []).flatMap((bl) => bl.settings ?? [])].map((st) => resolveControlType(String(st?.type ?? "")))
+  if (kind === "header" && !allTypes.includes("link_list")) {
+    err("integration-header-menu", `A header of your own shows the site's menu, so the creator edits it in Website settings, Navigation. Add { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" } and loop {% for link in settings.menu.links %}, with {% for child in link.links %} for its sub links.`)
+  }
+
+  /* ── pictures are pictures, menus are menus ────────────────────────── */
+  const disguised = [...settings, ...(schema.blocks ?? []).flatMap((bl) => bl.settings ?? [])].find((st) => isImageInDisguise(st as Record<string, unknown>))
+  if (disguised) {
+    err("integration-image-setting", `"${disguised.id}" holds a picture but is declared as "${disguised.type}". A picture is { "type": "image_picker", "id": "${disguised.id}" }, so the creator chooses it from the media library or pastes an address under the picker; print it with {{ settings.${disguised.id} | asset }}.`)
+  }
+  if (numberedLinkPairs(settings as { id?: unknown }[]) >= 2) {
+    err("integration-menu", `The links are typed out as numbered label and address settings. A menu is one link_list setting, { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" }, which the creator points at one of the site's menus; loop {% for link in settings.menu.links %}. For the site's own navigation, change the built-in header instead of writing one.`)
+  }
 
   /* ── colour scheme ─────────────────────────────────────────────── */
   /* Whatever the scheme setting is called, the root must name it. */
@@ -235,5 +253,55 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   return out
 }
 
+/**
+ * ===========================================================================
+ *  ADVICE: WHAT A SECTION AN AGENT WROTE SHOULD STILL HAVE
+ * ===========================================================================
+ * Warnings, never refusals, handed back to the agent with a save that went
+ * through (lib/storelib-ai/validate.ts, and the builder's code tool). Kept
+ * apart from checkSectionIntegration because built-in sections written
+ * before the rule do not all meet it, and a rule a built-in breaks cannot
+ * refuse anybody.
+ *
+ * COLOUR PER ELEMENT. A section that paints a heading, text, buttons, cards
+ * or borders only from its scheme can be recoloured only by changing the
+ * scheme, which changes every other section on it too. A creator expects
+ * to change one heading's colour, the way Shopify's custom colours let
+ * them. So each element it draws gets a color setting whose default names
+ * the scheme colour it follows: it looks exactly like the scheme until the
+ * creator picks something else.
+ */
+export function sectionAdvice(source: string): QualityFinding[] {
+  const parsed = parseStorelib(source, "section.storelib")
+  if (parsed.ok === false) return []
+  let schema: Schema = {}
+  try {
+    schema = JSON.parse(parsed.value.schema.text) as Schema
+  } catch {
+    return []
+  }
+  const template = stripTemplate(parsed.value.template.text)
+  const css = stripCss(parsed.value.style.text)
+  const all = [...(schema.settings ?? []), ...(schema.blocks ?? []).flatMap((bl) => bl.settings ?? [])]
+  const hasColour = all.some((st) => resolveControlType(String(st?.type ?? "")) === "color")
+  const out: QualityFinding[] = []
+  if (!hasColour) {
+    const drawn: string[] = []
+    if (/<h[1-6][\s>]/i.test(template)) drawn.push("heading_color")
+    if (/<p[\s>]/i.test(template)) drawn.push("text_color")
+    if (/class\s*=\s*"[^"]*(?:^|[^a-z])(btn|button|cta)(?:[^a-z]|$)/i.test(template) || /data-sl-button/.test(template)) drawn.push("button_color", "button_text_color")
+    if (/class\s*=\s*"[^"]*card/i.test(template)) drawn.push("card_color")
+    if (/\bborder(-[a-z]+)?\s*:/.test(css)) drawn.push("border_color")
+    if (drawn.length) {
+      out.push({
+        id: "advice-colour-settings",
+        severity: "warning",
+        message: `The section draws its colours from the scheme only, so the creator cannot change one of them without changing every section on that scheme. Add a color setting for each element it draws (${[...new Set(drawn)].join(", ")}), each defaulting to the scheme colour it follows, as { "type": "color", "id": "heading_color", "label": "Heading", "default": "scheme.heading" }. Print it into a variable on the root, --s-heading: {{ settings.heading_color }}, and paint with var(--s-heading).`,
+      })
+    }
+  }
+  return out
+}
+
 /** A short statement of the same rules, for a model to read before it writes. */
-export const INTEGRATION_CONTRACT = `NATIVE, NOT PASTED IN: a section takes everything from the theme. data-scheme="{{ settings.color_scheme }}" on the root with its scheme colours as variables and no fixed colours or fonts; headings sized from var(--section-heading-size); buttons painted from the scheme's button keys with a :hover from its hover keys; padding_top and padding_bottom range settings for its spacing; every word, link and picture a setting or block; phone layout first, widened with @container.`
+export const INTEGRATION_CONTRACT = `NATIVE, NOT PASTED IN: a section takes everything from the theme. data-scheme="{{ settings.color_scheme }}" on the root with its scheme colours as variables and no fixed colours or fonts; a color setting per element drawn, defaulting to a scheme colour ("scheme.heading"); headings sized from var(--section-heading-size); buttons painted from the scheme's button keys with a :hover from its hover keys; padding_top and padding_bottom range settings for its spacing; every word, link and picture a setting or block, a picture an image_picker, a menu one link_list; phone layout first, widened with @container.`

@@ -30,8 +30,8 @@ export type EditorNavDecision =
   | { kind: "anchor"; id: string }
   /** Home, while home is already open: the top of it. */
   | { kind: "top" }
-  /** A page of this site, by its key. */
-  | { kind: "page"; key: string }
+  /** A page of this site, by its key, and the section on it a hash names. */
+  | { kind: "page"; key: string; anchor?: string }
   /** A product page, by the slug or id in the address. */
   | { kind: "product"; slug: string }
   /** No page answers this address, and the builder offers to make one. */
@@ -58,9 +58,53 @@ const DIRECT: Record<string, string> = {
   "/account": "account",
   "/account/login": "login",
   "/wishlist": "wishlist",
+  /* The page a website shows while it asks for a password. */
+  "/password": "password",
+}
+
+/**
+ * ===========================================================================
+ *  A LINK TO A SECTION OF THE PAGE THAT IS OPEN SCROLLS TO IT
+ * ===========================================================================
+ * `/#pricing` from home was "home, while home is open", which is the top of
+ * the page: the hash was dropped with the query. A link the picker stores
+ * for a section is exactly that shape (`/#section-<id>`, `/about#section-<id>`),
+ * so a page that is already open answers a hash with its section, and a
+ * page that has to be opened first is opened with the hash kept, for the
+ * canvas to scroll to once it is drawn.
+ */
+/**
+ * The address of a page the editor has open, the other way round from
+ * resolveEditorHref: what a link to it is stored as. The product page is a
+ * template for many addresses and has none of its own (null).
+ */
+export function editorPagePath(key: string, shopPath: string): string | null {
+  if (key === "home") return "/"
+  if (key === "product") return null
+  if (key === "products") return shopPath
+  const direct = Object.entries(DIRECT).find(([, k]) => k === key)
+  return direct ? direct[0] : `/${key}`
+}
+
+/** The page key an address opens, for reading that page's sections. Null for anything that is not a page. */
+export function editorPageKeyOf(path: string, ctx: Pick<EditorNavContext, "shopPath" | "customPageKeys">): string | null {
+  const d = resolvePath(path, { ...ctx, currentPage: "", inspectorEnabled: false, fromNav: true })
+  return d.kind === "page" ? d.key : null
 }
 
 export function resolveEditorHref(href: string, ctx: EditorNavContext): EditorNavDecision {
+  const decision = resolvePath(href, ctx)
+  const at = (href ?? "").indexOf("#")
+  const hash = at >= 0 ? (href ?? "").slice(at + 1).trim() : ""
+  if (!hash || hash === "!" || (href ?? "").trim().startsWith("#")) return decision
+  if (decision.kind === "top") return { kind: "anchor", id: hash }
+  if (decision.kind === "page") {
+    return decision.key === ctx.currentPage ? { kind: "anchor", id: hash } : { ...decision, anchor: hash }
+  }
+  return decision
+}
+
+function resolvePath(href: string, ctx: EditorNavContext): EditorNavDecision {
   const trimmed = (href ?? "").trim()
   if (!trimmed || trimmed === "#") return { kind: "ignore", why: "empty" }
 

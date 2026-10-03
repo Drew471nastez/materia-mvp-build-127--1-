@@ -1,7 +1,7 @@
 /**
  * The contact route's work, in the order it happens, with everything it
  * reaches outside itself handed in: the database, the rate limiter, the
- * mailer and the automations. The route (app/api/website-builder/contact)
+ * mailer, the automations and the notifications panel. The route (app/api/website-builder/contact)
  * passes the real ones; tests/site-contact.test.ts passes fakes and watches
  * the console, so "no address in the logs" is a measurement rather than a
  * promise.
@@ -17,6 +17,7 @@ import {
   validateContact,
   type ContactMessage,
 } from "./contact"
+import type { MessageNotice } from "./notify"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -37,6 +38,8 @@ export interface ContactDeps {
   platform: string
   /** The creator's login address as it is now (lib/seller-inbox). Left out, the saved addresses are used. */
   loginEmail?: (userId: string) => Promise<string | null>
+  /** The row in the creator's notifications panel (./notify.ts). Best effort, never thrown. */
+  notify?: (notice: MessageNotice) => Promise<unknown>
 }
 
 export type ContactReply = { status: number; body: { ok: true } | { error: string } }
@@ -82,16 +85,29 @@ export async function handleContact(raw: unknown, deps: ContactDeps): Promise<Co
     console.warn("[contact] site_contact_messages is not there yet; the message is emailed and not kept (run the contact form SQL part)")
   }
 
+  const keptId = kept.kept ? kept.id : null
+  /* The creator's notifications panel, for a message they can open (./notify.ts). Never stops the message. */
+  const bell = async () => {
+    if (!deps.notify) return
+    try {
+      await deps.notify({ creatorId: msg.creatorId, messageId: keptId, name: msg.name, email: msg.email, subject: msg.subject, message: msg.message, site: where.site })
+    } catch {
+      console.warn("[contact] the notification did not go")
+    }
+  }
+
   const inbox = await creatorInbox(deps.db, msg.creatorId, msg.sectionId, deps.loginEmail)
   if (!inbox) {
     console.warn("[contact] the creator has no address to send the message to")
     /* Kept, the creator reads it in Emails, and the visitor did their part.
        Neither kept nor sendable is a message nobody will ever read: say so. */
+    if (kept.kept) await bell()
     return kept.kept ? { status: 200, body: { ok: true } } : { status: 502, body: { error: "The message did not send. Try again in a minute." } }
   }
   const store = await deps.brand(msg.creatorId)
   const contactUrl = sender.id ? `${deps.platform}/app/emails?contact=${encodeURIComponent(sender.id)}` : `${deps.platform}/app/emails`
-  const mail = creatorEmail({ store, msg, site: where.site, contactUrl })
+  const messageUrl = keptId ? `${deps.platform}/app/emails?tab=messages&message=${encodeURIComponent(keptId)}` : null
+  const mail = creatorEmail({ store, msg, site: where.site, contactUrl, messageUrl })
   let sent = false
   try {
     const out = await deps.send({ to: inbox, replyTo: msg.email, subject: mail.subject, html: mail.html, text: mail.text, fromName: `${store} website` })
@@ -101,6 +117,7 @@ export async function handleContact(raw: unknown, deps: ContactDeps): Promise<Co
   }
   if (sent && kept.kept) await markEmailed(deps.db, kept.id)
   if (!sent) console.warn("[contact] the email to the creator did not send")
+  if (sent || kept.kept) await bell()
 
   /* Neither kept nor sent is the one outcome that loses the message. Say so. */
   if (!sent && !kept.kept) return { status: 502, body: { error: "The message did not send. Try again in a minute." } }
