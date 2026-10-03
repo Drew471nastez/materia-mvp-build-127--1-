@@ -236,7 +236,11 @@ section("A run that stops to ask")
 
   const chat = read("components/website-builder/theme-chat.tsx")
   const parts = read("components/website-builder/ask-parts.tsx")
-  check("the chat draws the question where the answer would be, and not the message that repeats it", /\{question \? \(\s*<QuestionChoices/.test(chat) && /next\.question \? \{ \.\.\.e, running: false, activity: next \}/.test(chat))
+  /* An offer under a written section (Add the portrait) stands under its one line instead: there is no message repeating it. */
+  check(
+    "the chat draws the question where the answer would be, and not the message that repeats it",
+    /\{exchange\.reply && \(!question \|\| question\.offer\) && \(/.test(chat) && /\{question && \(\s*<QuestionChoices/.test(chat) && /next\.question \? \{ \.\.\.e, running: false, activity: next \}/.test(chat),
+  )
   check("a tapped answer goes to the agent as the next message in the same conversation", /onAnswer=\{answerQuestion\}/.test(chat) && /const answerQuestion = React\.useCallback\([\s\S]{0,200}void send\(text\)/.test(chat) && /conversationId: live\.current\.conversation\.id/.test(chat))
   check("the answer to a question is the message after it", /answer=\{exchanges\[index \+ 1\]\?\.prompt\}/.test(chat))
   check("a question read back from the transcript is a question again", /questionFromReply\(open\.reply, message\.id\)/.test(read("lib/website-builder/ask-restore.ts")) && /restoreExchanges\(body\.messages\)/.test(chat))

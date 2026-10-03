@@ -97,7 +97,7 @@ function looksTiny(prompt: string): boolean {
 
 export function classifyRequest(prompt: string): RequestShape {
   if (looksTiny(prompt)) {
-    return { scope: "tweak", maxTurns: 8, strong: false, ambitious: false, wholePage: false }
+    return { scope: "tweak", maxTurns: 10, strong: false, ambitious: false, wholePage: false }
   }
 
   const wholePage = WHOLE_PAGE.test(prompt)
@@ -113,8 +113,13 @@ export function classifyRequest(prompt: string): RequestShape {
    */
   return {
     scope: "build",
-    /* Thirty-six for a whole page: six sections at a read, an add, its controls and its blocks. */
-    maxTurns: wholePage ? 36 : ambitious ? 24 : 16,
+    /*
+      Forty for a whole page: six sections at a read, an add, its controls and
+      its blocks. Each budget leaves room for the read back against the
+      request and one round of fixes (SELF_CHECK in ./loop.ts): accuracy over
+      speed.
+    */
+    maxTurns: wholePage ? 40 : ambitious ? 32 : 24,
     strong: true,
     ambitious,
     wholePage,

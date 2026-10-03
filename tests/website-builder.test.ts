@@ -1345,14 +1345,21 @@ section("A form that says it worked, did")
 
   check("the mode row is with the box you type into", /<ModeSwitch/.test(composer))
   check("and not only in the empty state", !/<ModeSwitch/.test(empty))
-  check("what the writer produced is reported there too", /\{written && \(/.test(composer) && !/\{written && \(/.test(empty))
-  check("so are its errors", /\{writeError && /.test(composer) && !/\{writeError && /.test(empty))
-  check("and so is the fact that it is working, on the same live line a run uses", /\{writing && writeLabel && <ActivityLine/.test(composer) && !/\{writing && /.test(empty))
-  check("and so is an answer, when it answered instead of writing", /\{writeReply && !writing && \(/.test(composer))
+  /*
+    THE WRITER IS A RUN IN THE THREAD NOW (U round), like a change to the
+    page: its steps, its line, its answer or its error are an exchange, so
+    nothing it says can be stranded anywhere, before or after the first
+    message.
+  */
+  const writeOne = chat.slice(chat.indexOf("const writeOne = React.useCallback("), chat.indexOf("const dispatch = React.useCallback("))
+  check("what the writer produced is reported there too", /written: \{ path: done\.written\.path, name: done\.written\.name \}/.test(writeOne) && /exchange\.written && onOpenCode/.test(chat))
+  check("so are its errors", /error: done\?\.error,/.test(writeOne) && /\{exchange\.error && \(/.test(chat))
+  check("and so is the fact that it is working, on the same live line a run uses", /const next = reduceActivity\(e\.activity, line\)/.test(writeOne) && /<ActivityLine label=\{sending && exchange\.images\?\.length \? "Sending your pictures" : activityLine\(activity, elapsed\)\} \/>/.test(chat))
+  check("and so is an answer, when it answered instead of writing", /reply: done\?\.reply,/.test(writeOne) && /if \(kept \|\| answered\) playAskSound\("done"\)/.test(writeOne))
   /* "Line 331: <schema> is never closed" is the compiler talking to a
      developer. The chat says what a creator can do, and offers to do it. */
   check("the compiler's words never reach the chat", !/d\.errors\[0\]\.message/.test(chat) && /plainWriteError\(/.test(chat))
-  check("a failed section can be asked for again in one press", /lastWrite\.current/.test(composer) && /Try again/.test(composer))
+  check("a failed section can be asked for again in one press", /if \(exchange\.kind === "code" && !exchange\.codeFocus\) void writeOne\(exchange\.prompt, images\)/.test(chat) && /Try again/.test(chat))
   check("it asks the writer for its stages as they happen", /Accept: "application\/x-ndjson"/.test(chat))
 
   check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{suggestions\}/.test(empty))

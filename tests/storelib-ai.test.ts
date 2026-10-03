@@ -386,7 +386,8 @@ async function main() {
         { text: good },
       ])
       const stages: string[] = []
-      const out = await writeSection({ provider, model: "test", prompt: "a long FAQ", takenTypes: [], takenNames: [], onStage: (s) => stages.push(s) })
+      /* The write loop on its own: the plan before it and the review after it are driven in tests/ask-images-u.test.ts. */
+      const out = await writeSection({ provider, model: "test", prompt: "a long FAQ", takenTypes: [], takenNames: [], plan: false, review: false, onStage: (s) => stages.push(s) })
       check("a cut-off file is asked for again, and the second is kept", out.ok === true && seen.length === 2)
       check("with the reason being its length, not a compile error", /cut off at the length limit/.test(seen[1].last) && /shorter/.test(seen[1].last))
       check("there is room for a whole file", (seen[0].maxOutputTokens ?? 0) >= 16000)

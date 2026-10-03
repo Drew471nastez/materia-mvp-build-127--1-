@@ -96,14 +96,14 @@ import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components
 import { ModelPicker } from "@/components/website-builder/ask-model-picker"
 import {
   DEFAULT_ENGINE,
-  DEFAULT_STRENGTH,
+  defaultStrengthFor,
   effortOf,
   ENGINE_KEY,
   ENGINES,
   engineFromSaved,
-  STRENGTH_KEY,
   STRENGTHS,
   strengthFromSaved,
+  strengthKeyFor,
   type EngineId,
   type StrengthId,
 } from "@/lib/website-builder/ask-engines"
@@ -113,7 +113,6 @@ import { FadeImage, PictureTray, ProgressRing, type ComposerPicture } from "@/co
 import { ConnectAiButton, ModeSwitch, QuestionChoices, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
 import { PrepareError, preparePicture, prepareStills } from "@/components/website-builder/ask-attach-prepare"
 import { useVoiceInput } from "@/components/website-builder/ask-voice"
-import type { WriteStage } from "@/lib/website-builder/agent/write-section"
 import { cn } from "@/lib/utils"
 import {
   ALLOWED_IMAGE_TYPES,
@@ -133,12 +132,17 @@ import {
   timelineRows,
   type Activity,
 } from "@/lib/website-builder/ask-activity"
-import { attachProblem, kindOf, stillsRoom } from "@/lib/website-builder/ask-attach"
+import { attachProblem, fileKey, kindOf, newFiles, pastedFiles, pictureFingerprint, stillsRoom } from "@/lib/website-builder/ask-attach"
+import { codeTarget, finishWrite, readWriteAnswer, type WriteOutcome } from "@/lib/website-builder/ask-code-run"
+import { anchorAt, composeDictation, spokenSince, type DictationAnchor } from "@/lib/website-builder/ask-dictation"
+import { uploadAskImage } from "@/lib/website-builder/ask-image-upload"
+import { imageAnswer, imageOp, type QuestionAction } from "@/lib/sites/agent/questions"
+import { WRITING_SECTION_ID } from "@/lib/website-builder/ai-placement"
 import { reportAnswer, streamPost } from "@/lib/website-builder/ask-client"
 import { promptForPictures, restoreExchanges, type StoredMessage } from "@/lib/website-builder/ask-restore"
 import { armAskSounds, playAskSound, setSoundsOn, soundsOn } from "@/lib/website-builder/ask-sounds"
 import { suggestionsFor } from "@/lib/website-builder/ask-suggestions"
-import { typeToward, withSpoken } from "@/lib/website-builder/ask-typing"
+import { typeToward } from "@/lib/website-builder/ask-typing"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
 import { CLOSE_EASE, CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, PILL_RADIUS, SLIDE_MS, SOFTEN_RINGS, dockGeometry, softenMask } from "@/lib/website-builder/ask-dock"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -197,6 +201,17 @@ interface Exchange {
   /** The editor's snapshot for this run, which Undo restores. */
   runId?: string
   undone?: boolean
+  /**
+   * Which mode asked: a change to the page, or Code a section. A new
+   * section ("code") is retried through the writer; `codeFocus` is an edit
+   * to the open section's code through the page assistant.
+   */
+  kind?: "change" | "code"
+  codeFocus?: boolean
+  /** The section Code a section wrote, for View code. */
+  written?: { path: string; name: string }
+  /** How a question with no follow up message was answered: a picture put in from an offer. */
+  answer?: string
 }
 
 
@@ -247,54 +262,7 @@ function clock(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
 }
 
-/**
- * The writer's answer, read as it arrives. The route sends a line per stage
- * and then the result when asked for NDJSON; an older deployment, or a
- * proxy that buffered it, answers with plain JSON, which is read the same.
- */
-async function readWriteAnswer(
-  res: Response,
-  onStage: (stage: WriteStage) => void,
-): Promise<{
-  status: number
-  path?: string
-  type?: string
-  name?: string
-  error?: string
-  reply?: string
-  errors?: { line?: number; message: string }[]
-}> {
-  const kind = res.headers.get("content-type") ?? ""
-  if (!kind.includes("application/x-ndjson") || !res.body) {
-    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
-    return { status: res.status, ...json }
-  }
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ""
-  let result: { status?: number; answer?: Record<string, unknown> } | null = null
-  for (;;) {
-    const { value, done } = await reader.read()
-    if (value) buffer += decoder.decode(value, { stream: true })
-    let at = buffer.indexOf("\n")
-    while (at >= 0) {
-      const line = buffer.slice(0, at).trim()
-      buffer = buffer.slice(at + 1)
-      at = buffer.indexOf("\n")
-      if (!line) continue
-      try {
-        const event = JSON.parse(line) as { type?: string; stage?: WriteStage; status?: number; answer?: Record<string, unknown> }
-        if (event.type === "stage" && event.stage) onStage(event.stage)
-        else if (event.type === "result") result = event
-      } catch {
-        /* a partial line; the next read completes it */
-      }
-    }
-    if (done) break
-  }
-  if (!result) return { status: 502, error: "The answer was cut off." }
-  return { ...(result.answer ?? {}), status: typeof result.status === "number" ? result.status : 500 }
-}
+/* The writer's answer is read as it arrives: lib/website-builder/ask-code-run.ts, readWriteAnswer. */
 
 /**
  * What went wrong, in words a creator can act on. The compiler's report and
@@ -315,14 +283,6 @@ function plainWriteError(status: number, error: string | undefined, compileError
     return "Storelib AI is busy right now. Try again in a moment."
   }
   return raw ? plainChatError(raw) : "That did not work. Try again."
-}
-
-/** The section writer's stages, as the live line says them. */
-const WRITE_LINES: Record<"starting" | WriteStage, string> = {
-  starting: "Reading what you asked for",
-  thinking: "Writing the section",
-  checking: "Checking it compiles",
-  fixing: "Fixing a detail",
 }
 
 /** What the words of a report problem are. */
@@ -354,6 +314,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
   onOpenCode,
   onReport,
   onAnswer,
+  onImage,
+  onUpload,
 }: {
   exchange: Exchange
   /** The message after this one, which is the answer when this run asked a question. */
@@ -367,6 +329,10 @@ const ExchangeItem = React.memo(function ExchangeItem({
   onOpenCode?: (path: string) => void
   onReport: (exchange: Exchange, reason: string) => Promise<ReportState>
   onAnswer: (text: string) => void
+  /** A question's answer that is an action: a picture uploaded or pasted, put into the setting it asked about. */
+  onImage: (exchange: Exchange, url: string, how: QuestionAction, option: string) => void
+  /** Uploads a picture to the media library, for "Upload image". */
+  onUpload: (file: File) => Promise<string>
 }) {
   const [stepsOpen, setStepsOpen] = React.useState(false)
   const [report, setReport] = React.useState<ReportState>({ stage: "closed" })
@@ -479,20 +445,51 @@ const ExchangeItem = React.memo(function ExchangeItem({
         </p>
       )}
 
+      {/*
+        WHAT IT IS WORKING ON, said plainly over the line and the steps:
+        "Editing Pricing", "New section: Hero with flag". The canvas labels
+        the section with the same words.
+      */}
+      {exchange.running && activity.subject && (
+        <p data-ask-subject="" className={cn("truncate font-semibold text-[#1a1a2e]", phone ? "text-[14px]" : "text-[13px]")}>
+          {activity.subject}
+        </p>
+      )}
       {exchange.running && (
         <div className="min-w-0">
           <ActivityLine label={sending && exchange.images?.length ? "Sending your pictures" : activityLine(activity, elapsed)} />
         </div>
       )}
 
-      {question ? (
-        <QuestionChoices question={question} answer={answer} canAnswer={!exchange.running} onAnswer={onAnswer} phone={phone} />
-      ) : (
-        exchange.reply && (
-          <p data-ask-reply="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
-            {exchange.reply}
-          </p>
-        )
+      {/* A question stands where the answer would; an offer after a written section stands under it. */}
+      {exchange.reply && (!question || question.offer) && (
+        <p data-ask-reply="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
+          {exchange.reply}
+          {exchange.written && onOpenCode && (
+            <>
+              {" "}
+              <button
+                type="button"
+                data-ask-view-code=""
+                onClick={() => onOpenCode(exchange.written!.path)}
+                className="relative ml-0.5 whitespace-nowrap text-[12px] font-medium text-[#6b7280] underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
+              >
+                View code
+              </button>
+            </>
+          )}
+        </p>
+      )}
+      {question && (
+        <QuestionChoices
+          question={question}
+          answer={answer ?? exchange.answer}
+          canAnswer={!exchange.running}
+          onAnswer={onAnswer}
+          onImage={(url, how, option) => onImage(exchange, url, how, option)}
+          onUpload={onUpload}
+          phone={phone}
+        />
       )}
       {detail && (
         <p data-ask-detail="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
@@ -597,6 +594,7 @@ function ThemeChatPanel({
   hidden = false,
   suspended = false,
   openRequest = 0,
+  initialMode = "code",
 }: {
   installId: string
   /**
@@ -608,6 +606,8 @@ function ThemeChatPanel({
   hidden?: boolean
   /** Dock only: the canvas is showing something else (the code, settings). */
   suspended?: boolean
+  /** Which mode the box starts in: Code a section, unless a caller has a reason to open on Change a page. */
+  initialMode?: AskMode
   /** Dock only: each new value opens the conversation and puts the cursor in it. */
   openRequest?: number
   /**
@@ -617,7 +617,8 @@ function ThemeChatPanel({
    * failed lets go of the spot. See lib/website-builder/ai-placement.ts.
    */
   onWriteStart?: (prompt: string) => void
-  onWriteDone?: (section: { type: string; name: string; path: string }) => Promise<boolean> | boolean
+  /** The placed section's id (the canvas glides to it and rings it), true without one, or false when it could not be placed. */
+  onWriteDone?: (section: { type: string; name: string; path: string }) => Promise<string | boolean> | string | boolean
   /** Nothing was written: `answered` when it replied in words instead, which is not a failure. */
   onWriteFailed?: (reason: string, answered?: boolean) => void
   /**
@@ -637,9 +638,11 @@ function ThemeChatPanel({
   /**
    * WHICH SECTIONS IT IS WORKING ON, NOW: the canvas lays a faint sheen over
    * each (components/website-builder/editor/ai-working-overlay.tsx). Called
-   * when the set changes, and with none when the run is over.
+   * when the set changes, and with none when the run is over. `label` is
+   * what the run is about ("Editing Pricing", "New section: Hero with
+   * flag"), which the canvas shows on the section it marks.
    */
-  onWorkingChange?: (sectionIds: string[]) => void
+  onWorkingChange?: (sectionIds: string[], label?: string) => void
   /** The run is over and changed these sections: the canvas brings the first into view and marks them once. */
   onRunFinished?: (sectionIds: string[]) => void
   /** Opens Website settings on Connections: Claude Code or Codex on this website. */
@@ -735,18 +738,15 @@ function ThemeChatPanel({
    * with different answers, and a single box that guessed between them would
    * guess wrong on "add a comparison table", which could mean either.
    */
-  const [mode, setMode] = React.useState<AskMode>("change")
-  /** The last section written, so the panel can offer to open it. */
-  const [written, setWritten] = React.useState<{ path: string; name: string; placed: boolean } | null>(null)
+  /*
+    CODE A SECTION FIRST. It is what the box does by default: a new section
+    written from the words (and the picture), or, with a section open and
+    in scope, a change to that section's code. Change a page is one tap
+    away, on the same row as the box.
+  */
+  const [mode, setMode] = React.useState<AskMode>(initialMode)
+  /** A section is being written (Code a section, a new one). */
   const [writing, setWriting] = React.useState(false)
-  const [writeError, setWriteError] = React.useState<string | null>(null)
-  /** Where the writer has got to, from the server's own reports. */
-  const [writeStage, setWriteStage] = React.useState<"starting" | WriteStage | null>(null)
-  /** An answer instead of a section: the message was a question, or unclear. */
-  const [writeReply, setWriteReply] = React.useState<{ prompt: string; text: string } | null>(null)
-  /** The last request, so Try again can make it again without retyping it. */
-  const lastWrite = React.useRef<{ prompt: string; images: Attachment[] } | null>(null)
-  const writeLabel = writeStage ? WRITE_LINES[writeStage] : null
   const [busy, setBusy] = React.useState(false)
   React.useEffect(() => {
     onBusyChange?.(busy)
@@ -760,7 +760,7 @@ function ThemeChatPanel({
    * cannot be writing the next one, so Enter during a run queues it and it
    * goes the instant the run ends.
    */
-  const [queued, setQueued] = React.useState<string | null>(null)
+  const [queued, setQueued] = React.useState<{ text: string; mode: AskMode } | null>(null)
   /**
    * ONLY THE OPEN SECTION MAY CHANGE.
    *
@@ -785,13 +785,26 @@ function ThemeChatPanel({
    * Claude models) reads as the default.
    */
   const [engine, setEngine] = React.useState<EngineId>(DEFAULT_ENGINE)
-  const [strength, setStrength] = React.useState<StrengthId>(DEFAULT_STRENGTH)
+  /**
+   * STRENGTH, ONE PER MODE. Code a section starts on Deep: accuracy over
+   * speed, because a section is planned, written, drawn and read back
+   * against the request. Change a page starts on Standard. Each remembers
+   * its own choice (lib/website-builder/ask-engines.ts).
+   */
+  const [strengths, setStrengths] = React.useState<Record<AskMode, StrengthId>>({
+    change: defaultStrengthFor("change"),
+    code: defaultStrengthFor("code"),
+  })
+  const strength = strengths[mode]
   const [engineOpen, setEngineOpen] = React.useState(false)
 
   React.useEffect(() => {
     try {
       setEngine(engineFromSaved(window.localStorage.getItem(ENGINE_KEY)))
-      setStrength(strengthFromSaved(window.localStorage.getItem(STRENGTH_KEY)))
+      setStrengths({
+        change: strengthFromSaved(window.localStorage.getItem(strengthKeyFor("change")), defaultStrengthFor("change")),
+        code: strengthFromSaved(window.localStorage.getItem(strengthKeyFor("code")), defaultStrengthFor("code")),
+      })
     } catch {
       // A browser with site data blocked still gets the default.
     }
@@ -809,15 +822,18 @@ function ThemeChatPanel({
   }, [])
 
   /* The menu stays open: somebody setting how hard it thinks is often choosing the model next. */
-  const chooseStrength = React.useCallback((id: string) => {
-    if (!STRENGTHS.some((s) => s.id === id)) return
-    setStrength(id as StrengthId)
-    try {
-      window.localStorage.setItem(STRENGTH_KEY, id)
-    } catch {
-      /* per-browser convenience only */
-    }
-  }, [])
+  const chooseStrength = React.useCallback(
+    (id: string) => {
+      if (!STRENGTHS.some((s) => s.id === id)) return
+      setStrengths((was) => ({ ...was, [mode]: id as StrengthId }))
+      try {
+        window.localStorage.setItem(strengthKeyFor(mode), id)
+      } catch {
+        /* per-browser convenience only */
+      }
+    },
+    [mode],
+  )
 
   /**
    * SOUNDS: a tick as the microphone opens and closes, a whoosh as a message
@@ -878,8 +894,10 @@ function ThemeChatPanel({
    * a page that no longer exists and addresses sections by ids that moved.
    */
   const effort = effortOf(strength)
-  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, conversation })
-  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, conversation }
+  /* A new section is written on Code a section's own Strength, whichever mode the box was in when it went. */
+  const codeEffort = effortOf(strengths.code)
+  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, codeEffort, conversation })
+  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, codeEffort, conversation }
 
   /**
    * WHAT TO ASK NEXT, from where the creator is: the section they have open,
@@ -1119,6 +1137,26 @@ function ThemeChatPanel({
   const [attached, setAttached] = React.useState<Attachment[]>([])
   const attachedRef = React.useRef(attached)
   attachedRef.current = attached
+  /**
+   * ONE PICTURE, ONE THUMBNAIL (lib/website-builder/ask-attach.ts). Every
+   * file in the box or on its way into it, by name, size, type and time,
+   * written the moment it is taken, not on the next render: the picker, a
+   * paste and a drop in the same moment each see the others. And each
+   * prepared picture by a fingerprint of its bytes, so the same picture by
+   * another name or in another format is let go.
+   */
+  const attachKeys = React.useRef(new Map<string, string>())
+  const fingerprints = React.useRef(new Map<string, string>())
+  const forgetPicture = React.useCallback((id: string) => {
+    for (const [key, owner] of attachKeys.current) if (owner === id) attachKeys.current.delete(key)
+    fingerprints.current.delete(id)
+  }, [])
+  /* Whatever leaves the box, by any route, is free to be attached again. */
+  React.useEffect(() => {
+    const present = new Set(attached.map((a) => a.id))
+    for (const [key, owner] of attachKeys.current) if (!present.has(owner)) attachKeys.current.delete(key)
+    for (const id of fingerprints.current.keys()) if (!present.has(id)) fingerprints.current.delete(id)
+  }, [attached])
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [attachError, setAttachError] = React.useState<string | null>(null)
   /** Which picture is open full size, and the set it belongs to. */
@@ -1161,6 +1199,19 @@ function ThemeChatPanel({
     async (id: string, file: File) => {
       try {
         const ready = await preparePicture(file, (fraction) => patchPicture(id, { progress: fraction }))
+        /* Removed while it was being made ready: nothing to put back. */
+        if (!attachedRef.current.some((a) => a.id === id)) return
+        /* The same picture is already in the box, by another name or in another format: this one goes. */
+        const print = pictureFingerprint(ready.data)
+        for (const [other, seen] of fingerprints.current) {
+          if (other !== id && seen === print) {
+            letGoPreview(id)
+            forgetPicture(id)
+            setAttached((previous) => previous.filter((a) => a.id !== id))
+            return
+          }
+        }
+        fingerprints.current.set(id, print)
         const others = attachedRef.current.filter((a) => a.id !== id && a.state === "ready")
         const total = others.reduce((sum, a) => sum + a.data.length * 0.75, 0) + ready.data.length * 0.75
         if (total > MAX_TOTAL_IMAGE_BYTES) {
@@ -1179,17 +1230,19 @@ function ThemeChatPanel({
         setAttachError(message)
       }
     },
-    [patchPicture, letGoPreview],
+    [patchPicture, letGoPreview, forgetPicture],
   )
 
   const attach = React.useCallback(
     async (files: FileList | File[] | null) => {
       if (!files) return
-      const picked = Array.from(files)
+      /* Only what is not already in the box or on its way in: the same file by two routes is one picture. */
+      const picked = newFiles(Array.from(files), new Set(attachKeys.current.keys()))
       if (picked.length === 0) return
       setAttachError(null)
       const problems: string[] = []
-      let room = MAX_IMAGES - attachedRef.current.length
+      /* Counted from the keys, which are written at once, not from the box, which is written on the next render. */
+      let room = MAX_IMAGES - Math.max(attachedRef.current.length, new Set(attachKeys.current.values()).size)
       for (const file of picked) {
         const problem = attachProblem(file)
         if (problem) {
@@ -1205,6 +1258,7 @@ function ThemeChatPanel({
           const count = stillsRoom(MAX_IMAGES - room)
           room -= count
           const ids = Array.from({ length: count }, () => crypto.randomUUID())
+          if (ids[0]) attachKeys.current.set(fileKey(file), ids[0])
           setAttached((previous) => [
             ...previous,
             ...ids.map((id, index) => ({
@@ -1235,6 +1289,7 @@ function ThemeChatPanel({
         }
         room -= 1
         const id = crypto.randomUUID()
+        attachKeys.current.set(fileKey(file), id)
         /* The thumbnail is the file itself until the prepared picture replaces it. HEIC draws where it can. */
         let url = ""
         try {
@@ -1268,9 +1323,10 @@ function ThemeChatPanel({
   const removeAttachment = React.useCallback(
     (id: string) => {
       letGoPreview(id)
+      forgetPicture(id)
       setAttached((previous) => previous.filter((a) => a.id !== id))
     },
-    [letGoPreview],
+    [letGoPreview, forgetPicture],
   )
 
   const preparing = attached.some((a) => a.state === "preparing")
@@ -1287,13 +1343,24 @@ function ThemeChatPanel({
    * started typing since.
    */
   const send = React.useCallback(
-    async (text: string, images: Attachment[] = [], quiet = false) => {
+    async (
+      text: string,
+      images: Attachment[] = [],
+      quiet = false,
+      /**
+       * `codeFocus`: Code a section, editing the open section's code.
+       * `display` and `shown`: what the thread shows for this message when it
+       * is not the words sent, an answer that put a picture in ("Upload
+       * image", with the picture), while the run reads the whole sentence.
+       */
+      opts: { codeFocus?: boolean; display?: string; shown?: Attachment[] } = {},
+    ) => {
       const prompt = text.trim()
       /**
        * A picture on its own is a whole request. "Even if it says nothing and
        * uploads an image, it should try to replicate it."
        */
-      if ((!prompt && images.length === 0) || busy) return
+      if ((!prompt && images.length === 0) || busy || writing) return
 
       const id = crypto.randomUUID()
       const runId = crypto.randomUUID()
@@ -1311,13 +1378,15 @@ function ThemeChatPanel({
         ...previous,
         {
           id,
-          prompt: prompt || promptForPictures(images.length),
+          prompt: opts.display ?? (prompt || promptForPictures(images.length)),
           running: true,
-          images,
+          images: opts.shown ?? images,
           activity: EMPTY_ACTIVITY,
           startedAt: performance.now(),
           engine: live.current.engine.id,
           page: startedOn,
+          kind: opts.codeFocus ? "code" : "change",
+          ...(opts.codeFocus ? { codeFocus: true } : {}),
         },
       ])
 
@@ -1333,7 +1402,9 @@ function ThemeChatPanel({
       const changed = new Set<string>()
       /** The sections the latest step named: a file written next was written for them. */
       let stepSections: string[] = []
-      const tell = () => onWorkingChange?.([...working])
+      /** What the run is about, which the canvas shows on the sections it marks. */
+      let subject = ""
+      const tell = () => onWorkingChange?.([...working], subject || undefined)
       if (live.current.locked && live.current.selectedSectionId) {
         working.add(live.current.selectedSectionId)
         tell()
@@ -1377,6 +1448,8 @@ function ThemeChatPanel({
             settings: live.current.settings,
             selectedSectionId: live.current.selectedSectionId,
             lockToSelection: live.current.locked,
+            /* Code a section with a section open: the change goes into its code. */
+            ...(opts.codeFocus ? { codeFocus: true } : {}),
             provider: live.current.engine.provider,
             tier: live.current.engine.tier,
             /* How hard it thinks: Light, Standard or Deep (lib/website-builder/ask-engines.ts). */
@@ -1457,6 +1530,13 @@ function ThemeChatPanel({
                 } else if (op.kind !== "update_theme" && target) {
                   changed.add(target)
                   mark([target])
+                }
+              } else if (type === "subject") {
+                /* "Editing Pricing": over the steps, and on the canvas where the sheen is. */
+                const said = typeof event.text === "string" ? event.text.trim() : ""
+                if (said && said !== subject) {
+                  subject = said
+                  tell()
                 }
               } else if (type === "step") {
                 /* A step about a section starts its sheen. */
@@ -1546,114 +1626,183 @@ function ThemeChatPanel({
         if (changed.size > 0 && live.current.page === startedOn) onRunFinished?.([...changed])
       }
     },
-    [busy, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, onSourceWritten, onWorkingChange, onRunFinished, patchExchange],
+    [busy, writing, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, onSourceWritten, onWorkingChange, onRunFinished, patchExchange],
   )
 
   /**
-   * Drains the queue when the run that was in the way finishes. `send` refuses
-   * while `busy`, so this cannot fire into the middle of one.
+   * Drains the queue when the run that was in the way finishes. `send` and
+   * `writeOne` refuse while either is going, so this cannot fire into the
+   * middle of one. A queued message goes the way its mode sends it.
    */
   React.useEffect(() => {
-    if (busy || !queued) return
+    if (busy || writing || !queued) return
     const next = queued
     setQueued(null)
     /* Quiet: it had its whoosh when it was queued. */
-    void send(next, [], true)
-  }, [busy, queued, send])
+    dispatchRef.current(next.text, [], next.mode, true)
+  }, [busy, writing, queued])
 
   /**
-   * WRITE ME A SECTION. Not the agent loop: that edits a page, and every one
-   * of its operations names something that already exists. This asks for a
-   * file, and the server compiles it before keeping it; a section that does
-   * not compile is never stored, so the worst outcome here is being told why.
+   * ===========================================================================
+   *  CODE A SECTION: A NEW ONE
+   * ===========================================================================
+   * Not the agent loop: that edits a page, and every one of its operations
+   * names something that already exists. This asks for a file, which the
+   * server plans, writes, compiles, draws, reads back against the request
+   * and the picture, and refines once before it keeps it.
+   *
+   * IN THE THREAD, LIKE ANY OTHER RUN. Its steps stream in under "New
+   * section: <name>", the canvas holds the spot with the same label, and
+   * when it is done the section is put on the page and the canvas glides to
+   * it and rings it once (lib/website-builder/ask-code-run.ts, finishWrite).
+   * The chat says one line, with View code beside it; the file itself is
+   * one press away in the code editor, never pasted into the thread.
    */
   const writeOne = React.useCallback(
-    async (prompt: string, images: Attachment[] = []) => {
-      lastWrite.current = { prompt, images }
-      playAskSound("sent")
+    async (text: string, images: Attachment[] = [], quiet = false) => {
+      const prompt = text.trim()
+      if ((!prompt && images.length === 0) || writing || busy) return
+      const id = crypto.randomUUID()
+      const startedOn = live.current.page
+      if (!quiet) playAskSound("sent")
       setWriting(true)
-      setWriteStage("starting")
-      setWriteError(null)
-      setWriteReply(null)
-      setWritten(null)
-      /* The box's pictures went with this request; a suggestion tapped with pictures waiting leaves them there. */
-      if (images.length) {
-        setAttached([])
-        setAttachError(null)
+      if (loadingHistory) {
+        loadSeq.current++
+        setLoadingHistory(false)
       }
+      setWanted(true)
+      setExchanges((previous) => [
+        ...previous,
+        {
+          id,
+          kind: "code",
+          prompt: prompt || promptForPictures(images.length),
+          running: true,
+          images,
+          activity: EMPTY_ACTIVITY,
+          startedAt: performance.now(),
+          engine: live.current.engine.id,
+          page: startedOn,
+        },
+      ])
+      const patch = (change: (exchange: Exchange) => Exchange) => patchExchange(id, change)
+      /* The spot it is writing into, labelled with what it is writing. */
+      let subject = "New section"
+      const tell = () => onWorkingChange?.([WRITING_SECTION_ID], subject)
       onWriteStart?.(prompt)
-      /* The section arrives on the canvas: the dock gets out of its way while it does. */
+      tell()
+      /* The section arrives on the canvas: the dock gets out of its way while it does, and the folded pill says where it is. */
       if (dock) setExpanded(false)
-      let kept = false
-      let answered = false
-      let reason = "The section could not be written."
+      let outcome: WriteOutcome | null = null
       try {
         const res = await fetch(`/api/website-builder/themes/${installId}/sections/code`, {
           method: "POST",
-          /* One line per stage, then the answer: see the route. */
+          /* A line per step, then the answer: see the route. */
           headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
           /**
-           * THE PICTURES GO TOO, and so does the site: writing a section is
-           * the one moment every colour, font and spacing value is decided at
-           * once, and the editor already holds both.
+           * THE WORDS, THE PICTURES AND THE SITE. The words always: a picture
+           * never replaces what was typed, it goes beside it. Writing a
+           * section is the one moment every colour, font and spacing value
+           * is decided at once, and the editor already holds them.
            */
           body: JSON.stringify({
             prompt,
             images: images.map((a) => ({ mediaType: a.mediaType, data: a.data, name: a.name })),
-            settings,
-            sectionTypes: [...new Set(sections.map((s) => s.type))].slice(0, 40),
+            settings: live.current.settings,
+            sectionTypes: [...new Set(live.current.sections.map((s) => s.type))].slice(0, 40),
+            provider: live.current.engine.provider,
+            tier: live.current.engine.tier,
+            /* Code a section's own Strength: Deep unless the creator chose otherwise. */
+            effort: live.current.codeEffort,
+            conversationId: live.current.conversation.id,
+            page: startedOn,
           }),
         })
-        const d = await readWriteAnswer(res, setWriteStage)
-        /* It answered instead: the message was a question, or too unclear
-           to build. A conversation, shown as one, and nothing to retry. */
-        if (d.reply) {
-          reason = d.reply
-          answered = true
-          setWriteReply({ prompt, text: d.reply })
-          return
-        }
-        const type = d.type ?? d.path?.match(/^sections\/([a-z0-9_-]+)\.storelib$/)?.[1]
-        if (d.status >= 400 || !d.path || !d.name || !type) {
-          /* The compiler's own words are for the code editor, not for this
-             chat; the detail stays in the console. */
-          if (d.errors?.length) console.warn("[storelib ai] section did not compile", d.errors)
-          reason = plainWriteError(d.status, d.error, Boolean(d.errors?.length))
-          setWriteError(reason)
-          return
-        }
-        /**
-         * Written and kept, whatever happens next: the file is saved. If the
-         * editor cannot put it on the page, it is still in Add Section, and
-         * the message below says so rather than reporting a failure.
-         */
-        kept = true
-        const section = { type, name: d.name, path: d.path }
-        const placed = await Promise.resolve()
-          .then(() => onWriteDone?.(section))
-          .then((v) => v === true)
-          .catch(() => false)
-        setWritten({ path: section.path, name: section.name, placed })
+        patch((e) => ({ ...e, sent: true }))
+        const answer = await readWriteAnswer(res, (line) => {
+          const type = typeof line.type === "string" ? line.type : ""
+          if (type === "conversation" && typeof line.id === "string") {
+            const opened = { id: line.id, title: typeof line.title === "string" ? line.title : "", earlier: false }
+            setConversation((was) => (was.id === opened.id && was.title === opened.title && !was.earlier ? was : opened))
+            return
+          }
+          if (type === "recorded") {
+            const messageId = typeof line.messageId === "string" ? line.messageId : null
+            if (messageId) patch((e) => ({ ...e, messageId }))
+            return
+          }
+          /* The older one-word stages: the steps say more. */
+          if (type === "stage") return
+          if (type === "subject" && typeof line.text === "string" && line.text.trim()) {
+            subject = line.text.trim()
+            tell()
+          }
+          patch((e) => {
+            const next = reduceActivity(e.activity, line)
+            return next === e.activity ? e : { ...e, activity: next }
+          })
+        })
+        /* The compiler's own words are for the code editor, not for this chat; the detail stays in the console. */
+        if (answer.errors?.length) console.warn("[storelib ai] section did not compile", answer.errors)
+        outcome = await finishWrite(answer, {
+          place: (section) => (onWriteDone ? onWriteDone(section) : false),
+          finished: (ids) => onRunFinished?.(ids),
+          plainError: plainWriteError,
+        })
       } catch {
-        reason = "Storelib AI could not be reached. Check your connection and try again."
-        setWriteError(reason)
+        outcome = { error: "Storelib AI could not be reached. Check your connection and try again." }
       } finally {
-        if (!kept) onWriteFailed?.(reason, answered)
+        onWorkingChange?.([])
+        const done = outcome
+        const kept = !!done?.written
+        const answered = !!done?.answered
+        if (!kept) onWriteFailed?.(done?.reply ?? done?.error ?? "The section could not be written.", answered)
         /* Nothing on the canvas to look at: the reason, or the answer, is read here. */
         if (!kept && dock) setExpanded(true)
+        patch((e) => {
+          let activity = settleActivity(e.activity, !kept && !answered)
+          if (done?.written) activity = reduceActivity(activity, { type: "progress", phase: "done", label: "Done", sections: [] })
+          if (done?.offer) activity = reduceActivity(activity, { type: "question", ...done.offer })
+          return {
+            ...e,
+            running: false,
+            sent: true,
+            activity,
+            reply: done?.reply,
+            error: done?.error,
+            ...(done?.written ? { written: { path: done.written.path, name: done.written.name } } : {}),
+          }
+        })
         /* The section is written, or it answered: the chime. A failure has its sentence, and the low falling pair. */
         if (kept || answered) playAskSound("done")
         else playAskSound("error")
         setWriting(false)
-        setWriteStage(null)
       }
     },
-    /**
-     * Everything it reads, so a section written after changing the colours is
-     * written for the new ones.
-     */
-    [installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed, dock],
+    [writing, busy, installId, loadingHistory, patchExchange, onWriteStart, onWriteDone, onWriteFailed, onWorkingChange, onRunFinished, dock],
   )
+
+  /**
+   * WHERE A MESSAGE GOES. Change a page: the page assistant. Code a section:
+   * a new section through the writer, or, with a section open and in scope
+   * and words that are about it, that section's code through the page
+   * assistant (lib/website-builder/ask-code-run.ts, codeTarget). The words
+   * are sent either way, with or without pictures.
+   */
+  const dispatch = React.useCallback(
+    (prompt: string, images: Attachment[], into: AskMode, quiet = false) => {
+      if (into === "code") {
+        const target = codeTarget(prompt, { selectedId: live.current.selectedSectionId, locked: live.current.locked })
+        if (target === "edit") void send(prompt, images, quiet, { codeFocus: true })
+        else void writeOne(prompt, images, quiet)
+        return
+      }
+      void send(prompt, images, quiet)
+    },
+    [send, writeOne],
+  )
+  const dispatchRef = React.useRef(dispatch)
+  dispatchRef.current = dispatch
 
   const submit = React.useCallback(
     (text: string) => {
@@ -1662,23 +1811,21 @@ function ThemeChatPanel({
       if (!prompt && images.length === 0) return
       /* A picture still being made ready is waited for: sending now would leave it behind. */
       if (attachedRef.current.some((a) => a.state === "preparing")) return
-      setDraft("")
-      if (mode === "code") {
-        if (writing) return
-        void writeOne(prompt, images)
-        return
-      }
-      if (busy) {
-        /* The words wait for the run in the way; the pictures stay in the box, to go with the next message. */
-        setQueued(prompt)
+      if (busy || writing) {
+        /* Only pictures, and a run in the way: they stay in the box for the next message, and so does nothing else. */
+        if (!prompt) return
+        setDraft("")
+        /* The words wait for the run in the way, in the mode they were written in; the pictures stay in the box. */
+        setQueued({ text: prompt, mode })
         playAskSound("sent")
         return
       }
+      setDraft("")
       setAttached([])
       setAttachError(null)
-      void send(prompt, images)
+      dispatch(prompt, images, mode)
     },
-    [busy, send, mode, writing, writeOne],
+    [busy, writing, mode, dispatch],
   )
 
   /**
@@ -1688,24 +1835,61 @@ function ThemeChatPanel({
    */
   const answerQuestion = React.useCallback(
     (text: string) => {
-      if (busy) {
-        setQueued(text)
+      if (busy || writing) {
+        setQueued({ text, mode: "change" })
         playAskSound("sent")
         return
       }
       void send(text)
     },
-    [busy, send],
+    [busy, writing, send],
   )
 
-  /** Try again: the same words, and the same pictures when they are still in hand. */
+  /**
+   * ===========================================================================
+   *  "UPLOAD IMAGE" AND "PASTE IMAGE URL" DO WHAT THEY SAY
+   * ===========================================================================
+   * The picture is put into the setting the question names, at once, as an
+   * ordinary change Undo takes back; the canvas rings the section. A run
+   * that asked is then told, as the next message, that the picture is in
+   * and where, and carries on (lib/sites/agent/questions.ts, imageAnswer).
+   * An offer under a written section has no run waiting: it is done there.
+   */
+  const putImage = React.useCallback(
+    (exchange: Exchange, url: string, how: QuestionAction, option: string) => {
+      const question = exchange.activity.question
+      const target = question?.target
+      if (!target) return
+      onRunStart(crypto.randomUUID())
+      onOp(imageOp(target, url) as ThemeOp)
+      onRunFinished?.([target.sectionId])
+      const shown: Attachment = {
+        id: crypto.randomUUID(),
+        name: target.label ?? "Picture",
+        state: "ready",
+        progress: 1,
+        mediaType: "image/png",
+        data: "",
+        url,
+      }
+      if (question?.offer || busy || writing) {
+        patchExchange(exchange.id, (e) => ({ ...e, answer: option }))
+        return
+      }
+      void send(imageAnswer(target, url, how), [], false, { display: option, shown: [shown] })
+    },
+    [onRunStart, onOp, onRunFinished, patchExchange, busy, writing, send],
+  )
+
+  /** Try again: the same words, and the same pictures when they are still in hand, the same way they went. */
   const retry = React.useCallback(
     (exchange: Exchange) => {
-      if (busy) return
+      if (busy || writing) return
       const images = (exchange.images ?? []).filter((a) => a.data)
-      void send(exchange.prompt, images)
+      if (exchange.kind === "code" && !exchange.codeFocus) void writeOne(exchange.prompt, images)
+      else void send(exchange.prompt, images, false, exchange.codeFocus ? { codeFocus: true } : {})
     },
-    [busy, send],
+    [busy, writing, send, writeOne],
   )
 
   /** The editor's Undo for one run: the page as it was before it started. */
@@ -1748,17 +1932,32 @@ function ThemeChatPanel({
     ═════════════════════════════════════════════════════════════════════════
      SPEAKING INSTEAD OF TYPING
     ═════════════════════════════════════════════════════════════════════════
-    The words land in the box, after whatever was already typed, and are not
-    sent: they are read and changed first like typed ones. They TYPE
-    themselves in, a few characters a frame, while the words are still being
-    said: a recogniser hands them over in bursts and revises its guesses,
-    and put straight in the box they jumped by whole phrases and flickered at
-    the end (lib/website-builder/ask-typing.ts). When the recording stops the
-    box holds exactly what was heard. See ask-voice.ts for which way the
-    browser hears.
+    The words land in the box AT THE CARET, with whatever was after it kept
+    after them, and are not sent: they are read and changed first like typed
+    ones. They TYPE themselves in, a few characters a frame, while the words
+    are still being said: a recogniser hands them over in bursts and revises
+    its guesses, and put straight in the box they jumped by whole phrases
+    and flickered at the end (lib/website-builder/ask-typing.ts). Only the
+    spoken part types; what was there before stays where it is.
+
+    TYPING WHILE IT LISTENS WINS. A key press keeps what is in the box, and
+    whatever is heard after it goes at the new caret
+    (lib/website-builder/ask-dictation.ts, spokenSince). It used to be undone
+    on the next frame by the words typing themselves back in.
+
+    When the recording stops the box holds exactly what was heard. See
+    ask-voice.ts for which way the browser hears, and for the sessions that
+    follow one another while somebody keeps talking.
   */
-  const voiceBase = React.useRef("")
+  const anchor = React.useRef<DictationAnchor>({ before: "", after: "" })
+  /** Everything heard in this recording so far, and the part of it already placed before a key press. */
+  const heardRef = React.useRef("")
+  const placedRef = React.useRef("")
+  /** The spoken words the box is typing towards, and how far it has got. */
   const voiceTarget = React.useRef<string | null>(null)
+  const spokenShown = React.useRef("")
+  /** Where the caret goes once the box shows the next frame: just after the spoken words. */
+  const pendingCaret = React.useRef<number | null>(null)
   const typingFrame = React.useRef(0)
   const draftRef = React.useRef(draft)
   draftRef.current = draft
@@ -1766,18 +1965,34 @@ function ThemeChatPanel({
     typingFrame.current = 0
     const target = voiceTarget.current
     if (target === null) return
-    const next = typeToward(draftRef.current, target)
-    draftRef.current = next
-    setDraft(next)
+    const next = typeToward(spokenShown.current, target)
+    spokenShown.current = next
+    const composed = composeDictation(anchor.current, next)
+    draftRef.current = composed.text
+    pendingCaret.current = composed.caret
+    setDraft(composed.text)
     if (next !== target) typingFrame.current = requestAnimationFrame(typeFrame)
     /* Caught up after the recording ended: nothing more is coming. */ else if (voiceRef.current?.state === "idle") voiceTarget.current = null
   }, [])
   const voice = useVoiceInput({
     onText: (text) => {
-      voiceTarget.current = withSpoken(voiceBase.current, text)
+      heardRef.current = text
+      voiceTarget.current = spokenSince(placedRef.current, text)
       if (!typingFrame.current) typingFrame.current = requestAnimationFrame(typeFrame)
     },
   })
+  /* The caret follows the words as they arrive, so the next word, typed or said, goes after them. */
+  useLayout(() => {
+    const at = pendingCaret.current
+    const field = fieldRef.current
+    if (at === null || !field || field.value !== draft) return
+    pendingCaret.current = null
+    try {
+      field.setSelectionRange(at, at)
+    } catch {
+      /* a field that is not in the page yet */
+    }
+  }, [draft])
   const listening = voice.state === "listening"
   const voiceRef = React.useRef(voice)
   voiceRef.current = voice
@@ -1807,13 +2022,16 @@ function ThemeChatPanel({
     const target = voiceTarget.current
     if (target === null) return
     if (was === "transcribing") {
-      if (!typingFrame.current && draftRef.current !== target) typingFrame.current = requestAnimationFrame(typeFrame)
+      if (!typingFrame.current && spokenShown.current !== target) typingFrame.current = requestAnimationFrame(typeFrame)
       return
     }
     if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
     typingFrame.current = 0
     voiceTarget.current = null
-    if (target !== null) setDraft(target)
+    const composed = composeDictation(anchor.current, target)
+    spokenShown.current = target
+    pendingCaret.current = composed.caret
+    setDraft(composed.text)
   }, [voice.state, typeFrame])
   /** Words still typing themselves in, taken whole: for Send, and for a person who starts typing. */
   const settleVoice = React.useCallback((): string | null => {
@@ -1821,7 +2039,20 @@ function ThemeChatPanel({
     if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
     typingFrame.current = 0
     voiceTarget.current = null
-    return target
+    return target === null ? null : composeDictation(anchor.current, target).text
+  }, [])
+  /**
+   * A KEY PRESS WHILE IT LISTENS. What is in the box now is theirs, the
+   * words heard so far included; whatever is heard next goes at the caret
+   * they left.
+   */
+  const rebaseVoice = React.useCallback((value: string, caret: number | null) => {
+    if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
+    typingFrame.current = 0
+    anchor.current = anchorAt(value, caret)
+    placedRef.current = heardRef.current
+    spokenShown.current = ""
+    voiceTarget.current = ""
   }, [])
   React.useEffect(
     () => () => {
@@ -1829,6 +2060,7 @@ function ThemeChatPanel({
     },
     [],
   )
+
 
   /** The model menu closes on any press outside it, as a menu does. On a phone it is a sheet, which closes itself. */
   const engineRef = React.useRef<HTMLDivElement>(null)
@@ -2044,9 +2276,6 @@ function ThemeChatPanel({
     seenExchanges.current = 0
     setExchanges([])
     setQueued(null)
-    setWritten(null)
-    setWriteError(null)
-    setWriteReply(null)
   }, [])
 
   /*
@@ -2126,7 +2355,13 @@ function ThemeChatPanel({
   }, [dock, onClose])
 
   const startVoice = React.useCallback(() => {
-    voiceBase.current = draft.trim()
+    /* The words will go where the caret is now: at the end of the box when it has none. */
+    const field = fieldRef.current
+    const caret = field && document.activeElement === field ? field.selectionStart : null
+    anchor.current = anchorAt(draft, caret)
+    heardRef.current = ""
+    placedRef.current = ""
+    spokenShown.current = ""
     voiceTarget.current = null
     voice.clearError()
     if (dock) openDock()
@@ -2142,35 +2377,37 @@ function ThemeChatPanel({
   const pickSuggestion = React.useCallback(
     (text: string) => {
       if (dock) openDock()
-      if (mode === "code") {
-        if (!writing) void writeOne(text)
-        return
-      }
-      if (busy) {
-        setQueued(text)
+      if (busy || writing) {
+        setQueued({ text, mode })
         playAskSound("sent")
         return
       }
-      void send(text)
+      dispatch(text, [], mode)
     },
-    [dock, openDock, mode, writing, writeOne, busy, send],
+    [dock, openDock, mode, writing, busy, dispatch],
   )
 
   viewingRef.current = !!viewing
   const busyNow = busy || writing
   const isMax = dock && maximized
   const empty = draft.trim().length === 0 && readyPictures.length === 0
-  /** The run going now, whose line the folded pill shows. */
-  const runningExchange = busy ? exchanges.find((e) => e.running) : undefined
+  /** The run going now, whose line the folded pill shows: a change, or a section being written. */
+  const runningExchange = busyNow ? exchanges.find((e) => e.running) : undefined
+  const runningLine = runningExchange
+    ? activityLine(runningExchange.activity, runningExchange.startedAt === undefined ? READING_MS : performance.now() - runningExchange.startedAt)
+    : null
+  /* Folded, it says what it is working on first: "New section: Hero with flag · Writing it". */
   const pillLine =
-    runningExchange && dock && !expanded
-      ? activityLine(runningExchange.activity, runningExchange.startedAt === undefined ? READING_MS : performance.now() - runningExchange.startedAt)
+    runningExchange && runningLine && dock && !expanded
+      ? runningExchange.activity.subject
+        ? `${runningExchange.activity.subject} · ${runningLine}`
+        : runningLine
       : null
   /** The newest run once it is over. */
   const latest = exchanges[exchanges.length - 1]
   const lastRun = latest && !latest.running ? latest : undefined
-  /** It stopped on a question nobody has answered yet: the next message is the answer. */
-  const openQuestion = lastRun?.activity.question ? lastRun : undefined
+  /** It stopped on a question nobody has answered yet: the next message is the answer. An offer under a written section is not one. */
+  const openQuestion = lastRun?.activity.question && !lastRun.activity.question.offer ? lastRun : undefined
   /*
     SEEN, once the conversation it ended in is open (a phone's sheet always
     is). Until then the folded pill says what it did in the run's own
@@ -2183,21 +2420,23 @@ function ThemeChatPanel({
   }, [lastRunId, dock, expanded])
   const foldedLine =
     dock && !expanded && lastRun && lastRun.id !== seenRun
-      ? (lastRun.activity.question?.question ?? detailToShow(undefined, lastRun.activity.done))
+      ? (openQuestion?.activity.question?.question ?? (lastRun.written ? lastRun.reply : undefined) ?? detailToShow(undefined, lastRun.activity.done))
       : null
   const placeholder = listening
     ? "Listening…"
     : voice.state === "transcribing"
       ? "Writing it out…"
-      : dock && !expanded && writing
-        ? `${writeLabel ?? "Writing the section"}…`
-        : pillLine
-          ? `${pillLine}…`
-          : foldedLine
-            ? foldedLine
-            : mode === "code"
-              ? "Describe a section"
-              : busy
+      : pillLine
+        ? `${pillLine}…`
+        : foldedLine
+          ? foldedLine
+          : mode === "code"
+            ? attached.length
+              ? "Add a note, or just send"
+              : locked
+                ? "Describe the change"
+                : "Describe a section"
+            : busy
                 ? "Ask for the next change"
                 : attached.length
                   ? "Add a note, or just send"
@@ -2459,13 +2698,15 @@ function ThemeChatPanel({
                     onOpenCode={onOpenCodeEditor}
                     onReport={reportOne}
                     onAnswer={answerQuestion}
+                    onImage={putImage}
+                    onUpload={uploadAskImage}
                   />
                 ))}
                 {queued && (
                   <li className="flex items-start gap-2 text-[12.5px] text-[#6b7280]">
                     <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#6b7280]/50" />
                     <span>
-                      Up next: <span className="text-[#1a1a2e]/75">{queued}</span>
+                      Up next: <span className="text-[#1a1a2e]/75">{queued.text}</span>
                     </span>
                   </li>
                 )}
@@ -2511,58 +2752,6 @@ function ThemeChatPanel({
      the panel under the clipped x axis. */
   const tray = (
     <div data-ask-tray="" className={cn("min-w-0 [overflow-wrap:anywhere]", dock && maximized && "mx-auto max-w-[720px]")}>
-      {/* What the writer produced, or why it could not. */}
-      {written && (
-        <div className="mb-2 rounded-xl border border-[#e5e7eb] bg-white p-3">
-          <p className="text-[13px] font-medium text-[#1a1a2e]">
-            {written.placed ? `${written.name} is on the page` : `${written.name} is written`}
-          </p>
-          <p className="mt-1 text-[12.5px] leading-snug text-[#6b7280]">
-            Saved as <span className="font-mono text-[12px]">{written.path}</span>.{" "}
-            {written.placed ? "It goes live when you publish." : "Add it from Add Section, under Created."}
-          </p>
-          {onOpenCodeEditor && (
-            <button
-              type="button"
-              onClick={() => onOpenCodeEditor(written.path)}
-              className="mt-2 h-8 rounded-full bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white"
-            >
-              Open the code
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* It answered rather than wrote: the question, then the answer. */}
-      {writeReply && !writing && (
-        <div className="mb-2 space-y-1.5 rounded-xl border border-[#e5e7eb] bg-white p-3">
-          <p className="text-[12.5px] text-[#6b7280]">{writeReply.prompt}</p>
-          <p className="text-[13px] leading-relaxed text-[#1a1a2e]">{writeReply.text}</p>
-        </div>
-      )}
-
-      {writeError && !writing && (
-        <div className="mb-2 space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
-          <p className="text-[12.5px] leading-snug text-[#1a1a2e]">{writeError}</p>
-          {lastWrite.current && (
-            <button
-              type="button"
-              onClick={() => {
-                const again = lastWrite.current
-                if (again) void writeOne(again.prompt, again.images)
-              }}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e]"
-            >
-              <RotateCcw className="h-3 w-3" strokeWidth={2} />
-              Try again
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* What the writer is doing while it does it, from the server's reports. */}
-      {writing && writeLabel && <ActivityLine label={writeLabel} className="mb-2 px-0.5" />}
-
       {voice.error && (
         <p data-ask-voice-error="" role="alert" className="mb-2 flex items-start gap-1.5 px-0.5 text-[12.5px] leading-snug text-[#b45309]">
           <TriangleAlert className="mt-[3px] h-3 w-3 shrink-0" />
@@ -2610,12 +2799,14 @@ function ThemeChatPanel({
           mode={mode}
           onChange={(key) => {
             setMode(key)
-            setWriteError(null)
+            /* Switching is a choice about the next message: the box keeps its words and pictures, and on a computer is ready to type in. A phone's keyboard is not raised for it. */
+            if (dock) requestAnimationFrame(() => fieldRef.current?.focus({ preventScroll: true }))
           }}
           phone={phone}
           reducedMotion={reducedMotion}
         />
-        {selectedSection && mode === "change" && (
+        {/* In both modes: with it, Code a section changes this section's code; cleared, it writes a new one. */}
+        {selectedSection && (
           <ScopeChip
             name={selectedSection.name}
             locked={locked}
@@ -2781,8 +2972,13 @@ function ThemeChatPanel({
       value={draft}
       aria-label="Message Storelib AI"
       onChange={(event) => {
-        /* A person typing takes the box back from words still typing themselves in. */
-        if (voiceTarget.current !== null && !listening) settleVoice()
+        /*
+          A person typing takes the box back from words still typing
+          themselves in. While it still listens, what they typed stays and
+          the next words heard go at their caret.
+        */
+        if (listening) rebaseVoice(event.target.value, event.target.selectionStart)
+        else if (voiceTarget.current !== null) settleVoice()
         setDraft(event.target.value)
       }}
       onFocus={dock ? openDock : undefined}
@@ -2828,7 +3024,8 @@ function ThemeChatPanel({
       }}
       /** A screenshot goes to the clipboard; this is where it lands. */
       onPaste={(event) => {
-        const files = Array.from(event.clipboardData.files)
+        /* One picture copied can arrive as two files (a PNG and a TIFF of it): it is one picture. */
+        const files = pastedFiles(Array.from(event.clipboardData.files))
         if (files.length === 0) return
         event.preventDefault()
         void attach(files)
@@ -2878,21 +3075,12 @@ function ThemeChatPanel({
           ? "rounded-[27px]"
           : "rounded-[24px] border border-[#e5e7eb] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-colors focus-within:border-[#1a1a2e]/25",
       )}
-      /**
-       * A drop anywhere on the composer, not just on the button. The
-       * dragover has to be cancelled or the browser opens the file
-       * instead, which loses whatever was typed.
-       */
-      onDragOver={(event) => {
-        if (event.dataTransfer.types.includes("Files")) event.preventDefault()
-      }}
-      onDrop={(event) => {
-        if (!event.dataTransfer.files.length) return
-        event.preventDefault()
-        dragDepth.current = 0
-        setDragging(false)
-        void attach(event.dataTransfer.files)
-      }}
+      /*
+        NO DROP HANDLER OF ITS OWN. A drop here bubbles to the panel's
+        (`dropHandlers`, on the sheet and on the dock alike), which attaches
+        it once. The composer had one too, so every picture dropped on it
+        was attached twice.
+      */
     >
       {dock && (
         <>

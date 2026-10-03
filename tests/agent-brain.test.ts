@@ -250,8 +250,14 @@ async function main() {
       (and when a section of kind header is right), and the shared rules said
       which type a picture, a menu and a colour per element are: about 550
       tokens, the cost of an AI that stops coding a second header.
+      13,400 when the U round told it what a section can draw (inline SVG,
+      keyframes, layers, a photo slot) and to read a picture closely
+      (lib/website-builder/agent/creative-section.ts, CREATIVE_BRIEF and
+      IMAGE_FIDELITY_RULES): about 400 tokens of cached text, the cost of a
+      flag that is drawn instead of left out. The T rounds had already put
+      it at 12,905. ask_creator's picture fields: about 170 on the tools.
     */
-    check("the first request stays inside its budget", tokens(first.system) <= 12_900 && tokens(JSON.stringify(first.tools)) <= 5_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    check("the first request stays inside its budget", tokens(first.system) <= 13_400 && tokens(JSON.stringify(first.tools)) <= 5_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>
@@ -382,7 +388,7 @@ async function main() {
     check("and an ordinary screenshot goes through", reviewImages([png(1440, 900)]).images.length === 1)
     const text = describeImages([png(1440, 9000)], false)
     check("the model is told the size and what it means", /1440 x 9000, a whole page/.test(text))
-    check("and to rebuild the layout with this site's content, never copying the picture's words", /reference for layout, hierarchy and style/.test(text) && /DO NOT COPY ITS WORDS, LOGOS OR BRAND/.test(text) && /THEY TYPED NOTHING/.test(text))
+    check("and to describe it, then build it closely, its words read off it and another brand swapped for this site's", /reference for layout, hierarchy and style/.test(text) && /DESCRIBE IT BEFORE YOU BUILD IT/.test(text) && /NEVER ANOTHER BRAND'S NAME, LOGO OR CLAIMS/.test(text) && /THEY TYPED NOTHING/.test(text))
     const turns = [{ role: "user" as const, content: "Build this.", images: [png(1440, 900)] }]
     const anthropic = requestMessages(turns)[0].content as Array<Record<string, any>>
     check("Anthropic: an image block with a base64 source and its media type, before the words", anthropic[0].type === "image" && anthropic[0].source.type === "base64" && anthropic[0].source.media_type === "image/png" && anthropic[1].type === "text")
