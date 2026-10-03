@@ -25,7 +25,8 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { productFacts } from "@/lib/website-builder/storefront-data"
-import { withMainProduct } from "@/lib/website-builder/product-page"
+import { withMainProduct, withProductBlocks } from "@/lib/website-builder/product-page"
+import { productSectionData } from "@/lib/products/product-section-data"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
@@ -287,24 +288,19 @@ export async function renderProduct(
   // Inject the real product data into every product-type section so the
   // editor-preview code path ("_product_data" on settings) renders the
   // actual product on the live storefront.
-  const productData = {
-    id: product.id,
-    title: product.title ?? "",
-    description: product.description ?? "",
-    price_cents: product.price_cents ?? 0,
-    compare_at_cents: product.compare_at_cents,
-    thumbnail_url: product.thumbnail_url ?? "",
-    gallery_urls: product.gallery_urls ?? [],
-    whats_included: product.whats_included ?? [],
-    files: [] as { file_name: string; file_size: number; mime_type: string }[],
-    slug: product.slug ?? slug,
-  }
+  /* Everything the section draws: its pictures once each, its variants with
+     their options, pictures and stock, its pay what you want terms and its
+     description cleaned for the page. The same read the builder's canvas
+     makes for the product it previews (lib/products/product-section-data.ts). */
+  const productData = await productSectionData(admin, { ...product, ...extra, slug: product.slug ?? slug }, { files: true })
 
   /* A template saved before the presets carried a product section gets
-     one, where the untouched "Product name" placeholder was: product-page.ts. */
+     one, where the untouched "Product name" placeholder was, and a product
+     section saved before it had blocks draws the blocks its old switches
+     describe: product-page.ts. */
   const sections: SectionInstance[] = withMainProduct(rawSections).map(s =>
     s.type === "product"
-      ? { ...s, settings: { ...s.settings, _product_data: productData } }
+      ? { ...withProductBlocks(s), settings: { ...s.settings, _product_data: productData } }
       : s
   )
 

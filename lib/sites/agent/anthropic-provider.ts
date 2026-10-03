@@ -186,30 +186,23 @@ export function readUsage(usage: Anthropic.Usage | undefined): TokenUsage {
 
 /**
  * THE SAME PROVIDER ON SOMEBODY ELSE'S ACCOUNT. `client` is where the calls
- * go: Storelib's key by default, a creator's own Claude key, or their
- * OpenRouter account through its Anthropic compatible endpoint, where the
- * model is named with a vendor prefix ("anthropic/claude-sonnet-5"). The
- * prefix is added only on the wire: the model the run records and prices is
- * the bare id, the same as on Storelib's key.
+ * go: Storelib's key by default, or a creator's own Claude key.
  */
-export function createAnthropicProvider(client: () => Anthropic, options: { id?: string; modelPrefix?: string } = {}): AgentProvider {
-  const prefix = options.modelPrefix ?? ""
+export function createAnthropicProvider(client: () => Anthropic, options: { id?: string } = {}): AgentProvider {
   return {
     id: options.id ?? "anthropic",
-    complete: (request) => completeWith(client, prefix, request),
+    complete: (request) => completeWith(client, request),
   }
 }
 
 /** A Claude client on a key that is not Storelib's. One retry: a creator's key that is refused should say so quickly. */
-export function anthropicClientFor(key: string, via: "anthropic" | "openrouter"): Anthropic {
-  return via === "openrouter"
-    ? new Anthropic({ apiKey: null, authToken: key, baseURL: "https://openrouter.ai/api", maxRetries: 1, defaultHeaders: { "HTTP-Referer": "https://storelib.com", "X-Title": "Storelib" } })
-    : new Anthropic({ apiKey: key, maxRetries: 1 })
+export function anthropicClientFor(key: string): Anthropic {
+  return new Anthropic({ apiKey: key, maxRetries: 1 })
 }
 
 export const anthropicProvider: AgentProvider = createAnthropicProvider(anthropic)
 
-async function completeWith(client: () => Anthropic, prefix: string, request: ProviderRequest): Promise<ProviderTurn> {
+async function completeWith(client: () => Anthropic, request: ProviderRequest): Promise<ProviderTurn> {
   const rate = rateFor(request.model)
 
   /**
@@ -225,7 +218,7 @@ async function completeWith(client: () => Anthropic, prefix: string, request: Pr
    */
   const stream = client().messages.stream(
     {
-      model: prefix + request.model,
+      model: request.model,
       max_tokens: Math.min(
         request.maxOutputTokens,
         rate?.maxOutputTokens ?? request.maxOutputTokens,

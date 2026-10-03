@@ -8,8 +8,10 @@ import "server-only"
  *
  *   anthropic    their own Claude API key (console.anthropic.com)
  *   openai       their own OpenAI API key (platform.openai.com)
- *   openrouter   their OpenRouter account, connected in one click; it
- *                answers for Claude and ChatGPT both
+ *
+ * A row with any other provider, kept from a connection Storelib no longer
+ * offers, is left in place and read as nothing connected: Storelib AI
+ * answers on its own key, and no row is ever deleted to get there.
  *
  * The table has row level security on and no policy at all, so only this
  * server (the admin client) reads or writes it: a key never goes back to a
@@ -24,11 +26,11 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { hintOf, open, seal } from "./crypto"
 
-export type KeySource = "anthropic" | "openai" | "openrouter"
-export const KEY_SOURCES: readonly KeySource[] = ["openrouter", "anthropic", "openai"]
+export type KeySource = "anthropic" | "openai"
+export const KEY_SOURCES: readonly KeySource[] = ["anthropic", "openai"]
 
 export function isKeySource(value: unknown): value is KeySource {
-  return value === "anthropic" || value === "openai" || value === "openrouter"
+  return value === "anthropic" || value === "openai"
 }
 
 export interface ConnectedKey {

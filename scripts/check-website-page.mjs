@@ -32,7 +32,8 @@
  *     on a laptop, nothing wider than the screen, every control 44px on a
  *     phone
  *   • an import: the button counts the upload and then says Importing, a
- *     placeholder row is drawn after the library's rows and moves on
+ *     placeholder row is drawn first in the library, where an import lands,
+ *     and moves on
  *     opacity and transform only, the real row replaces it in one frame at
  *     the same place, the page scrolls it to the middle of its own scroller,
  *     and a ring fades on it once for 1.2s
@@ -321,12 +322,12 @@ const tbodyTop = (el) => { const t = el.closest("tbody"); return t ? Math.round(
 new MutationObserver(() => {
   const b = document.querySelector("[data-import-button]")
   const row = document.querySelector("[data-incoming]")
-  if (row) window.__placeholder = { top: tbodyTop(row), h: Math.round(row.getBoundingClientRect().height), last: row === row.parentElement.lastElementChild }
+  if (row) window.__placeholder = { top: tbodyTop(row), h: Math.round(row.getBoundingClientRect().height), last: row === row.parentElement.lastElementChild, first: row === row.parentElement.firstElementChild }
   const s = (b ? b.textContent.trim() : "") + " | " + (row ? row.getAttribute("data-incoming") : "none")
   if (window.__timeline[window.__timeline.length - 1] !== s) window.__timeline.push(s)
   const real = document.querySelector('[data-install-row="new-1"]')
   if (real && !window.__landed) {
-    window.__landed = { withPlaceholder: !!row, top: tbodyTop(real), h: Math.round(real.getBoundingClientRect().height), last: real === real.parentElement.lastElementChild, at: performance.now() }
+    window.__landed = { withPlaceholder: !!row, top: tbodyTop(real), h: Math.round(real.getBoundingClientRect().height), last: real === real.parentElement.lastElementChild, first: real === real.parentElement.firstElementChild, at: performance.now() }
   }
 }).observe(document, { subtree: true, childList: true, characterData: true, attributes: true })
 `
@@ -751,7 +752,7 @@ async function livePage(W) {
   // ── An import, from file to arrival, into libraries of three sizes ────
   for (const drafts of [2, 0, 3]) {
     const websites = drafts + 1
-    if (drafts !== 2) console.log(`\n  with ${websites} website${websites === 1 ? "" : "s"} before it, so it lands as number ${websites + 1}\n`)
+    if (drafts !== 2) console.log(`\n  with ${websites} website${websites === 1 ? "" : "s"} already there, and it lands first\n`)
     const { p, errors } = await open(W, "room", `&drafts=${drafts}`)
     const input = await p.$('input[type="file"]')
     await input.uploadFile(zip)
@@ -824,10 +825,10 @@ async function livePage(W) {
     expect(allowed(early.anim) && allowed(mid.anim) && early.anim.list.length > 0,
       `  it moves on opacity and transform only: ${[...new Set([...(early.anim?.props ?? []), ...(mid.anim?.props ?? [])])].join(", ")} (${[...new Set([...(early.anim?.list ?? []), ...(mid.anim?.list ?? [])].map((a) => a.name))].join(", ")})`)
     expect(mid.bar === "sweep", `  the bar sweeps while the server works (${mid.bar})`)
-    expect(end.placeholder?.last, "  drawn after the library's rows, where the new website lands")
+    expect(end.placeholder?.first, "  drawn before the library's rows, where an imported website lands (lib/website-builder/library-limit.ts, firstSortOrder)")
     expect(!!end.landed && end.landed.withPlaceholder === false, "the real row replaces it in the same frame", JSON.stringify(end.landed))
     if (end.landed && end.placeholder) {
-      expect(end.landed.top === end.placeholder.top && Math.abs(end.landed.h - end.placeholder.h) <= 1 && end.landed.last,
+      expect(end.landed.top === end.placeholder.top && Math.abs(end.landed.h - end.placeholder.h) <= 1 && end.landed.first,
         `  at the same place: placeholder at ${end.placeholder.top}px, ${end.placeholder.h}px tall; website at ${end.landed.top}px, ${end.landed.h}px tall`)
     }
     const clamped = end.scrollTop >= end.maxScroll - 1

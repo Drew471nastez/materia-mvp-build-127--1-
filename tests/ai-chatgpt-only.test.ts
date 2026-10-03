@@ -117,8 +117,8 @@ async function main() {
     check("throws a PlainError with the plain sentence", credit instanceof PlainError && credit.message === PLAIN_MESSAGES.unavailable && (credit as PlainError).status === 400, credit?.message)
     const abort = await catchOf(plainFailures(failing(Object.assign(new Error("aborted"), { name: "AbortError" }))))
     check("a cancel passes through as a cancel", abort?.name === "AbortError")
-    const own = await catchOf(plainFailures(failing(Object.assign(new Error("Your OpenRouter account is out of credit, so nothing was changed."), { name: "OwnKeyError", status: 402 }))))
-    check("the creator's own key refusing passes through as theirs", own?.name === "OwnKeyError" && /Your OpenRouter account/.test(own.message))
+    const own = await catchOf(plainFailures(failing(Object.assign(new Error("Your OpenAI key is out of credit, so nothing was changed."), { name: "OwnKeyError", status: 402 }))))
+    check("the creator's own key refusing passes through as theirs", own?.name === "OwnKeyError" && /Your OpenAI key/.test(own.message))
     const bug = await catchOf(plainFailures(failing(new TypeError("boom"))))
     check("and a bug of ours is left for the caller", bug instanceof TypeError)
   }

@@ -42,6 +42,13 @@ export interface CartLine {
   digital: boolean
   /** Shipped goods: a cart holding one goes to the physical checkout (lib/physical). */
   physical?: boolean
+  /**
+   * Pay what you want: the amount the buyer named on the product page, in
+   * cents. Checkout holds it to the product's own minimum and ceiling on the
+   * server (lib/checkout/pricing.ts priceCart); a line without one is charged
+   * the minimum.
+   */
+  customPriceCents?: number
   quantity: number
 }
 
@@ -144,6 +151,9 @@ export function parseCart(raw: string | null | undefined): CartLine[] {
       slug: typeof row.slug === "string" ? row.slug : "",
       digital,
       ...(row.physical === true ? { physical: true } : {}),
+      ...(typeof row.customPriceCents === "number" && Number.isInteger(row.customPriceCents) && row.customPriceCents >= 0
+        ? { customPriceCents: row.customPriceCents }
+        : {}),
       quantity: digital ? 1 : Math.max(1, Math.min(MAX_QUANTITY, quantity)),
     })
     if (out.length >= MAX_LINES) break
@@ -155,7 +165,16 @@ export function serializeCart(lines: CartLine[]): string {
   return JSON.stringify(lines)
 }
 
-/** What the checkout sends. Ids and quantities; the server prices it. */
-export function checkoutItems(lines: CartLine[]): Array<{ productId: string; variantId: string | null; quantity: number }> {
-  return lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity }))
+/**
+ * What the checkout sends. Ids and quantities, and a pay what you want
+ * line's named amount; the server prices it and holds that amount to the
+ * product's own limits.
+ */
+export function checkoutItems(lines: CartLine[]): Array<{ productId: string; variantId: string | null; quantity: number; customPriceCents?: number }> {
+  return lines.map((l) => ({
+    productId: l.productId,
+    variantId: l.variantId,
+    quantity: l.quantity,
+    ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}),
+  }))
 }

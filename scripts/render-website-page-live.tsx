@@ -97,7 +97,8 @@ w.__probe = {
   refresh() {
     const next = w.__probeNext
     if (next) {
-      installs = [...installs, site(next.id, next.name, "draft", 0)]
+      /* An import is first in the library: the server gives it the lowest place (lib/website-builder/library-limit.ts). */
+      installs = [site(next.id, next.name, "draft", 0), ...installs]
       w.__probeNext = null
     }
     render()

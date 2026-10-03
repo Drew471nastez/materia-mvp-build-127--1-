@@ -33,13 +33,20 @@
  */
 
 import type { SectionInstance } from "./types"
+import { repairChrome, splitGroups, type KindOfType } from "@/lib/storelib-theme/section-groups"
 
-const isHeader = (s: SectionInstance) => s.type === "header"
-const isFooter = (s: SectionInstance) => s.type === "footer"
-
+/**
+ * WHAT CHROME IS: THE HEADER GROUP AND THE FOOTER GROUP. Not only the
+ * header and the footer: an announcement bar placed above the header is on
+ * every page too, as it is in Shopify's header group. `header` and `footer`
+ * are the sections themselves, for the callers that only need those; the
+ * groups are what a page is dressed in.
+ */
 export interface Chrome {
   header?: SectionInstance
   footer?: SectionInstance
+  headerGroup?: SectionInstance[]
+  footerGroup?: SectionInstance[]
 }
 
 /**
@@ -51,22 +58,27 @@ export const CHROMELESS_PAGES: ReadonlySet<string> = new Set(["password"])
 
 /** The page's sections with any header or footer taken off. */
 export function withoutChrome(pageSections: SectionInstance[] | null | undefined): SectionInstance[] {
-  return (pageSections ?? []).filter((s) => !isHeader(s) && !isFooter(s))
+  return splitGroups(pageSections ?? []).template
 }
 
 /** The header and footer a whole site should be wearing. */
 export function chromeOf(homeSections: SectionInstance[] | null | undefined): Chrome {
-  const home = homeSections ?? []
-  return { header: home.find(isHeader), footer: home.find(isFooter) }
+  const g = splitGroups(homeSections ?? [])
+  return {
+    header: g.header.find((s) => s.type === "header" && !s.hidden) ?? g.header.find((s) => s.type === "header") ?? g.header.find((s) => !s.hidden),
+    footer: g.footer.find((s) => s.type === "footer" && !s.hidden) ?? g.footer.find((s) => s.type === "footer") ?? g.footer.find((s) => !s.hidden),
+    ...(g.header.length ? { headerGroup: g.header } : {}),
+    ...(g.footer.length ? { footerGroup: g.footer } : {}),
+  }
 }
 
 /**
  * One page, wearing the site's chrome.
  *
- * ORDER IS PART OF THE ANSWER. The header goes first and the footer last
- * whatever position the stored row had them in, because a header that was
- * saved into the middle of a page is a row nobody meant to write and
- * rendering it there is rendering the mistake.
+ * ORDER IS PART OF THE ANSWER. The header group goes first and the footer
+ * group last whatever position the stored row had them in, because a header
+ * that was saved into the middle of a page is a row nobody meant to write
+ * and rendering it there is rendering the mistake.
  *
  * A page keeps its OWN chrome when the site has none to give: a site with no
  * home page, or a home page still being written, should not have its other
@@ -76,11 +88,10 @@ export function withUniversalChrome(
   pageSections: SectionInstance[] | null | undefined,
   chrome: Chrome,
 ): SectionInstance[] {
-  const page = pageSections ?? []
-  const body = page.filter((s) => !isHeader(s) && !isFooter(s))
-  const header = chrome.header ?? page.find(isHeader)
-  const footer = chrome.footer ?? page.find(isFooter)
-  return [...(header ? [header] : []), ...body, ...(footer ? [footer] : [])]
+  const own = splitGroups(pageSections ?? [])
+  const header = chrome.headerGroup ?? (chrome.header ? [chrome.header] : own.header)
+  const footer = chrome.footerGroup ?? (chrome.footer ? [chrome.footer] : own.footer)
+  return [...header, ...own.template, ...footer]
 }
 
 /**
@@ -89,15 +100,25 @@ export function withUniversalChrome(
  * The home page is included and gets the same treatment, which is not a
  * no-op: it is what puts a header back at the top of its own page when a
  * drag left it in the middle.
+ *
+ * With `kindOfType` (what each of the site's section types is, read from its
+ * files), every page is first held to one header and one footer
+ * (lib/storelib-theme/section-groups.ts, repairChrome): a header written as a
+ * section file and left on the page is drawn as the header, and the second
+ * of two is hidden. At render only; the stored rows are not touched.
  */
 export function applyUniversalChrome(
   pages: Record<string, SectionInstance[]>,
   homeKey = "home",
+  kindOfType?: KindOfType,
 ): Record<string, SectionInstance[]> {
-  const chrome = chromeOf(pages[homeKey])
-  if (!chrome.header && !chrome.footer) return pages
+  const held: Record<string, SectionInstance[]> = kindOfType
+    ? Object.fromEntries(Object.entries(pages).map(([k, v]) => [k, repairChrome(v, kindOfType).sections]))
+    : pages
+  const chrome = chromeOf(held[homeKey])
+  if (!chrome.headerGroup && !chrome.footerGroup) return held
   const out: Record<string, SectionInstance[]> = {}
-  for (const [key, sections] of Object.entries(pages)) {
+  for (const [key, sections] of Object.entries(held)) {
     out[key] = CHROMELESS_PAGES.has(key) ? withoutChrome(sections) : withUniversalChrome(sections, chrome)
   }
   return out

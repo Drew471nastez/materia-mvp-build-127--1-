@@ -72,7 +72,22 @@ import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
-import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { mainProductSection, withProductBlocks } from "@/lib/website-builder/product-page"
+import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
+import {
+  groupOf,
+  isKind,
+  kindLookup,
+  placeSection,
+  repairChrome,
+  sectionGroupsFor,
+  splitGroups,
+  toggleShown,
+  visibleOfKind,
+  type SectionGroup,
+  type SectionKind,
+} from "@/lib/storelib-theme/section-groups"
+import { ReplaceChromeConfirm } from "@/components/website-builder/editor/replace-chrome-confirm"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
@@ -134,7 +149,6 @@ type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, St
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
-import { OWN_AI_RETURN_KEY } from "@/components/website-builder/use-own-ai"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -2524,10 +2538,46 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
   /* The Community card is offered only while communities are on: off, it would draw nothing on the site. */
-  const libraryAddable = useMemo(
-    () => [...ADDABLE_SECTIONS.filter((t) => t !== "community_card" || builderCommunities !== null), ...ownSectionTypes],
-    [ownSectionTypes, builderCommunities],
-  )
+  /** Which types are a header or a footer: the built-in two, and any section file that is one (lib/storelib-theme/section-groups.ts). */
+  const kindOfType = useMemo(() => kindLookup(storelibSources, SECTION_SCHEMAS as never), [storelibSources])
+  /**
+   * WHERE "ADD SECTION" WAS PRESSED: the Header group, the page, or the
+   * Footer group. Each offers what may go there, the way Shopify's section
+   * groups do: the Header group its announcement bars and headers, the page
+   * everything that goes on a page (an announcement bar too, which is then
+   * put in the Header group, above the header).
+   */
+  const [addGroup, setAddGroup] = useState<SectionGroup>("template")
+  /* Every section this creator wrote, a header of their own included, is filed under Created in the library. */
+  const libraryOwnTypes = useMemo(() => Object.keys(customSchemas), [customSchemas])
+  const libraryAddable = useMemo(() => {
+    const all = [...ADDABLE_SECTIONS.filter((t) => t !== "community_card" || builderCommunities !== null), ...ownSectionTypes]
+    const groupsOf = (t: string) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) })
+    if (addGroup === "template") {
+      return all.filter((t) => {
+        const g = groupsOf(t)
+        return g.includes("template") || (g.includes("header") && !kindOfType(t))
+      })
+    }
+    /*
+      The built-in header (or footer) first, offered whether or not one is
+      drawn: picking it where one is drawn replaces it, after asking. Then the
+      creator's own header files, which Add section never offers for a page
+      (customAddableSections leaves them out), and what else fits the group.
+    */
+    const own = addGroup as "header" | "footer"
+    const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
+    const fits = all.filter((t) => groupsOf(t).includes(own))
+    return [...new Set([own, ...ownKinds, ...fits])]
+  }, [ownSectionTypes, builderCommunities, addGroup, librarySchemas, kindOfType, customSchemas])
+  /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
+  const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
+  /**
+   * Set when the creator deletes the header or the footer, so the next save
+   * takes it off every other page too. Without it, a page with no header is
+   * a page whose header has not been synced yet, and is left alone.
+   */
+  const chromeRemoved = useRef<{ header?: boolean; footer?: boolean }>({})
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       // Same-origin only: the frame is our own page and nothing else may
@@ -2581,21 +2631,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const wanted = settingsSectionFrom(url.searchParams.get("settings"))
     if (!wanted) return
     setGithubReturned(url.searchParams.get("github"))
-    /* Back from connecting OpenRouter (/api/ai-keys/openrouter/callback): Connections reads it once (own-ai.tsx). */
-    const ownAi = url.searchParams.get("ownai")
-    if (ownAi) {
-      try {
-        sessionStorage.setItem(OWN_AI_RETURN_KEY, ownAi)
-      } catch {
-        /* no storage: it opens on Connections all the same */
-      }
-    }
     setSettingsSection(wanted)
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
     url.searchParams.delete("settings")
     url.searchParams.delete("github")
-    url.searchParams.delete("ownai")
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -3158,18 +3198,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // not an undo step that undoes nothing.
     pushUndo()
     setSections(prev => {
-      const header = prev.find(s => s.type === "header")
-      const footer = prev.find(s => s.type === "footer")
-      const body = prev.filter(s => s.type !== "header" && s.type !== "footer")
-      const oldIdx = body.findIndex(s => s.id === active.id)
-      const newIdx = body.findIndex(s => s.id === over.id)
+      /* The page's own sections move; the Header and Footer groups keep their places around them. */
+      const g = splitGroups(prev)
+      const oldIdx = g.template.findIndex(s => s.id === active.id)
+      const newIdx = g.template.findIndex(s => s.id === over.id)
       if (oldIdx === -1 || newIdx === -1) return prev
-      const newBody = arrayMove(body, oldIdx, newIdx)
-      return [
-        ...(header ? [header] : []),
-        ...newBody,
-        ...(footer ? [footer] : []),
-      ]
+      return [...g.header, ...arrayMove(g.template, oldIdx, newIdx), ...g.footer]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -3187,20 +3221,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * still ask for a step past one, and an undo entry for a no-op is an undo
      * press that appears to do nothing.
      */
-    const body = sectionsRef.current.filter((x) => x.type !== "header" && x.type !== "footer")
+    /* Inside its own group: a page section among the page's, an announcement bar inside the Header group. */
+    const own = sectionsRef.current.find((x) => x.id === sectionId)
+    if (!own) return
+    const group = groupOf(own)
+    const body = splitGroups(sectionsRef.current)[group]
     const from = body.findIndex((x) => x.id === sectionId)
     const to = from + step
     if (from === -1 || to < 0 || to >= body.length) return
     pushUndo()
     hapticTap("light")
     setSections((prev) => {
-      const header = prev.find((x) => x.type === "header")
-      const footer = prev.find((x) => x.type === "footer")
-      const body = prev.filter((x) => x.type !== "header" && x.type !== "footer")
-      const from = body.findIndex((x) => x.id === sectionId)
+      const g = splitGroups(prev)
+      const list = g[group]
+      const from = list.findIndex((x) => x.id === sectionId)
       const to = from + step
-      if (from === -1 || to < 0 || to >= body.length) return prev
-      return [...(header ? [header] : []), ...arrayMove(body, from, to), ...(footer ? [footer] : [])]
+      if (from === -1 || to < 0 || to >= list.length) return prev
+      const next = { ...g, [group]: arrayMove(list, from, to) }
+      return [...next.header, ...next.template, ...next.footer]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -3210,15 +3248,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Every non-home page in the editor (and on the live site) renders using
   // home's header/footer rather than its own persisted copy, so custom/about/
   // contact/product pages can never drift visually from home.
-  const fetchHomeHeaderFooter = useCallback(async (): Promise<{ header?: SectionInstance; footer?: SectionInstance }> => {
+  const fetchHomeHeaderFooter = useCallback(async (): Promise<Chrome> => {
     const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=home`)
     if (!res.ok) return {}
     const data = await res.json()
     const loaded: SectionInstance[] = data.sections ?? []
-    return {
-      header: loaded.find(s => s.type === "header"),
-      footer: loaded.find(s => s.type === "footer"),
-    }
+    /* The whole Header and Footer groups: an announcement bar above the header is on every page too. */
+    return chromeOf(loaded)
   }, [installId])
 
   /**
@@ -3249,8 +3285,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return { ...sec, settings: rest }
     })
 
-    // Ensure header and footer exist on every page
-    if (!loaded.some(s => s.type === "header")) {
+    /**
+     * A HEADER AND A FOOTER ON A PAGE THAT HAS NOTHING, not on every page.
+     * A brand new page is given the theme's two. A page with sections and no
+     * header is a site whose header was deleted, or one whose header is a
+     * section file of its own (its Header group says which), and putting the
+     * built-in back on it every time it opened was the second header.
+     */
+    const empty = loaded.length === 0
+    if (empty) {
       const hs = SECTION_SCHEMAS["header"]
       if (hs) loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
     } else {
@@ -3271,7 +3314,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         }
       })
     }
-    if (!loaded.some(s => s.type === "footer")) {
+    if (empty) {
       const fs = SECTION_SCHEMAS["footer"]
       if (fs) loaded = [...loaded, { id: `footer-${Date.now()}`, type: "footer", name: fs.name, settings: fs.presets?.[0]?.settings ?? {}, blocks: fs.presets?.[0]?.blocks ?? [], hidden: false }]
     }
@@ -3281,11 +3324,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const ps = SECTION_SCHEMAS["product"]
       if (ps) {
         const headerIdx = loaded.findIndex(s => s.type === "header")
-        const newSection: SectionInstance = { id: `product-${Date.now()}`, type: "product", name: ps.name, settings: ps.presets?.[0]?.settings ?? {}, blocks: [], hidden: false }
+        const newSection: SectionInstance = { ...mainProductSection(`product-${Date.now()}`), name: ps.name }
         if (headerIdx !== -1) loaded.splice(headerIdx + 1, 0, newSection)
         else loaded.unshift(newSection)
       }
     }
+
+    /* A product section saved before it had blocks: the blocks its old
+       switches describe, in the sidebar where the creator can change them,
+       the same ones the live page draws (lib/website-builder/product-page.ts). */
+    loaded = loaded.map((s) => withProductBlocks(s))
 
     return loaded
   }, [installId])
@@ -3371,7 +3419,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // source of truth for header/footer.
     const [loadedRaw, homeHF] = await Promise.all([
       fetchPageSections(currentPage),
-      currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
+      currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<Chrome>({}),
     ])
     /**
      * HOME GETS THE RULE TOO, and that is not a no-op.
@@ -3625,13 +3673,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       // If leaving home, capture home's header/footer from in-memory state
       // so they remain the universal version. Otherwise, fetch from API.
-      const leavingHomeHF =
-        currentPage === "home"
-          ? {
-              header: sections.find(s => s.type === "header"),
-              footer: sections.find(s => s.type === "footer"),
-            }
-          : null
+      const leavingHomeHF = currentPage === "home" ? chromeOf(sections) : null
 
       /**
        * The sidebar's half of the switch happens now, because it is what the
@@ -3647,7 +3689,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         fetchPageSections(page),
         page !== "home"
           ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
-          : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
+          : Promise.resolve<Chrome>({}),
       ])
       /* Home included, for the reason on the initial load above. */
       const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
@@ -3746,13 +3788,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     // Product pages always use home's header/footer. If leaving home, grab
     // them from in-memory state; otherwise refetch from the API.
-    const leavingHomeHF =
-      currentPage === "home"
-        ? {
-            header: sections.find(s => s.type === "header"),
-            footer: sections.find(s => s.type === "footer"),
-          }
-        : null
+    const leavingHomeHF = currentPage === "home" ? chromeOf(sections) : null
 
     /**
      * The sidebar's half, which the click was aimed at and which does not
@@ -4084,9 +4120,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * too, so the two cannot disagree about a header dragged into the middle.
    */
   const bodyCount = useMemo(
-    () => sections.filter((s) => s.type !== "header" && s.type !== "footer").length,
+    () => sections.filter((s) => groupOf(s) === "template").length,
     [sections],
   )
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A SITE SAVED WITH TWO HEADERS IS OPENED WITH ONE
+   * ═════════════════════════════════════════════════════════════════════════
+   * An imported theme, or a site saved before section groups, can hold the
+   * built-in header and a header written as a section file sitting on the
+   * page under it, both drawn. When the page is open and its files are known
+   * (a section file says it is a header by its kind, its name or its
+   * markup), the header goes into the Header group and one header is drawn:
+   * the creator's own when it has their work in it, otherwise the built-in.
+   * The other is hidden, never removed, and its eye brings it back. The same
+   * for footers. Saved with the next save, which copies the groups to every
+   * page. Not an undo step: it is how the site was always meant to read.
+   */
+  useEffect(() => {
+    if (loading || sectionsLoading || switchingPage.current) return
+    const fixed = repairChrome(sections, kindOfType)
+    if (!fixed.changed) return
+    setSections(fixed.sections)
+    setIsDirty(true)
+    const names = (ids: string[]) => ids.map((id) => {
+      const s = fixed.sections.find((x) => x.id === id)
+      return s ? sectionDisplayName(s, librarySchemas) : id
+    })
+    if (fixed.hidden.length > 0) {
+      const twice = new Set(fixed.hidden.map((id) => groupOf(fixed.sections.find((x) => x.id === id) ?? { type: "" })))
+      const kept = (["header", "footer"] as const).filter((k) => twice.has(k)).map((k) => fixed.kept[k]).filter((id): id is string => !!id)
+      showNotification(`Kept ${names(kept).join(" and ")}. Hid ${names(fixed.hidden).join(" and ")}, so nothing is drawn twice.`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, kindOfType, loading, sectionsLoading])
 
   /*
     A SETTING SET TO WHAT IT ALREADY IS CHANGES NOTHING. Clicking the option
@@ -4448,14 +4516,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Hiding a section changes the page as much as deleting one does, and it
     // was the one change Undo could not take back.
     pushUndo()
-    setSections(prev => prev.map(s =>
-      s.id === sectionId ? { ...s, hidden: !s.hidden } : s
-    ))
+    /* Showing a header hides the one that is drawn: never two (lib/storelib-theme/section-groups.ts). */
+    setSections(prev => toggleShown(prev, sectionId, kindOfType))
     setIsDirty(true)
   }
 
   const removeSection = (sectionId: string) => {
     pushUndo()
+    /* The header or the footer itself, deleted: the next save takes it off every page. */
+    const gone = sectionsRef.current.find((s) => s.id === sectionId)
+    if (gone) {
+      for (const kind of ["header", "footer"] as const) {
+        if (groupOf(gone) !== kind || !isKind(gone, kind, kindOfType)) continue
+        const others = sectionsRef.current.filter((s) => s.id !== sectionId && groupOf(s) === kind && isKind(s, kind, kindOfType))
+        if (others.length === 0) chromeRemoved.current[kind] = true
+      }
+    }
     setSections(prev => prev.filter(s => s.id !== sectionId))
     if (selectedSectionId === sectionId) {
       setSelectedPanel({ type: "pages" })
@@ -4498,10 +4574,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
-  const addSection = (type: string, presetIndex = 0) => {
-    pushUndo()
+  const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {
     const schema = librarySchemas[type]
     if (!schema) return
+    /**
+     * WHERE IT GOES, BY WHAT IT IS (lib/storelib-theme/section-groups.ts). An
+     * announcement bar goes in the Header group above the header from
+     * wherever it was added; a header is the header. A header chosen while
+     * one is drawn asks first, and the one it replaces is hidden, not deleted.
+     */
+    const kind = kindOfType(type)
+    const groups = sectionGroupsFor(schema as never, { type, kind })
+    if (kind && !replaceConfirmed) {
+      const current = visibleOfKind(sections, kind, kindOfType)
+      if (current) {
+        setPendingReplace({ type, presetIndex, kind, current: sectionDisplayName(current, librarySchemas), next: schema.name })
+        return
+      }
+    }
+    pushUndo()
     const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
     const newSection: SectionInstance = {
       id: `${type}-${Date.now()}`,
@@ -4512,31 +4603,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       blocks: freshBlocks(preset?.blocks, newBlockId),
       hidden: false,
     }
-    const next = [...sections]
     /**
      * A canvas gap counts body sections, so it is turned into a list index
      * here — where the list is — rather than in the canvas, which does not
-     * know how much chrome is above it. The clamp below then applies to both
-     * kinds of insert.
+     * know how much chrome is above it. Then it is counted inside the page's
+     * own sections, which is where placeSection takes it, so an insert can
+     * never land above the header or below the footer.
      */
     const insertAt =
       canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
-    if (insertAt != null) {
-      // Clamp into the body range (between header and footer) so an insert
-      // divider can never land above the header or below the footer.
-      const headerIdx = sections.findIndex(s => s.type === "header")
-      const footerIdx = sections.findIndex(s => s.type === "footer")
-      const minIdx = headerIdx !== -1 ? headerIdx + 1 : 0
-      const maxIdx = footerIdx !== -1 ? footerIdx : sections.length
-      const clamped = Math.max(minIdx, Math.min(maxIdx, insertAt))
-      next.splice(clamped, 0, newSection)
-      setPendingInsertIndex(null)
-      setCanvasInsertAt(null)
-    } else {
-      // Default — append before footer if it exists
-      const footerIdx = sections.findIndex(s => s.type === "footer")
-      if (footerIdx !== -1) next.splice(footerIdx, 0, newSection)
-      else next.push(newSection)
+    const before = splitGroups(sections)
+    const requested: SectionGroup = canvasInsertAt != null ? "template" : addGroup
+    const placed = placeSection(sections, newSection, {
+      groups,
+      kind,
+      group: requested,
+      at: requested === "template" && insertAt != null ? Math.max(0, Math.min(before.template.length, insertAt - before.header.length)) : null,
+      kindOfType,
+    })
+    const next = placed.sections
+    setPendingInsertIndex(null)
+    setCanvasInsertAt(null)
+    if (kind) chromeRemoved.current[kind] = false
+    if (placed.replaced.length > 0) {
+      showNotification(`${schema.name} is the ${kind} now. The one it replaced is hidden.`)
     }
     /**
      * Where every section is BEFORE this one goes in, so the canvas can open
@@ -4640,14 +4730,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // site already uses. Falling back to the schema preset would show a
     // blank factory header on the new page until the next sync, breaking
     // the "universal header" contract.
-    const currentHeader = sections.find(s => s.type === "header")
-    const currentFooter = sections.find(s => s.type === "footer")
+    // The whole Header and Footer groups, announcement bars included. A site
+    // whose header was deleted gets a page without one, as every other page.
+    const currentGroups = splitGroups(sections)
     const headerSchema = SECTION_SCHEMAS["header"]
     const footerSchema = SECTION_SCHEMAS["footer"]
     const defaultSections: SectionInstance[] = []
-    if (currentHeader) {
-      defaultSections.push(currentHeader)
-    } else if (headerSchema) {
+    const freshSite = sections.length === 0
+    if (currentGroups.header.length > 0) {
+      defaultSections.push(...currentGroups.header)
+    } else if (freshSite && headerSchema) {
       defaultSections.push({
         id: `header-${Date.now()}`,
         type: "header",
@@ -4657,9 +4749,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         hidden: false,
       })
     }
-    if (currentFooter) {
-      defaultSections.push(currentFooter)
-    } else if (footerSchema) {
+    if (currentGroups.footer.length > 0) {
+      defaultSections.push(...currentGroups.footer)
+    } else if (freshSite && footerSchema) {
       defaultSections.push({
         id: `footer-${Date.now() + 1}`,
         type: "footer",
@@ -4786,17 +4878,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // Save header/footer to all pages so they stay universal
   const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft") => {
-    const header = sections.find(s => s.type === "header")
-    const footer = sections.find(s => s.type === "footer")
-    if (!header && !footer) return
+    /**
+     * THE HEADER AND FOOTER GROUPS, whole: an announcement bar above the
+     * header, a header written as a section file, a header hidden because
+     * another replaced it. An empty group is sent only when the creator
+     * deleted the header (or footer) here; otherwise an empty one means
+     * "nothing to copy", and the other pages keep theirs.
+     */
+    const g = splitGroups(sections)
+    const headerGroup = g.header.length > 0 ? g.header : chromeRemoved.current.header ? [] : null
+    const footerGroup = g.footer.length > 0 ? g.footer : chromeRemoved.current.footer ? [] : null
+    if (!headerGroup && !footerGroup) return
 
     // Fetch all pages for this install
     const res = await fetch(`/api/website-builder/themes/${installId}/sections/sync-global`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        header: header ?? null,
-        footer: footer ?? null,
+        header: null,
+        footer: null,
+        header_group: headerGroup,
+        footer_group: footerGroup,
         current_page: currentPage,
         mode,
       }),
@@ -5115,7 +5217,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => cancelAnimationFrame(id)
   }, [selectedBlockId])
 
-  const openAddSection = useCallback(() => setAddSectionOpen(true), [])
+  const openAddSection = useCallback(() => {
+    setAddGroup("template")
+    setAddSectionOpen(true)
+  }, [])
   /**
    * STABLE, SO THE LIBRARY STAYS PUT. The library is mounted for the life of
    * the editor (its sheet keeps it, so opening it is instant), and it was
@@ -5237,6 +5342,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the chrome is. Stable, for the same reason as the two above.
    */
   const openAddSectionAt = useCallback((at: number) => {
+    setAddGroup("template")
     setPendingInsertIndex(null)
     setCanvasInsertAt(at)
     setAddSectionOpen(true)
@@ -5768,7 +5874,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     // ── Sections mode — PAGES panel (default — shows section list) ──
     if (selectedPanel.type === "pages") {
-      const header = sections.find(s => s.type === "header")
       const pageLabel = selectedProductPage
         ? selectedProductPage
         : (PAGE_META[currentPage]?.label ?? currentPage)
@@ -5822,8 +5927,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onDuplicate={duplicateSection}
                 onRemove={removeSection}
                 onMove={moveSectionBy}
-                onAdd={(at) => {
-                  setPendingInsertIndex(at === null ? null : (header ? 1 : 0) + at)
+                kindOfType={kindOfType}
+                onAdd={(at, group = "template") => {
+                  /* `at` counts the page's own sections; the list index is after the Header group. */
+                  setAddGroup(group)
+                  setPendingInsertIndex(at === null || group !== "template" ? null : splitGroups(sections).header.length + at)
+                  setCanvasInsertAt(null)
                   setAddSectionOpen(true)
                 }}
                 dnd={{
@@ -7343,6 +7452,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Portalled, for the reason the sheets are: a z-index is only
           comparable inside one stacking context, and this has to cover sheets
           that render into the body. From in here it could not. */}
+      {/* A header (or footer) chosen while one is drawn: see addSection. */}
+      <ReplaceChromeConfirm
+        open={pendingReplace !== null}
+        kind={pendingReplace?.kind ?? "header"}
+        current={pendingReplace?.current ?? ""}
+        next={pendingReplace?.next ?? ""}
+        onCancel={() => setPendingReplace(null)}
+        onReplace={() => {
+          const r = pendingReplace
+          setPendingReplace(null)
+          if (r) addSection(r.type, r.presetIndex, true)
+        }}
+      />
+
       <LeaveConfirm
         open={pendingExit !== null}
         reason={leaveReason}
@@ -8131,11 +8254,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}
           {canvasInspecting && !isMobileView && previewMode === "preview" && (() => {
-            const body = sections.filter((x) => x.type !== "header" && x.type !== "footer")
-            const idx = body.findIndex((x) => x.id === selectedSectionId)
             const current = sections.find((x) => x.id === selectedSectionId)
             if (!current) return null
-            const chrome = current.type === "header" || current.type === "footer"
+            /* Moved inside its own group; the header and the footer themselves are not moved, copied or deleted from here. */
+            const group = groupOf(current)
+            const body = splitGroups(sections)[group]
+            const idx = body.findIndex((x) => x.id === selectedSectionId)
+            const chrome = group !== "template" && isKind(current, group, kindOfType)
             return (
               <SectionToolbar
                 sectionId={selectedSectionId}
@@ -8208,7 +8333,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onAddSection={addSectionStable}
         schemas={librarySchemas}
         addable={libraryAddable}
-        ownTypes={ownSectionTypes}
+        ownTypes={libraryOwnTypes}
         sources={storelibSources}
       />
 

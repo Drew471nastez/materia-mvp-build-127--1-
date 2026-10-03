@@ -1,0 +1,110 @@
+{# A thin band of short points, each with a coloured rule on its left. A point
+   with a link is underlined, so it reads as something to press. #}
+
+<template>
+<section class="ldl" id="{{ settings.anchor }}" data-scheme="{{ settings.color_scheme }}" style="--ldl-pt: {{ settings.padding_top }}px; --ldl-pb: {{ settings.padding_bottom }}px; --ldl-accent: {{ settings.accent_color }}; --ldl-cols: {{ settings.columns }};">
+  <div class="ldl__in{% if settings.show_lines %} ldl__in--lines{% endif %}">
+    {% for block in blocks %}
+      {% if forloop.first %}<ul class="ldl__list">{% endif %}
+      <li class="ldl__item" data-block-id="{{ block.id }}">
+        {% if block.settings.url %}
+          <a class="ldl__text ldl__text--link" href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>
+        {% else %}
+          <span class="ldl__text">{{ block.settings.text }}</span>
+        {% endif %}
+      </li>
+      {% if forloop.last %}</ul>{% endif %}
+    {% else %}
+      {% if page.in_editor %}<p class="ldl__empty">Add points in the sidebar</p>{% endif %}
+    {% endfor %}
+  </div>
+</section>
+</template>
+
+<style>
+.ldl {
+  container-type: inline-size;
+  background: var(--scheme-background);
+  color: var(--scheme-text);
+  font-family: var(--theme-font-body, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  scroll-margin-top: 88px;
+}
+.ldl__in--lines { border-top: 1px solid var(--scheme-border); border-bottom: 1px solid var(--scheme-border); }
+.ldl__list {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  max-width: calc(var(--theme-page-width, 1160px) + 2 * var(--theme-padding-x, 24px));
+  margin: 0 auto;
+  padding: calc(var(--ldl-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--ldl-pb) * var(--theme-spacing-scale, 1));
+  list-style: none;
+}
+.ldl__item {
+  min-width: 0;
+  padding: 2px 0 2px 16px;
+  border-left: 2px solid var(--ldl-accent);
+}
+.ldl__text {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--scheme-heading);
+}
+.ldl__text--link { text-decoration: underline; text-underline-offset: 4px; }
+.ldl__text--link:hover { color: var(--ldl-accent); }
+.ldl__text--link:focus-visible { outline: 2px solid var(--ldl-accent); outline-offset: 3px; }
+.ldl__empty { margin: 0; padding: 24px; text-align: center; font-size: 14px; opacity: 0.7; }
+
+@container (min-width: 900px) {
+  .ldl__list { grid-template-columns: repeat(var(--ldl-cols, 4), minmax(0, 1fr)); }
+}
+@container (max-width: 480px) {
+  .ldl__list { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ld_highlights",
+  "name": "LD Highlight strip",
+  "category": "content",
+  "description": "Short points in a row, each with a coloured rule",
+  "supports_typography_overrides": false,
+  "settings": [
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "white" },
+    { "type": "color", "id": "accent_color", "label": "Rule colour", "default": "scheme.accent" },
+    { "type": "range", "id": "columns", "label": "Points per row on a computer", "min": 2, "max": 4, "step": 1, "default": 4 },
+    { "type": "toggle", "id": "show_lines", "label": "Lines above and below", "default": true },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "info": "Lets a link jump here" },
+    { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 120, "step": 2, "unit": "px", "default": 26 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 120, "step": 2, "unit": "px", "default": 26 }
+  ],
+  "blocks": [
+    {
+      "type": "point",
+      "name": "Point",
+      "limit": 8,
+      "settings": [
+        { "type": "text", "id": "text", "label": "Text", "default": "One writer from research to final edit" },
+        { "type": "url", "id": "url", "label": "Link", "info": "Optional. A point with a link is underlined." }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "LD Highlight strip",
+      "blocks": [
+        { "type": "point", "settings": { "text": "Two drafts for Andrew Rullz", "url": "#samples" } },
+        { "type": "point", "settings": { "text": "Free drafts for selected prospects" } },
+        { "type": "point", "settings": { "text": "One writer from research to final edit" } },
+        { "type": "point", "settings": { "text": "Focused only on LinkedIn" } }
+      ]
+    }
+  ]
+}
+</schema>

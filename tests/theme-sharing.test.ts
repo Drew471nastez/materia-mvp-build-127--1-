@@ -55,12 +55,12 @@ function main() {
     /const sections = sanitizeSections\(raw, own\)/.test(sections),
     "with the install's own section files, so a type the theme does not ship is cleaned by its schema")
   check("a package's pages are cleaned before the row is written",
-    /sections: sanitizeSections\(\s*\n\s*rewriteUrls\(sectionsFromTemplate/.test(imp),
+    /sections: sanitizeSections\(rewriteUrls\(page\.sections, refToUrl\) as SectionInstance\[\], own\)/.test(imp),
     "this is the shared-theme path; the zip is written by somebody else")
   check("and so is a package's settings block",
     /const settings = sanitizeThemeSettings\(\s*\n\s*rewriteUrls\(JSON\.parse\(pkg\.files\["config\/settings\.json"\]/.test(imp))
   check("the older manifest export is cleaned on the same terms",
-    /\.map\(p => \(\{ \.\.\.p, sections: sanitizeSections\(p\.sections as SectionInstance\[\]\) \}\)\)/.test(imp)
+    /\.map\(p => \(\{ \.\.\.p, sections: repairChrome\(sanitizeSections\(p\.sections as SectionInstance\[\]\), /.test(imp)
       && /const importedSettings = sanitizeThemeSettings\(/.test(imp),
     "a zip from an older build is still a zip from a stranger")
 

@@ -109,3 +109,29 @@ export async function nextSortOrder(supabase: SupabaseClient, creatorId: string)
   const top = typeof data?.sort_order === "number" ? data.sort_order : -1
   return top + 1
 }
+
+/**
+ * Where an IMPORTED website goes: before every website already there.
+ *
+ * An import is the website somebody has just brought in and is about to
+ * open, so it is the first row of the library, not the last one below the
+ * fold. The page draws it there while it uploads (app/app/website-builder/
+ * incoming.tsx), and scrolls to it and rings it when it lands. The lowest
+ * place minus one, so it never ties with another; `sort_order` is a plain
+ * integer and may go below zero.
+ */
+export async function firstSortOrder(supabase: SupabaseClient, creatorId: string): Promise<number> {
+  const { data } = await supabase
+    .from("store_theme_installs")
+    .select("sort_order")
+    .eq("creator_id", creatorId)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  return sortOrderBefore(typeof data?.sort_order === "number" ? data.sort_order : null)
+}
+
+/** The place before the first one, or 0 in an empty library. Pure, for the test. */
+export function sortOrderBefore(lowest: number | null): number {
+  return lowest === null ? 0 : lowest - 1
+}

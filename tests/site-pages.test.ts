@@ -221,8 +221,8 @@ function main() {
     check("and /products is a page now", /export default async function SiteShopPage/.test(shop))
     check(
       "built from the site's own header and footer, not a second design",
-      /const header = homeSections\.find\(\(s\) => s\.type === "header"\)/.test(shopPage) &&
-        /const footer = homeSections\.find\(\(s\) => s\.type === "footer"\)/.test(shopPage),
+      /* The whole Header and Footer groups from home, announcement bars and a header section file included. */
+      /return withUniversalChrome\(\[grid\], chromeOf\(homeSections\)\)/.test(shopPage),
     )
     check(
       "and one product grid reading the shop, which is a section that already exists",

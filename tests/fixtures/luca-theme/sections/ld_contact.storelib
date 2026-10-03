@@ -1,0 +1,203 @@
+{# Contact: a heading and an email address on the left, a short form on the
+   right. By default the form is a Storelib contact form, so each message is
+   emailed to the creator and kept in Emails. It can instead open the visitor's
+   own email app with the message filled in. #}
+
+<template>
+<section class="ldk" id="{{ settings.anchor }}" data-scheme="{{ settings.color_scheme }}" style="--ldk-pt: {{ settings.padding_top }}px; --ldk-pb: {{ settings.padding_bottom }}px; --ldk-hs: {{ settings.heading_size }}; --ldk-hsm: {{ settings.heading_size_mobile }}; --ldk-accent: {{ settings.accent_color }}; --ldk-radius: {{ settings.card_radius }}px;">
+  <div class="ldk__in">
+    <div class="ldk__copy">
+      {% if settings.eyebrow %}<p class="ldk__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+      {% if settings.heading %}<h2 class="ldk__h">{{ settings.heading }}</h2>{% endif %}
+      {% if settings.text %}<p class="ldk__text">{{ settings.text }}</p>{% endif %}
+      {% if settings.email %}
+        <p class="ldk__text">{{ settings.email_intro }} <a class="ldk__mail" href="mailto:{{ settings.email }}">{{ settings.email }}</a>.</p>
+      {% endif %}
+      {% if settings.show_author and settings.author_name %}
+        <div class="ldk__author">
+          {% if settings.author_image %}<img class="ldk__avatar" src="{{ settings.author_image }}" alt="{{ settings.author_name }}" width="56" height="56" loading="lazy">{% endif %}
+          <div>
+            <p class="ldk__name">{{ settings.author_name }}</p>
+            {% if settings.author_role %}<p class="ldk__role">{{ settings.author_role }}</p>{% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="ldk__card">
+      <form class="ldk__form" data-storelib-form="{% if settings.mode == 'mailto' %}native{% else %}contact{% endif %}" method="post" enctype="{% if settings.mode == 'mailto' %}text/plain{% else %}application/x-www-form-urlencoded{% endif %}" action="{% if settings.mode == 'mailto' %}mailto:{{ settings.email }}?subject={{ settings.mail_subject }}{% endif %}">
+        <label class="ldk__label" for="{{ section.id }}-name">{{ settings.name_label }}</label>
+        <input class="ldk__input" id="{{ section.id }}-name" name="name" type="text" autocomplete="name" placeholder="{{ settings.name_placeholder }}">
+
+        <label class="ldk__label" for="{{ section.id }}-email">{{ settings.email_label }}</label>
+        <input class="ldk__input" id="{{ section.id }}-email" name="email" type="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}">
+
+        <label class="ldk__label" for="{{ section.id }}-message">{{ settings.message_label }}</label>
+        <textarea class="ldk__input ldk__area" id="{{ section.id }}-message" name="message" rows="6" required maxlength="5000" placeholder="{{ settings.message_placeholder }}"></textarea>
+
+        {% if settings.mode != 'mailto' %}
+          <div class="ldk__trap" aria-hidden="true"><input name="company" tabindex="-1" autocomplete="off"></div>
+          {% if settings.show_consent %}
+            <label class="ldk__consent"><input type="checkbox" name="consent" value="yes"> <span>{{ settings.consent_label }}</span></label>
+          {% endif %}
+        {% endif %}
+
+        <button class="ldk__btn s__btn" type="submit">{{ settings.button_label }}</button>
+        <p class="ldk__done" data-storelib-success hidden>{{ settings.success_message }}</p>
+      </form>
+    </div>
+  </div>
+</section>
+</template>
+
+<style>
+.ldk {
+  container-type: inline-size;
+  background: var(--scheme-background);
+  color: var(--scheme-text);
+  font-family: var(--theme-font-body, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  scroll-margin-top: 88px;
+}
+.ldk__in {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  max-width: calc(var(--theme-page-width, 1160px) + 2 * var(--theme-padding-x, 24px));
+  margin: 0 auto;
+  padding: calc(var(--ldk-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--ldk-pb) * var(--theme-spacing-scale, 1));
+}
+.ldk__copy { min-width: 0; }
+.ldk__eyebrow { margin: 0 0 18px; font-size: 13px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--scheme-text); }
+.ldk__h {
+  margin: 0 0 26px;
+  font-family: var(--theme-font-heading, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(calc(var(--ldk-hsm) * 1px), calc(var(--ldk-hs) * 0.0715cqi), calc(var(--ldk-hs) * 1px));
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+  color: var(--scheme-heading);
+  overflow-wrap: anywhere;
+}
+.ldk__text { margin: 0 0 22px; font-size: 17px; line-height: 1.6; color: var(--scheme-text); }
+.ldk__mail { color: var(--scheme-text); text-decoration: underline; text-underline-offset: 4px; overflow-wrap: anywhere; }
+.ldk__mail:hover { color: var(--ldk-accent); }
+.ldk__author { display: flex; align-items: center; gap: 16px; margin-top: 30px; }
+.ldk__avatar { flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 3px var(--scheme-background), 0 0 0 4px var(--scheme-border); }
+.ldk__name { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--scheme-heading); }
+.ldk__role { margin: 2px 0 0; font-size: 14px; line-height: 1.4; color: var(--scheme-text); }
+
+.ldk__card {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 36px 30px 30px;
+  border: 1px solid var(--scheme-border);
+  border-radius: var(--ldk-radius);
+  background: var(--scheme-background-secondary);
+}
+.ldk__form { display: flex; flex-direction: column; }
+.ldk__label { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--scheme-heading); }
+.ldk__input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 54px;
+  margin: 0 0 26px;
+  padding: 14px 16px;
+  border: 1px solid var(--scheme-input-border);
+  border-radius: 6px;
+  background: var(--scheme-input);
+  color: var(--scheme-input-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.ldk__area { min-height: 166px; resize: vertical; }
+.ldk__input:focus { outline: none; border-color: var(--ldk-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ldk-accent) 22%, transparent); }
+.ldk__trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.ldk__consent { display: flex; align-items: flex-start; gap: 10px; margin: -6px 0 22px; font-size: 14px; line-height: 1.5; color: var(--scheme-text); }
+.ldk__consent input { margin-top: 3px; accent-color: var(--ldk-accent); }
+.ldk__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 1px solid var(--scheme-button-primary-border);
+  border-radius: 6px;
+  background: var(--scheme-button-primary);
+  color: var(--scheme-button-primary-text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.ldk__btn:hover { background: var(--scheme-button-primary-hover); color: var(--scheme-button-primary-hover-text); }
+.ldk__btn:focus-visible { outline: 2px solid var(--ldk-accent); outline-offset: 3px; }
+.ldk__form[data-state="sending"] .ldk__btn { opacity: 0.6; cursor: wait; }
+.ldk__form[data-state="error"] .ldk__input:invalid { border-color: #c2410c; }
+.ldk__done { margin: 0; padding: 18px 0 6px; font-size: 16px; font-weight: 600; line-height: 1.5; color: var(--scheme-heading); }
+
+@container (min-width: 900px) {
+  .ldk__in { grid-template-columns: minmax(0, 1fr) minmax(0, 540px); gap: 64px; justify-content: space-between; }
+}
+@container (max-width: 520px) {
+  .ldk__card { padding: 26px 20px 22px; }
+  .ldk__text { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ldk__btn { transition: none; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ld_contact",
+  "name": "LD Contact form",
+  "category": "cta",
+  "description": "A heading, an email address and a short contact form",
+  "supports_typography_overrides": false,
+  "settings": [
+    { "type": "header", "id": "hdr_content", "label": "Content" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Let’s start with your ideas" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Tell me what you need" },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Send a short note and I will reply by email." },
+    { "type": "text", "id": "email_intro", "label": "Text before the email address", "default": "You can also write to" },
+    { "type": "text", "id": "email", "label": "Email address", "default": "contact@lucadragoste.ro" },
+    { "type": "header", "id": "hdr_author", "label": "Writer" },
+    { "type": "toggle", "id": "show_author", "label": "Show the writer", "default": true },
+    { "type": "image_picker", "id": "author_image", "label": "Photo" },
+    { "type": "text", "id": "author_name", "label": "Name", "default": "Luca Dragoste" },
+    { "type": "text", "id": "author_role", "label": "Role", "default": "LinkedIn ghostwriter" },
+    { "type": "header", "id": "hdr_form", "label": "Form" },
+    { "type": "select", "id": "mode", "label": "When the form is sent", "default": "storelib",
+      "options": [{ "value": "storelib", "label": "Email it to me through Storelib" }, { "value": "mailto", "label": "Open the visitor's email app" }] },
+    { "type": "paragraph", "id": "mode_note", "content": "Through Storelib, each message is emailed to you and kept in Emails. The email app option uses the address above." },
+    { "type": "text", "id": "mail_subject", "label": "Email subject", "default": "LinkedIn posts", "visible_if": "{{ section.settings.mode == 'mailto' }}" },
+    { "type": "text", "id": "name_label", "label": "Name label", "default": "Name" },
+    { "type": "text", "id": "name_placeholder", "label": "Name placeholder" },
+    { "type": "text", "id": "email_label", "label": "Email label", "default": "Email" },
+    { "type": "text", "id": "email_placeholder", "label": "Email placeholder" },
+    { "type": "text", "id": "message_label", "label": "Message label", "default": "Who do you want to reach, and what would you like to write about?" },
+    { "type": "text", "id": "message_placeholder", "label": "Message placeholder" },
+    { "type": "toggle", "id": "show_consent", "label": "Offer to join the email list", "default": false, "visible_if": "{{ section.settings.mode != 'mailto' }}" },
+    { "type": "text", "id": "consent_label", "label": "Email list checkbox", "default": "Email me occasional notes on writing for LinkedIn", "visible_if": "{{ section.settings.mode != 'mailto' }}" },
+    { "type": "text", "id": "button_label", "label": "Button text", "default": "Send message" },
+    { "type": "text", "id": "success_message", "label": "After sending", "default": "Thanks, your message has been sent. I will reply by email." },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "white" },
+    { "type": "color", "id": "accent_color", "label": "Focus colour", "default": "scheme.accent" },
+    { "type": "range", "id": "heading_size", "label": "Heading size on a computer", "min": 28, "max": 96, "step": 2, "unit": "px", "default": 54 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on a phone", "min": 24, "max": 60, "step": 1, "unit": "px", "default": 34 },
+    { "type": "range", "id": "card_radius", "label": "Card corners", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 14 },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "info": "Lets a link jump here, as #contact", "default": "contact" },
+    { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 104 }
+  ],
+  "presets": [{ "name": "LD Contact form" }]
+}
+</schema>
