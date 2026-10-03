@@ -66,6 +66,10 @@ const RESERVED_PATHS = [
   "/wishlist",
   "/marketplace",
   "/library",
+  /* Storelib Communities stay platform pages on every host: a community is
+     not a page of the creator's site, and its member area needs the
+     platform's sign in. */
+  "/community",
   "/native-start",
   "/receipt",
   /* The page a website cover's screenshot is taken of. A platform surface,
@@ -651,7 +655,7 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
  */
 const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
-  "checkout", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
+  "checkout", "community", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "native-start",
   "onboarding", "onepage-preview", "p", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",

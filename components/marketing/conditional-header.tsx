@@ -56,6 +56,11 @@ function isKnownPlatformPath(p: string): boolean {
        a page; and a word boundary, so /account-deletion stays its own entry. */
     ((p === "/account" || p.startsWith("/account/")) && !p.startsWith("/account/continue")) ||
     p.startsWith("/dashboard") ||
+    /* STORELIB COMMUNITIES. A community's page and member area keep the
+       platform header, as a product page does; the word boundary keeps a
+       creator called "communityx" a creator. */
+    p === "/community" ||
+    p.startsWith("/community/") ||
     p.startsWith("/app") ||
     p.startsWith("/marketplace") ||
     p.startsWith("/blog") ||

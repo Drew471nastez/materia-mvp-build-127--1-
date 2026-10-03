@@ -91,6 +91,9 @@ export function buyerTabsBelongOn(
   if (where.customDomain) return false
   /* /account/continue is a redirect, never a page anybody sees. */
   if (under(pathname, "/account/continue")) return false
+  /* A COMMUNITY IS SOMEBODY'S COMMUNITY, like a product page: it has its own
+     sections to move between, so the bar never goes over it. */
+  if (under(pathname, "/community")) return false
   if (where.sellerSite) return false
   if (where.sellerProduct) return false
   if (where.sellerStore) return true
