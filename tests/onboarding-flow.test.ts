@@ -95,7 +95,48 @@ check("  one narrow column of 560px with one card on a computer, the whole width
 check("  Storelib's mark in its bar, and a way out", /<StorelibLogo size=\{28\} \/>/.test(flow) && /aria-label="Close"/.test(flow))
 check("  Stripe's own windows match Storelib: Inter, 10px corners, a soft backdrop", /fontFamily: 'Inter,/.test(embedded) && /formBorderRadius: "10px"/.test(embedded) && /overlayBackdropColor:/.test(embedded) && /fonts: FONTS/.test(embedded))
 check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-setup-scroll=""/.test(flow))
-check("the phone app hands off to the browser", /isNativeApp\(\)/.test(flow) && /openExternal\(/.test(flow))
+{
+  /* The panel is drawn above the layer a phone sheet uses, so the country
+     list has to be told to come out higher still or it opens behind it and
+     the field looks dead. */
+  const sheet = readFileSync("components/ui/bottom-sheet.tsx", "utf8")
+  const picker = readFileSync("components/app/settings/country-picker.tsx", "utf8")
+  const list = readFileSync("components/ui/choice-list.tsx", "utf8")
+  check(
+    "the country list opens above the setup panel on a phone",
+    /const PANEL_Z = 1000/.test(flow) && /const SHEET_Z = PANEL_Z \+ 10/.test(flow) && /sheetZIndex=\{SHEET_Z\}/.test(flow),
+  )
+  check(
+    "and the layer is carried from the field down to the sheet",
+    /sheetZIndex\?: number/.test(picker) && /sheetZIndex=\{sheetZIndex\}/.test(list) && /zIndex=\{sheetZIndex\}/.test(list),
+  )
+  check(
+    "a sheet nobody asked to move stays where every sheet is",
+    /zIndex == null && "z-\[200\]"/.test(sheet) && /zIndex\?: number/.test(sheet),
+  )
+}
+check(
+  "Stripe's forms run in the phone app, and a browser is offered only if one will not load",
+  /isNativeApp\(\)/.test(flow) &&
+    /openExternal\(/.test(flow) &&
+    /const fallback = native \? <OpenInBrowser \/> : undefined/.test(flow) &&
+    !/if \(native && embedded\)/.test(flow) &&
+    /fallback \? <div className="mt-3">\{fallback\}<\/div> : null/.test(embedded),
+)
+{
+  /* The app gets its own, much narrower frame-src: Stripe's embedded forms
+     have to be in it, and Stripe.js's controller iframe has to stay out. */
+  const native = readFileSync("proxy.ts", "utf8").match(/"Content-Security-Policy",\s*\n([\s\S]*?)\n\s*\)/)?.[1] ?? ""
+  check(
+    "the app's frame rules let Stripe's embedded forms load",
+    /"frame-src 'self'"/.test(native) && /https:\/\/connect-js\.stripe\.com/.test(native),
+  )
+  check("and still keep Stripe.js's controller iframe out", !/controller/.test(native))
+  check(
+    "a frame that does navigate stays in the app",
+    /allowNavigation: \['js\.stripe\.com', 'hooks\.stripe\.com', 'connect-js\.stripe\.com'\]/.test(readFileSync("capacitor.config.ts", "utf8")),
+  )
+}
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))
 check("an unfinished Express account is replaced, not duplicated", /storelibOnly: true/.test(connect) && /stripe\.accounts\.del\(replacing\)/.test(connect))
 check("sessions are made per view for the signed-in creator's own account", /stripe\.accountSessions\.create\(\{ account: row\.stripe_account_id, components \}\)/.test(connect) && !/stripe_account_id|accountId|account:/.test(embedded))

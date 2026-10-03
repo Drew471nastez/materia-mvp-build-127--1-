@@ -106,7 +106,18 @@ export function CountryFlag({ code, near = true, className }: { code: string; ne
   )
 }
 
-export function CountryPicker({ value, onChange, id }: { value: string; onChange: (name: string) => void; id?: string }) {
+export function CountryPicker({
+  value,
+  onChange,
+  id,
+  sheetZIndex,
+}: {
+  value: string
+  onChange: (name: string) => void
+  id?: string
+  /** The phone sheet's layer, for a field inside a panel drawn above the usual one (Set up payments). */
+  sheetZIndex?: number
+}) {
   const code = countryOf(value)
   const shown = countryLabel(value)
   return (
@@ -124,6 +135,7 @@ export function CountryPicker({ value, onChange, id }: { value: string; onChange
       leading={(choice, near) => <CountryFlag code={choice.value} near={near} />}
       uniform
       scrollClassName="max-h-[min(440px,min(52dvh,560px))]"
+      sheetZIndex={sheetZIndex}
     />
   )
 }

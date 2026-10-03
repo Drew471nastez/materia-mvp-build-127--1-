@@ -21,6 +21,13 @@
  * Which step shows comes from the server's status, read from Stripe, so a
  * step Stripe already has is skipped. Not a Radix dialog: Stripe's form opens
  * its own layer over the page, and a modal focus trap would leave it unclickable.
+ *
+ * The same three steps run in the phone app. Stripe's forms draw in frames at
+ * connect-js.stripe.com, which the app's web view used to refuse (proxy.ts
+ * narrows frame-src for the app so Stripe.js cannot navigate the web view
+ * away, and that host was missing from the list), so the app sent creators to
+ * a browser instead. The host is allowed now and the forms run in the app. A
+ * browser is offered only if a form still will not load.
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
@@ -47,6 +54,15 @@ export const FIELD =
 const FIELD_BAD = "border-[#c4290c] hover:border-[#c4290c] focus:border-[#c4290c] focus:shadow-[0_0_0_3px_rgba(196,41,12,0.1)]"
 const PRIMARY = cn(primaryDepth, "h-11 gap-2 rounded-xl px-5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:rounded-lg")
 const SECONDARY = cn(secondaryDepth, "h-11 rounded-xl px-5 text-[14px] sm:h-10 sm:rounded-lg")
+
+/**
+ * The panel's layer, and the one a sheet opened from inside it needs. A phone
+ * sheet sits at 200, which is above the page and below this panel: the country
+ * list opened behind the white subpage, so the field looked dead. It is told
+ * where to draw instead.
+ */
+const PANEL_Z = 1000
+const SHEET_Z = PANEL_Z + 10
 
 function safe(message: string): string {
   if (/invalid_request|acct_|accs_|btok_|file_|capability|requirement|sk_|whsec/i.test(message)) return "Something went wrong. Try again in a moment."
@@ -156,8 +172,9 @@ function Panel({
       aria-label={label}
       data-payments-setup-panel={phone ? "subpage" : "page"}
       data-leaving={leaving ? "" : undefined}
+      style={{ zIndex: PANEL_Z }}
       className={cn(
-        "fixed inset-0 z-[1000] flex h-[100dvh] flex-col bg-white ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9]",
+        "fixed inset-0 flex h-[100dvh] flex-col bg-white ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9]",
         phone
           ? leaving
             ? "animate-out slide-out-to-right duration-200 [will-change:transform]"
@@ -512,13 +529,13 @@ export function PaymentsSetupFlow({
   const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payments"
   const onBack = mode === "setup" && step > 0 && !ending ? () => go((step - 1) as Step) : onClose
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
-  const embedded = mode !== "setup" || step > 0
   const shownStep: Step = ending === "done" || ending === "checking" ? 2 : step
 
+  /* In the phone app, the one way on if Stripe's form itself will not load. */
+  const fallback = native ? <OpenInBrowser /> : undefined
+
   let body: React.ReactNode
-  if (native && embedded) {
-    body = <OpenInBrowser onBack={onClose} />
-  } else if (ending) {
+  if (ending) {
     body = (
       <Outcome
         outcome={ending}
@@ -530,7 +547,7 @@ export function PaymentsSetupFlow({
       />
     )
   } else if (mode === "details") {
-    body = <ManageStep key={`details-${openCount}`} onDone={finish} />
+    body = <ManageStep key={`details-${openCount}`} onDone={finish} fallback={fallback} />
   } else if (step === 0) {
     body = (
       <AccountStep
@@ -544,9 +561,9 @@ export function PaymentsSetupFlow({
       />
     )
   } else if (step === 1) {
-    body = <VerifyStep key={`verify-${openCount}`} data={data} onExit={() => settle("verify")} />
+    body = <VerifyStep key={`verify-${openCount}`} data={data} onExit={() => settle("verify")} fallback={fallback} />
   } else {
-    body = <BankStep key={`bank-${openCount}`} data={data} onExit={() => settle("bank")} onDone={finish} />
+    body = <BankStep key={`bank-${openCount}`} data={data} onExit={() => settle("bank")} onDone={finish} fallback={fallback} />
   }
 
   const subtitle =
@@ -687,9 +704,11 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
               <Lock className="h-3.5 w-3.5 text-[#9ca3af]" aria-label="Locked" />
             </div>
           ) : (
-            <div onBlur={() => mark("country")}>
-              <CountryPicker value={countryName} onChange={(name) => { setCountryName(name); mark("country") }} />
-            </div>
+            /* Marked when a country is picked, not when the field loses focus:
+               opening the list blurs it, and "Choose your country." under a
+               field somebody has just opened reads as a telling off. If they
+               close it without picking, Continue says so. */
+            <CountryPicker value={countryName} onChange={(name) => { setCountryName(name); mark("country") }} sheetZIndex={SHEET_Z} />
           )}
           {issue("country") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("country")}</span> : null}
         </div>
@@ -761,7 +780,7 @@ function StepIntro({ title, line }: { title: string; line: string }) {
  */
 export const VERIFY_COLLECTION = { fields: "eventually_due", futureRequirements: "omit" } as const
 
-function VerifyStep({ data, onExit }: { data: Overview; onExit: () => void }) {
+function VerifyStep({ data, onExit, fallback }: { data: Overview; onExit: () => void; fallback?: React.ReactNode }) {
   const s = data.paymentsStatus
   const later = s && s.status !== "NOT_STARTED" && s.status !== "INCOMPLETE" && s.action === "onboarding"
   return (
@@ -771,7 +790,7 @@ function VerifyStep({ data, onExit }: { data: Overview; onExit: () => void }) {
       ) : (
         <StepIntro title="Verify your identity" line="Have your passport, ID card or driving licence ready. Stripe checks it once, securely, and payments turn on." />
       )}
-      <StripeConnectEmbedded purpose="stripe_onboarding" collection={VERIFY_COLLECTION} onExit={onExit} />
+      <StripeConnectEmbedded purpose="stripe_onboarding" collection={VERIFY_COLLECTION} onExit={onExit} fallback={fallback} />
     </div>
   )
 }
@@ -784,7 +803,7 @@ function VerifyStep({ data, onExit }: { data: Overview; onExit: () => void }) {
  * narrowed to the bank account alone. Any country's bank format works;
  * Stripe draws the right fields.
  */
-function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void; onDone: () => void }) {
+function BankStep({ data, onExit, onDone, fallback }: { data: Overview; onExit: () => void; onDone: () => void; fallback?: React.ReactNode }) {
   const bank = data.payoutDestination
   const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
   const [changing, setChanging] = React.useState(false)
@@ -798,6 +817,7 @@ function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void
           failedTitle="Couldn't load your bank details"
           collection={{ fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } }}
           onExit={onExit}
+          fallback={fallback}
         />
       </div>
     )
@@ -811,7 +831,7 @@ function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void
             title={failed ? "Your payout account needs attention" : "Change bank account"}
             line={failed ? "A payout didn't go through. Update your bank account to get paid." : "Your new account is used for the next payout."}
           />
-          <StripeConnectEmbedded purpose="stripe_management" failedTitle="Couldn't load your bank details" />
+          <StripeConnectEmbedded purpose="stripe_management" failedTitle="Couldn't load your bank details" fallback={fallback} />
         </div>
         <Footer>
           <button type="button" className={SECONDARY} onClick={() => (failed ? onDone() : setChanging(false))}>
@@ -854,12 +874,12 @@ function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void
 
 /* ── after setup: account details ──────────────────────────────────────── */
 
-function ManageStep({ onDone }: { onDone: () => void }) {
+function ManageStep({ onDone, fallback }: { onDone: () => void; fallback?: React.ReactNode }) {
   return (
     <>
       <div className="flex-1 px-5 pb-2 sm:px-7">
         <StepIntro title="Account details" line="Review or update the details on your payments account." />
-        <StripeConnectEmbedded purpose="stripe_management" failedTitle="Couldn't load your account details" />
+        <StripeConnectEmbedded purpose="stripe_management" failedTitle="Couldn't load your account details" fallback={fallback} />
       </div>
       <Footer>
         <span />
@@ -907,25 +927,22 @@ function Outcome({ outcome, onContinue, onDone }: { outcome: Outcome; onContinue
   )
 }
 
-/** Stripe's embedded forms do not run inside the phone app's web view, so the app hands off to the browser. */
-function OpenInBrowser({ onBack }: { onBack: () => void }) {
+/**
+ * THE WAY ON WHEN A FORM WILL NOT LOAD IN THE PHONE APP. Stripe's forms run
+ * in the app now, so this is not the step a creator meets: it is drawn under
+ * Try again if the form itself failed, and opens the same page in a browser,
+ * where it is already known to work.
+ */
+function OpenInBrowser() {
   return (
-    <>
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f3ff] text-[#635bff]">
-          <ExternalLink className="h-5 w-5" />
-        </span>
-        <h3 className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">Continue in your browser</h3>
-        <p className="mx-auto mt-1.5 max-w-[380px] text-[14px] leading-5 text-[#6b7280]">
-          This step opens Storelib in your browser. Sign in there and finish setting up payments.
-        </p>
-      </div>
-      <Footer>
-        <button type="button" className={SECONDARY} onClick={onBack}>Cancel</button>
-        <button type="button" className={PRIMARY} onClick={() => openExternal(`${window.location.origin}/app/payouts?setup=1`)}>
-          Open browser
-        </button>
-      </Footer>
-    </>
+    <button
+      type="button"
+      data-open-in-browser=""
+      onClick={() => openExternal(`${window.location.origin}/app/payouts?setup=1`)}
+      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+    >
+      <ExternalLink className="h-3.5 w-3.5" />
+      Open in your browser instead
+    </button>
   )
 }

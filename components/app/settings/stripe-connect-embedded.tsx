@@ -89,6 +89,7 @@ export function StripeConnectEmbedded({
   failedTitle = "Couldn't load verification",
   onExit,
   onStep,
+  fallback,
   className,
 }: {
   purpose: EmbeddedPurpose
@@ -96,6 +97,12 @@ export function StripeConnectEmbedded({
   failedTitle?: string
   onExit?: () => void | Promise<void>
   onStep?: (step: string) => void
+  /**
+   * Drawn under Try again when the form will not load: the one way on that
+   * is left. The phone app puts its browser hand-off here, so the hand-off
+   * is what a creator meets after a failure rather than instead of the form.
+   */
+  fallback?: React.ReactNode
   className?: string
 }) {
   const host = React.useRef<HTMLDivElement>(null)
@@ -180,6 +187,7 @@ export function StripeConnectEmbedded({
         >
           Try again
         </button>
+        {fallback ? <div className="mt-3">{fallback}</div> : null}
       </div>
     )
   }
