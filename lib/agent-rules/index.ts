@@ -186,6 +186,7 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "Show the store's real products: a product section reads products or a product picker. Never type a product, price or picture into markup or a default.",
       "A buy button links to the product's checkout_url, or a variant's own checkout_url for one option. Storelib checkout takes the payment and sends the buyer back to this site afterwards. Never build a payment form or load a payment script.",
       "A product that is not available shows its tag and no buy button. A store with no products gets no product section.",
+      "A product page is the main product section's blocks (title, price, variant_picker, buy_buttons and the rest), never a new section that redraws the product.",
     ],
   },
   {

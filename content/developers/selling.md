@@ -24,6 +24,8 @@ A Storelib website sells the creator's products, and the part that takes the mon
 | `block.settings.tag` | `Sold out` when it cannot be bought, or empty. Today it is always empty, because stock is not read yet. |
 | `block.settings.checkout_url` | Storelib checkout for this product, `/checkout?productId=<id>&src=website`. Empty when it cannot be bought. |
 | `block.settings.variants` | Its options, such as sizes or licences. Empty when it has none. See below. |
+| `block.settings.category` | Its category as the creator filed it, or empty. |
+| `block.settings.options` | A product that ships: its options by name with their values, such as `{ name: "Size", values: ["S", "M"] }`. Empty for the rest. |
 
 Templates do not do money: never compute, round or convert a price. Show the text you are given.
 
@@ -54,6 +56,72 @@ Every product has a page on the website at `/products/<slug>`. A section placed 
 On a product page `products` is there too, the newest 24, for a row of more products under this one.
 
 In the builder, while the product page is open, `page.product` is the newest product, so the section draws something real. There it has no description and no options yet. On any other page it is empty, so a section written for the product page draws nothing without it, and a note behind `page.in_editor` for the creator, as the example below does. `"allowed_templates": ["product"]` in its schema says where it belongs, though Add Section does not act on that yet: see [Schema](/developers/schema).
+
+## The main product section
+
+The product page's own section is `product`, the one every product template starts with. It reads whichever product's page is open, on the live site and in the builder (where it is the product chosen to preview), and is built the way Shopify's main product section is: the product's pictures in one column, and blocks in the other, which the creator adds, removes, reorders and styles in the sidebar.
+
+| Block | What it draws |
+| --- | --- |
+| `breadcrumbs` | Home > Shop > the product. |
+| `badges` | Sale (or the saving, such as `20% off`), New for a set number of days, and Sold out. |
+| `title` | The product's name, as H1 or H2, at a size and weight. |
+| `price` | The price, and the price before a sale struck through with the saving. For pay what you want, the lowest price. |
+| `variant_picker` | The product's options, as buttons or dropdowns. An option named Colour or Color is drawn as swatches: a colour named in its value (`Navy`, `#1f2a44`), or the variant's own picture. A value that cannot be bought is crossed out. |
+| `pay_what_you_want` | The amount box for a pay what you want product, with amounts to tap and the lowest price. Draws nothing on a product with a price. |
+| `quantity` | A stepper, up to the stock left, on a product that ships. A download, a course or a membership is bought once. |
+| `buy_buttons` | Add to cart and Buy now, side by side or one under the other. A free product has one button, straight to the download. |
+| `low_stock` | "Only 3 left" at or under a threshold, when stock is counted. |
+| `description` | The product's description, cleaned for the page. |
+| `collapsible_tab` | A heading that opens to rich text, or to the description. |
+| `text`, `icon_with_text`, `divider` | Words, an icon beside a heading and a line, and a rule. |
+| `share`, `wishlist` | Copy link, X, Facebook, Pinterest and email; the site's wishlist. |
+| `files` | The kinds and sizes of the files a download holds. |
+| `custom_code` | HTML and CSS of the creator's own. Scripts are removed. |
+
+Every block has its own space above and below, and its colours follow the section's scheme until the creator picks others.
+
+The section's settings are the media: **Stacked**, **Grid** (two to a row), **Slideshow with thumbnails** or **Carousel**; the media column's width (35% to 75%); the pictures' shape; on a phone a row to swipe with dots, or one under the other; a click that opens the picture larger, with zoom; and the details column kept in view while the pictures scroll past on a computer. Every picture is drawn once, however it is stored, and choosing a variant shows its picture.
+
+**From the choice to checkout.** The chosen variant, the quantity and the amount a buyer named go into the cart, which opens, or straight to checkout with Buy now. Checkout reads every price again from the product and the variant; a named amount is held to the product's own lowest price and to $10,000, and a basket with an amount below the lowest is refused with the reason. A product that ships goes to the physical checkout with its variant and quantity.
+
+A product section saved before it had blocks draws the blocks its old switches described, and the builder shows them in the sidebar when the page opens. Nothing stored is removed.
+
+Write a new section for the product page only for something these blocks cannot do. Reading `page.product` is how.
+
+## Filtering the shop
+
+The shop (`/products`) and the search page filter the way a Shopify collection does: a price range, in stock only, the kind of product, the values of its options (Size, Colour) and an order. The address is the state, so a filtered list can be linked and reloaded:
+
+```
+/products?price_min=10&price_max=50&available=1&type=physical&opt.size=M&sort=price-asc
+```
+
+| Parameter | What it does |
+| --- | --- |
+| `q` | The words searched for (the search page). |
+| `price_min`, `price_max` | Whole dollars. |
+| `available` | `1` for in stock only. |
+| `type` | A product kind, such as `digital` or `physical`. More than one is either. |
+| `opt.<option>` | An option's value, such as `opt.colour=Black`. More than one is either. |
+| `sort` | `featured`, `newest`, `price-asc`, `price-desc`, `title-asc` or `title-desc`. |
+
+The page lists the products that pass as `products`, in that order, and hands the section `page.filters`:
+
+| Path | What it is |
+| --- | --- |
+| `page.filters.groups` | Each `{ label, param, values }`; each value `{ label, value, count, checked, disabled, swatch }`. A group that would not narrow anything is left out. |
+| `page.filters.price` | `{ show, min, max, from, to }`, in whole dollars. |
+| `page.filters.sort_options` | Each `{ value, label, selected }`. |
+| `page.filters.chips` | Each filter that is on, `{ label, url }`, the url turning it off. |
+| `page.filters.count_label`, `.count`, `.total` | `12 products`, and the numbers. |
+| `page.filters.clear_url`, `.path`, `.active`, `.active_count`, `.q` | Clearing them, where the form goes, and whether any is on. |
+
+The Product grid (with **Show filters** on, as the shop has) and Search results draw it: a sidebar on a computer, a panel under a Filter button on a phone. It is a plain `GET` form with an Apply button, so it works before any script; on the live site a ticked box applies at once. A form of your own works the same way: `method="get"`, `action="{{ page.filters.path | url }}"` and `data-storelib-filters` on the form.
+
+## Breadcrumbs
+
+Every page but home has `page.breadcrumbs`, a list of `{ label, url }`: Home, then Shop and the product on a product page, the shop's name on the shop, or the page's own title. The last has no `url`, because it is the page being read. The **Breadcrumbs** section draws it on any page, with its own words for Home and Shop, a separator, a size and an alignment; the product section has the same trail as a block.
 
 ## Two ways to sell from a section
 
@@ -120,7 +188,7 @@ To let the creator pick which product a section shows, give it a `product_picker
 
 ## The cart
 
-A website has a cart. The header's bag opens it, the product page's **Add to cart** fills it, and `/cart` shows it and sends it to checkout as one payment, after which the buyer comes back to the website's home page. It is kept in the visitor's browser, per shop. A section cannot add to it: link to the product's page, where the button is.
+A website has a cart. The header's bag opens it, the product page's **Add to cart** fills it (with the variant, the quantity and, for pay what you want, the amount named) and opens it, and `/cart` shows it and sends it to checkout as one payment, after which the buyer comes back to the website's home page. It is kept in the visitor's browser, per shop, and every price in it is read again at checkout. A section cannot add to it: link to the product's page, where the button is.
 
 ## What a section may not do
 

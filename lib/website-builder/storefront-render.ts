@@ -1,3 +1,4 @@
+import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
 import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -138,9 +139,22 @@ export function renderWithSources(
   globals?: StorefrontGlobals,
 ): Record<string, RenderedSection> {
   const prerendered: Record<string, RenderedSection> = {}
+  /* Where this page is, for the Breadcrumbs section: Home > Shop > the
+     product, Home > the page's title (lib/products/breadcrumbs.ts). Worked
+     out once per page from what the page already knows. */
+  const about = pageExtras?.product as { settings?: { title?: unknown } } | undefined
+  const page = {
+    breadcrumbs: breadcrumbTrail({
+      template,
+      title: typeof pageExtras?.title === "string" ? pageExtras.title : null,
+      product: { title: typeof about?.settings?.title === "string" ? about.settings.title : data?.product?.title ?? null },
+    }),
+    ...pageExtras,
+    template,
+  }
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
-    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products, data, globals)
+    const out = renderStorelibSection(section, theme, page, sources, products, data, globals)
     if (out.ok) {
       prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
     }

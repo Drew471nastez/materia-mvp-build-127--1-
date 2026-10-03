@@ -14,6 +14,8 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import type { RenderContext, StorefrontData } from "@/lib/storelib-theme/types"
 import { StorelibRenderProvider, type SectionRenderFn } from "./storelib-sources"
 import { wishlistObject, type StorefrontGlobals } from "@/lib/storelib-theme/globals"
+import { catalogPage } from "@/lib/products/catalog-filters"
+import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
 import type { CustomerObject, CustomerOrder } from "@/lib/site-accounts/account-data"
 
 type Card = NonNullable<RenderContext["products"]>[number]
@@ -76,6 +78,16 @@ export function editorGlobals(template: string, products: Card[], now = Date.now
   return { customer: sampleCustomer(cards, now) as unknown as Record<string, unknown>, wishlist }
 }
 
+/** `page.filters` and `page.breadcrumbs` for the canvas, as the live routes give them. */
+export function editorPageExtras(template: string, products: Card[], data?: StorefrontData): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  if (template === "page.products" || template === "page.search") {
+    out.filters = catalogPage(products as never, {}, template === "page.search" ? "/search" : "/products").filters
+  }
+  out.breadcrumbs = breadcrumbTrail({ template, product: data?.product ?? null, title: template.startsWith("page") ? "This page" : null })
+  return out
+}
+
 export function StorelibLiveProvider({
   sources,
   page,
@@ -123,10 +135,14 @@ export function StorelibLiveProvider({
     site has a customer to draw them for. Never a made up person.
   */
   const globals = useMemo(() => (inEditor === true ? editorGlobals(template, products ?? []) : undefined), [inEditor, template, products])
+  /* What a live page adds to `page` for its sections: the shop's filters on
+     the shop and search pages, and the trail for Breadcrumbs. Drawn here from
+     the canvas's own products, unfiltered, the way the page opens. */
+  const extras = useMemo(() => editorPageExtras(template, products ?? [], data), [template, products, data])
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
-      renderStorelibSection(section, theme, { template, in_editor: inEditor === true }, sources, products, data, globals),
-    [sources, template, inEditor, products, data, globals],
+      renderStorelibSection(section, theme, { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals),
+    [sources, template, inEditor, products, data, globals, extras],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads

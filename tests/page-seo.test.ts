@@ -195,8 +195,9 @@ console.log("\nA picture that means something says what it is")
     !/alt=""/.test(onepage) && (onepage.match(/alt=\{data\.label \|\| ""\}/g) ?? []).length === 4 &&
       (onepage.match(/alt=\{data\.product_title \|\| ""\}/g) ?? []).length === 3 && (onepage.match(/alt=\{data\.title \|\| ""\}/g) ?? []).length === 3 &&
       /alt=\{quickCheckoutModalData\.productTitle\}/.test(onepage) && /alt=\{profile\.title \|\| ""\}/.test(onepage) && /alt=\{data\.headline \|\| ""\}/.test(onepage))
-  const product = read("components/website-builder/sections/renderers/ProductSection.tsx")
-  check("a website's product gallery names each thumbnail button by the product", !/alt=""/.test(product) && /alt=\{`\$\{title\} thumbnail \$\{i \+ 1\}`\}/.test(product))
+  /* The product section's pictures are drawn by its media file now. */
+  const product = read("components/website-builder/sections/renderers/ProductSection.tsx") + read("components/website-builder/sections/renderers/product/product-media.tsx")
+  check("a website's product gallery names each thumbnail button by the product", !/alt=""/.test(product) && /alt=\{`\$\{title\} thumbnail \$\{pos \+ 1\}`\}/.test(product))
   check("the reference hero names the picture beside its heading", /alt=\{str\(s\.heading\)\}/.test(read("components/website-builder/sections/renderers/HeroSection.tsx")))
   const hero = renderStorelibSection(
     { id: "h1", type: "hero", name: "Hero", settings: { layout: "split", heading: "Film presets", hero_image: "https://cdn.example.com/hero.jpg" }, blocks: [] },
