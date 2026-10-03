@@ -537,6 +537,13 @@ async function main() {
     check("onboarding is for an active member (requireMember)", /const gate = await requireMember\(db, communityId, user\?\.id \?\? null, "view"\)\s*if \(gate instanceof NextResponse\) return gate/.test(code("app/api/community/[communityId]/onboarding/route.ts")))
     check("the join bucket is community-join, with a ten minute and a daily window", JOIN_BUCKET === "community-join" && JOIN_WINDOWS.length === 2)
     const server = ["lib/communities/server/public.ts", "lib/communities/server/join.ts", "lib/communities/server/explore.ts"].map(code).join("\n")
+    /* Found end to end (QA): COMMUNITY_WELCOME was drawn by the notify engine and raised by nothing. */
+    {
+      const join = code("lib/communities/server/join.ts")
+      check("a free join and an invite that lets someone in raise the welcome email, once per member row",
+        /sendCommunityEmail\(db, "welcome", \{ userId, communityId: c\.id, data: [\s\S]{0,60}, key: `member:\$\{memberId\}` \}\)/.test(join)
+          && (join.match(/await welcome\(db, community, userId, row\.id\)/g) ?? []).length === 2)
+    }
     check("no role string comparisons in the new server code (meetsRole and can decide)", !/role (===|!==) "(owner|admin|moderator|member)"/.test(server))
     check("the public page never reads communities with select(*)", !/from\("communities"\)\.select\("\*"\)/.test(server))
   }

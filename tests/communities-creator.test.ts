@@ -259,6 +259,13 @@ async function main() {
     check(`${short}: no role compared as a string`, !/role\s*===\s*"(owner|admin|moderator)"/.test(src))
   }
   const moderation = code("lib/communities/server/moderation.ts")
+  /* Found end to end (QA): the templates existed and nothing raised them, so an approved person heard nothing by email. */
+  {
+    const at = moderation.indexOf('case "approve": {')
+    const approve = moderation.slice(at, moderation.indexOf('case "reject":', at))
+    check("approving a request emails the person (join_approved), whether they still pay or are in",
+      (approve.match(/await sendCommunityEmail\(db, "join_approved", \{ userId: a\.userId, communityId: a\.community\.id, data: \{ needsPayment: (true|false) \}, key: `approved:\$\{target\.id\}/g) ?? []).length === 2 && /needsPayment: true/.test(approve) && /needsPayment: false/.test(approve))
+  }
   check("moderation decides with can() and canActOn(), not role strings", /can\(a\.actor\.role/.test(moderation) && /canActOn\(a\.actor\.role, target\.role\)/.test(moderation))
   const audited = ["createSpace", "updateSpace", "reorderSpaces", "deleteSpace", "attachCourse", "updateCourse", "reorderCourses", "detachCourse", "createEvent", "updateEvent", "setEventCancelled", "createCreatorPost", "saveLevels", "createBadge", "deleteBadge", "awardBadge", "givePoints", "grantComplimentary", "updateSettings", "setPublished", "setArchived", "deleteCommunity"]
   for (const fn of audited) {

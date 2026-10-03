@@ -40,6 +40,7 @@ import { MEMBER_COLUMNS, type CommunityRow, type MemberRow } from "../types"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
 import { grantMembership, reconcileAccess, revokeMembership } from "./membership"
 import { notifyMember } from "./notify"
+import { sendCommunityEmail } from "./email"
 import { audit } from "./audit"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { creatorTakesPayments, optionsFor, readPlans, readProducts, readTiers } from "./public"
@@ -79,6 +80,17 @@ function blockedAnswer(v: Viewer): Refusal | null {
   if (v.banned || v.status === "banned") return refuse(403, "banned", "You can't join this community.")
   if (v.status === "removed") return refuse(403, "removed", "You can't join this community.")
   return null
+}
+
+/**
+ * THE WELCOME EMAIL (lib/communities/server/email.ts, template COMMUNITY_WELCOME),
+ * once per member row: leaving and coming back is not a second welcome. It was
+ * registered and drawn but nothing raised it, so a free join sent nothing (found
+ * end to end). Never throws, like every community email.
+ */
+async function welcome(db: Db, c: CommunityRow, userId: string, memberId: string): Promise<void> {
+  const text = typeof c.onboarding?.welcome === "string" ? c.onboarding.welcome : ""
+  await sendCommunityEmail(db, "welcome", { userId, communityId: c.id, data: text ? { welcomeText: text } : {}, key: `member:${memberId}` })
 }
 
 /** Tells the owner a request is waiting. One notice per person per day, whatever they press. */
@@ -155,6 +167,7 @@ export async function joinCommunity(db: Db, communityId: string, userId: string,
     const row = await grantMembership(db, { communityId: community.id, userId, source: "free", tierId: option.tierId, status: "active", actorId: userId })
     if (!row) return refuse(503, "not_set_up", "Communities are not set up on Storelib yet. Try again later.")
     if (row.status !== "active") return refuse(403, "removed", "You can't join this community.")
+    await welcome(db, community, userId, row.id)
     return { ok: true, state: "member", url }
   }
 
@@ -293,6 +306,7 @@ export async function redeemInvite(db: Db, communityId: string, userId: string, 
   if (!row) return { ok: false, status: 503, error: "not_set_up", message: "Communities are not set up on Storelib yet." }
   if (row.status !== "active") return { ok: false, status: 403, error: "banned", message: "You can't join this community." }
   await audit(db, { communityId: community.id, actorId: userId, actorKind: "member", action: "invite.redeemed", targetType: "invite", targetId: refs.inviteId, detail: { new: r.new ?? null } })
+  await welcome(db, community, userId, row.id)
   return { ok: true, state: "member", url, already: false }
 }
 
