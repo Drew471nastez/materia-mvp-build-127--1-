@@ -255,7 +255,18 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
         }
       }
       if (want("disputes")) {
-        const rows = await readAll(() =>
+        /* The dispute record (run-now part 82) first: it has every case, inquiries and a Storelib sale's included. Without it, the ledger, as before. */
+        const recorded = await readAll(() =>
+          db.from("payment_disputes").select("creator_id, stripe_dispute_id, amount_minor, currency, opened_at, closed_at, inquiry").in("creator_id", ids).gte("opened_at", iso(now - 120 * DAY_MS)).order("opened_at").order("stripe_dispute_id"),
+        )
+        if (recorded) {
+          each((s) => (s.disputes = []))
+          for (const r of recorded) {
+            if (!r.stripe_dispute_id || r.inquiry) continue
+            snaps.get(r.creator_id)?.disputes?.push({ id: r.stripe_dispute_id, amountCents: Number(r.amount_minor) || 0, currency: r.currency ?? "usd", openedAt: r.opened_at, closed: !!r.closed_at } satisfies DisputeFacts)
+          }
+        }
+        const rows = recorded ? null : await readAll(() =>
           db.from("ledger_events").select("creator_id, event_type, stripe_dispute_id, amount_cents, currency, created_at").in("creator_id", ids).in("event_type", ["dispute_created", "dispute_closed"]).gte("created_at", iso(now - 120 * DAY_MS)).order("created_at").order("id"),
         )
         if (rows) {

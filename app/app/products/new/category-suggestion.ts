@@ -10,7 +10,7 @@
  *   THE KEYWORDS answer first, in the browser, once typing pauses
  *   (KEYWORDS_MS). Nothing to wait for and nothing to fail.
  *
- *   CLAUDE answers once the fields have settled (SETTLE_MS), through
+ *   THE MODEL answers once the fields have settled (SETTLE_MS), through
  *   /api/app/products/category-suggestion, and from then on its answer is
  *   the one shown, until a newer one arrives: an old answer is better than a
  *   flicker back to the keywords while the next one is on its way.
@@ -46,7 +46,7 @@ export function useCategorySuggestion(title: string, description: string, media:
   const hasWords = `${input.title} ${input.text}`.trim().length >= 3
 
   const [keywords, setKeywords] = useState<string | null>(null)
-  const [claude, setClaude] = useState<string | null>(null)
+  const [suggested, setSuggested] = useState<string | null>(null)
 
   useEffect(() => {
     const t = window.setTimeout(() => setKeywords(keywordSuggestion(`${input.title} ${input.text}`)), KEYWORDS_MS)
@@ -55,12 +55,12 @@ export function useCategorySuggestion(title: string, description: string, media:
 
   useEffect(() => {
     if (!hasWords && input.images.length === 0) {
-      setClaude(null)
+      setSuggested(null)
       return
     }
     if (answers.has(key)) {
       const known = answers.get(key) ?? null
-      if (known) setClaude(known)
+      if (known) setSuggested(known)
       return
     }
     if (routeRefused) return
@@ -81,7 +81,7 @@ export function useCategorySuggestion(title: string, description: string, media:
         const data = (await res.json()) as Suggestion
         const category = isCategory(data?.category) ? data.category : null
         answers.set(key, category)
-        if (!ctrl.signal.aborted && category) setClaude(category)
+        if (!ctrl.signal.aborted && category) setSuggested(category)
       } catch {
         /* Offline, or abandoned because the fields changed: the keywords stand. */
       }
@@ -92,5 +92,5 @@ export function useCategorySuggestion(title: string, description: string, media:
     }
   }, [key, input, hasWords])
 
-  return claude ?? keywords
+  return suggested ?? keywords
 }

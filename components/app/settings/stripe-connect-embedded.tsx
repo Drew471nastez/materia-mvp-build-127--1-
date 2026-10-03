@@ -35,24 +35,53 @@ async function openSession(purpose: EmbeddedPurpose): Promise<{ clientSecret: st
   return { clientSecret, publishableKey }
 }
 
+/*
+  STRIPE'S FORMS, IN STORELIB'S CLOTHES. The same font (Inter), the same
+  10px corners and hairline borders as Storelib's own fields, near black
+  buttons like every primary action in the app, and Storelib's violet only
+  for links. The backdrop of Stripe's own windows is a soft dark, and it is
+  the only one on screen: the setup page behind it is never darkened
+  (components/app/settings/payments-setup-flow.tsx).
+*/
 const APPEARANCE = {
   overlays: "dialog" as const,
   variables: {
+    fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    fontSizeBase: "15px",
     colorPrimary: "#1a1a2e",
     colorBackground: "#ffffff",
     colorText: "#1a1a2e",
     colorSecondaryText: "#6b7280",
-    colorBorder: "#e5e7eb",
+    colorBorder: "#e3e5e8",
+    colorDanger: "#c4290c",
+    buttonPrimaryColorBackground: "#1a1a2e",
+    buttonPrimaryColorBorder: "#1a1a2e",
     buttonPrimaryColorText: "#ffffff",
-    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    borderRadius: "12px",
+    buttonSecondaryColorBackground: "#ffffff",
+    buttonSecondaryColorBorder: "#e3e5e8",
+    buttonSecondaryColorText: "#1a1a2e",
+    actionPrimaryColorText: "#7c3aed",
+    actionSecondaryColorText: "#4b5563",
+    offsetBackgroundColor: "#f7f7f8",
+    formBackgroundColor: "#ffffff",
+    formHighlightColorBorder: "#1a1a2e",
+    formAccentColor: "#1a1a2e",
+    borderRadius: "10px",
+    buttonBorderRadius: "10px",
+    formBorderRadius: "10px",
+    badgeBorderRadius: "999px",
+    overlayBorderRadius: "16px",
+    overlayBackdropColor: "rgba(15, 17, 21, 0.4)",
   },
 }
 
+const FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" }]
+
 /**
  * Stripe's embedded onboarding, account management or payouts, drawn inside
- * Storelib. Only `currently_due` is collected unless told otherwise, so a
- * creator is asked the least Stripe needs today; later asks reopen it.
+ * Storelib. The caller says what to collect: setup asks for everything the
+ * account will need, identity included (payments-setup-flow VERIFY_COLLECTION);
+ * a bank change only the bank. Without a word, what Stripe needs today.
  */
 export function StripeConnectEmbedded({
   purpose,
@@ -60,6 +89,7 @@ export function StripeConnectEmbedded({
   failedTitle = "Couldn't load verification",
   onExit,
   onStep,
+  fallback,
   className,
 }: {
   purpose: EmbeddedPurpose
@@ -67,6 +97,12 @@ export function StripeConnectEmbedded({
   failedTitle?: string
   onExit?: () => void | Promise<void>
   onStep?: (step: string) => void
+  /**
+   * Drawn under Try again when the form will not load: the one way on that
+   * is left. The phone app puts its browser hand-off here, so the hand-off
+   * is what a creator meets after a failure rather than instead of the form.
+   */
+  fallback?: React.ReactNode
   className?: string
 }) {
   const host = React.useRef<HTMLDivElement>(null)
@@ -101,6 +137,7 @@ export function StripeConnectEmbedded({
             return next.clientSecret
           },
           appearance: APPEARANCE,
+          fonts: FONTS,
         })
         if (gone || !host.current) return
         const options: CollectionOptions = collection ?? { fields: "currently_due", futureRequirements: "omit" }
@@ -150,6 +187,7 @@ export function StripeConnectEmbedded({
         >
           Try again
         </button>
+        {fallback ? <div className="mt-3">{fallback}</div> : null}
       </div>
     )
   }

@@ -84,17 +84,25 @@ export default async function OnePageEditorPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const creator = creatorRead.data as any
   const creatorError = creatorRead.error
+  /*
+    A SLOW CREATOR ROW DOES NOT KEEP SOMEBODY FROM THEIR OWN PAGE. Once the
+    page itself has come back, the creator row is only where its social
+    links might be copied from, so a creator read that failed twice
+    ("READ_TIMEOUT no answer in 1492ms" in production, while the page's own
+    read answered) opens the editor without that copy, which is tried again
+    on the next open. Without the page the row is needed to make one, so
+    that is still an error with a Try again.
+  */
   if (creatorError) {
     console.error("[OnePage] Creator fetch error:", creatorError)
-    throw new Error("The creator could not be read")
-  }
-  if (!creator) redirect("/onboarding")
+    if (!pageRead.data) throw new Error("The creator could not be read")
+  } else if (!creator) redirect("/onboarding")
 
   // Extract social data from creator (may be null if columns don't exist)
   const creatorSocials = {
-    instagram: (creator as any).instagram || null,
-    tiktok: (creator as any).tiktok || null,
-    youtube: (creator as any).youtube || null,
+    instagram: (creator as any)?.instagram || null,
+    tiktok: (creator as any)?.tiktok || null,
+    youtube: (creator as any)?.youtube || null,
   }
 
   /*
@@ -157,7 +165,7 @@ export default async function OnePageEditorPage() {
 
   // If onepage exists but has no social data, try to sync from creators table or store_builder_configs
   const rawOnepage = onepage as any
-  if (onepage && !rawOnepage.instagram && !rawOnepage.tiktok && !rawOnepage.youtube) {
+  if (onepage && creator && !rawOnepage.instagram && !rawOnepage.tiktok && !rawOnepage.youtube) {
     // First check creators table (from main onboarding)
     if (creatorSocials.instagram || creatorSocials.tiktok || creatorSocials.youtube) {
       // Sync social data from creators table to onepage, finished after the response

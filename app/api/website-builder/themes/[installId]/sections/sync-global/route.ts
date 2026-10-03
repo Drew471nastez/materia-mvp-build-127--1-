@@ -1,3 +1,4 @@
+import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
@@ -11,11 +12,8 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 type Params = { params: Promise<{ installId: string }> }
 
 // Reuse-friendly local section schema (same shape as sections/route.ts)
-const BlockSchema = z.object({
-  id: z.string().min(1).max(128),
-  type: z.string().min(1).max(64),
-  settings: z.record(z.unknown()),
-})
+/* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
+const BlockSchema = BlockInstanceSchema
 const SectionSchema = z.object({
   id: z.string().min(1).max(128),
   type: z.string().min(1).max(64),
@@ -86,13 +84,8 @@ export async function PUT(req: Request, { params }: Params) {
    * header and footer, so a page holds at most the two it may have lacked.
    */
   const sent = [sentHeader, sentFooter].filter((s): s is SectionInstance => !!s)
-  const overfull = sent.find((s) => (s.blocks?.length ?? 0) > LIMITS.blocksPerSection)
-  if (overfull) {
-    return NextResponse.json(
-      { error: `A section holds ${LIMITS.blocksPerSection} blocks. "${overfull.name || overfull.type}" has ${overfull.blocks?.length}.` },
-      { status: 413 },
-    )
-  }
+  const overfull = sent.map((s) => blockTreeProblem(s)).find((problem) => problem !== null)
+  if (overfull) return NextResponse.json({ error: overfull }, { status: 413 })
   const own = await readOwnSectionFields(supabase, installId, sent.map((s) => s.type))
   const header = sentHeader ? sanitizeSections([sentHeader], own)[0] : null
   const footer = sentFooter ? sanitizeSections([sentFooter], own)[0] : null

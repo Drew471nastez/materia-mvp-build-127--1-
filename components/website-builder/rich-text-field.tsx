@@ -35,7 +35,7 @@
  */
 
 import * as React from "react"
-import { Bold, ChevronDown, Italic, Link, List, ListOrdered } from "lucide-react"
+import { Bold, ChevronDown, Heading2, Heading3, Italic, Link, List, ListOrdered, TextQuote } from "lucide-react"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { cn } from "@/lib/utils"
 import { ScrollRow } from "@/components/app/rich-text/scroll-row"
@@ -74,13 +74,28 @@ export function RichTextField({
    * shorter by hand; a double click puts it back.
    */
   maxHeight = 260,
+  variant = "sidebar",
+  label,
 }: {
   value: string
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: number
   maxHeight?: number
+  /**
+   * WHERE IT IS WRITTEN IN. `sidebar` is the builder's panel: a style select,
+   * a ceiling and a resize handle, small type. `page` is a page of its own
+   * (Website Settings › Policies), where the text IS the page: no ceiling,
+   * the field grows with what is written and the page scrolls; the toolbar
+   * stays at the top of the view while it does (sticky, under the phone's
+   * Back bar); 15px type, 16px on a phone so iOS does not zoom into it;
+   * H2 and H3 as buttons beside Bold, and a quote; 44px targets on a phone.
+   */
+  variant?: "sidebar" | "page"
+  /** What a screen reader calls the field when there is no placeholder. */
+  label?: string
 }) {
+  const page = variant === "page"
   const ref = React.useRef<HTMLDivElement>(null)
   const [empty, setEmpty] = React.useState(!value || value === "<p></p>")
   /** What the caret is in, so the toolbar shows it: bold lit while in bold, the style's name in the select. */
@@ -106,10 +121,21 @@ export function RichTextField({
    * something the DOM does not already say, which happens when the section
    * changes, on undo, and when the assistant writes the field.
    */
+  /**
+   * AND ITS OWN ECHO IS NOT "SOMEWHERE ELSE". What leaves the field is the
+   * cleaned markup, which is not always byte for byte what the DOM holds (a
+   * space typed at the end of a line is a non-breaking one in the DOM, the
+   * cleaner writes it another way). When that came back as the value it
+   * looked like news, was written in, and the caret went to the start of
+   * the field mid-word. The value this field last sent is skipped.
+   */
+  const sent = React.useRef<string | null>(null)
   React.useEffect(() => {
     const el = ref.current
     if (!el) return
     const incoming = value ?? ""
+    if (incoming === sent.current) return
+    sent.current = null
     if (el.innerHTML !== incoming) el.innerHTML = incoming
     setEmpty(!el.textContent?.trim())
   }, [value])
@@ -119,7 +145,10 @@ export function RichTextField({
     if (!el) return
     setEmpty(!el.textContent?.trim())
     const clean = sanitizeRichText(el.innerHTML)
-    if (clean !== value) onChange(clean)
+    if (clean !== value) {
+      sent.current = clean
+      onChange(clean)
+    }
   }, [onChange, value])
 
   /** Read the caret's formatting, only while the caret is in this field. */
@@ -137,16 +166,26 @@ export function RichTextField({
     let node: Node | null = sel.anchorNode
     let block = "p"
     let link = false
+    let found = false
     while (node && node !== el) {
       if (node instanceof HTMLElement) {
         const tag = node.tagName.toLowerCase()
         if (tag === "a") link = true
-        if (/^(p|h2|h3|h4)$/.test(tag)) {
-          block = tag
-          break
-        }
+        /* The nearest block names the style; a quote around it wins, since that is what the Quote button undoes. */
+        if (tag === "blockquote") block = "blockquote"
+        else if (!found && /^(p|h2|h3|h4)$/.test(tag)) block = tag
+        if (/^(p|h2|h3|h4|blockquote)$/.test(tag)) found = true
       }
       node = node.parentNode
+    }
+    /* A selection that starts on the field itself (a whole block selected) has no block above it; the browser says which one. */
+    if (!found) {
+      try {
+        const fb = String(document.queryCommandValue("formatBlock") || "").toLowerCase()
+        if (/^(p|h2|h3|h4|blockquote)$/.test(fb)) block = fb
+      } catch {
+        /* a browser without it keeps Paragraph */
+      }
     }
     setActive((prev) => {
       const next = { bold: q("bold"), italic: q("italic"), ul: q("insertUnorderedList"), ol: q("insertOrderedList"), link, block }
@@ -268,24 +307,57 @@ export function RichTextField({
     el.style.maxHeight = `${maxHeight}px`
   }
 
+  /** A block style on, or back to a paragraph when it already is that style. */
+  const toggleBlock = (tag: "h2" | "h3" | "blockquote") => run("formatBlock", active.block === tag ? "<p>" : `<${tag}>`)
+
   return (
-    <div className="rounded-lg border border-border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-neutral-900/10 focus-within:border-neutral-400 transition-colors" data-builder-rich-text="">
+    <div
+      className={cn(
+        "border border-border bg-background transition-colors",
+        page
+          ? /* Clipped without being a scroller, so the toolbar inside can stick to the page's scroll. */
+            "rounded-xl overflow-clip focus-within:border-neutral-400 dark:focus-within:border-white/30"
+          : "rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-neutral-900/10 focus-within:border-neutral-400",
+      )}
+      data-builder-rich-text=""
+      data-variant={variant}
+    >
+      {/* The toolbar, and the link row when one is being written, stay in view
+          while a long policy scrolls under them: under the phone's 48px Back
+          bar, at the top of the page on a computer. */}
+      <div className={cn(page && "sticky top-12 z-[2] md:top-0")} data-rich-text-bar="">
       {/* ONE WEIGHT, ONE SIZE, ONE COLOUR. 15px icons on a 28px target on a
           computer and 40px on a phone, one row that scrolls sideways inside
           itself on a narrow sidebar rather than wrapping to two, with a fade
           and an arrow at the end that has more. What the caret is in is lit,
           so the toolbar says what a press will undo. */}
-      <ScrollRow wrapClassName="border-b border-border bg-muted/30" className="gap-px px-1.5 py-1 [--row-fade:36px]" arrowClassName="w-10 sm:w-8">
-        <BlockSelect current={active.block} onPick={(tag) => run("formatBlock", `<${tag}>`)} />
+      <ScrollRow
+        wrapClassName={cn("border-b border-border", page ? "bg-background" : "bg-muted/30")}
+        className={cn("gap-px px-1.5 py-1 [--row-fade:36px]", page && "max-sm:px-1 max-sm:py-0.5")}
+        arrowClassName={page ? "w-11 md:w-8" : "w-10 sm:w-8"}
+      >
+        {page ? (
+          <>
+            <ToolbarButton size="page" label="Heading 2" on={active.block === "h2"} onClick={() => toggleBlock("h2")}>
+              <Heading2 className="h-[17px] w-[17px]" strokeWidth={1.9} />
+            </ToolbarButton>
+            <ToolbarButton size="page" label="Heading 3" on={active.block === "h3"} onClick={() => toggleBlock("h3")}>
+              <Heading3 className="h-[17px] w-[17px]" strokeWidth={1.9} />
+            </ToolbarButton>
+          </>
+        ) : (
+          <BlockSelect current={active.block} onPick={(tag) => run("formatBlock", `<${tag}>`)} />
+        )}
         <Divider />
 
-        <ToolbarButton label="Bold" on={active.bold} onClick={() => run("bold")}>
+        <ToolbarButton size={variant} label="Bold" on={active.bold} onClick={() => run("bold")}>
           <Bold className="h-[15px] w-[15px]" strokeWidth={2.4} />
         </ToolbarButton>
-        <ToolbarButton label="Italic" on={active.italic} onClick={() => run("italic")}>
+        <ToolbarButton size={variant} label="Italic" on={active.italic} onClick={() => run("italic")}>
           <Italic className="h-[15px] w-[15px]" strokeWidth={2.1} />
         </ToolbarButton>
         <ToolbarButton
+          size={variant}
           label="Link"
           on={active.link || linkDraft !== null}
           onClick={() => (active.link ? run("unlink") : openLink())}
@@ -294,12 +366,17 @@ export function RichTextField({
         </ToolbarButton>
         <Divider />
 
-        <ToolbarButton label="Bulleted list" on={active.ul} onClick={() => run("insertUnorderedList")}>
+        <ToolbarButton size={variant} label="Bulleted list" on={active.ul} onClick={() => run("insertUnorderedList")}>
           <List className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
-        <ToolbarButton label="Numbered list" on={active.ol} onClick={() => run("insertOrderedList")}>
+        <ToolbarButton size={variant} label="Numbered list" on={active.ol} onClick={() => run("insertOrderedList")}>
           <ListOrdered className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
+        {page && (
+          <ToolbarButton size="page" label="Quote" on={active.block === "blockquote"} onClick={() => toggleBlock("blockquote")}>
+            <TextQuote className="h-[15px] w-[15px]" strokeWidth={1.9} />
+          </ToolbarButton>
+        )}
       </ScrollRow>
 
       {linkDraft !== null && (
@@ -326,31 +403,35 @@ export function RichTextField({
             }}
             placeholder="Link or /page"
             aria-label="Link address"
-            className="h-8 max-sm:h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-[13px] max-sm:text-[16px] outline-none focus:border-neutral-400"
+            className={cn(
+              "h-8 max-sm:h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-[13px] max-sm:text-[16px] outline-none focus:border-neutral-400",
+              page && "max-sm:h-11",
+            )}
           />
-          <button type="submit" className="h-8 max-sm:h-10 shrink-0 rounded-md bg-neutral-900 px-3 text-[12.5px] max-sm:text-[14px] font-medium text-white transition-colors hover:bg-neutral-800">
+          <button type="submit" className={cn("h-8 max-sm:h-10 shrink-0 rounded-md bg-neutral-900 px-3 text-[12.5px] max-sm:text-[14px] font-medium text-white transition-colors hover:bg-neutral-800", page && "max-sm:h-11 dark:bg-white dark:text-[#0f0f0f] dark:hover:bg-white/90")}>
             Add
           </button>
           <button
             type="button"
             onClick={() => setLinkDraft(null)}
-            className="h-8 max-sm:h-10 shrink-0 rounded-md px-2 text-[12.5px] max-sm:text-[14px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            className={cn("h-8 max-sm:h-10 shrink-0 rounded-md px-2 text-[12.5px] max-sm:text-[14px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground", page && "max-sm:h-11")}
           >
             Cancel
           </button>
         </form>
       )}
+      </div>
 
       <div className="relative">
         {empty && placeholder ? (
-          <p className="pointer-events-none absolute left-3 top-2.5 text-sm max-sm:text-[16px] text-muted-foreground">{placeholder}</p>
+          <p className={cn("pointer-events-none absolute text-muted-foreground", page ? "left-4 top-3 text-[15px] max-sm:text-[16px]" : "left-3 top-2.5 text-sm max-sm:text-[16px]")}>{placeholder}</p>
         ) : null}
         {/* 16px on a phone: iOS zooms the whole page into a field whose text is smaller. */}
         <div
           ref={ref}
           role="textbox"
           aria-multiline="true"
-          aria-label={placeholder}
+          aria-label={label ?? placeholder}
           contentEditable
           suppressContentEditableWarning
           onInput={publish}
@@ -358,11 +439,15 @@ export function RichTextField({
           onPaste={onPaste}
           onKeyDown={onKeyDown}
           onFocus={readActive}
-          className="wb-richtext wb-slim-scroll overflow-y-auto px-3 py-2.5 text-sm max-sm:text-[16px] outline-none"
+          className={cn(
+            "wb-richtext wb-slim-scroll overflow-y-auto px-3 py-2.5 text-sm max-sm:text-[16px] outline-none",
+            /* No ceiling on a page: the field grows and the page scrolls, so !max-h-none outranks the sidebar's inline one. */
+            page && "!max-h-none px-4 py-3 text-[15px] leading-[1.6] max-sm:text-[16px]",
+          )}
           style={{ minHeight, maxHeight }}
         />
       </div>
-      <div
+      {!page && <div
         role="separator"
         aria-orientation="horizontal"
         aria-label="Drag to resize"
@@ -373,12 +458,25 @@ export function RichTextField({
         className="flex h-4 max-sm:h-6 cursor-ns-resize touch-none select-none items-center justify-center border-t border-border/70 bg-muted/20 transition-colors hover:bg-muted/50"
       >
         <span aria-hidden className="h-1 w-8 rounded-full bg-neutral-300" />
-      </div>
+      </div>}
     </div>
   )
 }
 
-function ToolbarButton({ label, on = false, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: React.ReactNode }) {
+function ToolbarButton({
+  label,
+  on = false,
+  onClick,
+  children,
+  size = "sidebar",
+}: {
+  label: string
+  on?: boolean
+  onClick: () => void
+  children: React.ReactNode
+  /** 28px in the sidebar (40 on a phone); 32px on a page of its own, 44 on a phone. */
+  size?: "sidebar" | "page"
+}) {
   return (
     <button
       type="button"
@@ -395,8 +493,15 @@ function ToolbarButton({ label, on = false, onClick, children }: { label: string
         onClick()
       }}
       className={cn(
-        "inline-flex h-7 w-7 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-md transition-colors",
-        on ? "bg-background text-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.08)]" : "text-foreground/70 hover:bg-background hover:text-foreground",
+        "inline-flex shrink-0 items-center justify-center rounded-md transition-colors",
+        size === "page" ? "h-8 w-8 max-sm:h-11 max-sm:w-11" : "h-7 w-7 max-sm:h-10 max-sm:w-10",
+        on
+          ? size === "page"
+            ? "bg-muted text-foreground"
+            : "bg-background text-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"
+          : size === "page"
+            ? "text-foreground/65 hover:bg-muted/70 hover:text-foreground"
+            : "text-foreground/70 hover:bg-background hover:text-foreground",
       )}
     >
       {children}
@@ -413,7 +518,7 @@ function BlockSelect({ current, onPick }: { current: string; onPick: (tag: strin
       <select
         aria-label="Text style"
         className="h-7 max-sm:h-10 cursor-pointer appearance-none rounded-md bg-transparent pl-2 pr-6 text-[13px] max-sm:text-[15px] text-foreground/80 outline-none transition-colors hover:bg-background"
-        value={current}
+        value={BLOCKS.some((b) => b.tag === current) ? current : "p"}
         onMouseDown={(e) => e.stopPropagation()}
         onChange={(e) => onPick(e.target.value)}
       >

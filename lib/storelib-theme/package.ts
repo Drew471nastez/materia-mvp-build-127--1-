@@ -21,16 +21,19 @@
  */
 import JSZip from "jszip"
 import { createHash } from "node:crypto"
-import { compileSection } from "./storelib/compile"
+import { compileSection, compileThemeFile } from "./storelib/compile"
+import { countBlocks } from "./blocks"
 import { parseStorelib } from "./storelib/parse"
 import { chromeRoleOf } from "./chrome"
 import {
   ENGINE_VERSION,
   LIMITS,
+  MAX_BLOCK_DEPTH,
   THEME_FOLDERS,
   THEME_FORMAT,
   THEME_FORMAT_VERSION,
   isAssetRef,
+  type BlockInstanceData,
   type Result,
   type SectionInstanceData,
   type Template,
@@ -112,22 +115,56 @@ interface PageSection {
   type: string
   name?: string
   settings?: Record<string, unknown>
-  blocks?: { id: string; type: string; settings?: Record<string, unknown>; [k: string]: unknown }[]
+  blocks?: { id: string; type: string; settings?: Record<string, unknown>; static?: boolean; blocks?: unknown[]; [k: string]: unknown }[]
   hidden?: boolean
   [k: string]: unknown
 }
 
-/** A page's section list, as `templates/<name>.json`. Ids and unknown keys survive. */
+type PageBlock = NonNullable<PageSection["blocks"]>[number]
+
+/** A list of blocks to the keyed form, at every depth. Static blocks are kept and left out of the order. */
+function keyedBlocks(blocks: PageBlock[], depth = 1): { blocks: Record<string, BlockInstanceData>; block_order: string[] } {
+  const out: Record<string, BlockInstanceData> = {}
+  const order: string[] = []
+  if (depth > MAX_BLOCK_DEPTH) return { blocks: out, block_order: order }
+  for (const b of blocks) {
+    const { id: bid, blocks: inner, ...brest } = b
+    const data: BlockInstanceData = { ...brest, type: b.type }
+    if (Array.isArray(inner) && inner.length) {
+      const k = keyedBlocks(inner as PageBlock[], depth + 1)
+      data.blocks = k.blocks
+      data.block_order = k.block_order
+    }
+    out[bid] = data
+    if (!b.static) order.push(bid)
+  }
+  return { blocks: out, block_order: order }
+}
+
+/** The keyed form back to a list: ordered blocks, then static ones, then any the order forgot, so none is lost. */
+function listBlocks(blocks: Record<string, BlockInstanceData>, blockOrder: unknown, depth = 1): PageBlock[] {
+  if (depth > MAX_BLOCK_DEPTH) return []
+  const order = (Array.isArray(blockOrder) ? (blockOrder as unknown[]) : []).filter((bid): bid is string => typeof bid === "string" && !!blocks[bid])
+  const ids = [...new Set([...order, ...Object.keys(blocks).filter((bid) => blocks[bid]?.static), ...Object.keys(blocks)])]
+  return ids.map((bid) => {
+    const { blocks: inner, block_order, ...rest } = blocks[bid]
+    const b: PageBlock = { ...rest, id: bid, type: blocks[bid].type, settings: blocks[bid].settings ?? {} }
+    if (inner && typeof inner === "object") {
+      const children = listBlocks(inner as Record<string, BlockInstanceData>, block_order, depth + 1)
+      if (children.length) b.blocks = children
+    }
+    return b
+  })
+}
+
+/** A page's section list, as `templates/<name>.json`. Ids, unknown keys and blocks inside blocks survive. */
 export function templateFromSections(list: PageSection[]): Template {
   const sections: Record<string, SectionInstanceData> = {}
   const order: string[] = []
   for (const s of list) {
     const { id, blocks, ...rest } = s
     const data: SectionInstanceData = { ...rest, type: s.type }
-    if (blocks) {
-      data.blocks = Object.fromEntries(blocks.map((b) => { const { id: bid, ...brest } = b; return [bid, { ...brest, type: b.type }] }))
-      data.block_order = blocks.map((b) => b.id)
-    }
+    if (blocks) Object.assign(data, keyedBlocks(blocks))
     sections[id] = data
     order.push(id)
   }
@@ -143,10 +180,7 @@ export function sectionsFromTemplate(t: Template): PageSection[] {
     if (!data) continue
     const { blocks, block_order, ...rest } = data
     const section: PageSection = { ...rest, id, type: data.type, name: typeof data.name === "string" ? data.name : data.type, settings: data.settings ?? {} }
-    if (blocks) {
-      const bo = Array.isArray(block_order) ? block_order : Object.keys(blocks)
-      section.blocks = bo.filter((bid) => blocks[bid]).map((bid) => ({ ...blocks[bid], id: bid, type: blocks[bid].type, settings: blocks[bid].settings ?? {} }))
-    }
+    if (blocks) section.blocks = listBlocks(blocks, block_order ?? Object.keys(blocks).filter((bid) => !blocks[bid]?.static))
     out.push(section)
   }
   return out
@@ -432,8 +466,14 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
     }
   }
   for (const [path, text] of Object.entries(files)) {
+    /* A theme block: compiled by a block's rules, and imported beside the sections that hold it. */
+    if (path.startsWith("blocks/") && path.endsWith(".storelib")) {
+      const r = compileThemeFile(text, { file: path })
+      if (r.ok === false) errors.push(...r.errors.map((e) => ({ ...e, file: e.file ?? path })))
+      continue
+    }
     const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
-    if (!m) { if (path.endsWith(".storelib") && path !== "layout/theme.storelib" && !path.startsWith("snippets/")) warnings.push(err(`${path} is not a section, layout or snippet`, path)); continue }
+    if (!m) { if (path.endsWith(".storelib") && path !== "layout/theme.storelib" && !path.startsWith("snippets/")) warnings.push(err(`${path} is not a section, block, layout or snippet`, path)); continue }
     // The file name is the type, as everywhere else. A package whose schema
     // line disagrees with its file name is imported under the file name
     // rather than refused: it is the same file that saved cleanly in the
@@ -454,7 +494,7 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
       const s = t.sections[id]
       if (!s) { errors.push(err(`${path}: "${id}" is in the order but not in sections`, path)); continue }
       if (!types.has(s.type)) errors.push(err(`${path}: section "${id}" is a "${s.type}", which this theme does not have`, path))
-      const n = s.block_order?.length ?? Object.keys(s.blocks ?? {}).length
+      const n = countBlocks(listBlocks(s.blocks ?? {}, s.block_order ?? Object.keys(s.blocks ?? {})))
       if (n > LIMITS.blocksPerSection) errors.push(err(`${path}: "${id}" has ${n} blocks; the limit is ${LIMITS.blocksPerSection}`, path))
     }
   }

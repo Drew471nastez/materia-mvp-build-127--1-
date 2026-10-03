@@ -6,13 +6,13 @@
  * has already given it: the title, the description and the pictures. Two
  * readers, and the second is always there:
  *
- *   CLAUDE, through app/api/app/products/category-suggestion/route.ts, which
+ *   THE MODEL (ChatGPT), through app/api/app/products/category-suggestion/route.ts, which
  *   sees the words and up to MAX_IMAGES of the pictures and has to choose a
  *   group and a category from lib/products/category-groups.ts.
  *
  *   THE KEYWORDS below, the editor's own guess since before there was a
  *   route. Used on the phone the moment something is typed, and by the route
- *   whenever Claude cannot answer: no key configured, an error, a timeout, or
+ *   whenever the model cannot answer: no key configured, an error, a timeout, or
  *   an answer that is not a name on the list.
  *
  * Everything here is plain and synchronous except `resolveSuggestion`, which
@@ -47,7 +47,7 @@ export type ParsedRequest =
   | { ok: false; status: 400 | 413; error: string }
 
 /**
- * A picture this route may hand to Claude: a public object in THIS project's
+ * A picture this route may hand to the model: a public object in THIS project's
  * Supabase storage, in the signed in creator's own folder. Anything else (a
  * YouTube thumbnail, another site, another creator's file, a signed URL, a
  * render URL) is refused, so the route cannot be used to make Anthropic fetch
@@ -122,7 +122,7 @@ export interface CategoryChoice {
 }
 
 /**
- * Claude's answer, accepted only when the category is a name on the list and
+ * The model's answer, accepted only when the category is a name on the list and
  * the group is the one that category is in. A JSON string or an object; any
  * other shape, an invented category, or a category put in the wrong group is
  * null, and the caller falls back.
@@ -348,8 +348,8 @@ export interface Suggestion {
 }
 
 /**
- * Claude first when `ask` is given, the keywords otherwise and whenever
- * Claude's answer is missing, throws, or is not on the list. Never throws.
+ * The model first when `ask` is given, the keywords otherwise and whenever
+ * its answer is missing, throws, or is not on the list. Never throws.
  */
 export async function resolveSuggestion(
   input: SuggestInput,

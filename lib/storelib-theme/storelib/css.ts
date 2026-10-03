@@ -41,6 +41,27 @@ export interface ScopeOptions {
   line?: number
   /** Prefix for keyframe names: the section type. */
   type: string
+  /**
+   * What every rule is scoped to. A section's instance by default; a theme
+   * block passes `[data-block-type="…"]`, or a section-and-block pair when
+   * its rules read a setting and so differ per instance.
+   */
+  scope?: string
+}
+
+/** Replaced with the block's id when a theme block's per-instance CSS is drawn. */
+export const BLOCK_PLACEHOLDER = "__BLOCK_ID__"
+
+/** A theme block's scope: every instance of the type, or one instance in one section. */
+export function blockScope(type: string, perInstance: boolean): string {
+  return perInstance
+    ? `[data-section-id="${SCOPE_PLACEHOLDER}"] [data-block-id="${BLOCK_PLACEHOLDER}"]`
+    : `[data-block-type="${type}"]`
+}
+
+/** Fill both placeholders of a theme block's per-instance CSS. */
+export function cssForBlockInstance(scopedCss: string, sectionId: string, blockId: string): string {
+  return scopedCss.split(SCOPE_PLACEHOLDER).join(sectionId).split(BLOCK_PLACEHOLDER).join(blockId)
 }
 
 /**
@@ -95,7 +116,7 @@ export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
     }
   }
 
-  const scope = scopeSelector(SCOPE_PLACEHOLDER)
+  const scope = opts.scope ?? scopeSelector(SCOPE_PLACEHOLDER)
   const keyframes = new Map<string, string>()
   const prefix = `sl-${opts.type.replace(/[^a-z0-9]/gi, "-")}-`
   const errors: ThemeError[] = []

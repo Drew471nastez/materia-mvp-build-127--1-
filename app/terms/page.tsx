@@ -280,6 +280,66 @@ export default function TermsOfServicePage() {
                   Storelib may collect and remit taxes on your behalf where required by law.
                 </p>
               </SubSection>
+              <SubSection title="5.7 Stripe Connected Account Agreement">
+                <p>
+                  Payment processing for Sellers is provided by Stripe and is subject to the{" "}
+                  <a href="https://stripe.com/connect-account/legal" target="_blank" rel="noopener noreferrer" className="text-[#8b5cf6] hover:underline">
+                    Stripe Connected Account Agreement
+                  </a>, which includes the{" "}
+                  <a href="https://stripe.com/legal/ssa" target="_blank" rel="noopener noreferrer" className="text-[#8b5cf6] hover:underline">
+                    Stripe Services Agreement
+                  </a>. By setting up payments on Storelib you agree to those terms, as they may be modified by
+                  Stripe from time to time, and you authorize Storelib to instruct Stripe on payments, payouts,
+                  refunds and reversals relating to your sales. Storelib is not a bank, a payment institution or a
+                  money transmitter, and does not hold your funds on deposit. Continuing to receive payments
+                  through the Services is conditional on your agreement with Stripe remaining in force.
+                </p>
+              </SubSection>
+              <SubSection title="5.8 Identity Verification">
+                <p>
+                  Before a Seller can accept payments, applicable law and the card networks require that the
+                  Seller&apos;s identity is verified. Stripe collects and verifies identity information and
+                  documents, which may include a government issued identity document, a photograph or selfie
+                  processed with biometric technology, a date of birth, an address, and for a business its
+                  registration and beneficial ownership details. That information is collected by and provided
+                  directly to Stripe; Storelib does not receive or store identity documents or biometric data. See
+                  the <a href="/privacy" className="text-[#8b5cf6] hover:underline">Privacy Policy</a>.
+                </p>
+                <p>
+                  Verification is required, not optional. Checkout remains closed and payouts remain unavailable
+                  until verification is complete, and Stripe may require further information at any time as a
+                  Seller&apos;s activity changes. Where required information is not provided by the deadline given,
+                  charges or payouts may be paused or the connected account may be closed.
+                </p>
+              </SubSection>
+              <SubSection title="5.9 Settlement, Holds, and Payouts">
+                <p>
+                  Funds from a sale are not available immediately. Each payment settles after a period set by
+                  Stripe for the Seller&apos;s country and account, after which the amount becomes available in the
+                  Seller&apos;s balance, and the Seller may request a payout to their bank account. Payouts are
+                  made in the currency of the connected account. Storelib does not guarantee any settlement or
+                  arrival time, and Stripe may hold, delay or reverse funds where required by law, by the card
+                  networks, or for risk reasons.
+                </p>
+              </SubSection>
+              <SubSection title="5.10 Chargebacks, Disputes, and Negative Balances">
+                <p>
+                  A Buyer may dispute a payment with their card issuer. Where that happens, the disputed amount is
+                  withdrawn by the card networks while the dispute is decided, and Storelib may reverse the
+                  corresponding amount from the Seller&apos;s share of that sale, up to the amount the Seller
+                  received for it. Storelib responds to disputes on the Seller&apos;s behalf and may include
+                  evidence the Seller supplies; the Seller&apos;s card issuer, not Storelib or Stripe, decides the
+                  outcome. If the dispute is resolved in the Seller&apos;s favour, the reversed amount is returned
+                  to their balance.
+                </p>
+                <p>
+                  Sellers remain responsible for refunds, chargebacks and related fees arising from their sales.
+                  Where these exceed the Seller&apos;s available balance, the balance may become negative and is
+                  recovered from subsequent sales; payouts are unavailable while a balance is negative. Storelib
+                  may suspend payouts or close a connected account where chargeback levels are excessive or where
+                  it reasonably suspects fraud.
+                </p>
+              </SubSection>
             </Section>
 
             <Section id="s6" title="6. Seller Terms">

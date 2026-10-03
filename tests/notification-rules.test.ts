@@ -24,7 +24,7 @@ import { join } from "node:path"
 import { dedupeKeyOf, planCreator } from "@/lib/notifications/plan"
 import { applyPlan, evaluateCreator, KNOWN_KINDS, runNotificationEngine, type NewRow, type NotificationStore, type Pusher, type SnapshotSource } from "@/lib/notifications/engine"
 import { COVERS_PAYMENT_SETUP, DIGEST_KIND, RULES, ruleOf } from "@/lib/notifications/rules"
-import { stripeRequirementsDue, stripeRestricted, payoutFailed, disputeOpened, payoutsNotConnected, proPaymentFailed, canTakePayments, isPaidProduct } from "@/lib/notifications/rules/payments"
+import { stripeRequirementsDue, stripeRestricted, payoutFailed, disputeOpened, payoutsNotConnected, proPaymentFailed, verificationUnfinished, canTakePayments, isPaidProduct } from "@/lib/notifications/rules/payments"
 import { domainHttps, domainNotConnected } from "@/lib/notifications/rules/domains"
 import { campaignFailed, checkoutReminderOff, emailBounceRate, subscribersNotEmailed } from "@/lib/notifications/rules/email"
 import { checkoutNotCompleting, couponExpiring, productMissingFile, productViewsNoSales, receiptNotDelivered } from "@/lib/notifications/rules/products"
@@ -143,6 +143,17 @@ console.log("\nCritical: getting paid, as checkout decides it")
   check("switched off on an account that sold: Stripe's own notification says it, not this one", subjects(payoutsNotConnected.evaluate(withCreator({ payoutsEnabled: false, onboardingStatus: "pending" }))) === "" && subjects(stripeRestricted.evaluate(withCreator({ payoutsEnabled: false, onboardingStatus: "pending" }))) === "payouts")
   check("and sales unknown there: cannot tell", payoutsNotConnected.evaluate(withCreator({ chargesEnabled: false, onboardingStatus: "pending" }, { sales: undefined })) === undefined)
   check("connected: nothing", subjects(payoutsNotConnected.evaluate(withCreator({ onboardingStatus: "connected" }))) === "" && subjects(payoutsNotConnected.evaluate(base())) === "")
+
+  /* The owner, October 2026: identity verification is required, and an account left half set up is told so whether anything is published or not. */
+  const halfDone = withCreator({ stripeAccountId: "acct_9", chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, onboardingStatus: "pending" }, unsold)
+  const v = verificationUnfinished.evaluate(halfDone)
+  check("setup begun and the identity check never finished: critical, verify your identity", v?.[0]?.subject === "identity" && v[0].title === "Verify your identity to get paid", v)
+  check("  it says what it costs them: no checkout, nothing to the bank", v?.[0]?.message.includes("buyers cannot check out") === true && v?.[0]?.href === "/app/payouts")
+  check("  with nothing published either: still said, rather than found out on the first sale", subjects(verificationUnfinished.evaluate({ ...halfDone, products: [] })) === "identity")
+  check("  nothing in the first day: people stop to find a passport and come back", subjects(verificationUnfinished.evaluate({ ...halfDone, creator: { ...halfDone.creator!, createdAt: ago(0) } })) === "")
+  check("  nothing once Stripe has the details", subjects(verificationUnfinished.evaluate(withCreator({ detailsSubmitted: true }, unsold))) === "")
+  check("  nothing while Stripe is checking what was sent", subjects(verificationUnfinished.evaluate({ ...halfDone, stripeAccount: { chargesEnabled: false, payoutsEnabled: false, currentlyDue: [], pastDue: [], currentDeadline: null, disabledReason: "requirements.pending_verification" } })) === "")
+  check("  and nothing before setup is begun at all", subjects(verificationUnfinished.evaluate(never)) === "")
   check("only drafts: nothing yet, the panel's Set up payments says it", subjects(payoutsNotConnected.evaluate({ ...never, products: [{ id: "p1", title: "X", status: "draft", type: "digital", createdAt: ago(3) }] })) === "")
   check("only free products: nothing, they are handed over without Stripe", subjects(payoutsNotConnected.evaluate({ ...never, products: [{ id: "p1", title: "X", status: "published", type: "digital", createdAt: ago(3), priceCents: 0, payWhatYouWant: false }] })) === "")
   check("pay what you want at 0 needs Stripe", subjects(payoutsNotConnected.evaluate({ ...never, products: [{ id: "p1", title: "X", status: "published", type: "digital", createdAt: ago(3), priceCents: 0, payWhatYouWant: true }] })) === "connect")
@@ -386,6 +397,7 @@ console.log("\nEvery rule: fires, is said once, and resolves when fixed (a miles
     [campaignFailed, base({ failedCampaigns: [{ id: "e1", subject: "Hi", status: "failed", scheduledAt: ago(1), createdAt: ago(2) }] }), base({ failedCampaigns: [] })],
     [setupNextStep, withCreator({ createdAt: ago(2) }, { products: [] }), withCreator({ createdAt: ago(2) })],
     [payoutsNotConnected, withCreator({ stripeAccountId: null, onboardingStatus: "not_connected" }), withCreator({ onboardingStatus: "connected" })],
+    [verificationUnfinished, withCreator({ detailsSubmitted: false, chargesEnabled: false, payoutsEnabled: false, onboardingStatus: "pending" }), withCreator({ onboardingStatus: "connected" })],
     [proPaymentFailed, withCreator({ subscriptionPlan: "growth", subscriptionStatus: "past_due" }), withCreator({ subscriptionPlan: "growth", subscriptionStatus: "active" })],
     [websiteNotPublished, base({ website: { live: false, unpublished: false, draftSince: ago(4) } }), base({ website: { live: true, unpublished: false, draftSince: ago(4) } })],
     [checkoutReminderOff, base({ recovery: { recoverable: 4, reminderOn: false, flowId: null } }), base({ recovery: { recoverable: 4, reminderOn: true, flowId: null } })],

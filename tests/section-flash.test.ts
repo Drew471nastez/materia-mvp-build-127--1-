@@ -42,7 +42,8 @@ console.log("\nA setting set to what it is")
   const page = read("app/website-builder/editor/[installId]/page.tsx")
   check("the theme's own settings drop it before an undo step or a redraw", /const updateSetting = \(key: string, value: unknown\) => \{\s*if \(sameSettingValue\(settingsRef\.current\[key\], value\)\) return\s*debouncedPushUndo\(\)/.test(page))
   check("so do a section's", /const updateSectionSetting = \(sectionId: string, key: string, value: unknown\) => \{\s*const current = sectionsRef\.current\.find\(s => s\.id === sectionId\)\s*if \(current && sameSettingValue\(current\.settings\?\.\[key\], value\)\) return\s*debouncedPushUndo\(\)/.test(page))
-  check("and a block's", /const updateBlockSetting = [^\n]*\n\s*const block = sectionsRef\.current[^\n]*\n\s*if \(block && sameSettingValue\(block\.settings\?\.\[key\], value\)\) return\s*debouncedPushUndo\(\)/.test(page))
+  /* A block is found by its path now (lib/website-builder/block-tree.ts), and the same value still stops before an undo step. */
+  check("and a block's", /const updateBlockSetting = [^\n]*\n[\s\S]{0,1400}?const block = blockAt\(section\.blocks, path\)\?\.block\s*if \(block && sameSettingValue\(block\.settings\?\.\[key\], value\)\) return\s*debouncedPushUndo\(\)/.test(page))
   check("the canvas is not drawn again for a new function every render", /onCreateMissingPage=\{createMissingPage\}/.test(page) && /const createMissingPage = useCallback\(/.test(page))
 }
 

@@ -14,7 +14,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 const ROOT = join(process.cwd(), "themes/default")
-const FOLDERS = ["layout", "sections", "snippets"] as const
+const FOLDERS = ["layout", "sections", "blocks", "snippets"] as const
 
 export function themeSources(): Record<string, string> {
   const out: Record<string, string> = {}

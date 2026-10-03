@@ -58,7 +58,7 @@ import { GradientEditor } from "@/components/website-builder/editor/gradient-edi
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
-  PageKey, EditorPanel, SchemaField, SectionSchema } from "@/lib/website-builder/types"
+  PageKey, EditorPanel, SchemaField, SectionSchema, BlockInstance, BlockSchema, SectionPreset } from "@/lib/website-builder/types"
 import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionColorSetting, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
 import { designSupport } from "@/lib/website-builder/design-support"
 import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
@@ -86,7 +86,11 @@ import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTarget
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
-import { customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
+import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
+import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
+import { AddBlockButton, type BlockChoice } from "@/components/website-builder/editor/add-block-button"
+import { isStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import {
   WRITING_SECTION_ID,
   WRITING_SECTION_TYPE,
@@ -1998,7 +2002,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -2007,7 +2011,7 @@ function HeaderSectionSettings({
                 <div className="px-3 py-2.5 flex items-center justify-between">
                   <span className="text-xs font-medium">{opt.label}</span>
                   {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                    <span className="text-[10px] font-semibold text-[#7c3aed] uppercase tracking-wider">Selected</span>
                   )}
                 </div>
               </button>
@@ -2115,7 +2119,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -2124,7 +2128,7 @@ function HeaderSectionSettings({
                 <div className="px-3 py-2.5 flex items-center justify-between">
                   <span className="text-xs font-medium">{opt.label}</span>
                   {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                    <span className="text-[10px] font-semibold text-[#7c3aed] uppercase tracking-wider">Selected</span>
                   )}
                 </div>
               </button>
@@ -2194,30 +2198,186 @@ type Panel = EditorPanel
  * actually added, so a section could be pushed past what its own template was
  * written for.
  */
-function blockDefaults(schema: SectionSchema | undefined, blockType: string): Record<string, unknown> {
-  const def = (schema?.blocks ?? []).find((b) => b.type === blockType)
+function blockDefaults(def: BlockSchema | undefined): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const f of def?.fields ?? []) if (f.default !== undefined) out[f.id] = f.default
   return out
 }
 
+/**
+ * Room under one owner (the section, or a block that holds blocks) for one
+ * more block of a type, `size` blocks counting what is inside it. Four
+ * rules: the owner's `max_blocks`, the type's `limit` there, the section's
+ * total at every depth, and how deep blocks may nest.
+ */
 function blockRoom(
-  schema: SectionSchema | undefined,
-  blocks: { type: string }[],
+  owner: { name: string; max_blocks?: number } | undefined,
+  siblings: readonly BlockInstance[],
+  def: BlockSchema | undefined,
   blockType: string,
+  section: { blocks?: BlockInstance[] },
+  room: { depth: number; size: number; height: number },
 ): { ok: true } | { ok: false; reason: string } {
-  if (!schema) return { ok: true }
-  const max = schema.max_blocks
-  if (max && blocks.length >= max) {
-    return { ok: false, reason: `${schema.name} holds ${max} block${max === 1 ? "" : "s"}.` }
+  const placed = siblings.filter((b) => !b.static)
+  const max = owner?.max_blocks
+  if (max && placed.length >= max) {
+    return { ok: false, reason: `${owner!.name} holds ${max} block${max === 1 ? "" : "s"}.` }
   }
-  const def = (schema.blocks ?? []).find((b) => b.type === blockType)
   const limit = def?.limit
-  if (limit && blocks.filter((b) => b.type === blockType).length >= limit) {
-    const name = def?.name ?? blockType
-    return { ok: false, reason: `${schema.name} holds ${limit} ${name}${limit === 1 ? "" : "s"}.` }
+  if (limit && placed.filter((b) => b.type === blockType).length >= limit) {
+    return { ok: false, reason: `${owner?.name ?? "This section"} holds ${limit} ${def?.name ?? blockType}${limit === 1 ? "" : "s"}.` }
+  }
+  if (countAll(section.blocks) + room.size > LIMITS.blocksPerSection) {
+    return { ok: false, reason: `A section holds ${LIMITS.blocksPerSection} blocks.` }
+  }
+  if (room.depth + room.height - 1 > MAX_BLOCK_DEPTH) {
+    return { ok: false, reason: `Blocks nest ${MAX_BLOCK_DEPTH} deep at most.` }
   }
   return { ok: true }
+}
+
+/**
+ * ===========================================================================
+ *  ONE LEVEL OF A SECTION'S BLOCKS, AND EVERY LEVEL INSIDE IT
+ * ===========================================================================
+ * The section's blocks are one list; a block that holds blocks (a Group)
+ * draws its own list inside its open row, with this same component, so the
+ * sidebar is the tree the page is. Static blocks (placed by the template)
+ * come first and cannot be moved or deleted; every other row drags, copies
+ * and deletes at its own level. Add block under each list offers what that
+ * level accepts: the section's own block types, or the theme blocks named
+ * in `accepts`, each preset as its own entry.
+ */
+interface BlockOps {
+  update: (key: string, field: string, value: unknown, staticType?: string) => void
+  add: (choice: BlockChoice, parentKey: string | null) => void
+  duplicate: (key: string) => void
+  remove: (key: string) => void
+  reorder: (next: BlockInstance[], parentKey: string | null) => void
+  toggleHidden: (key: string, staticType?: string) => void
+}
+
+/** A word or two after a block's name: what it says, so twelve rows that are all "Heading" can be told apart. */
+function blockDetail(settings: Record<string, unknown>): string | undefined {
+  for (const id of ["author", "heading", "title", "question", "label", "text", "caption"]) {
+    const v = settings[id]
+    if (typeof v !== "string") continue
+    const plain = v.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+    if (plain) return plain.length > 40 ? `${plain.slice(0, 39)}…` : plain
+  }
+  return undefined
+}
+
+function BlockLevel({
+  section,
+  schema,
+  catalog,
+  parent,
+  siblings,
+  owner,
+  statics,
+  selectedKey,
+  onSelect,
+  theme,
+  canHide,
+  ops,
+}: {
+  section: SectionInstance
+  schema: SectionSchema
+  catalog: Record<string, BlockSchema>
+  parent: string[]
+  siblings: BlockInstance[]
+  owner: { blocks?: BlockSchema[]; accepts?: string[]; max_blocks?: number }
+  statics: { type: string; id: string }[]
+  selectedKey: string | null
+  onSelect: (key: string) => void
+  theme: ThemeSettingsValues
+  canHide: boolean
+  ops: BlockOps
+}) {
+  const parentKey = parent.length ? pathKey(parent) : null
+  const defOf = (type: string) => (parent.length === 0 ? blockSchemaIn(schema, catalog, type) : catalog[type])
+  const keyOf = (b: BlockInstance) => pathKey([...parent, b.id])
+  const dynamic = siblings.filter((b) => !b.static)
+  /* A static block nobody has edited is not in the data yet: drawn here from its defaults, and created the first time it is changed. */
+  const fixed: BlockInstance[] = statics.map((st) => siblings.find((b) => b.static && b.id === st.id) ?? { id: st.id, type: st.type, settings: blockDefaults(catalog[st.type]), static: true })
+  const stored = (b: BlockInstance) => siblings.some((x) => x.id === b.id)
+  const options = addableBlocks(parent.length === 0 ? owner : { accepts: owner.accepts }, catalog)
+  const full = !!owner.max_blocks && dynamic.length >= owner.max_blocks
+
+  return (
+    <>
+      <SectionBlockList<BlockInstance>
+        blocks={dynamic}
+        fixed={fixed}
+        rowKey={keyOf}
+        selectedId={selectedKey}
+        onSelect={onSelect}
+        onReorder={(next) => ops.reorder(next, parentKey)}
+        // The real ones: they check there is room, give a copy its own ids, and record an undo step.
+        onDuplicate={ops.duplicate}
+        onRemove={ops.remove}
+        onToggleHidden={canHide ? (key) => {
+          const b = fixed.find((f) => keyOf(f) === key)
+          ops.toggleHidden(key, b && !stored(b) ? b.type : undefined)
+        } : undefined}
+        title={(block) => ({ name: defOf(block.type)?.name ?? block.type, detail: blockDetail(block.settings) })}
+        fields={(block) => {
+          const def = defOf(block.type)
+          const key = keyOf(block)
+          const virtual = block.static && !stored(block) ? block.type : undefined
+          const holds = !!(def?.accepts?.length || def?.statics?.length)
+          return (
+            <>
+              <SiblingSettingsProvider settings={block.settings}>
+                {visibleFields(def?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map((field) => (
+                  <div key={field.id}>
+                    {/* A block's colour follows its section's scheme the same way: SectionColorSetting. */}
+                    {field.type === "color" ? (
+                      <SectionColorSetting
+                        field={field}
+                        value={block.settings[field.id]}
+                        settings={section.settings}
+                        theme={theme}
+                        onChange={(val) => ops.update(key, field.id, val, virtual)}
+                      />
+                    ) : (
+                      <FieldEditor
+                        label={fieldCarriesOwnLabel(field) ? undefined : field.label}
+                        field={field}
+                        value={block.settings[field.id]}
+                        onChange={(val) => ops.update(key, field.id, val, virtual)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </SiblingSettingsProvider>
+              {holds && def && !virtual && (
+                <div className="border-t border-border pt-3" data-block-children={key}>
+                  <p className="mb-2 text-[11px] font-semibold text-muted-foreground">Blocks in {def.name.toLowerCase()}</p>
+                  <BlockLevel
+                    section={section}
+                    schema={schema}
+                    catalog={catalog}
+                    parent={[...parent, block.id]}
+                    siblings={block.blocks ?? []}
+                    owner={{ accepts: def.accepts, max_blocks: def.max_blocks }}
+                    statics={def.statics ?? []}
+                    selectedKey={selectedKey}
+                    onSelect={onSelect}
+                    theme={theme}
+                    canHide={canHide}
+                    ops={ops}
+                  />
+                </div>
+              )}
+            </>
+          )
+        }}
+      />
+      {!full && parent.length < MAX_BLOCK_DEPTH && <AddBlockButton options={options} onAdd={(choice) => ops.add(choice, parentKey)} />}
+    </>
+  )
 }
 
 /**
@@ -2331,6 +2491,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* The creator's own communities, for a community_picker and the Community card (null while communities are off). */
   const [builderCommunities, setBuilderCommunities] = useState<BuilderCommunities | null>(null)
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
+  /** The theme's blocks (blocks/*.storelib), this install's own files over them: what Add block can offer. */
+  const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources), [storelibSources])
   const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
   /* The Community card is offered only while communities are on: off, it would draw nothing on the site. */
@@ -4054,85 +4216,177 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * for sections once and never for the blocks inside them.
    */
 
+  /**
+   * BLOCKS INSIDE BLOCKS. Every operation below takes a block's PATH (its
+   * id, and its parents' ids above it, joined by "/": block-tree.ts), or a
+   * bare id, which means the first block with that id: what the header's
+   * link editor and Website Settings › Navigation still send. A static block
+   * the template places and nobody has edited yet does not exist in the
+   * data; editing it, or hiding it, is what creates it, as `static: true`.
+   */
+  const blockDefAt = (schema: SectionSchema | undefined, path: readonly string[], type: string): BlockSchema | undefined =>
+    path.length <= 1 ? blockSchemaIn(schema, blockCatalog, type) : blockCatalog[type]
+  const ownerOf = (schema: SectionSchema | undefined, section: SectionInstance, parent: readonly string[]) => {
+    if (parent.length === 0) {
+      return { owner: schema ? { name: schema.name, max_blocks: schema.max_blocks } : undefined, siblings: section.blocks ?? [] }
+    }
+    const hit = blockAt(section.blocks, parent)
+    if (!hit) return null
+    const def = blockDefAt(schema, parent, hit.block.type)
+    return { owner: def ? { name: def.name, max_blocks: def.max_blocks } : undefined, siblings: hit.block.blocks ?? [] }
+  }
+
   // Block settings change (debounced undo push, as for a section's own)
-  const updateBlockSetting = (sectionId: string, blockId: string, key: string, value: unknown) => {
-    const block = sectionsRef.current.find(s => s.id === sectionId)?.blocks?.find(b => b.id === blockId)
+  const updateBlockSetting = (sectionId: string, blockKey: string, key: string, value: unknown, staticType?: string) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    if (!section) return
+    const path = resolvePath(section.blocks, blockKey)
+    if (!path) {
+      if (!staticType) return
+      const target = parsePath(blockKey)
+      debouncedPushUndo()
+      setSections(prev => prev.map(s =>
+        s.id === sectionId
+          ? { ...s, blocks: insertBlockAt(s.blocks, target.slice(0, -1), { id: target[target.length - 1], type: staticType, settings: { [key]: value }, static: true }) }
+          : s
+      ))
+      setIsDirty(true)
+      return
+    }
+    const block = blockAt(section.blocks, path)?.block
     if (block && sameSettingValue(block.settings?.[key], value)) return
     debouncedPushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId
-        ? { ...s, blocks: s.blocks?.map(b => b.id === blockId ? { ...b, settings: { ...b.settings, [key]: value } } : b) }
+        ? { ...s, blocks: updateAt(s.blocks, path, b => ({ ...b, settings: { ...b.settings, [key]: value } })) }
         : s
     ))
     setIsDirty(true)
   }
 
-  const addBlock = (sectionId: string, blockType: string, initialSettings: Record<string, unknown> = {}) => {
+  const addBlock = (
+    sectionId: string,
+    blockType: string,
+    initialSettings: Record<string, unknown> = {},
+    opts: { parent?: string | null; preset?: SectionPreset } = {},
+  ) => {
     const section = sectionsRef.current.find(s => s.id === sectionId)
     if (!section) return
     const schema = schemaFor(section.type, storelibSources, librarySchemas)
-    const room = blockRoom(schema, section.blocks ?? [], blockType)
-    if (!room.ok) { toast.error(room.reason); return }
-    pushUndo()
+    const parent = opts.parent ? resolvePath(section.blocks, opts.parent) : []
+    if (!parent) return
+    const at = ownerOf(schema, section, parent)
+    if (!at) return
+    const def = blockDefAt(schema, [...parent, blockType], blockType)
     /**
      * A NEW BLOCK ARRIVES FILLED IN. Its defaults come from the block's own
-     * schema, the same way a section's do when it is added. Without this the
-     * preset blocks had their question and answer and a block you added by
-     * hand was blank, which reads as the section being broken rather than as
-     * a row waiting to be typed into.
+     * schema, the same way a section's do when it is added, then the preset
+     * picked in Add block, with the blocks that preset holds. Without this
+     * the preset blocks had their question and answer and a block you added
+     * by hand was blank, which reads as the section being broken rather than
+     * as a row waiting to be typed into.
      */
-    const newBlock = {
+    const children = freshBlocks(opts.preset?.blocks, newBlockId)
+    const newBlock: BlockInstance = {
       id: newBlockId(),
       type: blockType,
-      settings: { ...blockDefaults(schema, blockType), ...initialSettings },
+      settings: { ...blockDefaults(def), ...(opts.preset?.settings ?? {}), ...initialSettings },
+      ...(children.length ? { blocks: children } : {}),
     }
-    setSections(prev => prev.map(s =>
-      s.id === sectionId ? { ...s, blocks: [...(s.blocks ?? []), newBlock] } : s
-    ))
-    setSelectedBlockId(newBlock.id)
-    setIsDirty(true)
-  }
-
-  /** The same block again, right below it, with its own id and its own copy. */
-  const duplicateBlock = (sectionId: string, blockId: string) => {
-    const section = sectionsRef.current.find(s => s.id === sectionId)
-    const source = (section?.blocks ?? []).find(b => b.id === blockId)
-    if (!section || !source) return
-    const schema = schemaFor(section.type, storelibSources, librarySchemas)
-    const room = blockRoom(schema, section.blocks ?? [], source.type)
+    const room = blockRoom(at.owner, at.siblings, def, blockType, section, { depth: parent.length + 1, size: countAll([newBlock]), height: depthOf([newBlock]) })
     if (!room.ok) { toast.error(room.reason); return }
     pushUndo()
-    const copy = { ...source, id: newBlockId(), settings: { ...source.settings } }
-    setSections(prev => prev.map(s => {
-      if (s.id !== sectionId) return s
-      const blocks = [...(s.blocks ?? [])]
-      blocks.splice(blocks.findIndex(b => b.id === blockId) + 1, 0, copy)
-      return { ...s, blocks }
-    }))
-    setSelectedBlockId(copy.id)
+    setSections(prev => prev.map(s =>
+      s.id === sectionId ? { ...s, blocks: insertBlockAt(s.blocks, parent, newBlock) } : s
+    ))
+    setSelectedBlockId(pathKey([...parent, newBlock.id]))
     setIsDirty(true)
   }
 
-  const reorderBlocks = (sectionId: string, blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => {
+  /** The same block again, right below it, with its own ids all the way down. */
+  const duplicateBlock = (sectionId: string, blockKey: string) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    if (!section) return
+    const path = resolvePath(section.blocks, blockKey)
+    const hit = path ? blockAt(section.blocks, path) : null
+    if (!path || !hit || hit.block.static) return
+    const schema = schemaFor(section.type, storelibSources, librarySchemas)
+    const parent = path.slice(0, -1)
+    const at = ownerOf(schema, section, parent)
+    if (!at) return
+    const copy = cloneTree(hit.block, newBlockId)
+    const room = blockRoom(at.owner, at.siblings, blockDefAt(schema, path, hit.block.type), hit.block.type, section, { depth: path.length, size: countAll([copy]), height: depthOf([copy]) })
+    if (!room.ok) { toast.error(room.reason); return }
+    pushUndo()
+    setSections(prev => prev.map(s => s.id !== sectionId ? s : {
+      ...s,
+      blocks: withChildren(s.blocks, parent, (children) => {
+        const next = [...children]
+        next.splice(next.findIndex(b => b.id === hit.block.id) + 1, 0, copy)
+        return next
+      }),
+    }))
+    setSelectedBlockId(pathKey([...parent, copy.id]))
+    setIsDirty(true)
+  }
+
+  /**
+   * One level in its new order. A list hands back only the blocks it can
+   * move; the static ones at that level are kept, since their place is in
+   * the template, not in this order.
+   */
+  const reorderBlocks = (sectionId: string, blocks: BlockInstance[], parentKey: string | null = null) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    const parent = parentKey ? (section ? resolvePath(section.blocks, parentKey) : null) : []
+    if (!parent) return
     pushUndo()
     setSections(prev => prev.map(s =>
-      s.id === sectionId ? { ...s, blocks } : s
+      s.id === sectionId
+        ? { ...s, blocks: withChildren(s.blocks, parent, (children) => [...children.filter(c => c.static && !blocks.some(b => b.id === c.id)), ...blocks]) }
+        : s
     ))
     setIsDirty(true)
   }
 
-  const removeBlock = (sectionId: string, blockId: string) => {
+  const removeBlock = (sectionId: string, blockKey: string) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    const path = section ? resolvePath(section.blocks, blockKey) : null
+    if (!section || !path || blockAt(section.blocks, path)?.block.static) return
     pushUndo()
-    setSections(prev => prev.map(s => {
-      if (s.id !== sectionId) return s
-      // Cascade-delete: also drop any children whose parent_id === blockId
-      // (used by header nav_link submenus).
-      const keep = (s.blocks ?? []).filter(b =>
-        b.id !== blockId && (b.settings?.parent_id as string | undefined) !== blockId,
-      )
-      return { ...s, blocks: keep }
-    }))
-    setSelectedBlockId(prev => (prev === blockId ? null : prev))
+    // Everything inside it goes with it, and so do header links whose parent_id names it.
+    setSections(prev => prev.map(s => (s.id === sectionId ? { ...s, blocks: removeAt(s.blocks, path) } : s)))
+    const key = pathKey(path)
+    setSelectedBlockId(prev => (prev && (prev === key || prev === blockKey || prev.startsWith(`${key}/`)) ? null : prev))
+    setIsDirty(true)
+  }
+
+  /** Kept, not drawn: hiding a block is not deleting it. A static block nobody has edited is created hidden. */
+  const toggleBlockHidden = (sectionId: string, blockKey: string, staticType?: string) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    if (!section) return
+    const path = resolvePath(section.blocks, blockKey)
+    pushUndo()
+    if (!path) {
+      if (!staticType) return
+      const target = parsePath(blockKey)
+      setSections(prev => prev.map(s =>
+        s.id === sectionId
+          ? { ...s, blocks: insertBlockAt(s.blocks, target.slice(0, -1), { id: target[target.length - 1], type: staticType, settings: {}, static: true, hidden: true }) }
+          : s
+      ))
+    } else {
+      setSections(prev => prev.map(s =>
+        s.id === sectionId
+          ? {
+              ...s,
+              blocks: updateAt(s.blocks, path, (b) => {
+                if (b.hidden) { const { hidden: _shown, ...rest } = b; return rest }
+                return { ...b, hidden: true }
+              }),
+            }
+          : s
+      ))
+    }
     setIsDirty(true)
   }
 
@@ -4177,7 +4431,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ...orig,
       id: `${orig.type}-${Date.now()}`,
       name: `${orig.name} (copy)`,
-      blocks: (orig.blocks ?? []).map((b) => ({ ...b, id: newBlockId(), settings: { ...b.settings } })),
+      blocks: (orig.blocks ?? []).map((b) => cloneTree(b, newBlockId)),
     }
     const next = [...sections]
     next.splice(idx + 1, 0, copy)
@@ -4200,7 +4454,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       type,
       name: schema.name,
       settings: preset?.settings ?? {},
-      blocks: preset?.blocks ?? [],
+      /* The preset's blocks as this section's own: new ids, so adding the same preset twice is two sets of blocks, not one shared. */
+      blocks: freshBlocks(preset?.blocks, newBlockId),
       hidden: false,
     }
     const next = [...sections]
@@ -4860,8 +5115,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       { href: "/contact", label: "Contact", kind: "page" },
       /* The page browser lists it, and the header's links used to offer it. */
       { href: "/search", label: "Search", kind: "page" },
+      /* The visitor's own pages, every site has them (lib/website-builder/account-pages): the picker's Customer accounts. */
+      { href: "/account", label: "Account", kind: "page" },
+      { href: "/account/login", label: "Sign in", kind: "page" },
+      { href: "/wishlist", label: "Wishlist", kind: "page" },
       ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
-      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const })),
+      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const, image: p.thumbnail_url || undefined })),
       /**
        * NO COLLECTIONS. The picker had a Collections group fed by
        * `/api/collections`, which is not a route: the fetch 404'd, the list
@@ -5067,7 +5326,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const focusKey = [
     currentPage,
     selectedPanel.type === "section" ? selectedPanel.sectionId : "",
-    selectedPanel.type === "section" ? selectedBlockId ?? "" : "",
+    selectedPanel.type === "section" ? parsePath(selectedBlockId).pop() ?? "" : "",
   ].join("|")
   const sentFocus = useRef("")
   useEffect(() => {
@@ -5455,7 +5714,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           ) : (
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2">
-              {/* Header, Template and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
+              {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
               <SectionsList
                 sections={sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
@@ -5625,69 +5884,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               )
             })()}
 
-            {/* Blocks */}
-            {schema?.blocks && (
-              <div className="border-t border-border px-3.5 py-3.5">
+            {/* Blocks: the section's own, or the theme blocks it accepts, as deep as they nest. */}
+            {schema && (schema.blocks?.length || schema.accepts?.length || schema.statics?.length) ? (
+              <div className="border-t border-border px-3.5 py-3.5" data-block-tree="">
                 <p className="text-xs font-semibold mb-3">
-                  {schema.blocks[0]?.name ? `${schema.blocks[0].name}s` : "Blocks"}
+                  {schema.blocks?.length && schema.blocks[0]?.name ? `${schema.blocks[0].name}s` : "Blocks"}
                 </p>
                 {/* Grip, name, Duplicate, Delete, chevron: section-block-list.tsx.
                     A drag commits once, on release, through reorderBlocks. */}
-                <SectionBlockList
-                  blocks={section.blocks ?? []}
-                  selectedId={selectedBlockId}
+                <BlockLevel
+                  section={section}
+                  schema={schema}
+                  catalog={blockCatalog}
+                  parent={[]}
+                  siblings={section.blocks ?? []}
+                  owner={{ blocks: schema.blocks, accepts: schema.accepts, max_blocks: schema.max_blocks }}
+                  statics={schema.statics ?? []}
+                  selectedKey={selectedBlockId}
                   onSelect={setSelectedBlockId}
-                  onReorder={next => reorderBlocks(section.id, next)}
-                  // The real one: it checks there is room, gives the copy its
-                  // own id, and records an undo step.
-                  onDuplicate={blockId => duplicateBlock(section.id, blockId)}
-                  onRemove={blockId => removeBlock(section.id, blockId)}
-                  title={block => ({
-                    name: schema.blocks?.find(b => b.type === block.type)?.name ?? block.type,
-                    detail: block.settings.author ? String(block.settings.author) : undefined,
-                  })}
-                  fields={block => {
-                    const blockSchema = schema.blocks?.find(b => b.type === block.type)
-                    return (
-                      <SiblingSettingsProvider settings={block.settings}>
-                      {visibleFields(blockSchema?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map(field => (
-                        <div key={field.id}>
-                          {/* A block's colour follows its section's scheme the same way: SectionColorSetting. */}
-                          {field.type === "color" ? (
-                            <SectionColorSetting
-                              field={field}
-                              value={block.settings[field.id]}
-                              settings={section.settings}
-                              theme={settingsDraft}
-                              onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
-                            />
-                          ) : (
-                          <FieldEditor
-                            label={fieldCarriesOwnLabel(field) ? undefined : field.label}
-                            field={field}
-                            value={block.settings[field.id]}
-                            onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
-                          />
-                          )}
-                        </div>
-                      ))}
-                      </SiblingSettingsProvider>
-                    )
+                  theme={settingsDraft}
+                  canHide={isStorelibSection(section.type, storelibSources)}
+                  ops={{
+                    update: (key, field, value, staticType) => updateBlockSetting(section.id, key, field, value, staticType),
+                    add: (choice, parentKey) => addBlock(section.id, choice.type, {}, { parent: parentKey, preset: choice.preset }),
+                    duplicate: (key) => duplicateBlock(section.id, key),
+                    remove: (key) => removeBlock(section.id, key),
+                    reorder: (next, parentKey) => reorderBlocks(section.id, next, parentKey),
+                    toggleHidden: (key, staticType) => toggleBlockHidden(section.id, key, staticType),
                   }}
                 />
-
-                {(!schema.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
-                  <button
-                    type="button"
-                    className="mt-2 w-full flex h-9 max-sm:h-12 items-center justify-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
-                    onClick={() => addBlock(section.id, schema.blocks![0].type)}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add {schema.blocks[0]?.name?.toLowerCase() ?? "block"}
-                  </button>
-                )}
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* ── The section's actions, pinned under its settings ──
@@ -6965,6 +7192,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           onRemoveBlock: removeBlock,
           onReorderBlocks: reorderBlocks,
           linkTargets,
+          /* Policies: the open page goes through the writers above, any other through the sections route. */
+          currentPageKey: currentPage,
+          currentSections: sections,
+          onPageDraftSaved: (key) => {
+            setUnpublished(true)
+            setCustomPages((prev) => (prev.some((p) => p.key === key) || key in PAGE_META ? prev : [...prev, { id: key, name: pageTitleFromKey(key), key: key as PageKey }]))
+          },
         }}
       />
 
@@ -8411,9 +8645,15 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
                  */
                 const target = e.target as HTMLElement | null
                 if (isTypingTarget(target as unknown as ClickTargetLike) || target?.closest?.("label")) return
-                const hit = (e.target as HTMLElement | null)?.closest?.("[data-block-id]")
-                const id = hit?.getAttribute("data-block-id") ?? null
-                onSelectSection(section.id, id)
+                /* A block inside a block: its path is its id and every block id around it, up to the section. */
+                const path: string[] = []
+                let hit = (e.target as HTMLElement | null)?.closest?.("[data-block-id]") ?? null
+                while (hit && !hit.hasAttribute("data-section-id")) {
+                  const bid = hit.getAttribute("data-block-id")
+                  if (bid) path.unshift(bid)
+                  hit = hit.parentElement?.closest?.("[data-block-id], [data-section-id]") ?? null
+                }
+                onSelectSection(section.id, path.length ? pathKey(path) : null)
               }
             : undefined,
           deviceMode: device,

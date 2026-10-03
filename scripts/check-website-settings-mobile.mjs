@@ -88,7 +88,7 @@ const expect = (ok, what, got) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
 const SUBJECTS = [
-  ["general", "General"], ["domains", "Domains"], ["seo", "SEO & Social"], ["pages", "Pages & Navigation"],
+  ["general", "General"], ["domains", "Domains"], ["seo", "SEO & Social"], ["pages", "Pages"], ["navigation", "Navigation"],
   ["commerce", "Commerce"], ["policies", "Policies"], ["publishing", "Publishing"], ["backups", "Backups & Versions"], ["connections", "Connections"],
 ]
 

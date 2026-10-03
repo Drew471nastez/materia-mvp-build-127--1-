@@ -184,8 +184,18 @@ async function main() {
   {
     check("the whoosh as a message goes, unless it already had one when it was queued", /if \(!quiet\) playAskSound\("sent"\)/.test(panel) && /void send\(next, \[\], true\)/.test(panel))
     check("and as one is queued, and as a section is asked for", (panel.match(/setQueued\((prompt|text)\)\s*\n\s*playAskSound\("sent"\)/g) ?? []).length === 3 && /lastWrite\.current = \{ prompt, images \}\s*\n\s*playAskSound\("sent"\)/.test(panel))
-    check("the chime once per run: the answer, or the question it stopped on; never for an error", (panel.match(/if \(!finished\) playAskSound\("done"\)/g) ?? []).length === 2 && /error: message, activity: settleActivity\(e\.activity, true\) \}\)\)\s*\n\s*finished = true/.test(panel))
-    check("and when a section is written, or the writer answers", /if \(kept \|\| answered\) playAskSound\("done"\)/.test(panel))
+    check(
+      "one sound per run: the chord for an answer, the rising sixth for the question it stopped on, the low pair for an error",
+      (panel.match(/if \(!finished\) playAskSound\("done"\)/g) ?? []).length === 1 &&
+        /if \(!finished\) playAskSound\("question"\)/.test(panel) &&
+        /error: message, activity: settleActivity\(e\.activity, true\) \}\)\)\s*\n\s*if \(!finished\) playAskSound\("error"\)\s*\n\s*finished = true/.test(panel),
+    )
+    check(
+      "a route that refused or a lost connection is an error too; a stop the person chose is silent",
+      /error: result\.error \?\? "That did not go through\.", activity: settleActivity\(e\.activity, true\) \}\)\)\s*\n\s*if \(!finished\) playAskSound\("error"\)/.test(panel) &&
+        /if \(!stopped && !finished\) playAskSound\("error"\)/.test(panel),
+    )
+    check("and when a section is written, or the writer answers; a section that failed is the low pair", /if \(kept \|\| answered\) playAskSound\("done"\)\s*\n\s*else playAskSound\("error"\)/.test(panel))
     check(
       "a tick as the microphone opens and as it closes, on the recorder's own state",
       /if \(voice\.state === "listening" && was !== "listening"\) playAskSound\("record-start"\)/.test(panel) && /else if \(was === "listening" && voice\.state !== "listening"\) playAskSound\("record-stop"\)/.test(panel),

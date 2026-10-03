@@ -1571,7 +1571,7 @@ check(
     // The menu is the shared sheet, which is portalled to the body at 200:
     // above the raised layer, whatever the order in the tree.
     /<BottomSheet isOpen=\{sheetOpen\}/.test(menu) &&
-    /"fixed inset-0 z-\[200\]"/.test(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8")) &&
+    /"fixed inset-0", zIndex == null && "z-\[200\]"/.test(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8")) &&
     /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(publish) &&
     /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,120}layer="raised" peekHeight=\{0\}/.test(editor),
 )
@@ -1863,7 +1863,7 @@ check(
   // and a hairline between Header, Template and Footer drawn at rest, so on a
   // phone, where nothing hovers, the list still reads as three parts.
   /data-insert-section=""/.test(sectionsList) &&
-    /group-hover\/ins:bg-\[#2563eb\]\/60/.test(sectionsList) &&
+    /group-hover\/ins:bg-\[#8b5cf6\]\/60/.test(sectionsList) &&
     (sectionsList.match(/<div className="mx-2 my-2 h-px bg-\[#e5e7eb\]" aria-hidden \/>/g) ?? []).length === 2,
 )
 
@@ -2286,7 +2286,7 @@ check(
     // Still one stable callback from the parent, now carrying which block
     // was clicked as well as which section: see selectSectionFromCanvas.
     /onClick: inspectorEnabled\s*\n\s*\? \(e: React\.MouseEvent<HTMLElement>\) => \{/.test(editor) &&
-    /onSelectSection\(section\.id, id\)/.test(editor),
+    /onSelectSection\(section\.id, path\.length \? pathKey\(path\) : null\)/.test(editor),
 )
 
 check(

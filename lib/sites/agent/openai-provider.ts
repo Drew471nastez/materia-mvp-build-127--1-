@@ -31,7 +31,8 @@ import type {
 
 let client: OpenAI | null = null
 
-function openai(): OpenAI {
+/** The one client on Storelib's key, shared with the product editor's category suggestion (lib/products/category-suggest-ai.ts). */
+export function openai(): OpenAI {
   if (!client) {
     const apiKey = process.env.OPENAI_API_KEY
     // Thrown rather than defaulted. A provider with no key that returns a
@@ -137,8 +138,23 @@ export function openAIClientFor(key: string, via: "openai" | "openrouter"): Open
 
 export const openAIProvider: AgentProvider = createOpenAIProvider(openai)
 
+/**
+ * HOW HARD TO THINK, in the Responses API's `reasoning.effort`.
+ *
+ * The creator's Strength choice is low, medium or high, and every GPT-5
+ * reasoning model takes those three. The loops can still ask for more on a
+ * whole page build ("xhigh", "max": names from the other provider's dial),
+ * and not every OpenAI model takes those, so they are sent as high: a 400 on
+ * the biggest request somebody makes is worse than a slightly shorter think.
+ */
+export function reasoningEffort(effort: ProviderRequest["effort"]): "low" | "medium" | "high" | undefined {
+  if (!effort) return undefined
+  return effort === "low" || effort === "medium" ? effort : "high"
+}
+
 async function completeWith(client: () => OpenAI, prefix: string, request: ProviderRequest): Promise<ProviderTurn> {
   const rate = rateFor(request.model)
+  const effort = reasoningEffort(request.effort)
 
   const response = await client().responses.create(
     {
@@ -167,6 +183,8 @@ async function completeWith(client: () => OpenAI, prefix: string, request: Provi
        * what this is for.
        */
       ...(request.cacheKey ? { prompt_cache_key: request.cacheKey } : {}),
+      /* Absent unless the caller chose: the model's own default is medium. */
+      ...(effort ? { reasoning: { effort } } : {}),
     },
     { signal: request.signal },
   )

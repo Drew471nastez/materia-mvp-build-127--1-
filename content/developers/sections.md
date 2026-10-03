@@ -65,6 +65,8 @@ A path reads plain data only. `__proto__`, `constructor` and `prototype` cannot 
 
 ### Every name must be declared
 
+A section that accepts theme blocks (`"blocks": [{ "type": "@theme" }]`) draws them with `{% content_for "blocks" %}` and places a static one with `{% content_for "block", type: "heading", id: "title" %}`. See [Blocks](/developers/blocks).
+
 `{{ settings.foo }}` compiles only when the schema declares a setting with the id `foo`, and `{{ block.settings.bar }}` inside `{% for block in blocks %}` only when a block type declares `bar`. A typo is a compile error with a line number. A setting the schema declares and the template never reads is a warning: it would be a control in the panel that does nothing. A setting read only in `<style>` counts as unread for this warning, which does not stop a save.
 
 ### What a template can read

@@ -77,6 +77,7 @@ const ENTRIES: Record<NotificationType, Entry> = {
   REFUND_CREATED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "transaction", defaultOn: true, cooldownSeconds: 0, emailSentElsewhere: true }),
   DISPUTE_CREATED: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: 0 }),
   DISPUTE_ACTION_REQUIRED: E({ category: "sales", priority: "critical", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "action_required", defaultOn: true, cooldownSeconds: DAY, condition: "dispute_still_open" }),
+  DISPUTE_CLOSED: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
 
   /* ── The creator's Storelib plan ──────────────────────────────────── */
   SUBSCRIPTION_CREATED: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "creator", channels: ["email", "in_app"], template: "receipt", defaultOn: true, cooldownSeconds: 0 }),

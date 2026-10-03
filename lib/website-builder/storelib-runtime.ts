@@ -24,9 +24,10 @@
  * can never run on a storefront. Importing the two modules this file
  * actually uses keeps the graph honest.
  */
-import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
+import { COMPILE_CACHE_LIMIT, compileBlock, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
+import { blockSourcePath, keyedFromList, type ListBlock } from "@/lib/storelib-theme/blocks"
 import { renderSection } from "@/lib/storelib-theme/render"
-import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData, ThemeError } from "@/lib/storelib-theme/types"
+import type { CompiledBlock, CompiledSection, RenderContext, SectionInstanceData, StorefrontData, ThemeError } from "@/lib/storelib-theme/types"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
@@ -76,14 +77,49 @@ export function compiledSection(type: string, overrides?: Record<string, string>
   return out
 }
 
-/** The editor's shape → the engine's. Blocks keep their ids and their order. */
+/** `blocks/<type>.storelib`: a theme block's own file. */
+export { blockSourcePath }
+
+/** The source a theme block draws from: the install's own file first, then the theme's. */
+export function blockSource(type: string, overrides?: Record<string, string>): string | null {
+  const path = blockSourcePath(type)
+  return overrides?.[path] ?? DEFAULT_THEME_SOURCES[path] ?? null
+}
+
+type CompiledB = { ok: true; value: CompiledBlock } | { ok: false; errors: ThemeError[] }
+const compiledBlocks = createLru<CompiledB>(COMPILE_CACHE_LIMIT)
+
+/** A theme block, compiled once per distinct source text, like a section. */
+export function compiledBlock(type: string, overrides?: Record<string, string>): CompiledB {
+  const source = blockSource(type, overrides)
+  if (source === null) {
+    return { ok: false, errors: [{ stage: "package", message: `There is no ${blockSourcePath(type)}`, file: blockSourcePath(type) }] }
+  }
+  const key = `${type}\0${source}`
+  const hit = compiledBlocks.get(key)
+  if (hit) return hit
+  const r = compileBlock(source, { file: blockSourcePath(type), type, lenient: true })
+  const out: CompiledB = r.ok === true ? { ok: true, value: r.value } : { ok: false, errors: r.errors }
+  compiledBlocks.set(key, out)
+  return out
+}
+
+/** What renderSection asks for a block type: its compiled file, or nothing. */
+export function blockLookup(overrides?: Record<string, string>): (type: string) => CompiledBlock | null {
+  return (type) => {
+    const c = compiledBlock(type, overrides)
+    return c.ok === true ? c.value : null
+  }
+}
+
+/** The editor's shape → the engine's. Blocks keep their ids, their order, and the blocks inside them. */
 export function toInstanceData(section: SectionInstance): SectionInstanceData {
-  const blocks = section.blocks ?? []
+  const { blocks, block_order } = keyedFromList(section.blocks as ListBlock[] | undefined)
   return {
     type: section.type,
     settings: section.settings,
-    blocks: Object.fromEntries(blocks.map((b) => [b.id, { type: b.type, settings: b.settings }])),
-    block_order: blocks.map((b) => b.id),
+    blocks,
+    block_order,
     hidden: section.hidden,
     name: section.name,
   }
@@ -146,6 +182,7 @@ export function renderStorelibSection(
     products,
     data,
     globals,
+    blocks: blockLookup(overrides),
   })
   return {
     ok: true,

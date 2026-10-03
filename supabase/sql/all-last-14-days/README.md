@@ -5,9 +5,9 @@ editor. Written for the last fortnight and checked against the whole
 repository, so nothing any session shipped is left out.
 
 <<<<<<< HEAD
-That is every part in `supabase/sql/run-now/` (01 to 81, then the storage
+That is every part in `supabase/sql/run-now/` (01 to 82, then the storage
 =======
-That is every part in `supabase/sql/run-now/` (01 to 81, then the storage
+That is every part in `supabase/sql/run-now/` (01 to 82, then the storage
 >>>>>>> wt-cfound
 policies and the check). Part 45 is the older one: three changes from 18 to 22
 September, in the website builder's agent, that this list never carried. Every

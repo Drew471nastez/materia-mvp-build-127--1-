@@ -11,7 +11,7 @@
  *                              Vercel's own "Authorization: Bearer" header.
  *   Stripe rejected accounts   a calm sentence and a code, not Stripe's words
  *                              about "your account" with a 500.
- *   Anthropic credit           the category suggestion falls back to its
+ *   Model account credit       the category suggestion falls back to its
  *                              keywords and says so once.
  *   Firebase push              "app/no-app" was code: the sender never made
  *                              the app. Without credentials, one line.
@@ -19,9 +19,10 @@
 import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
+import OpenAI from "openai"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { stripeRefusal } from "@/lib/stripe/refusal"
-import { isBillingRefusal } from "@/lib/products/category-suggest-claude"
+import { isBillingRefusal } from "@/lib/products/category-suggest-ai"
 import { getFirebaseAdmin } from "@/lib/firebase/admin"
 import { stripComments } from "./_source"
 
@@ -79,12 +80,16 @@ async function main() {
     check("hosted account links are not created", !/accountLinks\.create/.test(read("app/api/stripe/account-link/route.ts")) && !/accountLinks\.create/.test(read("app/api/stripe/connect/start/route.ts")))
   }
 
-  out("\nAnthropic credit")
+  out("\nNo credit on the model account")
   {
+    /* The suggestion asks ChatGPT now; the Claude refusal that filled the log is still recognised, as is OpenAI's own. */
     const credit = new Anthropic.BadRequestError(400, { type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits." } }, undefined, new Headers())
     check("the credit refusal is recognised", isBillingRefusal(credit))
+    const quota = new OpenAI.RateLimitError(429, { message: "You exceeded your current quota, please check your plan and billing details.", type: "insufficient_quota", code: "insufficient_quota" }, undefined, new Headers())
+    check("and so is OpenAI's quota refusal, which arrives as a 429", isBillingRefusal(quota))
     check("an ordinary bad request is not", !isBillingRefusal(new Anthropic.BadRequestError(400, { type: "error", error: { type: "invalid_request_error", message: "messages: roles must alternate" } }, undefined, new Headers())))
-    const src = read("lib/products/category-suggest-claude.ts")
+    check("nor an ordinary rate limit", !isBillingRefusal(new OpenAI.RateLimitError(429, { message: "Rate limit reached for requests", type: "requests", code: "rate_limit_exceeded" }, undefined, new Headers())))
+    const src = read("lib/products/category-suggest-ai.ts")
     check("it pauses asking and says so once", /pausedUntil = Date\.now\(\) \+ BILLING_PAUSE_MS/.test(src) && /if \(!saidBilling\) console\.warn/.test(src) && /if \(Date\.now\(\) < pausedUntil\) return null/.test(src))
     const client = read("app/app/products/new/category-suggestion.ts")
     check("the editor shows nothing for a failed answer", /if \(!res\.ok\) return/.test(client) && !/toast/i.test(client))

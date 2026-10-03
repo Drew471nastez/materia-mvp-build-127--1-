@@ -17,10 +17,13 @@ import { DESIGN_SUPPORT_KEYS } from "./design-support"
 import { chromeRoleOf } from "@/lib/storelib-theme/chrome"
 import { COMPILE_CACHE_LIMIT, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { parseStorelib, parseSchemaJson } from "@/lib/storelib-theme/storelib/parse"
-import { validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
-import type { SectionSchema as EngineSchema, SettingDefinition } from "@/lib/storelib-theme/types"
+import { acceptsType, validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
+import { compileTemplate, contentForRefs } from "@/lib/storelib-theme/storelib/template"
+import { compileBlock } from "@/lib/storelib-theme/storelib/compile"
+import { blockTypeFromPath, isPrivateBlock, listFromPreset, presetTree } from "@/lib/storelib-theme/blocks"
+import type { SectionPreset as EnginePreset, SectionSchema as EngineSchema, SettingDefinition } from "@/lib/storelib-theme/types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
-import type { BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
+import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {
   const f: SchemaField = { id: s.id, label: s.label ?? "", type: s.type as SchemaFieldType }
@@ -61,17 +64,40 @@ export function editorSchema(schema: EngineSchema): SectionSchema {
       return block
     })
   }
+  if (schema.accepts?.length) out.accepts = [...schema.accepts]
   if (schema.max_blocks !== undefined) out.max_blocks = schema.max_blocks
   // What the panel may change about the section's design. See design-support.ts.
   for (const key of DESIGN_SUPPORT_KEYS) if (schema[key] !== undefined) (out as unknown as Record<string, unknown>)[key] = schema[key]
-  if (schema.presets) {
-    out.presets = schema.presets.map((p): SectionPreset => {
-      const preset: SectionPreset = { name: p.name, settings: p.settings ?? {} }
-      if (p.blocks) {
-        preset.blocks = p.blocks.map((b, i) => ({ id: `${schema.type}-${slug(p.name)}-${i}`, type: b.type, settings: b.settings ?? {} }))
-      }
-      return preset
-    })
+  if (schema.presets) out.presets = editorPresets(schema.type, schema.presets)
+  return out
+}
+
+/**
+ * Presets in the editor's shape: a tree of blocks with ids. The ids here are
+ * stable placeholders; a block is given its own id the moment the preset is
+ * placed on a page (block-tree.ts, freshBlocks), except a static block,
+ * whose id is how its template finds it.
+ */
+function editorPresets(type: string, presets: EnginePreset[]): SectionPreset[] {
+  return presets.map((p): SectionPreset => {
+    const preset: SectionPreset = { name: p.name, settings: p.settings ?? {} }
+    if (p.category) preset.category = p.category
+    const tree = presetTree(p)
+    if (p.blocks !== undefined) {
+      let n = 0
+      preset.blocks = listFromPreset(tree, () => `${type}-${slug(p.name)}-${n++}`) as BlockInstance[]
+    }
+    return preset
+  })
+}
+
+/** The static blocks a template places, read from the template without compiling the rest of the file. */
+function staticsIn(templateText: string, file: string): { type: string; id: string }[] {
+  const t = compileTemplate(templateText, { file, lenient: true })
+  if (t.ok === false) return []
+  const out: { type: string; id: string }[] = []
+  for (const ref of contentForRefs(t.value)) {
+    if (ref.what === "block" && !out.some((o) => o.id === ref.id)) out.push({ type: ref.type, id: ref.id })
   }
   return out
 }
@@ -101,7 +127,13 @@ export function schemaFromStorelib(source: string, file: string): StorelibSchema
     if (json.ok === false) result = { ok: false, errors: describe(json.errors) }
     else {
       const valid = validateSectionSchema(json.value, { file, line: parsed.value.schema.line, text: parsed.value.schema.text })
-      result = valid.ok === false ? { ok: false, errors: describe(valid.errors) } : { ok: true, schema: editorSchema(valid.value) }
+      if (valid.ok === false) result = { ok: false, errors: describe(valid.errors) }
+      else {
+        const schema = editorSchema(valid.value)
+        const statics = staticsIn(parsed.value.template.text, file)
+        if (statics.length) schema.statics = statics
+        result = { ok: true, schema }
+      }
     }
   }
   cache.set(source, result)
@@ -234,3 +266,68 @@ export function customAddableSections(custom: Record<string, SectionSchema>): st
     .sort()
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  THEME BLOCKS, FOR THE SIDEBAR
+ * ══════════════════════════════════════════════════════════════════════════
+ * Every blocks/<type>.storelib the theme ships, and every one this install
+ * saved (which wins for its type), as the editor's BlockSchema: its fields,
+ * what it holds, its presets for Add block, and the blocks its template
+ * places itself. A file that does not compile is left out; the code editor
+ * is where its errors are shown.
+ */
+const blockCache = createLru<BlockSchema | null>(COMPILE_CACHE_LIMIT)
+
+export function themeBlockSchema(source: string, path: string): BlockSchema | null {
+  const type = blockTypeFromPath(path)
+  if (!type) return null
+  const key = `${type}\0${source}`
+  const hit = blockCache.get(key)
+  if (hit !== undefined) return hit
+  const r = compileBlock(source, { file: path, type, lenient: true })
+  let out: BlockSchema | null = null
+  if (r.ok === true) {
+    const s = r.value.schema
+    out = { type, name: s.name, fields: s.settings.map(field), theme: true }
+    if (isPrivateBlock(type)) out.private = true
+    if (s.accepts?.length) out.accepts = [...s.accepts]
+    if (s.max_blocks !== undefined) out.max_blocks = s.max_blocks
+    if (s.presets?.length) out.presets = editorPresets(type, s.presets)
+    if (r.value.statics.length) out.statics = r.value.statics
+  }
+  blockCache.set(key, out)
+  return out
+}
+
+/** The theme's blocks, then this install's own files over them. */
+export function themeBlockCatalog(sources?: Record<string, string>): Record<string, BlockSchema> {
+  const out: Record<string, BlockSchema> = {}
+  for (const all of [DEFAULT_THEME_SOURCES as Record<string, string>, sources ?? {}]) {
+    for (const [path, source] of Object.entries(all)) {
+      if (!blockTypeFromPath(path) || typeof source !== "string") continue
+      const b = themeBlockSchema(source, path)
+      if (b) out[b.type] = b
+    }
+  }
+  return out
+}
+
+/** The schema of a block in this section: one the section declares, else the theme's. */
+export function blockSchemaIn(section: SectionSchema | undefined, catalog: Record<string, BlockSchema>, type: string): BlockSchema | undefined {
+  return section?.blocks?.find((b) => b.type === type) ?? (section?.accepts?.length || !section?.blocks?.length ? catalog[type] : undefined)
+}
+
+/**
+ * What may be added under an owner: a section's own block types, or the
+ * theme blocks its `accepts` lets in. "@theme" is every public theme block;
+ * a private one (`_slide`) only where it is named.
+ */
+export function addableBlocks(owner: { blocks?: BlockSchema[]; accepts?: string[] } | undefined, catalog: Record<string, BlockSchema>): BlockSchema[] {
+  if (!owner) return []
+  if (owner.blocks?.length) return owner.blocks
+  const accepts = owner.accepts ?? []
+  if (!accepts.length) return []
+  return Object.values(catalog)
+    .filter((b) => acceptsType(accepts, b.type))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}

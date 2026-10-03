@@ -76,8 +76,11 @@ check("the card holds no bank or identity fields", !/iban|routing|accountNumber|
 check("Storelib has no bank or identity form of its own", !/iban|routing_number|createToken|date of birth|id_number|DetailsForm|DocumentForm/i.test(flow))
 check("the server takes no bank numbers, ID fields or ID photos", !/case "(bank|details|document|profile)"/.test(route) && !/formData\(\)/.test(route))
 check("setup calls begin, then Stripe's embedded onboarding", flow.includes('"begin"') && /purpose="stripe_onboarding"/.test(flow))
-check("Verify asks only what is due now", /fields: "currently_due", futureRequirements: "omit"/.test(embedded) && !/eventually_due/.test(embedded + flow))
-check("Verify is headed as the brief says", flow.includes("Verify your identity") && flow.includes("We need a few details to activate payments."))
+/* The owner, October 2026: identity verification is part of setup, required to continue, not left for later. */
+check("Verify collects everything the account will need, identity included", /VERIFY_COLLECTION = \{ fields: "eventually_due", futureRequirements: "omit" \} as const/.test(flow) && /collection=\{VERIFY_COLLECTION\}/.test(flow))
+check("  there is no way to finish setup around verification", !/>Later</.test(flow) && flow.includes("Continue verification") && flow.includes("Payments turn on once Stripe has verified your identity."))
+check("  a bank change still asks only for the bank", /fields: "currently_due", futureRequirements: "omit", requirements: \{ only: \["external_account"\] \}/.test(flow))
+check("Verify is headed as the brief says", flow.includes("Verify your identity") && flow.includes("Have your passport, ID card or driving licence ready."))
 check("the Account step's names are not asked again by Storelib", (flow.match(/autoComplete="given-name"/g) ?? []).length === 1)
 check("a missing bank opens the bank requirement only", /requirements: \{ only: \["external_account"\] \}/.test(flow))
 check("a bank on file shows its last four and a change button", /•••• \{bank\.last4\}/.test(flow) && flow.includes("Connected") && flow.includes("Change bank account") && /purpose="stripe_management"/.test(flow))
@@ -86,9 +89,54 @@ check("steps are the three short ones", /\["Account", "Verify", "Bank"\]/.test(f
 check("the step comes from Stripe's status, not the form", /setupStepOf\(/.test(flow) && /post<Overview>\("refresh"/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
-check("desktop panel is about 760 wide, a little wider (840) only on a large desktop; phone stays full screen", /"max-w-\[min\(760px,calc\(100vw-40px\)\)\] xl:max-w-\[840px\]"/.test(flow) && !/(?:^|\s)(?:sm|md|lg):max-w-\[(?:8|9)\d\dpx\]/.test(flow) && /data-payments-setup-panel="subpage"/.test(flow) && /h-\[100dvh\]/.test(flow))
+/* The owner, October 2026: "3 layers of backdrop, fade, I don't like those", and the modal "should not have that much width". */
+check("setup is one page of its own: no darkened backdrop behind it", /data-payments-setup-panel=\{phone \? "subpage" : "page"\}/.test(flow) && !/bg-\[#0f1115\]\/45/.test(flow) && /h-\[100dvh\]/.test(flow))
+check("  one narrow column of 560px with one card on a computer, the whole width on a phone", /max-w-\[560px\]/.test(flow) && /data-setup-card=""/.test(flow) && !/max-w-\[min\(760px/.test(flow))
+check("  Storelib's mark in its bar, and a way out", /<StorelibLogo size=\{28\} \/>/.test(flow) && /aria-label="Close"/.test(flow))
+check("  Stripe's own windows match Storelib: Inter, 10px corners, a soft backdrop", /fontFamily: 'Inter,/.test(embedded) && /formBorderRadius: "10px"/.test(embedded) && /overlayBackdropColor:/.test(embedded) && /fonts: FONTS/.test(embedded))
 check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-setup-scroll=""/.test(flow))
-check("the phone app hands off to the browser", /isNativeApp\(\)/.test(flow) && /openExternal\(/.test(flow))
+{
+  /* The panel is drawn above the layer a phone sheet uses, so the country
+     list has to be told to come out higher still or it opens behind it and
+     the field looks dead. */
+  const sheet = readFileSync("components/ui/bottom-sheet.tsx", "utf8")
+  const picker = readFileSync("components/app/settings/country-picker.tsx", "utf8")
+  const list = readFileSync("components/ui/choice-list.tsx", "utf8")
+  check(
+    "the country list opens above the setup panel on a phone",
+    /const PANEL_Z = 1000/.test(flow) && /const SHEET_Z = PANEL_Z \+ 10/.test(flow) && /sheetZIndex=\{SHEET_Z\}/.test(flow),
+  )
+  check(
+    "and the layer is carried from the field down to the sheet",
+    /sheetZIndex\?: number/.test(picker) && /sheetZIndex=\{sheetZIndex\}/.test(list) && /zIndex=\{sheetZIndex\}/.test(list),
+  )
+  check(
+    "a sheet nobody asked to move stays where every sheet is",
+    /zIndex == null && "z-\[200\]"/.test(sheet) && /zIndex\?: number/.test(sheet),
+  )
+}
+check(
+  "Stripe's forms run in the phone app, and a browser is offered only if one will not load",
+  /isNativeApp\(\)/.test(flow) &&
+    /openExternal\(/.test(flow) &&
+    /const fallback = native \? <OpenInBrowser \/> : undefined/.test(flow) &&
+    !/if \(native && embedded\)/.test(flow) &&
+    /fallback \? <div className="mt-3">\{fallback\}<\/div> : null/.test(embedded),
+)
+{
+  /* The app gets its own, much narrower frame-src: Stripe's embedded forms
+     have to be in it, and Stripe.js's controller iframe has to stay out. */
+  const native = readFileSync("proxy.ts", "utf8").match(/"Content-Security-Policy",\s*\n([\s\S]*?)\n\s*\)/)?.[1] ?? ""
+  check(
+    "the app's frame rules let Stripe's embedded forms load",
+    /"frame-src 'self'"/.test(native) && /https:\/\/connect-js\.stripe\.com/.test(native),
+  )
+  check("and still keep Stripe.js's controller iframe out", !/controller/.test(native))
+  check(
+    "a frame that does navigate stays in the app",
+    /allowNavigation: \['js\.stripe\.com', 'hooks\.stripe\.com', 'connect-js\.stripe\.com'\]/.test(readFileSync("capacitor.config.ts", "utf8")),
+  )
+}
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))
 check("an unfinished Express account is replaced, not duplicated", /storelibOnly: true/.test(connect) && /stripe\.accounts\.del\(replacing\)/.test(connect))
 check("sessions are made per view for the signed-in creator's own account", /stripe\.accountSessions\.create\(\{ account: row\.stripe_account_id, components \}\)/.test(connect) && !/stripe_account_id|accountId|account:/.test(embedded))

@@ -25,6 +25,8 @@
  * Pure: no database, no request. tests/agent-mcp.test.ts drives it.
  */
 
+import { blockAt, countAll, resolvePath } from "@/lib/website-builder/block-tree"
+import { addableBlocks, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
 import {
   applyOp,
   blockFieldsFor,
@@ -37,7 +39,7 @@ import {
   type ThemeState,
 } from "@/lib/website-builder/agent/operations"
 import { schemaOf, type SchemaMap } from "@/lib/website-builder/agent/schemas"
-import { LIMITS } from "@/lib/storelib-theme/types"
+import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 
 /** What an agent sends: an operation with settings as objects, ids its own. */
 export type PageOpInput =
@@ -47,7 +49,7 @@ export type PageOpInput =
   | { op: "remove_section"; section_id: string }
   | { op: "rename_section"; section_id: string; name: string }
   | { op: "set_section_visibility"; section_id: string; hidden: boolean }
-  | { op: "add_block"; section_id: string; block_type: string; index?: number; settings?: Record<string, unknown> }
+  | { op: "add_block"; section_id: string; block_type: string; index?: number; settings?: Record<string, unknown>; parent_block_id?: string }
   | { op: "update_block"; section_id: string; block_id: string; settings: Record<string, unknown> }
   | { op: "move_block"; section_id: string; block_id: string; index: number }
   | { op: "remove_block"; section_id: string; block_id: string }
@@ -169,20 +171,38 @@ export function checkOp(
     case "add_block": {
       if (!found) return notFound()
       const blockType = str(input.block_type)
-      const specs = blockSpecs(found.type, schemas)
+      /* Inside another block (a group) when parent_block_id names one, by path or id. */
+      const parentKey = str(input.parent_block_id)
+      const parentPath = parentKey ? resolvePath(found.blocks, parentKey) : []
+      if (!parentPath) return { error: `${found.type} has no block "${parentKey}" to add inside.` }
+      const parentBlock = parentPath.length ? blockAt(found.blocks, parentPath)?.block ?? null : null
+      const catalog = themeBlockCatalog()
+      const specs = parentBlock ? addableBlocks({ accepts: catalog[parentBlock.type]?.accepts }, catalog) : blockSpecs(found.type, schemas)
       if (!specs.some((b) => b.type === blockType)) {
-        return { error: `${found.type} does not take a "${blockType}" block. It takes: ${specs.map((b) => b.type).join(", ") || "no blocks"}.` }
+        return { error: `${parentBlock ? `A ${parentBlock.type} block` : found.type} does not take a "${blockType}" block. It takes: ${specs.map((b) => b.type).join(", ") || "no blocks"}.` }
       }
-      const count = found.blocks?.length ?? 0
-      const cap = Math.min(maxBlocks(found.type, schemas) ?? LIMITS.blocksPerSection, LIMITS.blocksPerSection)
-      if (count >= cap) return { error: `${found.type} takes at most ${cap} blocks and has ${count}.` }
+      const siblings = (parentBlock ? parentBlock.blocks : found.blocks) ?? []
+      const count = siblings.filter((b) => !b.static).length
+      const cap = Math.min((parentBlock ? catalog[parentBlock.type]?.max_blocks : maxBlocks(found.type, schemas)) ?? LIMITS.blocksPerSection, LIMITS.blocksPerSection)
+      if (count >= cap) return { error: `${parentBlock ? `This ${parentBlock.type}` : found.type} takes at most ${cap} blocks and has ${count}.` }
+      if (countAll(found.blocks) >= LIMITS.blocksPerSection) return { error: `A section holds ${LIMITS.blocksPerSection} blocks at every depth together, and this one is full.` }
+      if (parentPath.length >= MAX_BLOCK_DEPTH) return { error: `Blocks nest ${MAX_BLOCK_DEPTH} deep at most.` }
       const raw = input.settings === undefined ? {} : settingsOf(input.settings)
       if (!raw) return { error: "settings is an object of setting id to value." }
-      const checked = checkSettings(blockFieldsFor(found.type, blockType, schemas), raw, `a ${blockType} block`)
+      const fields = (specs.find((b) => b.type === blockType)?.fields ?? []).filter((f) => f.type !== "header" && f.type !== "paragraph")
+      const checked = checkSettings(fields, raw, `a ${blockType} block`)
       if (checked.error) return { error: checked.error }
       const index = typeof input.index === "number" && input.index >= 0 ? input.index : undefined
       return {
-        op: { kind: "add_block", sectionId: found.id, blockId: mint(blockType), blockType, index, settings: checked.settings! },
+        op: {
+          kind: "add_block",
+          sectionId: found.id,
+          blockId: mint(blockType),
+          blockType,
+          index,
+          settings: checked.settings!,
+          ...(parentPath.length ? { parentId: parentPath.join("/") } : {}),
+        },
         note: checked.notes.join("; ") || undefined,
       }
     }
@@ -192,20 +212,25 @@ export function checkOp(
     case "remove_block": {
       if (!found) return notFound()
       const blockId = str(input.block_id)
-      const block = (found.blocks ?? []).find((b) => b.id === blockId)
-      if (!block) {
+      const path = resolvePath(found.blocks, blockId)
+      const block = path ? blockAt(found.blocks, path)?.block : undefined
+      if (!block || !path) {
         return { error: `${found.type} has no block "${blockId}". Its blocks: ${(found.blocks ?? []).map((b) => `[${b.id}] ${b.type}`).join(", ") || "none"}.` }
       }
-      if (kind === "remove_block") return { op: { kind: "remove_block", sectionId: found.id, blockId } }
+      const key = path.join("/")
+      if (kind === "remove_block") {
+        if (block.static) return { error: `[${key}] is placed by the section's template. Change its settings, or hide it; it cannot be removed.` }
+        return { op: { kind: "remove_block", sectionId: found.id, blockId: key } }
+      }
       if (kind === "move_block") {
         if (typeof input.index !== "number" || !Number.isFinite(input.index)) return { error: "index is a number." }
-        return { op: { kind: "move_block", sectionId: found.id, blockId, index: input.index } }
+        return { op: { kind: "move_block", sectionId: found.id, blockId: key, index: input.index } }
       }
       const raw = settingsOf(input.settings)
       if (!raw || Object.keys(raw).length === 0) return { error: "settings is a non-empty object of setting id to value." }
       const checked = checkSettings(blockFieldsFor(found.type, block.type, schemas), raw, `a ${block.type} block`)
       if (checked.error) return { error: checked.error }
-      return { op: { kind: "update_block", sectionId: found.id, blockId, settings: checked.settings! }, note: checked.notes.join("; ") || undefined }
+      return { op: { kind: "update_block", sectionId: found.id, blockId: key, settings: checked.settings! }, note: checked.notes.join("; ") || undefined }
     }
 
     case "update_theme": {

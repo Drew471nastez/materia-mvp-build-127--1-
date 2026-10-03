@@ -194,7 +194,7 @@ section("A slow page: no outline, a spinner")
   check("a link the page handles itself (its default prevented, the router started nothing) starts no record",
     /window\.addEventListener\("click", onClickStart, true\)/.test(barCode)
       && /if \(e\.defaultPrevented\) \{\s*const now = routerStartCount\(\)\s*if \(now !== null && now === startsAtClick\) return\s*\}/.test(barCode)
-      && /export function onRouterTransitionStart\(\) \{\s*noteRouterStart\(\)/.test(code("instrumentation-client.ts")))
+      && /export function onRouterTransitionStart\([^)]*\) \{\s*noteRouterStart\(\)/.test(code("instrumentation-client.ts")))
   check("under it the page only rises: its fade out is the page's fade in, not a second fade multiplied by it",
     /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
@@ -542,8 +542,10 @@ section("Sheets")
       && /useLayoutEffect\(\(\) => \{\s*const leave = leaveRef\s*return \(\) => leave\.current\(\)\s*\}, \[\]\)/.test(sheet)
       && /ghost\.setAttribute\("inert", ""\)/.test(sheet) && /a\.onfinish = done/.test(sheet))
   /* ... and a kept sheet at rest is out of sight and takes no tap at all (REST_STYLE). */
+  /* The layer a panel above the page can ask the sheet for rides in the same
+     style attribute; the three states behind it are unchanged. */
   check("a closing sheet gives the tap back at once",
-    /style=\{isOpen \? undefined : atRest \? REST_STYLE : \{ pointerEvents: "none" \}\}/.test(sheet)
+    /\.\.\.\(isOpen \? null : atRest \? REST_STYLE : \{ pointerEvents: "none" \}\)/.test(sheet)
       && /const REST_STYLE: React\.CSSProperties = \{ visibility: "hidden", pointerEvents: "none" \}/.test(sheet))
   /* The open is the website builder's sheet's (SNAP_DURATION_MS, SNAP_EASING in mobile-editor-sheet.tsx); a tap outside keeps its ease in and out. */
   check("it opens over 360ms on the iOS curve and closes over 340ms on an ease in and out, the scrim fades evenly, and a release leaves at the finger's speed",

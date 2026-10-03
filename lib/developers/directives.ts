@@ -243,7 +243,7 @@ export const DIRECTIVE_NAMES = [
   "embed-hosts", "forbidden", "capabilities", "versions", "example", "ai-brief", "ai-topics-extra", "ai-loop",
   "builder-controls", "theme-settings", "builder-schemes", "builder-type-styles", "dynamic-sources",
   "hub-map", "theme-tokens", "scheme-names", "page-keys", "policy-pages", "media-types", "theme-setting-index", "font-options",
-  "library-schema", "library-section", "chrome-settings", "default-pages",
+  "library-schema", "library-section", "chrome-settings", "default-pages", "theme-blocks", "library-block",
 ] as const
 
 type ChromeField = { id?: string; type?: string; label?: string; default?: unknown; options?: { label?: string; value?: unknown }[] }
@@ -538,6 +538,34 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
           ["Cart", "built in", code("/cart")],
         ],
       }]
+
+    case "theme-blocks": {
+      /* The theme blocks that ship, read from their files: blocks/*.storelib. */
+      const rows = Object.entries(DEFAULT_THEME_SOURCES as Record<string, string>)
+        .filter(([path]) => /^blocks\/[^/]+\.storelib$/.test(path))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([path, src]) => {
+          const json = src.match(/^<schema>\n([\s\S]*?)\n<\/schema>/m)?.[1]
+          let schema: { name?: string; settings?: { id?: string; type?: string }[]; blocks?: { type?: string }[]; presets?: { name?: string }[] } = {}
+          try { schema = json ? JSON.parse(json) : {} } catch { /* a file that does not parse is listed by its path */ }
+          const holds = (schema.blocks ?? []).map((b) => code(String(b.type))).join(", ")
+          return [
+            code(path),
+            schema.name ?? "",
+            (schema.settings ?? []).filter((f) => f.id && f.type !== "header" && f.type !== "paragraph").map((f) => code(String(f.id))).join(", "),
+            holds || "nothing",
+            (schema.presets ?? []).map((p) => String(p.name)).join(", "),
+          ]
+        })
+      return [{ kind: "table", head: ["File", "Name", "Settings", "Holds", "Presets"], rows }]
+    }
+
+    case "library-block": {
+      const src = arg ? DEFAULT_THEME_SOURCES[`blocks/${arg}.storelib`] : undefined
+      if (!src) return [{ kind: "paragraph", text: `Missing example: ${code(arg ?? "")}` }]
+      const body = src.replace(/^\{#[\s\S]*?#\}\n/, "").trimEnd()
+      return [{ kind: "code", lang: "storelib", code: body, title: `blocks/${arg}.storelib` }]
+    }
 
     case "library-section": {
       const src = arg ? DEFAULT_THEME_SOURCES[`sections/${arg}.storelib`] : undefined

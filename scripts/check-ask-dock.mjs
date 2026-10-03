@@ -40,7 +40,8 @@
  *   HISTORY    grouped by day, opened, continued, a new chat, one deleted in
  *              place, the open one deleted, all deleted; and before the
  *              database update, one plain sentence
- *   MODELS     the Claude and OpenAI marks on every choice and the trigger;
+ *   MODELS     ChatGPT's two models with OpenAI's mark, a saved Claude choice read
+ *              as the default, Strength in the same menu;
  *              a popover on a computer, the shared bottom sheet on a phone
  *   PICTURES   a large photo is shrunk to 1568 on its long edge with a ring
  *              while it is, a PDF and a HEIC say why not, a fifth picture is
@@ -700,7 +701,7 @@ async function states(browser) {
   await p.click('[data-ask-report-form] button[type="submit"]')
   await sleep(300)
   const report = await p.evaluate(() => ({ sent: window.__reports[0], done: document.querySelector("[data-ask-reported]")?.textContent }))
-  expect(!!report.sent && /^[0-9a-f-]{36}$/.test(report.sent.messageId) && report.sent.reason === "It used the wrong colours" && report.sent.engine === "claude" && report.done === "Reported. Thank you.", "Report sends the question's id, the reason and the model, and says it was reported", report)
+  expect(!!report.sent && /^[0-9a-f-]{36}$/.test(report.sent.messageId) && report.sent.reason === "It used the wrong colours" && report.sent.engine === "openai" && report.done === "Reported. Thank you.", "Report sends the question's id, the reason and the model, and says it was reported", report)
   if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
   await p.close()
 
@@ -1052,18 +1053,38 @@ async function history(browser, vp, hash) {
 async function models(browser) {
   console.log("\nmodels and Connect AI")
   const p = await page(browser, { width: 1440, height: 900 }, "agent=auto", "#desktop")
+  /* A browser that chose Claude Opus before Storelib AI moved to ChatGPT. */
+  await p.evaluate(() => { localStorage.setItem("storelib.theme-chat.engine", "claude-opus"); localStorage.removeItem("storelib.theme-chat.strength") })
+  await p.reload()
+  await sleep(900)
   await p.click("[data-ask-pill] textarea")
   await sleep(450)
   const trigger = await p.$eval("[data-ask-model]", (b) => ({ svg: b.querySelectorAll("svg").length, color: getComputedStyle(b.querySelector("svg")).color, text: b.textContent }))
   await p.click("[data-ask-model]")
   await sleep(250)
   const rows = await p.$$eval("[data-ask-model-option]", (o) => o.map((x) => { const s = x.querySelector("svg"); return { id: x.getAttribute("data-ask-model-option"), color: getComputedStyle(s).color, h: Math.round(x.getBoundingClientRect().height), inSheet: !!x.closest("[data-app-sheet]") } }))
-  expect(trigger.svg >= 1 && trigger.color === "rgb(217, 119, 87)", "the trigger wears Claude's mark in its terracotta", trigger)
-  expect(rows.length === 3 && rows[0].color === "rgb(217, 119, 87)" && rows[1].color === "rgb(217, 119, 87)" && rows[2].color === "rgb(0, 0, 0)" && rows.every((r) => !r.inSheet), "on a computer a popover: Claude's mark on Sonnet and Opus, OpenAI's on ChatGPT", rows)
+  /* ChatGPT only for now (lib/website-builder/ask-engines.ts); this page was opened with a saved "claude-opus" choice. */
+  expect(trigger.svg >= 1 && trigger.color === "rgb(0, 0, 0)" && /Luna/.test(trigger.text), "a saved Claude choice opens on the everyday ChatGPT model, with OpenAI's mark", trigger)
+  expect(rows.length === 2 && rows.every((r) => r.color === "rgb(0, 0, 0)") && rows.map((r) => r.id).join(",") === "openai,openai-strong" && rows.every((r) => !r.inSheet), "on a computer a popover: two ChatGPT models, OpenAI's mark on each", rows)
+  const best = await p.$$eval("[data-ask-model-option]", (o) => o.map((x) => x.textContent))
+  expect(best.every((t) => /Best for /.test(t)), "each model says what it is best for", best)
+  /* Strength: three segments on their own line, the line under them for the one that is on. */
+  const strength = await p.$eval("[data-ask-strength]", (s) => {
+    const box = s.getBoundingClientRect()
+    const menu = s.parentElement.getBoundingClientRect()
+    const segs = [...s.querySelectorAll("[data-ask-strength-option]")].map((b) => ({ id: b.getAttribute("data-ask-strength-option"), on: b.getAttribute("aria-checked"), w: Math.round(b.getBoundingClientRect().width), clipped: b.scrollWidth > b.clientWidth }))
+    return { on: s.getAttribute("data-ask-strength"), segs, inside: box.right <= menu.right + 0.5 && box.left >= menu.left - 0.5, text: s.textContent }
+  })
+  expect(strength.on === "standard" && strength.segs.map((x) => x.id).join(",") === "light,standard,deep" && strength.segs.every((x) => !x.clipped) && strength.inside, "Strength is Light, Standard and Deep, Standard on, nothing clipped inside the popover", strength)
+  measures.strengthSegments = strength.segs.map((x) => x.w)
   await p.screenshot({ path: join(shots, `${P}models-desktop.png`) })
-  await p.click('[data-ask-model-option="openai"]')
+  await p.click('[data-ask-strength-option="deep"]')
+  await sleep(300)
+  const deep = await p.evaluate(() => ({ on: document.querySelector("[data-ask-strength]")?.getAttribute("data-ask-strength"), open: !!document.querySelector("[data-ask-model-option]"), saved: localStorage.getItem("storelib.theme-chat.strength") }))
+  expect(deep.on === "deep" && deep.open && deep.saved === "deep", "choosing Deep keeps the menu open and is remembered", deep)
+  await p.click('[data-ask-model-option="openai-strong"]')
   await sleep(200)
-  expect((await p.$eval("[data-ask-model]", (b) => b.textContent)).includes("ChatGPT"), "choosing ChatGPT puts it on the trigger")
+  expect((await p.$eval("[data-ask-model]", (b) => b.textContent)).includes("Terra"), "choosing the stronger model puts it on the trigger")
   await p.click("[data-ask-connect]")
   expect((await p.evaluate(() => window.__connect)) === 1, "Connect AI asks the editor to open Connections")
   await p.close()
@@ -1072,12 +1093,14 @@ async function models(browser) {
   await q.tap("[data-ask-model]")
   await sleep(700)
   const sheet = await q.$$eval("[data-ask-model-option]", (o) => o.map((x) => ({ h: Math.round(x.getBoundingClientRect().height), inSheet: !!x.closest("[data-app-sheet]"), svg: x.querySelectorAll("svg").length })))
-  expect(sheet.length === 3 && sheet.every((r) => r.inSheet && r.h >= 44 && r.svg >= 1), "on a phone the shared bottom sheet, rows of 44px or more, each with its mark", sheet)
+  expect(sheet.length === 2 && sheet.every((r) => r.inSheet && r.h >= 44 && r.svg >= 1), "on a phone the shared bottom sheet, rows of 44px or more, each with its mark", sheet)
+  const phoneStrength = await q.$$eval("[data-ask-strength-option]", (o) => o.map((x) => ({ h: Math.round(x.getBoundingClientRect().height), inSheet: !!x.closest("[data-app-sheet]"), clipped: x.scrollWidth > x.clientWidth })))
+  expect(phoneStrength.length === 3 && phoneStrength.every((r) => r.inSheet && r.h >= 36 && !r.clipped), "and Strength in the same sheet, 36px segments, nothing clipped", phoneStrength)
   await q.screenshot({ path: join(shots, `${P}models-phone.png`) })
-  await q.tap('[data-ask-model-option="claude-opus"]')
+  await q.tap('[data-ask-model-option="openai-strong"]')
   await sleep(700)
   const chosen = await q.evaluate(() => ({ trigger: document.querySelector("[data-ask-model]").textContent, open: !!document.querySelector('[data-app-sheet="open"]') }))
-  expect(/Opus/.test(chosen.trigger) && !chosen.open, "choosing Opus closes the sheet and names it", chosen)
+  expect(/Terra/.test(chosen.trigger) && !chosen.open, "choosing the stronger model closes the sheet and names it", chosen)
   if (q.__errors.length) expect(false, "no errors on the page", q.__errors)
   await q.close()
 }

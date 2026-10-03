@@ -2,11 +2,14 @@
  * ===========================================================================
  *  THE MARKUP LANGUAGE
  * ===========================================================================
- * HTML, plus three things:
+ * HTML, plus four things:
  *
  *   {{ expression }}                 output, HTML-escaped
  *   {% if … %} {% elsif … %} {% else %} {% endif %}
  *   {% for item in list %} … {% else %} {% endfor %}
+ *   {% content_for "blocks" %}       this section's (or block's) theme blocks
+ *   {% content_for "block", type: "heading", id: "title" %}
+ *                                    one theme block the template places itself
  *
  * An expression is a path into the context (`settings.heading`,
  * `block.settings.url`, `theme.colors.primary`), a literal, a comparison, or
@@ -45,6 +48,8 @@ export type Node =
   | { kind: "output"; expr: Expr; line: number }
   | { kind: "if"; branches: { cond: Expr; body: Node[] }[]; else?: Node[]; line: number }
   | { kind: "for"; item: string; list: Expr; body: Node[]; else?: Node[]; line: number }
+  | { kind: "content_for"; what: "blocks"; line: number }
+  | { kind: "content_for"; what: "block"; type: string; id: string; line: number }
 
 export type Expr =
   | { t: "lit"; v: string | number | boolean | null }
@@ -487,6 +492,10 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
         nodes.push({ kind: "for", item: m[1], list: parseExpr(m[2], t.line), body: body.nodes, else: elseBody, line: t.line })
         continue
       }
+      if (word === "content_for") {
+        nodes.push(parseContentFor(t.value, t.line))
+        continue
+      }
       throw new TemplateError(`unknown tag {% ${word} %}`, t.line)
     }
     return { nodes }
@@ -501,11 +510,76 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
   }
 }
 
+/**
+ * ===========================================================================
+ *  {% content_for %}: WHERE THEME BLOCKS GO
+ * ===========================================================================
+ * Shopify's tag, with Shopify's arguments, so a theme author's hands already
+ * know it:
+ *
+ *   {% content_for "blocks" %}
+ *       every theme block this section (or this block) holds, in the order
+ *       the person arranged them, each drawn by its own blocks/<type>.storelib
+ *
+ *   {% content_for "block", type: "heading", id: "title" %}
+ *       one block the template places itself: STATIC. It cannot be moved or
+ *       deleted, only edited, and it is drawn with its defaults until it is.
+ *
+ * Both arguments of the second form are literal strings. A type or an id
+ * worked out at render time would be a block nobody can find again in the
+ * sidebar, so they are refused here, with the line.
+ */
+const BLOCK_TYPE = /^_?[a-z][a-z0-9_-]*$/
+const BLOCK_ID = /^[A-Za-z0-9_-]{1,64}$/
+
+function parseContentFor(tag: string, line: number): Node {
+  const rest = tag.replace(/^content_for\s*/, "")
+  const head = rest.match(/^(["'])(blocks|block)\1\s*(.*)$/s)
+  if (!head) {
+    throw new TemplateError(`content_for takes "blocks", or "block" with a type and an id: {% content_for "block", type: "heading", id: "title" %}`, line)
+  }
+  if (head[2] === "blocks") {
+    if (head[3].trim() !== "") throw new TemplateError(`{% content_for "blocks" %} takes nothing after "blocks"`, line)
+    return { kind: "content_for", what: "blocks", line }
+  }
+  const args: Record<string, string> = {}
+  let tail = head[3].trim()
+  while (tail) {
+    const m = tail.match(/^,\s*([a-z_]+)\s*:\s*(["'])([^"']*)\2\s*/)
+    if (!m) throw new TemplateError(`{% content_for "block" %} reads type: "…" and id: "…", each a word in quotes`, line)
+    if (m[1] !== "type" && m[1] !== "id") throw new TemplateError(`{% content_for "block" %} takes type and id, not ${m[1]}`, line)
+    args[m[1]] = m[3]
+    tail = tail.slice(m[0].length).trim()
+  }
+  if (!args.type || !BLOCK_TYPE.test(args.type)) throw new TemplateError(`{% content_for "block" %} needs type: "…", the name of a file in blocks/`, line)
+  if (!args.id || !BLOCK_ID.test(args.id)) throw new TemplateError(`{% content_for "block" %} needs id: "…", letters, digits, - and _`, line)
+  return { kind: "content_for", what: "block", type: args.type, id: args.id, line }
+}
+
+/** Every `content_for` in a template, in the order they appear. */
+export function contentForRefs(tpl: CompiledTemplate): ({ what: "blocks"; line: number } | { what: "block"; type: string; id: string; line: number })[] {
+  const out: ({ what: "blocks"; line: number } | { what: "block"; type: string; id: string; line: number })[] = []
+  const walk = (nodes: Node[]) => {
+    for (const n of nodes) {
+      if (n.kind === "content_for") out.push(n.what === "blocks" ? { what: "blocks", line: n.line } : { what: "block", type: n.type, id: n.id, line: n.line })
+      else if (n.kind === "if") { n.branches.forEach((b) => walk(b.body)); if (n.else) walk(n.else) }
+      else if (n.kind === "for") { walk(n.body); if (n.else) walk(n.else) }
+    }
+  }
+  walk(tpl.nodes)
+  return out
+}
+
 // ── Rendering ───────────────────────────────────────────────────────────────
 
-/** A string the template may emit unescaped. Only the `raw` filter makes one. */
+/** A string the template may emit unescaped. Only the `raw` filter makes one, and the engine for `block.storelib_attributes`. */
 class Safe {
   constructor(public readonly html: string) {}
+}
+
+/** Markup the engine built itself and a template may print as it is. Not reachable from a template. */
+export function engineHtml(html: string): unknown {
+  return new Safe(html)
 }
 
 const BLOCKED_KEYS = new Set(["__proto__", "constructor", "prototype"])
@@ -757,7 +831,8 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     theme: ctx.theme,
     scheme: ctx.scheme,
     page: ctx.page,
-    section: { ...ctx.section, settings: ctx.settings, blocks: ctx.blocks },
+    section: ctx.sectionScope ? { ...ctx.section, ...ctx.sectionScope } : { ...ctx.section, settings: ctx.settings, blocks: ctx.blocks },
+    block: ctx.block ?? null,
     /* The store, its addresses, and the visitor: lib/storelib-theme/globals.ts.
        And what the storefront knows about itself: see RenderContext. */
     shop: ctx.shop ?? {},
@@ -794,6 +869,12 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
               forloop: { index: idx + 1, index0: idx, first: idx === 0, last: idx === items.length - 1, length: items.length },
             })
           })
+          break
+        }
+        case "content_for": {
+          /* Built by render.ts from blocks it has drawn and guarded; a stylesheet has no blocks. */
+          if (css || !ctx.contentFor) break
+          out.push(n.what === "blocks" ? ctx.contentFor({ what: "blocks" }) : ctx.contentFor({ what: "block", type: n.type, id: n.id }))
           break
         }
       }

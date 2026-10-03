@@ -74,6 +74,19 @@ Some reference is added only when a request is about it. These topics are includ
 
 @[ai-topics-extra]
 
+## The models Storelib AI runs on
+
+Storelib AI in the builder runs on ChatGPT. The model menu beside the message box offers two, each with a line on what it is for:
+
+| Model | Best for |
+| --- | --- |
+| GPT-5.6 Luna | Quick edits, copy and colours. The default. |
+| GPT-5.6 Terra | New sections, whole pages and code. A request that is plainly a build moves up to it on its own, and the chat says so. |
+
+**Strength**, in the same menu, is how long the model thinks before it acts: Light, Standard or Deep, sent to OpenAI as low, medium and high reasoning effort. Standard is right for most requests. Deep is for a hard change, a whole page or code; Light for a word, a colour or a setting.
+
+Whatever goes wrong with a model call, the chat says it in a sentence, such as "Storelib AI is unavailable right now. Try again in a few minutes.", and never shows the provider's own error. A creator can run Storelib AI on their own OpenAI key or OpenRouter account from Website settings › Connections, and those edits do not count against the plan's AI edits.
+
 ## Setting up your agent
 
 **Claude Code.** Add this to the `CLAUDE.md` at the root of your theme folder:

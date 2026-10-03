@@ -56,7 +56,7 @@ One row per file the creator saved, unique by `install_id` and `path`. The theme
 | `draft_content` | The saved, unpublished version, or empty. |
 | `updated_at` | When it last changed. A save that says when it read the file is refused as a conflict if this has changed since. |
 
-The live site reads only the rows whose path ends in `.storelib`, and draws a section from `sections/<type>.storelib`. Other paths are stored and read by nothing.
+The live site reads only the rows whose path ends in `.storelib`, draws a section from `sections/<type>.storelib` and a theme block from `blocks/<type>.storelib`. Other paths are stored and read by nothing.
 
 ## store_theme_file_versions
 

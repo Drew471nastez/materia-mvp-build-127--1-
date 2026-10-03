@@ -5,16 +5,18 @@
 export * from "./types"
 export { CONTROLS, CONTROL_TYPES, LEGACY_TYPE_ALIASES, SHOPIFY_TYPE_ALIASES, UNSUPPORTED_TYPES, controlFor, controlsAsJson, controlsAsMarkdown, holdsValue, resolveControlType } from "./controls/registry"
 export type { ControlDefinition, ControlType, ValueKind } from "./controls/registry"
-export { validateSectionSchema } from "./schema/validate"
+export { validateSectionSchema, validateBlockSchema, acceptsType } from "./schema/validate"
 export { parseSchemaJson, parseStorelib } from "./storelib/parse"
-export { compileTemplate, renderTemplate, pathsRead, FILTER_NAMES, embedUrl, EMBED_ALLOWED } from "./storelib/template"
+export { compileTemplate, renderTemplate, pathsRead, contentForRefs, FILTER_NAMES, embedUrl, EMBED_ALLOWED } from "./storelib/template"
 export type { CompiledTemplate } from "./storelib/template"
-export { scopeCss, cssForInstance, scopeSelector, SCOPE_PLACEHOLDER } from "./storelib/css"
+export { scopeCss, cssForInstance, cssForBlockInstance, blockScope, scopeSelector, SCOPE_PLACEHOLDER, BLOCK_PLACEHOLDER } from "./storelib/css"
 export { checkScript, CAPABILITIES, FORBIDDEN_IDENTIFIERS, SCRIPT_CONTEXT } from "./storelib/script"
 export type { Capability } from "./storelib/script"
-export { compileSection, createCompileCache, createLru, COMPILE_CACHE_LIMIT, sourceHash } from "./storelib/compile"
+export { compileSection, compileBlock, compileThemeFile, createCompileCache, createLru, COMPILE_CACHE_LIMIT, sourceHash } from "./storelib/compile"
 export { resolveInstance, resolveOne, resolveSettings, stripDefaults, fillResponsive, themeTokens } from "./resolve"
-export type { CatalogItem, ResolveOptions } from "./resolve"
+export type { CatalogItem, ResolveOptions, ResolvedBlock } from "./resolve"
+export { BLOCK_PATH, blockTypeFromPath, blockSourcePath, isPrivateBlock, presetTree, listFromPreset, keyedFromList, listFromKeyed, countBlocks, blockDepth } from "./blocks"
+export type { ListBlock, PresetNode } from "./blocks"
 export {
   Linked, SAFE_HREF, safeHref, isSafeHref, safeMediaUrl, isColor, cleanBackground, cleanFocalPoint, sanitizeInlineHtml,
   INLINE_TAGS, plainText, decodeEntities, parseVideoUrl, VIDEO_HOSTS, parseDatetime, cleanDatetime, formatDatetime,

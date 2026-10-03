@@ -19,7 +19,7 @@ import { CONTROL_TYPES, UNSUPPORTED_TYPES, controlFor, holdsValue, resolveContro
 import { VIDEO_HOSTS } from "../values"
 import { parseCondition } from "../storelib/template"
 import { readLanguageVersion } from "../language"
-import { LIMITS, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeError } from "../types"
+import { LIMITS, MAX_BLOCK_DEPTH, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeBlockSchema, type ThemeError } from "../types"
 
 const ID = /^[a-z][a-z0-9_]*$/
 const TYPE = /^[a-z][a-z0-9_-]*$/
@@ -45,20 +45,67 @@ const setting = z
   })
   .passthrough()
 
+/**
+ * An entry in `blocks`: a block the section declares for itself (it has a
+ * name), or a theme block it accepts (it has only a type: `"@theme"`, or the
+ * name of a file in blocks/). Shopify writes both in the same list, so this
+ * reads both, and the validator separates them.
+ */
 const block = z
   .object({
     type: z.string(),
-    name: z.string(),
-    settings: z.array(setting).default([]),
+    name: z.string().optional(),
+    settings: z.array(setting).optional(),
     limit: z.number().int().positive().optional(),
   })
   .passthrough()
 
+type PresetBlockShape = {
+  type: string
+  settings?: Record<string, unknown>
+  static?: boolean
+  id?: string
+  blocks?: PresetBlockShape[] | Record<string, PresetBlockShape>
+  block_order?: string[]
+}
+
+const presetBlock: z.ZodType<PresetBlockShape> = z.lazy(() =>
+  z
+    .object({
+      type: z.string(),
+      settings: z.record(z.unknown()).optional(),
+      static: z.boolean().optional(),
+      id: z.string().optional(),
+      blocks: z.union([z.array(presetBlock), z.record(presetBlock)]).optional(),
+      block_order: z.array(z.string()).optional(),
+    })
+    .passthrough(),
+) as z.ZodType<PresetBlockShape>
+
 const preset = z
   .object({
     name: z.string(),
+    category: z.string().optional(),
     settings: z.record(z.unknown()).optional(),
-    blocks: z.array(z.object({ type: z.string(), settings: z.record(z.unknown()).optional() }).passthrough()).optional(),
+    blocks: z.union([z.array(presetBlock), z.record(presetBlock)]).optional(),
+    block_order: z.array(z.string()).optional(),
+  })
+  .passthrough()
+
+/** The `<schema>` of a theme block file, blocks/<type>.storelib. */
+export const themeBlockSchemaShape = z
+  .object({
+    schema_version: z.number().int().optional(),
+    language_version: z.number().int().optional(),
+    name: z.string().min(1).max(80),
+    description: z.string().optional(),
+    settings: z.array(setting).default([]),
+    blocks: z.array(block).optional(),
+    max_blocks: z.number().int().positive().optional(),
+    presets: z.array(preset).optional(),
+    tag: z.string().nullable().optional(),
+    class: z.string().max(200).optional(),
+    capabilities: z.array(z.string()).optional(),
   })
   .passthrough()
 
@@ -158,7 +205,230 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
    * would hide its setting for good, so it is refused where it is written.
    */
   const sectionValueIds = new Set(s.settings.filter((f) => holdsValue(f.type)).map((f) => f.id))
-  const checkCondition = (f: (typeof s.settings)[number], p: string, blockIds: Set<string> | null) => {
+  const { checkSettings } = settingChecks(err, sectionValueIds)
+  checkSettings(s.settings, "settings")
+
+  /* Its own blocks, or the theme blocks it accepts: never both. */
+  const local = (s.blocks ?? []).filter((b) => b.name !== undefined || b.settings !== undefined)
+  const refs = (s.blocks ?? []).filter((b) => b.name === undefined && b.settings === undefined)
+  const blockTypes = new Set<string>()
+  local.forEach((b) => {
+    const i = (s.blocks ?? []).indexOf(b)
+    const p = `blocks[${i}]`
+    if (!TYPE.test(b.type)) err(`${p}.type`, `"${b.type}" is not a block type`)
+    if (b.name === undefined) err(`${p}.name`, `a block this section declares for itself needs a name. To accept a theme block, write only its type: { "type": "${b.type}" }`)
+    if (blockTypes.has(b.type)) err(`${p}.type`, `block type "${b.type}" is declared twice`)
+    blockTypes.add(b.type)
+    const list = b.settings ?? []
+    checkSettings(list, `${p}.settings`, new Set<string>(), new Set(list.filter((f) => holdsValue(f.type)).map((f) => f.id)))
+  })
+  const accepts = checkAccepts(refs as { type: string }[], (s.blocks ?? []) as { type: string }[], err)
+  if (local.length && refs.length) {
+    err("blocks", `this section declares its own blocks and accepts theme blocks. A section does one or the other: move the block into blocks/${local[0].type}.storelib, or drop { "type": "${refs[0].type}" }`)
+  }
+  if (s.max_blocks !== undefined && s.max_blocks > LIMITS.blocksPerSection) {
+    err("max_blocks", `${s.max_blocks} is above the limit of ${LIMITS.blocksPerSection}`)
+  }
+
+  const settingIds = new Set(s.settings.filter((f) => holdsValue(f.type)).map((f) => f.id))
+  s.presets?.forEach((pr, i) => {
+    const p = `presets[${i}]`
+    for (const key of Object.keys(pr.settings ?? {})) {
+      if (!settingIds.has(key)) err(`${p}.settings.${key}`, `preset sets "${key}", which is not a setting of this section`)
+    }
+    checkPresetBlocks(pr, p, err, {
+      local: local.length ? blockTypes : null,
+      accepts,
+    })
+  })
+
+  for (const list of ["allowed_templates", "disabled_templates"] as const) {
+    if (s.allowed_templates && s.disabled_templates) {
+      err(list, `use allowed_templates or disabled_templates, not both`)
+      break
+    }
+  }
+
+  if (errors.length) return { ok: false, errors }
+  const value = { ...s, schema_version: s.schema_version ?? SECTION_SCHEMA_VERSION } as SectionSchema
+  if (refs.length) {
+    delete value.blocks
+    value.accepts = accepts
+  } else if (s.blocks) {
+    value.blocks = local.map((b) => ({ ...b, name: b.name ?? b.type, settings: b.settings ?? [] })) as SectionSchema["blocks"]
+  }
+  return { ok: true, value }
+}
+
+const BLOCK_REF = /^_?[a-z][a-z0-9_-]*$/
+const BLOCK_ID = /^[A-Za-z0-9_-]{1,64}$/
+
+/** The theme blocks a `blocks` list accepts: "@theme", or types by name. */
+function checkAccepts(refs: { type: string }[], all: { type: string }[], err: (path: string, message: string) => void): string[] {
+  const out: string[] = []
+  for (const r of refs) {
+    const p = `blocks[${all.indexOf(r)}].type`
+    if (r.type === "@app") { err(p, `Storelib has no app blocks. Accept theme blocks with { "type": "@theme" }`); continue }
+    if (r.type !== "@theme" && !BLOCK_REF.test(r.type)) { err(p, `"${r.type}" is not a theme block: "@theme", or the name of a file in blocks/`); continue }
+    if (out.includes(r.type)) { err(p, `"${r.type}" is listed twice`); continue }
+    out.push(r.type)
+  }
+  return out
+}
+
+/** May a block of this type sit where `accepts` says what may? A private block (`_slide`) only by name. */
+export function acceptsType(accepts: readonly string[], type: string): boolean {
+  if (accepts.includes(type)) return true
+  return accepts.includes("@theme") && !type.startsWith("_")
+}
+
+/**
+ * ===========================================================================
+ *  A PRESET'S BLOCKS, AS A TREE
+ * ===========================================================================
+ * Either spelling (the keyed one Shopify writes, or a list) is walked the
+ * same way. What is refused is what would add a block nobody could see or
+ * find again: an id in `block_order` with no block behind it, a block that
+ * is in neither `block_order` nor static, a static block without an id, a
+ * block of a type the owner does not accept, and a tree deeper than blocks
+ * may nest.
+ */
+function checkPresetBlocks(
+  owner: { blocks?: PresetBlockShape[] | Record<string, PresetBlockShape>; block_order?: string[] },
+  at: string,
+  err: (path: string, message: string) => void,
+  rules: { local: Set<string> | null; accepts: string[] },
+): void {
+  let count = 0
+  const walk = (node: typeof owner, p: string, depth: number, top: boolean) => {
+    const blocks = node.blocks
+    if (blocks === undefined) {
+      if (node.block_order?.length) err(`${p}.block_order`, `block_order names blocks, but there is no "blocks" beside it`)
+      return
+    }
+    if (depth > MAX_BLOCK_DEPTH) { err(`${p}.blocks`, `blocks nest ${MAX_BLOCK_DEPTH} deep at most`); return }
+    const entries: [string, PresetBlockShape, string][] = Array.isArray(blocks)
+      ? blocks.map((b, i) => [b.id ?? "", b, `${p}.blocks[${i}]`])
+      : Object.entries(blocks).map(([id, b]) => [id, b, `${p}.blocks.${id}`])
+    if (!Array.isArray(blocks)) {
+      const order = node.block_order ?? []
+      for (const id of order) {
+        if (!blocks[id]) err(`${p}.block_order`, `block_order names "${id}", which is not in blocks`)
+        else if (blocks[id].static) err(`${p}.block_order`, `"${id}" is static: the template places it, so it is not in block_order`)
+      }
+      for (const [id, b] of Object.entries(blocks)) {
+        if (!b.static && !order.includes(id)) err(`${p}.blocks.${id}`, `"${id}" is in blocks but not in block_order, so it would never be drawn`)
+      }
+    } else if (node.block_order) {
+      err(`${p}.block_order`, `block_order goes with blocks written as an object keyed by id; a list is already in order`)
+    }
+    const ids = new Set<string>()
+    for (const [id, b, bp] of entries) {
+      count++
+      if (id) {
+        if (!BLOCK_ID.test(id)) err(bp, `"${id}" is not a block id: letters, digits, - and _`)
+        if (ids.has(id)) err(bp, `the id "${id}" is used twice here`)
+        ids.add(id)
+      }
+      if (b.static && !id) err(bp, `a static block needs the id its template places it under: { "type": "${b.type}", "static": true, "id": "…" }`)
+      if (top && rules.local) {
+        if (!rules.local.has(b.type)) err(`${bp}.type`, `preset adds a "${b.type}" block, which this section does not declare`)
+        if (b.blocks !== undefined) err(`${bp}.blocks`, `a block the section declares for itself holds no blocks. Blocks inside blocks are theme blocks, in blocks/`)
+        if (b.static) err(`${bp}.static`, `a static block is a theme block, placed with {% content_for "block" %}`)
+        continue
+      }
+      if (!BLOCK_REF.test(b.type)) { err(`${bp}.type`, `"${b.type}" is not a theme block`); continue }
+      if (top && !b.static) {
+        if (!rules.accepts.length) err(`${bp}.type`, `preset adds a "${b.type}" block, and this ${at.startsWith("presets") ? "section" : "block"} accepts none`)
+        else if (!acceptsType(rules.accepts, b.type)) err(`${bp}.type`, `"${b.type}" is not one of the blocks accepted here: ${rules.accepts.join(", ")}`)
+      }
+      walk(b, bp, depth + 1, false)
+    }
+  }
+  walk(owner, at, 1, true)
+  if (count > LIMITS.blocksPerSection) err(`${at}.blocks`, `${count} blocks; a section holds ${LIMITS.blocksPerSection}`)
+}
+
+const BLOCK_TAGS = new Set(["div", "section", "article", "aside", "figure", "li", "ul", "ol", "span", "blockquote", "p"])
+
+/**
+ * ===========================================================================
+ *  IS THIS A THEME BLOCK
+ * ===========================================================================
+ * The `<schema>` of blocks/<type>.storelib. The same setting rules as a
+ * section's, plus what only a block has: the blocks it may hold (theme
+ * blocks only, by "@theme" or by name), its presets for the Add block menu,
+ * and the element it is wrapped in.
+ */
+export function validateBlockSchema(input: unknown, opts: ValidateOptions & { type: string }): Result<ThemeBlockSchema> {
+  const errors: ThemeError[] = []
+  const err = (path: string, message: string) =>
+    errors.push({ stage: "schema", file: opts.file, path, line: lineOf(path, opts), message })
+
+  const parsed = themeBlockSchemaShape.safeParse(input)
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.map((p) => (typeof p === "number" ? `[${p}]` : `.${p}`)).join("").replace(/^\./, "")
+      err(path || "(root)", issue.message)
+    }
+    return { ok: false, errors }
+  }
+  const s = parsed.data
+  const lang = readLanguageVersion(s.language_version)
+  if (lang.ok === false) err("language_version", lang.message)
+  if (s.schema_version !== undefined && s.schema_version > SECTION_SCHEMA_VERSION) {
+    err("schema_version", `schema_version ${s.schema_version} is newer than this engine understands (${SECTION_SCHEMA_VERSION})`)
+  }
+  if (!BLOCK_REF.test(opts.type)) err("(root)", `"${opts.type}" is not a block file name: lowercase letters, digits, - and _, optionally after one _`)
+  if (s.settings.length > LIMITS.settingsPerSchema) err("settings", `${s.settings.length} settings; the limit is ${LIMITS.settingsPerSchema}`)
+
+  const own = new Set(s.settings.filter((f) => holdsValue(f.type)).map((f) => f.id))
+  settingChecks(err, null).checkSettings(s.settings, "settings", new Set<string>(), own)
+
+  const list = s.blocks ?? []
+  list.forEach((b, i) => {
+    if (b.name !== undefined || b.settings !== undefined) {
+      err(`blocks[${i}]`, `a theme block holds theme blocks: write { "type": "@theme" } or the name of one, and give it a file in blocks/`)
+    }
+  })
+  const accepts = checkAccepts(list.filter((b) => b.name === undefined && b.settings === undefined) as { type: string }[], list as { type: string }[], err)
+  if (s.max_blocks !== undefined && s.max_blocks > LIMITS.blocksPerSection) err("max_blocks", `${s.max_blocks} is above the limit of ${LIMITS.blocksPerSection}`)
+
+  s.presets?.forEach((pr, i) => {
+    const p = `presets[${i}]`
+    for (const key of Object.keys(pr.settings ?? {})) {
+      if (!own.has(key)) err(`${p}.settings.${key}`, `preset sets "${key}", which is not a setting of this block`)
+    }
+    checkPresetBlocks(pr, `block ${p}`, err, { local: null, accepts })
+  })
+
+  if (s.tag !== undefined && s.tag !== null && !BLOCK_TAGS.has(s.tag)) {
+    err("tag", `"${s.tag}" cannot wrap a block. Use one of ${[...BLOCK_TAGS].join(", ")}, or null to print {{ block.storelib_attributes }} yourself`)
+  }
+  if (s.class !== undefined && !/^[A-Za-z0-9_ -]*$/.test(s.class)) err("class", `class is class names: letters, digits, - and _, separated by spaces`)
+  for (const c of s.capabilities ?? []) {
+    if (c !== "embed") err("capabilities", `a block may declare "embed" for a player. "${c}" belongs to a section, whose script can use it`)
+  }
+
+  if (errors.length) return { ok: false, errors }
+  const value = { ...s, type: opts.type, schema_version: s.schema_version ?? SECTION_SCHEMA_VERSION } as ThemeBlockSchema
+  delete (value as { blocks?: unknown }).blocks
+  if (accepts.length) value.accepts = accepts
+  return { ok: true, value }
+}
+
+/**
+ * ===========================================================================
+ *  THE SETTINGS OF A SECTION OR A BLOCK, AGAINST THE REGISTRY
+ * ===========================================================================
+ * One set of rules for every list of settings, wherever it is declared: a
+ * section's, a block it declares, a theme block file's. `sectionIds` is null
+ * for a theme block, which can sit in any section and so cannot make a
+ * setting depend on a section's.
+ */
+function settingChecks(err: (path: string, message: string) => void, sectionValueIds: Set<string> | null) {
+  type Setting = z.infer<typeof setting>
+  const checkCondition = (f: Setting, p: string, blockIds: Set<string> | null) => {
     if (f.visible_if === undefined) return
     const parsed = parseCondition(f.visible_if)
     if (parsed.ok === false) {
@@ -169,7 +439,8 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
       const [root, group, id] = segs
       const owner = root === "section" ? sectionValueIds : root === "block" ? blockIds : null
       if (group !== "settings" || !owner || !id) {
-        err(`${p}.visible_if`, `visible_if reads "${segs.join(".")}"; it may read section.settings.<id>${blockIds ? " or block.settings.<id>" : ""}`)
+        const may = [sectionValueIds ? "section.settings.<id>" : "", blockIds ? "block.settings.<id>" : ""].filter(Boolean).join(" or ")
+        err(`${p}.visible_if`, `visible_if reads "${segs.join(".")}"; it may read ${may}`)
       } else if (!owner.has(id)) {
         err(`${p}.visible_if`, `visible_if reads ${root}.settings.${id}, which is not a setting of this ${root}`)
       } else if (id === f.id) {
@@ -178,7 +449,7 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
     }
   }
 
-  const checkSettings = (list: typeof s.settings, at: string, seen = new Set<string>(), blockIds: Set<string> | null = null) => {
+  const checkSettings = (list: Setting[], at: string, seen = new Set<string>(), blockIds: Set<string> | null = null) => {
     list.forEach((f, i) => {
       const p = `${at}[${i}]`
       const control = controlFor(f.type)
@@ -230,40 +501,7 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
       checkCondition(f, p, blockIds)
     })
   }
-  checkSettings(s.settings, "settings")
-
-  const blockTypes = new Set<string>()
-  s.blocks?.forEach((b, i) => {
-    const p = `blocks[${i}]`
-    if (!TYPE.test(b.type)) err(`${p}.type`, `"${b.type}" is not a block type`)
-    if (blockTypes.has(b.type)) err(`${p}.type`, `block type "${b.type}" is declared twice`)
-    blockTypes.add(b.type)
-    checkSettings(b.settings, `${p}.settings`, new Set<string>(), new Set(b.settings.filter((f) => holdsValue(f.type)).map((f) => f.id)))
-  })
-  if (s.max_blocks !== undefined && s.max_blocks > LIMITS.blocksPerSection) {
-    err("max_blocks", `${s.max_blocks} is above the limit of ${LIMITS.blocksPerSection}`)
-  }
-
-  const settingIds = new Set(s.settings.filter((f) => holdsValue(f.type)).map((f) => f.id))
-  s.presets?.forEach((pr, i) => {
-    const p = `presets[${i}]`
-    for (const key of Object.keys(pr.settings ?? {})) {
-      if (!settingIds.has(key)) err(`${p}.settings.${key}`, `preset sets "${key}", which is not a setting of this section`)
-    }
-    pr.blocks?.forEach((pb, j) => {
-      if (!blockTypes.has(pb.type)) err(`${p}.blocks[${j}].type`, `preset adds a "${pb.type}" block, which this section does not declare`)
-    })
-  })
-
-  for (const list of ["allowed_templates", "disabled_templates"] as const) {
-    if (s.allowed_templates && s.disabled_templates) {
-      err(list, `use allowed_templates or disabled_templates, not both`)
-      break
-    }
-  }
-
-  if (errors.length) return { ok: false, errors }
-  return { ok: true, value: { ...s, schema_version: s.schema_version ?? SECTION_SCHEMA_VERSION } as SectionSchema }
+  return { checkSettings }
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

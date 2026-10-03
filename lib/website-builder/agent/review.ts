@@ -30,7 +30,8 @@
 import { resolveSectionColors, type SchemeColorKey } from "@/lib/storelib-theme/color-schemes"
 import { houseStyleFindings, readHouseStyle } from "./house-style"
 import { schemaOf, type SchemaMap } from "./schemas"
-import type { SchemaField, SectionInstance } from "../types"
+import type { BlockInstance, SchemaField, SectionInstance } from "../types"
+import { themeBlockCatalog } from "../storelib-schemas"
 import type { ThemeState } from "./operations"
 
 export interface Finding {
@@ -471,11 +472,50 @@ function thinFindings(section: SectionInstance, schemas?: SchemaMap): Finding[] 
  * A block with nothing in it renders as a gap in a list, which is worse than
  * one fewer entry — it looks broken rather than short.
  */
-function emptyBlockFindings(section: SectionInstance): Finding[] {
-  const empty = (section.blocks ?? []).filter((block) => {
-    const values = Object.values(block.settings ?? {})
-    return !values.some((v) => typeof v === "string" && v.trim().length > 0)
-  })
+/**
+ * THEME BLOCKS are judged by what they will draw. A Group has no words of its
+ * own and a picture has none at all, so "no text in it" says nothing about
+ * them; a Heading left at its file's default is not empty. So a section of
+ * theme blocks is read through each block's text fields, defaults applied,
+ * at every depth, and a block that has no text fields is not judged.
+ */
+const TEXT_TYPES = new Set(["text", "textarea", "richtext", "inline_richtext"])
+const MEDIA_TYPES = new Set(["image_picker", "video_picker", "video_url", "image_gallery"])
+
+function themeBlockTexts(section: SectionInstance, schemas?: SchemaMap): { block: BlockInstance; texts: string[] }[] | null {
+  if (!schemaOf(schemas, section.type)?.accepts?.length) return null
+  const catalog = themeBlockCatalog()
+  const out: { block: BlockInstance; texts: string[] }[] = []
+  const walk = (list: BlockInstance[] | undefined) => {
+    for (const block of list ?? []) {
+      const all = catalog[block.type]?.fields ?? []
+      const fields = all.filter((f) => TEXT_TYPES.has(f.type))
+      /* A picture or a video is what such a block is for; its caption is not. */
+      const media = all.some((f) => MEDIA_TYPES.has(f.type))
+      if (fields.length && !media) {
+        out.push({
+          block,
+          texts: fields.map((f) => {
+            const v = block.settings?.[f.id] ?? f.default
+            return typeof v === "string" ? v.replace(/<[^>]*>/g, " ").trim() : ""
+          }),
+        })
+      }
+      walk(block.blocks)
+    }
+  }
+  walk(section.blocks)
+  return out
+}
+
+function emptyBlockFindings(section: SectionInstance, schemas?: SchemaMap): Finding[] {
+  const themed = themeBlockTexts(section, schemas)
+  const empty = themed
+    ? themed.filter((t) => t.texts.every((v) => v === "")).map((t) => t.block)
+    : (section.blocks ?? []).filter((block) => {
+        const values = Object.values(block.settings ?? {})
+        return !values.some((v) => typeof v === "string" && v.trim().length > 0)
+      })
   if (empty.length === 0) return []
   return [
     {
@@ -524,14 +564,17 @@ function identity(settings: Record<string, unknown>): string | null {
   return json === "{}" ? null : json
 }
 
-function duplicateBlockFindings(section: SectionInstance): Finding[] {
-  const blocks = section.blocks ?? []
-  if (blocks.length < 2) return []
+function duplicateBlockFindings(section: SectionInstance, schemas?: SchemaMap): Finding[] {
+  const themed = themeBlockTexts(section, schemas)
+  /* A theme block is the same as another only in what it says: three empty picture slots are three pictures to choose. */
+  const identities: (string | null)[] = themed
+    ? themed.map((t) => (t.texts.some((v) => v !== "") ? `${t.block.type}:${t.texts.join("|")}` : null))
+    : (section.blocks ?? []).map((block) => identity(block.settings ?? {}))
+  if (identities.length < 2) return []
 
   const seen = new Map<string, number>()
   const duplicates: string[] = []
-  for (const block of blocks) {
-    const first = identity(block.settings ?? {})
+  for (const first of identities) {
     if (typeof first !== "string") continue
     const key = first.trim().toLowerCase()
     const count = (seen.get(key) ?? 0) + 1
@@ -617,8 +660,8 @@ export function reviewSections(input: ReviewInput): Finding[] {
     findings.push(...houseStyleFindings({ section, written, style }))
     findings.push(...copyFindings(section, written, new Set(input.writtenBlocks?.[id] ?? []), schemas))
     findings.push(...emptyFindings(section, written))
-    findings.push(...duplicateBlockFindings(section))
-    findings.push(...emptyBlockFindings(section))
+    findings.push(...duplicateBlockFindings(section, schemas))
+    findings.push(...emptyBlockFindings(section, schemas))
     if (added.includes(id)) findings.push(...untouchedPresetFindings(section))
     if (added.includes(id) || (input.filled ?? []).includes(id)) {
       findings.push(...thinFindings(section))

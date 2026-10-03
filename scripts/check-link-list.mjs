@@ -104,16 +104,31 @@ async function phone(browser, width) {
 
   const layout = await p.evaluate(() => {
     const rows = [...document.querySelectorAll('#header-links [data-link-level="top"] > [data-reorder-row]')]
-    const bars = rows.map((r) => r.firstElementChild.firstElementChild.getBoundingClientRect().height)
+    const bars = [...document.querySelectorAll("#header-links [data-link-row] > div > div:first-child")].map((b) => Math.round(b.getBoundingClientRect().height))
     const gaps = rows.slice(1).map((r, i) => Math.round(r.getBoundingClientRect().top - rows[i].getBoundingClientRect().bottom))
-    const add = [...document.querySelectorAll("#header-links button")].find((b) => b.textContent.trim() === "Add link")
-    const where = [...document.querySelectorAll("#header-links [data-link-where]")].map((e) => e.textContent)
-    return { bars, gaps, add: add ? Math.round(add.getBoundingClientRect().height) : 0, addBorder: add ? getComputedStyle(add).borderTopStyle : "", where, wide: document.documentElement.scrollWidth, text: document.querySelector("#header-links").innerText }
+    const label = document.querySelector('#header-links [data-link-row="home"] [data-link-label]')
+    const add = document.querySelector('#header-links [data-link-add="top"]')
+    const kid = document.querySelector('#header-links [data-link-row="ebooks"] [data-link-grip]').getBoundingClientRect().left
+    const parent = document.querySelector('#header-links [data-link-row="shop"] [data-link-grip]').getBoundingClientRect().left
+    const subAdd = document.querySelector('#header-links [data-link-add="shop"]')
+    return {
+      bars, gaps,
+      font: parseFloat(getComputedStyle(label).fontSize),
+      add: add ? Math.round(add.getBoundingClientRect().height) : 0,
+      addBorder: add ? getComputedStyle(add).borderTopStyle : "",
+      where: document.querySelectorAll("#header-links [data-link-where]").length,
+      indent: Math.round(kid - parent),
+      subAdd: subAdd ? subAdd.textContent.trim() : null,
+      wide: document.documentElement.scrollWidth, text: document.querySelector("#header-links").innerText,
+    }
   })
-  expect(layout.bars.every((h) => h >= 44), "every link row is 44px or taller", layout.bars)
-  expect(layout.gaps.every((g) => g === 8), "rows are 8px apart", layout.gaps)
-  expect(layout.add >= 44 && layout.addBorder === "dashed", "Add link is one dashed row at the bottom", { h: layout.add, border: layout.addBorder })
-  expect(layout.where.join("|") === "Home|Shop|/products?type=ebook|/products?type=course|About|instagram.com", "each row says where it goes in a few words", layout.where)
+  expect(layout.bars.every((h) => h === 44), "every link row is 44px under a thumb", layout.bars)
+  expect(layout.gaps.every((g) => g === 0), "rows sit in one box, a hairline apart", layout.gaps)
+  expect(layout.font === 15, "a row's name is 15px on a phone", layout.font)
+  expect(layout.add === 44 && layout.addBorder === "solid", "Add link is the box's last row", { h: layout.add, border: layout.addBorder })
+  expect(layout.where === 0, "where a link goes is not printed again on its row", layout.where)
+  expect(layout.indent > 0 && layout.indent <= 24, "a sub-link sits one modest step in", layout.indent)
+  expect(layout.subAdd === "Add link to Shop", "the sub-links end with Add link to Shop", layout.subAdd)
   expect(!/Handle|Links to|Submenu|Delete link/.test(layout.text), "no Handle, Links to or Submenu block", layout.text.slice(0, 120))
   expect(layout.wide <= width, `nothing is wider than ${width}px`, layout.wide)
   await p.screenshot({ path: join(shots, `${label}-list.png`), fullPage: true })
@@ -142,23 +157,40 @@ async function phone(browser, width) {
   expect((await kidsOf(p, "shop")) === "courses,ebooks", "a sub-link moves above its sibling", await kidsOf(p, "shop"))
   expect((await topOrder(p)) === "shop,about,home,insta", "and the top level does not move", await topOrder(p))
 
-  /* ── a tap opens two fields ── */
+  /* ── a tap opens two fields, by the panel's own height ── */
   await p.tap('[data-link-row="about"] [aria-expanded]')
-  await sleep(150)
+  /* Mid-way: the rows under it are on their way down, not already there. */
+  await sleep(90)
+  const half = await p.evaluate(() => {
+    const r = document.querySelector('[data-link-row="about"] [data-link-reveal]')
+    return r ? { h: Math.round(r.getBoundingClientRect().height), o: Number(getComputedStyle(r).opacity) } : null
+  })
+  await sleep(260)
+  const done = await p.evaluate(() => {
+    const r = document.querySelector('[data-link-row="about"] [data-link-reveal]')
+    return r ? { h: Math.round(r.getBoundingClientRect().height), o: Number(getComputedStyle(r).opacity) } : null
+  })
+  expect(half && done && half.h > 0 && half.h < done.h && done.o === 1, "the panel opens by its height, part way at 90ms", { half, done })
   const panel = await p.evaluate(() => {
     const el = document.querySelector('[data-link-row="about"] [data-link-panel]')
     if (!el) return null
     const labels = [...el.querySelectorAll("span.mb-1\\.5")].map((s) => s.textContent)
     const remove = [...el.querySelectorAll("button")].find((b) => b.textContent.trim() === "Remove link")
-    return { labels, remove: !!remove, sub: [...el.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add sub-link"), inputs: el.querySelectorAll("input").length }
+    return {
+      labels, remove: !!remove,
+      sub: [...el.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add link to About"),
+      nest: [...el.querySelectorAll("button")].map((b) => b.textContent.trim()).find((t) => t.startsWith("Move")),
+      inputs: el.querySelectorAll("input").length,
+    }
   })
   expect(panel && panel.labels.join("|") === "Label|Link" && panel.inputs === 2, "an opened link asks for Label and Link, nothing else", panel)
   const rest = await rgbOf(p, '[data-link-row="about"] [data-link-panel] button', "Remove link")
   expect(panel && panel.remove && rest && rest[0] - rest[2] < 30, "Remove link is grey at rest, not red", rest)
-  expect(panel && panel.sub, "Add sub-link is a text action in the opened row")
+  expect(panel && panel.sub, "Add link to About is a text action in the opened row")
+  expect(panel && panel.nest === "Move under Shop", "and so is Move under Shop", panel && panel.nest)
   await p.screenshot({ path: join(shots, `${label}-open.png`), fullPage: true })
 
-  await p.$$eval('[data-link-row="about"] [data-link-panel] button', (bs) => bs.find((b) => b.textContent.trim() === "Add sub-link").click())
+  await p.$$eval('[data-link-row="about"] [data-link-panel] button', (bs) => bs.find((b) => b.textContent.trim() === "Add link to About").click())
   await sleep(150)
   const added = await p.evaluate(() => {
     const kid = window.__blocks.find((b) => b.settings.parent_id === "about")
@@ -167,9 +199,52 @@ async function phone(browser, width) {
   })
   expect(added.kid === "New link" && added.open === "New link", "Add sub-link adds one under About, opened", added)
 
-  await p.$$eval("[data-link-panel] button", (bs) => bs.find((b) => b.textContent.trim() === "Remove link").click())
+  await sleep(200)
+  await p.$$eval("[data-link-reveal]:not([inert]) [data-link-panel] button", (bs) => bs.find((b) => b.textContent.trim() === "Remove link").click())
   await sleep(120)
   expect((await kidsOf(p, "about")) === "", "Remove link removes it", await kidsOf(p, "about"))
+
+  /* ── a finger drags Instagram right: it goes under Home, the link above it ── */
+  await sleep(250)
+  const flat = () => p.evaluate(() => window.__blocks.filter((b) => b.type === "nav_link").map((b) => b.id).join(","))
+  const instaGrip = await centre(p, gripOf("insta"))
+  const sideways = async (from, dx) => {
+    await p.touchscreen.touchStart(from.x, from.y)
+    for (let i = 1; i <= 10; i++) {
+      await p.touchscreen.touchMove(from.x + (dx * i) / 10, from.y)
+      await sleep(16)
+    }
+    const seen = await p.evaluate(() => ({
+      transform: document.querySelector('[data-link-row="insta"]').style.transform,
+      intent: document.querySelector('[data-link-nesting]')?.getAttribute("data-link-nesting") ?? null,
+    }))
+    await p.touchscreen.touchEnd()
+    await sleep(150)
+    return seen
+  }
+  const held = await sideways(instaGrip, 34)
+  expect(/translate3d\(20px, 0px/.test(held.transform) && held.intent === "in", "held right, the row moves one step in and says it will nest", held)
+  const nested = await p.evaluate(() => window.__blocks.find((b) => b.id === "insta").settings.parent_id)
+  expect(nested === "home", "let go, Instagram is a sub-link of Home", nested)
+  expect((await flat()).endsWith("home,insta"), "and it follows Home in the saved list", await flat())
+
+  /* ── the opened sub-link says Move out of Home ── */
+  await p.tap('[data-link-row="insta"] [aria-expanded]')
+  await sleep(300)
+  const outLabel = await p.$eval('[data-link-row="insta"] [data-link-unnest]', (b) => b.textContent.trim()).catch(() => null)
+  expect(outLabel === "Move out of Home", "an opened sub-link offers Move out of Home", outLabel)
+  await p.tap('[data-link-row="insta"] [data-link-unnest]')
+  await sleep(150)
+  const out = await p.evaluate(() => ({ has: "parent_id" in window.__blocks.find((b) => b.id === "insta").settings }))
+  expect(!out.has && (await topOrder(p)).endsWith("home,insta"), "and it comes back out, right after Home", { ...out, order: await topOrder(p) })
+
+  /* ── Shop has sub-links, so it cannot go under About: three levels are not drawn ── */
+  await sleep(250)
+  const shopGrip = await centre(p, gripOf("shop"))
+  await p.evaluate(() => { window.__before = window.__saves.header })
+  const refused = await sideways(shopGrip, 40)
+  void refused
+  expect(await p.evaluate(() => !window.__blocks.find((b) => b.id === "shop").settings.parent_id && window.__saves.header === window.__before), "a link with sub-links does not nest", await p.evaluate(() => window.__saves.header - window.__before))
 
   /* ── a menu, by finger ── */
   await p.$$eval("#menus button", (bs) => bs.find((b) => b.getAttribute("aria-expanded") !== null && /Footer/.test(b.textContent)).click())
@@ -210,7 +285,8 @@ async function desktop(browser) {
   await p.evaluate(() => { document.getElementById("app").style.width = "300px" })
   await sleep(100)
   const bar = await p.$eval('[data-link-row="home"] > div > div', (el) => el.getBoundingClientRect().height)
-  expect(bar >= 40, "a row is 40px on a computer", bar)
+  const font = await p.$eval('[data-link-row="home"] [data-link-label]', (el) => parseFloat(getComputedStyle(el).fontSize))
+  expect(bar === 36 && font === 13, "a row is 36px with 13px type on a computer", { bar, font })
   const insta = await centre(p, gripOf("insta"))
   const home = await centre(p, '[data-link-row="home"]')
   await mouseDrag(p, insta, home.top + 4)
@@ -220,8 +296,18 @@ async function desktop(browser) {
   await p.keyboard.press("ArrowDown")
   await sleep(80)
   expect((await topOrder(p)) === "home,insta,shop,about", "Arrow Down on a focused grip moves it one place", await topOrder(p))
+  /* Right puts it under the link above, Left takes it back out. */
+  await p.focus(gripOf("insta"))
+  await p.keyboard.press("ArrowRight")
+  await sleep(80)
+  expect((await kidsOf(p, "home")) === "insta", "Arrow Right nests Instagram under Home", await kidsOf(p, "home"))
+  await p.focus(gripOf("insta"))
+  await p.keyboard.press("ArrowLeft")
+  await sleep(80)
+  expect((await kidsOf(p, "home")) === "" && (await topOrder(p)) === "home,insta,shop,about", "Arrow Left brings it back out where it was", await topOrder(p))
   await p.click('[data-link-row="shop"] [aria-expanded]')
-  await sleep(120)
+  /* Past the 200ms the panel takes to open: mid-way it is still clipped. */
+  await sleep(320)
   await p.hover("[data-link-panel] [data-link-remove]")
   await sleep(250)
   const red = await rgbOf(p, "[data-link-panel] [data-link-remove]")

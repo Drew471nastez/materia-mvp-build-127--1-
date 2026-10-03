@@ -491,7 +491,7 @@ export function SectionWrapper({
         // selected/hover states because `ring-inset` is a box-shadow on the
         // wrapper itself — it gets painted UNDER any child that has its own
         // opaque background (e.g. the header's inner `background: bg` div),
-        // which made the blue selection outline invisible on header/footer.
+        // which made the selection outline invisible on header/footer.
         // Instead we render an absolutely-positioned overlay below so the
         // ring sits ABOVE all children's backgrounds.
         className,
@@ -508,16 +508,17 @@ export function SectionWrapper({
         <span
           aria-hidden
           className="wb-ring absolute inset-0 pointer-events-none z-[9997] opacity-0 group-hover/section:opacity-100 transition-opacity"
-          style={{ boxShadow: "inset 0 0 0 2px rgba(59, 130, 246, 0.5)", ...ringRadiusStyle }}
+          style={{ boxShadow: "inset 0 0 0 2px rgba(139, 92, 246, 0.5)", ...ringRadiusStyle }}
         />
       )}
-      {/* Selected ring — solid blue, renders ABOVE all children so opaque
-          child backgrounds (header inner div, footer, etc.) can't hide it. */}
+      {/* Selected ring: solid Storelib violet (#8b5cf6, the editor's accent, not
+          a blue), above all children so opaque child backgrounds (header
+          inner div, footer, etc.) can't hide it. */}
       {isEditing && isSelected && (
         <span
           aria-hidden
           className="wb-ring absolute inset-0 pointer-events-none z-[9998]"
-          style={{ boxShadow: "inset 0 0 0 2px #3b82f6", ...ringRadiusStyle }}
+          style={{ boxShadow: "inset 0 0 0 2px #8b5cf6", ...ringRadiusStyle }}
         />
       )}
       {/* "Selected" badge — anchored to bottom-right so it never overlaps
@@ -526,7 +527,7 @@ export function SectionWrapper({
         <span
           className="wb-ring absolute bottom-2 right-2 z-[9999] pointer-events-none select-none"
           style={{
-            background: "#3b82f6",
+            background: "#8b5cf6",
             color: "#fff",
             fontSize: "11px",
             fontWeight: 600,

@@ -104,31 +104,32 @@ function main() {
     /const visible = visibleFields\(schema\.fields, section\.settings\)/.test(editor) &&
       /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="px-3\.5 py-3\.5 space-y-3\.5">\s*\{clean\.map\(field => \(/.test(editor))
   check("and a block's the same way, its conditions reading the section's settings as well",
-    /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{visibleFields\(blockSchema\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)\.map\(field => \(/.test(editor))
+    /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{visibleFields\(def\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)\.map\(\(field\) => \(/.test(editor))
   check("the newer controls are drawn by the controls folder first, and Insert shop data wraps every field",
     /const registered = renderRegisteredControl\(kind, field, raw, onChange\)/.test(editor) && /<DynamicSourceField field=\{props\.field\}[^>]*label=\{label\}>/.test(editor))
   {
     /* "On hover it flickers ... make it how Shopify displays that": scripts/check-dynamic-source.mjs measures it. */
     const dyn = read("components/website-builder/editor/controls/dynamic-source-field.tsx").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\{\/\*[\s\S]*?\*\/\}/g, " ")
     check("Insert shop data is a square button at the end of the label row, named for a screen reader",
-      /export const INSERT_LABEL = "Insert shop data"/.test(dyn) && /aria-label=\{INSERT_LABEL\}/.test(dyn) && /data-dynamic-label=""/.test(dyn) && /inline-flex h-\[22px\] w-\[22px\]/.test(dyn) && !/TooltipContent/.test(dyn) && /<Database /.test(dyn))
+      /export const INSERT_LABEL = "Insert shop data"/.test(dyn) && /aria-label=\{INSERT_LABEL\}/.test(dyn) && /data-dynamic-label=""/.test(dyn) && /inline-flex h-\[18px\] w-\[18px\]/.test(dyn) && /<Database className="h-3 w-3"/.test(dyn) && !/TooltipContent/.test(dyn) && /<Database /.test(dyn))
     /*
-      A LITTLE DEPTH, AND A BACKGROUND OF ITS OWN. 26px now, one shade of the
-      app's light-surface depth (components/ui/depth-button.ts): a hairline
-      ring, a shade in its foot, one soft pixel under it, flat with the shade
-      inside while it is pressed or open. `bg-white` is load-bearing beyond
-      the look: globals.css clears :hover backgrounds inside the phone
-      sheets, where a touch screen leaves :hover on the last thing tapped,
-      and its opt-out is an element that sets its own background — without it
-      the open state was erased under a thumb. Nothing may hide behind a
-      `hover:shadow`, which that same block strips to none.
-      scripts/check-dynamic-source.mjs measures all of it in a browser.
+      SMALL AND QUIET, WITH A BACKGROUND OF ITS OWN. "Too big and loud": an
+      18px glyph button now, a 12px glyph in a light grey that darkens under
+      the pointer, with no ring and no shadow. `bg-transparent` is
+      load-bearing beyond the look: globals.css clears :hover backgrounds
+      inside the phone sheets, where a touch screen leaves :hover on the
+      last thing tapped, and its opt-out is an element that sets its own
+      background; without it the open state was erased under a thumb. Its
+      hit area stays 26px under a mouse and 44px under a thumb through a
+      ::before. scripts/check-dynamic-source.mjs and
+      scripts/check-builder-sidebar.mjs measure it in a browser.
     */
-    check("it wears a little of the app's light-surface depth, with a background of its own",
-      /rounded-\[5px\] bg-white/.test(dyn) &&
-        /shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.08\),inset_0_-1px_0_rgba\(15,23,42,0\.06\),0_1px_1px_rgba\(15,23,42,0\.05\)\]/.test(dyn) &&
-        /aria-expanded:shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.10\),inset_0_1px_2px_rgba\(15,23,42,0\.12\)\]/.test(dyn) &&
+    check("it is a quiet grey glyph that darkens under the pointer, with a background of its own and no depth",
+      /rounded-\[4px\] bg-transparent/.test(dyn) && /text-\[#9ca3af\]/.test(dyn) && /hover:text-\[#374151\]/.test(dyn) &&
+        /aria-expanded:bg-\[#eceef1\]/.test(dyn) && !/shadow-\[/.test(dyn) &&
         !/hover:shadow/.test(dyn) && /\[-webkit-tap-highlight-color:transparent\]/.test(dyn))
+    check("and still answers over 26px under a mouse and 44px under a thumb",
+      /before:-inset-1 max-sm:before:-inset-x-\[13px\] max-sm:before:-top-\[22px\] max-sm:before:-bottom-1/.test(dyn))
     check("and it says whether this setting reads the shop",
       /const connected = !!bound \|\| named\.length > 0/.test(dyn) && /data-connected=\{connected \? "" : undefined\}/.test(dyn))
     /* A number setting cannot hold "": the canvas would fall back to the default while the sidebar showed an empty box. */

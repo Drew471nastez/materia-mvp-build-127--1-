@@ -90,7 +90,10 @@ import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/u
 import { DateRangePicker } from "@/components/app/date-range-picker";
 import { HelpLabel } from "@/components/app/help-label";
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu";
-import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button";
+import { accentDepth, criticalDepth, primaryDepth, secondaryDepth } from "@/components/ui/depth-button";
+import { decimalsOf } from "@/lib/payments/money";
+import { pickBalance } from "@/lib/payments/display-currency";
+import { forgetOverview, warmOverview } from "@/lib/payments/overview-cache";
 import { RowMenuButton, StatusBadge, card, iconButton } from "@/app/app/orders/order-parts";
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
@@ -114,6 +117,8 @@ interface OrderPayment {
   id: string;
   amount_cents: number;
   fee_cents: number;
+  /** The currency the sale was charged in. */
+  currency?: string | null;
   created_at: string;
   status: string;
   customer_email?: string;
@@ -173,16 +178,24 @@ interface ChartPoint {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(cents: number, currency = "usd") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
+/** An amount in its own currency, with that currency's decimals (0 for yen, 2 for lei and dollars). */
+function fmt(minor: number, currency = "usd") {
+  const code = (currency || "usd").toUpperCase();
+  const d = decimalsOf(code);
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: d,
+      maximumFractionDigits: d,
+    }).format(minor / 10 ** d);
+  } catch {
+    return `${(minor / 10 ** d).toFixed(d)} ${code}`;
+  }
 }
 
-function fmtCompact(cents: number, currency = "usd") {
-  const val = cents / 100;
+function fmtCompact(minor: number, currency = "usd") {
+  const val = minor / 10 ** decimalsOf(currency);
   if (val >= 1_000_000)
     return `${(val / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (val >= 1_000) return `${(val / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
@@ -193,6 +206,23 @@ function fmtCompact(cents: number, currency = "usd") {
     maximumFractionDigits: val % 1 === 0 ? 0 : 2,
   }).format(val);
 }
+
+/** A day from Stripe (YYYY-MM-DD) as people read it: "Oct 12". */
+function fmtDay(day: string) {
+  const d = new Date(`${day}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return day;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+/** The settlement wait in words, from the account's own schedule when Stripe gave it. */
+function settleText(days: number | null) {
+  return days && days > 0
+    ? `New sales become available about ${days} days after they are paid.`
+    : "New sales become available after a short settlement wait.";
+}
+
+/** The help article on how payouts work (lib/help/articles.ts). */
+const HOW_PAYOUTS_WORK = "/help/orders-and-payouts/how-payouts-work";
 
 function fmtDate(dateStr: string) {
   const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
@@ -304,6 +334,8 @@ function customerNameOf(order: OrderPayment): string | null {
 */
 const LOOK_SECONDARY = cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]");
 const LOOK_PRIMARY = cn(primaryDepth, "h-8 gap-1.5 rounded-lg px-3 text-[13px]");
+/** Cash out, the page's one violet action (the owner: "you can make the Cash out button purple"). */
+const LOOK_CASH_OUT = cn(accentDepth, "h-8 gap-1.5 rounded-lg px-3 text-[13px]");
 /** The square beside the primary on a phone (Export as a download icon). */
 const LOOK_ICON = cn(secondaryDepth, "h-8 w-8 rounded-lg px-0 text-[#4b5563]");
 /** A pager arrow in a list's footer. */
@@ -316,6 +348,7 @@ const LOOK_ARROW = cn(secondaryDepth, "h-7 w-8 rounded-lg px-0 text-[#4b5563]");
 */
 const SHEET_SECONDARY = cn(secondaryDepth, "h-11 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]");
 const SHEET_PRIMARY = cn(primaryDepth, "h-11 gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px] disabled:cursor-not-allowed disabled:opacity-50");
+const SHEET_CASH_OUT = cn(accentDepth, "h-11 gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px] disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:opacity-50");
 
 /** Orders' dialog: white, 16px round, a deep soft shadow, no padding of its own. */
 const DIALOG_PANEL =
@@ -562,7 +595,7 @@ function PanelHead({ title, description, onClose }: { title: string; description
  * which has no number to keep, waits as its own shape (ShimmerChart), which
  * shows only after 200ms, so a quick answer never flashes one.
  */
-function RevenueChart() {
+function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
   /* The date picker every page in /app shares. All time by default, as before. */
   const timeZone = useMemo(() => viewerTimeZone(), []);
   const today = todayIn(timeZone, Date.now());
@@ -572,7 +605,9 @@ function RevenueChart() {
   const [total, setTotal] = useState(0);
   const [totalGross, setTotalGross] = useState(0);
   const [totalRefunds, setTotalRefunds] = useState(0);
-  const [currency, setCurrency] = useState("usd");
+  const [currency, setCurrency] = useState(initialCurrency);
+  /* Sales in another currency in the period: shown beside the chart, never added into it. */
+  const [otherCurrencies, setOtherCurrencies] = useState<Array<{ currency: string; gross: number }>>([]);
   const [isHourly, setIsHourly] = useState(false); // true for today/yesterday (hourly buckets)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -598,6 +633,7 @@ function RevenueChart() {
       setTotalRefunds(json.totalRefunds || 0);
       setIsHourly(json.isHourly || false);
       if (json.currency) setCurrency(json.currency.toLowerCase());
+      setOtherCurrencies(Array.isArray(json.otherCurrencies) ? json.otherCurrencies : []);
     } catch (e: any) {
       if (!silent) setError(e.message);
     } finally {
@@ -822,6 +858,11 @@ function RevenueChart() {
             Refunds <span className="tabular-nums">−{fmt(totalRefunds, currency)}</span>
           </span>
         ) : null}
+        {!loading && !error && otherCurrencies.length > 0 ? (
+          <span className="ml-auto truncate tabular-nums text-[#9ca3af]" data-other-currencies="">
+            Plus {otherCurrencies.map((o) => fmt(o.gross, o.currency)).join(", ")}
+          </span>
+        ) : null}
       </div>
     </section>
   );
@@ -888,20 +929,18 @@ function useWithdraw(onSuccess: () => void) {
 
 type Withdraw = ReturnType<typeof useWithdraw>;
 
-type HoldItem = {
-  id: string;
-  amount_cents: number;
-  hold_until: string;
-  description: string;
-};
+/** Money becoming available on a day, from Stripe's pending balance transactions. */
+type Upcoming = { date: string; amount: number; currency: string };
 
 /**
  * THE BALANCE CARD. Three figures on one row from 640px, and on a phone the
  * one that matters (what can be cashed out now) across the top at 26px with
- * the other two under it, the way Wallet leads with the balance. Under them
- * one plain line on what Cash out does, or why it cannot yet. Details opens
- * the panel with the rows behind the figures, the sales still settling and
- * the bank the money goes to.
+ * the other two under it, the way Wallet leads with the balance. Every
+ * figure is Stripe's, in the currency Stripe holds it in; "Arriving soon"
+ * says the day the next of it becomes available, from Stripe's own pending
+ * transactions, not a guessed "2 to 7 days". Under them one plain line on
+ * what Cash out does, or why it cannot yet. Details opens the panel with the
+ * days money arrives and the bank it goes to.
  */
 function BalanceCard({
   available,
@@ -910,6 +949,8 @@ function BalanceCard({
   negativeBalance,
   balanceReady,
   currency,
+  upcoming,
+  settleDays,
   payoutsEnabled,
   withdraw,
   onDetails,
@@ -920,23 +961,27 @@ function BalanceCard({
   negativeBalance: number;
   balanceReady: boolean;
   currency: string;
+  upcoming: Upcoming[];
+  settleDays: number | null;
   payoutsEnabled: boolean;
   withdraw: Withdraw;
   onDetails: () => void;
 }) {
-  // Effective balance: what the seller actually has.
-  // If negative_balance > 0, the seller owes money (refund or dispute debt)
-  const effectiveBalance = available - negativeBalance;
+  /* Stripe's available balance already carries a refund or a dispute taken back; below zero is shown as it is. */
+  const effectiveBalance = available;
   const isNegative = effectiveBalance < 0;
   const canCashOut = effectiveBalance > 0 && negativeBalance === 0;
+  const next = upcoming[0];
 
   const helper = !payoutsEnabled
     ? "Finish setting up payments to cash out."
     : isNegative
       ? "Your balance is below zero after a refund or dispute. New sales cover it first, with nothing for you to do."
       : effectiveBalance <= 0
-        ? "New sales take 2 to 7 business days to settle before you can cash them out."
-        : "Cash out sends your whole available balance to your bank. Minimum $1.00.";
+        ? next
+          ? `${fmt(next.amount, next.currency)} becomes available on ${fmtDay(next.date)}.`
+          : settleText(settleDays)
+        : "Cash out sends your whole available balance to your bank.";
 
   return (
     <section aria-label="Balance" data-balance="" className={cn(card, "overflow-hidden")}>
@@ -976,7 +1021,7 @@ function BalanceCard({
           className="border-[#eef0f2] sm:border-l"
           label="Arriving soon"
           value={fmt(pending, currency)}
-          foot="Settling, 2 to 7 days"
+          foot={pending > 0 && next ? `Next on ${fmtDay(next.date)}` : pending > 0 ? "Settling" : "Nothing settling"}
           loading={!balanceReady}
         />
         <Figure
@@ -1001,7 +1046,7 @@ function BalanceCard({
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-[#eef0f2] bg-[#fafafb] px-4 py-2.5">
         <p className={cn("min-w-0 text-[12px] leading-5", isNegative ? "text-[#8a1c0f]" : "text-[#6b7280]")}>{helper}</p>
         <a
-          href="https://storelib.com/help"
+          href={HOW_PAYOUTS_WORK}
           className="shrink-0 text-[12px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline max-md:-my-3 max-md:inline-flex max-md:h-11 max-md:items-center"
         >
           How payouts work
@@ -1012,12 +1057,11 @@ function BalanceCard({
 }
 
 /**
- * DETAILS: THE ROWS BEHIND THE FIGURES. What were two panels (Balance
- * Breakdown, with each sale still settling and the day it is due, and See
- * details, with the total, the bank and a second Withdraw) is this one: a
- * dialog on a computer, the shared sheet on a phone. What it reads, and
- * when, is what they read: the holds from /api/stripe/seller-balance and the
- * bank from /api/stripe/payout-method, the first time it opens.
+ * DETAILS: THE ROWS BEHIND THE FIGURES. A dialog on a computer, the shared
+ * sheet on a phone: what is available, what is arriving and the day each
+ * part of it becomes available (Stripe's pending transactions, read with
+ * the balance), what is on the way to the bank, and the bank it goes to,
+ * read from /api/stripe/payout-method the first time it opens.
  */
 function BalanceDetails({
   open,
@@ -1026,8 +1070,9 @@ function BalanceDetails({
   pending,
   inTransit,
   currency,
-  holdItems,
-  holdItemsLoading,
+  upcoming,
+  upcomingLoading,
+  settleDays,
   bank,
   bankLoading,
   onUpdateBank,
@@ -1042,8 +1087,9 @@ function BalanceDetails({
   pending: number;
   inTransit: number;
   currency: string;
-  holdItems: HoldItem[];
-  holdItemsLoading: boolean;
+  upcoming: Upcoming[];
+  upcomingLoading: boolean;
+  settleDays: number | null;
   bank: { bankName: string | null; last4: string; currency: string } | null;
   bankLoading: boolean;
   onUpdateBank: () => void;
@@ -1057,21 +1103,15 @@ function BalanceDetails({
       <div className="rounded-xl border border-[#eceef1] px-3 py-2">
         <Line label="Available to cash out" value={fmt(available, currency)} />
         <Line label="Arriving soon" value={fmt(pending, currency)} />
-        {/* Each sale still settling, and the day it becomes available. */}
-        {holdItemsLoading ? (
+        {/* The day each part of it becomes available, from Stripe. */}
+        {upcomingLoading ? (
           <ShimmerRows className="pb-1 pl-3" rows={3} rowHeight={20} cols={["45%", "22%"]} divided={false} inset={false} />
-        ) : holdItems.length > 0 ? (
-          <ul className="mb-1 ml-3 border-l border-[#eceef1] pl-3" data-holds="">
-            {holdItems.map((item) => (
-              <li key={item.id} className="flex items-baseline justify-between gap-3 py-0.5 text-[12px] text-[#6b7280]">
-                <span className="min-w-0 truncate">{item.description}</span>
-                <span className="shrink-0 whitespace-nowrap tabular-nums">
-                  {new Date(item.hold_until) <= new Date()
-                    ? "Ready"
-                    : new Date(item.hold_until).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  {" · "}
-                  {fmt(item.amount_cents, currency)}
-                </span>
+        ) : upcoming.length > 0 ? (
+          <ul className="mb-1 ml-3 border-l border-[#eceef1] pl-3" data-upcoming="">
+            {upcoming.map((item) => (
+              <li key={item.date} className="flex items-baseline justify-between gap-3 py-0.5 text-[12px] text-[#6b7280]">
+                <span className="min-w-0 truncate">Available {fmtDay(item.date)}</span>
+                <span className="shrink-0 whitespace-nowrap tabular-nums">{fmt(item.amount, item.currency)}</span>
               </li>
             ))}
           </ul>
@@ -1081,7 +1121,10 @@ function BalanceDetails({
         {inTransit > 0 ? <Line label="On the way to your bank" value={fmt(inTransit, currency)} muted /> : null}
       </div>
       <p className="mt-3 text-[12px] leading-5 text-[#6b7280]">
-        Stripe settles each sale in 2 to 7 business days, depending on your country. Once it has settled you can cash it out, and it usually reaches your bank in 1 to 3 business days.
+        {settleDays && settleDays > 0
+          ? `Each sale becomes available about ${settleDays} days after it is paid. That wait is set by our payment partner for your country and protects against refunds and disputes.`
+          : "Each sale becomes available after a short settlement wait set by our payment partner for your country."}{" "}
+        Once it is available you can cash it out, and it usually reaches your bank in 1 to 3 business days.
       </p>
       <div className="mt-3 border-t border-[#f0f1f3] pt-3">
         {bankLoading ? (
@@ -1117,7 +1160,7 @@ function BalanceDetails({
         Close
       </button>
       {payoutsEnabled ? (
-        <button type="button" className={SHEET_PRIMARY} onClick={onCashOut} disabled={cashingOut} aria-disabled={!canCashOut || undefined}>
+        <button type="button" className={SHEET_CASH_OUT} onClick={onCashOut} disabled={cashingOut} aria-disabled={!canCashOut || undefined}>
           {cashingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {cashingOut ? "Cashing out" : canCashOut ? `Cash out ${fmt(available, currency)}` : "Cash out"}
         </button>
@@ -1134,6 +1177,201 @@ function BalanceDetails({
       {/* A phone: the shared sheet. */}
       <BottomSheet isOpen={open} onClose={onClose} label="Balance details">
         <PanelHead title="Balance details" />
+        {body}
+        {footer}
+      </BottomSheet>
+    </>
+  );
+}
+
+// ─── Disputes ─────────────────────────────────────────────────────────────────
+
+type CreatorDispute = {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  productTitle: string | null;
+  reason: string;
+  stage: "inquiry" | "respond" | "review" | "won" | "lost" | "closed";
+  label: string;
+  line: string;
+  tone: "neutral" | "attention" | "critical" | "good";
+  openedAt: string | null;
+  evidenceDueBy: string | null;
+  closedAt: string | null;
+  noteSent: boolean;
+  canAddNote: boolean;
+};
+
+const DISPUTE_TONE: Record<CreatorDispute["tone"], Tone> = { neutral: "neutral", attention: "attention", critical: "critical", good: "success" };
+
+/**
+ * DISPUTES, IN STORELIB'S WORDS. Drawn only when there is a case: each one
+ * with the sale, Stripe's reason in plain words, where it is, the day
+ * evidence is due while it is open, and how it ended once it is closed.
+ * Storelib answers the bank (the sale was charged on Storelib's own
+ * account), so the creator's part is Add evidence: what proves the sale,
+ * kept for Storelib to send. Read from /api/payments/disputes; nothing here
+ * names a Stripe id. `#disputes` is where the dispute emails link to.
+ */
+function DisputesCard() {
+  const [rows, setRows] = useState<CreatorDispute[] | null>(null);
+  const [noteFor, setNoteFor] = useState<CreatorDispute | null>(null);
+  const [showPast, setShowPast] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/payments/disputes", { cache: "no-store" });
+      const json = await r.json();
+      setRows(Array.isArray(json.disputes) ? json.disputes : []);
+    } catch {
+      setRows([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  /* Landing on #disputes from an email: scroll to it once it is drawn. */
+  useEffect(() => {
+    if (!rows?.length || window.location.hash !== "#disputes") return;
+    document.getElementById("disputes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [rows]);
+
+  if (!rows || rows.length === 0) return null;
+  const open = rows.filter((r) => !r.closedAt);
+  const past = rows.filter((r) => r.closedAt);
+  const shown = showPast ? rows : open.length > 0 ? open : past.slice(0, 3);
+
+  return (
+    <section id="disputes" aria-label="Disputes" data-disputes="" className={cn(card, "scroll-mt-24 overflow-hidden animate-in fade-in-0 duration-300")}>
+      <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-3">
+        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Disputes</h2>
+        <span className="text-[12px] text-[#6b7280]">{open.length > 0 ? `${open.length} open` : "None open"}</span>
+      </div>
+      <ul>
+        {shown.map((d) => {
+          const due = d.evidenceDueBy ? new Date(d.evidenceDueBy).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+          return (
+            <li key={d.id} data-dispute={d.stage} className="flex flex-col gap-2.5 border-t border-[#f1f2f4] px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">{d.productTitle || "A sale"}</span>
+                  <StatusBadge tone={DISPUTE_TONE[d.tone]}>{d.label}</StatusBadge>
+                </div>
+                <p className="mt-1 text-[12.5px] leading-[18px] text-[#4b5563]">{d.reason}</p>
+                <p className="mt-0.5 text-[12px] leading-[17px] text-[#6b7280]">
+                  {d.line}
+                  {due ? <span className="font-medium text-[#1a1a2e]"> Evidence by {due}.</span> : null}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1.5">
+                <span className="text-[14px] font-semibold tabular-nums text-[#1a1a2e]">{fmt(d.amountMinor, d.currency)}</span>
+                {d.canAddNote ? (
+                  <button
+                    type="button"
+                    onClick={() => setNoteFor(d)}
+                    className={cn(secondaryDepth, "h-11 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
+                  >
+                    {d.noteSent ? "Update evidence" : "Add evidence"}
+                  </button>
+                ) : d.noteSent ? (
+                  <span className="inline-flex items-center gap-1 text-[12px] text-[#067647]">
+                    <Check className="h-3 w-3" strokeWidth={3} /> Evidence sent
+                  </span>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {past.length > 0 && (open.length > 0 || past.length > 3) ? (
+        <button
+          type="button"
+          onClick={() => setShowPast((v) => !v)}
+          className="flex h-11 w-full cursor-pointer items-center justify-center border-t border-[#f1f2f4] bg-[#fafafb] text-[12px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e] md:h-10"
+        >
+          {showPast ? "Show open only" : `Show ${past.length} closed`}
+        </button>
+      ) : null}
+      <EvidencePanel dispute={noteFor} onClose={() => setNoteFor(null)} onSaved={() => { setNoteFor(null); void load(); }} />
+    </section>
+  );
+}
+
+/** Add evidence: a few plain sentences about the sale, kept for Storelib to send to the bank. A dialog on a computer, the shared sheet on a phone. */
+function EvidencePanel({ dispute, onClose, onSaved }: { dispute: CreatorDispute | null; onClose: () => void; onSaved: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const open = !!dispute;
+
+  useEffect(() => {
+    if (open) {
+      setText("");
+      setError(null);
+    }
+  }, [open, dispute?.id]);
+
+  const save = async () => {
+    if (!dispute || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/payments/disputes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: dispute.id, note: text }),
+      });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof json.error === "string" ? json.error : "We couldn't save that just now.");
+      toast({ title: "Evidence sent", description: "Storelib includes it in the answer to the bank." });
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We couldn't save that just now.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const body = (
+    <div className="px-5 pb-2 pt-3">
+      <p className="text-[13px] leading-5 text-[#4b5563]">
+        Describe what shows the sale was real: what the buyer bought, that the files were delivered or downloaded, and any messages with them. Plain words are best.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value.slice(0, 4000))}
+        rows={6}
+        placeholder="The buyer bought my preset pack on Oct 3, got the download email and downloaded the files twice the same day."
+        className="mt-3 w-full resize-y rounded-[10px] border border-[#e3e5e8] bg-white px-3 py-2.5 text-[16px] leading-6 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:text-[14px] sm:leading-5"
+      />
+      <div className="mt-1 flex items-center justify-between text-[11px] text-[#9ca3af]">
+        <span>{error ? <span className="text-[#c4290c]">{error}</span> : "Only Storelib sees this."}</span>
+        <span className="tabular-nums">{text.length} / 4000</span>
+      </div>
+    </div>
+  );
+  const footer = (
+    <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
+      <button type="button" className={SHEET_SECONDARY} onClick={onClose}>Cancel</button>
+      <button type="button" className={SHEET_PRIMARY} onClick={() => void save()} disabled={busy || text.trim().length < 10}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {busy ? "Sending" : "Send evidence"}
+      </button>
+    </div>
+  );
+  return (
+    <>
+      <DesktopDialog open={open} onClose={onClose} label="Add evidence">
+        <PanelHead title="Add evidence" description={dispute ? `${dispute.productTitle || "A sale"}, ${fmt(dispute.amountMinor, dispute.currency)}` : undefined} onClose={onClose} />
+        {body}
+        {footer}
+      </DesktopDialog>
+      <BottomSheet isOpen={open} onClose={onClose} label="Add evidence">
+        <PanelHead title="Add evidence" description={dispute ? `${dispute.productTitle || "A sale"}, ${fmt(dispute.amountMinor, dispute.currency)}` : undefined} />
         {body}
         {footer}
       </BottomSheet>
@@ -1568,7 +1806,7 @@ function OrderDetailsModal({
           title="The buyer disputed this payment"
           body={
             <>
-              Stripe has taken {fmt(order.amount_cents, currency)} out of your balance while the dispute is reviewed. The buyer&apos;s bank decides, which usually takes a few weeks, and you can send Stripe your evidence.
+              Your share of this {fmt(order.amount_cents, currency)} sale is held while the buyer&apos;s bank decides, which usually takes 60 to 75 days. Storelib answers the bank for you; add your evidence under Disputes on Payouts.
             </>
           }
         />
@@ -1921,22 +2159,23 @@ function downloadCsv(filename: string, rows: string[][]): void {
 }
 
 function exportOrdersCsv(orders: OrderPayment[], currency: string): void {
-  const fmt = (cents: number) =>
-    (cents / 100).toLocaleString("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-    });
+  /* Each sale in the currency it was charged in, with that currency's decimals, and the currency in its own column. */
+  const plain = (minor: number, c: string) => (minor / 10 ** decimalsOf(c)).toFixed(decimalsOf(c));
   const rows: string[][] = [
-    ["Date", "Order ID", "Product", "Customer Email", "Amount", "Status", "Refunded Amount"],
-    ...orders.map((o) => [
-      new Date(o.created_at).toLocaleDateString("en-US"),
-      o.id,
-      o.product?.title || "",
-      o.buyer_email || o.customer_email || "",
-      fmt(o.amount_cents),
-      o.status,
-      o.refund_amount_cents ? fmt(o.refund_amount_cents) : "",
-    ]),
+    ["Date", "Order ID", "Product", "Customer Email", "Amount", "Currency", "Status", "Refunded Amount"],
+    ...orders.map((o) => {
+      const c = (o.currency || currency).toUpperCase();
+      return [
+        new Date(o.created_at).toLocaleDateString("en-US"),
+        o.id,
+        o.product?.title || "",
+        o.buyer_email || o.customer_email || "",
+        plain(o.amount_cents, c),
+        c,
+        o.status,
+        o.refund_amount_cents ? plain(o.refund_amount_cents, c) : "",
+      ];
+    }),
   ];
   downloadCsv(`earnings-${new Date().toISOString().split("T")[0]}.csv`, rows);
 }
@@ -1950,7 +2189,7 @@ async function exportPayoutsCsv(): Promise<boolean> {
     ["Date", "Amount", "Currency", "Status", "Arrival Date", "Destination"],
     ...json.payouts.map((p: any) => [
       new Date(p.created * 1000).toLocaleDateString("en-US"),
-      (p.amount / 100).toFixed(2),
+      (p.amount / 10 ** decimalsOf(p.currency || "usd")).toFixed(decimalsOf(p.currency || "usd")),
       p.currency.toUpperCase(),
       p.status,
       p.arrival_date
@@ -2407,9 +2646,25 @@ function friendlyRequirements(keys: string[]): string[] {
  * where it used to be up to three separate banners stacked above it. With no
  * bank at all the card says so and its button is Add bank.
  */
-function PayoutMethodCard({ onManage }: { onManage: () => void }) {
+function PayoutMethodCard({
+  onManage,
+  opening,
+  onDisconnected,
+  currency,
+  available,
+  pending,
+}: {
+  onManage: () => void;
+  /** The account panel was asked for and is not on screen yet. */
+  opening: boolean;
+  onDisconnected: () => void;
+  currency: string;
+  available: number;
+  pending: number;
+}) {
   const [data, setData] = useState<PayoutMethodData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
 
   const loadData = useCallback(() => {
     fetch("/api/stripe/payout-method")
@@ -2486,8 +2741,10 @@ function PayoutMethodCard({ onManage }: { onManage: () => void }) {
           <button
             type="button"
             onClick={openManageSettings}
-            className={cn(secondaryDepth, "h-11 w-full rounded-xl px-4 text-[14px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}
+            disabled={opening}
+            className={cn(secondaryDepth, "h-11 w-full gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}
           >
+            {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             {notice.action}
           </button>
         </div>
@@ -2520,16 +2777,171 @@ function PayoutMethodCard({ onManage }: { onManage: () => void }) {
             )}
           </div>
         </div>
+        {/* The press says so at once: the panel it opens has to be fetched first. */}
         <button
           type="button"
           onClick={openManageSettings}
-          disabled={loading}
-          className={cn(secondaryDepth, "h-11 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
+          disabled={loading || opening}
+          aria-busy={opening || undefined}
+          className={cn(secondaryDepth, "h-11 gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
+          data-update-bank=""
         >
-          {needsBank ? "Add bank" : "Update bank"}
+          {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {opening ? "Opening" : needsBank ? "Add bank" : "Update bank"}
         </button>
       </div>
+
+      {/*
+        USING A DIFFERENT ACCOUNT. A creator may have set payments up on the
+        wrong account, or a business they no longer use. This is the quiet
+        way out of it, under the bank rather than beside it, because it is
+        rarely what anybody came here for. What it does is spelled out
+        before it happens, and the server refuses while money is still in
+        the account (lib/payments/stripe/connect disconnectStripeAccount).
+      */}
+      {!loading && data ? (
+        <div className="flex items-center justify-between gap-3 border-t border-[#f1f2f4] bg-[#fafafb] px-4 py-2.5">
+          <p className="min-w-0 text-[12px] leading-5 text-[#6b7280]">Selling under a different name or business?</p>
+          <button
+            type="button"
+            onClick={() => setSwitching(true)}
+            className="shrink-0 cursor-pointer text-[12px] font-medium text-[#4b5563] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline max-md:-my-3 max-md:inline-flex max-md:h-11 max-md:items-center"
+            data-switch-account=""
+          >
+            Use a different account
+          </button>
+        </div>
+      ) : null}
+
+      <SwitchAccountPanel
+        open={switching}
+        onClose={() => setSwitching(false)}
+        currency={currency}
+        available={available}
+        pending={pending}
+        onDone={() => {
+          setSwitching(false);
+          onDisconnected();
+        }}
+      />
     </section>
+  );
+}
+
+/**
+ * LETTING GO OF THIS PAYMENTS ACCOUNT, AND SETTING ONE UP AGAIN. A dialog
+ * on a computer and the shared sheet on a phone, because it is the one
+ * thing on this page that turns selling off, and it should read like it.
+ *
+ * It says plainly what stays (orders, payouts, buyers' access, everything
+ * already paid out) and what stops (checkout, until payments are set up
+ * again). The server decides, not this: it refuses while there is money in
+ * the account, so nothing is ever stranded, and the confirmation sent here
+ * is the second yes, after this panel is the first.
+ */
+function SwitchAccountPanel({
+  open,
+  onClose,
+  onDone,
+  currency,
+  available,
+  pending,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onDone: () => void;
+  currency: string;
+  available: number;
+  pending: number;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const holding = available + pending;
+
+  useEffect(() => {
+    if (open) setError(null);
+  }, [open]);
+
+  const disconnect = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/payments/disconnect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      const json = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) throw new Error(json.error || "We couldn't disconnect just now. Nothing was changed.");
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We couldn't disconnect just now. Nothing was changed.");
+      setBusy(false);
+    }
+  };
+
+  const body = (
+    <div className="px-5 pb-2 pt-3">
+      <p className="text-[13px] leading-5 text-[#4b5563]">
+        Your payments account is disconnected and you set payments up again, on whichever account you like. It is the way to move to a different name, a business, or a different bank country.
+      </p>
+      <ul className="mt-3 space-y-1.5 text-[13px] leading-5 text-[#4b5563]">
+        <li className="flex gap-2">
+          <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#15803d]" strokeWidth={3} />
+          <span>Your orders, payouts and everything already paid out stay exactly as they are.</span>
+        </li>
+        <li className="flex gap-2">
+          <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#15803d]" strokeWidth={3} />
+          <span>Buyers keep their files and their access.</span>
+        </li>
+        <li className="flex gap-2">
+          <AlertCircle className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#b54708]" />
+          <span>Checkout is closed until payments are set up again, so buyers cannot pay you in the meantime.</span>
+        </li>
+      </ul>
+      {holding > 0 ? (
+        <p className="mt-3 rounded-xl border border-[#f3e3b3] bg-[#fffaeb] px-3.5 py-2.5 text-[12.5px] leading-5 text-[#8a5a08]">
+          You still have {fmt(holding, currency)} in this account. Cash out everything available and wait for the rest to settle first: it cannot be moved to a new account afterwards.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-3 rounded-xl border border-[#f5c9c3] bg-[#fef3f2] px-3.5 py-2.5 text-[12.5px] leading-5 text-[#8a1c0f]">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+  const footer = (
+    <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
+      <button type="button" className={SHEET_SECONDARY} onClick={onClose} disabled={busy}>
+        Keep this account
+      </button>
+      <button
+        type="button"
+        onClick={() => void disconnect()}
+        disabled={busy}
+        className={cn(criticalDepth, "h-11 gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px] disabled:cursor-not-allowed disabled:opacity-50")}
+        data-confirm-switch=""
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {busy ? "Disconnecting" : "Disconnect and set up again"}
+      </button>
+    </div>
+  );
+  return (
+    <>
+      <DesktopDialog open={open} onClose={onClose} label="Use a different account" width="max-w-[480px]">
+        <PanelHead title="Use a different account" onClose={onClose} />
+        {body}
+        {footer}
+      </DesktopDialog>
+      <BottomSheet isOpen={open} onClose={onClose} label="Use a different account">
+        <PanelHead title="Use a different account" />
+        {body}
+        {footer}
+      </BottomSheet>
+    </>
   );
 }
 
@@ -2539,13 +2951,11 @@ function PayoutsHistoryList({
   refreshKey,
   page = 0,
   pageSize = 10,
-  convertCents = (c) => c,
   onCountChange,
 }: {
   refreshKey: number;
   page?: number;
   pageSize?: number;
-  convertCents?: (cents: number) => number;
   onCountChange?: (count: number) => void;
 }) {
   const [payouts, setPayouts] = useState<StripePayout[]>([]);
@@ -2620,7 +3030,7 @@ function PayoutsHistoryList({
           return (
             <li key={p.id} className="relative flex h-16 items-center gap-3 px-4 [&+li]:before:absolute [&+li]:before:left-4 [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#eceef1]">
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{fmt(convertCents(p.amount), "usd")}</p>
+                <p className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{fmt(p.amount, p.currency)}</p>
                 <p className="mt-0.5 truncate text-[12px] text-[#6b7280]">
                   {fmtUnix(p.created)}
                   {arrival(p) ? ` · ${arrival(p)}` : ""}
@@ -2651,7 +3061,7 @@ function PayoutsHistoryList({
             return (
               <tr key={p.id} className="h-12 hover:[&>td]:bg-[#fafafb]">
                 <td className="whitespace-nowrap bg-white pl-4 pr-3 text-[#4b5563]">{fmtUnix(p.created)}</td>
-                <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e]">{fmt(convertCents(p.amount), "usd")}</td>
+                <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e]">{fmt(p.amount, p.currency)}</td>
                 <td className="bg-white px-3">
                   <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
                 </td>
@@ -2679,13 +3089,14 @@ interface PayoutsClientProps {
   paymentsReady: boolean;
   creator: Creator;
   initialData: {
-    totalEarnings: number;
-    totalFees: number;
-    netEarnings: number;
+    /** The currency Stripe holds the balance in (lib/payments/display-currency pickBalance). */
+    balanceCurrency: string;
+    /** The currency most sales were charged in. */
+    salesCurrency: string;
     pendingAmount: number;
     availableBalance: number;
-    paidOut?: number;
-    exchangeRate?: number | null;
+    /** Stripe answered the server: the figures are real, not a placeholder of 0. */
+    stripeRead?: boolean;
     negativeBalance?: number;
     activeDisputeCount?: number;
     totalDisputedAmount?: number;
@@ -2730,12 +3141,17 @@ export function PayoutsClient({
   initialData,
   initialOrders = [],
 }: PayoutsClientProps) {
-  // Use Stripe's own exchange_rate from balance transactions for accurate USD conversion.
-  // Stripe defines: presentment_amount × rate = account_amount
-  // To convert native currency → USD: nativeAmount / rate = usdAmount
-  const [stripeExchangeRate, setStripeExchangeRate] = useState(
-    initialData.exchangeRate || 1,
-  );
+  /*
+    EVERY FIGURE IN ITS OWN CURRENCY (lib/payments/display-currency). The
+    balance in the currency Stripe holds it in, each sale in the currency it
+    was charged in, each payout in the currency it was paid in. Nothing is
+    converted to dollars for show any more.
+  */
+  const [balanceCurrency, setBalanceCurrency] = useState(initialData.balanceCurrency);
+  const salesCurrency = initialData.salesCurrency;
+  /* Stripe's pending transactions, as the days they become available, and the account's settlement delay. */
+  const [upcoming, setUpcoming] = useState<Array<{ date: string; amount: number; currency: string }>>([]);
+  const [settleDays, setSettleDays] = useState<number | null>(null);
   const [recentTab, setRecentTab] = useState<"sales" | "payouts">("sales");
   const [salesFilter, setSalesFilter] = useState<SalesFilter>("all");
   const [recentPage, setRecentPage] = useState(0);
@@ -2746,6 +3162,17 @@ export function PayoutsClient({
   const [refreshKey, setRefreshKey] = useState(0);
   /* Raised by a notice or Update bank: opens the Storelib Payments card's account form on this page. */
   const [manageRequest, setManageRequest] = useState(0);
+  /* The press is waiting for the panel to appear: the button it came from says so. */
+  const [opening, setOpening] = useState(false);
+  const openAccountPanel = useCallback(() => {
+    setOpening(true);
+    setManageRequest((n) => n + 1);
+  }, []);
+  /* The account was let go: the page is a setup page again, so it is read afresh from the server. */
+  const onDisconnected = useCallback(() => {
+    forgetOverview();
+    window.location.reload();
+  }, []);
   const [balanceReady, setBalanceReady] = useState(false);
   const [availableBalance, setAvailableBalance] = useState(
     initialData.availableBalance,
@@ -2783,8 +3210,6 @@ export function PayoutsClient({
     stripeExpressDashboardUrl: string | null;
   } | null>(initialData.taxData || null);
 
-  const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
-  const currency = "usd";
   const hasStripe = !!creator.stripe_account_id;
   const payoutsEnabled = creator.payouts_enabled !== false;
   const { toast } = useToast();
@@ -2795,66 +3220,29 @@ export function PayoutsClient({
     try {
       const r = await fetch("/api/stripe/payouts");
       const json = await r.json();
-      // Update exchange rate from Stripe's balance transactions if provided
-      if (json.exchangeRate) setStripeExchangeRate(json.exchangeRate);
-      // Extract payout status for the notice
+      /* Stripe's balance, in the currency it holds it in: below zero stays below zero. */
+      const picked = pickBalance(json.balance, json.balanceCurrency);
+      const shownCurrency = picked?.currency ?? (typeof json.balanceCurrency === "string" ? json.balanceCurrency : null);
+      if (picked) {
+        setBalanceCurrency(picked.currency);
+        setAvailableBalance(picked.available);
+        setPendingBalance(picked.pending);
+      } else if (shownCurrency) {
+        setBalanceCurrency(shownCurrency);
+      }
+      if (Array.isArray(json.upcoming)) setUpcoming(json.upcoming);
+      if (typeof json.payoutScheduleDelay === "number") setSettleDays(json.payoutScheduleDelay);
+      // Payout status for the notice and the On the way figure, in the balance's currency
       if (json.payouts) {
-        const payouts = json.payouts as Array<{ status: string; amount: number }>;
+        const payouts = json.payouts as Array<{ status: string; amount: number; currency?: string }>;
+        const same = (p: { currency?: string }) => !shownCurrency || (p.currency || "").toLowerCase() === shownCurrency.toLowerCase();
         setLatestPayoutStatus({
           hasInTransit: payouts.some((p) => p.status === "in_transit" || p.status === "pending"),
           hasFailed: payouts.some((p) => p.status === "failed"),
           totalPayouts: payouts.length,
-          failedAmount: payouts.filter((p) => p.status === "failed").reduce((s, p) => s + p.amount, 0),
-          inTransitAmount: payouts.filter((p) => p.status === "in_transit" || p.status === "pending").reduce((s, p) => s + p.amount, 0),
+          failedAmount: payouts.filter((p) => p.status === "failed" && same(p)).reduce((s, p) => s + p.amount, 0),
+          inTransitAmount: payouts.filter((p) => (p.status === "in_transit" || p.status === "pending") && same(p)).reduce((s, p) => s + p.amount, 0),
         });
-      }
-      if (json.balance) {
-        const byCurrency = new Map<
-          string,
-          { available: number; pending: number }
-        >();
-        for (const b of json.balance.available || []) {
-          const row = byCurrency.get(b.currency) || {
-            available: 0,
-            pending: 0,
-          };
-          row.available += b.amount;
-          byCurrency.set(b.currency, row);
-        }
-        for (const b of json.balance.pending || []) {
-          const row = byCurrency.get(b.currency) || {
-            available: 0,
-            pending: 0,
-          };
-          row.pending += b.amount;
-          byCurrency.set(b.currency, row);
-        }
-
-        // Only update balances if Stripe returned actual currency entries.
-        // When Stripe account is new/reconnected with no transactions yet,
-        // both arrays can be empty; in that case keep the server-side values
-        // which may include platform-computed fallback from order data.
-        if (byCurrency.size > 0) {
-          const preferredCurrency = sourceCurrency;
-          const dominant =
-            [...byCurrency.entries()].sort(
-              (a, b) =>
-                b[1].available + b[1].pending - (a[1].available + a[1].pending),
-            )[0] || null;
-
-          const selected = byCurrency.get(preferredCurrency)
-            ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
-            : dominant;
-
-          if (selected) {
-            // Use Stripe's balance directly: it already accounts for
-            // pending refunds (payment_refund txns reduce the pending balance)
-            setAvailableBalance(Math.max(0, selected[1].available));
-            setPendingBalance(Math.max(0, selected[1].pending));
-          }
-        }
-        // If byCurrency is empty (no entries from Stripe), we intentionally
-        // keep the existing state values from the server-side initial render.
       }
       // Update account status for the notice
       if (json.paymentsStatus) setPaymentsStatus(json.paymentsStatus);
@@ -2873,16 +3261,7 @@ export function PayoutsClient({
       // On error, still show values so the figures do not stay soft forever
       setBalanceReady(true);
     }
-  }, [sourceCurrency]);
-
-  const toUsd = useCallback(
-    (cents: number) => {
-      if (sourceCurrency === "usd") return cents;
-      const converted = cents / stripeExchangeRate;
-      return converted >= 0 ? Math.floor(converted) : Math.ceil(converted);
-    },
-    [sourceCurrency, stripeExchangeRate],
-  );
+  }, []);
 
   const openOrderDetails = useCallback((order: OrderPayment, refund = false) => {
     setRefundOnOpen(refund);
@@ -2909,6 +3288,11 @@ export function PayoutsClient({
     }, 150);
   }, []);
   const changePage = (next: number) => smoothSwitch(() => setRecentPage(next));
+
+  /* The overview the account panel needs, fetched while the page is being read rather than on the press. */
+  useEffect(() => {
+    if (paymentsReady) warmOverview();
+  }, [paymentsReady]);
 
   useEffect(() => {
     if (!hasStripe) { setBalanceReady(true); return; }
@@ -2941,10 +3325,11 @@ export function PayoutsClient({
   }, [refreshBalances]);
   const withdraw = useWithdraw(onWithdrawn);
 
-  const available = toUsd(availableBalance);
-  const pending = toUsd(pendingBalance);
-  const inTransit = toUsd(latestPayoutStatus.inTransitAmount);
-  const effectiveBalance = available - negativeBalance;
+  /* Stripe's own figures. A dispute or a refund taken back shows in Stripe's available balance itself, so it is not taken off a second time. */
+  const available = availableBalance;
+  const pending = pendingBalance;
+  const inTransit = latestPayoutStatus.inTransitAmount;
+  const effectiveBalance = available;
   const canCashOut = effectiveBalance > 0 && negativeBalance === 0;
 
   /* Cash out with nothing ready says why, rather than doing nothing. */
@@ -2955,12 +3340,14 @@ export function PayoutsClient({
         title: "Nothing to cash out yet",
         description: effectiveBalance < 0
           ? "Your available balance has to be above zero first."
-          : "New sales take 2 to 7 business days to settle.",
+          : upcoming[0]
+            ? `${fmt(upcoming[0].amount, upcoming[0].currency)} becomes available on ${fmtDay(upcoming[0].date)}.`
+            : settleText(settleDays),
       });
       return;
     }
     withdraw.handleWithdraw();
-  }, [withdraw, canCashOut, effectiveBalance, toast]);
+  }, [withdraw, canCashOut, effectiveBalance, toast, upcoming, settleDays]);
 
   /* ── Details: read the first time it opens ─────────────────────────────── */
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -2968,30 +3355,8 @@ export function PayoutsClient({
   const [detailsBank, setDetailsBank] = useState<{ bankName: string | null; last4: string; currency: string } | null>(null);
   const [detailsBankRead, setDetailsBankRead] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [holdItems, setHoldItems] = useState<HoldItem[]>([]);
-  const [holdItemsLoading, setHoldItemsLoading] = useState(false);
   const openDetails = async () => {
     setDetailsOpen(true);
-    if (holdItems.length === 0 && !holdItemsLoading) {
-      setHoldItemsLoading(true);
-      fetch("/api/stripe/seller-balance")
-        .then((r) => r.json())
-        .then((json) => {
-          if (json.recent_events) {
-            const held = json.recent_events
-              .filter((e: any) => e.event_type === "sale" && !e.released_at && e.hold_until)
-              .map((e: any) => ({
-                id: e.id,
-                amount_cents: e.net_seller_cents || e.amount_cents,
-                hold_until: e.hold_until,
-                description: e.description || "Purchase processing",
-              }));
-            setHoldItems(held);
-          }
-        })
-        .catch(() => { /* non-fatal */ })
-        .finally(() => setHoldItemsLoading(false));
-    }
     if (detailsBankRead) return; // already read
     setDetailsLoading(true);
     try {
@@ -3012,7 +3377,7 @@ export function PayoutsClient({
       {
         label: "Earnings summary (CSV)",
         icon: <FileText />,
-        onClick: () => exportOrdersCsv(filteredOrders, currency),
+        onClick: () => exportOrdersCsv(filteredOrders, salesCurrency),
       },
       {
         label: "Payouts history (CSV)",
@@ -3062,7 +3427,7 @@ export function PayoutsClient({
       />
       {payoutsEnabled ? (
         <Press
-          look={LOOK_PRIMARY}
+          look={LOOK_CASH_OUT}
           onClick={onCashOut}
           disabled={withdraw.loading}
           aria-disabled={!canCashOut || undefined}
@@ -3104,14 +3469,15 @@ export function PayoutsClient({
           title={activeDisputeCount === 1 ? "A buyer disputed a payment" : `${activeDisputeCount} payments are disputed`}
           body={
             <>
-              Stripe is holding {fmt(totalDisputedAmount)} from your balance while the {activeDisputeCount === 1 ? "dispute is" : "disputes are"} reviewed. The buyer&apos;s bank decides, which usually takes a few weeks.
+              Your share of {fmt(totalDisputedAmount, salesCurrency)} in sales is held while the buyer&apos;s bank decides. Storelib answers the bank for you; add anything that proves the sale below.
               {negativeBalance > 0 ? (
                 <span className="mt-1 block font-medium text-[#8a1c0f]">
-                  Your balance is -{fmt(negativeBalance)} because of it. New sales cover the difference.
+                  Your balance is -{fmt(negativeBalance, salesCurrency)} because of it. New sales cover the difference.
                 </span>
               ) : null}
             </>
           }
+          action={{ label: "See disputes", onClick: () => document.getElementById("disputes")?.scrollIntoView({ behavior: "smooth", block: "start" }) }}
         />
       );
     }
@@ -3122,7 +3488,7 @@ export function PayoutsClient({
         <Notice
           tone="attention"
           title="Your balance is below zero after a refund"
-          body={`Stripe took ${fmt(negativeBalance)} from your balance. New sales cover it first, with nothing for you to do, and Cash out comes back once your balance is above zero.`}
+          body={`${fmt(negativeBalance, salesCurrency)} was taken back from your balance. New sales cover it first, with nothing for you to do, and Cash out comes back once your balance is above zero.`}
         />
       );
     }
@@ -3134,7 +3500,7 @@ export function PayoutsClient({
           tone="critical"
           title="Your last payout failed"
           body="The money is back in your available balance. Check your bank details, then cash out again."
-          action={{ label: "Update bank", onClick: () => setManageRequest((n) => n + 1) }}
+          action={{ label: "Update bank", onClick: openAccountPanel }}
         />
       );
     }
@@ -3154,7 +3520,7 @@ export function PayoutsClient({
               s.action === "support"
                 ? { label: s.actionLabel ?? "Contact support", onClick: () => { window.location.href = "mailto:support@storelib.com"; } }
                 : s.action && s.actionLabel
-                  ? { label: s.actionLabel, onClick: () => setManageRequest((n) => n + 1) }
+                  ? { label: s.actionLabel, onClick: openAccountPanel }
                   : undefined
             }
           />
@@ -3167,7 +3533,7 @@ export function PayoutsClient({
           <Notice
             tone="attention"
             title="Finish setting up payments to cash out"
-            action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
+            action={{ label: "Continue", onClick: openAccountPanel }}
           />
         );
       }
@@ -3231,9 +3597,11 @@ export function PayoutsClient({
       {actionsInBar}
 
       {/* Update bank and the notices open the setup panel over the dashboard: no second card. */}
-      {manageRequest > 0 ? <StorelibPaymentsInline panelOnly manageRequest={manageRequest} /> : null}
+      {manageRequest > 0 ? <StorelibPaymentsInline panelOnly manageRequest={manageRequest} onPanelShown={() => setOpening(false)} /> : null}
 
       {notice}
+
+      <DisputesCard />
 
       <BalanceCard
         available={available}
@@ -3241,13 +3609,15 @@ export function PayoutsClient({
         inTransit={inTransit}
         negativeBalance={negativeBalance}
         balanceReady={balanceReady}
-        currency={currency}
+        currency={balanceCurrency}
+        upcoming={upcoming}
+        settleDays={settleDays}
         payoutsEnabled={payoutsEnabled}
         withdraw={withdraw}
         onDetails={openDetails}
       />
 
-      <RevenueChart />
+      <RevenueChart initialCurrency={salesCurrency} />
 
       {/*
         SALES AND PAYOUTS, ONE LIST CARD. The toolbar is the Products views'
@@ -3327,7 +3697,6 @@ export function PayoutsClient({
               refreshKey={refreshKey}
               page={recentPage}
               pageSize={PAGE_SIZE}
-              convertCents={toUsd}
               onCountChange={setPayoutCount}
             />
           ) : pagedOrders.length === 0 ? (
@@ -3376,7 +3745,7 @@ export function PayoutsClient({
                           </span>
                         </span>
                         <span className="flex shrink-0 flex-col items-end gap-1">
-                          <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{fmt(order.amount_cents, currency)}</span>
+                          <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{fmt(order.amount_cents, order.currency || salesCurrency)}</span>
                           {order.status !== "completed" ? <SaleBadge status={order.status} /> : null}
                         </span>
                       </button>
@@ -3445,7 +3814,7 @@ export function PayoutsClient({
                         <td className="bg-white px-3">
                           <SaleBadge status={order.status} />
                         </td>
-                        <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e]">{fmt(order.amount_cents, currency)}</td>
+                        <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e]">{fmt(order.amount_cents, order.currency || salesCurrency)}</td>
                         <td className="bg-white pr-2.5">
                           <div className="flex justify-end">
                             <ResponsiveActionMenu
@@ -3483,7 +3852,7 @@ export function PayoutsClient({
       </section>
 
       {/* The bank it all goes to */}
-      <PayoutMethodCard onManage={() => setManageRequest((n) => n + 1)} />
+      <PayoutMethodCard onManage={openAccountPanel} opening={opening} onDisconnected={onDisconnected} currency={balanceCurrency} available={available} pending={pending} />
 
       <BalanceDetails
         open={detailsOpen}
@@ -3491,14 +3860,15 @@ export function PayoutsClient({
         available={available}
         pending={pending}
         inTransit={inTransit}
-        currency={currency}
-        holdItems={holdItems}
-        holdItemsLoading={holdItemsLoading}
+        currency={balanceCurrency}
+        upcoming={upcoming}
+        upcomingLoading={!balanceReady}
+        settleDays={settleDays}
         bank={detailsBank}
         bankLoading={detailsLoading}
         onUpdateBank={() => {
           closeDetails();
-          setManageRequest((n) => n + 1);
+          openAccountPanel();
         }}
         payoutsEnabled={payoutsEnabled}
         canCashOut={canCashOut}
@@ -3509,7 +3879,7 @@ export function PayoutsClient({
       {/* An order, opened from the list */}
       <OrderDetailsModal
         order={selectedOrder}
-        currency={currency}
+        currency={selectedOrder?.currency || salesCurrency}
         refundOnOpen={refundOnOpen}
         onClose={() => setSelectedOrder(null)}
         onRefundSuccess={(refundedAmountCents) => {

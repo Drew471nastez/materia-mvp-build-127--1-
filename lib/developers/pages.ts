@@ -148,9 +148,9 @@ export const DEV_PAGES: readonly DevPage[] = [
     slug: "blocks",
     title: "Blocks",
     nav: "Blocks",
-    summary: "Repeatable content inside a section.",
+    summary: "Section blocks, theme blocks, blocks inside blocks, static blocks and presets.",
     description:
-      "Repeatable content inside a Storelib section: declaring block types, rendering them, limits, presets, and how blocks are stored.",
+      "Blocks in Storelib, the way Shopify does them: section blocks, theme blocks in blocks/*.storelib, @theme, content_for, blocks inside blocks, static blocks, presets in Shopify's keyed form, limits, and how blocks are stored.",
     group: "Sections",
   },
   {

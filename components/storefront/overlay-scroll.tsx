@@ -34,17 +34,28 @@ const LINGER_MS = 900
 /** A thumb shorter than this is hard to see and harder to grab. */
 const MIN_THUMB = 32
 
-export function OverlayScroll({
+/**
+ * ===========================================================================
+ *  THE THUMB ALONE, FOR A SCROLLER SOMEBODY ELSE DRAWS
+ * ===========================================================================
+ * `OverlayScroll` below is a scroller with its thumb. A list that already
+ * owns its scroller (the builder's page menu, the link picker) takes the
+ * thumb on its own: give the scroller `cp-overlay-scroll`, put this beside
+ * it inside a `relative` box, and pass the scroller's ref. The thumb listens
+ * to that element, takes no width, and shows while it moves or the pointer
+ * is over the box they share.
+ *
+ * `tone="dark"` is a light thumb, for the dark menus.
+ */
+export function OverlayRail({
+  scrollerRef,
+  tone = "light",
   className,
-  children,
-  scrollerProps,
 }: {
-  /** Classes for the scrolling element itself (padding, spacing). */
+  scrollerRef: React.RefObject<HTMLElement | null>
+  tone?: "light" | "dark"
   className?: string
-  children: React.ReactNode
-  scrollerProps?: React.HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>
 }) {
-  const scrollerRef = React.useRef<HTMLDivElement>(null)
   const railRef = React.useRef<HTMLDivElement>(null)
   const thumbRef = React.useRef<HTMLDivElement>(null)
   const frame = React.useRef<number | null>(null)
@@ -75,7 +86,7 @@ export function OverlayScroll({
     if (thumb.style.height !== `${h}px`) thumb.style.height = `${h}px`
     const y = travel * Math.min(1, Math.max(0, el.scrollTop / range))
     thumb.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0)`
-  }, [])
+  }, [scrollerRef])
 
   const schedule = React.useCallback(() => {
     if (frame.current == null) frame.current = requestAnimationFrame(paint)
@@ -96,20 +107,34 @@ export function OverlayScroll({
   React.useEffect(() => {
     const el = scrollerRef.current
     if (!el) return
+    /* The box the scroller and this rail share: the pointer over either is "over the list". */
+    const box = railRef.current?.parentElement ?? el
     const onScroll = () => { schedule(); show() }
+    const onEnter = (e: PointerEvent) => { if (e.pointerType === "mouse") { hovering.current = true; schedule(); show() } }
+    const onLeave = () => { hovering.current = false; show() }
     el.addEventListener("scroll", onScroll, { passive: true })
-    /* The form grows and shrinks (an error, an upload): the thumb follows. */
+    box.addEventListener("pointerenter", onEnter)
+    box.addEventListener("pointerleave", onLeave)
+    /* The list grows and shrinks (a group opens, a search narrows it): the thumb follows. */
     const ro = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : null
     ro?.observe(el)
-    if (el.firstElementChild) ro?.observe(el.firstElementChild)
+    for (const child of Array.from(el.children)) ro?.observe(child)
+    const mo = typeof MutationObserver === "function" ? new MutationObserver(() => {
+      for (const child of Array.from(el.children)) ro?.observe(child)
+      schedule()
+    }) : null
+    mo?.observe(el, { childList: true })
     schedule()
     return () => {
       el.removeEventListener("scroll", onScroll)
+      box.removeEventListener("pointerenter", onEnter)
+      box.removeEventListener("pointerleave", onLeave)
       ro?.disconnect()
+      mo?.disconnect()
       if (frame.current != null) cancelAnimationFrame(frame.current)
       if (hideTimer.current != null) window.clearTimeout(hideTimer.current)
     }
-  }, [schedule, show])
+  }, [scrollerRef, schedule, show])
 
   const onThumbDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
@@ -137,11 +162,35 @@ export function OverlayScroll({
   }
 
   return (
-    <div
-      className="relative flex min-h-0 flex-1 flex-col"
-      onPointerEnter={(e) => { if (e.pointerType === "mouse") { hovering.current = true; schedule(); show() } }}
-      onPointerLeave={() => { hovering.current = false; show() }}
-    >
+    <div ref={railRef} aria-hidden data-visible="false" data-tone={tone} className={cn("cp-overlay-rail", className)}>
+      <div
+        ref={thumbRef}
+        className="cp-overlay-thumb"
+        /* A press on the thumb is a drag, never a click on whatever is under it, nor a blur of the field a picker belongs to. */
+        onMouseDown={(e) => e.preventDefault()}
+        onPointerDown={onThumbDown}
+        onPointerMove={onThumbMove}
+        onPointerUp={onThumbUp}
+        onPointerCancel={onThumbUp}
+        onLostPointerCapture={onThumbUp}
+      />
+    </div>
+  )
+}
+
+export function OverlayScroll({
+  className,
+  children,
+  scrollerProps,
+}: {
+  /** Classes for the scrolling element itself (padding, spacing). */
+  className?: string
+  children: React.ReactNode
+  scrollerProps?: React.HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>
+}) {
+  const scrollerRef = React.useRef<HTMLDivElement>(null)
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollerRef}
         {...scrollerProps}
@@ -150,17 +199,7 @@ export function OverlayScroll({
         {/* One child, so its size is what the thumb follows. */}
         <div className="space-y-5">{children}</div>
       </div>
-      <div ref={railRef} aria-hidden data-visible="false" className="cp-overlay-rail">
-        <div
-          ref={thumbRef}
-          className="cp-overlay-thumb"
-          onPointerDown={onThumbDown}
-          onPointerMove={onThumbMove}
-          onPointerUp={onThumbUp}
-          onPointerCancel={onThumbUp}
-          onLostPointerCapture={onThumbUp}
-        />
-      </div>
+      <OverlayRail scrollerRef={scrollerRef} />
     </div>
   )
 }

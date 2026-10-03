@@ -366,6 +366,7 @@ export function ChoiceSheet({
   leading,
   uniform = false,
   scrollClassName,
+  sheetZIndex,
 }: {
   open: boolean
   onClose: () => void
@@ -378,6 +379,12 @@ export function ChoiceSheet({
   leading?: (choice: Choice, near: boolean) => React.ReactNode
   uniform?: boolean
   scrollClassName?: string
+  /**
+   * The sheet's stacking layer, when the field that opens it lives inside a
+   * panel drawn above the usual z-index 200 (Set up payments). Left out, the
+   * sheet sits where every other sheet sits.
+   */
+  sheetZIndex?: number
 }) {
   const [query, setQuery] = React.useState("")
   const [prevOpen, setPrevOpen] = React.useState(open)
@@ -400,6 +407,7 @@ export function ChoiceSheet({
       aboveKeyboard
       height="min(80dvh, 640px)"
       scrollKey={query}
+      zIndex={sheetZIndex}
       header={
         <div data-choice-sheet-header="">
           <p className="px-5 pb-2 pt-2 text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
@@ -435,6 +443,7 @@ export function ChoicePicker({
   name,
   id,
   scrollClassName,
+  sheetZIndex,
 }: {
   title: string
   choices: Choice[] | (() => Choice[])
@@ -457,6 +466,12 @@ export function ChoicePicker({
   /** The field's id, for a <label htmlFor> beside it. */
   id?: string
   scrollClassName?: string
+  /**
+   * The sheet's stacking layer, when the field that opens it lives inside a
+   * panel drawn above the usual z-index 200 (Set up payments). Left out, the
+   * sheet sits where every other sheet sits.
+   */
+  sheetZIndex?: number
 }) {
   const [open, setOpen] = React.useState(false)
   const phone = usePhoneWidth()
@@ -488,7 +503,7 @@ export function ChoicePicker({
     return (
       <>
         {trigger}
-        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} />
+        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} sheetZIndex={sheetZIndex} />
       </>
     )
   }

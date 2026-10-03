@@ -185,9 +185,9 @@ try {
         }
       })
       expect(m.rows.length === 4 && m.rows[3].id === "browser-notifications", "four rows, each one saved somewhere, the last this browser's notifications", m.labels.join(", "))
-      /* "The toggles are a little too fat": the app's one slim switch, 38 by 22 with an 18px knob (components/ui/switch-style). */
+      /* "The toggles are a little too fat": the app's one slim switch, 36 by 20 with a 16px knob (components/ui/switch-style). */
       const tracks = await page.evaluate(() => [...document.querySelectorAll("[data-privacy-row] [role=switch] > span")].map((t) => { const r = t.getBoundingClientRect(); const k = t.firstElementChild.getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}/${Math.round(k.width)}` }))
-      expect(tracks.every((t) => t === "38x22/18"), "every track 38 by 22 with an 18px knob", tracks.join(" "))
+      expect(tracks.every((t) => t === "36x20/16"), "every track 36 by 20 with a 16px knob", tracks.join(" "))
       /* On a touch screen app/globals.css drops transforms inside a .group; the knob has to move anyway. */
       await wait(400)
       const knobs = await page.evaluate(() => [...document.querySelectorAll("[data-privacy-row] [role=switch]")].map((b) => { const t = b.firstElementChild; const k = t.firstElementChild; return [b.getAttribute("aria-checked"), Math.round(k.getBoundingClientRect().left - t.getBoundingClientRect().left)] }))

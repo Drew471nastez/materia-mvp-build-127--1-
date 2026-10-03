@@ -621,7 +621,17 @@ to check whether a breakpoint was set.
 ```
 
 `limit` caps one block type and `max_blocks` caps the total. The ceiling is 50
-per section. A block type declared twice is an error.
+per section, counting blocks inside blocks. A block type declared twice is an
+error.
+
+Instead of declaring its own, a section may accept THEME BLOCKS, the files in
+`blocks/` (section 9.1):
+
+```json
+"blocks": [{ "type": "@theme" }]
+```
+
+or by name, `[{ "type": "image" }]`. A section does one or the other.
 
 ### 4.6 Presets
 
@@ -638,6 +648,27 @@ already using it.
 
 A preset that sets a key which is not a setting of the section is an error, and
 so is one that adds a block type the section does not declare.
+
+For theme blocks, write the blocks the way Shopify does, keyed by id with their
+order beside them, nested as deep as blocks go, with `"static": true` for a
+block the template places itself and an optional `category` for where Add
+section files the card:
+
+```json
+"presets": [
+  { "name": "Image grid", "category": "media",
+    "blocks": {
+      "title":   { "type": "heading", "static": true, "settings": { "text": "From the studio" } },
+      "image_1": { "type": "image" },
+      "image_2": { "type": "image" }
+    },
+    "block_order": ["image_1", "image_2"] }
+]
+```
+
+Every block that is not static is in `block_order`, or the preset is refused.
+When the preset is added every block gets a new id, except a static one, whose
+id is how its template finds it.
 
 Do not bake colours into a preset. A preset that sets `bg_color` to a literal
 makes the colour scheme picker do nothing on a section somebody just added, at
@@ -952,7 +983,7 @@ the theme's default. No section is ever left pointing at nothing.
 
 A block is a repeatable child of a section: one question in an FAQ, one slide
 in a carousel, one feature in a grid. A section declares which block types it
-accepts and what settings each has, and the merchant adds, removes, reorders,
+accepts and what settings each has, and the creator adds, removes, reorders,
 duplicates and hides them without the section's author writing any of that.
 
 ```html
@@ -990,6 +1021,51 @@ Ids are minted when the block is created and never change. Reordering changes
 
 A block whose type the section no longer declares is kept with its raw
 settings and rendered by nothing. Updating a section never deletes content.
+
+### 9.1 Theme blocks
+
+A theme block is a file of its own, `blocks/<type>.storelib`, with a
+`<template>`, a `<style>` and a `<schema>`, and no script. Any section that
+accepts it can hold it, and so can another theme block. The theme ships
+heading, text, button, image, video, spacer and group. A file whose name
+starts with `_` is private: only a section or block that names it can hold it.
+
+```html
+<template>
+<h2 class="sl-heading sl-heading--{{ block.settings.size }}">{{ block.settings.text }}</h2>
+</template>
+<style>
+.sl-heading { margin: 0; color: var(--s-heading, inherit); }
+</style>
+<schema>
+{ "name": "Heading",
+  "settings": [{ "type": "text", "id": "text", "label": "Heading", "default": "A heading" }],
+  "presets": [{ "name": "Heading" }] }
+</schema>
+```
+
+A section draws the theme blocks it holds with `{% content_for "blocks" %}`.
+Each is wrapped in `<div class="sl-block" data-block-id data-block-type>`
+(the element is the block's `tag`, `null` for none, in which case its own
+root prints `{{ block.storelib_attributes }}`). A block that accepts blocks
+draws them the same way, to eight levels. `{% content_for "block", type:
+"heading", id: "title" %}` places one STATIC block: edited and hidden, never
+moved or deleted.
+
+Inside a block: `block.settings`, `block.blocks`, `block.id`, and
+`section.settings` for the section it sits in. Its CSS is scoped to
+`[data-block-type="<type>"]`, or to the one block when a rule reads a setting.
+The sidebar shows the tree, and each level has its own Add block, which lists
+every block it accepts and each of a block's presets as its own entry.
+
+A block's colours are `color` settings whose default names a colour of the
+section's scheme (`"default": "scheme.heading"`): untouched they follow the
+section the block is in, and a colour the creator picks wins for that block
+alone. The template writes the value into an inline custom property
+(`style="--heading-color: {{ block.settings.color | default: scheme.heading }};"`)
+and the block's one rule reads it, with the section's `--s-*` property as the
+fallback. Heading and text have a text color, button a fill, text and hover
+pair for each style, and group an optional background and corner radius.
 
 ---
 

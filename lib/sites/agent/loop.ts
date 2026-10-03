@@ -29,6 +29,7 @@ import { looksLikeQuestion, openSteps, refuseToFinish, type SiteScope } from "./
  * design rather than about format. See lib/storelib-ai.
  */
 import { sitesAgentRules } from "@/lib/storelib-ai"
+import { plainRunError } from "./plain-errors"
 import { type CallInfo, compactTurns, compactionNote } from "./compaction"
 import type { Budget } from "./complexity"
 import type { ProjectFiles } from "../types"
@@ -635,14 +636,13 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
       }
     }
   } catch (thrown) {
-    // An abort is the user leaving, not a fault. Everything else is.
+    // An abort is the user leaving, not a fault. Everything else is, and
+    // is said in plain words: the provider's own go to the log (./plain-errors).
     status = "failed"
     error =
       thrown instanceof Error && thrown.name === "AbortError"
         ? "Cancelled."
-        : thrown instanceof Error
-          ? thrown.message
-          : "The edit failed."
+        : plainRunError(thrown, "code agent loop", "The edit failed. Try again.")
   }
 
   return { status, message, error, usage, turns: turnCount }

@@ -29,6 +29,9 @@
 import { nameOf, schemaOf, type SchemaMap } from "./schemas"
 import { THEME_SETTINGS_GROUPS } from "../theme-settings-schema"
 import type { BlockInstance, BlockSchema, SchemaField, SectionInstance } from "../types"
+import { blockAt, countAll, freshBlocks, insertAt, moveAt, removeAt, resolvePath, updateAt } from "../block-tree"
+import { addableBlocks, themeBlockCatalog } from "../storelib-schemas"
+import { acceptsType } from "@/lib/storelib-theme/schema/validate"
 
 /** The theme state an operation acts on. Exactly what the editor holds. */
 export interface ThemeState {
@@ -81,6 +84,8 @@ export type ThemeOp =
       blockType: string
       index?: number
       settings?: Record<string, unknown>
+      /** The block to add it inside, by path (`outer/inner`) or id. Absent: the section itself. */
+      parentId?: string
     }
   | { kind: "update_block"; sectionId: string; blockId: string; settings: Record<string, unknown> }
   | { kind: "move_block"; sectionId: string; blockId: string; index: number }
@@ -113,7 +118,16 @@ export function buildSection(id: string, type: string, schemas?: SchemaMap): Sec
     type,
     name: schema.name,
     settings: { ...(preset?.settings ?? {}) },
-    blocks: preset?.blocks ? JSON.parse(JSON.stringify(preset.blocks)) : [],
+    /*
+      The preset's blocks with ids of this section's own, so a preset added
+      twice is two sets of blocks. Derived from the section id and the order,
+      not drawn at random: the server and the browser both apply this, and
+      must arrive at the same ids. A static block keeps its id.
+    */
+    blocks: (() => {
+      let n = 0
+      return freshBlocks(preset?.blocks ? JSON.parse(JSON.stringify(preset.blocks)) : [], () => `${id}-b${++n}`)
+    })(),
     hidden: false,
   }
 }
@@ -195,58 +209,47 @@ export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): Th
       return { ...state, settings: { ...state.settings, ...op.settings } }
 
     case "add_block": {
-      const spec = schemaOf(
-        schemas,
-        state.sections.find((s) => s.id === op.sectionId)?.type ?? "",
-      )?.blocks?.find((b) => b.type === op.blockType)
+      const section = state.sections.find((s) => s.id === op.sectionId)
+      if (!section) return state
+      const parent = op.parentId ? resolvePath(section.blocks, op.parentId) : []
+      if (!parent) return state
+      const parentType = parent.length ? blockAt(section.blocks, parent)?.block.type ?? null : null
+      const spec = blockSpecFor(section.type, parentType, op.blockType, schemas)
       if (!spec) return state
       const block: BlockInstance = {
         id: op.blockId,
         type: op.blockType,
         settings: { ...defaultsFor(spec), ...(op.settings ?? {}) },
       }
-      return editBlocks(state, op.sectionId, (blocks) => {
-        const next = [...blocks]
-        const at = op.index === undefined ? next.length : Math.max(0, Math.min(next.length, op.index))
-        next.splice(at, 0, block)
-        return next
-      })
+      return editBlocks(state, op.sectionId, (blocks) => insertAt(blocks, parent, block, op.index))
     }
 
     case "update_block":
-      return editBlocks(state, op.sectionId, (blocks) =>
-        blocks.some((b) => b.id === op.blockId)
-          ? blocks.map((b) =>
-              b.id === op.blockId ? { ...b, settings: { ...b.settings, ...op.settings } } : b,
-            )
-          : blocks,
-      )
+      return editBlocks(state, op.sectionId, (blocks) => {
+        const path = resolvePath(blocks, op.blockId)
+        return path ? updateAt(blocks, path, (b) => ({ ...b, settings: { ...b.settings, ...op.settings } })) : blocks
+      })
 
     case "move_block":
       return editBlocks(state, op.sectionId, (blocks) => {
-        const from = blocks.findIndex((b) => b.id === op.blockId)
-        if (from === -1) return blocks
-        const rest = blocks.filter((_, i) => i !== from)
-        rest.splice(Math.max(0, Math.min(rest.length, op.index)), 0, blocks[from])
-        return rest
+        const path = resolvePath(blocks, op.blockId)
+        return path ? moveAt(blocks, path, op.index) : blocks
       })
 
     case "remove_block":
       /**
-       * CASCADES, because the editor's own delete does.
-       *
-       * Header nav links nest: a submenu item carries `parent_id` pointing at
-       * the link it sits under. Removing the parent and leaving the children
-       * produces blocks whose parent is gone — they render as stray top-level
-       * links, or as nothing, depending on the section. `removeBlock` in the
-       * editor has always cascaded; an AI delete that did not would quietly
-       * corrupt a navigation nobody thought they had touched.
+       * CASCADES, because the editor's own delete does: everything inside the
+       * block goes with it, and so does any header link whose `parent_id`
+       * names it. Removing a parent and leaving its children produced blocks
+       * whose parent was gone, which render as stray top-level links or as
+       * nothing, and quietly corrupted a navigation nobody thought they had
+       * touched. A static block is the template's, and stays.
        */
-      return editBlocks(state, op.sectionId, (blocks) =>
-        blocks.filter(
-          (b) => b.id !== op.blockId && (b.settings?.parent_id as string | undefined) !== op.blockId,
-        ),
-      )
+      return editBlocks(state, op.sectionId, (blocks) => {
+        const path = resolvePath(blocks, op.blockId)
+        if (!path || blockAt(blocks, path)?.block.static) return blocks
+        return removeAt(blocks, path)
+      })
 
     default:
       return state
@@ -314,7 +317,7 @@ function writableFields(type: string, schemas?: SchemaMap): SchemaField[] {
 }
 
 function writableBlockFields(sectionType: string, blockType: string, schemas?: SchemaMap): SchemaField[] {
-  return (blockSpecs(sectionType, schemas).find((b) => b.type === blockType)?.fields ?? []).filter(
+  return ((blockSpecs(sectionType, schemas).find((b) => b.type === blockType) ?? themeBlockCatalog()[blockType])?.fields ?? []).filter(
     (f) => !NOT_A_SETTING.has(f.type),
   )
 }
@@ -528,8 +531,22 @@ export function checkSettings(
 }
 
 /** The block types a section accepts, and how many of them it will take. */
+/**
+ * The block types a section takes: the ones it declares for itself, or the
+ * theme blocks (blocks/*.storelib) its `accepts` lets in.
+ */
 export function blockSpecs(sectionType: string, schemas?: SchemaMap): BlockSchema[] {
-  return schemaOf(schemas, sectionType)?.blocks ?? []
+  const schema = schemaOf(schemas, sectionType)
+  if (schema?.blocks?.length) return schema.blocks
+  return addableBlocks(schema, themeBlockCatalog())
+}
+
+/** The schema of a block of `type` placed directly in the section (parentType null) or inside a block of `parentType`. */
+export function blockSpecFor(sectionType: string, parentType: string | null, type: string, schemas?: SchemaMap): BlockSchema | undefined {
+  if (parentType === null) return blockSpecs(sectionType, schemas).find((b) => b.type === type)
+  const catalog = themeBlockCatalog()
+  const parent = catalog[parentType]
+  return parent?.accepts?.length && acceptsType(parent.accepts, type) ? catalog[type] : undefined
 }
 
 export function maxBlocks(sectionType: string, schemas?: SchemaMap): number | undefined {
@@ -619,14 +636,23 @@ export function describeSection(section: SectionInstance, schemas?: SchemaMap): 
       ].join("\n"),
     )
     const blocks = section.blocks ?? []
+    /* Blocks inside blocks, indented, each with the path the block tools take. */
+    const catalog = themeBlockCatalog()
+    const lines: string[] = []
+    const walk = (list: BlockInstance[], above: string[], indent: string) => {
+      list.forEach((b, i) => {
+        const path = [...above, b.id].join("/")
+        const flags = [b.static ? "static, placed by the template" : "", b.hidden ? "hidden" : ""].filter(Boolean).join(", ")
+        lines.push(`${indent}${i}. [${path}] ${b.type}${flags ? ` (${flags})` : ""} ${JSON.stringify(b.settings).slice(0, 400)}`)
+        const holds = catalog[b.type]?.accepts
+        if (b.blocks?.length) walk(b.blocks, [...above, b.id], `${indent}    `)
+        else if (holds?.length) lines.push(`${indent}    (holds blocks: ${holds.join(", ")}; none yet)`)
+      })
+    }
+    walk(blocks, [], "  ")
     parts.push(
       blocks.length > 0
-        ? `CURRENT BLOCKS (${blocks.length}), in order\n${blocks
-            .map(
-              (b, i) =>
-                `  ${i}. [${b.id}] ${b.type} ${JSON.stringify(b.settings).slice(0, 400)}`,
-            )
-            .join("\n")}`
+        ? `CURRENT BLOCKS (${countAll(blocks)}), in order. Use the [path] as blockId; to add inside a block, pass its path as parentBlockId.\n${lines.join("\n")}`
         : "CURRENT BLOCKS: none — this section is empty until you add some.",
     )
   }

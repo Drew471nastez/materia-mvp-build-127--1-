@@ -90,4 +90,13 @@ export interface SettingsContext {
   onReorderBlocks?: (sectionId: string, blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
   /** The site's pages and products, for the link picker. */
   linkTargets?: LinkTarget[]
+  /**
+   * The page open in the builder and its sections. Policies edits that page
+   * through `onSectionSetting`, since the builder saves it itself; any other
+   * page is saved by the sections route (lib/website-builder/policy-editing.ts).
+   */
+  currentPageKey?: string
+  currentSections?: SectionInstance[]
+  /** A page's draft was saved from here: the builder says there is something to publish, and lists a page it did not have. */
+  onPageDraftSaved?: (pageKey: string) => void
 }

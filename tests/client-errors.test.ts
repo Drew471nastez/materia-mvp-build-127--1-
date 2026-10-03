@@ -127,18 +127,20 @@ function main() {
     check("Turbopack's \"Failed to load chunk\" is recognised as stale code", isChunkLoadError(turbo))
     check("so it is reported as stale, not as a fault", buildReport(turbo, "https://storelib.com/checkout?product=x").stale === true)
     const store = fakeStore()
-    check("and the page reloads for it", shouldReloadForStaleCode(turbo, store, "/explore"))
+    check("and the page reloads for it", shouldReloadForStaleCode(turbo, store))
 
     const safari = new TypeError("Load failed")
-    check("Safari's \"Load failed\" inside /app is stale code", isStaleCodeError(safari, "/app/products") && isStaleCodeError(safari, "/app"))
-    check("but not outside /app, where it is too vague to act on", !isStaleCodeError(safari, "/checkout") && !isStaleCodeError(safari, "/appetite") && !isStaleCodeError(safari, null))
-    check("nor a different failure inside /app", !isStaleCodeError(new TypeError("Failed to fetch"), "/app/orders"))
+    check("Safari's \"Load failed\" on its own is not stale code: a dropped connection says the same", !isStaleCodeError(safari) && !isStaleCodeError(safari, false))
+    check("it is once a newer deploy is known to be live", isStaleCodeError(safari, true))
+    check("and then it reloads like any stale chunk", shouldReloadForStaleCode(safari, fakeStore(), true) && !shouldReloadForStaleCode(safari, fakeStore(), false))
+    check("a different failure is not, deploy or no deploy", !isStaleCodeError(new TypeError("Failed to fetch"), true))
+    check("a report says stale for \"Load failed\" only with a newer deploy", buildReport(safari, "https://storelib.com/app", true).stale && !buildReport(safari, "https://storelib.com/app").stale)
 
     const t0 = 1_800_000_000_000
     const tab = fakeStore()
-    check("a stale tab reloads", shouldReloadForStaleCode(turbo, tab, "/blog/x", t0))
-    check("a failure straight after that reload does not reload again", !shouldReloadForStaleCode(turbo, tab, "/blog/x", t0 + 5_000))
-    check("the next deploy, later that day, reloads the same tab again", shouldReloadForStaleCode(turbo, tab, "/blog/x", t0 + RELOAD_AGAIN_MS + 1))
+    check("a stale tab reloads", shouldReloadForStaleCode(turbo, tab, false, t0))
+    check("a failure straight after that reload does not reload again", !shouldReloadForStaleCode(turbo, tab, false, t0 + 5_000))
+    check("the next deploy, later that day, reloads the same tab again", shouldReloadForStaleCode(turbo, tab, false, t0 + RELOAD_AGAIN_MS + 1))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -158,7 +160,11 @@ function main() {
     const region = readFileSync(join(root, "components/storefront/safe-region.tsx"), "utf8")
     check("a creator page's swallowed section heals the same way", /if \(recoverFromStaleCode\(error\)\) return/.test(region))
     const screen = readFileSync(join(root, "components/platform/error-screen.tsx"), "utf8")
-    check("the boundary's screen reads the path, for /app's \"Load failed\"", /shouldReloadForStaleCode\(error, store, window\.location\.pathname\)/.test(screen))
+    check("the boundary's screen passes what it knows of a newer deploy", /shouldReloadForStaleCode\(error, store, newDeploy\)/.test(screen))
+    check("and asks before deciding on a bare \"Load failed\"", /isLoadFailed\(error\) && !newDeployKnown\(\)/.test(screen) && /confirmNewDeploy\(\)/.test(screen))
+    check("it decides before paint, so a stale tab never shows the error first", /useLayoutEffect/.test(screen) && /useBeforePaint\(\(\) =>/.test(screen))
+    check("the website builder never reloads by itself either", staleAction({ error: chunk, path: "/website-builder/editor/abc", holdsWork: false, store: fakeStore(), now: t }) === "bar")
+    check("\"Load failed\" outside a boundary does nothing until a newer deploy is known", staleAction({ error: new TypeError("Load failed"), path: "/app", holdsWork: false, store: fakeStore(), now: t }) === "none" && staleAction({ error: new TypeError("Load failed"), path: "/app", holdsWork: false, store: fakeStore(), newDeploy: true, now: t }) === "reload")
   }
 
   // ═══════════════════════════════════════════════════════════════════════

@@ -22,11 +22,17 @@
  * same one every link setting uses and which refuses `javascript:`.
  */
 import * as React from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 
+import { Reveal } from "@/components/ui/reveal"
 import { MENU_HANDLE, MENU_LIMITS, cleanMenus, type Menu, type MenuLink } from "@/lib/storelib-theme/values"
 import { cn } from "@/lib/utils"
 import { LinkListEditor, NEW_LINK_LABEL, type LinkItem } from "./link-list-editor"
+import { nestMenuLink } from "@/lib/website-builder/nav-links"
+
+/* A thumb's height on a phone, inside the phone sheet and outside it (Website Settings). */
+const FIELD = cn(INPUT, "max-sm:h-11")
+const ACTION = cn(TEXT_BUTTON, "max-sm:h-11")
 import { INPUT, NOTE, TEXT_BUTTON } from "./styles"
 
 /** "Footer links" → "footer-links", made unique against the menus there are. */
@@ -90,6 +96,10 @@ export function MenuLinksEditor({ links, onLinks }: { links: MenuLink[]; onLinks
           return next
         }))
       }
+      onNest={(id, dir) => {
+        const next = nestMenuLink(links, id, dir)
+        if (next !== links) onLinks(next)
+      }}
     />
   )
 }
@@ -126,57 +136,70 @@ export function MenusEditor({ value, onChange }: { value: unknown; onChange: (me
       <p className={NOTE}>
         A section that shows a menu picks one of these. The header&apos;s own links are always there as the main menu; change them in the header.
       </p>
-      {handles.map((handle) => {
-        const menu = menus[handle]
-        const expanded = open === handle
-        const count = (menu.links ?? []).length
-        return (
-          <div key={handle} className="rounded-lg border border-border">
-            <button
-              type="button"
-              aria-expanded={expanded}
-              className="flex w-full items-center gap-2 px-3 py-2.5 max-sm:min-h-12 text-left"
-              onClick={() => setOpen(expanded ? null : handle)}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{menu.title || handle}</span>
-                <span className="block text-[11px] text-muted-foreground">
-                  {count} {count === 1 ? "link" : "links"}
-                </span>
-              </span>
-              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", expanded && "rotate-180")} />
-            </button>
-            {expanded && (
-              <div className="space-y-3 border-t border-border p-3">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Menu name</span>
-                  <input
-                    className={INPUT}
-                    value={menu.title}
-                    maxLength={MENU_LIMITS.titleLength}
-                    onChange={(e) => put(handle, { ...menu, title: e.target.value })}
+      {/* The same box and rows as a menu's links: a hairline between menus, 36px a row, 44px under a thumb. */}
+      {handles.length > 0 && (
+        <div className="rounded-lg border border-border bg-background dark:border-white/10 dark:bg-white/[0.02]" data-menu-list="">
+          {handles.map((handle, i) => {
+            const menu = menus[handle]
+            const expanded = open === handle
+            const count = (menu.links ?? []).length
+            const panelId = `menu-panel-${handle}`
+            return (
+              <div key={handle} data-menu-row={handle} className={cn(i > 0 && "border-t border-border dark:border-white/[0.07]")}>
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-controls={panelId}
+                  className="group/menu flex h-9 w-full items-center gap-2 pl-3 pr-2.5 text-left focus-visible:outline-none max-sm:h-11"
+                  onClick={() => setOpen(expanded ? null : handle)}
+                >
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground group-focus-visible/menu:underline max-sm:text-[15px]">
+                    {menu.title || handle}
+                  </span>
+                  <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground max-sm:text-[13px]">
+                    {count} {count === 1 ? "link" : "links"}
+                  </span>
+                  <ChevronRight
+                    aria-hidden
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-[transform,rotate,color] duration-200 ease-out group-hover/menu:text-foreground motion-reduce:transition-none",
+                      expanded && "rotate-90 text-foreground",
+                    )}
                   />
-                </label>
-                <MenuLinksEditor links={menu.links ?? []} onLinks={(links) => put(handle, { ...menu, links })} />
-                {/* The last action's padding is pulled back (-mr-1.5), so its words end on the same edge as the fields above it. */}
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  {confirming === handle ? (
-                    <>
-                      <span className="text-[12px] text-muted-foreground">Sections showing it will show none.</span>
-                      <button type="button" className={TEXT_BUTTON} onClick={() => setConfirming(null)}>Keep</button>
-                      <button type="button" className={cn(TEXT_BUTTON, "-mr-1.5 text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b]")} onClick={() => remove(handle)}>Delete</button>
-                    </>
-                  ) : (
-                    <button type="button" className={cn(TEXT_BUTTON, "-mr-1.5 hover:bg-red-50 hover:text-[#b91c1c]")} onClick={() => setConfirming(handle)}>
-                      Delete menu
-                    </button>
-                  )}
-                </div>
+                </button>
+                <Reveal open={expanded} id={panelId} data-menu-reveal="">
+                  <div className="space-y-3 px-3 pb-3" data-menu-panel="">
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Menu name</span>
+                      <input
+                        className={FIELD}
+                        value={menu.title}
+                        maxLength={MENU_LIMITS.titleLength}
+                        onChange={(e) => put(handle, { ...menu, title: e.target.value })}
+                      />
+                    </label>
+                    <MenuLinksEditor links={menu.links ?? []} onLinks={(links) => put(handle, { ...menu, links })} />
+                    {/* The last action's padding is pulled back (-mr-1.5), so its words end on the same edge as the fields above it. */}
+                    <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+                      {confirming === handle ? (
+                        <>
+                          <span className="text-[12px] text-muted-foreground max-sm:text-[13px]">Sections showing it will show none.</span>
+                          <button type="button" className={ACTION} onClick={() => setConfirming(null)}>Keep</button>
+                          <button type="button" className={cn(ACTION, "-mr-1.5 text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b] dark:text-red-300 dark:hover:bg-red-500/10")} onClick={() => remove(handle)}>Delete</button>
+                        </>
+                      ) : (
+                        <button type="button" className={cn(ACTION, "-mr-1.5 hover:bg-red-50 hover:text-[#b91c1c] dark:hover:bg-red-500/10 dark:hover:text-red-300")} onClick={() => setConfirming(handle)}>
+                          Delete menu
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </Reveal>
               </div>
-            )}
-          </div>
-        )
-      })}
+            )
+          })}
+        </div>
+      )}
       {handles.length < MENU_LIMITS.menus ? (
         <form
           className="flex items-center gap-2"
@@ -187,7 +210,7 @@ export function MenusEditor({ value, onChange }: { value: unknown; onChange: (me
         >
           <input
             aria-label="New menu name"
-            className={INPUT}
+            className={FIELD}
             placeholder="New menu, such as Footer"
             value={name}
             maxLength={MENU_LIMITS.titleLength}
@@ -196,7 +219,7 @@ export function MenusEditor({ value, onChange }: { value: unknown; onChange: (me
           <button
             type="submit"
             disabled={!name.trim()}
-            className="h-9 max-sm:h-11 shrink-0 rounded-lg bg-[#1a1a2e] px-3 text-sm font-medium text-white transition-colors hover:bg-[#2d2d4e] disabled:opacity-40"
+            className="h-8 max-sm:h-11 shrink-0 rounded-md bg-[#1a1a2e] px-3 text-[13px] max-sm:text-[15px] font-medium text-white transition-colors hover:bg-[#2d2d4e] disabled:opacity-40 dark:bg-white dark:text-[#0f0f0f] dark:hover:bg-white/90"
           >
             Add menu
           </button>

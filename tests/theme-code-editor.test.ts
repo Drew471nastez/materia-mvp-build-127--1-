@@ -507,7 +507,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
     "DELETE of a section file the theme does not have is refused with the pages that use it",
     /status: 409/.test(route) && /used_by: usedBy/.test(route) && /searchParams\.get\("force"\) !== "1"/.test(route),
   )
-  check("a rename compiles under the new name before the row moves", /export async function PATCH/.test(route) && route.indexOf("compileSection(source, { file: to") > 0 && route.indexOf("compileSection(source, { file: to") < route.indexOf("hasDraftColumn\n        ? { install_id: installId, path: to"))
+  check("a rename compiles under the new name before the row moves", /export async function PATCH/.test(route) && route.indexOf("compileThemeFile(source, { file: to") > 0 && route.indexOf("compileThemeFile(source, { file: to") < route.indexOf("hasDraftColumn\n        ? { install_id: installId, path: to"))
   check("the canvas can ask for every saved source at once", /searchParams\.get\("sources"\) === "1"/.test(route) && /\.like\("path", "%\.storelib"\)/.test(route))
 
   check("the code editor shows the compiler's errors with their lines", /res\.status === 422 && Array\.isArray\(d\.errors\)/.test(codePage) && /data-compile-errors=""/.test(codePage) && /goToLine\(err\.line\)/.test(codePage))
