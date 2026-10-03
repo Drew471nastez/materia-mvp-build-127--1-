@@ -121,6 +121,10 @@ export const SITE_ROUTES = Object.freeze({
   /** POST `name`: the signed-in customer's name. */
   account_profile_url: "/api/site-account/profile",
   account_logout_url: "/account/logout",
+  /** The password page a website shows while it asks for a password. */
+  password_url: "/password",
+  /** POST `password` (and `return`, a path): lets the visitor in for thirty days. */
+  password_enter_url: "/api/site-password",
 })
 
 /** The theme's social links, in the order the footer draws them. */

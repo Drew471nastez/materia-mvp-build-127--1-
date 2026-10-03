@@ -18,7 +18,7 @@ A Storelib section is **one file**, `sections/<type>.storelib`, with four blocks
 
 When a person asks you for a section, answer with the file and nothing else around it, unless they asked for an explanation. They will paste it into the code editor, or you will write it into `sections/` in their theme.
 
-## Six things agents get wrong
+## Eight things agents get wrong
 
 These are the mistakes that produce a file which looks right and is not. Check each before you answer.
 
@@ -26,8 +26,10 @@ These are the mistakes that produce a file which looks right and is not. Check e
 2. **The template language is not Vue, React, JSX or Liquid.** `v-if`, `@click`, `:class`, `{% assign %}` and JSX braces are refused. It is `{{ }}`, `{% if %}`, `{% for %}`, `{# #}` and filters, and nothing else.
 3. **Every name must be declared.** `{{ settings.subtitle }}` does not compile unless the schema declares `subtitle`. Check every path your template and CSS read against your schema.
 4. **Repeated content is blocks.** Never `feature_1`, `feature_2`, `feature_3`.
-5. **Colour comes from the scheme.** Declare a `color_scheme` setting and read `var(--scheme-*)`. A hex code for anything the scheme answers stops responding to the creator's theme.
+5. **Colour comes from the scheme.** Declare a `color_scheme` setting and read `var(--scheme-*)`, and give each element a `color` setting whose default names a scheme colour. A hex code for anything the scheme answers stops responding to the creator's theme.
 6. **Container queries, not media queries.** The builder's phone preview is not the width of the window. A width-only media query is rewritten for you, but say what you mean.
+7. **The header is configured, not written.** Change the built-in header's settings, its links and the theme's logo. Only a creator who asks for a header of their own gets one section with `"kind": "header"`. See [The header and footer](/developers/header-and-footer).
+8. **The type is what the value is.** A picture is `image_picker`, never text holding an address; a menu is one `link_list`, never `link_1_label` and `link_1_url`. Both are refused for an agent. See [Choosing the type](/developers/schema#choosing-the-type).
 
 ## Know the website before you write for it
 
@@ -85,7 +87,7 @@ Storelib AI in the builder runs on ChatGPT. The model menu beside the message bo
 
 **Strength**, in the same menu, is how long the model thinks before it acts: Light, Standard or Deep, sent to OpenAI as low, medium and high reasoning effort. Standard is right for most requests. Deep is for a hard change, a whole page or code; Light for a word, a colour or a setting.
 
-Whatever goes wrong with a model call, the chat says it in a sentence, such as "Storelib AI is unavailable right now. Try again in a few minutes.", and never shows the provider's own error. A creator can run Storelib AI on their own OpenAI key or OpenRouter account from Website settings › Connections, and those edits do not count against the plan's AI edits.
+Whatever goes wrong with a model call, the chat says it in a sentence, such as "Storelib AI is unavailable right now. Try again in a few minutes.", and never shows the provider's own error. A creator can run Storelib AI on their own OpenAI key from Website settings › Connections, and those edits do not count against the plan's AI edits.
 
 ## Setting up your agent
 

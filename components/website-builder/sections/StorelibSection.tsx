@@ -24,7 +24,7 @@ import { SectionWrapper, type SectionProps } from "./_shared"
 import { useStorelibContext, useStorelibPage } from "./storelib-sources"
 import { useStorefront } from "../theme/storefront-context"
 import { formIntent } from "@/lib/website-builder/form-intent"
-import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
+import { signupMode, subscribeToCreator } from "@/lib/website-builder/subscribe-client"
 import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/contact-client"
 import { useSiteWishlist } from "../site-wishlist"
 import { useSectionScript } from "./section-sandbox"
@@ -269,7 +269,7 @@ export function StorelibSection({
     if (!(form instanceof HTMLFormElement)) return
     const intent = formIntent(form)
 
-    if (inCanvas) {
+    if (signupMode({ inEditor: inCanvas, creatorId }) === "preview") {
       e.preventDefault()
       if (intent === "subscribe") settle(form, "done", "Sign-ups go to Subscribers on your live site.")
       if (intent === "contact") settle(form, "done", "Messages reach your email on your live site.")
@@ -322,7 +322,9 @@ export function StorelibSection({
       creatorId,
       email,
       name,
-      placement: /newsletter/.test(section.type) ? "newsletter" : "section",
+      /* The password page's box is a "tell me when you open", and its consent line says so. */
+      placement: section.type === "main_password" ? "password" : /newsletter/.test(section.type) ? "newsletter" : "section",
+      company: form.querySelector<HTMLInputElement>('input[name="company"]')?.value ?? "",
     })
     if (result.ok === false) settle(form, "error", result.error)
     else settle(form, "done", "Thanks, you're on the list.")

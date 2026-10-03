@@ -305,7 +305,8 @@ section("No page draws a picture of itself while it loads, inside or out")
   const emails = code("app/app/emails/emails-home.tsx")
   check("Emails' tables wait as their own header and rows, crossfading into the rows, and its figures as shapes, not dashes",
     /function Loading\(\) \{\s*return <ShimmerRows rows=\{5\} header/.test(emails) && !/WaitingArea/.test(emails)
-      && (emails.match(/<ShimmerSwap loading=\{props\.loading\} skeleton=\{<Loading \/>\}>/g) ?? []).length === 3
+      /* Four: subscribers, messages, automations and the emails. */
+      && (emails.match(/<ShimmerSwap loading=\{props\.loading\} skeleton=\{<Loading \/>\}>/g) ?? []).length === 4
       && !/props\.loading \? "–"/.test(emails) && /\{props\.loading \? \(\s*<ShimmerBlock /.test(emails)
       /* The Sent tab's strip is there on every render, its figures shapes while they come, so the table under it never moves. */
       && /if \(p\.tab === "published"\) \{/.test(emails) && /value: o \? n\(o\.total_sent\) : "–"/.test(emails))

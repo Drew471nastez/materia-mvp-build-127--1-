@@ -44,8 +44,11 @@ async function main() {
     const sync = read(`${ROUTES}/sections/sync-global/route.ts`)
     check("cleaned by the same function as the sections route, with the install's own files",
       /const own = await readOwnSectionFields\(supabase, installId, sent\.map\(\(s\) => s\.type\)\)/.test(sync)
-        && /const header = sentHeader \? sanitizeSections\(\[sentHeader\], own\)\[0\] : null/.test(sync)
-        && /const footer = sentFooter \? sanitizeSections\(\[sentFooter\], own\)\[0\] : null/.test(sync))
+        /* The whole Header and Footer groups now, each section cleaned and labelled for its group. */
+        && /\? sanitizeSections\(sentHeaderGroup, own\)\.map\(\(s\) => inGroup\(s, "header"\)\)/.test(sync)
+        && /: sentHeader \? sanitizeSections\(\[sentHeader\], own\) : null/.test(sync)
+        && /\? sanitizeSections\(sentFooterGroup, own\)\.map\(\(s\) => inGroup\(s, "footer"\)\)/.test(sync)
+        && /: sentFooter \? sanitizeSections\(\[sentFooter\], own\) : null/.test(sync))
     check("held to the same block limit, before anything is read or written",
       /* Every block counts, at every depth: lib/website-builder/block-tree.ts, blockTreeProblem. */
       /sent\.map\(\(s\) => blockTreeProblem\(s\)\)/.test(sync)

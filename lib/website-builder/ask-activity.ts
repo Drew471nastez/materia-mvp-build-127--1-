@@ -49,6 +49,8 @@ export interface ActivityStep {
 export interface ActivityCode {
   path: string
   source: string
+  /** How many steps there were when it was first written: where it sits in the list (timelineRows). */
+  at?: number
 }
 
 /** The question a run stopped on: `{type: "question"}` in lib/website-builder/agent/loop.ts. */
@@ -74,6 +76,8 @@ export interface Activity {
   steps: ActivityStep[]
   /** What it said it would do, before it did any of it. */
   plan?: string
+  /** How many steps there were when the plan arrived: where it sits in the list (timelineRows). */
+  planAt?: number
   /** Its latest line of commentary. */
   note?: string
   /** The latest `progress` line's words: where the run is. */
@@ -180,14 +184,14 @@ export function reduceActivity(activity: Activity, event: Record<string, unknown
   }
   if (type === "plan") {
     const plan = typeof event.text === "string" ? event.text.trim() : ""
-    return plan ? { ...activity, plan, last: "plan" } : activity
+    return plan ? { ...activity, plan, planAt: activity.planAt ?? activity.steps.length, last: "plan" } : activity
   }
   if (type === "code") {
     const path = typeof event.path === "string" ? event.path : ""
     const source = typeof event.source === "string" ? event.source : ""
     if (!path || !source) return activity
     const at = activity.code.findIndex((file) => file.path === path)
-    const code = at < 0 ? [...activity.code, { path, source }] : activity.code.map((f, i) => (i === at ? { path, source } : f))
+    const code = at < 0 ? [...activity.code, { path, source, at: activity.steps.length }] : activity.code.map((f, i) => (i === at ? { ...f, path, source } : f))
     return { ...activity, code, last: "code" }
   }
   if (type === "op") {
@@ -319,6 +323,82 @@ export function activityFromOps(ops: unknown[]): Activity {
   let activity = EMPTY_ACTIVITY
   for (const op of ops) activity = reduceActivity(activity, { type: "op", op })
   return activity
+}
+
+/* ── the list the chat draws ──────────────────────────────────────────── */
+
+export type TimelineRow =
+  | {
+      kind: "step"
+      /** The first step's id: a row keeps its key as steps join it, so it never remounts or moves. */
+      key: string
+      label: string
+      state: ActivityStep["state"]
+      /** How many steps in a row said the same thing: "Adding to the FAQ section" six times is one row. */
+      count: number
+    }
+  | { kind: "plan"; key: "plan"; text: string }
+  | { kind: "code"; key: string; file: ActivityCode }
+
+/** A headline about writing or saving a section says what the tool steps beside it already say. */
+const SAID_BY_STEPS = /^(Writing|Saving) /
+
+/**
+ * ===========================================================================
+ *  THE STEPS, AS ROWS THAT NEVER MOVE
+ * ===========================================================================
+ * What the chat lists while a run works and folds away when it ends. Three
+ * rules make it calm:
+ *
+ *   ONLY EVER APPENDED. A step, the plan and a file it wrote each go in at
+ *   the position the list had reached when they arrived, so a row already on
+ *   screen is never pushed down by something arriving above it. Measured:
+ *   scripts/check-ask-states.mjs, 0 px for every existing row on every line.
+ *
+ *   ONE ROW FOR A REPEAT. The same words twice in a row are one row with a
+ *   count, keyed by the first, so six "Adding to the FAQ section" are one
+ *   line that counts up rather than six that scroll the thread.
+ *
+ *   ONE THING RUNNING. A headline the server opened ("Planning") is over
+ *   once anything comes after it, whether or not the server said so.
+ *
+ * The headlines about writing and saving a section are left out: the tool
+ * steps beside them name the same section, by file where it is code.
+ */
+export function timelineRows(activity: Pick<Activity, "steps" | "plan" | "planAt" | "code">): TimelineRow[] {
+  const steps = activity.steps.filter((s) => !(s.id.startsWith("~progress:") && SAID_BY_STEPS.test(s.label)))
+  /* Positions are counted in the full list, which is what `planAt` and `at` were counted in. */
+  const position = new Map(activity.steps.map((s, i) => [s.id, i]))
+  const rows: TimelineRow[] = []
+  const inserts: { at: number; row: TimelineRow }[] = []
+  if (activity.plan) inserts.push({ at: activity.planAt ?? 0, row: { kind: "plan", key: "plan", text: activity.plan } })
+  for (const file of activity.code) inserts.push({ at: file.at ?? activity.steps.length, row: { kind: "code", key: `code:${file.path}`, file } })
+  inserts.sort((a, b) => a.at - b.at)
+
+  let next = 0
+  const flush = (upTo: number) => {
+    while (next < inserts.length && inserts[next].at <= upTo) rows.push(inserts[next++].row)
+  }
+  for (const step of steps) {
+    flush(position.get(step.id) ?? 0)
+    const last = rows[rows.length - 1]
+    if (last && last.kind === "step" && last.label === step.label) {
+      rows[rows.length - 1] = { ...last, state: step.state, count: last.count + 1 }
+      continue
+    }
+    rows.push({ kind: "step", key: step.id, label: step.label, state: step.state, count: 1 })
+  }
+  flush(Number.POSITIVE_INFINITY)
+
+  /* One thing running: a headline left open by the server is over once a row comes after it. */
+  let lastStep = -1
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].kind === "step") {
+      lastStep = i
+      break
+    }
+  }
+  return rows.map((row, i) => (row.kind === "step" && row.state === "running" && i !== lastStep ? { ...row, state: "done" as const } : row))
 }
 
 /** Every finished step, oldest first, the running one left out. */

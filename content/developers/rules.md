@@ -23,10 +23,11 @@ Read this before you write or change any code on a Storelib site. It applies to 
 The creator edits a section in the builder's sidebar, as they would in Shopify. If a word, a picture or a link is typed straight into the markup, they cannot change it.
 
 - **Text** is a `text`, `textarea` or `richtext` setting. Print `richtext` with `| raw`; everything else is escaped for you.
-- **Pictures** are `image_picker` settings. Never put a URL to a picture in a default.
+- **Pictures** are `image_picker` settings, never a `text` or `url` setting holding an address. The creator gets the image picker with an address box under it. Never put a URL to a picture in a default.
 - **Every link and every button** has two settings: a `text` label and a `url` link. Read the link through the filter, `href="{{ settings.button_url | default: '#' | url }}"`. A `url` setting gives the creator the link picker, with their pages and products in it.
-- **Menus and link lists** are blocks, one block per link, each with its own `label` and `url`. The creator adds, removes and reorders links in the sidebar, and the section draws whatever is there.
-- **Colour** comes from the colour scheme. Declare a `color_scheme` setting and use `var(--scheme-*)`. Don't use hex codes for anything the scheme covers.
+- **A menu** is one `link_list` setting, defaulting to `main-menu`, so the creator picks one of the site's menus from Website settings › Navigation. Never `link_1_label` and `link_1_url` pairs. Links that belong to this section alone, such as a row of resources, are blocks, one per link.
+- **Colour** comes from the colour scheme, and each element has a colour setting that follows it. Declare a `color_scheme` setting and a `color` setting per element defaulting to a scheme colour, and use `var(--s-*)`. Don't use hex codes for anything the scheme covers.
+- **The logo, the store name and the social links** are read from the theme, `theme.logo.url`, `shop.name`, `shop.socials`, never asked for again.
 
 The [page links example](/developers/examples#page-links) does all of this.
 
@@ -39,6 +40,8 @@ A section an agent writes is checked before it is saved, and refused with the fi
 - **Buttons.** Painted from the scheme's button keys, with a `:hover` from its hover keys, so Theme settings › Buttons and the section's scheme apply.
 - **Spacing.** `padding_top` and `padding_bottom` range settings, used for the section's padding.
 - **Words, links and pictures.** Every one a setting or a block. Prompts inside `{% if page.in_editor %}` are fine.
+- **The right type.** A picture declared as `text` or `url` is refused with the `image_picker` to use, and links typed out as numbered pairs with the `link_list` to use.
+- **A header of its own** says `"kind": "header"` and reads its menu from a `link_list`. Any other header, nav bar or footer is refused.
 - **Phones.** Nothing wider than a phone without a `@container` rule that changes it.
 
 `storelib_run_tests` runs the same check, so a file that tests clean is a file that saves.
@@ -106,7 +109,7 @@ Then say what you changed in one or two plain sentences, and remind the creator 
 
 ## Changing the header
 
-The header and the footer are the site's own sections, of type `header` and `footer`. They are changed, never rewritten. Over MCP, one `storelib_create_safe_patch` makes the header sticky on scroll up, gives it a button, and adds a link with a sub-link:
+The header and the footer are the site's own sections, of type `header` and `footer`. Connect to them: they are changed, never rewritten. The logo and store name are theme settings (`logo_url`, `brand_name`), which both already show. Only a creator who asks for a header of their own gets one new section, with `"kind": "header"`; see [A header of your own](/developers/header-and-footer#a-header-of-your-own). Over MCP, one `storelib_create_safe_patch` makes the header sticky on scroll up, gives it a button, and adds a link with a sub-link:
 
 ```json
 {

@@ -15,15 +15,31 @@
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 /** Where on the page the address was given, for the consent record. */
-export type SignupPlacement = "newsletter" | "footer" | "contact" | "section"
+export type SignupPlacement = "newsletter" | "footer" | "contact" | "section" | "password"
 
 export type SignupResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * WHAT A SIGN UP DOES WHERE IT IS SENT FROM. The builder's canvas never
+ * subscribes anybody: it shows the form's success state, because designing a
+ * page is not signing up to it. A live page with no creator to send to (a
+ * cover screenshot) says so rather than thanking somebody for nothing. A
+ * live page of a creator's website sends it. Every email box on a website
+ * asks this one question (StorelibSection, NewsletterSection).
+ */
+export function signupMode(input: { inEditor: boolean | undefined; creatorId: string | null | undefined }): "preview" | "unavailable" | "send" {
+  if (input.inEditor) return "preview"
+  if (!input.creatorId) return "unavailable"
+  return "send"
+}
 
 export async function subscribeToCreator(input: {
   creatorId: string
   email: string
   name?: string
   placement: SignupPlacement
+  /** A form's invisible field, which only a script fills in. */
+  company?: string
 }): Promise<SignupResult> {
   const email = input.email.trim()
   if (!email) return { ok: false, error: "Enter your email address." }
@@ -40,6 +56,7 @@ export async function subscribeToCreator(input: {
         email,
         name: input.name?.trim() || undefined,
         placement: input.placement,
+        ...(input.company ? { company: input.company } : {}),
         /* Where the visit came from, for the creator's Subscribers. The
            server takes the website's address from the request itself. */
         origin: pageOrigin(),

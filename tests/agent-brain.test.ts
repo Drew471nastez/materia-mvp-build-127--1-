@@ -246,8 +246,12 @@ async function main() {
       about 5.6k tokens of stable text that is cached and read at a tenth of
       the price on every turn after the first. The budget grows by that and
       no more; tests/ai-reference.test.ts holds the reference to its own.
+      12,300 until the header rule said to connect to the built-in header
+      (and when a section of kind header is right), and the shared rules said
+      which type a picture, a menu and a colour per element are: about 550
+      tokens, the cost of an AI that stops coding a second header.
     */
-    check("the first request stays inside its budget", tokens(first.system) <= 12_300 && tokens(JSON.stringify(first.tools)) <= 5_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    check("the first request stays inside its budget", tokens(first.system) <= 12_900 && tokens(JSON.stringify(first.tools)) <= 5_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>

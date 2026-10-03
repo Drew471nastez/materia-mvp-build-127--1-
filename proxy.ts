@@ -9,6 +9,8 @@ import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
 import { onePageRoute } from "@/lib/onepage/host-route"
 import { oldAddressRedirect, resolveOnePageAddress, type OldAddressRedirect } from "@/lib/onepage/resolve-address"
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
+import { createSiteGate } from "@/lib/site-password/proxy-gate"
+import { passCookieName } from "@/lib/site-password/pass"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -197,6 +199,45 @@ async function hasLiveAiSite(slug: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  A WEBSITE THAT ASKS FOR A PASSWORD
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Asked of every page of a built website, on its subdomain and on a
+ * connected domain alike (lib/site-password/gate.ts says why here and not in
+ * the page). While no website asks for a password it costs one small read
+ * every fifteen seconds and nothing per request. Service key only: the rows
+ * are server only.
+ */
+let gateClient: ReturnType<typeof createClient> | null = null
+const siteGate = createSiteGate({
+  db: () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return null
+    gateClient ??= createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+    return gateClient
+  },
+})
+
+/**
+ * The password page in place of the page asked for, when this request has
+ * no pass. The page asked for rides along as `return`, so typing the
+ * password lands there. Never cached: it is the same address as the page.
+ */
+async function passwordPageFor(request: NextRequest, name: string, host: string, pathname: string, search: string): Promise<{ blocked: NextResponse | null; protected: boolean }> {
+  const answer = await siteGate({ name, host: host.toLowerCase(), pathname, cookie: request.cookies.get(passCookieName(host.toLowerCase()))?.value })
+  if (!answer.blocked) return { blocked: null, protected: answer.protected }
+  const to = request.nextUrl.clone()
+  to.pathname = `/w/${name}/password`
+  to.search = ""
+  to.searchParams.set("return", `${pathname}${search}`)
+  const r = NextResponse.rewrite(to)
+  r.headers.set("Cache-Control", "private, no-store")
+  r.headers.set("X-Robots-Tag", "noindex")
+  return { blocked: r, protected: true }
 }
 
 /**
@@ -963,6 +1004,14 @@ export async function proxy(request: NextRequest) {
         }
       }
 
+      /* A website that asks for a password shows its password page to a visitor without a pass (lib/site-password/gate.ts). */
+      let guarded = false
+      if (isWebsite && !looksLikeFile) {
+        const gate = await passwordPageFor(request, subdomain, host, pathname, search)
+        if (gate.blocked) return gate.blocked
+        guarded = gate.protected
+      }
+
       url.pathname = isWebsite
         ? `/w/${subdomain}${pathname === "/" ? "" : pathname}`
         : `/site/${subdomain}${pathname === "/" ? "" : pathname}`
@@ -1000,6 +1049,8 @@ export async function proxy(request: NextRequest) {
       if (pathname === "/") {
         rewritten.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
       }
+      /* Let in with a pass: this answer is this visitor's, never one for a shared cache to hand on. */
+      if (guarded) rewritten.headers.set("Cache-Control", "private, no-store")
 
       return rewritten
     }
@@ -1268,6 +1319,8 @@ export async function proxy(request: NextRequest) {
     // - /p/{slug} -> /p/{slug} (product pages stay the same)
 
     let rewritePath: string
+    /* The website asks for a password and this visitor has a pass: their answer is not for a shared cache. */
+    let guardedDomain = false
 
     /**
      * ═════════════════════════════════════════════════════════════════════════
@@ -1331,6 +1384,10 @@ export async function proxy(request: NextRequest) {
             : `/${username}/${parts.join("/")}`
     } else if (builtSite) {
       rewritePath = `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
+      /* The password page, as on the subdomain, for a visitor without a pass (lib/site-password/gate.ts). */
+      const gate = await passwordPageFor(request, username, host, pathname, search)
+      if (gate.blocked) return gate.blocked
+      guardedDomain = gate.protected
     } else if (pathname === "/" || pathname === "") {
       // username.storelib.com -> /u/{username}
       rewritePath = `/u/${username}`
@@ -1356,6 +1413,7 @@ export async function proxy(request: NextRequest) {
       const r = NextResponse.rewrite(rewriteUrl, { request })
       r.headers.set("x-seller-subdomain", seller)
       if (rewritePath.startsWith("/u/")) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
+      if (guardedDomain) r.headers.set("Cache-Control", "private, no-store")
       if (isCustomDomain) r.headers.set("x-custom-domain", host.split(":")[0])
       return r
     }

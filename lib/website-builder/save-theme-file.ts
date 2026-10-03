@@ -15,7 +15,7 @@
  */
 import { LIMITS, type ThemeError } from "@/lib/storelib-theme/types"
 import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
-import { CHROME_TYPES, chromeRefusal, chromeRoleOf } from "@/lib/storelib-theme/chrome"
+import { CHROME_TYPES, chromeRefusal, chromeRoleOf, declaredKind, kindTaken } from "@/lib/storelib-theme/chrome"
 import { parseStorelib } from "@/lib/storelib-theme/storelib/parse"
 import { recordVersion, saveDraft, sourceMap, type FileRow } from "./theme-file-drafts"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
@@ -77,10 +77,17 @@ export async function sectionNamesInUse(db: Db, installId: string, except: strin
   for (const [p, c] of Object.entries(sources)) {
     if (p === except) continue
     const r = compileSection(c, { file: p })
-    if (r.ok === true) out.set(r.value.schema.name.trim().toLowerCase(), p)
+    if (r.ok !== true) continue
+    out.set(r.value.schema.name.trim().toLowerCase(), p)
+    /* And which file is the site's own header or footer, if one is (chrome.ts, declaredKind). */
+    const kind = declaredKind(r.value.schema as unknown as Record<string, unknown>)
+    if (kind) out.set(kindKey(kind), p)
   }
   return out
 }
+
+/** The key sectionNamesInUse files a declared kind under: no section name starts with a NUL. */
+export const kindKey = (kind: string) => `\0kind:${kind}`
 
 /**
  * Compile, check, and save one file into its draft half, recording a
@@ -137,6 +144,10 @@ export async function saveThemeFile(
       if (role) return { ok: false, status: 422, error: chromeRefusal(role) }
 
       const taken = await sectionNamesInUse(db, installId, path)
+      /* A header of the creator's own is one file: a second would be two headers. */
+      const kind = declaredKind(r.value.schema as unknown as Record<string, unknown>)
+      const other = kind ? taken.get(kindKey(kind)) : undefined
+      if (kind && other) return { ok: false, status: 409, error: kindTaken(kind, other) }
       const name = r.value.schema.name.trim()
       const clash = taken.get(name.toLowerCase())
       if (clash) {

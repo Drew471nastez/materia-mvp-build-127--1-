@@ -23,6 +23,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { siteBrandName } from "@/lib/site-accounts/brand"
 import { handleContact } from "@/lib/site-contact/handle"
 import { loginEmailFrom } from "@/lib/seller-inbox"
+import { notifyCreatorOfMessage } from "@/lib/site-contact/notify"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -82,6 +83,8 @@ export async function POST(req: NextRequest) {
     },
     brand: (creatorId) => siteBrandName(db, creatorId),
     loginEmail: loginEmailFrom(db),
+    /* The bell in /app, for the creator whose website this is (lib/site-contact/notify). */
+    notify: (notice) => notifyCreatorOfMessage(db, notice),
     recordSource: async (creatorId, email, detail) => {
       await recordContactSource(db, creatorId, email, detail as never)
       /* The website and the visit's touches, onto the same contact (lib/attribution). */

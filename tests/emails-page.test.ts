@@ -36,8 +36,8 @@ check("an automation row opens its builder, prefetched", /router\.prefetch\(href
 check("the first column stays put on a phone", /const sticky = "orders-sticky sticky left-0/.test(home))
 check("rows are dense", /const td = "h-12 /.test(home))
 check("fifty to a page", /const PAGE_SIZE = 50/.test(home))
-/* Four: subscribers, emails, and the automations twice (their phone rows and their table from 768px). */
-check("a row's actions are the shared menu: a dropdown on a desktop, a sheet on a phone", (home.match(/<ResponsiveActionMenu/g) ?? []).length === 4)
+/* Five: subscribers, messages, emails, and the automations twice (their phone rows and their table from 768px). */
+check("a row's actions are the shared menu: a dropdown on a desktop, a sheet on a phone", (home.match(/<ResponsiveActionMenu/g) ?? []).length === 5)
 check("and its trigger takes the menu's handlers, or the desktop dropdown never opens",
   /trigger=\{<RowMenuButton /.test(home) && /export const RowMenuButton = React\.forwardRef<HTMLButtonElement/.test(read("app/app/orders/order-parts.tsx")) && /\{\.\.\.rest\}/.test(read("app/app/orders/order-parts.tsx")))
 check("a search box is 16px on a phone, so iOS does not zoom", /text-\[16px\][^"]*sm:text-\[13px\]/.test(home))
@@ -67,9 +67,10 @@ console.log("\nTables that scroll sideways under a frozen column")
       && /\.scroll-edge::before \{\s*left: var\(--scroll-edge-x, 0px\);\s*top: var\(--scroll-edge-top, 0px\);\s*height: var\(--scroll-edge-h, 100%\);/.test(css)
       && /\.scroll-edge\[data-start="true"\]::before,\s*\.scroll-edge\[data-end="true"\]::after \{\s*opacity: 1;/.test(css)
       && /@media \(prefers-reduced-motion: reduce\) \{\s*\.scroll-edge::before,\s*\.scroll-edge::after \{\s*transition: none;/.test(css))
-  check("Emails' three tables use it, and mark the frozen column in the header and in every row",
-    (home.match(/<ScrollEdge( frameClassName="max-md:hidden")?>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead[,)]/g) ?? []).length === 3
-      && (home.match(/<td data-scroll-edge="" className=\{cn\(td, sticky/g) ?? []).length === 3)
+  /* Four since Messages joined Subscribers, the automations and the emails. */
+  check("Emails' four tables use it, and mark the frozen column in the header and in every row",
+    (home.match(/<ScrollEdge( frameClassName="max-md:hidden")?>/g) ?? []).length === 4 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead[,)]/g) ?? []).length === 4
+      && (home.match(/<td data-scroll-edge="" className=\{cn\(td, sticky/g) ?? []).length === 4)
   check("the subscribers' email column keeps to its content (w-px), so the scrolling columns stay in view on a phone", /<th data-scroll-edge="" className=\{cn\(th, stickyHead, "w-px"\)\}>Email<\/th>/.test(home))
   check("the frozen cells are the row's own opaque colour, hover and press included, and Orders' sticky cells, so a picked row's tint leaves them pinned",
     /const sticky = "orders-sticky sticky left-0 z-\[1\] bg-white[^"]*group-hover:bg-\[#fafbfb\][^"]*group-active:bg-\[#f4f5f7\][^"]*group-data-\[pressed=true\]:bg-\[#f4f5f7\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))

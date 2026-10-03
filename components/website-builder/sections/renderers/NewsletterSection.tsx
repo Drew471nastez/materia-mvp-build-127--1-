@@ -9,7 +9,8 @@
  * section. A button that plainly does nothing is better than one that says
  * it worked.
  *
- * It posts to /api/website-builder/subscribe now, which writes to the same
+ * It posts to /api/website-builder/subscribe now (through subscribeToCreator,
+ * the client every email box on a website shares), which writes to the same
  * `subscribers` table as every other capture on the platform and fires the
  * creator's welcome automation. Inside the builder's canvas it still only
  * shows the success state, because designing a page is not subscribing to
@@ -20,7 +21,7 @@ import { useState } from "react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 import { hexToRgba } from "../_shared"
 import { useStorefront } from "../../theme/storefront-context"
-import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { signupMode, subscribeToCreator } from "@/lib/website-builder/subscribe-client"
 
 export function NewsletterSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -39,32 +40,23 @@ export function NewsletterSection({ section, theme, isEditing, isSelected, onCli
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // The canvas is not a place to join a mailing list.
-    if (isEditing || inEditor || !creatorId) { setSubmitted(true); return }
+    /* The canvas is not a place to join a mailing list: it shows the success line (lib/website-builder/subscribe-client signupMode). */
+    const mode = signupMode({ inEditor: isEditing || inEditor, creatorId })
+    if (mode === "preview") { setSubmitted(true); return }
+    /* Nobody to send it to (a cover screenshot). Saying thanks here would be saying it was kept. */
+    if (mode === "unavailable" || !creatorId) { setFailed("Sign-ups are not available on this page."); return }
     const data = new FormData(e.currentTarget)
     const email = String(data.get("email") ?? "").trim()
     const name = String(data.get("name") ?? "").trim()
     if (!email) return
     setSending(true)
     setFailed("")
-    try {
-      const res = await fetch("/api/website-builder/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creator_id: creatorId, email, name: name || undefined, placement: "newsletter", origin: pageOrigin() }),
-      })
-      const out = (await res.json().catch(() => ({}))) as { error?: string }
-      if (!res.ok) {
-        // Said plainly, and the form stays filled in so nobody retypes it.
-        setFailed(out.error || "Something went wrong. Please try again.")
-        return
-      }
-      setSubmitted(true)
-    } catch {
-      setFailed("Could not reach the server. Please try again.")
-    } finally {
-      setSending(false)
-    }
+    /* The same client and endpoint as every email box on a website, so the subscriber lands in the creator's Subscribers with where it came from. */
+    const result = await subscribeToCreator({ creatorId, email, name, placement: "newsletter" })
+    setSending(false)
+    /* Said plainly, and the form stays filled in so nobody retypes it. */
+    if (result.ok === false) { setFailed(result.error); return }
+    setSubmitted(true)
   }
 
   const form = (
@@ -74,7 +66,7 @@ export function NewsletterSection({ section, theme, isEditing, isSelected, onCli
     >
       {submitted ? (
         <div className="text-center text-sm py-4" style={{ color }}>
-          {str(s.success_message, "You're in! Check your inbox for a confirmation.")}
+          {str(s.success_message, "Thanks, you're on the list.")}
         </div>
       ) : (
         <>

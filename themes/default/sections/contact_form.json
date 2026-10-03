@@ -84,6 +84,30 @@
       "default": true
     },
     {
+      "id": "name_placeholder",
+      "label": "Name placeholder",
+      "type": "text",
+      "default": "Your name"
+    },
+    {
+      "id": "email_placeholder",
+      "label": "Email placeholder",
+      "type": "text",
+      "default": "you@example.com"
+    },
+    {
+      "id": "subject_placeholder",
+      "label": "Subject placeholder",
+      "type": "text",
+      "default": "What it is about"
+    },
+    {
+      "id": "message_placeholder",
+      "label": "Message placeholder",
+      "type": "text",
+      "default": "Write your message"
+    },
+    {
       "id": "recipient_email",
       "label": "Recipient Email",
       "type": "text",

@@ -40,6 +40,7 @@
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { kindLookup } from "@/lib/storelib-theme/section-groups"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
@@ -325,7 +326,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
    * was the only place the drift showed. See lib/website-builder/
    * universal-chrome.
    */
-  const dressed = applyUniversalChrome(pages)
+  const dressed = applyUniversalChrome(pages, "home", kindLookup(sources, SECTION_SCHEMAS as never))
   for (const key of Object.keys(dressed)) pages[key] = dressed[key]
 
   const sections = pages.home ?? []

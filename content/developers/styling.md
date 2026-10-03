@@ -157,6 +157,31 @@ Untouched, `settings.star_color` is this section's accent: it changes with the s
 
 A plain hex default works too, and an empty default (`""`) means the section works the colour out itself, which the row calls **Auto**: write it as `{{ settings.star_color | default: scheme.accent }}`.
 
+### A colour setting for each element
+
+A creator expects to change the colour of one heading, the way custom colours work in a Shopify theme, without changing the scheme every other section uses. So a section gives **every element it draws** a colour setting, each defaulting to the scheme colour it follows:
+
+```json
+{ "type": "header", "id": "hdr_colours", "label": "Colours" },
+{ "type": "color", "id": "heading_color", "label": "Heading", "default": "scheme.heading" },
+{ "type": "color", "id": "text_color", "label": "Text", "default": "scheme.text" },
+{ "type": "color", "id": "button_color", "label": "Button", "default": "scheme.primary_button_background" },
+{ "type": "color", "id": "button_text_color", "label": "Button text", "default": "scheme.primary_button_text" },
+{ "type": "color", "id": "card_color", "label": "Cards", "default": "scheme.background_secondary" },
+{ "type": "color", "id": "card_border_color", "label": "Card border", "default": "scheme.border" }
+```
+
+Print them into the root's variables and paint with the variables, so one setting reaches every rule that uses it:
+
+```storelib
+<section data-scheme="{{ settings.color_scheme }}"
+  style="--s-heading: {{ settings.heading_color }}; --s-text: {{ settings.text_color }}; --s-btn: {{ settings.button_color }}; --s-btn-text: {{ settings.button_text_color }}; --s-card: {{ settings.card_color }}; --s-card-border: {{ settings.card_border_color }};">
+```
+
+Untouched, each one is the scheme's colour, so the section looks exactly as it would without them and still changes with the scheme. The ids `heading_color`, `text_color`, `border_color`, `accent_color`, `bg_color`, `button_color` and `button_text_color` are the ones Advanced colors already edits, so the panel shows them there rather than twice; a colour picked there reaches the setting, and resetting it puts the setting back on the scheme. Any other id, such as `card_color`, is a row of its own under the section's settings.
+
+AI agents writing a section are told to do this, and a section they write without any colour setting is handed back with a note naming the elements that need one.
+
 A theme block declares colours the same way, and they follow the scheme of the section the block is in: Heading's text color is `scheme.heading` until somebody picks one. A block's CSS is one rule per type, so its colour reaches that rule through an inline custom property; see [Colours a block has of its own](/developers/blocks#colours-a-block-has-of-its-own). The older colour settings the overrides already cover (`bg_color`, `text_color`, `button_color` and the rest) are not shown twice: Advanced colors edits them under their new names.
 
 ## Type

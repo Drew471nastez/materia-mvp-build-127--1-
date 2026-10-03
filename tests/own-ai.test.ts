@@ -1,8 +1,8 @@
 /**
  * YOUR OWN AI IN STORELIB AI.
  *
- * A creator connects their own Claude key, OpenAI key or OpenRouter account,
- * and the chat answers on it: the key is sealed before it is stored, checked
+ * A creator connects their own OpenAI key (a Claude key kept from before
+ * stays stored and unused), and the chat answers on it: the key is sealed before it is stored, checked
  * for shape before a provider is asked, sent to the right place with the
  * right model name, explained in their terms when it is refused, and those
  * runs are left out of the plan's AI edits.
@@ -15,7 +15,6 @@ import { join } from "node:path"
 import { hintOf, open, seal } from "@/lib/ai-keys/crypto"
 import { describeOwnKeyError } from "@/lib/ai-keys/errors"
 import { looksLike } from "@/lib/ai-keys/verify"
-import { returnPath } from "@/lib/ai-keys/openrouter"
 import { anthropicClientFor, createAnthropicProvider } from "@/lib/sites/agent/anthropic-provider"
 import { createOpenAIProvider, openAIClientFor } from "@/lib/sites/agent/openai-provider"
 import { OWN_PREFIX, ownAccount } from "@/lib/sites/agent/provider"
@@ -66,9 +65,9 @@ async function main() {
   check("half a key, or one with a space in it, is refused", !!looksLike("openai", "sk-abc") && !!looksLike("openai", "sk-abcdefghij klmnopqrstuvwxyz"))
 
   section("A refusal on their account is said in their terms")
-  const said = (status: number, source: "anthropic" | "openai" | "openrouter" = "anthropic") => describeOwnKeyError({ status }, source)
+  const said = (status: number, source: "anthropic" | "openai" = "anthropic") => describeOwnKeyError({ status }, source)
   check("401: the key was refused, and where to fix it", /Your Claude key was refused/.test(said(401) ?? "") && /Connections/.test(said(401) ?? ""))
-  check("402: out of credit", /OpenRouter account is out of credit/.test(said(402, "openrouter") ?? ""))
+  check("402: out of credit", /Your OpenAI key is out of credit/.test(said(402, "openai") ?? ""))
   check("429: rate limited by its own provider", /rate limited/.test(said(429, "openai") ?? ""))
   check("500: their provider's trouble, not ours", /provider is having trouble/.test(said(503) ?? ""))
   check("no status (a timeout, an abort): not about the key", describeOwnKeyError(new Error("x"), "anthropic") === null)
@@ -83,13 +82,10 @@ async function main() {
       },
     },
   }
-  const viaRouter = createAnthropicProvider(() => fakeAnthropic as never, { modelPrefix: "anthropic/" })
-  const turn = await viaRouter.complete(request("claude-sonnet-5"))
-  check("through OpenRouter, Claude is asked for by OpenRouter's name", sent[0]?.model === "anthropic/claude-sonnet-5", sent[0]?.model)
-  check("and the answer comes back as any other", turn.text === "hi" && turn.stop === "done")
   const direct = createAnthropicProvider(() => fakeAnthropic as never)
-  await direct.complete(request("claude-sonnet-5"))
-  check("on their own Claude key, by Anthropic's own name", sent[1]?.model === "claude-sonnet-5")
+  const turn = await direct.complete(request("claude-sonnet-5"))
+  check("on their own Claude key, by Anthropic's own name", sent[0]?.model === "claude-sonnet-5", sent[0]?.model)
+  check("and the answer comes back as any other", turn.text === "hi" && turn.stop === "done")
 
   const openaiSent: Record<string, unknown>[] = []
   const fakeOpenAI = {
@@ -100,13 +96,13 @@ async function main() {
       },
     },
   }
-  await createOpenAIProvider(() => fakeOpenAI as never, { modelPrefix: "openai/" }).complete(request("gpt-5.6-luna"))
-  check("ChatGPT through OpenRouter: openai/gpt-5.6-luna", openaiSent[0]?.model === "openai/gpt-5.6-luna", openaiSent[0]?.model)
+  await createOpenAIProvider(() => fakeOpenAI as never).complete(request("gpt-5.6-luna"))
+  check("on their own OpenAI key, by OpenAI's own name", openaiSent[0]?.model === "gpt-5.6-luna", openaiSent[0]?.model)
 
-  const routerClient = anthropicClientFor("sk-or-v1-abcdefghijklmnopqrstuvwxyz", "openrouter") as unknown as { baseURL: string; apiKey: string | null; authToken: string | null }
-  check("OpenRouter's Claude endpoint, with the key as a bearer token", routerClient.baseURL === "https://openrouter.ai/api" && routerClient.authToken === "sk-or-v1-abcdefghijklmnopqrstuvwxyz" && !routerClient.apiKey, { baseURL: routerClient.baseURL })
-  const routerOpenAI = openAIClientFor("sk-or-v1-abcdefghijklmnopqrstuvwxyz", "openrouter") as unknown as { baseURL: string }
-  check("OpenRouter's Responses endpoint for ChatGPT", routerOpenAI.baseURL === "https://openrouter.ai/api/v1", routerOpenAI.baseURL)
+  const ownOpenAI = openAIClientFor("sk-proj-abcdefghijklmnopqrstuvwxyz") as unknown as { baseURL: string; apiKey: string }
+  check("their OpenAI key goes straight to OpenAI", ownOpenAI.baseURL === "https://api.openai.com/v1" && ownOpenAI.apiKey === "sk-proj-abcdefghijklmnopqrstuvwxyz", ownOpenAI.baseURL)
+  const ownClaude = anthropicClientFor("sk-ant-api03-abcdefghijklmnopqrstuvwxyz") as unknown as { baseURL: string }
+  check("and a Claude key straight to Anthropic", ownClaude.baseURL === "https://api.anthropic.com", ownClaude.baseURL)
 
   section("A run on their account is marked as theirs, and refused plainly")
   const refusing: AgentProvider = { id: "anthropic", complete: async () => { throw Object.assign(new Error("401 {\"type\":\"error\"}"), { status: 401 }) } }
@@ -129,11 +125,11 @@ async function main() {
   check("a Stop is still a Stop", abort instanceof Error && abort.name === "AbortError")
 
   section("Which connection answers which model")
-  const k = (source: "anthropic" | "openai" | "openrouter") => ({ source, hint: "abcd", connectedAt: "", lastUsedAt: null, lastError: null })
+  const k = (source: "anthropic" | "openai") => ({ source, hint: "abcd", connectedAt: "", lastUsedAt: null, lastError: null })
   check("their Claude key answers Claude", ownFor([k("anthropic")], "anthropic") === "anthropic")
   check("and not ChatGPT", ownFor([k("anthropic")], "openai") === null)
-  check("OpenRouter answers both", ownFor([k("openrouter")], "anthropic") === "openrouter" && ownFor([k("openrouter")], "openai") === "openrouter")
-  check("a vendor's own key comes before OpenRouter", ownFor([k("openrouter"), k("openai")], "openai") === "openai")
+  check("their OpenAI key answers ChatGPT", ownFor([k("openai")], "openai") === "openai")
+  check("nothing connected, nothing answers on their account", ownFor([], "openai") === null)
 
   section("Wired through, and out of the plan's AI edits")
   const provider = read("lib/sites/agent/provider.ts")
@@ -141,10 +137,10 @@ async function main() {
   check("the monthly count leaves own runs out", /\.not\("provider", "like", "own:%"\)/.test(run))
   check("a run on their account is not stopped by the monthly allowance", /if \(providerId\.startsWith\("own:"\)\) return null/.test(run) && /await monthlyQuotaError\(creatorId, plan, provider\.id\)/.test(run))
   check("and costs Storelib nothing on the books", /provider\.id\.startsWith\("own:"\) \? \{ usd: 0, priced: true \}/.test(run))
-  check("their OpenAI key first, then OpenRouter, then Storelib's", provider.indexOf("const direct = keys.openai") > 0 && provider.indexOf("const direct = keys.openai") < provider.indexOf("const router = keys.openrouter") && provider.indexOf("const router = keys.openrouter") < provider.lastIndexOf("return resolveProvider(input)"))
+  check("their OpenAI key first, then Storelib's", provider.indexOf("const direct = keys.openai") > 0 && provider.indexOf("const direct = keys.openai") < provider.lastIndexOf("return resolveProvider(input)"))
   /* Storelib AI runs on ChatGPT only for now: a Claude key kept from before is not deleted, and not used. */
-  check("a Claude key kept from before answers nothing, and is not deleted", !/keys\.anthropic/.test(provider) && /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai", "openrouter"\]/.test(provider) && !/removeKey\(creatorId, "anthropic"\)/.test(read("app/api/ai-keys/route.ts")))
-  check("and a new one is not taken", /if \(source !== "openai"\) return NextResponse\.json\(\{ error: "Add an OpenAI key, or connect OpenRouter\." \}, \{ status: 400 \}\)/.test(read("app/api/ai-keys/route.ts")))
+  check("a Claude key kept from before answers nothing, and is not deleted", !/keys\.anthropic/.test(provider) && /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai"\]/.test(provider) && !/removeKey\(creatorId, "anthropic"\)/.test(read("app/api/ai-keys/route.ts")))
+  check("and a new one is not taken", /if \(source !== "openai"\) return NextResponse\.json\(\{ error: "Add an OpenAI key\." \}, \{ status: 400 \}\)/.test(read("app/api/ai-keys/route.ts")))
   const routes = [
     "app/api/website-builder/themes/[installId]/agent/route.ts",
     "app/api/website-builder/themes/[installId]/sections/code/route.ts",
@@ -164,29 +160,30 @@ async function main() {
   check("and the migration is the same", /ENABLE ROW LEVEL SECURITY/.test(read("supabase/migrations/20261006_creator_ai_keys.sql")))
   check("adding keys is rate limited, so this is no free key checker", /rateLimit\(\{ bucket: "ai-key"/.test(read("app/api/ai-keys/route.ts")))
 
-  section("OpenRouter in one click, safely")
-  const start = read("app/api/ai-keys/openrouter/route.ts")
-  const callback = read("app/api/ai-keys/openrouter/callback/route.ts")
-  check("PKCE with S256, the verifier in an httpOnly cookie", /code_challenge_method", "S256"/.test(start) && /httpOnly: true/.test(start) && /createHash\("sha256"\)/.test(start))
-  check("the code is kept only for the person who started it", /started\.c !== creatorId/.test(callback))
-  check("back only to the editor or the builder, never a free address", returnPath("../../evil") === "/app/website-builder" && returnPath("abc-123") === "/website-builder/editor/abc-123" && returnPath(null) === "/app/website-builder")
-  check("the editor hands the result to Connections and takes it off the address", /url\.searchParams\.delete\("ownai"\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  section("Storelib AI is OpenAI only: no OpenRouter anywhere")
+  check("a connection is an OpenAI key or a Claude key kept from before, nothing else", /export type KeySource = "anthropic" \| "openai"\n/.test(store) && !/openrouter/i.test(store))
+  check("a row saved under a source no longer offered is read as nothing connected, and never deleted",
+    /\.filter\(\(r\) => isKeySource\(r\.provider\)\)/.test(store) && /if \(!isKeySource\(row\.provider\)\) continue/.test(store) && !/\.delete\(\)\.eq\("creator_id", creatorId\)\s*\n?\s*\.neq/.test(store))
+  const offOpenRouter = [
+    "lib/ai-keys/store.ts", "lib/ai-keys/verify.ts", "lib/ai-keys/errors.ts", "lib/ai-keys/crypto.ts",
+    "lib/sites/agent/provider.ts", "lib/sites/agent/openai-provider.ts", "lib/sites/agent/anthropic-provider.ts",
+    "app/api/ai-keys/route.ts", "app/api/website-builder/themes/[installId]/agent/route.ts", "app/website-builder/editor/[installId]/page.tsx",
+    "components/website-builder/use-own-ai.ts", "components/website-builder/website-settings/own-ai.tsx",
+    "components/website-builder/ask-model-picker.tsx", "components/website-builder/theme-chat.tsx", "content/developers/ai.md",
+  ].filter((f) => /openrouter/i.test(read(f)))
+  check("no code, screen or doc names OpenRouter", offOpenRouter.length === 0, offOpenRouter)
+  const { existsSync } = await import("node:fs")
+  check("its sign in routes are gone", !existsSync(join(root, "app/api/ai-keys/openrouter")) && !existsSync(join(root, "lib/ai-keys/openrouter.ts")))
 
-  section("One way in, for somebody who has never heard of any of this")
+  section("One way in")
   const panel = read("components/website-builder/website-settings/own-ai.tsx")
-  check("nothing connected: one button, not three rows to choose between",
-    /connected\.length === 0 && !keys/.test(panel) && /data-own-ai-start=""/.test(panel) && /Connect my AI/.test(panel))
-  check("it says what will happen, in plain words, including the credit",
-    /sign in with OpenRouter/.test(panel) && /few dollars of credit/.test(panel) && /about a minute/.test(panel))
-  check("a key is for people who already have one, behind a line of text",
-    /Already have an OpenAI key\?/.test(panel) && /setKeys\(true\)/.test(panel) &&
-    /SOURCES\.filter\(\(s\) => s\.id === "openrouter"\)/.test(panel))
-  check("Connections offers OpenRouter and OpenAI, and no Claude key line for now",
-    /id: "openrouter"/.test(panel) && /id: "openai"/.test(panel) && !/id: "anthropic"/.test(panel) && !/sk-ant-/.test(panel) && !/Claude or OpenAI key|Claude and ChatGPT then|use Claude or ChatGPT on your account/.test(panel))
-  check("and the rows come back once something is connected", /connected\.length > 0 \|\| keys/.test(panel))
+  check("Connections offers OpenAI, and no Claude key line for now",
+    /id: "openai"/.test(panel) && !/id: "anthropic"/.test(panel) && !/sk-ant-/.test(panel) && !/Claude or OpenAI key|Claude and ChatGPT then|use Claude or ChatGPT on your account/.test(panel))
+  check("the OpenAI row is there from the start: paste a key from platform.openai.com",
+    /\{SOURCES\.map\(/.test(panel) && /platform\.openai\.com/.test(panel) && /It is checked before it is kept\./.test(panel))
 
   section("Where the creator finds it")
-  check("Connections opens on Your own AI", /<OwnAiSettings installId=\{ctx\.installId\} \/>/.test(read("components/website-builder/website-settings/connections.tsx")))
+  check("Connections opens on Your own AI", /<OwnAiSettings \/>/.test(read("components/website-builder/website-settings/connections.tsx")))
   const picker = read("components/website-builder/ask-model-picker.tsx")
   check("the model menu says which models are on their account", /data-ask-model-own=""/.test(picker) && /data-ask-own-ai=/.test(picker))
   check("and the chat feeds it", /own=\{ownByEngine\}/.test(read("components/website-builder/theme-chat.tsx")))
