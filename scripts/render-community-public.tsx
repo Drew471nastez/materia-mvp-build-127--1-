@@ -89,12 +89,15 @@ const studio: PublicCommunityView = {
     average: 4.8,
     total: 37,
     items: [
-      { id: "r1", rating: 5, content: "The weekly critique is worth the price on its own. I finally understand trimming.", name: "Jonas", avatarUrl: null, createdAt: "2026-09-12T10:00:00Z" },
-      { id: "r2", rating: 5, content: "Calm, practical and kind. Nothing like the big Facebook groups.", name: "Priya Shah", avatarUrl: null, createdAt: "2026-08-30T10:00:00Z" },
-      { id: "r3", rating: 4, content: "Lots of glaze knowledge. I wish the firing schedule had more slots in winter.", name: "Ellen", avatarUrl: null, createdAt: "2026-08-02T10:00:00Z" },
+      { id: "r1", rating: 5, content: "The weekly critique is worth the price on its own. I finally understand trimming.", name: "Jonas", avatarUrl: null, createdAt: "2026-09-12T10:00:00Z", href: "/@jonas", payingFor: "3 months" },
+      { id: "r2", rating: 5, content: "Calm, practical and kind. Nothing like the big Facebook groups.", name: "Priya Shah", avatarUrl: null, createdAt: "2026-08-30T10:00:00Z", href: null, payingFor: null },
+      { id: "r3", rating: 4, content: "Lots of glaze knowledge. I wish the firing schedule had more slots in winter.", name: "Ellen", avatarUrl: null, createdAt: "2026-08-02T10:00:00Z", href: "/@ellen", payingFor: "4 days" },
     ],
   },
   url: "/community/clay-studio",
+  address: "storelib.com/community/clay-studio",
+  gallery: COVERS.map((url) => ({ type: "image" as const, url })),
+  stats: { members: 1284, online: 14, admins: 2 },
 }
 
 const viewer = { signedIn: true, active: false, status: null, role: null, isOwner: false, banned: false, approved: false, source: null, membershipId: null } as const
@@ -122,7 +125,9 @@ const freeOne: PublicCommunityView = {
   rules: studio.rules.slice(0, 2),
   benefits: ["A weekly group run in four cities", "Shared routes with lighting notes"],
   descriptionHtml: "<p>Free to join. Post your route, find people near you and come to the Thursday run.</p>",
-  creator: { name: "Dev Patel", username: "dev", avatarUrl: null, href: "/dev" },
+  creator: { name: "Dev Patel", username: "dev", avatarUrl: null, href: "/@dev" },
+  gallery: [],
+  stats: { members: 86, online: null, admins: 1 },
 }
 
 const pages: Record<string, () => SalesPageData> = {

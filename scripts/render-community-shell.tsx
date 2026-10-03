@@ -1,0 +1,348 @@
+/**
+ * THE COMMUNITY'S OWN FRAME AND ITS ABOUT PAGE, with fixtures, for
+ * scripts/check-community-shell.mjs. The real client components: the top
+ * bar (logo, name, By <creator>, the switcher, Messages, the bell slot, my
+ * menu), the one row of pills, the space chips on the feed, the feed's side
+ * card with Members / Online / Admins, the about page with its gallery, facts
+ * line, reviews, sticky card and phone bar, and the member pages inside the
+ * frame. The server components around them (the community's layout,
+ * CommunityShell, CommunityPublicShell) only read data and hand it to these.
+ *
+ *   ?case=feed            /community/clay-studio, a member
+ *   ?case=space           /community/clay-studio/space/critique
+ *   ?case=about           /community/clay-studio/about, a signed in visitor (paid, monthly and yearly)
+ *   ?case=about-visitor   the same, signed out, a free community with no gallery
+ *   ?case=about-member    /about for a member, inside the frame
+ *   ?case=members         /community/clay-studio/members
+ *   ?case=profile         /community/clay-studio/members/<id>
+ */
+import React from "react"
+import { createRoot } from "react-dom/client"
+import { ShellFrame } from "@/components/community/member/shell-frame"
+import { FeedAside, FeedColumns } from "@/components/community/member/columns"
+import { FeedView } from "@/components/community/member/feed"
+import { MembersDirectory } from "@/components/community/member/members"
+import { MemberProfile } from "@/components/community/member/member-profile"
+import { SpaceChips } from "@/components/community/member/space-chips"
+import { CommunityPublicFrame } from "@/components/community/public/public-frame"
+import { CommunitySalesPage } from "@/components/community/public/sales-page"
+import { decideJoin } from "@/components/community/public/join-state"
+import { checkoutPath } from "@/components/community/public/paths"
+import type { JoinOption, PublicCommunityView, SalesPageData } from "@/components/community/public/types"
+import { allowedActions } from "@/lib/communities/permissions"
+import type { FeedPostView, MemberView, Role, ViewerView } from "@/lib/communities/types"
+import type { MemberProfileView, ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
+
+const NOW = Date.now()
+const HOUR = 3_600_000
+const DAY = 24 * HOUR
+const iso = (ms: number) => new Date(ms).toISOString()
+const CID = "c0000000-0000-4000-8000-000000000001"
+
+/* Pictures drawn here, so the probe needs no network: muted, natural tones, never a purple gradient. */
+function svg(w: number, h: number, body: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${body}</svg>`)}`
+}
+const SHOTS = [
+  svg(1600, 900, `<rect width="1600" height="900" fill="#d9cbb6"/><circle cx="1180" cy="400" r="300" fill="#c0a17e"/><rect x="0" y="620" width="1600" height="280" fill="#8f7a5f"/><circle cx="420" cy="520" r="140" fill="#efe6d8"/><rect x="370" y="380" width="100" height="150" rx="20" fill="#a9845c"/>`),
+  svg(1600, 900, `<rect width="1600" height="900" fill="#cfdbd5"/><path d="M0 640 C 400 480, 800 780, 1600 560 L1600 900 L0 900 Z" fill="#6f8f7f"/><circle cx="1260" cy="240" r="110" fill="#f2efe6"/>`),
+  svg(1600, 900, `<rect width="1600" height="900" fill="#e7e2d8"/><rect x="200" y="200" width="560" height="480" rx="28" fill="#2f3a44"/><rect x="820" y="280" width="600" height="48" rx="24" fill="#b9b2a5"/><rect x="820" y="370" width="440" height="48" rx="24" fill="#cfc9be"/>`),
+  svg(1600, 900, `<rect width="1600" height="900" fill="#22303c"/><circle cx="320" cy="450" r="240" fill="#36485a"/><circle cx="1300" cy="300" r="170" fill="#d3a35e"/>`),
+  svg(1600, 900, `<rect width="1600" height="900" fill="#efe9e1"/><ellipse cx="800" cy="560" rx="360" ry="220" fill="#b98f6a"/><ellipse cx="800" cy="470" rx="250" ry="90" fill="#d9b994"/>`),
+  svg(1600, 900, `<rect width="1600" height="900" fill="#dfe4ea"/><rect x="160" y="160" width="1280" height="580" rx="32" fill="#f7f8fa"/><rect x="240" y="240" width="380" height="420" rx="20" fill="#8aa1b4"/><rect x="680" y="260" width="620" height="40" rx="20" fill="#c9d3dc"/>`),
+]
+const LOGO = svg(128, 128, `<rect width="128" height="128" rx="28" fill="#1a1a2e"/><path d="M38 86 L64 40 L90 86 Z" fill="#f4efe6"/>`)
+const face = (bg: string, fg: string) => svg(96, 96, `<rect width="96" height="96" fill="${bg}"/><circle cx="48" cy="38" r="18" fill="${fg}"/><rect x="18" y="62" width="60" height="40" rx="30" fill="${fg}"/>`)
+
+const params = new URLSearchParams(location.search)
+const which = params.get("case") || "feed"
+
+/* ── The community and who is looking ─────────────────────────────────── */
+
+const community: ShellCommunity = {
+  id: CID,
+  slug: "clay-studio",
+  name: "Clay Studio",
+  tagline: "A working studio for people learning wheel throwing, glazing and firing at home.",
+  logoUrl: LOGO,
+  coverUrl: SHOTS[0],
+  memberCount: 8012,
+  postCount: 3412,
+  classroomEnabled: true,
+  eventsEnabled: true,
+  directoryEnabled: true,
+  chatEnabled: true,
+  gamificationEnabled: true,
+  archived: false,
+}
+
+const viewer: ViewerView = {
+  userId: "u-me",
+  signedIn: true,
+  role: "member",
+  status: "active",
+  active: true,
+  tierId: null,
+  level: 3,
+  points: 84,
+  isOwner: false,
+  isCreatorAccount: false,
+  mutedUntil: null,
+  can: allowedActions("member"),
+}
+
+const people = {
+  mara: { id: "u-mara", name: "Mara Lindqvist", username: "mara", avatarUrl: face("#e8d5c4", "#8a5a3c"), role: "owner" as Role, level: 6, hasStorefront: true },
+  jonas: { id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: face("#cfdcd2", "#3f6b4f"), role: "member" as Role, level: 3, hasStorefront: false },
+  priya: { id: "u-priya", name: "Priya Raman", username: "priya", avatarUrl: null, role: "admin" as Role, level: 5, hasStorefront: false },
+  leo: { id: "u-leo", name: "Leo Martins", username: null, avatarUrl: face("#d6d9ef", "#4a4f8a"), role: "member" as Role, level: 2, hasStorefront: false },
+  me: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: face("#efe3cf", "#8a6d3c"), role: "member" as Role, level: 3, hasStorefront: false },
+}
+
+const topBar = (signedIn = true): TopBarData => ({
+  community: { id: CID, slug: community.slug, name: community.name, logoUrl: LOGO },
+  creator: { name: "Mara Lindqvist", href: "/mara" },
+  me: signedIn ? { name: people.me.name, avatarUrl: people.me.avatarUrl, profileHref: "/@samc" } : null,
+  communities: signedIn
+    ? [
+        { id: CID, slug: "clay-studio", name: "Clay Studio", logoUrl: LOGO },
+        { id: "c2", slug: "night-runners", name: "Night Runners", logoUrl: null },
+        { id: "c3", slug: "film-photo-club", name: "Film Photo Club", logoUrl: svg(64, 64, `<rect width="64" height="64" rx="14" fill="#36485a"/><circle cx="32" cy="32" r="14" fill="#d3a35e"/>`) },
+      ]
+    : [],
+  manageHref: null,
+})
+
+const spaces: SpaceView[] = [
+  { id: "s-general", slug: "general", name: "General", description: "Anything about the work.", icon: "messages-square", kind: "feed", canPost: true, commentsEnabled: true, unread: 0 },
+  { id: "s-ann", slug: "announcements", name: "Announcements", description: null, icon: "megaphone", kind: "announcements", canPost: false, commentsEnabled: true, unread: 0 },
+  { id: "s-crit", slug: "critique", name: "Critique", description: "Post a piece, get honest notes on form, trimming and glaze.", icon: "🏺", kind: "feed", canPost: true, commentsEnabled: true, unread: 0 },
+  { id: "s-glaze", slug: "glaze-lab", name: "Glaze lab", description: null, icon: null, kind: "feed", canPost: true, commentsEnabled: true, unread: 0 },
+  { id: "s-chat", slug: "kiln-room", name: "Kiln room", description: "Live chat.", icon: null, kind: "chat", canPost: true, commentsEnabled: true, unread: 3 },
+]
+
+/* ── Posts ────────────────────────────────────────────────────────────── */
+
+const post = (over: Partial<FeedPostView> & { id: string }): FeedPostView => ({
+  communityId: CID,
+  space: { id: "s-general", slug: "general", name: "General" },
+  kind: "post",
+  title: null,
+  body: "",
+  bodyText: "",
+  media: [],
+  pinned: false,
+  featured: false,
+  locked: false,
+  status: "published",
+  author: people.jonas,
+  reactionCount: 0,
+  commentCount: 0,
+  reacted: false,
+  bookmarked: false,
+  poll: null,
+  createdAt: iso(NOW - 2 * HOUR),
+  editedAt: null,
+  lastActivityAt: iso(NOW - HOUR),
+  canEdit: false,
+  canModerate: false,
+  ...over,
+})
+
+const POSTS: FeedPostView[] = [
+  post({ id: "p-pinned", pinned: true, kind: "announcement", space: { id: "s-ann", slug: "announcements", name: "Announcements" }, author: people.mara, title: "October firing schedule is up", bodyText: "Three slots this month at the shared kiln: the 9th, 16th and 27th. Book in the Kiln room by Friday so I can plan the loads.", reactionCount: 42, commentCount: 18, createdAt: iso(NOW - 3 * DAY) }),
+  post({ id: "p-photo", space: { id: "s-crit", slug: "critique", name: "Critique" }, title: "First set of bowls that did not crack", bodyText: "Slower drying under plastic for two days made the difference. Curious whether the foot on the third one reads as too heavy.", media: [{ type: "image", url: SHOTS[4], w: 1600, h: 900 }], reactionCount: 17, commentCount: 6, author: people.leo, createdAt: iso(NOW - 5 * HOUR) }),
+  post({ id: "p-text", author: people.priya, bodyText: "Glaze tip that saved me a whole batch: test tiles on the same shelf height as the real pieces. Same glaze, two shelves apart, two different colours.", reactionCount: 24, commentCount: 9, createdAt: iso(NOW - 2 * DAY) }),
+  post({ id: "p-more", author: people.jonas, bodyText: "Anyone in Lisbon with a kiln to share? Happy to split costs.", reactionCount: 3, commentCount: 2, createdAt: iso(NOW - 3 * DAY) }),
+  post({ id: "p-last", author: people.mara, bodyText: "Recording of last week's trimming session is in the Classroom now.", reactionCount: 31, commentCount: 4, createdAt: iso(NOW - 4 * DAY) }),
+]
+
+/* ── Members ──────────────────────────────────────────────────────────── */
+
+type Person = (typeof people)[keyof typeof people]
+const member = (p: Person, extra: Partial<MemberView> = {}): MemberView => ({
+  userId: p.id,
+  name: p.name,
+  username: p.username,
+  avatarUrl: p.avatarUrl,
+  role: p.role,
+  status: "active",
+  tierId: null,
+  tierName: null,
+  level: p.level,
+  levelName: ["", "Newcomer", "Regular", "Contributor", "Insider", "Core", "Pillar"][p.level] ?? null,
+  points: p.level * 37,
+  bio: null,
+  joinedAt: iso(NOW - p.level * 30 * DAY),
+  lastActiveAt: iso(NOW - HOUR),
+  hasStorefront: p.hasStorefront,
+  ...extra,
+})
+const MEMBERS: MemberView[] = [
+  member(people.mara, { bio: "Runs Clay Studio. Twelve years running a pottery workshop." }),
+  member(people.priya, { bio: "Glaze chemistry nerd." }),
+  member(people.me),
+  member(people.jonas, { bio: "Weekend potter, Lisbon." }),
+  member(people.leo),
+]
+
+const PROFILE: MemberProfileView = {
+  ...member(people.jonas, { bio: "Weekend potter, Lisbon. Mostly bowls and cups, trying to get better at lids." }),
+  badges: [{ id: "b1", name: "First firing", icon: "🔥", description: null }],
+  posts: 14,
+  recent: [
+    { id: "p-more", kind: "post", title: "Anyone in Lisbon with a kiln to share?", url: "/community/clay-studio/post/p-more", createdAt: iso(NOW - 3 * DAY) },
+    { id: "p-x", kind: "post", title: "Lids that sit flat: what worked", url: "/community/clay-studio/post/p-x", createdAt: iso(NOW - 9 * DAY) },
+  ],
+  creatorUrl: null,
+  isSelf: false,
+}
+
+/* ── The about page ───────────────────────────────────────────────────── */
+
+const pro: JoinOption = {
+  tierId: "tier-pro",
+  name: "Studio members",
+  description: "Weekly critiques, the full course library and the members' chat.",
+  kind: "paid",
+  billing: "recurring",
+  productId: "prod-pro",
+  monthlyCents: 900,
+  yearlyCents: 9000,
+  priceCents: null,
+  currency: "usd",
+  priceLine: "$9/month",
+  benefits: [],
+  checkout: { month: checkoutPath("prod-pro", "clay-studio", "month"), year: checkoutPath("prod-pro", "clay-studio", "year"), once: null },
+}
+const free: JoinOption = { tierId: "tier-free", name: "Members", description: null, kind: "free", billing: null, productId: null, monthlyCents: null, yearlyCents: null, priceCents: null, currency: "usd", priceLine: "Free", benefits: [], checkout: null }
+
+const VIDEO = "a1111111-1111-4111-8111-111111111111"
+const studio: PublicCommunityView = {
+  id: CID,
+  slug: "clay-studio",
+  name: "Clay Studio",
+  tagline: community.tagline,
+  logoUrl: LOGO,
+  coverUrl: SHOTS[0],
+  category: "education",
+  visibility: "private",
+  access: "paid",
+  status: "published",
+  approvalRequired: false,
+  memberCount: 8012,
+  descriptionHtml:
+    "<p>Clay Studio is where I share what I learned over twelve years of running a pottery workshop. Every week there is a live critique where members post a piece and we talk through form, trimming and glaze.</p><p>You get the full course library, a monthly firing schedule if you work with a shared kiln, and a quiet place to ask questions without the noise of a big forum.</p><h3>Who it is for</h3><ul><li>Beginners with their first wheel</li><li>Hobbyists who want honest feedback</li><li>Teachers looking for structure</li></ul>",
+  descriptionText: null,
+  benefits: ["Weekly live critique, recorded", "The full course library: 9 courses, 140 lessons", "Monthly glaze recipe drop", "Members' chat and the studio directory"],
+  rules: [
+    { title: "Critique the piece, not the person", body: "Say what you see and what you would try next. Keep it specific." },
+    { title: "Credit recipes", body: "If you share a glaze recipe that is not yours, say where it came from." },
+    { title: "No selling in the feed", body: "Use the marketplace space for anything you want to sell." },
+    { title: "Photos of your own work only", body: "" },
+  ],
+  faq: [
+    { q: "Do I need my own kiln?", a: "No. Most members fire at a shared studio. The firing schedule helps you plan around it." },
+    { q: "Can I cancel?", a: "Yes, any time from your library. You keep access until the end of the period you paid for." },
+  ],
+  creator: { name: "Mara Lindqvist", username: "mara", avatarUrl: people.mara.avatarUrl, href: "/mara" },
+  options: [pro],
+  accessProducts: [],
+  reviews: {
+    average: 4.9,
+    total: 121,
+    items: [
+      { id: "r1", rating: 5, content: "", name: "Ayla Demir", avatarUrl: face("#d8e2dc", "#5b7f6c"), createdAt: iso(NOW - 5 * HOUR), href: "/@ayla", payingFor: "3 months" },
+      { id: "r2", rating: 5, content: "Day one I threw my first cylinder that did not collapse. Day two I trimmed it. The weekly critique is worth the price on its own.", name: "Joe Moss", avatarUrl: face("#e2d6cb", "#8a6248"), createdAt: iso(NOW - 2 * DAY), href: "/joemoss", payingFor: "4 days" },
+      { id: "r3", rating: 4, content: "Calm, practical and kind. Nothing like the big Facebook groups. I wish the firing schedule had more slots in winter.", name: "Priya Shah", avatarUrl: null, createdAt: iso(NOW - 12 * DAY), href: null, payingFor: null },
+    ],
+  },
+  url: "/community/clay-studio",
+  address: "storelib.com/community/clay-studio",
+  gallery: [{ type: "image", url: SHOTS[0] }, { type: "video", videoId: VIDEO, posterUrl: SHOTS[3] }, ...SHOTS.slice(1, 3).map((url) => ({ type: "image" as const, url })), ...SHOTS.slice(4).map((url) => ({ type: "image" as const, url }))],
+  stats: { members: 8012, online: 191, admins: 2 },
+}
+const freeOne: PublicCommunityView = {
+  ...studio,
+  slug: "night-runners",
+  name: "Night Runners",
+  tagline: "Running after dark, together. Routes, gear and a weekly group run.",
+  coverUrl: null,
+  logoUrl: null,
+  visibility: "public",
+  access: "free",
+  memberCount: 86,
+  options: [free],
+  reviews: null,
+  faq: [],
+  benefits: ["A weekly group run in four cities", "Shared routes with lighting notes"],
+  descriptionHtml: "<p>Free to join. Post your route, find people near you and come to the Thursday run.</p>",
+  creator: { name: "Dev Patel", username: "dev", avatarUrl: null, href: "/@dev" },
+  address: "storelib.com/community/night-runners",
+  gallery: [],
+  stats: { members: 86, online: null, admins: 1 },
+}
+
+const facts = (c: PublicCommunityView, v: Record<string, unknown> = {}) =>
+  decideJoin({
+    community: { slug: c.slug, status: c.status, access: c.access, approvalRequired: c.approvalRequired, suspended: false, archived: false, creatorName: c.creator?.name ?? null },
+    viewer: { signedIn: true, active: false, status: null, role: null, isOwner: false, banned: false, approved: false, source: null, membershipId: null, ...v } as never,
+    options: c.options,
+    accessProducts: c.accessProducts,
+    canTakePayments: true,
+  })
+
+/* ── The screens ──────────────────────────────────────────────────────── */
+
+function Screen() {
+  const shell = (children: React.ReactNode) => (
+    <ShellFrame community={community} viewer={viewer} topBar={topBar()} unreadNotifications={4} unreadMessages={2}>
+      {children}
+    </ShellFrame>
+  )
+  const aside = <FeedAside community={community} stats={{ members: 8012, online: 191, admins: 2 }} upcoming={{ id: "e1", title: "Live critique: trimming feet", startsAt: iso(NOW + 4 * DAY), endsAt: iso(NOW + 4 * DAY + 90 * 60_000) }} />
+  const feed = (space: SpaceView | null) => (
+    <FeedColumns
+      header={
+        <>
+          <SpaceChips slug={community.slug} spaces={spaces} active={space?.slug ?? null} />
+          {space?.description ? <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-space-description="">{space.description}</p> : null}
+        </>
+      }
+      main={
+        <FeedView
+          communityId={CID}
+          slug={community.slug}
+          viewer={viewer}
+          initial={space ? { pinned: [], posts: POSTS.filter((p) => p.space?.id === space.id), nextCursor: null } : { pinned: [POSTS[0]], posts: POSTS.slice(1), nextCursor: "c2" }}
+          composer={{ communityId: CID, userId: "u-me", me: { name: people.me.name, avatarUrl: people.me.avatarUrl }, spaces: spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }}
+        />
+      }
+      aside={aside}
+    />
+  )
+  if (which === "space") return shell(feed(spaces[2]))
+  if (which === "members") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage />)
+  if (which === "profile") return shell(<MemberProfile communityId={CID} slug={community.slug} member={PROFILE} viewer={viewer} gamification canMessage />)
+  if (which === "about-member") {
+    const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null }
+    return shell(<CommunitySalesPage data={data} />)
+  }
+  if (which === "about" || which === "about-visitor") {
+    const c = which === "about" ? studio : freeOne
+    const data: SalesPageData = { community: c, join: facts(c, which === "about" ? {} : { signedIn: false }), notice: null }
+    return (
+      <CommunityPublicFrame topBar={{ ...topBar(which === "about"), community: { id: c.id, slug: c.slug, name: c.name, logoUrl: c.logoUrl }, creator: { name: c.creator?.name ?? "", href: c.creator?.href ?? null } }}>
+        <CommunitySalesPage data={data} />
+      </CommunityPublicFrame>
+    )
+  }
+  return shell(feed(null))
+}
+
+try {
+  window.localStorage.clear()
+} catch {
+  /* fine */
+}
+createRoot(document.getElementById("app")!).render(<Screen />)

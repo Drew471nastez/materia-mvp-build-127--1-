@@ -212,7 +212,7 @@ async function main() {
         community_invites: [],
         products: [{ id: TIER_PRODUCT, title: "Makers Pro", slug: "makers-pro", type: "membership", status: "published", price_cents: 1900, creator_id: CREATOR, community_id: C, reviews_count: 0, reviews_average: 0 }],
         membership_plans: [{ product_id: TIER_PRODUCT, monthly_price_cents: 1900, yearly_price_cents: 19000, currency: "usd" }],
-        creators: [{ id: CREATOR, user_id: OWNER, slug: "ana", display_name: "Ana", avatar_url: null, stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: true }],
+        creators: [{ id: CREATOR, user_id: OWNER, slug: "ana", display_name: "Ana", avatar_url: null, stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: true, onboarding_completed: true }],
         profiles: [{ id: OWNER, username: "ana", display_name: "Ana Maker", avatar_url: null }],
         entitlements: [],
         memberships: [],
@@ -350,7 +350,7 @@ async function main() {
     const db = world({ access: "free" })
     const page = await loadSalesPage("makers", U, db)
     check("a visitor gets the page with the free button", page?.data.join.kind === "join_free" && page?.viewer.active === false)
-    check("the creator, linked to their Storelib page", page?.data.community.creator?.name === "Ana Maker" && page?.data.community.creator?.href === "/ana")
+    check("the creator, linked to their storefront (they finished onboarding)", page?.data.community.creator?.name === "Ana Maker" && page?.data.community.creator?.href === "/ana")
     check("the description is cleaned (no script survives)", !!page?.data.community.descriptionHtml && !/script/i.test(page?.data.community.descriptionHtml ?? ""))
     check("benefits, rules and FAQ come through", page?.data.community.benefits[0] === "Weekly calls" && page?.data.community.rules[0]?.title === "Be kind" && page?.data.community.faq[0]?.q === "Is it free?")
     check("the member count is the row's, nothing added", page?.data.community.memberCount === 12)
@@ -574,7 +574,9 @@ async function main() {
     const drawnAnywhere = ["sales-page.tsx", "community-card.tsx", "library-list.tsx", "storefront-communities.tsx", "types.ts", "paths.ts", "join-state.ts", "seo.ts"].map((f) => `components/community/public/${f}`)
     check("the pieces the browser also draws import no server code", drawnAnywhere.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)/.test(code(f))))
     check("every new server module says server-only", ["public", "join", "explore"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
-    check("no fake online count on the public side", !mine.some((f) => /online/i.test(code(f))))
+    /* Round 2: the about card shows Online, and only as the heartbeat count (lib/communities/server/presence.ts), never otherwise. */
+    const drawsOnline = mine.filter((f) => /online/i.test(code(f)))
+    check("Online on the public side is drawn in one place, and only when the heartbeat count is known", drawsOnline.join() === "components/community/public/stats-row.tsx,components/community/public/types.ts" && /if \(stats\.online !== null\)/.test(code("components/community/public/stats-row.tsx")), drawsOnline)
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

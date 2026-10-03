@@ -7,8 +7,8 @@
  * The sales page offers one action (lib/../join-state.ts decides which). It
  * is drawn in a sticky card at the right from 1024px, in a bar pinned to the
  * bottom of a phone (above the home indicator: env(safe-area-inset-bottom)),
- * and the phone also gets the facts and the monthly or yearly choice in the
- * page itself, under the tagline, where the card would have said them. One
+ * and the phone also gets the card's content (the line, Members / Online /
+ * Admins, the monthly or yearly choice) in the page itself, under the media. One
  * provider holds what they share (the interval, a press in flight, an error),
  * so the three never disagree.
  *
@@ -30,13 +30,13 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Check } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { LENGTHS } from "@/lib/communities/limits"
 import { memberCountLabel } from "@/lib/communities/format"
 import { pricePer, yearlySaving } from "@/lib/memberships/state"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
+import { StatsRow } from "./stats-row"
 import type { JoinOption, JoinStateView, PublicCommunityView } from "./types"
 
 type Interval = "month" | "year"
@@ -313,25 +313,13 @@ function Status() {
   )
 }
 
-/** "1.2k members · $19/month", the two facts the card leads with. */
-function Facts({ className }: { className?: string }) {
-  const { community, join, interval } = useJoin()
-  const price = join.kind === "open" ? null : join.option ? intervalPrice(join.option, interval) : null
-  const parts = [memberCountLabel(community.memberCount), price].filter(Boolean)
-  return (
-    <p className={cn("text-[14px] tabular-nums text-[#6b7280]", className)} data-join-facts="">
-      {parts.join(" · ")}
-    </p>
-  )
-}
-
-/** The sticky card, from 1024px. */
+/** The sticky card, from 1024px: the cover, the name, its address, the line, Members / Online / Admins, and the button. */
 export function JoinCard() {
   const { community, join } = useJoin()
   const image = community.coverUrl || community.logoUrl
   return (
     <aside data-join-card="" className="hidden lg:block">
-      <div className="sticky top-[88px]">
+      <div className="sticky top-[calc(var(--community-top,65px)+24px)]" data-join-card-sticky="">
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(16,24,40,0.10)]">
           {image ? (
             <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]">
@@ -340,14 +328,10 @@ export function JoinCard() {
             </div>
           ) : null}
           <div className="p-5">
-            <p className="text-[17px] font-semibold leading-snug text-[#1a1a2e]">{community.name}</p>
-            {community.creator ? (
-              <div className="mt-1.5 flex items-center gap-2">
-                <AppAvatar src={community.creator.avatarUrl} name={community.creator.name} alt="" size={20} />
-                <p className="min-w-0 truncate text-[13px] text-[#6b7280]">by {community.creator.name}</p>
-              </div>
-            ) : null}
-            <Facts className="mt-3" />
+            <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]">{community.name}</p>
+            <p className="mt-0.5 truncate text-[13px] text-[#8a8f98]">{community.address}</p>
+            {community.tagline ? <p className="mt-3 text-[14.5px] leading-relaxed text-[#374151]">{community.tagline}</p> : null}
+            <StatsRow stats={community.stats} className="mt-4" />
             {join.option?.billing === "recurring" && join.kind === "checkout" ? <IntervalChoice className="mt-4" /> : null}
             <PrimaryAction className="mt-4 w-full" />
             <Status />
@@ -358,13 +342,15 @@ export function JoinCard() {
   )
 }
 
-/** On a phone, in the page under the tagline: the facts and the interval, where the card would have said them. */
+/** On a phone, where the card would be: under the media, the line, the three figures, the interval and what happened. */
 export function JoinSummaryPhone() {
+  const { community } = useJoin()
   return (
-    <div className="mt-4 lg:hidden" data-join-summary="">
-      <Facts />
-      <IntervalChoice className="mt-3" />
-      <div className="[&>*:first-child]:mt-0">
+    <div className="lg:hidden" data-join-summary="">
+      {community.tagline ? <p className="text-[15.5px] leading-relaxed text-[#374151]">{community.tagline}</p> : null}
+      <StatsRow stats={community.stats} className={community.tagline ? "mt-4" : ""} />
+      <IntervalChoice className="mt-4" />
+      <div className="[&>*:first-child]:mt-2">
         <Status />
       </div>
     </div>

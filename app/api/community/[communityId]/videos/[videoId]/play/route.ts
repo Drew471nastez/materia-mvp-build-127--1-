@@ -3,6 +3,7 @@ import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { communityOpen, loadCommunity, requireMember, viewerContext } from "@/lib/communities/server/context"
+import { inPublicGallery } from "@/lib/communities/server/public"
 import { readCommunityVideo, videoAccess, videoPlayback } from "@/lib/communities/server/videos"
 import { sessionUserId } from "@/lib/courses/route-auth"
 
@@ -18,7 +19,9 @@ const notFound = () => NextResponse.json({ error: "not_found" }, { status: 404, 
  *
  * A signed address that works for an hour, decided afresh on every call
  * (lib/communities/server/videos.ts videoAccess): the community's cover
- * video on its public page for anyone; otherwise an active member who may
+ * video on its public page for anyone, and so is a video the creator put in
+ * the about page's gallery while the community is published
+ * (lib/communities/server/public.ts inPublicGallery); otherwise an active member who may
  * see where the video is used (an event's replay once the event is over, a
  * post in a space they can see), and staff. A video of another community,
  * or one this person may not watch, is the same 404 as one that is not
@@ -42,6 +45,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   if (!community || !communityOpen(community)) return notFound()
   const video = await readCommunityVideo(db, community.id, videoId)
   if (!video) return notFound()
+
+  /* A gallery video on the about page plays for whoever can see that page. */
+  if (community.cover_video_id !== video.id && (await inPublicGallery(db, community, video.id))) {
+    if (video.status !== "ready") return NextResponse.json({ error: video.status === "failed" ? "failed" : "not_ready", status: video.status }, { status: 409, headers: noStore })
+    const playback = await videoPlayback(db, video)
+    if (!playback) return NextResponse.json({ error: "unavailable" }, { status: 502, headers: noStore })
+    return NextResponse.json(playback, { headers: noStore })
+  }
 
   let viewer = await viewerContext(db, community, null)
   /* Anything but the public cover video needs an active member first. */
