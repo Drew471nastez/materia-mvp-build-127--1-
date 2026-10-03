@@ -94,9 +94,17 @@ check("the Account step's names are not asked again by Storelib", (flow.match(/a
 check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
 check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))
 check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
-check("setup is Account, the ID check, then the details with the bank on them", /\["Account", "ID check", "Details"\]/.test(flow) && /data-details-bank/.test(flow) && /only\?: "id" \| "details"/.test(flow))
+check("setup is Account, the details with the bank on them, then the ID check", /\["Account", "Details", "Verify ID"\]/.test(flow) && /data-details-bank/.test(flow) && /only\?: "id" \| "details"/.test(flow))
 /* The owner, October 2026: "the kyc photo id needs to be separate step", and the CNP "should not be needed". */
 check("  the ID check is its own step, drawn apart from the details", /only === "id" \? f === "document"/.test(flow))
+/* The owner, October 2026: "verify id is not step 2 is actually 3, so I don't have to re-enter again the details". */
+check("  the ID comes last, so nothing is typed twice when it is left and returned to", /key=\{`details-step-\$\{openCount\}`\}[\s\S]*?key=\{`id-\$\{openCount\}`\}/.test(flow))
+check("  and what was typed survives walking between the steps", /let detailsDraft: DetailsDraft/.test(flow) && /function useDraft</.test(flow) && /clearDetailsDraft\(\)/.test(flow))
+check("  the draft is memory for this tab only, never storage", !/localStorage|sessionStorage|indexedDB/i.test(flow))
+/* Stripe: "Identity documents are JPG or PNG format", address documents may also be PDF, 10 MB, colour. */
+check("an identity document is never offered as a PDF", /const ID_TYPES = new Set\(\["image\/jpeg", "image\/png"\]\)/.test(own) && /const ADDRESS_TYPES = new Set\(\["image\/jpeg", "image\/png", "application\/pdf"\]\)/.test(own))
+check("  and the picker for an ID offers no PDF either", /accept="image\/jpeg,image\/png,image\/heic"\s*\n\s*hidden/.test(flow))
+check("  with Stripe's own 10 MB limit, not a stricter guess", /DOC_MAX_BYTES = 10 \* 1024 \* 1024/.test(own))
 check("  the ID number is not asked again once Stripe holds the document", /given\?: DetailField\[\]/.test(flow) && /needs\.given = given/.test(own))
 check("the step comes from Stripe's status", /setupStepOf\(/.test(flow))
 /* The owner, October 2026: going on "takes to much", and "We're verifying your details" appearing out of nowhere. */
