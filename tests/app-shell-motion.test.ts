@@ -582,7 +582,10 @@ section("Sheets")
   check("the parent is told when the sheet is actually gone, on both ways out",
     (sheet.match(/setPresent\(false\)\s*onClosedRef\.current\?\.\(\)/g) || []).length === 2)
   check("a keyboard lifts the sheet over the keyboard's own time, not in one frame",
-    /const KEYBOARD_MOVE = "bottom 250ms/.test(sheet) && /aboveKeyboard \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
+    /const KEYBOARD_MOVE = "bottom 250ms/.test(sheet) && /aboveKeyboard && settled \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
+  /* The same curve applied while the sheet was still rising made a changed keyboard inset read as a second, slower slide. */
+  check("  and only once the sheet has landed, so an open never creeps",
+    /const \[settled, setSettled\] = useState\(false\)/.test(sheet) && /setSettled\(false\)/.test(sheet) && /setSettled\(true\)/.test(sheet))
   const menu = code("components/app/mobile-account-menu.tsx")
   check("the account sheet decodes its photo ahead, at the size it draws it, and its links do not prefetch as they slide in",
     /const sheetAvatar = businesses\.length > 0 \? SWITCHER_AVATAR\.sheet : 40/.test(menu) && (menu.match(/preloadAvatar\(avatarSrc, sheetAvatar\)/g) ?? []).length === 3 &&

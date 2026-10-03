@@ -186,8 +186,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       }
       case "details-form": {
         if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
-        await prepareVerification(creator)
-        return NextResponse.json(await detailsForm(creator), { headers: NO_STORE })
+        /* Only an account Stripe still runs needs swapping, and that is rare: asking first cost every creator two calls to Stripe on every open. */
+        try {
+          return NextResponse.json(await detailsForm(creator), { headers: NO_STORE })
+        } catch (e) {
+          if (!(e instanceof PaymentsProblem) || e.status !== 409) throw e
+          await prepareVerification(creator)
+          return NextResponse.json(await detailsForm(creator), { headers: NO_STORE })
+        }
       }
       case "details": {
         if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })

@@ -68,6 +68,26 @@ const form = (needs) => ({
 })
 const doneOverview = { provider: "stripe", beat: "done", paymentsStatus: { status: "ACTIVE", title: "Payments active", line: "", action: null }, payoutDestination: { last4: "0000" }, balances: [], payouts: [], requirements: [], can: {}, unavailable: [] }
 
+/* A second bundle: setup at step one, where the Country field lives. */
+await build({
+  entryPoints: [join(root, "scripts/render-setup-country.tsx")],
+  bundle: true,
+  format: "iife",
+  jsx: "automatic",
+  define: { "process.env.NODE_ENV": '"production"' },
+  alias: { "@": ".", react: compiled("react"), "react-dom": compiled("react-dom"), "next/navigation": join(stubs, "navigation.js") },
+  banner: { js: "var process={env:{NODE_ENV:'production'}};" },
+  loader: { ".css": "empty" },
+  outfile: join(stubs, "country.js"),
+  logLevel: "error",
+  absWorkingDir: root,
+  nodePaths: [join(root, "node_modules")],
+})
+writeFileSync(
+  join(stubs, "country.html"),
+  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${readFileSync(join(stubs, "country.js"), "utf8").replace(/<\/script/gi, "<\\/script")}</script></body></html>`,
+)
+
 const out = join(root, ".setup-own-form-probe")
 mkdirSync(out, { recursive: true })
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--unsafely-treat-insecure-origin-as-secure=http://probe.test"] })
@@ -107,6 +127,56 @@ try {
     expect(/image/.test(view.input), "a photo from the library is the other way", view.input)
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.screenshot({ path: join(out, "later-390.png") })
+    await p.close()
+  }
+  {
+    /* The country sheet, opened from inside the setup panel: it must rise once and stop. */
+    console.log("\nThe country sheet rises smoothly (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const u = r.url()
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: readFileSync(join(stubs, "country.html"), "utf8") })
+      if (u.startsWith("http://probe.test/flags/")) return r.respond({ status: 404, body: "" })
+      if (u.startsWith("data:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    /* Headless says it prefers less motion, and every animation here honours that: ask for the real one. */
+    await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }])
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts")
+    await p.waitForSelector("[data-choice-field=country]", { timeout: 6000 })
+    await new Promise((r) => setTimeout(r, 300))
+    const track = await p.evaluate(async () => {
+      const field = document.querySelector("[data-choice-field=country]")
+      field.click()
+      const tops = []
+      await new Promise((done) => {
+        let frames = 0
+        const step = () => {
+          const panel = document.querySelector("[data-sheet-panel]") ?? document.querySelector("[data-sheet-root] [role=dialog]")
+          if (panel) tops.push(Math.round(panel.getBoundingClientRect().top))
+          if (++frames > 70) return done(null)
+          requestAnimationFrame(step)
+        }
+        requestAnimationFrame(step)
+      })
+      return tops
+    })
+    const seen = track.filter((t) => Number.isFinite(t))
+    const rest = seen.length ? seen[seen.length - 1] : null
+    /* Rising means the top goes DOWN to its rest; an overshoot dips below rest and comes back up. */
+    const below = seen.filter((t) => t < rest - 2).length
+    const settled = seen.slice(-8).every((t) => Math.abs(t - rest) <= 1)
+    expect(seen.length > 5, "the sheet was caught while it opened", seen.length)
+    expect(below === 0, "it never rises past where it lands, then drops back", { overshootFrames: below, rest, highest: Math.min(...seen) })
+    expect(settled, "and it is still at the end", seen.slice(-8))
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
+    await p.screenshot({ path: join(out, "country-sheet-390.png") })
     await p.close()
   }
   {

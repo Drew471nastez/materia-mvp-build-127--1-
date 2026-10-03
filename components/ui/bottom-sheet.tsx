@@ -494,6 +494,16 @@ export function BottomSheet({
   const openTokenRef = useRef(0)
   const onCloseRef = useRef(onClose)
   const onClosedRef = useRef(onClosed)
+  /**
+   * ONLY A KEYBOARD MOVES IT, AND ONLY ONCE IT HAS ARRIVED. `bottom` carries
+   * a 250ms transition so a keyboard lifts the sheet rather than teleporting
+   * it. While the sheet is still rising, that same transition turned any
+   * change in the reported keyboard inset into a second, slower slide a
+   * moment after it landed: the sheet appeared to creep up and settle again.
+   * The inset still applies from the first frame (a keyboard already up puts
+   * the sheet in the right place at once); only the transition waits.
+   */
+  const [settled, setSettled] = useState(false)
   const onOpenedRef = useRef(onOpened)
   const waitRef = useRef(waitForImages)
   const dismissibleRef = useRef(dismissible)
@@ -648,6 +658,8 @@ export function BottomSheet({
     heightRef.current = sheet.offsetHeight || 600
     if (isOpen) {
       closingRef.current = false
+      /* A fresh open is unsettled again, so the keyboard curve waits for this one too. */
+      setSettled(false)
       const token = ++openTokenRef.current
       /* Fresh: from below the screen. Reopened mid-close: from where it is. */
       const fresh = !animsRef.current.length
@@ -657,7 +669,11 @@ export function BottomSheet({
       const pictures = waitRef.current && fresh
         ? Array.from(sheet.querySelectorAll("img")).filter((img) => img.loading !== "lazy" && typeof img.decode === "function")
         : []
-      const opened = () => onOpenedRef.current?.()
+      const opened = () => {
+        /* Settled: from here a keyboard may move it, with its own curve. */
+        setSettled(true)
+        onOpenedRef.current?.()
+      }
       if (!pictures.length) {
         glide(from, restRef.current, OPEN_MS, opened)
         return
@@ -1058,7 +1074,7 @@ export function BottomSheet({
           paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
           ...(aboveKeyboard ? bottomAboveKeyboard() : {}),
           /* A keyboard arriving lifts the sheet with it rather than in one frame. */
-          ...(aboveKeyboard ? { transition: KEYBOARD_MOVE } : {}),
+          ...(aboveKeyboard && settled ? { transition: KEYBOARD_MOVE } : {}),
           maxHeight: aboveKeyboard ? `min(${maxHeight}, calc(var(--vv-h, 100dvh) - 24px))` : maxHeight,
           height,
           display: "flex",

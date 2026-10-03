@@ -83,7 +83,10 @@ check("the account is always the signed-in creator's own, never one from the bro
 check("it asks what Stripe will need, not only today's, so a creator is asked once", /eventually_due/.test(rules) && /currently_due/.test(rules) && /past_due/.test(rules))
 check("  there is no way to finish setup around verification", !/>Later</.test(flow) && flow.includes("Continue verification") && flow.includes("Payments turn on once Stripe has verified your identity."))
 check("  the bank is the country's own format, with the IBAN checked before it is sent", /IBAN_COUNTRIES/.test(rules) && /ibanValid\(iban, country\)/.test(own) && /ibanLooksValid\(/.test(flow))
-check("Your details is headed and says where it goes", flow.includes('title="Your details"') && flow.includes("Storelib never stores your ID, ID number or bank details."))
+check("Your details is headed, and no lock-and-promise line under it", flow.includes('title="Your details"') && !/Sent securely to Stripe|Secured by Stripe\. Storelib never sees/.test(flow))
+/* The owner, October 2026: the ID check has to be on the form from the start, not sprung weeks later. */
+check("the ID check is offered as soon as Stripe will ever want it", /eventually\.includes\("individual\.verification\.document"\)/.test(own) && /needs\.offered = \[\.\.\.needs\.offered, "document"\]/.test(own))
+check("a step is answered from the write Stripe just acknowledged, not another read", /return viewOf\(creator, saved\)/.test(own) && !/await syncStripeAccount\(creator\.id, "creator"\)\.catch\(\(\) => undefined\)\s*\n\s*return detailsForm/.test(own))
 check("the Account step's names are not asked again by Storelib", (flow.match(/autoComplete="given-name"/g) ?? []).length === 1)
 check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
 check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))

@@ -249,7 +249,12 @@ export async function startNativeGoogleOAuth(
   if (error || !data.url) throw error ?? new Error("OAuth init failed")
 
   const { Browser } = await import("@capacitor/browser")
-  await Browser.open({ url: data.url, windowName: "_self" })
+  /*
+   * The sheet, not a full screen takeover: Google's page slides over Storelib
+   * the way Stripe's agreement does, and closes back to where the person was.
+   * "_self" on iOS filled the screen and read as leaving the app.
+   */
+  await Browser.open({ url: data.url, windowName: "_self", presentationStyle: "popover", toolbarColor: "#ffffff" })
 }
 
 /**

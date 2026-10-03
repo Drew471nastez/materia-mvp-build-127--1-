@@ -615,12 +615,6 @@ export function PaymentsSetupFlow({
             </div>
           </div>
 
-          {phone ? null : (
-            <p className="mt-5 flex items-center justify-center gap-1.5 px-4 text-center text-[12px] leading-[18px] text-[#9ca3af]">
-              <Lock className="h-3 w-3 shrink-0" />
-              Secured by Stripe. Storelib never sees your full bank or ID numbers.
-            </p>
-          )}
         </div>
       </div>
     </Panel>
@@ -1189,7 +1183,9 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
                     <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
                       {idState === "waiting"
                         ? "Finish the check with Stripe, then come back here."
-                        : "Stripe scans your ID and matches a selfie to it. About a minute, and Storelib never sees either."}
+                        : form.needs.offered.includes("document")
+                          ? "Stripe scans your ID and matches a selfie to it. A minute now, and your payouts never pause for it later."
+                          : "Stripe scans your ID and matches a selfie to it. About a minute, and Storelib never sees either."}
                     </span>
                   </span>
                 </button>
@@ -1338,10 +1334,6 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
           </p>
         ) : null}
 
-        <p className="flex items-center gap-1.5 pb-1 text-[12px] text-[#9ca3af]">
-          <Lock className="h-3 w-3 shrink-0" />
-          Sent securely to Stripe. Storelib never stores your ID, ID number or bank details.
-        </p>
       </div>
 
       <Footer>
@@ -1428,10 +1420,6 @@ function BankForm({ title, line, onBack, backLabel = "Back", onDone, onData }: {
             </Field>
           </>
         )}
-        <p className="flex items-center gap-1.5 pb-1 text-[12px] text-[#9ca3af]">
-          <Lock className="h-3 w-3 shrink-0" />
-          Sent securely to Stripe. Storelib only ever sees the last four digits.
-        </p>
       </div>
       <Footer>
         <button type="button" className={SECONDARY} onClick={onBack}>{backLabel}</button>

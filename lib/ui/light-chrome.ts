@@ -32,7 +32,11 @@ export function useLightChrome(active: boolean, color = "#ffffff") {
     const native = Boolean(cap?.isNativePlatform?.())
     if (native) {
       void import("@capacitor/status-bar")
-        .then(({ StatusBar, Style }) => StatusBar.setStyle({ style: Style.Light }))
+        .then(async ({ StatusBar, Style }) => {
+          await StatusBar.setStyle({ style: Style.Light }).catch(() => {})
+          /* Android paints its own strip behind the status bar; iOS has none to paint. */
+          await StatusBar.setBackgroundColor({ color }).catch(() => {})
+        })
         .catch(() => {})
     }
 
@@ -42,7 +46,10 @@ export function useLightChrome(active: boolean, color = "#ffffff") {
       html.style.backgroundColor = prevBg
       if (native) {
         void import("@capacitor/status-bar")
-          .then(({ StatusBar, Style }) => StatusBar.setStyle({ style: Style.Dark }))
+          .then(async ({ StatusBar, Style }) => {
+            await StatusBar.setStyle({ style: Style.Dark }).catch(() => {})
+            await StatusBar.setBackgroundColor({ color: "#000000" }).catch(() => {})
+          })
           .catch(() => {})
       }
     }

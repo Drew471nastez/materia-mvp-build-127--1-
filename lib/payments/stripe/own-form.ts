@@ -78,16 +78,25 @@ async function ownAccount(creator: PaymentsCreatorRef): Promise<Stripe.Account> 
   return account
 }
 
-export async function detailsForm(creator: PaymentsCreatorRef): Promise<DetailsFormView> {
-  const account = await ownAccount(creator)
+/**
+ * The form from an account already in hand. Every write below returns the
+ * account it just changed, so the page is answered from that rather than
+ * asking Stripe again: saving a step was five calls to Stripe and most of a
+ * second of staring at "Saving".
+ */
+async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Promise<DetailsFormView> {
   const needs = needsOf(account.requirements as never)
-  /* Storelib's own fields, never the creator's: filled quietly when Stripe still lists them. */
-  const due = [...(account.requirements?.currently_due ?? []), ...(account.requirements?.eventually_due ?? [])]
-  if (due.some((k) => k.startsWith("business_profile."))) {
-    const row = await readCreatorStripe(creator.id)
-    await stripe.accounts
-      .update(account.id, { business_profile: creatorBusinessProfile({ username: row?.username, displayName: row?.display_name, platformUrl: platformBusinessUrl() }) })
-      .catch((error) => console.error("[payments own form] business profile", quiet(error)))
+  /*
+   * THE ID CHECK IS OFFERED AS SOON AS STRIPE WILL EVER WANT IT. Asking only
+   * for what is due today meant a new account was never shown the check at
+   * all, and met it weeks later as an interruption. It is on the form from
+   * the start, and is only required once Stripe actually requires it.
+   */
+  const eventually = account.requirements?.eventually_due ?? []
+  const pending = new Set(account.requirements?.pending_verification ?? [])
+  if (eventually.includes("individual.verification.document") && !pending.has("individual.verification.document") && !needs.fields.includes("document")) {
+    needs.fields = [...needs.fields, "document"]
+    needs.offered = [...needs.offered, "document"]
   }
   const country = (account.country ?? "").toUpperCase()
   const ext = account.external_accounts?.data?.find((e) => e.object === "bank_account") as Stripe.BankAccount | undefined
@@ -104,6 +113,19 @@ export async function detailsForm(creator: PaymentsCreatorRef): Promise<DetailsF
     idNumber: idNumberName(country),
     bank: { ...bankFormat(country), currency: account.default_currency?.toUpperCase() ?? null, holderName, last4: ext?.last4 ?? null },
   }
+}
+
+export async function detailsForm(creator: PaymentsCreatorRef): Promise<DetailsFormView> {
+  const account = await ownAccount(creator)
+  /* Storelib's own fields, never the creator's: filled quietly when Stripe still lists them. */
+  const due = [...(account.requirements?.currently_due ?? []), ...(account.requirements?.eventually_due ?? [])]
+  if (due.some((k) => k.startsWith("business_profile."))) {
+    const row = await readCreatorStripe(creator.id)
+    await stripe.accounts
+      .update(account.id, { business_profile: creatorBusinessProfile({ username: row?.username, displayName: row?.display_name, platformUrl: platformBusinessUrl() }) })
+      .catch((error) => console.error("[payments own form] business profile", quiet(error)))
+  }
+  return viewOf(creator, account)
 }
 
 function asInput(raw: unknown): DetailsInput {
@@ -163,16 +185,17 @@ export async function submitDetails(creator: PaymentsCreatorRef, raw: unknown, c
   if (needs.tos && input.acceptTos) {
     params.tos_acceptance = { date: Math.floor(Date.now() / 1000), ip: consent.ip ?? undefined, user_agent: consent.userAgent?.slice(0, 300) ?? undefined }
   }
+  let saved = account
   if (Object.keys(params).length) {
     try {
-      await stripe.accounts.update(account.id, params)
+      saved = await stripe.accounts.update(account.id, params)
     } catch (error) {
       console.error("[payments own form] details", (error as { param?: string })?.param ?? "", quiet(error))
       throw new PaymentsProblem(sentence(error, "Stripe did not accept those details. Check them and try again."))
     }
   }
-  await syncStripeAccount(creator.id, "creator").catch(() => undefined)
-  return detailsForm(creator)
+  /* The caller reads the overview next, which syncs once; syncing here as well was the same call twice. */
+  return viewOf(creator, saved)
 }
 
 const DOC_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"])
@@ -191,13 +214,14 @@ export async function uploadDocument(creator: PaymentsCreatorRef, input: { which
       { purpose: which === "document" ? "identity_document" : "additional_verification", file: { data: Buffer.from(await file.arrayBuffer()), name: `${which}-${side}`, type: file.type } },
       { stripeAccount: account.id },
     )
-    await stripe.accounts.update(account.id, { individual: { verification: { [which]: { [side]: uploaded.id } } } as Stripe.AccountUpdateParams.Individual })
+    const saved = await stripe.accounts.update(account.id, { individual: { verification: { [which]: { [side]: uploaded.id } } } as Stripe.AccountUpdateParams.Individual })
+    await syncStripeAccount(creator.id, "creator").catch(() => undefined)
+    return viewOf(creator, saved)
   } catch (error) {
+    if (error instanceof PaymentsProblem) throw error
     console.error("[payments own form] document", quiet(error))
     throw new PaymentsProblem(sentence(error, "That photo did not upload. Try again with a clear photo."))
   }
-  await syncStripeAccount(creator.id, "creator").catch(() => undefined)
-  return detailsForm(creator)
 }
 
 export async function addBank(creator: PaymentsCreatorRef, raw: unknown): Promise<DetailsFormView> {
@@ -223,12 +247,13 @@ export async function addBank(creator: PaymentsCreatorRef, raw: unknown): Promis
     bank.account_number = number
     if (routing) bank.routing_number = routing
   }
+  let added: Stripe.BankAccount | null = null
   try {
-    await stripe.accounts.createExternalAccount(account.id, { external_account: bank, default_for_currency: true })
+    added = (await stripe.accounts.createExternalAccount(account.id, { external_account: bank, default_for_currency: true })) as Stripe.BankAccount
   } catch (error) {
     console.error("[payments own form] bank", (error as { param?: string })?.param ?? "", quiet(error))
     throw new PaymentsProblem(sentence(error, "Stripe did not accept that bank account. Check it and try again."))
   }
-  await syncStripeAccount(creator.id, "creator").catch(() => undefined)
-  return detailsForm(creator)
+  const view = await viewOf(creator, account)
+  return { ...view, bank: { ...view.bank, last4: added?.last4 ?? view.bank.last4 } }
 }
