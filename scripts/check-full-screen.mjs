@@ -47,6 +47,24 @@ const expect = (ok, what, got) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 /** FULL_SCREEN_MS in the editor: how long the fold takes. */
 const FOLD_MS = 320
+/**
+ * The steepest slope of the fold's easing, cubic-bezier(0.4, 0, 0.2, 1), as a
+ * multiple of its average: computed from the curve, not guessed. A step
+ * faster than that (with 5% for rounding a width to a tenth of a pixel) is
+ * the canvas jumping ahead of its own animation.
+ */
+const EASE_PEAK = (() => {
+  const bz = (a, b, t) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3
+  let peak = 0
+  let prev = { x: 0, y: 0 }
+  for (let i = 1; i <= 20000; i++) {
+    const t = i / 20000
+    const p = { x: bz(0.4, 0.2, t), y: bz(0, 1, t) }
+    if (p.x > prev.x) peak = Math.max(peak, (p.y - prev.y) / (p.x - prev.x))
+    prev = p
+  }
+  return peak
+})()
 
 async function open(page, vp, touch) {
   await page.setViewport({ ...vp, isMobile: !!touch, hasTouch: !!touch })
@@ -141,7 +159,7 @@ try {
     jumps ahead of the curve. And the frames: reported as they came, because a
     long frame on a loaded machine makes a long step on any curve.
   */
-  const curvePeak = (d) => (d / FOLD_MS) * 2.2
+  const curvePeak = (d) => (d / FOLD_MS) * EASE_PEAK * 1.05
   expect(canvasIn.peakSpeed <= curvePeak(canvasIn.distance), "smoothly: the canvas never moves faster than the fold's own curve", { peakSpeed: canvasIn.peakSpeed, curvePeak: Math.round(curvePeak(canvasIn.distance) * 100) / 100, biggestStep: canvasIn.biggest, longestFrameMs: canvasIn.longestFrameMs })
   expect(canvasIn.settledAt !== null && canvasIn.settledAt <= FOLD_MS + canvasIn.longestFrameMs + 40, "and settles when the fold ends", { settledAt: canvasIn.settledAt, foldMs: FOLD_MS })
   const on = await page.evaluate(STATE)
