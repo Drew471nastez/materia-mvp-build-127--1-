@@ -2445,10 +2445,13 @@ check(
     if (/icon\?: React\.ComponentType/.test(tabs))
       missing.push("the empty tab takes a component again — that cannot cross the server boundary")
     if (!/<Icon className="mx-auto mb-3 h-6 w-6/.test(tabs)) missing.push("the empty tab's icon is not rendered")
-    const detail = page.match(/detail="([^"]*)"/)?.[1] ?? ""
-    if (!detail) missing.push("the empty tab has no line under its heading")
-    else if (detail.length > 60)
-      missing.push(`the empty tab explains itself again (${detail.length} chars) — nobody reading a shop needs the roadmap`)
+    /* The Communities tab is real cards now and is left out when a creator has none (the owner's ask), so the page may draw no empty tab at all. When it does, the line stays short. */
+    if (/<EmptyTabPanel/.test(page)) {
+      const detail = page.match(/detail="([^"]*)"/)?.[1] ?? ""
+      if (!detail) missing.push("the empty tab has no line under its heading")
+      else if (detail.length > 60)
+        missing.push(`the empty tab explains itself again (${detail.length} chars) — nobody reading a shop needs the roadmap`)
+    }
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -3105,7 +3108,8 @@ check(
     if (!/<StorefrontTabs tabs=\{canvasTabs\} isMobile=\{isMobile\} \/>/.test(canvas))
       missing.push("the canvas does not render the storefront's tab strip, or does not tell it about the phone frame")
     if (!/<AllProductsGrid/.test(canvas)) missing.push("the canvas Products tab is not the real grid")
-    if (!/<EmptyTabPanel/.test(canvas)) missing.push("the canvas Communities tab is not the real panel")
+    /* The owner asked for real community cards there, and no tab when a creator has none (components/community/public/storefront-communities.tsx). */
+    if (!/<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(canvas)) missing.push("the canvas Communities tab is not the real panel")
     if (!/label: "Home"/.test(canvas) || !/label: "Products"/.test(canvas) || !/label: "Communities"/.test(canvas))
       missing.push("the canvas tabs do not match the page's three")
     // About stays outside the tabs here exactly as it does on the page.

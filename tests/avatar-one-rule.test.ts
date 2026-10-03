@@ -125,8 +125,9 @@ console.log("\nNo face is a question mark")
     ["components/library/library-product.tsx", 2],
     /* The phone's search screen: a creator found by name. (The buyer tab
        bar's Profile tab was the person's photo; it is a person icon now, at
-       the owner's request, because the photo is in the header.) */
-    ["components/search/search-screen.tsx", 1],
+       the owner's request, because the photo is in the header.) A community
+       found by name with no logo of its own wears the same mark. */
+    ["components/search/search-screen.tsx", 2],
     ["app/admin/blog/seo/_seo-client.tsx", 1],
   ]
   for (const [file, n] of moved) {
