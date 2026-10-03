@@ -1,0 +1,224 @@
+{# The do-it-yourself side: templates and guides to write posts on your own.
+   The cards can be typed in the sidebar, or drawn from the creator's own
+   Storelib products so prices and links stay live. #}
+
+<template>
+<section class="ldd" id="{{ settings.anchor }}" data-scheme="{{ settings.color_scheme }}" style="--ldd-pt: {{ settings.padding_top }}px; --ldd-pb: {{ settings.padding_bottom }}px; --ldd-hs: {{ settings.heading_size }}; --ldd-hsm: {{ settings.heading_size_mobile }}; --ldd-accent: {{ settings.accent_color }}; --ldd-radius: {{ settings.card_radius }}px; --ldd-cols: {{ settings.columns }};">
+  <div class="ldd__in">
+    <div class="ldd__head">
+      {% if settings.eyebrow %}<p class="ldd__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+      {% if settings.heading %}<h2 class="ldd__h">{{ settings.heading }}</h2>{% endif %}
+      {% if settings.text %}<p class="ldd__sub">{{ settings.text }}</p>{% endif %}
+    </div>
+
+    {% if settings.source == 'products' %}
+      {% for block in settings.chosen %}
+        {% if forloop.first %}<div class="ldd__grid">{% endif %}
+        <a class="ldd__card ldd__card--product" href="{{ block.settings.url | url }}">
+          {% if block.settings.image %}<img class="ldd__img" src="{{ block.settings.image }}" alt="{{ block.settings.title }}" width="600" height="450" loading="lazy">{% endif %}
+          <span class="ldd__badge">{{ block.settings.price }}</span>
+          <span class="ldd__title">{{ block.settings.title }}</span>
+          <span class="ldd__more">{{ settings.product_link_label }}</span>
+        </a>
+        {% if forloop.last %}</div>{% endif %}
+      {% else %}
+        {% if page.in_editor %}<p class="ldd__empty">Choose products in the sidebar</p>{% endif %}
+      {% endfor %}
+    {% else %}
+      {% for block in blocks %}
+        {% if forloop.first %}<div class="ldd__grid">{% endif %}
+        <article class="ldd__card" data-block-id="{{ block.id }}">
+          {% if block.settings.image %}<img class="ldd__img" src="{{ block.settings.image }}" alt="{{ block.settings.title }}" width="600" height="450" loading="lazy">{% endif %}
+          {% if block.settings.badge %}<span class="ldd__badge">{{ block.settings.badge }}</span>{% endif %}
+          <h3 class="ldd__title">{{ block.settings.title }}</h3>
+          {% if block.settings.text %}<p class="ldd__text">{{ block.settings.text }}</p>{% endif %}
+          {% if block.settings.button_label %}
+            <a class="ldd__btn s__btn" href="{% if block.settings.file %}{{ block.settings.file | url }}{% else %}{{ block.settings.button_url | url }}{% endif %}">{{ block.settings.button_label }}</a>
+          {% endif %}
+        </article>
+        {% if forloop.last %}</div>{% endif %}
+      {% else %}
+        {% if page.in_editor %}<p class="ldd__empty">Add resources in the sidebar</p>{% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% if settings.note %}<p class="ldd__note">{{ settings.note }}</p>{% endif %}
+  </div>
+</section>
+</template>
+
+<style>
+.ldd {
+  container-type: inline-size;
+  background: var(--scheme-background);
+  color: var(--scheme-text);
+  font-family: var(--theme-font-body, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  scroll-margin-top: 88px;
+}
+.ldd__in {
+  box-sizing: border-box;
+  max-width: calc(var(--theme-page-width, 1160px) + 2 * var(--theme-padding-x, 24px));
+  margin: 0 auto;
+  padding: calc(var(--ldd-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--ldd-pb) * var(--theme-spacing-scale, 1));
+}
+.ldd__head { max-width: 48rem; margin-bottom: 40px; }
+.ldd__eyebrow { margin: 0 0 18px; font-size: 13px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--scheme-text); }
+.ldd__h {
+  margin: 0;
+  font-family: var(--theme-font-heading, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(calc(var(--ldd-hsm) * 1px), calc(var(--ldd-hs) * 0.0715cqi), calc(var(--ldd-hs) * 1px));
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+  color: var(--scheme-heading);
+  overflow-wrap: anywhere;
+}
+.ldd__sub { margin: 22px 0 0; max-width: 46em; font-size: 17px; line-height: 1.65; color: var(--scheme-text); }
+
+.ldd__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.ldd__card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 30px 28px 28px;
+  border: 1px solid var(--scheme-border);
+  border-radius: var(--ldd-radius);
+  background: var(--scheme-background-secondary);
+  color: inherit;
+  text-decoration: none;
+}
+.ldd__img {
+  display: block;
+  width: calc(100% + 56px);
+  max-width: none;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  margin: -30px -28px 24px;
+  border-radius: calc(var(--ldd-radius) - 1px) calc(var(--ldd-radius) - 1px) 0 0;
+  object-fit: cover;
+}
+.ldd__badge {
+  display: inline-block;
+  margin-bottom: 18px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ldd-accent) 12%, transparent);
+  color: var(--ldd-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.ldd__title {
+  display: block;
+  margin: 0 0 24px;
+  font-family: var(--theme-font-heading, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--scheme-heading);
+}
+.ldd__text { margin: -10px 0 28px; font-size: 15.5px; line-height: 1.65; color: var(--scheme-text); }
+.ldd__btn {
+  box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 46px; margin-top: auto; padding: 0 20px;
+  border: 1px solid var(--scheme-button-secondary-border);
+  border-radius: 6px;
+  background: var(--scheme-button-secondary);
+  color: var(--scheme-button-secondary-text);
+  font-size: 15px; font-weight: 600; line-height: 1.2; text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.ldd__btn:hover { background: var(--scheme-button-secondary-hover); color: var(--scheme-button-secondary-hover-text); }
+.ldd__more {
+  margin-top: 22px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--scheme-heading);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.ldd__card--product:hover .ldd__more { color: var(--ldd-accent); }
+.ldd__btn:focus-visible, .ldd__card--product:focus-visible { outline: 2px solid var(--ldd-accent); outline-offset: 3px; }
+.ldd__note { margin: 26px 0 0; font-size: 13.5px; line-height: 1.6; color: var(--scheme-text); }
+.ldd__empty { margin: 0; padding: 28px 0; text-align: center; font-size: 14px; opacity: 0.7; }
+
+@container (min-width: 700px) {
+  .ldd__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (min-width: 1000px) {
+  .ldd__grid { grid-template-columns: repeat(var(--ldd-cols, 3), minmax(0, 1fr)); }
+}
+@container (max-width: 520px) {
+  .ldd__card { padding: 26px 22px 24px; }
+  .ldd__img { width: calc(100% + 44px); margin: -26px -22px 20px; }
+  .ldd__title { font-size: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ldd__btn { transition: none; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ld_diy",
+  "name": "LD Do it yourself",
+  "category": "products",
+  "description": "Free templates and guides as cards, typed in or taken from your products",
+  "supports_typography_overrides": false,
+  "settings": [
+    { "type": "header", "id": "hdr_content", "label": "Content" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Do it yourself" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "One free place to start." },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Prefer to write your own posts? Start with the same templates I use to turn notes and customer conversations into LinkedIn drafts." },
+    { "type": "textarea", "id": "note", "label": "Note under the cards" },
+    { "type": "header", "id": "hdr_source", "label": "Cards" },
+    { "type": "select", "id": "source", "label": "Show", "default": "cards",
+      "options": [{ "value": "cards", "label": "Cards I fill in" }, { "value": "products", "label": "Products I choose" }] },
+    { "type": "product_list", "id": "chosen", "label": "Products to show", "limit": 6, "visible_if": "{{ section.settings.source == 'products' }}" },
+    { "type": "text", "id": "product_link_label", "label": "Product link text", "default": "View template", "visible_if": "{{ section.settings.source == 'products' }}" },
+    { "type": "range", "id": "columns", "label": "Cards per row on a computer", "min": 2, "max": 4, "step": 1, "default": 3 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "light" },
+    { "type": "color", "id": "accent_color", "label": "Badge colour", "default": "scheme.accent" },
+    { "type": "range", "id": "heading_size", "label": "Heading size on a computer", "min": 28, "max": 96, "step": 2, "unit": "px", "default": 54 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on a phone", "min": 24, "max": 60, "step": 1, "unit": "px", "default": 34 },
+    { "type": "range", "id": "card_radius", "label": "Card corners", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 10 },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "info": "Lets a link jump here, as #templates", "default": "templates" },
+    { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 104 }
+  ],
+  "blocks": [
+    {
+      "type": "resource",
+      "name": "Resource",
+      "limit": 12,
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Picture" },
+        { "type": "text", "id": "badge", "label": "Badge", "default": "Free" },
+        { "type": "text", "id": "title", "label": "Title", "default": "LinkedIn post planner" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "A simple weekly plan for choosing a topic, collecting notes and drafting one post." },
+        { "type": "text", "id": "button_label", "label": "Button text", "default": "Get the template" },
+        { "type": "file_picker", "id": "file", "label": "File to download", "info": "Upload the file, or paste a link below" },
+        { "type": "url", "id": "button_url", "label": "Button link", "default": "#contact" }
+      ]
+    }
+  ],
+  "max_blocks": 12,
+  "presets": [
+    {
+      "name": "LD Do it yourself",
+      "blocks": [
+        { "type": "resource", "settings": { "badge": "Free", "title": "LinkedIn post planner", "text": "A simple weekly plan for choosing a topic, collecting notes and drafting one post.", "button_label": "Get the template" } },
+        { "type": "resource", "settings": { "badge": "Free", "title": "Customer call to post worksheet", "text": "Questions to answer straight after a call, so the useful part becomes the start of a draft.", "button_label": "Get the worksheet" } },
+        { "type": "resource", "settings": { "badge": "Free", "title": "Edit checklist", "text": "The checks I run before a post is ready: the opening, the facts, the length and the ending.", "button_label": "Get the checklist" } }
+      ]
+    }
+  ]
+}
+</schema>

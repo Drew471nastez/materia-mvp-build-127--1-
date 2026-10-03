@@ -1,0 +1,118 @@
+{# The writer, introduced: a round photo beside a short heading and a few lines
+   of text. The text is rich text, so it can hold links and emphasis. #}
+
+<template>
+<section class="ldb" id="{{ settings.anchor }}" data-scheme="{{ settings.color_scheme }}" style="--ldb-pt: {{ settings.padding_top }}px; --ldb-pb: {{ settings.padding_bottom }}px; --ldb-hs: {{ settings.heading_size }}; --ldb-hsm: {{ settings.heading_size_mobile }}; --ldb-photo: {{ settings.photo_size }}px; --ldb-accent: {{ settings.accent_color }};">
+  <div class="ldb__in{% if settings.image %} ldb__in--photo{% endif %}">
+    {% if settings.image %}
+      <img class="ldb__photo" src="{{ settings.image }}" alt="{{ settings.image_alt }}" width="460" height="460" loading="lazy" style="object-position: {{ settings.image_focus }};">
+    {% endif %}
+    <div class="ldb__copy">
+      {% if settings.eyebrow %}<p class="ldb__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+      {% if settings.heading %}<h2 class="ldb__h">{{ settings.heading }}</h2>{% endif %}
+      {% if settings.content %}<div class="ldb__text">{{ settings.content | raw }}</div>{% endif %}
+      {% if settings.link_label %}<a class="ldb__link" href="{{ settings.link_url | url }}">{{ settings.link_label }}</a>{% endif %}
+    </div>
+  </div>
+</section>
+</template>
+
+<style>
+.ldb {
+  container-type: inline-size;
+  background: var(--scheme-background);
+  color: var(--scheme-text);
+  font-family: var(--theme-font-body, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  scroll-margin-top: 88px;
+}
+.ldb__in {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  align-items: center;
+  max-width: calc(var(--theme-page-width, 1160px) + 2 * var(--theme-padding-x, 24px));
+  margin: 0 auto;
+  padding: calc(var(--ldb-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--ldb-pb) * var(--theme-spacing-scale, 1));
+}
+.ldb__photo {
+  display: block;
+  width: min(var(--ldb-photo), 62cqi);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 6px var(--scheme-background), 0 0 0 7px var(--scheme-border);
+}
+.ldb__copy { min-width: 0; max-width: 40rem; }
+.ldb__eyebrow { margin: 0 0 18px; font-size: 13px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--scheme-text); }
+.ldb__h {
+  margin: 0 0 22px;
+  font-family: var(--theme-font-heading, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(calc(var(--ldb-hsm) * 1px), calc(var(--ldb-hs) * 0.0715cqi), calc(var(--ldb-hs) * 1px));
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+  color: var(--scheme-heading);
+  overflow-wrap: anywhere;
+}
+.ldb__text { font-size: 17px; line-height: 1.68; color: var(--scheme-text); }
+.ldb__text > :first-child { margin-top: 0; }
+.ldb__text > :last-child { margin-bottom: 0; }
+.ldb__text p { margin: 0 0 14px; }
+.ldb__text a { color: var(--scheme-heading); text-underline-offset: 4px; }
+.ldb__text strong { color: var(--scheme-heading); font-weight: 600; }
+.ldb__link {
+  display: inline-block;
+  margin-top: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--scheme-heading);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 5px;
+}
+.ldb__link:hover { color: var(--ldb-accent); }
+.ldb__link:focus-visible { outline: 2px solid var(--ldb-accent); outline-offset: 3px; }
+
+@container (min-width: 760px) {
+  .ldb__in--photo { grid-template-columns: auto minmax(0, 1fr); gap: 80px; padding-left: calc(var(--theme-padding-x, 24px) + 2.5cqi); }
+  .ldb__photo { width: var(--ldb-photo); }
+}
+@container (max-width: 520px) {
+  .ldb__text { font-size: 16px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ld_about",
+  "name": "LD About me",
+  "category": "about",
+  "description": "A round photo beside a heading and a few lines about the writer",
+  "supports_typography_overrides": false,
+  "settings": [
+    { "type": "header", "id": "hdr_content", "label": "Content" },
+    { "type": "image_picker", "id": "image", "label": "Photo" },
+    { "type": "focal_point", "id": "image_focus", "label": "Photo focus", "image": "image", "default": "50% 30%" },
+    { "type": "text", "id": "image_alt", "label": "Photo description", "default": "Luca Dragoste" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "About me" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "One writer, from research to final edit." },
+    { "type": "richtext", "id": "content", "label": "Text", "default": "<p>I’m Luca Dragoste, an Advertising student at SNSPA in Bucharest, and I write LinkedIn posts for founders.</p><p>You work directly with me. I ask about the details behind an idea, check the facts, and revise the wording with you.</p>" },
+    { "type": "text", "id": "link_label", "label": "Link text" },
+    { "type": "url", "id": "link_url", "label": "Link", "default": "#contact" },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "white" },
+    { "type": "color", "id": "accent_color", "label": "Link hover colour", "default": "scheme.accent" },
+    { "type": "range", "id": "photo_size", "label": "Photo size", "min": 120, "max": 420, "step": 4, "unit": "px", "default": 228 },
+    { "type": "range", "id": "heading_size", "label": "Heading size on a computer", "min": 24, "max": 96, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on a phone", "min": 22, "max": 60, "step": 1, "unit": "px", "default": 32 },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "info": "Lets a link jump here, as #about", "default": "about" },
+    { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 88 }
+  ],
+  "presets": [{ "name": "LD About me" }]
+}
+</schema>

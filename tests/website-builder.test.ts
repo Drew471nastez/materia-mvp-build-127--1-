@@ -489,10 +489,15 @@ section("The page")
     const css = read("app/globals.css")
     check("the upload goes by XMLHttpRequest and reports its progress", /new XMLHttpRequest\(\)/.test(incoming) && /xhr\.upload\.onprogress/.test(incoming) && /xhr\.upload\.onload/.test(incoming))
     check("  the button says Uploading with a percentage, then Importing", /`Uploading \$\{Math\.round\(incoming\.progress \* 100\)\}%`/.test(client) && /: "Importing"\) : "Import theme"/.test(client))
-    check("  the placeholder row is drawn after the library's rows, where the server puts a new website",
-      client.indexOf("<IncomingRow") > client.indexOf("{library.map((i) => {") && /showingIncoming && incoming && \(/.test(client))
-    check("  every route puts a new website after the others", ["app/api/website-builder/themes/add/route.ts", "app/api/website-builder/themes/[installId]/duplicate/route.ts", "app/api/website-builder/themes/import/route.ts"].every((p) => /nextSortOrder\(admin, creator\.id\)/.test(read(p))) &&
-      /\.order\("sort_order", \{ ascending: false \}\)/.test(read("lib/website-builder/library-limit.ts")))
+    /* An import first, where the server puts it; an added or copied website after the others. */
+    check("  the placeholder row is drawn where the server puts the new website: an import first, the others last",
+      client.indexOf('incoming.kind === "import" && (') !== -1 && client.indexOf('incoming.kind === "import" && (') < client.indexOf("{library.map((i) => {") &&
+        client.lastIndexOf("<IncomingRow") > client.indexOf("{library.map((i) => {") && /showingIncoming && incoming && incoming\.kind !== "import" && \(/.test(client))
+    check("  Add and Duplicate put a new website after the others, an import before them",
+      ["app/api/website-builder/themes/add/route.ts", "app/api/website-builder/themes/[installId]/duplicate/route.ts"].every((p) => /nextSortOrder\(admin, creator\.id\)/.test(read(p))) &&
+        /firstSortOrder\(admin, creator\.id\)/.test(read("app/api/website-builder/themes/import/route.ts")) &&
+        /\.order\("sort_order", \{ ascending: false \}\)/.test(read("lib/website-builder/library-limit.ts")) &&
+        /\.order\("sort_order", \{ ascending: true \}\)/.test(read("lib/website-builder/library-limit.ts")))
     check("  the real row replaces it in the same render, by id", /const landed = !!incoming\?\.installId && installs\.some\(\(i\) => i\.id === incoming\.installId\)/.test(client) && /const showingIncoming = !!incoming && !landed/.test(client))
     check("  then it is scrolled to the middle of the element that scrolls, not the window",
       /scrollToRow\(row, "center"\)/.test(client) && /export function scrollerOf/.test(incoming) && /scroller\.scrollTo\(\{ top: target, behavior: smooth \? "smooth" : "auto" \}\)/.test(incoming) && !/scrollIntoView/.test(incoming))
@@ -995,8 +1000,8 @@ section("Add Section is derived from the files, one card per preset")
   check("the cards are declared once, at the top level, and memoised", /^const LibraryCard = memo\(function LibraryCard\(/m.test(librarySrc) && !/^\s+const SectionCard = \(/m.test(librarySrc))
   check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(librarySrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(librarySrc) && /words\.every\(\(w\) => e\.haystack\.includes\(w\)\)/.test(librarySrc))
   /* First, not last: what somebody made themselves is what they come back for. */
-  check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /return \[\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{ownSectionTypes\}/.test(editorSrc))
-  check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
+  check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /return \[\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{libraryOwnTypes\}/.test(editorSrc) && /const libraryOwnTypes = useMemo\(\(\) => Object\.keys\(customSchemas\)/.test(editorSrc))
+  check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0, replaceConfirmed = false\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
 }
 
 /**

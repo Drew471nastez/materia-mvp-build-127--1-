@@ -1,0 +1,158 @@
+{# Questions before working together: the heading on the left, the questions on
+   the right. Built on details and summary, so it opens and closes with no
+   script and works from the keyboard. #}
+
+<template>
+<section class="ldf" id="{{ settings.anchor }}" data-scheme="{{ settings.color_scheme }}" style="--ldf-pt: {{ settings.padding_top }}px; --ldf-pb: {{ settings.padding_bottom }}px; --ldf-hs: {{ settings.heading_size }}; --ldf-hsm: {{ settings.heading_size_mobile }}; --ldf-accent: {{ settings.accent_color }};">
+  <div class="ldf__in">
+    <div class="ldf__head">
+      {% if settings.eyebrow %}<p class="ldf__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+      {% if settings.heading %}<h2 class="ldf__h">{{ settings.heading }}</h2>{% endif %}
+      {% if settings.text %}<p class="ldf__sub">{{ settings.text }}</p>{% endif %}
+    </div>
+    <div class="ldf__list">
+      {% for block in blocks %}
+        <details class="ldf__item" data-block-id="{{ block.id }}" name="{% if settings.one_at_a_time %}{{ section.id }}-faq{% endif %}"{% if block.settings.open %} open{% endif %}>
+          <summary class="ldf__q">
+            <span>{{ block.settings.question }}</span>
+            <span class="ldf__mark" aria-hidden="true"></span>
+          </summary>
+          <div class="ldf__a">{{ block.settings.answer | raw }}</div>
+        </details>
+      {% else %}
+        {% if page.in_editor %}<p class="ldf__empty">Add questions in the sidebar</p>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+</template>
+
+<style>
+.ldf {
+  container-type: inline-size;
+  background: var(--scheme-background);
+  color: var(--scheme-text);
+  font-family: var(--theme-font-body, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  scroll-margin-top: 88px;
+}
+.ldf__in {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 36px;
+  max-width: calc(var(--theme-page-width, 1160px) + 2 * var(--theme-padding-x, 24px));
+  margin: 0 auto;
+  padding: calc(var(--ldf-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--ldf-pb) * var(--theme-spacing-scale, 1));
+}
+.ldf__head { min-width: 0; }
+.ldf__eyebrow { margin: 0 0 18px; font-size: 13px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--scheme-text); }
+.ldf__h {
+  margin: 0;
+  max-width: 8.5em;
+  font-family: var(--theme-font-heading, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(calc(var(--ldf-hsm) * 1px), calc(var(--ldf-hs) * 0.0715cqi), calc(var(--ldf-hs) * 1px));
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  color: var(--scheme-heading);
+  overflow-wrap: anywhere;
+}
+.ldf__sub { margin: 20px 0 0; max-width: 28em; font-size: 16px; line-height: 1.65; color: var(--scheme-text); }
+
+.ldf__list { min-width: 0; }
+.ldf__item { border-bottom: 1px solid var(--scheme-border); }
+.ldf__q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: 16.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--scheme-heading);
+}
+.ldf__q::-webkit-details-marker { display: none; }
+.ldf__q::marker { content: ""; }
+.ldf__q:hover { color: var(--ldf-accent); }
+.ldf__q:focus-visible { outline: 2px solid var(--ldf-accent); outline-offset: 3px; border-radius: 4px; }
+.ldf__mark { position: relative; flex: none; width: 13px; height: 13px; color: var(--ldf-accent); }
+.ldf__mark::before, .ldf__mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: currentColor;
+  border-radius: 1px;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+.ldf__mark::before { width: 13px; height: 2px; }
+.ldf__mark::after { width: 2px; height: 13px; }
+.ldf__item[open] .ldf__mark::after { transform: scaleY(0); opacity: 0; }
+.ldf__a { padding: 0 36px 24px 0; font-size: 16px; line-height: 1.7; color: var(--scheme-text); }
+.ldf__a > :first-child { margin-top: 0; }
+.ldf__a > :last-child { margin-bottom: 0; }
+.ldf__a a { color: var(--scheme-heading); text-underline-offset: 4px; }
+.ldf__empty { margin: 0; padding: 28px 0; text-align: center; font-size: 14px; opacity: 0.7; }
+
+@container (min-width: 860px) {
+  .ldf__in { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 64px; }
+  .ldf__q { padding: 22px 0 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ldf__mark::before, .ldf__mark::after { transition: none; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ld_faq",
+  "name": "LD Questions",
+  "category": "faq",
+  "description": "A heading beside questions that open one at a time",
+  "supports_typography_overrides": false,
+  "settings": [
+    { "type": "header", "id": "hdr_content", "label": "Content" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Before we start" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Before we work together" },
+    { "type": "textarea", "id": "text", "label": "Text" },
+    { "type": "toggle", "id": "one_at_a_time", "label": "Open one question at a time", "default": true },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "light" },
+    { "type": "color", "id": "accent_color", "label": "Plus sign colour", "default": "scheme.accent" },
+    { "type": "range", "id": "heading_size", "label": "Heading size on a computer", "min": 28, "max": 96, "step": 2, "unit": "px", "default": 54 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on a phone", "min": 24, "max": 60, "step": 1, "unit": "px", "default": 34 },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "info": "Lets a link jump here, as #faq", "default": "faq" },
+    { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 88 }
+  ],
+  "blocks": [
+    {
+      "type": "qa",
+      "name": "Question",
+      "limit": 30,
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "Will it sound like me?" },
+        { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>That is the aim. I write from your notes, your old posts and how you talk about your work, and the feedback on each draft brings the next one closer to your voice.</p>" },
+        { "type": "toggle", "id": "open", "label": "Open by default", "default": false }
+      ]
+    }
+  ],
+  "max_blocks": 30,
+  "presets": [
+    {
+      "name": "LD Questions",
+      "blocks": [
+        { "type": "qa", "settings": { "question": "Will it sound like me?", "answer": "<p>That is the aim. I write from your notes, your old posts and how you talk about your work. You mark the phrases that feel right and the ones you would change, and each draft gets closer to your voice.</p>" } },
+        { "type": "qa", "settings": { "question": "Do you use AI?", "answer": "<p>I may use AI tools for research and to check a draft, but the angle, the writing and the edits are mine, and every post is built from your own material. Nothing is published without your approval.</p>" } },
+        { "type": "qa", "settings": { "question": "How much of my time does it take?", "answer": "<p>As a starting point, set aside 15 to 30 minutes a week to share material and review drafts. We agree a routine that works for you.</p>" } },
+        { "type": "qa", "settings": { "question": "What if I don't like the first posts?", "answer": "<p>The first two drafts are free for selected prospects, so you can see whether the writing fits before paying. If it does not, you owe nothing.</p>" } }
+      ]
+    }
+  ]
+}
+</schema>

@@ -8,9 +8,10 @@
  * a new row somewhere down the page that nobody was looking at. Now the
  * website being made has a place from the first moment:
  *
- *   1. The row it will become is drawn at the end of the library, which is
- *      where the server puts a new website (the highest sort_order plus one,
- *      lib/website-builder/library-limit.ts). Its cover breathes, and a thin
+ *   1. The row it will become is drawn where the server puts it: an import
+ *      first in the library (the lowest sort_order minus one), an added or
+ *      copied website at the end (the highest plus one), both in
+ *      lib/website-builder/library-limit.ts. Its cover breathes, and a thin
  *      bar under the name shows the upload, then the server's work.
  *   2. When the server answers, the page is refreshed, and the real row takes
  *      the placeholder's place in the same frame: same position, same height.

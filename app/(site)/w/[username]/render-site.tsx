@@ -24,6 +24,8 @@ import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSetti
 import { creatorByName, dressPage, ownerOf, publishedShopByName, publishedSiteByName } from "@/lib/website-builder/published-site"
 import { SiteNotPublished } from "./not-published"
 import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
+import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import { heroImage, jsonLdScript, pageUrl, siteSameAs, websiteJsonLd } from "@/lib/website-builder/site-seo"
@@ -319,6 +321,12 @@ async function previewPage(username: string, token: string, pageKey: string) {
    * A preview reads ONE page, so home's chrome has to be fetched for it.
    * Skipped when this IS home, which already has its own.
    */
+  /* The shop, the creator's profile and the saved section files, read
+     directly: a preview is one person's view and never shares a cache.
+     First, because the files say which section is a header. */
+  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
+  /* One header and one footer drawn, whatever the rows hold: lib/storelib-theme/section-groups.ts. */
+  const kinds = kindLookup(owner.sources, SECTION_SCHEMAS as never)
   let chrome: Chrome = {}
   if (pageKey !== "home") {
     const { data: homeRow } = await admin
@@ -327,18 +335,15 @@ async function previewPage(username: string, token: string, pageKey: string) {
       .eq("install_id", installId)
       .eq("page_key", "home")
       .maybeSingle()
-    chrome = chromeOf(sanitizeSections(pageSections<SectionInstance[]>(homeRow as never, preview) ?? []))
+    chrome = chromeOf(repairChrome(sanitizeSections(pageSections<SectionInstance[]>(homeRow as never, preview) ?? []), kinds).sections)
   }
-  const own = sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? [])
+  const own = repairChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? []), kinds).sections
   const sections = withUniversalChrome(
     /* A contact page nobody has made yet is the generated one, like the live site's. */
-    own.length === 0 && pageKey === "contact" ? contactSections([chrome.header, chrome.footer].filter((s): s is SectionInstance => !!s)) : own,
+    own.length === 0 && pageKey === "contact" ? contactSections([...(chrome.headerGroup ?? (chrome.header ? [chrome.header] : [])), ...(chrome.footerGroup ?? (chrome.footer ? [chrome.footer] : []))]) : own,
     chrome,
   )
   const template = templateForPage(pageKey)
-  /* The shop, the creator's profile and the saved section files, read
-     directly: a preview is one person's view and never shares a cache. */
-  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
   const dressed = await dressPage(owner, sections, products, productCount, template, pageTitleFromKey(pageKey), undefined, { cached: false })
   const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, template, products, undefined, dressed.data)
 
@@ -394,8 +399,11 @@ export async function coverPage(installId: string) {
     .eq("page_key", "home")
     .maybeSingle()
 
-  const sections = withUniversalChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, true) ?? []), {})
   const { owner, products, productCount } = await ownerOf(row.creator_id, installId, themeSettings)
+  const sections = withUniversalChrome(
+    repairChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, true) ?? []), kindLookup(owner.sources, SECTION_SCHEMAS as never)).sections,
+    {},
+  )
   const dressed = await dressPage(owner, sections, products, productCount, "index", pageTitleFromKey("home"), undefined, { cached: false })
   const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, "index", products, undefined, dressed.data)
 

@@ -1,0 +1,222 @@
+{
+  "sections": {
+    "header-wave": {
+      "type": "header",
+      "name": "Header",
+      "hidden": false,
+      "settings": {
+        "logo_text": "Luca Dragoste",
+        "logo_url": "https://lucadragoste.ro/logo-ld.png",
+        "logo_font": "inherit",
+        "logo_height": 40,
+        "logo_horizontal_offset_enabled": false,
+        "logo_horizontal_offset_px": 0,
+        "use_mobile_logo": true,
+        "mobile_logo_url": "https://lucadragoste.ro/logo-ld.png",
+        "mobile_logo_height": 32,
+        "mobile_logo_horizontal_offset_enabled": false,
+        "mobile_logo_horizontal_offset_px": 0,
+        "header_layout": "logo_left_nav_right",
+        "nav_alignment": "right",
+        "mobile_header_layout": "hamburger_left_logo_left",
+        "mobile_menu_style": "right",
+        "header_width": "wide",
+        "vertical_padding": {
+          "desktop": 14,
+          "tablet": 12,
+          "mobile": 10
+        },
+        "link_spacing": 26,
+        "header_sticky_enabled": true,
+        "header_sticky_on_scroll_up": false,
+        "header_transparent": false,
+        "header_transparent_scope": "all",
+        "show_bottom_border": true,
+        "border_style": "subtle",
+        "border_visibility": "all",
+        "header_depth_shadow": false,
+        "color_scheme": "white",
+        "menu_link_hover_style": "underline",
+        "show_search_icon": false,
+        "search_behaviour": "page",
+        "search_placeholder": "Search",
+        "show_account_icon": false,
+        "show_wishlist_icon": false,
+        "show_cart_icon": false,
+        "show_cta_button": true,
+        "cta_text": "Ask about two sample posts",
+        "cta_url": "/#contact",
+        "cta_color": "#4C7BF4",
+        "cta_text_color": "#ffffff"
+      },
+      "blocks": {
+        "nav-ld-1": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Ghostwriting",
+            "url": "/#ghostwriting",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        },
+        "nav-ld-2": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Portfolio",
+            "url": "/#samples",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        },
+        "nav-ld-3": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Pricing",
+            "url": "/#pricing",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        },
+        "nav-ld-4": {
+          "type": "nav_link",
+          "settings": {
+            "label": "Templates",
+            "url": "/#templates",
+            "link_type": "custom",
+            "open_in_new_tab": false
+          }
+        }
+      },
+      "block_order": [
+        "nav-ld-1",
+        "nav-ld-2",
+        "nav-ld-3",
+        "nav-ld-4"
+      ]
+    },
+    "split_content-1788852325908": {
+      "name": "Split content",
+      "type": "split_content",
+      "hidden": false,
+      "settings": {
+        "body": "<p>We take a thoughtful approach to every product we build. No bloat, no compromises — just exactly what you need to succeed.</p>",
+        "image": "",
+        "eyebrow": "Our approach",
+        "heading": "Quality meets simplicity",
+        "bg_color": "#ffffff",
+        "button_url": "/about",
+        "text_color": "#0f172a",
+        "button_text": "Discover more",
+        "padding_top": 60,
+        "button_color": "#6366f1",
+        "button_style": "filled",
+        "color_scheme": "black",
+        "image_position": "right",
+        "padding_bottom": 60,
+        "button_text_color": "#ffffff",
+        "image_aspect_ratio": "square"
+      },
+      "blocks": {},
+      "block_order": []
+    },
+    "footer-wave": {
+      "type": "footer",
+      "name": "Footer",
+      "hidden": false,
+      "settings": {
+        "logo_text": "Luca Dragoste",
+        "logo_url": "https://lucadragoste.ro/logo-ld.png",
+        "tagline": "LinkedIn posts, written with you.",
+        "copyright": "© {{ date.year }} Luca Dragoste. All rights reserved.",
+        "menu": "",
+        "menu_heading": "",
+        "menu_2": "",
+        "menu_2_heading": "",
+        "show_default_links": false,
+        "show_policies": true,
+        "show_contact_link": false,
+        "show_newsletter": false,
+        "show_social": true,
+        "show_payment_icons": false,
+        "color_scheme": "light",
+        "divider_color": "#e3e6ed",
+        "layout": "columns",
+        "columns": "2",
+        "max_width": "wide",
+        "padding_top": 64,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "fcol-ld-1": {
+          "type": "footer_column",
+          "settings": {
+            "heading": "Services"
+          }
+        },
+        "flink-ld-2": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Ghostwriting",
+            "url": "/#ghostwriting"
+          }
+        },
+        "flink-ld-3": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Pricing",
+            "url": "/#pricing"
+          }
+        },
+        "flink-ld-4": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Samples",
+            "url": "/#samples"
+          }
+        },
+        "flink-ld-5": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Templates",
+            "url": "/#templates"
+          }
+        },
+        "fcol-ld-6": {
+          "type": "footer_column",
+          "settings": {
+            "heading": "Contact"
+          }
+        },
+        "flink-ld-7": {
+          "type": "footer_link",
+          "settings": {
+            "label": "Send a message",
+            "url": "/#contact"
+          }
+        },
+        "flink-ld-8": {
+          "type": "footer_link",
+          "settings": {
+            "label": "contact@lucadragoste.ro",
+            "url": "mailto:contact@lucadragoste.ro"
+          }
+        }
+      },
+      "block_order": [
+        "fcol-ld-1",
+        "flink-ld-2",
+        "flink-ld-3",
+        "flink-ld-4",
+        "flink-ld-5",
+        "fcol-ld-6",
+        "flink-ld-7",
+        "flink-ld-8"
+      ]
+    }
+  },
+  "order": [
+    "header-wave",
+    "split_content-1788852325908",
+    "footer-wave"
+  ]
+}

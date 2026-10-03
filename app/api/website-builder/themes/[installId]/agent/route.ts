@@ -91,6 +91,8 @@ const SectionSchema = z.object({
   settings: z.record(z.unknown()),
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),
+  /* Which section group it sits in, kept rather than stripped: lib/storelib-theme/section-groups.ts. */
+  group: z.enum(["header", "footer"]).optional(),
 })
 
 const BodySchema = z.object({
