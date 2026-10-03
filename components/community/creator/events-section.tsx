@@ -190,7 +190,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                       {e.status === "cancelled" ? <StatusBadge tone="neutral">Cancelled</StatusBadge> : null}
                       {view === "past" && e.replayVideoId ? <StatusBadge tone="success">Replay</StatusBadge> : null}
                     </p>
-                    <p className="truncate text-[12.5px] text-[#6b7280]">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], `${e.goingCount}${e.capacity ? ` of ${e.capacity}` : ""} going`].join(" · ")}</p>
+                    <p className="line-clamp-2 text-[12.5px] text-[#6b7280] sm:truncate">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], `${e.goingCount}${e.capacity ? ` of ${e.capacity}` : ""} going`].join(" · ")}</p>
                   </div>
                   <RowMenu items={menu(e)} label={`Actions for ${e.title}`} />
                 </li>
@@ -224,7 +224,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
               </label>
               <input id="ev-title" value={draft.title} onChange={(e) => set("title", e.target.value.slice(0, 140))} placeholder="Monthly Q&A" aria-invalid={bad("title") || undefined} className={cn(field, "h-11 sm:h-10", bad("title") && "border-[#dc2626]")} />
             </div>
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr]">
               <div>
                 <label htmlFor="ev-kind" className={label}>
                   Kind
@@ -270,7 +270,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                 <input id="ev-end" type="time" value={draft.endTime} onChange={(e) => set("endTime", e.target.value)} aria-invalid={bad("end") || undefined} className={cn(field, "h-11 sm:h-10", bad("end") && "border-[#dc2626]")} />
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="ev-meeting" className={label}>
                   {draft.kind === "in_person" || draft.kind === "meetup" ? "Link (optional)" : "Meeting link"}

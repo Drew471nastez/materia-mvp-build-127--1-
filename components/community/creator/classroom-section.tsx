@@ -164,7 +164,7 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
                   <span className="block truncate text-[14px] text-[#1a1a2e]">{p.title}</span>
                   {p.status !== "published" ? <span className="block text-[12px] text-[#9ca3af]">Draft</span> : null}
                 </span>
-                <button type="button" onClick={() => void attach(p)} disabled={busy === p.id} className={cn(buttonSecondary, "h-9 sm:h-8")}>
+                <button type="button" onClick={() => void attach(p)} disabled={busy === p.id} className={cn(buttonSecondary, "h-10 sm:h-8")}>
                   {busy === p.id ? "Adding" : "Add"}
                 </button>
               </li>

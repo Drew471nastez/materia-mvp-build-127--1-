@@ -47,7 +47,7 @@ function CopyAddress({ path }: { path: string }) {
             window.setTimeout(() => setCopied(false), 1600)
           })
         }}
-        className={cn(buttonSecondary, "h-9 shrink-0 sm:h-8")}
+        className={cn(buttonSecondary, "h-10 shrink-0 sm:h-8")}
       >
         {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Copy aria-hidden className="h-3.5 w-3.5" />}
         {copied ? "Copied" : "Copy link"}
@@ -91,7 +91,7 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
                   <p className="text-[14px] font-medium text-[#1a1a2e]">{s.title}</p>
                   <p className="mt-0.5 text-[12.5px] leading-snug text-[#6b7280]">{s.detail}</p>
                 </div>
-                <Link href={s.href} className={cn(buttonSecondary, "h-9 shrink-0 sm:h-8")}>
+                <Link href={s.href} className={cn(buttonSecondary, "h-10 shrink-0 sm:h-8")}>
                   {s.action}
                 </Link>
               </li>
@@ -114,13 +114,13 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         {head.eventsEnabled ? (
           <Section
             title="Upcoming events"
             action={
               head.can.manage_events ? (
-                <Link href={`${base}/events`} className="inline-flex min-h-8 items-center gap-1 text-[13px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
+                <Link href={`${base}/events`} className="-my-1 inline-flex min-h-10 items-center gap-1 text-[13px] font-medium text-[#4b5563] hover:text-[#1a1a2e] sm:min-h-8">
                   All events
                   <ArrowRight aria-hidden className="h-3.5 w-3.5" />
                 </Link>
@@ -150,9 +150,13 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
                         <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{e.title}</p>
                         <p className="truncate text-[12.5px] text-[#6b7280]">
                           {eventTime(e.startsAt, e.endsAt)} · {EVENT_KIND_LABEL[e.kind]}
+                          <span className="sm:hidden">
+                            {" "}
+                            · {e.goingCount} going
+                          </span>
                         </p>
                       </div>
-                      <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">
+                      <span className="hidden shrink-0 text-[12.5px] tabular-nums text-[#6b7280] sm:inline">
                         {e.goingCount}
                         {e.capacity ? `/${e.capacity}` : ""} going
                       </span>

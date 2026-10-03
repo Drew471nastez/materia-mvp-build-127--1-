@@ -186,7 +186,7 @@ function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
     <div className="space-y-4">
       <Section title="Basics">
         <div className="space-y-3.5">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="g-name" className={label}>
                 Name
@@ -198,7 +198,7 @@ function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
                 Address
               </label>
               <div className="flex h-11 items-center overflow-hidden rounded-lg border border-[#e1e3e7] bg-white focus-within:border-[#1a1a2e]/50 sm:h-10">
-                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]">storelib.com/community/</span>
+                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]"><span className="max-sm:hidden">storelib.com</span>/community/</span>
                 <input id="g-slug" value={s.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))} className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]" />
               </div>
               {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#b45309]">Links to the old address stop working.</p> : null}
@@ -216,7 +216,7 @@ function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
             </label>
             <textarea id="g-desc" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 10_000))} rows={5} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
           </div>
-          <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:gap-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[auto_1fr] sm:gap-8">
             <div>
               <p className={label}>Logo</p>
               <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
@@ -297,7 +297,7 @@ function PairEditor({ items, onChange, max, aPlaceholder, bPlaceholder, addLabel
     <div className="space-y-3">
       {items.map((it, i) => (
         <div key={i} className="flex items-start gap-2">
-          <div className={cn("min-w-0 flex-1", singleLine ? "grid gap-2 sm:grid-cols-[1fr_1.6fr]" : "space-y-1.5")}>
+          <div className={cn("min-w-0 flex-1", singleLine ? "grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.6fr]" : "space-y-1.5")}>
             <input value={it.a} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, a: e.target.value.slice(0, 200) } : x)))} placeholder={aPlaceholder} aria-label={`${addLabel.replace("Add a ", "")} ${i + 1}`} className={cn(field, "h-11 font-medium sm:h-10")} />
             {singleLine ? (
               <input value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.trim().slice(0, 1000) } : x)))} placeholder={bPlaceholder} aria-label={`Address ${i + 1}`} className={cn(field, "h-11 sm:h-10")} />
@@ -446,7 +446,7 @@ function TierRestore({ head, tier }: { head: CommunityHead; tier: TierView }) {
         toast("Back on sale")
         router.refresh()
       }}
-      className={cn(buttonSecondary, "h-9 sm:h-8")}
+      className={cn(buttonSecondary, "h-10 sm:h-8")}
     >
       Sell again
     </button>
@@ -517,13 +517,13 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
           {tier.kind === "paid" && tier.productStatus !== "published" ? <StatusBadge tone="attention">Off sale</StatusBadge> : null}
         </p>
         <span className="text-[13px] tabular-nums text-[#6b7280]">
-          {tier.priceLine || "No price"} · {tier.members} {tier.members === 1 ? "member" : "members"}
+          {tier.priceLine || "No price"} · {tier.members.toLocaleString("en-US")} {tier.members === 1 ? "member" : "members"}
         </span>
       </div>
       {owner ? (
         <>
-          <div className={cn("mt-3 grid gap-3", tier.billing === "recurring" ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
-            <div>
+          <div className={cn("mt-3 grid gap-3", tier.billing === "recurring" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
+            <div className={tier.billing === "recurring" ? "col-span-2 sm:col-span-1" : undefined}>
               <label htmlFor={`t-name-${tier.id}`} className={label}>
                 Name
               </label>
@@ -559,15 +559,15 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
               <p className="text-[12.5px] font-medium text-[#4b5563]">Also let in buyers of</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {tier.accessProducts.map((p) => (
-                  <span key={p.id} className="inline-flex h-8 items-center gap-1 rounded-full border border-[#e5e7eb] bg-[#fafbfb] pl-3 pr-1 text-[12.5px] text-[#1a1a2e]">
+                  <span key={p.id} className="inline-flex h-10 items-center gap-0.5 rounded-full border border-[#e5e7eb] bg-[#fafbfb] pl-3 text-[12.5px] text-[#1a1a2e] sm:h-8 sm:pr-1">
                     <span className="max-w-[180px] truncate">{p.title}</span>
-                    <button type="button" aria-label={`Take ${p.title} off`} onClick={() => void setProduct(p.id, false)} className="grid h-6 w-6 place-items-center rounded-full text-[#6b7280] hover:bg-[#eceef1]">
+                    <button type="button" aria-label={`Take ${p.title} off`} onClick={() => void setProduct(p.id, false)} className="grid h-10 w-10 place-items-center rounded-full text-[#6b7280] hover:bg-[#eceef1] sm:h-6 sm:w-6">
                       <X aria-hidden className="h-3.5 w-3.5" />
                     </button>
                   </span>
                 ))}
                 {pickable.length ? (
-                  <button type="button" onClick={() => setPicking(true)} className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-[#d1d5db] px-3 text-[12.5px] font-medium text-[#4b5563] hover:border-[#9ca3af]">
+                  <button type="button" onClick={() => setPicking(true)} className="inline-flex h-10 items-center gap-1 rounded-full border border-dashed border-[#d1d5db] px-3 text-[12.5px] font-medium text-[#4b5563] hover:border-[#9ca3af] sm:h-8">
                     <Plus aria-hidden className="h-3.5 w-3.5" />
                     Product
                   </button>
@@ -584,17 +584,17 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
           ) : null}
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             {!tier.isDefault && canDefault ? (
-              <button type="button" onClick={() => void patch({ makeDefault: true }, `${tier.name} is the default`)} className={cn(buttonSecondary, "h-9 border-transparent shadow-none sm:h-8")}>
+              <button type="button" onClick={() => void patch({ makeDefault: true }, `${tier.name} is the default`)} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
                 Make default
               </button>
             ) : null}
             {!tier.isDefault ? (
-              <button type="button" onClick={() => setArchiving(true)} className={cn(buttonSecondary, "h-9 border-transparent shadow-none sm:h-8")}>
+              <button type="button" onClick={() => setArchiving(true)} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
                 Stop selling
               </button>
             ) : null}
             {dirty ? (
-              <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-9 px-4 sm:h-8")} data-tier-save="">
+              <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-8")} data-tier-save="">
                 {busy ? "Saving" : "Save tier"}
               </button>
             ) : null}
@@ -670,7 +670,7 @@ function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boo
           <input id="nt-name" value={name} onChange={(e) => setName(e.target.value.slice(0, 60))} placeholder={kind === "paid" ? "Inner circle" : "Members"} className={cn(field, "h-11 sm:h-10")} />
         </div>
         {kind === "paid" ? (
-          <div className="grid gap-3 sm:grid-cols-[160px_1fr] sm:items-end">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_1fr] sm:items-end">
             <div>
               <label htmlFor="nt-price" className={label}>
                 Price
@@ -726,7 +726,7 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
       </Section>
       <Section title="Who can find it">
         <div className="space-y-3.5">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="d-vis" className={label}>
                 Visibility
@@ -852,7 +852,7 @@ function Advanced({ head }: { head: CommunityHead }) {
       </Section>
       {head.can.delete ? (
         <Section title="Delete" hint="It disappears for everyone. Orders and payments are kept. Not possible while members still pay for it.">
-          <button type="button" onClick={() => { setTyped(""); setDeleting(true) }} className="inline-flex h-8 items-center rounded-lg border border-[#fecaca] bg-white px-3 text-[13px] font-medium text-[#b42318] hover:bg-[#fef2f2]">
+          <button type="button" onClick={() => { setTyped(""); setDeleting(true) }} className="inline-flex h-10 items-center rounded-lg border border-[#fecaca] bg-white px-3 text-[13px] font-medium text-[#b42318] hover:bg-[#fef2f2] sm:h-8">
             Delete community
           </button>
         </Section>

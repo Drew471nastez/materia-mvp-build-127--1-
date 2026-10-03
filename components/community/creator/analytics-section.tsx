@@ -33,8 +33,19 @@ function niceMax(v: number): number {
 /** One measure per day: bars for counts that happen, a line for a level that persists. */
 export function DayChart({ points, kind, name }: { points: { day: string; value: number }[]; kind: "bars" | "line"; name: string }) {
   const [hover, setHover] = React.useState<number | null>(null)
-  const W = 640
-  const H = 168
+  /* Drawn at the width it is shown at, so the axis words are 11px on every screen rather than shrunk with the picture. */
+  const box = React.useRef<HTMLDivElement>(null)
+  const [W, setW] = React.useState(640)
+  React.useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const read = () => setW(Math.max(240, Math.round(el.getBoundingClientRect().width)))
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const H = 176
   const pad = { l: 34, r: 8, t: 10, b: 22 }
   const max = niceMax(Math.max(0, ...points.map((p) => p.value)))
   const iw = W - pad.l - pad.r
@@ -44,13 +55,13 @@ export function DayChart({ points, kind, name }: { points: { day: string; value:
   const x = (i: number) => pad.l + step * i + step / 2
   const y = (v: number) => pad.t + ih - (v / max) * ih
   const ticks = [0, max / 2, max]
-  const labelEvery = Math.ceil(n / 6)
+  const labelEvery = Math.ceil(n / Math.max(3, Math.floor(W / 90)))
   const bw = Math.max(2, Math.min(18, step - 2))
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join("")
   const h = hover !== null ? points[hover] : null
 
   return (
-    <div className="relative" data-chart={name}>
+    <div ref={box} className="relative" data-chart={name}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="block h-auto w-full touch-pan-y select-none"
@@ -67,14 +78,14 @@ export function DayChart({ points, kind, name }: { points: { day: string; value:
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="#eef0f2" strokeWidth={1} />
-            <text x={pad.l - 6} y={y(t) + 3.5} textAnchor="end" fontSize="10.5" fill="#9ca3af" className="tabular-nums">
+            <text x={pad.l - 6} y={y(t) + 3.5} textAnchor="end" fontSize="11" fill="#9ca3af" className="tabular-nums">
               {Number.isInteger(t) ? t.toLocaleString("en-US") : t.toFixed(1)}
             </text>
           </g>
         ))}
         {points.map((p, i) =>
           i % labelEvery === 0 ? (
-            <text key={p.day} x={x(i)} y={H - 6} textAnchor="middle" fontSize="10.5" fill="#9ca3af">
+            <text key={p.day} x={x(i)} y={H - 6} textAnchor="middle" fontSize="11" fill="#9ca3af">
               {dayLabel(p.day)}
             </text>
           ) : null,
@@ -167,7 +178,7 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
       </section>
 
       {data.rolledUp ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ChartCard title="Members">
             <DayChart points={data.series.members} kind="line" name="Members" />
           </ChartCard>
@@ -190,9 +201,9 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
         ) : (
           <ol className="mt-2 divide-y divide-[#f1f2f4]">
             {data.topPosts.map((p, i) => (
-              <li key={p.id} className="flex min-h-11 items-center gap-3 py-2">
+              <li key={p.id} className="flex min-h-11 items-center gap-3 py-0.5">
                 <span className="w-5 shrink-0 text-[13px] tabular-nums text-[#9ca3af]">{i + 1}</span>
-                <a href={`/community/${head.slug}/post/${p.id}`} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] hover:underline">
+                <a href={`/community/${head.slug}/post/${p.id}`} target="_blank" rel="noopener noreferrer" className="flex min-h-10 min-w-0 flex-1 items-center truncate text-[14px] text-[#1a1a2e] hover:underline">
                   {p.title}
                 </a>
                 <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">

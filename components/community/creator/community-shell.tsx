@@ -116,7 +116,7 @@ function PublishButton({ head }: { head: CommunityHead }) {
   }
   return (
     <span className="relative">
-      <button type="button" onClick={() => void publish()} disabled={busy} data-publish="" className={cn(buttonPrimary, "max-sm:h-9 max-sm:px-3")}>
+      <button type="button" onClick={() => void publish()} disabled={busy} data-publish="" className={cn(buttonPrimary, "max-sm:h-10 max-sm:px-3.5")}>
         {busy ? "Publishing" : "Publish"}
       </button>
       {error ? (
@@ -149,13 +149,13 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
             )}
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <h1 className="min-w-0 truncate text-[19px] font-bold leading-7 text-[#1a1a2e] sm:text-[22px] lg:text-[24px]">{head.name}</h1>
-              <span className="max-[380px]:hidden">
+              <span className="max-sm:hidden">
                 <StateBadge head={head} />
               </span>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {head.status === "published" || head.can.manage_settings ? (
-                <a href={`/community/${head.slug}`} target="_blank" rel="noopener noreferrer" aria-label="View page" className={cn(buttonSecondary, "max-sm:h-9 max-sm:w-9 max-sm:px-0")}>
+                <a href={`/community/${head.slug}`} target="_blank" rel="noopener noreferrer" aria-label="View page" className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0")}>
                   <ExternalLink aria-hidden className="h-4 w-4" />
                   <span className="max-sm:hidden">View page</span>
                 </a>

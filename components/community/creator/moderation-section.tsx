@@ -181,26 +181,26 @@ export function ModerationSection({ head, initialReports, initialAudit }: { head
                     {tab === "open" ? (
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         {canRemove ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => setConfirm({ report: r, kind: "remove" })} className={cn(buttonPrimary, "h-9 sm:h-8")}>
+                          <button type="button" disabled={busy === r.id} onClick={() => setConfirm({ report: r, kind: "remove" })} className={cn(buttonPrimary, "h-10 sm:h-8")}>
                             Remove {TARGET[r.targetType].toLowerCase()}
                           </button>
                         ) : null}
                         {canBan ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => setConfirm({ report: r, kind: "ban" })} className={cn(buttonSecondary, "h-9 sm:h-8")}>
+                          <button type="button" disabled={busy === r.id} onClick={() => setConfirm({ report: r, kind: "ban" })} className={cn(buttonSecondary, "h-10 sm:h-8")}>
                             Ban {r.subject?.name}
                           </button>
                         ) : null}
                         {r.status === "open" ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "reviewing")} className={cn(buttonSecondary, "h-9 sm:h-8")}>
+                          <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "reviewing")} className={cn(buttonSecondary, "h-10 sm:h-8")}>
                             Reviewing
                           </button>
                         ) : null}
                         {!canRemove ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "resolved")} className={cn(buttonSecondary, "h-9 sm:h-8")}>
+                          <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "resolved")} className={cn(buttonSecondary, "h-10 sm:h-8")}>
                             Resolve
                           </button>
                         ) : null}
-                        <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "dismissed")} className={cn(buttonSecondary, "h-9 border-transparent shadow-none sm:h-8")}>
+                        <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "dismissed")} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
                           Dismiss
                         </button>
                       </div>

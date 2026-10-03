@@ -125,7 +125,7 @@ export function CreateCommunity() {
                 className={cn(field, "min-h-[88px] resize-y py-2.5 leading-relaxed", bad("description") && "border-[#dc2626]")}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:gap-8">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[auto_1fr] sm:gap-6">
               <div>
                 <p className={label}>Logo</p>
                 <PicturePick value={logo} onChange={setLogo} shape="square" name="logo" onError={(m) => setError({ text: m })} />
@@ -141,7 +141,7 @@ export function CreateCommunity() {
             <p className="text-[14px] font-semibold text-[#1a1a2e]">Who can join</p>
             <ChoiceCards value={type} onChange={(v) => { setType(v); setError(null) }} options={TYPES} label="Who can join" />
             {type === "paid" ? (
-              <div className="grid gap-3 pt-1 sm:grid-cols-[180px_1fr] sm:items-end" data-paid-fields="">
+              <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-[180px_1fr] sm:items-end" data-paid-fields="">
                 <div>
                   <label htmlFor="c-price" className={label}>
                     Price

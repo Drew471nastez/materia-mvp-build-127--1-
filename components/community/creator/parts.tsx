@@ -14,13 +14,16 @@ import * as React from "react"
 import Link from "next/link"
 import { ImagePlus, Loader2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { buttonPrimary, buttonSecondary, card, RowMenuButton } from "@/app/app/orders/order-parts"
+import { buttonPrimary as appPrimary, buttonSecondary as appSecondary, card, RowMenuButton } from "@/app/app/orders/order-parts"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
 
-export { buttonPrimary, buttonSecondary, card }
+/* The app's buttons, 40px tall on a phone so a thumb finds them; 32px on a computer as everywhere in /app. */
+export const buttonPrimary = cn(appPrimary, "max-sm:h-10 max-sm:px-3.5")
+export const buttonSecondary = cn(appSecondary, "max-sm:h-10 max-sm:px-3.5")
+export { card }
 
 /** The width every section's content keeps, the same as the bar above it. */
 export const SECTION_WIDTH = "max-w-[1080px]"
@@ -187,7 +190,7 @@ export function Segmented<T extends string>({ value, onChange, options, label: n
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "inline-flex h-9 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-[8px] px-3 text-[13.5px] font-medium transition-colors duration-100 sm:h-8",
+            "inline-flex h-10 flex-[1_0_auto] items-center justify-center whitespace-nowrap rounded-[8px] px-3 text-[13.5px] font-medium transition-colors duration-100 sm:h-8",
             value === o.value ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]",
           )}
         >
@@ -201,7 +204,7 @@ export function Segmented<T extends string>({ value, onChange, options, label: n
 /** Choices with a line under each, one picked: who can join, what a space is for. */
 export function ChoiceCards<T extends string>({ value, onChange, options, label: name, columns = 3 }: { value: T; onChange: (v: T) => void; options: { value: T; title: string; detail: string }[]; label: string; columns?: 2 | 3 }) {
   return (
-    <div role="radiogroup" aria-label={name} className={cn("grid gap-2", columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+    <div role="radiogroup" aria-label={name} className={cn("grid grid-cols-1 gap-2", columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
       {options.map((o) => {
         const on = value === o.value
         return (
@@ -291,16 +294,16 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
       </button>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = "" }} />
       <div className="flex min-w-0 flex-col items-start gap-1">
-        <button type="button" onClick={() => input.current?.click()} disabled={busy} className={cn(buttonSecondary, "h-9 sm:h-8")}>
+        <button type="button" onClick={() => input.current?.click()} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-8")}>
           {busy ? "Uploading" : value ? "Change" : shape === "square" ? "Upload logo" : "Upload cover"}
         </button>
         {value ? (
-          <button type="button" onClick={() => onChange(null)} className="inline-flex min-h-8 items-center gap-1 px-0.5 text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
+          <button type="button" onClick={() => onChange(null)} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] sm:min-h-8 font-medium text-[#6b7280] hover:text-[#1a1a2e]">
             <X aria-hidden className="h-3.5 w-3.5" />
             Remove
           </button>
         ) : (
-          <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? "Square, 400px or more" : "Wide, 1500 by 500 works well"}</span>
+          <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? "Square, 400px or more" : "Wide, about 3 to 1"}</span>
         )}
       </div>
     </div>

@@ -204,7 +204,7 @@ export function MembersSection(p: Props) {
                 data-status={s}
                 onClick={() => setStatus(s)}
                 className={cn(
-                  "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13.5px] font-medium transition-colors duration-100",
+                  "inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13.5px] font-medium transition-colors duration-100 md:h-9",
                   status === s ? "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07)]" : "border-[#e4e7ec] bg-white text-[#6b7280] hover:text-[#1a1a2e]",
                 )}
               >
@@ -233,7 +233,7 @@ export function MembersSection(p: Props) {
             <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
             <input value={q} onChange={(e) => setQ(e.target.value.slice(0, 80))} placeholder={p.canEmail ? "Search by name or email" : "Search by name"} aria-label="Search members" className={cn(field, "h-11 pl-9 sm:h-10")} />
           </div>
-          <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role" className={cn(selectField, "w-auto min-w-[132px] flex-[0_1_160px]")}>
+          <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role" className={cn(selectField, "w-auto min-w-[132px] flex-[1_1_140px] md:flex-[0_1_160px]")}>
             <option value="">Every role</option>
             {(["owner", "admin", "moderator", "member"] as const).map((r) => (
               <option key={r} value={r}>
@@ -242,7 +242,7 @@ export function MembersSection(p: Props) {
             ))}
           </select>
           {p.tiers.length > 1 ? (
-            <select value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Tier" className={cn(selectField, "w-auto min-w-[132px] flex-[0_1_180px]")}>
+            <select value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Tier" className={cn(selectField, "w-auto min-w-[132px] flex-[1_1_140px] md:flex-[0_1_180px]")}>
               <option value="">Every tier</option>
               {p.tiers.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -313,7 +313,7 @@ export function MembersSection(p: Props) {
                           <p className="flex min-w-0 items-center gap-1.5 truncate text-[13.5px] font-medium text-[#1a1a2e]">
                             <span className="truncate">{m.name}</span>
                             {m.mutedUntil ? <StatusBadge tone="attention">Muted</StatusBadge> : null}
-                            {m.source === "manual" ? <span className="shrink-0 text-[11.5px] font-medium text-[#6b7280]">Comp</span> : null}
+                            {m.source === "manual" ? <StatusBadge tone="neutral">Complimentary</StatusBadge> : null}
                           </p>
                           <p className="truncate text-[12.5px] text-[#6b7280]">{m.email ?? (m.username ? `@${m.username}` : "")}</p>
                         </div>
@@ -461,7 +461,7 @@ function InvitesList({ base, invites, setInvites }: { base: string; invites: { r
                 <p className="truncate text-[12px] text-[#6b7280]">{inviteLine(i)}</p>
               </div>
               {live ? (
-                <button type="button" onClick={() => void revoke(i)} className={cn(buttonSecondary, "h-9 sm:h-8")}>
+                <button type="button" onClick={() => void revoke(i)} className={cn(buttonSecondary, "h-10 sm:h-8")}>
                   Revoke
                 </button>
               ) : null}
