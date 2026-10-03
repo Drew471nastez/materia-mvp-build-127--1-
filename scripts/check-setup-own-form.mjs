@@ -66,6 +66,21 @@ const form = (needs) => ({
   idNumber: { label: "CNP (personal numeric code)", hint: "The 13 digit number on your Romanian ID card." },
   bank: { kind: "iban", currency: "RON", holderName: "Andrei Balan", last4: null },
 })
+/* Fill the details page and press Continue, which is now how the ID step is reached. */
+async function pastDetails(p) {
+  await p.waitForSelector('[autocomplete="bday-day"]', { timeout: 8000 })
+  await p.type('[autocomplete="bday-day"]', "14")
+  await p.select('select[aria-label="Month"]', "3")
+  await p.type('[autocomplete="bday-year"]', "1994")
+  await p.type('[autocomplete="address-line1"]', "Strada Lipscani 12")
+  await p.type('[autocomplete="address-level2"]', "Bucharest")
+  await p.type('[autocomplete="postal-code"]', "030031")
+  const iban = await p.$('[placeholder^="RO00"]')
+  if (iban) await iban.type("RO49AAAA1B31007593840000")
+  await p.evaluate(() => [...document.querySelectorAll('input[type="checkbox"]')].forEach((c) => c.click()))
+  await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
+}
+
 const doneOverview = { provider: "stripe", beat: "done", paymentsStatus: { status: "ACTIVE", title: "Payments active", line: "", action: null }, payoutDestination: { last4: "0000" }, balances: [], payouts: [], requirements: [], can: {}, unavailable: [] }
 
 /* A second bundle: setup at step one, where the Country field lives. */
@@ -242,20 +257,31 @@ try {
     await p.bringToFront()
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
+    /* The details come first, and never ask for the CNP: the ID step ahead settles it. */
+    await p.waitForSelector('[autocomplete="bday-day"]', { timeout: 8000 })
+    const onDetails = await p.evaluate(() => ({
+      cnp: [...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
+      noId: !document.querySelector("[data-id-photo]"),
+      steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
+    }))
+    expect(!onDetails.cnp, "the details page does not ask for the CNP where the ID stands in for it", onDetails)
+    expect(onDetails.noId, "and does not draw the ID check either", onDetails)
+    await pastDetails(p)
+
     await p.waitForSelector("[data-id-number-instead]", { timeout: 8000 }).catch(() => {})
     const idStep = await p.evaluate(() => ({
       link: document.querySelector("[data-id-number-instead]")?.textContent?.trim(),
       steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
     }))
     expect(idStep.link === "Use my CNP instead", "the ID step offers the CNP as Stripe's other way", idStep)
-    expect(idStep.steps.some((s) => /ID check/.test(s ?? "")), "and only now, with Stripe asking, is ID check a step", idStep.steps)
+    expect(idStep.steps.some((s) => /Verify ID/.test(s ?? "")), "and only now, with Stripe asking, is Verify ID a step", idStep.steps)
     await p.evaluate(() => document.querySelector("[data-id-number-instead]")?.click())
-    await p.waitForSelector('[autocomplete="bday-day"]', { timeout: 6000 }).catch(() => {})
-    const details = await p.evaluate(() => ({
+    await new Promise((r) => setTimeout(r, 300))
+    const typing = await p.evaluate(() => ({
       cnp: [...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
-      noId: !document.querySelector("[data-id-photo]"),
+      stillHere: !!document.querySelector("[data-payments-setup-panel]"),
     }))
-    expect(details.cnp && details.noId, "the details page then simply asks for the CNP, with no ID photo", details)
+    expect(typing.cnp && typing.stillHere, "and the number is typed on that step, not back on the details page", typing)
     await p.screenshot({ path: join(out, "cnp-instead-390.png") })
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.close()
@@ -411,7 +437,8 @@ try {
     await p.bringToFront()
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
-    await p.waitForSelector("[data-id-photo]", { timeout: 6000 })
+    await pastDetails(p)
+    await p.waitForSelector("[data-id-photo]", { timeout: 8000 })
     /* Stripe Identity is not on in this one, so the press falls to Storelib's camera. */
     await p.evaluate(() => document.querySelector("[data-identity-open]")?.click())
     await p.waitForSelector("[data-id-camera]", { timeout: 6000 }).catch(() => {})
@@ -453,31 +480,20 @@ try {
     expect(closed.closed && /Added/.test(closed.text) && /passport/.test(closed.text), "No back closes it, front added, back not needed", closed)
     await p.screenshot({ path: join(out, "id-added-390.png") })
 
-    /* The ID is in: Continue goes on to the details, which no longer ask for the CNP. */
-    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
-    await p.waitForSelector('[autocomplete="bday-day"]', { timeout: 6000 })
-    await new Promise((r) => setTimeout(r, 300))
-    const after = await p.evaluate(() => ({
-      cnpAsked: [...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
-      offer: document.body.textContent?.includes("Rather type your CNP instead?"),
-      noId: !document.querySelector("[data-id-photo]"),
-    }))
-    expect(!after.cnpAsked && !after.offer, "with the ID given, the CNP is not asked for at all, not even offered", after)
-    expect(after.noId, "and the ID check is not drawn twice", after)
-    await p.screenshot({ path: join(out, "details-after-id-390.png") })
-
-    await p.type('[autocomplete="bday-day"]', "14")
-    await p.select('select[aria-label="Month"]', "3")
-    await p.type('[autocomplete="bday-year"]', "1994")
-    await p.type('[autocomplete="address-line1"]', "Strada Lipscani 12")
-    await p.type('[autocomplete="address-level2"]', "Bucharest")
-    await p.type('[autocomplete="postal-code"]', "030031")
-    await p.type('[placeholder^="RO00"]', "RO49AAAA1B31007593840000")
-    await p.evaluate(() => [...document.querySelectorAll('input[type="checkbox"]')].forEach((c) => c.click()))
-    await p.click('button[type="submit"]')
-    await new Promise((r) => setTimeout(r, 800))
+    /*
+      The details went in before this step (pastDetails), and without a CNP:
+      where Stripe takes the document instead, the number is never asked for
+      on the way through. The ID is the last thing, so Continue finishes.
+    */
     const body = sent.detailsBody ? JSON.parse(sent.detailsBody) : null
-    expect(!!body && body.idNumber === undefined, "with the photo, the details go without a CNP", body && { idNumber: body.idNumber ?? null })
+    expect(!!body && body.idNumber === undefined, "the details went without a CNP, because the ID answers for it", body && { idNumber: body.idNumber ?? null })
+    expect(!!body && body.dob?.year === 1994 && body.address?.city === "Bucharest", "and with everything that was typed", body && { dob: body.dob, city: body.address?.city })
+    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
+    await new Promise((r) => setTimeout(r, 800))
+    expect(
+      await p.evaluate(() => !document.querySelector('[autocomplete="bday-day"]')),
+      "and the ID is the last step: it does not hand back to a form to fill in again",
+    )
     expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
     await p.close()
   }

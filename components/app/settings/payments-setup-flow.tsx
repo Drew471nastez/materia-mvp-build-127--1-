@@ -273,25 +273,29 @@ export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { op
 /* ── small pieces ──────────────────────────────────────────────────────── */
 
 /*
- * ACCOUNT, ID CHECK, DETAILS.
+ * ACCOUNT, DETAILS, VERIFY ID.
  *
- * The ID check is its own step, and it comes before the details on purpose.
- * Proving who you are with the document is what lets Stripe drop the national
- * ID number from its requirements (requirements.alternatives: "the CNP, or a
- * photo of your ID"), so doing it first means the details page that follows
- * usually has no CNP on it at all. The other way round, the number was asked
- * for next to the very check that makes it unnecessary.
+ * The ID check is its own step and it comes LAST. It was second for a while,
+ * so that handing Stripe the document would clear the national ID number
+ * before the details page drew it (requirements.alternatives: "the CNP, or a
+ * photo of your ID"). That worked, and cost more than it was worth: the ID
+ * is the step most likely to be left and come back to, and with the details
+ * behind it every return meant typing a date of birth and an address again.
  *
- * The details page still carries the bank, so there is one Continue at the
- * end rather than a page of its own. The bank is only its own screen when the
- * bank is all that is being changed (Update bank on Payouts).
+ * So the details are entered once, early, and the number the document stands
+ * in for is simply not asked for there: if Stripe offers the document as an
+ * alternative, the ID step ahead settles it, and that step offers the number
+ * instead for anybody who would rather type it. Nothing is asked twice.
+ *
+ * The details page carries the bank, so there is one Continue rather than a
+ * page of its own. The bank is only its own screen when the bank is all that
+ * is being changed (Update bank on Payouts).
  */
-const STEP_LABELS = ["Account", "ID check", "Details"] as const
+const STEP_LABELS = ["Account", "Details", "Verify ID"] as const
 /*
  * THE ID CHECK IS ONLY A STEP WHEN STRIPE WANTS IT. A seller Stripe does not
- * need an ID from right now never sees "ID check" in the steps at all: the
- * stepper is Account, Details until the ID step has loaded and found that
- * Stripe is asking for it today.
+ * need an ID from right now never sees it in the steps at all: the stepper is
+ * Account, Details until the ID step has loaded and found Stripe is asking.
  */
 const STEP_LABELS_NO_ID = ["Account", "Details"] as const
 
@@ -482,16 +486,19 @@ export function PaymentsSetupFlow({
    * there and was sent forward again: the way back was a wall, and pressing
    * it looked like Continue. Once it has said it is empty, Back goes past it.
    */
-  const [idEmpty, setIdEmpty] = React.useState(false)
   /* Stripe wants an ID today: known once the ID step has loaded. */
   const [idNeeded, setIdNeeded] = React.useState(false)
+  /* The details step was walked past with nothing to ask, so Back skips it too. */
+  const [detailsEmpty, setDetailsEmpty] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
     setBack(false)
     setEnding(null)
-    setIdEmpty(false)
     setIdNeeded(false)
+    setDetailsEmpty(false)
+    /* A fresh open starts from Stripe's answer, not from what was typed last time. */
+    clearDetailsDraft()
     setStep(setupStepOf(status) === 0 ? 0 : 1)
     setOpenCount((k) => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -582,11 +589,11 @@ export function PaymentsSetupFlow({
   } else if (step === 1) {
     body = (
       <DetailsStep
-        key={`id-${openCount}`}
-        only="id"
+        key={`details-step-${openCount}`}
+        only="details"
+        withBank
         onBack={() => go(0)}
-        onEmpty={() => setIdEmpty(true)}
-        onAsking={() => setIdNeeded(true)}
+        onEmpty={() => setDetailsEmpty(true)}
         onNext={() => go(2)}
         onData={onData}
       />
@@ -594,10 +601,10 @@ export function PaymentsSetupFlow({
   } else {
     body = (
       <DetailsStep
-        key={`rest-${openCount}`}
-        only="details"
-        withBank
-        onBack={() => go(idEmpty ? 0 : 1)}
+        key={`id-${openCount}`}
+        only="id"
+        onBack={() => go(detailsEmpty ? 0 : 1)}
+        onAsking={() => setIdNeeded(true)}
         onNext={(left, sent) => void settle(sent ?? data, left)}
         onData={onData}
       />
@@ -819,6 +826,67 @@ function StepIntro({ title, line }: { title: string; line: string }) {
 
 /* ── step 2: your details (Storelib's own form) ────────────────────────── */
 
+/*
+ * WHAT WAS TYPED, KEPT WHILE SETUP IS OPEN.
+ *
+ * Each step is its own mount, so walking to the ID check and back used to
+ * draw an empty form and ask for a date of birth and an address that had
+ * just been entered. This holds them between steps: written on every change,
+ * read when the step mounts, and cleared when setup is opened afresh (so a
+ * later visit starts from Stripe's answer rather than from an old draft).
+ *
+ * It lives in memory for this tab only, never in storage: it is the
+ * creator's own identity details, and nothing here outlives the page.
+ */
+interface DetailsDraft {
+  dob: { day: string; month: string; year: string }
+  address: { line1: string; line2: string; city: string; postalCode: string; state: string }
+  phone: string
+  nationality: string
+  idNumber: string
+  ssnLast4: string
+  pep: boolean
+  agree: boolean
+  holder: string | null
+  iban: string
+  accountNumber: string
+  routing: string
+}
+
+const EMPTY_DRAFT: DetailsDraft = {
+  dob: { day: "", month: "", year: "" },
+  address: { line1: "", line2: "", city: "", postalCode: "", state: "" },
+  phone: "",
+  nationality: "",
+  idNumber: "",
+  ssnLast4: "",
+  pep: false,
+  agree: false,
+  holder: null,
+  iban: "",
+  accountNumber: "",
+  routing: "",
+}
+
+let detailsDraft: DetailsDraft = { ...EMPTY_DRAFT }
+
+export function clearDetailsDraft() {
+  detailsDraft = { ...EMPTY_DRAFT }
+}
+
+/** One field of the draft, kept across steps. */
+function useDraft<K extends keyof DetailsDraft>(key: K): [DetailsDraft[K], (next: DetailsDraft[K]) => void] {
+  const [value, set] = React.useState<DetailsDraft[K]>(detailsDraft[key])
+  const put = React.useCallback(
+    (next: DetailsDraft[K]) => {
+      detailsDraft[key] = next
+      set(next)
+    },
+    [key],
+  )
+  return [value, put]
+}
+
 type DetailField = "dob" | "address" | "state" | "phone" | "nationality" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
 interface DetailsForm {
   needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean; registeredAddress: boolean; problems: string[]; either: Array<{ original: DetailField[]; alternative: DetailField[] }>; offered: DetailField[]; given?: DetailField[] }
@@ -832,7 +900,13 @@ interface DetailsForm {
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
-/** A phone photo is often 4 to 8 MB: drawn again at most 2000px wide as a JPEG, it is a sharp, readable ID under 4 MB. */
+/*
+ * A phone photo is often 4 to 8 MB and larger than Stripe's 8,000 by 8,000
+ * limit. Drawn again at most 2000px on its long side as a colour JPEG, it is
+ * a sharp, readable ID well inside every rule Stripe sets. A PDF is passed
+ * through untouched: it is only ever a proof of address, where Stripe takes
+ * one (an identity document may not be a PDF, and is refused before here).
+ */
 async function shrinkPhoto(file: File): Promise<Blob> {
   if (file.type === "application/pdf") return file
   if (file.size < 2_500_000 && (file.type === "image/jpeg" || file.type === "image/png")) return file
@@ -961,14 +1035,14 @@ function DetailsStep({
   onAsking?: () => void
 }) {
   const { form, setForm, error: loadError, load } = useDetailsForm()
-  const [dob, setDob] = React.useState({ day: "", month: "", year: "" })
-  const [address, setAddress] = React.useState({ line1: "", line2: "", city: "", postalCode: "", state: "" })
-  const [phone, setPhone] = React.useState("")
-  const [nationality, setNationality] = React.useState("")
-  const [idNumber, setIdNumber] = React.useState("")
-  const [ssnLast4, setSsnLast4] = React.useState("")
-  const [pep, setPep] = React.useState(false)
-  const [agree, setAgree] = React.useState(false)
+  const [dob, setDob] = useDraft("dob")
+  const [address, setAddress] = useDraft("address")
+  const [phone, setPhone] = useDraft("phone")
+  const [nationality, setNationality] = useDraft("nationality")
+  const [idNumber, setIdNumber] = useDraft("idNumber")
+  const [ssnLast4, setSsnLast4] = useDraft("ssnLast4")
+  const [pep, setPep] = useDraft("pep")
+  const [agree, setAgree] = useDraft("agree")
   const [uploaded, setUploaded] = React.useState<Record<string, boolean>>({})
   const [uploading, setUploading] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -978,10 +1052,10 @@ function DetailsStep({
   /* Stripe asked for the ID again after this page was sent. */
   const [idAgain, setIdAgain] = React.useState(false)
   /* The bank, on this page during setup. */
-  const [holder, setHolder] = React.useState<string | null>(null)
-  const [iban, setIban] = React.useState("")
-  const [accountNumber, setAccountNumber] = React.useState("")
-  const [routing, setRouting] = React.useState("")
+  const [holder, setHolder] = useDraft("holder")
+  const [iban, setIban] = useDraft("iban")
+  const [accountNumber, setAccountNumber] = useDraft("accountNumber")
+  const [routing, setRouting] = useDraft("routing")
   /* Stripe's own live check: the way in, until Stripe says there is none for this account. */
   const [idWay, setIdWay] = React.useState<"stripe" | "camera">("stripe")
   const [idState, setIdState] = React.useState<"idle" | "opening" | "waiting" | "checking" | "done">("idle")
@@ -1043,7 +1117,8 @@ function DetailsStep({
    * this page, so the check is drawn here too rather than sending the person
    * back a step for it.
    */
-  const inSection = (f: DetailField) => (only === "id" ? f === "document" : only === "details" ? f !== "document" || idAgain : true)
+  const inSection = (f: DetailField) =>
+    only === "id" ? f === "document" || (f === "idNumber" && typeIdInstead) : only === "details" ? f !== "document" || idAgain : true
   /*
    * ALREADY ON FILE WHEN THIS OPENED. A document uploaded a moment ago also
    * comes back as given, and reading that live made the step hand itself on
@@ -1109,7 +1184,7 @@ function DetailsStep({
       setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
     } catch (err) {
       playAskSound("error")
-      setError(safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : "That photo could not be used. Try a clear JPG or PNG under 4 MB."))
+      setError(safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : "That photo could not be used. Try a clear colour JPG or PNG."))
     } finally {
       setUploading(null)
     }
@@ -1126,9 +1201,20 @@ function DetailsStep({
   const idEither = form.needs.either.some((e) => e.original.includes("idNumber") && e.alternative.includes("document"))
   const docDue = has("document") && !form.needs.offered.includes("document")
   /* On the details page after the ID step was passed over for the number, the number is simply asked for. */
-  const idShown = has("idNumber") && (!idEither || typeIdInstead || idNumber.trim().length > 0 || (only === "details" && !front))
+  /*
+   * The number is asked for only where it is the answer. Where Stripe offers
+   * the document instead (idEither), the ID step ahead settles it, and that
+   * step is where somebody who would rather type it says so: asking on both
+   * pages was asking twice for one thing.
+   */
+  const idShown = has("idNumber") && (!idEither || typeIdInstead || idNumber.trim().length > 0)
   const idBad = has("idNumber") && (idEither ? idNumber.trim().length > 0 && idNumber.trim().length < 4 : idNumber.trim().length < 4)
-  const missingDoc = (docDue && !front) || (idEither && !front && !idNumber.trim())
+  /*
+   * Only the step that draws the ID can be missing it. On the details page
+   * the document is not asked for at all (the step after it settles that),
+   * so demanding it there stopped Continue on a page with no way to answer.
+   */
+  const missingDoc = typeIdInstead || !has("document") ? false : (docDue && !front) || (idEither && !front && !idNumber.trim())
   const openCamera = (side: IdSide) => {
     armCameraSounds()
     setCamera({ side })
@@ -1152,6 +1238,24 @@ function DetailsStep({
     if (busy) return
     /* The ID step writes nothing of its own: the document went to Stripe when it was taken. */
     if (only === "id") {
+      /* Typing the number instead of showing the document: the number is this step's answer, so it is sent here. */
+      if (typeIdInstead) {
+        if (idNumber.trim().length < 4) {
+          setError(`Enter your ${form.idNumber.label.split(" (")[0]}, or verify with your ID instead.`)
+          return
+        }
+        setBusy(true)
+        setError(null)
+        try {
+          const res = await post<{ form: DetailsForm; overview: Overview }>("details", { idNumber })
+          onData(res.overview)
+          onNext(res.form, res.overview)
+        } catch (err) {
+          setError(safe(err instanceof Error ? err.message : "That could not be saved. Try again."))
+          setBusy(false)
+        }
+        return
+      }
       if (idAsked && !front) {
         setError("Verify your ID to carry on.")
         return
@@ -1293,8 +1397,23 @@ function DetailsStep({
                   <span className="block text-[14px] font-medium text-[#1a1a2e]">{side === "front" ? "Front" : "Back"}</span>
                   <span className="block text-[12.5px] text-[#6b7280]">{busy ? "Sending to Stripe" : done ? "Added" : skipped ? "Not needed, it's a passport" : "Needed for an ID card or licence"}</span>
                 </span>
-                <button type="button" onClick={() => openCamera(side)} disabled={busy} className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] outline-none transition-colors hover:bg-[#f4f5f7] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
-                  {done ? <RotateCcw className="h-3.5 w-3.5" /> : null}
+                {/*
+                  One control per side, and it reads as a button: bare "Add"
+                  text floating at the end of a row looked like a label, and
+                  on a phone there was nothing to aim at. A bordered pill,
+                  with the camera it opens.
+                */}
+                <button
+                  type="button"
+                  onClick={() => openCamera(side)}
+                  disabled={busy}
+                  aria-label={`${done ? "Retake the" : "Take a photo of the"} ${side} of your ID`}
+                  className={cn(
+                    "flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium outline-none transition-[border-color,background-color,transform] duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:cursor-default disabled:opacity-50",
+                    done ? "border-[#e3e5e8] bg-white text-[#4b5563] hover:border-[#c9ccd3] hover:bg-[#fafafb]" : "border-transparent bg-[#1a1a2e] text-white hover:bg-[#262640]",
+                  )}
+                >
+                  {done ? <RotateCcw className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
                   {done ? "Retake" : "Add"}
                 </button>
               </div>
@@ -1302,10 +1421,11 @@ function DetailsStep({
           })}
         </div>
       )}
+      {/* Stripe takes an identity document as a colour JPG or PNG only: offering a PDF here would be offering a file it refuses. */}
       <input
         ref={picker}
         type="file"
-        accept="image/jpeg,image/png,image/heic,image/*,application/pdf"
+        accept="image/jpeg,image/png,image/heic"
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0]
@@ -1513,8 +1633,8 @@ function DetailsStep({
 
         {!idEither ? idPhoto : null}
 
-        {only === "id" && idEither && !front ? (
-          <button type="button" onClick={() => onNext(form, null)} className="-mt-1 text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-number-instead="">
+        {only === "id" && idEither && !front && !typeIdInstead ? (
+          <button type="button" onClick={() => setTypeIdInstead(true)} className="-mt-1 text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-number-instead="">
             Use my {form.idNumber.label.split(" (")[0]} instead
           </button>
         ) : null}

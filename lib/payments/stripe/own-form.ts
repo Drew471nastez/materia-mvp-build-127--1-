@@ -213,8 +213,26 @@ export async function submitDetails(creator: PaymentsCreatorRef, raw: unknown, c
   return viewOf(creator, saved)
 }
 
-const DOC_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"])
-export const DOC_MAX_BYTES = 4 * 1024 * 1024
+/*
+ * STRIPE'S OWN RULES FOR A VERIFICATION FILE
+ * (docs.stripe.com/connect/handling-api-verification, "Upload a file"):
+ *
+ *   a colour image, 8,000 by 8,000 pixels or smaller
+ *   10 MB or less
+ *   AN IDENTITY DOCUMENT IS JPG OR PNG. Not PDF.
+ *   an address or legal entity document may be JPG, PNG or PDF
+ *   never password protected
+ *
+ * The PDF part is why this is split in two. A PDF of an ID was accepted by
+ * this form, uploaded, attached, and then turned down by Stripe with
+ * verification_document_invalid, which reads to the creator as "your ID was
+ * refused" when the file was simply the wrong kind. It is refused here, in
+ * words that say what to send instead.
+ */
+const ID_TYPES = new Set(["image/jpeg", "image/png"])
+const ADDRESS_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"])
+/** Stripe's limit. The camera sends far less (shrinkPhoto), and a photo from a library is allowed its full size. */
+export const DOC_MAX_BYTES = 10 * 1024 * 1024
 
 export async function uploadDocument(creator: PaymentsCreatorRef, input: { which: string; side: string; file: File | null }): Promise<DetailsFormView> {
   const account = await ownAccount(creator)
@@ -222,8 +240,15 @@ export async function uploadDocument(creator: PaymentsCreatorRef, input: { which
   const side = input.side === "back" ? "back" : input.side === "front" ? "front" : null
   if (!which || !side) throw new PaymentsProblem("Choose the photo to upload.")
   const file = input.file
-  if (!file || !DOC_TYPES.has(file.type)) throw new PaymentsProblem("Use a photo (JPG or PNG) or a PDF.")
-  if (file.size > DOC_MAX_BYTES) throw new PaymentsProblem("That file is too large. Use one under 4 MB.")
+  const allowed = which === "document" ? ID_TYPES : ADDRESS_TYPES
+  if (!file || !allowed.has(file.type)) {
+    throw new PaymentsProblem(
+      which === "document"
+        ? "An ID has to be a colour photo, JPG or PNG. A PDF or a scan saved as a document cannot be used."
+        : "Use a photo (JPG or PNG) or a PDF.",
+    )
+  }
+  if (file.size > DOC_MAX_BYTES) throw new PaymentsProblem("That file is too large. Use one under 10 MB.")
   try {
     const uploaded = await stripe.files.create(
       { purpose: which === "document" ? "identity_document" : "additional_verification", file: { data: Buffer.from(await file.arrayBuffer()), name: `${which}-${side}`, type: file.type } },
