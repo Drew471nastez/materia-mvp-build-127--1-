@@ -1,0 +1,34 @@
+import type { Metadata } from "next"
+import { notFound, permanentRedirect } from "next/navigation"
+import { connection } from "next/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { communityBySlug, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
+import { CommunitySalesPage } from "@/components/community/public/sales-page"
+import { communityMetadata } from "@/components/community/public/seo"
+
+/**
+ * storelib.com/community/<slug>/about: the community's page for everyone,
+ * members included (their button opens the community, and they can leave
+ * from it). The same page a visitor gets at /community/<slug>, so its
+ * canonical is that address and the structured data is printed there only.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  await connection()
+  if (!(await communitiesEnabled())) return { robots: { index: false, follow: false } }
+  const { slug } = await params
+  const community = await communityBySlug(slug)
+  if (!community) return { robots: { index: false, follow: false } }
+  return communityMetadata(seoFacts(community), { about: true })
+}
+
+export default async function CommunityAboutPage({ params }: { params: Promise<{ slug: string }> }) {
+  await connection()
+  if (!(await communitiesEnabled())) notFound()
+  const { slug } = await params
+  const { user } = await currentUserForRequest()
+  const load = await loadSalesPage(slug, user?.id ?? null)
+  if (!load) notFound()
+  if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}/about`)
+  return <CommunitySalesPage data={load.data} />
+}
