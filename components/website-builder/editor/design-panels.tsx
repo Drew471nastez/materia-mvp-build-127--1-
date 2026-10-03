@@ -35,6 +35,7 @@ import {
   isBuiltInScheme,
   newSchemeFrom,
   resolveSectionColors,
+  schemeTokenName,
   stripSchemeDefaults,
   themeColorSchemes,
   type ColorScheme,
@@ -67,7 +68,7 @@ const asRecord = (t: Theme) => t as unknown as Record<string, unknown>
 
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-widest"
 const INPUT =
-  "w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+  "w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
 
 function Select({
   label,
@@ -84,10 +85,10 @@ function Select({
 }) {
   return (
     <div className={cn(label && "space-y-1.5")}>
-      {label && <p className="text-sm font-medium text-foreground">{label}</p>}
+      {label && <p className="text-[13px] font-medium text-foreground">{label}</p>}
       <div className="relative">
         <select
-          className={cn(INPUT, "pr-8 appearance-none cursor-pointer", compact ? "h-9" : "h-10")}
+          className={cn(INPUT, "pr-8 appearance-none cursor-pointer")}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         >
@@ -199,14 +200,14 @@ export function SchemePicker({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "w-full flex items-center justify-between gap-2 px-3 rounded-xl border transition-all cursor-pointer",
-          size === "sm" ? "h-10" : "h-12",
+          size === "sm" ? "h-9" : "h-10",
           open ? "border-blue-500" : "border-neutral-200 hover:border-neutral-300",
         )}
         style={{ background: active.gradient || active.background, color: active.heading }}
       >
         <span className="flex items-center gap-2.5 min-w-0">
-          <span className={cn("font-bold", size === "sm" ? "text-[14px]" : "text-[16px]")}>Aa</span>
-          <span className={cn("font-medium truncate", size === "sm" ? "text-[13px]" : "text-[14px]")}>{active.name}</span>
+          <span className={cn("font-bold", size === "sm" ? "text-[13px]" : "text-[15px]")}>Aa</span>
+          <span className={cn("font-medium truncate", size === "sm" ? "text-[12.5px]" : "text-[13px]")}>{active.name}</span>
         </span>
         {/**
           * THE TRIGGER SHOWS THE SCHEME, AND NOTHING ELSE.
@@ -252,7 +253,7 @@ export function SchemePicker({
                 <button
                   type="button"
                   onClick={() => { onChange(key); setOpen(false) }}
-                  className="flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 px-3 text-left"
+                  className="flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2.5 px-3 text-left"
                 >
                   <span className="text-[15px] font-bold">Aa</span>
                   <span className="truncate text-[13px] font-medium">{sc.name}</span>
@@ -354,8 +355,8 @@ function ColorRow({
   onReset: () => void
 }) {
   return (
-    <div data-color-row={name} className="group/row flex min-h-10 max-sm:min-h-11 items-center gap-1.5">
-      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{label}</span>
+    <div data-color-row={name} className="group/row flex min-h-9 max-sm:min-h-11 items-center gap-1.5">
+      <span className="min-w-0 flex-1 truncate text-[12.5px] max-sm:text-[14px] text-foreground">{label}</span>
       {own ? (
         <button
           type="button"
@@ -381,11 +382,13 @@ function ColorRow({
 }
 
 /**
- * One button's colours as rows: Fill and Text, and its two hover colours
- * behind "Hover colors", shut, because they work themselves out from the
- * fill until someone picks one (automaticHover in the colour schemes).
- * Shared by every section's Advanced colors and by the header's Button
- * panel, so the two cannot describe one button differently.
+ * One button's colours as rows: Fill, Text, Hover fill and Hover text, all
+ * four in the open. The hover pair used to sit behind a "Hover colors"
+ * toggle of its own, a disclosure inside a disclosure for two rows, and the
+ * owner asked for it gone. Each hover row says Auto until someone picks a
+ * colour, because it works itself out from the fill (automaticHover in the
+ * colour schemes). Shared by every section's Advanced colors and by the
+ * header's Button panel, so the two cannot describe one button differently.
  */
 export function ButtonColorGroup({
   group,
@@ -401,13 +404,9 @@ export function ButtonColorGroup({
   /** The keys this section lets be overridden; all four when omitted. */
   allowed?: SchemeColorKey[]
 }) {
-  const [hoverOpen, setHoverOpen] = useState(false)
   const colors = resolveSectionColors(asRecord(theme), settings)
   const parts = group.parts.filter((p) => !allowed || allowed.includes(p.key))
   if (parts.length === 0) return null
-  const main = parts.filter((p) => !isHoverKey(p.key))
-  const hover = parts.filter((p) => isHoverKey(p.key))
-  const hoverSet = hover.some((p) => effectiveOverride(settings, p.key) !== "")
 
   const row = (p: (typeof parts)[number]) => {
     const own = effectiveOverride(settings, p.key)
@@ -431,25 +430,60 @@ export function ButtonColorGroup({
   return (
     <div data-button-colors={group.label}>
       <p className={GROUP_HEADING}>{group.label}</p>
-      {main.map(row)}
-      {hover.length > 0 && (
-        <>
-          <button
-            type="button"
-            aria-expanded={hoverOpen}
-            onClick={() => setHoverOpen((o) => !o)}
-            className="flex w-full min-h-9 max-sm:min-h-11 items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", !hoverOpen && "-rotate-90")} />
-            <span>Hover colors</span>
-            <span className="ml-auto text-[11px] text-muted-foreground/80">{hoverSet ? "Custom" : "Auto"}</span>
-          </button>
-          <Collapse open={hoverOpen}>
-            {() => <div className="pl-5">{hover.map(row)}</div>}
-          </Collapse>
-        </>
-      )}
+      {parts.map(row)}
     </div>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  A COLOUR THE SECTION DECLARES FOR ITSELF
+ * ===========================================================================
+ * Beside its scheme and Advanced colors, a section may declare colour
+ * settings of its own: the stars on a review, a timeline's dot, the scrim
+ * over a photo, a card's fill. These used to be filtered out of the panel
+ * altogether, on the reasoning that colours come from the scheme, which left
+ * a section's author no way to give the creator a colour just for that
+ * section. They are drawn now, as the same row Advanced colors uses.
+ *
+ * Untouched, the row shows what the section will draw and says where it
+ * comes from: "Scheme" when the default names a scheme colour
+ * (`"default": "scheme.accent"`, followed until somebody picks one), the
+ * default's own hex otherwise, or "Auto" when the section works it out. A
+ * colour the creator picked shows its own value and an arrow that puts it
+ * back.
+ */
+export function SectionColorSetting({
+  field,
+  value,
+  settings,
+  theme,
+  onChange,
+}: {
+  field: { id: string; label?: string; default?: unknown }
+  value: unknown
+  /** The section's settings, for the scheme and overrides this colour may follow. */
+  settings: Record<string, unknown>
+  theme: Theme
+  onChange: (next: string | undefined) => void
+}) {
+  const colors = resolveSectionColors(asRecord(theme), settings)
+  const scheme = { ...colors.legacy, ...colors.scheme } as Record<string, string>
+  const raw = typeof value === "string" ? value.trim() : ""
+  const own = raw && schemeTokenName(raw) === null && raw !== String(field.default ?? "") ? raw : ""
+  const follows = schemeTokenName(field.default)
+  const fallback = follows ? scheme[follows] ?? "" : typeof field.default === "string" ? field.default : ""
+  const label = field.label || field.id
+  return (
+    <ColorRow
+      label={label}
+      name={label}
+      own={own}
+      shown={own || fallback}
+      hint={follows ? "Scheme" : fallback ? "Default" : "Auto"}
+      onChange={(c) => onChange(c)}
+      onReset={() => onChange(undefined)}
+    />
   )
 }
 
@@ -572,7 +606,7 @@ export function SectionDesignPanel({
   if (!support.colorScheme && !support.typography) return null
 
   return (
-    <div className={cn(!compact && "border-b border-border p-4", "space-y-4")}>
+    <div className={cn(!compact && "border-b border-border px-3.5 py-3.5", "space-y-3.5")}>
       {support.colorScheme && (
         <div className="space-y-3">
           <p className={LABEL}>Color scheme</p>
@@ -610,7 +644,7 @@ export function SectionDesignPanel({
                 type="button"
                 aria-expanded={customizeOpen}
                 onClick={() => setCustomizeOpen((o) => !o)}
-                className="w-full flex items-center justify-between gap-2 overflow-hidden px-3 h-11 md:h-10 text-sm"
+                className="w-full flex items-center justify-between gap-2 overflow-hidden px-3 h-11 md:h-9 text-[13px]"
               >
                 <span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors</span>
                 <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">

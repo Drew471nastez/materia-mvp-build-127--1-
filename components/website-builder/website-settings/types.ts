@@ -1,4 +1,5 @@
-import type { ThemeSettingsValues } from "@/lib/website-builder/types"
+import type { LinkTarget } from "@/components/website-builder/link-picker"
+import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /**
  * The pages of Website Settings, in the order they are listed. The ids are
@@ -14,7 +15,8 @@ export const SETTINGS_SECTIONS = [
   { id: "general", label: "General", group: "site" },
   { id: "domains", label: "Domains", group: "site" },
   { id: "seo", label: "SEO & Social", group: "site" },
-  { id: "pages", label: "Pages & Navigation", group: "site" },
+  { id: "pages", label: "Pages", group: "site" },
+  { id: "navigation", label: "Navigation", group: "site" },
   { id: "commerce", label: "Commerce", group: "site" },
   { id: "policies", label: "Policies", group: "site" },
   { id: "publishing", label: "Publishing", group: "site" },
@@ -77,4 +79,15 @@ export interface SettingsContext {
   onNavigate: (href: string) => void
   /** The website's name on Storelib was changed (Domains), so its address is new. */
   onAddressChanged: (handle: string) => void
+  /** The site's header and footer as the editor holds them, for Navigation. */
+  header?: SectionInstance
+  footer?: SectionInstance
+  /** The editor's own writers for a section's settings and blocks, so a change here is saved and undone like any other. */
+  onSectionSetting?: (sectionId: string, key: string, value: unknown) => void
+  onBlockSetting?: (sectionId: string, blockId: string, key: string, value: unknown) => void
+  onAddBlock?: (sectionId: string, type: string, initial?: Record<string, unknown>) => void
+  onRemoveBlock?: (sectionId: string, blockId: string) => void
+  onReorderBlocks?: (sectionId: string, blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
+  /** The site's pages and products, for the link picker. */
+  linkTargets?: LinkTarget[]
 }

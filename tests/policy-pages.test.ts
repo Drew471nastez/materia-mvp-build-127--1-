@@ -363,7 +363,7 @@ async function main() {
     /** Editing a scheme lives with the schemes. */
     check("Edit is off the closed trigger", !/onEdit\(activeKey\)/.test(panels))
     check("and on every row of the open list", /onEdit\(key\)/.test(panels))
-    check("a row is a pair, not a button inside a button", /flex h-11 min-w-0 flex-1 cursor-pointer/.test(panels))
+    check("a row is a pair, not a button inside a button", /flex h-9 min-w-0 flex-1 cursor-pointer/.test(panels))
 
     /** A footer link is a link. */
     check("sections say what type they are", /data-section-type=\{props\.section\.type\}/.test(renderer))

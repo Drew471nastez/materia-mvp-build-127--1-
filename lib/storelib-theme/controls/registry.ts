@@ -23,6 +23,7 @@
 import { z } from "zod"
 
 import { cleanBackground, cleanFocalPoint, MENU_HANDLE, parseDatetime, parseVideoUrl, VIDEO_HOSTS } from "../values"
+import { schemeTokenName } from "../color-schemes"
 
 export const CONTROL_TYPES = [
   // ── values a person types or picks ──
@@ -223,9 +224,13 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   color: def({
     type: "color",
     label: "Colour",
-    description: "A hex colour.",
+    description: "A hex colour. The default may name a scheme colour, \"scheme.accent\", which the setting follows until somebody picks one.",
     value: "color",
-    schema: z.union([hex, z.literal("")]),
+    schema: z.union([
+      hex,
+      z.literal(""),
+      z.string().refine((v) => schemeTokenName(v) !== null, "a scheme colour like scheme.accent"),
+    ]),
     fallback: "",
     responsive: false,
     component: "ColorPicker",
