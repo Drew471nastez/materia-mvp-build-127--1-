@@ -200,7 +200,7 @@ async function main() {
     check("turning it on is one press; turning it off asks first", /onClick=\{\(\) => \(on \? setConfirming\(true\) : void save\(true\)\)\}/.test(client) && /title="Turn communities off\?"/.test(client))
     check("and the question says nothing is deleted", /Nothing is deleted\. Communities, members, posts, events and payments are all kept/.test(client))
     check("the client imports no server code", !/server-only|next\/headers|lib\/communities\/server|lib\/supabase|lib\/admin-blog-auth/.test(client))
-    check("every figure the owner asked for is drawn", ["Communities", "Published", "Paid", "Free", "Members active, 30 days", "Community revenue, 30 days", "Open reports", "Failed community jobs"].every((l) => client.includes(`"${l}"`)) && /escalated`/.test(client))
+    check("every figure the owner asked for is drawn", ["Communities", "Published", "Paid", "Free", "Active members", "Community revenue", "Open reports", "Failed community jobs"].every((l) => client.includes(`"${l}"`)) && /escalated`/.test(client))
     check("a figure that could not be read says so instead of zero", /f\.value === null \? \{ label, value: "", unreadable: f\.unreadable \}/.test(client))
     check("a suspension and a hide need a reason", /needsReason: true/.test(client) && /Say why\. It is kept in the community's audit log\./.test(client))
     check("each community links to its public page", /publicPath = \(slug: string\) => `\/community\/\$\{encodeURIComponent\(slug\)\}`/.test(client) && /Open the public page/.test(client))

@@ -230,7 +230,7 @@ export function SearchField({
         placeholder={placeholder}
         autoComplete="off"
         spellCheck={false}
-        className="h-9 w-full rounded-[8px] border border-white/[0.1] bg-[#0b0b0f] px-3 text-[14px] text-[#ededf0] outline-none placeholder:text-[#6b6b76] focus:border-[#8b5cf6]/70"
+        className="h-10 w-full rounded-[8px] border border-white/[0.1] bg-[#0b0b0f] px-3 text-[14px] text-[#ededf0] outline-none placeholder:text-[#6b6b76] focus:border-[#8b5cf6]/70 sm:h-9"
       />
     </label>
   )
@@ -257,7 +257,7 @@ export function Filters<T extends string>({
           aria-selected={value === o.id}
           onClick={() => onChange(o.id)}
           className={cx(
-            "h-8 shrink-0 rounded-[7px] px-2.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70",
+            "h-10 shrink-0 rounded-[7px] px-2.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 sm:h-8",
             value === o.id ? "bg-white/[0.08] text-[#ededf0]" : "text-[#9b9ba6] hover:text-[#ededf0]",
           )}
         >
@@ -393,10 +393,10 @@ export function Pager({ page, pages, total, size = 25, onPage }: { page: number;
         {from.toLocaleString("en-US")} to {to.toLocaleString("en-US")} of {total.toLocaleString("en-US")}
       </p>
       <div className="flex gap-1.5">
-        <Button variant="quiet" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+        <Button variant="quiet" disabled={page <= 1} onClick={() => onPage(page - 1)} className="h-10 sm:h-8">
           Previous
         </Button>
-        <Button variant="quiet" disabled={page >= pages} onClick={() => onPage(page + 1)}>
+        <Button variant="quiet" disabled={page >= pages} onClick={() => onPage(page + 1)} className="h-10 sm:h-8">
           Next
         </Button>
       </div>
@@ -536,10 +536,10 @@ export function ConfirmDialog({
           <div className="mt-2 space-y-3 text-[13px] leading-5 text-[#9b9ba6]">{children}</div>
           {error ? <p className="mt-3 text-[13px] text-[#f47067]" role="alert">{error}</p> : null}
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="quiet" onClick={onClose} disabled={busy} className="h-9">
+            <Button variant="quiet" onClick={onClose} disabled={busy} className="h-10 sm:h-9">
               Cancel
             </Button>
-            <Button type="submit" variant={danger ? "danger" : "primary"} disabled={busy} className="h-9">
+            <Button type="submit" variant={danger ? "danger" : "primary"} disabled={busy} className="h-10 sm:h-9">
               {busy ? "Working…" : confirmLabel}
             </Button>
           </div>
@@ -569,7 +569,7 @@ export function Banner({ tone: t = "plain", children, onClose }: { tone?: "plain
     <div role="status" className={cx("flex items-start justify-between gap-3 rounded-[10px] border bg-[#111116] px-4 py-2.5 text-[13px] text-[#ededf0]", edge)}>
       <div className="min-w-0">{children}</div>
       {onClose ? (
-        <button type="button" onClick={onClose} className="shrink-0 text-[12px] text-[#9b9ba6] hover:text-[#ededf0]">
+        <button type="button" onClick={onClose} className="-my-2.5 min-h-10 shrink-0 px-1 text-[12px] text-[#9b9ba6] hover:text-[#ededf0] sm:-my-0 sm:min-h-0 sm:px-0">
           Dismiss
         </button>
       ) : null}

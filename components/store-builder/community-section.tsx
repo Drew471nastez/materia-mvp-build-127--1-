@@ -124,7 +124,11 @@ function EditorCommunitySection({ settings, isMobile, globalSettings }: { settin
   else if (state === "ready" && chosen && !chosen.shows) note = `${chosen.name} is ${chosen.why?.toLowerCase() ?? "not public"}, so visitors see nothing here until it is published and public.`
   if (state === "ready" && block) return <CommunityCard data={block} settings={settings} isMobile={isMobile} globalSettings={globalSettings} />
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6" data-community-section="placeholder">
+    <div
+      className="mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6"
+      style={{ paddingTop: (isMobile ? settings.mobileSpacing : settings.spacing)?.paddingTop, paddingBottom: (isMobile ? settings.mobileSpacing : settings.spacing)?.paddingBottom }}
+      data-community-section="placeholder"
+    >
       <div className="rounded-2xl border-2 border-dashed border-border px-5 py-8 text-center">
         <p className="text-[15px] font-semibold text-foreground">{settings.headline || "Community"}</p>
         <p className="mx-auto mt-1 max-w-md text-[14px] text-muted-foreground">{state === "loading" ? "Loading your community…" : note}</p>
@@ -199,7 +203,7 @@ export function CommunityCard({
       {settings.headline ? <h2 className="mb-4 text-lg font-semibold text-foreground sm:text-xl">{settings.headline}</h2> : null}
       <div className="overflow-hidden rounded-2xl border border-border bg-card text-foreground">
         {d.coverUrl ? (
-          <a href={d.url} className="block aspect-[3/1] w-full overflow-hidden bg-foreground/[0.06] sm:aspect-[4/1]" tabIndex={-1} aria-hidden>
+          <a href={d.url} className={cn("block aspect-[3/1] w-full overflow-hidden bg-foreground/[0.06]", !isMobile && "sm:aspect-[4/1] lg:aspect-[5/1]")} tabIndex={-1} aria-hidden>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={d.coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
           </a>
@@ -239,7 +243,7 @@ export function CommunityCard({
                   {posts.map((p) => (
                     <li key={p.id} className="py-3 first:pt-0 last:pb-0">
                       <a href={d.url} className="block min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-foreground/20">
-                        {p.title ? <p className="truncate text-[15px] font-semibold text-foreground">{p.title}</p> : null}
+                        {p.title ? <p className="line-clamp-2 text-[15px] font-semibold leading-5 text-foreground">{p.title}</p> : null}
                         {p.excerpt ? <p className={cn("text-[14px] leading-5 text-muted-foreground", p.title ? "mt-0.5 line-clamp-2" : "line-clamp-3 text-foreground/80")}>{p.excerpt}</p> : null}
                         <p className="mt-2 flex min-w-0 items-center gap-2 text-[13px] text-muted-foreground">
                           {p.author ? <AppAvatar src={p.author.avatarUrl} name={p.author.name} alt="" size={20} tone="theme" className="h-5 w-5" /> : null}
@@ -248,7 +252,14 @@ export function CommunityCard({
                           <span suppressHydrationWarning className="shrink-0">
                             {relativeTime(p.createdAt)}
                           </span>
-                          {p.commentCount > 0 ? <span className="shrink-0 tabular-nums">· {compactCount(p.commentCount)} {p.commentCount === 1 ? "comment" : "comments"}</span> : null}
+                          {p.commentCount > 0 ? (
+                            <>
+                              <span aria-hidden>·</span>
+                              <span className="shrink-0 tabular-nums">
+                                {compactCount(p.commentCount)} {p.commentCount === 1 ? "comment" : "comments"}
+                              </span>
+                            </>
+                          ) : null}
                         </p>
                       </a>
                     </li>
@@ -272,7 +283,7 @@ export function CommunityCard({
                               <span className="mt-0.5 text-[16px] font-semibold text-foreground">{badge.day}</span>
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate text-[14px] font-semibold text-foreground">{e.title}</p>
+                              <p className="line-clamp-2 text-[14px] font-semibold leading-5 text-foreground">{e.title}</p>
                               <p className="truncate text-[13px] text-muted-foreground">{eventTime(e.startsAt, e.endsAt, { timeZone: e.timezone })}</p>
                             </div>
                           </li>

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { ago, date, money, num } from "../_console/format"
+import { ago, date, money, moneyShort, num } from "../_console/format"
 import { Banner, Button, ConfirmDialog, DataList, Facts, Figures, Filters, Pager, Panel, Placeholder, SearchField, Status, TextArea, Toolbar, cx, type Column, type FigureItem } from "../_console/ui"
 
 /**
@@ -382,8 +382,9 @@ export function TotalsView({ totals: t }: { totals: Totals }) {
         figure("Published", t.published, num),
         figure("Paid", t.paid, num),
         figure("Free", t.free, num),
-        figure("Members active, 30 days", t.activeMembers30d, num),
-        figure("Community revenue, 30 days", t.revenue30dCents, (n) => money(n, currency), "Orders, less refunds"),
+        figure("Active members", t.activeMembers30d, num, "Last 30 days"),
+        /* Shortened past $100k ($184k) so it fits half a phone, as the console overview shortens money. */
+        figure("Community revenue", t.revenue30dCents, (n) => (currency === "USD" ? moneyShort(n) : money(n, currency)), "Last 30 days, less refunds"),
         figure("Open reports", t.openReports, num, t.escalatedReports.value === null ? null : `${num(t.escalatedReports.value)} escalated`),
         figure("Failed community jobs", t.failedJobs, num),
       ]}
@@ -491,7 +492,11 @@ export function CommunityDialog({
   React.useEffect(() => {
     const d = ref.current
     if (!d) return
-    if (c && !d.open) d.showModal?.()
+    if (c && !d.open) {
+      d.showModal?.()
+      /* Focus on Close rather than the first link, so nothing is pressed by a stray Enter. */
+      d.querySelector<HTMLElement>("[data-dialog-close]")?.focus()
+    }
     if (!c && d.open) d.close()
     if (c) {
       setAct(initialAct)
@@ -543,11 +548,11 @@ export function CommunityDialog({
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="truncate text-[15px] font-semibold">{c.name}</h2>
-              <a href={publicPath(c.slug)} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex h-8 items-center text-[13px] text-[#9b9ba6] underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">
+              <a href={publicPath(c.slug)} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex h-10 items-center rounded-[4px] text-[13px] text-[#9b9ba6] underline decoration-white/20 underline-offset-2 outline-none hover:text-[#ededf0] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 sm:h-8">
                 Open the public page
               </a>
             </div>
-            <Button variant="quiet" onClick={onClose} disabled={saving} className="h-10 sm:h-8">
+            <Button variant="quiet" onClick={onClose} disabled={saving} className="h-10 sm:h-8" data-dialog-close="">
               Close
             </Button>
           </div>
