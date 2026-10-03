@@ -15,7 +15,7 @@ const noStore = { "Cache-Control": "no-store" }
 
 /**
  * POST /api/community/<communityId>/moderation/act
- *   { action: remove|restore|pin|unpin|lock|unlock|feature|unfeature|move,
+ *   { action: remove|restore|pin|unpin|lock|reopen|feature|unfeature|move,
  *     targetType: post|comment|message, targetId, reason?, spaceId? } -> { status }
  * For the moderator menus on posts, comments and chat. The action's own
  * permission (can()), the target must be this community's, and nobody acts

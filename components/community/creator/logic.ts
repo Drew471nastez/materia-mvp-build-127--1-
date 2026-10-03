@@ -100,7 +100,7 @@ export function checkCreate(raw: unknown): Checked<CreateInput> {
   let price: CreateInput["price"] = null
   if (r.type === "paid") {
     const p = checkPrice(r.price, r.interval)
-    if (!p.ok) return p
+    if (!p.ok) return { ok: false, field: (p as { field: string }).field, error: (p as { error: string }).error }
     price = p.value
   }
   return { ok: true, value: { name, description, logoUrl: imageUrl(r.logoUrl), coverUrl: imageUrl(r.coverUrl), type: r.type, price } }

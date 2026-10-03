@@ -33,7 +33,7 @@ export function auditSentence(action: string): string {
     pinned: "Pinned",
     unpinned: "Unpinned",
     locked: "Locked",
-    unlocked: "Unlocked",
+    reopened: "Reopened comments on",
     featured: "Featured",
     unfeatured: "Stopped featuring",
     moved: "Moved",

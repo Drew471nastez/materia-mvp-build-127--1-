@@ -86,7 +86,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     if (!res.ok) return toast(errorText(res.data.error))
     setRemoving(null)
     const patch: Partial<FeedRowView> =
-      action === "pin" ? { pinned: true } : action === "unpin" ? { pinned: false } : action === "lock" ? { locked: true } : action === "unlock" ? { locked: false } : action === "feature" ? { featured: true } : action === "unfeature" ? { featured: false } : action === "remove" ? { status: "removed", pinned: false } : { status: "published" }
+      action === "pin" ? { pinned: true } : action === "unpin" ? { pinned: false } : action === "lock" ? { locked: true } : action === "reopen" ? { locked: false } : action === "feature" ? { featured: true } : action === "unfeature" ? { featured: false } : action === "remove" ? { status: "removed", pinned: false } : { status: "published" }
     setRows((x) => (show === "removed" && action === "restore" ? x.filter((y) => y.id !== r.id) : x.map((y) => (y.id === r.id ? { ...y, ...patch } : y))))
     toast(action === "remove" ? "Post removed" : action === "restore" ? "Post restored" : "Saved")
   }
@@ -107,7 +107,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     const items: ActionMenuItem[] = [{ label: "Open post", href: `/community/${head.slug}/post/${r.id}`, target: "_blank" }]
     if (r.status === "published") {
       if (c.pin) items.push({ label: r.pinned ? "Unpin" : "Pin to the top", onClick: () => void act(r, r.pinned ? "unpin" : "pin"), separatorBefore: true })
-      if (c.lock) items.push({ label: r.locked ? "Allow comments" : "Lock comments", onClick: () => void act(r, r.locked ? "unlock" : "lock") })
+      if (c.lock) items.push({ label: r.locked ? "Allow comments" : "Lock comments", onClick: () => void act(r, r.locked ? "reopen" : "lock") })
       if (c.feature) items.push({ label: r.featured ? "Stop featuring" : "Feature", onClick: () => void act(r, r.featured ? "unfeature" : "feature") })
       if (c.moderate_content) items.push({ label: "Remove", variant: "destructive", onClick: () => setRemoving(r), separatorBefore: true })
     } else if (r.status === "removed" && c.moderate_content) {

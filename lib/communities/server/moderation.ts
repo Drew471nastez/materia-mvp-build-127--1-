@@ -75,7 +75,7 @@ export async function peopleOf(db: Db, ids: string[], opts: { email?: boolean } 
 
 /* ── Content ────────────────────────────────────────────────────────────── */
 
-export const CONTENT_ACTIONS = ["remove", "restore", "pin", "unpin", "lock", "unlock", "feature", "unfeature", "move"] as const
+export const CONTENT_ACTIONS = ["remove", "restore", "pin", "unpin", "lock", "reopen", "feature", "unfeature", "move"] as const
 export type ContentAction = (typeof CONTENT_ACTIONS)[number]
 export const CONTENT_TARGETS = ["post", "comment", "message"] as const
 export type ContentTarget = (typeof CONTENT_TARGETS)[number]
@@ -87,7 +87,7 @@ export function contentActionNeeds(action: ContentAction): CommunityAction {
     case "unpin":
       return "pin"
     case "lock":
-    case "unlock":
+    case "reopen":
       return "lock"
     case "feature":
     case "unfeature":
@@ -168,7 +168,7 @@ export async function actOnContent(db: Db, a: ContentActInput): Promise<Outcome<
       patch = { pinned: a.action === "pin" }
       break
     case "lock":
-    case "unlock":
+    case "reopen":
       patch = { locked: a.action === "lock" }
       break
     case "feature":
@@ -197,7 +197,7 @@ export async function actOnContent(db: Db, a: ContentActInput): Promise<Outcome<
     communityId: a.community.id,
     actorId: a.actor.userId,
     actorKind: "member",
-    action: `${a.targetType}.${a.action === "remove" ? "removed" : a.action === "restore" ? "restored" : a.action === "move" ? "moved" : a.action === "pin" ? "pinned" : a.action === "unpin" ? "unpinned" : a.action === "lock" ? "locked" : a.action === "unlock" ? "unlocked" : a.action === "feature" ? "featured" : "unfeatured"}`,
+    action: `${a.targetType}.${a.action === "remove" ? "removed" : a.action === "restore" ? "restored" : a.action === "move" ? "moved" : a.action === "pin" ? "pinned" : a.action === "unpin" ? "unpinned" : a.action === "lock" ? "locked" : a.action === "reopen" ? "reopened" : a.action === "feature" ? "featured" : "unfeatured"}`,
     targetType: a.targetType,
     targetId: row.id,
     targetLabel: label,
