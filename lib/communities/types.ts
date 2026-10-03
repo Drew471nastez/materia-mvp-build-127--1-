@@ -98,7 +98,7 @@ export const NOTIFICATION_KINDS = [
   "announcement",
   "event",
   "event_reminder",
-  "course_unlocked",
+  "course_available",
   "level_up",
   "membership",
   "admin_message",
@@ -460,7 +460,8 @@ export interface LevelRow {
   level: number
   name: string
   min_points: number
-  unlocks: string | null
+  /** What reaching this level gives, in the creator's words. */
+  reward: string | null
 }
 
 export interface PointEventRow {
