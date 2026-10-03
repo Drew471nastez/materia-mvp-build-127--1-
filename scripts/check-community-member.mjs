@@ -383,9 +383,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await shot(p, `${label}-${name}`)
       const n = await p.evaluate((q) => [...document.querySelectorAll(q)].map((li) => Math.round(li.getBoundingClientRect().height)), sel)
       expect(n.length > 0 && n.every((h) => h >= 56), `${name}: rows a thumb can hit`, n)
-      /* A place is its pill; the inbox is the bell in the bar. */
-      const active = await p.evaluate((n) => (n === "notifications" ? (document.querySelector("[data-community-bell][aria-current=page]") ? "notifications" : null) : document.querySelector("[data-community-pills] [aria-current=page]")?.textContent?.trim() || null), name)
-      expect(active && active.toLowerCase().includes(name.slice(0, 6)), `${name}: the shell marks where you are`, active)
+      /* A place is its pill; the community's inbox lives under Community (the bar's bell is Storelib's own). */
+      const active = await p.evaluate(() => document.querySelector("[data-community-pills] [aria-current=page]")?.textContent?.trim() || null)
+      const want = name === "notifications" ? "community" : name.slice(0, 6)
+      expect(active && active.toLowerCase().includes(want), `${name}: the shell marks where you are`, active)
       const s = await sideScroll(p)
       expect(s.scroll <= s.width, `${name}: nothing scrolls sideways`, s)
       if (phone) {

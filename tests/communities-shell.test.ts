@@ -84,8 +84,8 @@ async function main() {
     check("Manage community only when the server says this person runs it", /data\.manageHref \? \[\{ label: "Manage community", href: data\.manageHref/.test(bar))
     check("a visitor gets Log in, back to this page", /href=\{`\/login\?next=\$\{encodeURIComponent\(pathname \|\| base\)\}`\}/.test(bar))
     check("Messages only when the panel is available, with its unread count", /messages !== null && onMessages \?/.test(bar) && /messages > 0 \? <Badge n=\{messages\} \/>/.test(bar))
-    check("the bell is one slot the notifications worker's bell drops into", /<BellSlot /.test(bar) && /NotificationBell/.test(read("components/community/member/bell-slot.tsx")))
-    check("the bell slot draws nothing for somebody who is not a member", /if \(!community \|\| !userId\) return null/.test(code("components/community/member/bell-slot.tsx")))
+    check("the bell is Storelib's own, for anybody signed in", /import \{ NotificationBell \} from "@\/components\/notifications\/notification-bell"/.test(bar) && /\{me \? <NotificationBell /.test(bar) && !existsSync("components/community/member/bell-slot.tsx"))
+    check("the bell keeps the two realtime exports it reads from the member area", /export async function realtimeAuth\(/.test(read("components/community/member/realtime.ts")) && /export const INBOX_EVENT = /.test(read("components/community/member/realtime.ts")))
     check("the bar sits below the status bar in the phone app", /pt-\[env\(safe-area-inset-top\)\]/.test(bar))
     check("its height is measured once and shared as --community-top", /frame\.style\.setProperty\("--community-top", h\)/.test(bar) && /html\.style\.setProperty\("--community-top", h\)/.test(bar))
     const frame = code("components/community/member/shell-frame.tsx")
@@ -318,7 +318,6 @@ async function main() {
     const mine = [
       "components/community/member/top-bar.tsx",
       "components/community/member/shell-frame.tsx",
-      "components/community/member/bell-slot.tsx",
       "components/community/member/space-chips.tsx",
       "components/community/member/person-href.ts",
       "components/community/member/nav.ts",
@@ -336,7 +335,7 @@ async function main() {
     check("no em dash and no banned word", offenders.length === 0, offenders)
     const clients = mine.filter((f) => /^"use client"/.test(read(f)))
     const leaks = clients.filter((f) => /server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)|lib\/admin-blog-auth|\.\/(data|shell|feed-page)"/.test(code(f)))
-    check("client parts import nothing from the server", clients.length >= 6 && leaks.length === 0, leaks)
+    check("client parts import nothing from the server", clients.length >= 5 && leaks.length === 0, { clients: clients.length, leaks })
     check("the presence module says server-only", /^import "server-only"/m.test(read("lib/communities/server/presence.ts")))
     check("no violet fills on the community's frame", !mine.some((f) => /bg-\[#8b5cf6\]|bg-violet|bg-purple/.test(code(f))))
   }

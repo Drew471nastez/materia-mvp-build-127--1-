@@ -90,7 +90,7 @@ createRoot(document.getElementById("app")!).render(
     {/* As components/marketing/conditional-header.tsx decides: no Storelib header on a community's pages (round 2). */}
     {community_page ? null : <PlatformHeaderClient />}
     {community_page ? (
-      <ShellFrame community={community} viewer={viewer} topBar={topBar} unreadNotifications={2}>
+      <ShellFrame community={community} viewer={viewer} topBar={topBar}>
         <Posts />
       </ShellFrame>
     ) : (

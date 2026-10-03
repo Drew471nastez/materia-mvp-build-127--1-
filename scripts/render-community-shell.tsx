@@ -296,7 +296,7 @@ const facts = (c: PublicCommunityView, v: Record<string, unknown> = {}) =>
 
 function Screen() {
   const shell = (children: React.ReactNode) => (
-    <ShellFrame community={community} viewer={viewer} topBar={topBar()} unreadNotifications={4} unreadMessages={2}>
+    <ShellFrame community={community} viewer={viewer} topBar={topBar()} unreadMessages={2}>
       {children}
     </ShellFrame>
   )

@@ -6,7 +6,7 @@
  * ===========================================================================
  * Somebody's community, not a dashboard, and not under Storelib's bar. At
  * the top the community's own bar (top-bar.tsx: its picture, its name, whose
- * it is, the switcher, Messages, the bell and the member's own menu), and
+ * it is, the switcher, Messages, Storelib's bell and the member's own menu), and
  * under it ONE row of pills: Community, Classroom, Calendar, Members,
  * Leaderboards, About, each only when the community has it on. Spaces are
  * not in the frame at all: they are chips at the top of the Community feed
@@ -39,7 +39,6 @@ export interface ShellFrameProps {
   community: ShellCommunity
   viewer: ViewerView
   topBar: TopBarData
-  unreadNotifications: number
   /** Conversations with something unread; null when member messages are not available here. */
   unreadMessages?: number | null
   active?: ShellSection
@@ -86,7 +85,7 @@ export function usePresenceHeartbeat(communityId: string, userId: string | null)
   }, [communityId, userId])
 }
 
-export function ShellFrame({ community, viewer, topBar, unreadNotifications, unreadMessages = null, active, children }: ShellFrameProps) {
+export function ShellFrame({ community, viewer, topBar, unreadMessages = null, active, children }: ShellFrameProps) {
   const pathname = usePathname()
   const current: ShellSection = active ?? sectionFromPath(pathname, community.slug)
   const staff = !!viewer.can.manage_members
@@ -116,7 +115,6 @@ export function ShellFrame({ community, viewer, topBar, unreadNotifications, unr
         messages={canMessage ? messages : null}
         messagesOpen={!!chat}
         onMessages={() => setChat((c) => (c ? null : {}))}
-        bell={viewer.userId ? { userId: viewer.userId, unread: unreadNotifications } : null}
       >
         <PillRow entries={entries} current={pillFor(current)} />
       </CommunityTopBar>

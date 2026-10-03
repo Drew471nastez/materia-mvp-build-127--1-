@@ -300,7 +300,7 @@ const topBar: TopBarData = {
 
 function Screen() {
   const shell = (children: React.ReactNode) => (
-    <ShellFrame community={community} viewer={viewer} topBar={topBar} unreadNotifications={2}>
+    <ShellFrame community={community} viewer={viewer} topBar={topBar}>
       {children}
     </ShellFrame>
   )

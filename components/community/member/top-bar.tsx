@@ -10,9 +10,11 @@
  * and a switcher: the other communities this person is in, Discover
  * communities and Explore Storelib, which is how somebody inside a community
  * still reaches everything else. At the right, for a member, Messages (the
- * conversations panel, with how many have something unread) and the bell;
- * for anybody signed in, their picture with their profile, library,
- * settings and Explore; for a visitor, Log in.
+ * conversations panel, with how many have something unread); for anybody
+ * signed in, Storelib's bell (components/notifications/notification-bell.tsx:
+ * everything that happened for them, communities included, in one list) and
+ * their picture with their profile, library, settings and Explore; for a
+ * visitor, Log in.
  *
  * The same bar on a phone, smaller, with the switcher as a sheet. It sits
  * below the status bar in the phone app (env(safe-area-inset-top)).
@@ -25,7 +27,7 @@ import { ChatRoundDotsIcon as ChatLine } from "@solar-icons/react/linear/chat-ro
 import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-round-dots"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
-import { Badge, BellSlot } from "./bell-slot"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import { BTN, ICON_BTN } from "./ui"
 import type { TopBarCommunity, TopBarData } from "./view-types"
 
@@ -35,9 +37,16 @@ export interface TopBarProps {
   messages?: number | null
   messagesOpen?: boolean
   onMessages?: () => void
-  /** The bell's fallback inbox: only for an active member. */
-  bell?: { userId: string; unread: number } | null
   children?: React.ReactNode
+}
+
+/** The small count on an icon, drawn exactly as Storelib's bell draws its own, so the two read as one pair. */
+function Badge({ n }: { n: number }) {
+  return (
+    <span aria-hidden className="pointer-events-none absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white" data-count-badge="">
+      <span className="block text-[10px] font-semibold leading-none tabular-nums">{n > 99 ? "99+" : String(n)}</span>
+    </span>
+  )
 }
 
 /** The community's picture, or its initials on a quiet grey square. */
@@ -73,7 +82,7 @@ function useCommunityTop(ref: React.RefObject<HTMLElement | null>) {
   }, [ref])
 }
 
-export function CommunityTopBar({ data, messages = null, messagesOpen = false, onMessages, bell = null, children }: TopBarProps) {
+export function CommunityTopBar({ data, messages = null, messagesOpen = false, onMessages, children }: TopBarProps) {
   const pathname = usePathname() || ""
   const ref = useRef<HTMLElement>(null)
   useCommunityTop(ref)
@@ -152,11 +161,13 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
               className={`${ICON_BTN} relative`}
               data-community-messages-button=""
             >
-              {messagesOpen ? <ChatBold size={22} /> : <ChatLine size={22} />}
-              {messages > 0 ? <Badge n={messages} /> : null}
+              <span className="relative inline-flex">
+                {messagesOpen ? <ChatBold size={22} /> : <ChatLine size={22} />}
+                {messages > 0 ? <Badge n={messages} /> : null}
+              </span>
             </button>
           ) : null}
-          <BellSlot community={bell ? { id: community.id, slug: community.slug } : null} userId={bell?.userId ?? null} unread={bell?.unread ?? 0} on={pathname === `${base}/notifications`} />
+          {me ? <NotificationBell className="text-[#6b7280] outline-none hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" /> : null}
           {me ? (
             <ResponsiveActionMenu
               title={me.name}

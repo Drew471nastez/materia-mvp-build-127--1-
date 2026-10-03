@@ -71,7 +71,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     },
     removeChannel() {},
     realtime: { setAuth: async () => {} },
-    auth: { getSession: async () => ({ data: { session: null } }) },
+    auth: { getSession: async () => ({ data: { session: { user: { id: "u-me" } } } }) },
   }
 }
 `)
@@ -114,6 +114,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         calls.push({ url: short, method: r.method() })
         let body = {}
         if (short.endsWith("/presence")) body = { ok: true, ready: true }
+        else if (short.startsWith("/api/notifications/inbox")) body = { unread: 4, items: [], nextCursor: null }
         else if (short.includes("/dms")) body = { ready: true, unread: 2, conversations: [] }
         else if (short.includes("/posts?")) body = { pinned: [], posts: [], nextCursor: null }
         else if (short.includes("/play")) body = { url: `${ORIGIN}/media/clip.mp4`, poster: null, mime: "video/mp4", expiresAt: null }
@@ -135,7 +136,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   const smallTargets = (p) =>
     p.evaluate(() => {
       const out = []
-      for (const el of document.querySelectorAll("button, a[data-community-nav], a[data-space-chip], [data-community-bell], [data-community-me], [data-community-switcher], [data-gallery-thumb], [data-join-bar] a, [data-join-bar] button, [role=radio]")) {
+      for (const el of document.querySelectorAll("button, a[data-community-nav], a[data-space-chip], [data-notification-bell], [data-community-me], [data-community-switcher], [data-gallery-thumb], [data-join-bar] a, [data-join-bar] button, [role=radio]")) {
         const r = el.getBoundingClientRect()
         if (!r.width || !r.height) continue
         const cs = getComputedStyle(el)
@@ -175,7 +176,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           chips: [...document.querySelectorAll("[data-space-chip]")].map((a) => a.textContent.trim()),
           chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip"),
           messages: document.querySelector("[data-community-messages-button] [data-count-badge]")?.textContent ?? null,
-          bell: document.querySelector("[data-community-bell] [data-count-badge]")?.textContent ?? null,
+          bell: document.querySelector("[data-community-top] [data-notification-bell] [data-bell-badge]")?.textContent?.trim() ?? null,
           me: !!document.querySelector("[data-community-me]"),
           stats: [...document.querySelectorAll("[data-community-aside] [data-stat]")].filter((d) => d.getBoundingClientRect().width > 0).map((d) => d.textContent.trim()),
           topVar: getComputedStyle(document.documentElement).getPropertyValue("--community-top").trim(),
@@ -188,7 +189,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(g.name === "Clay Studio" && g.by === "/mara" && /By Mara Lindqvist/.test(g.byText || ""), "the name, and By <creator> to their page", { name: g.name, by: g.by })
       expect(g.pills.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.current === "Community", "one row of pills, Community marked", g.pills)
       expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room,Saved" && g.chipOn === "all", "the spaces as chips, All chosen, Saved at the end", g.chips)
-      expect(g.messages === "2" && g.bell === "4" && g.me, "Messages and the bell with their counts, and my picture", { messages: g.messages, bell: g.bell })
+      expect(g.messages === "2" && g.bell === "4" && g.me, "Messages and Storelib's bell with their counts, and my picture", { messages: g.messages, bell: g.bell })
       expect(g.topVar === `${g.height}px`, "--community-top is the bar's measured height", { topVar: g.topVar, height: g.height })
       expect(g.theme === "#ffffff", "the browser's bar is white to match", g.theme)
       expect(g.bg === "rgb(248, 249, 250)", "the page is #f8f9fa", g.bg)
@@ -358,7 +359,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const v = await p.evaluate(() => ({
         login: document.querySelector("[data-community-login]")?.getAttribute("href"),
         messages: !!document.querySelector("[data-community-messages-button]"),
-        bell: !!document.querySelector("[data-community-bell]"),
+        bell: !!document.querySelector("[data-notification-bell]"),
         gallery: !!document.querySelector("[data-community-gallery]"),
         stats: [...document.querySelectorAll((innerWidth >= 1024 ? "[data-join-card]" : "[data-join-summary]") + " [data-stat]")].map((d) => d.getAttribute("data-stat")),
         creator: document.querySelector("[data-info=creator] a")?.getAttribute("href"),

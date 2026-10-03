@@ -4,8 +4,8 @@ import "server-only"
  * CommunityShell: the member area's frame around every page of a community,
  * drawn once by the community's layout (app/(marketing)/community/[slug]/
  * layout.tsx) so it stays put while the member moves around. It reads the
- * top bar's facts (whose it is, who is looking, their other communities),
- * the unread notifications and messages, then hands plain data to the client
+ * top bar's facts (whose it is, who is looking, their other communities)
+ * and the unread messages, then hands plain data to the client
  * frame (shell-frame.tsx).
  *
  * CommunityPublicShell is the same top bar alone, for somebody who is not a
@@ -27,7 +27,7 @@ import type { ShellSection } from "./view-types"
 async function CommunityShellAsync({ community, viewer, active, children }: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) {
   const [data, topBar] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer)])
   return (
-    <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadNotifications={data.unreadNotifications} unreadMessages={data.unreadMessages} active={active}>
+    <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} active={active}>
       {children}
     </ShellFrame>
   )
