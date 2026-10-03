@@ -320,8 +320,10 @@ async function main() {
       /origin: checkoutOrigin\(creator\.id\)/.test(read("app/checkout/checkout-client.tsx")) &&
         /origin: pageOrigin\(\)/.test(read("components/onepage/public-onepage.tsx")) &&
         /origin: pageOrigin\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
-    check("a website adds itself to every link to checkout", /<CheckoutLinkOrigin \/>/.test(read("app/(site)/layout.tsx")) && /checkoutHrefWithOrigin\(`\/checkout\?productId=/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
-    check("a website's Buy button marks its checkout", /&src=website`/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
+    /* The product section's Buy now builds its address with buyNowHref (lib/products/product-page-model.ts), product first. */
+    const buyNow = read("lib/products/product-page-model.ts")
+    check("a website adds itself to every link to checkout", /<CheckoutLinkOrigin \/>/.test(read("app/(site)/layout.tsx")) && /checkoutHrefWithOrigin\(buyNowHref\(/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /new URLSearchParams\(\{ productId: p\.id \}\)/.test(buyNow) && /return `\/checkout\?\$\{q\.toString\(\)\}`/.test(buyNow))
+    check("a website's Buy button marks its checkout", /q\.set\("src", "website"\)/.test(buyNow))
     const sql = read("supabase/sql/RUN_ORDER_SOURCE.sql")
     check("the columns arrive by SQL, additive", /add column if not exists source text/.test(sql) && /add column if not exists source_detail jsonb/.test(sql))
     check("and by a migration with the same columns", /add column if not exists source_detail jsonb/i.test(read("supabase/migrations/20260925_order_source_detail.sql")))

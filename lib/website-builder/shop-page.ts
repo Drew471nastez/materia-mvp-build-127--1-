@@ -62,6 +62,9 @@ export function shopSections(
       columns: { desktop: 3, tablet: 2, mobile: 1 },
       shape: "1 / 1",
       show_price: true,
+      /* The shop is where a visitor narrows the list: price, stock, type,
+         options and an order, from the address (lib/products/catalog-filters.ts). */
+      show_filters: true,
       // No "See everything" button: this is everything.
       button_text: "",
       button_url: "",
@@ -175,7 +178,11 @@ export function notFoundSections(homeSections: SectionInstance[]): SectionInstan
 export function productMatchesQuery(product: any, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  const fields = [product?.title, product?.description, product?.category, product?.categoryName]
+  /* A row from the database (the header's search) or a shop card (the search
+     page), whose fields are under `settings`. The page used to read a card
+     as a row, found no title on it, and matched nothing for any word. */
+  const s = product?.settings ?? {}
+  const fields = [product?.title, product?.description, product?.category, product?.categoryName, s.title, s.description, s.category]
   return fields.some((value) => typeof value === "string" && value.toLowerCase().includes(q))
 }
 

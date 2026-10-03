@@ -24,38 +24,94 @@
  * Pure: the route passes the page and gets the page back, the same array
  * when it already had a product section.
  */
-import type { SectionInstance } from "./types"
+import type { BlockInstance, SectionInstance } from "./types"
+import productSchema from "../../themes/default/sections/product.json"
 
 /** The ids and the words the shipped presets gave their placeholder. */
 const PLACEHOLDER_ID = "product-hero"
 const PLACEHOLDER_HEADINGS = new Set(["product name", "product title"])
 
-/** The main product section, as the builder's own "Default product" preset makes it. */
+type BlockDef = { type: string; fields: { id: string; type: string; default?: unknown }[] }
+const BLOCK_DEFS = (productSchema as unknown as { blocks: BlockDef[] }).blocks
+const PRESET = (productSchema as unknown as { presets: { settings: Record<string, unknown>; blocks: BlockInstance[] }[] }).presets[0]
+
+/** A product block's settings as its schema defaults them. */
+export function productBlockDefaults(type: string): Record<string, unknown> {
+  const def = BLOCK_DEFS.find((b) => b.type === type)
+  const out: Record<string, unknown> = {}
+  for (const f of def?.fields ?? []) if (f.type !== "header" && f.default !== undefined) out[f.id] = f.default
+  return out
+}
+
+/** The main product section, as the builder's own "Default product" preset makes it: settings and blocks. */
 export function mainProductSection(id = "main-product"): SectionInstance {
   return {
     id,
     type: "product",
     name: "Product",
     hidden: false,
-    settings: {
-      show_reviews_summary: false,
-      reviews_position: "above_title",
-      format: "standard",
-      color_scheme: "white",
-      image_width: "55%",
-      multiple_images_layout: "stacked",
-      image_click_action: "none",
-      image_hover_action: "none",
-      product_layout: "two_column",
-      show_wishlist: true,
-      show_social_icons: false,
-      show_whats_included: true,
-      show_share_button: true,
-      padding_top: 48,
-      padding_bottom: 48,
-    },
-    blocks: [],
+    settings: { ...PRESET.settings },
+    blocks: PRESET.blocks.map((b) => ({ id: b.id, type: b.type, settings: { ...b.settings } })),
   }
+}
+
+/**
+ * ===========================================================================
+ *  A PRODUCT SECTION SAVED BEFORE IT HAD BLOCKS
+ * ===========================================================================
+ * The product section used to be one fixed layout with switches: show the
+ * wishlist link, show the share link, show the file list. It is blocks now,
+ * the way Shopify's main product section is, and a section saved before
+ * that has no blocks and those switches instead.
+ *
+ * Such a section is drawn with the blocks its switches describe, in the
+ * order the old layout drew them, so a live page looks as it did until its
+ * creator changes it. The builder puts the same blocks in the sidebar when
+ * the page opens (and the next save keeps them), so what the creator edits
+ * is what the visitor sees. Nothing stored is removed: the switches stay in
+ * the settings, unread.
+ *
+ * A section is legacy when it has no blocks AND still carries one of the old
+ * switches. A section made since has no switches, so a creator who deletes
+ * every block gets the pictures alone, as they asked, not this list back.
+ */
+const LEGACY_KEYS = ["show_wishlist", "show_share_button", "show_whats_included", "show_social_icons", "show_reviews_summary"]
+
+export function isLegacyProductSection(section: Pick<SectionInstance, "type" | "settings" | "blocks">): boolean {
+  if (section.type !== "product") return false
+  if (Array.isArray(section.blocks) && section.blocks.length > 0) return false
+  const s = section.settings ?? {}
+  return LEGACY_KEYS.some((k) => k in s)
+}
+
+/** The blocks an old section's switches describe. Ids are fixed, so the canvas and the sidebar agree on them. */
+export function legacyProductBlocks(settings: Record<string, unknown>): BlockInstance[] {
+  const on = (key: string) => settings[key] !== false
+  const b = (type: string, extra: Record<string, unknown> = {}): BlockInstance => ({
+    id: `legacy-${type}`,
+    type,
+    settings: { ...productBlockDefaults(type), ...extra },
+  })
+  return [
+    /* The old page showed only a sale badge, above the title. */
+    b("badges", { show_new: false, show_sold_out: true }),
+    b("title"),
+    b("price"),
+    b("variant_picker"),
+    b("pay_what_you_want"),
+    b("quantity"),
+    b("buy_buttons"),
+    b("low_stock"),
+    ...(on("show_wishlist") ? [b("wishlist")] : []),
+    ...(on("show_share_button") ? [b("share")] : []),
+    b("description"),
+    ...(on("show_whats_included") ? [b("files")] : []),
+  ]
+}
+
+/** The section with the blocks it draws: its own, or its old switches' when it has none. */
+export function withProductBlocks(section: SectionInstance): SectionInstance {
+  return isLegacyProductSection(section) ? { ...section, blocks: legacyProductBlocks(section.settings ?? {}) } : section
 }
 
 export function isUntouchedPlaceholder(section: SectionInstance): boolean {

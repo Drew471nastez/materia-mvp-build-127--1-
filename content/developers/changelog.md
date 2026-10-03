@@ -16,6 +16,11 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
+- [The main product section](/developers/selling#the-main-product-section) is blocks: title, price, variant picker with swatches, pay what you want, quantity, buy buttons, low stock, badges, description, collapsible tabs, text, icon with text, share, wishlist, divider, breadcrumbs, file list and custom code. Its media is stacked, a grid, a slideshow with thumbnails or a carousel, swipes on a phone, opens larger with zoom, and shows the chosen variant's picture.
+- [Filtering the shop](/developers/selling#filtering-the-shop): `page.filters` on the shop and search pages, from the address.
+- [Breadcrumbs](/developers/selling#breadcrumbs): `page.breadcrumbs` on every page but home, `page.title`, and a Breadcrumbs section.
+- `products` carry `category` and, for a product that ships, `options`.
+
 - [Theme blocks](/developers/blocks#theme-blocks), the way Shopify has them: a file each in `blocks/`, accepted by a section with `{ "type": "@theme" }` or by name, drawn with `{% content_for "blocks" %}`, private when the file name starts with `_`. Heading, Text, Button, Image, Video, Spacer and Group ship with every theme.
 - Blocks inside blocks, eight levels deep: a theme block that accepts blocks draws them with the same tag. Group makes rows and columns out of any blocks.
 - [Static blocks](/developers/blocks#static-blocks), placed by the template with `{% content_for "block", type: "…", id: "…" %}`: edited and hidden, never moved or deleted.

@@ -44,6 +44,10 @@ const INJECTORS: Record<string, { settings: string[]; why?: string }> = {
   "TabsContentSection.tsx": { settings: ["content"] },
   "ChapterPreviewSection.tsx": { settings: ["preview_text"] },
   "MapEmbedSection.tsx": { settings: ["embed_code"] },
+  /* The product section's blocks: a collapsible tab's rich text, custom
+     code, and the product description, which the server cleans as rich
+     text before it reaches the page (lib/products/product-section-data.ts). */
+  "product-blocks.tsx": { settings: ["content", "html_content", "description"] },
   "StorelibSection.tsx": {
     settings: [],
     why: "the theme compiler's output, which escapes every value it prints; the only way past it is the `raw` filter, and tests/storelib-security.test.ts covers that",

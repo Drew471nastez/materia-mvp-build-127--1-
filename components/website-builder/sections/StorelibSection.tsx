@@ -328,6 +328,24 @@ export function StorelibSection({
     else settle(form, "done", "Thanks, you're on the list.")
   }
 
+  /**
+   * A SHOP'S FILTERS APPLY AS THEY ARE TICKED. The filter form a section
+   * draws (`data-storelib-filters`, lib/products/catalog-filters.ts) is a
+   * plain GET form with an Apply button, which is what works before any
+   * script. On the live page a ticked box or a new sort submits it at once,
+   * the way Shopify's filters do. The section's own script cannot: it runs in
+   * a sandbox that may not navigate. The canvas never leaves the editor.
+   */
+  const onFilterChange = (e: FormEvent<HTMLDivElement>) => {
+    if (inCanvas) return
+    const field = e.target as HTMLElement
+    const form = field.closest?.("form[data-storelib-filters]") as HTMLFormElement | null
+    if (!form || !(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return
+    if (field instanceof HTMLInputElement && field.type !== "checkbox") return
+    if (field.classList.contains("cat__toggle")) return
+    form.requestSubmit()
+  }
+
   return (
     <SectionWrapper
       isEditing={isEditing}
@@ -344,6 +362,7 @@ export function StorelibSection({
         ref={setScriptRoot}
         onClickCapture={intercept}
         onSubmitCapture={onSubmit}
+        onChangeCapture={onFilterChange}
         dangerouslySetInnerHTML={htmlProp}
       />
     </SectionWrapper>

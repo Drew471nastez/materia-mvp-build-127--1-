@@ -399,7 +399,8 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
   const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(pageKey))
   /* `shop.name` falls back to the creator's public name when the store has
      none set: lib/storelib-theme/globals.ts. Nothing per visitor here. */
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, {
+  /* The page's title rides on `page` too, for the Breadcrumbs section's trail. */
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, { title: pageTitleFromKey(pageKey) }, data, {
     shop: { name: site.displayName },
   })
   return { kind: "site", site: { ...site, sections, prerendered } }
