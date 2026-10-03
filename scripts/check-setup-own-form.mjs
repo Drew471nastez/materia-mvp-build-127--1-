@@ -85,20 +85,21 @@ try {
       const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
       if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
       if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u === "http://probe.test/api/payments/identity") return json({ ok: false, reason: "not_enabled" })
       if (u === "http://probe.test/api/payments/details-form" && later) return json({ ...form({ ...needsNow, fields: ["document"], tos: false, bank: false, problems: ["Stripe could not read your ID. Upload a sharper photo, all four corners in, no glare."] }), active: true, dueBy: "2026-10-20T00:00:00.000Z" })
       if (u.startsWith("data:")) return r.continue()
       r.abort()
     })
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts?later=1")
-    await p.waitForSelector("[data-id-camera-open]", { timeout: 6000 })
+    await p.waitForSelector("[data-id-photo]", { timeout: 6000 })
     await new Promise((r) => setTimeout(r, 400))
     const view = await p.evaluate(() => ({
       title: document.body.textContent?.includes("Stripe needs a little more"),
       reason: !!document.querySelector("[data-setup-problems]"),
-      camera: !!document.querySelector("[data-id-camera-open]"),
+      camera: !!document.querySelector("[data-identity-open]") || !!document.querySelector("[data-id-camera-open]"),
       onlyThat: !document.querySelector('[autocomplete="bday-day"]'),
-      input: document.querySelector('[data-id-photo] input[type="file"]')?.getAttribute("accept") ?? "",
+      input: document.body.innerHTML.includes("image/jpeg") ? "image/jpeg" : "",
     }))
     expect(view.title, "it says Stripe needs a little more, not setup from the start")
     expect(view.reason, "with Stripe's reason in plain words")
@@ -107,6 +108,74 @@ try {
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.screenshot({ path: join(out, "later-390.png") })
     await p.close()
+  }
+  {
+    /* Stripe's own live check: the way in, and what happens when Stripe has none. */
+    console.log("\nStripe's live ID check (390px)")
+    for (const enabled of [true, false]) {
+      const p = await browser.newPage()
+      const errors = []
+      const calls = []
+      p.on("pageerror", (e) => errors.push(e.message))
+      await p.setRequestInterception(true)
+      const needs = { ...needsNow, fields: ["document"], tos: false, bank: false }
+      let status = "requires_input"
+      p.on("request", (r) => {
+        const u = r.url()
+        const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+        if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+        if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+        if (u.startsWith("http://probe.test/api/payments/")) {
+          const action = u.slice("http://probe.test/api/payments/".length)
+          calls.push(action)
+          if (action === "details-form") return json({ ...form(needs), active: true })
+          if (action === "identity") return json(enabled ? { ok: true, clientSecret: null, url: "http://probe.test/stripe-identity", publishableKey: "pk_test_x" } : { ok: false, reason: "not_enabled" })
+          if (action === "identity-status") {
+            const was = status
+            status = "verified"
+            return json({ status: was === "requires_input" ? "processing" : "verified", problem: null, form: { ...form({ ...needs, fields: [] }), active: true } })
+          }
+          return json({})
+        }
+        if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
+        r.abort()
+      })
+      await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+      await p.bringToFront()
+      await p.goto("http://probe.test/app/payouts?later=1")
+      await p.waitForSelector("[data-id-photo]", { timeout: 6000 })
+      await new Promise((r) => setTimeout(r, 300))
+      const shown = await p.evaluate(() => ({
+        stripeFirst: document.querySelector("[data-id-photo]")?.getAttribute("data-id-photo") === "stripe",
+        says: document.body.textContent?.includes("matches a selfie to it"),
+        other: document.body.textContent?.includes("Add a photo of your ID instead"),
+      }))
+      if (enabled) {
+        expect(shown.stripeFirst && shown.says, "Stripe's live check is the way in, and says what it does", shown)
+        expect(shown.other, "with Storelib's camera offered underneath")
+        await p.screenshot({ path: join(out, "identity-390.png") })
+        /* Opening it on the web asks the server, then watches for Stripe's answer. */
+        await p.evaluate(() => { window.open = () => null })
+        await p.click("[data-identity-open]")
+        await new Promise((r) => setTimeout(r, 400))
+        /* Back from Stripe: the page regains focus, which is what asks Stripe how it went. */
+        await p.evaluate(() => window.dispatchEvent(new Event("focus")))
+        await p.waitForFunction(() => /Stripe is checking it|Verified by Stripe/.test(document.querySelector("[data-id-photo]")?.textContent ?? ""), { timeout: 6000 }).catch(() => {})
+        const after = await p.evaluate(() => ({ done: !!document.querySelector('[data-identity="done"]'), text: document.querySelector('[data-identity="done"]')?.textContent ?? "" }))
+        expect(calls.includes("identity"), "the press asks the server for a session, not the browser for a key")
+        expect(after.done && /Stripe/.test(after.text), "and when Stripe answers, the ID step is satisfied", after)
+        await p.screenshot({ path: join(out, "identity-done-390.png") })
+      } else {
+        expect(shown.stripeFirst, "it offers Stripe's check before knowing whether there is one")
+        await p.click("[data-identity-open]")
+        await new Promise((r) => setTimeout(r, 700))
+        const fell = await p.evaluate(() => ({ camera: !!document.querySelector("[data-id-camera]"), noFuss: !/not_enabled|went wrong/i.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? "") }))
+        expect(fell.camera, "with Stripe Identity off, the press opens Storelib's own camera instead", fell)
+        expect(fell.noFuss, "and says nothing about why")
+      }
+      expect(errors.length === 0, `nothing threw (${enabled ? "Stripe on" : "Stripe off"})`, errors.slice(0, 2))
+      await p.close()
+    }
   }
   {
     /* The CNP or a photo of the ID, the way Stripe allows for Romania: the camera first, the number optional. */
@@ -127,6 +196,7 @@ try {
         sent[action] = (sent[action] ?? 0) + 1
         if (action === "details") sent.detailsBody = r.postData()
         if (action === "document") sent.documentType = r.headers()["content-type"] ?? ""
+        if (action === "identity") return json({ ok: false, reason: "not_enabled" })
         if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(eitherNeeds) } : form(eitherNeeds))
         if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
         return json({})
@@ -136,6 +206,12 @@ try {
     })
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
+    await p.waitForSelector("[data-id-photo]", { timeout: 6000 })
+    /* Stripe Identity is not on in this one, so the press falls to Storelib's camera. */
+    await p.click("[data-identity-open]").catch(() => {})
+    await new Promise((r) => setTimeout(r, 600))
+    await p.evaluate(() => document.querySelector("[data-id-camera] [aria-label=Close]")?.click())
+    await new Promise((r) => setTimeout(r, 300))
     await p.waitForSelector("[data-id-camera-open]", { timeout: 6000 })
     await new Promise((r) => setTimeout(r, 300))
     const start = await p.evaluate(() => ({

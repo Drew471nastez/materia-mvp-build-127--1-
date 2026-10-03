@@ -25,6 +25,9 @@
  *   POST document        multipart { which, side, file }: an ID photo or proof of
  *                        address, uploaded to Stripe and attached in one call
  *   POST bank            { holderName, iban } or { holderName, accountNumber, routingNumber }
+ *   POST identity        starts (or carries on) Stripe's own live ID check and
+ *                        returns its modal secret and hosted page, or why there is none
+ *   POST identity-status where that check has got to
  *
  * Errors are one sentence for the creator. Airwallex's own codes and
  * messages stay in the server log.
@@ -34,6 +37,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
+import { identityStatus, startIdentity } from "@/lib/payments/stripe/identity"
 import {
   addPayoutAccount,
   componentAuth,
@@ -200,6 +204,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const form = await addBank(creator, body)
         return NextResponse.json({ form, overview: await overview(creator) }, { headers: NO_STORE })
+      }
+      case "identity": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        await prepareVerification(creator)
+        const started = await startIdentity(creator, `${originOf(request)}/app/payouts/identity-done`)
+        return NextResponse.json(started, { headers: NO_STORE })
+      }
+      case "identity-status": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        const view = await identityStatus(creator)
+        return NextResponse.json({ ...view, form: await detailsForm(creator) }, { headers: NO_STORE })
       }
       case "prepare": {
         return NextResponse.json(await prepareVerification(creator), { headers: NO_STORE })

@@ -31,7 +31,7 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, Upload, X } from "lucide-react"
+import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, ScanFace, Upload, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
@@ -44,6 +44,7 @@ import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { openInApp } from "@/lib/native-bridge"
 import { IdCamera, armCameraSounds, type IdSide } from "@/components/app/settings/id-camera"
+import { openIdentity } from "@/lib/payments/identity-client"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
 
@@ -872,10 +873,54 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
   const [error, setError] = React.useState<string | null>(null)
   const [tried, setTried] = React.useState(false)
   const [camera, setCamera] = React.useState<{ side: IdSide } | null>(null)
+  /* Stripe's own live check: the way in, until Stripe says there is none for this account. */
+  const [idWay, setIdWay] = React.useState<"stripe" | "camera">("stripe")
+  const [idState, setIdState] = React.useState<"idle" | "opening" | "waiting" | "checking" | "done">("idle")
+  const [idProblem, setIdProblem] = React.useState<string | null>(null)
   const [noBack, setNoBack] = React.useState(false)
   const [typeIdInstead, setTypeIdInstead] = React.useState(false)
   const pickFor = React.useRef<IdSide>("front")
   const picker = React.useRef<HTMLInputElement>(null)
+
+  /* Stripe's answer, asked for until it has one. */
+  const askStripe = React.useCallback(async () => {
+    try {
+      const r = await post<{ status: string; problem: string | null; form: DetailsForm }>("identity-status", {})
+      if (r.status === "verified" || r.status === "processing") {
+        setIdState(r.status === "verified" ? "done" : "checking")
+        setIdProblem(null)
+        setForm((f) => (f ? { ...r.form, needs: { ...r.form.needs, fields: f.needs.fields } } : r.form))
+        playAskSound("done")
+        return true
+      }
+      if (r.problem) {
+        setIdProblem(r.problem)
+        setIdState("idle")
+        return true
+      }
+    } catch {
+      /* Ask again on the next turn. */
+    }
+    return false
+  }, [setForm])
+
+  /* While Stripe's own screen is open, or its sheet is: ask again when the page comes back, and now and then. */
+  React.useEffect(() => {
+    if (idState !== "waiting") return
+    const tick = () => void askStripe()
+    /* Stripe is often done before the person is back: ask once, soon, then keep asking. */
+    const first = window.setTimeout(tick, 800)
+    const t = window.setInterval(tick, 2500)
+    const onBack = () => document.visibilityState === "visible" && tick()
+    document.addEventListener("visibilitychange", onBack)
+    window.addEventListener("focus", onBack)
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(t)
+      document.removeEventListener("visibilitychange", onBack)
+      window.removeEventListener("focus", onBack)
+    }
+  }, [idState, askStripe])
 
   /* Nothing left to ask here: straight on. */
   const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos && form.needs.other.length === 0
@@ -918,7 +963,8 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
    * the way in and the number is an option behind a link: either one is
    * enough, and Stripe decides which it accepts.
    */
-  const front = !!uploaded["document-front"]
+  const idVerified = idState === "done" || idState === "checking"
+  const front = !!uploaded["document-front"] || idVerified
   const idEither = form.needs.either.some((e) => e.original.includes("idNumber") && e.alternative.includes("document"))
   const docDue = has("document") && !form.needs.offered.includes("document")
   const idShown = has("idNumber") && (!idEither || typeIdInstead || idNumber.trim().length > 0)
@@ -939,6 +985,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
       setError("Check the fields marked in red.")
       return
     }
+    if (idState === "waiting") return setError("Finish the check with Stripe first, or add a photo of your ID instead.")
     if (missingDoc) return setError(idEither ? `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.` : "Add a photo of the front of your ID.")
     if (missingProof) return setError("Add a document that shows your address.")
     setBusy(true)
@@ -970,8 +1017,39 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
     }
   }
 
+  const runIdentity = async () => {
+    setIdProblem(null)
+    setIdState("opening")
+    try {
+      const r = await post<{ ok?: boolean; reason?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", {})
+      if (!r.ok) {
+        /* No Stripe check here (not switched on, an unsupported country): the camera is the way, quietly. */
+        setIdWay("camera")
+        setIdState("idle")
+        openCamera("front")
+        return
+      }
+      const how = await openIdentity({ clientSecret: r.clientSecret ?? null, url: r.url ?? null, publishableKey: r.publishableKey ?? "" })
+      if (how === "no_way") {
+        setIdWay("camera")
+        setIdState("idle")
+        openCamera("front")
+        return
+      }
+      setIdState("waiting")
+      /* The modal closed: Stripe usually knows at once. */
+      if (how === "closed") {
+        window.setTimeout(() => void askStripe(), 400)
+      }
+    } catch {
+      setIdWay("camera")
+      setIdState("idle")
+      openCamera("front")
+    }
+  }
+
   /* The ID photo: the live camera first, a photo from the library as the other way. */
-  const idPhoto = has("document") ? (
+  const cameraPhoto = has("document") ? (
     <div className="space-y-2" data-id-photo="">
       <span className="block text-[13px] font-medium text-[#1a1a2e]">{idEither ? "Verify with your ID" : "Photo of your ID"}</span>
       {!front ? (
@@ -1064,6 +1142,77 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
       />
     </div>
   ) : null
+
+  /*
+   * STRIPE'S OWN LIVE CHECK, the way in. Stripe's screen scans the document
+   * live and matches a selfie to it, and Stripe clears the account's own
+   * requirement when it is satisfied: Storelib never sees the document, the
+   * selfie or the comparison. Where Stripe has no check for this account
+   * (not switched on, a country it does not cover) the press falls through
+   * to Storelib's camera without saying anything clever about it.
+   */
+  const idPhoto = has("document")
+    ? idWay === "camera"
+      ? cameraPhoto
+      : (
+          <div className="space-y-2" data-id-photo="stripe">
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">{idEither ? "Verify with your ID" : "Verify who you are"}</span>
+            {idVerified ? (
+              <div className="flex items-center gap-3 rounded-2xl border border-[#abefc6] bg-[#f6fef9] px-4 py-3.5" data-identity="done">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#067647]">
+                  <Check className="h-4 w-4" strokeWidth={3} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-medium text-[#1a1a2e]">{idState === "done" ? "Verified by Stripe" : "Stripe is checking it"}</span>
+                  <span className="block text-[12.5px] text-[#6b7280]">{idState === "done" ? "Your ID and selfie matched." : "This usually takes under a minute."}</span>
+                </span>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void runIdentity()}
+                  disabled={idState === "opening" || idState === "waiting"}
+                  data-identity-open=""
+                  className={cn(
+                    "flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border px-4 py-4 text-left outline-none transition-[border-color,background-color,transform] duration-150 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:cursor-default",
+                    tried && missingDoc ? "border-[#f3b8ab] bg-[#fff8f6]" : "border-[#e3e5e8] bg-white hover:border-[#c9ccd3] hover:bg-[#fafafb]",
+                  )}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] text-white">
+                    {idState === "opening" || idState === "waiting" ? <Spinner /> : <ScanFace className="h-5 w-5" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold text-[#1a1a2e]">
+                      {idState === "waiting" ? "Waiting for Stripe" : idState === "opening" ? "Opening Stripe" : "Verify with Stripe"}
+                    </span>
+                    <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
+                      {idState === "waiting"
+                        ? "Finish the check with Stripe, then come back here."
+                        : "Stripe scans your ID and matches a selfie to it. About a minute, and Storelib never sees either."}
+                    </span>
+                  </span>
+                </button>
+                {idProblem ? (
+                  <p role="status" className="rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-2.5 text-[13px] leading-[19px] text-[#93370d]" data-identity-problem="">
+                    {idProblem}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdWay("camera")
+                    openCamera("front")
+                  }}
+                  className="text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline"
+                >
+                  Add a photo of your ID instead
+                </button>
+              </>
+            )}
+          </div>
+        )
+    : null
 
   return (
     <form onSubmit={submit} onInput={() => error && setError(null)} noValidate className="flex min-h-full flex-1 flex-col">

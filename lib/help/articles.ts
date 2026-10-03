@@ -266,7 +266,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "steps", items: [
         "Open Payouts in your dashboard, or Settings and then Payments, and press Set up payments.",
         "Account: your country and your full legal name as it appears on your ID, with any middle names. No business details.",
-        "Your details: only what Stripe needs in your country to switch payments on, usually your date of birth, home address and national ID number. If Stripe needs a photo of your ID or proof of address later, as your sales grow, we email you and Payouts opens the same form with just that. See [Verifying your identity](/help/orders-and-payouts/identity-verification).",
+        "Your details: only what Stripe needs in your country to switch payments on, usually your date of birth, home address and national ID number. Where Stripe wants to see your ID, it runs the check itself: its screen scans your document and matches a selfie to it, in about a minute. See [Verifying your identity](/help/orders-and-payouts/identity-verification).",
         "Bank: your IBAN, or your account and routing number where your country does not use IBANs.",
       ] },
       { type: "note", text: "Your country sets your payout currency and cannot be changed afterwards. If you pick the wrong one, disconnect before you finish setting up and start again." },
@@ -283,11 +283,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: "Why Stripe asks for your ID, what counts as a good photo, and what happens if it is declined.",
     keywords: ["identity", "verification", "id", "passport", "kyc", "document", "photo", "verify", "declined", "rejected"],
     body: [
-      { type: "p", text: "Before anyone can be paid for selling online, the law in every country Storelib works in says the payment provider has to know who they are paying. That is what the ID step is: you add a photo of your document in Storelib's payout form, it is sent straight to Stripe, and Stripe checks it. Storelib does not keep a copy." },
+      { type: "p", text: "Before anyone can be paid for selling online, the law in every country Storelib works in says the payment provider has to know who they are paying. That is what the ID step is. Stripe runs it on its own screen: it scans your document with your camera, takes a selfie, and matches the face to the document. Storelib never sees your document or your face, only whether Stripe is satisfied." },
+      { type: "p", text: "Where Stripe cannot run that check, in a country it does not cover yet, you add a photo of your document instead and Stripe checks that. Either way Storelib keeps no copy." },
       { type: "h", text: "What you need" },
       { type: "list", items: [
         "A passport, national ID card, residence permit or driving licence that has not expired",
-        "A phone camera or a scan, for a photo of the front (and the back of an ID card)",
+        "A phone or a laptop with a camera, for the scan and the selfie",
         "Your legal name and date of birth exactly as they appear on the document",
       ] },
       { type: "h", text: "A photo that passes first time" },

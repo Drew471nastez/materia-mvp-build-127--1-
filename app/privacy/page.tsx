@@ -314,14 +314,21 @@ export default function PrivacyPolicyPage() {
                   Verification is required by law and by the card networks before a Seller can be paid. The
                   Seller enters what Stripe requires for their country in Storelib&apos;s payout form: typically a
                   date of birth, a home address, a phone number and a national identification number, and, when
-                  Stripe asks for it, a photograph of a government issued identity document or a proof of address. Stripe may process
-                  the document images with automated and biometric technology to confirm that the document is
-                  genuine and belongs to the Seller.
+                  Stripe asks for it, a proof of address.
                 </p>
                 <p>
-                  Storelib passes these details to Stripe over an encrypted connection as they are submitted and
-                  does not store them: no identity document, identification number, date of birth or full bank
-                  account number is written to Storelib&apos;s databases or logs. Afterwards Storelib holds only
+                  Where Stripe requires an identity document, the check is run by Stripe Identity on Stripe&apos;s
+                  own screens: Stripe scans the document with the device camera and takes a photograph of the
+                  Seller&apos;s face, and processes both with automated and biometric technology to confirm that
+                  the document is genuine and belongs to the person presenting it. That document image, that
+                  facial image and the biometric comparison between them are collected by Stripe directly and
+                  never pass through Storelib. Where Stripe Identity is not available, a Seller may instead add a
+                  photograph of their document, which Storelib transmits to Stripe without storing it.
+                </p>
+                <p>
+                  Storelib passes the details a Seller types to Stripe over an encrypted connection as they are
+                  submitted and does not store them: no identity document, facial image, identification number,
+                  date of birth or full bank account number is written to Storelib&apos;s databases or logs. Afterwards Storelib holds only
                   the Seller&apos;s name, country, verification status and the last four digits of their payout
                   account. Stripe is an independent controller of that data, retains it for the period its own
                   policies and applicable law require, and a Seller may ask Stripe to delete their verification
