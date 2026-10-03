@@ -18,10 +18,10 @@ function check(name: string, ok: boolean) {
 const cfg = codeDefaultFeeConfig()
 
 const freeStd = calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "free" }, cfg)
-check("free standard 6% + 25 on $10", freeStd.totalStorelibFeeMinor === 85)
+check("free standard 5% + 25 on $10", freeStd.totalStorelibFeeMinor === 75)
 
 const freeMicro = calculateStorelibFeeWithConfig({ grossMinor: 100, currency: "USD", sellerPlan: "free" }, cfg)
-check("free micro 12.25% on $1", freeMicro.totalStorelibFeeMinor === Math.round(100 * 0.1225))
+check("free micro 11.25% on $1", freeMicro.totalStorelibFeeMinor === Math.round(100 * 0.1125))
 
 const proStd = calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "paid" }, cfg)
 check("pro standard 3% + 25 on $10", proStd.totalStorelibFeeMinor === 55)

@@ -36,12 +36,28 @@ const SUPABASE_IS_ADMIN = ["app/api/admin/blog/seo-metrics/route.ts", "lib/onepa
 const sql = readFileSync("supabase/sql/run-now/63_private_columns.sql", "utf8")
 const mirror = readFileSync("supabase/migrations/20261013_private_columns.sql", "utf8")
 check("part 63 and its migration are the same text", sql === mirror)
+/*
+  THE PRIVATE LIST IS WHATEVER THE NEWEST PART SAYS IT IS. Part 63 wrote it
+  first; parts 77 and 78 restate it in full with their own columns added
+  (storelib_private_columns is CREATE OR REPLACE, so the last part run is the
+  list the database holds). This compared the app's list with part 63's alone,
+  so when part 77 made payments_status and last_stripe_sync_at private the app
+  was never told and nothing here noticed. It reads the newest part now.
+*/
+const definesList = (f: string) => /FUNCTION public\.storelib_private_columns/.test(readFileSync(`supabase/sql/run-now/${f}`, "utf8"))
+const newest = readdirSync("supabase/sql/run-now").filter((f) => /^\d+_.*\.sql$/.test(f) && definesList(f)).sort().pop()!
+const latest = readFileSync(`supabase/sql/run-now/${newest}`, "utf8")
 const listed = (table: string) => {
-  const m = sql.match(new RegExp(`WHEN '${table}' THEN ARRAY\\[([^\\]]*)\\]`))
+  const m = latest.match(new RegExp(`WHEN '${table}' THEN ARRAY\\[([^\\]]*)\\]`))
   return m ? m[1].split(",").map((s) => s.trim().replace(/'/g, "")) : []
 }
-check("the creator list in part 63 is the app's list", JSON.stringify(listed("creators")) === JSON.stringify([...PRIVATE_CREATOR_COLUMNS]), listed("creators").join(","))
-check("the profile list in part 63 is the app's list", JSON.stringify(listed("profiles")) === JSON.stringify([...PRIVATE_PROFILE_COLUMNS]), listed("profiles").join(","))
+check(`the newest part to write the list is the one read (${newest})`, newest >= "79_")
+check("the creator list in the newest part is the app's list", JSON.stringify(listed("creators")) === JSON.stringify([...PRIVATE_CREATOR_COLUMNS]), listed("creators").join(","))
+check("the profile list in the newest part is the app's list", JSON.stringify(listed("profiles")) === JSON.stringify([...PRIVATE_PROFILE_COLUMNS]), listed("profiles").join(","))
+/* And a signed in creator cannot write the reset record either: the newest guard trigger names it. */
+for (const c of ["stripe_previous_account_id", "stripe_account_reset_at", "stripe_account_reset_reason", "payments_status", "last_stripe_sync_at"]) {
+  check(`a signed in creator cannot write ${c}`, new RegExp(`creators_keep_server_columns[^\\n]*'${c}'`).test(latest))
+}
 check("part 63 takes the whole table read away before granting column by column", sql.includes("REVOKE SELECT ON public.%I FROM anon, authenticated") && sql.includes("GRANT SELECT (%I) ON public.%I TO anon, authenticated"))
 check("only the editor may re-run the granting", sql.includes("REVOKE ALL ON FUNCTION public.storelib_share_public_columns() FROM PUBLIC, anon, authenticated;"))
 check("the sign in email helper answers for the caller only", /WHERE u\.id = p_user AND p_user = auth\.uid\(\)/.test(sql))

@@ -218,7 +218,7 @@ export function offeredPlan(id: OfferedPlanId): OfferedPlan {
 
 /**
  * The small print under the cards. True for every plan. The rule for the
- * fixed $0.25 (orders of $3.00 or more, lib/billing/fee-calculator) is how
+ * fixed $0.25 (orders of $4.00 or more, lib/billing/fee-calculator) is how
  * the fee is worked out, not something to read under a price: the owner
  * asked for the standard line.
  */
@@ -307,7 +307,7 @@ export function planQuestions(): { q: string; a: string }[] {
       : []),
     {
       q: "What fees are taken from a sale?",
-      a: `Storelib's fee for your plan (${freeFee} on Free, ${proFee} on Pro; the $0.25 only on orders of $3.00 or more), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.`,
+      a: `Storelib's fee for your plan (${freeFee} on Free, ${proFee} on Pro), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.`,
     },
     {
       q: "How do I change or cancel my plan?",

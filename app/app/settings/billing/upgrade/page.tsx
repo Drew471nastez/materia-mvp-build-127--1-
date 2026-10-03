@@ -4,15 +4,16 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { pageUser } from "@/lib/auth/page-user"
+import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 
 const FREE_PLAN = {
   id: "free",
   name: "Free",
   price_cents: 0,
   billing_period: null,
-  fee_percent: 0.06,
+  fee_percent: FREE_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: ["6% + $0.25 per transaction", "Basic analytics", "Standard support"],
+  features: [`${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per transaction`, "Basic analytics", "Standard support"],
   is_active: true,
 }
 

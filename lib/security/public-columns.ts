@@ -45,6 +45,13 @@ export const PRIVATE_CREATOR_COLUMNS = [
   "stripe_requirements",
   "stripe_requirements_due_at",
   "stripe_requirements_updated_at",
+  /* Part 77 made these two private in the database and this list was never told, so the app's own
+     publicCreator() would have passed them through; they are on it now, with part 79's three. */
+  "payments_status",
+  "last_stripe_sync_at",
+  "stripe_previous_account_id",
+  "stripe_account_reset_at",
+  "stripe_account_reset_reason",
 ] as const
 
 export const PRIVATE_PROFILE_COLUMNS = [

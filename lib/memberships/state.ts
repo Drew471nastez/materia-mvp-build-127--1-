@@ -243,7 +243,7 @@ export function transitions(prev: (AccessFields & { started_at?: string | null }
 /**
  * THE PLATFORM FEE AS A PERCENTAGE. A one time checkout takes an exact
  * application fee in cents (lib/billing/fee-calculator: the plan's percent,
- * plus 25 cents from $3). A subscription takes `application_fee_percent`,
+ * plus 25 cents from $4 in USD). A subscription takes `application_fee_percent`,
  * which Stripe applies to every invoice and allows to two decimal places, so
  * the same fee is expressed as that percent of the price. Stripe rounds the
  * result to the cent, so the fee charged is within half a cent per $100 of

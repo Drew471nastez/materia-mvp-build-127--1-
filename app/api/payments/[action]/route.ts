@@ -175,7 +175,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         return NextResponse.json(await prepareVerification(creator), { headers: NO_STORE })
       }
       case "disconnect": {
-        return NextResponse.json(await disconnectPayoutAccount(creator), { headers: NO_STORE })
+        /* Only a literal true counts as the creator's yes: an account that was ever started is never let go on anything less. */
+        return NextResponse.json(await disconnectPayoutAccount(creator, { confirmed: body.confirm === true }), { headers: NO_STORE })
       }
       case "refresh": {
         await refreshProviderAccount(creator.id, "creator")

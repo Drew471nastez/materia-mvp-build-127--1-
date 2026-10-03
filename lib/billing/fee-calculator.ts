@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateStorelibFee, UnsupportedFeeCurrencyError, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
 import type { StorelibFeeConfig } from "@/lib/payments/fees/types"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
-import type { StorelibSellerPlan } from "@/lib/payments/fees/config"
+import { FREE_MICRO_RATE, FREE_STANDARD_RATE, PAID_MICRO_RATE, PAID_STANDARD_RATE, ratePercentLabel, type StorelibSellerPlan } from "@/lib/payments/fees/config"
 
 // ────────────────────────────────────────────────────────────────
 // TYPES
@@ -66,22 +66,21 @@ function resolveSellerPlan(planId: string | null | undefined): SellerPlan {
 // ────────────────────────────────────────────────────────────────
 // computeApplicationFee — pure, no DB
 //
-// Rules:
-//   percent_fee    = round(unitAmount × planPercent)
-//   fixed_fee      = 25c IF unitAmount >= 300c ($3.00), else 0
-//   application_fee = percent_fee + fixed_fee
+// The rules live in lib/payments/fees (the active fee version in the
+// database, or the code default when there is none). In USD:
+//   $4.00 and up  → plan rate × amount + 25c
+//   under $4.00   → small-order rate × amount, no fixed part
 //   Clamped to [0, unitAmount]
 //
-// Examples:
-//   Free  $1.00 (100c) → 6%=6c,  fixed=0   → 6c
-//   Free  $3.00 (300c) → 6%=18c, fixed=25c  → 43c
-//   Free  $10   (1000c)→ 6%=60c, fixed=25c  → 85c
-//   Growth $1   (100c) → 3%=3c,  fixed=0    → 3c
-//   Growth $3   (300c) → 3%=9c,  fixed=25c  → 34c
-//   Growth $10  (1000c)→ 3%=30c, fixed=25c  → 55c
-//   Pro   $1    (100c) → 1.5%=2c, fixed=0   → 2c
-//   Pro   $3    (300c) → 1.5%=5c, fixed=25c → 30c
-//   Pro   $10   (1000c)→ 1.5%=15c,fixed=25c → 40c
+// Examples (USD):
+//   Free  $1.00 (100c) → 11.25% = 11c         → 11c
+//   Free  $3.99 (399c) → 11.25% = 45c         → 45c
+//   Free  $4.00 (400c) → 5% = 20c + 25c       → 45c
+//   Free  $10   (1000c)→ 5% = 50c + 25c       → 75c
+//   Pro   $1.00 (100c) → 9.25% = 9c           → 9c
+//   Pro   $4.00 (400c) → 3% = 12c + 25c       → 37c
+//   Pro   $10   (1000c)→ 3% = 30c + 25c       → 55c
+//   (Growth is an old plan id and is charged as Pro.)
 // ────────────────────────────────────────────────────────────────
 
 export function computeApplicationFee({
@@ -230,9 +229,9 @@ export function formatCentsToDollars(cents: number): string {
 
 export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
-    free: "6% + $0.25 per sale ($4+); 12.25% under $4",
-    growth: "3% + $0.25 per sale ($4+); 9.25% under $4",
-    pro: "3% + $0.25 per sale ($4+); 9.25% under $4",
+    free: `${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per sale ($4+); ${ratePercentLabel(FREE_MICRO_RATE)} under $4`,
+    growth: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale ($4+); ${ratePercentLabel(PAID_MICRO_RATE)} under $4`,
+    pro: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale ($4+); ${ratePercentLabel(PAID_MICRO_RATE)} under $4`,
   }
   return descriptions[planId] || descriptions.free
 }

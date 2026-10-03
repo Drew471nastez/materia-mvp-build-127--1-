@@ -158,7 +158,9 @@ function Panel({
         aria-label={label}
         className={cn(
           "relative flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
-          "max-w-[min(760px,calc(100vw-40px))]",
+          /* About 760 wide, and a little more on a large desktop (1280px and up), where Stripe's embedded
+             forms have room to sit side by side. Laptops and tablets keep 760; phones are full screen above. */
+          "max-w-[min(760px,calc(100vw-40px))] xl:max-w-[840px]",
           tall ? "h-[min(760px,calc(100dvh-48px))]" : "max-h-[min(760px,calc(100dvh-48px))]",
           leaving ? "animate-out fade-out-0 zoom-out-95" : "animate-in fade-in-0 zoom-in-95",
         )}

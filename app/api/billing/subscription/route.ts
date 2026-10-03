@@ -2,15 +2,16 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
+import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 
 const FREE_PLAN = {
   id: "free",
   name: "Free",
   price_cents: 0,
   billing_period: null,
-  fee_percent: 0.06,
+  fee_percent: FREE_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: ["6% + $0.25 per transaction (on orders $3+)", "Basic analytics", "Standard support"],
+  features: [`${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per transaction`, "Basic analytics", "Standard support"],
   is_active: true,
 }
 
@@ -22,7 +23,7 @@ const GROWTH_PLAN = {
   billing_period: "month",
   fee_percent: 0.03,
   fee_fixed_cents: 25,
-  features: ["3% + $0.25 per transaction (on orders $3+)", "Advanced analytics & reports", "Priority email support", "Custom domain support"],
+  features: ["3% + $0.25 per transaction (on orders $4+)", "Advanced analytics & reports", "Priority email support", "Custom domain support"],
   is_active: true,
 }
 
@@ -34,7 +35,7 @@ const PRO_PLAN = {
   billing_period: "month",
   fee_percent: 0.015,
   fee_fixed_cents: 25,
-  features: ["1.5% + $0.25 per transaction (on orders $3+)", "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
+  features: ["1.5% + $0.25 per transaction (on orders $4+)", "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
   is_active: true,
 }
 

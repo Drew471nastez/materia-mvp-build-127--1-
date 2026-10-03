@@ -238,7 +238,7 @@ export default function TermsOfServicePage() {
                   varies based on the Seller&apos;s current subscription plan:
                 </p>
                 <Ul items={[
-                  "Free Plan: 6% + $0.25 per transaction",
+                  "Free Plan: 5% + $0.25 per transaction",
                   "Pro Plan: 3% + $0.25 per transaction",
                 ]} />
                 <p>

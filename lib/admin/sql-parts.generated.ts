@@ -75,5 +75,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "76", file: "76_storelib_payments.sql", sha256: "a85ad8d952206216837306de057aeb9770e79b86dd1fd91f22d35a65ac698c66" },
   { part: "77", file: "77_payments_status.sql", sha256: "32c90d1654fc73a5e1c1358ffc60f1d8a41d5ee2b513a4649ba0ab38c08e5c7f" },
   { part: "78", file: "78_physical_commerce.sql", sha256: "31c63bad50047cbfee24cb6bf362590770584796bbfcfa80a630fe15c2ae9729" },
+  { part: "79", file: "79_stripe_account_reset.sql", sha256: "db884bc84c36f58f1a9b50865612dbba59e10f8fac42619634b73cde48ce427b" },
+  { part: "80", file: "80_free_plan_fee_5pct.sql", sha256: "a547e31745975933c58c7d9b9a0e44c34b17923e441a9ec625d5ff39084d450e" },
   { part: "90", file: "90_storage_policies_needs_owner.sql", sha256: "ddc22cfc130759fbfacb45536938c90e20f1aec09c5d3ee4db92f4450a763149" },
 ]

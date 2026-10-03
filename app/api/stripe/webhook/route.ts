@@ -17,6 +17,7 @@ import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
+import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
 import { subscriptionIdOf } from "@/lib/memberships/sync"
@@ -122,39 +123,30 @@ async function handleStripeEvent(request: Request) {
   }
 
   /*
-    BOTH SECRETS, ALWAYS. Stripe signs each destination with its own secret:
-    "Your account" events with STRIPE_WEBHOOK_SECRET, "Connected accounts"
-    events with STRIPE_CONNECT_WEBHOOK_SECRET. A Connect destination set up
-    before /api/stripe/webhook/connect existed points here, so this endpoint
-    checks both: whichever URL the Connect destination uses, its payout and
-    account events are verified and handled. The two routes share one record
-    of events handled (lib/payments/ledger), so an event that reaches both is
-    acted on once.
+    EACH SECRET FOR ITS OWN KIND OF EVENT (lib/stripe/webhook-secrets). Both
+    are still tried, so a Connect destination pointed here (set up before
+    /api/stripe/webhook/connect existed) keeps working, but a platform event
+    is only accepted under STRIPE_WEBHOOK_SECRET and a connected account's
+    event only under STRIPE_CONNECT_WEBHOOK_SECRET. The two routes share one
+    record of events handled (lib/payments/ledger), so an event that reaches
+    both is acted on once. Nothing unsigned is accepted.
   */
-  const mainSecret = process.env.STRIPE_WEBHOOK_SECRET
-  const connectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET
-
-  if (!mainSecret && !connectSecret) {
-    console.error("[Webhook] Missing STRIPE_WEBHOOK_SECRET env")
-    return NextResponse.json({ error: "Missing webhook secret" }, { status: 500 })
-  }
-
-  let event: Stripe.Event | null = null
-
-  const secretsToTry = [mainSecret, connectSecret].filter(Boolean) as string[]
-  for (const secret of secretsToTry) {
-    try {
-      event = stripe.webhooks.constructEvent(body, signature, secret)
-      break
-    } catch {
-      // Try next secret
+  const verified = verifyStripeEvent(
+    body,
+    signature,
+    { platform: process.env.STRIPE_WEBHOOK_SECRET, connect: process.env.STRIPE_CONNECT_WEBHOOK_SECRET },
+    (b, s, k) => stripe.webhooks.constructEvent(b, s, k),
+  )
+  if (!verified.ok) {
+    if (verified.reason === "no_secret") {
+      console.error("[Webhook] No webhook signing secret is configured")
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 })
     }
-  }
-
-  if (!event) {
-    console.error("[Webhook] Signature verification failed with all available secrets")
+    /* Which: a forged or stale payload, or a destination whose secret does not match its kind. Never which secret. */
+    console.error(`[Webhook] refused: ${verified.reason}`)
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
+  const event = verified.event
 
   console.log("[Webhook] Event type:", event.type)
 

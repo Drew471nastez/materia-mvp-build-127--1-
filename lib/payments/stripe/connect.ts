@@ -77,11 +77,89 @@ async function enforceManualPayouts(accountId: string, known?: Stripe.Account) {
  * NOT that: treating it as "gone" would make a new account and overwrite the
  * creator's real one, with its balance and history, on a network blip.
  */
-function accountIsGone(error: unknown): boolean {
+export function accountIsGone(error: unknown): boolean {
   const e = error as { type?: string; code?: string; statusCode?: number } | null
   if (!e) return false
   if (e.type === "StripePermissionError") return true
   return e.type === "StripeInvalidRequestError" && (e.code === "resource_missing" || e.code === "account_invalid" || e.statusCode === 404)
+}
+
+/**
+ * ===========================================================================
+ *  LETTING GO OF A CONNECTION WITHOUT LOSING WHAT IT WAS
+ * ===========================================================================
+ * Storelib moved to a new Stripe Connect platform. Every creator linked before
+ * that still has the old connected account's id on their row, and the new
+ * platform cannot read it: Stripe answers with a permission error, which
+ * accountIsGone() above reads as exactly that and nothing looser. Before this,
+ * the sync threw on every visit, the page fell back to whatever flags were
+ * cached from the old platform, and the creator was left with "Payments are
+ * turned off" and a Disconnect that failed: stuck, with no way forward.
+ *
+ * Now the live link is released. stripe_account_id is cleared and the cached
+ * flags with it, so the checkout gate (checkoutReadyForCreator) closes instead
+ * of letting a buyer pay into an account the platform cannot pay out of, and
+ * the page offers Reconnect payments. stripe_connected_at is KEPT: it is what
+ * says this creator once had payments working, which is what makes the next
+ * step "Reconnect" rather than "Set up".
+ *
+ * NOTHING HISTORICAL IS TOUCHED. Orders, payouts, refunds, disputes and the
+ * ledger each keep the Stripe ids they were written with. The old account id
+ * is kept on the row (part 79) and written to the server log, so support can
+ * always say which account a creator used to have.
+ *
+ * Race safe: the release only applies while the row still holds the account it
+ * is releasing, so a new account created a moment earlier is never cleared.
+ */
+export type AccountResetReason = "legacy_platform" | "creator_disconnect" | "incomplete_replaced"
+
+async function noteAccountReset(creatorId: string, previousAccountId: string, reason: AccountResetReason): Promise<void> {
+  /* Server side only, for support: the creator never sees an account id. */
+  console.warn(`[stripe connect] connection reset (${reason}) for creator ${creatorId}, previous account ${previousAccountId}`)
+  const { error } = await createAdminClient()
+    .from("creators")
+    .update({ stripe_previous_account_id: previousAccountId, stripe_account_reset_at: new Date().toISOString(), stripe_account_reset_reason: reason })
+    .eq("id", creatorId)
+  /* Part 78 adds these; until it runs the log line above is the record. */
+  if (error && !/stripe_previous_account_id|stripe_account_reset|column/i.test(error.message)) {
+    console.error("[stripe connect] reset record", error.message.slice(0, 160))
+  }
+}
+
+export async function releaseConnectedAccount(creatorId: string, previousAccountId: string, reason: AccountResetReason): Promise<void> {
+  const admin = createAdminClient()
+  const now = new Date().toISOString()
+  const { error } = await admin
+    .from("creators")
+    .update({
+      stripe_account_id: null,
+      stripe_onboarding_status: "not_connected",
+      charges_enabled: false,
+      payouts_enabled: false,
+      details_submitted: false,
+      stripe_requirements: [],
+      stripe_requirements_due_at: null,
+      stripe_requirements_updated_at: now,
+    })
+    .eq("id", creatorId)
+    .eq("stripe_account_id", previousAccountId)
+  if (error) {
+    console.error("[stripe connect] release", error.message.slice(0, 160))
+    throw new PaymentsProblem("We couldn't update your payments just now. Nothing was changed. Try again in a moment.", 502)
+  }
+  const cached = await admin.from("creators").update({ payments_status: "NOT_STARTED", last_stripe_sync_at: now }).eq("id", creatorId)
+  if (cached.error && !/payments_status|last_stripe_sync_at|column/i.test(cached.error.message)) {
+    console.error("[stripe connect] status cache", cached.error.message.slice(0, 160))
+  }
+  await noteAccountReset(creatorId, previousAccountId, reason)
+}
+
+/** Whether this creator once had a connection: what makes setting up again "Reconnect". Tolerates part 79 not having run. */
+export async function hadConnection(creatorId: string, connectedAt: string | null | undefined): Promise<boolean> {
+  if (connectedAt) return true
+  const { data, error } = await createAdminClient().from("creators").select("stripe_previous_account_id").eq("id", creatorId).maybeSingle()
+  if (error) return false
+  return !!(data as { stripe_previous_account_id?: string | null } | null)?.stripe_previous_account_id
 }
 
 /**
@@ -117,6 +195,8 @@ export async function ensureStripeAccount(
         console.error("[stripe connect] account check", error instanceof Error ? error.message : error)
         throw new PaymentsProblem("We could not reach our payment partner just now. Nothing was changed. Try again in a moment.", 502)
       }
+      /* Not reachable from the current platform (an account from before the move): kept on record, then replaced. */
+      await noteAccountReset(creator.id, accountId, "legacy_platform")
       accountId = null
     }
   }
@@ -152,6 +232,7 @@ export async function ensureStripeAccount(
       await stripe.accounts.del(replacing).catch((error) => {
         console.error("[stripe connect] old account not removed", stripeErrorMessage(error).slice(0, 160))
       })
+      await noteAccountReset(creator.id, replacing, "incomplete_replaced")
     } else {
       account = await createConnectedAccount(shared, country)
     }
@@ -299,7 +380,16 @@ export interface StripeSyncResult {
   account: Stripe.Account | null
   banks: Stripe.BankAccount[]
   status: StorelibStatusView
+  /** Set when this sync found the stored account unreachable and let it go (the row has changed). */
+  released?: AccountResetReason
 }
+
+const NO_ACCOUNT_SNAPSHOT = () =>
+  mergeStripeAccount(
+    { accountId: null, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, disabledReason: null, currentlyDue: [], pastDue: [], pendingVerification: [], hasExternalAccount: false, accountKind: null },
+    {},
+    false,
+  )
 
 /**
  * Re-reads the account from Stripe (so webhook order never matters), caches
@@ -308,24 +398,33 @@ export interface StripeSyncResult {
 export async function syncStripeAccountFull(creatorId: string, _actor: "webhook" | "creator" | "system"): Promise<StripeSyncResult> {
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) {
-    return {
-      snapshot: mergeStripeAccount(
-        { accountId: null, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, disabledReason: null, currentlyDue: [], pastDue: [], pendingVerification: [], hasExternalAccount: false, accountKind: null },
-        {},
-        false,
-      ),
-      account: null,
-      banks: [],
-      status: getStorelibPaymentsStatus(statusFactsOf(null, [])),
-    }
+    const reconnect = row ? await hadConnection(creatorId, row.stripe_connected_at) : false
+    return { snapshot: NO_ACCOUNT_SNAPSHOT(), account: null, banks: [], status: getStorelibPaymentsStatus(statusFactsOf(null, [], { reconnect })) }
   }
 
   const accountId = row.stripe_account_id
-  const [account, external, lastPayout] = await Promise.all([
-    stripe.accounts.retrieve(accountId),
+  const [read, external, lastPayout] = await Promise.all([
+    stripe.accounts.retrieve(accountId).then(
+      (account) => ({ ok: true as const, account }),
+      (error: unknown) => ({ ok: false as const, error }),
+    ),
     stripe.accounts.listExternalAccounts(accountId, { object: "bank_account", limit: 10 }).catch(() => ({ data: [] as Stripe.ExternalAccount[] })),
     stripe.payouts.list({ limit: 1 }, { stripeAccount: accountId }).catch(() => ({ data: [] as Stripe.Payout[] })),
   ])
+  if (!read.ok) {
+    /* A blip is a blip: thrown, so nothing is cleared and the caller shows the last known state. */
+    if (!accountIsGone(read.error)) throw read.error
+    /* Not reachable from the current platform: let go, so the creator can reconnect instead of being stuck. */
+    await releaseConnectedAccount(creatorId, accountId, "legacy_platform")
+    return {
+      snapshot: NO_ACCOUNT_SNAPSHOT(),
+      account: null,
+      banks: [],
+      status: getStorelibPaymentsStatus(statusFactsOf(null, [], { reconnect: true })),
+      released: "legacy_platform",
+    }
+  }
+  const account = read.account
   const banks = external.data.filter((e): e is Stripe.BankAccount => e.object === "bank_account")
 
   await enforceManualPayouts(accountId, account)
@@ -465,7 +564,17 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
 
-  const account = await stripe.accounts.retrieve(row.stripe_account_id)
+  let account: Stripe.Account
+  try {
+    account = await stripe.accounts.retrieve(row.stripe_account_id)
+  } catch (error) {
+    if (!accountIsGone(error)) {
+      console.error("[stripe connect] session account check", stripeErrorMessage(error).slice(0, 160))
+      throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
+    }
+    await releaseConnectedAccount(creatorId, row.stripe_account_id, "legacy_platform")
+    throw new PaymentsProblem("Your payments need to be set up again. Close this and choose Reconnect payments. Your orders and payout history are safe.", 409)
+  }
   const components = accountSessionComponents(purpose, runsInStorelib(account))
   const session = await stripe.accountSessions.create({ account: row.stripe_account_id, components })
   if (!session.client_secret) throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
@@ -560,31 +669,75 @@ export function payoutFactsOf(account: Stripe.Account): PayoutFacts {
  * number goes from the browser to Stripe; Storelib only ever holds the token.
  * The new account becomes the default and older bank accounts are removed.
  */
-export async function disconnectIncompleteStripeAccount(creatorId: string) {
+/**
+ * ===========================================================================
+ *  DISCONNECT / START OVER, SAFELY
+ * ===========================================================================
+ * This decided from the cached flags on the creator's row, so an account from
+ * the old Stripe platform whose row still said "payments on" could never be
+ * disconnected ("Payments are already on"): the one way out of a dead
+ * connection was refused. It asks Stripe now, and what it does depends on
+ * what the account really is:
+ *
+ *   GONE FROM THIS PLATFORM   released, nothing to ask (it cannot be read,
+ *                             let alone deleted, from here).
+ *   NEVER STARTED             deleted on Stripe and released, as before:
+ *                             nothing was ever sent on it.
+ *   STARTED OR ACTIVE         only with `confirmed`, the creator's explicit
+ *                             yes, and never while money is still in it:
+ *                             released, but NOT deleted, because an account
+ *                             with history holds payouts, tax records and any
+ *                             dispute still to come. A balance left behind
+ *                             would be money Storelib's Cash out could no
+ *                             longer reach, so that is refused with what to do.
+ *
+ * Orders, payouts, refunds and the ledger are untouched in every case: each
+ * keeps the Stripe ids it was written with. The old account id is kept on the
+ * row (part 79), and stripe_connected_at stays, so setting up again reads as
+ * Reconnect.
+ */
+export async function disconnectStripeAccount(creatorId: string, options: { confirmed?: boolean } = {}): Promise<void> {
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) return
-  if (row.charges_enabled) throw new PaymentsProblem("Payments are already on, so this account stays connected.")
+  const accountId = row.stripe_account_id
+
+  let account: Stripe.Account
   try {
-    await stripe.accounts.del(row.stripe_account_id)
+    account = await stripe.accounts.retrieve(accountId)
   } catch (error) {
-    console.error("[stripe connect] disconnect", stripeErrorMessage(error).slice(0, 160))
+    if (accountIsGone(error)) {
+      await releaseConnectedAccount(creatorId, accountId, "legacy_platform")
+      return
+    }
+    console.error("[stripe connect] disconnect check", stripeErrorMessage(error).slice(0, 160))
+    throw new PaymentsProblem("We could not reach our payment partner just now. Nothing was changed. Try again in a moment.", 502)
   }
-  const admin = createAdminClient()
-  await admin
-    .from("creators")
-    .update({
-      stripe_account_id: null,
-      stripe_onboarding_status: "not_connected",
-      stripe_connected_at: null,
-      charges_enabled: false,
-      payouts_enabled: false,
-      details_submitted: false,
-      stripe_requirements: [],
-      stripe_requirements_due_at: null,
-      stripe_requirements_updated_at: new Date().toISOString(),
+
+  const started = !!(account.details_submitted || account.charges_enabled || account.payouts_enabled)
+  if (!started) {
+    await stripe.accounts.del(accountId).catch((error) => {
+      console.error("[stripe connect] disconnect delete", stripeErrorMessage(error).slice(0, 160))
     })
-    .eq("id", creatorId)
+    await releaseConnectedAccount(creatorId, accountId, "creator_disconnect")
+    return
+  }
+
+  if (!options.confirmed) {
+    throw new PaymentsProblem("This turns off payments for your store until you set them up again. Confirm to disconnect.", 409)
+  }
+  const balance = await stripe.balance.retrieve({ stripeAccount: accountId }).catch((error: unknown) => {
+    console.error("[stripe connect] disconnect balance", stripeErrorMessage(error).slice(0, 160))
+    throw new PaymentsProblem("We couldn't check your balance just now. Nothing was changed. Try again in a moment.", 502)
+  })
+  const held = [...(balance.available ?? []), ...(balance.pending ?? [])].some((b) => b.amount !== 0)
+  if (held) {
+    throw new PaymentsProblem("You still have money in this payments account. Cash out your balance first, then you can disconnect.", 409)
+  }
+  await releaseConnectedAccount(creatorId, accountId, "creator_disconnect")
 }
+
+/** The older name, kept for any caller still using it: the same safe disconnect. */
+export const disconnectIncompleteStripeAccount = (creatorId: string) => disconnectStripeAccount(creatorId)
 
 export async function resolveCountryForStart(creator: PaymentsCreatorRef, countryInput: string): Promise<string> {
   const fromForm = countryInput.trim().toUpperCase()
