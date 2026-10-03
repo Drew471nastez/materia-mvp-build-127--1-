@@ -600,7 +600,12 @@ section("Choosing an icon, and choosing where a link goes")
   check("an icon field gets a picker instead of falling through to a text box", /if \(kind === "icon_picker"\) \{\s*return <IconPicker/.test(editorSrc))
   check("and a link field gets one instead of a bare input", /if \(kind === "url"\) \{\s*return <LinkFieldEditor/.test(editorSrc) && !/kind === "text" \|\| kind === "url"/.test(editorSrc))
 
-  check("the link picker lists the site's own pages and products", /kind: "page"/.test(linkPicker) && /kind: "product"/.test(linkPicker))
+  /* Changed on purpose: the kinds of place are sorted in lib/website-builder/link-menu.ts now (tests/link-menu.test.ts runs it). */
+  const linkMenuSrc = stripComments(read("lib/website-builder/link-menu.ts"))
+  check(
+    "the link picker lists the site's own pages and products, by kind",
+    /kind: "page" \| "product"/.test(linkPicker) && /linkMenu\(targets\)/.test(linkPicker) && /label: "Products"/.test(linkMenuSrc) && /label: "Pages"/.test(linkMenuSrc),
+  )
   /**
    * AND NOT COLLECTIONS. There is no collection in this product: the group
    * was fed by `/api/collections`, which is not a route, so the fetch 404'd,
@@ -608,7 +613,7 @@ section("Choosing an icon, and choosing where a link goes")
    * header's nav link offered "Collection" as a link type for the same
    * nothing, pointing at /collections/<id>, which is not a route either.
    */
-  check("and not collections, which do not exist", !/kind: "collection"/.test(linkPicker) && !/Collections/.test(linkPicker))
+  check("and not collections, which do not exist", !/kind: "collection"/.test(linkPicker) && !/Collections/.test(linkPicker) && !/collection/i.test(linkMenuSrc))
   check("the nav link cannot be pointed at one", !/collections\//.test(read("components/website-builder/sections/renderers/HeaderSection.tsx").replace(/\/\/.*$/gm, "")))
   check("and Shop in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(editorSrc) && !/href: "\/shop"/.test(editorSrc))
   /**

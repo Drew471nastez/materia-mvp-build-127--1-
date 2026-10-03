@@ -216,6 +216,7 @@ const SUITES = [
   "tests/shop-products.test.ts",
   "tests/canvas-scroll.test.ts",
   "tests/link-address.test.ts",
+  "tests/link-menu.test.ts",
   "tests/connection-mark.test.ts",
   "tests/editor-fixes.test.ts",
   "tests/builder-round-3.test.ts",

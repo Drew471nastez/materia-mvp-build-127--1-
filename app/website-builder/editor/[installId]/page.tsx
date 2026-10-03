@@ -5115,8 +5115,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       { href: "/contact", label: "Contact", kind: "page" },
       /* The page browser lists it, and the header's links used to offer it. */
       { href: "/search", label: "Search", kind: "page" },
+      /* The visitor's own pages, every site has them (lib/website-builder/account-pages): the picker's Customer accounts. */
+      { href: "/account", label: "Account", kind: "page" },
+      { href: "/account/login", label: "Sign in", kind: "page" },
+      { href: "/wishlist", label: "Wishlist", kind: "page" },
       ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
-      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const })),
+      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const, image: p.thumbnail_url || undefined })),
       /**
        * NO COLLECTIONS. The picker had a Collections group fed by
        * `/api/collections`, which is not a route: the fetch 404'd, the list

@@ -137,15 +137,21 @@ function main() {
   /**
    * The nav's own picker (a fixed popover on a desktop, a list in the flow on
    * a phone) is gone: nav links and the call to action use the one link
-   * field every other link uses, whose list is ALWAYS in the flow
-   * (FieldPopover), so there is nothing to measure against a viewport that
-   * iOS has scrolled under the keyboard, at any width.
+   * field every other link uses.
+   *
+   * CHANGED ON PURPOSE. That field's list was in the flow at every width.
+   * The owner asked for Shopify's: at a computer it now hangs from the field
+   * (FieldPopover's `float`, measured and followed through the sidebar's
+   * scroll in field-popover.tsx, scripts/check-link-field.mjs). On a phone
+   * it is still in the flow, for the reason it always was: nothing there is
+   * measured against a viewport iOS has scrolled under the keyboard.
    */
   const linkField = read("components/website-builder/link-picker.tsx")
-  check("the list is in the flow rather than floated",
-    !/function NavLinkPicker/.test(editor) && /<FieldPopover/.test(linkField) && !/position: ?"?fixed|createPortal/.test(linkField))
-  check("and the popover is not measured at all there",
-    !/getBoundingClientRect/.test(linkField) && !/nav-link-picker-popup/.test(editor))
+  const fieldPopover = read("components/website-builder/field-popover.tsx")
+  check("the link field's list goes through FieldPopover, floating only at a computer",
+    !/function NavLinkPicker/.test(editor) && /<FieldPopover\s+float/.test(linkField) && /if \(float && !phone\) \{/.test(fieldPopover))
+  check("and on a phone it is in the flow, neither portalled nor fixed",
+    /function InFlowPanel\(/.test(fieldPopover) && !/position: ?"?fixed|createPortal/.test(fieldPopover.slice(fieldPopover.indexOf("function InFlowPanel("), fieldPopover.indexOf("export const FIELD_FLOAT_Z"))) && !/nav-link-picker-popup/.test(editor))
 
   console.log("\n  the page behind a drawer")
 
