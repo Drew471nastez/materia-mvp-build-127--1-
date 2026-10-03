@@ -295,10 +295,34 @@ export interface SectionSchema {
   /** Where this section may be placed. Absent means anywhere. */
   allowed_templates?: string[]
   disabled_templates?: string[]
+  /**
+   * The section groups it may sit in, Shopify's spelling:
+   * `{ "groups": ["header"] }` for an announcement bar that sits above the
+   * header. Absent, a section is a page section (the "template" group), and
+   * an `announcement` category means the header group. See
+   * schema/normalise.ts, sectionGroupsOf.
+   */
+  enabled_on?: SectionPlacement
+  /** The groups it may not sit in. One of enabled_on or disabled_on, never both. */
+  disabled_on?: SectionPlacement
+  /**
+   * "header" or "footer": this section IS the site's header (or footer), and
+   * replaces the built-in one wherever it is used. One per theme. Only for a
+   * creator who asked for a header of their own: the built-in one is
+   * configured, not rebuilt.
+   */
+  kind?: "header" | "footer"
   /** What the script may reach. Absent means nothing beyond `root`. */
   capabilities?: string[]
   /** Renames of setting ids across versions, oldest first. */
   migrations?: { from: string; to: string; since: string }[]
+  [key: string]: unknown
+}
+
+/** `enabled_on` and `disabled_on`: section groups, and optionally page templates. */
+export interface SectionPlacement {
+  groups?: ("header" | "footer" | "template")[]
+  templates?: string[]
   [key: string]: unknown
 }
 

@@ -73,6 +73,8 @@ export interface CustomerObject {
   email: string
   orders: CustomerOrder[]
   orders_count: number
+  /** Where their orders from this shop were sent, newest first, at most three. Empty for a shop with nothing to ship. */
+  addresses?: CustomerAddress[]
   /**
    * True only in the builder, where there is no customer: the name and email
    * are placeholders and the orders are the creator's own products
@@ -269,9 +271,73 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
   return orders.sort((a, b) => b.at.localeCompare(a.at)).map((o) => o.order)
 }
 
+/* ─── Addresses ─────────────────────────────────────────────────────────── */
+
+export interface CustomerAddress {
+  /** The address as the label on a parcel reads, one line each: name, street, city line, country. */
+  lines: string[]
+}
+
+const ADDRESSES_SHOWN = 3
+
+function countryName(code: unknown): string {
+  if (typeof code !== "string" || !/^[A-Za-z]{2}$/.test(code)) return typeof code === "string" ? code.trim() : ""
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(code.toUpperCase()) ?? code.toUpperCase()
+  } catch {
+    return code.toUpperCase()
+  }
+}
+
+/** One shipping address as the checkout stored it (lib/physical/checkout-server), as lines. Null when there is nothing to show. */
+export function addressLines(raw: unknown): string[] | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
+  const a = raw as Record<string, unknown>
+  const t = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, 200) : "")
+  const city = [t(a.city), [t(a.region), t(a.postalCode)].filter(Boolean).join(" ")].filter(Boolean).join(", ")
+  const lines = [t(a.name), t(a.line1), t(a.line2), city, countryName(a.country)].filter(Boolean)
+  return lines.length >= 2 ? lines : null
+}
+
+/**
+ * The addresses this customer's physical orders from THIS creator were sent
+ * to, newest first, each once. Read by the same rule as the orders: the
+ * creator's own checkouts, with the email this customer proved, compared
+ * exactly. Before physical commerce's tables exist there are none.
+ */
+export async function customerAddresses(db: Db, scope: { creatorId: string; email: string }): Promise<CustomerAddress[]> {
+  if (!UUID.test(scope.creatorId) || !scope.email) return []
+  try {
+    const { data, error } = await db
+      .from("commerce_checkouts")
+      .select("shipping_address, paid_at")
+      .eq("creator_id", scope.creatorId)
+      .ilike("buyer_email", likeExact(scope.email))
+      .in("status", ["paid", "refunded", "partially_refunded"])
+      .order("paid_at", { ascending: false })
+      .limit(25)
+    if (error || !Array.isArray(data)) return []
+    const seen = new Set<string>()
+    const out: CustomerAddress[] = []
+    for (const row of data as { shipping_address?: unknown }[]) {
+      const lines = addressLines(row.shipping_address)
+      if (!lines) continue
+      const key = lines.join("|").toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ lines })
+      if (out.length >= ADDRESSES_SHOWN) break
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
 /** The `customer` object for one customer on one creator's website. */
 export async function siteCustomer(db: Db, customer: CustomerRow, platform: string): Promise<CustomerObject> {
   const name = (customer.name ?? "").trim()
-  const orders = await customerOrders(db, { creatorId: customer.creator_id, email: customer.email }, platform)
-  return { name, first_name: firstName(name), email: customer.email, orders, orders_count: orders.length, sample: false }
+  const scope = { creatorId: customer.creator_id, email: customer.email }
+  const [orders, addresses] = await Promise.all([customerOrders(db, scope, platform), customerAddresses(db, scope)])
+  return { name, first_name: firstName(name), email: customer.email, orders, orders_count: orders.length, addresses, sample: false }
 }

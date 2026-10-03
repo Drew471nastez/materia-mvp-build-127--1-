@@ -1,36 +1,41 @@
 /**
  * ===========================================================================
- *  ONE HEADER AND ONE FOOTER, AND NO SECTION FILE MAY BE EITHER
+ *  WHICH SECTION IS THE HEADER, AND WHICH THE FOOTER
  * ===========================================================================
- * Every Storelib site has exactly one header and one footer. They are the
- * built-in `header` and `footer` sections, shared by every page, and they
- * carry the parts of a shop a section file cannot rebuild on its own: the
- * cart drawer and its count, the search modal, the account and wishlist
- * links for a signed-in visitor, the phone menu with its sub-menus, sticky
- * and hide-on-scroll behaviour, the transparent header over a hero, the
- * logo and brand name from Theme settings, the menus from Website settings,
- * policy links, and the payment and social icons.
+ * Every Storelib site draws one header and one footer. Usually they are the
+ * built-in `header` and `footer` sections, which carry the parts of a shop a
+ * section file does not rebuild on its own: the cart drawer and its count,
+ * the search, the account and wishlist links, the phone menu, sticky and
+ * transparent behaviour, the logo from Theme settings, the menus from
+ * Website settings, policy links, payment and social icons.
  *
- * An AI asked to "build a header" writes a new section called Header and
- * puts it in the page body: a second header under the real one, with a
- * cart icon that opens nothing, a search box that searches nothing, and a
- * menu that is a hard-coded copy of the real one. That is the bug this
- * module exists to refuse. A section file that IS a header or a footer is
- * named here, and every door that writes one (the code editor, Ask AI,
- * Claude Code or Codex over MCP, a GitHub push, a theme import) turns it
- * away with what to do instead: change the header's own settings.
+ * A creator who asks for a header of their own gets ONE section that says
+ * `"kind": "header"`, which replaces the built-in one: see declaredKind
+ * below. Saving one is not refused; saving a header that does not say so is,
+ * with what to write instead (lib/website-builder/save-theme-file.ts).
+ *
+ * A header file that is already there (an imported theme, a site saved
+ * before this) is never dropped: it is placed where a header goes, in the
+ * Header group as THE header, with the built-in one hidden rather than drawn
+ * twice (lib/storelib-theme/section-groups.ts). That placement asks this
+ * module "is this file a header or a footer".
  *
  * HOW A FILE IS RECOGNISED, strongest signal first:
  *
- *   1. It says so. `"group": "header"` (or footer), or Shopify's
- *      `"enabled_on": { "groups": ["header"] }`.
+ *   1. It says so without declaring a kind: `"group": "header"` (or
+ *      footer). Shopify's `enabled_on.groups` is where a section may go
+ *      (an announcement bar in the header group), not what it is.
  *   2. Its type or name is a header's or a footer's: "Header", "Site
  *      header", "Navbar", "Navigation bar", "Top bar", "Footer", with a
- *      version or a "section" on the end. A "Page header" or a "Collection
- *      header" is a heading band on a page, not the site's header, and is
- *      left alone.
+ *      version or a "section" on the end, or a brand and a dash in front
+ *      ("Luca" then an em dash then "Header"). A "Page header" or a
+ *      "Collection header" is a heading band on a page and is left alone.
  *   3. Its markup is one: the outermost element is <header> holding a
  *      <nav>, or <footer>, and its name says header, nav, menu or footer.
+ *
+ * `sections/header.storelib` and `sections/footer.storelib` are always
+ * refused: they would shadow the built-in sections every page's header and
+ * footer settings are stored for.
  *
  * PURE, so the rule is the same in the browser, on the server and in a test.
  */
@@ -57,29 +62,48 @@ function bareName(value: string): string {
     .trim()
 }
 
+/** A brand in front of a spaced dash, bar or colon taken off: "Luca", an em dash, "Header" is "Header". */
+function afterBrand(value: string): string | null {
+  const parts = value.split(/\s+[—–|:]\s+|\s+-\s+/)
+  return parts.length > 1 ? parts[parts.length - 1] : null
+}
+
 function roleFromName(value: unknown): ChromeRole | null {
   if (typeof value !== "string" || !value.trim()) return null
-  const name = bareName(value)
-  if (HEADER_NAME.test(name)) return "header"
-  if (FOOTER_NAME.test(name)) return "footer"
+  for (const candidate of [value, afterBrand(value)]) {
+    if (!candidate) continue
+    const name = bareName(candidate)
+    if (HEADER_NAME.test(name)) return "header"
+    if (FOOTER_NAME.test(name)) return "footer"
+  }
   return null
 }
 
+/**
+ * `"group": "header"` is not a Storelib key, but a model writing a header
+ * reaches for it, so it still marks one. Shopify's `enabled_on.groups` does
+ * NOT: it says where a section may go, and an announcement bar that sits in
+ * the header group is not the header. Only `kind` says a section IS one.
+ */
 function roleFromGroup(schema: Record<string, unknown>): ChromeRole | null {
   const say = (v: unknown): ChromeRole | null => (v === "header" || v === "footer" ? v : null)
-  const direct = say(schema.group) ?? say(schema.section_group) ?? say(schema.sectionGroup)
-  if (direct) return direct
-  const enabled = schema.enabled_on
-  if (enabled && typeof enabled === "object" && !Array.isArray(enabled)) {
-    const groups = (enabled as Record<string, unknown>).groups
-    if (Array.isArray(groups)) {
-      for (const g of groups) {
-        const r = typeof g === "string" ? say(g.replace(/^\*$/, "")) : null
-        if (r) return r
-      }
-    }
-  }
-  return null
+  return say(schema.group) ?? say(schema.section_group) ?? say(schema.sectionGroup)
+}
+
+/**
+ * ===========================================================================
+ *  A HEADER OF ITS OWN, SAID OUT LOUD
+ * ===========================================================================
+ * `"kind": "header"` (or "footer") is a section that says it IS the site's
+ * header, written because the creator asked for a header of their own. It
+ * is not refused: the builder puts it in the header group in place of the
+ * built-in one, on every page. One per theme, which the save holds
+ * (lib/website-builder/save-theme-file.ts). What is refused is a header
+ * that does not say so: a nav bar dropped into a page under the real one.
+ */
+export function declaredKind(schema: Record<string, unknown> | null | undefined): ChromeRole | null {
+  const k = schema?.kind
+  return k === "header" || k === "footer" ? k : null
 }
 
 /** The first element a template draws, ignoring comments and Storelib tags around it. */
@@ -115,6 +139,8 @@ export function chromeRoleOf(input: {
   template?: string
 }): ChromeRole | null {
   const schema = input.schema ?? {}
+  /* A section that declares its kind is a replacement the creator asked for, not a stray copy. */
+  if (declaredKind(schema)) return null
   return (
     roleFromGroup(schema) ??
     roleFromName(input.type) ??
@@ -124,7 +150,7 @@ export function chromeRoleOf(input: {
   )
 }
 
-/** The built-in section a role is, and the file names a section file may never take. */
+/** The built-in section a role is, and the two file names a section file may never take. */
 export const CHROME_TYPES: Record<ChromeRole, string> = { header: "header", footer: "footer" }
 
 /**
@@ -140,6 +166,7 @@ export function chromeRefusal(role: ChromeRole): string {
       "Change the site's header instead: it is the section of type \"header\".",
       "Its settings cover the logo and store name (Theme settings), the menu links (its nav_link blocks, or a menu from Website settings, Navigation), the desktop and phone layouts, sticky, sticky on scroll up and transparent, the search, account, wishlist and cart icons with their drawers, a call to action button, its colour scheme and its border.",
       "In the editor that is Sections, Header. In the builder's AI it is update_section on the header, with add_block and update_block for its nav_link links. Over MCP it is storelib_create_safe_patch with those same operations, or storelib_update_styles for its colours.",
+      "Only if the creator asked for a header of their own: write ONE section with \"kind\": \"header\" in its schema, a link_list setting for the menu (default \"main-menu\") and an image_picker for the logo. It replaces the built-in header on every page.",
     ].join(" ")
   }
   return [
@@ -147,5 +174,11 @@ export function chromeRefusal(role: ChromeRole): string {
     "Change the site's footer instead: it is the section of type \"footer\".",
     "Its settings cover the logo, tagline and copyright, two menus from Website settings, Navigation, its own link columns (footer_column and footer_link blocks), the policy and contact links, a newsletter sign up, social and payment icons, its layout and its colour scheme.",
     "In the editor that is Sections, Footer. In the builder's AI it is update_section on the footer; over MCP, storelib_create_safe_patch with update_section, or storelib_update_styles for its colours.",
+    "Only if the creator asked for a footer of their own: write ONE section with \"kind\": \"footer\" in its schema, with link_list settings for its menus. It replaces the built-in footer on every page.",
   ].join(" ")
+}
+
+/** Said when a second section declares the same kind. */
+export function kindTaken(role: ChromeRole, existing: string): string {
+  return `This theme already has a ${role} of its own: ${existing}. A site has one ${role}. Change that file, or take "kind" out of one of them.`
 }

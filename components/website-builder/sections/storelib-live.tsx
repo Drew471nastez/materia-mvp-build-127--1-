@@ -64,7 +64,9 @@ export function sampleCustomer(cards: Card[], now: number): CustomerObject {
       price: total,
     }
   })
-  return { name: "Customer name", first_name: "Customer", email: "Customer email", orders, orders_count: orders.length, sample: true }
+  /* One address, in words that say what goes there, so the Addresses block can be styled before anybody has shipped anything. */
+  const addresses = [{ lines: ["Customer name", "Street address", "City, Region, Postal code", "Country"] }]
+  return { name: "Customer name", first_name: "Customer", email: "Customer email", orders, orders_count: orders.length, addresses, sample: true }
 }
 
 /** What the canvas draws the account and wishlist templates with. Nothing on any other page. */

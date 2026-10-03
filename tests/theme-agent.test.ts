@@ -2135,7 +2135,7 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   )
   check(
     "the scope chip and the whole-page button truncate instead of pushing the row wider",
-    /<span className="min-w-0 truncate">Only \{name\}<\/span>/.test(parts) &&
+    /<span className="min-w-0 truncate">\s*<span className="text-\[#6b7280\]">Editing:<\/span> \{name\}\s*<\/span>/.test(parts) &&
       /<span className="min-w-0 truncate">Limit to \{name\}<\/span>/.test(parts) &&
       /data-ask-mode-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2"/.test(chat),
   )
@@ -3094,7 +3094,7 @@ check(
   check(
     "the panel shows what the edit is limited to, before you type it, in two words and a title rather than a sentence",
     /<ScopeChip\s*\n\s*name=\{selectedSection\.name\}\s*\n\s*locked=\{locked\}/.test(chat) &&
-      /Only \{name\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")) &&
+      /Editing:<\/span> \{name\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")) &&
       /title=\{`Only \$\{name\} will change`\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")),
   )
   check("it is on by default when a section is selected", /useState\(true\)/.test(chat))
@@ -3107,8 +3107,8 @@ check(
 }
 
 check(
-  "and the endpoint only honours it with a section actually selected",
-  /lockToSelection: body\.lockToSelection === true && !!body\.selectedSectionId/.test(
+  "and the endpoint only honours it with a section actually selected, one that is on the page",
+  /lockToSelection: body\.lockToSelection === true && !!selected/.test(
     readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"),
   ),
 )
@@ -3832,9 +3832,10 @@ section("A setting is one way to make a change, not the limit of what is possibl
     /name: "read_section_code"/.test(loop) && /name: "write_section_code"/.test(loop),
   )
   check(
-    "the two tools are offered only when there is a theme to edit",
+    "the code tools are offered whenever the run is given a way to read sections, and the route always gives one",
     /tools: toolSpecs\(addable, schemas, !!input\.code\)/.test(loop) &&
-      /code\?: \{\s*\n\s*read\(sectionType: string\): string \| null/.test(loop),
+      /code\?: \{[\s\S]{0,200}read\(sectionType: string\): string \| null/.test(loop) &&
+      /const code = \{\s*\n\s*read\(sectionType: string\): string \| null/.test(route),
   )
   check(
     "the prompt no longer says there is no file to write",
@@ -3857,7 +3858,7 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "a source that does not compile is refused, and nothing is stored",
-    /const compiled = compileSection\(source, \{ file: path \}\)/.test(route) &&
+    /const compiled = compileSection\(source, \{ file: path[^}]*\}\)/.test(route) &&
       /did not compile/.test(route) &&
       /A refused write did not happen/.test(loop),
   )
@@ -3871,7 +3872,7 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "and the canvas is told, so it stops drawing the old source",
-    /if \(result\.wroteCode\) send\(\{ type: "sources-changed" \}\)/.test(route) &&
+    /if \(result\.wroteCode \|\| codeLost\) send\(\{ type: "sources-changed" \}\)/.test(route) &&
       /\{ type: "sources-changed" \}/.test(loop) &&
       /onSourcesChanged\?\.\(\)/.test(readFileSync(join(process.cwd(), "components/website-builder/theme-chat.tsx"), "utf8")) &&
       /* A stable callback now, so the memoised chat is not re-rendered by a new arrow every edit. */

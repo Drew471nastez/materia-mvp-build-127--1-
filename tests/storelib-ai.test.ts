@@ -569,7 +569,8 @@ async function main() {
     budget("the page assistant's shared rules", pageAgentRules(), 10_000)
     /* 11,000 until the framework's own lists grew: eight setting types and the
        `lines` filter, which CORE_FORMAT names from the registry. Still a budget. */
-    budget("the section writer's rules", writeSectionRules(), 11_400)
+    /* 11,400 until CORE_FORMAT said which type a picture, a menu and a colour are, and colour per element: 400 characters. */
+    budget("the section writer's rules", writeSectionRules(), 11_800)
     budget("the section editor's rules", editSectionRules(), 8_000)
     budget("the sites agent's rules", sitesAgentRules(), 6_000)
   }

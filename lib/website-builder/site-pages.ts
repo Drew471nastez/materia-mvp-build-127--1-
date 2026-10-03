@@ -54,6 +54,8 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
   "account",
   "login",
   "wishlist",
+  /* The page a website shows while it asks for a password (lib/site-password). */
+  "password",
 ])
 
 /**
@@ -112,6 +114,7 @@ export function pageTitleFromKey(key: string): string {
   if (key === NOT_FOUND_PAGE_KEY) return "Page not found"
   /* The sign in page's key is one word; its name is two. */
   if (key === "login") return "Sign in"
+  if (key === "password") return "Password page"
 
   const words = key.replace(/-/g, " ").trim()
   return words.charAt(0).toUpperCase() + words.slice(1)
@@ -136,10 +139,10 @@ export const NOT_FOUND_PAGE_KEY = "404"
  * stored contact page is served as it is, and a site without one gets the
  * generated page instead of a 404.
  */
-export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact"])
+export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact", "password"])
 
 /** The pages the theme ships with. Everything else is one a person made. */
-export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist"])
+export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password"])
 
 /**
  * Where a page is served, when that is not `/<key>`: the sign in page is

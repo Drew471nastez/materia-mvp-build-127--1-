@@ -1426,6 +1426,18 @@ export function WebsiteBuilderClient({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eceef1]">
+                  {/* An import lands first in the library (lib/website-builder/library-limit.ts, firstSortOrder), so its row is drawn there. */}
+                  {showingIncoming && incoming && incoming.kind === "import" && (
+                    <IncomingRow
+                      ref={incomingRow}
+                      incoming={incoming}
+                      onRetry={() => retryRef.current?.()}
+                      onDismiss={() => {
+                        setIncoming(null)
+                        retryRef.current = null
+                      }}
+                    />
+                  )}
                   {library.map((i) => {
                     const def = getThemeDefinition(i.theme_id)
                     const isBusy = busy?.startsWith(i.id) ?? false
@@ -1505,8 +1517,8 @@ export function WebsiteBuilderClient({
                       </tr>
                     )
                   })}
-                  {/* Where the website being made will land: after the others. */}
-                  {showingIncoming && incoming && (
+                  {/* Where a website being added or copied will land: after the others. */}
+                  {showingIncoming && incoming && incoming.kind !== "import" && (
                     <IncomingRow
                       ref={incomingRow}
                       incoming={incoming}

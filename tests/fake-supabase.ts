@@ -169,6 +169,13 @@ class Query implements PromiseLike<Result> {
   neq(col: string, v: unknown) { this.filters.push((r) => r[col] !== v); return this }
   in(col: string, vs: unknown[]) { this.filters.push((r) => vs.includes(r[col])); return this }
   is(col: string, v: null | boolean) { this.filters.push((r) => (v === null ? r[col] === null || r[col] === undefined : r[col] === v)); return this }
+  /* `not(col, "is", null)` and `not(col, "eq", v)`, the two shapes the code uses. */
+  not(col: string, op: string, v: unknown) {
+    if (op === "is") this.filters.push((r) => (v === null ? !(r[col] === null || r[col] === undefined) : r[col] !== v))
+    else if (op === "eq") this.filters.push((r) => r[col] !== v)
+    else throw new Error(`fake-supabase: not(${op}) is not modelled`)
+    return this
+  }
   ilike(col: string, pattern: string) { const re = likeToRegExp(pattern); this.filters.push((r) => typeof r[col] === "string" && re.test(r[col])); return this }
   gt(col: string, v: unknown) { this.filters.push((r) => r[col] !== null && r[col] !== undefined && cmp(r[col], v) > 0); return this }
   gte(col: string, v: unknown) { this.filters.push((r) => r[col] !== null && r[col] !== undefined && cmp(r[col], v) >= 0); return this }

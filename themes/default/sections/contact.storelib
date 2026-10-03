@@ -29,13 +29,13 @@
        person. The box starts unticked, always. #}
     <form class="cf__form" data-storelib-form="contact">
       <div class="cf__pair">
-        <label class="cf__field"><span class="cf__label">{{ settings.name_label }}</span><input class="cf__input" name="name" type="text" autocomplete="name" maxlength="120" required></label>
-        <label class="cf__field"><span class="cf__label">{{ settings.email_label }}</span><input class="cf__input" name="email" type="email" autocomplete="email" maxlength="254" required></label>
+        <label class="cf__field"><span class="cf__label">{{ settings.name_label }}</span><input class="cf__input" name="name" type="text" autocomplete="name" maxlength="120" placeholder="{{ settings.name_placeholder }}" required></label>
+        <label class="cf__field"><span class="cf__label">{{ settings.email_label }}</span><input class="cf__input" name="email" type="email" autocomplete="email" maxlength="254" placeholder="{{ settings.email_placeholder }}" required></label>
       </div>
       {% if settings.show_subject %}
-        <label class="cf__field"><span class="cf__label">{{ settings.subject_label }}</span><input class="cf__input" name="subject" type="text" maxlength="150"></label>
+        <label class="cf__field"><span class="cf__label">{{ settings.subject_label }}</span><input class="cf__input" name="subject" type="text" maxlength="150" placeholder="{{ settings.subject_placeholder }}"></label>
       {% endif %}
-      <label class="cf__field"><span class="cf__label">{{ settings.message_label }}</span><textarea class="cf__input cf__area" name="message" rows="6" maxlength="5000" required></textarea></label>
+      <label class="cf__field"><span class="cf__label">{{ settings.message_label }}</span><textarea class="cf__input cf__area" name="message" rows="6" maxlength="5000" placeholder="{{ settings.message_placeholder }}" required></textarea></label>
       <div class="cf__trap" aria-hidden="true"><label>Company <input name="company" type="text" tabindex="-1" autocomplete="off"></label></div>
       {% if settings.show_consent %}
         <label class="cf__check"><input class="cf__box" type="checkbox" name="consent" value="yes"><span>{% if settings.consent_label %}{{ settings.consent_label }}{% elsif shop.name %}{{ 'Email me news from ' | append: shop.name }}{% else %}{{ 'Email me news from this store' }}{% endif %}</span></label>
@@ -84,12 +84,13 @@
 .cf__field { display: grid; gap: 6px; }
 .cf__label { font-size: 14px; font-weight: 500; color: var(--s-heading); }
 .cf__input {
-  width: 100%; box-sizing: border-box; padding: 12px 14px;
+  width: 100%; box-sizing: border-box; min-height: 48px; padding: 12px 14px;
   font: inherit; font-size: 16px; /* 16px: iOS zooms a smaller field on focus */
   color: var(--s-heading); background: var(--s-bg);
   border: 1px solid var(--s-border); border-radius: var(--s-radius);
   outline: none; transition: border-color 150ms ease;
 }
+.cf__input::placeholder { color: var(--s-para); opacity: 0.75; }
 .cf__input:focus { border-color: var(--s-heading); }
 .cf__area { min-height: 144px; resize: vertical; line-height: 1.5; }
 .cf__trap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); opacity: 0; pointer-events: none; }
@@ -128,10 +129,14 @@
     { "type": "toggle", "id": "show_socials", "label": "Show your social links", "default": true, "info": "The links in Theme settings, Social links." },
     { "type": "header", "id": "hdr_form", "label": "Form" },
     { "type": "text", "id": "name_label", "label": "Name label", "default": "Name" },
+    { "type": "text", "id": "name_placeholder", "label": "Name placeholder", "default": "Your name" },
     { "type": "text", "id": "email_label", "label": "Email label", "default": "Email" },
+    { "type": "text", "id": "email_placeholder", "label": "Email placeholder", "default": "you@example.com" },
     { "type": "toggle", "id": "show_subject", "label": "Ask for a subject", "default": true },
     { "type": "text", "id": "subject_label", "label": "Subject label", "default": "Subject (optional)" },
+    { "type": "text", "id": "subject_placeholder", "label": "Subject placeholder", "default": "What it is about" },
     { "type": "text", "id": "message_label", "label": "Message label", "default": "Message" },
+    { "type": "text", "id": "message_placeholder", "label": "Message placeholder", "default": "Write your message" },
     { "type": "toggle", "id": "show_consent", "label": "Offer to join your list", "default": true, "info": "An unticked box. Only people who tick it join your Subscribers." },
     { "type": "text", "id": "consent_label", "label": "Box label", "default": "", "placeholder": "Email me news from your store", "info": "Empty names your store." },
     { "type": "text", "id": "button_text", "label": "Button", "default": "Send message" },

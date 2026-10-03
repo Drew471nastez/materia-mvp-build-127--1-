@@ -61,15 +61,22 @@ import { ASK_TOOL, questionText, readAsk } from "./ask"
 import { applySourceEdits } from "./code-edits"
 import { describeRecent, lastQuestion, type RecentMessage } from "./memory"
 import { PROGRESS_LABELS, ProgressTrail, progress, savingLabel, writingLabel, type ProgressEvent } from "./progress"
-import { checkSectionQuality, describeQuality, pageAgentRules, qualityErrors } from "@/lib/storelib-ai"
+import { describeQuality, pageAgentRules } from "@/lib/storelib-ai"
 import { builderAgentRules } from "@/lib/agent-rules"
 import { pageAgentReference } from "@/lib/storelib-ai/reference"
+import { sectionAdvice } from "@/lib/storelib-ai/integration"
 import { skillContext } from "@/lib/agent-skills"
 import type { AgentQuestion } from "@/lib/sites/agent/questions"
-import { plainRunError } from "@/lib/sites/agent/plain-errors"
+import { failureKind, plainRunError } from "@/lib/sites/agent/plain-errors"
+import { COMPILE_CHECK_LABEL, fileLabel, toolStepLabel, type StepNames } from "./step-labels"
+import { MAX_CODE_ATTEMPTS, checkSectionSource, outOfAttempts } from "./compile-feedback"
+import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type SectionOrigin, type SelectedSectionContext } from "./selected-section"
+import { makeCodedCopy } from "./coded-copy"
 import type {
   AgentProvider,
   AgentTurn,
+  ProviderRequest,
+  ProviderTurn,
   ToolSpec,
   TokenUsage,
 } from "@/lib/sites/agent/types"
@@ -125,7 +132,18 @@ export type ThemeAgentEvent =
    * made, named against the page it was made on, so the list is a record of
    * the work rather than a decoration timed to look busy.
    */
-  | { type: "step"; id: string; label: string; state: "running" | "done" | "failed" }
+  | {
+      type: "step"
+      id: string
+      label: string
+      state: "running" | "done" | "failed"
+      /**
+       * The sections on the page this step is working on, by id: the one it
+       * reads or changes, or every instance of a type whose code it writes.
+       * The canvas lays its shimmer over these while the run is at work.
+       */
+      sections?: string[]
+    }
   /** A section's source, the moment it is written. */
   | { type: "code"; path: string; source: string }
   | { type: "message"; text: string }
@@ -166,9 +184,10 @@ Rules:
 - update_section MERGES the settings you send. Send only the fields you are changing; everything you leave out keeps its value.
 - EVERY SETTING IS A CONTROL, and the control decides what it will take. A select takes one of its listed choices and nothing else. A toggle takes true or false. A slider takes a number inside its range. A colour takes a hex value like "#1a1a1a". A field id that does not exist, and a value the control cannot take, are BOTH silently ignored by the renderer — the change would look like it worked and do nothing. read_section lists every control on a section and what each one accepts; read_section_type does the same for a type you have not added yet.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
-- THERE IS ONE HEADER AND ONE FOOTER. "Make my header like this", "add a menu", "make the nav sticky" all mean read_section and update_section on the existing header (its settings, and its nav_link blocks for the links); the footer the same way. Never write a new section that is a header, a navigation bar or a footer: it is refused, and it would be a second header with no cart drawer, search or working menu.
+- THERE IS ONE HEADER AND ONE FOOTER, built in: CONNECT TO THEM, never rebuild them. "Make my header like this", "add a menu", "put my logo in", "make the nav sticky" all mean read_section and update_section on the existing header (layout, sticky, logo_url, colour scheme, button), its nav_link blocks, or its menu setting set to one of the site's menus; the logo, store name and socials are theme settings (update_theme: logo_url, brand_name, social_*). The footer the same way. Never write a header, nav bar or footer section and never put their content in the page: it is refused, and it would be a second header with no cart drawer, search or working menu. Only when the creator explicitly asks for a header of their own is it ONE section file with "kind": "header" (it replaces the built-in one; menu from a link_list, logo from an image_picker or theme.logo.url). Never two headers.
 - PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
+- THE SELECTED SECTION IS EDITED IN PLACE: its settings, blocks or own code, never a new section beside it. A built in one whose change needs code: ask once, then copy_section_to_code and edit the copy.
 - MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has. Some sections take theme blocks (heading, text, button, image, video, spacer, group): a group holds blocks of its own, so to build a row, add a group and then add blocks inside it with parentBlockId. A block inside another is addressed by its path, outer/inner. A block marked static is placed by the template: change it, never remove it.
 - NOT EVERY MESSAGE IS AN EDIT. A greeting or a question ("what can you do?", "why is my header dark?") gets an answer, not a guess: make no changes and reply in one to three plain sentences. Never apologise at length and never describe your tools.
 - ASK ONLY WHAT YOU CANNOT READ. When a missing fact would change what you build (which of several products, which page, brand colours the site does not have, a business fact that is nowhere on the page or in the store) call ask_creator with one short question and two to four choices taken from what you read. The run stops there; their answer is their next message, with this conversation shown above it. Never ask what the page, the theme, the store or the conversation already answers, and never about taste you can decide. If two honest readings would build different things, ask before any change; if one is clearly likelier, act on it.
@@ -384,7 +403,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
           {
             name: "read_section_code",
             description:
-              "Read the SOURCE of a kind of section: its markup, its CSS, its script and its schema. Use this the moment a request is about something no setting covers — an animation, a transition, hover behaviour, spacing between two particular things, how a part behaves on a phone.",
+              "Read the SOURCE of a kind of section: its markup, its CSS, its script and its schema. Use this the moment a request is about something no setting covers: an animation, a transition, hover behaviour, spacing between two particular things, how a part behaves on a phone. Storelib's built in sections can be read and not written: see copy_section_to_code.",
             parameters: {
               type: "object" as const,
               properties: {
@@ -417,6 +436,19 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
                 },
               },
               required: ["sectionType", "edits"],
+              additionalProperties: false,
+            },
+          },
+          {
+            name: "copy_section_to_code",
+            description:
+              "Give ONE section on the page an editable copy of Storelib's built in code: the same file under a new type and name in the creator's theme, and that section switched to it with every setting and block it had. Only after the creator agreed to it (ask_creator), and only for a built in section whose change truly needs code. Then edit the copy with edit_section_code. Never the header or the footer.",
+            parameters: {
+              type: "object" as const,
+              properties: {
+                id: { type: "string", description: "The section's id, from the page listing." },
+              },
+              required: ["id"],
               additionalProperties: false,
             },
           },
@@ -479,15 +511,8 @@ function summarise(done: string[]): string {
   return `${unique.slice(0, -1).join(", ")} and ${last}.`
 }
 
-/** A short line for the chat: "Added a pricing section", not "add_section". */
-/**
- * WHAT A TOOL CALL IS, IN THE CREATOR'S WORDS.
- *
- * "read_section" is not a step anybody asked for; "Reading the FAQ" is the
- * same step described to the person waiting on it. Named against the page as
- * it stands when the call is made, so a section is called what it is called
- * rather than by its id.
- */
+/* What a tool call is, in the creator's words, is ./step-labels.ts. */
+
 /**
  * The tools that exist to CHANGE the page. One of these that comes back with
  * no operation did not do what it set out to do, whatever its message says.
@@ -505,54 +530,6 @@ const WRITE_TOOLS = new Set([
   "move_block",
   "update_theme",
 ])
-
-function describeCall(
-  name: string,
-  argumentsJson: string,
-  state: ThemeState,
-  schemas?: SchemaMap,
-): string {
-  let args: Record<string, unknown> = {}
-  try {
-    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
-  } catch {
-    /* A call whose arguments will not parse still gets a name. */
-  }
-  /**
-   * "the FAQ" where the section is on the page, and "a section" where it is
-   * not — the caller writes `the ${...}` around it, so an unknown one has to
-   * come back without the article or the label reads "Reading the a section".
-   */
-  const nameOf = (id: unknown) => {
-    const section = state.sections.find((s) => s.id === id)
-    return section ? `the ${typeName(schemas, section.type)}` : "a section"
-  }
-  const typeOf = (value: unknown) =>
-    typeof value === "string" ? `the ${typeName(schemas, value)}` : "a section"
-
-  switch (name) {
-    case "read_section": return `Reading ${nameOf(args.id)}`
-    case "read_section_type": return `Looking at what ${typeOf(args.sectionType)} can do`
-    case "read_section_code": return `Reading ${typeOf(args.sectionType)} code`
-    case "write_section_code": return `Writing ${typeOf(args.sectionType)} code`
-    case "edit_section_code": return `Editing ${typeOf(args.sectionType)} code`
-    case "ask_creator": return "Asking you a question"
-    case "read_store": return "Reading the catalogue"
-    case "add_section": return `Adding ${typeOf(args.sectionType)}`
-    case "remove_section": return `Removing ${nameOf(args.id)}`
-    case "move_section": return `Moving ${nameOf(args.id)}`
-    case "rename_section": return `Renaming ${nameOf(args.id)}`
-    case "update_section": return `Changing ${nameOf(args.id)}`
-    case "set_section_visibility":
-      return args.visible === false ? `Hiding ${nameOf(args.id)}` : `Showing ${nameOf(args.id)}`
-    case "add_block": return `Adding to ${nameOf(args.sectionId)}`
-    case "update_block": return `Editing ${nameOf(args.sectionId)}`
-    case "remove_block": return `Removing from ${nameOf(args.sectionId)}`
-    case "move_block": return `Reordering ${nameOf(args.sectionId)}`
-    case "update_theme": return "Changing the theme's settings"
-    default: return name.replace(/_/g, " ")
-  }
-}
 
 function labelFor(op: ThemeOp, state: ThemeState, schemas?: SchemaMap): string {
   const nameOf = (id: string) => {
@@ -572,6 +549,8 @@ function labelFor(op: ThemeOp, state: ThemeState, schemas?: SchemaMap): string {
       return `Removed ${nameOf(op.id)}`
     case "set_section_visibility":
       return `${op.hidden ? "Hid" : "Showed"} ${nameOf(op.id)}`
+    case "set_section_type":
+      return `Made ${nameOf(op.id)} editable`
     case "update_theme":
       return "Updated the theme"
     case "add_block":
@@ -613,9 +592,24 @@ export interface ThemeAgentInput {
    * works with settings alone as it always did.
    */
   code?: {
+    /** The section type's source: the creator's own file, or Storelib's shipped one (read only). */
     read(sectionType: string): string | null
-    write(sectionType: string, source: string): Promise<{ ok: true } | { ok: false; error: string }>
+    /** Whose code a type is: see ./selected-section. Absent: only the creator's own files exist here. */
+    origin?(sectionType: string): SectionOrigin
+    /**
+     * Keeps a source the loop has already checked (./compile-feedback). The
+     * route stages it for the end of the run (./code-journal) and refuses
+     * anything an agent may not write. `create` is a coded copy, the only
+     * write that may name a file that does not exist yet.
+     */
+    write(sectionType: string, source: string, opts?: { create?: boolean }): Promise<{ ok: true } | { ok: false; error: string }>
   }
+  /**
+   * The open section as the server resolved it (./selected-section): its
+   * type, its file and whose code that is. Absent, it is resolved here from
+   * `selectedSectionId` and the page.
+   */
+  selected?: SelectedSectionContext | null
   model: string
   prompt: string
   /**
@@ -717,8 +711,13 @@ export async function* themeAgent(
    *
    * Built here and passed down rather than held anywhere: a module-level map
    * would be shared by every request this server is handling at once.
+   *
+   * `let`: a code write can change a schema (a new setting, a copy under a
+   * new type), and every check after it has to read the new one.
    */
-  const schemas = schemaMapFor(input.sources)
+  let schemas = schemaMapFor(input.sources)
+  /** This install's files as this run has them: what it wrote replaces what it read. */
+  const sourcesNow: Record<string, string> = { ...(input.sources ?? {}) }
 
   let state: ThemeState = { sections: [...input.state.sections], settings: { ...input.state.settings } }
   /** Whether any section's source was rewritten, so the caller can reload it. */
@@ -741,6 +740,8 @@ export async function* themeAgent(
   const added = new Set<string>()
   /** Per section type, how many writes the quality gate has sent back. */
   const codeRefusals = new Map<string, number>()
+  /** Per section type, how many writes the compiler (or a failed draw) refused: see MAX_CODE_ATTEMPTS. */
+  const codeFailures = new Map<string, number>()
   /** Sections whose blocks this run added to or removed from. */
   const filled = new Set<string>()
   /**
@@ -780,6 +781,16 @@ export async function* themeAgent(
   const selected = input.selectedSectionId
     ? state.sections.find((s) => s.id === input.selectedSectionId)
     : undefined
+  /**
+   * WHERE ITS CODE LIVES, AND WHOSE IT IS (./selected-section): the
+   * creator's own file, Storelib's shipped one, or none at all. What lets
+   * "make the cards slide in" on a selected section edit that section's
+   * file rather than add a new section beside it.
+   */
+  const originOf = (type: string): SectionOrigin =>
+    input.code?.origin ? input.code.origin(type) : input.code?.read(type) != null ? "own" : "product"
+  const selectedContext: SelectedSectionContext | null =
+    input.selected !== undefined ? input.selected : resolveSelectedSection(state.sections, input.selectedSectionId, originOf)
 
   const history = input.history ?? []
 
@@ -819,9 +830,9 @@ export async function* themeAgent(
         /* Compact: the indentation of a pretty-printed dump was a third of its tokens. */
         `THEME SETTINGS\n${compactSettings(state.settings)}`,
         selected && locked
-          ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change — its settings, its blocks, its name. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected, schemas)}`
+          ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change: its settings, its blocks, its name, its code. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
           : selected
-            ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected, schemas)}`
+            ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another. A change they ask for is a change to THIS section, not a new section.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
             : "",
         store ? `STORE, read for you just now:\n${describeStore(store)}` : "",
         /* What was just said, so a follow-up or an answer means what it meant. */
@@ -863,7 +874,7 @@ export async function* themeAgent(
 
       if (attempt === 1) yield progress("planning", PROGRESS_LABELS.planning)
 
-      const turn = await provider.complete({
+      const turn = await completeOnce(provider, {
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
@@ -963,8 +974,21 @@ export async function* themeAgent(
          * now — after the call, a section it removed no longer has a name to
          * be called by.
          */
-        const stepLabel = describeCall(call.name, call.argumentsJson, state, schemas)
-        yield { type: "step", id: call.id, label: stepLabel, state: "running" }
+        const stepNames: StepNames = {
+          section: (id) => {
+            const found = state.sections.find((s) => s.id === id)
+            return found ? found.name?.trim() || typeName(schemas, found.type) : null
+          },
+          type: (type) => typeName(schemas, type),
+        }
+        const codeTypeArg = readTarget(call.argumentsJson)
+        const stepLabel = toolStepLabel(call.name, call.argumentsJson, stepNames, {
+          attempt: call.name === "write_section_code" || call.name === "edit_section_code" ? codeFailures.get(codeTypeArg) ?? 0 : 0,
+        })
+        /* What the canvas shimmers while this step runs: see `sections` on the step event. */
+        const stepSections = stepTargets(call.name, call.argumentsJson, state)
+        const on = stepSections.length ? { sections: stepSections } : {}
+        yield { type: "step", id: call.id, label: stepLabel, state: "running", ...on }
 
         /**
          * A QUESTION ENDS THE RUN. The policy is checked first (./ask.ts):
@@ -1036,44 +1060,134 @@ export async function* themeAgent(
          * THE CODE TOOLS ARE THE ONLY ONES THAT TOUCH A FILE, so they are
          * the only ones that have to wait for anything. Everything else is a
          * change to the page held in memory here and stays instant.
+         *
+         * A WRITE IS CHECKED HERE, THEN KEPT BY THE ROUTE. Compiled, held to
+         * the integration rules, and drawn with every instance's settings on
+         * this page (./compile-feedback). A refusal goes back to the model in
+         * plain numbered lines with the line of the file each one is about,
+         * and it tries again, up to MAX_CODE_ATTEMPTS per file; then the file
+         * is left as it was. What passes is staged by the route and saved
+         * only when the run ends well (./code-journal).
          */
-        if (
-          input.code &&
-          (call.name === "read_section_code" || call.name === "write_section_code" || call.name === "edit_section_code")
-        ) {
-          const writing = call.name !== "read_section_code"
-          const codeType = readTarget(call.argumentsJson)
-          const codeName = `the ${typeName(schemas, codeType)}`
-          if (writing) {
-            const said = trail.next(progress("writing", writingLabel(codeName)))
-            if (said) yield said
+        if (input.code && CODE_TOOLS.has(call.name)) {
+          const code = input.code
+          const codeType = codeTypeArg
+
+          if (call.name === "read_section_code") {
+            const read = readCode(codeType, code, originOf)
+            results.push({ id: call.id, output: read.output })
+            if (read.ok) reads.set(readKey, read.output)
+            yield { type: "step", id: call.id, label: stepLabel, state: read.ok ? "done" : "failed" }
+            continue
           }
-          const saved = await runCodeTool(call.name, call.argumentsJson, input.code, codeRefusals)
-          results.push({ id: call.id, output: saved.output })
-          if (call.name === "read_section_code" && saved.ok) reads.set(readKey, saved.output)
-          const wrote = writing && saved.ok
-          if (wrote) {
-            // The canvas has to be told, the same way an operation tells it.
-            yield progress("saving", savingLabel(codeName))
-            done.push(`Rewrote the ${codeType.replace(/_/g, " ")} section's code`)
-            wroteCode = true
-            /* What was read of it, and what its schema says, are no longer true. */
-            forget(`read_section_code:${codeType}`)
-            forget(`read_section_type:${codeType}`)
-            forget("read_section:")
-            /**
-             * The source itself, so the panel can show what was written
-             * rather than only that something was. It is what was saved,
-             * after the edits were applied: the same string, not a summary.
-             */
-            if (saved.source) yield { type: "code", path: `sections/${codeType}.storelib`, source: saved.source }
+
+          if (call.name === "copy_section_to_code") {
+            const copied = await copyToCode(call.argumentsJson, {
+              state,
+              code,
+              originOf,
+              locked,
+              schemas,
+              sources: sourcesNow,
+              newSchemas: (next) => {
+                schemas = next
+              },
+            })
+            results.push({ id: call.id, output: copied.output })
+            if (copied.op && copied.code) {
+              /* The file first, so the canvas can draw the new type the moment the section switches to it. */
+              yield { type: "code", path: copied.code.path, source: copied.code.source }
+              const label = labelFor(copied.op, state, schemas)
+              state = applyOp(state, copied.op, schemas)
+              ops.push(copied.op)
+              done.push(label)
+              touched.add(copied.op.id)
+              wroteCode = true
+              forget("read_section:")
+              forget("read_section_type:")
+              yield { type: "op", op: copied.op, label }
+            }
+            yield { type: "step", id: call.id, label: stepLabel, state: copied.op ? "done" : "failed", ...on }
+            continue
           }
-          yield {
-            type: "step",
+
+          const path = `sections/${codeType}.storelib`
+          const said = trail.next(progress("writing", writingLabel(fileLabel(codeType))))
+          if (said) yield said
+          const prepared = prepareCodeWrite(call.name, call.argumentsJson, code, originOf)
+          if (prepared.ok === false) {
+            results.push({ id: call.id, output: prepared.output })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed", ...on }
+            continue
+          }
+          const failures = codeFailures.get(codeType) ?? 0
+          if (failures >= MAX_CODE_ATTEMPTS) {
+            results.push({ id: call.id, output: outOfAttempts(path) })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed", ...on }
+            continue
+          }
+
+          const checkId = `${call.id}:check`
+          yield { type: "step", id: checkId, label: COMPILE_CHECK_LABEL, state: "running", ...on }
+          const qualitySent = codeRefusals.get(codeType) ?? 0
+          const checked = checkSectionSource({
+            path,
+            type: codeType,
+            source: prepared.source,
+            before: prepared.before,
+            instances: state.sections,
+            theme: state.settings,
+            sources: sourcesNow,
+            strict: true,
+            /* Sent back twice over quality already: the third goes through with the finding reported. */
+            lenient: qualitySent >= QUALITY_REFUSALS,
+          })
+          if (checked.ok === false) {
+            if (checked.reason === "quality") codeRefusals.set(codeType, qualitySent + 1)
+            else codeFailures.set(codeType, failures + 1)
+            const spent = checked.reason !== "quality" && failures + 1 >= MAX_CODE_ATTEMPTS
+            results.push({
+              id: call.id,
+              output: spent
+                ? `${checked.feedback}\n\n${outOfAttempts(path)}`
+                : `${checked.feedback}\n\nFix exactly that and send it again. Do not give up on the request because of a compile error.`,
+            })
+            yield { type: "step", id: checkId, label: COMPILE_CHECK_LABEL, state: "failed", ...on }
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed", ...on }
+            continue
+          }
+          yield { type: "step", id: checkId, label: COMPILE_CHECK_LABEL, state: "done", ...on }
+
+          const kept = await code.write(codeType, prepared.source)
+          if (kept.ok === false) {
+            results.push({ id: call.id, output: `That change was refused and NOTHING was saved: ${kept.error}` })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed", ...on }
+            continue
+          }
+          /* Kept, and what it should still have: a colour setting per element it draws (lib/storelib-ai/integration.ts). */
+          const advice = sectionAdvice(prepared.source)
+          results.push({
             id: call.id,
-            label: stepLabel,
-            state: writing && !wrote ? "failed" : "done",
-          }
+            output: `${path} compiled and is kept. It is saved when this edit finishes, and the canvas draws it now.${advice.length ? ` Still worth doing in this file:\n${describeQuality(advice)}\n` : " "}If the change was meant to be visible, say what you changed in one sentence when you finish.`,
+          })
+          // The canvas has to be told, the same way an operation tells it.
+          yield progress("saving", savingLabel(fileLabel(codeType)))
+          done.push(`Rewrote ${fileLabel(codeType)}`)
+          wroteCode = true
+          for (const instance of state.sections) if (instance.type === codeType) touched.add(instance.id)
+          sourcesNow[path] = prepared.source
+          schemas = schemaMapFor(sourcesNow)
+          /* What was read of it, and what its schema says, are no longer true. */
+          forget(`read_section_code:${codeType}`)
+          forget(`read_section_type:${codeType}`)
+          forget("read_section:")
+          /**
+           * The source itself, so the panel can show what was written and
+           * the canvas can draw it now. It is what was checked, after the
+           * edits were applied: the same string, not a summary.
+           */
+          yield { type: "code", path, source: prepared.source }
+          yield { type: "step", id: call.id, label: stepLabel, state: "done", ...on }
           continue
         }
 
@@ -1177,7 +1291,8 @@ export async function* themeAgent(
    * happened rather than that something vague did not finish.
    */
   if (status !== "refused") {
-    if (ops.length > 0) {
+    /* A section file it wrote and kept is work too: it is saved when the run ends (./code-journal). */
+    if (ops.length > 0 || wroteCode) {
       // Work was done. Whatever stopped the loop, this edit happened.
       status = "succeeded"
       error = null
@@ -1247,6 +1362,38 @@ function finishedLooksLike(type: string, schemas?: SchemaMap): string {
 }
 
 const READ_TOOLS = new Set(["read_section", "read_section_type", "read_section_code"])
+
+/**
+ * ONE MODEL CALL, WITH ONE SECOND CHANCE WHEN THE PROVIDER WAS ONLY BUSY.
+ *
+ * The SDK already retries a 429 or a dropped connection on its own, quickly.
+ * A run that has done ten steps of real work and then meets a busy provider
+ * on its eleventh is worth one more patient try before the creator is told
+ * anything: a short wait, then the same request. Anything else (a timeout,
+ * billing, a cancel) is not retried, because waiting will not change it.
+ */
+export const BUSY_RETRY_MS = 1_500
+
+async function completeOnce(provider: AgentProvider, request: ProviderRequest): Promise<ProviderTurn> {
+  try {
+    return await provider.complete(request)
+  } catch (thrown) {
+    const kind = failureKind(thrown)
+    if ((kind !== "busy" && kind !== "network") || request.signal?.aborted) throw thrown
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, BUSY_RETRY_MS)
+      request.signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer)
+          reject(new DOMException("Aborted", "AbortError"))
+        },
+        { once: true },
+      )
+    })
+    return await provider.complete(request)
+  }
+}
 
 /**
  * A request about the business, which the model would answer by reading the
@@ -1346,88 +1493,166 @@ function compactSettings(settings: Record<string, unknown>): string {
  */
 const QUALITY_REFUSALS = 2
 
-/**
- * What a code tool says back: the text the model reads, whether it did what
- * it was asked, and for a write, the whole source that was saved (after the
- * edits, for edit_section_code), for the panel to show.
- */
-interface CodeResult {
-  ok: boolean
-  output: string
-  source?: string
-}
+/** The tools that read or write a section's file. */
+const CODE_TOOLS = new Set(["read_section_code", "write_section_code", "edit_section_code", "copy_section_to_code"])
 
-async function runCodeTool(
-  name: string,
-  argumentsJson: string,
-  code: NonNullable<ThemeAgentInput["code"]>,
-  /** How many times each section's write has already been sent back. */
-  refused: Map<string, number>,
-): Promise<CodeResult> {
+/**
+ * The sections on the page a step is about, for the canvas's shimmer. A
+ * write to a section's code is about every instance of that type; a read is
+ * about nothing, because reading changes nothing anybody is looking at.
+ */
+export function stepTargets(name: string, argumentsJson: string, state: ThemeState): string[] {
   let args: Record<string, unknown> = {}
   try {
     args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
   } catch {
-    return { ok: false, output: "The arguments were not JSON. Send sectionType, and for a write the edits or the whole source." }
+    return []
   }
-  const sectionType = typeof args.sectionType === "string" ? args.sectionType.trim() : ""
-  if (!sectionType) return { ok: false, output: "Name the section type, e.g. \"faq_accordion\"." }
-
-  if (name === "read_section_code") {
-    const source = code.read(sectionType)
-    if (source === null) {
-      return {
-        ok: false,
-        output: `There is no source for "${sectionType}" in this theme. It is one of the sections built into the product, so it has no file to edit: do what you can with its settings and say plainly in your reply what the settings cannot do.`,
-      }
-    }
-    return { ok: true, output: `The whole of sections/${sectionType}.storelib:\n\n${source}` }
+  if (name === "write_section_code" || name === "edit_section_code") {
+    const type = typeof args.sectionType === "string" ? args.sectionType.trim() : ""
+    return type ? state.sections.filter((s) => s.type === type).map((s) => s.id) : []
   }
-
-  /**
-   * THE SAME GATE FOR BOTH WRITES. A patch is applied to the file as it
-   * stands, and what that produces is then held to exactly what a whole file
-   * is: the quality checks, the compiler, a draft save.
-   */
-  let source: string
-  if (name === "edit_section_code") {
-    const current = code.read(sectionType)
-    if (current === null) {
-      return { ok: false, output: `There is no source for "${sectionType}" in this theme to edit. Built-in sections cannot be changed: work with their settings.` }
-    }
-    const applied = applySourceEdits(current, args.edits)
-    if (applied.ok === false) return { ok: false, output: `Nothing was saved. ${applied.error}` }
-    source = applied.source
-  } else {
-    source = typeof args.source === "string" ? args.source : ""
-    if (!source.trim()) return { ok: false, output: "Send the whole file in `source`, or use edit_section_code for a change to part of it." }
+  if (name === "copy_section_to_code" || WRITE_TOOLS.has(name)) {
+    const id = typeof args.sectionId === "string" ? args.sectionId : typeof args.id === "string" ? args.id : ""
+    return id && state.sections.some((s) => s.id === id) ? [id] : []
   }
+  return []
+}
 
-  const seen = refused.get(sectionType) ?? 0
-  if (seen < QUALITY_REFUSALS) {
-    const before = code.read(sectionType)
-    const had = new Set(before === null ? [] : qualityErrors(checkSectionQuality(before)).map((f) => f.id))
-    const introduced = qualityErrors(checkSectionQuality(source)).filter((f) => !had.has(f.id))
-    if (introduced.length) {
-      refused.set(sectionType, seen + 1)
-      return {
-        ok: false,
-        output: `That change was NOT saved. It compiles, but it would be wrong on a real page:\n${describeQuality(introduced)}\n\nFix those and send it again, keeping everything else exactly as it is.`,
-      }
+/** read_section_code: the creator's file, or Storelib's own, which is read and never written. */
+function readCode(
+  sectionType: string,
+  code: NonNullable<ThemeAgentInput["code"]>,
+  originOf: (type: string) => SectionOrigin,
+): { ok: boolean; output: string } {
+  if (!SECTION_TYPE.test(sectionType)) return { ok: false, output: 'Name the section type, e.g. "faq_accordion".' }
+  const source = code.read(sectionType)
+  if (source === null) {
+    return {
+      ok: false,
+      output: `There is no source for "${sectionType}" in this theme. It is drawn by Storelib itself, so it has no file to edit: do what you can with its settings and say plainly in your reply what the settings cannot do.`,
     }
   }
-
-  const written = await code.write(sectionType, source)
-  if (written.ok === true) {
+  if (originOf(sectionType) === "builtin") {
     return {
       ok: true,
-      source,
-      output: `sections/${sectionType}.storelib was compiled and saved. It is live on the canvas. If the change was meant to be visible, say what you changed in one sentence when you finish.`,
+      output: `sections/${sectionType}.storelib is Storelib's built in file. You can read it and you cannot change it. To change its code the creator first agrees to an editable copy (ask_creator), then copy_section_to_code on the section, then you edit the copy.\n\n${source}`,
     }
   }
+  return { ok: true, output: `The whole of sections/${sectionType}.storelib:\n\n${source}` }
+}
+
+/**
+ * write_section_code and edit_section_code, up to the point of checking: the
+ * whole new source, and what the file said before it. Refuses a file that is
+ * not the creator's own before anything is compiled.
+ */
+function prepareCodeWrite(
+  name: string,
+  argumentsJson: string,
+  code: NonNullable<ThemeAgentInput["code"]>,
+  originOf: (type: string) => SectionOrigin,
+): { ok: true; source: string; before: string | null } | { ok: false; output: string } {
+  let args: Record<string, unknown> = {}
+  try {
+    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+  } catch {
+    return { ok: false, output: "The arguments were not JSON. Send sectionType, and the edits or the whole source." }
+  }
+  const sectionType = typeof args.sectionType === "string" ? args.sectionType.trim() : ""
+  if (!SECTION_TYPE.test(sectionType)) return { ok: false, output: 'Name the section type, e.g. "faq_accordion".' }
+  const origin = originOf(sectionType)
+  if (origin === "builtin") {
+    return {
+      ok: false,
+      output: `Nothing was saved. sections/${sectionType}.storelib is Storelib's built in file and is never changed. If the creator has agreed to an editable copy, call copy_section_to_code on the section and edit the copy; otherwise make the change with its settings.`,
+    }
+  }
+  const before = code.read(sectionType)
+  if (before === null || origin !== "own") {
+    return { ok: false, output: `There is no source for "${sectionType}" in this theme to change. Built in sections are changed through their settings.` }
+  }
+  if (name === "edit_section_code") {
+    const applied = applySourceEdits(before, args.edits)
+    if (applied.ok === false) return { ok: false, output: `Nothing was saved. ${applied.error}` }
+    return { ok: true, source: applied.source, before }
+  }
+  const source = typeof args.source === "string" ? args.source : ""
+  if (!source.trim()) return { ok: false, output: "Send the whole file in `source`, or use edit_section_code for a change to part of it." }
+  return { ok: true, source, before }
+}
+
+/**
+ * copy_section_to_code: Storelib's file for a built in section, copied into
+ * the creator's theme under a new type (./coded-copy), checked, kept, and the
+ * section switched over to it with every setting and block it had.
+ */
+async function copyToCode(
+  argumentsJson: string,
+  ctx: {
+    state: ThemeState
+    code: NonNullable<ThemeAgentInput["code"]>
+    originOf: (type: string) => SectionOrigin
+    locked?: string
+    schemas: SchemaMap
+    sources: Record<string, string>
+    newSchemas: (next: SchemaMap) => void
+  },
+): Promise<{ output: string; op?: Extract<ThemeOp, { kind: "set_section_type" }>; code?: { path: string; source: string } }> {
+  let args: Record<string, unknown> = {}
+  try {
+    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+  } catch {
+    return { output: "The arguments were not JSON. Send the section's id." }
+  }
+  const id = typeof args.id === "string" ? args.id : ""
+  if (ctx.locked && id !== ctx.locked) {
+    return { output: `[${ctx.locked}] is the only section you may change in this edit. Nothing was copied.` }
+  }
+  const section = ctx.state.sections.find((s) => s.id === id)
+  if (!section) return { output: notFound(id, ctx.state) }
+  if (section.type === "header" || section.type === "footer") {
+    return { output: `The ${section.type} is never copied: a second one would have no cart, search or menus. Change it through its settings.` }
+  }
+  const origin = ctx.originOf(section.type)
+  if (origin === "own") {
+    return { output: `[${id}] already draws from the creator's own file, sections/${section.type}.storelib. Edit that with edit_section_code; there is nothing to copy.` }
+  }
+  const shipped = origin === "builtin" ? ctx.code.read(section.type) : null
+  if (shipped === null) {
+    return { output: `[${id}] is drawn by Storelib itself and has no code to copy. Its settings and blocks are the whole of it: change those, and say plainly what they cannot do.` }
+  }
+  const copy = makeCodedCopy({
+    type: section.type,
+    source: shipped,
+    takenTypes: new Set([
+      ...Object.keys(ctx.schemas),
+      ...Object.keys(ctx.sources).map((p) => p.replace(/^sections\//, "").replace(/\.storelib$/, "")),
+    ]),
+    takenNames: new Set(Object.values(ctx.schemas).map((s) => String(s.name ?? "").toLowerCase())),
+  })
+  if (copy.ok === false) return { output: copy.error }
+  const switched = { ...section, type: copy.type }
+  /* Storelib's own file is not re-judged on taste; it must still compile and draw with this section's settings. */
+  const checked = checkSectionSource({
+    path: copy.path,
+    type: copy.type,
+    source: copy.source,
+    instances: [switched],
+    theme: ctx.state.settings,
+    sources: ctx.sources,
+    strict: false,
+    lenient: true,
+  })
+  if (checked.ok === false) return { output: `The copy could not be made, and nothing changed: ${checked.feedback}` }
+  const kept = await ctx.code.write(copy.type, copy.source, { create: true })
+  if (kept.ok === false) return { output: `The copy could not be kept, and nothing changed: ${kept.error}` }
+  ctx.sources[copy.path] = copy.source
+  ctx.newSchemas(schemaMapFor(ctx.sources))
   return {
-    ok: false,
-    output: `That change was refused and NOTHING was saved: ${written.error}\n\nRead the errors, fix them, and send it again. Do not give up on the request because of a compile error.`,
+    output: `Made an editable copy. [${id}] now draws from ${copy.path} ("${copy.name}") with every setting and block it had. Read it with read_section_code "${copy.type}" and make the change there with edit_section_code.`,
+    op: { kind: "set_section_type", id, sectionType: copy.type },
+    code: { path: copy.path, source: copy.source },
   }
 }
 

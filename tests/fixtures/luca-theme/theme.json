@@ -1,0 +1,11 @@
+{
+  "format": "storelib-theme",
+  "format_version": 1,
+  "name": "Luca Dragoste",
+  "version": "1.1.1",
+  "engine": {
+    "min": 1
+  },
+  "source_theme_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+  "description": "LinkedIn ghostwriting site for Luca Dragoste"
+}

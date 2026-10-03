@@ -21,13 +21,12 @@
  * section (lib/agent-access/protected.ts).
  */
 
-import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
-import { validateSection } from "@/lib/storelib-ai/validate"
+import { BlockInstanceSchema } from "@/lib/website-builder/block-tree"
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
-import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
+import { recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { compileSection } from "@/lib/storelib-theme"
 import { agentMayWrite } from "@/lib/agent-access/protected"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
@@ -45,6 +44,9 @@ import { keepImages } from "@/lib/website-builder/agent/attachment-store"
 import { withPictureNote } from "@/lib/website-builder/ask-attach"
 import { recentMessages } from "@/lib/website-builder/agent/memory"
 import { getWebsiteShareUrl } from "@/lib/url-helpers"
+import { CodeJournal } from "@/lib/website-builder/agent/code-journal"
+import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/website-builder/agent/selected-section"
+import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -89,6 +91,8 @@ const SectionSchema = z.object({
   settings: z.record(z.unknown()),
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),
+  /* Which section group it sits in, kept rather than stripped: lib/storelib-theme/section-groups.ts. */
+  group: z.enum(["header", "footer"]).optional(),
 })
 
 const BodySchema = z.object({
@@ -331,7 +335,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * The draft half where there is one: the assistant works on the page
          * as it is being edited, which is where the creator is.
          */
-        let agentSources: Record<string, string> | undefined
+        const agentSources: Record<string, string> = {}
         try {
           const { data: fileRows, error: fileErr } = await supabase
             .from("store_theme_custom_files")
@@ -341,9 +345,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           const rows = fileErr
             ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
             : (fileRows ?? [])
-          if (rows.length > 0) {
-            agentSources = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
-          }
+          Object.assign(agentSources, sourceMap(rows as { path: string; content: string; draft_content?: string | null }[]))
         } catch {
           /* the assistant works without them, as it always did */
         }
@@ -361,49 +363,82 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * Only sections the creator has in their own theme can be written;
          * the product's built-in ones have no file here and the read says so.
          */
-        const code = agentSources
-          ? {
-              read(sectionType: string): string | null {
-                const path = `sections/${sectionType}.storelib`
-                return agentSources?.[path] ?? null
-              },
-              async write(sectionType: string, source: string): Promise<{ ok: true } | { ok: false; error: string }> {
-                const path = `sections/${sectionType}.storelib`
-                /* The same rule every agent is held to: a section file, and
-                   never one of Storelib's built-in sections. */
-                const allowed = agentMayWrite(path)
-                if (allowed.ok === false) return { ok: false, error: allowed.error }
-                if (!agentSources || !(path in agentSources)) {
-                  return { ok: false, error: `There is no ${path} in this theme to replace.` }
-                }
-                const compiled = compileSection(source, { file: path })
-                if (compiled.ok === false) {
-                  const lines = compiled.errors
-                    .map((e) => `${e.line !== undefined ? `line ${e.line}: ` : ""}${e.message}`)
-                    .join("\n")
-                  return { ok: false, error: `${path} did not compile.\n${lines}` }
-                }
-                /* Held to what every agent's section is held to: it plugs into the theme like a native one. */
-                const checked = validateSection(source, { path, expectType: sectionType, strict: true })
-                if (checked.ok === false) return { ok: false, error: `${path} was not saved.\n${checked.feedback}` }
-                /*
-                  SAVED AS A DRAFT, like the code editor's own save. This used
-                  to write `content` and clear the draft, which put the
-                  assistant's rewrite on the LIVE site the moment it was made,
-                  with no version to go back to: the one write in the builder
-                  that skipped Publish.
-                */
-                const saved = await saveThemeFile(supabase, installId, path, source)
-                if (saved.ok === false) {
-                  const first = saved.errors?.[0]
-                  return { ok: false, error: `${path} was not saved: ${first?.message ?? saved.error}` }
-                }
-                // The next turn reads what was just written, not what was there.
-                agentSources[path] = source
-                return { ok: true }
-              },
+        /**
+         * The files as they stood when this run started: what a rollback
+         * goes back to, and what "the version before" in a file's history is.
+         */
+        const startedWith: Record<string, string> = { ...agentSources }
+        /**
+         * WHOSE CODE A SECTION TYPE IS (lib/website-builder/agent/selected-section):
+         *   own       a file in this install that an agent may write
+         *   builtin   Storelib's shipped file, or the creator's own copy of a
+         *             built in one: readable, never written by an agent
+         *   product   drawn by the product with no file at all
+         */
+        const pathOf = (type: string) => `sections/${type}.storelib`
+        const origin = (type: string): SectionOrigin => {
+          if (!SECTION_TYPE.test(type)) return "product"
+          const path = pathOf(type)
+          if (path in agentSources && agentMayWrite(path).ok) return "own"
+          return agentSources[path] !== undefined || DEFAULT_THEME_SOURCES[path] !== undefined ? "builtin" : "product"
+        }
+        /**
+         * A RUN'S CODE CHANGES ARE KEPT TOGETHER (lib/website-builder/agent/code-journal).
+         * Each write the loop has checked is staged here; nothing reaches the
+         * database until the run is over, and then all of them or none.
+         */
+        const journal = new CodeJournal((path) => startedWith[path] ?? null)
+
+        /**
+         * =====================================================================
+         *  THE ASSISTANT CAN EDIT A SECTION'S SOURCE, NOT ONLY ITS SETTINGS
+         * =====================================================================
+         * Asked for a smoother accordion, it used to answer that the section
+         * exposes no animation control. A section is a file. These give it
+         * the file, and take a new one back once the loop has compiled it,
+         * held it to the integration rules and drawn it with this page's
+         * settings (lib/website-builder/agent/compile-feedback).
+         *
+         * Always offered now, not only to a creator who already has a file:
+         * Storelib's own sections are read here too, so a built in section
+         * can be read, and copied into an editable one when the creator
+         * agrees. The type is a file name or it is nothing: no `..`, no `/`.
+         */
+        const code = {
+          read(sectionType: string): string | null {
+            if (!SECTION_TYPE.test(sectionType)) return null
+            const path = pathOf(sectionType)
+            return agentSources[path] ?? DEFAULT_THEME_SOURCES[path] ?? null
+          },
+          origin,
+          async write(sectionType: string, source: string, opts: { create?: boolean } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
+            if (!SECTION_TYPE.test(sectionType)) return { ok: false, error: "That is not a section type." }
+            const path = pathOf(sectionType)
+            /* The same rule every agent is held to: a section file, and never one of Storelib's built in sections. */
+            const allowed = agentMayWrite(path)
+            if (allowed.ok === false) return { ok: false, error: allowed.error }
+            if (opts.create ? path in agentSources : !(path in agentSources)) {
+              return { ok: false, error: opts.create ? `${path} already exists in this theme.` : `There is no ${path} in this theme to replace.` }
             }
-          : undefined
+            /* Checked by the loop already; compiled once more here because this is the door a file goes through. */
+            const compiled = compileSection(source, { file: path, expectType: sectionType })
+            if (compiled.ok === false) return { ok: false, error: `${path} did not compile.` }
+            journal.stage(path, source)
+            // The next turn reads what was just written, not what was there.
+            agentSources[path] = source
+            return { ok: true }
+          },
+        }
+
+        /**
+         * THE SECTION THE CREATOR HAS OPEN, resolved here and not taken on
+         * the browser's word. The id must be a section on the page this
+         * request carries, for this install whose ownership was proved above;
+         * its type, its file and whose code that is are worked out from this
+         * install's own files and the shipped theme. An id that is not on the
+         * page is dropped, and the lock with it.
+         */
+        const selected = resolveSelectedSection(body.sections as never, body.selectedSectionId, origin)
 
         /**
          * STOP BEFORE THE PLATFORM STOPS US. At maxDuration the function is
@@ -439,11 +474,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
            * beside the theme's thirty, or the assistant can describe it and
            * not put one on the page.
            */
-          addable: agentSources
-            ? [...ADDABLE_SECTIONS, ...customAddableSections(customSectionSchemas(agentSources))]
-            : ADDABLE_SECTIONS,
-          selectedSectionId: body.selectedSectionId,
-          lockToSelection: body.lockToSelection === true && !!body.selectedSectionId,
+          addable: [...ADDABLE_SECTIONS, ...customAddableSections(customSectionSchemas(agentSources))],
+          selectedSectionId: selected?.id,
+          selected,
+          lockToSelection: body.lockToSelection === true && !!selected,
           /**
            * READ THROUGH THE USER'S OWN CLIENT, so RLS decides what the model
            * is shown. The service role would read every creator's catalogue
@@ -544,16 +578,69 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
 
         const result = step.value
         /**
-         * A SECTION'S SOURCE CHANGED, so the canvas is drawing the old one.
-         * Said before the closing message, so the editor has reloaded by the
-         * time somebody reads what was done.
+         * =====================================================================
+         *  THE CODE IS SAVED NOW, ALL OF IT OR NONE OF IT
+         * =====================================================================
+         * A run that ended well saves every file it wrote, keeping the version
+         * each had before in its history first, and a save that fails puts
+         * back every file this commit had already saved. A run that failed
+         * saves nothing: the files are exactly as they were. Either way the
+         * editor reloads its files, so the canvas draws what is stored.
+         *
+         * This runs whether or not the browser is still listening: a creator
+         * who closed the tab mid run comes back to the code it kept.
          */
-        if (result.wroteCode) send({ type: "sources-changed" })
+        let codeLost = false
+        if (journal.size > 0) {
+          if (result.status === "succeeded") {
+            const committed = await journal.commit({
+              async save(path, source) {
+                const saved = await saveThemeFile(supabase, installId, path, source)
+                return saved.ok === true ? { ok: true } : { ok: false, error: saved.error }
+              },
+              async keep(path, previous) {
+                /* The version from before this run, kept unless it is already the newest one in the history. */
+                const { data } = await supabase
+                  .from("store_theme_file_versions")
+                  .select("content")
+                  .eq("install_id", installId)
+                  .eq("path", path)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle()
+                if ((data as { content?: string } | null)?.content !== previous) await recordVersion(supabase, installId, path, previous, "save")
+              },
+              async restore(path, previous) {
+                const put = await saveDraft(supabase, installId, path, previous)
+                if (put.ok === false) return { ok: false, error: put.error }
+                await recordVersion(supabase, installId, path, previous, "restore")
+                return { ok: true }
+              },
+            })
+            if (committed.ok === false) {
+              codeLost = true
+              console.error("[storelib ai] theme agent: code commit failed", committed.failed, committed.error, committed.stuck)
+            }
+          } else {
+            journal.discard()
+          }
+        }
+        /**
+         * A SECTION'S SOURCE CHANGED, so the canvas may be drawing the old
+         * one. Said before the closing message, so the editor has its files
+         * by the time somebody reads what was done.
+         */
+        if (result.wroteCode || codeLost) send({ type: "sources-changed" })
+        if (codeLost) {
+          result.status = "failed"
+          result.error = "The section's code could not be saved, so it is back to how it was. Try again."
+          result.message = ""
+        }
         if (result.status === "failed") {
           send({
             type: "error",
             message:
-              deadline.aborted && !request.signal.aborted
+              deadline.aborted && !request.signal.aborted && !codeLost
                 ? "This edit ran out of time before it changed anything. Try asking for one part of it."
                 : result.error ?? "The edit failed.",
           })

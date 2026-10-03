@@ -5837,6 +5837,90 @@ html.pop-in-flight #platform-header-root {
   .wb-writing-inner::after { display: none; }
 }
 
+/* ===========================================================================
+   A SECTION STORELIB AI IS CHANGING, AND THE ONE IT JUST CHANGED
+   ===========================================================================
+   components/website-builder/editor/ai-working-overlay.tsx. One zero height
+   layer after the page, a box laid over each section being worked on. Never
+   in the way: pointer-events none all the way down, so a click selects the
+   section under it and a wheel or a finger scrolls the canvas.
+
+   Working: a light diagonal sheen crosses the section every 2.4s. It is a
+   pseudo element moved by transform, with its opacity rising and falling
+   as it crosses, so it costs the page no painting and the section is never
+   covered by more than a faint film (peak 0.5 opacity over a gradient whose
+   strongest stop is 0.22 alpha: measured by scripts/check-ask-states.mjs).
+
+   Settled: a violet ring that fades out once, 1.4s, so the eye lands on
+   what changed. Under reduced motion the sheen is a still tint and the ring
+   is shown without fading, then removed with the box. */
+.wb-ai-layer {
+  position: relative;
+  height: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+.wb-ai-work {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.wb-ai-work::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(139, 92, 246, 0.06) 42%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(139, 92, 246, 0.06) 58%,
+    transparent 70%
+  );
+  opacity: 0;
+  transform: translate3d(-100%, 0, 0);
+  will-change: transform, opacity;
+}
+.wb-ai-work[data-ai-work="working"]::before {
+  animation: wb-ai-sheen 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.wb-ai-work::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(139, 92, 246, 0.55);
+  opacity: 0;
+}
+.wb-ai-work[data-ai-work="settled"]::after {
+  animation: wb-ai-settle 1.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes wb-ai-sheen {
+  0% { transform: translate3d(-100%, 0, 0); opacity: 0; }
+  20% { opacity: 0.5; }
+  80% { opacity: 0.5; }
+  100% { transform: translate3d(100%, 0, 0); opacity: 0; }
+}
+@keyframes wb-ai-settle {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  100% { opacity: 0; }
+}
+html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .wb-ai-work[data-ai-work="working"]::before {
+    animation: none;
+    transform: none;
+    opacity: 0.35;
+    background: rgba(139, 92, 246, 0.05);
+  }
+  .wb-ai-work[data-ai-work="settled"]::after { animation: none; opacity: 1; }
+}
+
 /* The dashboard announcement bar's line: how long until the next slide.
    components/app/dashboard-client.tsx runs this same animation again from
    its start for each slide (a new line put in the page would restyle the
@@ -6355,6 +6439,125 @@ html.pop-in-flight #platform-header-root {
 }
 .ask-in { animation: ask-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .ask-fade { animation: ask-fade 180ms ease-out both; }
+
+/* Ask Storelib's steps (components/website-builder/ask-activity.tsx,
+   StepsTimeline). Every row is one 24px line, so a row never changes height
+   and nothing above a new row moves. A row rises 4px into place as it
+   fades in; the running mark is a violet dot that breathes; a finished
+   mark is a check that settles from a little small to its size; the rail
+   that joins the marks turns violet under finished work. The fold is the
+   list's own height, from a grid row of 1fr to 0fr. All of it still under
+   reduced motion. Numbers measured by scripts/check-ask-states.mjs. */
+@keyframes ask-step-in {
+  from { opacity: 0; transform: translate3d(0, 4px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ask-check-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ask-step-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+.ask-steps-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease-out;
+}
+.ask-steps-fold[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.ask-steps {
+  margin: 0;
+  padding: 6px 0 2px;
+  list-style: none;
+  min-width: 0;
+}
+.ask-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: #6b7280;
+  animation: ask-step-in 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+/* The rail, from under this mark to the next one. */
+.ask-step::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 17px;
+  bottom: -7px;
+  width: 1px;
+  background: #e5e7eb;
+  transition: background-color 300ms ease-out;
+}
+.ask-step:last-child::before { display: none; }
+.ask-step[data-step="done"]::before { background: rgba(139, 92, 246, 0.3); }
+.ask-step[data-step="running"] { color: #1a1a2e; }
+.ask-step[data-step="failed"] { color: #b45309; }
+.ask-step-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #8b5cf6;
+}
+.ask-step-mark svg { animation: ask-check-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.ask-step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #8b5cf6;
+}
+.ask-step-mark[data-state="running"] .ask-step-dot { animation: ask-step-breathe 1.6s ease-in-out infinite; }
+.ask-step-mark[data-state="failed"] .ask-step-dot { background: #d97706; }
+.ask-step-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ask-step-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #9ca3af;
+}
+.ask-step-count::before { content: "\00d7"; }
+.ask-step-note {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: rgba(180, 83, 9, 0.8);
+}
+.ask-plan {
+  margin: 2px 0 6px 23px;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(26, 26, 46, 0.75);
+  animation: ask-step-in 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.ask-code {
+  margin: 4px 0 6px 23px;
+  min-width: 0;
+  animation: ask-step-in 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+html[data-tab-hidden] .ask-step-mark[data-state="running"] .ask-step-dot { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-step, .ask-plan, .ask-code, .ask-step-mark svg, .ask-step-mark[data-state="running"] .ask-step-dot { animation: none; }
+  .ask-steps-fold, .ask-step::before { transition: none; }
+}
 
 /* A picture's box before its pixels have decoded: a neutral grey at the
    picture's own size, with a soft band of light passing over it. The band

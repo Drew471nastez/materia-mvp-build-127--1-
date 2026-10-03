@@ -35,6 +35,7 @@ import { join } from "node:path"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { themeStylesheet, themeVars, THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
+import { revealPlan } from "@/lib/website-builder/section-anchors"
 import { themeTypography, typographyStylesheet } from "@/lib/storelib-theme/typography"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -81,6 +82,8 @@ const CONSUMERS = [
   "lib/website-builder/announcement.ts",
   /* The menus, read for every section that shows one and for the header. */
   "lib/website-builder/storefront-data.ts",
+  /* The Animations group, read by the runtime that reveals sections as they scroll in. */
+  "lib/website-builder/section-anchors.ts",
 ]
 const consumed = CONSUMERS.map((f) => stripComments(readFileSync(join(root, f), "utf8"))).join("\n")
 
@@ -565,12 +568,16 @@ section("The header, the announcement bar, and the space between them")
      * header's own `transform` is what slides it away on scroll, so the two
      * were fighting over one property.
      */
-    /\[data-section-box\]:not\(\[data-chrome\]\) ~ \[data-section-box\]:not\(\[data-chrome\]\) \[data-section\]\{animation:storelibSectionIn/.test(css) &&
-      !/\[data-storelib-theme\] \[data-section\]\{animation:storelibSectionIn/.test(css),
+    /* The animation is the runtime's now (lib/website-builder/section-motion.ts):
+       the stylesheet animates nothing, and the plan never includes chrome. */
+    !/\{animation:storelibSectionIn/.test(css) &&
+      revealPlan([{ type: "header", chrome: true }, { type: "hero", chrome: false }, { type: "cta", chrome: false }, { type: "footer", chrome: true }], { animations_enabled: true })
+        .join(",") === ",,fade_up,",
   )
   check(
     "and the first section under the header appears with the page, so no band of background shows between them on load",
-    !/ \[data-section\]:not\(\[data-chrome\]\)\{animation:/.test(css),
+    !/ \[data-section\]:not\(\[data-chrome\]\)\{animation:/.test(css) &&
+      revealPlan([{ type: "header", chrome: true }, { type: "hero", chrome: false }], { animations_enabled: true })[1] === null,
   )
   check(
     "which means the header and the footer have to say they are chrome",

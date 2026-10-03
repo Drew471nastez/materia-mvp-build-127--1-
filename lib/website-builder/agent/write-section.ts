@@ -27,6 +27,29 @@ import { writerReference } from "@/lib/storelib-ai/reference"
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
 import type { ThemeError } from "@/lib/storelib-theme/types"
+import { failureKind } from "@/lib/sites/agent/plain-errors"
+
+/**
+ * A provider that was only busy, or a connection that dropped, gets one more
+ * try after a short wait, and that try is not counted against the three a
+ * file gets for compiling: the model never answered, so it never failed.
+ */
+export const BUSY_RETRY_MS = 1_500
+
+async function waitOrAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError")
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer)
+        reject(new DOMException("Aborted", "AbortError"))
+      },
+      { once: true },
+    )
+  })
+}
 
 /**
  * What the model is told about the format and about taste, and shown of it:
@@ -177,7 +200,7 @@ export async function writeSection(opts: {
     let text: string
     let cutOff = false
     try {
-      const turn = await opts.provider.complete({
+      const request = {
         model: opts.model,
         system,
         turns: turns as never,
@@ -190,11 +213,19 @@ export async function writeSection(opts: {
          */
         maxOutputTokens: 16000,
         signal: opts.signal,
+      }
+      const turn = await opts.provider.complete(request).catch(async (thrown: unknown) => {
+        const kind = failureKind(thrown)
+        if (kind !== "busy" && kind !== "network") throw thrown
+        await waitOrAbort(BUSY_RETRY_MS, opts.signal)
+        return opts.provider.complete(request)
       })
       if (turn.stop === "refusal") return { ok: false, error: "The assistant declined to write that." }
       text = unfence(turn.text ?? "")
       cutOff = turn.stop === "length"
     } catch (e) {
+      /* Plain already: the provider is wrapped where it is chosen (lib/sites/agent/plain-errors, plainFailures). */
+      if (e instanceof Error && e.name === "AbortError") return { ok: false, error: "Writing that section took too long." }
       return { ok: false, error: e instanceof Error ? e.message : "The assistant could not be reached." }
     }
 

@@ -21,8 +21,18 @@
 import type { LinkTarget } from "@/components/website-builder/link-picker"
 import { ACCOUNT_PAGE_PATHS } from "./account-pages"
 import { POLICY_PAGE_KEYS } from "./policy-pages"
+import {
+  linkableSections,
+  normalizePath,
+  ownAnchor,
+  resolveSectionHash,
+  sectionHeading,
+  sectionHref,
+  splitSectionHref,
+  type SectionLike,
+} from "./section-anchors"
 
-export type LinkCategoryKey = "home" | "shop" | "products" | "pages" | "accounts" | "policies" | "search"
+export type LinkCategoryKey = "sections" | "home" | "shop" | "products" | "pages" | "accounts" | "policies" | "search"
 
 export interface LinkCategory {
   key: LinkCategoryKey
@@ -32,6 +42,8 @@ export interface LinkCategory {
 }
 
 export const LINK_CATEGORIES: readonly LinkCategory[] = [
+  /* First, because a button on a landing page most often goes further down the same page. */
+  { key: "sections", label: "Sections on this page", single: false },
   { key: "home", label: "Home", single: true },
   { key: "shop", label: "Shop", single: true },
   { key: "products", label: "Products", single: false },
@@ -48,6 +60,7 @@ const ACCOUNT_HREFS: readonly string[] = Object.entries(ACCOUNT_PAGE_PATHS)
 const POLICY_HREFS: readonly string[] = POLICY_PAGE_KEYS.map((k) => `/${k}`)
 
 export function linkCategoryOf(t: Pick<LinkTarget, "href" | "kind">): LinkCategoryKey {
+  if (t.kind === "section") return "sections"
   if (t.kind === "product") return "products"
   if (t.href === "/") return "home"
   if (t.href === "/products") return "shop"
@@ -108,4 +121,70 @@ export function searchLinkTargets(targets: readonly LinkTarget[], query: string)
 /** "1 result", "12 results". */
 export function resultCount(n: number): string {
   return `${n} ${n === 1 ? "result" : "results"}`
+}
+
+/**
+ * ===========================================================================
+ *  A LINK TO A SECTION IS SHOWN BY THE SECTION'S NAME
+ * ===========================================================================
+ * The field used to show `#ghostwriting`, which is how a browser spells it
+ * and nobody else. A section target carries its page's address and what the
+ * section reads as (its heading, name and type), so a stored link, whether
+ * picked here (`/#section-<id>`) or typed long ago (`#pricing`, `/#pricing`),
+ * is matched to its section by the same rules the page scrolls by
+ * (section-anchors.ts) and shown as "Pricing".
+ *
+ * `currentPath` is the page open in the builder: a bare `#hash` means that
+ * page. Null for a template page, where a section link is the hash alone.
+ */
+export function sectionTargetFor(
+  value: string,
+  targets: readonly LinkTarget[],
+  currentPath: string | null,
+): LinkTarget | null {
+  const split = splitSectionHref(value)
+  if (!split) return null
+  const here = currentPath === null ? null : normalizePath(currentPath)
+  const page = split.path ?? here
+  const pool = targets.filter((t) => {
+    const s = t.kind === "section" ? t.section : undefined
+    if (!s) return false
+    return s.page === null ? page === here : s.page === page
+  })
+  if (!pool.length) return null
+  const id = resolveSectionHash(split.hash, pool.map((t) => t.section as NonNullable<LinkTarget["section"]>))
+  return id ? (pool.find((t) => t.section?.id === id) ?? null) : null
+}
+
+/**
+ * A page's sections as link targets, in page order, the header and footer
+ * left out. Each is stored as `<page>#section-<id>` (section-anchors.ts,
+ * sectionHref) and named by its heading or its name. `context` is the
+ * page's name, for a section of a page other than the open one.
+ */
+export function sectionLinkTargets(
+  sections: readonly SectionLike[],
+  pagePath: string | null,
+  nameOf?: (section: SectionLike) => string,
+  context?: string,
+): LinkTarget[] {
+  const page = pagePath === null ? null : normalizePath(pagePath)
+  const byId = new Map(sections.map((s) => [s.id, s]))
+  return linkableSections(sections, nameOf).map((l) => {
+    const s = byId.get(l.id) as SectionLike
+    return {
+      href: sectionHref(l.id, page),
+      label: l.label,
+      kind: "section" as const,
+      ...(context ? { context } : {}),
+      section: { id: s.id, type: s.type, name: s.name ?? null, heading: sectionHeading(s), anchor: ownAnchor(s), page },
+    }
+  })
+}
+
+/** A page whose own sections the picker can open: home and the creator's pages. */
+export function drillsIntoSections(t: LinkTarget): boolean {
+  if (t.kind !== "page") return false
+  const c = linkCategoryOf(t)
+  return c === "home" || c === "pages"
 }

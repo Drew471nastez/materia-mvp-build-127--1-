@@ -50,6 +50,7 @@ import {
 } from "./values"
 import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
+import { shopObject } from "./globals"
 import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
 
 export interface ResolveOptions {
@@ -187,9 +188,19 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
       return v === "" ? "" : cleanDatetime(v) || undefined
     case "focal_point":
       return v === "" ? "" : cleanFocalPoint(v) || undefined
-    case "image_picker":
+    case "image_picker": {
       if (typeof v !== "string") return undefined
-      return safeMediaUrl(isAssetRef(v) ? (opts.assets?.[v] ?? "") : v)
+      const url = safeMediaUrl(isAssetRef(v) ? (opts.assets?.[v] ?? "") : v)
+      /*
+        A picture the schema declared as text (schema/normalise.ts) may hold
+        something that is not an address: a word somebody typed while it was
+        a text box. It is drawn as it was before rather than dropped, so
+        reading the setting as a picture never loses what was saved. Only a
+        script address is refused, as it would be anywhere.
+      */
+      if (url === "" && def.declared_type && !isAssetRef(v) && v.trim() !== "" && !/^\s*(javascript|vbscript|data):/i.test(v)) return v
+      return url
+    }
     case "video_picker":
     case "file_picker": {
       if (typeof v !== "string") return undefined
@@ -315,7 +326,21 @@ export function resolveOne(def: SettingDefinition, saved: unknown, opts: Resolve
   const control = controlFor(def.type)
   if (!control || control.value === "none") return undefined
   const type = resolveControlType(def.type)!
-  const fallback = def.default !== undefined ? def.default : control.fallback
+  /*
+    A range or number with no default starts at its lowest value, not at the
+    registry's 0: a heading size declared 40 to 120 with no default is 40,
+    never a heading 0px tall. The validator says so as a warning.
+  */
+  const lowest = (type === "range" || type === "number") && def.default === undefined && typeof def.min === "number" && Number.isFinite(def.min) && (control.fallback as number) < def.min ? def.min : undefined
+  const fallback = def.default !== undefined ? def.default : lowest !== undefined ? lowest : control.fallback
+  /*
+    A colour that follows the scheme by default and holds "" is following it.
+    The builder's Advanced colors writes a heading or button override into
+    the scheme and blanks the older field beside it (heading_color,
+    button_color: lib/website-builder/section-overrides.ts), so "" here means
+    "the scheme's colour, override included", never "no colour at all".
+  */
+  if (type === "color" && saved === "" && schemeTokenName(def.default) !== null) saved = undefined
   const pick = (v: unknown, fb: unknown): unknown => {
     const ok = v === undefined ? undefined : allowed(type, v, def, opts)
     if (ok !== undefined) return ok
@@ -523,7 +548,68 @@ export function themeTokens(settings: Record<string, unknown>): Record<string, u
       pill: 9999,
     },
     spacing: { small: 16, medium: 32, large: 64, xlarge: 96 },
+    ...themeGlobals(settings),
     settings,
+  }
+}
+
+/**
+ * ===========================================================================
+ *  THE THEME'S GENERAL SETTINGS, AS A SECTION READS THEM
+ * ===========================================================================
+ * Shopify gives every section `settings.logo`, the social links and the
+ * button style. Here a section's `settings` are its own, so the theme's are
+ * under `theme`: the logo, the buttons, the page layout, the entrance
+ * animation and the social links, each with Theme settings' own default
+ * filled in, because a site that never opened a panel has none of these
+ * keys saved and a section reading `theme.settings.logo_width` got nothing.
+ * The defaults are the ones lib/website-builder/theme-settings-schema.ts
+ * gives, and tests/section-framework-t.test.ts holds the two together.
+ */
+export function themeGlobals(settings: Record<string, unknown>): Record<string, unknown> {
+  const str = (k: string, d = "") => (typeof settings[k] === "string" && (settings[k] as string).trim() !== "" ? (settings[k] as string).trim() : d)
+  const num = (k: string, d: number) => {
+    const v = typeof settings[k] === "number" ? (settings[k] as number) : typeof settings[k] === "string" ? Number(settings[k]) : NaN
+    return Number.isFinite(v) ? v : d
+  }
+  const bool = (k: string, d: boolean) => (typeof settings[k] === "boolean" ? (settings[k] as boolean) : d)
+  const logo = safeMediaUrl(str("logo_url"))
+  const mobileLogo = bool("use_mobile_logo", false) ? safeMediaUrl(str("mobile_logo_url")) : ""
+  return {
+    logo: {
+      url: logo,
+      width: num("logo_width", 120),
+      mobile_url: mobileLogo || logo,
+      mobile_width: num("mobile_logo_width", num("logo_width", 120)),
+      /* What a header prints when there is no picture: the store's name. */
+      text: str("brand_name"),
+    },
+    favicon: safeMediaUrl(str("favicon_url")),
+    buttons: {
+      style: str("button_style", "filled"),
+      shape: str("button_shape", "rounded"),
+      radius: num("button_border_radius", 8),
+      size: str("button_size", "md"),
+      weight: str("button_font_weight", "600"),
+      shadow: bool("button_shadow", false),
+      hover: str("button_transition", "fade"),
+    },
+    layout: {
+      page_width: num("page_width", 1240),
+      padding_x: num("content_padding_x", 32),
+      section_gap: num("section_gap", 0),
+      spacing_scale: num("spacing_scale", 1),
+      card_radius: num("border_radius", 8),
+      image_radius: num("image_border_radius", 8),
+      card_shadow: str("card_shadow", "sm"),
+    },
+    animation: {
+      enabled: bool("animations_enabled", true),
+      style: str("animation_style", "fade-up"),
+      duration: num("animation_duration", 600),
+      stagger: num("animation_stagger", 80),
+    },
+    socials: shopObject(settings).socials,
   }
 }
 

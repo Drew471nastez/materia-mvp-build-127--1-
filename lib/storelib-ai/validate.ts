@@ -21,7 +21,7 @@
 import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import { checkSectionQuality, describeQuality, qualityErrors, type QualityFinding } from "./quality"
-import { checkSectionIntegration } from "./integration"
+import { checkSectionIntegration, sectionAdvice } from "./integration"
 
 /** How many times a model may be asked to fix its own output before we stop. */
 export const MAX_REPAIR_ATTEMPTS = 3
@@ -85,5 +85,8 @@ export function validateSection(source: string, opts: { path?: string; expectTyp
     }
   }
 
-  return { ok: true, type: compiled.value.type, name: compiled.value.schema.name.trim(), findings }
+  /* Advice rides on a save that went through: the compiler's notes and what a native section should still have. */
+  const notes: QualityFinding[] = (compiled.warnings ?? []).filter((w) => w.stage === "schema").map((w) => ({ id: "compile-note", severity: "warning", message: w.message }))
+  const advice = opts.strict ? [...notes, ...sectionAdvice(source)] : []
+  return { ok: true, type: compiled.value.type, name: compiled.value.schema.name.trim(), findings: [...findings, ...advice] }
 }

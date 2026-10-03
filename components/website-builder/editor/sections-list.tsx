@@ -14,15 +14,17 @@
  * words changed; the group is still `data-section-group="template"`, which
  * the tests and the browser checks read.
  *
- *   Header      the site's one header. It cannot be dragged, duplicated or
- *               deleted, and nothing can be dropped into its group: a
- *               second header is refused everywhere (lib/storelib-theme/
- *               chrome.ts), so the group holds exactly one row.
+ *   Header      Shopify's header group: the site's header and what sits with
+ *               it on every page, an announcement bar above it or a marquee
+ *               under it. The header row wears the dark badge; the others
+ *               move up and down inside the group from their menu. Its "Add
+ *               section" offers what may go here (lib/storelib-theme/
+ *               section-groups.ts), headers included: adding a header where
+ *               one is drawn replaces it after asking, and the old one is
+ *               hidden, not deleted. The header can be deleted too.
  *   Page        the page's sections, reordered by their grip, with a thin
- *               insert line between every two. "Add section" sits at both
- *               ends: under the header, which adds at the top of the page,
- *               and at the foot of the list, which adds at the end.
- *   Footer      the site's one footer, like the header.
+ *               insert line between every two and "Add section" at the end.
+ *   Footer      the footer group, the same way.
  *
  * A ROW IS ONE LINE, 32px. The name, and under the pointer the three things
  * done to a section most: hide, delete, and a menu with the rest (duplicate,
@@ -57,6 +59,7 @@ import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, MoreHorizontal, Pa
 
 import { cn } from "@/lib/utils"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { GROUP_LABELS, isKind, splitGroups, type KindOfType, type SectionGroup } from "@/lib/storelib-theme/section-groups"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,8 +88,14 @@ export interface SectionsListProps {
   onDuplicate: (id: string) => void
   onRemove: (id: string) => void
   onMove: (id: string, step: -1 | 1) => void
-  /** Add a section at this place among the page's own sections, or at the end (`null`). */
-  onAdd: (at: number | null) => void
+  /**
+   * Add a section to a group: at this place among its sections, or where
+   * that group puts one (`null`: the end of the page, above the header or
+   * above the footer).
+   */
+  onAdd: (at: number | null, group?: SectionGroup) => void
+  /** Which section types are a header or a footer, so a header written as a section file wears the header's badge. */
+  kindOfType?: KindOfType
   dnd: SectionsDnd
 }
 
@@ -189,9 +198,11 @@ export interface SectionRowProps {
   onRemove?: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
-  /** The header or the footer: an icon in place of the grip, and no delete or menu. */
+  /** The header or the footer: an icon in place of the grip, and Delete only from its menu. */
   chrome?: "header" | "footer"
   dragHandleProps?: Record<string, unknown>
+  /** A row that is not dragged (one in the Header or Footer group): no grip, and the menu moves it. */
+  fixed?: boolean
 }
 
 export function SectionRow({
@@ -206,6 +217,7 @@ export function SectionRow({
   onMoveDown,
   chrome,
   dragHandleProps,
+  fixed,
 }: SectionRowProps) {
   const [menuOpen, setMenuOpen] = React.useState(false)
   const hidden = !!section.hidden
@@ -230,18 +242,20 @@ export function SectionRow({
         onSelect()
       }}
       onContextMenu={(e) => {
-        if (chrome) return
         e.preventDefault()
         setMenuOpen(true)
       }}
     >
       {chrome ? (
-        /* The dark grey badge the owner chose for the two rows that cannot move, at the row's new size. */
+        /* The dark grey badge the owner chose for the header and the footer, at the row's new size. */
         <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center">
           <span className={cn("flex h-5 w-5 items-center justify-center rounded-[5px]", isSelected ? "bg-white/15 text-white" : "bg-[#4d5058] text-white")}>
             {chrome === "header" ? <PanelTop className="h-3 w-3" strokeWidth={2} /> : <PanelBottom className="h-3 w-3" strokeWidth={2} />}
           </span>
         </span>
+      ) : fixed ? (
+        /* Not dragged: the room the grip takes, so the names line up with the rows that have one. */
+        <span aria-hidden className="h-6 w-6 shrink-0" />
       ) : (
         /* The grip, always drawn: the list should look reorderable at rest. */
         <span
@@ -270,59 +284,57 @@ export function SectionRow({
         </RowAction>
       )}
 
-      {!chrome && (
-        /* `modal={false}`: a modal dropdown locks touch scrolling on the whole document, canvas included,
-           and on iOS the lock was seen to outlive the menu (scripts/check-editor-scroll.mjs). */
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`More for ${displayName}`}
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
-                isSelected || menuOpen ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
-                isSelected ? "hover:bg-white/20" : "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
-              )}
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={4} className="w-44" onClick={(e) => e.stopPropagation()}>
-            {onDuplicate && (
-              <DropdownMenuItem className={ItemClass} onClick={onDuplicate}>
-                <Copy className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                Duplicate
-              </DropdownMenuItem>
+      {/* `modal={false}`: a modal dropdown locks touch scrolling on the whole document, canvas included,
+          and on iOS the lock was seen to outlive the menu (scripts/check-editor-scroll.mjs). */}
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`More for ${displayName}`}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
+              isSelected || menuOpen ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
+              isSelected ? "hover:bg-white/20" : "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
             )}
-            {onMoveUp && (
-              <DropdownMenuItem className={ItemClass} onClick={onMoveUp}>
-                <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                Move up
-              </DropdownMenuItem>
-            )}
-            {onMoveDown && (
-              <DropdownMenuItem className={ItemClass} onClick={onMoveDown}>
-                <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                Move down
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem className={ItemClass} onClick={onToggleHide}>
-              {hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />}
-              {hidden ? "Show" : "Hide"}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" sideOffset={4} className="w-44" onClick={(e) => e.stopPropagation()}>
+          {onDuplicate && (
+            <DropdownMenuItem className={ItemClass} onClick={onDuplicate}>
+              <Copy className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+              Duplicate
             </DropdownMenuItem>
-            {onRemove && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className={ItemClass} onClick={onRemove}>
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+          )}
+          {onMoveUp && (
+            <DropdownMenuItem className={ItemClass} onClick={onMoveUp}>
+              <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+              Move up
+            </DropdownMenuItem>
+          )}
+          {onMoveDown && (
+            <DropdownMenuItem className={ItemClass} onClick={onMoveDown}>
+              <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+              Move down
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem className={ItemClass} onClick={onToggleHide}>
+            {hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />}
+            {hidden ? "Show" : "Hide"}
+          </DropdownMenuItem>
+          {onRemove && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className={ItemClass} onClick={onRemove}>
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+                Delete
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
@@ -355,37 +367,55 @@ export function SectionsList({
   onRemove,
   onMove,
   onAdd,
+  kindOfType,
   dnd,
 }: SectionsListProps) {
-  const header = sections.find((s) => s.type === "header")
-  const footer = sections.find((s) => s.type === "footer")
-  const body = sections.filter((s) => s.type !== "header" && s.type !== "footer")
+  const groups = splitGroups(sections)
+  const body = groups.template
   const dragging = dnd.draggingId ? sections.find((s) => s.id === dnd.draggingId) : undefined
 
-  const chromeRow = (s: SectionInstance, role: "header" | "footer") => (
-    <SectionRow
-      section={s}
-      displayName={nameOf(s)}
-      isSelected={selectedId === s.id}
-      onSelect={() => onSelect(s.id)}
-      onToggleHide={() => onToggleHide(s.id)}
-      chrome={role}
-    />
-  )
+  /**
+   * A row of the Header or Footer group. The header (or footer) itself wears
+   * the badge and keeps Delete in its menu; anything else in the group moves
+   * up and down inside it from the menu, since a drag across groups is not
+   * a thing either group allows.
+   */
+  const groupRows = (role: "header" | "footer") => {
+    const list = groups[role]
+    return list.map((s, i) => {
+      const chrome = isKind(s, role, kindOfType) ? role : undefined
+      return (
+        <SectionRow
+          key={s.id}
+          section={s}
+          displayName={nameOf(s)}
+          isSelected={selectedId === s.id}
+          onSelect={() => onSelect(s.id)}
+          onToggleHide={() => onToggleHide(s.id)}
+          onDuplicate={chrome ? undefined : () => onDuplicate(s.id)}
+          onRemove={() => onRemove(s.id)}
+          onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
+          onMoveDown={i < list.length - 1 ? () => onMove(s.id, 1) : undefined}
+          chrome={chrome}
+          fixed
+        />
+      )
+    })
+  }
 
   return (
     <div data-sections-list="" className="space-y-0.5">
       <div data-section-group="header">
-        <GroupLabel>Header</GroupLabel>
-        {header && chromeRow(header, "header")}
-        {/* Adds at the top of the page's own sections, under the header. */}
-        <AddSectionButton onClick={() => onAdd(0)} />
+        <GroupLabel>{GROUP_LABELS.header}</GroupLabel>
+        {groupRows("header")}
+        {/* What may go in the Header group: an announcement bar above the header, or a header. */}
+        <AddSectionButton onClick={() => onAdd(null, "header")} />
       </div>
 
       <div className="mx-2 my-2 h-px bg-[#e5e7eb]" aria-hidden />
 
       <div data-section-group="template">
-        <GroupLabel>Page</GroupLabel>
+        <GroupLabel>{GROUP_LABELS.template}</GroupLabel>
         <DndContext
           sensors={dnd.sensors}
           collisionDetection={closestCenter}
@@ -402,7 +432,7 @@ export function SectionsList({
               <p className="px-2 py-1.5 text-[12px] text-[#6b7280]">No sections on this page yet.</p>
             ) : (
               <div>
-                <InsertSectionDivider onClick={() => onAdd(0)} />
+                <InsertSectionDivider onClick={() => onAdd(0, "template")} />
                 {body.map((s, i) => (
                   <div key={s.id}>
                     <SortableSectionRow
@@ -416,7 +446,7 @@ export function SectionsList({
                       onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
                       onMoveDown={i < body.length - 1 ? () => onMove(s.id, 1) : undefined}
                     />
-                    <InsertSectionDivider onClick={() => onAdd(i + 1)} />
+                    <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} />
                   </div>
                 ))}
               </div>
@@ -431,14 +461,16 @@ export function SectionsList({
             ) : null}
           </DragOverlay>
         </DndContext>
-        <AddSectionButton onClick={() => onAdd(null)} />
+        <AddSectionButton onClick={() => onAdd(null, "template")} />
       </div>
 
       <div className="mx-2 my-2 h-px bg-[#e5e7eb]" aria-hidden />
 
       <div data-section-group="footer">
-        <GroupLabel>Footer</GroupLabel>
-        {footer && chromeRow(footer, "footer")}
+        <GroupLabel>{GROUP_LABELS.footer}</GroupLabel>
+        {groupRows("footer")}
+        {/* What may go in the Footer group: a newsletter above the footer, or a footer. */}
+        <AddSectionButton onClick={() => onAdd(null, "footer")} />
       </div>
     </div>
   )

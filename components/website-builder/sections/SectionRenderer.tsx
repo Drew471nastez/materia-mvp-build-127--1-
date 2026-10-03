@@ -25,6 +25,12 @@ import { SectionErrorBoundary } from "./SectionErrorBoundary"
 import { sectionTokenAttrs, type SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
 import { StorelibSection } from "./StorelibSection"
+import { ownAnchor, sectionAnchor, SECTION_ANIMATIONS } from "@/lib/website-builder/section-anchors"
+
+/** A section's `animation` setting as the page reads it; "theme" and anything unknown are no attribute. */
+function sectionAnimationAttr(v: unknown): string | undefined {
+  return typeof v === "string" && v !== "theme" && (SECTION_ANIMATIONS as readonly string[]).includes(v) ? v : undefined
+}
 
 /**
  * ============================================================
@@ -145,6 +151,19 @@ export function renderSection(props: SectionProps) {
        */
       data-section-type={props.section.type}
       data-chrome={chrome ? "" : undefined}
+      /**
+       * WHERE A LINK TO THIS SECTION LANDS, the same in the canvas and on the
+       * live page. The id differs between the two (`wb-section-…` in the
+       * editor, `section-…` live) because the editor's own code finds
+       * sections by its id; the anchor does not, so a link picked in the
+       * builder (`#section-<id>`) and the scroll that follows it agree on
+       * both. See lib/website-builder/section-anchors.ts.
+       */
+      data-section-key={props.section.id}
+      data-anchor={sectionAnchor(props.section.id)}
+      data-anchor-alias={ownAnchor(props.section) || undefined}
+      /* The section's own entrance animation, when it chose one over the theme's. */
+      data-animation={sectionAnimationAttr(props.section.settings?.animation)}
       {...sectionTokenAttrs(props.section, props.theme)}
     >
       {guard(<Component {...props} />)}
