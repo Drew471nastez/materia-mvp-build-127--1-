@@ -8,6 +8,7 @@ import { allocateRefund, feeShare, type RefundLine } from "./refund-allocation"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { emit } from "@/lib/notify/outbox"
 import { postLedger } from "@/lib/payments/ledger"
+import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 
 /**
  * ===========================================================================
@@ -121,6 +122,18 @@ async function revokeIfFull(db: Db, row: OrderRow, cents: number, before: number
     await q
   } catch (e) {
     console.error("[refund-sync] entitlement revoke failed:", e instanceof Error ? e.message : e)
+  }
+  /*
+    And the communities that product opened: a member who has nothing else
+    that grants access leaves with it. A refunded membership invoice is not
+    this path's business (its library rows are the membership's), so a
+    subscriber keeps their community, as they keep the membership itself.
+    Never throws.
+  */
+  try {
+    await communityAccessAfterEntitlement(db, { userId: row.buyer_id, productId: row.product_id, orderId: row.id, granted: false })
+  } catch (e) {
+    console.error("[refund-sync] community access:", e instanceof Error ? e.message : e)
   }
 }
 

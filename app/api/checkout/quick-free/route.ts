@@ -12,6 +12,7 @@ import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/l
 import { attributionForCheckout, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
+import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 
 export const runtime = "nodejs"
 
@@ -245,6 +246,12 @@ export async function POST(request: Request) {
         console.error("[quick-free] Entitlement error:", entitlementError)
       } else {
         console.log("[quick-free] ✅ Entitlement created for user:", user.id)
+      }
+      /* A free product that opens a community lets them in. Never throws (lib/communities/server/payment-hooks). */
+      try {
+        await communityAccessAfterEntitlement(admin, { userId: user.id, productId: product.id, orderId: order.id, granted: true })
+      } catch (e) {
+        console.error("[quick-free] community access:", e instanceof Error ? e.message : e)
       }
     }
 

@@ -41,6 +41,7 @@ import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { postLedger } from "@/lib/payments/ledger"
 import { markFeeRecord, paidAirwallexCheckout, type PaidCheckout } from "@/lib/payments/checkout"
+import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -498,14 +499,21 @@ async function grant(
   let q = admin.from("entitlements").select("id").eq("buyer_id", buyerId).eq("product_id", g.productId)
   q = g.variantId ? q.eq("variant_id", g.variantId) : q.is("variant_id", null)
   const { data: owned } = await q.maybeSingle()
-  if (owned) return
-  await admin.from("entitlements").insert({
-    buyer_id: buyerId,
-    creator_id: g.creatorId,
-    product_id: g.productId,
-    variant_id: g.variantId,
-    community_access: false,
-  })
+  if (!owned) {
+    await admin.from("entitlements").insert({
+      buyer_id: buyerId,
+      creator_id: g.creatorId,
+      product_id: g.productId,
+      variant_id: g.variantId,
+      community_access: false,
+    })
+  }
+  /* A product that opens a community (a tier sold once, or a course that grants one) lets the buyer in. Never throws. */
+  try {
+    await communityAccessAfterEntitlement(admin, { userId: buyerId, productId: g.productId, orderId: g.orderId, granted: true })
+  } catch (e) {
+    console.error("[fulfil] community access:", e instanceof Error ? e.message : e)
+  }
 }
 
 /**
