@@ -48,7 +48,7 @@ import {
   VIDEO_HOSTS,
   type Menu,
 } from "./values"
-import { legacySchemeValues, themeColorSchemes } from "./color-schemes"
+import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
 import { BREAKPOINTS, isAssetRef, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCommunity } from "./types"
 
@@ -170,7 +170,8 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
       return options.length === 0 || options.some((o) => o && o.value === s) ? s : undefined
     }
     case "color":
-      return v === "" ? "" : isColor(v) ? (v as string).trim() : undefined
+      /* `scheme.accent` is kept as written; render.ts swaps it for the section's own scheme colour. */
+      return v === "" ? "" : isColor(v) ? (v as string).trim() : schemeTokenName(v) !== null ? (v as string).trim() : undefined
     case "color_background":
       return v === "" ? "" : cleanBackground(v) || undefined
     case "color_scheme":

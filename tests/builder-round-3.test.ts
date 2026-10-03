@@ -172,7 +172,8 @@ async function main() {
     check("adding a section still brings it into view", /revealSection\(newSection\.id\)/.test(editor))
     check("so does duplicating one from the layer list", /if \(fromCanvas\) return[\s\S]{0,200}revealSection\(copy\.id\)/.test(editor))
     check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /onDuplicate=\{\(\) => selectedSectionId && duplicateSection\(selectedSectionId, true\)\}/.test(editor))
-    check("and the three sidebar rows still do", (editor.match(/setSelectedPanel\(\{ type: "section", sectionId: \w+\.id \}\); revealSection\(\w+\.id\)/g) ?? []).length === 3)
+    check("and every sidebar row still does, through the one handler the list is given",
+      /onSelect=\{\(id\) => \{ setSelectedPanel\(\{ type: "section", sectionId: id \}\); revealSection\(id\) \}\}/.test(editor))
     check("nothing still scrolls a section to the top unconditionally", !/scrollToSection\(/.test(editor))
     /**
      * `scrollIntoView` walks EVERY scrollable ancestor, so bringing a
@@ -197,8 +198,10 @@ async function main() {
 
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("the sidebar list reads the schema", /\{sectionDisplayName\(section, librarySchemas\)\}/.test(editor))
-    check("every row is handed a resolved name", (editor.match(/displayName=\{sectionDisplayName\(/g) ?? []).length === 4)
-    check("and the row itself no longer reads the stale copy", !/\{section\.name\}/.test(editor) && /\{displayName\}/.test(editor))
+    /* The rows are components/website-builder/editor/sections-list.tsx, handed the resolver by the editor. */
+    const list = read("components/website-builder/editor/sections-list.tsx")
+    check("every row is handed a resolved name", /nameOf=\{\(s\) => sectionDisplayName\(s, librarySchemas\)\}/.test(editor) && (list.match(/displayName=\{nameOf\(/g) ?? []).length === 3)
+    check("and the row itself no longer reads the stale copy", !/\{section\.name\}/.test(editor) && !/\{section\.name\}/.test(list) && /\{displayName\}/.test(list))
     check("including what a screen reader is told", !/\$\{section\.name\}/.test(editor))
 
     /*
@@ -221,7 +224,7 @@ async function main() {
        one line, a floor of 52px on a phone and 44 from md, never a tall pad. */
     check("and the bar is one line tall, with a floor rather than a tall pad",
       /<PanelBack onBack=\{\(\) => setSelectedPanel\(\{ type: "pages" \}\)\}>\s*<p className="truncate text-\[15px\] font-semibold md:text-sm">\{sectionDisplayName\(section, librarySchemas\)\}<\/p>/.test(editor) &&
-        /min-h-\[52px\] shrink-0 items-center[^"]*md:min-h-\[44px\]/.test(read("components/website-builder/panel-back.tsx")))
+        /min-h-\[52px\] shrink-0 items-center[^"]*md:min-h-\[40px\]/.test(read("components/website-builder/panel-back.tsx")))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

@@ -12,7 +12,8 @@
  * instance's — it came from the template JSON, and it survives every
  * render, which is the point of it.
  */
-import { resolveSectionColors, styleAttr } from "./color-schemes"
+import { followScheme, resolveSectionColors, styleAttr } from "./color-schemes"
+import { resolveControlType } from "./controls/registry"
 import { resolveInstance, themeTokens } from "./resolve"
 import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
@@ -79,11 +80,16 @@ export function renderSection(input: RenderInput): Rendered {
   const schemeSetting = compiled.schema.settings.find((s) => s.type === "color_scheme" || s.id === "color_scheme")
   const colorSettings = schemeSetting && schemeSetting.id !== "color_scheme" ? { ...settings, color_scheme: settings[schemeSetting.id] } : settings
   const colors = resolveSectionColors(input.theme, colorSettings)
+  const scheme = { ...colors.legacy, ...colors.scheme } as Record<string, string>
+  /* A colour setting still on `scheme.<name>` is that colour of THIS section's scheme: color-schemes.ts, followScheme. */
+  followSchemeColours(compiled.schema.settings, settings, scheme)
+  const blockDefs = new Map((compiled.schema.blocks ?? []).map((b) => [b.type, b.settings]))
+  for (const b of blocks) followSchemeColours(blockDefs.get(b.type) ?? [], b.settings, scheme)
   const ctx: RenderContext = {
     settings,
     blocks,
     theme,
-    scheme: { ...colors.legacy, ...colors.scheme },
+    scheme,
     page: input.page,
     products: input.products ?? [],
     section: { id, type: compiled.type },
@@ -134,4 +140,13 @@ export function renderSection(input: RenderInput): Rendered {
 
 function escapeAttr(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
+}
+
+/** In place: each colour setting naming a scheme colour gets the colour itself. */
+function followSchemeColours(defs: { id: string; type: string }[], values: Record<string, unknown>, scheme: Record<string, string>): void {
+  for (const def of defs) {
+    if (resolveControlType(def.type) !== "color") continue
+    const v = values[def.id]
+    if (typeof v === "string" && v.startsWith("scheme.")) values[def.id] = followScheme(v, scheme)
+  }
 }

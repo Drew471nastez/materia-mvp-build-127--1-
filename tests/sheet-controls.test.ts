@@ -226,7 +226,7 @@ function main() {
   check("the chevron is never squeezed",
     /<ChevronDown className=\{cn\("h-3\.5 w-3\.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180"\)\} \/>/.test(panels))
   check("and the row is a thumb's height on a phone, the sidebar's on a desktop",
-    /className="w-full flex items-center justify-between gap-2 overflow-hidden px-3 h-11 md:h-10 text-sm"/.test(panels))
+    /className="w-full flex items-center justify-between gap-2 overflow-hidden px-3 h-11 md:h-9 text-\[13px\]"/.test(panels))
   check("the same shape one panel down got the same three rules",
     /<span className="min-w-0 truncate">Page colors<\/span>/.test(panels)
       && /h-3\.5 w-3\.5 shrink-0 text-muted-foreground transition-transform/.test(panels),

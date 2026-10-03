@@ -35,6 +35,10 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import { ALL_TOPICS, MAX_REPAIR_ATTEMPTS, writeSectionRules } from "@/lib/storelib-ai"
 import { DYNAMIC_SOURCES, SOURCE_TARGETS, sourcesFor } from "@/lib/storelib-theme/dynamic"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
+import headerSchema from "@/themes/default/sections/header.json"
+import footerSchema from "@/themes/default/sections/footer.json"
+import { PAGE_META } from "@/lib/website-builder/types"
+import { pagePath } from "@/lib/website-builder/site-pages"
 
 import { DEVELOPER_EXAMPLES } from "./content.generated"
 import { builtInSchemes, controlDescription, controlSpecimens, themeSettingGroups, typeStyleRows } from "./builder-reference"
@@ -239,8 +243,36 @@ export const DIRECTIVE_NAMES = [
   "embed-hosts", "forbidden", "capabilities", "versions", "example", "ai-brief", "ai-topics-extra", "ai-loop",
   "builder-controls", "theme-settings", "builder-schemes", "builder-type-styles", "dynamic-sources",
   "hub-map", "theme-tokens", "scheme-names", "page-keys", "policy-pages", "media-types", "theme-setting-index", "font-options",
-  "library-schema", "library-section",
+  "library-schema", "library-section", "chrome-settings", "default-pages",
 ] as const
+
+type ChromeField = { id?: string; type?: string; label?: string; default?: unknown; options?: { label?: string; value?: unknown }[] }
+type ChromeSchema = { fields?: ChromeField[]; blocks?: { type?: string; name?: string; fields?: ChromeField[] }[] }
+
+/**
+ * The header's or the footer's settings, read from the file the builder
+ * draws them from, grouped under the headings the sidebar shows. A setting
+ * added to the header is in this table the next time the page is drawn.
+ */
+function chromeSettingsTable(schema: ChromeSchema): DocNode[] {
+  const rows: string[][] = []
+  let group = ""
+  for (const f of schema.fields ?? []) {
+    if (f.type === "header") { group = f.label ?? ""; continue }
+    if (!f.id || f.type === "paragraph") continue
+    const choices = f.options?.length ? f.options.map((o) => code(String(o.value ?? ""))).join(", ") : ""
+    const dflt = f.default === undefined || f.default === "" ? "" : code(typeof f.default === "string" ? f.default : JSON.stringify(f.default))
+    rows.push([group, code(f.id), f.label ?? "", code(f.type ?? ""), [dflt, choices].filter(Boolean).join(" · ")])
+  }
+  const out: DocNode[] = [{ kind: "table", head: ["Group", "Setting", "Label", "Type", "Default · choices"], rows }]
+  for (const b of schema.blocks ?? []) {
+    out.push({
+      kind: "paragraph",
+      text: `Block ${code(b.type ?? "")} (${b.name ?? b.type}): ${(b.fields ?? []).filter((f) => f.id && f.type !== "header").map((f) => code(f.id!)).join(", ")}.`,
+    })
+  }
+  return out
+}
 
 export function expandDirective(name: string, arg?: string): DocNode[] {
   switch (name) {
@@ -486,6 +518,26 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
       if (!schema) return [{ kind: "paragraph", text: `Missing example: ${code(arg ?? "")}` }]
       return [{ kind: "code", lang: "json", code: schema, title: `sections/${arg}.storelib, its schema` }]
     }
+
+    case "chrome-settings":
+      if (arg === "header") return chromeSettingsTable(headerSchema as ChromeSchema)
+      if (arg === "footer") return chromeSettingsTable(footerSchema as ChromeSchema)
+      return [{ kind: "paragraph", text: `Missing: ${code(arg ?? "")}` }]
+
+    case "default-pages":
+      return [{
+        kind: "table",
+        head: ["Page", "Key", "Address"],
+        rows: [
+          ...(Object.keys(PAGE_META) as (keyof typeof PAGE_META)[]).map((k) => [
+            PAGE_META[k].label,
+            code(k),
+            k === "product" ? code("/products/<slug>") : code(pagePath(k)),
+          ]),
+          ...POLICY_PAGES.map((p) => [p.title, code(p.key), code(`/${p.key}`)]),
+          ["Cart", "built in", code("/cart")],
+        ],
+      }]
 
     case "library-section": {
       const src = arg ? DEFAULT_THEME_SOURCES[`sections/${arg}.storelib`] : undefined

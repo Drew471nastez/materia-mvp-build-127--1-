@@ -24,7 +24,7 @@ Three **policy pages** are added the first time a website opens in the builder, 
 
 ## Pages you make
 
-**Create page**, in the page switcher at the top of the builder, and **Add page** in Website settings › Pages & Navigation, ask for a name and make the key from it: letters with accents plain, lower case, and every run of anything that is not a letter or digit turned into one `-`. "Size Guide!" becomes `size-guide`. A key is 1 to 63 characters of `a` to `z`, `0` to `9` and `-`, starting with a letter or digit. The name you type is not stored: the builder lists the page by its key, so `size-guide` reads as Size guide.
+**Create page**, in the page switcher at the top of the builder, and **Add page** in Website settings › Pages, ask for a name and make the key from it: letters with accents plain, lower case, and every run of anything that is not a letter or digit turned into one `-`. "Size Guide!" becomes `size-guide`. A key is 1 to 63 characters of `a` to `z`, `0` to `9` and `-`, starting with a letter or digit. The name you type is not stored: the builder lists the page by its key, so `size-guide` reads as Size guide.
 
 A new page starts with the site's header and footer and nothing between, saved as a draft. It is on the live site after the next publish.
 
@@ -40,7 +40,7 @@ The built-in keys above are taken too, and so is any key another page has.
 
 Every page stores the header and the footer, and the builder keeps them the same everywhere: when a page is saved, its header and footer are copied onto every other page of the website. The live site goes further and draws the home page's header and footer on every page, whatever a page's own copy says. Change the menu on one page and it has changed on all of them. Both can be hidden, which hides them everywhere; neither can be moved, copied or deleted.
 
-The header and footer are drawn by the platform's own components, with a panel of their own in the builder, rather than by `.storelib` files. See [Using the website builder](/developers/website-builder#the-headers-own-panel).
+The header and footer are drawn by the platform's own components, with a panel of their own in the builder, rather than by `.storelib` files, and a section file can never be another one. Everything they do and every setting they take is in [The header and footer](/developers/header-and-footer).
 
 ## What a page stores
 
