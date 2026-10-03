@@ -210,7 +210,7 @@ section("The computer's pill")
   check("while open it is above the toolbar (z-30)", /cardOpen \? "z-40" : "z-20"/.test(chat))
   check(
     "writing a section folds it out of the canvas's way, and a failure or an answer opens it again",
-    /if \(dock\) setExpanded\(false\)\s*\n\s*let kept = false/.test(chat) && /if \(!kept && dock\) setExpanded\(true\)/.test(chat),
+    /if \(dock\) setExpanded\(false\)\s*\n\s*let outcome: WriteOutcome \| null = null/.test(chat) && /if \(!kept && dock\) setExpanded\(true\)/.test(chat),
   )
 }
 
@@ -281,14 +281,16 @@ section("Voice")
 {
   check(
     "the words go into the box, typing themselves in a few characters a frame, and are never sent by themselves",
-    /voiceTarget\.current = withSpoken\(voiceBase\.current, text\)/.test(chat) &&
-      /const next = typeToward\(draftRef\.current, target\)/.test(chat) &&
+    /* At the caret now, and only the spoken part types (lib/website-builder/ask-dictation.ts). */
+    /voiceTarget\.current = spokenSince\(placedRef\.current, text\)/.test(chat) &&
+      /const next = typeToward\(spokenShown\.current, target\)/.test(chat) &&
+      /const composed = composeDictation\(anchor\.current, next\)/.test(chat) &&
       /if \(next !== target\) typingFrame\.current = requestAnimationFrame\(typeFrame\)/.test(chat) &&
       !/submit\(/.test(voice),
   )
   check(
     "when the recording ends the box holds exactly what was heard",
-    /if \(target !== null\) setDraft\(target\)/.test(chat),
+    /const composed = composeDictation\(anchor\.current, target\)\s*\n\s*spokenShown\.current = target\s*\n\s*pendingCaret\.current = composed\.caret\s*\n\s*setDraft\(composed\.text\)/.test(chat),
   )
   check(
     "on a computer, the browser's own recogniser, with the words appearing while they are said",
@@ -317,8 +319,8 @@ section("Voice")
   check(
     "a recogniser that fails before a word is heard hands the press to the recorder, which carries on",
     /const fallBackToRecording = React\.useCallback/.test(voice)
-      && /if \(!heard && !failed && fallBackToRecording\(\)\) return/.test(voice)
-      && /if \(!refusal && !heard && fallBackToRecording\(\)\) return/.test(voice)
+      && /if \(!heard && !failed && fallBackToRecording\(\)\) \{/.test(voice)
+      && /if \(!refusal && !heard && fallBackToRecording\(\)\) \{/.test(voice)
       && /if \(fallBackToRecording\(\)\) return\n\s*setState\("idle"\)/.test(voice),
   )
   check(

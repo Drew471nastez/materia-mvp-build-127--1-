@@ -40,6 +40,8 @@
  * Pure: tests/ask-dock.test.ts drives it with made up streams.
  */
 
+import type { ImageTarget } from "@/lib/sites/agent/questions"
+
 export interface ActivityStep {
   id: string
   label: string
@@ -61,6 +63,14 @@ export interface AskQuestion {
   why?: string
   /** The answers to tap: two to four, each short. */
   options: string[]
+  /**
+   * The picture setting it asks for. With it, "Upload image" and "Paste
+   * image URL" are actions that put a picture there (lib/sites/agent/
+   * questions.ts, optionAction).
+   */
+  target?: ImageTarget
+  /** An offer after a section is written, not a run waiting on an answer: nothing is sent once it is done. */
+  offer?: boolean
 }
 
 /** The run's own account of what it changed: the `done` progress line. */
@@ -73,6 +83,8 @@ export interface ActivityDone {
 }
 
 export interface Activity {
+  /** What the run is about: "Editing Pricing", "New section: Hero with flag". */
+  subject?: string
   steps: ActivityStep[]
   /** What it said it would do, before it did any of it. */
   plan?: string
@@ -166,7 +178,21 @@ function readQuestion(event: Record<string, unknown>): AskQuestion | null {
     ...(why ? { why } : {}),
     /* None is still a question: it is answered in the box. */
     options: texts(event.options).slice(0, MAX_OPTIONS),
+    ...readTarget(event.target),
+    ...(event.offer === true ? { offer: true } : {}),
   }
+}
+
+/** A picture setting a question names, if it names a well formed one. */
+function readTarget(value: unknown): { target?: ImageTarget } {
+  if (!value || typeof value !== "object") return {}
+  const t = value as Record<string, unknown>
+  const sectionId = typeof t.sectionId === "string" ? t.sectionId.trim() : ""
+  const setting = typeof t.setting === "string" ? t.setting.trim() : ""
+  if (!sectionId || !/^[a-z0-9_-]{1,64}$/i.test(setting)) return {}
+  const blockId = typeof t.blockId === "string" && t.blockId.trim() ? t.blockId.trim() : undefined
+  const label = typeof t.label === "string" && t.label.trim() ? t.label.trim().slice(0, 60) : undefined
+  return { target: { sectionId, setting, ...(blockId ? { blockId } : {}), ...(label ? { label } : {}) } }
 }
 
 /**
@@ -178,6 +204,11 @@ export function reduceActivity(activity: Activity, event: Record<string, unknown
   const type = typeof event.type === "string" ? event.type : ""
   if (!type || NOT_ACTIVITY.has(type)) return activity
 
+  /* What the run is about. Not a step and not the line: it heads them both. */
+  if (type === "subject") {
+    const subject = typeof event.text === "string" ? event.text.replace(/\s+/g, " ").trim().slice(0, 80) : ""
+    return subject && subject !== activity.subject ? { ...activity, subject } : activity
+  }
   if (type === "thinking") {
     const note = typeof event.text === "string" ? event.text.trim() : ""
     return note ? { ...activity, note, last: "note" } : activity

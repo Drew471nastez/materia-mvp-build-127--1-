@@ -72,6 +72,8 @@ import { COMPILE_CHECK_LABEL, fileLabel, toolStepLabel, type StepNames } from ".
 import { MAX_CODE_ATTEMPTS, checkSectionSource, outOfAttempts } from "./compile-feedback"
 import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type SectionOrigin, type SelectedSectionContext } from "./selected-section"
 import { makeCodedCopy } from "./coded-copy"
+import { CREATIVE_BRIEF, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
+import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import type {
   AgentProvider,
   AgentTurn,
@@ -93,8 +95,13 @@ import { addUsage, ZERO_USAGE } from "@/lib/sites/agent/types"
  * loop, where a run that ran out of room reports the work it did rather than
  * calling itself a failure — but it used to be, and the ceiling should not be
  * the thing shaping the work.
+ *
+ * Twenty-four now: accuracy over speed. A run reads, plans, writes, checks
+ * the render, reads its work back against the request (and the picture) and
+ * refines once before it finishes (SELF_CHECK below), and that last pass
+ * needs room left to happen in.
  */
-export const MAX_TURNS = 16
+export const MAX_TURNS = 24
 
 /** Input plus output for the whole run. A ceiling, not a target. */
 export const MAX_TOKENS = 300_000
@@ -114,6 +121,13 @@ export type ThemeAgentEvent =
   /** Which conversation the run is recorded in, sent by the route before anything else. */
   | { type: "conversation"; id: string; title: string }
   | { type: "thinking"; text: string }
+  /**
+   * WHAT THE RUN IS ABOUT, in two or three words: "Editing Pricing", or
+   * "New section: Testimonials". Said once it is known and again if it
+   * changes; the chat keeps it over the steps and the canvas labels the
+   * section it is working on with it.
+   */
+  | { type: "subject"; text: string }
   /** One change, the moment it is made, so the preview moves as it happens. */
   | { type: "op"; op: ThemeOp; label: string }
   /**
@@ -162,7 +176,15 @@ export type ThemeAgentEvent =
    * `message`, which carries the same question as text. The creator's answer
    * is their next message in the same conversation.
    */
-  | { type: "question"; id: string; question: string; why?: string; options: string[] }
+  | {
+      type: "question"
+      id: string
+      question: string
+      why?: string
+      options: string[]
+      /** The picture setting it asks for, checked against the page: its answers "Upload image" and "Paste image URL" act on it. */
+      target?: AgentQuestion["target"]
+    }
 
 export interface ThemeAgentResult {
   status: "succeeded" | "failed" | "refused"
@@ -184,7 +206,8 @@ Rules:
 - update_section MERGES the settings you send. Send only the fields you are changing; everything you leave out keeps its value.
 - EVERY SETTING IS A CONTROL, and the control decides what it will take. A select takes one of its listed choices and nothing else. A toggle takes true or false. A slider takes a number inside its range. A colour takes a hex value like "#1a1a1a". A field id that does not exist, and a value the control cannot take, are BOTH silently ignored by the renderer — the change would look like it worked and do nothing. read_section lists every control on a section and what each one accepts; read_section_type does the same for a type you have not added yet.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
-- THERE IS ONE HEADER AND ONE FOOTER, built in: CONNECT TO THEM, never rebuild them. "Make my header like this", "add a menu", "put my logo in", "make the nav sticky" all mean read_section and update_section on the existing header (layout, sticky, logo_url, colour scheme, button), its nav_link blocks, or its menu setting set to one of the site's menus; the logo, store name and socials are theme settings (update_theme: logo_url, brand_name, social_*). The footer the same way. Never write a header, nav bar or footer section and never put their content in the page: it is refused, and it would be a second header with no cart drawer, search or working menu. Only when the creator explicitly asks for a header of their own is it ONE section file with "kind": "header" (it replaces the built-in one; menu from a link_list, logo from an image_picker or theme.logo.url). Never two headers.
+- THERE IS ONE HEADER AND ONE FOOTER, built in: CONNECT TO THEM, never rebuild them. "Make my header like this", "add a menu", "put my logo in", "make the nav sticky" all mean read_section and update_section on the existing header (layout, sticky, logo_url, colour scheme, button), or its menu setting set to one of the site's menus; the logo, store name and socials are theme settings (update_theme: logo_url, brand_name, social_*). The footer the same way. Never write a header, nav bar or footer section and never put their content in the page: it is refused, and it would be a second header with no cart drawer, search or working menu. Only when the creator explicitly asks for a header of their own is it ONE section file with "kind": "header" (it replaces the built-in one; menu from a link_list, logo from an image_picker or theme.logo.url). Never two headers.
+- THE HEADER'S NAVIGATION IS THE MAIN MENU (Website settings, Navigation), as in Shopify. "Add a Pricing link to the menu", "rename Shop to Store", "move About to the end", "take Blog out of the nav" all mean read_menus, then edit_menu on "main-menu", one link per call; a footer menu the same way on its own handle. Never add, change or remove nav_link blocks for this: a header that shows a menu does not draw them, so the change would be invisible. Link a page by its path ("/pages/pricing").
 - PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - THE SELECTED SECTION IS EDITED IN PLACE: its settings, blocks or own code, never a new section beside it. A built in one whose change needs code: ask once, then copy_section_to_code and edit the copy.
@@ -211,6 +234,10 @@ Rules:
 - THE SOURCE IS REACHED WITH TOOLS, LIKE ANYTHING ELSE HERE. When the change is not something a control covers: read_section_code on that section's type, then change the markup, the CSS, the script or the schema with edit_section_code, exact find and replace for only the lines that change. Use write_section_code with the whole file only for a new layout. A refused write did not happen; the compiler says what is wrong, so fix that and write again rather than reporting a change you did not save. Never edit a file you have not read this run; keep its setting ids, block types, color_scheme and container queries, and give anything new a setting.
 - READ ONCE. What you read in this run stays true until you change it; a second read of something unchanged is answered with a note, not the content again. Make related changes in the same turn.
 - When you are done, reply with one plain sentence saying what you changed and in which sections. No preamble, no markdown, no lists.
+
+${CREATIVE_BRIEF}
+
+${IMAGE_FIDELITY_RULES}
 
 ${pageAgentRules()}
 
@@ -489,6 +516,8 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
         additionalProperties: false,
       },
     },
+    /* The site's navigation: the Main menu the header shows (./menu-edits). */
+    ...MENU_TOOLS,
     /* Last, so every tool above it keeps its place in the cached prefix. */
     ASK_TOOL,
   ]
@@ -688,6 +717,21 @@ export interface ThemeAgentInput {
   ambitious?: boolean
   /** How many times the run may be handed its own work back. */
   maxReviews?: number
+  /**
+   * THE CREATOR CHOSE "CODE A SECTION" WITH A SECTION OPEN: the change is to
+   * that section's code. Its own file is edited; a built in one is copied to
+   * an editable file first without asking, because choosing Code a section
+   * is the agreement copy_section_to_code otherwise asks for.
+   */
+  codeFocus?: boolean
+  /**
+   * READ ITS WORK BACK ONCE BEFORE IT FINISHES (SELF_CHECK). On for anything
+   * built, coded or made from a picture; a one word change does not pay for
+   * the extra turn. "auto" decides from the request and what the run did
+   * (the route's choice); absent is off, so a caller that scripts a run's
+   * turns gets exactly those turns.
+   */
+  selfCheck?: boolean | "auto"
   /** Ids for new sections. Injected so a test gets stable ones. */
   newId?: (type: string) => string
 }
@@ -795,6 +839,22 @@ export async function* themeAgent(
   const history = input.history ?? []
 
   /**
+   * WHAT THE RUN IS ABOUT, said plainly: "Editing Pricing" from the start
+   * when the open section is the only thing it may change (or the change is
+   * to its code), else from the first section it writes to (`about`, below).
+   */
+  let subject = ""
+  const about = (text: string): ThemeAgentEvent | null => {
+    if (!text || text === subject) return null
+    subject = text
+    return { type: "subject", text }
+  }
+  if (selected && (locked || input.codeFocus)) {
+    const said = about(editingSubject(selected.name?.trim() || typeName(schemas, selected.type)))
+    if (said) yield said
+  }
+
+  /**
    * THE CATALOGUE, READ BEFORE THE MODEL IS ASKED, when the request is about
    * the business: copy, products, prices, a picture to fill with the
    * creator's content. The model would call read_store as its first move on
@@ -834,6 +894,9 @@ export async function* themeAgent(
           : selected
             ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another. A change they ask for is a change to THIS section, not a new section.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
             : "",
+        selected && input.codeFocus
+          ? "THE CREATOR CHOSE CODE A SECTION. Make this change in this section's CODE: read_section_code on its type, then edit_section_code (write_section_code only for a new layout). If it is Storelib's built in section, call copy_section_to_code on it first WITHOUT asking: choosing Code a section is their agreement. Keep every setting id and block it has, and give anything new a setting."
+          : "",
         store ? `STORE, read for you just now:\n${describeStore(store)}` : "",
         /* What was just said, so a follow-up or an answer means what it meant. */
         describeRecent(history),
@@ -862,6 +925,9 @@ export async function* themeAgent(
 
   /** The opening turn is the plan; everything after it is commentary. */
   let plannedYet = false
+  /** SELF_CHECK has been asked for, once, and the step that says so while the model answers it. */
+  let selfChecked = false
+  let checkingStep: { id: string; label: string } | null = null
 
   try {
     for (let attempt = 1; attempt <= maxTurns; attempt++) {
@@ -888,6 +954,11 @@ export async function* themeAgent(
 
       // Accumulated FIRST: a turn that then throws still cost money.
       usage = addUsage(usage, turn.usage)
+      /* The self check was answered: its step is over, and whatever it fixes is its own steps. */
+      if (checkingStep) {
+        yield { type: "step", id: checkingStep.id, label: checkingStep.label, state: "done" }
+        checkingStep = null
+      }
 
       if (turn.stop === "refusal") {
         status = "refused"
@@ -944,6 +1015,27 @@ export async function* themeAgent(
           continue
         }
 
+        /**
+         * =====================================================================
+         *  AND IT READS ITS WORK BACK AGAINST WHAT WAS ASKED, ONCE
+         * =====================================================================
+         * The review above catches what is objectively broken. This catches
+         * what is missing: the flag nobody drew, the third plan that never
+         * got its features, the part of the picture left out. Once a run,
+         * with room left for it to fix what it finds.
+         */
+        const wantsCheck =
+          input.selfCheck === "auto"
+            ? images.length > 0 || !!input.ambitious || wroteCode || !!input.codeFocus || ops.length >= 3
+            : input.selfCheck === true
+        if (!selfChecked && wantsCheck && (ops.length > 0 || wroteCode) && attempt < maxTurns - 1 && !signal?.aborted) {
+          selfChecked = true
+          checkingStep = { id: "self-check", label: images.length ? "Comparing it with your picture" : "Checking every part you asked for" }
+          yield { type: "step", id: checkingStep.id, label: checkingStep.label, state: "running" }
+          turns.push({ role: "user", content: selfCheckNote(images.length > 0) })
+          continue
+        }
+
         message = turn.text.trim()
         status = "succeeded"
         error = null
@@ -988,6 +1080,11 @@ export async function* themeAgent(
         /* What the canvas shimmers while this step runs: see `sections` on the step event. */
         const stepSections = stepTargets(call.name, call.argumentsJson, state)
         const on = stepSections.length ? { sections: stepSections } : {}
+        /* "Editing Pricing", "New section: Testimonials": said as the run moves to it. Locked, it never moves. */
+        if (!locked) {
+          const said = about(subjectFor(call.name, call.argumentsJson, state, schemas))
+          if (said) yield said
+        }
         yield { type: "step", id: call.id, label: stepLabel, state: "running", ...on }
 
         /**
@@ -1008,6 +1105,12 @@ export async function* themeAgent(
             continue
           }
           asked = read.question
+          /* A picture it asks for is checked against the page, so "Upload image" puts it somewhere real. */
+          if (asked.target) {
+            const target = checkImageTarget(asked.target, state, schemas)
+            if (target) asked.target = target
+            else delete asked.target
+          }
           yield { type: "step", id: call.id, label: stepLabel, state: "done" }
           yield {
             type: "question",
@@ -1015,6 +1118,7 @@ export async function* themeAgent(
             question: asked.question,
             ...(asked.why ? { why: asked.why } : {}),
             options: asked.suggestions,
+            ...(asked.target ? { target: asked.target } : {}),
           }
           break
         }
@@ -1045,6 +1149,37 @@ export async function* themeAgent(
             })
           }
           yield { type: "step", id: call.id, label: stepLabel, state: store ? "done" : "failed" }
+          continue
+        }
+
+        /*
+          THE SITE'S NAVIGATION (./menu-edits). Read as it stands now, and
+          changed one link at a time through the theme's `menus`, with the
+          header pointed at the Main menu when it still drew its own links.
+          A whole site change, so the lock refuses it like update_theme.
+        */
+        if (call.name === "read_menus") {
+          results.push({ id: call.id, output: describeMenus(state) })
+          yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+          continue
+        }
+        if (call.name === "edit_menu") {
+          if (locked) {
+            results.push({ id: call.id, output: "Only the open section may change in this edit, and a menu is the whole site's. Say in your reply that changing the menu needs the lock cleared first." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          const edited = editMenu(call.argumentsJson, state)
+          results.push({ id: call.id, output: edited.output })
+          for (const op of edited.ops ?? []) {
+            state = applyOp(state, op, schemas)
+            ops.push(op)
+            if (op.kind === "update_section") touched.add(op.id)
+            yield { type: "op", op, label: op.kind === "update_theme" ? "Changed the menu" : "Pointed the header at the Main menu" }
+          }
+          if (edited.ops?.length) done.push("Changed the menu")
+          forget("read_section:")
+          yield { type: "step", id: call.id, label: stepLabel, state: edited.failed ? "failed" : "done" }
           continue
         }
 
@@ -1335,6 +1470,19 @@ export async function* themeAgent(
   return { status, message, error, usage, ops, wroteCode, asked }
 }
 
+/**
+ * THE SELF CHECK, as the model reads it after it thought it was done: every
+ * element asked for, and every part of the picture, on the page now, or fixed
+ * with the tools before it answers.
+ */
+export function selfCheckNote(withPicture: boolean): string {
+  return [
+    "BEFORE YOU FINISH, READ YOUR WORK BACK against the request" + (withPicture ? " and the picture" : "") + ".",
+    "List to yourself every element the creator named" + (withPicture ? ", and every part of the picture: its layout, spacing, colours, type, imagery and words" : "") + ". For each, it is on the page now, in the section it belongs to, looking as asked.",
+    "If anything is missing, plainer than asked, or different, fix it now with the tools. If everything is there, reply with your one closing sentence saying what you changed and where.",
+  ].join(" ")
+}
+
 /** The tools that only read. A second identical read in a run is answered from the first. */
 /**
  * WHAT THIS TYPE LOOKS LIKE FINISHED, said before its controls are listed.
@@ -1426,6 +1574,63 @@ function targetName(name: string, argumentsJson: string, state: ThemeState, sche
   const section = state.sections.find((s) => s.id === id)
   if (!section) return "the page"
   return `the ${section.name?.trim() || typeName(schemas, section.type)}`
+}
+
+/**
+ * What a write is about, as the chat's subject line says it: "Editing
+ * Pricing" for a change to a section on the page or its code, "New section:
+ * Testimonials" for one being added. A read, a theme change and anything
+ * that names nothing on the page say nothing.
+ */
+export function subjectFor(name: string, argumentsJson: string, state: ThemeState, schemas?: SchemaMap): string {
+  let args: Record<string, unknown> = {}
+  try {
+    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+  } catch {
+    return ""
+  }
+  if (name === "edit_menu") return editingSubject(args.menu === "main-menu" || !args.menu ? "the Main menu" : "a menu")
+  if (name === "add_section") {
+    const type = typeof args.sectionType === "string" ? args.sectionType : ""
+    return type && schemaOf(schemas, type) ? newSectionSubject(typeName(schemas, type)) : ""
+  }
+  if (name === "write_section_code" || name === "edit_section_code") {
+    const type = typeof args.sectionType === "string" ? args.sectionType.trim() : ""
+    if (!type) return ""
+    const instance = state.sections.find((s) => s.type === type)
+    return editingSubject(instance?.name?.trim() || typeName(schemas, type))
+  }
+  if (name === "copy_section_to_code" || (WRITE_TOOLS.has(name) && name !== "update_theme" && name !== "add_section")) {
+    const id = typeof args.sectionId === "string" ? args.sectionId : typeof args.id === "string" ? args.id : ""
+    const section = state.sections.find((s) => s.id === id)
+    return section ? editingSubject(section.name?.trim() || typeName(schemas, section.type)) : ""
+  }
+  return ""
+}
+
+/**
+ * The picture setting a question names, checked against the page: the
+ * section is on it, the block (when there is one) is in it, and the setting
+ * is an image_picker there. Anything else is dropped, and the question is
+ * asked without the actions rather than with ones that would write nowhere.
+ */
+export function checkImageTarget(
+  target: NonNullable<AgentQuestion["target"]>,
+  state: ThemeState,
+  schemas?: SchemaMap,
+): NonNullable<AgentQuestion["target"]> | null {
+  const section = state.sections.find((s) => s.id === target.sectionId)
+  if (!section) return null
+  let fields = fieldsFor(section.type, schemas)
+  if (target.blockId) {
+    const path = resolvePath(section.blocks, target.blockId)
+    const block = path ? blockAt(section.blocks, path)?.block : undefined
+    if (!block) return null
+    fields = blockFieldsFor(section.type, block.type, schemas)
+  }
+  const field = fields.find((f) => f.id === target.setting)
+  if (!field || field.type !== "image_picker") return null
+  return { ...target, label: field.label || section.name || typeName(schemas, section.type) }
 }
 
 /** The sections a run changed, by name, first change first. */
@@ -1702,6 +1907,7 @@ function execute(
       : `[${locked}]`
 
     const wholePage: Record<string, string> = {
+      edit_menu: "changing a menu, which the whole site shows",
       add_section: "adding a section",
       remove_section: "removing a section",
       move_section: "moving a section",

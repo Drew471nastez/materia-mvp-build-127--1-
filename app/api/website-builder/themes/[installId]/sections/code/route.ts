@@ -20,7 +20,11 @@ import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
 import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
-import { writeSection, type WriteStage } from "@/lib/website-builder/agent/write-section"
+import { writeSection, type WriteEvent, type WriteStage } from "@/lib/website-builder/agent/write-section"
+import { EFFORTS, type Effort } from "@/lib/website-builder/ask-engines"
+import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
+import { keepImages } from "@/lib/website-builder/agent/attachment-store"
+import { withPictureNote } from "@/lib/website-builder/ask-attach"
 import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -59,6 +63,21 @@ const BodySchema = z.object({
   settings: z.record(z.unknown()).optional(),
   /** What the site is already built out of, for coherence. Names only. */
   sectionTypes: z.array(z.string().max(80)).max(60).optional(),
+  /**
+   * HOW HARD IT THINKS, the panel's Strength for Code a section: Deep unless
+   * the creator chose otherwise (lib/website-builder/ask-engines.ts,
+   * DEFAULT_CODE_STRENGTH). Absent, from an older panel: high.
+   */
+  effort: z.enum(EFFORTS as [Effort, ...Effort[]]).optional(),
+  /**
+   * THE CONVERSATION ON SCREEN, so a section written here is part of the
+   * same chat as the changes around it: in the history, and in what the
+   * page assistant reads before its next answer. Honoured only when it is
+   * a conversation on THIS install (openThemeConversation).
+   */
+  conversationId: z.string().uuid().nullable().optional(),
+  /** The page it was asked on, for the transcript. */
+  page: z.string().min(1).max(64).optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -99,8 +118,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
 
   /**
    * The pictures are checked at the edge, against the limits in one module:
-   * type, size, count, and the total the platform will carry. Nothing here
-   * is stored by this route — the bytes go to the model and are gone.
+   * type, size, count, and the total the platform will carry. They go to the
+   * model with every call it makes, and to the conversation's private
+   * picture store for thirty days, like a picture sent with a page change.
    */
   const { images, rejected } = reviewImages(parsed.data.images)
   if (!parsed.data.prompt.trim() && images.length === 0) {
@@ -140,6 +160,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const resolved = await resolveForCreator((creator as { id: string }).id, { requested: parsed.data.provider, tier: parsed.data.tier ?? "strong" })
 
   /**
+   * KEPT IN THE CONVERSATION, the way a change to the page is: the question
+   * before anything is attempted, its pictures for thirty days, the answer
+   * when it is in. A transcript that could not be written never stops the
+   * section being written (lib/website-builder/agent/chat.ts).
+   */
+  const pageKey = parsed.data.page ?? "home"
+  const noted = withPictureNote(parsed.data.prompt, images.length)
+  const conversation = await openThemeConversation({ installId, requested: parsed.data.conversationId ?? null, prompt: noted })
+  const conversationId = conversation?.id ?? null
+  const recorded = await startThemeExchange({ installId, pageKey, prompt: noted, conversationId })
+  await keepImages({ installId, messageId: recorded.id, images })
+  const record = (reply: string, error: string | null) => completeThemeExchange({ installId, pageKey, reply, ops: [], error, conversationId })
+
+  /**
    * The whole job, start to answer. `onStage` is how the panel is told what
    * is happening while it waits, when it asked to be (below).
    */
@@ -151,12 +185,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * so it can still say why.
    */
   const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
-  const run = async (onStage?: (stage: WriteStage, attempt: number) => void): Promise<{ status: number; body: Record<string, unknown> }> => {
+  const run = async (
+    onStage?: (stage: WriteStage, attempt: number) => void,
+    onEvent?: (event: WriteEvent) => void,
+  ): Promise<{ status: number; body: Record<string, unknown> }> => {
     const written = await writeSection({
       provider: resolved.provider,
       model: resolved.model,
       prompt: parsed.data.prompt,
       images,
+      /* Accuracy over speed: planned, written, drawn, checked against the request and the picture, refined once. */
+      effort: parsed.data.effort ?? "high",
+      cacheKey: `theme:${installId}`,
+      deadlineAt: Date.now() + (maxDuration - 15) * 1000,
+      onEvent,
       takenTypes,
       takenNames,
       theme: {
@@ -172,10 +214,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
 
     /* An answer rather than a file: the message was a question, or too
        unclear to build. Nothing was written, and nothing went wrong. */
-    if (written.ok === false && written.reply) return { status: 200, body: { reply: written.reply } }
+    if (written.ok === false && written.reply) {
+      await record(written.reply, null)
+      return { status: 200, body: { reply: written.reply } }
+    }
 
     if (written.ok === false) {
-      if (deadline.aborted) return { status: 504, body: { error: "Writing that section took too long. Try again, or describe a smaller section." } }
+      if (deadline.aborted) {
+        await record("", "Writing that section took too long.")
+        return { status: 504, body: { error: "Writing that section took too long. Try again, or describe a smaller section." } }
+      }
+      await record("", written.error)
       return { status: 422, body: { error: written.error, errors: written.errors, source: written.source } }
     }
 
@@ -185,7 +234,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
      * Nothing here puts it on a page or in front of a visitor.
      */
     const saved = await saveDraft(supabase, installId, written.value.path, written.value.source)
-    if (saved.ok === false) return { status: 500, body: { error: saved.error } }
+    if (saved.ok === false) {
+      await record("", saved.error)
+      return { status: 500, body: { error: saved.error } }
+    }
     await recordVersion(supabase, installId, written.value.path, written.value.source, "save")
     /* Also reached from inside the streamed answer; if `after` is not
        available there, the commit is simply started without waiting. */
@@ -196,6 +248,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       void mirrorToGitHub(installId, change)
     }
 
+    await record(`Added ${written.value.name} to the page.`, null)
     return {
       status: 200,
       body: {
@@ -203,6 +256,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         type: written.value.type,
         name: written.value.name,
         drafted: saved.drafts,
+        /* Picture settings it left for the creator: the chat offers to upload them once it is on the page. */
+        imageSlots: written.value.imageSlots ?? [],
+        /* What the self check did. */
+        reviewed: written.value.reviewed,
         /**
          * An attachment that was refused is named rather than dropped in
          * silence: otherwise the section comes back written from a picture the
@@ -235,8 +292,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             /* The reader went away; the work finishes and is saved anyway. */
           }
         }
+        /* First, so the panel knows which conversation this is in before anything else arrives. */
+        if (conversation) line({ type: "conversation", id: conversation.id, title: conversation.title })
+        if (recorded.id) line({ type: "recorded", messageId: recorded.id })
         try {
-          const done = await run((stage, attempt) => line({ type: "stage", stage, attempt }))
+          const done = await run(
+            (stage, attempt) => line({ type: "stage", stage, attempt }),
+            /* The steps, in the page assistant's line shapes: the chat draws both with one reader. */
+            (event) => line(event),
+          )
           /* The answer nested, not spread: a section has a `type` of its own,
              and spreading it here overwrote the event's. */
           line({ type: "result", status: done.status, answer: done.body })

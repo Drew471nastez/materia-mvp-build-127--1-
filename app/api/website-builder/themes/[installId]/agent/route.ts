@@ -50,8 +50,13 @@ import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
-/** A handful of section edits and a sentence. No build, so no minutes. */
-export const maxDuration = 120
+/**
+ * Five minutes, like Code a section: accuracy over speed. A run reads,
+ * plans, writes, checks what it drew and reads its work back against the
+ * request before it finishes, and a picture or a section's code makes each
+ * of those turns longer. Two minutes was cutting those runs off.
+ */
+export const maxDuration = 300
 
 /** Aborts when either does: the reader leaving, or the deadline. */
 function eitherSignal(a: AbortSignal, b: AbortSignal): AbortSignal {
@@ -116,6 +121,12 @@ const BodySchema = z.object({
    * the sentence was phrased.
    */
   lockToSelection: z.boolean().optional(),
+  /**
+   * The creator is in Code a section with a section open: the change goes
+   * into that section's code (lib/website-builder/agent/loop.ts, codeFocus).
+   * Honoured only with a section that resolved on this page.
+   */
+  codeFocus: z.boolean().optional(),
   /**
    * WHOSE MODEL ANSWERS, from the switch in the panel. Untrusted, and
    * "anthropic" is still accepted so an old tab's request is not refused: it
@@ -478,6 +489,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           selectedSectionId: selected?.id,
           selected,
           lockToSelection: body.lockToSelection === true && !!selected,
+          codeFocus: body.codeFocus === true && !!selected,
+          /* Read its work back against the request once before finishing, for anything built, coded or from a picture. */
+          selfCheck: "auto",
           /**
            * READ THROUGH THE USER'S OWN CLIENT, so RLS decides what the model
            * is shown. The service role would read every creator's catalogue

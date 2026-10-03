@@ -2141,7 +2141,7 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   )
   check(
     "a code block scrolls sideways inside itself, and only it",
-    /<pre\s*\n\s*data-code-scroll=""\s*\n\s*className="max-h-44 max-w-full overflow-auto[^"]*\[touch-action:pan-x_pan-y\]/.test(panel),
+    /<pre\s*\n\s*data-code-scroll=""\s*\n(\s*aria-label=[^\n]*\n)?\s*className="(mt-1\.5 )?max-h-44 max-w-full overflow-auto[^"]*\[touch-action:pan-x_pan-y\]/.test(panel),
   )
   check(
     "the sheet clips rather than hides, so no script can scroll its content out of place",
@@ -2759,7 +2759,7 @@ section("The panel says the true thing, and does not make you wait to type")
   )
   check(
     "and a message typed during a run is queued rather than dropped",
-    /setQueued\(prompt\)/.test(chat) && /if \(busy \|\| !queued\) return/.test(chat),
+    /setQueued\(\{ text: prompt, mode \}\)/.test(chat) && /if \(busy \|\| writing \|\| !queued\) return/.test(chat),
   )
   check("a failed exchange can be sent again without retyping it", /Try again/.test(chat))
   check("the box grows with what is in it", /field\.style\.height = `\$\{Math\.min/.test(chat))
@@ -3658,7 +3658,8 @@ section("Asking for something good has to get the good model")
   const pages = ["build me a landing page for my sample packs", "make the whole website", "design a home page from scratch"]
   const short = pages.filter((p) => classifyRequest(p).maxTurns < 36 || !classifyRequest(p).wholePage)
   check("a whole page is recognised and gets the turns six sections take", short.length === 0, short.join(" | "))
-  check("and one section is still one section's worth of turns", classifyRequest("design a complete FAQ section").maxTurns === 24)
+  /* 32 since the U round: a section's worth of turns, plus room to read the work back against the request and fix what it finds (SELF_CHECK). */
+  check("and one section is still one section's worth of turns", classifyRequest("design a complete FAQ section").maxTurns === 32)
 
   const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
   check(

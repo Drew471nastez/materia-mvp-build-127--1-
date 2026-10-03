@@ -286,6 +286,7 @@ const SUITES = [
   "tests/ask-dock.test.ts",
   "tests/ask-pictures.test.ts",
   "tests/ask-answer-actions.test.ts",
+  "tests/ask-images-u.test.ts",
   "tests/ask-sounds.test.ts",
   "tests/ask-voice-mobile.test.ts",
   "tests/ai-reference.test.ts",

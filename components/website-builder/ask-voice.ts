@@ -80,6 +80,7 @@ import * as React from "react"
 
 import { closeMicrophoneSession, openMicrophoneSession } from "@/lib/website-builder/ask-sounds"
 import { pickRecordingType, recordingFileName } from "@/lib/website-builder/voice-format"
+import { QUICK_END_MS, isTransientSpeechError, joinHeard, shouldRestart, transcriptOf } from "@/lib/website-builder/ask-dictation"
 
 export type VoiceState = "idle" | "starting" | "listening" | "transcribing"
 type Engine = "speech" | "record"
@@ -318,6 +319,8 @@ export function useVoiceInput({
   const stream = React.useRef<MediaStream | null>(null)
   const chunks = React.useRef<Blob[]>([])
   const cancelled = React.useRef(false)
+  /** The person is still recording: a recognition session that ends is followed by another. */
+  const wanted = React.useRef(false)
   const timer = React.useRef<number | null>(null)
   const startedAt = React.useRef(0)
 
@@ -369,6 +372,8 @@ export function useVoiceInput({
 
   const stop = React.useCallback(() => {
     stopClock()
+    /* The person is done: the session that ends now is the last one. */
+    wanted.current = false
     if (recognition.current) {
       recognition.current.stop()
       return
@@ -382,6 +387,7 @@ export function useVoiceInput({
   /** Stops and throws away what was heard. */
   const cancel = React.useCallback(() => {
     cancelled.current = true
+    wanted.current = false
     stopClock()
     recognition.current?.abort()
     recognition.current = null
@@ -533,63 +539,122 @@ export function useVoiceInput({
       if (!fallBackToRecording()) setError(voiceErrorMessage("NotSupportedError"))
       return
     }
-    const rec = new Ctor()
-    rec.lang = document.documentElement.lang || navigator.language || "en-US"
-    rec.continuous = true
-    rec.interimResults = true
-    let settled = ""
-    /** A word arrived, so this session worked: nothing hands over after that. */
+    /*
+      THE PAGE'S AUDIO SESSION, AS FOR A RECORDING. The sounds keep it
+      "ambient" where the browser has one (Safari), and an ambient session
+      has no microphone: a recogniser started under it heard nothing and
+      ended. Automatic for as long as this recording lasts.
+    */
+    openMicrophoneSession()
+    wanted.current = true
+    /*
+      ONE RECORDING, MANY SESSIONS. Chrome and Safari end a continuous
+      session after a pause, a hiccup or a minute, and that used to end the
+      recording: the words stopped following what was said. While the
+      person is still recording, a session that ends is followed by a new
+      one, and what the earlier ones heard stays in front of what the new
+      one hears (lib/website-builder/ask-dictation.ts).
+    */
+    let earlier = ""
+    /** A word arrived in this recording, so nothing hands over to the recorder after that. */
     let heard = false
-    /** It said why it stopped, so `onend` leaves the message alone. */
+    /** It said why it stopped, so the end leaves the message alone. */
     let failed = false
-    rec.onstart = () => {
-      setState("listening")
-      startClock()
-    }
-    rec.onresult = (event) => {
-      let interim = ""
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i]
-        if (result.isFinal) settled += result[0].transcript
-        else interim += result[0].transcript
-      }
-      const words = (settled + interim).replace(/\s+/g, " ").trim()
-      if (words) heard = true
-      if (!cancelled.current) onTextRef.current(words, !interim)
-    }
-    rec.onerror = (event) => {
-      if (event.error === "aborted") return
-      failed = true
-      const refusal = isPermissionError(event.error)
-      /* Nothing heard, and not the microphone being off: record it instead. */
-      if (!refusal && !heard && fallBackToRecording()) return
-      setRefused(refusal)
-      setError(voiceErrorMessage(event.error, platform()))
-    }
-    rec.onend = () => {
+    let quickEnds = 0
+    let clockStarted = false
+    const finish = () => {
+      wanted.current = false
       stopClock()
       recognition.current = null
-      /* The recorder has the microphone now; its own state stands. */
-      if (fellBack.current) return
-      /*
-        ENDED WITHOUT A WORD AND WITHOUT SAYING WHY. WebKit does this on a
-        phone: `start()` is answered, nothing is heard, and it is over. The
-        recorder takes the press.
-      */
-      if (!heard && !failed && fallBackToRecording()) return
-      setState("idle")
-      if (!heard && !failed) setError(voiceErrorMessage(""))
+      closeMicrophoneSession()
     }
-    recognition.current = rec
-    try {
-      rec.start()
-    } catch (thrown) {
-      recognition.current = null
-      const code = thrown instanceof DOMException || thrown instanceof Error ? thrown.name : ""
+    const session = (): boolean => {
+      const rec = new Ctor()
+      rec.lang = document.documentElement.lang || navigator.language || "en-US"
+      rec.continuous = true
+      rec.interimResults = true
+      const began = performance.now()
+      let sessionText = ""
+      rec.onstart = () => {
+        setState("listening")
+        if (!clockStarted) {
+          clockStarted = true
+          startClock()
+        }
+      }
+      rec.onresult = (event) => {
+        /* Read whole every time: Android repeats earlier results, and resultIndex lost or doubled words. */
+        const { final, interim } = transcriptOf(event.results)
+        sessionText = final
+        const words = joinHeard(earlier, `${final} ${interim}`)
+        if (words) heard = true
+        if (!cancelled.current) onTextRef.current(words, !interim)
+      }
+      rec.onerror = (event) => {
+        if (event.error === "aborted") return
+        /* Silence, a dropped connection: this session is over, and the next one carries on (onend). */
+        if (isTransientSpeechError(event.error) && wanted.current) return
+        failed = true
+        const refusal = isPermissionError(event.error)
+        /* Nothing heard, and not the microphone being off: record it instead. */
+        if (!refusal && !heard && fallBackToRecording()) {
+          wanted.current = false
+          return
+        }
+        wanted.current = false
+        setRefused(refusal)
+        setError(voiceErrorMessage(event.error, platform()))
+      }
+      rec.onend = () => {
+        earlier = joinHeard(earlier, sessionText)
+        recognition.current = null
+        /* The recorder has the microphone now; its own state stands. */
+        if (fellBack.current) {
+          wanted.current = false
+          stopClock()
+          return
+        }
+        if (cancelled.current) {
+          finish()
+          return
+        }
+        if (performance.now() - began < QUICK_END_MS && !sessionText) quickEnds++
+        else if (sessionText) quickEnds = 0
+        const elapsed = Math.floor((performance.now() - startedAt.current) / 1000)
+        if (!failed && shouldRestart({ wanted: wanted.current, elapsedSeconds: clockStarted ? elapsed : 0, limitSeconds: VOICE_LIMIT_SECONDS, quickEnds })) {
+          /* Still recording: a new session, at once. */
+          if (session()) return
+        }
+        /*
+          ENDED WITHOUT A WORD AND WITHOUT SAYING WHY. WebKit does this on a
+          phone: `start()` is answered, nothing is heard, and it is over. The
+          recorder takes the press.
+        */
+        if (!heard && !failed && fallBackToRecording()) {
+          wanted.current = false
+          stopClock()
+          return
+        }
+        finish()
+        setState("idle")
+        if (!heard && !failed) setError(voiceErrorMessage(""))
+      }
+      recognition.current = rec
+      try {
+        rec.start()
+        return true
+      } catch {
+        recognition.current = null
+        return false
+      }
+    }
+    if (!session()) {
       /* Refused to start at all (WebKit throws when a session has not fully ended). */
+      wanted.current = false
+      closeMicrophoneSession()
       if (fallBackToRecording()) return
       setState("idle")
-      setError(voiceErrorMessage(code, platform()))
+      setError(voiceErrorMessage("NotSupportedError", platform()))
     }
   }, [engine, state, fallBackToRecording, startRecording, startClock, stopClock])
 

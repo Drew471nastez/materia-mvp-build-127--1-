@@ -40,7 +40,13 @@ const same = (a: Box | undefined, b: Box) => !!a && a.x === b.x && a.y === b.y &
 /** How long a finished section's ring is shown: `wb-ai-settle` in app/globals.css. */
 export const SETTLE_MS = 1400
 
-export function AiWorkingOverlay({ working, settled }: { working: readonly string[]; settled: readonly string[] }) {
+/**
+ * `label` is what the run is about, "Editing Pricing" or "New section: Hero
+ * with flag", said in the chat over its steps. It is drawn once, on the first
+ * section being worked on, at its top left: a small violet tag, the same
+ * words the chat uses, so the canvas and the chat name the same thing.
+ */
+export function AiWorkingOverlay({ working, settled, label }: { working: readonly string[]; settled: readonly string[]; label?: string }) {
   const layer = React.useRef<HTMLDivElement>(null)
   const [boxes, setBoxes] = React.useState<Record<string, Box>>({})
   const ids = React.useMemo(() => [...new Set([...working, ...settled])], [working, settled])
@@ -108,6 +114,8 @@ export function AiWorkingOverlay({ working, settled }: { working: readonly strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
+  /* The tag goes on the first section being worked on that has a box. */
+  const tagged = label ? working.find((id) => boxes[id]) : undefined
   return (
     <div ref={layer} className="wb-ai-layer" aria-hidden data-ai-layer="">
       {ids.map((id) => {
@@ -120,7 +128,16 @@ export function AiWorkingOverlay({ working, settled }: { working: readonly strin
             data-ai-work={working.includes(id) ? "working" : "settled"}
             data-section={id}
             style={{ width: box.w, height: box.h, transform: `translate3d(${box.x}px, ${box.y}px, 0)` }}
-          />
+          >
+            {id === tagged && (
+              <span
+                data-ai-label=""
+                className="absolute left-3 top-3 max-w-[calc(100%-24px)] truncate rounded-full bg-[#8b5cf6] px-2.5 py-1 text-[12px] font-medium leading-4 text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
+              >
+                {label}
+              </span>
+            )}
+          </div>
         )
       })}
     </div>

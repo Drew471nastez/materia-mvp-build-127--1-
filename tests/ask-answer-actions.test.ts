@@ -138,10 +138,15 @@ async function main() {
   // ---------------------------------------------------------------------------
   {
     const body = panel.slice(panel.indexOf("const pickSuggestion = React.useCallback"), panel.indexOf("viewingRef.current = !!viewing"))
-    check("a tap sends the suggestion, rather than copying it into the box to be sent again", /void send\(text\)/.test(body) && !/setDraft\(/.test(body))
-    check("in Code section it writes the section", /if \(mode === "code"\) \{\s*\n\s*if \(!writing\) void writeOne\(text\)/.test(body))
-    check("during a run it waits its turn, like a typed message", /if \(busy\) \{\s*\n\s*setQueued\(text\)/.test(body))
-    check("and whatever is typed in the box, and its pictures, stay there", !/setAttached\(/.test(body) && /if \(images\.length\) \{\s*\n\s*setAttached\(\[\]\)/.test(panel))
+    /* A tap goes the way the box's mode sends a message (dispatch): the page assistant, or in Code section the writer or the open section's code. */
+    const dispatch = panel.slice(panel.indexOf("const dispatch = React.useCallback("), panel.indexOf("const submit = React.useCallback("))
+    check("a tap sends the suggestion, rather than copying it into the box to be sent again", /dispatch\(text, \[\], mode\)/.test(body) && !/setDraft\(/.test(body))
+    check("in Code section it writes the section", /if \(into === "code"\) \{[\s\S]{0,300}else void writeOne\(prompt, images, quiet\)/.test(dispatch))
+    check("during a run it waits its turn, like a typed message", /if \(busy \|\| writing\) \{\s*\n\s*setQueued\(\{ text, mode \}\)/.test(body))
+    check(
+      "and whatever is typed in the box, and its pictures, stay there",
+      !/setAttached\(/.test(body) && /setAttached\(\[\]\)\s*\n\s*setAttachError\(null\)\s*\n\s*dispatch\(prompt, images, mode\)/.test(panel),
+    )
     check("both chip rows are wired to it", (panel.match(/onPick=\{pickSuggestion\}/g) ?? []).length === 2)
   }
 
@@ -186,8 +191,15 @@ async function main() {
   section("Where the sounds play")
   // ---------------------------------------------------------------------------
   {
-    check("the whoosh as a message goes, unless it already had one when it was queued", /if \(!quiet\) playAskSound\("sent"\)/.test(panel) && /void send\(next, \[\], true\)/.test(panel))
-    check("and as one is queued, and as a section is asked for", (panel.match(/setQueued\((prompt|text)\)\s*\n\s*playAskSound\("sent"\)/g) ?? []).length === 3 && /lastWrite\.current = \{ prompt, images \}\s*\n\s*playAskSound\("sent"\)/.test(panel))
+    check(
+      "the whoosh as a message goes, unless it already had one when it was queued",
+      (panel.match(/if \(!quiet\) playAskSound\("sent"\)/g) ?? []).length === 2 && /dispatchRef\.current\(next\.text, \[\], next\.mode, true\)/.test(panel),
+    )
+    check(
+      "and as one is queued, and as a section is asked for",
+      (panel.match(/setQueued\(\{ text(: prompt)?, mode(: "change")? \}\)\s*\n\s*playAskSound\("sent"\)/g) ?? []).length === 3 &&
+        /if \(!quiet\) playAskSound\("sent"\)\s*\n\s*setWriting\(true\)/.test(panel),
+    )
     check(
       "one sound per run: the chord for an answer, the rising sixth for the question it stopped on, the low pair for an error",
       (panel.match(/if \(!finished\) playAskSound\("done"\)/g) ?? []).length === 1 &&

@@ -71,6 +71,100 @@ export interface AgentQuestion {
   suggestions: string[]
   /** Hint text in the free-text box. */
   placeholder?: string
+  /**
+   * THE PICTURE SETTING THIS QUESTION IS ABOUT, when it asks for one ("Please
+   * upload or paste the portrait"). With it, an answer that is an action
+   * (QUESTION_ACTIONS) does the thing: opens the picker and uploads, or takes
+   * an address, and puts the picture straight into this setting.
+   */
+  target?: ImageTarget
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANSWERS THAT ARE ACTIONS
+   ═══════════════════════════════════════════════════════════════════════════
+   "Please upload or paste the portrait", with two pills under it: "Upload
+   image" and "Paste image URL". Those used to be sent back as the words
+   "Upload image", which did nothing a person meant by pressing them. Now a
+   pill that names one of these is that action: the chat opens the file
+   picker and uploads to the media library, or shows an address box with a
+   preview, puts the picture into the setting the question is about, and
+   sends the answer (imageAnswer) so the run carries on knowing it is there.
+   Pure: tests/ask-images-u.test.ts holds every step of it. */
+
+/** Where a picture goes: a section's setting, or a setting on one of its blocks. */
+export interface ImageTarget {
+  sectionId: string
+  /** A block's path inside the section, when the picture is a block's. */
+  blockId?: string
+  /** The image_picker setting's id. */
+  setting: string
+  /** How the creator knows it: the setting's label, or the section's name. */
+  label?: string
+}
+
+export type QuestionAction = "upload_image" | "image_url"
+
+/** The two pills an image question offers, in the words they are drawn with. */
+export const IMAGE_ACTION_LABELS: Record<QuestionAction, string> = {
+  upload_image: "Upload image",
+  image_url: "Paste image URL",
+}
+
+/**
+ * Which action an answer names, if it names one. Read from the words, because
+ * the model writes the pills: "Upload image", "Upload a photo", "Choose from
+ * my files" are the picker; "Paste image URL", "Use a link" are the address.
+ */
+export function optionAction(option: string): QuestionAction | null {
+  const o = option.toLowerCase()
+  if (/\b(paste|url|link|address)\b/.test(o) && !/\bupload\b/.test(o)) return "image_url"
+  if (/\b(upload|choose|pick|select|browse)\b/.test(o) && /\b(image|photo|picture|file|files|portrait|logo|one)\b/.test(o)) return "upload_image"
+  if (/^upload\b/.test(o)) return "upload_image"
+  return null
+}
+
+/**
+ * The address a creator pasted, or why it cannot be used. An https address,
+ * or a path on their own site ("/images/me.jpg"). Never http (mixed content
+ * on a https site), never javascript: or data:, never anything with spaces.
+ */
+export function readImageUrl(raw: string): { ok: true; url: string } | { ok: false; error: string } {
+  const url = raw.trim()
+  if (!url) return { ok: false, error: "Paste the picture's address." }
+  if (/\s/.test(url)) return { ok: false, error: "That address has spaces in it. Paste it again." }
+  if (url.startsWith("/") && !url.startsWith("//")) return { ok: true, url }
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return { ok: false, error: "That is not an address. It starts with https://" }
+  }
+  if (parsed.protocol !== "https:") return { ok: false, error: "Use an address that starts with https://" }
+  if (!parsed.hostname.includes(".")) return { ok: false, error: "That address has no website in it." }
+  return { ok: true, url: parsed.toString() }
+}
+
+/** The change that puts a picture into the setting a question is about, in the editor's own operations. */
+export function imageOp(
+  target: ImageTarget,
+  url: string,
+):
+  | { kind: "update_section"; id: string; settings: Record<string, unknown> }
+  | { kind: "update_block"; sectionId: string; blockId: string; settings: Record<string, unknown> } {
+  return target.blockId
+    ? { kind: "update_block", sectionId: target.sectionId, blockId: target.blockId, settings: { [target.setting]: url } }
+    : { kind: "update_section", id: target.sectionId, settings: { [target.setting]: url } }
+}
+
+/**
+ * What is sent as the answer once the picture is in: the run that asked
+ * reads it as its next message and carries on, knowing the picture is set
+ * and where it lives.
+ */
+export function imageAnswer(target: ImageTarget, url: string, how: QuestionAction): string {
+  const what = target.label?.trim() || "the picture"
+  return `${how === "upload_image" ? "I uploaded" : "I added"} ${what}: ${url}. It is already set as ${target.setting} on [${target.sectionId}]${target.blockId ? ` block [${target.blockId}]` : ""}, so carry on with the rest.`
 }
 
 /**

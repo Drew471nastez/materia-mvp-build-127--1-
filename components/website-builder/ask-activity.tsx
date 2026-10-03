@@ -176,36 +176,49 @@ export function StepsTimeline({
 }
 
 /**
- * A section file it wrote, the way it was written. Capped in height: a
- * section is two hundred lines and the code editor, one press away, is where
- * it is read properly.
+ * A section file it wrote: ONE LINE, folded. "The chat shows a short result
+ * line, not the big code window." The file's name and a View code link; the
+ * source opens under it only when asked for, capped in height, and the code
+ * editor, one press away, is where it is read properly.
  */
 export function CodePreview({ file, onOpenCode }: { file: ActivityCode; onOpenCode?: (path: string) => void }) {
+  const [open, setOpen] = React.useState(false)
   const lines = file.source.split("\n").length
   return (
-    <div data-ask-code="" className="min-w-0 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
-      <div className="flex items-center gap-2 border-b border-[#e5e7eb]/70 px-2.5 py-1.5">
-        <span data-code-path="" className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#6b7280]">
-          {file.path}
+    <div data-ask-code="" data-open={open ? "" : undefined} className="min-w-0">
+      <div className="flex min-w-0 items-center gap-2 text-[12px] leading-5 text-[#6b7280]">
+        <span data-code-path="" className="min-w-0 truncate font-mono text-[11px]">
+          {file.path.replace(/^sections\//, "")}
         </span>
-        <span className="shrink-0 text-[11px] tabular-nums text-[#6b7280]/70">{lines} lines</span>
-        {onOpenCode && (
+        <button
+          type="button"
+          data-ask-view-code=""
+          aria-expanded={open}
+          onClick={() => setOpen((was) => !was)}
+          className="relative shrink-0 font-medium text-[#1a1a2e]/80 underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
+        >
+          {open ? "Hide code" : "View code"}
+        </button>
+        {open && onOpenCode && (
           <button
             type="button"
             onClick={() => onOpenCode(file.path)}
-            className="relative shrink-0 text-[11.5px] font-medium text-[#1a1a2e] underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:underline"
+            className="relative shrink-0 font-medium text-[#1a1a2e]/80 underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
           >
-            Open
+            Open in editor
           </button>
         )}
       </div>
-      {/* The one thing in a thread that scrolls sideways, inside itself. */}
-      <pre
-        data-code-scroll=""
-        className="max-h-44 max-w-full overflow-auto overscroll-contain px-2.5 py-2 text-[11px] leading-[1.45] [overflow-wrap:normal] [touch-action:pan-x_pan-y]"
-      >
-        <code className="font-mono text-[#1a1a2e]/80">{file.source}</code>
-      </pre>
+      {open && (
+        /* The one thing in a thread that scrolls sideways, inside itself. */
+        <pre
+          data-code-scroll=""
+          aria-label={`${file.path}, ${lines} lines`}
+          className="mt-1.5 max-h-44 max-w-full overflow-auto overscroll-contain rounded-xl border border-[#e5e7eb] bg-white px-2.5 py-2 text-[11px] leading-[1.45] [overflow-wrap:normal] [touch-action:pan-x_pan-y]"
+        >
+          <code className="font-mono text-[#1a1a2e]/80">{file.source}</code>
+        </pre>
+      )}
     </div>
   )
 }

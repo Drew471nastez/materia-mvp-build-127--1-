@@ -195,7 +195,8 @@ function main() {
       /if \(ctx\.mode === "code"\) picked = toCode\(ctx\)/.test(suggest) && /A comparison table of my plans/.test(suggest) &&
         /ideas\.filter\(\(\[, taken\]\) => !types\.some\(\(t\) => taken\.test\(t\)\)\)/.test(suggest),
     )
-    check("and the written section opens in the code editor to be read", /onOpenCodeEditor\(written\.path\)/.test(chat))
+    /* One press: View code beside the line that says it was added (the file is not pasted into the thread). */
+    check("and the written section opens in the code editor to be read", /onClick=\{\(\) => onOpenCode\(exchange\.written!\.path\)\}/.test(chat) && /View code/.test(chat))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

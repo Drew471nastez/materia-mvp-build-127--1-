@@ -5533,7 +5533,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * while it was written, or its file could not be read back just now.
    */
   const handleWriteDone = useCallback(
-    async ({ type }: { type: string; name: string; path: string }): Promise<boolean> => {
+    /* The new section's id when it is on the page: the chat hands it back to aiRunFinished, which glides to it and rings it once. */
+    async ({ type }: { type: string; name: string; path: string }): Promise<string | false> => {
       const writing = aiWritingRef.current
       /* The file is new, so the canvas has to fetch it before it can draw it. */
       const files = await loadStorelibSources()
@@ -5553,7 +5554,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setIsDirty(true)
       setArrivedId(id)
       revealSection(id)
-      return true
+      return id
     },
     [loadStorelibSources, pushUndo, revealSection],
   )
@@ -7235,16 +7236,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [aiWorkingIds, setAiWorkingIds] = useState<string[]>([])
   const [aiSettledIds, setAiSettledIds] = useState<string[]>([])
-  const aiWorkingChange = useCallback((ids: string[]) => {
+  /* What the run is about ("Editing Pricing", "New section: Hero with flag"), shown on the section it marks. */
+  const [aiWorkingLabel, setAiWorkingLabel] = useState<string | undefined>(undefined)
+  const aiWorkingChange = useCallback((ids: string[], label?: string) => {
     setAiWorkingIds((was) => (was.length === ids.length && was.every((id, i) => id === ids[i]) ? was : ids))
+    setAiWorkingLabel(ids.length ? label : undefined)
   }, [])
   const aiRunFinished = useCallback(
     (ids: string[]) => {
-      const order = sectionsRef.current.map((s) => s.id)
-      const onPage = ids.filter((id) => order.includes(id)).sort((a, b) => order.indexOf(a) - order.indexOf(b))
-      if (onPage.length === 0) return
-      setAiSettledIds(onPage)
-      revealSection(onPage[0])
+      /* A section placed this moment is on the page from the next render: looked for again a frame later. */
+      const settle = (again: boolean) => {
+        const order = sectionsRef.current.map((s) => s.id)
+        const onPage = ids.filter((id) => order.includes(id)).sort((a, b) => order.indexOf(a) - order.indexOf(b))
+        if (onPage.length === 0) {
+          if (again) requestAnimationFrame(() => requestAnimationFrame(() => settle(false)))
+          return
+        }
+        setAiSettledIds(onPage)
+        revealSection(onPage[0])
+      }
+      settle(true)
     },
     [revealSection],
   )
@@ -8596,7 +8607,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 installId={installId}
               />
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
-              <AiWorkingOverlay working={aiWorkingIds} settled={aiSettledIds} />
+              <AiWorkingOverlay working={aiWorkingIds} settled={aiSettledIds} label={aiWorkingLabel} />
               </div>
             )}
             </div>

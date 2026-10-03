@@ -195,7 +195,9 @@ async function main() {
     check("no where line in either shell", !/data-library-where|where\?: string|\{where &&/.test(libraryCode))
     check("and the editor no longer works one out", !/libraryWhere|whereItGoes|where=\{/.test(code(editor)))
     check("the creator's own category is called Created", manifest.section_categories.yours === "Created" && SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] === "Created")
-    check("and Ask Storelib calls it the same", /Add it from Add Section, under Created\./.test(chat) && !/Created by you/.test(chat))
+    /* The line Code a section ends on is written in lib/website-builder/ask-code-run.ts now. */
+    const codeRun = read("lib/website-builder/ask-code-run.ts")
+    check("and Ask Storelib calls it the same", /Add it from Add Section, under Created\./.test(codeRun) && !/Created by you/.test(chat + codeRun))
   }
 
   // ═════════════════════════════════════════════════════════════════════════
