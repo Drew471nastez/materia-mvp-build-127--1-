@@ -6,47 +6,53 @@
  * ===========================================================================
  * Under one tab row (?tab=), the way /app/settings groups its panels:
  *
- *   General          name, address, tagline, description, logo, cover, what
- *                    members get, rules, questions, links, the welcome, and
- *                    which sections are on.
- *   Access & pricing who can join, approval, the tiers with their prices
- *                    (a recurring price is saved through the memberships
- *                    engine: members keep what they joined at) and the
- *                    other products that let somebody in.
- *   Discovery        Explore, who can find it, category, search words.
- *   Notifications    what you hear about in this community.
- *   Gamification     points, levels, badges.
- *   Advanced         publish, archive, delete (the name typed back).
+ *   Page           what people see before they join: name, address,
+ *                  tagline, description, logo, cover, the gallery of
+ *                  pictures and videos, what members get, questions, links.
+ *   Access         who can join, approval, the tiers with their prices (a
+ *                  recurring price is saved through the memberships engine:
+ *                  members keep what they joined at), the other products
+ *                  that let somebody in; then who can find it: Explore,
+ *                  visibility, category, search words.
+ *   Features       which sections are on, and the welcome a new member sees.
+ *   Gamification   points, levels, badges.
+ *   Notifications  what you hear about in this community.
+ *   Advanced       publish, videos, archive, delete (the name typed back).
  *
- * A switch saves when it is flipped; a form saves with its Save bar.
+ * The rules are written in Moderation, beside the reports they are used on.
+ * Older links (?tab=general, ?tab=discovery) land on the tab that now holds
+ * what they pointed at. A switch saves when it is flipped; a form saves
+ * with its Save bar.
  */
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
-import type { CommunityFaq, CommunityLink, CommunityRule, NotifyLevel } from "@/lib/communities/types"
+import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, SettingsData, TierView } from "./view-types"
-import { typeOf, type CommunityType, type PriceInterval } from "./logic"
+import { typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+
+export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
+import { GalleryEditor } from "./gallery-editor"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
 
-export type SettingsTab = "general" | "access" | "discovery" | "notifications" | "gamification" | "advanced"
-
 const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can"] }[] = [
-  { value: "general", label: "General", needs: "manage_settings" },
-  { value: "access", label: "Access & pricing", needs: "manage_settings" },
-  { value: "discovery", label: "Discovery", needs: "manage_settings" },
-  { value: "notifications", label: "Notifications", needs: "view" },
+  { value: "page", label: "Page", needs: "manage_settings" },
+  { value: "access", label: "Access", needs: "manage_settings" },
+  { value: "features", label: "Features", needs: "manage_settings" },
   { value: "gamification", label: "Gamification", needs: "manage_gamification" },
+  { value: "notifications", label: "Notifications", needs: "view" },
   { value: "advanced", label: "Advanced", needs: "archive" },
 ]
 
 export function SettingsSection({ head, data, tab: initialTab, videoProviders = [] }: { head: CommunityHead; data: SettingsData; tab: SettingsTab; videoProviders?: ProviderLine[] }) {
   const tabs = TABS.filter((t) => head.can[t.needs])
-  const [tab, setTab] = React.useState<SettingsTab>(tabs.some((t) => t.value === initialTab) ? initialTab : "general")
+  const [tab, setTab] = React.useState<SettingsTab>(tabs.some((t) => t.value === initialTab) ? initialTab : (tabs[0]?.value ?? "notifications"))
   const choose = (t: SettingsTab) => {
     setTab(t)
     const url = new URL(window.location.href)
@@ -73,9 +79,14 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
           </button>
         ))}
       </div>
-      {tab === "general" ? <General head={head} data={data} /> : null}
-      {tab === "access" ? <Access head={head} data={data} /> : null}
-      {tab === "discovery" ? <Discovery head={head} data={data} /> : null}
+      {tab === "page" ? <PageSettings head={head} data={data} /> : null}
+      {tab === "access" ? (
+        <div className="space-y-4">
+          <Access head={head} data={data} />
+          <Discovery head={head} data={data} />
+        </div>
+      ) : null}
+      {tab === "features" ? <Features head={head} data={data} /> : null}
       {tab === "notifications" ? <Notifications head={head} data={data} /> : null}
       {tab === "gamification" ? <GamificationPanel head={head} levels={data.levels} badges={data.badges} /> : null}
       {tab === "advanced" ? <Advanced head={head} videoProviders={videoProviders} /> : null}
@@ -99,7 +110,7 @@ function useInstant(head: CommunityHead) {
   }
 }
 
-function SaveBar({ dirty, busy, onSave, onReset, error }: { dirty: boolean; busy: boolean; onSave: () => void; onReset: () => void; error: string | null }) {
+function SaveBar({ dirty, busy, onSave, onReset, error, busyText }: { dirty: boolean; busy: boolean; onSave: () => void; onReset: () => void; error: string | null; busyText?: string }) {
   if (!dirty && !error) return null
   return (
     <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]" data-save-bar="">
@@ -111,34 +122,32 @@ function SaveBar({ dirty, busy, onSave, onReset, error }: { dirty: boolean; busy
           Discard
         </button>
         <button type="button" onClick={onSave} disabled={busy || !dirty} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-settings-save="">
-          {busy ? "Saving" : "Save"}
+          {busyText ?? (busy ? "Saving" : "Save")}
         </button>
       </div>
     </div>
   )
 }
 
-/* ── General ────────────────────────────────────────────────────────────── */
+/* ── Page ───────────────────────────────────────────────────────────────── */
 
-interface GeneralState {
+interface PageState {
   name: string
   slug: string
   tagline: string
   description: string
   logoUrl: string | null
   coverUrl: string | null
+  gallery: GalleryItem[]
   benefits: string[]
-  rules: CommunityRule[]
   faq: CommunityFaq[]
   links: CommunityLink[]
-  onboarding: { enabled: boolean; welcome: string; askIntro: boolean; showRules: boolean }
 }
 
-function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
+function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData }) {
   const router = useRouter()
   const toast = useToast()
-  const instant = useInstant(head)
-  const start = React.useMemo<GeneralState>(
+  const start = React.useMemo<PageState>(
     () => ({
       name: head.name,
       slug: head.slug,
@@ -146,29 +155,28 @@ function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
       description: data.description,
       logoUrl: head.logoUrl,
       coverUrl: head.coverUrl,
+      gallery: data.gallery,
       benefits: data.benefits,
-      rules: data.rules,
       faq: data.faq,
       links: data.links,
-      onboarding: { enabled: data.onboarding.enabled === true, welcome: data.onboarding.welcome ?? "", askIntro: data.onboarding.askIntro !== false, showRules: data.onboarding.showRules !== false },
     }),
     [head, data],
   )
   const [s, setS] = React.useState(start)
   const [saved, setSaved] = React.useState(JSON.stringify(start))
   const [busy, setBusy] = React.useState(false)
+  const [uploading, setUploading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [features, setFeatures] = React.useState({ classroomEnabled: head.classroomEnabled, eventsEnabled: head.eventsEnabled, chatEnabled: data.chatEnabled, directoryEnabled: data.directoryEnabled })
   const dirty = JSON.stringify(s) !== saved
-  const set = <K extends keyof GeneralState>(k: K, v: GeneralState[K]) => {
+  const set = <K extends keyof PageState>(k: K, v: PageState[K]) => {
     setS((x) => ({ ...x, [k]: v }))
     setError(null)
   }
 
   const save = async () => {
-    const before = JSON.parse(saved) as GeneralState
+    const before = JSON.parse(saved) as PageState
     const body: Record<string, unknown> = {}
-    for (const k of Object.keys(s) as (keyof GeneralState)[]) if (JSON.stringify(s[k]) !== JSON.stringify(before[k])) body[k] = s[k]
+    for (const k of Object.keys(s) as (keyof PageState)[]) if (JSON.stringify(s[k]) !== JSON.stringify(before[k])) body[k] = s[k]
     setBusy(true)
     const res = await send(`/api/app/community/${head.id}`, "PATCH", body)
     setBusy(false)
@@ -178,13 +186,8 @@ function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
     router.refresh()
   }
 
-  const flip = async (key: keyof typeof features, v: boolean) => {
-    setFeatures((f) => ({ ...f, [key]: v }))
-    if (!(await instant({ [key]: v }, v ? "Turned on" : "Turned off"))) setFeatures((f) => ({ ...f, [key]: !v }))
-  }
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-page-settings="">
       <Section title="Basics">
         <div className="space-y-3.5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -230,12 +233,12 @@ function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
         </div>
       </Section>
 
-      <Section title="What members get" hint="A line each, on the community's page.">
-        <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder="A live call every week" addLabel="Add a line" />
+      <Section title="Gallery" hint="Pictures and videos at the top of your page, the first one shown first." id="gallery">
+        <GalleryEditor communityId={head.id} value={s.gallery} onChange={(v) => set("gallery", v)} videos={data.galleryVideos} ready={data.galleryReady} onError={setError} onBusy={setUploading} />
       </Section>
 
-      <Section title="Rules" hint="Shown before somebody joins, and when they do.">
-        <PairEditor items={s.rules.map((r) => ({ a: r.title, b: r.body }))} onChange={(v) => set("rules", v.map((x) => ({ title: x.a, body: x.b })))} max={20} aPlaceholder="Be kind" bPlaceholder="What it means here (optional)" addLabel="Add a rule" />
+      <Section title="What members get" hint="A line each, on the community's page.">
+        <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder="A live call every week" addLabel="Add a line" />
       </Section>
 
       <Section title="Questions" hint="Answers to what people ask before joining.">
@@ -246,27 +249,71 @@ function General({ head, data }: { head: CommunityHead; data: SettingsData }) {
         <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder="Website" bPlaceholder="https://" addLabel="Add a link" singleLine />
       </Section>
 
-      <Section title="Welcome" hint="What a new member sees the first time they open it.">
-        <Toggle checked={s.onboarding.enabled} onChange={(v) => set("onboarding", { ...s.onboarding, enabled: v })} title="Show a welcome" />
-        {s.onboarding.enabled ? (
-          <div className="mt-2 space-y-1">
-            <textarea value={s.onboarding.welcome} onChange={(e) => set("onboarding", { ...s.onboarding, welcome: e.target.value.slice(0, 2000) })} rows={3} placeholder="Glad you are here. Start by introducing yourself." aria-label="Welcome message" className={cn(field, "resize-y py-2.5 leading-relaxed")} />
-            <Toggle checked={s.onboarding.showRules} onChange={(v) => set("onboarding", { ...s.onboarding, showRules: v })} title="Ask them to read the rules" />
-            <Toggle checked={s.onboarding.askIntro} onChange={(v) => set("onboarding", { ...s.onboarding, askIntro: v })} title="Ask them to introduce themselves" />
-          </div>
-        ) : null}
-      </Section>
+      <p className="px-1 text-[13px] text-[#6b7280]">
+        The rules are in{" "}
+        <Link href={`/app/community/${head.id}/moderation?tab=rules`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+          Moderation
+        </Link>
+        , next to the reports.
+      </p>
 
+      <SaveBar dirty={dirty} busy={busy || uploading} busyText={uploading ? "Uploading" : undefined} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
+    </div>
+  )
+}
+
+/* ── Features ───────────────────────────────────────────────────────────── */
+
+function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
+  const router = useRouter()
+  const toast = useToast()
+  const instant = useInstant(head)
+  const [features, setFeatures] = React.useState({ classroomEnabled: head.classroomEnabled, eventsEnabled: head.eventsEnabled, chatEnabled: data.chatEnabled, directoryEnabled: data.directoryEnabled })
+  const start = React.useMemo(() => ({ enabled: data.onboarding.enabled === true, welcome: data.onboarding.welcome ?? "", askIntro: data.onboarding.askIntro !== false, showRules: data.onboarding.showRules !== false }), [data])
+  const [w, setW] = React.useState(start)
+  const [saved, setSaved] = React.useState(JSON.stringify(start))
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const dirty = JSON.stringify(w) !== saved
+
+  const flip = async (key: keyof typeof features, v: boolean) => {
+    setFeatures((f) => ({ ...f, [key]: v }))
+    if (!(await instant({ [key]: v }, v ? "Turned on" : "Turned off"))) setFeatures((f) => ({ ...f, [key]: !v }))
+  }
+  const save = async () => {
+    setBusy(true)
+    const res = await send(`/api/app/community/${head.id}`, "PATCH", { onboarding: w })
+    setBusy(false)
+    if (!res.ok) return setError(errorText(res.data.error))
+    setSaved(JSON.stringify(w))
+    setError(null)
+    toast("Saved")
+    router.refresh()
+  }
+
+  return (
+    <div className="space-y-4" data-features="">
       <Section title="Sections" hint="Turned off, a section is hidden from members. Nothing in it is deleted.">
-        <div className="divide-y divide-[#f1f2f4]">
+        <div className="-my-1 divide-y divide-[#f1f2f4]">
           <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title="Classroom" hint="Your courses, inside the community." />
           <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title="Events" hint="Calls, workshops and meetups with RSVPs." />
-          <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title="Chat" hint="Spaces of the chat kind." />
+          <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title="Chat" hint="Spaces of the chat kind, and messages between members." />
           <Toggle checked={features.directoryEnabled} onChange={(v) => void flip("directoryEnabled", v)} title="Member directory" hint="Members can see who else is here." />
         </div>
       </Section>
 
-      <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
+      <Section title="Welcome" hint="What a new member sees the first time they open it.">
+        <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} title="Show a welcome" />
+        {w.enabled ? (
+          <div className="mt-2 space-y-1">
+            <textarea value={w.welcome} onChange={(e) => setW({ ...w, welcome: e.target.value.slice(0, 2000) })} rows={3} placeholder="Glad you are here. Start by introducing yourself." aria-label="Welcome message" className={cn(field, "resize-y py-2.5 leading-relaxed")} />
+            <Toggle checked={w.showRules} onChange={(v) => setW({ ...w, showRules: v })} title="Ask them to read the rules" hint={data.rules.length ? `${data.rules.length} ${data.rules.length === 1 ? "rule" : "rules"}, written in Moderation.` : "There are no rules yet. Write them in Moderation."} />
+            <Toggle checked={w.askIntro} onChange={(v) => setW({ ...w, askIntro: v })} title="Ask them to introduce themselves" />
+          </div>
+        ) : null}
+      </Section>
+
+      <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setW(JSON.parse(saved)); setError(null) }} />
     </div>
   )
 }
@@ -375,7 +422,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
       ) : null}
 
       <Section title="Who can join">
-        {owner ? <ChoiceCards value={type} onChange={(t) => void changeType(t)} options={TYPE_OPTIONS} label="Who can join" /> : <p className="text-[14px] text-[#1a1a2e]">{TYPE_OPTIONS.find((o) => o.value === type)?.title}. Only the owner changes this.</p>}
+        {owner ? <ChoiceCards rows value={type} onChange={(t) => void changeType(t)} options={TYPE_OPTIONS} label="Who can join" /> : <p className="text-[14px] text-[#1a1a2e]">{TYPE_OPTIONS.find((o) => o.value === type)?.title}. Only the owner changes this.</p>}
         {typeError ? (
           <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
             {typeError}
@@ -407,7 +454,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
         }
       >
         {live.length === 0 ? <p className="text-[13.5px] text-[#6b7280]">No tiers yet.</p> : (
-          <div className="space-y-3">
+          <div className="-my-1 divide-y divide-[#f1f2f4]">
             {live.map((t) => (
               <TierCard key={t.id} head={head} tier={t} products={data.products} owner={owner} canDefault={live.length > 1} />
             ))}
@@ -510,7 +557,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
   const pickable = products.filter((p) => !offered.has(p.id))
 
   return (
-    <div className="rounded-xl border border-[#e5e7eb] p-3.5 sm:p-4" data-tier={tier.kind}>
+    <div className="py-4 first:pt-1 last:pb-1" data-tier={tier.kind}>
       <div className="flex flex-wrap items-center gap-2">
         <p className="mr-auto flex min-w-0 items-center gap-2">
           <span className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">{tier.name}</span>
@@ -713,7 +760,7 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
   return (
     <div className="space-y-4">
       {data.platformHidden ? <Notice tone="warn">Storelib took this community out of Explore. Contact support to talk about it.</Notice> : null}
-      <Section>
+      <Section title="Who can find it">
         <Toggle
           checked={discover}
           onChange={async (v) => {
@@ -724,9 +771,7 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
           hint="Published public communities can be found in Explore and search."
           disabled={s.visibility !== "public"}
         />
-      </Section>
-      <Section title="Who can find it">
-        <div className="space-y-3.5">
+        <div className="mt-3 space-y-3.5 border-t border-[#f1f2f4] pt-3.5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="d-vis" className={label}>

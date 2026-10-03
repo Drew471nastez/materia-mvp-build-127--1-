@@ -28,7 +28,6 @@ import { pageUser } from "@/lib/auth/page-user"
 import { creatorForRequest } from "@/lib/auth/request-scope"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { monthlyValue } from "@/lib/memberships/state"
-import { ownImageUrl } from "@/lib/memberships/plan"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { parseAccessRule } from "../access"
 import { priceLine } from "../format"
@@ -56,6 +55,7 @@ import {
   type CommunityType,
   type CreateInput,
   type EventInput,
+  type GalleryItem,
   type LevelInput,
   type MemberQuery,
   type SpaceInput,
@@ -88,6 +88,7 @@ import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { inviteCount } from "./invites"
 import { openReportCount, peopleOf } from "./moderation"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
+import { checkGalleryForCommunity, loadGallery, ownPicture, saveGallery } from "./gallery"
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -105,20 +106,9 @@ export function manageLimit(userId: string) {
   return rateLimit({ bucket: "community-manage", subjects: [`user:${userId}`], windows: MANAGE_WINDOWS, message: "That is a lot of changes at once. Wait a minute and try again." })
 }
 
-/* ── Pictures: only our own storage ─────────────────────────────────────── */
+/* ── Pictures: only our own storage (./gallery.ts ownPicture, shared with the gallery) ── */
 
-function storageHost(): string | null {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname
-  } catch {
-    return null
-  }
-}
-
-/** A picture URL the creator uploaded (our storage or storelib.com), or null. */
-export function ownPicture(value: unknown): string | null {
-  return ownImageUrl(value, storageHost())
-}
+export { ownPicture }
 
 /* ── The page gate ──────────────────────────────────────────────────────── */
 
@@ -411,7 +401,8 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
               posts: anyPost,
               courses,
               events,
-              customized: (Array.isArray(c.benefits) && c.benefits.length > 0) || (Array.isArray(c.rules) && c.rules.length > 0),
+              customized: Array.isArray(c.benefits) && c.benefits.length > 0,
+              rules: Array.isArray(c.rules) ? c.rules.length : 0,
               classroomEnabled: c.classroom_enabled,
               eventsEnabled: c.events_enabled,
             },
@@ -437,12 +428,13 @@ export async function loadBadges(db: Db, communityId: string): Promise<BadgeView
 
 export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsData> {
   const { db, community: c } = ctx
-  const [tiers, products, me, levels, badges] = await Promise.all([
+  const [tiers, products, me, levels, badges, gallery] = await Promise.all([
     loadTiers(db, c.id),
     can(ctx.role, "manage_pricing") ? pickableProducts(db, ctx.creatorId) : Promise.resolve([] as PickProduct[]),
     memberOf(db, c.id, ctx.userId),
     loadLevels(db, c.id),
     loadBadges(db, c.id),
+    loadGallery(db, c.id),
   ])
   return {
     description: htmlToText(c.description),
@@ -466,6 +458,9 @@ export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsDat
     myNotify: { level: me?.notify_level ?? "important", emailAnnouncements: me?.email_announcements ?? true, emailEvents: me?.email_events ?? true },
     levels,
     badges,
+    gallery: gallery.items,
+    galleryReady: gallery.ready,
+    galleryVideos: gallery.videos,
   }
 }
 
@@ -553,6 +548,13 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     if (!r.ok) return no(400, r.error, r.field)
     patch.links = r.value
   }
+  /* Checked with the rest, before anything is written; saved on its own below (./gallery.ts). */
+  let gallery: GalleryItem[] | null = null
+  if (b.gallery !== undefined) {
+    const r = await checkGalleryForCommunity(db, c.id, b.gallery)
+    if (!r.ok) return no(400, r.error, r.field)
+    gallery = r.value
+  }
   if (b.onboarding !== undefined) {
     const o = (b.onboarding && typeof b.onboarding === "object" ? b.onboarding : {}) as Record<string, unknown>
     const welcome = typeof o.welcome === "string" ? o.welcome.trim().slice(0, 2000) : ""
@@ -590,13 +592,23 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     patch.access = access
     if (b.visibility === undefined) patch.visibility = visibility
   }
-  if (Object.keys(patch).length === 0) return { ok: true, community: c }
+  /* The gallery first: before part 85 has run it answers "run the update", and nothing else is half saved. */
+  if (gallery) {
+    const g = await saveGallery(db, c.id, gallery)
+    if (!g.ok) return no(g.status, g.error, "gallery")
+    changed.push("gallery")
+  }
+  if (Object.keys(patch).length === 0 && !gallery) return { ok: true, community: c }
   for (const k of Object.keys(patch)) changed.push(k)
-  const { data, error } = await db.from("communities").update(patch).eq("id", c.id).select(COMMUNITY_COLUMNS).single()
-  if (error) {
-    if (error.code === "23505") return no(409, "That address is taken.", "slug")
-    console.error(`[communities] settings ${c.id}: ${reasonOf(error)}`)
-    return no(500, "The settings could not be saved. Try again.")
+  let saved: CommunityRow = c
+  if (Object.keys(patch).length) {
+    const { data, error } = await db.from("communities").update(patch).eq("id", c.id).select(COMMUNITY_COLUMNS).single()
+    if (error) {
+      if (error.code === "23505") return no(409, "That address is taken.", "slug")
+      console.error(`[communities] settings ${c.id}: ${reasonOf(error)}`)
+      return no(500, "The settings could not be saved. Try again.")
+    }
+    saved = data as CommunityRow
   }
   await audit(db, {
     communityId: c.id,
@@ -608,7 +620,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     targetLabel: (patch.name as string | undefined) ?? c.name,
     detail: { fields: changed },
   })
-  return { ok: true, community: data as CommunityRow }
+  return { ok: true, community: saved }
 }
 
 /** A free or invite only community joins on a free tier: there is one, and it is the default. */
@@ -1205,13 +1217,15 @@ async function searchUserIds(db: Db, q: string, withEmail: boolean): Promise<{ i
 }
 
 function sortColumn(status: MemberQuery["status"]): "joined_at" | "requested_at" | "created_at" {
-  if (status === "active") return "joined_at"
+  if (status === "active" || status === "muted") return "joined_at"
   if (status === "pending") return "requested_at"
   return "created_at"
 }
 
 function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "status" | "role" | "tierId">) {
-  let q = db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId).eq("status", query.status)
+  /* Muted is not a status: active members whose mute has not run out. */
+  let q = db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId).eq("status", query.status === "muted" ? "active" : query.status)
+  if (query.status === "muted") q = q.gt("muted_until", nowIso())
   if (query.role) q = q.eq("role", query.role)
   if (query.tierId) q = q.eq("tier_id", query.tierId)
   const col = sortColumn(query.status)
@@ -1288,8 +1302,9 @@ export async function listMembers(db: Db, communityId: string, query: MemberQuer
 /** How many members each status has, for the filter's counts (head requests). */
 export async function memberCounts(db: Db, communityId: string): Promise<Record<string, number>> {
   const statuses = ["active", "pending", "paused", "banned", "removed", "expired", "cancelled"] as const
-  const counts = await Promise.all(statuses.map((s) => count(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId).eq("status", s))))
-  return Object.fromEntries(statuses.map((s, i) => [s, counts[i]]))
+  const head = () => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId)
+  const [counts, muted] = await Promise.all([Promise.all(statuses.map((s) => count(head().eq("status", s)))), count(head().eq("status", "active").gt("muted_until", nowIso()))])
+  return { ...Object.fromEntries(statuses.map((s, i) => [s, counts[i]])), muted }
 }
 
 /**

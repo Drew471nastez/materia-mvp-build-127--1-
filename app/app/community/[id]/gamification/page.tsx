@@ -1,13 +1,12 @@
-import { communityHead, loadBadges, loadLevels, sectionPage } from "@/lib/communities/server/creator"
-import { GamificationPanel } from "@/components/community/creator/gamification-panel"
+import { redirect } from "next/navigation"
+import { sectionPage } from "@/lib/communities/server/creator"
 
 export const dynamic = "force-dynamic"
 
-/** /app/community/<id>/gamification: points, levels and badges (also under Settings). */
+/** /app/community/<id>/gamification: points, levels and badges live in Settings now; an old link lands there. */
 export default async function CommunityGamificationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const ctx = await sectionPage(id, "manage_gamification")
   if (!ctx) return null
-  const [head, levels, badges] = await Promise.all([communityHead(ctx), loadLevels(ctx.db, ctx.community.id), loadBadges(ctx.db, ctx.community.id)])
-  return <GamificationPanel head={head} levels={levels} badges={badges} />
+  redirect(`/app/community/${ctx.community.id}/settings?tab=gamification`)
 }
