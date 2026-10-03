@@ -23,8 +23,6 @@ import JSZip from "jszip"
 import { createHash } from "node:crypto"
 import { compileSection, compileThemeFile } from "./storelib/compile"
 import { countBlocks } from "./blocks"
-import { parseStorelib } from "./storelib/parse"
-import { chromeRoleOf } from "./chrome"
 import {
   ENGINE_VERSION,
   LIMITS,
@@ -423,47 +421,24 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
   const warnings: ThemeError[] = []
   const types = new Set<string>(opts.knownTypes ?? [])
   /**
-   * A HEADER OR FOOTER WRITTEN AS A SECTION FILE IS LEFT OUT, not refused.
+   * A HEADER OR FOOTER WRITTEN AS A SECTION FILE IS KEPT, and placed.
    * The usual way it gets here is an AI that was handed the export and asked
    * to redo the header: it writes sections/site_header.storelib and puts it
-   * at the top of every page, under the site's real header. Refusing the
-   * whole package for that would throw away everything else it did; keeping
-   * the file would give the site two headers, one of them without a cart, a
-   * search or a menu that works. So the file and every use of it on a page
-   * are dropped, the built-in header and footer stay, and the warning says
-   * so (lib/storelib-theme/chrome.ts).
+   * at the top of a page. It used to be left out, which threw the creator's
+   * header away. It is kept now, and the import puts it in the Header group
+   * as the site's one header, with the built-in one hidden rather than drawn
+   * twice (lib/storelib-theme/section-groups.ts, repairChrome).
+   *
+   * Only a file named exactly `header` or `footer` is left out: that is the
+   * built-in section's own type, which every page's header settings are
+   * stored for, and a file of that name would be read in its place. The
+   * built-in header stays, and the warning says what to do instead.
    */
-  const leftOut = new Set<string>()
-  for (const [path, text] of Object.entries(files)) {
+  for (const path of Object.keys(files)) {
     const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
-    if (!m) continue
-    const parsed = parseStorelib(text, path)
-    let schema: Record<string, unknown> | null = null
-    if (parsed.ok) {
-      try { schema = JSON.parse(parsed.value.schema.text) as Record<string, unknown> } catch { schema = null }
-    }
-    const role = m[1] === "header" || m[1] === "footer" ? m[1] : chromeRoleOf({ schema, type: m[1], template: parsed.ok ? parsed.value.template.text : undefined })
-    if (!role) continue
-    leftOut.add(m[1])
+    if (!m || (m[1] !== "header" && m[1] !== "footer")) continue
     delete files[path]
-    warnings.push(err(`${path} is a ${role}. A Storelib site has one ${role}, shared by every page, so this file was left out and the site's own ${role} was kept. Change the ${role}'s settings instead.`, path))
-  }
-  if (leftOut.size) {
-    for (const [path, text] of Object.entries(files)) {
-      if (!/^templates\/[A-Za-z0-9_.\-]+\.json$/.test(path)) continue
-      let t: Template
-      try { t = JSON.parse(text) } catch { continue }
-      if (!t || typeof t.sections !== "object" || !Array.isArray(t.order)) continue
-      /* A section of the built-in type keeps its place: only a file that was left out goes. */
-      const drop = t.order.filter((id) => {
-        const type = t.sections[id]?.type
-        return typeof type === "string" && leftOut.has(type) && type !== "header" && type !== "footer"
-      })
-      if (drop.length === 0) continue
-      for (const id of drop) delete t.sections[id]
-      t.order = t.order.filter((id) => !drop.includes(id))
-      files[path] = JSON.stringify(t, null, 2) + "\n"
-    }
+    warnings.push(err(`${path} takes the built-in ${m[1]}'s own name, so it was left out and the built-in ${m[1]} was kept. Save a ${m[1]} of your own under another name, such as sections/site_${m[1]}.storelib, with "kind": "${m[1]}".`, path))
   }
   for (const [path, text] of Object.entries(files)) {
     /* A theme block: compiled by a block's rules, and imported beside the sections that hold it. */
@@ -485,7 +460,8 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
   if (errors.length) return { ok: false, errors }
 
   for (const [path, text] of Object.entries(files)) {
-    if (!/^templates\/[A-Za-z0-9_.\-]+\.json$/.test(path)) continue
+    /* A page's template, or Shopify's header and footer group files: the same shape, the same checks. */
+    if (!/^templates\/[A-Za-z0-9_.\-]+\.json$/.test(path) && !/^sections\/(header|footer)-group\.json$/.test(path)) continue
     let t: Template
     try { t = JSON.parse(text) } catch { errors.push(err(`${path} is not valid JSON`, path)); continue }
     if (!t || typeof t !== "object" || typeof t.sections !== "object" || !Array.isArray(t.order)) { errors.push(err(`${path} needs "sections" and "order"`, path)); continue }

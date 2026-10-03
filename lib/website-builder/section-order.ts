@@ -1,4 +1,5 @@
 import type { SectionInstance } from "./types"
+import { groupOf } from "@/lib/storelib-theme/section-groups"
 
 /**
  * Where a section dropped into the Nth CANVAS GAP lands in the section list.
@@ -16,7 +17,7 @@ import type { SectionInstance } from "./types"
 export function bodyGapToListIndex(sections: SectionInstance[], gap: number): number | null {
   const bodyIndexes: number[] = []
   sections.forEach((s, i) => {
-    if (s.type !== "header" && s.type !== "footer") bodyIndexes.push(i)
+    if (groupOf(s) === "template") bodyIndexes.push(i)
   })
   if (bodyIndexes.length === 0) return null
   // A gap above a body section is that section's own index; the gap below the

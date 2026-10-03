@@ -430,7 +430,7 @@ async function main() {
     /** And both sides use it, which is the whole point of extracting it. */
     const published = readFileSync(join(root, "lib/website-builder/published-site.ts"), "utf8")
     const preview = readFileSync(join(root, "app/(site)/w/[username]/render-site.tsx"), "utf8")
-    check("the published site applies it", /applyUniversalChrome\(pages\)/.test(published))
+    check("the published site applies it", /applyUniversalChrome\(pages\b/.test(published))
     check("the preview applies it", /withUniversalChrome\(/.test(preview))
     check(
       "and the editor uses the same function rather than a second copy",
@@ -611,7 +611,7 @@ async function main() {
 
     /** The header is the top of the page, including on an empty one. */
     const themePage = readFileSync(join(root, "components/website-builder/theme/ThemePage.tsx"), "utf8")
-    const headerAt = themePage.indexOf('headers.map((section) => render(section, "header"')
+    const headerAt = themePage.indexOf('headers.map((section, i) => render(section, "header"')
     const childrenAt = themePage.indexOf("{children}", headerAt - 2000)
     check(
       "the empty-page placeholder renders below the header, not above it",

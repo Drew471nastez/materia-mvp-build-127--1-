@@ -17,7 +17,11 @@ import {
   CURRENT_THEME_PACKAGE_FORMAT,
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
-import { buildPackage, sha256, templateFromSections, type PackageAsset } from "@/lib/storelib-theme"
+import { buildPackage, sha256, type PackageAsset } from "@/lib/storelib-theme"
+import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
+import { packageFilesFromPages } from "@/lib/website-builder/theme-pages"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import type { SectionInstance } from "@/lib/website-builder/types"
 import {
   MAX_BYTES,
   MAX_TOTAL_MEDIA_BYTES,
@@ -120,12 +124,17 @@ export async function GET(_req: Request, { params }: Params) {
 
   const { data: pages } = await supabase
     .from("store_theme_pages")
-    .select("page_key, sections")
+    .select("page_key, sections, draft_sections")
     .eq("install_id", installId)
 
   // Use draft_settings when available so creators can export work in progress
   const settings = settingsRow?.draft_settings ?? settingsRow?.settings ?? {}
-  const exportPages = pages ?? []
+  /**
+   * THE PAGES AS THE CREATOR HAS THEM: the draft where there is one, as the
+   * settings above. A package is what somebody hands an AI to edit, and a
+   * header that differs from the one in the editor is the one it would edit.
+   */
+  const exportPages = (pages ?? []).map((p) => ({ page_key: p.page_key as string, sections: (p.draft_sections ?? p.sections ?? []) as unknown }))
 
   /**
    * ===========================================================================
@@ -258,12 +267,8 @@ export async function GET(_req: Request, { params }: Params) {
   }
 
   const files: Record<string, string> = {}
+  /* The menus (Website settings, Navigation) are in here too, under `menus`, and travel as they are. */
   files["config/settings.json"] = JSON.stringify(rewriteMediaUrls(settings, urlToRef), null, 2) + "\n"
-  for (const page of exportPages) {
-    if (!/^[A-Za-z0-9_.\-]+$/.test(page.page_key)) continue
-    const list = rewriteMediaUrls(page.sections ?? [], urlToRef) as Parameters<typeof templateFromSections>[0]
-    files[`templates/${page.page_key}.json`] = JSON.stringify(templateFromSections(Array.isArray(list) ? list : []), null, 2) + "\n"
-  }
 
   /**
    * The source files. A section this creator edited in the code editor is
@@ -287,6 +292,22 @@ export async function GET(_req: Request, { params }: Params) {
   )
   for (const [path, content] of Object.entries(DEFAULT_THEME_SOURCES)) files[path] = saved.get(path) ?? content
   for (const [path, content] of saved) if (path.endsWith(".storelib") && !(path in files)) files[path] = content
+
+  /**
+   * THE PAGES, WITH THE HEADER ONCE. The Header and Footer groups go in
+   * sections/header-group.json and sections/footer-group.json, as Shopify
+   * keeps them, exactly as the creator has them: the built-in header with
+   * its settings and blocks, or the header section file they wrote (which is
+   * in sections/ above). Each template holds its page's own sections. A
+   * site saved with two headers is exported with one drawn and the other
+   * hidden (lib/website-builder/theme-pages.ts).
+   */
+  const kinds = kindLookup(files, SECTION_SCHEMAS as never)
+  const pagesToPackage = exportPages.map((page) => ({
+    page_key: page.page_key,
+    sections: repairChrome(rewriteMediaUrls(Array.isArray(page.sections) ? page.sections : [], urlToRef) as SectionInstance[], kinds).sections,
+  }))
+  Object.assign(files, packageFilesFromPages(pagesToPackage))
 
   /*
     THE COVER TRAVELS WITH THE THEME. The newest photograph of this website,

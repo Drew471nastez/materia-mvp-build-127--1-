@@ -365,6 +365,7 @@ const SUITES = [
   "tests/library-downloads.test.ts",
   "tests/memberships.test.ts",
   "tests/site-chrome.test.ts",
+  "tests/section-groups.test.ts",
   "tests/communities-foundation.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-platform.test.ts",
