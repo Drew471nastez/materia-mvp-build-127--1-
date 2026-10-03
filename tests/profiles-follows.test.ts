@@ -124,6 +124,7 @@ function makeDb(tables: Record<string, Row[]>, opts: { missing?: string[]; uniqu
     let head = false
     let count = false
     let returning = false
+    let ignore = false
     const b: any = {
       select(_cols?: string, o?: { count?: string; head?: boolean }) {
         if (op === "select") {
@@ -135,6 +136,13 @@ function makeDb(tables: Record<string, Row[]>, opts: { missing?: string[]; uniqu
       insert(p: any) {
         op = "insert"
         payload = p
+        return b
+      },
+      /* ON CONFLICT DO NOTHING, as notifyUser asks: a conflict is no row back, not an error. */
+      upsert(p: any, o?: { ignoreDuplicates?: boolean }) {
+        op = "insert"
+        payload = p
+        ignore = !!o?.ignoreDuplicates
         return b
       },
       update(p: any) {
@@ -172,7 +180,10 @@ function makeDb(tables: Record<string, Row[]>, opts: { missing?: string[]; uniqu
         const list: Row[] = (Array.isArray(payload) ? payload : [payload]).map((r: Row): Row => ({ id: r.id ?? `gen-${serial++}`, created_at: new Date().toISOString(), ...r }))
         const key = opts.unique?.[table]
         for (const r of list) {
-          if (key && rows.some((x) => x[key] === r[key])) return { data: null, error: { code: "23505", message: "duplicate key" } }
+          if (key && rows.some((x) => x[key] === r[key])) {
+            if (ignore) return { data: [], error: null }
+            return { data: null, error: { code: "23505", message: "duplicate key" } }
+          }
           rows.push(r)
         }
         return { data: returning ? list : null, error: null }
@@ -429,6 +440,7 @@ async function main() {
     const inbox = makeDb({ profiles: [{ id: V, display_name: "Vera", username: "vera", avatar_url: "https://x/v.png" }], creators: [], user_notifications: [] }, { unique: { user_notifications: "dedupe_key" } })
     check("a new follower is told once", (await notifyNewFollower(inbox, { followerId: V, targetId: U })) === "sent")
     const row = inbox.tables.user_notifications[0]
+    check("through the inbox's notifyUser", /notifyUser\(db, \{/.test(read("lib/profile/notify-follow.ts")))
     check("as new_follower, from following, linked to the follower", row.kind === "new_follower" && row.source === "following" && row.user_id === U && row.actor_id === V && row.url === "/@vera" && row.title === "Vera followed you" && row.dedupe_key === followDedupeKey(V, U), row)
     check("following again does not knock twice", (await notifyNewFollower(inbox, { followerId: V, targetId: U })) === "skipped" && inbox.tables.user_notifications.length === 1)
     check("nobody notifies themselves", (await notifyNewFollower(inbox, { followerId: U, targetId: U })) === "skipped")
