@@ -53,10 +53,12 @@
  *                 a reload (stubbed route) it is one again, and one that is
  *                 gone is a "Picture no longer available" tile; never the
  *                 note in words; the not saved notices
- *     SOUNDS      each rendered offline from the real graph (peak dBFS, how
- *                 long it is heard); nothing on load; the whoosh, the chime
- *                 and the ticks when they should be; the switch in the menu,
- *                 remembered; silent when off
+ *     SOUNDS      each rendered offline from the real graph, room and limiter
+ *                 included (peak dBFS, how long it is heard with the reverb
+ *                 tail, how far under the dry sound the reverb sits); nothing
+ *                 on load; the pluck, the chord and the ticks when they
+ *                 should be; the switch in the menu, remembered; silent when
+ *                 off
  *     ACTIONS     the live line changes as the run moves and folds into a
  *                 closed steps toggle and a summary; Copy; Report; a
  *                 suggestion is sent; Report before its table
@@ -845,25 +847,54 @@ async function pictures(browser, vp) {
 async function sounds(browser) {
   console.log("\nsounds")
   const p = await openAt(browser, { width: 1280, height: 800 }, "speech=fake")
-  /* Rendered offline from the real graph: how loud, how long. */
+  /*
+    Rendered offline from the real graph, in stereo, room and limiter
+    included: how loud, how long until it has fallen 40 dB (the reverb tail
+    counts), and how far under the dry sound the reverb sits (the graph is
+    linear below the limiter, so the wet part is the whole minus a render
+    with no send). Scheduled 0.3s in, after the limiter has settled.
+  */
   const levels = await p.evaluate(async () => {
-    const { ASK_SOUNDS, scheduleSound } = window.__askSounds
+    const { ASK_SOUNDS, scheduleSound, SOUND_DESIGN } = window.__askSounds
+    const render = async (name, dry) => {
+      const ctx = new OfflineAudioContext(2, 48000 * 2.5, 48000)
+      const wet = SOUND_DESIGN[name].wet
+      if (dry) SOUND_DESIGN[name].wet = 0
+      scheduleSound(ctx, name, 0.3, ctx.destination)
+      SOUND_DESIGN[name].wet = wet
+      const b = await ctx.startRendering()
+      return [b.getChannelData(0), b.getChannelData(1)]
+    }
     const out = {}
     for (const name of ASK_SOUNDS) {
-      const ctx = new OfflineAudioContext(1, 48000, 48000)
-      scheduleSound(ctx, name, 0.01, ctx.destination)
-      const data = (await ctx.startRendering()).getChannelData(0)
+      const [l, r] = await render(name, false)
+      const [dl, dr] = await render(name, true)
       let peak = 0
-      for (const v of data) peak = Math.max(peak, Math.abs(v))
+      let wetEnergy = 0
+      let dryEnergy = 0
+      for (let i = 0; i < l.length; i++) {
+        peak = Math.max(peak, Math.abs(l[i]), Math.abs(r[i]))
+        wetEnergy += (l[i] - dl[i]) ** 2 + (r[i] - dr[i]) ** 2
+        dryEnergy += dl[i] ** 2 + dr[i] ** 2
+      }
       let last = 0
-      for (let i = 0; i < data.length; i++) if (Math.abs(data[i]) > peak * 0.01) last = i
-      out[name] = { peakDbfs: +(20 * Math.log10(peak)).toFixed(1), heardMs: Math.round((last / 48000 - 0.01) * 1000) }
+      for (let i = 0; i < l.length; i++) if (Math.max(Math.abs(l[i]), Math.abs(r[i])) > peak * 0.01) last = i
+      out[name] = { peakDbfs: +(20 * Math.log10(peak)).toFixed(1), heardMs: Math.round((last / 48000 - 0.3) * 1000), wetDb: +(10 * Math.log10(wetEnergy / dryEnergy)).toFixed(1) }
     }
     return out
   })
   measures.soundLevels = levels
-  expect(Object.values(levels).every((l) => l.peakDbfs <= -18 && l.peakDbfs >= -24), "every sound peaks near -20 dBFS (between -24 and -18)", levels)
-  expect(levels["record-start"].heardMs <= 140 && levels["record-stop"].heardMs <= 140 && levels.sent.heardMs >= 190 && levels.sent.heardMs <= 260 && levels.done.heardMs >= 340 && levels.done.heardMs <= 470, "ticks about 100ms, the whoosh about 230ms, the chime about 400ms", levels)
+  expect(Object.values(levels).every((l) => l.peakDbfs <= -18 && l.peakDbfs >= -22), "every sound peaks near -20 dBFS (between -22 and -18)", levels)
+  expect(
+    levels["record-start"].heardMs <= 500 && levels["record-stop"].heardMs <= 500 && levels.sent.heardMs >= 600 && levels.sent.heardMs <= 900 && levels.question.heardMs >= 750 && levels.question.heardMs <= 1100 && levels.done.heardMs >= 750 && levels.done.heardMs <= 1100 && levels.error.heardMs >= 600 && levels.error.heardMs <= 950,
+    "ticks short, the pluck and the low pair under a second, the question and the chord ringing about a second, room included",
+    levels,
+  )
+  expect(
+    ["sent", "question", "done", "error"].every((s) => levels[s].wetDb <= -8 && levels[s].wetDb >= -14) && levels["record-start"].wetDb < -14,
+    "the reverb is there and mixed low: 8 to 14 dB under the notes, further under the ticks",
+    levels,
+  )
 
   /* When they play. */
   const count = () => p.evaluate(() => ({ contexts: window.__audio.contexts, started: window.__audio.started.map((s) => s.kind) }))
@@ -877,11 +908,11 @@ async function sounds(browser) {
   const before = (await count()).started.length
   await p.keyboard.press("Enter")
   await sleep(250)
-  const whoosh = (await count()).started.slice(before)
-  expect(whoosh.includes("noise"), "sending plays the whoosh", whoosh)
+  const pluck = (await count()).started.slice(before)
+  expect(pluck.filter((k) => k === "triangle").length === 4, "sending plays the pluck: two notes, each a pair of triangles", pluck)
   await sleep(1800)
-  const chime = (await count()).started.slice(before)
-  expect(chime.filter((k) => k === "sine").length >= 4, "the answer arriving plays the chime: two notes, each with its octave", chime)
+  const chime = (await count()).started.slice(before + pluck.length)
+  expect(chime.filter((k) => k === "sine").length >= 9, "the answer arriving plays the chord: three notes, each a pair of sines and its octave", chime)
   const b2 = (await count()).started.length
   await p.click("[data-ask-mic]")
   await sleep(450)

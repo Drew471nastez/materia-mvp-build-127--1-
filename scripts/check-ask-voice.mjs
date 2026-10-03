@@ -18,6 +18,12 @@
  *              records and comes back with the text: no message, no stop
  *   REFUSAL    a microphone that is off is NOT handed over: it says so, and
  *              offers Settings where the platform has them
+ *   IOS        getUserMedia inside the tap, with the audio session back on
+ *              auto (the sounds leave it ambient, which has no microphone);
+ *              a recorder that offers only mp4 and throws for a bit rate
+ *              still records, and the clip goes up as speech.mp4; an empty
+ *              recording, a call taking the microphone and no microphone
+ *              each end in words, never in silence
  *   ALONE      a phone with nothing to record to keeps its recogniser, so
  *              the microphone is still drawn
  *
@@ -69,24 +75,42 @@ if (cfg.recogniser) {
     abort() { this.onend && this.onend() }
   }
 }
+/* iOS 17+: the page's audio session, which the sounds leave "ambient". */
+const session = { type: cfg.ambient ? "ambient" : "auto" }
+Object.defineProperty(navigator, "audioSession", { configurable: true, value: session })
+/* Whether a call happens inside the tap's own dispatch: set on the way down, cleared on the way out. */
+window.__inTap = false
+window.addEventListener("click", () => { window.__inTap = true }, true)
+window.addEventListener("click", () => { window.__inTap = false })
 if (cfg.recorder) {
+  /* iOS records mp4 only; Chrome and Android record webm. */
+  const made = cfg.ios ? "audio/mp4" : "audio/webm"
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: {
       getUserMedia: async () => {
-        window.__log.push("getUserMedia")
+        window.__log.push("getUserMedia", "inTap:" + window.__inTap, "session:" + session.type)
         if (cfg.mic === "refused") throw new DOMException("denied", "NotAllowedError")
-        return { getTracks: () => [{ stop() {} }] }
+        if (cfg.mic === "none") throw new DOMException("no device", "NotFoundError")
+        const track = { onended: null, stop() { window.__log.push("track.stop") } }
+        window.__endTrack = () => track.onended && track.onended()
+        return { getTracks: () => [track], getAudioTracks: () => [track] }
       },
     },
   })
   window.MediaRecorder = class {
-    static isTypeSupported() { return true }
-    constructor() { this.state = "inactive"; this.mimeType = "audio/webm" }
+    static isTypeSupported(type) { return cfg.ios ? type === "audio/mp4" : true }
+    constructor(stream, options) {
+      /* An older iOS that says it supports a bit rate and then throws for it. */
+      if (cfg.ios && options && options.audioBitsPerSecond) throw new DOMException("bit rate", "NotSupportedError")
+      window.__log.push("recorder:" + JSON.stringify(options || null))
+      this.state = "inactive"
+      this.mimeType = made
+    }
     start() { window.__log.push("recorder.start"); this.state = "recording" }
     stop() {
       this.state = "inactive"
-      this.ondataavailable && this.ondataavailable({ data: new Blob(["x"], { type: "audio/webm" }) })
+      if (!cfg.empty) this.ondataavailable && this.ondataavailable({ data: new Blob(["x"], { type: made }) })
       this.onstop && this.onstop()
     }
   }
@@ -97,6 +121,8 @@ window.fetch = async (url, init) => {
   if (href.includes("/api/website-builder/transcribe")) {
     if (init && init.method === "POST") {
       window.__log.push("transcribe.post")
+      const clip = init.body && init.body.get && init.body.get("audio")
+      if (clip) window.__log.push("upload:" + clip.name + ":" + clip.type)
       return new Response(JSON.stringify({ text: "heard by the recorder" }), { headers: { "content-type": "application/json" } })
     }
     return new Response(JSON.stringify({ available: cfg.route !== false }), { headers: { "content-type": "application/json" } })
@@ -204,6 +230,62 @@ console.log("\nA microphone that is off says so")
   await sleep(300)
   const s = await read(page)
   expect(/Microphone access is off/.test(s.error) && s.state === "idle", "a refused recorder says the same", { error: s.error, state: s.state })
+  await page.close()
+}
+
+console.log("\niOS: an mp4 recorder, the audio session, and the tap")
+{
+  const page = await open({ phone: true, recogniser: false, recorder: true, ios: true, ambient: true })
+  await page.click("[data-start]")
+  await sleep(150)
+  const mid = await read(page)
+  expect(mid.log.includes("inTap:true"), "getUserMedia is called inside the tap itself, nothing awaited before it", mid.log)
+  expect(mid.log.includes("session:auto"), "with the audio session back on auto, not the ambient the sounds left (ambient has no microphone)", mid.log)
+  expect(mid.state === "listening" && mid.error === "", "a recorder that throws for a bit rate is made again without it, and records", { state: mid.state, error: mid.error })
+  expect(mid.log.includes('recorder:{"mimeType":"audio/mp4"}'), "in mp4, the one format it offers", mid.log.filter((l) => l.startsWith("recorder")))
+  await page.click("[data-stop]")
+  await sleep(250)
+  const after = await read(page)
+  expect(after.log.includes("upload:speech.mp4:audio/mp4"), "the clip goes up as speech.mp4, audio/mp4, not as webm", after.log.filter((l) => l.startsWith("upload")))
+  expect(after.said === "heard by the recorder" && after.log.includes("track.stop"), "the words come back, and the microphone is let go", after)
+  await page.close()
+}
+{
+  const page = await open({ phone: true, recogniser: false, recorder: true })
+  await page.click("[data-start]")
+  await sleep(150)
+  await page.click("[data-stop]")
+  await sleep(250)
+  const s = await read(page)
+  expect(s.log.includes('recorder:{"mimeType":"audio/webm;codecs=opus","audioBitsPerSecond":64000}') && s.log.includes("upload:speech.webm:audio/webm"), "Android and Chrome record Opus in WebM at 64 kbps, sent as speech.webm", s.log.filter((l) => /^(recorder:|upload)/.test(l)))
+  await page.close()
+}
+{
+  const page = await open({ phone: true, recogniser: false, recorder: true, empty: true })
+  await page.click("[data-start]")
+  await sleep(150)
+  await page.click("[data-stop]")
+  await sleep(250)
+  const s = await read(page)
+  expect(s.error === "Nothing was recorded. Try again, and speak after the tick." && s.state === "idle" && !s.log.includes("transcribe.post"), "a recording that came back empty says so, rather than going quietly back", { error: s.error, state: s.state })
+  await page.close()
+}
+{
+  const page = await open({ phone: true, recogniser: false, recorder: true })
+  await page.click("[data-start]")
+  await sleep(150)
+  await page.evaluate(() => window.__endTrack())
+  await sleep(250)
+  const s = await read(page)
+  expect(s.said === "heard by the recorder" && s.state === "idle", "the microphone taken by a call mid recording: what was said so far is kept and turned into text", { said: s.said, state: s.state })
+  await page.close()
+}
+{
+  const page = await open({ phone: true, recogniser: false, recorder: true, mic: "none" })
+  await page.click("[data-start]")
+  await sleep(200)
+  const s = await read(page)
+  expect(s.error === "No microphone was found." && s.state === "idle", "no microphone says so", { error: s.error, state: s.state })
   await page.close()
 }
 

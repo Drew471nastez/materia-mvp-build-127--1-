@@ -16,11 +16,11 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ThemeChat } from "@/components/website-builder/theme-chat"
-import { ASK_SOUNDS, PEAK_GAIN, scheduleSound, SOUND_LENGTH } from "@/lib/website-builder/ask-sounds"
+import { ASK_SOUNDS, PEAK_GAIN, scheduleSound, SOUND_DESIGN, SOUND_LENGTH } from "@/lib/website-builder/ask-sounds"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 /* The sounds' own graph, for the probe to render in an OfflineAudioContext and measure. */
-;(globalThis as unknown as Record<string, unknown>).__askSounds = { ASK_SOUNDS, PEAK_GAIN, scheduleSound, SOUND_LENGTH }
+;(globalThis as unknown as Record<string, unknown>).__askSounds = { ASK_SOUNDS, PEAK_GAIN, scheduleSound, SOUND_DESIGN, SOUND_LENGTH }
 
 /*
   WHAT IS BEHIND THE PILL, for the glass measurements (?canvas=):

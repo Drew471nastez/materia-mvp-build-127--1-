@@ -1436,8 +1436,8 @@ function ThemeChatPanel({
                   const next = reduceActivity(e.activity, event)
                   return next.question ? { ...e, running: false, activity: next } : e
                 })
-                /* Its turn is over: the chime, as for an answer. */
-                if (!finished) playAskSound("done")
+                /* Its turn is over, and it is waiting on an answer: the rising sixth. */
+                if (!finished) playAskSound("question")
                 finished = true
                 return
               } else if (type === "message") {
@@ -1450,6 +1450,7 @@ function ThemeChatPanel({
               } else if (type === "error") {
                 const message = typeof event.message === "string" ? event.message : "The edit failed."
                 patch((e) => ({ ...e, running: false, error: message, activity: settleActivity(e.activity, true) }))
+                if (!finished) playAskSound("error")
                 finished = true
                 return
               }
@@ -1467,12 +1468,15 @@ function ThemeChatPanel({
         )
         if (!result.ok) {
           patch((e) => ({ ...e, running: false, sent: true, error: result.error ?? "That did not go through.", activity: settleActivity(e.activity, true) }))
+          if (!finished) playAskSound("error")
           return
         }
         patch((e) => ({ ...e, running: false, activity: settleActivity(e.activity) }))
         if (snapshotTaken) onRunEnd?.(prompt)
       } catch (thrown) {
         const stopped = thrown instanceof DOMException && thrown.name === "AbortError"
+        /* A stop is chosen, and silent; a lost connection is a failure. */
+        if (!stopped && !finished) playAskSound("error")
         patch((e) => ({
           ...e,
           running: false,
@@ -1586,8 +1590,9 @@ function ThemeChatPanel({
         if (!kept) onWriteFailed?.(reason, answered)
         /* Nothing on the canvas to look at: the reason, or the answer, is read here. */
         if (!kept && dock) setExpanded(true)
-        /* The section is written, or it answered: the chime. A failure has its sentence instead. */
+        /* The section is written, or it answered: the chime. A failure has its sentence, and the low falling pair. */
         if (kept || answered) playAskSound("done")
+        else playAskSound("error")
         setWriting(false)
         setWriteStage(null)
       }
