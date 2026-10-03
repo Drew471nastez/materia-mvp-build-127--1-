@@ -338,6 +338,10 @@ async function main() {
     ;(db3 as { rpc: unknown }).rpc = async () => ({ data: { ok: false, reason: "used_up", community_id: C }, error: null })
     const used = await redeemInvite(db3, C, U, token)
     check("used up is a 410 with a sentence", !A(used).ok && A(used).status === 410 && /used up/.test(A(used).message ?? ""))
+    const route = code("app/api/community/[communityId]/invite/redeem/route.ts")
+    check("the route answers the invite's own reasons as { ok: false, reason }, the shape the invite landing reads", /if \(INVITE_REASONS\.has\(answer\.error\) && answer\.status !== 404\) return NextResponse\.json\(\{ ok: false, reason: answer\.error, message: answer\.message \}/.test(route) && /ok: true, state: "member"/.test(route))
+    const landing = existsSync("components/community/member/invite-landing.tsx") ? read("components/community/member/invite-landing.tsx") : ""
+    check("and the member area's invite landing posts the token to this route", !landing || (/\/invite\/redeem`, \{ body: \{ token \} \}/.test(landing) && /r\.data\.reason/.test(landing)))
   }
 
   /* ── The page ────────────────────────────────────────────────────────── */
@@ -510,7 +514,7 @@ async function main() {
   {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
     check("/community/<slug> is a 404 while off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page))
-    check("a member gets the member area's feed (CommunityFeedPage, by its fixed path)", /if \(load\.viewer\.active\) \{\s*const feed = await memberFeed/.test(page) && /import\("@\/components\/community\/member\/feed-page"\)/.test(page) && /CommunityFeedPage/.test(page))
+    check("a member gets the member area's feed (CommunityFeedPage, by its fixed path)", /if \(load\.viewer\.active\) return <CommunityFeedPage slug=\{load\.community\.slug\} \/>/.test(page) && /import \{ CommunityFeedPage \} from "@\/components\/community\/member\/feed-page"/.test(page))
     check("everybody else the sales page, with its structured data", /<CommunitySalesPage data=\{load\.data\} \/>/.test(page) && /jsonLdScript\(jsonLd\)/.test(page))
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
     check("/about is the sales page for everybody, members included", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(about) && /<CommunitySalesPage data=\{load\.data\} \/>/.test(about) && !/viewer\.active/.test(about))

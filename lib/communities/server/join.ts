@@ -232,7 +232,8 @@ export type RedeemAnswer =
   | { ok: false; status: number; error: string; message: string }
 
 const REDEEM_MESSAGES: Record<string, [number, string]> = {
-  not_found: [404, "This invite link isn't valid."],
+  /* 400, not 404: the community is there, the link is not a valid invite to it. */
+  not_found: [400, "This invite link isn't valid."],
   revoked: [410, "This invite link was turned off."],
   expired: [410, "This invite link has expired."],
   email_mismatch: [403, "This invite was sent to a different email address. Sign in with that one."],
@@ -253,7 +254,7 @@ export async function redeemInvite(db: Db, communityId: string, userId: string, 
     console.error(`[communities] invite read: ${reasonOf(error)}`)
     return { ok: false, status: 500, error: "failed", message: "That did not go through. Try again." }
   }
-  if (!invite || invite.community_id !== community.id) return { ok: false, status: 404, error: "not_found", message: REDEEM_MESSAGES.not_found[1] }
+  if (!invite || invite.community_id !== community.id) return { ok: false, status: 400, error: "not_found", message: REDEEM_MESSAGES.not_found[1] }
 
   const url = communityPath(community.slug)
   const viewer = await viewerContext(db, community, userId)

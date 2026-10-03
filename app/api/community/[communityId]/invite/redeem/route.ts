@@ -19,9 +19,14 @@ const noStore = { "Cache-Control": "no-store" }
  *   { state: "member", url, already }   in (already: they were a member)
  *   { state: "checkout", url }          an invite to a paid tier that is not
  *                                       complimentary: approved, now pay
- * or { error, message }: 401 sign_in, 400/404 not_found, 410 revoked |
- * expired | used_up, 403 email_mismatch | banned.
+ * An invite that cannot be used is a 200 { ok: false, reason, message },
+ * the database function's own shape, with reason not_found | revoked |
+ * expired | email_mismatch | used_up: the invite landing
+ * (components/community/member/invite-landing.tsx) says each in its own
+ * words. Anything else is { error, message } with its status: 401 sign_in,
+ * 403 banned | suspended | archived, 404 not_found (no such community).
  */
+const INVITE_REASONS = new Set(["not_found", "revoked", "expired", "email_mismatch", "used_up"])
 export async function POST(request: Request, { params }: { params: Promise<{ communityId: string }> }) {
   const off = await requireCommunitiesOn()
   if (off) return off
@@ -39,6 +44,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     body = {}
   }
   const answer = await redeemInvite(admin(), communityId, user.id, body.token)
-  if (!answer.ok) return NextResponse.json({ error: answer.error, message: answer.message }, { status: answer.status, headers: noStore })
-  return NextResponse.json(answer.state === "member" ? { state: "member", url: answer.url, already: answer.already } : { state: "checkout", url: answer.url }, { headers: noStore })
+  if (!answer.ok) {
+    /* The invite itself said no (and the community is real): the reason, for the landing to put in words. */
+    if (INVITE_REASONS.has(answer.error) && answer.status !== 404) return NextResponse.json({ ok: false, reason: answer.error, message: answer.message }, { headers: noStore })
+    return NextResponse.json({ error: answer.error, message: answer.message }, { status: answer.status, headers: noStore })
+  }
+  return NextResponse.json(answer.state === "member" ? { ok: true, state: "member", url: answer.url, already: answer.already } : { ok: true, state: "checkout", url: answer.url }, { headers: noStore })
 }

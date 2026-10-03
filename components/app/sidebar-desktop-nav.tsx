@@ -70,6 +70,9 @@ import { WindowFrameIcon as WebsiteBuilderLinear } from "@solar-icons/react/line
 import { WindowFrameIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/window-frame"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
+/* Community: three people, drawn and filled, for the row that only shows while communities are switched on. */
+import { UsersGroupRoundedIcon as CommunityLinear } from "@solar-icons/react/linear/users-group-rounded"
+import { UsersGroupRoundedIcon as CommunityBold } from "@solar-icons/react/bold/users-group-rounded"
 /**
  * A PROFILE CARD.
  *
@@ -394,14 +397,16 @@ export const NAV_ICONS = {
  * declared in one place and none of them can drift out of the family.
  */
 /*
-  Icons for rows that are not one of the pages in NAV_ICONS. There is one
-  left. This held Communities as well, under a "Tools" heading, and a link
-  shortener before that; both were rows for things that did not exist, and
-  a sidebar is not the place to advertise. The heading went with them,
-  since a section of one item is not a section.
+  Icons for rows that are not one of the pages in NAV_ICONS: Settings, and
+  Community, which is a real page again (/app/community) but only while the
+  platform switch for communities is on, so it is not one of the rows every
+  creator always sees. The old Communities row under a "Tools" heading and a
+  link shortener were rows for things that did not exist, and a sidebar is
+  not the place to advertise; this one is not that.
 */
 export const NAV_ICONS_EXTRA = {
   settings: { line: SettingsLinear, fill: SettingsBold },
+  community: { line: CommunityLinear, fill: CommunityBold },
 } as const satisfies Record<string, NavIconPair>
 
 /**

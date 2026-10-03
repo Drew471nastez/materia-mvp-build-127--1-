@@ -1,0 +1,271 @@
+/**
+ * The creator's community screens (components/community/creator/*) for
+ * scripts/check-community-creator.mjs: the real components with fixture
+ * props, inside a stand-in for the /app shell (the dark rail and header on
+ * a computer, the header on a phone), picked by ?case=:
+ *
+ *   list, create, create-paid, overview, members, members-pending,
+ *   settings, settings-access, feed, events, moderation, analytics
+ */
+import React from "react"
+import { createRoot } from "react-dom/client"
+import { allowedActions } from "@/lib/communities/permissions"
+import { CommunityShell } from "@/components/community/creator/community-shell"
+import { CommunityList } from "@/components/community/creator/community-list"
+import { CreateCommunity } from "@/components/community/creator/create-flow"
+import { Overview } from "@/components/community/creator/overview"
+import { MembersSection } from "@/components/community/creator/members-section"
+import { SettingsSection } from "@/components/community/creator/settings-section"
+import { FeedSection } from "@/components/community/creator/feed-section"
+import { EventsSection } from "@/components/community/creator/events-section"
+import { ModerationSection } from "@/components/community/creator/moderation-section"
+import { AnalyticsSection } from "@/components/community/creator/analytics-section"
+import { nextSteps } from "@/components/community/creator/logic"
+import type { AnalyticsView, CommunityHead, MemberRowView, SettingsData } from "@/components/community/creator/view-types"
+
+const params = new URLSearchParams(location.search)
+const which = params.get("case") || "overview"
+const ID = "6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"
+const NOW = Date.now()
+const ago = (d: number) => new Date(NOW - d * 86_400_000).toISOString()
+const ahead = (d: number) => new Date(NOW + d * 86_400_000).toISOString()
+
+const head: CommunityHead = {
+  id: ID,
+  slug: "morning-writers",
+  name: "The Morning Writers",
+  tagline: "Write 500 words before breakfast, together.",
+  logoUrl: null,
+  coverUrl: null,
+  status: which === "overview" ? "draft" : "published",
+  access: "paid",
+  visibility: "public",
+  memberCount: 1284,
+  postCount: 3412,
+  archived: false,
+  suspended: false,
+  gamificationEnabled: true,
+  classroomEnabled: true,
+  eventsEnabled: true,
+  role: "owner",
+  can: allowedActions("owner"),
+  openReports: 3,
+}
+
+const names = ["Ana Popescu", "Marcus Lee", "Priya Raman", "Tomás Herrera", "Elena Ionescu", "Jonah Brooks", "Sofia Rossi", "Kenji Watanabe", "Amara Okafor", "Lukas Novak", "Chloé Martin", "Daniel Avram"]
+const member = (i: number, over: Partial<MemberRowView> = {}): MemberRowView => ({
+  userId: `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+  name: names[i % names.length],
+  username: names[i % names.length].toLowerCase().split(" ")[0],
+  avatarUrl: null,
+  email: `${names[i % names.length].toLowerCase().split(" ")[0]}@example.com`,
+  role: i === 0 ? "owner" : i === 1 ? "admin" : i === 2 ? "moderator" : "member",
+  status: "active",
+  source: i % 3 === 0 ? "subscription" : i % 3 === 1 ? "free" : "manual",
+  tierId: "t1",
+  tierName: i % 2 ? "Members" : "Inner circle",
+  level: 1 + (i % 5),
+  points: 12 * i,
+  joinedAt: ago(i * 3 + 1),
+  requestedAt: null,
+  requestNote: null,
+  lastActiveAt: ago(i * 0.3),
+  mutedUntil: i === 5 ? ahead(1) : null,
+  approved: false,
+  ...over,
+})
+
+const settings: SettingsData = {
+  description: "A small group of people who write every morning.\n\nWe post our words, read each other, and meet on Fridays.",
+  tagline: head.tagline,
+  category: "Writing",
+  rules: [{ title: "Be kind", body: "Feedback is about the words, never the person." }],
+  faq: [{ q: "Do I need to be a writer?", a: "No. You need to want to write." }],
+  benefits: ["A prompt every morning", "Friday feedback calls", "The 30 day course"],
+  links: [],
+  onboarding: { enabled: true, welcome: "Glad you are here.", askIntro: true, showRules: true },
+  discoveryEnabled: true,
+  platformHidden: false,
+  approvalRequired: false,
+  directoryEnabled: true,
+  chatEnabled: true,
+  seoTitle: null,
+  seoDescription: null,
+  tiers: [
+    { id: "t1", name: "Members", description: null, kind: "paid", billing: "recurring", isDefault: true, archived: false, productId: "p1", productStatus: "published", monthlyCents: 1900, yearlyCents: 19000, priceCents: null, priceLine: "$19/month", benefits: [], members: 1201, accessProducts: [{ id: "p9", title: "The 30 day writing course", type: "course" }] },
+    { id: "t2", name: "Lifetime", description: null, kind: "paid", billing: "one_time", isDefault: false, archived: false, productId: "p2", productStatus: "published", monthlyCents: null, yearlyCents: null, priceCents: 29900, priceLine: "$299", benefits: [], members: 83, accessProducts: [] },
+  ],
+  products: [{ id: "p8", title: "Prompt deck", type: "digital", status: "published", cover: null }],
+  paymentsReady: true,
+  myNotify: { level: "important", emailAnnouncements: true, emailEvents: true },
+  levels: [
+    { level: 1, name: "Newcomer", minPoints: 0, reward: null },
+    { level: 2, name: "Regular", minPoints: 20, reward: null },
+    { level: 3, name: "Contributor", minPoints: 60, reward: null },
+  ],
+  badges: [],
+}
+
+const series = (n: number, f: (i: number) => number) => Array.from({ length: n }, (_, i) => ({ day: new Date(NOW - (n - i) * 86_400_000).toISOString().slice(0, 10), value: Math.max(0, Math.round(f(i))) }))
+const analytics: AnalyticsView = {
+  days: 30,
+  today: new Date(NOW).toISOString().slice(0, 10),
+  series: {
+    members: series(30, (i) => 1100 + i * 6 + (i % 4)),
+    newMembers: series(30, (i) => 4 + ((i * 7) % 9)),
+    activeMembers: series(30, (i) => 310 + ((i * 37) % 80)),
+    posts: series(30, (i) => 60 + ((i * 13) % 45)),
+    comments: series(30, (i) => 200 + ((i * 17) % 90)),
+    reactions: series(30, (i) => 500 + ((i * 23) % 200)),
+  },
+  totals: { newMembers: 232, left: 41, posts: 2380, comments: 7110, reactions: 18240, rsvps: 316, lessons: 920 },
+  live: { members: 1284, newToday: 6, postsToday: 41, commentsToday: 133 },
+  rolledUp: true,
+  topPosts: [{ id: "x1", title: "What I learned from 100 mornings", reactions: 212, comments: 48 }],
+}
+
+function Frame({ children, path }: { children: React.ReactNode; path: string }) {
+  ;(window as unknown as { __path: string }).__path = path
+  return (
+    <div className="h-svh overflow-hidden bg-[#131316]">
+      <header className="fixed inset-x-0 top-0 z-30 h-[68px] bg-[#131316] md:h-[58px]" />
+      <aside className="fixed bottom-0 left-0 top-[58px] hidden w-[240px] bg-[#131316] md:block" />
+      <main className="h-svh overflow-hidden bg-[#f8f9fa] pt-[68px] md:bg-white md:pl-[240px] md:pt-[58px]">
+        <div className="app-content-scroll h-[calc(100svh-68px)] overflow-y-auto md:h-[calc(100svh-58px)]">{children}</div>
+      </main>
+    </div>
+  )
+}
+
+function Shell({ children, section }: { children: React.ReactNode; section: string }) {
+  return (
+    <Frame path={`/app/community/${ID}${section ? `/${section}` : ""}`}>
+      <CommunityShell head={head}>{children}</CommunityShell>
+    </Frame>
+  )
+}
+
+const members = Array.from({ length: 12 }, (_, i) => member(i))
+const pending = Array.from({ length: 4 }, (_, i) => member(i + 3, { status: "pending", role: "member", requestedAt: ago(i), requestNote: i === 0 ? "I have been writing for a year and want company." : null, joinedAt: null }))
+
+function App() {
+  switch (which) {
+    case "list":
+      return (
+        <Frame path="/app/community">
+          <CommunityList
+            available
+            rows={[
+              { id: ID, slug: "morning-writers", name: "The Morning Writers", logoUrl: null, status: "published", access: "paid", visibility: "public", memberCount: 1284, postCount: 3412, role: "owner", priceLine: "$19/month", createdAt: ago(100) },
+              { id: "x2", slug: "poetry", name: "Poetry Lab", logoUrl: null, status: "draft", access: "free", visibility: "public", memberCount: 1, postCount: 0, role: "owner", priceLine: "Free", createdAt: ago(1) },
+              { id: "x3", slug: "studio", name: "Studio Circle", logoUrl: null, status: "published", access: "invite_only", visibility: "private", memberCount: 48, postCount: 220, role: "moderator", priceLine: "Invite only", createdAt: ago(300) },
+            ]}
+          />
+        </Frame>
+      )
+    case "create":
+    case "create-paid":
+      return (
+        <Frame path="/app/community/new">
+          <CreateCommunity />
+        </Frame>
+      )
+    case "members":
+    case "members-pending":
+      return (
+        <Shell section="members">
+          <MembersSection
+            head={head}
+            meId={members[0].userId}
+            initial={{ rows: which === "members" ? members : pending, next: "abc", capped: false }}
+            counts={{ active: 1284, pending: 4, paused: 1, banned: 2, removed: 0, expired: 37, cancelled: 12 }}
+            status={which === "members" ? "active" : "pending"}
+            tiers={[{ id: "t1", name: "Members", kind: "paid" }, { id: "t2", name: "Lifetime", kind: "paid" }]}
+            canEmail
+            invites={{ rows: [{ id: "i1", email: null, maxUses: 50, uses: 12, expiresAt: ahead(20), revokedAt: null, createdAt: ago(10), tierName: null }, { id: "i2", email: "sam@example.com", maxUses: 1, uses: 0, expiresAt: ahead(29), revokedAt: null, createdAt: ago(1), tierName: "Lifetime" }], next: null }}
+            openInvite={params.get("invite") === "1"}
+            badges={[]}
+          />
+        </Shell>
+      )
+    case "settings":
+    case "settings-access":
+      return (
+        <Shell section="settings">
+          <SettingsSection head={head} data={settings} tab={which === "settings" ? "general" : "access"} />
+        </Shell>
+      )
+    case "feed":
+      return (
+        <Shell section="feed">
+          <FeedSection
+            head={head}
+            spaces={[{ id: "s1", name: "General", announcements: false }, { id: "s2", name: "Announcements", announcements: true }]}
+            compose={null}
+            initial={{
+              next: null,
+              rows: [
+                { id: "p1", kind: "announcement", title: "Friday call moves to 6pm", excerpt: "From this week the call starts an hour later so more of you can make it.", spaceName: "Announcements", authorName: "Ana Popescu", pinned: true, locked: false, featured: false, status: "published", reactionCount: 48, commentCount: 12, createdAt: ago(0.2) },
+                { id: "p2", kind: "post", title: null, excerpt: "Day 31. Wrote about my grandmother's kitchen. 640 words before the kettle boiled.", spaceName: "General", authorName: "Marcus Lee", pinned: false, locked: false, featured: true, status: "published", reactionCount: 21, commentCount: 4, createdAt: ago(0.6) },
+                { id: "p3", kind: "post", title: "Buy my course", excerpt: "Link in bio", spaceName: "General", authorName: "Spam Account", pinned: false, locked: true, featured: false, status: "removed", reactionCount: 0, commentCount: 0, createdAt: ago(1) },
+              ],
+            }}
+          />
+        </Shell>
+      )
+    case "events":
+      return (
+        <Shell section="events">
+          <EventsSection
+            head={head}
+            options={{ tiers: [{ id: "t1", name: "Members" }, { id: "t2", name: "Lifetime" }], levels: settings.levels }}
+            openNew={params.get("new") === "1"}
+            initial={{
+              upcoming: [{ id: "e1", title: "Friday feedback call", description: "", coverUrl: null, kind: "live", startsAt: ahead(2), endsAt: new Date(Date.parse(ahead(2)) + 3_600_000).toISOString(), timezone: "Europe/Bucharest", location: null, meetingUrl: "https://zoom.us/j/1", livestreamUrl: null, capacity: 100, goingCount: 64, access: {}, replayVideoId: null, status: "scheduled" }],
+              past: [],
+            }}
+          />
+        </Shell>
+      )
+    case "moderation":
+      return (
+        <Shell section="moderation">
+          <ModerationSection
+            head={head}
+            initialAudit={{ rows: [], next: null }}
+            initialReports={{
+              next: null,
+              rows: [
+                { id: "r1", targetType: "post", targetId: "p3", reason: "spam", note: "Same post in every space", status: "open", createdAt: ago(0.1), reporterName: "Priya Raman", preview: "Buy my course, link in bio", subject: { userId: "u9", name: "Spam Account", role: "member" }, targetState: "published", resolution: null },
+                { id: "r2", targetType: "comment", targetId: "c1", reason: "harassment", note: null, status: "reviewing", createdAt: ago(1), reporterName: "Jonah Brooks", preview: "Nobody wants to read this.", subject: { userId: "u8", name: "Lukas Novak", role: "member" }, targetState: "published", resolution: null },
+              ],
+            }}
+          />
+        </Shell>
+      )
+    case "analytics":
+      return (
+        <Shell section="analytics">
+          <AnalyticsSection head={head} initial={analytics} />
+        </Shell>
+      )
+    default:
+      return (
+        <Shell section="">
+          <Overview
+            head={head}
+            created={params.get("created") === "1"}
+            data={{
+              figures: { members: 1284, active30d: 702, new30d: 232, paidMembers: 1201, mrrCents: 2_183_400, currency: "usd", cancellations30d: 18, posts7d: 540, comments7d: 1650, openReports: 3, pendingRequests: 4 },
+              upcoming: [{ id: "e1", title: "Friday feedback call", startsAt: ahead(2), endsAt: new Date(Date.parse(ahead(2)) + 3_600_000).toISOString(), timezone: "Europe/Bucharest", goingCount: 64, capacity: 100, kind: "live" }],
+              sells: true,
+              publicUrl: "/community/morning-writers",
+              steps: nextSteps({ published: false, paid: true, paymentsReady: true, members: 1, invites: 0, posts: 0, courses: 0, events: 1, customized: false, classroomEnabled: true, eventsEnabled: true }, `/app/community/${ID}`),
+            }}
+          />
+        </Shell>
+      )
+  }
+}
+
+createRoot(document.getElementById("app")!).render(<App />)
