@@ -37,6 +37,11 @@ import type { CommunityCard } from "@/lib/communities/types"
 import { creatorBadges } from "@/lib/creators/badges"
 import { reviewerOf } from "@/lib/reviews/rules"
 import { missingColumn } from "@/lib/reviews/store"
+import { headers } from "next/headers"
+import { ProfileSocial } from "@/components/profile/profile-social"
+import { ProfileBackBar } from "@/components/profile/profile-back-bar"
+import { messageTarget } from "@/lib/profile/profile-communities"
+import { cameFromBrowsing, refererPath } from "@/lib/profile/back"
 
 /**
  * ===========================================================================
@@ -140,7 +145,7 @@ export const dynamic = "force-dynamic"
 
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string }>
+  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string; from?: string }>
 }
 
 export async function generateMetadata({ params }: StorefrontPageProps) {
@@ -331,7 +336,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
 export default async function StorefrontPage({ params, searchParams }: StorefrontPageProps) {
   const { username } = await params
-  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam } = await searchParams
+  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam, from } = await searchParams
   /**
    * Inside /creator-page this page IS the editor, so the controls that
    * would take somebody to the editor have nowhere to go, and links into /app
@@ -561,6 +566,27 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     viewerPromise.then(({ data }) => hasBoughtFromCreator(supabase, data.user?.id, creator.id)),
   ])
   const pageHost = await pageHostPromise
+  /*
+    THE OTHER HALF OF THE FOLLOW GRAPH, AND THE VIEWER'S PLACE IN IT: how
+    many people this creator follows, whether the viewer follows them, and
+    where Message goes when the two share a community that allows it
+    (lib/profile/profile-communities). Started after the batch because each
+    needs the viewer, which the batch has just settled; all three at once.
+  */
+  const [{ count: followingCount }, viewerFollowsCreator, creatorMessageHref, requestHeaders] = await Promise.all([
+    supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
+    viewer && viewer.id !== profile.id
+      ? supabase.from("follows").select("id").eq("follower_id", viewer.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
+      : Promise.resolve(false),
+    viewer && viewer.id !== profile.id && !embedded
+      ? communitiesEnabled()
+          .then((on) => (on ? messageTarget(createAdminClient(), viewer.id, profile.id) : null))
+          .catch(() => null)
+      : Promise.resolve(null),
+    headers(),
+  ])
+  /* Reached from a community or Explore: the way back at the top (components/profile/profile-back-bar). */
+  const backShown = from === "community" || from === "explore" || cameFromBrowsing(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")))
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   const products = catalogue ? withoutCommunityProducts(catalogue) : catalogue
   const communityCards = await communitiesPromise
@@ -656,6 +682,33 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * `null` for everyone who is not the owner — a visitor never receives the
    * component, not even hidden.
    */
+  /**
+   * FOLLOWERS, FOLLOWING AND FOLLOW under the creator's name, the same block
+   * a member's profile has (components/profile/profile-social), drawn in the
+   * page's own colours. Not in the editor's canvas, where the page is being
+   * edited rather than visited. The counts follow the creator's Show
+   * followers switch; the button is there either way.
+   */
+  const buildFollowRow = (headerSettings?: ShopHeaderSettings) => {
+    if (embedded) return null
+    const showCounts = headerSettings?.showFollowers ?? true
+    if (viewerIsOwner && !showCounts) return null
+    return (
+      <ProfileSocial
+        tone="storefront"
+        userId={profile.id}
+        name={profile.display_name || username}
+        followers={followerCount ?? 0}
+        following={followingCount ?? 0}
+        viewerFollowing={viewerFollowsCreator}
+        signedIn={!!viewer}
+        isSelf={viewerIsOwner}
+        messageHref={creatorMessageHref}
+        showCounts={showCounts}
+      />
+    )
+  }
+
   const buildOwnerActions = (
     headerSettings?: ShopHeaderSettings,
     themePreset?: string,
@@ -1257,6 +1310,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           helper the header itself calls: one character of difference and this
           downloads the avatar a second time and shows it no sooner.
         */}
+        {!embedded ? <ProfileBackBar initiallyShown={backShown} className="mx-auto w-full max-w-[1180px] px-3 pt-3 sm:px-4 lg:px-6" /> : null}
+
         {headerAvatarPreload.url && (
           // eslint-disable-next-line @next/next/no-page-custom-font
           <link rel="preload" as="image" href={headerAvatarPreload.url} fetchPriority="high" />
@@ -1273,6 +1328,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
           followerCount={followerCount ?? 0}
+          followRow={buildFollowRow(headerSettings)}
           badges={creatorBadges(profile)}
           /**
            * The scheme's type colours. Without these the block reads its own
@@ -1566,6 +1622,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         renderer passes no editor callbacks, so nothing editor-only leaks onto a
         public page.
       */}
+      {!embedded ? <ProfileBackBar initiallyShown={backShown} className="mx-auto w-full max-w-[1180px] px-3 pt-3 sm:px-4 lg:px-6" /> : null}
       <ShopHeaderRenderer
         settings={defaultShopHeaderSettings}
         creator={headerCreator}
@@ -1576,6 +1633,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         reviewCount={creatorReviewCount}
         reviewAverage={creatorRating}
         followerCount={followerCount ?? 0}
+        followRow={buildFollowRow(defaultShopHeaderSettings)}
         badges={creatorBadges(profile)}
       />
 

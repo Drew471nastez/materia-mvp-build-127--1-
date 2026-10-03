@@ -23,11 +23,12 @@
  *                  library-tabs.tsx, which are Explore's chips): white on a
  *                  hairline, the chosen one pressed into a grey fill that
  *                  fades in and grows from 96% where it is over 150ms.
- *                  They scroll sideways on a narrow phone. Three sections,
- *                  because three is what there is:
+ *                  They scroll sideways on a narrow phone. Four sections,
+ *                  because four is what there is:
  *
- *                    Profile      the photo, the name, the bio
+ *                    Profile      the photo, the name, the username, the bio
  *                    Account      email, password, logging out, deleting
+ *                    Privacy      what the public profile shows
  *                    Preferences  language, newsletter, recommendations
  *
  *   THE FIELDS     a label over the input, the input as /app Settings and
@@ -68,6 +69,8 @@ import { useLocale } from "@/components/locale-provider"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
 import { useShellAvatar } from "@/lib/account/avatar-store"
+import { isValidUsername } from "@/lib/reserved-words"
+import { normalizeHandle } from "@/lib/profile/username-rules"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { nativeLogOut } from "@/lib/native-bridge"
@@ -103,6 +106,7 @@ const BIO_MAX = 240
 const SECTIONS = [
   { key: "profile", label: "Profile" },
   { key: "account", label: "Account" },
+  { key: "privacy", label: "Privacy" },
   { key: "preferences", label: "Preferences" },
 ] as const
 
@@ -166,18 +170,68 @@ function Counter({ used, max }: { used: number; max: number }) {
 
 /* ── Profile: the photo, the name, the bio ─────────────────────────────── */
 
+/* ── The username: checked as it is typed, saved with the rest ──────────── */
+
+type HandleCheck = { state: "same" | "checking" | "available" | "taken" | "invalid"; message?: string }
+
+/**
+ * THE HANDLE, LIVE. The rule a typed handle must pass is the server's own
+ * (isValidUsername), so most mistakes are said at once without a request;
+ * whether it is free is asked of /api/profile/username a moment after
+ * typing stops, and only the latest answer counts.
+ */
+function useHandleCheck(saved: string, value: string): HandleCheck {
+  const [check, setCheck] = useState<HandleCheck>({ state: "same" })
+  useEffect(() => {
+    const handle = normalizeHandle(value)
+    if (handle === saved.toLowerCase()) {
+      setCheck({ state: "same" })
+      return
+    }
+    const rule = isValidUsername(handle)
+    if (!rule.valid) {
+      setCheck({ state: "invalid", message: rule.error })
+      return
+    }
+    setCheck({ state: "checking" })
+    const ctrl = new AbortController()
+    const t = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/profile/username?handle=${encodeURIComponent(handle)}`, { signal: ctrl.signal, cache: "no-store" })
+        const data = (await res.json().catch(() => ({}))) as { available?: boolean; error?: string }
+        if (!res.ok) throw new Error(data.error || "Could not check that name just now.")
+        setCheck(data.available ? { state: "available" } : { state: "taken", message: data.error || "This username is taken" })
+      } catch (e) {
+        if ((e as { name?: string })?.name === "AbortError") return
+        setCheck({ state: "invalid", message: e instanceof Error ? e.message : "Could not check that name just now." })
+      }
+    }, 350)
+    return () => {
+      ctrl.abort()
+      window.clearTimeout(t)
+    }
+  }, [saved, value])
+  return check
+}
+
 function ProfileSection({
   userId,
   name: initialName,
   bio: initialBio,
   bioSupported,
   avatarUrl,
+  username: initialUsername,
+  usernameEditable,
 }: {
   userId: string
   name: string
   bio: string
   bioSupported: boolean
   avatarUrl: string | null
+  /** Their handle; made for them when they had none (lib/profile/ensure-username). */
+  username: string
+  /** False for somebody with a store or a OnePage: their handle is also those addresses and moves from /app Settings. */
+  usernameEditable: boolean
 }) {
   const router = useRouter()
   const shown = useShellAvatar(avatarUrl)
@@ -186,20 +240,40 @@ function ProfileSection({
 
   const [savedName, setSavedName] = useState(initialName)
   const [savedBio, setSavedBio] = useState(initialBio)
+  const [savedHandle, setSavedHandle] = useState(initialUsername)
   const [name, setName] = useState(initialName)
   const [bio, setBio] = useState(initialBio)
+  const [handle, setHandle] = useState(initialUsername)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState(0)
-  const changed = name.trim() !== savedName.trim() || (bioSupported && bio.trim() !== savedBio.trim())
+  const handleCheck = useHandleCheck(savedHandle, handle)
+  const handleChanged = usernameEditable && handleCheck.state !== "same"
+  const handleBlocked = handleChanged && handleCheck.state !== "available"
+  const changed = name.trim() !== savedName.trim() || (bioSupported && bio.trim() !== savedBio.trim()) || handleChanged
 
   const save = async () => {
     const nextName = name.trim()
     const nextBio = bio.trim()
-    if (!nextName || busy || !changed) return
+    if (!nextName || busy || !changed || handleBlocked) return
     setBusy(true)
     setError(null)
     try {
+      /* The handle first: a name taken in the meantime stops the save before anything else moves. */
+      if (handleChanged) {
+        const res = await fetch("/api/profile/username", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: normalizeHandle(handle) }),
+        })
+        const data = (await res.json().catch(() => ({}))) as { username?: string; error?: string }
+        if (!res.ok || !data.username) {
+          setError(data.error || "That did not save. Try again in a moment.")
+          return
+        }
+        setSavedHandle(data.username)
+        setHandle(data.username)
+      }
       const supabase = createClient()
       const patch: Record<string, string | null> = { display_name: nextName }
       if (bioSupported) patch.bio = nextBio || null
@@ -311,6 +385,57 @@ function ProfileSection({
           <span className={HELP}>What sellers see on your reviews and your orders.</span>
         </div>
 
+        <div>
+          <label htmlFor="account-username" className={cn(LABEL, "mb-1.5 block")}>
+            Username
+          </label>
+          <div className="relative">
+            <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-[#9ca3af] sm:text-[14px]">
+              @
+            </span>
+            <input
+              id="account-username"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value.replace(/\s+/g, "").toLowerCase().slice(0, 30))}
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              readOnly={!usernameEditable}
+              maxLength={30}
+              aria-describedby="account-username-help"
+              aria-invalid={handleCheck.state === "taken" || handleCheck.state === "invalid" ? true : undefined}
+              className={cn(INPUT, "pl-7", !usernameEditable && "bg-[#f9fafb] text-[#6b7280]")}
+              data-account-username-field=""
+            />
+          </div>
+          <span id="account-username-help" className={HELP} data-account-username-status={handleCheck.state}>
+            {!usernameEditable ? (
+              <>
+                It is also your store&apos;s address.{" "}
+                <Link href="/app/settings" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                  Change it in store settings
+                </Link>
+              </>
+            ) : handleCheck.state === "checking" ? (
+              "Checking..."
+            ) : handleCheck.state === "available" ? (
+              <span className="text-[#067647]">Available</span>
+            ) : handleCheck.state === "taken" || handleCheck.state === "invalid" ? (
+              <span className="text-[#b42318]">{handleCheck.message}</span>
+            ) : savedHandle ? (
+              <>
+                Your profile is at{" "}
+                <Link href={`/@${savedHandle}`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-account-profile-link="">
+                  storelib.com/@{savedHandle}
+                </Link>
+              </>
+            ) : (
+              "People find and mention you by it."
+            )}
+          </span>
+        </div>
+
         {bioSupported ? (
           <div>
             <div className="mb-1.5 flex items-baseline justify-between gap-3">
@@ -334,7 +459,7 @@ function ProfileSection({
         ) : null}
 
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => void save()} disabled={busy || !changed || !name.trim()} className={INK} data-account-save="">
+          <button type="button" onClick={() => void save()} disabled={busy || !changed || !name.trim() || handleBlocked} className={INK} data-account-save="">
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             Save changes
           </button>
@@ -614,6 +739,95 @@ function LeaveCard({ email, createdAt, isSeller }: { email: string; createdAt: s
   )
 }
 
+/* ── Privacy: what the public profile shows ───────────────────────────── */
+
+async function savePrivacy(body: Record<string, boolean>) {
+  let res: Response
+  try {
+    res = await fetch("/api/profile/privacy", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+  } catch {
+    throw new Error("Could not reach Storelib. Check your connection and try again.")
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error((data && typeof data.error === "string" && data.error !== "not_set_up" && data.error) || "That did not save. Try again.")
+  }
+}
+
+/**
+ * THE TWO SWITCHES THE PROFILE READS (profiles.show_activity and
+ * show_communities). Off, the Activity tab says the person keeps it
+ * private and the Communities tab lists only the communities they run; the
+ * person still sees everything on their own profile, with a line saying
+ * only they can. Saved on the press, as the preference switches are.
+ * Before the columns exist there is nowhere to keep a choice, so the card
+ * says the profile shows both rather than drawing switches that cannot save.
+ */
+function PrivacySection({ username, privacy }: { username: string; privacy: { showActivity: boolean; showCommunities: boolean; supported: boolean } }) {
+  const activity = useSavedSwitch(privacy.showActivity, useCallback((v: boolean) => savePrivacy({ showActivity: v }), []))
+  const communities = useSavedSwitch(privacy.showCommunities, useCallback((v: boolean) => savePrivacy({ showCommunities: v }), []))
+  return (
+    <section className={CARD} aria-labelledby="account-privacy" data-account-card="privacy">
+      <h2 id="account-privacy" className={CARD_TITLE}>
+        Your profile
+      </h2>
+      <p className="mb-3 mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">
+        {username ? (
+          <>
+            What people see at{" "}
+            <Link href={`/@${username}`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+              storelib.com/@{username}
+            </Link>
+            .
+          </>
+        ) : (
+          "What people see on your profile."
+        )}
+      </p>
+      {privacy.supported ? (
+        <div className="divide-y divide-[#f0f1f3]">
+          <PrivacyRow
+            id="show-activity"
+            title={
+              <>
+                Show my activity
+                <Saved at={activity.savedAt} />
+              </>
+            }
+            detail={
+              <>
+                Communities you joined, posts in public spaces, courses you finished, your reviews.
+                {activity.error && <span className="mt-1 block text-red-600">{activity.error}</span>}
+              </>
+            }
+            control={<Switch label="Show my activity" checked={activity.value} busy={activity.busy} onChange={activity.change} />}
+          />
+          <PrivacyRow
+            id="show-communities"
+            title={
+              <>
+                Show communities I am in
+                <Saved at={communities.savedAt} />
+              </>
+            }
+            detail={
+              <>
+                Public communities only. The ones you run are always listed.
+                {communities.error && <span className="mt-1 block text-red-600">{communities.error}</span>}
+              </>
+            }
+            control={<Switch label="Show communities I am in" checked={communities.value} busy={communities.busy} onChange={communities.change} />}
+          />
+        </div>
+      ) : (
+        <p className="text-[13px] leading-[1.45] text-[#6b7280]" data-account-privacy-pending="">
+          Your profile shows your public activity and the public communities you are in. Private and unlisted communities are never shown.
+        </p>
+      )}
+    </section>
+  )
+}
+
 /* ── Preferences ───────────────────────────────────────────────────────── */
 
 function PreferencesSection({ email, newsletter: initialNewsletter, personalized: initialPersonalized }: { email: string; newsletter: boolean; personalized: boolean }) {
@@ -692,6 +906,10 @@ export function AccountSettings({
   isSeller,
   newsletter,
   personalized,
+  username = "",
+  usernameEditable = true,
+  privacy = { showActivity: true, showCommunities: true, supported: false },
+  initialSection = "profile",
 }: {
   userId: string
   email: string
@@ -707,9 +925,15 @@ export function AccountSettings({
   isSeller: boolean
   newsletter: boolean
   personalized: boolean
+  /** Their handle, made for them on the way here when they had none. */
+  username?: string
+  usernameEditable?: boolean
+  privacy?: { showActivity: boolean; showCommunities: boolean; supported: boolean }
+  /** From ?section=, so the profile's Settings pill lands on Account. */
+  initialSection?: SectionKey
 }) {
   /* Edit profile lands on the profile's own fields, which is what it promised. */
-  const [section, setSection] = useState<SectionKey>("profile")
+  const [section, setSection] = useState<SectionKey>(initialSection)
 
   return (
     <div data-account-page="" data-account-settings="">
@@ -746,7 +970,15 @@ export function AccountSettings({
       */}
       <SectionSwap section={section}>
         {section === "profile" ? (
-          <ProfileSection userId={userId} name={name} bio={bio ?? ""} bioSupported={bioSupported !== false} avatarUrl={avatarUrl ?? null} />
+          <ProfileSection
+            userId={userId}
+            name={name}
+            bio={bio ?? ""}
+            bioSupported={bioSupported !== false}
+            avatarUrl={avatarUrl ?? null}
+            username={username}
+            usernameEditable={usernameEditable}
+          />
         ) : null}
         {section === "account" ? (
           <>
@@ -755,6 +987,7 @@ export function AccountSettings({
             <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
           </>
         ) : null}
+        {section === "privacy" ? <PrivacySection username={username} privacy={privacy} /> : null}
         {section === "preferences" ? <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} /> : null}
       </SectionSwap>
     </div>

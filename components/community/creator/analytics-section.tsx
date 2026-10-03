@@ -13,7 +13,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import type { AnalyticsView, CommunityHead } from "./view-types"
-import { Notice, Segmented, card, errorText, send } from "./parts"
+import { FilterTabs, Notice, card, errorText, send } from "./parts"
 
 const LINE = "#8b5cf6"
 
@@ -159,7 +159,7 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
   return (
     <div className="space-y-4" data-analytics="" aria-busy={loading || undefined}>
       <div className="flex items-center justify-between gap-3">
-        <Segmented value={days} onChange={(d) => void choose(d)} label="Period" options={[{ value: "30", label: "30 days" }, { value: "90", label: "90 days" }]} />
+        <FilterTabs value={days} onChange={(d) => void choose(d)} label="Period" tabs={[{ value: "30", label: "30 days" }, { value: "90", label: "90 days" }]} />
         <p className="text-[12.5px] text-[#9ca3af] max-sm:hidden">Up to yesterday, plus today so far</p>
       </div>
       {error ? <Notice>{error}</Notice> : null}

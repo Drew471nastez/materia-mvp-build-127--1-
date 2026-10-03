@@ -13,6 +13,7 @@
  * all of it.
  */
 import { centsFromInput } from "@/lib/memberships/plan"
+import { assignableRoles, canActOn } from "@/lib/communities/permissions"
 import { LENGTHS, MAX_BENEFITS, MAX_FAQ, MAX_LEVELS, MAX_LINKS, MAX_RULES } from "@/lib/communities/limits"
 import { EVENT_KINDS, POST_ROLES, ROLES, SPACE_KINDS, isOneOf, type AccessRuleJson, type CommunityAccess, type CommunityFaq, type CommunityLink, type CommunityRule, type CommunityVisibility, type EventKind, type PostRole, type Role, type SpaceKind } from "@/lib/communities/types"
 
@@ -476,11 +477,13 @@ export interface NextStepFacts {
   courses: number
   events: number
   customized: boolean
+  /** How many rules the community has; none asks for them. */
+  rules: number
   classroomEnabled: boolean
   eventsEnabled: boolean
 }
 
-export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "customize"
+export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "customize" | "rules"
 
 export interface NextStep {
   id: NextStepId
@@ -497,12 +500,13 @@ export interface NextStep {
 export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
   const steps: NextStep[] = []
   if (f.paid && !f.paymentsReady) steps.push({ id: "payouts", title: "Connect payouts", detail: "Members pay you through Stripe. Nobody can join a paid community until payouts are connected.", href: "/app/settings?tab=payments", action: "Connect" })
-  if (!f.published) steps.push({ id: "publish", title: "Publish your community", detail: "It is a draft. Only you can see it until you publish.", href: `${base}/settings?tab=general`, action: "Publish" })
+  if (!f.published) steps.push({ id: "publish", title: "Publish your community", detail: "It is a draft. Only you can see it until you publish.", href: `${base}/settings?tab=advanced`, action: "Publish" })
   if (f.members <= 1 && f.invites === 0) steps.push({ id: "invite", title: "Invite your first members", detail: "Send an invite by email or share a link.", href: `${base}/members?invite=1`, action: "Invite" })
   if (f.posts === 0) steps.push({ id: "welcome", title: "Write a welcome post", detail: "Say who it is for and how to get started.", href: `${base}/feed?compose=welcome`, action: "Write" })
   if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add a course", detail: "Attach a course you sell, or make a new one.", href: `${base}/classroom`, action: "Add" })
   if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: "Schedule an event", detail: "A call, a workshop or a Q&A.", href: `${base}/events?new=1`, action: "Schedule" })
-  if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add what members get and your rules.", href: `${base}/settings?tab=general`, action: "Edit" })
+  if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add pictures, a video and what members get.", href: `${base}/settings?tab=page`, action: "Edit" })
+  if (f.rules === 0) steps.push({ id: "rules", title: "Write the rules", detail: "Members see them before they join and when they post.", href: `${base}/moderation?tab=rules`, action: "Write" })
   return steps
 }
 
@@ -527,7 +531,11 @@ export function fillDays(rows: { day: string; value: number }[], days: number, t
 
 /* ── Members ────────────────────────────────────────────────────────────── */
 
-export const MEMBER_STATUS_FILTERS = ["active", "pending", "paused", "banned", "removed", "expired", "cancelled"] as const
+/**
+ * The member list's views. Each is a member status, except "muted": active
+ * members whose mute has not run out yet (a mute is a time, not a status).
+ */
+export const MEMBER_STATUS_FILTERS = ["active", "pending", "muted", "paused", "banned", "removed", "expired", "cancelled"] as const
 export type MemberStatusFilter = (typeof MEMBER_STATUS_FILTERS)[number]
 
 export const MEMBERS_PAGE = 50
@@ -588,3 +596,199 @@ export function checkInvite(raw: unknown): Checked<InviteInput> {
 
 /** Space kinds as the editor names them. */
 export const SPACE_KIND_LABEL: Record<SpaceKind, string> = { feed: "Discussion", chat: "Chat", announcements: "Announcements", resources: "Resources" }
+
+/* ── The page's gallery ─────────────────────────────────────────────────── */
+
+/** Pictures and videos at the top of the community's page, in order. */
+export const GALLERY_MAX = 12
+
+export type GalleryItem = { type: "image"; url: string } | { type: "video"; videoId: string }
+
+/**
+ * A gallery as the route stores it in communities.gallery: at most twelve,
+ * pictures only from our own storage (`ownUrl` answers the URL it accepts,
+ * or null), videos by the id of a video uploaded to this community (the
+ * route then checks each id is one). The same picture or video twice is
+ * kept once.
+ */
+export function checkGallery(raw: unknown, ownUrl: (url: unknown) => string | null): Checked<GalleryItem[]> {
+  if (!Array.isArray(raw)) return { ok: false, field: "gallery", error: "The gallery is a list." }
+  if (raw.length > GALLERY_MAX) return { ok: false, field: "gallery", error: `Up to ${GALLERY_MAX} pictures and videos.` }
+  const out: GalleryItem[] = []
+  const seen = new Set<string>()
+  for (const x of raw) {
+    const item = x && typeof x === "object" ? (x as Record<string, unknown>) : {}
+    if (item.type === "image") {
+      const url = ownUrl(item.url)
+      if (!url) return { ok: false, field: "gallery", error: "Upload the picture again." }
+      if (seen.has(url)) continue
+      seen.add(url)
+      out.push({ type: "image", url })
+    } else if (item.type === "video") {
+      if (!isUuid(item.videoId)) return { ok: false, field: "gallery", error: "Upload the video again." }
+      const id = item.videoId.toLowerCase()
+      if (seen.has(id)) continue
+      seen.add(id)
+      out.push({ type: "video", videoId: id })
+    } else {
+      return { ok: false, field: "gallery", error: "A gallery holds pictures and videos." }
+    }
+  }
+  return { ok: true, value: out }
+}
+
+/** The list with the item at `from` moved to `to` (both clamped), as a new array. */
+export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
+  const next = [...list]
+  if (from < 0 || from >= next.length) return next
+  const [x] = next.splice(from, 1)
+  next.splice(Math.max(0, Math.min(next.length, to)), 0, x)
+  return next
+}
+
+/* ── What a moderator may do to a member ────────────────────────────────── */
+
+/** How long a mute lasts, in hours, as the menus offer it (lib/communities/server/moderation.ts muteUntil takes hours). */
+export const MUTE_CHOICES = [
+  { hours: 1, label: "1 hour" },
+  { hours: 24, label: "24 hours" },
+  { hours: 24 * 7, label: "7 days" },
+  { hours: 24 * 30, label: "30 days" },
+] as const
+
+/**
+ * One thing that can be done to a member: `action` is what
+ * PATCH /api/app/community/<id>/members/<userId> takes (MEMBER_ACTIONS),
+ * or one of the other member writes ("complimentary", "end_complimentary",
+ * "points", "badge"). `confirm` asks first; `danger` draws it red.
+ */
+export interface MemberChoice {
+  key: string
+  label: string
+  action: "mute" | "unmute" | "suspend" | "unsuspend" | "ban" | "unban" | "remove" | "approve" | "reject" | "role" | "complimentary" | "end_complimentary" | "points" | "badge"
+  role?: Role
+  hours?: number
+  confirm?: boolean
+  danger?: boolean
+  section?: string
+}
+
+export interface ChoiceActor {
+  userId: string
+  role: Role
+  can: Partial<Record<string, boolean>>
+  gamification: boolean
+  badges: number
+}
+
+/**
+ * Everything this person may do to that member, in the order the row's
+ * menu shows it, from the same rules the server applies (can() through
+ * `actor.can`, and never to somebody ranked the same or above: canActOn).
+ * Nothing for themselves or the owner.
+ */
+export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Role; status: string; source: string; mutedUntil: string | null; approved?: boolean }): MemberChoice[] {
+  if (m.userId === actor.userId || m.role === "owner") return []
+  if (!canActOn(actor.role, m.role)) return []
+  const c = actor.can
+  const out: MemberChoice[] = []
+  if (m.status === "pending") {
+    if (c.approve_member && !m.approved) {
+      out.push({ key: "approve", label: "Approve", action: "approve" })
+      out.push({ key: "reject", label: "Decline", action: "reject", confirm: true })
+    }
+    return out
+  }
+  if (m.status === "active") {
+    if (c.change_role) {
+      for (const r of assignableRoles(actor.role).filter((r) => r !== m.role)) out.push({ key: `role-${r}`, label: r === "member" ? "Make a member" : r === "admin" ? "Make an admin" : "Make a moderator", action: "role", role: r, section: "Role" })
+    }
+    if (c.manage_members) {
+      if (m.source === "manual") out.push({ key: "end-comp", label: "End complimentary access", action: "end_complimentary", section: "Access" })
+      else if (!["subscription", "purchase", "product"].includes(m.source)) out.push({ key: "comp", label: "Give complimentary access", action: "complimentary", section: "Access" })
+    }
+    if (actor.gamification && c.award_points) {
+      out.push({ key: "points", label: "Give points", action: "points", section: "Points" })
+      if (actor.badges > 0) out.push({ key: "badge", label: "Give a badge", action: "badge", section: "Points" })
+    }
+    if (c.mute) {
+      if (m.mutedUntil) out.push({ key: "unmute", label: "Unmute", action: "unmute", section: "Moderate" })
+      else out.push({ key: "mute", label: "Mute", action: "mute", confirm: true, section: "Moderate" })
+    }
+    if (c.suspend) out.push({ key: "suspend", label: "Suspend", action: "suspend", confirm: true, section: "Moderate" })
+    if (c.remove_member) out.push({ key: "remove", label: "Remove from the community", action: "remove", confirm: true, danger: true, section: "Moderate" })
+    if (c.ban) out.push({ key: "ban", label: "Ban", action: "ban", confirm: true, danger: true, section: "Moderate" })
+    return out
+  }
+  if (m.status === "paused" && c.suspend) out.push({ key: "unsuspend", label: "Bring back", action: "unsuspend" })
+  if (m.status === "paused" && c.ban) out.push({ key: "ban", label: "Ban", action: "ban", confirm: true, danger: true })
+  if (m.status === "banned" && c.ban) out.push({ key: "unban", label: "Unban", action: "unban" })
+  return out
+}
+
+/** What a member action is called once it is done, for the toast. */
+export function memberDoneText(choice: MemberChoice, name: string): string {
+  switch (choice.action) {
+    case "approve":
+      return `${name} approved`
+    case "reject":
+      return "Request declined"
+    case "role":
+      return `${name} is now ${choice.role === "admin" ? "an admin" : choice.role === "moderator" ? "a moderator" : "a member"}`
+    case "mute":
+      return `${name} is muted for ${MUTE_CHOICES.find((x) => x.hours === choice.hours)?.label ?? "a while"}`
+    case "unmute":
+      return `${name} can post again`
+    case "suspend":
+      return `${name} is suspended`
+    case "unsuspend":
+      return `${name} is back`
+    case "ban":
+      return `${name} is banned`
+    case "unban":
+      return `${name} is unbanned`
+    case "remove":
+      return `${name} was removed`
+    case "end_complimentary":
+      return "Complimentary access ended"
+    default:
+      return "Saved"
+  }
+}
+
+/** The line a confirmation shows before a member action that cannot simply be undone. */
+export function memberConfirmText(choice: MemberChoice, name: string): { title: string; detail: string; verb: string } {
+  switch (choice.action) {
+    case "reject":
+      return { title: `Decline ${name}?`, detail: "They can ask again later.", verb: "Decline" }
+    case "suspend":
+      return { title: `Suspend ${name}?`, detail: "They lose access until you bring them back. Their posts stay.", verb: "Suspend" }
+    case "remove":
+      return { title: `Remove ${name}?`, detail: "They lose access now and can join again. A paid membership keeps billing until they cancel it.", verb: "Remove" }
+    default:
+      return { title: `Ban ${name}?`, detail: "They lose access and cannot join again unless you unban them.", verb: "Ban" }
+  }
+}
+
+/* ── Settings tabs ──────────────────────────────────────────────────────── */
+
+export type SettingsTab = "page" | "access" | "features" | "gamification" | "notifications" | "advanced"
+
+/** A tab asked for by name, old names included, as the tab that holds it now. */
+export function settingsTabOf(raw: string | undefined | null): SettingsTab {
+  switch (raw) {
+    case "access":
+    case "discovery":
+      return "access"
+    case "features":
+    case "welcome":
+      return "features"
+    case "gamification":
+    case "notifications":
+    case "advanced":
+      return raw
+    default:
+      return "page"
+  }
+}
+

@@ -88,6 +88,8 @@ export const PRIVATE_PROFILE_COLUMNS = [
   "phone",
   "date_of_birth",
   "tax_id",
+  /* When the person last opened their notifications (part 85): theirs alone. */
+  "notifications_seen_at",
 ] as const
 
 /** The creator fields a card, a library row or a storefront header shows. Every one of them exists in every database. */

@@ -15,7 +15,13 @@
  *   CSV         a cell a spreadsheet would run is text.
  *   TIME        an event's wall clock in its own zone, across a DST change.
  *   MODERATION  a removed chat message is blanked in the same update;
- *               nobody acts on an equal or a senior, or their posts.
+ *               nobody acts on an equal or a senior, or their posts; every
+ *               member action a screen offers is one the route takes and
+ *               the role may take; the rules, the restricted people and the
+ *               report's author actions are on the Moderation screen.
+ *   GALLERY     at most twelve pictures and videos, pictures only from our
+ *               storage, videos only this community's; a database without
+ *               the column answers "run the update", never "try again".
  *   ROUTES      every route is behind the switch first, gated, rate limited.
  *   PAGES       every page 404s while the switch is off.
  *   SHELL       the sidebar row and the search entry only while it is on.
@@ -54,7 +60,17 @@ import {
   utcToZonedParts,
   zonedTimeToUtc,
   type NextStepFacts,
+  GALLERY_MAX,
+  MEMBER_STATUS_FILTERS,
+  MUTE_CHOICES,
+  checkGallery,
+  memberChoices,
+  moveItem,
+  settingsTabOf,
 } from "@/components/community/creator/logic"
+import { GALLERY_NOT_READY, checkGalleryForCommunity, saveGallery } from "@/lib/communities/server/gallery"
+import { MEMBER_ACTIONS } from "@/lib/communities/server/moderation"
+import { allowedActions, can } from "@/lib/communities/permissions"
 import { actOnContent, actOnMember, contentActionFits, contentActionNeeds, memberActionNeeds, muteUntil } from "@/lib/communities/server/moderation"
 import { hashInviteToken, newInviteToken } from "@/lib/communities/server/invites"
 import { trendingScore } from "@/lib/communities/server/analytics"
@@ -115,10 +131,12 @@ async function main() {
 
   /* ── Next steps ──────────────────────────────────────────────────────── */
   console.log("\nnext steps")
-  const fresh: NextStepFacts = { published: false, paid: true, paymentsReady: false, members: 1, invites: 0, posts: 0, courses: 0, events: 0, customized: false, classroomEnabled: true, eventsEnabled: true }
+  const fresh: NextStepFacts = { published: false, paid: true, paymentsReady: false, members: 1, invites: 0, posts: 0, courses: 0, events: 0, customized: false, rules: 0, classroomEnabled: true, eventsEnabled: true }
   const ids = (f: NextStepFacts) => nextSteps(f, "/app/community/x").map((s) => s.id).join(",")
-  check("a new paid community without payouts has every step", ids(fresh) === "payouts,publish,invite,welcome,course,event,customize", ids(fresh))
-  check("each step disappears once done", ids({ ...fresh, paymentsReady: true, published: true, invites: 1, posts: 1, courses: 1, events: 1, customized: true }) === "")
+  check("a new paid community without payouts has every step", ids(fresh) === "payouts,publish,invite,welcome,course,event,customize,rules", ids(fresh))
+  check("each step disappears once done", ids({ ...fresh, paymentsReady: true, published: true, invites: 1, posts: 1, courses: 1, events: 1, customized: true, rules: 2 }) === "")
+  check("writing the rules opens Moderation on its Rules view", nextSteps(fresh, "/b").find((s) => s.id === "rules")?.href === "/b/moderation?tab=rules")
+  check("customizing the page opens Settings on its Page tab, where the gallery is", nextSteps(fresh, "/b").find((s) => s.id === "customize")?.href === "/b/settings?tab=page")
   check("a second member counts as invited", !ids({ ...fresh, members: 2 }).includes("invite"))
   check("a section that is off asks for nothing", !ids({ ...fresh, classroomEnabled: false, eventsEnabled: false }).match(/course|event/))
   check("the welcome step opens the composer", nextSteps(fresh, "/b").find((s) => s.id === "welcome")?.href === "/b/feed?compose=welcome")
@@ -243,6 +261,105 @@ async function main() {
   check("an admin makes a member a moderator, logged", promote.ok && db.tables.community_members.find((m: Record<string, unknown>) => m.user_id === AUTHOR)?.role === "moderator" && db.tables.community_audit_log.some((a: Record<string, unknown>) => a.action === "member.role_changed"))
   const mute = await actOnMember(db, { community, actor: { userId: ADMIN, role: "admin" }, action: "mute", userId: AUTHOR, until: 2 })
   check("a mute sets muted_until", mute.ok && typeof db.tables.community_members.find((m: Record<string, unknown>) => m.user_id === AUTHOR)?.muted_until === "string")
+
+  /* Every member action a screen offers is one the route takes, and one the role may take. */
+  const EXTRA_WRITES = ["complimentary", "end_complimentary", "points", "badge"]
+  const target = { userId: UID(50), role: "member" as const, status: "active", source: "free", mutedUntil: null }
+  for (const role of ["owner", "admin", "moderator"] as const) {
+    const actor = { userId: UID(51), role, can: allowedActions(role), gamification: true, badges: 1 }
+    const offered = [
+      ...memberChoices(actor, target),
+      ...memberChoices(actor, { ...target, mutedUntil: "2099-01-01T00:00:00Z" }),
+      ...memberChoices(actor, { ...target, status: "pending" }),
+      ...memberChoices(actor, { ...target, status: "paused" }),
+      ...memberChoices(actor, { ...target, status: "banned" }),
+      ...memberChoices(actor, { ...target, source: "manual" }),
+    ]
+    const routed = offered.filter((c) => !EXTRA_WRITES.includes(c.action))
+    check(`${role}: every member action offered is a route action`, routed.every((c) => (MEMBER_ACTIONS as readonly string[]).includes(c.action)), routed.map((c) => c.action).join(","))
+    check(`${role}: and one the role may take`, routed.every((c) => can(role, memberActionNeeds(c.action as (typeof MEMBER_ACTIONS)[number]))))
+    check(`${role}: the extra writes only with their permission`, offered.filter((c) => c.action === "complimentary" || c.action === "end_complimentary").every(() => can(role, "manage_members")) && offered.filter((c) => c.action === "points" || c.action === "badge").every(() => can(role, "award_points")))
+  }
+  const asMod = memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, target).map((c) => c.action)
+  check("a moderator can mute, suspend, remove and ban a member, and nothing about roles or access", ["mute", "suspend", "remove", "ban"].every((a) => asMod.includes(a as never)) && !asMod.includes("role") && !asMod.includes("complimentary"))
+  const asAdmin = memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: false, badges: 0 }, target)
+  check("an admin may make a moderator but not an admin", asAdmin.some((c) => c.action === "role" && c.role === "moderator") && !asAdmin.some((c) => c.action === "role" && c.role === "admin"))
+  check("nobody is offered anything on an equal, a senior, the owner or themselves",
+    memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, role: "admin" }).length === 0 &&
+      memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: true, badges: 1 }, { ...target, role: "admin" }).length === 0 &&
+      memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, role: "owner" }).length === 0 &&
+      memberChoices({ userId: UID(50), role: "owner", can: allowedActions("owner"), gamification: true, badges: 1 }, target).length === 0)
+  check("a muted member is offered Unmute, not another mute", (() => { const a = memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, { ...target, mutedUntil: "2099-01-01T00:00:00Z" }).map((c) => c.action); return a.includes("unmute") && !a.includes("mute") })())
+  check("a request has Approve and Decline, a suspension Bring back, a ban Unban",
+    memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, { ...target, status: "pending" }).map((c) => c.action).join(",") === "approve,reject" &&
+      memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, { ...target, status: "paused" })[0]?.action === "unsuspend" &&
+      memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, { ...target, status: "banned" })[0]?.action === "unban")
+  check("every mute length the screen offers is one the server accepts", MUTE_CHOICES.every((c) => muteUntil(c.hours, now) !== null))
+  const week = await actOnMember(db, { community, actor: { userId: ADMIN, role: "admin" }, action: "mute", userId: AUTHOR, until: 24 * 7 })
+  const until = Date.parse(String(db.tables.community_members.find((m: Record<string, unknown>) => m.user_id === AUTHOR)?.muted_until))
+  check("a mute for 7 days ends in 7 days", week.ok && Math.abs(until - (Date.now() + 7 * 86_400_000)) < 60_000)
+  check("Muted is a view of the member list: active members whose mute has not run out", (MEMBER_STATUS_FILTERS as readonly string[]).includes("muted") && parseMemberQuery({ status: "muted" }).status === "muted" && /eq\("status", query\.status === "muted" \? "active" : query\.status\)/.test(creatorSrc) && /gt\("muted_until", nowIso\(\)\)/.test(creatorSrc))
+  check("a report says what its author's member row is, so the menu offers what works", /select\("user_id, role, status, source, muted_until"\)/.test(code("lib/communities/server/moderation.ts")))
+
+  /* The screens act through those routes. */
+  const memberActionsSrc = code("components/community/creator/member-actions.tsx")
+  check("member actions go to the member route, complimentary access to the members route", /send\(`\$\{base\}\/members\/\$\{person\.userId\}`, "PATCH", \{ action: choice\.action/.test(memberActionsSrc) && /action: "end_complimentary", userId: person\.userId/.test(memberActionsSrc) && /action: "complimentary", userId: person\.userId/.test(memberActionsSrc))
+  check("a mute asks how long and sends it as hours", /until: hours/.test(memberActionsSrc) && /MUTE_CHOICES\.map/.test(memberActionsSrc))
+  check("Members and Moderation both act through useMemberActions", /useMemberActions\(/.test(code("components/community/creator/members-section.tsx")) && /useMemberActions\(/.test(code("components/community/creator/moderation-section.tsx")))
+  const modSrc = code("components/community/creator/moderation-section.tsx")
+  check("Moderation has the reports, the resolved ones, the restricted people, the rules and the audit log", /"reports" \| "resolved" \| "restricted" \| "rules" \| "audit"/.test(modSrc) && /<RulesEditor/.test(modSrc) && /<Restricted/.test(modSrc))
+  check("the rules are saved through the settings route with checkRules first", /checkRules\(rules\)/.test(modSrc) && /send\(`\/api\/app\/community\/\$\{head\.id\}`, "PATCH", \{ rules: checked\.value \}\)/.test(modSrc))
+  check("only the owner and admins edit the rules; a moderator reads them", /const canEdit = head\.can\.manage_settings === true/.test(modSrc) && can("moderator", "review_reports") && !can("moderator", "manage_settings"))
+  check("removing reported content goes through the moderation route", /send\(`\$\{base\}\/moderation`, "POST", \{ action: "remove", targetType: r\.targetType, targetId: r\.targetId/.test(modSrc))
+  check("an author action from a report resolves the report", /fromReport\.current = r/.test(modSrc) && /setStatus\(r, "resolved"/.test(modSrc))
+  const modPage = code("app/app/community/[id]/moderation/page.tsx")
+  check("the Moderation page reads the restricted lists and the audit log only for roles that may use them", /restrict \? page\("muted"\)/.test(modPage) && /can\(ctx\.role, "view_audit"\) \? auditLog/.test(modPage) && /rules=\{Array\.isArray\(c\.rules\)/.test(modPage))
+
+  /* ── Gallery ─────────────────────────────────────────────────────────── */
+  console.log("\ngallery")
+  const own = (u: unknown) => (typeof u === "string" && u.startsWith("https://abc.supabase.co/") ? u : null)
+  const pic = (n: number) => ({ type: "image", url: `https://abc.supabase.co/storage/v1/object/public/product-images/${n}.png` })
+  const good = checkGallery([pic(1), { type: "video", videoId: UID(60) }, pic(2)], own)
+  check("pictures and videos are kept in order", good.ok && good.value.map((g) => g.type).join(",") === "image,video,image")
+  check("at most twelve", GALLERY_MAX === 12 && checkGallery(Array.from({ length: 12 }, (_, i) => pic(i)), own).ok && !checkGallery(Array.from({ length: 13 }, (_, i) => pic(i)), own).ok)
+  check("a picture from anywhere else is refused", !checkGallery([{ type: "image", url: "https://evil.example.com/x.png" }], own).ok && !checkGallery([{ type: "image", url: "javascript:alert(1)" }], own).ok)
+  check("a video is an id, nothing else", !checkGallery([{ type: "video", videoId: "https://youtube.com/x" }], own).ok)
+  check("anything that is not a picture or a video is refused, and so is a gallery that is not a list", !checkGallery([{ type: "file", url: pic(1).url }], own).ok && !checkGallery({ 0: pic(1) }, own).ok)
+  check("the same picture twice is kept once", (() => { const r = checkGallery([pic(1), pic(1)], own); return r.ok && r.value.length === 1 })())
+  check("moving a tile moves only it", moveItem(["a", "b", "c", "d"], 1, 2).join("") === "acbd" && moveItem(["a", "b", "c"], 2, 0).join("") === "cab" && moveItem(["a", "b"], 5, 0).join("") === "ab")
+  check("the gallery is a setting only the owner and admins change", !/field === "gallery"/.test(creatorSrc) && /return "manage_settings"\s*\}/.test(creatorSrc) && !can("moderator", "manage_settings") && can("admin", "manage_settings"))
+  const vdb = fakeDb({
+    media_videos: [
+      { id: UID(60), community_id: COMMUNITY_ID, status: "ready" },
+      { id: UID(61), community_id: "another", status: "ready" },
+      { id: UID(62), community_id: COMMUNITY_ID, status: "failed" },
+    ],
+  })
+  check("a video of this community is accepted", (await checkGalleryForCommunity(vdb, COMMUNITY_ID, [{ type: "video", videoId: UID(60) }])).ok)
+  check("a video of another community is refused", !(await checkGalleryForCommunity(vdb, COMMUNITY_ID, [{ type: "video", videoId: UID(61) }])).ok)
+  check("a video that failed is refused", !(await checkGalleryForCommunity(vdb, COMMUNITY_ID, [{ type: "video", videoId: UID(62) }])).ok)
+  check("a picture from anywhere but our storage is refused by the route's check", !(await checkGalleryForCommunity(vdb, COMMUNITY_ID, [{ type: "image", url: "https://evil.example.com/x.png" }])).ok && (await checkGalleryForCommunity(vdb, COMMUNITY_ID, [pic(4)])).ok)
+  const gdb = fakeDb({ communities: [{ id: COMMUNITY_ID, slug: "makers", name: "Makers" }] })
+  const savedGallery = await saveGallery(gdb, COMMUNITY_ID, [pic(3) as { type: "image"; url: string }])
+  const write = gdb.log.find((l) => l.table === "communities" && l.op === "update")
+  check("a gallery is saved in communities.gallery", savedGallery.ok && JSON.stringify((write?.payload as Record<string, unknown>)?.gallery) === JSON.stringify([pic(3)]))
+  const before85 = fakeDb({ communities: [] }, { failWith: { communities: { code: "42703", message: 'column "gallery" of relation "communities" does not exist' } } })
+  const missingColumn = await saveGallery(before85, COMMUNITY_ID, [pic(3) as { type: "image"; url: string }])
+  check("before the column exists the answer says to run the update", missingColumn.ok === false && missingColumn.status === 409 && missingColumn.error === GALLERY_NOT_READY && /Run the update/.test(GALLERY_NOT_READY))
+  const settingsBody = creatorSrc.slice(creatorSrc.indexOf("export async function updateSettings"), creatorSrc.indexOf("async function ensureFreeDefault"))
+  check("the route checks the gallery before it writes anything, and saves it first", /checkGalleryForCommunity\(db, c\.id, b\.gallery\)/.test(settingsBody) && settingsBody.indexOf("checkGalleryForCommunity") < settingsBody.indexOf("saveGallery(db, c.id, gallery)") && settingsBody.indexOf("saveGallery(db, c.id, gallery)") < settingsBody.indexOf('db.from("communities").update(patch)'))
+  check("a failed gallery save answers its own status and words", /if \(!g\.ok\) return no\(g\.status, g\.error, "gallery"\)/.test(settingsBody))
+  const galleryEditor = code("components/community/creator/gallery-editor.tsx")
+  check("pictures upload like the logo and cover, videos through the community's video upload", /new DirectUploader\(\{ file: j\.file, folder: "product-images"/.test(galleryEditor) && /uploadCommunityVideo\(\{ endpoint: `\/api\/app\/community\/\$\{communityId\}\/videos`/.test(galleryEditor))
+  check("tiles reorder by dragging, by arrows and from a phone's menu", /draggable/.test(galleryEditor) && /onDrop=/.test(galleryEditor) && /Move \$\{i \+ 1\} later/.test(galleryEditor) && /label: "Move later"/.test(galleryEditor))
+  check("Save waits while a file is still uploading", /onBusy=\{setUploading\}/.test(code("components/community/creator/settings-section.tsx")) && /busy=\{busy \|\| uploading\}/.test(code("components/community/creator/settings-section.tsx")))
+  check("the editor says so while the database has no gallery yet", /galleryReady: gallery\.ready/.test(creatorSrc) && /if \(!ready\)/.test(galleryEditor))
+
+  /* ── Settings and the shell ──────────────────────────────────────────── */
+  console.log("\nsettings")
+  check("old tab names land on the tab that holds them now", settingsTabOf("general") === "page" && settingsTabOf("discovery") === "access" && settingsTabOf("gamification") === "gamification" && settingsTabOf("nonsense") === "page" && settingsTabOf(undefined) === "page")
+  check("Gamification is a Settings tab, not a section of its own", !/id: "gamification"/.test(code("components/community/creator/community-shell.tsx")) && /redirect\(`\/app\/community\/\$\{ctx\.community\.id\}\/settings\?tab=gamification`\)/.test(code("app/app/community/[id]/gamification/page.tsx")))
+  check("lists are one card: views and actions in its first row (ListCard)", ["members", "moderation", "feed", "events", "spaces", "classroom"].every((f) => /<ListCard/.test(code(`components/community/creator/${f}-section.tsx`))))
 
   /* ── Routes ──────────────────────────────────────────────────────────── */
   console.log("\nroutes")

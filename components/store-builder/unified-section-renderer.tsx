@@ -2645,6 +2645,14 @@ export interface UnifiedShopHeaderProps {
   reviewAverage?: number
   followerCount?: number
   /**
+   * FOLLOWERS, FOLLOWING AND THE FOLLOW BUTTON, under the meta row, on the
+   * LIVE page only (components/profile/profile-social.tsx, filled by the
+   * page). When it is given, the follower count leaves the meta row: the
+   * slot draws it, tappable, beside the following count, and the same
+   * number is not printed twice.
+   */
+  followRow?: React.ReactNode
+  /**
    * THE COLOUR SCHEME'S TYPE COLOURS, resolved by the page.
    *
    * This block painted itself from `settings.colors.textColor`, falling back
@@ -2693,6 +2701,7 @@ export function UnifiedShopHeader({
   reviewCount = 0,
   reviewAverage = 0,
   followerCount = 0,
+  followRow,
   surface,
   badges,
 }: UnifiedShopHeaderProps) {
@@ -3343,7 +3352,7 @@ export function UnifiedShopHeader({
                 )
               }
 
-              if ((settings.showFollowers ?? true) && followerCount > 0) {
+              if (!followRow && (settings.showFollowers ?? true) && followerCount > 0) {
                 parts.push(
                   <span key="followers" className="flex items-center gap-1.5">
                     <Users className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
@@ -3420,6 +3429,12 @@ export function UnifiedShopHeader({
               </div>
             )
           })()}
+
+          {followRow ? (
+            <div className={cn("w-full px-4", isMobile ? "mt-2" : "mt-3")} style={{ color: headingColor }} data-storefront-follow="">
+              {followRow}
+            </div>
+          ) : null}
         </div>
       </SectionContainer>
     </div>
