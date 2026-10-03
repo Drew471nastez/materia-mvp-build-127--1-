@@ -62,6 +62,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
+    /* A product that sells a community tier: signed in, approved first when the community asks, never twice (lib/communities/server/join.ts). */
+    if ((product as { community_id?: string | null }).community_id) {
+      const { checkoutGate } = await import("@/lib/communities/server/join")
+      const gate = await checkoutGate(product as { id: string; community_id?: string | null }, user?.id ?? null, admin)
+      if (gate.refusal) return NextResponse.json({ error: gate.refusal.error, code: gate.refusal.code, url: gate.refusal.url }, { status: gate.refusal.status })
+    }
     /* Free means free: not a pay-what-you-want product (its price is in
        `pwyw_min_price_cents`, with `price_cents` left at 0), and not a
        product with a paid option, whose files an order without a variant

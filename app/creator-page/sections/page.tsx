@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { StoreBuilderEditor } from "@/components/store-builder/store-builder-editor"
 import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
+import { excludingCommunityProducts } from "@/lib/communities/listing"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { creatorCommunityCards } from "@/lib/communities/server/public"
 
 export const metadata: Metadata = {
   title: "Sections and theme - Storelib",
@@ -33,7 +36,9 @@ export default async function CreatorPageEditor({
     redirect("/onboarding")
   }
 
-const { data: products, error: productsError } = await supabase
+/* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
+const { data: products, error: productsError } = await excludingCommunityProducts((exclude) => {
+  let q = supabase
   .from("products")
   .select(`
     id,
@@ -65,7 +70,9 @@ const { data: products, error: productsError } = await supabase
   `)
   .eq("creator_id", creator.id)
   .eq("status", "published")
-  .order("created_at", { ascending: false })
+  if (exclude) q = q.is("community_id", null)
+  return q.order("created_at", { ascending: false })
+})
 
 if (productsError) {
   console.error("[store-builder] Products query error:", productsError)
@@ -94,6 +101,9 @@ const productsData =
     categories: p.product_categories?.map((pc: any) => pc.category).filter(Boolean) || [],
   })) || []
 
+  /* The Communities tab the live page draws: real cards, only while communities are switched on. */
+  const communities = (await communitiesEnabled()) ? await creatorCommunityCards(creator.id).catch(() => []) : []
+
   const initialPageType = pageType === "product" ? "product" : "shop"
   const initialProductId = productId || null
 
@@ -117,6 +127,7 @@ const productsData =
       products={productsData}
       initialPageType={initialPageType}
       initialProductId={initialProductId}
+      communities={communities}
     />
   )
 }

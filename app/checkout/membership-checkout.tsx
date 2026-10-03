@@ -55,6 +55,8 @@ export interface MembershipCheckoutProps {
   initialInterval?: BillingInterval
   /** The plans could not be read: part 75 has not run. */
   unavailable?: boolean
+  /** Where a signed in member lands once paid, instead of the membership: its community (app/checkout/page.tsx). */
+  returnTo?: string | null
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -73,7 +75,7 @@ function trialEndsOn(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
-export default function MembershipCheckout({ product, creator, plan, userEmail, isLoggedIn, initialInterval, unavailable = false }: MembershipCheckoutProps) {
+export default function MembershipCheckout({ product, creator, plan, userEmail, isLoggedIn, initialInterval, unavailable = false, returnTo = null }: MembershipCheckoutProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const offers: BillingInterval[] = [plan.monthlyPriceCents ? "month" : null, plan.yearlyPriceCents ? "year" : null].filter(Boolean) as BillingInterval[]
@@ -103,11 +105,13 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
   const finishOn = React.useCallback(
     (membershipId: string | null, wasTrial: boolean) => {
       setDone({ membershipId, trial: wasTrial })
-      if (isLoggedIn && membershipId) {
+      if (isLoggedIn && returnTo) {
+        window.setTimeout(() => router.replace(returnTo), 900)
+      } else if (isLoggedIn && membershipId) {
         window.setTimeout(() => router.replace(`/library/memberships/${membershipId}?welcome=1`), 900)
       }
     },
-    [isLoggedIn, router],
+    [isLoggedIn, returnTo, router],
   )
 
   /** After Stripe confirmed (or to confirm in the app): the membership brought up to date, then where to go. */

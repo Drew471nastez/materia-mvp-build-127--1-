@@ -6,6 +6,7 @@ import { CategoryPageClient } from "@/components/explore/category-page-client"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
+import { excludingCommunityProducts } from "@/lib/communities/listing"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -115,12 +116,15 @@ export default async function CategoryPage({ params, searchParams }: Props) {
 
   // Fetch ALL published products - same query as the working /explore page
   // Category filtering is done client-side for relevance-based sorting
-  const { data: products, error: productsError } = await supabase
-    .from("products")
-    .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(100)
+  /* A product that sells a community tier is found through its community, not here (lib/communities/listing). */
+  const { data: products, error: productsError } = await excludingCommunityProducts((exclude) => {
+    let q = supabase
+      .from("products")
+      .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
+      .eq("status", "published")
+    if (exclude) q = q.is("community_id", null)
+    return q.order("created_at", { ascending: false }).limit(100)
+  })
 
   if (productsError) {
     console.error("[CategoryPage] Products error:", productsError.message)

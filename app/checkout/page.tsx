@@ -34,8 +34,31 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     notFound()
   }
 
+  /*
+    A PRODUCT THAT SELLS A COMMUNITY TIER is bought by a signed in person who
+    may join: approved first when the community asks for approval, and never
+    by somebody who is already in (lib/communities/server/join.ts checkoutGate,
+    which the payment routes ask again). Anyone else is sent where they
+    belong: sign in, or the community's own page. After paying, they land in
+    the community, not on a receipt: the address is the product's own
+    community, worked out here, so `return` cannot point anywhere else.
+  */
+  let communityReturn: { success: string; cancel: string } | null = null
+  if ((product as { community_id?: string | null }).community_id) {
+    const { checkoutGate } = await import("@/lib/communities/server/join")
+    const {
+      data: { user: buyer },
+    } = await supabase.auth.getUser()
+    const gate = await checkoutGate(product as { id: string; community_id?: string | null }, buyer?.id ?? null)
+    if (gate.refusal) redirect(gate.refusal.url)
+    if (gate.community) {
+      const { communityPath, welcomePath } = await import("@/components/community/public/paths")
+      communityReturn = { success: welcomePath(gate.community.slug), cancel: communityPath(gate.community.slug) }
+    }
+  }
+
   /* A membership is joined, not bought once: its own checkout (./membership-checkout.tsx). */
-  if (product.type === "membership") return membershipCheckoutContent({ product, interval })
+  if (product.type === "membership") return membershipCheckoutContent({ product, interval, returnTo: communityReturn?.success ?? null })
 
   /*
     EVERYTHING ELSE AT ONCE. The creator, the option asked for, who is
@@ -171,8 +194,8 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}
-      returnTo={returns.success}
-      backTo={returns.cancel}
+      returnTo={communityReturn?.success ?? returns.success}
+      backTo={communityReturn?.cancel ?? returns.cancel}
       selectedVariant={selectedVariant ? {
         id: selectedVariant.id,
         name: selectedVariant.name,
@@ -201,7 +224,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
  * that cannot be read (part 75 not run yet) draws the page with Join
  * switched off and a sentence saying so.
  */
-async function membershipCheckoutContent({ product, interval }: { product: Record<string, any>; interval?: string }) {
+async function membershipCheckoutContent({ product, interval, returnTo = null }: { product: Record<string, any>; interval?: string; returnTo?: string | null }) {
   const supabase = await createClient()
   const [creatorRead, userRead, planRead] = await Promise.all([
     supabase.from("creators").select("id, user_id, slug").eq("id", product.creator_id).single(),
@@ -226,6 +249,7 @@ async function membershipCheckoutContent({ product, interval }: { product: Recor
       isLoggedIn={!!user}
       initialInterval={interval === "year" ? "year" : interval === "month" ? "month" : undefined}
       unavailable={!!planRead.error || !plan}
+      returnTo={returnTo}
     />
   )
 }

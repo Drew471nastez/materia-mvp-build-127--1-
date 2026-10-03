@@ -80,6 +80,10 @@ export async function POST(request: Request) {
   if (!product || product.status !== "published" || product.type !== "membership" || !plan) {
     return NextResponse.json({ error: "This membership is not available." }, { status: 404 })
   }
+  /* A membership that sells a community tier: signed in, approved first when the community asks, never a second one (lib/communities/server/join.ts). */
+  const { checkoutGate } = await import("@/lib/communities/server/join")
+  const gate = await checkoutGate({ id: product.id }, user?.id ?? null, admin)
+  if (gate.refusal) return NextResponse.json({ error: gate.refusal.error, code: gate.refusal.code, url: gate.refusal.url }, { status: gate.refusal.status })
   const amount = interval === "year" ? plan.yearly_price_cents : plan.monthly_price_cents
   if (!amount) return NextResponse.json({ error: `This membership has no ${interval === "year" ? "yearly" : "monthly"} price. Choose the other one.` }, { status: 400 })
 

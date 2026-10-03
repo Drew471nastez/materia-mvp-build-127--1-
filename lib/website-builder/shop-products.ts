@@ -51,6 +51,7 @@
  * (lib/checkout/return-url.ts). A section never builds one by hand.
  */
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
+import { withoutCommunityProducts } from "@/lib/communities/listing"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
@@ -300,6 +301,8 @@ interface VariantQuery {
 type Db = { from: (table: string) => { select: (cols: string) => Filter & Partial<VariantQuery> } }
 
 /** Everything the data API reads, and what an older database can answer. */
+/* With the column that marks a product selling a community tier, which the shop does not list (lib/communities/listing). */
+const PRODUCT_COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id"
 const PRODUCT_COLUMNS = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents"
 const PRODUCT_COLUMNS_MINIMAL = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status"
 const VARIANT_COLUMNS = "id, product_id, name, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, position"
@@ -343,7 +346,7 @@ export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_P
   const n = Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS))
   try {
     let rows: ProductRow[] | null = null
-    for (const cols of [PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
+    for (const cols of [PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
       const { data, error } = await db
         .from("products")
         .select(cols)
@@ -352,7 +355,7 @@ export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_P
         .order("created_at", { ascending: false })
         .limit(n)
       if (error) continue
-      rows = (data ?? []) as ProductRow[]
+      rows = withoutCommunityProducts((data ?? []) as ProductRow[])
       break
     }
     if (!rows) return []
