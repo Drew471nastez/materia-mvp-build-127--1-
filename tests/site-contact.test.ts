@@ -227,7 +227,8 @@ async function main() {
     const noSupport = contactDb({ support: null })
     check("and without one, the account's email", (await creatorInbox(noSupport, CREATOR, null)) === "owner@maralind.com")
     const inbox = creatorEmail({ store: "Maralind", site: "maralind.storelib.com", contactUrl: "https://storelib.com/app/emails", msg: { creatorId: CREATOR, name: "", email: VISITOR_EMAIL, subject: "", message: "hi", consent: true, page: "home", sectionId: null } as ContactMessage })
-    check("with no name the subject names the address", inbox.subject === `Message from ${VISITOR_EMAIL}`)
+    /* "New message from <name> on <site>", the owner's words, with the address when there is no name. */
+    check("with no name the subject names the address, and the website", inbox.subject === `New message from ${VISITOR_EMAIL} on maralind.storelib.com`, inbox.subject)
   }
   {
     const db = contactDb({ messages: false })

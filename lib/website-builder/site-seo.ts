@@ -46,7 +46,7 @@ export const MAX_SITEMAP_URLS = 50000
  * sign in and Wishlist pages are one visitor's, and a creator who arranged
  * them in the builder has them stored like any page, so they are named here.
  */
-const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist"])
+const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist", "password"])
 
 /** The address of a page of the site, on the site's own origin. */
 export function pageUrl(origin: string, pageKey: string): string {

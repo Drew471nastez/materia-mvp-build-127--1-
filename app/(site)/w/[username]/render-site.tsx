@@ -176,9 +176,9 @@ export async function siteMetadata(
  * creator built in the website builder, and nothing else: their profile and
  * products live at `storelib.com/<name>`, which is a different thing.
  *
- * NOTHING IS "COMING SOON". A creator with nothing published yet has a
- * perfectly good page already — the creator page — and a visitor typing the
- * subdomain goes there rather than to a placeholder. A published site is
+ * A creator with nothing published yet gets a coming soon page at the
+ * address: what is true, a box to be told when it opens, and the creator
+ * page as a link (./not-published.tsx). A published site is
  * served from the cache in lib/website-builder/published-site.ts; a
  * preview link (`?preview=<token>`) takes the slow, uncached path on
  * purpose, because it is one person looking at unpublished work.
@@ -215,10 +215,11 @@ export async function renderSite(
    * to redirect to storelib.com/<name>, which made the website's address and
    * the creator's page look like one address with two spellings: you typed
    * the site, you got the profile, and the bar rewrote itself to say you had
-   * asked for the profile. The page below says what is true and offers the
-   * creator page as a link. See app/(site)/w/[username]/not-published.tsx.
+   * asked for the profile. The page below says the site is coming, takes an
+   * email for when it opens, and offers the creator page as a link. See
+   * app/(site)/w/[username]/not-published.tsx.
    */
-  if (found.kind === "unpublished") return <SiteNotPublished username={username} displayName={found.displayName} />
+  if (found.kind === "unpublished") return <SiteNotPublished username={username} displayName={found.displayName} creatorId={(await creatorByName(username))?.creatorId ?? null} />
 
   const { site } = found
   const template = templateForPage(pageKey)

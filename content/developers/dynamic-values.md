@@ -301,6 +301,8 @@ The addresses every Storelib website answers on. Link to them by name rather tha
 | `routes.account_verify_url` | Where the code form posts `code`. Signs the visitor in. |
 | `routes.account_profile_url` | Where the account page's form posts `name`. |
 | `routes.account_logout_url` | `/account/logout`. Post a form to it: `<form method="post" action="{{ routes.account_logout_url }}" data-storelib-form="native">` |
+| `routes.password_url` | `/password`, the page a website shows while its owner asks visitors for a password. |
+| `routes.password_enter_url` | Where the password page's form posts `password` (and `return`). Lets the visitor in for thirty days. |
 
 Post these forms with `data-storelib-form="native"`, so the browser sends them and the page follows where the answer leads.
 

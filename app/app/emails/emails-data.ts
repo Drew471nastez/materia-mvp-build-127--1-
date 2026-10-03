@@ -7,9 +7,9 @@
  */
 import { createClient } from "@/lib/supabase/client"
 import type { RecipientCounts } from "@/lib/email-campaigns/state"
-import type { CampaignRow, EmailsTab, FlowRow, FlowTotals, OverviewStats, SubscriberRow } from "./emails-home"
+import type { CampaignRow, EmailsTab, FlowRow, FlowTotals, MessageRow, OverviewStats, SubscriberRow } from "./emails-home"
 
-export const TABS: EmailsTab[] = ["subscribers", "flows", "published", "scheduled", "drafts"]
+export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "published", "scheduled", "drafts"]
 
 export function isTab(v: unknown): v is EmailsTab {
   return typeof v === "string" && (TABS as string[]).includes(v)
@@ -92,6 +92,40 @@ export async function loadSubscribers(): Promise<SubscribersData> {
   return { rows: list, buyers }
 }
 
+export interface MessagesData {
+  rows: MessageRow[]
+  /** The messages table is there (supabase/sql/run-now/30). */
+  available: boolean
+}
+
+const MESSAGE_COLUMNS = "id, email, name, subject, message, site, page, consent, subscriber_id, created_at"
+
+/**
+ * What people wrote through the contact forms on the creator's websites
+ * (lib/site-contact), newest first. Read through the creator's own session:
+ * row level security keeps it to their messages, and the creator id is named
+ * as well. `read_at` comes with part 92; before it, every message reads as
+ * read rather than the tab failing.
+ */
+export async function loadMessages(): Promise<MessagesData> {
+  const me = await currentCreator()
+  if (!me) throw new Error("Sign in again to see your messages.")
+  const supabase = createClient()
+  const read = (columns: string) =>
+    supabase.from("site_contact_messages").select(columns).eq("creator_id", me.creatorId).order("created_at", { ascending: false }).limit(500)
+  let { data, error } = await read(`${MESSAGE_COLUMNS}, read_at`)
+  if (error && /read_at|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
+    ;({ data, error } = await read(MESSAGE_COLUMNS))
+    if (!error) return { available: true, rows: ((data ?? []) as unknown as MessageRow[]).map((m) => ({ ...m, read_at: m.created_at })) }
+  }
+  if (error) {
+    /* Before the contact form's own part has run there is no table: nothing to show, said plainly. */
+    if (/42P01|PGRST205|does not exist/i.test(`${error.code} ${error.message}`)) return { available: false, rows: [] }
+    throw new Error("Could not load your messages.")
+  }
+  return { available: true, rows: (data ?? []) as unknown as MessageRow[] }
+}
+
 export async function loadFlows(): Promise<FlowRow[]> {
   const me = await currentCreator()
   if (!me) throw new Error("Sign in again to see your automations.")
@@ -146,6 +180,8 @@ export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
   switch (tab) {
     case "subscribers":
       return loadSubscribers()
+    case "messages":
+      return loadMessages()
     case "flows":
       return loadFlows()
     case "published":
