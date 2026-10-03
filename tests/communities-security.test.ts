@@ -15,8 +15,9 @@
  *             may call (join, an invite), or requireCreator to create one.
  *             Never a role compared as a string in the route.
  *   HOW OFTEN every write (POST, PUT, PATCH, DELETE) is rate limited with
- *             lib/api/rate-limit's rateLimit, directly or through a helper
- *             in the same file that calls it.
+ *             lib/api/rate-limit's rateLimit (or, for an upload, the upload
+ *             limiter lib/storage/upload-guard uploadRateLimit, as ARCH says),
+ *             directly or through a helper in the same file that calls it.
  *   WHAT      nothing is read from the database before the gate has said
  *             yes, and no route selects every column.
  *
@@ -88,10 +89,10 @@ export function auditRoute(source: string): RouteProblem[] {
   const limiters = new Set<string>()
   for (const f of src.matchAll(/(?:async\s+)?function\s+(\w+)\s*\([^)]*\)[^{]*\{/g)) {
     if (/^(GET|POST|PUT|PATCH|DELETE)$/.test(f[1])) continue
-    if (/\brateLimit\s*\(/.test(block(src, f.index! + f[0].length - 1))) limiters.add(f[1])
+    if (/\b(?:rateLimit|uploadRateLimit)\s*\(/.test(block(src, f.index! + f[0].length - 1))) limiters.add(f[1])
   }
   for (const f of src.matchAll(/const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*(?::[^=]+)?=>\s*\{/g)) {
-    if (/\brateLimit\s*\(/.test(block(src, f.index! + f[0].length - 1))) limiters.add(f[1])
+    if (/\b(?:rateLimit|uploadRateLimit)\s*\(/.test(block(src, f.index! + f[0].length - 1))) limiters.add(f[1])
   }
 
   for (const h of handlers) {
@@ -111,7 +112,7 @@ export function auditRoute(source: string): RouteProblem[] {
     if (/\.role\s*===?\s*["'](owner|admin|moderator|member)["']|["'](owner|admin|moderator)["']\s*===?\s*\w+\.role/.test(body)) problems.push({ handler: name, problem: "compares a role as a string instead of asking can()" })
 
     if (WRITES.has(name)) {
-      const limited = /\brateLimit\s*\(/.test(body) || [...limiters].some((l) => new RegExp(`\\b${l}\\s*\\(`).test(body))
+      const limited = /\b(?:rateLimit|uploadRateLimit)\s*\(/.test(body) || [...limiters].some((l) => new RegExp(`\\b${l}\\s*\\(`).test(body))
       if (!limited) problems.push({ handler: name, problem: "writes without a rate limit (rateLimit from lib/api/rate-limit)" })
     }
   }

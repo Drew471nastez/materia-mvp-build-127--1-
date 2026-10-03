@@ -26,6 +26,7 @@ import { readFileSync } from "node:fs"
 import { stripComments } from "./_source"
 import { applyAdminAction, chunks, communityRevenue, communityTotals, escalatedReports, listCommunities, revenueOfRows, searchPattern, REPORT_META_COLUMNS } from "@/lib/communities/server/admin"
 import { communityEmailKey, communityEmailKind, sendCommunityEmail, COMMUNITY_EMAIL_KINDS } from "@/lib/communities/server/email"
+import { announcementEmailees } from "@/lib/communities/server/jobs/fanout_announcement"
 import { communityCardsFor, loadCommunityBlock, loadCommunityBlocks, storefrontCommunity } from "@/lib/communities/server/blocks"
 import { BLOCK_LIMITS, DEFAULT_BLOCK_TOGGLES, communityIdsIn, excerptOf, firstName, whyHidden } from "@/lib/communities/blocks"
 import { homeTotals } from "@/lib/analytics/home-figures"
@@ -417,6 +418,18 @@ async function main() {
       const last = db.tables.notification_events[db.tables.notification_events.length - 1]
       return last.payload.courseTitle === "Base miles" && !("nested" in last.payload)
     })())
+    const fan = code("lib/communities/server/jobs/fanout_announcement.ts")
+    check("the announcement fan out emails through sendCommunityEmail, once per member and post", /sendCommunityEmail\(\s*db,\s*"community\.announcement"/.test(fan) && /key: `announce:\$\{postId\}:\$\{userId\}`/.test(fan) && /if \(reason === "announcement"\)/.test(fan))
+    check("only to members with announcement emails on and notifications not off, never the author", announcementEmailees([
+      { user_id: "a", notify_level: "all", email_announcements: true },
+      { user_id: "b", notify_level: "none", email_announcements: true },
+      { user_id: "c", notify_level: "important", email_announcements: false },
+      { user_id: "d", notify_level: "mentions", email_announcements: true },
+    ], "d").join() === "a")
+    const reminder = code("lib/communities/server/jobs/event_reminder.ts")
+    check("event reminders email through sendCommunityEmail, not lib/mail, and only to fresh rows with event emails on", /sendCommunityEmail\(\s*db,\s*"community\.event_reminder"/.test(reminder) && !/lib\/mail|sendEmail\(/.test(reminder) && /fresh\.has\(m\.user_id\) && m\.email_events !== false/.test(reminder) && /key: `event:\$\{e\.id\}:\$\{window\}:\$\{e\.starts_at\}`/.test(reminder))
+    const csp = read("lib/security/csp.ts")
+    check("the browser may upload community videos to Mux, Cloudflare Stream and Bunny", ["https://storage.googleapis.com", "https://*.mux.com", "https://upload.videodelivery.net", "https://upload.cloudflarestream.com", "https://video.bunnycdn.com"].every((h) => csp.includes(`"${h}"`) && read("vercel.json").includes(h)))
     const src = code("lib/communities/server/email.ts")
     check("it never throws and goes through the outbox", /storeOf\(db\)\.insertEvent\(/.test(src) && /catch \(e\)/.test(src))
   }
