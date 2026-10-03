@@ -1,0 +1,50 @@
+"use client"
+
+import * as React from "react"
+
+/**
+ * ===========================================================================
+ *  A WHITE PAGE GETS A WHITE TOP
+ * ===========================================================================
+ * The site's theme-color is black and /app paints the native canvas #111, so
+ * a full screen white page on a phone (Set up payments, a community opened
+ * from a shared link) sat under a black strip: the browser's bar or the
+ * status bar zone above the notch. While `active`, this paints all three to
+ * match the page and puts each back as it was when the page goes:
+ *
+ *   the browser bar      <meta name="theme-color">
+ *   the page canvas      <html> background, which fills the notch zone
+ *   the status bar       dark text on light, in the phone app
+ */
+export function useLightChrome(active: boolean, color = "#ffffff") {
+  React.useEffect(() => {
+    if (!active || typeof document === "undefined") return
+    const html = document.documentElement
+    const metas = Array.from(document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))
+    const added = metas.length === 0 ? document.head.appendChild(Object.assign(document.createElement("meta"), { name: "theme-color" })) : null
+    const all = added ? [added] : metas
+    const prevContent = all.map((m) => m.getAttribute("content"))
+    const prevBg = html.style.backgroundColor
+    all.forEach((m) => m.setAttribute("content", color))
+    html.style.backgroundColor = color
+
+    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+    const native = Boolean(cap?.isNativePlatform?.())
+    if (native) {
+      void import("@capacitor/status-bar")
+        .then(({ StatusBar, Style }) => StatusBar.setStyle({ style: Style.Light }))
+        .catch(() => {})
+    }
+
+    return () => {
+      if (added) added.remove()
+      else all.forEach((m, i) => (prevContent[i] == null ? m.removeAttribute("content") : m.setAttribute("content", prevContent[i] as string)))
+      html.style.backgroundColor = prevBg
+      if (native) {
+        void import("@capacitor/status-bar")
+          .then(({ StatusBar, Style }) => StatusBar.setStyle({ style: Style.Dark }))
+          .catch(() => {})
+      }
+    }
+  }, [active, color])
+}

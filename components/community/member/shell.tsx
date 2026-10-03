@@ -22,7 +22,7 @@ import type { ShellSection } from "./view-types"
 async function CommunityShellAsync({ community, viewer, active, children }: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) {
   const data = await shellData(community.id, viewer, community)
   return (
-    <ShellFrame community={data.community} viewer={viewerView(viewer)} spaces={data.spaces} unreadNotifications={data.unreadNotifications} active={active}>
+    <ShellFrame community={data.community} viewer={viewerView(viewer)} spaces={data.spaces} unreadNotifications={data.unreadNotifications} unreadMessages={data.unreadMessages} active={active}>
       {children}
     </ShellFrame>
   )

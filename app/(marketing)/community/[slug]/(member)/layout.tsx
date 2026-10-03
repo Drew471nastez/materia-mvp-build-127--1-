@@ -3,10 +3,9 @@ import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { memberPage } from "@/components/community/member/data"
 import { MemberStateScreen } from "@/components/community/member/member-state"
-import { CommunityShell } from "@/components/community/member/shell"
 
 /**
- * THE MEMBER AREA'S FRAME, for every page in this route group: a space,
+ * THE MEMBER AREA'S DOOR, for every page in this route group: a space,
  * a post, the members, the leaderboard, saved posts, notifications, and the
  * classroom and events pages (W4) drawn inside it. A route group does not
  * change the address: (member)/space/[space] is /community/<slug>/space/<x>.
@@ -28,13 +27,8 @@ export default async function CommunityMemberLayout({ children, params }: { chil
   const { slug } = await params
   const page = await memberPage(slug)
   if (page.state === "off" || page.state === "missing" || !page.community) notFound()
-  if (page.state === "member" && page.viewer) {
-    return (
-      <CommunityShell community={page.community} viewer={page.viewer}>
-        {children}
-      </CommunityShell>
-    )
-  }
+  /* The frame is drawn once, by the community's own layout above this one, so it stays put between pages. */
+  if (page.state === "member" && page.viewer) return children
   if (page.state === "signed_out" || page.state === "not_member") redirect(`/community/${page.community.slug}/about`)
   return <MemberStateScreen state={page.state} community={page.community} />
 }

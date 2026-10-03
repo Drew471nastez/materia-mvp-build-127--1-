@@ -34,10 +34,13 @@ import { BookmarkIcon as SavedLine } from "@solar-icons/react/linear/bookmark"
 import { BookmarkIcon as SavedBold } from "@solar-icons/react/bold/bookmark"
 import { BellIcon as BellLine } from "@solar-icons/react/linear/bell"
 import { BellIcon as BellBold } from "@solar-icons/react/bold/bell"
+import { ChatRoundDotsIcon as ChatLine } from "@solar-icons/react/linear/chat-round-dots"
+import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-round-dots"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { memberCountLabel } from "@/lib/communities/format"
 import type { ViewerView } from "@/lib/communities/types"
+import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
 import { navEntries, sectionFromPath } from "./nav"
 import { useOnlineCount, useUnreadNotifications } from "./realtime"
 import { SpaceIcon } from "./space-icon"
@@ -65,20 +68,24 @@ export interface ShellFrameProps {
   viewer: ViewerView
   spaces: SpaceView[]
   unreadNotifications: number
+  /** Conversations with something unread; null when member messages are not available here. */
+  unreadMessages?: number | null
   active?: ShellSection
   children: React.ReactNode
 }
 
-export function ShellFrame({ community, viewer, spaces, unreadNotifications, active, children }: ShellFrameProps) {
+export function ShellFrame({ community, viewer, spaces, unreadNotifications, unreadMessages = null, active, children }: ShellFrameProps) {
   const pathname = usePathname()
   const current: ShellSection = active ?? sectionFromPath(pathname, community.slug)
   const staff = !!viewer.can.manage_members
   const entries = useMemo(() => navEntries(community, staff), [community, staff])
   const unread = useUnreadNotifications(community.id, viewer.userId, unreadNotifications)
+  const [messages, refreshMessages] = useUnreadMessages(community.id, viewer.userId, unreadMessages)
   const online = useOnlineCount(community.id, viewer.userId)
   const base = `/community/${community.slug}`
   const rootRef = useRef<HTMLDivElement>(null)
   const [sheet, setSheet] = useState(false)
+  const [chat, setChat] = useState<{ userId?: string } | null>(null)
 
   /* The platform header's height, measured once and shared with everything that sticks under it. */
   useLayoutEffect(() => {
@@ -96,14 +103,26 @@ export function ShellFrame({ community, viewer, spaces, unreadNotifications, act
     return () => ro.disconnect()
   }, [])
 
-  /* A new page closes the sheet. */
+  /* A new page closes the sheet. The messages panel is the member's, not the page's, so it stays. */
   useEffect(() => setSheet(false), [pathname])
+
+  /* "Message" on a member's page, or anywhere else, opens the panel. */
+  useEffect(() => {
+    const on = (e: Event) => setChat(((e as CustomEvent<{ userId?: string }>).detail ?? {}) as { userId?: string })
+    window.addEventListener(MESSAGES_EVENT, on)
+    return () => window.removeEventListener(MESSAGES_EVENT, on)
+  }, [])
 
   const activeSpace = current.startsWith("space:") ? spaces.find((s) => `space:${s.slug}` === current) : null
   const onlineLine = online !== null && online > 1 ? `${online} online` : null
+  /* Null until part 83 is in the database: no button rather than one that opens nothing. */
+  const canMessage = messages !== null
 
   return (
-    <div ref={rootRef} data-community-shell="" className="min-h-[calc(100svh-var(--community-top,0px))] bg-[#f8f9fa] [--community-top:0px]">
+    /* The platform header's real heights until it is measured below: at 0px
+       everything sticky started at the top of the window and snapped down a
+       frame later, which is the jump people saw on every load. */
+    <div ref={rootRef} data-community-shell="" className="min-h-[calc(100svh-var(--community-top,0px))] bg-[#f8f9fa] [--community-top:65px] lg:[--community-top:71px]">
       <div className="mx-auto flex w-full max-w-[1280px] gap-8 px-4 sm:px-6 lg:px-8">
         {/* ── The column, from 1024px ─────────────────────────────────── */}
         <aside data-community-rail="" className="hidden w-[232px] shrink-0 lg:block">
@@ -128,6 +147,7 @@ export function ShellFrame({ community, viewer, spaces, unreadNotifications, act
               {entries.map((e) => (
                 <RailLink key={e.key} href={e.href} label={e.label} icon={ICONS[e.key]} on={current === e.key} />
               ))}
+              {canMessage ? <RailButton label="Messages" icon={{ line: ChatLine, fill: ChatBold }} on={!!chat} count={messages ?? 0} onClick={() => setChat({})} /> : null}
               <RailLink href={`${base}/notifications`} label="Notifications" icon={ICONS.notifications} on={current === "notifications"} count={unread} />
             </nav>
 
@@ -160,7 +180,7 @@ export function ShellFrame({ community, viewer, spaces, unreadNotifications, act
         <div className="min-w-0 flex-1">
           {/* Below 1024px: the community, the bell, and the places as pills. */}
           <div className="lg:hidden" data-community-phone-bar="">
-            <div className="flex items-center gap-3 pb-2 pt-3">
+            <div className="flex items-center gap-2 pb-2 pt-3">
               <Link href={base} className="flex min-w-0 flex-1 items-center gap-2.5">
                 <CommunityMark community={community} size={32} />
                 <span className="min-w-0">
@@ -171,6 +191,14 @@ export function ShellFrame({ community, viewer, spaces, unreadNotifications, act
                   </span>
                 </span>
               </Link>
+              {canMessage ? (
+                <button type="button" onClick={() => setChat({})} aria-label={messages ? `Messages, ${messages} unread` : "Messages"} className={`${ICON_BTN} relative`} data-community-messages-button="">
+                  <ChatLine size={22} />
+                  {messages && messages > 0 ? (
+                    <span className="absolute right-1 top-1 min-w-[18px] rounded-full bg-[#1a1a2e] px-1 text-center text-[10.5px] font-semibold leading-[18px] text-white ring-2 ring-[#f8f9fa]">{countBadge(messages)}</span>
+                  ) : null}
+                </button>
+              ) : null}
               <Link href={`${base}/notifications`} aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className={`${ICON_BTN} relative -mr-1.5`} data-community-bell="">
                 {current === "notifications" ? <BellBold size={22} /> : <BellLine size={22} />}
                 {unread > 0 ? (
@@ -180,8 +208,16 @@ export function ShellFrame({ community, viewer, spaces, unreadNotifications, act
             </div>
           </div>
           <PhonePills entries={entries} current={current} spaces={spaces} activeSpace={activeSpace ?? null} onSpaces={() => setSheet(true)} />
-          {/* The classroom and events pages (their own worker's) draw only their body; the frame gives it the same room as the feed. */}
-          {current === "classroom" || current === "events" ? <div className="pb-16 pt-2 lg:pt-6" data-community-body="">{children}</div> : children}
+          {/*
+            EVERY PAGE ARRIVES THE SAME WAY: a short fade, keyed on the
+            address, so moving between Home, a space, Members and the rest
+            reads as one surface changing rather than a blink. Opacity only,
+            so nothing shifts and nothing reflows.
+          */}
+          <div key={pathname} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none">
+            {/* The classroom and events pages (their own worker's) draw only their body; the frame gives it the same room as the feed. */}
+            {current === "classroom" || current === "events" ? <div className="pb-16 pt-2 lg:pt-6" data-community-body="">{children}</div> : children}
+          </div>
         </div>
       </div>
 
@@ -192,6 +228,7 @@ export function ShellFrame({ community, viewer, spaces, unreadNotifications, act
           ))}
         </div>
       </BottomSheet>
+      {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
       <Toasts />
     </div>
   )
@@ -217,6 +254,25 @@ function RailLink({ href, label, icon, on, count = 0 }: { href: string; label: s
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count > 0 ? <span className="rounded-full bg-[#1a1a2e] px-1.5 text-[11px] font-semibold leading-[18px] text-white">{countBadge(count)}</span> : null}
     </Link>
+  )
+}
+
+/** A place in the rail that opens something here rather than going anywhere (Messages). */
+function RailButton({ label, icon, on, count = 0, onClick }: { label: string; icon: { line: IconComp; fill: IconComp }; on: boolean; count?: number; onClick: () => void }) {
+  const Icon = on ? icon.fill : icon.line
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-community-nav={label}
+      className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${
+        on ? "bg-[#e9ebee] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
+      }`}
+    >
+      <Icon size={18} className="shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      {count > 0 ? <span className="rounded-full bg-[#1a1a2e] px-1.5 text-[11px] font-semibold leading-[18px] text-white">{countBadge(count)}</span> : null}
+    </button>
   )
 }
 
@@ -276,18 +332,13 @@ function PhonePills({
     return () => ro.disconnect()
   }, [current])
   const unreadInSpaces = spaces.reduce((n, s) => n + s.unread, 0)
-  const mask =
-    edges.left && edges.right
-      ? "[mask-image:linear-gradient(to_right,transparent_0,black_20px,black_calc(100%-28px),transparent_100%)]"
-      : edges.right
-        ? "[mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent_100%)]"
-        : edges.left
-          ? "[mask-image:linear-gradient(to_right,transparent_0,black_20px)]"
-          : ""
   const [home, ...rest] = entries
   return (
     <nav aria-label="Community" data-community-pills="" className="sticky top-[var(--community-top,0px)] z-20 -mx-4 bg-[#f8f9fa]/95 py-2 backdrop-blur-[2px] sm:-mx-6 lg:hidden">
-      <div ref={trackRef} onScroll={measure} className={`overflow-x-auto overscroll-x-contain px-4 scrollbar-hide sm:px-6 ${mask}`}>
+      {/* The fade at each end is a layer OVER the row, not a mask on it: measuring the
+          scroll then changes nothing about how the row paints, so it never flickers. */}
+      <div className="relative">
+      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-4 scrollbar-hide sm:px-6">
         <div className="flex w-max items-center gap-2">
           <Link href={home.href} data-on={current === "home" ? "true" : "false"} aria-current={current === "home" ? "page" : undefined} className={`${PILL} ${current === "home" ? PILL_ON : PILL_OFF}`}>
             {home.label}
@@ -305,6 +356,9 @@ function PhonePills({
             </Link>
           ))}
         </div>
+      </div>
+      <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#f8f9fa] to-transparent transition-opacity duration-200 ${edges.left ? "opacity-100" : "opacity-0"}`} />
+      <span aria-hidden className={`pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f8f9fa] to-transparent transition-opacity duration-200 ${edges.right ? "opacity-100" : "opacity-0"}`} />
       </div>
     </nav>
   )

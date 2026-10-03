@@ -78,6 +78,12 @@ export const RATE_LIMITS = {
   comment: [{ limit: 30, seconds: 600 }],
   reaction: [{ limit: 120, seconds: 600 }],
   chat: [{ limit: 30, seconds: 60 }],
+  /** Messages between members: as fast as a chat, and a ceiling on a day. */
+  dm: [{ limit: 30, seconds: 60 }, { limit: 500, seconds: 86400 }],
+  /** Marking a conversation read and deleting one's own message: generous, but not a loop. */
+  dmTouch: [{ limit: 240, seconds: 600 }],
+  /** New conversations: enough to talk to people, not enough to message a whole community. */
+  dmOpen: [{ limit: 20, seconds: 3600 }, { limit: 60, seconds: 86400 }],
   report: [{ limit: 10, seconds: 3600 }],
   invite: [{ limit: 50, seconds: 86400 }],
 } as const satisfies Record<string, readonly RateWindowSpec[]>

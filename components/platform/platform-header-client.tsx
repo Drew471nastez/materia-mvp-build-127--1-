@@ -800,6 +800,23 @@ export function PlatformHeaderClient({
     const t = window.setTimeout(() => setSearchModalPresent(false), still ? 0 : 200)
     return () => window.clearTimeout(t)
   }, [searchModalOpen, searchModalPresent])
+  /**
+   * ONLY A PERSON OPENS SEARCH. `onFocus` alone also fires when the browser
+   * puts the focus back in this field by itself: closing a sheet, restoring
+   * a page from the back/forward cache, a .focus() somewhere else that runs
+   * while this field happens to be the last focused thing. On a community
+   * page that meant the search panel appearing over the composer somebody
+   * was writing in, with its Post button behind it. The field is only
+   * treated as opened when the focus follows a tap or a key on the field
+   * itself, which is every real way in and none of the accidental ones.
+   */
+  const searchIntent = useRef(0)
+  const markSearchIntent = useCallback(() => {
+    searchIntent.current = Date.now()
+  }, [])
+  const onSearchFocus = useCallback(() => {
+    if (Date.now() - searchIntent.current < 700) setSearchModalOpen(true)
+  }, [])
   const closeSearchModal = useCallback(() => {
     setSearchModalOpen(false)
     searchInputRef.current?.blur()
@@ -917,6 +934,8 @@ export function PlatformHeaderClient({
   // Live search with debounce
   const handleSearchChange = useCallback((value: string) => {
     setQuery(value)
+    /* Typing is as plain an intent as a tap: somebody who arrived in the field with Tab still sees their results. */
+    setSearchModalOpen(true)
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
@@ -1913,7 +1932,9 @@ export function PlatformHeaderClient({
                 ref={searchInputRef}
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                onFocus={() => setSearchModalOpen(true)}
+                onFocus={onSearchFocus}
+                onPointerDown={markSearchIntent}
+                onKeyDown={markSearchIntent}
                 placeholder={t("search_placeholder")}
                 className={cn(
                   "h-[42px] w-full pl-11 pr-4 text-[15px] focus-visible:ring-0 focus-visible:ring-offset-0",
@@ -2596,7 +2617,9 @@ export function PlatformHeaderClient({
                 <Input
                   value={query}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  onFocus={() => setSearchModalOpen(true)}
+                  onFocus={onSearchFocus}
+                onPointerDown={markSearchIntent}
+                onKeyDown={markSearchIntent}
                   placeholder={t("search_placeholder")}
                   aria-label={t("search_placeholder")}
                   className="h-10 w-full rounded-[10px] border-neutral-200 bg-neutral-100 pl-9 pr-9 text-sm text-neutral-900 placeholder:text-neutral-500 focus-visible:ring-0 focus-visible:border-neutral-300"

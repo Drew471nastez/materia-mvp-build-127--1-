@@ -37,6 +37,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
+import { useLightChrome } from "@/lib/ui/light-chrome"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { countryLabel, countryOf } from "@/lib/account/country"
 import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
@@ -156,6 +157,9 @@ function Panel({
       window.removeEventListener("keydown", onKey)
     }
   }, [open, onClose])
+
+  /* White to the very top on a phone: no black browser bar or status bar zone above it. */
+  useLightChrome(shown && phone)
 
   if (!shown || typeof document === "undefined") return null
 
@@ -613,8 +617,9 @@ export function PaymentsSetupFlow({
       </div>
 
       <div data-setup-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {/* One narrow column: 560px of card on a computer, the whole width on a phone. */}
-        <div className="mx-auto w-full max-w-[560px] sm:px-6 sm:pb-16 sm:pt-10">
+        {/* One narrow column: 560px of card on a computer, the whole width on a phone,
+            where it fills the screen so Cancel and Continue sit at the bottom. */}
+        <div className="mx-auto w-full max-w-[560px] max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-16 sm:pt-10">
           {phone ? (
             mode === "setup" ? (
               <div className="px-5 pt-4">
@@ -633,8 +638,8 @@ export function PaymentsSetupFlow({
             </div>
           )}
 
-          <div data-setup-card="" className="bg-white sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80 sm:shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
-            <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex min-h-[360px] flex-col pt-5 animate-in fade-in-0 duration-300 ease-sheet sm:pt-7", slide)}>
+          <div data-setup-card="" className="bg-white max-sm:flex max-sm:flex-1 max-sm:flex-col sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80 sm:shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
+            <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex min-h-[360px] flex-col max-sm:flex-1 pt-5 animate-in fade-in-0 duration-300 ease-sheet sm:pt-7", slide)}>
               {body}
             </div>
           </div>
@@ -708,7 +713,7 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
                opening the list blurs it, and "Choose your country." under a
                field somebody has just opened reads as a telling off. If they
                close it without picking, Continue says so. */
-            <CountryPicker value={countryName} onChange={(name) => { setCountryName(name); mark("country") }} sheetZIndex={SHEET_Z} />
+            <CountryPicker value={countryName} onChange={(name) => { setCountryName(name); mark("country") }} sheetZIndex={SHEET_Z} fieldClassName="rounded-[10px] border-[#e3e5e8] text-[16px] shadow-none sm:h-10 sm:rounded-lg sm:text-[14px]" />
           )}
           {issue("country") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("country")}</span> : null}
         </div>

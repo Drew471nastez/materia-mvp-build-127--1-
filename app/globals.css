@@ -7109,3 +7109,13 @@ html.capacitor .home-card li > :is(a, button):active {
     padding-bottom: 12px;
   }
 }
+
+/* A SHARED COMMUNITY LINK CARRIES NO STORELIB HEADER. A community's own page
+   (components/community/public/plain-chrome.tsx adds this class while it is on
+   screen) shows the community's cover, picture and name; the platform's bar and
+   the phone's search strip above that only said Storelib over somebody else's
+   front door. Both come back the moment the page goes. */
+html.community-plain #platform-header-root,
+html.community-plain [data-header-search-strip] {
+  display: none !important;
+}

@@ -23,6 +23,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
 import { JoinBarPhone, JoinCard, JoinProvider, JoinSummaryPhone } from "./join-controls"
+import { CommunityPlainChrome } from "./plain-chrome"
 import type { JoinOption, PublicReviewView, SalesPageData } from "./types"
 
 const H2 = "text-[18px] font-semibold tracking-[-0.005em] text-[#1a1a2e]"
@@ -109,7 +110,9 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
 
   return (
     <JoinProvider community={c} join={join}>
-      <div data-community-sales={c.slug} className="min-h-screen bg-[#f8f9fa]">
+      {/* A member reads /about inside the community's own frame; only somebody arriving from a shared link gets the plain page. */}
+      {join.kind === "open" ? null : <CommunityPlainChrome />}
+      <div data-community-sales={c.slug} className={cn("min-h-screen bg-[#f8f9fa]", join.kind === "open" ? "" : "pt-[env(safe-area-inset-top)]")}>
         {notice ? (
           <div role="status" className="border-b border-[#f0e2b6] bg-[#fdf7e7] px-4 py-2.5 text-center text-[13.5px] text-[#6b5409]">
             {notice}
