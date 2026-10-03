@@ -428,6 +428,8 @@ async function main() {
     ], "d").join() === "a")
     const reminder = code("lib/communities/server/jobs/event_reminder.ts")
     check("event reminders email through sendCommunityEmail, not lib/mail, and only to fresh rows with event emails on", /sendCommunityEmail\(\s*db,\s*"community\.event_reminder"/.test(reminder) && !/lib\/mail|sendEmail\(/.test(reminder) && /fresh\.has\(m\.user_id\) && m\.email_events !== false/.test(reminder) && /key: `event:\$\{e\.id\}:\$\{window\}:\$\{e\.starts_at\}`/.test(reminder))
+    const invites = code("lib/communities/server/invites.ts")
+    check("an emailed invite goes through sendCommunityEmail with its own key, not lib/mail", /sendCommunityEmail\(db, "community\.invite"/.test(invites) && /key: `invite:\$\{data\.id\}:\$\{a\.input\.email\.toLowerCase\(\)\}`/.test(invites) && /inviteCode: token/.test(invites) && !/lib\/mail"|sendEmail\(/.test(invites))
     const csp = read("lib/security/csp.ts")
     check("the browser may upload community videos to Mux, Cloudflare Stream and Bunny", ["https://storage.googleapis.com", "https://*.mux.com", "https://upload.videodelivery.net", "https://upload.cloudflarestream.com", "https://video.bunnycdn.com"].every((h) => csp.includes(`"${h}"`) && read("vercel.json").includes(h)))
     const src = code("lib/communities/server/email.ts")

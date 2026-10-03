@@ -77,7 +77,27 @@ export interface RouteProblem {
 }
 
 /** Everything wrong with one route file's source, by handler. Empty means it holds. */
-export function auditRoute(source: string): RouteProblem[] {
+/**
+ * Whether a module's own function of this name calls a rate limiter: how a
+ * route that imports its limiter (`manageLimit` from lib/communities/server/
+ * creator.ts) is followed to the rateLimit call inside it.
+ */
+function moduleLimits(spec: string, name: string): boolean {
+  if (!spec.startsWith("@/")) return false
+  const base = spec.slice(2)
+  const file = [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`].find((f) => existsSync(f))
+  if (!file) return false
+  const src = stripComments(readFileSync(file, "utf8"))
+  const fn = new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\([^)]*\\)[^{]*\\{`).exec(src)
+  if (fn) return LIMITER.test(block(src, fn.index + fn[0].length - 1))
+  const arrow = new RegExp(`(?:export\\s+)?const\\s+${name}\\s*=\\s*(?:async\\s*)?\\([^)]*\\)\\s*(?::[^=]+)?=>\\s*`).exec(src)
+  if (arrow) return LIMITER.test(src.slice(arrow.index, arrow.index + 600))
+  return false
+}
+
+const LIMITER = /\b(?:rateLimit|uploadRateLimit)\s*\(/
+
+export function auditRoute(source: string, opts: { followImports?: boolean } = {}): RouteProblem[] {
   const src = stripComments(source)
   const problems: RouteProblem[] = []
   const handlers = [...src.matchAll(/export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\s*\([^)]*\)[^{]*\{/g)]
@@ -93,6 +113,16 @@ export function auditRoute(source: string): RouteProblem[] {
   }
   for (const f of src.matchAll(/const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*(?::[^=]+)?=>\s*\{/g)) {
     if (/\b(?:rateLimit|uploadRateLimit)\s*\(/.test(block(src, f.index! + f[0].length - 1))) limiters.add(f[1])
+  }
+  /* And helpers imported from the app's own modules that rate limit inside. */
+  if (opts.followImports !== false) {
+    for (const imp of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g)) {
+      for (const part of imp[1].split(",")) {
+        const name = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/).pop()?.trim() ?? ""
+        const original = part.trim().split(/\s+as\s+/)[0].trim()
+        if (/^\w+$/.test(name) && moduleLimits(imp[2], original)) limiters.add(name)
+      }
+    }
   }
 
   for (const h of handlers) {
@@ -162,6 +192,10 @@ async function main() {
     check("select * is caught", auditRoute(star).some((p) => /every column/.test(p.problem)))
     const roleString = `export async function GET() { const off = await requireCommunitiesOn(); if (off) return off; const g = await requireMember(db, id, u, "view"); if (g.viewer.role === "admin") return y; return x }`
     check("a role compared as a string is caught", auditRoute(roleString).some((p) => /can\(\)/.test(p.problem)))
+    const viaImport = (helper: string) => `import { ${helper} } from "@/lib/communities/server/creator"
+      export async function POST() { const off = await requireCommunitiesOn(); if (off) return off; const g = await requireCreatorCommunity(id, "archive"); const l = await ${helper}(g.ctx.userId); return x }`
+    check("a write limited by an imported helper that rate limits is passed", existsSync("lib/communities/server/creator.ts") ? auditRoute(viaImport("manageLimit")).length === 0 : true, JSON.stringify(auditRoute(viaImport("manageLimit"))))
+    check("an imported helper that does not rate limit does not count", existsSync("lib/communities/server/creator.ts") ? auditRoute(viaImport("setArchived")).some((p) => /rate limit/.test(p.problem)) : true)
     const constHandler = `export const GET = async () => x`
     check("a handler written as a const is caught rather than skipped", auditRoute(constHandler).length > 0)
   }

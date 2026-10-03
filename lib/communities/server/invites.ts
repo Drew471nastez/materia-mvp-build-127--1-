@@ -13,14 +13,14 @@ import "server-only"
  * (W3's /api/community/[id]/invite/redeem), which checks all of that
  * atomically and grants the membership.
  *
- * An email invite is also sent: a short plain message with the link, from
- * Storelib, naming the creator and the community. Sending is best effort;
+ * An email invite is also sent through the notification engine
+ * (sendCommunityEmail, community.invite): the link, from Storelib, naming the
+ * creator and the community. Sending is best effort;
  * the link works whether or not the message arrives, and the screen shows
  * the link either way.
  */
 import { createHash, randomBytes } from "node:crypto"
-import { sendEmail } from "@/lib/mail"
-import { emailButton, finalizeEmailHtml } from "@/lib/mail-document"
+import { sendCommunityEmail } from "./email"
 import { siteUrl } from "@/lib/memberships/server"
 import type { CommunityRow } from "../types"
 import { decodeCursor, encodeCursor, isUuid, keysetOr, type InviteInput } from "@/components/community/creator/logic"
@@ -99,22 +99,6 @@ export async function inviteCount(db: Db, communityId: string): Promise<number> 
   return count ?? 0
 }
 
-function inviteEmail(p: { communityName: string; inviterName: string; url: string; tagline: string | null }) {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-  const subject = `${p.inviterName} invited you to ${p.communityName}`
-  const html = finalizeEmailHtml(
-    `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px;color:#1a1a2e">
-<p style="font-size:15px;line-height:1.6;margin:0 0 8px">${esc(p.inviterName)} invited you to join <strong>${esc(p.communityName)}</strong> on Storelib.</p>
-${p.tagline ? `<p style="font-size:14px;line-height:1.6;color:#6b7280;margin:0 0 20px">${esc(p.tagline)}</p>` : ""}
-${emailButton({ href: p.url, label: "Accept the invite", fill: "#1a1a2e", text: "font-size:14px;font-weight:600;" })}
-<p style="font-size:12px;line-height:1.6;color:#9ca3af;margin:24px 0 0">This invite is for this email address. If you were not expecting it, ignore this message.</p>
-</div>`,
-    subject,
-  )
-  const text = `${p.inviterName} invited you to join ${p.communityName} on Storelib.\n\nAccept the invite: ${p.url}\n`
-  return { subject, html, text }
-}
-
 export interface MadeInvite {
   invite: InviteView
   sent: boolean | null
@@ -165,14 +149,18 @@ export async function createInvite(
   const url = inviteUrl(a.community.slug, token)
   let sent: boolean | null = null
   if (a.input.email) {
-    try {
-      const mail = inviteEmail({ communityName: a.community.name, inviterName: a.inviterName, url, tagline: a.community.tagline })
-      const result = await sendEmail({ to: a.input.email, subject: mail.subject, html: mail.html, text: mail.text })
-      sent = result.success
-    } catch (e) {
-      console.error(`[communities] invite email: ${reasonOf(e)}`)
-      sent = false
-    }
+    /*
+      Through the notification engine (lib/communities/server/email.ts), once per invite and address. The email's
+      button is the same link as `url`: /community/<slug>/join?invite=<token>. Queued is as good as sent; the engine
+      sends it in seconds and retries it if Mailgun asks.
+    */
+    const outcome = await sendCommunityEmail(db, "community.invite", {
+      email: a.input.email,
+      communityId: a.community.id,
+      data: { inviterName: a.inviterName, inviteCode: token, tagline: a.community.tagline ?? "", expiresAt: expiresAt ?? "" },
+      key: `invite:${data.id}:${a.input.email.toLowerCase()}`,
+    })
+    sent = outcome !== "unavailable"
   }
   await audit(db, {
     communityId: a.community.id,
