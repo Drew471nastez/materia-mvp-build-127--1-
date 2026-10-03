@@ -87,7 +87,7 @@ Storelib AI in the builder runs on ChatGPT. The model menu beside the message bo
 
 **Strength**, in the same menu, is how long the model thinks before it acts: Light, Standard or Deep, sent to OpenAI as low, medium and high reasoning effort. Standard is right for most requests. Deep is for a hard change, a whole page or code; Light for a word, a colour or a setting.
 
-Whatever goes wrong with a model call, the chat says it in a sentence, such as "Storelib AI is unavailable right now. Try again in a few minutes.", and never shows the provider's own error. A creator can run Storelib AI on their own OpenAI key or OpenRouter account from Website settings › Connections, and those edits do not count against the plan's AI edits.
+Whatever goes wrong with a model call, the chat says it in a sentence, such as "Storelib AI is unavailable right now. Try again in a few minutes.", and never shows the provider's own error. A creator can run Storelib AI on their own OpenAI key from Website settings › Connections, and those edits do not count against the plan's AI edits.
 
 ## Setting up your agent
 
