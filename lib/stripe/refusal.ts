@@ -24,7 +24,7 @@
  */
 export interface StripeRefusal {
   status: number
-  code: "platform_rejected" | "account_rejected" | "platform_cannot_charge"
+  code: "platform_rejected" | "account_rejected" | "platform_cannot_charge" | "platform_restricted"
   error: string
 }
 
@@ -34,6 +34,8 @@ export function stripeRefusal(error: unknown): StripeRefusal | null {
   const message = String((error as { message?: unknown } | null)?.message ?? "")
   if (/cannot create new accounts because your account has been rejected/i.test(message))
     return { status: 503, code: "platform_rejected", error: "Payouts cannot be set up on Storelib right now. This is on our side, not yours, and nothing you entered caused it." }
+  if (/temporarily restricted your ability to create|suspicious activity|confirm that you intended/i.test(message))
+    return { status: 503, code: "platform_restricted", error: "Payouts cannot be set up just now. This is on our side, not yours, and nothing you entered caused it. Try again a little later." }
   if (/account link cannot be created for this account because the account has been rejected/i.test(message) || /this account has been rejected/i.test(message))
     return { status: 409, code: "account_rejected", error: `Stripe has closed this payout account, so it cannot be opened from here. Write to ${SUPPORT} and we will sort out your payouts.` }
   if (/cannot currently make live charges/i.test(message))
