@@ -16,6 +16,7 @@ import type { ReactNode } from "react"
 
 import type { SchemaField } from "@/lib/website-builder/types"
 import { BackgroundControl } from "./background-control"
+import { CommunityPickerControl } from "./community-picker-control"
 import { DateTimeControl } from "./datetime-control"
 import { FocalPointControl } from "./focal-point-control"
 import { HtmlControl } from "./html-control"
@@ -26,11 +27,11 @@ import { ProductListControl } from "./product-list-control"
 import { VideoUrlControl } from "./video-url-control"
 
 export { DynamicSourceField } from "./dynamic-source-field"
-export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerProduct } from "./context"
+export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCommunity, type PickerProduct } from "./context"
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [
-  "inline_richtext", "html", "color_background", "datetime", "focal_point", "video_url", "product_list", "link_list", "menus",
+  "inline_richtext", "html", "color_background", "datetime", "focal_point", "video_url", "product_list", "link_list", "menus", "community_picker",
 ] as const
 
 /** Controls that print their own name, so the panel does not label them twice. */
@@ -65,6 +66,8 @@ export function renderRegisteredControl(
       return <MenuPickerControl value={str} onChange={onChange} label={field.label} />
     case "menus":
       return <MenusEditor value={value} onChange={onChange} />
+    case "community_picker":
+      return <CommunityPickerControl value={str} onChange={onChange} label={field.label} />
     /* A paragraph from a .storelib schema says what it says in `content`. */
     case "paragraph":
       return field.content ? <p className="text-xs text-muted-foreground leading-relaxed">{field.content}</p> : null

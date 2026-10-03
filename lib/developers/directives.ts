@@ -151,7 +151,7 @@ const CONTROL_HOLDS: Partial<Record<ControlType, string>> = {
   url: "a link",
   page_picker: "a page's address",
   product_picker: "a product page's address",
-  community_picker: "an id",
+  community_picker: "a community's id; printed, its page's address",
 }
 
 const MEDIA_WORDS: Record<MediaKind, string> = { image: "Pictures", video: "Video", audio: "Sound", file: "Files" }

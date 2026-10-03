@@ -125,6 +125,34 @@ export function productReferences(
   return { ids: [...ids], slugs: [...slugs] }
 }
 
+/**
+ * What every `community_picker` on these sections names: community ids,
+ * once each, lower case. Only settings the schema declares as that type are
+ * read, like the product references above. A surface reads these communities
+ * on the server (lib/communities/server/blocks.ts communityCardsFor), the
+ * creator's own and public ones only.
+ */
+export function communityReferences(
+  sections: SectionInstance[],
+  schemaOf: (type: string) => SectionSchema | undefined,
+): string[] {
+  const ids = new Set<string>()
+  const walk = (fields: SchemaField[] | undefined, settings: Record<string, unknown> | undefined) => {
+    for (const f of fields ?? []) {
+      if (resolveControlType(f.type) !== "community_picker") continue
+      const v = settings?.[f.id]
+      if (typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim())) ids.add(v.trim().toLowerCase())
+    }
+  }
+  for (const s of sections) {
+    const schema = schemaOf(s.type)
+    if (!schema) continue
+    walk(schema.fields, s.settings)
+    for (const b of s.blocks ?? []) walk(schema.blocks?.find((d) => d.type === b.type)?.fields, b.settings)
+  }
+  return [...ids]
+}
+
 /** The shop's newest products and any picked ones it did not include, once each. */
 export function mergeCatalog(...lists: (ProductCard[] | undefined)[]): ProductCard[] {
   const seen = new Set<string>()
@@ -238,10 +266,13 @@ export function storefrontData(input: {
   dynamic: DynamicContext
   catalog?: ProductCard[]
   menus?: Record<string, Menu>
+  /** The creator's communities a `community_picker` may name, read on the server; absent means none. */
+  communities?: StorefrontData["communities"]
 }): StorefrontData {
   return {
     catalog: input.catalog,
     menus: input.menus,
+    ...(input.communities ? { communities: input.communities } : {}),
     shop: input.dynamic.shop,
     creator: input.dynamic.creator,
     product: input.dynamic.product ?? null,

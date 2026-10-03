@@ -81,7 +81,7 @@ export const CONTROL_PANEL_NOTES: Partial<Record<ControlType, string>> = {
   image_gallery: "A stack of image pickers, with an empty one at the end to add another.",
   video_picker: "The video, with an X to clear it, and a box to paste a hosted video link.",
   file_picker: "A box for a file's address.",
-  community_picker: "A box for a community id.",
+  community_picker: "A dropdown of your own communities, each saying when a visitor would not see it (a draft, a private one).",
   icon_picker: "A searchable grid of icons.",
   url: "The link picker: a search over your pages and products, or any address typed in (`/about`, `https://…`, `mailto:`).",
   page_picker: "A dropdown of the site's pages.",

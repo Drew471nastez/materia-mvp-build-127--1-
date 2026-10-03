@@ -62,7 +62,7 @@ What each control gives a template:
 | `datetime` | `2026-03-14` or `2026-03-14T23:00`, as written. Print it with the `date` filter. |
 | `focal_point` | Two percentages, such as `30% 70%`, for `object-position`. |
 | `video_url` | A YouTube or Vimeo link. Print it through `embed`. |
-| `community_picker` | A community id, as typed. |
+| `community_picker` | Prints as the community page's address, such as `/community/morning-runners`, and carries the community: `.name`, `.tagline`, `.image`, `.logo`, `.members`, `.members_label`, `.posts`, `.events`, `.price`, `.join_label`, `.url`. A community that is not this creator's, published and public, or any community while communities are off, is empty. |
 
 A stored value the control does not allow is read as the default, as if it had never been set: a word in a `range`, an option a `select` does not list, a link to `javascript:`. The stored value is kept. A setting may also hold a placeholder such as `{{ shop.name }}`, filled in before the section is drawn: see [Shop data in a setting](/developers/schema#shop-data-in-a-setting).
 

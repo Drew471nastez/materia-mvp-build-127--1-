@@ -30,6 +30,16 @@ export interface PickerProduct {
   url: string
 }
 
+/** One of the creator's communities, as the community picker lists it. */
+export interface PickerCommunity {
+  id: string
+  name: string
+  /** Whether a visitor would see it: published, public, not suspended. */
+  shows: boolean
+  /** Why not, in a few words, when it would not. */
+  why: string | null
+}
+
 export interface EditorFieldEnv {
   products: PickerProduct[]
   /** Every menu a section may name, the header's links as main-menu included. */
@@ -38,6 +48,8 @@ export interface EditorFieldEnv {
   template: string
   /** Opens Theme settings at Menus. */
   openMenus?: () => void
+  /** The creator's own communities; null while communities are switched off on Storelib. */
+  communities?: PickerCommunity[] | null
 }
 
 const EditorFieldContext = createContext<EditorFieldEnv | null>(null)

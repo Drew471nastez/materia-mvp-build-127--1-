@@ -463,7 +463,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   community_picker: def({
     type: "community_picker",
     label: "Community",
-    description: "One of the creator's communities, by id.",
+    description: "One of the creator's own communities, stored by id. Printed on its own it is the community page's address, so `href=\"{{ settings.community | url }}\"` works; it also carries the community's live `name`, `tagline`, `image` (the cover), `logo`, `members`, `members_label`, `posts`, `events` (upcoming), `price` and `join_label`, read as `settings.community.name`. Only a community that is the creator's own, published and public, while communities are on: any other id is empty, so `{% if settings.community.name %}` draws nothing for it.",
     value: "string",
     schema: z.string().max(120),
     fallback: "",

@@ -356,9 +356,40 @@ export interface RenderContext {
  * engine only reads this; the application builds it from the creator's
  * rows, published values only, with every piece of markup already cleaned.
  */
+/**
+ * One of the creator's communities as a `community_picker` setting carries
+ * it: public facts only, read on the server (lib/communities/server/blocks.ts)
+ * for a community that is the creator's own, published and public, while
+ * communities are on. Printed on its own the setting is `url`.
+ */
+export interface StorefrontCommunity {
+  id: string
+  name: string
+  tagline: string
+  /** /community/<slug>, the community's own page. */
+  url: string
+  /** The cover picture's address, or "". */
+  image: string
+  /** The logo's address, or "". */
+  logo: string
+  /** Active members, a count of rows. */
+  members: number
+  /** "1 member", "1.2k members". */
+  members_label: string
+  posts: number
+  /** Scheduled events still to come that every member may attend. */
+  events: number
+  /** "Free", "$19/month", "$49", or "". */
+  price: string
+  /** "Join for free", "Join for $19/month", "Request to join". */
+  join_label: string
+}
+
 export interface StorefrontData {
   /** Products a `product_picker` or `product_list` may name, block-shaped. */
   catalog?: { id: string; type?: string; settings: Record<string, unknown> }[]
+  /** The creator's communities a `community_picker` may name, by id. */
+  communities?: Record<string, StorefrontCommunity>
   /** Menus by handle, for `link_list`. */
   menus?: Record<string, Menu>
   shop?: { name?: string; description?: string; url?: string; product_count?: number }

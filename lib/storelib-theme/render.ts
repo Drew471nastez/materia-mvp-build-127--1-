@@ -68,6 +68,7 @@ export function renderSection(input: RenderInput): Rendered {
     assets,
     catalog: data.catalog,
     menus: data.menus,
+    communities: data.communities,
   })
   const theme = themeTokens(input.theme)
   /**

@@ -627,7 +627,7 @@ These Shopify types have nothing to point at on Storelib and are refused with th
 
 ## community_picker
 
-**Community.** One of the creator's communities, by id.
+**Community.** One of the creator's own communities, stored by id. Printed on its own it is the community page's address, so `href="{{ settings.community | url }}"` works; it also carries the community's live `name`, `tagline`, `image` (the cover), `logo`, `members`, `members_label`, `posts`, `events` (upcoming), `price` and `join_label`, read as `settings.community.name`. Only a community that is the creator's own, published and public, while communities are on: any other id is empty, so `{% if settings.community.name %}` draws nothing for it.
 
 - Value: string
 - Default when the schema gives none: `""`

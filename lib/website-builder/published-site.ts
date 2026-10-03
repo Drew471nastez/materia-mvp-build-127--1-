@@ -60,6 +60,7 @@ import {
   storefrontData,
   withDynamicSources,
   type CreatorFacts,
+  communityReferences,
 } from "@/lib/website-builder/storefront-data"
 import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/website-builder/storefront-data-server"
 import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
@@ -462,10 +463,22 @@ export async function dressPage(
     template,
   })
   const filled = withDynamicSources(sections, schemaOf, dynamic)
+  /* The communities a community_picker names: the creator's own, published and public, while communities are on. A minute in the cache, like the shop. */
+  const communityIds = communityReferences(sections, schemaOf)
+  const communities = communityIds.length
+    ? await (async () => {
+        const { communityCardsFor } = await import("@/lib/communities/server/blocks")
+        const read = () => communityCardsFor(createAdminClient() as never, site.creatorId, communityIds)
+        return opts.cached
+          ? unstable_cache(read, ["community-cards", site.creatorId, [...communityIds].sort().join(",")], { revalidate: SHOP_TTL })()
+          : read()
+      })().catch(() => ({}))
+    : undefined
   const data = storefrontData({
     dynamic,
     catalog: mergeCatalog(products, picked),
     menus: siteMenus(site.themeSettings, filled),
+    communities,
   })
   return { sections: filled, data }
 }

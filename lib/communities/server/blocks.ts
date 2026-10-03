@@ -23,7 +23,8 @@ import "server-only"
 import { isOpenRule } from "../access"
 import { BLOCK_LIMITS, DEFAULT_BLOCK_TOGGLES, excerptOf, firstName, isCommunityId, whyHidden, type CommunityBlockData, type CommunityBlockPerson, type CommunityBlockToggles, type CommunityChoice } from "../blocks"
 import { communitiesEnabled } from "../flag"
-import { joinButtonLabel, priceLine } from "../format"
+import { joinButtonLabel, memberCountLabel, priceLine } from "../format"
+import type { StorefrontCommunity } from "@/lib/storelib-theme/types"
 import { leaderboard } from "./points"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 
@@ -289,4 +290,42 @@ export async function creatorCommunityChoices(db: Db, creatorId: string): Promis
     const why = whyHidden(c as never)
     return { id: String(c.id), name: String(c.name), slug: String(c.slug), status: String(c.status), visibility: String(c.visibility), shows: !why, why }
   })
+}
+
+/* ── The website builder's community_picker ───────────────────────────── */
+
+/** A section's data as a website template reads `settings.<community_picker>` (lib/storelib-theme/types.ts StorefrontCommunity). */
+export function storefrontCommunity(d: CommunityBlockData): StorefrontCommunity {
+  return {
+    id: d.id,
+    name: d.name,
+    tagline: d.tagline ?? "",
+    url: d.url,
+    image: d.coverUrl ?? "",
+    logo: d.logoUrl ?? "",
+    members: d.memberCount,
+    members_label: memberCountLabel(d.memberCount),
+    posts: d.postCount,
+    events: d.upcomingEventCount ?? 0,
+    price: d.priceLine ?? "",
+    join_label: d.joinLabel,
+  }
+}
+
+/**
+ * The communities a website's pickers name (or, for the builder, every one
+ * of the creator's that a visitor could see), by id. Only this creator's,
+ * published and public; nothing while communities are off.
+ */
+export async function communityCardsFor(db: Db, creatorId: string, ids: string[] | "all"): Promise<Record<string, StorefrontCommunity>> {
+  if (!creatorId) return {}
+  if (!(await communitiesEnabled())) return {}
+  let wanted: string[]
+  if (ids === "all") wanted = (await creatorCommunityChoices(db, creatorId)).filter((c) => c.shows).map((c) => c.id)
+  else wanted = [...new Set(ids.filter(isCommunityId).map((i) => i.toLowerCase()))]
+  const toggles: Partial<CommunityBlockToggles> = { showStats: true, showJoin: true, showEvents: false, showPosts: false, showMembers: false, showLeaderboard: false, showReviews: false }
+  const loaded = await Promise.all(wanted.slice(0, 20).map((id) => loadCommunityBlock(db, creatorId, id, toggles, { enabled: true })))
+  const out: Record<string, StorefrontCommunity> = {}
+  for (const d of loaded) if (d) out[d.id.toLowerCase()] = storefrontCommunity(d)
+  return out
 }

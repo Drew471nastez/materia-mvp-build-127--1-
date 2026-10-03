@@ -50,7 +50,7 @@ import {
 } from "./values"
 import { legacySchemeValues, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
-import { BREAKPOINTS, isAssetRef, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition } from "./types"
+import { BREAKPOINTS, isAssetRef, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCommunity } from "./types"
 
 export interface ResolveOptions {
   /** `asset://…` → URL. Missing references resolve to "". */
@@ -63,6 +63,12 @@ export interface ResolveOptions {
   catalog?: CatalogItem[]
   /** The site's menus by handle, for `link_list`. */
   menus?: Record<string, Menu>
+  /**
+   * The creator's communities a `community_picker` may name, by id. Absent,
+   * or an id that is not here (somebody else's, a draft, a private one, or
+   * communities switched off), and the setting is empty.
+   */
+  communities?: Record<string, StorefrontCommunity>
 }
 
 /** A product as a section is handed it: `{ id, type, settings: { title, price, … } }`. */
@@ -207,7 +213,7 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
       return parseVideoUrl(v, accept) ? v.trim() : ""
     }
     case "community_picker":
-      return typeof v === "string" ? v : undefined
+      return typeof v === "string" ? communityRef(v, opts) : undefined
     case "product_picker":
       return typeof v === "string" ? productRef(v, opts) : undefined
     case "product_list":
@@ -254,6 +260,21 @@ function productRef(v: string, opts: ResolveOptions): unknown {
   if (!item) return safeHref(key)
   const href = safeHref(typeof item.settings.url === "string" ? item.settings.url : key)
   return new Linked(href, { id: item.id, ...item.settings })
+}
+
+/**
+ * A community picker holds an id. When the page knows that community (the
+ * creator's own, published and public), the setting becomes a Linked value
+ * that prints as its address and carries its name, figures and button. Any
+ * other id is empty, so a template's `{% if settings.community.name %}`
+ * draws nothing for it.
+ */
+function communityRef(v: string, opts: ResolveOptions): unknown {
+  const key = v.trim().toLowerCase()
+  if (key === "") return ""
+  const item = opts.communities?.[key]
+  if (!item) return ""
+  return new Linked(safeHref(item.url), { ...item, id: key } as Record<string, unknown>)
 }
 
 /** The chosen products, in the creator's order, each once, up to the limit. */
