@@ -30,6 +30,7 @@
 
 import { MCP_HOST_LABEL } from "@/lib/agent-access/mcp-host"
 import { isSitePath } from "./token"
+import { creatorOfName } from "./creator-of-name"
 
 /** The platform's own names under storelib.com, which are never a website. */
 const PLATFORM_LABELS = new Set(["www", "app", "api", "admin", "dashboard", "localhost", MCP_HOST_LABEL])
@@ -117,20 +118,7 @@ async function one(query: PromiseLike<{ data: unknown; error: unknown }>): Promi
   }
 }
 
-/** A name under the sites domain, to its creator: username, then creator slug, then the website's own address. */
-async function creatorOfName(db: Db, name: string): Promise<string | null> {
-  const profile = await one(db.from("profiles").select("id").eq("username", name).maybeSingle())
-  if (profile?.id) {
-    const creator = await one(db.from("creators").select("id").eq("user_id", profile.id).maybeSingle())
-    if (typeof creator?.id === "string") return creator.id
-  }
-  const bySlug = await one(db.from("creators").select("id").eq("slug", name).maybeSingle())
-  if (typeof bySlug?.id === "string") return bySlug.id
-  const now = await one(db.from("website_addresses").select("creator_id").eq("handle", name).maybeSingle())
-  if (typeof now?.creator_id === "string") return now.creator_id
-  const before = await one(db.from("website_address_history").select("creator_id").eq("handle", name).maybeSingle())
-  return typeof before?.creator_id === "string" ? before.creator_id : null
-}
+/* A name under the sites domain, to its creator: ./creator-of-name.ts, which the proxy's password gate asks as well. */
 
 /** A connected domain, to its creator, when it is verified and is the website's. */
 async function creatorOfDomain(db: Db, domain: string): Promise<string | null> {

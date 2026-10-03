@@ -70,7 +70,7 @@ import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
-import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
@@ -3355,7 +3355,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * everywhere else — which is the header that "is not universal". Home's
      * own chrome is the source, so it is what home is dressed in.
      */
-    const loaded = mergeWithHomeHeaderFooter(loadedRaw, currentPage !== "home" ? homeHF : chromeOf(loadedRaw))
+    /* The password page wears no chrome, on the live site or here (lib/website-builder/universal-chrome). */
+    const loaded = CHROMELESS_PAGES.has(currentPage) ? withoutChrome(loadedRaw) : mergeWithHomeHeaderFooter(loadedRaw, currentPage !== "home" ? homeHF : chromeOf(loadedRaw))
 
     // Sync logo between header section and theme settings on initial load
     const header = loaded.find(s => s.type === "header")
@@ -3621,7 +3622,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
       ])
       /* Home included, for the reason on the initial load above. */
-      const merged = mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
+      const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
 
       /**
        * ═══════════════════════════════════════════════════════════════════

@@ -58,6 +58,8 @@ const DIRECT: Record<string, string> = {
   "/account": "account",
   "/account/login": "login",
   "/wishlist": "wishlist",
+  /* The page a website shows while it asks for a password. */
+  "/password": "password",
 }
 
 export function resolveEditorHref(href: string, ctx: EditorNavContext): EditorNavDecision {

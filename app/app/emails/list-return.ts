@@ -37,7 +37,7 @@ export function noteListAddress(query: string) {
 export function listBehindShows(tab: string, behindIsList: boolean, query: string | null = listAddress): boolean {
   if (!behindIsList || query === null) return false
   const p = new URLSearchParams(query)
-  if (p.has("email") || p.has("contact")) return false
+  if (p.has("email") || p.has("contact") || p.has("message")) return false
   /* No ?tab= is the page's own default (./page.tsx). */
   return (p.get("tab") ?? "subscribers") === tab
 }

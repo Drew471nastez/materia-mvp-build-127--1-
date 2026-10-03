@@ -351,6 +351,7 @@ const SUITES = [
   "tests/security-scan.test.ts",
   "tests/site-accounts.test.ts",
   "tests/site-contact.test.ts",
+  "tests/site-customer-pages.test.ts",
   "tests/account-sections.test.ts",
   "tests/onepage-blocks.test.ts",
   "tests/onepage-editor-ui.test.ts",

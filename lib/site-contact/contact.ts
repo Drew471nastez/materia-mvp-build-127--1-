@@ -13,7 +13,10 @@
  *   KEPT         in site_contact_messages, which the creator reads under row
  *                level security and nobody writes but this server
  *   EMAILED      to the creator, with Reply going to the visitor, built from
- *                escaped text: nothing the visitor typed is ever markup
+ *                escaped text: nothing the visitor typed is ever markup.
+ *                "New message from <name> on <site>", linking to it in
+ *                Emails, Messages
+ *   NOTIFIED     a row in the creator's notifications panel (./notify.ts)
  *   A CONTACT    the sender joins the creator's contacts (`subscribers`,
  *                source "contact_form", where on which website in
  *                source_detail). What they agreed to decides the status, and
@@ -366,10 +369,15 @@ export function creatorEmail(input: {
   msg: ContactMessage
   site: string | null
   contactUrl: string
+  /** The message itself in Emails, Messages, once it is kept. */
+  messageUrl?: string | null
 }): CreatorEmail {
   const { msg } = input
   const who = msg.name || msg.email
-  const subject = line(msg.subject ? `Message from ${who}: ${msg.subject}` : `Message from ${who}`, 180)
+  /* "New message from Ana on maralind.storelib.com", and what they called it after a colon. */
+  const on = input.site || input.store
+  const lead = on ? `New message from ${who} on ${on}` : `New message from ${who}`
+  const subject = line(msg.subject ? `${lead}: ${msg.subject}` : lead, 180)
   const where = input.site ? `${input.site}${msg.page === "home" ? "" : `/${msg.page}`}` : `your website, ${msg.page} page`
   const consent = msg.consent ? "Asked to get news from you, and was added to your Subscribers." : "Did not ask for news. Kept in your contacts as somebody who wrote."
   const paragraphs = escapeHtml(msg.message)
@@ -388,6 +396,7 @@ export function creatorEmail(input: {
     row("Sent from", where),
     `</table>`,
     `<div style="border-top:1px solid #e5e7eb;padding-top:16px">${paragraphs}</div>`,
+    input.messageUrl ? `<p style="margin:18px 0 0;font-size:14px"><a href="${escapeHtml(input.messageUrl)}" style="color:#1a1a2e;font-weight:600">Open in Messages</a></p>` : "",
     `<p style="margin:18px 0 0;font-size:13px;color:#6b7280">${escapeHtml(consent)} <a href="${escapeHtml(input.contactUrl)}" style="color:#1a1a2e">See them in Emails</a></p>`,
     `</div>`,
   ].join("")
@@ -401,6 +410,7 @@ export function creatorEmail(input: {
     "",
     msg.message,
     "",
+    input.messageUrl ? `Open in Messages: ${input.messageUrl}` : null,
     consent,
     `See them in Emails: ${input.contactUrl}`,
   ]
