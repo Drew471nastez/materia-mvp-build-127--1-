@@ -352,7 +352,7 @@ async function main() {
   const readme = read("supabase/sql/run-now/README.md")
   const row = readme.split("\n").find((l) => l.startsWith("| `81_communities.sql` |")) ?? ""
   check("the README names it, with its lines and bytes", row.endsWith(`| ${sql.split("\n").length - 1} | ${Buffer.byteLength(sql).toLocaleString("en-US")} |`), row.slice(-30))
-  check("the check after has its column", /as p81_communities;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("the check after has its column", /as p81_communities\b/.test(read("supabase/sql/run-now/99_check_after.sql")))
   check("and the built files carry it", read("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 81_communities.sql"))
 
   /* ── The switch ──────────────────────────────────────────────────────── */

@@ -1515,6 +1515,15 @@ export async function proxy(request: NextRequest) {
   //   three-ds-*        3DS v2 bank-auth challenge iframes
   //   link-*            Stripe Link authentication iframes
   //   hooks.stripe.com  3DS redirect-return host
+  //   connect-js.stripe.com
+  //                     Stripe's embedded Connect forms — the three steps of
+  //                     Set up payments (identity, business details, bank).
+  //                     A separate script and a separate host from Stripe.js
+  //                     v3: it has no controller iframe and never sets
+  //                     window.location.href, so it does not reintroduce the
+  //                     navigation this list exists to stop. Its absence here
+  //                     was why those forms could not load in the app, and
+  //                     why the app used to send creators to a browser.
   //
   // NOT allowed (intentionally blocked):
   //   controller-with-preconnect-*  ← the cause of the top-level navigation
@@ -1527,6 +1536,7 @@ export async function proxy(request: NextRequest) {
       " https://js.stripe.com/v3/three-ds-*" +
       " https://js.stripe.com/v3/link-*" +
       " https://hooks.stripe.com" +
+      " https://connect-js.stripe.com" +
       /* A course lesson that is a YouTube or Vimeo link plays in their player (lib/courses/external.ts). */
       " https://www.youtube-nocookie.com https://player.vimeo.com",
     )

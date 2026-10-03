@@ -12,6 +12,7 @@ import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
 import { mergeStripeAccount, type StripeCreatorSnapshot } from "./facts"
 import { getStorelibPaymentsStatus, statusFactsOf, type StorelibStatusView } from "./status"
 import { accountSessionComponents } from "./session-components"
+import { creatorBusinessProfile } from "./business-profile"
 import { PaymentsProblem } from "../errors"
 
 export interface PaymentsCreatorRef {
@@ -212,11 +213,8 @@ export async function ensureStripeAccount(
     country,
     email,
     business_type: businessType,
-    business_profile: {
-      url: platformBusinessUrl(),
-      mcc: "5818",
-      product_description: row.bio?.slice(0, 200) || "Digital products and services on Storelib",
-    },
+    /* The creator's own page and what really happens there, not storelib.com and their bio (lib/payments/stripe/business-profile). */
+    business_profile: creatorBusinessProfile({ username: row.username, displayName: row.display_name, platformUrl: platformBusinessUrl() }),
     metadata: { storelib_creator_id: creator.id, storelib_username: row.username ?? "" },
   }
 

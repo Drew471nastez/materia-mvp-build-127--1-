@@ -180,13 +180,19 @@ section("Payouts: its questions asked together")
   const first = batchAfter(src, /const stripeAccount/)
   check("with the creator: the products, Stripe and the ledger row, and no Express dashboard link",
     /\.from\("products"\)/.test(first) && /stripe\.balance\.retrieve/.test(first) && /stripe\.accounts\.retrieve/.test(first)
-      && /stripe\.balanceTransactions\.list/.test(first) && !/createLoginLink/.test(src) && /\.from\("seller_ledger"\)/.test(first))
+      && !/createLoginLink/.test(src) && /\.from\("seller_ledger"\)/.test(first))
+  /* The balance transactions went with the exchange rate: nothing is converted for display any more (lib/payments/display-currency). */
+  check("  and no exchange rate read, because the balance is drawn in its own currency",
+    !/balanceTransactions/.test(src) && !/getMarketExchangeRate/.test(src) && /pickBalance\(balance, account\.default_currency\)/.test(src))
   check("the ledger row is read once, with every column the page uses",
     (src.match(/\.from\("seller_ledger"\)/g) ?? []).length === 1 && /\.select\("available_amount, pending_amount, negative_balance"\)/.test(src))
   const second = batchAfter(src, /const productIds = /)
   check("with the products: the orders, the tax year's orders and the disputed orders",
     (second.match(/\.from\("orders"\)/g) ?? []).length === 3 && /\.gte\("created_at"/.test(second) && /\.eq\("status", "disputed"\)/.test(second))
-  check("a Stripe failure still falls back to the orders' own figures", /if \(!stripeRead\.ok\) throw stripeRead\.error/.test(src) && /catch \(err\) \{\s*console\.error\("\[Payouts\] Failed to fetch Stripe balances:", err\);\s*stripePendingBalance = Math\.round\(orderPendingUsd/.test(src))
+  /* The owner, October 2026: accurate figures, no made up ones. A balance Stripe did not answer is not the creator's all time order total. */
+  check("a Stripe failure shows nothing rather than the orders' own figures",
+    /stripeRead && !stripeRead\.ok/.test(src) && /\[Payouts\] Stripe balance not read:/.test(src)
+      && !/orderPendingUsd|orderNetUsd|totalEarnings/.test(src) && !/stripePendingBalance = Math\.round/.test(src))
   check("and a failed tax or ledger read is nothing, not a failed page",
     (src.match(/\.then\(\(r\) => r, \(\) => nothing\)/g) ?? []).length === 2 && !/accountLinks\.create/.test(src))
   check("scoped as before: the creator by the user's id, everything else by that creator or its products, on the service role",

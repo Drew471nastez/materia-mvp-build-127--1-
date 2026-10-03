@@ -15,6 +15,8 @@
  *   dispute.created                           DISPUTE_CREATED
  *   dispute.updated, needing a response       DISPUTE_ACTION_REQUIRED, while
  *                                             the dispute is still open
+ *   dispute.closed                            DISPUTE_CLOSED: won, lost, or an
+ *                                             inquiry the bank closed
  *
  * The buyer's side of an order and a refund is customer.ts.
  */
@@ -38,11 +40,17 @@ export const sales: Workflow = (event, ctx) => {
       return plan([job("NEW_SALE", event, ctx, { ...order, step: orderId ? "sale" : null })])
     case "order.refunded":
       return plan([job("REFUND_CREATED", event, ctx, order)])
+    case "dispute.closed": {
+      const disputeId = event.entityType === "dispute" ? event.entityId : str(event.payload.disputeId)
+      return plan([job("DISPUTE_CLOSED", event, ctx, { entityType: "dispute", entityId: disputeId ?? null, data: disputeId ? { disputeId } : {}, step: disputeId ? "closed" : null })])
+    }
     case "dispute.created":
     case "dispute.updated": {
       const disputeId = event.entityType === "dispute" ? event.entityId : str(event.payload.disputeId)
       const dispute = { entityType: "dispute" as const, entityId: disputeId ?? null, data: disputeId ? { disputeId } : {} }
       if (event.name === "dispute.created") return plan([job("DISPUTE_CREATED", event, ctx, { ...dispute, step: disputeId ? "created" : null })])
+      /* Stripe's own reminder updates on an inquiry are not a case to answer. */
+      if (event.payload.inquiry === true) return null
       if (!needsResponse(event.payload)) return null
       return plan([job("DISPUTE_ACTION_REQUIRED", event, ctx, dispute)])
     }

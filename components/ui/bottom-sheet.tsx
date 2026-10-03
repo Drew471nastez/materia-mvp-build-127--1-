@@ -364,6 +364,7 @@ export function BottomSheet({
   lowered = 0,
   onRaise,
   keepMounted = false,
+  zIndex,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -427,6 +428,14 @@ export function BottomSheet({
    * a caller that wants a fresh start resets it itself.
    */
   keepMounted?: boolean
+  /**
+   * ABOVE A PANEL THAT IS ITSELF ABOVE THE PAGE. A sheet sits at z-index 200,
+   * which clears the page and its chrome. A field inside a panel drawn higher
+   * than that (Set up payments is a full screen subpage at 1000) would open
+   * its sheet behind the panel: the tap looks like it did nothing. Such a
+   * panel passes the layer it wants the sheet on, and nothing else moves.
+   */
+  zIndex?: number
 }) {
   const [mounted, setMounted] = useState(false)
   /**
@@ -1015,8 +1024,8 @@ export function BottomSheet({
       data-app-sheet-rest={atRest ? "" : undefined}
       /* The rules for other dialogs leave this one out; <html> says it is up. */
       data-sheet-root=""
-      className={cn("fixed inset-0 z-[200]", hideFrom === "sm" && "sm:hidden", hideFrom === "md" && "md:hidden")}
-      style={isOpen ? undefined : atRest ? REST_STYLE : { pointerEvents: "none" }}
+      className={cn("fixed inset-0", zIndex == null && "z-[200]", hideFrom === "sm" && "sm:hidden", hideFrom === "md" && "md:hidden")}
+      style={{ ...(zIndex == null ? null : { zIndex }), ...(isOpen ? null : atRest ? REST_STYLE : { pointerEvents: "none" }) }}
       /* The same at rest: a role or an aria-* that changed would be a change
          under the page's `:has()` rules. Out of sight, it is out of the
          accessibility tree anyway. */

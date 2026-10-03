@@ -10,7 +10,7 @@ import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { ShimmerSwap } from "@/components/ui/shimmer"
 import { cachedOverview, fetchOverview, rememberOverview } from "@/lib/payments/overview-cache"
 import { StorelibPaymentsCard, StorelibPaymentsCardLoading } from "@/components/app/settings/storelib-payments-card"
-import { PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
+import { PaymentsPanelWaiting, PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
 import { cn } from "@/lib/utils"
 
@@ -38,6 +38,7 @@ export function StorelibPaymentsSettings({
   compact,
   manageRequest = 0,
   panelOnly,
+  onPanelShown,
 }: {
   statementDescriptorSlot?: React.ReactNode
   compact?: boolean
@@ -45,6 +46,8 @@ export function StorelibPaymentsSettings({
   manageRequest?: number
   /** Only the panel, for a page that draws its own dashboard around it. */
   panelOnly?: boolean
+  /** The panel is on screen: the button that asked for it can stop waiting. */
+  onPanelShown?: () => void
 }) {
   const router = useRouter()
   const wasOpen = React.useRef<boolean | null>(null)
@@ -88,10 +91,30 @@ export function StorelibPaymentsSettings({
   const view = data?.paymentsStatus ?? null
   const modeFor = (action: StatusAction | undefined): SetupMode => (action === "bank" || action === "change_bank" || beat === "done" ? "bank" : "setup")
 
+  /*
+    THE PRESS OPENS IT, NOT THE ANSWER. This used to wait for the overview
+    before opening, so Update bank did nothing visible for as long as that
+    request took, which on a phone is most of a second. The panel opens on
+    the press now; while the answer is still coming it is
+    PaymentsPanelWaiting, in the same shell, and the real flow takes its
+    place without the panel closing or moving.
+  */
   React.useEffect(() => {
-    if (manageRequest > 0 && data) setPanel({ open: true, mode: modeFor(view?.action) })
+    if (manageRequest > 0) setPanel({ open: true, mode: data ? modeFor(view?.action) : "bank" })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manageRequest, !!data])
+  }, [manageRequest])
+
+  /* The answer landed while it was open: the mode it really wanted. */
+  React.useEffect(() => {
+    if (!data || manageRequest === 0) return
+    setPanel((p) => (p.open ? { ...p, mode: modeFor(view?.action) } : p))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!data, manageRequest])
+
+  React.useEffect(() => {
+    if (panel.open) onPanelShown?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panel.open])
 
   /* ?setup=1: the phone app sent the creator here to finish in the browser. Opened once. */
   const handedOff = React.useRef(false)
@@ -129,7 +152,8 @@ export function StorelibPaymentsSettings({
     />
   ) : null
 
-  if (panelOnly) return flow
+  /* Only the panel: the waiting one until the overview arrives, so the press is answered at once. */
+  if (panelOnly) return flow ?? <PaymentsPanelWaiting open={panel.open} onClose={closePanel} label={panel.mode === "bank" ? "Payout account" : "Payments"} />
 
   const loading = !data && !error
 

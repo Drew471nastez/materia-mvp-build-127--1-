@@ -82,6 +82,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   REFUND_CREATED: ["productTitle", "amountCents", "currency", "orderId", "orderNumber", "reason"],
   DISPUTE_CREATED: ["disputeId", "orderId", "orderNumber", "productTitle", "amountCents", "currency", "reason", "dueBy"],
   DISPUTE_ACTION_REQUIRED: ["disputeId", "orderId", "orderNumber", "productTitle", "amountCents", "currency", "reason", "dueBy"],
+  DISPUTE_CLOSED: ["disputeId", "orderId", "orderNumber", "productTitle", "amountCents", "currency", "outcome", "restoredCents"],
   SUBSCRIPTION_CREATED: ["planName", "amountCents", "currency", "nextBillingDate"],
   SUBSCRIPTION_PAYMENT_FAILED: ["planName", "amountCents", "currency", "cardLast4"],
   SUBSCRIPTION_CANCELLED: ["planName", "endsAt"],
@@ -136,6 +137,8 @@ export const PATHS = {
   domains: "/app/settings?tab=domains",
   security: "/app/settings?tab=security",
   payouts: "/app/payouts",
+  /** Payouts, at its disputes list. */
+  disputes: "/app/payouts#disputes",
   order: (id: string) => (id ? `/app/orders?order=${id}` : "/app/orders"),
   help: "/help",
   receipt: (token: string) => `/receipt/${token}`,
@@ -1047,6 +1050,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
   },
 
   DISPUTE_CREATED: (d) => {
+    const inquiry = d.bool("inquiry") === true
     const title = d.text("productTitle", 60)
     const amount = d.money()
     const due = d.date("dueBy")
@@ -1054,16 +1058,22 @@ export const CATALOG: Record<NotificationType, Entry> = {
     return {
       family: "action_required",
       audience: "creator",
-      subject: amount ? `A customer disputed a payment of ${amount}` : "A customer disputed a payment",
-      preview: "Here is what happens next and what you can do.",
-      heading: "A payment was disputed",
-      paragraphs: [
-        join("A customer asked their bank to reverse a payment", amount && `of ${amount}`, title && `for ${title}`) + ".",
-        "The bank holds the amount while it looks at the case. You can send evidence, like proof the customer got the files, to help win it.",
-      ],
+      subject: inquiry ? "A customer's bank asked about a payment" : amount ? `A customer disputed a payment of ${amount}` : "A customer disputed a payment",
+      preview: inquiry ? "No money has been taken. Here is what happens next." : "Here is what happens next and how to help win it.",
+      heading: inquiry ? "A bank asked about a payment" : "A payment was disputed",
+      paragraphs: inquiry
+        ? [
+            join("A customer's bank asked questions about a payment", amount && `of ${amount}`, title && `for ${title}`) + ". No money has been taken.",
+            "Storelib answers the bank for you. If you have proof the customer got what they paid for, add it on Payouts so it goes with the answer.",
+          ]
+        : [
+            join("A customer asked their bank to reverse a payment", amount && `of ${amount}`, title && `for ${title}`) + ".",
+            "Your share of this sale is held while the bank looks at the case. Storelib answers the bank for you, and if the bank decides for you, the money comes back to your balance.",
+            "Add anything that proves the sale on Payouts, like proof the files were delivered and any messages with the customer.",
+          ],
       facts: [["Amount", amount], ["Product", title], ["Order", d.orderLabel()], ["Reason", d.readable("reason", DISPUTE_REASONS)], ["Respond by", due]],
-      action: { label: "View the dispute", path },
-      inApp: { title: "Payment disputed", body: join("A customer disputed a payment", amount && `of ${amount}`) + ".", actionLabel: "View", actionPath: path },
+      action: { label: "Add evidence on Payouts", path: PATHS.disputes },
+      inApp: { title: inquiry ? "A bank asked about a payment" : "Payment disputed", body: inquiry ? "No money has been taken. Storelib answers it for you." : join("A customer disputed a payment", amount && `of ${amount}`) + ".", actionLabel: "View", actionPath: PATHS.disputes },
     }
   },
 
@@ -1080,12 +1090,35 @@ export const CATALOG: Record<NotificationType, Entry> = {
       preview: "Sending evidence gives you the best chance to win it.",
       heading: "A dispute needs your response",
       paragraphs: [
-        due ? `The deadline to respond is ${due}. After that, the bank decides without hearing your side.` : "There is a deadline to respond. After it, the bank decides without hearing your side.",
-        "Good evidence is simple: the order, proof the files were delivered or downloaded, and any messages with the customer.",
+        due ? `Storelib answers the bank by ${due}. Add your evidence on Payouts before then so it goes with the answer.` : "Storelib answers the bank before its deadline. Add your evidence on Payouts so it goes with the answer.",
+        "Good evidence is simple: proof the files were delivered or downloaded, and any messages with the customer.",
       ],
       facts: [["Amount", amount], ["Product", title], ["Order", d.orderLabel()], ["Reason", d.readable("reason", DISPUTE_REASONS)], ["Respond by", due]],
-      action: { label: "Respond to the dispute", path },
-      inApp: { title: "A dispute needs your response", body: due ? `Respond by ${due}.` : "Send your evidence before the deadline.", actionLabel: "Respond", actionPath: path },
+      action: { label: "Add evidence on Payouts", path: PATHS.disputes },
+      inApp: { title: "A dispute needs your response", body: due ? `Respond by ${due}.` : "Send your evidence before the deadline.", actionLabel: "Respond", actionPath: PATHS.disputes },
+    }
+  },
+
+  DISPUTE_CLOSED: (d) => {
+    const title = d.text("productTitle", 60)
+    const amount = d.money()
+    const outcome = d.text("outcome", 20)
+    const won = outcome === "won"
+    const inquiry = outcome === "warning_closed" || outcome === "inquiry_closed"
+    return {
+      family: won ? "success" : "base",
+      audience: "creator",
+      subject: won ? "You won a dispute" : inquiry ? "A bank closed its question about a payment" : "A dispute was decided for the customer",
+      preview: won ? "The money went back to your balance." : inquiry ? "No dispute was opened and nothing was taken." : "Here is what it means for your balance.",
+      heading: won ? "You won the dispute" : inquiry ? "The bank's question is closed" : "The dispute is closed",
+      paragraphs: won
+        ? [join("The customer's bank decided for you", title && `on ${title}`) + ".", "Your share of the sale went back to your balance."]
+        : inquiry
+          ? ["The customer's bank closed its question without opening a dispute. Nothing was taken from your balance."]
+          : [join("The customer's bank decided for the customer", title && `on ${title}`) + ".", "The amount held for this sale stays with the customer. Selling to people who know what they are buying, with a clear description, keeps disputes rare."],
+      facts: [["Amount", amount], ["Product", title], ["Order", d.orderLabel()]],
+      action: { label: "View Payouts", path: PATHS.disputes },
+      inApp: { title: won ? "You won a dispute" : inquiry ? "A bank's question is closed" : "A dispute is closed", body: won ? "The money went back to your balance." : inquiry ? "Nothing was taken." : "The bank decided for the customer.", actionLabel: "View", actionPath: PATHS.disputes },
     }
   },
 

@@ -41,7 +41,12 @@ const config: CapacitorConfig = {
     //   browser-engine level before any JS runs.
     // hooks.stripe.com — needed for 3DS bank-auth redirect pages so they stay
     //   in-app rather than opening the system Safari browser.
-    allowNavigation: ['js.stripe.com', 'hooks.stripe.com'],
+    // connect-js.stripe.com — Stripe's embedded Connect forms (the three steps
+    //   of Set up payments). They draw in frames from this host, which
+    //   proxy.ts now allows in the app's frame-src; listed here so that if one
+    //   of those frames ever navigates the shell, it stays in the app rather
+    //   than ejecting a half finished identity check into Safari.
+    allowNavigation: ['js.stripe.com', 'hooks.stripe.com', 'connect-js.stripe.com'],
   },
   ios: {
     contentInset: 'never',
