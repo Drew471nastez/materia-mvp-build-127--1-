@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { getMarketExchangeRate } from "@/lib/exchange-rate"
+import { pickBalance, upcomingByDay } from "@/lib/payments/display-currency"
 import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/status"
 
 export async function GET() {
@@ -25,37 +25,21 @@ export async function GET() {
 
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-    let orderPendingUsd = 0
-    try {
-      const { data: products } = await adminSupabase
-        .from("products")
-        .select("id")
-        .eq("creator_id", creator.id)
-
-      const productIds = (products || []).map((p) => p.id)
-      if (productIds.length > 0) {
-        const { data: orders } = await adminSupabase
-          .from("orders")
-          .select("status, amount_cents, fee_cents, refund_amount_cents")
-          .in("product_id", productIds)
-          .in("status", ["completed", "refunded"])
-
-        const completed = (orders || []).filter((o) => o.status === "completed")
-        const gross = completed.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-        const fees = completed.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
-        orderPendingUsd = Math.max(0, gross - fees)
-      }
-    } catch {
-      orderPendingUsd = 0
-    }
-
     const stripeAccountId = creator.stripe_account_id
     if (!stripeAccountId) {
-      return NextResponse.json({ payouts: [], balance: null })
+      return NextResponse.json({ payouts: [], balance: null, balanceCurrency: null, upcoming: [] })
     }
 
-    // Fetch payouts + balance + account + recent balance transactions in parallel
-    const [payoutsResult, balanceResult, accountResult, balanceTxResult] = await Promise.all([
+    /*
+      STRIPE'S OWN FIGURES, IN STRIPE'S OWN CURRENCY. This used to convert
+      the balance to dollars with a market rate and, when Stripe showed
+      nothing, stand in Storelib's ledger or the creator's all time order
+      totals for it. Every one of those was a number that was never going
+      to reach the bank. Now the balance is Stripe's, in the currency Stripe
+      holds it in (lib/payments/display-currency), and "Arriving soon" is
+      Stripe's pending transactions with the day each becomes available.
+    */
+    const [payoutsResult, balanceResult, accountResult, pendingResult] = await Promise.all([
       stripe.payouts.list(
         { limit: 100, expand: ["data.destination"] },
         { stripeAccount: stripeAccountId }
@@ -66,62 +50,19 @@ export async function GET() {
       ).catch(() => null),
       stripe.accounts.retrieve(stripeAccountId).catch(() => null),
       stripe.balanceTransactions.list(
-        { limit: 5 },
+        { limit: 100 },
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
     ])
 
-    // Detect payout schedule from Stripe account settings
+    // The payout schedule Stripe keeps for the account (payouts stay manual: Cash out)
     const schedule = (accountResult as any)?.settings?.payouts?.schedule
     const payoutScheduleInterval: string | null = schedule?.interval || null
     const payoutScheduleDelay: number | null = schedule?.delay_days ?? null
 
-    // Extract the exchange_rate from the most recent transaction that has one.
-    // Stripe defines: presentment_amount × exchange_rate = account_amount.
-    // For USD → RON: USD × rate = RON. To convert RON → USD: RON / rate = USD.
-    let exchangeRate: number | null =
-      (balanceTxResult.data as any[]).find((tx: any) => tx.exchange_rate)
-        ?.exchange_rate ?? null
-
-    if ((!exchangeRate || exchangeRate <= 0) && balanceResult) {
-      const preferredCurrency = (creator.default_currency || "usd").toLowerCase()
-      const byCurrency = new Map<string, { available: number; pending: number }>()
-      for (const b of balanceResult.available) {
-        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 }
-        row.available += b.amount
-        byCurrency.set(b.currency, row)
-      }
-      for (const b of balanceResult.pending) {
-        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 }
-        row.pending += b.amount
-        byCurrency.set(b.currency, row)
-      }
-      const dominant =
-        [...byCurrency.entries()].sort(
-          (a, b) => b[1].available + b[1].pending - (a[1].available + a[1].pending),
-        )[0] || null
-      const selected = byCurrency.get(preferredCurrency)
-        ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
-        : dominant
-
-      if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderPendingUsd > 0) {
-        exchangeRate = selected[1].pending / orderPendingUsd
-      }
-    }
-
-    // Override Stripe's internal rate with the real ECB market rate (same as Google).
-    // Detect the account's native currency from the balance result.
-    if (accountResult && balanceResult) {
-      const nativeCurrency = (
-        (accountResult as any).default_currency ||
-        creator.default_currency ||
-        "usd"
-      ).toLowerCase()
-      if (nativeCurrency !== "usd") {
-        const marketRate = await getMarketExchangeRate(nativeCurrency, exchangeRate)
-        if (marketRate && marketRate > 0) exchangeRate = marketRate
-      }
-    }
+    const picked = pickBalance(balanceResult, (accountResult as any)?.default_currency ?? null)
+    const balanceCurrency = picked?.currency ?? ((accountResult as any)?.default_currency || null)
+    const upcoming = balanceCurrency ? upcomingByDay(pendingResult.data as any[], balanceCurrency) : []
 
     const payouts = payoutsResult.data.map((p) => {
       // Extract readable destination string
@@ -129,15 +70,10 @@ export async function GET() {
       const dest = p.destination as any
       if (dest) {
         if (typeof dest === "string") {
-          destination = dest
+          destination = null
         } else if (dest.last4) {
-          // Build a readable label: "Chase ••••1234" or just "Bank ••••1234"
           const bankName = dest.bank_name || dest.institution_name || null
-          const last4 = dest.last4
-          const accountType = dest.account_type ? ` (${dest.account_type})` : ""
-          destination = bankName
-            ? `${bankName} ••••${last4}${accountType}`
-            : `Bank account ••••${last4}${accountType}`
+          destination = bankName ? `${bankName} ••••${dest.last4}` : `Bank account ••••${dest.last4}`
         }
       }
 
@@ -156,51 +92,12 @@ export async function GET() {
       }
     })
 
-    let balance = balanceResult
+    const balance = balanceResult
       ? {
-          available: balanceResult.available.map((b) => ({
-            amount: b.amount,
-            currency: b.currency,
-          })),
-          pending: balanceResult.pending.map((b) => ({
-            amount: b.amount,
-            currency: b.currency,
-          })),
+          available: balanceResult.available.map((b) => ({ amount: b.amount, currency: b.currency })),
+          pending: balanceResult.pending.map((b) => ({ amount: b.amount, currency: b.currency })),
         }
       : null
-
-    // Fallback: if Stripe returned empty balance arrays (e.g. new/reconnected
-    // account with no transactions yet) but platform has recorded orders,
-    // use the seller_ledger as fallback so the UI doesn't flash $0.
-    const hasStripeBalance = balance &&
-      (balance.available.some((b) => b.amount !== 0) || balance.pending.some((b) => b.amount !== 0))
-
-    if (!hasStripeBalance && orderPendingUsd > 0) {
-      try {
-        const { data: ledger } = await adminSupabase
-          .from("seller_ledger")
-          .select("available_amount, pending_amount")
-          .eq("creator_id", creator.id)
-          .maybeSingle()
-
-        if (ledger) {
-          const ledgerAvail = ledger.available_amount || 0
-          const ledgerPending = ledger.pending_amount || 0
-          if (ledgerAvail > 0 || ledgerPending > 0) {
-            balance = {
-              available: [{ amount: ledgerAvail, currency: "usd" }],
-              pending: [{ amount: ledgerPending, currency: "usd" }],
-            }
-          } else if (orderPendingUsd > 0) {
-            // Ledger also empty — use order net as pending (funds settling)
-            balance = {
-              available: [{ amount: 0, currency: "usd" }],
-              pending: [{ amount: orderPendingUsd, currency: "usd" }],
-            }
-          }
-        }
-      } catch { /* non-fatal */ }
-    }
 
     // Include account status for the client state machine
     const accountStatus = accountResult ? {
@@ -322,7 +219,7 @@ export async function GET() {
       /* Tax forms stay in email. The Express dashboard is not opened from here. */
     } catch { /* non-fatal */ }
 
-    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus, paymentsStatus, disputeData, taxData })
+    return NextResponse.json({ payouts, balance, balanceCurrency, upcoming, payoutScheduleInterval, payoutScheduleDelay, accountStatus, paymentsStatus, disputeData, taxData })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

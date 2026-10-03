@@ -1,14 +1,22 @@
 "use client"
 
 /**
- * STORELIB PAYMENTS SETUP. A centred panel on a computer and a full screen
- * subpage on a phone, with three steps:
+ * STORELIB PAYMENTS SETUP. One calm page over the app, on every screen size,
+ * with three steps:
  *
  *   Account  country, individual or business, legal name (Storelib's form)
- *   Verify   Stripe's embedded onboarding, drawn inside this panel; it asks
- *            only what Stripe needs today, including owners and ID photos
+ *   Verify   Stripe's embedded onboarding, drawn inside this page: identity
+ *            and an ID document are collected now, not left for later, so
+ *            payments do not pause the first time Stripe asks
  *   Bank     the payout bank, in Stripe's embedded form; the numbers go from
  *            this browser to Stripe and never to Storelib
+ *
+ * ONE LAYER. It used to be a dialog on a darkened page, and Stripe's own
+ * windows (the ID consent, an edit form) open with their own dark backdrop
+ * on top of it, so three faded layers stacked up. Now the setup is a full
+ * page of its own, light grey with one white card in a narrow column, and
+ * nothing behind it is darkened: when Stripe opens a window, its backdrop is
+ * the only one.
  *
  * Which step shows comes from the server's status, read from Stripe, so a
  * step Stripe already has is skipped. Not a Radix dialog: Stripe's form opens
@@ -18,6 +26,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { Check, ChevronLeft, Clock, ExternalLink, Info, Landmark, Lock, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
@@ -80,15 +89,12 @@ const EXIT_MS = 220
 function Panel({
   open,
   phone,
-  tall,
   onClose,
   label,
   children,
 }: {
   open: boolean
   phone: boolean
-  /** Fixed height while Stripe's form is inside, so it never jumps as it loads. */
-  tall?: boolean
   onClose: () => void
   label: string
   children: React.ReactNode
@@ -127,46 +133,30 @@ function Panel({
 
   if (!shown || typeof document === "undefined") return null
 
-  if (phone) {
-    return createPortal(
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        data-payments-setup-panel="subpage"
-        className={cn(
-          "fixed inset-x-0 top-0 z-[1000] flex h-[100dvh] flex-col bg-white ease-sheet [backface-visibility:hidden] [contain:layout_paint] [will-change:transform]",
-          leaving ? "animate-out slide-out-to-right duration-200" : "animate-in slide-in-from-right duration-300",
-        )}
-      >
-        {children}
-      </div>,
-      document.body,
-    )
-  }
-
+  /*
+    A page of its own on every screen: white on a phone (where it slides in
+    from the side like any subpage), light grey with one card on a computer
+    (where it fades in). No darkened page behind it, so Stripe's own window,
+    when it opens, is the only backdrop there is.
+  */
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6" data-payments-setup-panel="">
-      <div
-        aria-hidden
-        onClick={onClose}
-        className={cn("absolute inset-0 bg-[#0f1115]/45 duration-200 ease-sheet", leaving ? "animate-out fade-out-0" : "animate-in fade-in-0")}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        className={cn(
-          "relative flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,17,21,0.35),0_2px_8px_rgba(15,17,21,0.08)] duration-200 ease-sheet [will-change:transform,opacity]",
-          /* About 760 wide, and a little more on a large desktop (1280px and up), where Stripe's embedded
-             forms have room to sit side by side. Laptops and tablets keep 760; phones are full screen above. */
-          "max-w-[min(760px,calc(100vw-40px))] xl:max-w-[840px]",
-          tall ? "h-[min(760px,calc(100dvh-48px))]" : "max-h-[min(760px,calc(100dvh-48px))]",
-          leaving ? "animate-out fade-out-0 zoom-out-95" : "animate-in fade-in-0 zoom-in-95",
-        )}
-      >
-        {children}
-      </div>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      data-payments-setup-panel={phone ? "subpage" : "page"}
+      className={cn(
+        "fixed inset-0 z-[1000] flex h-[100dvh] flex-col bg-white ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9]",
+        phone
+          ? leaving
+            ? "animate-out slide-out-to-right duration-200 [will-change:transform]"
+            : "animate-in slide-in-from-right duration-300 [will-change:transform]"
+          : leaving
+            ? "animate-out fade-out-0 duration-200"
+            : "animate-in fade-in-0 duration-200",
+      )}
+    >
+      {children}
     </div>,
     document.body,
   )
@@ -345,8 +335,7 @@ function Footer({ children }: { children: React.ReactNode }) {
     <div
       data-setup-footer=""
       className={cn(
-        "sticky bottom-0 flex shrink-0 items-center justify-between gap-3 border-t border-[#f1f2f4] bg-white px-5 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 [&>*:last-child]:max-sm:flex-1",
-        "mt-6 py-4",
+        "sticky bottom-0 z-[1] mt-6 flex sm:static shrink-0 items-center justify-between gap-3 border-t border-[#f1f2f4] bg-white px-5 py-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:rounded-b-2xl sm:px-7 sm:pb-4 [&>*:last-child]:max-sm:flex-1",
       )}
     >
       {children}
@@ -476,48 +465,85 @@ export function PaymentsSetupFlow({
     body = <BankStep key={`bank-${openCount}`} data={data} onExit={() => settle("bank")} onDone={finish} />
   }
 
-  return (
-    <Panel open={open} phone={phone} tall={embedded} onClose={onClose} label={title}>
-      {phone ? (
-        <div className="shrink-0 border-b border-[#f1f2f4] bg-white pt-[env(safe-area-inset-top)]">
-          <div className="flex h-14 items-center gap-1 px-2">
-            <button
-              type="button"
-              aria-label={mode === "setup" && step > 0 && !ending ? "Back" : "Close"}
-              onClick={onBack}
-              className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
-            >
-              <ChevronLeft className="h-[22px] w-[22px]" strokeWidth={2.25} />
-            </button>
-            <h2 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
-            <span aria-hidden className="w-11" />
-          </div>
-          {mode === "setup" ? (
-            <div className="px-5 pb-3.5">
-              <Stepper step={shownStep} done={ending === "done"} />
-            </div>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-6">
-          <div className="flex items-center gap-3">
-            <h2 className="min-w-0 flex-1 text-[18px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={onClose}
-              className="-mr-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {mode === "setup" ? <Stepper step={shownStep} done={ending === "done"} /> : null}
-        </div>
-      )}
+  const subtitle =
+    mode === "setup"
+      ? "About five minutes. Your details go straight to Stripe, our payment partner."
+      : mode === "bank"
+        ? "Where your cash outs are sent."
+        : "The details on your payments account."
 
-      <div data-setup-scroll="" className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", phone && "pt-5")}>
-        <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex min-h-full flex-col animate-in fade-in-0 duration-300 ease-sheet", slide)}>
-          {body}
+  return (
+    <Panel open={open} phone={phone} onClose={onClose} label={title}>
+      {/* The bar: the way back on a phone; Storelib's mark and the way out on a computer. */}
+      <div className="shrink-0 border-b border-[#f1f2f4] bg-white pt-[env(safe-area-inset-top)] sm:border-[#eceef1]">
+        <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center gap-1 px-2 sm:h-16 sm:gap-3 sm:px-6">
+          {phone ? (
+            <>
+              <button
+                type="button"
+                aria-label={mode === "setup" && step > 0 && !ending ? "Back" : "Close"}
+                onClick={onBack}
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+              >
+                <ChevronLeft className="h-[22px] w-[22px]" strokeWidth={2.25} />
+              </button>
+              <h2 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
+              <span aria-hidden className="w-11" />
+            </>
+          ) : (
+            <>
+              <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                <StorelibLogo size={28} />
+                <span className="text-[15px] font-semibold text-[#1a1a2e]">Storelib</span>
+                <span aria-hidden className="h-4 w-px bg-[#e5e7eb]" />
+                <span className="truncate text-[14px] text-[#6b7280]">Payments</span>
+              </span>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={onClose}
+                className="-mr-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#eef0f2] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div data-setup-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {/* One narrow column: 560px of card on a computer, the whole width on a phone. */}
+        <div className="mx-auto w-full max-w-[560px] sm:px-6 sm:pb-16 sm:pt-10">
+          {phone ? (
+            mode === "setup" ? (
+              <div className="px-5 pt-4">
+                <Stepper step={shownStep} done={ending === "done"} />
+              </div>
+            ) : null
+          ) : (
+            <div className="mb-6 px-1">
+              <h2 className="text-[22px] font-semibold leading-7 tracking-[-0.01em] text-[#1a1a2e]">{title}</h2>
+              <p className="mt-1 text-[14px] leading-5 text-[#6b7280]">{subtitle}</p>
+              {mode === "setup" ? (
+                <div className="mt-5">
+                  <Stepper step={shownStep} done={ending === "done"} />
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          <div data-setup-card="" className="bg-white sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80 sm:shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
+            <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex min-h-[360px] flex-col pt-5 animate-in fade-in-0 duration-300 ease-sheet sm:pt-7", slide)}>
+              {body}
+            </div>
+          </div>
+
+          {phone ? null : (
+            <p className="mt-5 flex items-center justify-center gap-1.5 px-4 text-center text-[12px] leading-[18px] text-[#9ca3af]">
+              <Lock className="h-3 w-3 shrink-0" />
+              Secured by Stripe. Storelib never sees your full bank or ID numbers.
+            </p>
+          )}
         </div>
       </div>
     </Panel>
@@ -559,7 +585,7 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
 
   return (
     <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
-      <div className="flex-1 space-y-5 px-5 sm:px-6">
+      <div className="flex-1 space-y-5 px-5 sm:px-7">
         <ErrorLine message={error} />
         <div>
           <div className="mb-1.5 flex items-center gap-1.5">
@@ -640,17 +666,28 @@ function StepIntro({ title, line }: { title: string; line: string }) {
 }
 
 /**
- * Stripe's embedded onboarding for what is due now. A creator who comes back
- * later (Stripe asks for more, or a document was declined) lands here too and
- * sees only what is still missing.
+ * IDENTITY IS PART OF SETUP, NOT SOMETHING FOR LATER. Stripe's embedded
+ * onboarding collects everything it will need for this account
+ * (`eventually_due`), which includes the ID document and, in most countries,
+ * a selfie check, so payments do not pause the first time sales grow and
+ * Stripe asks. Payments only turn on once Stripe has verified it; there is
+ * no way to finish setup around it. A creator who comes back later (Stripe
+ * asks for more, or a document was declined) lands here too and sees only
+ * what is still missing.
  */
+export const VERIFY_COLLECTION = { fields: "eventually_due", futureRequirements: "omit" } as const
+
 function VerifyStep({ data, onExit }: { data: Overview; onExit: () => void }) {
   const s = data.paymentsStatus
   const later = s && s.status !== "NOT_STARTED" && s.status !== "INCOMPLETE" && s.action === "onboarding"
   return (
-    <div className="flex-1 px-5 pb-6 sm:px-6">
-      {later ? <StepIntro title={s.title} line={s.line} /> : <StepIntro title="Verify your identity" line="We need a few details to activate payments." />}
-      <StripeConnectEmbedded purpose="stripe_onboarding" onExit={onExit} />
+    <div className="flex-1 px-5 pb-6 sm:px-7">
+      {later ? (
+        <StepIntro title={s.title} line={s.line} />
+      ) : (
+        <StepIntro title="Verify your identity" line="Have your passport, ID card or driving licence ready. Stripe checks it once, securely, and payments turn on." />
+      )}
+      <StripeConnectEmbedded purpose="stripe_onboarding" collection={VERIFY_COLLECTION} onExit={onExit} />
     </div>
   )
 }
@@ -670,7 +707,7 @@ function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void
 
   if (!bank?.last4) {
     return (
-      <div className="flex-1 px-5 pb-6 sm:px-6">
+      <div className="flex-1 px-5 pb-6 sm:px-7">
         <StepIntro title="Add your bank account" line="Add the account where you'd like to receive payouts." />
         <StripeConnectEmbedded
           purpose="stripe_onboarding"
@@ -685,7 +722,7 @@ function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void
   if (changing || failed) {
     return (
       <>
-        <div className="flex-1 px-5 pb-2 sm:px-6">
+        <div className="flex-1 px-5 pb-2 sm:px-7">
           <StepIntro
             title={failed ? "Your payout account needs attention" : "Change bank account"}
             line={failed ? "A payout didn't go through. Update your bank account to get paid." : "Your new account is used for the next payout."}
@@ -704,7 +741,7 @@ function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void
 
   return (
     <>
-      <div className="flex-1 px-5 sm:px-6">
+      <div className="flex-1 px-5 sm:px-7">
         <div className="flex items-center gap-3 rounded-xl border border-[#eceef1] px-4 py-3.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#eceef1] bg-[#f7f7f8] text-[#6b7280]">
             <Landmark className="h-4 w-4" />
@@ -736,7 +773,7 @@ function BankStep({ data, onExit, onDone }: { data: Overview; onExit: () => void
 function ManageStep({ onDone }: { onDone: () => void }) {
   return (
     <>
-      <div className="flex-1 px-5 pb-2 sm:px-6">
+      <div className="flex-1 px-5 pb-2 sm:px-7">
         <StepIntro title="Account details" line="Review or update the details on your payments account." />
         <StripeConnectEmbedded purpose="stripe_management" failedTitle="Couldn't load your account details" />
       </div>
@@ -753,19 +790,33 @@ function ManageStep({ onDone }: { onDone: () => void }) {
 function Outcome({ outcome, onContinue, onDone }: { outcome: Outcome; onContinue: () => void; onDone: () => void }) {
   const copy =
     outcome === "done"
-      ? { icon: <Check className="h-5 w-5" strokeWidth={3} />, tone: "bg-[#ecfdf3] text-[#067647]", title: "Payments active", line: "You're ready to accept payments.", action: "Done", primary: onDone }
+      ? { icon: <Check className="h-5 w-5" strokeWidth={3} />, tone: "bg-[#ecfdf3] text-[#067647]", title: "Payments active", line: "You're ready to accept payments. Your sales are paid into your balance and you cash out to your bank.", action: "Done", primary: onDone }
       : outcome === "checking"
-        ? { icon: <Clock className="h-5 w-5" />, tone: "bg-[#eff4ff] text-[#3538cd]", title: "We're checking your information", line: "No action is needed right now. We'll email you if anything else is needed.", action: "Done", primary: onDone }
-        : { icon: <Clock className="h-5 w-5" />, tone: "bg-[#fffaeb] text-[#b54708]", title: "More information is needed to activate payments.", line: "Pick up where you left off.", action: "Continue", primary: onContinue }
+        ? {
+            icon: <Clock className="h-5 w-5" />,
+            tone: "bg-[#f4f3ff] text-[#5b4bd5]",
+            title: "We're verifying your details",
+            line: "This usually takes a few minutes and sometimes up to two business days. We'll email you the moment payments are on.",
+            action: "Done",
+            primary: onDone,
+          }
+        : {
+            icon: <Clock className="h-5 w-5" />,
+            tone: "bg-[#fffaeb] text-[#b54708]",
+            title: "Verification isn't finished",
+            line: "Payments turn on once Stripe has verified your identity. It saved what you entered, so you pick up where you left off.",
+            action: "Continue verification",
+            primary: onContinue,
+          }
   return (
     <>
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-        <span className={cn("flex h-12 w-12 items-center justify-center rounded-full", copy.tone)}>{copy.icon}</span>
+        <span className={cn("flex h-12 w-12 items-center justify-center rounded-full animate-in zoom-in-75 fade-in-0 duration-300", copy.tone)}>{copy.icon}</span>
         <h3 className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">{copy.title}</h3>
         <p className="mx-auto mt-1.5 max-w-[380px] text-[14px] leading-5 text-[#6b7280]">{copy.line}</p>
       </div>
       <Footer>
-        {outcome === "more" ? <button type="button" className={SECONDARY} onClick={onDone}>Later</button> : <span />}
+        <span />
         <button type="button" className={PRIMARY} onClick={copy.primary}>{copy.action}</button>
       </Footer>
     </>

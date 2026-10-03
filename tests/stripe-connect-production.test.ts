@@ -31,7 +31,8 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `  (${JSON.stringify(detail)})`}`)
   }
 }
-const root = join(__dirname, "..")
+/* The push harness runs the compiled suite as an ES module, where __dirname does not exist; the repo root is the working directory. */
+const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 
 /* ── O, P: each secret signs only its own kind ─────────────────────────── */

@@ -12,6 +12,10 @@
  *                            before anything is off. Only an account.updated
  *                            webhook carries that, so the hourly run cannot
  *                            tell and leaves the row as the webhook left it
+ *   verification_unfinished  setup was begun and the identity check was never
+ *                            finished, so payments cannot turn on. Whether
+ *                            anything is published or not: the account is
+ *                            half open, and the one thing left is the ID
  *   payout_failed            a payout the bank sent back, until a later one
  *                            goes through
  *   dispute_opened           a dispute Stripe has not closed yet
@@ -146,6 +150,53 @@ const FAILURE_WORDS: Record<string, string> = {
   unsupported_card: "The card cannot take payouts.",
 }
 
+/**
+ * SETUP BEGUN, IDENTITY NEVER FINISHED. A creator who entered their details,
+ * reached Stripe's identity step and stopped has an account that can take
+ * nothing: no charges, no payouts. The emails for it go out on day 2 and day
+ * 7 (lib/notify/workflows/unfinished), and this is the same thing in the
+ * app, so it is on the bell and the panel rather than only in an inbox.
+ *
+ * It does not wait for a published product (payouts_not_connected is the one
+ * that does), because the work is the same either way and finding out on the
+ * day of a first sale is finding out too late. It waits a day: people stop
+ * to find a passport and come back on their own.
+ */
+export const verificationUnfinished: Rule = {
+  kind: "verification_unfinished",
+  category: "critical",
+  priority: 94,
+  version: 1,
+  needs: ["creator"],
+  cooldownDays: 3,
+  ttlDays: 60,
+  resolveWhenGone: true,
+  push: true,
+  evaluate(s) {
+    const c = s.creator
+    if (!c) return undefined
+    /* Airwallex has its own stages (payouts_not_connected says them). */
+    if (c.airwallex) return []
+    if (!c.stripeAccountId) return []
+    /* Finished, or Stripe is checking what was sent: nothing for the creator to do. */
+    if (c.detailsSubmitted === true) return []
+    if (s.stripeAccount?.disabledReason === "requirements.pending_verification") return []
+    if (canTakePayments(c, s.stripeAccount)) return []
+    /* The first day belongs to the person: most finish it themselves. The account's own age is the closest date the rules hold. */
+    if (ageDays(c.createdAt, s.now) < 1) return []
+    return [
+      {
+        subject: "identity",
+        title: "Verify your identity to get paid",
+        message: "You started setting up payments and the identity check is not finished. Until it is, buyers cannot check out and nothing can reach your bank.",
+        pushTitle: "Finish verifying your identity",
+        href: PAYOUTS,
+        area: "Payments",
+      },
+    ]
+  },
+}
+
 export const payoutFailed: Rule = {
   kind: "payout_failed",
   category: "critical",
@@ -197,7 +248,7 @@ export const disputeOpened: Rule = {
         subject: d.id,
         period: "",
         title: `A buyer disputed a ${money(d.amountCents, d.currency)} payment`,
-        message: "Stripe holds the money while the buyer's bank decides. Send your evidence through Stripe.",
+        message: "Your share of the sale is held while the buyer's bank decides. Storelib answers the bank; add your evidence on Payouts.",
         pushTitle: "A buyer opened a dispute",
         href: PAYOUTS,
         area: "Payouts",

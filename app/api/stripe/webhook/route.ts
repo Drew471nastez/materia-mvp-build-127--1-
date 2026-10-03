@@ -14,6 +14,9 @@ import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
+import { disputeFeeMinor, isClosed, isInquiry, outcomeOf } from "@/lib/stripe/dispute-facts"
+import { disputeContext, disputeCreator, giveBackAfterWon, readDispute, reversedFor, saveDispute, takeBackForDispute } from "@/lib/stripe/disputes"
+import { decimalsOf } from "@/lib/payments/money"
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
@@ -1395,33 +1398,31 @@ async function handleStripeEvent(request: Request) {
   }
 
   // ============================================================================
-  // DISPUTE EVENTS — charge.dispute.created / charge.dispute.closed
-  // Handles negative balance scenarios (Stan-style)
+  // DISPUTE EVENTS: charge.dispute.created / .updated / .closed
   // ============================================================================
-
+  /*
+    A Storelib sale is charged on Storelib's own account and the creator's
+    share is transferred on (destination charges), so its dispute arrives
+    here with no `account`: the creator is found from the charge's transfer
+    (lib/stripe/disputes). Only an older charge made directly on a creator's
+    account carries one. While a case is open the creator's share of that
+    sale is taken back; if the creator wins it goes back to them. An inquiry
+    (Stripe's warning_ statuses) moves no money and is only recorded.
+  */
   if (
     event.type === "charge.dispute.created" ||
     event.type === "charge.dispute.closed" ||
     event.type === "charge.dispute.updated"
   ) {
     const dispute = event.data.object as Stripe.Dispute
-    const connectedAccountId = (event as any).account as string | undefined
-
-    console.log(`[Webhook] ${event.type}:`, dispute.id, "account:", connectedAccountId)
-
-    if (!connectedAccountId) {
-      return NextResponse.json({ received: true })
-    }
+    const accountOnEvent = typeof event.account === "string" ? event.account : null
 
     try {
-      const { data: creator } = await supabaseAdmin
-        .from("creators")
-        .select("id, user_id")
-        .eq("stripe_account_id", connectedAccountId)
-        .single()
+      const ctx = await disputeContext(dispute, accountOnEvent)
+      const creator = await disputeCreator(supabaseAdmin, ctx)
 
       if (!creator) {
-        console.warn("[Webhook] Dispute: no creator for account", connectedAccountId)
+        console.warn("[Webhook] Dispute: no creator found for", dispute.id)
         return NextResponse.json({ received: true })
       }
 
@@ -1430,37 +1431,42 @@ async function handleStripeEvent(request: Request) {
       after(async () => (await import("@/lib/notifications/events")).noteDispute(disputeCreatorId))
 
       const disputeAmountCents = dispute.amount
-      const disputeUserId = ((creator as any).user_id as string | null) ?? null
+      const disputeCurrency = (dispute.currency || "usd").toLowerCase()
+      const disputeUserId = creator.user_id ?? null
+      const inquiry = isInquiry(dispute.status)
+      /* Stripe's own fee, from the withdrawal (never a guessed $15). Only an older charge's fee is the creator's: Stripe took it from their account. */
+      const disputeFeeCents = ctx.onPlatform ? 0 : disputeFeeMinor((dispute as { balance_transactions?: unknown }).balance_transactions)
+      const evidenceDueBy = dispute.evidence_details?.due_by ? new Date(dispute.evidence_details.due_by * 1000).toISOString() : null
+      const paymentIntentId = ctx.paymentIntentId
       const disputeFacts = {
         disputeId: dispute.id,
         amountCents: dispute.amount,
-        currency: (dispute.currency || "usd").toLowerCase(),
+        currency: disputeCurrency,
         reason: dispute.reason || null,
         status: dispute.status,
+        inquiry,
+        dueBy: evidenceDueBy,
       }
-      // Stripe charges a $15 dispute fee for US accounts (1500 cents)
-      const disputeFeeCents = (dispute as any).balance_transactions?.find(
-        (bt: any) => bt.fee > 0
-      )?.fee || 1500
 
-      if (event.type === "charge.dispute.created") {
-        // Idempotency: check if we already processed this dispute
+      /*
+        What the creator gives up while the case is open, once per dispute:
+        on a Storelib sale, their share taken back (a transfer reversal, never
+        more than they received); on an older charge, what Stripe already
+        took from their own account, fee included.
+      */
+      const takeBack = async () => {
         const { data: existingEvent } = await supabaseAdmin
           .from("ledger_events")
           .select("id")
           .eq("stripe_dispute_id", dispute.id)
           .eq("event_type", "dispute_created")
           .maybeSingle()
+        if (existingEvent) return null
 
-        if (existingEvent) {
-          console.log("[Webhook] Dispute already processed:", dispute.id)
-          return NextResponse.json({ received: true })
-        }
-
-        // Dispute opened — funds are withdrawn by Stripe.
-        // Subtract from available → pending → create negative balance
-        // Include the dispute fee in the total deduction
-        const totalDeduction = disputeAmountCents + disputeFeeCents
+        const taken = await takeBackForDispute(ctx, dispute)
+        await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, reversed_minor: taken.reversedMinor, reversal_id: taken.reversalId, recovery: taken.state })
+        const totalDeduction = ctx.onPlatform ? taken.reversedMinor : disputeAmountCents + disputeFeeCents
+        if (totalDeduction <= 0) return taken
 
         /* Once per dispute, in one locked step (lib/payments/ledger). Below: before run-now part 64. */
         const posted = await postLedger(supabaseAdmin, {
@@ -1473,9 +1479,9 @@ async function handleStripeEvent(request: Request) {
             amount_cents: totalDeduction,
             net_seller_cents: totalDeduction,
             fee_cents: disputeFeeCents,
-            currency: (dispute.currency || "usd").toLowerCase(),
+            currency: disputeCurrency,
             stripe_dispute_id: dispute.id,
-            description: `Dispute opened: $${(disputeAmountCents / 100).toFixed(2)} held + $${(disputeFeeCents / 100).toFixed(2)} fee`,
+            description: `Dispute opened: ${amountText(totalDeduction, disputeCurrency)} held`,
           },
         })
         const { data: ledger } = posted.unavailable
@@ -1484,30 +1490,18 @@ async function handleStripeEvent(request: Request) {
 
         if (ledger) {
           let remaining = totalDeduction
-          let availableDelta = 0
-          let pendingDelta = 0
           let newNegative = ledger.negative_balance
-
-          // Take from available first
           const fromAvailable = Math.min(remaining, ledger.available_amount)
-          availableDelta = -fromAvailable
           remaining -= fromAvailable
-
-          // Then from pending
           const fromPending = Math.min(remaining, ledger.pending_amount)
-          pendingDelta = -fromPending
           remaining -= fromPending
-
-          // Remainder becomes negative balance
-          if (remaining > 0) {
-            newNegative += remaining
-          }
+          if (remaining > 0) newNegative += remaining
 
           await supabaseAdmin
             .from("seller_ledger")
             .update({
-              available_amount: ledger.available_amount + availableDelta,
-              pending_amount: ledger.pending_amount + pendingDelta,
+              available_amount: ledger.available_amount - fromAvailable,
+              pending_amount: ledger.pending_amount - fromPending,
               negative_balance: newNegative,
             })
             .eq("creator_id", creator.id)
@@ -1518,64 +1512,55 @@ async function handleStripeEvent(request: Request) {
             amount_cents: totalDeduction,
             net_seller_cents: totalDeduction,
             fee_cents: disputeFeeCents,
-            currency: (dispute.currency || "usd").toLowerCase(),
-            available_delta: availableDelta,
-            pending_delta: pendingDelta,
+            currency: disputeCurrency,
+            available_delta: -fromAvailable,
+            pending_delta: -fromPending,
             stripe_dispute_id: dispute.id,
-            description: `Dispute opened: $${(disputeAmountCents / 100).toFixed(2)} held + $${(disputeFeeCents / 100).toFixed(2)} fee`,
+            description: `Dispute opened: ${amountText(totalDeduction, disputeCurrency)} held`,
           })
         }
+        return taken
+      }
 
-        // Update the order status to "disputed" if we can find it.
-        // dispute.charge is a charge ID (ch_xxx) — need to resolve to payment_intent (pi_xxx)
-        // because orders table stores stripe_payment_intent_id, not charge ID.
+      if (event.type === "charge.dispute.created") {
+        await saveDispute(supabaseAdmin, {
+          stripe_dispute_id: dispute.id,
+          creator_id: creator.id,
+          payment_intent_id: paymentIntentId,
+          charge_id: ctx.chargeId,
+          amount_minor: disputeAmountCents,
+          currency: disputeCurrency,
+          reason: dispute.reason || null,
+          status: dispute.status,
+          inquiry,
+          evidence_due_by: evidenceDueBy,
+          opened_at: new Date(dispute.created * 1000).toISOString(),
+        })
+
+        if (!inquiry) await takeBack()
+
+        /* The sale's rows: marked disputed only when money moved (an inquiry leaves them sales), and named in the email either way. */
         let productName: string | null = null
-        if (dispute.charge || dispute.payment_intent) {
-          let paymentIntentId: string | null = null
-
-          // Try payment_intent first (available on newer disputes)
-          if (dispute.payment_intent) {
-            paymentIntentId = typeof dispute.payment_intent === "string"
-              ? dispute.payment_intent
-              : (dispute.payment_intent as any)?.id || null
-          }
-
-          // Fallback: resolve charge → payment_intent via Stripe API
-          if (!paymentIntentId && dispute.charge) {
-            try {
-              const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
-              const charge = await stripe.charges.retrieve(chargeId, {
-                stripeAccount: connectedAccountId,
-              })
-              paymentIntentId = typeof charge.payment_intent === "string"
-                ? charge.payment_intent
-                : (charge.payment_intent as any)?.id || null
-            } catch (chargeErr) {
-              console.error("[Webhook] Failed to resolve charge to payment_intent:", chargeErr)
+        let orderId: string | null = null
+        if (paymentIntentId) {
+          try {
+            const rows = inquiry
+              ? (((await supabaseAdmin.from("orders").select("id, product_id").eq("stripe_payment_intent_id", paymentIntentId)).data ?? []) as Array<{ id: string; product_id: string | null }>)
+              : await markPaymentDisputed(supabaseAdmin, paymentIntentId)
+            orderId = rows[0]?.id ?? null
+            const productIds = [...new Set(rows.map((r) => r.product_id).filter((id): id is string => !!id))]
+            if (productIds.length > 0) {
+              const { data: prods } = await supabaseAdmin.from("products").select("id, title").in("id", productIds)
+              const titleOf = new Map(((prods ?? []) as Array<{ id: string; title: string | null }>).map((p) => [p.id, p.title]))
+              productName = disputedProductName(productIds.map((id) => titleOf.get(id)))
             }
-          }
-
-          if (paymentIntentId) {
-            /* Every row of the payment, a basket's included (lib/stripe/dispute-orders). */
-            try {
-              const marked = await markPaymentDisputed(supabaseAdmin, paymentIntentId)
-              const productIds = [...new Set(marked.map((r) => r.product_id).filter((id): id is string => !!id))]
-              if (productIds.length > 0) {
-                const { data: prods } = await supabaseAdmin.from("products").select("id, title").in("id", productIds)
-                const titleOf = new Map(((prods ?? []) as Array<{ id: string; title: string | null }>).map((p) => [p.id, p.title]))
-                productName = disputedProductName(productIds.map((id) => titleOf.get(id)))
-              }
-            } catch (markErr) {
-              console.error("[Webhook] Dispute: orders not marked disputed:", markErr)
-            }
+          } catch (markErr) {
+            console.error("[Webhook] Dispute: orders not marked disputed:", markErr)
           }
         }
+        await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, order_id: orderId, product_title: productName })
 
-        /* The creator is told through the engine (DISPUTE_CREATED, and a
-           reminder while evidence is due), in place of the email sent here. */
-        const evidenceDueBy = (dispute as any).evidence_details?.due_by
-          ? new Date((dispute as any).evidence_details.due_by * 1000).toISOString()
-          : null
+        /* The creator is told through the engine (DISPUTE_CREATED, and a reminder while evidence is due). */
         await emit({
           name: "dispute.created",
           key: `dispute:${dispute.id}:created`,
@@ -1584,7 +1569,7 @@ async function handleStripeEvent(request: Request) {
           entityType: "dispute",
           entityId: dispute.id,
           correlationId: event.id,
-          payload: { ...disputeFacts, productName, evidenceDueBy },
+          payload: { ...disputeFacts, productTitle: productName, orderId },
         })
       }
 
@@ -1602,82 +1587,76 @@ async function handleStripeEvent(request: Request) {
           return NextResponse.json({ received: true })
         }
 
-        // Dispute resolved. If won (status=won), reverse the hold + fee.
-        // If lost (status=lost/warning_closed), the money is gone — no reversal.
+        await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, status: dispute.status, inquiry, outcome: outcomeOf(dispute.status), closed_at: new Date().toISOString() })
+
         if (dispute.status === "won") {
-          // When dispute is won, Stripe returns both the disputed amount AND the fee
-          const totalRestored = disputeAmountCents + disputeFeeCents
+          /* What was taken back goes back: Storelib's own record of it, or Stripe's reversals of the transfer. */
+          const recorded = await readDispute(supabaseAdmin, dispute.id)
+          const reversed = recorded && recorded.reversed_minor > 0 ? recorded.reversed_minor : (await reversedFor(ctx.transferId, dispute.id)).reversedMinor
+          const given = await giveBackAfterWon(ctx, dispute, reversed)
+          if (given.state !== "not_needed") {
+            await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, restored_minor: given.restoredMinor, restore_transfer_id: given.transferId, recovery: given.state })
+          }
+          /* On an older charge Stripe returns the amount and the fee to the creator's own account. */
+          const totalRestored = ctx.onPlatform ? given.restoredMinor : disputeAmountCents + disputeFeeCents
 
-          /* Once per dispute, in one locked step (lib/payments/ledger). Below: before run-now part 64. */
-          const posted = await postLedger(supabaseAdmin, {
-            creatorId: creator.id,
-            key: `dispute:${dispute.id}:dispute_closed`,
-            op: "credit_available",
-            amountCents: totalRestored,
-            event: {
-              event_type: "dispute_closed",
-              amount_cents: totalRestored,
-              currency: (dispute.currency || "usd").toLowerCase(),
-              stripe_dispute_id: dispute.id,
-              description: `Dispute won: $${(totalRestored / 100).toFixed(2)} restored (incl. fee)`,
-            },
-          })
-          const { data: ledger } = posted.unavailable
-            ? await supabaseAdmin.from("seller_ledger").select("*").eq("creator_id", creator.id).single()
-            : { data: null }
-
-          if (ledger) {
-            // Restore funds — first absorb any negative balance, rest goes to available
-            let toAvailable = totalRestored
-            let newNegative = ledger.negative_balance
-
-            if (newNegative > 0 && toAvailable > 0) {
-              const absorbed = Math.min(toAvailable, newNegative)
-              toAvailable -= absorbed
-              newNegative -= absorbed
-            }
-
-            await supabaseAdmin
-              .from("seller_ledger")
-              .update({
-                available_amount: ledger.available_amount + toAvailable,
-                negative_balance: newNegative,
-              })
-              .eq("creator_id", creator.id)
-
-            await supabaseAdmin.from("ledger_events").insert({
-              creator_id: creator.id,
-              event_type: "dispute_closed",
-              amount_cents: totalRestored,
-              net_seller_cents: toAvailable,
-              currency: (dispute.currency || "usd").toLowerCase(),
-              available_delta: toAvailable,
-              stripe_dispute_id: dispute.id,
-              description: `Dispute won: $${(totalRestored / 100).toFixed(2)} restored (incl. fee)`,
+          if (totalRestored > 0) {
+            /* Once per dispute, in one locked step (lib/payments/ledger). Below: before run-now part 64. */
+            const posted = await postLedger(supabaseAdmin, {
+              creatorId: creator.id,
+              key: `dispute:${dispute.id}:dispute_closed`,
+              op: "credit_available",
+              amountCents: totalRestored,
+              event: {
+                event_type: "dispute_closed",
+                amount_cents: totalRestored,
+                currency: disputeCurrency,
+                stripe_dispute_id: dispute.id,
+                description: `Dispute won: ${amountText(totalRestored, disputeCurrency)} returned`,
+              },
             })
+            const { data: ledger } = posted.unavailable
+              ? await supabaseAdmin.from("seller_ledger").select("*").eq("creator_id", creator.id).single()
+              : { data: null }
+
+            if (ledger) {
+              // Restore funds: first absorb any negative balance, rest goes to available
+              let toAvailable = totalRestored
+              let newNegative = ledger.negative_balance
+              if (newNegative > 0 && toAvailable > 0) {
+                const absorbed = Math.min(toAvailable, newNegative)
+                toAvailable -= absorbed
+                newNegative -= absorbed
+              }
+
+              await supabaseAdmin
+                .from("seller_ledger")
+                .update({
+                  available_amount: ledger.available_amount + toAvailable,
+                  negative_balance: newNegative,
+                })
+                .eq("creator_id", creator.id)
+
+              await supabaseAdmin.from("ledger_events").insert({
+                creator_id: creator.id,
+                event_type: "dispute_closed",
+                amount_cents: totalRestored,
+                net_seller_cents: toAvailable,
+                currency: disputeCurrency,
+                available_delta: toAvailable,
+                stripe_dispute_id: dispute.id,
+                description: `Dispute won: ${amountText(totalRestored, disputeCurrency)} returned`,
+              })
+            }
           }
 
-          // Restore order status — resolve charge → payment_intent
-          if (dispute.charge || dispute.payment_intent) {
-            let piId: string | null = null
-            if (dispute.payment_intent) {
-              piId = typeof dispute.payment_intent === "string"
-                ? dispute.payment_intent : (dispute.payment_intent as any)?.id || null
-            }
-            if (!piId && dispute.charge) {
-              try {
-                const cId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
-                const ch = await stripe.charges.retrieve(cId, { stripeAccount: connectedAccountId })
-                piId = typeof ch.payment_intent === "string" ? ch.payment_intent : (ch.payment_intent as any)?.id || null
-              } catch { /* non-fatal */ }
-            }
-            if (piId) {
-              /* Each row back to what it was: a partly refunded row stays refunded (lib/stripe/dispute-orders). */
-              try {
-                await restorePaymentAfterWonDispute(supabaseAdmin, piId)
-              } catch (restoreErr) {
-                console.error("[Webhook] Dispute won: orders not restored:", restoreErr)
-              }
+          /* Each row back to what it was: a partly refunded row stays refunded (lib/stripe/dispute-orders). */
+          const piId = paymentIntentId
+          if (piId) {
+            try {
+              await restorePaymentAfterWonDispute(supabaseAdmin, piId)
+            } catch (restoreErr) {
+              console.error("[Webhook] Dispute won: orders not restored:", restoreErr)
             }
           }
 
@@ -1692,16 +1671,18 @@ async function handleStripeEvent(request: Request) {
             payload: { ...disputeFacts, outcome: "won", restoredCents: totalRestored },
           })
         } else {
-          // Lost — log it, funds already deducted
-          await supabaseAdmin.from("ledger_events").insert({
-            creator_id: creator.id,
-            event_type: "dispute_closed",
-            amount_cents: disputeAmountCents,
-            net_seller_cents: 0,
-            currency: (dispute.currency || "usd").toLowerCase(),
-            stripe_dispute_id: dispute.id,
-            description: `Dispute lost: $${(disputeAmountCents / 100).toFixed(2)} forfeited`,
-          })
+          /* Lost: what was taken back stays taken. An inquiry that closed moved nothing, so it writes nothing. */
+          if (!inquiry) {
+            await supabaseAdmin.from("ledger_events").insert({
+              creator_id: creator.id,
+              event_type: "dispute_closed",
+              amount_cents: disputeAmountCents,
+              net_seller_cents: 0,
+              currency: disputeCurrency,
+              stripe_dispute_id: dispute.id,
+              description: `Dispute lost: ${amountText(disputeAmountCents, disputeCurrency)}`,
+            })
+          }
 
           await emit({
             name: "dispute.closed",
@@ -1718,6 +1699,18 @@ async function handleStripeEvent(request: Request) {
 
       /* Evidence submitted, a status that moved: each update is its own Stripe event. */
       if (event.type === "charge.dispute.updated") {
+        await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, status: dispute.status, inquiry, evidence_due_by: evidenceDueBy })
+        /* An inquiry the bank turned into a chargeback on the same case: the money moves now, once. */
+        if (!inquiry && !isClosed(dispute.status)) {
+          const taken = await takeBack()
+          if (taken && paymentIntentId) {
+            try {
+              await markPaymentDisputed(supabaseAdmin, paymentIntentId)
+            } catch (markErr) {
+              console.error("[Webhook] Dispute: orders not marked disputed:", markErr)
+            }
+          }
+        }
         await emit({
           name: "dispute.updated",
           key: `stripe:${event.id}`,
@@ -1737,4 +1730,10 @@ async function handleStripeEvent(request: Request) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+/** An amount for a ledger line, in its own currency: 12.50 RON, not $12.50. */
+function amountText(minor: number, currency: string): string {
+  const d = decimalsOf(currency)
+  return `${(minor / 10 ** d).toFixed(d)} ${currency.toUpperCase()}`
 }

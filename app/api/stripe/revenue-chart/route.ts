@@ -3,11 +3,16 @@ import { addDays, todayIn } from "@/lib/date-range/range"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { salesCurrencyOf } from "@/lib/payments/display-currency"
 
 /**
  * GET /api/stripe/revenue-chart?timeframe=today|yesterday|last_7|this_month|last_90|last_365|all_time
  *
- * Buyer-facing chart uses order records (USD) as source of truth.
+ * The chart is the creator's own order records, in the currency they were
+ * charged in (orders.currency): the currency most of the period's sales were
+ * in is charged, and a sale in another currency (an older dollar sale, say)
+ * is never added to it, only reported beside it in `otherCurrencies`.
  */
 export async function GET(request: Request) {
   try {
@@ -35,7 +40,7 @@ export async function GET(request: Request) {
 
     const productIds = (products || []).map((p) => p.id)
     if (productIds.length === 0) {
-      return NextResponse.json({ data: [], total: 0, totalGross: 0, totalRefunds: 0, currency: "usd", isHourly: false })
+      return NextResponse.json({ data: [], total: 0, totalGross: 0, totalRefunds: 0, currency: platformChargeCurrency(), otherCurrencies: [], isHourly: false })
     }
 
     const { searchParams } = new URL(request.url)
@@ -141,7 +146,7 @@ export async function GET(request: Request) {
 
     let query = adminSupabase
       .from("orders")
-      .select("status, amount_cents, fee_cents, refund_amount_cents, created_at")
+      .select("status, amount_cents, fee_cents, refund_amount_cents, created_at, currency")
       .in("product_id", productIds)
       .in("status", ["completed", "refunded"])
       .order("created_at", { ascending: true })
@@ -149,7 +154,18 @@ export async function GET(request: Request) {
     if (createdGte) query = query.gte("created_at", createdGte.toISOString())
     if (createdLte) query = query.lte("created_at", createdLte.toISOString())
 
-    const { data: orders } = await query
+    const { data: inPeriod } = await query
+
+    /* One currency per chart: the period's own, and the rest reported, never added in. */
+    const chartCurrency = salesCurrencyOf(inPeriod ?? [], platformChargeCurrency())
+    const currencyOf = (o: { currency?: string | null }) => (o.currency || chartCurrency).toLowerCase()
+    const orders = (inPeriod ?? []).filter((o) => currencyOf(o) === chartCurrency)
+    const otherTotals = new Map<string, number>()
+    for (const o of inPeriod ?? []) {
+      if (currencyOf(o) === chartCurrency || o.status !== "completed") continue
+      otherTotals.set(currencyOf(o), (otherTotals.get(currencyOf(o)) ?? 0) + (o.amount_cents || 0))
+    }
+    const otherCurrencies = [...otherTotals.entries()].map(([currency, gross]) => ({ currency, gross }))
 
     const payments: Array<{ date: string; net: number; gross: number }> = []
     const refunds: Array<{ date: string; net: number; gross: number }> = []
@@ -253,7 +269,8 @@ export async function GET(request: Request) {
       total,
       totalGross,
       totalRefunds,
-      currency: "usd",
+      currency: chartCurrency,
+      otherCurrencies,
       isHourly: isHourlyMode,
     })
   } catch (error: any) {

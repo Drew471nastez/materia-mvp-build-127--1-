@@ -191,8 +191,9 @@ function Page() {
         <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
           <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
             <PayoutsClient
+              paymentsReady
               creator={{ id: "c1", stripe_account_id: "acct_1", default_currency: "usd" } as never}
-              initialData={{ totalEarnings: 99_000, totalFees: 3_000, netEarnings: 96_000, pendingAmount: 12_000, availableBalance: 40_000, paidOut: 44_000, exchangeRate: 1, negativeBalance: 0, activeDisputeCount: 0, totalDisputedAmount: 0, taxData: null } as never}
+              initialData={{ balanceCurrency: "usd", salesCurrency: "usd", pendingAmount: 12_000, availableBalance: 40_000, stripeRead: true, negativeBalance: 0, activeDisputeCount: 0, totalDisputedAmount: 0, taxData: null }}
               initialOrders={[]}
             />
           </div>

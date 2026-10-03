@@ -168,7 +168,8 @@ export default function PrivacyPolicyPage() {
                   "Full name, email address, and profile photo",
                   "Username and password (encrypted)",
                   "Store name, OnePage URL, and custom domain settings",
-                  "Address and business information (required for Stripe Connect verification)",
+                  "Address and business information (required for Stripe verification)",
+                  "Identity documents and a selfie, collected and held by Stripe, never by Storelib (see section 6.3)",
                   "Financial and banking information provided to Stripe for payout purposes",
                   "Product listings, descriptions, pricing, images, and digital files uploaded for sale",
                   "Email content created through the Storelib email system (newsletters, broadcast emails)",
@@ -300,21 +301,46 @@ export default function PrivacyPolicyPage() {
               </SubSection>
               <SubSection title="6.2 Seller Financial Information">
                 <p>
-                  To receive payouts, Sellers connect their Stripe account to Storelib via Stripe Connect. Stripe
-                  may collect identity verification documents, banking details, tax identification information, and
-                  address directly. This information is provided to and controlled by Stripe, not Storelib. Storelib
-                  receives only limited information such as the Seller's Stripe account ID, verification status, and
-                  payout history.
+                  To receive payouts, Sellers set up payments with Stripe through Storelib. Stripe collects
+                  identity and banking information directly, including banking details, tax identification
+                  information, and address. This information is provided to and controlled by Stripe, not
+                  Storelib. Storelib receives only limited information such as the Seller&apos;s Stripe account ID,
+                  verification status, country, payout currency, the last four digits of the payout bank account,
+                  and payout history.
                 </p>
               </SubSection>
-              <SubSection title="6.3 Platform Fees">
+              <SubSection title="6.3 Identity Verification and Biometric Data">
+                <p>
+                  Verification is required by law and by the card networks before a Seller can be paid. It is
+                  carried out by Stripe inside Storelib&apos;s interface using Stripe&apos;s own secure embedded
+                  forms. Stripe may collect a government issued identity document, a photograph or selfie, a date
+                  of birth and an address, and may process the images with biometric technology to confirm that the
+                  document belongs to the person presenting it.
+                </p>
+                <p>
+                  Storelib does not receive, process or store identity documents, selfies or biometric data at any
+                  point. Stripe is an independent controller of that data, retains it for the period its own
+                  policies and applicable law require, and a Seller may ask Stripe to delete their verification
+                  data as described in Stripe&apos;s privacy policy. Verification cannot be skipped: without it,
+                  Storelib cannot accept payments on a Seller&apos;s behalf.
+                </p>
+              </SubSection>
+              <SubSection title="6.4 Dispute Information">
+                <p>
+                  When a Buyer disputes a payment, Storelib records the dispute, its reason, its amount and its
+                  outcome, together with any evidence the Seller chooses to add, so the dispute can be answered and
+                  so both parties have a record of it. Evidence a Seller supplies is shared with Stripe and, through
+                  Stripe, with the card networks and the Buyer&apos;s bank for the purpose of deciding the dispute.
+                </p>
+              </SubSection>
+              <SubSection title="6.5 Platform Fees">
                 <p>
                   Storelib collects a platform transaction fee on each sale, which varies based on the Seller's
                   subscription plan (Free or Pro). These fees are collected automatically via
                   Stripe Connect's application fee mechanism.
                 </p>
               </SubSection>
-              <SubSection title="6.4 Stripe's Privacy Policy">
+              <SubSection title="6.6 Stripe's Privacy Policy">
                 <p>
                   Stripe is an independent data controller for the payment and financial data it processes. For
                   details, refer to Stripe's Privacy Policy at{" "}

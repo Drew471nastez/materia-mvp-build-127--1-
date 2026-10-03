@@ -305,8 +305,9 @@ function Page({ path, search }: { path: string; search: string }) {
           <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
             <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Payouts</h1>
             <PayoutsClient
+              paymentsReady
               creator={{ id: "c1", stripe_account_id: "acct_1", default_currency: "usd" } as never}
-              initialData={{ totalEarnings: 99_000, totalFees: 3_000, netEarnings: 96_000, pendingAmount: 12_000, availableBalance: 40_000, paidOut: 44_000, exchangeRate: 1, negativeBalance: 0, activeDisputeCount: 0, totalDisputedAmount: 0, taxData: null }}
+              initialData={{ balanceCurrency: "usd", salesCurrency: "usd", pendingAmount: 12_000, availableBalance: 40_000, stripeRead: true, negativeBalance: 0, activeDisputeCount: 0, totalDisputedAmount: 0, taxData: null }}
               initialOrders={[]}
             />
           </div>

@@ -151,6 +151,8 @@ export const NOTIFICATION_TYPES = [
   "REFUND_CREATED",
   "DISPUTE_CREATED",
   "DISPUTE_ACTION_REQUIRED",
+  /* How a dispute ended: won (the money went back), lost, or an inquiry the bank closed. */
+  "DISPUTE_CLOSED",
   "SUBSCRIPTION_CREATED",
   "SUBSCRIPTION_PAYMENT_FAILED",
   "SUBSCRIPTION_CANCELLED",

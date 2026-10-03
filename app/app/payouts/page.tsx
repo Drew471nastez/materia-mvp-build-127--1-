@@ -6,7 +6,8 @@ import { PayoutsClient } from "./payouts-client";
 import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
 import { checkoutReadyForCreator } from "@/lib/payments/service";
 import { TryProStrip } from "@/components/app/announcement-bar-mobile";
-import { getMarketExchangeRate } from "@/lib/exchange-rate";
+import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules";
+import { pickBalance, salesCurrencyOf } from "@/lib/payments/display-currency";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
 import { PaneBar } from "@/app/app/orders/order-parts"
@@ -49,7 +50,6 @@ export default async function PayoutsPage() {
           <PaneBar width="max-w-[1200px]" className="flex min-h-[66px] items-center justify-between gap-3 pb-2 pt-[14px]">
             <div className="min-w-0">
               <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
-              <p className="hidden truncate text-[13px] leading-5 text-[#6b7280] sm:block">Your balance, sales and cash outs</p>
             </div>
             <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
           </PaneBar>
@@ -148,19 +148,22 @@ async function PayoutsBody({ creator }: { creator: any }) {
     ledger again, then the disputed orders. Most of them need only the
     creator row, or only the product ids, so they are asked together:
 
-      with the creator:   the products, Stripe (balance, account, recent
-                          transactions), the dashboard link, and the ledger
-                          row (every column this page reads off it, in one
-                          read: it was read twice)
+      with the creator:   the products, Stripe (the balance and the account),
+                          and the ledger row (every column this page reads
+                          off it, in one read: it was read twice)
       with the products:  the orders, the tax year's orders, the disputed
                           orders
 
-    Every query is the one it was, with the same filters, on the same
-    service role client, scoped by the creator row found by the signed in
-    user's id. Stripe's answer is used exactly as before, a Stripe failure
-    still falls back to the orders' own figures, and a failed tax, link or
-    ledger read still leaves its figures at nothing rather than failing the
-    page. Only the market rate waits for both Stripe and the orders.
+    Every query is scoped by the creator row found by the signed in user's
+    id, on the service role client. A failed tax or ledger read leaves its
+    figures at nothing rather than failing the page.
+
+    THE BALANCE IS NO LONGER CONVERTED OR INVENTED. It used to read Stripe's
+    recent balance transactions for an exchange rate, convert the balance to
+    dollars, and, when Stripe answered nothing, show the creator's all time
+    order totals in its place. Now it is what Stripe holds, in the currency
+    Stripe holds it in, and nothing when Stripe cannot be read: the page
+    asks again within seconds.
   */
   const stripeAccount: string | null = creator.stripe_account_id || null;
   const currentYear = new Date().getFullYear();
@@ -172,7 +175,6 @@ async function PayoutsBody({ creator }: { creator: any }) {
       ? Promise.all([
           stripe.balance.retrieve({}, { stripeAccount }),
           stripe.accounts.retrieve(stripeAccount),
-          stripe.balanceTransactions.list({ limit: 10 }, { stripeAccount }),
         ]).then(
           (value) => ({ ok: true as const, value }),
           (error: unknown) => ({ ok: false as const, error }),
@@ -220,11 +222,7 @@ async function PayoutsBody({ creator }: { creator: any }) {
       ])
     : [nothing, nothing, nothing];
 
-  let totalEarnings = 0;
-  let totalFees = 0;
-  let totalRefunds = 0;
   let allOrders: any[] = [];
-
   const ordersData = ordersRead.data as any[] | null;
   if (ordersData) {
     allOrders = ordersData.map((order) => {
@@ -241,127 +239,35 @@ async function PayoutsBody({ creator }: { creator: any }) {
           : null,
       };
     });
-
-    const paidOrders = ordersData.filter((o) => o.status === "completed");
-    const refundedOrders = ordersData.filter((o) => o.status === "refunded");
-    totalEarnings = paidOrders.reduce(
-      (sum, o) => sum + (o.amount_cents || 0),
-      0,
-    );
-    totalFees = paidOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0);
-    totalRefunds = refundedOrders.reduce(
-      (sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0),
-      0,
-    );
   }
 
-  const orderPendingUsd = Math.max(0, totalEarnings - totalFees);
-  const orderNetUsd = Math.max(0, totalEarnings - totalFees - totalRefunds);
-
-  let stripePendingBalance = 0;
+  /*
+    THE BALANCE IS STRIPE'S, IN STRIPE'S CURRENCY. This used to convert it
+    to dollars with a market rate and, when Stripe answered nothing, put the
+    creator's all time order totals in its place, so a lei balance read as
+    dollars and an empty one read as everything ever sold. Now: what Stripe
+    holds, in the currency it holds it in (lib/payments/display-currency),
+    and nothing at all when Stripe cannot be read; the page asks again
+    within seconds (PayoutsClient refreshBalances). Sales keep the currency
+    they were charged in.
+  */
+  const salesCurrency = salesCurrencyOf(allOrders, platformChargeCurrency());
+  let balanceCurrency = salesCurrency;
   let stripeAvailableBalance = 0;
-  const paidOut = 0;
-  let detectedCurrency = (creator.default_currency || "usd").toLowerCase();
-  let stripeExchangeRate: number | null = null;
-  if (stripeRead) {
-    try {
-      if (!stripeRead.ok) throw stripeRead.error;
-      const [balance, account, balanceTx] = stripeRead.value;
-
-      stripeExchangeRate =
-        (balanceTx.data.find((tx: any) => tx.exchange_rate) as any)
-          ?.exchange_rate || null;
-
-      const preferredCurrency = (
-        account.default_currency ||
-        creator.default_currency ||
-        "usd"
-      ).toLowerCase();
-
-      const byCurrency = new Map<
-        string,
-        { available: number; pending: number }
-      >();
-
-      for (const b of balance.available) {
-        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
-        row.available += b.amount;
-        byCurrency.set(b.currency, row);
-      }
-      for (const b of balance.pending) {
-        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
-        row.pending += b.amount;
-        byCurrency.set(b.currency, row);
-      }
-
-      const dominant =
-        [...byCurrency.entries()].sort(
-          (a, b) =>
-            b[1].available + b[1].pending - (a[1].available + a[1].pending),
-        )[0] || null;
-
-      const selected = byCurrency.get(preferredCurrency)
-        ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
-        : dominant;
-
-      if (selected) {
-        detectedCurrency = selected[0];
-        stripeAvailableBalance = selected[1].available;
-        stripePendingBalance = selected[1].pending;
-      }
-
-      // Fallback: if Stripe returned $0 for both available + pending (e.g. after
-      // reconnecting with a new account) but platform has recorded orders, use
-      // the platform's seller_ledger as the source of truth for display.
-      if (stripeAvailableBalance === 0 && stripePendingBalance === 0 && orderPendingUsd > 0) {
-        if (ledger) {
-          const ledgerTotal = (ledger.available_amount || 0) + (ledger.pending_amount || 0);
-          if (ledgerTotal > 0) {
-            stripeAvailableBalance = ledger.available_amount || 0;
-            stripePendingBalance = ledger.pending_amount || 0;
-          } else {
-            // Ledger also empty: use order net as pending (funds are settling)
-            stripePendingBalance = orderPendingUsd;
-            detectedCurrency = "usd";
-          }
-        } else {
-          stripePendingBalance = orderPendingUsd;
-          detectedCurrency = "usd";
-        }
-      }
-    } catch (err) {
-      console.error("[Payouts] Failed to fetch Stripe balances:", err);
-      stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
+  let stripePendingBalance = 0;
+  if (stripeRead?.ok) {
+    const [balance, account] = stripeRead.value;
+    const picked = pickBalance(balance, account.default_currency);
+    if (picked) {
+      balanceCurrency = picked.currency;
+      stripeAvailableBalance = picked.available;
+      stripePendingBalance = picked.pending;
+    } else if (account.default_currency) {
+      balanceCurrency = account.default_currency.toLowerCase();
     }
-  } else {
-    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
+  } else if (stripeRead && !stripeRead.ok) {
+    console.error("[Payouts] Stripe balance not read:", stripeRead.error instanceof Error ? stripeRead.error.message.slice(0, 160) : "unknown");
   }
-
-  if (
-    detectedCurrency !== "usd" &&
-    (!stripeExchangeRate || stripeExchangeRate <= 0)
-  ) {
-    const nativePending = Math.max(0, stripePendingBalance);
-    if (nativePending > 0 && orderPendingUsd > 0) {
-      stripeExchangeRate = nativePending / orderPendingUsd;
-    }
-  }
-
-  // Override with real market rate (ECB via Frankfurter, same source as Google).
-  // Stripe's internal rate includes a markup; we display at the actual market rate.
-  if (detectedCurrency !== "usd") {
-    const marketRate = await getMarketExchangeRate(detectedCurrency, stripeExchangeRate);
-    if (marketRate && marketRate > 0) {
-      stripeExchangeRate = marketRate;
-    }
-  }
-
-  if (detectedCurrency !== "usd" && orderPendingUsd > 0) {
-    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
-  }
-
-  // Net earnings = what seller keeps after all fees (Stripe + platform)
-  const netEarnings = orderNetUsd;
 
   // ── 1099-K Tax Data ──────────────────────────────────────────────────────────
   const taxData: {
@@ -399,15 +305,13 @@ async function PayoutsBody({ creator }: { creator: any }) {
   return (
     <PayoutsClient
       paymentsReady={paymentsReady}
-      creator={{ ...creator, default_currency: detectedCurrency }}
+      creator={creator}
       initialData={{
-        totalEarnings,
-        totalFees,
-        netEarnings,
+        balanceCurrency,
+        salesCurrency,
         pendingAmount: stripePendingBalance,
         availableBalance: stripeAvailableBalance,
-        paidOut,
-        exchangeRate: stripeExchangeRate,
+        stripeRead: !!stripeRead?.ok,
         negativeBalance,
         activeDisputeCount,
         totalDisputedAmount,
