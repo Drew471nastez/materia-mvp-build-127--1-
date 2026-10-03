@@ -198,6 +198,8 @@ const SUITES = [
   "tests/payout-weekly.test.ts",
   "tests/onboarding-flow.test.ts",
   "tests/payments-status.test.ts",
+  "tests/payments-readiness.test.ts",
+  "tests/payments-reconcile.test.ts",
   "tests/theme-code-editor.test.ts",
   "tests/section-settings.test.ts",
   "tests/section-render.test.ts",

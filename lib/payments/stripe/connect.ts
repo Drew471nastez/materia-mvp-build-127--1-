@@ -176,6 +176,28 @@ export async function releaseConnectedAccount(creatorId: string, previousAccount
   if (cached.error && !/payments_status|last_stripe_sync_at|column/i.test(cached.error.message)) {
     console.error("[stripe connect] status cache", cached.error.message.slice(0, 160))
   }
+  /*
+   * The cached answers went with the account they described. Left behind,
+   * can_accept_payments would still read true for an account that is gone:
+   * every caller that selects stripe_account_id sees the null and refuses
+   * anyway (lib/payments/stripe/readiness rowCanAcceptPayments), but a row
+   * that says yes about nothing is a trap for the next one that does not.
+   */
+  const state = await admin
+    .from("creators")
+    .update({
+      can_accept_payments: false,
+      stripe_transfers_status: null,
+      stripe_disabled_reason: null,
+      stripe_pending_verification: [],
+      stripe_eventually_due: [],
+      stripe_requirement_errors: [],
+      payout_destination: null,
+    })
+    .eq("id", creatorId)
+  if (state.error && !/column|does not exist|schema cache/i.test(state.error.message)) {
+    console.error("[stripe connect] release state", state.error.message.slice(0, 160))
+  }
   await noteAccountReset(creatorId, previousAccountId, reason)
 }
 
