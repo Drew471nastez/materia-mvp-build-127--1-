@@ -43,6 +43,7 @@ import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
@@ -253,6 +254,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    * the mobile drawer render this list, so a Dashboard that is a house here
    * and a grid there would be two names for one place.
    */
+  const physicalCommerce = usePhysicalCommerceEnabled()
   const mainNavItems: NavItemData[] = [
     { href: "/app", label: t("nav.dashboard"), icon: NAV_ICONS.dashboard },
     {
@@ -311,6 +313,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/emails", label: t("nav.emails"), icon: NAV_ICONS.emails },
     { href: "/app/payouts", label: t("nav.payouts"), icon: NAV_ICONS.payouts },
   ]
+  /* Stock and collections under Products, first, only while physical commerce is on in /admin. */
+  if (physicalCommerce) {
+    mainNavItems.find((item) => item.href === "/app/products")?.children?.unshift({ href: "/app/inventory", label: "Inventory" }, { href: "/app/collections", label: "Collections" })
+  }
 
   // Expandable groups (parent nav items with children).
   // Always collapsed on mount — user opens manually via the chevron. No

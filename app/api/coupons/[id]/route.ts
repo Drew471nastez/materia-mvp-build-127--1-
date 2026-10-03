@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { readCouponInput, type CouponValues } from "@/lib/checkout/coupons"
+import { freeShippingCode } from "@/lib/physical/coupon-options"
 import { TAKEN, codeTaken, productsAreTheirs, signedInCreator, writeCoupon } from "../write"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -31,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     .maybeSingle()
   if (!saved) return NextResponse.json({ error: "That coupon is gone." }, { status: 404 })
 
-  const input = readCouponInput(body, saved as Partial<CouponValues>)
+  const input = readCouponInput(body, saved as Partial<CouponValues>, { allowZero: (await freeShippingCode(body)) || (saved as { free_shipping?: boolean }).free_shipping === true })
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
 
   /*

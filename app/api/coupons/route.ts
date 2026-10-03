@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { readCouponInput } from "@/lib/checkout/coupons"
+import { freeShippingCode } from "@/lib/physical/coupon-options"
 import { TAKEN, codeTaken, productsAreTheirs, signedInCreator, writeCoupon } from "./write"
 
 /**
@@ -40,7 +41,8 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Nothing to save." }, { status: 400 })
   }
-  const input = readCouponInput(body)
+  const allowZero = await freeShippingCode(body)
+  const input = allowZero ? readCouponInput(body, null, { allowZero }) : readCouponInput(body)
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
 
   if (!(await productsAreTheirs(who.supabase, who.creatorId, input.values.product_ids))) {

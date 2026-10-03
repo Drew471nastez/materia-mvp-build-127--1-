@@ -28,6 +28,11 @@ export interface CouponRecord {
   is_active: boolean
   created_at?: string
   creator_id?: string
+  /* Physical commerce (lib/physical): absent before SQL part 78. */
+  free_shipping?: boolean
+  physical_only?: boolean
+  per_customer_limit?: number | null
+  collection_ids?: string[] | null
 }
 
 export interface CouponProduct {
@@ -133,11 +138,13 @@ export type CouponProblem = { field: CouponField; message: string }
  * `savedCode` is the code as it was saved: a code from before today's rules
  * is kept as it is (the server does the same).
  */
-export function formProblem(form: CouponForm, savedCode: string | null = null): CouponProblem | null {
+export function formProblem(form: CouponForm, savedCode: string | null = null, freeShipping = false): CouponProblem | null {
   if (!form.code) return { field: "code", message: "Enter a code, or generate one." }
   if (!CODE_PATTERN.test(form.code) && form.code !== savedCode) return { field: "code", message: "A code is 3 to 32 letters, numbers, - or _." }
   const value = Number(form.discount_value)
-  if (!form.discount_value || !Number.isFinite(value) || !(value > 0)) return { field: "value", message: "Enter how much it takes off." }
+  /* A free shipping code (physical commerce) may take nothing else off. */
+  const shippingOnly = freeShipping && (!form.discount_value || value === 0)
+  if (!shippingOnly && (!form.discount_value || !Number.isFinite(value) || !(value > 0))) return { field: "value", message: "Enter how much it takes off." }
   if (form.discount_type === "percentage" && value > 100) return { field: "value", message: "A percentage is at most 100." }
   if (form.discount_type === "fixed" && value > 100_000) return { field: "value", message: "A fixed amount is at most $100,000." }
   if (form.applies_to === "specific" && form.product_ids.length === 0) return { field: "products", message: "Pick at least one product." }

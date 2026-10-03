@@ -15,7 +15,7 @@ import { InfoTip } from "@/components/ui/tooltip"
 import { ChoicePicker } from "@/components/ui/choice-list"
 import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
-  CreditCard, Shield, Settings, Wallet, Landmark,
+  CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
   ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
@@ -46,6 +46,8 @@ import { useShellAvatar } from "@/lib/account/avatar-store"
 import { applyBusinessSession } from "@/lib/businesses/switch-client"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
@@ -59,6 +61,8 @@ const TABS = [
   { id: "domains", label: "Domains", icon: Globe },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
+  /* Shipping and delivery, locations, taxes, returns and integrations: only while physical commerce is on in /admin. */
+  { id: "shipping", label: "Shipping", icon: Truck },
 ] as const
 /*
   NO STORES TAB. "Get rid of the Stores tab in Settings. It doesn't make any
@@ -73,7 +77,7 @@ type TabId = typeof TABS[number]["id"]
 /** The selected fill fading in on its own tab, and the words' colour: one short time, one plain ease out. */
 const TAB_FADE_MS = 150
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "notifications", "privacy"]
+const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "notifications", "privacy", "shipping"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -320,7 +324,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [stripePayoutInfo, setStripePayoutInfo] = useState<{ payoutsEnabled: boolean; detailsSubmitted: boolean; requirementsDue: string[]; requirementsPastDue: string[] } | null>(null)
 
   /* A tab that no longer exists (an old ?tab=stores) is General. */
-  const [activeTab, setActiveTab] = useState<TabId>(() => (TAB_IDS.includes(initialTab) ? initialTab : "general"))
+  const physicalCommerce = usePhysicalCommerceEnabled()
+  const [activeTab, setActiveTab] = useState<TabId>(() => (TAB_IDS.includes(initialTab) && (initialTab !== "shipping" || physicalCommerce) ? initialTab : "general"))
   /**
    * Billing's own data, fetched the first time the tab is opened and kept.
    *
@@ -549,7 +554,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       url.searchParams.set("tab", "notifications")
       url.hash = ""
       window.history.replaceState({}, "", url.pathname + url.search)
-    } else if (tab && TAB_IDS.includes(tab as TabId)) {
+    } else if (tab && TAB_IDS.includes(tab as TabId) && (tab !== "shipping" || physicalCommerce)) {
       setActiveTab(tab as TabId)
       if (tab === "domains") fetchDomains()
     } else if (tab) {
@@ -1158,7 +1163,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="relative flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
-            {TABS.map((tab) => {
+            {TABS.filter((tab) => tab.id !== "shipping" || physicalCommerce).map((tab) => {
               const Icon = tab.icon
               const tabLabel = tab.id === "general" ? t("settings.general") :
                               tab.id === "security" ? t("settings.security") :
@@ -1166,6 +1171,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                               tab.id === "notifications" ? t("settings.notifications") :
                               tab.id === "billing" ? t("settings.billing") :
                               tab.id === "payments" ? t("settings.payments") :
+                              tab.id === "shipping" ? "Shipping" :
                               "Domains"
               return (
                 <button
@@ -1652,6 +1658,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
           {/* Notifications Tab: which notifications, by email and in app (notification-preferences.tsx) */}
           {activeTab === "notifications" && <NotificationPreferencesPanel />}
+
+          {activeTab === "shipping" && physicalCommerce && <ShippingSettings />}
 
           {/* Payments Tab */}
           {activeTab === "payments" && (

@@ -11,6 +11,7 @@ import { VariantSelector, type ProductVariant } from "@/components/product/varia
 import { Badge } from "@/components/ui/badge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
+import { PhysicalBuyBox } from "@/components/physical/buy-box"
 
 interface PurchaseStatusWrapperProps {
   productId: string
@@ -75,7 +76,28 @@ interface PurchaseStatusWrapperProps {
  * 3. Add to wishlist (notPurchasedExtraContent)
  * 4. Variant selector (UNDER buy button and wishlist)
  */
-export function PurchaseStatusWrapper({
+/**
+ * A product that ships is bought with its options, stock and a delivery
+ * address (components/physical/buy-box.tsx); everything else as it always
+ * was, below.
+ */
+export function PurchaseStatusWrapper(props: PurchaseStatusWrapperProps) {
+  if (props.productType === "physical") {
+    return (
+      <PhysicalBuyBox
+        productId={props.productId}
+        accent={props.buyButtonBgColor || props.themeColors?.accentColor || "#1a1a2e"}
+        accentText={props.buyButtonTextColor || "#ffffff"}
+        textColor={props.themeColors?.cardTextColor}
+        mutedColor={props.themeColors?.cardPriceColor}
+        callToAction={props.callToAction}
+      />
+    )
+  }
+  return <DigitalPurchaseStatus {...props} />
+}
+
+function DigitalPurchaseStatus({
   productId,
   productType = "digital",
   priceCents,

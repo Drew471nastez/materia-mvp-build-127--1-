@@ -15,6 +15,12 @@ import {
   isExploreDiscoverModeSwitcherEnabled,
   setExploreDiscoverModeSwitcherEnabled,
 } from "@/lib/platform/explore-discover-mode-switcher"
+import {
+  PHYSICAL_COMMERCE_CACHE_TAG,
+  PHYSICAL_COMMERCE_KEY,
+  isPhysicalCommerceEnabled,
+  setPhysicalCommerceEnabled,
+} from "@/lib/platform/physical-commerce"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -24,13 +30,14 @@ export async function GET() {
   const denied = await requireAdmin()
   if (denied) return denied
   try {
-    const [exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher] = await Promise.all([
+    const [exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher, physicalCommerceEnabled] = await Promise.all([
       isExploreMarketplaceEnabled(),
       isBuyerHeaderLight(),
       isExploreDiscoverModeSwitcherEnabled(),
+      isPhysicalCommerceEnabled(),
     ])
     return NextResponse.json(
-      { exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher },
+      { exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher, physicalCommerceEnabled },
       { headers: { "Cache-Control": "no-store" } },
     )
   } catch (error) {
@@ -43,7 +50,7 @@ export async function POST(request: NextRequest) {
   const denied = await requireAdmin()
   if (denied) return denied
 
-  let body: { exploreEnabled?: unknown; buyerHeaderLight?: unknown; exploreDiscoverModeSwitcher?: unknown }
+  let body: { exploreEnabled?: unknown; buyerHeaderLight?: unknown; exploreDiscoverModeSwitcher?: unknown; physicalCommerceEnabled?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -53,9 +60,10 @@ export async function POST(request: NextRequest) {
   const setExplore = typeof body.exploreEnabled === "boolean"
   const setHeader = typeof body.buyerHeaderLight === "boolean"
   const setDiscoverSwitcher = typeof body.exploreDiscoverModeSwitcher === "boolean"
-  if (!setExplore && !setHeader && !setDiscoverSwitcher) {
+  const setPhysical = typeof body.physicalCommerceEnabled === "boolean"
+  if (!setExplore && !setHeader && !setDiscoverSwitcher && !setPhysical) {
     return NextResponse.json({
-      error: "Send exploreEnabled, buyerHeaderLight, and/or exploreDiscoverModeSwitcher as booleans.",
+      error: "Send exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher and/or physicalCommerceEnabled as booleans.",
     }, { status: 400 })
   }
 
@@ -83,6 +91,17 @@ export async function POST(request: NextRequest) {
         detail: { exploreDiscoverModeSwitcher: body.exploreDiscoverModeSwitcher },
       })
     }
+    if (setPhysical) {
+      await setPhysicalCommerceEnabled(body.physicalCommerceEnabled as boolean)
+      revalidateTag(PHYSICAL_COMMERCE_CACHE_TAG)
+      await recordAdminAction(admin, {
+        action: "set_physical_commerce",
+        targetType: "platform",
+        targetId: PHYSICAL_COMMERCE_KEY,
+        targetLabel: body.physicalCommerceEnabled ? "on" : "off",
+        detail: { physicalCommerceEnabled: body.physicalCommerceEnabled },
+      })
+    }
     if (setHeader) {
       await setBuyerHeaderLight(body.buyerHeaderLight as boolean)
       revalidateTag(BUYER_HEADER_LIGHT_CACHE_TAG)
@@ -102,13 +121,14 @@ export async function POST(request: NextRequest) {
     return adminFailure("marketplace flags write", error, `Could not save. Nothing was changed.${hint}`)
   }
 
-  const [exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher] = await Promise.all([
+  const [exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher, physicalCommerceEnabled] = await Promise.all([
     isExploreMarketplaceEnabled(),
     isBuyerHeaderLight(),
     isExploreDiscoverModeSwitcherEnabled(),
+    isPhysicalCommerceEnabled(),
   ])
   return NextResponse.json(
-    { exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher },
+    { exploreEnabled, buyerHeaderLight, exploreDiscoverModeSwitcher, physicalCommerceEnabled },
     { headers: { "Cache-Control": "no-store" } },
   )
 }

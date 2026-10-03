@@ -4,6 +4,7 @@ import { loadProductEditor } from "../load-editor"
 import { ProductEditor } from "./product-editor"
 import { NewProductKindPage } from "./kind-chooser"
 import { kindFromParam } from "./product-kinds"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 
 interface NewProductPageProps {
   searchParams: Promise<{ edit?: string; type?: string }>
@@ -11,6 +12,7 @@ interface NewProductPageProps {
 
 export async function generateMetadata({ searchParams }: NewProductPageProps): Promise<Metadata> {
   const kind = kindFromParam((await searchParams).type)
+  if (kind === "physical") return { title: "New physical product" }
   return { title: kind === "course" ? "New course" : "New product" }
 }
 
@@ -29,6 +31,8 @@ export default async function NewProductPage({ searchParams }: NewProductPagePro
   const kind = kindFromParam(type)
   /* A membership is made from the question (its screen needs a draft to open), never by a GET. */
   if (!kind || kind === "membership") return <NewProductKindPage />
+  /* A physical product only while the switch in /admin is on; otherwise the question again. */
+  if (kind === "physical" && !(await isPhysicalCommerceEnabled())) return <NewProductKindPage />
 
   const load = await loadProductEditor(null)
   /* No session yet: the app shell's gate (NativeAuthGate) holds the screen

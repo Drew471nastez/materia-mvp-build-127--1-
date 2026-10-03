@@ -73,6 +73,7 @@ import { CourseEditor } from "./course-editor"
 import { CategoryPicker } from "./category-picker"
 import { useCategorySuggestion } from "./category-suggestion"
 import { saveVariants } from "./variant-save"
+import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/physical/product-cards"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -261,7 +262,7 @@ let carriedNotice: string | null = null
 let carriedSavedAt: number | null = null
 let carriedScrollTop: number | null = null
 
-export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digital" }: { creator: EditorCreator; loaded: LoadedProduct | null; startAs?: "digital" | "course" }) {
+export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digital" }: { creator: EditorCreator; loaded: LoadedProduct | null; startAs?: "digital" | "course" | "physical" }) {
   const router = useRouter()
   /* The form's first frame is the saved product (./editor-form.ts). Read once:
      a server render after a save hands new props that must not reset it. */
@@ -400,7 +401,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   }
   const compareRef = useRef<HTMLInputElement>(null)
   const [slug, setSlug] = useState(initial.slug)
-  const [productType, setProductType] = useState<"digital" | "course">(initial.productType)
+  const [productType, setProductType] = useState<"digital" | "course" | "physical">(initial.productType)
+  /* A physical product's stock, shipping and variants card (components/physical/product-cards.tsx): checked and saved with the product. */
+  const physicalRef = useRef<PhysicalEditorHandle | null>(null)
+  const markPhysicalDirty = useCallback(() => setHasUnsavedChanges(true), [])
   /* A course's lessons, counted by its card (./course-editor.tsx), for the publish check. */
   const [lessonCount, setLessonCount] = useState(0)
   const [showSalesBadge, setShowSalesBadge] = useState(initial.showSalesBadge)
@@ -921,7 +925,11 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
 
       /* The variants, in a few round trips rather than four per variant (./variant-save.ts). */
-      if (finalProductId) {
+      /* A physical product's variants are its options' combinations, saved by its own card on the server. */
+      if (finalProductId && productType === "physical") {
+        const problem = physicalRef.current ? await physicalRef.current.save(finalProductId) : null
+        if (problem) throw new Error(problem)
+      } else if (finalProductId) {
         const savedIds = await saveVariants(supabase, finalProductId, variants, { keepUnlisted: variantsUnread.current })
         /* Each takes its saved id by the id it had, not by its place, in case the list moved while this ran. */
         if (savedIds.size > 0) {
@@ -1461,6 +1469,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         scrollToSection("files")
         return false
       }
+    } else if (productType === "physical") {
+      /* Nothing to download: its options, prices and stock are checked instead. */
+      const problem = physicalRef.current?.check() ?? null
+      if (problem) {
+        showToast(problem)
+        document.getElementById("physical-variants")?.scrollIntoView({ behavior: "smooth", block: "start" })
+        return false
+      }
     } else if (digitalFiles.length === 0) {
       showToast("Upload a file")
       /* The files' own card: the Content tab used to cover it, and the tabs are gone. */
@@ -1774,6 +1790,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const filesCard = (
     <div
       ref={(el) => { sectionRefs.current.files = el }}
+      hidden={productType === "physical"}
       className={CARD}
     >
       {productType === "course" ? (
@@ -2332,11 +2349,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 )}
               </div>
 
+              {/* A physical product: stock, shipping and variants in place of the files (components/physical/product-cards.tsx). */}
+              {productType === "physical" ? <PhysicalProductCards productId={productId} basePrice={price} handle={physicalRef} onDirty={markPhysicalDirty} /> : null}
               {productType === "course" ? null : filesCard}
 
-              {/* Variants Section */}
+              {/* Variants Section: a download's. A physical product's are in its own cards above. */}
               <div
                 ref={(el) => { sectionRefs.current.variants = el }}
+                hidden={productType === "physical"}
                 className={CARD}
               >
                 {/*
@@ -2637,8 +2657,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   </p>
                 </div>
 
-                {/* The way it is sold slides; the fields under it change in place (./editor-controls). */}
-                <div className="sm:max-w-[440px]">
+                {/* The way it is sold slides; the fields under it change in place (./editor-controls). A physical product has a fixed price. */}
+                <div className="sm:max-w-[440px]" hidden={productType === "physical"}>
                   <Segmented
                     label="Pricing"
                     fit="content"

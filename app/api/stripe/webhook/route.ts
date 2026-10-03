@@ -180,6 +180,40 @@ async function handleStripeEvent(request: Request) {
   // checkout.session.completed
   // ============================================================================
   /*
+    A PHYSICAL ORDER (app/api/physical/checkout): its own sessions, marked
+    by metadata.physical_checkout_id and never by cart, so nothing below
+    sees them. Paid: written once, by whichever of this and the buyer's
+    return comes first (lib/physical/checkout-server.ts). Expired or failed:
+    the stock held for it goes back. Answered even with physical commerce
+    switched off, because the money was taken while it was on.
+  */
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded" ||
+    event.type === "checkout.session.expired" ||
+    event.type === "checkout.session.async_payment_failed"
+  ) {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (typeof session.metadata?.physical_checkout_id === "string") {
+      const physical = await import("@/lib/physical/checkout-server")
+      if (physical.isPhysicalSession(session)) {
+        if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+          await physical.expireCheckoutSession(supabaseAdmin, session)
+          return NextResponse.json({ received: true })
+        }
+        if (session.payment_status !== "paid") return NextResponse.json({ received: true, message: "Order not paid yet" })
+        const baseUrl = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}`
+        const done = await physical.completeStripeSession(supabaseAdmin, session.id, baseUrl)
+        if (done.ok === false ? done.status >= 500 : !done.complete) {
+          console.error("[Webhook] physical order incomplete:", session.id)
+          return NextResponse.json({ error: "Order not fully written" }, { status: 500 })
+        }
+        return NextResponse.json({ received: true })
+      }
+    }
+  }
+
+  /*
     A BASKET from a creator's website (app/api/checkout/cart). The buyer's
     return writes it too; whichever comes first does, once
     (lib/checkout/fulfil-cart-session.ts). A server failure answers 500 so

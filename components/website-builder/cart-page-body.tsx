@@ -31,6 +31,7 @@ import { useSiteCart } from "./site-cart"
 import { checkoutItems, lineKey } from "@/lib/website-builder/cart"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
+import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 
 export interface CartPalette {
   bg: string
@@ -54,7 +55,7 @@ interface AppliedCode {
 }
 
 export function CartPageBody({ palette, radius }: { palette: CartPalette; radius: number }) {
-  const { lines, ready, setQty, remove, clear, subtotalCents, count } = useSiteCart()
+  const { lines, ready, setQty, remove, clear, subtotalCents, count, shopId } = useSiteCart()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dropped, setDropped] = useState<string[]>([])
@@ -150,6 +151,13 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   const showDetails = free || askDetails
 
   async function pay() {
+    /* Something that ships: the physical checkout, which asks for the address and the delivery (lib/physical). */
+    if (shopId && lines.some((l) => l.physical)) {
+      setBusy(true)
+      /* Relative: on a website the address is sent to storelib.com, where checkouts live (proxy.ts PLATFORM_APEX_PATHS). */
+      window.location.href = physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
+      return
+    }
     setBusy(true)
     setError(null)
     setDropped([])

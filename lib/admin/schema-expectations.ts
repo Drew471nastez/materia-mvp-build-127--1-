@@ -72,6 +72,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/notifications", schedule: "25 * * * *", what: "Works out every creator's notifications and pushes the urgent ones" },
   { path: "/api/cron/notify", schedule: "*/5 * * * *", what: "Sends due notification emails and bell notices, and retries the ones that failed" },
   { path: "/api/cron/memberships", schedule: "7,22,37,52 * * * *", what: "Membership renewal reminders, half started checkouts closed, and creators' updates emailed to members" },
+  { path: "/api/cron/physical", schedule: "3,13,23,33,43,53 * * * *", what: "Physical commerce: unpaid stock holds released, order emails, supplier emails and webhooks sent or retried" },
 ] as const
 
 /**
@@ -97,6 +98,7 @@ export const ENV_CHECKS: { name: string; group: string; optional?: boolean }[] =
   { name: "BLOG_ADMIN_SECRET", group: "Jobs and admin" },
   { name: "RECEIPT_TOKEN_SECRET", group: "Jobs and admin" },
   { name: "ORDER_LINK_SECRET", group: "Jobs and admin" },
+  { name: "COMMERCE_SECRETS_KEY", group: "Jobs and admin", optional: true },
   { name: "NEXT_PUBLIC_SITE_URL", group: "Addresses" },
   { name: "NEXT_PUBLIC_APP_URL", group: "Addresses" },
   { name: "NEXT_PUBLIC_MAIN_DOMAIN", group: "Addresses" },

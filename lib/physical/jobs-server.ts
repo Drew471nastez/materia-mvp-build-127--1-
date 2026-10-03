@@ -1,0 +1,341 @@
+import "server-only"
+
+/**
+ * ===========================================================================
+ *  THE PHYSICAL COMMERCE JOB QUEUE (commerce_jobs)
+ * ===========================================================================
+ * Anything that talks to the outside world after an order is a job: the
+ * buyer's emails, the order emailed to a supplier, the signed webhook to a
+ * merchant's own system. A job is queued with an idempotency key (so the
+ * same thing is never queued twice), tried straight away after the response
+ * (next/server after), and retried by the cron (/api/cron/physical) with
+ * backoff until it succeeds or runs out of attempts. commerce_claim_jobs
+ * hands each job to one worker at a time (FOR UPDATE SKIP LOCKED, a lease),
+ * so two runs never send the same email.
+ */
+
+import { createHmac } from "node:crypto"
+import https from "node:https"
+import type net from "node:net"
+import { after } from "next/server"
+import { publicLookup, publicUrlProblem } from "@/lib/api/public-fetch"
+import { sendEmail, buildFromHeader } from "@/lib/mail"
+import { resolveCreatorIdentity } from "@/lib/email"
+import { getMainDomain } from "@/lib/url-helpers"
+import type { Db } from "./auth"
+import { addOrderEvent } from "./events-server"
+import { orderConfirmationEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailLine } from "./email-templates"
+import { deliveryEstimate } from "./rates"
+import { orderNumber } from "./status"
+import { openSecret } from "./secrets"
+
+export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
+
+export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean }): Promise<void> {
+  const { data, error } = await db
+    .from("commerce_jobs")
+    .insert({ creator_id: j.creatorId, kind: j.kind, payload: j.payload, idempotency_key: j.key })
+    .select("id")
+    .maybeSingle()
+  if (error && error.code !== "23505") console.error("[physical] job not queued:", j.kind, error.code)
+  if (data?.id && j.runNow !== false) {
+    try {
+      after(() => runJobs(db, 5).then(() => undefined))
+    } catch {
+      /* Outside a request: the cron picks it up. */
+    }
+  }
+}
+
+export async function queueOrderConfirmation(db: Db, checkoutId: string, creatorId: string): Promise<void> {
+  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:confirmation:${checkoutId}`, payload: { template: "confirmation", checkoutId } })
+}
+
+export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered"): Promise<void> {
+  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:${kind}:${fulfillmentId}`, payload: { template: "shipment", kind, checkoutId, fulfillmentId } })
+}
+
+export async function queueReturnEmail(db: Db, checkoutId: string, creatorId: string, returnId: string, status: "approved" | "rejected" | "received" | "completed"): Promise<void> {
+  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:return:${returnId}:${status}`, payload: { template: "return", status, checkoutId, returnId } })
+}
+
+/**
+ * The order goes to whoever ships it: for each location in the order that
+ * forwards by email or webhook, a job. A location shipped by the merchant
+ * themselves needs nothing; a provider integration that is not live yet is
+ * said on the timeline instead of pretending it was sent.
+ */
+export async function queueForwarding(db: Db, checkoutId: string, creatorId: string): Promise<void> {
+  const { data: co } = await db.from("commerce_checkouts").select("lines").eq("id", checkoutId).maybeSingle()
+  const lines = (co?.lines ?? []) as { location_id: string | null; requires_shipping: boolean }[]
+  const ids = [...new Set(lines.filter((l) => l.requires_shipping && l.location_id).map((l) => l.location_id as string))]
+  if (ids.length === 0) return
+  const { data: locs } = await db.from("inventory_locations").select("id, name, forwarding, email, integration_id").eq("creator_id", creatorId).in("id", ids)
+  for (const loc of (locs ?? []) as { id: string; name: string; forwarding: string; email: string | null; integration_id: string | null }[]) {
+    if (loc.forwarding === "email" && loc.email) {
+      await enqueueJob(db, { creatorId, kind: "supplier_email", key: `supplier_email:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id } })
+    } else if (loc.forwarding === "webhook") {
+      await enqueueJob(db, { creatorId, kind: "webhook_delivery", key: `webhook:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id, event: "order.paid" } })
+    } else if (loc.forwarding === "provider") {
+      await addOrderEvent(db, {
+        checkoutId,
+        creatorId,
+        kind: "fulfillment.manual_needed",
+        message: `${loc.name} is set to forward through a provider that is not connected. Send this order to them yourself.`,
+        key: `provider_manual:${checkoutId}:${loc.id}`,
+      })
+    }
+  }
+}
+
+function backoffSeconds(attempts: number): number {
+  return Math.min(6 * 3600, 60 * 2 ** Math.max(0, attempts - 1))
+}
+
+export async function runJobs(db: Db, limit = 20): Promise<{ done: number; failed: number }> {
+  const { data, error } = await db.rpc("commerce_claim_jobs", { p_limit: limit, p_lease_seconds: 120 })
+  if (error) return { done: 0, failed: 0 }
+  let done = 0
+  let failed = 0
+  for (const job of (data ?? []) as { id: number; kind: JobKind; payload: Record<string, any>; attempts: number; max_attempts: number; creator_id: string | null }[]) {
+    try {
+      await handle(db, job)
+      await db.from("commerce_jobs").update({ status: "done", finished_at: new Date().toISOString(), last_error: null, locked_until: null, updated_at: new Date().toISOString() }).eq("id", job.id)
+      done++
+    } catch (e) {
+      failed++
+      const message = (e instanceof Error ? e.message : "failed").slice(0, 500)
+      const dead = job.attempts >= job.max_attempts
+      await db
+        .from("commerce_jobs")
+        .update({
+          status: dead ? "dead" : "failed",
+          last_error: message,
+          locked_until: null,
+          run_after: new Date(Date.now() + backoffSeconds(job.attempts) * 1000).toISOString(),
+          finished_at: dead ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id)
+      if (dead && job.payload?.checkoutId) {
+        await addOrderEvent(db, {
+          checkoutId: job.payload.checkoutId,
+          creatorId: job.creator_id,
+          kind: "job.failed",
+          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : "The order could not be sent to your webhook.",
+          detail: { error: message },
+          key: `job_dead:${job.id}`,
+        })
+      }
+    }
+  }
+  return { done, failed }
+}
+
+/* ── what each job does ───────────────────────────────────────────────── */
+
+async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any> }): Promise<void> {
+  switch (job.kind) {
+    case "send_email":
+      return sendBuyerEmail(db, job.payload)
+    case "supplier_email":
+      return sendSupplierEmail(db, job.payload)
+    case "webhook_delivery":
+      return deliverWebhook(db, job.payload)
+    default:
+      throw new Error("This kind of job is not available yet.")
+  }
+}
+
+interface CheckoutForEmail {
+  id: string
+  creator_id: string
+  buyer_email: string | null
+  buyer_name: string | null
+  currency: string
+  items_subtotal_cents: number
+  discount_cents: number
+  shipping_cents: number
+  shipping_discount_cents: number
+  tax_cents: number
+  total_cents: number
+  shipping_address: Record<string, any> | null
+  shipping_rate: Record<string, any> | null
+  lines: Record<string, any>[]
+  receipt_token: string
+  buyer_note: string | null
+}
+
+async function loadCheckout(db: Db, id: string): Promise<CheckoutForEmail> {
+  const { data } = await db.from("commerce_checkouts").select("*").eq("id", id).maybeSingle()
+  if (!data) throw new Error("checkout gone")
+  return data as CheckoutForEmail
+}
+
+function statusUrl(token: string): string {
+  return `https://${getMainDomain()}/checkout/physical/order/${encodeURIComponent(token)}`
+}
+
+function emailLines(lines: Record<string, any>[]): EmailLine[] {
+  return lines.map((l) => ({
+    title: l.title,
+    variantName: l.variant_name ?? null,
+    quantity: l.quantity,
+    cents: Math.max(0, l.unit_cents * l.quantity - (l.discount_cents ?? 0)),
+    imageUrl: l.image_url ?? null,
+    sku: l.sku ?? null,
+  }))
+}
+
+function addressOf(a: Record<string, any> | null) {
+  return a ? { name: a.name, line1: a.line1, line2: a.line2, city: a.city, region: a.region, postalCode: a.postalCode, country: a.country, phone: a.phone } : null
+}
+
+async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
+  const co = await loadCheckout(db, p.checkoutId)
+  if (!co.buyer_email) return
+  const identity = await resolveCreatorIdentity(db, co.creator_id)
+  const shopName = identity.fromName || "Storelib"
+  const firstName = co.buyer_name ? co.buyer_name.split(/\s+/)[0] : null
+  const number = orderNumber(co.id)
+  let mail: { subject: string; html: string; text: string }
+
+  if (p.template === "confirmation") {
+    mail = orderConfirmationEmail({
+      shopName,
+      orderNumber: number,
+      buyerFirstName: firstName,
+      lines: emailLines(co.lines),
+      totals: {
+        subtotal: co.items_subtotal_cents,
+        discount: co.discount_cents,
+        shipping: co.shipping_cents,
+        shippingDiscount: co.shipping_discount_cents,
+        tax: co.tax_cents,
+        taxIncluded: !!co.shipping_rate?.tax_included,
+        total: co.total_cents,
+        currency: co.currency,
+      },
+      address: addressOf(co.shipping_address),
+      deliveryName: co.shipping_rate?.name ?? null,
+      deliveryEstimate: co.shipping_rate ? deliveryEstimate({ minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null }) || null : null,
+      statusUrl: statusUrl(co.receipt_token),
+      hasDownloads: co.lines.some((l) => l.type !== "physical"),
+    })
+  } else if (p.template === "shipment") {
+    const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer").eq("id", p.fulfillmentId).maybeSingle()
+    if (!f || f.notify_buyer === false) return
+    const { data: items } = await db.from("fulfillment_items").select("order_id, quantity").eq("fulfillment_id", f.id)
+    const { data: orders } = await db.from("orders").select("id, product_snapshot").eq("checkout_id", co.id)
+    const snap = new Map(((orders ?? []) as { id: string; product_snapshot: Record<string, any> | null }[]).map((o) => [o.id, o.product_snapshot ?? {}]))
+    mail = shipmentEmail({
+      shopName,
+      orderNumber: number,
+      buyerFirstName: firstName,
+      lines: ((items ?? []) as { order_id: string; quantity: number }[]).map((i) => {
+        const s = snap.get(i.order_id) ?? {}
+        return { title: s.title ?? "Item", variantName: s.variant_name ?? null, quantity: i.quantity, cents: 0, imageUrl: s.image_url ?? null }
+      }),
+      carrier: f.carrier,
+      trackingNumber: f.tracking_number,
+      trackingUrl: f.tracking_url,
+      address: addressOf(co.shipping_address),
+      statusUrl: statusUrl(co.receipt_token),
+      kind: p.kind,
+    })
+  } else if (p.template === "return") {
+    const { data: r } = await db.from("commerce_returns").select("merchant_note, refunded_cents").eq("id", p.returnId).maybeSingle()
+    mail = returnEmail({ shopName, orderNumber: number, status: p.status, note: r?.merchant_note ?? null, refundedCents: r?.refunded_cents ?? 0, currency: co.currency, statusUrl: statusUrl(co.receipt_token) })
+  } else {
+    return
+  }
+  const sent = await sendEmail({
+    from: buildFromHeader(shopName),
+    to: co.buyer_email,
+    replyTo: identity.replyTo || identity.sellerEmail || undefined,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  })
+  if (!sent.success) throw new Error(sent.error || "Email not sent")
+  await addOrderEvent(db, {
+    checkoutId: co.id,
+    creatorId: co.creator_id,
+    kind: "email.sent",
+    message: p.template === "confirmation" ? "Order confirmation emailed to the buyer" : p.template === "shipment" ? (p.kind === "delivered" ? "Delivery email sent to the buyer" : "Shipping email sent to the buyer") : "Return update emailed to the buyer",
+    key: `email_sent:${p.template}:${p.fulfillmentId ?? p.returnId ?? co.id}:${p.kind ?? p.status ?? ""}`,
+  })
+}
+
+async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> {
+  const co = await loadCheckout(db, p.checkoutId)
+  const { data: loc } = await db.from("inventory_locations").select("id, name, email").eq("id", p.locationId).eq("creator_id", co.creator_id).maybeSingle()
+  if (!loc?.email) throw new Error("The location has no email address.")
+  const identity = await resolveCreatorIdentity(db, co.creator_id)
+  const shopName = identity.fromName || "Storelib"
+  const lines = emailLines(co.lines.filter((l) => l.location_id === loc.id && l.requires_shipping))
+  if (lines.length === 0) return
+  const mail = supplierOrderEmail({
+    shopName,
+    orderNumber: orderNumber(co.id),
+    locationName: loc.name,
+    lines,
+    address: addressOf(co.shipping_address),
+    buyerEmail: null,
+    deliveryName: co.shipping_rate?.name ?? null,
+    note: co.buyer_note,
+  })
+  const sent = await sendEmail({ from: buildFromHeader(shopName), to: loc.email, replyTo: identity.replyTo || identity.sellerEmail || undefined, subject: mail.subject, html: mail.html, text: mail.text })
+  if (!sent.success) throw new Error(sent.error || "Email not sent")
+  await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: `Order emailed to ${loc.name}`, key: `forwarded_email:${co.id}:${loc.id}` })
+}
+
+/** POST, to a public https address only, with the socket's own lookup refusing private addresses. */
+function postJson(url: string, body: string, headers: Record<string, string>): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url)
+    const req = https.request(
+      u,
+      { method: "POST", lookup: publicLookup as unknown as net.LookupFunction, headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body).toString(), "user-agent": "Storelib-Webhooks/1.0", ...headers } },
+      (res) => {
+        res.resume()
+        resolve(res.statusCode ?? 0)
+      },
+    )
+    req.setTimeout(10_000, () => req.destroy(new Error("timed out")))
+    req.on("error", reject)
+    req.end(body)
+  })
+}
+
+async function deliverWebhook(db: Db, p: Record<string, any>): Promise<void> {
+  const co = await loadCheckout(db, p.checkoutId)
+  const { data: integration } = await db.from("commerce_integrations").select("id, config, webhook_secret_ciphertext, status").eq("creator_id", co.creator_id).eq("provider", "custom_webhook").maybeSingle()
+  const url = integration?.config?.url as string | undefined
+  if (!integration || !url) throw new Error("No webhook address is set.")
+  if (!url.startsWith("https://") || publicUrlProblem(url)) throw new Error("The webhook address must be a public https address.")
+  const secret = openSecret(integration.webhook_secret_ciphertext)
+  if (!secret) throw new Error("The webhook signing secret could not be read. Set it again.")
+  const payload = JSON.stringify({
+    event: p.event ?? "order.paid",
+    created: Math.floor(Date.now() / 1000),
+    order: {
+      id: co.id,
+      number: orderNumber(co.id),
+      currency: co.currency,
+      total_cents: co.total_cents,
+      shipping: co.shipping_rate ? { name: co.shipping_rate.name, price_cents: co.shipping_rate.price_cents } : null,
+      address: addressOf(co.shipping_address),
+      note: co.buyer_note,
+      lines: co.lines
+        .filter((l) => !p.locationId || l.location_id === p.locationId)
+        .map((l) => ({ product_id: l.product_id, variant_id: l.variant_id, title: l.title, variant: l.variant_name, sku: l.sku, quantity: l.quantity, requires_shipping: l.requires_shipping })),
+    },
+  })
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const signature = createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest("hex")
+  const status = await postJson(url, payload, { "x-storelib-timestamp": timestamp, "x-storelib-signature": `v1=${signature}`, "x-storelib-event": String(p.event ?? "order.paid") })
+  if (status < 200 || status >= 300) throw new Error(`Your webhook answered ${status}.`)
+  await db.from("commerce_integrations").update({ last_sync_at: new Date().toISOString(), last_error: null, status: "connected" }).eq("id", integration.id)
+  await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: "Order sent to your webhook", key: `forwarded_webhook:${co.id}:${p.locationId ?? ""}:${p.event ?? ""}` })
+}

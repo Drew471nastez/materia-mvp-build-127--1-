@@ -22,7 +22,7 @@
  * the same list.
  */
 
-export type ProductKind = "digital" | "course" | "membership"
+export type ProductKind = "digital" | "course" | "membership" | "physical"
 
 /** A kind the product editor opens as. */
 export type EditorKind = Exclude<ProductKind, "membership">
@@ -42,6 +42,18 @@ export const KIND_OPTIONS: readonly KindOption[] = [
   { kind: "membership", title: "Membership", line: "Monthly or yearly. Members get your updates and files." },
 ]
 
+/**
+ * A product that ships: asked only while physical commerce is switched on
+ * in /admin (lib/platform/physical-commerce.ts), after the three above, so
+ * with the switch off the question is exactly what it always was.
+ */
+export const PHYSICAL_KIND_OPTION: KindOption = { kind: "physical", title: "Physical product", line: "Things you ship: clothing, prints, merch, gear, with stock." }
+
+/** The answers to show: the three, and a physical product while the switch is on. */
+export function kindOptions(physical: boolean): readonly KindOption[] {
+  return physical ? [...KIND_OPTIONS, PHYSICAL_KIND_OPTION] : KIND_OPTIONS
+}
+
 /** The product editor's address for a new product of this kind. */
 export function editorHref(kind: EditorKind): string {
   return `${NEW_PRODUCT_HREF}?type=${kind}`
@@ -54,5 +66,5 @@ export function membershipHref(productId: string): string {
 
 /** `?type=` as the new product page reads it. Anything else is no answer yet. */
 export function kindFromParam(value: unknown): ProductKind | null {
-  return value === "digital" || value === "course" || value === "membership" ? value : null
+  return value === "digital" || value === "course" || value === "membership" || value === "physical" ? value : null
 }

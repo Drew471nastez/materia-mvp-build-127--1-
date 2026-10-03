@@ -59,6 +59,14 @@ export interface FAQItem {
 /** What a new product starts with: 3 defaults, up to 8 in all. */
 export const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
 
+/* A product that ships starts with what a buyer of one asks: when it arrives and what if it doesn't fit. */
+export const PHYSICAL_WHATS_INCLUDED: string[] = []
+
+export const PHYSICAL_FAQS: FAQItem[] = [
+  { id: "physical-1", question: "When will my order arrive?", answer: "You'll see delivery options and times at checkout, and you'll get an email with tracking when it ships.", isDefault: true },
+  { id: "physical-2", question: "Can I return it?", answer: "Returns are set by the shop. You can ask for one from your order page.", isDefault: true },
+]
+
 export const DEFAULT_FAQS: FAQItem[] = [
   { id: "default-1", question: "How do I access my purchase?", answer: "After checkout, download immediately on the download page. You'll also receive an email with the download link.", isDefault: true },
   { id: "default-2", question: "Is there a refund policy?", answer: "Refund policies are set by individual creators. Check product info or contact the seller for details.", isDefault: true },
@@ -226,7 +234,7 @@ export interface EditorForm {
   price: string
   compareAtPrice: string
   slug: string
-  productType: "digital" | "course"
+  productType: "digital" | "course" | "physical"
   isPublished: boolean
   showSalesBadge: boolean
   refundPolicyEnabled: boolean
@@ -247,7 +255,7 @@ export interface EditorForm {
   faqs: FAQItem[]
 }
 
-export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "course" = "digital"): EditorForm {
+export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "course" | "physical" = "digital"): EditorForm {
   if (!loaded) {
     const course = startAs === "course"
     return {
@@ -273,8 +281,8 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       mediaItems: [],
       digitalFiles: [],
       variants: [],
-      whatsIncluded: course ? COURSE_WHATS_INCLUDED : DEFAULT_WHATS_INCLUDED,
-      faqs: course ? COURSE_FAQS : DEFAULT_FAQS,
+      whatsIncluded: course ? COURSE_WHATS_INCLUDED : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : DEFAULT_WHATS_INCLUDED,
+      faqs: course ? COURSE_FAQS : startAs === "physical" ? PHYSICAL_FAQS : DEFAULT_FAQS,
     }
   }
   const { product, assets, variants } = loaded
@@ -293,7 +301,8 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
     price: dollars(product.price_cents),
     compareAtPrice: dollars(product.compare_at_cents),
     slug: product.slug || "",
-    productType: product.type === "course" ? "course" : "digital",
+    /* A physical product stays physical: saving it as "digital" would put a shipped item on the download checkout. */
+    productType: product.type === "course" ? "course" : product.type === "physical" ? "physical" : "digital",
     isPublished: product.status === "published",
     showSalesBadge: product.show_sales_badge !== false,
     refundPolicyEnabled: product.refund_policy_enabled || false,

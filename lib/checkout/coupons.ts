@@ -301,7 +301,7 @@ function instant(v: unknown): string | null | undefined {
  * the values to write, or the first thing wrong with it in words a creator
  * can act on.
  */
-export function readCouponInput(body: unknown, base?: Partial<CouponValues> | null): CouponInput {
+export function readCouponInput(body: unknown, base?: Partial<CouponValues> | null, opts: { allowZero?: boolean } = {}): CouponInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "Nothing to save." }
   const b = { ...(base ?? {}), ...(body as Record<string, unknown>) } as Record<string, unknown>
 
@@ -315,7 +315,8 @@ export function readCouponInput(body: unknown, base?: Partial<CouponValues> | nu
   if (type !== "percentage" && type !== "fixed") return { ok: false, error: "Choose a percentage or a fixed amount." }
 
   const value = typeof b.discount_value === "string" ? Number(b.discount_value) : b.discount_value
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return { ok: false, error: "The discount has to be more than 0." }
+  /* Zero only for a free shipping code, which the physical checkout prices (lib/physical). */
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || (value === 0 && !opts.allowZero)) return { ok: false, error: "The discount has to be more than 0." }
   if (Math.abs(Math.round(value * 100) - value * 100) > 1e-6) return { ok: false, error: "The discount can have at most two decimals." }
   if (type === "percentage" && value > 100) return { ok: false, error: "A percentage discount is at most 100%." }
   if (type === "fixed" && value > 100_000) return { ok: false, error: "A fixed discount is at most $100,000." }

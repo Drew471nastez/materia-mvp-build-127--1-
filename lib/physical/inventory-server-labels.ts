@@ -1,0 +1,20 @@
+/** What each kind of stock change is called in the history. Pure: the Inventory page reads it too. */
+export const REASON_LABEL: Record<string, string> = {
+  initial: "Starting stock",
+  received: "Received",
+  correction: "Correction",
+  count: "Stock count",
+  damaged: "Damaged",
+  theft_or_loss: "Theft or loss",
+  promotion_or_donation: "Promotion or donation",
+  returned_restock: "Returned to stock",
+  sale_fulfilled: "Order shipped",
+  order_reserved: "Held for checkout",
+  reservation_released: "Hold released",
+  order_cancelled: "Order cancelled",
+  transfer_out: "Transfer out",
+  transfer_in: "Transfer in",
+  incoming_added: "Incoming added",
+  incoming_cancelled: "Incoming cancelled",
+  provider_sync: "Synced from provider",
+}

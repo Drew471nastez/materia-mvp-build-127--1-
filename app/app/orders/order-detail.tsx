@@ -70,6 +70,8 @@ import {
   OrderBarFrame,
 } from "./order-parts"
 import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
+import { PhysicalOrderPanel } from "@/components/physical/order-panel"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 
 export type OrderAction =
   | { kind: "refund"; line: OrderRow; amountCents: number; reason: string }
@@ -137,6 +139,9 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   const [busy, setBusy] = React.useState<string | null>(null)
   /* Bumped after an action lands, so the timeline reads its history again. */
   const [revision, setRevision] = React.useState(0)
+  const physicalCommerce = usePhysicalCommerceEnabled()
+  /* A line that ships makes this a physical order, opened by that line's id. */
+  const physicalOrder = order.lines.find((l) => l.product?.type === "physical")?.id ?? null
 
   const refundable = order.lines.filter((l) => l.status === "completed" && (l.amount_cents || 0) > 0 && l.stripe_payment_intent_id)
   const emailable = order.lines.some(canEmail)
@@ -268,13 +273,18 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
       */}
       <div key={order.id} className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start">
-          <FulfillmentCard
-            className="lg:col-start-1 lg:row-start-1"
-            order={order}
-            timeZone={timeZone}
-            busy={busy}
-            onResend={emailable ? () => void run("resend", { kind: "resend" }) : null}
-          />
+          {/* Something shipped: fulfilment, tracking and returns (components/physical/order-panel.tsx), while physical commerce is on. */}
+          {physicalOrder && physicalCommerce ? (
+            <PhysicalOrderPanel className="lg:col-start-1 lg:row-start-1" orderRowId={physicalOrder} revision={revision} />
+          ) : (
+            <FulfillmentCard
+              className="lg:col-start-1 lg:row-start-1"
+              order={order}
+              timeZone={timeZone}
+              busy={busy}
+              onResend={emailable ? () => void run("resend", { kind: "resend" }) : null}
+            />
+          )}
           <PaymentCard
             className="lg:col-start-1 lg:row-start-2"
             order={order}
@@ -372,7 +382,7 @@ function FulfillmentCard({
       </CardHead>
       <div className="px-4 pb-1 pt-2 text-[13px] text-[#4b5563]">
         <p>{accessLine(order, timeZone)}</p>
-        <p className="text-[#6b7280]">Digital download, no shipping</p>
+        <p className="text-[#6b7280]">{order.lines.some((l) => l.product?.type === "physical") ? "Ships to the buyer" : "Digital download, no shipping"}</p>
       </div>
       <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
         {order.lines.map((line) => {

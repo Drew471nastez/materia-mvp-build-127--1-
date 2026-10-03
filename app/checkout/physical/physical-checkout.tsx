@@ -1,0 +1,510 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  THE PHYSICAL CHECKOUT: CONTACT, DELIVERY, PAY
+ * ===========================================================================
+ * One page, like the big platforms: contact and address on the left, the
+ * order on the right (on a phone, a summary that opens at the top). Every
+ * number shown comes from /api/physical/checkout/quote, asked again when the
+ * cart, the country, the region, the code or the delivery option changes.
+ * Pay sends ids, the address and the chosen option; the server prices it
+ * all again, holds the stock and opens Stripe's page for the payment. A
+ * failed attempt makes a new key, so the next one is a new checkout.
+ */
+
+import * as React from "react"
+import { ChevronDown, Lock, Minus, Plus, ShoppingBag, Tag, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { COUNTRIES } from "@/lib/checkout/countries"
+import { cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
+import { decodeItems, type LinkItem } from "@/lib/physical/cart-link"
+import { postalCodeRequired } from "@/lib/physical/address"
+import { actionKey } from "@/components/physical/ui"
+
+interface QuoteLine {
+  productId: string
+  variantId: string | null
+  title: string
+  variantName: string | null
+  imageUrl: string | null
+  type: string
+  quantity: number
+  unitCents: number
+  discountCents: number
+  requiresShipping: boolean
+}
+interface Quote {
+  creatorId: string
+  lines: QuoteLine[]
+  dropped: string[]
+  stockIssues: { productId: string; variantId: string | null; title: string; available: number }[]
+  requiresShipping: boolean
+  coupon: { code: string; label: string | null; freeShipping: boolean } | null
+  couponError: string | null
+  delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean }
+  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number }
+}
+
+const INPUT =
+  "h-12 w-full rounded-[10px] border border-[#d9dce1] bg-white px-3.5 text-[15px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:ring-[3px] focus:ring-[rgba(26,26,46,0.08)] aria-[invalid=true]:border-[#dc2626]"
+
+function money(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`
+}
+
+function guessCountry(): string {
+  try {
+    const region = new Intl.Locale(navigator.language).maximize().region
+    return region && COUNTRIES.some((c) => c.code === region) ? region : ""
+  } catch {
+    return ""
+  }
+}
+
+export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: string | null; shopName: string; shopAvatar: string | null }) {
+  const [items, setItems] = React.useState<LinkItem[] | null>(null)
+  const [fromCart, setFromCart] = React.useState(false)
+  const [backUrl, setBackUrl] = React.useState<string | null>(null)
+  const [quote, setQuote] = React.useState<Quote | null>(null)
+  const [quoteError, setQuoteError] = React.useState<string | null>(null)
+  const [quoting, setQuoting] = React.useState(false)
+
+  const [email, setEmail] = React.useState("")
+  const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "" })
+  const [optionId, setOptionId] = React.useState<string | null>(null)
+  const [codeOpen, setCodeOpen] = React.useState(false)
+  const [code, setCode] = React.useState("")
+  const [appliedCode, setAppliedCode] = React.useState<string | null>(null)
+  const [note, setNote] = React.useState("")
+  const [summaryOpen, setSummaryOpen] = React.useState(false)
+  const [paying, setPaying] = React.useState(false)
+  const [payError, setPayError] = React.useState<{ message: string; field: string | null } | null>(null)
+  const clientKey = React.useRef(actionKey())
+
+  /* The cart: from the address, else this browser's cart for the shop. */
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const fromLink = decodeItems(params.get("items"))
+    const ret = params.get("return")
+    if (ret && /^https?:\/\//.test(ret)) setBackUrl(ret)
+    if (fromLink.length) {
+      setItems(fromLink)
+    } else if (shopId) {
+      try {
+        const lines = parseCart(window.localStorage.getItem(cartStorageKey(shopId)))
+        setItems(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity })))
+        setFromCart(true)
+      } catch {
+        setItems([])
+      }
+    } else setItems([])
+    setAddress((a) => (a.country ? a : { ...a, country: guessCountry() }))
+    const saved = window.sessionStorage?.getItem("storelib.physical.contact")
+    if (saved) {
+      try {
+        const c = JSON.parse(saved)
+        if (typeof c.email === "string") setEmail(c.email)
+      } catch {
+        /* Nothing saved. */
+      }
+    }
+  }, [shopId])
+
+  /* The server's prices, asked again when anything that changes them changes. */
+  const ask = React.useRef(0)
+  React.useEffect(() => {
+    if (!items || !shopId) return
+    if (items.length === 0) {
+      setQuote(null)
+      return
+    }
+    const n = ++ask.current
+    setQuoting(true)
+    const t = window.setTimeout(async () => {
+      try {
+        const res = await fetch("/api/physical/checkout/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, deliveryOptionId: optionId, email }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (n !== ask.current) return
+        if (!res.ok) {
+          setQuoteError(typeof data.error === "string" ? data.error : "Could not load your order.")
+          setQuote(null)
+        } else {
+          setQuoteError(null)
+          setQuote(data as Quote)
+          if ((data as Quote).couponError) setAppliedCode(null)
+          if ((data as Quote).delivery.selectedId !== optionId) setOptionId((data as Quote).delivery.selectedId)
+        }
+      } catch {
+        if (n === ask.current) setQuoteError("Check your connection and try again.")
+      } finally {
+        if (n === ask.current) setQuoting(false)
+      }
+    }, 250)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, shopId, appliedCode, address.country, address.region, optionId])
+
+  /* A change here is the cart's too, when the cart is where it came from. */
+  const changeQty = (i: number, q: number) => {
+    setItems((prev) => {
+      if (!prev) return prev
+      const next = q <= 0 ? prev.filter((_, j) => j !== i) : prev.map((it, j) => (j === i ? { ...it, quantity: Math.min(999, q) } : it))
+      if (fromCart && shopId) {
+        try {
+          const key = cartStorageKey(shopId)
+          const lines = parseCart(window.localStorage.getItem(key))
+          const kept: CartLine[] = []
+          for (const l of lines) {
+            const match = next.find((x) => x.productId === l.productId && (x.variantId ?? null) === (l.variantId ?? null))
+            if (match) kept.push({ ...l, quantity: match.quantity })
+          }
+          window.localStorage.setItem(key, serializeCart(kept))
+        } catch {
+          /* The page still has it. */
+        }
+      }
+      return next
+    })
+  }
+
+  const pay = async () => {
+    if (!quote || !shopId || !items) return
+    setPaying(true)
+    setPayError(null)
+    try {
+      window.sessionStorage?.setItem("storelib.physical.contact", JSON.stringify({ email }))
+    } catch {
+      /* Not kept. */
+    }
+    try {
+      const res = await fetch("/api/physical/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopId,
+          items,
+          couponCode: appliedCode,
+          email,
+          name: address.name,
+          phone: address.phone,
+          address: quote.requiresShipping ? address : null,
+          deliveryOptionId: optionId,
+          buyerNote: note,
+          clientKey: clientKey.current,
+          returnUrl: backUrl ?? window.location.href,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || typeof data.url !== "string") {
+        clientKey.current = actionKey()
+        setPayError({ message: typeof data.error === "string" ? data.error : "Could not start the payment.", field: typeof data.field === "string" ? data.field : null })
+        setPaying(false)
+        if (res.status === 409) setItems((x) => (x ? [...x] : x))
+        return
+      }
+      if (data.free === true && fromCart) {
+        try {
+          window.localStorage.removeItem(cartStorageKey(shopId))
+        } catch {
+          /* Left as it was. */
+        }
+      }
+      window.location.href = data.url
+    } catch {
+      clientKey.current = actionKey()
+      setPayError({ message: "Could not reach the checkout. Check your connection and try again.", field: null })
+      setPaying(false)
+    }
+  }
+
+  const missing = (() => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "email"
+    if (!quote?.requiresShipping) return null
+    if (!address.country) return "country"
+    if (!address.name.trim()) return "name"
+    if (!address.line1.trim()) return "line1"
+    if (!address.city.trim()) return "city"
+    if (postalCodeRequired(address.country) && !address.postalCode.trim()) return "postalCode"
+    if (!optionId) return "delivery"
+    return null
+  })()
+  const canPay = !!quote && quote.lines.length > 0 && quote.stockIssues.length === 0 && !missing && !paying && !quoting
+
+  const t = quote?.totals
+  const summary = quote ? (
+    <div className="space-y-4">
+      <ul className="space-y-3">
+        {quote.lines.map((l, i) => {
+          const idx = items?.findIndex((x) => x.productId === l.productId && (x.variantId ?? null) === (l.variantId ?? null)) ?? i
+          return (
+            <li key={`${l.productId}:${l.variantId}`} className="flex items-start gap-3">
+              <div className="relative shrink-0">
+                {l.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={l.imageUrl} alt="" className="h-16 w-16 rounded-xl border border-[#e5e7eb] object-cover" />
+                ) : (
+                  <div className="grid h-16 w-16 place-items-center rounded-xl border border-[#e5e7eb] bg-[#f3f4f6]">
+                    <ShoppingBag className="h-5 w-5 text-[#9ca3af]" />
+                  </div>
+                )}
+                <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-[#6b7280] px-1 text-[11px] font-semibold text-white">{l.quantity}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.title}</p>
+                {l.variantName ? <p className="text-[13px] text-[#6b7280]">{l.variantName}</p> : null}
+                {l.type === "physical" && idx >= 0 ? (
+                  <div className="mt-1.5 inline-flex h-8 items-center rounded-lg border border-[#e5e7eb]">
+                    <button type="button" aria-label="Fewer" onClick={() => changeQty(idx, l.quantity - 1)} className="grid h-8 w-8 place-items-center text-[#4b5563]">
+                      {l.quantity <= 1 ? <Trash2 className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+                    </button>
+                    <span className="w-6 text-center text-[13px] tabular-nums">{l.quantity}</span>
+                    <button type="button" aria-label="More" onClick={() => changeQty(idx, l.quantity + 1)} className="grid h-8 w-8 place-items-center text-[#4b5563]">
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{money(l.unitCents * l.quantity - l.discountCents)}</p>
+                {l.discountCents > 0 ? <p className="text-[12px] tabular-nums text-[#9ca3af] line-through">{money(l.unitCents * l.quantity)}</p> : null}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="border-t border-[#e5e7eb] pt-4">
+        {appliedCode && quote.coupon ? (
+          <div className="flex items-center justify-between rounded-lg bg-[#f3f4f6] px-3 py-2 text-[13.5px]">
+            <span className="flex items-center gap-2 font-medium text-[#1a1a2e]">
+              <Tag className="h-4 w-4" />
+              {quote.coupon.code}
+              <span className="font-normal text-[#6b7280]">{quote.coupon.label}</span>
+            </span>
+            <button type="button" className="text-[13px] font-medium text-[#6b7280] underline underline-offset-2" onClick={() => setAppliedCode(null)}>
+              Remove
+            </button>
+          </div>
+        ) : codeOpen ? (
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (code.trim()) setAppliedCode(code.trim())
+            }}
+          >
+            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Discount code" className={cn(INPUT, "h-11")} autoCapitalize="characters" />
+            <button type="submit" className="h-11 shrink-0 rounded-[10px] border border-[#d9dce1] px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]">
+              Apply
+            </button>
+          </form>
+        ) : (
+          <button type="button" className="text-[14px] font-medium text-[#1a1a2e] underline underline-offset-4" onClick={() => setCodeOpen(true)}>
+            Add a discount code
+          </button>
+        )}
+        {quote.couponError ? <p className="mt-2 text-[13px] text-[#b42318]">{quote.couponError}</p> : null}
+      </div>
+
+      {t ? (
+        <dl className="space-y-2 border-t border-[#e5e7eb] pt-4 text-[14px]">
+          <div className="flex justify-between">
+            <dt className="text-[#4b5563]">Subtotal</dt>
+            <dd className="tabular-nums text-[#1a1a2e]">{money(t.itemsSubtotalCents)}</dd>
+          </div>
+          {t.discountCents > 0 ? (
+            <div className="flex justify-between">
+              <dt className="text-[#4b5563]">Discount</dt>
+              <dd className="tabular-nums text-[#166534]">-{money(t.discountCents)}</dd>
+            </div>
+          ) : null}
+          {quote.requiresShipping ? (
+            <div className="flex justify-between">
+              <dt className="text-[#4b5563]">Shipping</dt>
+              <dd className="tabular-nums text-[#1a1a2e]">{!optionId ? (address.country ? "None for this country" : "Enter your address") : t.shippingCents - t.shippingDiscountCents === 0 ? "Free" : money(t.shippingCents - t.shippingDiscountCents)}</dd>
+            </div>
+          ) : null}
+          {t.taxCents > 0 ? (
+            <div className="flex justify-between">
+              <dt className="text-[#4b5563]">{t.taxIncluded ? "Including tax" : "Tax"}</dt>
+              <dd className="tabular-nums text-[#1a1a2e]">{money(t.taxCents)}</dd>
+            </div>
+          ) : null}
+          <div className="flex items-baseline justify-between border-t border-[#e5e7eb] pt-3">
+            <dt className="text-[16px] font-semibold text-[#1a1a2e]">Total</dt>
+            <dd className="text-[20px] font-bold tabular-nums text-[#1a1a2e]">
+              <span className="mr-1.5 text-[12px] font-medium text-[#6b7280]">USD</span>
+              {money(t.totalCents)}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+    </div>
+  ) : null
+
+  const field = (key: keyof typeof address, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+    <label className="block">
+      <span className="sr-only">{label}</span>
+      <input
+        {...props}
+        value={address[key]}
+        placeholder={label}
+        aria-invalid={payError?.field === key || undefined}
+        onChange={(e) => setAddress((a) => ({ ...a, [key]: e.target.value }))}
+        className={INPUT}
+      />
+    </label>
+  )
+
+  if (items !== null && (items.length === 0 || !shopId)) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center bg-[#f8f9fa] px-6 text-center">
+        <ShoppingBag className="h-8 w-8 text-[#c4c8cf]" strokeWidth={1.5} />
+        <h1 className="mt-3 text-[22px] font-semibold text-[#1a1a2e]">Your cart is empty</h1>
+        {backUrl ? (
+          <a href={backUrl} className="mt-3 text-[15px] font-medium text-[#1a1a2e] underline underline-offset-4">
+            Continue shopping
+          </a>
+        ) : null}
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-dvh bg-white lg:bg-[linear-gradient(90deg,#ffffff_55%,#f8f9fa_55%)]">
+      <header className="border-b border-[#eef0f2] bg-white">
+        <div className="mx-auto flex h-16 max-w-[1080px] items-center justify-between px-4 sm:px-6">
+          <a href={backUrl ?? "#"} className="flex min-w-0 items-center gap-2.5">
+            {shopAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={shopAvatar} alt="" className="h-8 w-8 rounded-full border border-[#e5e7eb] object-cover" />
+            ) : null}
+            <span className="truncate text-[17px] font-semibold text-[#1a1a2e]">{shopName}</span>
+          </a>
+          <span className="flex items-center gap-1.5 text-[13px] text-[#6b7280]">
+            <Lock className="h-3.5 w-3.5" />
+            Secure checkout
+          </span>
+        </div>
+      </header>
+
+      {/* A phone: the order folds at the top. */}
+      <div className="border-b border-[#eef0f2] bg-[#f8f9fa] lg:hidden">
+        <button type="button" onClick={() => setSummaryOpen((v) => !v)} aria-expanded={summaryOpen} className="mx-auto flex h-14 w-full max-w-[640px] items-center justify-between px-4 sm:px-6">
+          <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
+            <ShoppingBag className="h-4 w-4" />
+            {summaryOpen ? "Hide order summary" : "Show order summary"}
+            <ChevronDown className={cn("h-4 w-4 transition-transform", summaryOpen && "rotate-180")} />
+          </span>
+          <span className="text-[17px] font-semibold tabular-nums text-[#1a1a2e]">{t ? money(t.totalCents) : ""}</span>
+        </button>
+        {summaryOpen ? <div className="mx-auto max-w-[640px] px-4 pb-5 sm:px-6">{summary}</div> : null}
+      </div>
+
+      <div className="mx-auto grid max-w-[1080px] lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
+        <section className="px-4 py-6 sm:px-6 lg:py-10 lg:pr-12">
+          <div className="mx-auto max-w-[560px] space-y-7 lg:mx-0 lg:ml-auto">
+            {quoteError ? <p className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[14px] text-[#991b1b]">{quoteError}</p> : null}
+            {quote?.dropped.length ? <p className="rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3.5 py-2.5 text-[14px] text-[#92400e]">Not included: {quote.dropped.join(", ")}.</p> : null}
+            {quote?.stockIssues.length ? (
+              <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[14px] text-[#991b1b]">
+                {quote.stockIssues.map((s) => (
+                  <p key={`${s.productId}:${s.variantId}`}>{s.available > 0 ? `${s.title}: only ${s.available} left. Lower the quantity to continue.` : `${s.title} is sold out. Remove it to continue.`}</p>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Contact</h2>
+              <label className="block">
+                <span className="sr-only">Email</span>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" placeholder="Email" aria-invalid={payError?.field === "email" || undefined} className={INPUT} />
+              </label>
+              <p className="text-[12.5px] text-[#6b7280]">Your receipt and shipping updates go here.</p>
+            </div>
+
+            {quote?.requiresShipping !== false ? (
+              <div className="space-y-3">
+                <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Delivery</h2>
+                <label className="block">
+                  <span className="sr-only">Country</span>
+                  <div className="relative">
+                    <select value={address.country} onChange={(e) => setAddress((a) => ({ ...a, country: e.target.value }))} autoComplete="country" aria-invalid={payError?.field === "country" || undefined} className={cn(INPUT, "appearance-none pr-10")}>
+                      <option value="">Country</option>
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
+                  </div>
+                </label>
+                {field("name", "Full name", { autoComplete: "name" })}
+                {field("line1", "Address", { autoComplete: "address-line1" })}
+                {field("line2", "Apartment, suite (optional)", { autoComplete: "address-line2" })}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1">
+                  {field("city", "City", { autoComplete: "address-level2" })}
+                  {field("region", "State or region", { autoComplete: "address-level1" })}
+                  {field("postalCode", postalCodeRequired(address.country || "US") ? "Postal code" : "Postal code (optional)", { autoComplete: "postal-code" })}
+                </div>
+                {field("phone", "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" })}
+              </div>
+            ) : null}
+
+            {quote?.requiresShipping ? (
+              <div className="space-y-3">
+                <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Shipping method</h2>
+                {quote.delivery.needsCountry ? (
+                  <p className="rounded-xl bg-[#f3f4f6] px-3.5 py-3 text-[14px] text-[#6b7280]">Choose your country to see delivery options.</p>
+                ) : !quote.delivery.ok ? (
+                  <p className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]">{quote.delivery.error}</p>
+                ) : quote.delivery.options.length === 0 ? (
+                  <p className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]">This shop doesn't deliver to that country yet.</p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-[#d9dce1]">
+                    {quote.delivery.options.map((o) => (
+                      <label key={o.id} className={cn("flex cursor-pointer items-center gap-3 border-b border-[#e5e7eb] px-3.5 py-3.5 last:border-b-0", optionId === o.id && "bg-[#f8f9fa]")}>
+                        <input type="radio" name="delivery" checked={optionId === o.id} onChange={() => setOptionId(o.id)} className="h-4 w-4 accent-[#1a1a2e]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-medium text-[#1a1a2e]">{o.name}</span>
+                          {o.estimate ? <span className="block text-[13px] text-[#6b7280]">{o.estimate}</span> : null}
+                        </span>
+                        <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{o.priceCents === 0 ? "Free" : money(o.priceCents)}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <details className="group">
+              <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline underline-offset-4">Add a note for the shop</summary>
+              <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className="mt-2 w-full rounded-[10px] border border-[#d9dce1] px-3.5 py-2.5 text-[15px] outline-none focus:border-[#1a1a2e]" placeholder="Gift wrap, delivery instructions..." />
+            </details>
+
+            {payError ? <p role="alert" className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[14px] text-[#991b1b]">{payError.message}</p> : null}
+
+            <button type="button" onClick={pay} disabled={!canPay} className="flex h-14 w-full items-center justify-center gap-2 rounded-[12px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.16)] transition-colors hover:bg-[#2a2a44] disabled:cursor-not-allowed disabled:opacity-50">
+              <Lock className="h-4 w-4" />
+              {paying ? "Opening secure payment" : t && t.totalCents === 0 ? "Place order" : t ? `Pay ${money(t.totalCents)}` : "Pay"}
+            </button>
+            <p className="text-center text-[12.5px] leading-[18px] text-[#6b7280]">
+              {missing === "delivery" && quote?.requiresShipping ? "Choose a shipping method to continue. " : ""}
+              Payment is taken securely by Stripe. Stock is held for you while you pay.
+            </p>
+          </div>
+        </section>
+
+        <aside className="hidden px-6 py-10 lg:block lg:pl-12">
+          <div className="sticky top-8 max-w-[420px]">{quote ? summary : <div className="h-[260px] animate-pulse rounded-2xl bg-white/70" />}</div>
+        </aside>
+      </div>
+    </main>
+  )
+}

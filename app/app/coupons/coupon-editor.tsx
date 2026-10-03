@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { PhysicalCouponOptions, type CouponOptionsHandle } from "@/components/physical/coupon-options"
 import { ArrowLeft, Package, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUPON_STATE_LABEL, couponState, type CouponState } from "@/lib/checkout/coupon-state"
@@ -127,7 +128,10 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
   }, [router])
   useCouponListOrigin()
 
-  const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initial), [form, initial])
+  /* Free shipping and the other physical options (components/physical/coupon-options.tsx), while physical commerce is on. */
+  const physicalOptions = useRef<CouponOptionsHandle | null>(null)
+  const [optionsTouched, setOptionsTouched] = useState(0)
+  const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initial) || (optionsTouched > 0 && !!physicalOptions.current?.dirty()), [form, initial, optionsTouched])
   const busy = saving || deleting
   const set = <K extends keyof CouponForm>(key: K, value: CouponForm[K]) => {
     setForm((f) => ({ ...f, [key]: value }))
@@ -153,14 +157,14 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
   const save = async () => {
     if (busy || !canSave) return
     setServerError(null)
-    const wrong = formProblem(form, initialCoupon?.code ?? null)
+    const wrong = formProblem(form, initialCoupon?.code ?? null, physicalOptions.current?.freeShipping() ?? false)
     if (wrong) return point(wrong)
     setSaving(true)
     try {
       const res = await fetch(isEdit ? `/api/coupons/${initialCoupon!.id}` : "/api/coupons", {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formPayload(form)),
+        body: JSON.stringify({ ...formPayload(form), ...(physicalOptions.current?.freeShipping() ? { free_shipping: true } : {}) }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -173,6 +177,15 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
         return
       }
       const saved = data.coupon as CouponRecord | undefined
+      const savedId = saved?.id ?? initialCoupon?.id ?? null
+      if (savedId && physicalOptions.current) {
+        const problem = await physicalOptions.current.save(savedId)
+        if (problem) {
+          setSaving(false)
+          setServerError(`The code was saved, but its shipping options weren't: ${problem}`)
+          return
+        }
+      }
       const code = saved?.code ?? form.code
       /* Save stays busy while the editor leaves: the list says the rest. */
       returnToCoupons(router, { id: saved?.id ?? initialCoupon?.id ?? null, saved: saved ?? null, message: `${code} ${isEdit ? "saved" : "created"}` })
@@ -511,6 +524,8 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                 <p className={HINT}>Every product, including ones you add later.</p>
               )}
             </section>
+
+            <PhysicalCouponOptions initial={initialCoupon} handle={physicalOptions} onChange={() => setOptionsTouched((n) => n + 1)} cardClass={CARD} titleClass={CARD_TITLE} />
 
             {/* ── Limits ───────────────────────────────────────────── */}
             <section className={CARD} aria-labelledby="coupon-limits-title">

@@ -37,6 +37,10 @@
     {
       "path": "/api/cron/memberships",
       "schedule": "7,22,37,52 * * * *"
+    },
+    {
+      "path": "/api/cron/physical",
+      "schedule": "3,13,23,33,43,53 * * * *"
     }
   ],
   "rewrites": [

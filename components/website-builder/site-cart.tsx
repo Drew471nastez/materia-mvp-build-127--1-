@@ -54,6 +54,8 @@ interface SiteCartValue {
   clear: () => void
   /** Whether this cart can reach a checkout. False inside the editor. */
   live: boolean
+  /** The shop this cart belongs to, for the physical checkout's address. */
+  shopId: string | null
 }
 
 const EMPTY: SiteCartValue = {
@@ -68,6 +70,7 @@ const EMPTY: SiteCartValue = {
   remove: () => {},
   clear: () => {},
   live: false,
+  shopId: null,
 }
 
 const SiteCartContext = createContext<SiteCartValue>(EMPTY)
@@ -148,6 +151,7 @@ export function SiteCartProvider({ shopId, children }: { shopId?: string; childr
     remove,
     clear,
     live: !!shopId,
+    shopId: shopId ?? null,
   }), [lines, ready, open, add, setQty, remove, clear, shopId])
 
   return <SiteCartContext.Provider value={value}>{children}</SiteCartContext.Provider>

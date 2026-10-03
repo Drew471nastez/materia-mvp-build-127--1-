@@ -63,6 +63,7 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     source: order.source ?? null,
     source_detail: order.source_detail ?? null,
     product: product ? { id: product.id, title: product.title, type: product.type, thumbnail_url: product.thumbnail_url } : null,
+    ...(order.checkout_id ? { checkout_id: order.checkout_id as string, quantity: (order.quantity as number) ?? 1 } : {}),
   }
 }
 
@@ -104,5 +105,16 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
   })
 
   const byId = new Map(products.map((p) => [p.id, p]))
-  return { products, rows: ordersData.map((order) => toOrderRow(order, byId.get(order.product_id))) }
+  const rows = ordersData.map((order) => toOrderRow(order, byId.get(order.product_id)))
+  /* A physical order is fulfilled when it has shipped (lib/physical), not when it is paid. */
+  const checkoutIds = [...new Set(rows.map((r) => r.checkout_id).filter((id): id is string => !!id))]
+  if (checkoutIds.length) {
+    const status = new Map<string, string>()
+    for (let i = 0; i < checkoutIds.length; i += 500) {
+      const { data } = await admin.from("commerce_checkouts").select("id, fulfillment_status").eq("creator_id", creatorId).in("id", checkoutIds.slice(i, i + 500))
+      for (const c of (data ?? []) as { id: string; fulfillment_status: string }[]) status.set(c.id, c.fulfillment_status)
+    }
+    for (const r of rows) if (r.checkout_id && status.has(r.checkout_id)) r.physical_fulfillment = status.get(r.checkout_id) ?? null
+  }
+  return { products, rows }
 }

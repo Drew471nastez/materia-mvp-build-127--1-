@@ -45,7 +45,8 @@ import { LAYER_PHONE } from "@/components/app/page-layer"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { hapticTap } from "@/lib/native-bridge"
 import { openEditor, returnToProducts } from "../list-return"
-import { KIND_OPTIONS, NEW_PRODUCT_HREF, editorHref, membershipHref, type ProductKind } from "./product-kinds"
+import { NEW_PRODUCT_HREF, editorHref, kindOptions, membershipHref, type ProductKind } from "./product-kinds"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 
 type Router = ReturnType<typeof useRouter>
 
@@ -122,6 +123,12 @@ export function KindArt({ kind, className }: { kind: ProductKind; className?: st
             <path d="M18 4.8V10h5.2" stroke={INK} />
             <path d="M15.2 13.4v7.4M12.2 17.9l3 3 3-3" stroke={ACCENT} />
           </>
+        ) : kind === "physical" ? (
+          <>
+            <path d="M5.2 10.4 16 5l10.8 5.4v11.2L16 27l-10.8-5.4z" stroke={INK} />
+            <path d="M5.2 10.4 16 15.8l10.8-5.4M16 15.8V27" stroke={INK} />
+            <path d="m10.6 7.7 10.8 5.4" stroke={ACCENT} />
+          </>
         ) : kind === "course" ? (
           <>
             <rect x="4.2" y="6.2" width="23.6" height="15.6" rx="2.6" stroke={INK} />
@@ -171,10 +178,11 @@ export function KindList({
   error: string | null
   onChoose: (kind: ProductKind) => void
 }) {
+  const physical = usePhysicalCommerceEnabled()
   return (
     <div onKeyDown={moveFocus} data-kind-list="">
       <ul className="space-y-0.5">
-        {KIND_OPTIONS.map((o) => (
+        {kindOptions(physical).map((o) => (
           <li key={o.kind}>
             <button
               type="button"

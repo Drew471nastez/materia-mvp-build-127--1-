@@ -141,6 +141,10 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
 
   const { data: product } = await db.from("products").select(productSelect).eq("id", productId).eq("status", "published").maybeSingle()
   if (!product) return { ok: false, status: 404, error: "This product is not available." }
+  /* A product that ships is bought through the shop's physical checkout
+     (lib/physical), which takes an address and holds stock; this checkout
+     would sell it as a download. */
+  if ((product as PricedProduct).type === "physical") return { ok: false, status: 400, error: "This product ships, so it is bought from the shop's cart." }
 
   let variant: PricedVariant | null = null
   const noVariant = req.variantId === undefined || req.variantId === null || req.variantId === ""
@@ -311,6 +315,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     const productId = key.split("::")[0]
     const product = byId.get(productId)
     if (!product) { dropped.push(productId); continue }
+    /* A physical product goes through the physical checkout (lib/physical), never this one. */
+    if (product.type === "physical") { dropped.push(product.title); continue }
     if (owned.has(productId)) { dropped.push(product.title); ownedAny = true; continue }
 
     const variant = want.variantId ? variantsById.get(want.variantId) : null

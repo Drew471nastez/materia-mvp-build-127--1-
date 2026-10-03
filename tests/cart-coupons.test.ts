@@ -211,7 +211,8 @@ async function main() {
   console.log("\nThe basket, priced from the database")
   const shop = (coupons: CouponRow[], extra: Row[] = [], variants: Row[] = [], entitlements: Row[] = []) =>
     fakeDb({
-      products: [product(A, "c1", 1000), product(B, "c1", 2999, { type: "physical" }), product(C, "c2", 500), product(D, "c1", 0), ...extra],
+      /* B carries a quantity: anything but a download does. Not "physical": a product that ships is never in this basket (lib/physical has its own checkout). */
+      products: [product(A, "c1", 1000), product(B, "c1", 2999, { type: "course" }), product(C, "c2", 500), product(D, "c1", 0), ...extra],
       product_variants: variants,
       coupons: coupons as unknown as Row[],
       entitlements,
@@ -249,6 +250,11 @@ async function main() {
   {
     const r = await priceCart(shop([coupon({ discount_value: 100 })]), { items: [{ productId: A }, { productId: B }], couponCode: "SAVE20" })
     check("100% off the whole basket is a total of $0, for the free route", r.ok === true && r.totalCents === 0 && r.discountCents === 3999, r.ok ? r.totalCents : r)
+  }
+  {
+    const E = "00000000-0000-4000-8000-0000000000e5"
+    const r = await priceCart(shop([coupon()], [product(E, "c1", 4000, { type: "physical" })]), { items: [{ productId: A }, { productId: E, quantity: 2 }] })
+    check("a physical product is left out of this basket and named: it ships, so it has its own checkout", r.ok === true && r.lines.length === 1 && r.totalCents === 1000 && r.dropped.length === 1, r)
   }
   {
     const r = await priceCart(shop([coupon()]), { items: [{ productId: A }, { productId: D }] })

@@ -40,6 +40,8 @@ export interface CartLine {
   slug: string
   /** Digital goods cannot be bought twice, so their quantity stays at 1. */
   digital: boolean
+  /** Shipped goods: a cart holding one goes to the physical checkout (lib/physical). */
+  physical?: boolean
   quantity: number
 }
 
@@ -141,6 +143,7 @@ export function parseCart(raw: string | null | undefined): CartLine[] {
       thumbnailUrl: typeof row.thumbnailUrl === "string" && row.thumbnailUrl !== "" ? row.thumbnailUrl : null,
       slug: typeof row.slug === "string" ? row.slug : "",
       digital,
+      ...(row.physical === true ? { physical: true } : {}),
       quantity: digital ? 1 : Math.max(1, Math.min(MAX_QUANTITY, quantity)),
     })
     if (out.length >= MAX_LINES) break

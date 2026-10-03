@@ -12,6 +12,7 @@ import { Facebook, FileText, Heart, Instagram, Package, Share2, Twitter } from "
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useSiteCart } from "../../site-cart"
+import { PhysicalBuyBox } from "@/components/physical/buy-box"
 import { useSiteWishlist } from "../../site-wishlist"
 import { useStorefront } from "../../theme/storefront-context"
 import { trackFunnelStep } from "@/lib/analytics-utils"
@@ -283,8 +284,14 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
             </span>
           </div>
 
+          {/* A product that ships: options, stock, Add to cart and Buy now of its own (components/physical/buy-box.tsx). */}
+          {str((productData?.type as unknown) ?? "", "") === "physical" && productId ? (
+            <div className="mb-6">
+              <PhysicalBuyBox productId={productId} accent={primaryColor} inEditor={isEditing || storefront.inEditor === true} />
+            </div>
+          ) : null}
           {/* CTA Buttons */}
-          <div className="space-y-3 mb-6">
+          <div className="space-y-3 mb-6" hidden={str((productData?.type as unknown) ?? "", "") === "physical"}>
             {/*
               ADD TO CART USED TO BE BUY NOW WITH A DIFFERENT WORD ON IT.
               Both buttons ran the same line and sent the visitor straight to

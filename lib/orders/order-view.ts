@@ -48,6 +48,10 @@ export interface OrderRow {
   source?: string | null
   /** Where the checkout began (lib/orders/order-source), as the row holds it. */
   source_detail?: unknown
+  /** A physical order's checkout (lib/physical), its units on this line, and how far it has shipped. */
+  checkout_id?: string | null
+  quantity?: number | null
+  physical_fulfillment?: string | null
   /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
   property_type?: string | null
   property_id?: string | null
@@ -195,9 +199,16 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       totalCents,
       feeCents: lines.reduce((n, r) => n + (r.fee_cents || 0), 0),
       refundedCents,
-      itemCount: lines.length,
+      itemCount: lines.reduce((n, r) => n + Math.max(1, r.quantity ?? 1), 0),
       payment,
-      fulfillment: lines.some((r) => r.status === "completed" || r.status === "refunded") ? "fulfilled" : "unfulfilled",
+      /* Something to ship: fulfilled once it has all shipped (or needs no shipping). */
+      fulfillment: lines.some((r) => r.physical_fulfillment)
+        ? lines.every((r) => !r.physical_fulfillment || r.physical_fulfillment === "fulfilled" || r.physical_fulfillment === "not_required")
+          ? "fulfilled"
+          : "unfulfilled"
+        : lines.some((r) => r.status === "completed" || r.status === "refunded")
+          ? "fulfilled"
+          : "unfulfilled",
       delivery: delivered.length > 0 ? "delivered" : emailFailed ? "failed" : null,
       deliveredAt: delivered.at(-1) ?? null,
     })
