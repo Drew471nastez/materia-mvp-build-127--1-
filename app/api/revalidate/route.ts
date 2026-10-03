@@ -31,6 +31,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath, revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { productTag, creatorTag } from "@/lib/commerce/product-page-cache"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { queueProductFanout } from "@/lib/notifications/fanout"
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,6 +98,18 @@ export async function POST(request: NextRequest) {
     revalidatePath(`/p/${slug}`)
     if (typeof handle === "string" && handle.trim()) {
       revalidatePath(`/${handle.trim().toLowerCase()}/${slug}`)
+    }
+
+    /*
+      A SAVE THAT PUT IT ON SALE TELLS THE CREATOR'S FOLLOWERS AND PAST
+      BUYERS, once per product ever and later (lib/notifications/fanout.ts):
+      the editor calls this route after every save, and only a product that
+      is published now is queued. Never fails the save.
+    */
+    try {
+      await queueProductFanout(createAdminClient(), { productId: owned.id, creatorId: owned.creator_id })
+    } catch (e) {
+      console.error("[revalidate] followers not queued:", e instanceof Error ? e.message : e)
     }
 
     return NextResponse.json({ revalidated: true, slug })

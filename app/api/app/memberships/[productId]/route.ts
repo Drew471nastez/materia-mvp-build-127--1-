@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { isResponse, readJson, requireCreator, noStore, UUID } from "@/lib/email-campaigns/route-auth"
 import { ownedMembership, saveMembership } from "@/lib/memberships/creator"
 import { checkPlan, ownImageUrl } from "@/lib/memberships/plan"
+import { queueProductFanout } from "@/lib/notifications/fanout"
 
 export const runtime = "nodejs"
 
@@ -40,5 +41,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ prod
   const thumbnailUrl = body.thumbnailUrl === null ? null : ownImageUrl(body.thumbnailUrl, storageHost) ?? product.thumbnail_url
   const saved = await saveMembership(ctx.admin, ctx.creatorId, product, { title, description, thumbnailUrl, plan: plan.value, publish })
   if (!saved.ok) return NextResponse.json({ error: saved.error, field: saved.field }, { status: saved.status, headers: noStore })
+  /* On sale: the creator's followers and past buyers hear about it once (lib/notifications/fanout.ts). Never fails the save. */
+  if (saved.status === "published") {
+    try {
+      await queueProductFanout(ctx.admin, { productId, creatorId: ctx.creatorId })
+    } catch (e) {
+      console.error("[memberships] followers not queued:", e instanceof Error ? e.message : e)
+    }
+  }
   return NextResponse.json({ status: saved.status, slug: saved.slug }, { headers: noStore })
 }

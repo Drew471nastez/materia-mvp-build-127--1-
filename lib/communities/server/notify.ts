@@ -151,19 +151,59 @@ async function scheduleRecurring(db: Db, kinds: ReadonlySet<string>, now: number
 }
 
 /**
+ * ONLY SOME KINDS, CLAIMED ONE BY ONE. public.community_claim_jobs takes any
+ * kind, so while communities are switched off the cron claims the platform
+ * kinds (PLATFORM_JOB_KINDS) itself: it reads the due ones and takes each
+ * with an update that names the state and attempts it read, so of two runs
+ * at once only one gets a job (compare and set). A lease that ran out is
+ * taken again the same way, and one that ran out five times is given up,
+ * as the function does.
+ */
+async function claimKinds(db: Db, kinds: readonly JobKind[], limit: number): Promise<{ data: JobRow[] | null; error: { code?: string; message?: string } | null }> {
+  const now = nowIso()
+  const [due, stale] = await Promise.all([
+    db.from("community_jobs").select(JOB_COLUMNS).in("kind", kinds).eq("state", "pending").lte("run_at", now).order("run_at", { ascending: true }).order("id", { ascending: true }).limit(limit),
+    db.from("community_jobs").select(JOB_COLUMNS).in("kind", kinds).eq("state", "running").lt("lease_until", now).order("lease_until", { ascending: true }).limit(limit),
+  ])
+  if (due.error) return { data: null, error: due.error }
+  const claimed: JobRow[] = []
+  for (const job of [...((due.data as JobRow[] | null) ?? []), ...((stale.data as JobRow[] | null) ?? [])].slice(0, limit)) {
+    if (job.state === "running" && job.attempts >= JOB_MAX_ATTEMPTS) {
+      await db.from("community_jobs").update({ state: "failed", finished_at: now, lease_until: null, last_error: job.last_error ?? "its lease ran out 5 times" }).eq("id", job.id).eq("state", "running").eq("attempts", job.attempts)
+      continue
+    }
+    const { data } = await db
+      .from("community_jobs")
+      .update({ state: "running", lease_until: nowIso(Date.now() + JOB_LEASE_SECONDS * 1000), attempts: job.attempts + 1 })
+      .eq("id", job.id)
+      .eq("state", job.state)
+      .eq("attempts", job.attempts)
+      .select(JOB_COLUMNS)
+    const row = Array.isArray(data) ? (data[0] as JobRow | undefined) : undefined
+    if (row) claimed.push(row)
+  }
+  return { data: claimed, error: null }
+}
+
+/**
  * The cron's body: claims due jobs and runs each by its kind until the
  * budget is spent. A handler may hand back `again` to carry on in the next
- * run (a fan out over thousands of members, a page at a time).
+ * run (a fan out over thousands of members, a page at a time). With `kinds`,
+ * only jobs of those kinds are claimed and only their recurring jobs queued
+ * (the cron passes PLATFORM_JOB_KINDS while communities are off).
  */
-export async function runCommunityJobs(db: Db, opts: { budgetMs: number; now?: number }): Promise<CommunityJobSummary> {
+export async function runCommunityJobs(db: Db, opts: { budgetMs: number; now?: number; kinds?: readonly JobKind[] }): Promise<CommunityJobSummary> {
   const started = Date.now()
   const deadline = started + Math.max(1000, opts.budgetMs)
   const summary: CommunityJobSummary = { available: true, claimed: 0, done: 0, retried: 0, failed: 0, continued: 0, scheduled: 0, ms: 0 }
   const { JOB_HANDLERS } = await import("./jobs/index")
-  summary.scheduled = await scheduleRecurring(db, new Set(Object.keys(JOB_HANDLERS)), opts.now ?? Date.now())
+  const only = opts.kinds ? new Set<string>(opts.kinds) : null
+  summary.scheduled = await scheduleRecurring(db, new Set(Object.keys(JOB_HANDLERS).filter((k) => !only || only.has(k))), opts.now ?? Date.now())
 
   while (Date.now() < deadline - 5_000) {
-    const { data, error } = await db.rpc("community_claim_jobs", { p_limit: JOB_BATCH, p_lease_seconds: JOB_LEASE_SECONDS })
+    const { data, error } = opts.kinds
+      ? await claimKinds(db, opts.kinds, JOB_BATCH)
+      : await db.rpc("community_claim_jobs", { p_limit: JOB_BATCH, p_lease_seconds: JOB_LEASE_SECONDS })
     if (error) {
       if (missing(error)) summary.available = false
       else console.error(`[communities] jobs not claimed: ${reasonOf(error)}`)
@@ -173,7 +213,7 @@ export async function runCommunityJobs(db: Db, opts: { budgetMs: number; now?: n
     if (jobs.length === 0) break
     summary.claimed += jobs.length
     for (const job of jobs) {
-      const handler = JOB_HANDLERS[job.kind]
+      const handler = only && !only.has(job.kind) ? undefined : JOB_HANDLERS[job.kind]
       try {
         if (!handler) throw new Error(`no handler for ${job.kind}`)
         if (Date.now() >= deadline - 2_000) throw new Error("out of time before it started")

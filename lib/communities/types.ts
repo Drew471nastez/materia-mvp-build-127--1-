@@ -107,8 +107,17 @@ export const NOTIFICATION_KINDS = [
 ] as const
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
 
-export const JOB_KINDS = ["fanout_announcement", "fanout_event", "event_reminder", "recount", "rollup", "trending", "video_poll"] as const
+export const JOB_KINDS = ["fanout_announcement", "fanout_event", "event_reminder", "recount", "rollup", "trending", "video_poll", "fanout_followers", "fanout_membership_post"] as const
 export type JobKind = (typeof JOB_KINDS)[number]
+
+/**
+ * JOBS THAT ARE NOT ABOUT A COMMUNITY. A creator's followers hearing about a
+ * new product and members of a membership hearing about a new post have
+ * nothing to do with the communities switch, so the cron runs these kinds
+ * whether communities are on or off (app/api/cron/community). Part 85 adds
+ * both to the queue's check.
+ */
+export const PLATFORM_JOB_KINDS = ["fanout_followers", "fanout_membership_post"] as const satisfies readonly JobKind[]
 
 export const JOB_STATES = ["pending", "running", "done", "failed"] as const
 export type JobState = (typeof JOB_STATES)[number]
