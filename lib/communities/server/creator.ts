@@ -22,6 +22,8 @@ import "server-only"
  * only the three columns it needs.
  */
 import { cache } from "react"
+import { notFound } from "next/navigation"
+import { communitiesEnabled } from "../flag"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorForRequest } from "@/lib/auth/request-scope"
 import { rateLimit } from "@/lib/api/rate-limit"
@@ -133,13 +135,15 @@ export interface CreatorPageContext {
 /**
  * The signed in creator and this community, for a page under
  * /app/community/<id>: null when they may not see it (not found, not theirs,
- * a plain member). Cached for the request, so the layout and the page read
- * it once between them.
+ * a plain member), or "no-session" when the session could not be read in
+ * time. Cached for the request, so the layout and the page read it once
+ * between them.
  */
-export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPageContext | null> => {
+export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPageContext | "no-session" | null> => {
   if (!isUuid(id)) return null
   const user = await pageUser()
-  if (!user) return null
+  /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
+  if (!user) return "no-session"
   const creator = await creatorForRequest(user.id)
   if (!creator) return null
   const db = admin()
@@ -161,13 +165,28 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
   }
 })
 
+/**
+ * The first line of every section page: the context when this person may
+ * take the section's action, a 404 when communities are off or they may
+ * not, and null when the session is still being recovered (the page then
+ * renders nothing and the /app gate takes over).
+ */
+export async function sectionPage(id: string, action: CommunityAction): Promise<CreatorPageContext | null> {
+  if (!(await communitiesEnabled())) notFound()
+  const ctx = await creatorCommunityPage(id)
+  if (ctx === "no-session") return null
+  if (!ctx || !can(ctx.role, action)) notFound()
+  return ctx
+}
+
 /** Whether the payments behind a paid community are connected, for a route that has the creator id. */
 export async function creatorPaymentsReady(db: Db, creatorId: string): Promise<boolean> {
   const { data } = await db.from("creators").select("stripe_account_id, stripe_onboarding_status, charges_enabled").eq("id", creatorId).maybeSingle()
   return Boolean(data?.stripe_account_id) && data?.stripe_onboarding_status === "connected" && data?.charges_enabled !== false
 }
 
-export async function communityHead(ctx: CreatorPageContext): Promise<CommunityHead> {
+/** The header every section shows; cached per request with the context, so the layout and the page share it. */
+export const communityHead = cache(async (ctx: CreatorPageContext): Promise<CommunityHead> => {
   const c = ctx.community
   const openReports = can(ctx.role, "review_reports") ? await openReportCount(ctx.db, c.id) : 0
   return {
@@ -191,7 +210,7 @@ export async function communityHead(ctx: CreatorPageContext): Promise<CommunityH
     can: allowedActions(ctx.role),
     openReports,
   }
-}
+})
 
 /* ── The list ───────────────────────────────────────────────────────────── */
 
@@ -670,6 +689,15 @@ export async function updateMyNotify(db: Db, a: { communityId: string; userId: s
   const { error } = await db.from("community_members").update(patch).eq("community_id", a.communityId).eq("user_id", a.userId)
   if (error) return no(500, "That did not save. Try again.")
   return { ok: true }
+}
+
+/** The tiers and levels an access rule can name, for the editors. */
+export async function ruleOptions(db: Db, communityId: string): Promise<{ tiers: { id: string; name: string }[]; levels: { level: number; name: string }[] }> {
+  const [tiers, levels] = await Promise.all([
+    db.from("community_tiers").select("id, name").eq("community_id", communityId).is("archived_at", null).order("position", { ascending: true }).limit(50),
+    db.from("community_levels").select("level, name").eq("community_id", communityId).order("level", { ascending: true }).limit(20),
+  ])
+  return { tiers: (tiers.data as { id: string; name: string }[] | null) ?? [], levels: (levels.data as { level: number; name: string }[] | null) ?? [] }
 }
 
 /* ── Spaces ─────────────────────────────────────────────────────────────── */

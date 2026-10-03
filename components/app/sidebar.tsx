@@ -91,6 +91,8 @@ interface SidebarProps {
   setupProgress?: { completed: number; total: number }
   /** The account's businesses for the switcher at the top of the account menu (app/app/layout.tsx). */
   businesses?: BusinessRow[]
+  /** The platform switch for communities (lib/communities/flag.ts), read by the layout: the Community row shows only while it is on. */
+  communitiesEnabled?: boolean
 }
 
 type NotificationsHandle = { open: () => void; toggle: () => void }
@@ -119,7 +121,7 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
   )
 }))
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [] }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
@@ -255,6 +257,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    * and a grid there would be two names for one place.
    */
   const physicalCommerce = usePhysicalCommerceEnabled()
+  /* COMMUNITY, after Products, only while the platform switch is on (the layout reads it). Off, the row is not there at all. */
+  const communityItem: NavItemData[] = communitiesEnabled ? [{ href: "/app/community", label: "Community", icon: NAV_ICONS_EXTRA.community }] : []
   const mainNavItems: NavItemData[] = [
     { href: "/app", label: t("nav.dashboard"), icon: NAV_ICONS.dashboard },
     {
@@ -267,6 +271,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         { href: "/app/memberships", label: "Memberships" },
       ],
     },
+    ...communityItem,
     { href: "/app/analytics", label: t("nav.analytics"), icon: NAV_ICONS.analytics },
     { href: "/app/orders", label: t("nav.sales"), icon: NAV_ICONS.orders },
     /**

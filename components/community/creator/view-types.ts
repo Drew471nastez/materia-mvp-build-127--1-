@@ -328,3 +328,9 @@ export interface AnalyticsView {
   rolledUp: boolean
   topPosts: { id: string; title: string; reactions: number; comments: number }[]
 }
+
+/** What an access rule can name in this community, for the editors. */
+export interface RuleOptions {
+  tiers: { id: string; name: string }[]
+  levels: { level: number; name: string }[]
+}
