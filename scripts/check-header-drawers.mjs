@@ -103,7 +103,7 @@ async function open(file, width, height, settings = {}) {
   await page.setViewport({ width, height })
   await page.evaluateOnNewDocument(HELPERS)
   await page.goto(`file://${join(dir, file)}?scenario=${file.replace(".html", "")}&settings=${encodeURIComponent(JSON.stringify(settings))}`)
-  await page.waitForFunction(() => window.__ready === true, { timeout: 15000 })
+  await page.waitForFunction(() => window.__headerProbeReady === true, { timeout: 15000 })
   await page.evaluate(() => document.fonts.ready)
   await new Promise((r) => setTimeout(r, 300))
   return page

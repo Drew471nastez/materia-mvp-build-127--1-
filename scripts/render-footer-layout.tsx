@@ -64,7 +64,9 @@ for (const [id, settings] of Object.entries(variants)) {
   const host = document.getElementById(id)
   if (!host) continue
   createRoot(host).render(
-    createElement(StorefrontProvider, { value: { pages: ["home", "refund-policy", "privacy-policy", "terms-of-service"] } },
-      createElement(FooterSection, { section: section(id, settings), theme })),
+    createElement(StorefrontProvider, {
+      value: { pages: ["home", "refund-policy", "privacy-policy", "terms-of-service"] },
+      children: createElement(FooterSection, { section: section(id, settings), theme }),
+    }),
   )
 }

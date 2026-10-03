@@ -82,7 +82,10 @@ console.log("\nThe header stays, sticky in the mode it is set to")
   check("nothing fades the header under a drawer", !/useHeaderUnderDrawer/.test(header + frame))
   check("the slide is about 300ms", /export const DRAWER_OPEN_MS = 300/.test(frame) && /export const DRAWER_CLOSE_MS = 240/.test(frame))
   check("the header says its sticky mode", /dataSticky=\{revealEnabled \? "scroll-up" : "always"\}/.test(header) && /dataSticky="none"/.test(header) && /data-sticky=\{dataSticky\}/.test(shared))
-  check("and the anchor offset reads it", /header\.getAttribute\("data-sticky"\)/.test(motion))
+  const css = read("app/globals.css")
+  check("an open menu does not drop the sticky header under the page: the lift rule is layered below the utilities",
+    /@layer components \{\s*\n\s*:where\(\[data-section\]:hover, \[data-section\]:focus-within\)/.test(css))
+  check("and the anchor offset reads it",/header\.getAttribute\("data-sticky"\)/.test(motion))
   check("a transparent sticky header turns solid once pinned", /el\.setAttribute\("data-scrolled", ""\)/.test(header) && /\[&\[data-scrolled\]\]:!bg-\[var\(--hdr-solid\)\]/.test(header))
 }
 

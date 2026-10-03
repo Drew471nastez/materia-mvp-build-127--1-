@@ -46,7 +46,7 @@ declare global {
   interface Window {
     __set?: (patch: Record<string, unknown>) => void
     __openCart?: () => void
-    __ready?: boolean
+    __headerProbeReady?: boolean
   }
 }
 
@@ -68,31 +68,30 @@ function Mount() {
   })
   useEffect(() => {
     window.__set = (patch) => setSettings((s) => ({ ...s, ...patch }))
-    window.__ready = true
+    window.__headerProbeReady = true
   }, [])
   const section = { id: "header", type: "header", settings, blocks } as unknown as SectionInstance
   const editor = scenario.startsWith("editor")
-  return createElement(
-    StorefrontProvider,
-    { value: { installId: "00000000-0000-4000-8000-000000000000", inEditor: editor } },
-    createElement(
-      SiteCartProvider,
-      { shopId: "probe-shop" },
-      createElement(CartOpener),
-      createElement(HeaderSection, {
-        section,
-        theme,
-        ...(editor
-          ? {
-              deviceMode: scenario === "editor-phone" ? "mobile" : "desktop",
-              insideEditor: true,
-              isEditing: true,
-              onEditorNavigate: () => {},
-            }
-          : {}),
-      }),
-    ),
-  )
+  const header = createElement(HeaderSection, {
+    key: "header",
+    section,
+    theme,
+    ...(editor
+      ? {
+          deviceMode: (scenario === "editor-phone" ? "mobile" : "desktop") as "mobile" | "desktop",
+          insideEditor: true,
+          isEditing: true,
+          onEditorNavigate: () => {},
+        }
+      : {}),
+  })
+  return createElement(StorefrontProvider, {
+    value: { installId: "00000000-0000-4000-8000-000000000000", inEditor: editor },
+    children: createElement(SiteCartProvider, {
+      shopId: "probe-shop",
+      children: [createElement(CartOpener, { key: "cart" }), header],
+    }),
+  })
 }
 
 createRoot(document.getElementById("mount")!).render(createElement(Mount))
