@@ -14,7 +14,8 @@
  *
  * Which tabs appear is the role's (lib/communities/permissions.ts, handed
  * down as `head.can`): a moderator sees what a moderator can do, nothing
- * that would only answer "forbidden".
+ * that would only answer "forbidden". Points, levels and badges are one of
+ * Settings' tabs, not a section of their own, so the row stays short.
  */
 import * as React from "react"
 import Link from "next/link"
@@ -45,7 +46,6 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
     can.remove_member ? { id: "members", label: "Members", href: `${base}/members`, count: head.memberCount } : null,
     can.review_reports ? { id: "moderation", label: "Moderation", href: `${base}/moderation`, count: head.openReports || undefined } : null,
     can.view_analytics ? { id: "analytics", label: "Analytics", href: `${base}/analytics` } : null,
-    can.manage_gamification && head.gamificationEnabled ? { id: "gamification", label: "Gamification", href: `${base}/gamification` } : null,
     can.manage_settings ? { id: "settings", label: "Settings", href: `${base}/settings` } : null,
   ]
   return tabs.filter((t): t is SectionTab => t !== null)
@@ -54,6 +54,7 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
 export function activeSection(pathname: string, id: string): SectionId {
   const rest = pathname.split(`/app/community/${id}`)[1] ?? ""
   const seg = rest.split("/").filter(Boolean)[0]
+  if (seg === "gamification") return "settings"
   return (seg as SectionId) || "overview"
 }
 

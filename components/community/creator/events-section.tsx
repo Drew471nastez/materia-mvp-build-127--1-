@@ -23,7 +23,7 @@ import type { CommunityHead, EventEditView, RuleOptions } from "./view-types"
 import { EVENT_KIND_LABEL, checkEvent, utcToZonedParts } from "./logic"
 import { AccessEditor } from "./access-editor"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
-import { Confirm, Dialog, Empty, Notice, PicturePick, RowMenu, Segmented, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
+import { Confirm, Dialog, Empty, FilterTabs, ListCard, Notice, PicturePick, RowMenu, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
 
 interface Draft {
   id: string | null
@@ -156,15 +156,15 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
 
   return (
     <div className="space-y-4" data-events="">
-      <div className="flex items-center justify-between gap-3">
-        <Segmented value={view} onChange={setView} label="Which events" options={[{ value: "upcoming", label: `Upcoming${data.upcoming.length ? ` ${data.upcoming.length}` : ""}` }, { value: "past", label: "Past" }]} />
-        <button type="button" onClick={() => { setError(null); setDraft(blankDraft()) }} className={cn(buttonPrimary, "max-md:h-10 max-md:px-3.5")} data-event-new="">
-          <Plus aria-hidden className="h-4 w-4" />
-          Schedule
-        </button>
-      </div>
-
-      <section className={cn(card, "overflow-hidden")}>
+      <ListCard
+        head={<FilterTabs label="Which events" value={view} onChange={setView} tabs={[{ value: "upcoming", label: "Upcoming", count: data.upcoming.length }, { value: "past", label: "Past", count: data.past.length }]} />}
+        actions={
+          <button type="button" onClick={() => { setError(null); setDraft(blankDraft()) }} className={buttonPrimary} data-event-new="">
+            <Plus aria-hidden className="h-4 w-4" />
+            Schedule
+          </button>
+        }
+      >
         {list.length === 0 ? (
           view === "upcoming" ? (
             <Empty title="No events scheduled." detail="A call, a workshop or a Q&A. Members get a reminder before it starts.">
@@ -199,7 +199,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
             })}
           </ul>
         )}
-      </section>
+      </ListCard>
 
       <Dialog
         open={draft !== null}

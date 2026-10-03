@@ -19,7 +19,7 @@ import { StatusBadge } from "@/app/app/orders/order-parts"
 import { relativeTime } from "@/lib/communities/format"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, FeedRowView } from "./view-types"
-import { Confirm, Empty, Notice, RowMenu, Segmented, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, useToast } from "./parts"
+import { Confirm, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, useToast } from "./parts"
 
 export interface ComposerSpace {
   id: string
@@ -45,6 +45,8 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   const [error, setError] = React.useState<{ text: string; field?: string } | null>(null)
   const [posting, setPosting] = React.useState(false)
   const bodyRef = React.useRef<HTMLTextAreaElement>(null)
+  /* One quiet line until it is used, so the posts are what the section shows first. */
+  const [open, setOpen] = React.useState(welcome)
 
   React.useEffect(() => {
     if (welcome) bodyRef.current?.focus({ preventScroll: false })
@@ -55,7 +57,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     if (!el) return
     el.style.height = "auto"
     el.style.height = `${Math.min(Math.max(el.scrollHeight, 88), 320)}px`
-  }, [body])
+  }, [body, open])
 
   const reload = async (which: "all" | "removed") => {
     const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?show=${which}`, "GET")
@@ -74,6 +76,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     if (!res.ok) return setError({ text: errorText(res.data.error, "The post could not be published. Try again."), field: res.data.field })
     setTitle("")
     setBody("")
+    setOpen(false)
     toast(spaces.find((s) => s.id === spaceId)?.announcements ? "Announcement posted" : "Posted")
     await reload(show)
     router.refresh()
@@ -119,67 +122,78 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   return (
     <div className="space-y-4" data-feed="">
       {head.can.post && spaces.length > 0 && !head.archived ? (
-        <section className={cn(card, "px-4 py-4 sm:px-5")} data-composer="">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="mr-auto text-[15px] font-semibold text-[#1a1a2e]">{welcome ? "Write a welcome post" : "New post"}</p>
-            <label htmlFor="post-space" className="sr-only">
-              Space
-            </label>
-            <select id="post-space" value={spaceId} onChange={(e) => setSpaceId(e.target.value)} className={cn(selectField, "w-auto min-w-[160px]")}>
-              {spaces.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 200))} placeholder="Title (optional)" aria-label="Title" className={cn(field, "mt-3 h-11 font-medium sm:h-10")} />
-          <textarea
-            ref={bodyRef}
-            value={body}
-            onChange={(e) => setBody(e.target.value.slice(0, 10_000))}
-            placeholder={welcome ? "Who it is for, how to get started, where to say hello" : "Share something with your members"}
-            aria-label="Post"
-            aria-invalid={error?.field === "body" || undefined}
-            className={cn(field, "mt-2 resize-none py-2.5 leading-relaxed")}
-          />
-          {error ? (
-            <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
-              {error.text}
-            </p>
-          ) : null}
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="min-w-0 truncate text-[12.5px] text-[#6b7280]">{spaces.find((s) => s.id === spaceId)?.announcements ? "Members are told about announcements." : "Posted as you, in this space."}</p>
-            <button type="button" onClick={() => void post()} disabled={posting} className={cn(buttonPrimary, "h-10 shrink-0 px-4 sm:h-9")} data-post-submit="">
-              {posting ? "Posting" : "Post"}
+        <section className={cn(card, "px-4 py-3 sm:px-5")} data-composer="" data-open={open || undefined}>
+          {!open ? (
+            <button type="button" onClick={() => setOpen(true)} className="flex min-h-11 w-full cursor-text items-center rounded-lg text-left text-[14.5px] text-[#9ca3af]" data-composer-open="">
+              Write a post to your members
             </button>
-          </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="mr-auto text-[15px] font-semibold text-[#1a1a2e]">{welcome ? "Write a welcome post" : "New post"}</p>
+                <label htmlFor="post-space" className="sr-only">
+                  Space
+                </label>
+                <select id="post-space" value={spaceId} onChange={(e) => setSpaceId(e.target.value)} className={cn(selectField, "w-auto min-w-[160px]")}>
+                  {spaces.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 200))} placeholder="Title (optional)" aria-label="Title" className={cn(field, "mt-3 h-11 font-medium sm:h-10")} />
+              <textarea
+                ref={bodyRef}
+                autoFocus={!welcome}
+                value={body}
+                onChange={(e) => setBody(e.target.value.slice(0, 10_000))}
+                placeholder={welcome ? "Who it is for, how to get started, where to say hello" : "Share something with your members"}
+                aria-label="Post"
+                aria-invalid={error?.field === "body" || undefined}
+                className={cn(field, "mt-2 resize-none py-2.5 leading-relaxed")}
+              />
+              {error ? (
+                <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
+                  {error.text}
+                </p>
+              ) : null}
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="min-w-0 flex-1 truncate text-[12.5px] text-[#6b7280]">{spaces.find((s) => s.id === spaceId)?.announcements ? "Members are told about announcements." : "Posted as you, in this space."}</p>
+                <button type="button" onClick={() => { setOpen(false); setError(null) }} className={cn(buttonSecondary, "h-10 shrink-0 sm:h-9")}>
+                  Cancel
+                </button>
+                <button type="button" onClick={() => void post()} disabled={posting} className={cn(buttonPrimary, "h-10 shrink-0 px-4 sm:h-9")} data-post-submit="">
+                  {posting ? "Posting" : "Post"}
+                </button>
+              </div>
+            </>
+          )}
         </section>
       ) : null}
 
-      <div className="flex items-center justify-between gap-3">
-        <Segmented
-          value={show}
-          onChange={(v) => {
-            setShow(v)
-            void reload(v)
-          }}
-          label="Which posts"
-          options={[
-            { value: "all", label: "All posts" },
-            { value: "removed", label: "Removed" },
-          ]}
-        />
-        <p className="text-[13px] tabular-nums text-[#6b7280]">{head.postCount.toLocaleString("en-US")} published</p>
-      </div>
-
-      <section className={cn(card, "overflow-hidden")}>
+      <ListCard
+        head={
+          <FilterTabs
+            label="Which posts"
+            value={show}
+            onChange={(v) => {
+              setShow(v)
+              void reload(v)
+            }}
+            tabs={[
+              { value: "all", label: "All posts" },
+              { value: "removed", label: "Removed" },
+            ]}
+          />
+        }
+      >
         {rows.length === 0 ? (
           show === "removed" ? <Empty title="Nothing removed." /> : <Empty title="No posts yet. Start the conversation." />
         ) : (
           <ul className="divide-y divide-[#f1f2f4]">
             {rows.map((r) => (
-              <li key={r.id} className={cn("flex gap-3 px-4 py-3.5 sm:px-5", r.status !== "published" && "bg-[#fcfcfd]")} data-feed-row="">
+              <li key={r.id} className={cn("flex gap-2 py-3.5 pl-4 pr-2 sm:pl-5 sm:pr-3", r.status !== "published" && "bg-[#fcfcfd]")} data-feed-row="">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#6b7280]">
                     <span className="font-medium text-[#1a1a2e]">{r.authorName}</span>
@@ -209,7 +223,8 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
             ))}
           </ul>
         )}
-      </section>
+      </ListCard>
+
       {next ? (
         <div className="flex justify-center">
           <button type="button" onClick={() => void loadMore()} disabled={more} className={cn(buttonSecondary, "h-10 px-5")}>

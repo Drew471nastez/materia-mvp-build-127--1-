@@ -4,24 +4,48 @@
  * ===========================================================================
  *  MODERATION
  * ===========================================================================
- * Reports: what members flagged, newest first, each with what it is about
- * beside it (a post's opening, a comment, a message, a member) and who
- * wrote it, and the decisions on it: remove the content (which closes every
- * report about it), ban or mute the author, mark it reviewing, resolve or
- * dismiss. The audit log under its own tab: every action anybody took,
- * kept for good.
+ * Everything about keeping the community in order, in one card with its
+ * views in its first row:
+ *
+ *   REPORTS     what members flagged, newest first (the open ones, and
+ *               under Resolved the closed ones with the decision), each with what it is about (a post's
+ *               opening, a comment, a message, a member) and who wrote it.
+ *               On the row: remove the content (which closes every report
+ *               about it) and dismiss. In its menu: open the post, mark it
+ *               reviewing, resolve it, and what to do to the author (mute
+ *               for a while, suspend, remove, ban), which resolves the
+ *               report too.
+ *   RESTRICTED  who is muted, suspended or banned right now, each with the
+ *               one button that undoes it (Unmute, Bring back, Unban).
+ *   RULES       the rules members see before they join and when they post:
+ *               a title and a line about it each, in order, saved with the
+ *               Save bar. The owner and admins write them; a moderator
+ *               reads them here.
+ *   AUDIT LOG   every action anybody took, kept for good.
+ *
+ * People are acted on through ./member-actions, the same rules and routes
+ * as the Members list.
  */
 import * as React from "react"
+import { useRouter } from "next/navigation"
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
-import { canActOn } from "@/lib/communities/permissions"
 import { relativeTime } from "@/lib/communities/format"
-import type { ReportReason } from "@/lib/communities/types"
-import type { AuditView, CommunityHead, ReportView } from "./view-types"
-import { Confirm, Empty, Notice, Segmented, buttonPrimary, buttonSecondary, card, errorText, send, useToast } from "./parts"
+import { canActOn } from "@/lib/communities/permissions"
+import { MAX_RULES } from "@/lib/communities/limits"
+import type { CommunityRule, ReportReason } from "@/lib/communities/types"
+import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import type { AuditView, BadgeView, CommunityHead, MemberPage, MemberRowView, ReportView } from "./view-types"
+import { checkRules, moveItem, type MemberChoice } from "./logic"
+import { useMemberActions, type ActOnPerson } from "./member-actions"
+import { Confirm, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, send, shortDate, useToast } from "./parts"
 
 const REASON: Record<ReportReason, string> = { spam: "Spam", abuse: "Abuse", harassment: "Harassment", off_topic: "Off topic", illegal: "Illegal", other: "Other" }
 const TARGET: Record<ReportView["targetType"], string> = { post: "Post", comment: "Comment", message: "Chat message", member: "Member" }
+
+export type ModerationTab = "reports" | "resolved" | "restricted" | "rules" | "audit"
 
 /** "post.removed" -> "Removed a post", for the log. */
 export function auditSentence(action: string): string {
@@ -83,15 +107,47 @@ export function auditSentence(action: string): string {
   return `${v} ${thing === "invite" && verb === "link_created" ? "an invite link" : (nouns[thing] ?? thing)}`
 }
 
-export function ModerationSection({ head, initialReports, initialAudit }: { head: CommunityHead; initialReports: { rows: ReportView[]; next: string | null }; initialAudit: { rows: AuditView[]; next: string | null } | null }) {
+export interface RestrictedLists {
+  muted: MemberPage
+  paused: MemberPage
+  banned: MemberPage
+}
+
+export function ModerationSection({
+  head,
+  meId,
+  initialTab = "reports",
+  initialReports,
+  initialAudit,
+  rules,
+  restricted: initialRestricted,
+  tiers = [],
+  badges = [],
+}: {
+  head: CommunityHead
+  meId: string
+  initialTab?: ModerationTab
+  initialReports: { rows: ReportView[]; next: string | null }
+  initialAudit: { rows: AuditView[]; next: string | null } | null
+  rules: CommunityRule[]
+  restricted: RestrictedLists | null
+  tiers?: { id: string; name: string; kind: string }[]
+  badges?: BadgeView[]
+}) {
   const toast = useToast()
   const base = `/api/app/community/${head.id}`
-  const [tab, setTab] = React.useState<"open" | "closed" | "audit">("open")
+  const [tab, setTab] = React.useState<ModerationTab>(initialTab)
+  const view: "open" | "closed" = tab === "resolved" ? "closed" : "open"
   const [reports, setReports] = React.useState(initialReports)
+  const [openCount, setOpenCount] = React.useState(head.openReports)
   const [audit, setAudit] = React.useState(initialAudit)
+  const [restricted, setRestricted] = React.useState(initialRestricted)
+  const [ruleCount, setRuleCount] = React.useState(rules.length)
   const [loading, setLoading] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
-  const [confirm, setConfirm] = React.useState<{ report: ReportView; kind: "remove" | "ban" } | null>(null)
+  const [removing, setRemoving] = React.useState<ReportView | null>(null)
+  /* The report an author action came from, so it is resolved once the action is done. */
+  const fromReport = React.useRef<ReportView | null>(null)
 
   const loadReports = async (status: "open" | "closed", cursor?: string | null) => {
     setLoading(true)
@@ -107,21 +163,37 @@ export function ModerationSection({ head, initialReports, initialAudit }: { head
     if (!res.ok) return toast(errorText(res.data.error, "The log could not be loaded."))
     setAudit((x) => ({ rows: cursor && x ? [...x.rows, ...(res.data.rows ?? [])] : (res.data.rows ?? []), next: res.data.next ?? null }))
   }
-
-  const choose = (t: typeof tab) => {
-    setTab(t)
-    if (t === "audit") void loadAudit()
-    else void loadReports(t)
+  const loadRestricted = async () => {
+    setLoading(true)
+    const [muted, paused, banned] = await Promise.all((["muted", "paused", "banned"] as const).map((s) => send<MemberPage>(`${base}/members?status=${s}`, "GET")))
+    setLoading(false)
+    if (!muted.ok || !paused.ok || !banned.ok) return toast(errorText((muted.ok ? paused.ok ? banned : paused : muted).data.error, "The list could not be loaded."))
+    setRestricted({ muted: muted.data, paused: paused.data, banned: banned.data })
   }
 
-  const setStatus = async (r: ReportView, status: "reviewing" | "resolved" | "dismissed") => {
+  const choose = (t: ModerationTab) => {
+    setTab(t)
+    const url = new URL(window.location.href)
+    if (t === "reports") url.searchParams.delete("tab")
+    else url.searchParams.set("tab", t)
+    window.history.replaceState(window.history.state, "", url.pathname + url.search)
+    if (t === "audit") void loadAudit()
+    if (t === "reports") void loadReports("open")
+    if (t === "resolved") void loadReports("closed")
+    if (t === "restricted") void loadRestricted()
+  }
+
+  const setStatus = async (r: ReportView, status: "reviewing" | "resolved" | "dismissed", resolution?: string) => {
     setBusy(r.id)
-    const res = await send(`${base}/moderation`, "PATCH", { id: r.id, status })
+    const res = await send(`${base}/moderation`, "PATCH", { id: r.id, status, resolution })
     setBusy(null)
     if (!res.ok) return toast(errorText(res.data.error))
-    toast(status === "dismissed" ? "Report dismissed" : status === "resolved" ? "Report resolved" : "Marked as reviewing")
+    if (!resolution) toast(status === "dismissed" ? "Report dismissed" : status === "resolved" ? "Report resolved" : "Marked as reviewing")
     if (status === "reviewing") setReports((x) => ({ ...x, rows: x.rows.map((y) => (y.id === r.id ? { ...y, status } : y)) }))
-    else setReports((x) => ({ ...x, rows: x.rows.filter((y) => y.id !== r.id) }))
+    else {
+      setReports((x) => ({ ...x, rows: x.rows.filter((y) => y.id !== r.id) }))
+      setOpenCount((n) => Math.max(0, n - 1))
+    }
   }
 
   const removeContent = async (r: ReportView, reason: string) => {
@@ -129,95 +201,129 @@ export function ModerationSection({ head, initialReports, initialAudit }: { head
     const res = await send(`${base}/moderation`, "POST", { action: "remove", targetType: r.targetType, targetId: r.targetId, reason: reason || `Reported: ${REASON[r.reason]}` })
     setBusy(null)
     if (!res.ok) return toast(errorText(res.data.error))
-    setConfirm(null)
+    setRemoving(null)
     toast("Removed, and the reports about it closed")
+    const gone = reports.rows.filter((y) => y.targetType === r.targetType && y.targetId === r.targetId).length
+    setOpenCount((n) => Math.max(0, n - gone))
     await loadReports("open")
   }
 
-  const ban = async (r: ReportView, reason: string) => {
-    if (!r.subject) return
-    setBusy(r.id)
-    const res = await send(`${base}/members/${r.subject.userId}`, "PATCH", { action: "ban", reason: reason || `Reported: ${REASON[r.reason]}` })
-    setBusy(null)
-    if (!res.ok) return toast(errorText(res.data.error))
-    setConfirm(null)
-    toast(`${r.subject.name} is banned`)
-    await setStatus(r, "resolved")
+  const people = useMemberActions({
+    head,
+    meId,
+    tiers,
+    badges,
+    onDone: (choice: MemberChoice, who: ActOnPerson) => {
+      const r = fromReport.current
+      fromReport.current = null
+      if (r && ["mute", "suspend", "remove", "ban"].includes(choice.action)) void setStatus(r, "resolved", `${choice.action === "mute" ? "Muted" : choice.action === "suspend" ? "Suspended" : choice.action === "remove" ? "Removed" : "Banned"} ${who.name}`)
+      if (tab === "restricted" || restricted) void loadRestricted()
+    },
+  })
+
+  const reportMenu = (r: ReportView): ActionMenuItem[] => {
+    const items: ActionMenuItem[] = []
+    if (r.targetType === "post" && r.targetState !== "missing") items.push({ label: "Open the post", href: `/community/${head.slug}/post/${r.targetId}`, target: "_blank" })
+    if (view === "open") {
+      if (r.status === "open") items.push({ label: "Mark as reviewing", onClick: () => void setStatus(r, "reviewing") })
+      items.push({ label: "Resolve without removing", onClick: () => void setStatus(r, "resolved") })
+      const m = r.subject?.member
+      if (r.subject && m) {
+        const author: ActOnPerson = { userId: r.subject.userId, name: r.subject.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil }
+        const keep = ["mute", "unmute", "suspend", "remove", "ban", "unban"]
+        const choices = people.choicesFor(author).filter((c) => keep.includes(c.action))
+        choices.forEach((c, i) =>
+          items.push({
+            label: c.label,
+            variant: c.danger ? "destructive" : undefined,
+            section: i === 0 ? r.subject?.name : undefined,
+            onClick: () => {
+              fromReport.current = r
+              people.run(c, author)
+            },
+          }),
+        )
+      }
+    }
+    return items
   }
 
+  const restrictedCount = restricted ? (restricted.muted.rows.length + restricted.paused.rows.length + restricted.banned.rows.length) : undefined
   const tabs = [
-    { value: "open" as const, label: "Open" },
-    { value: "closed" as const, label: "Closed" },
+    { value: "reports" as const, label: "Reports", count: openCount, attention: true },
+    { value: "resolved" as const, label: "Resolved" },
+    ...(head.can.mute || head.can.suspend || head.can.ban ? [{ value: "restricted" as const, label: "Restricted", count: restrictedCount }] : []),
+    { value: "rules" as const, label: "Rules", count: ruleCount },
     ...(head.can.view_audit ? [{ value: "audit" as const, label: "Audit log" }] : []),
   ]
 
   return (
-    <div className="space-y-4" data-moderation="">
-      <Segmented value={tab} onChange={choose} label="Moderation" options={tabs} />
-
-      {tab !== "audit" ? (
-        <section className={cn(card, "overflow-hidden")} aria-busy={loading || undefined}>
-          {reports.rows.length === 0 ? (
-            loading ? <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">Loading</p> : <Empty title={tab === "open" ? "All clear." : "Nothing closed yet."} detail={tab === "open" ? "When members report a post, a comment or somebody, it lands here." : undefined} />
+    <div className="space-y-4" data-moderation="" data-tab={tab}>
+      <ListCard
+        busy={loading}
+        head={<FilterTabs label="Moderation" value={tab} onChange={choose} tabs={tabs} />}
+      >
+        {tab === "reports" || tab === "resolved" ? (
+          reports.rows.length === 0 ? (
+            loading ? <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">Loading</p> : <Empty title={view === "open" ? "All clear." : "Nothing closed yet."} detail={view === "open" ? "When members report a post, a comment or somebody, it lands here." : undefined} />
           ) : (
             <ul className="divide-y divide-[#f1f2f4]">
               {reports.rows.map((r) => {
-                const authorAbove = r.subject && r.subject.role ? !canActOn(head.role, r.subject.role) : false
-                const canRemove = tab === "open" && r.targetType !== "member" && r.targetState === "published" && head.can.moderate_content && !authorAbove
-                const canBan = tab === "open" && r.subject && head.can.ban && !authorAbove
+                const authorAbove = Boolean(r.subject?.member && r.subject.userId !== meId && !canActOn(head.role, r.subject.member.role))
+                const canRemove = view === "open" && r.targetType !== "member" && r.targetState === "published" && head.can.moderate_content && !authorAbove
                 return (
-                  <li key={r.id} className="px-4 py-4 sm:px-5" data-report="">
-                    <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-[#6b7280]">
-                      <StatusBadge tone={r.reason === "illegal" || r.reason === "harassment" || r.reason === "abuse" ? "critical" : "attention"}>{REASON[r.reason]}</StatusBadge>
-                      <span className="font-medium text-[#1a1a2e]">{TARGET[r.targetType]}</span>
-                      {r.subject ? <span>by {r.subject.name}</span> : null}
-                      <span>· {relativeTime(r.createdAt)}</span>
-                      {r.status === "reviewing" ? <StatusBadge tone="neutral">Reviewing</StatusBadge> : null}
-                      {r.targetState === "removed" ? <StatusBadge tone="neutral">Already removed</StatusBadge> : r.targetState === "deleted" || r.targetState === "missing" ? <StatusBadge tone="neutral">Deleted</StatusBadge> : null}
-                    </div>
-                    <blockquote className="mt-2 line-clamp-3 border-l-2 border-[#e5e7eb] pl-3 text-[14px] leading-relaxed text-[#1a1a2e]">{r.preview || "(no text)"}</blockquote>
-                    {r.note ? <p className="mt-2 text-[13px] text-[#4b5563]">&ldquo;{r.note}&rdquo;{r.reporterName ? <span className="text-[#9ca3af]"> said {r.reporterName}</span> : null}</p> : r.reporterName ? <p className="mt-2 text-[12.5px] text-[#9ca3af]">Reported by {r.reporterName}</p> : null}
-                    {tab === "closed" && r.resolution ? <p className="mt-2 text-[12.5px] text-[#6b7280]">{r.status === "dismissed" ? "Dismissed" : "Resolved"}: {r.resolution}</p> : null}
-                    {tab === "open" ? (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {canRemove ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => setConfirm({ report: r, kind: "remove" })} className={cn(buttonPrimary, "h-10 sm:h-8")}>
-                            Remove {TARGET[r.targetType].toLowerCase()}
-                          </button>
+                  <li key={r.id} className="py-3.5 pl-4 pr-2 sm:pl-5 sm:pr-3" data-report="">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#6b7280]">
+                          <StatusBadge tone={r.reason === "illegal" || r.reason === "harassment" || r.reason === "abuse" ? "critical" : "attention"}>{REASON[r.reason]}</StatusBadge>
+                          <span className="font-medium text-[#1a1a2e]">{TARGET[r.targetType]}</span>
+                          {r.subject && r.targetType !== "member" ? <span>by {r.subject.name}</span> : null}
+                          <span>{relativeTime(r.createdAt)}</span>
+                          {r.status === "reviewing" ? <StatusBadge tone="neutral">Reviewing</StatusBadge> : null}
+                          {r.targetState === "removed" ? <StatusBadge tone="neutral">Already removed</StatusBadge> : r.targetState === "deleted" || r.targetState === "missing" ? <StatusBadge tone="neutral">Deleted</StatusBadge> : null}
+                        </div>
+                        <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-[#1a1a2e]">{r.preview || "(no text)"}</p>
+                        {r.note ? (
+                          <p className="mt-1 text-[13px] text-[#4b5563]">
+                            &ldquo;{r.note}&rdquo;{r.reporterName ? <span className="text-[#9ca3af]"> said {r.reporterName}</span> : null}
+                          </p>
+                        ) : r.reporterName ? (
+                          <p className="mt-1 text-[12.5px] text-[#9ca3af]">Reported by {r.reporterName}</p>
                         ) : null}
-                        {canBan ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => setConfirm({ report: r, kind: "ban" })} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-                            Ban {r.subject?.name}
-                          </button>
+                        {view === "closed" && r.resolution ? <p className="mt-1 text-[12.5px] text-[#6b7280]">{r.status === "dismissed" ? "Dismissed" : "Resolved"}: {r.resolution}</p> : null}
+                        {authorAbove && view === "open" ? <p className="mt-1 text-[12px] text-[#9ca3af]">Written by somebody ranked at or above you: an owner or admin decides.</p> : null}
+                        {view === "open" ? (
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                            {canRemove ? (
+                              <button type="button" disabled={busy === r.id} onClick={() => setRemoving(r)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-report-remove="">
+                                Remove {TARGET[r.targetType].toLowerCase()}
+                              </button>
+                            ) : null}
+                            <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "dismissed")} className={cn(buttonSecondary, "h-10 sm:h-8")}>
+                              Dismiss
+                            </button>
+                          </div>
                         ) : null}
-                        {r.status === "open" ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "reviewing")} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-                            Reviewing
-                          </button>
-                        ) : null}
-                        {!canRemove ? (
-                          <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "resolved")} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-                            Resolve
-                          </button>
-                        ) : null}
-                        <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "dismissed")} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
-                          Dismiss
-                        </button>
                       </div>
-                    ) : null}
-                    {authorAbove && tab === "open" ? <p className="mt-2 text-[12px] text-[#9ca3af]">Written by somebody ranked at or above you: an owner or admin decides.</p> : null}
+                      <RowMenu items={reportMenu(r)} label="Report actions" />
+                    </div>
                   </li>
                 )
               })}
             </ul>
-          )}
-        </section>
-      ) : (
-        <section className={cn(card, "overflow-hidden")} aria-busy={loading || undefined} data-audit="">
-          {!audit || audit.rows.length === 0 ? (
+          )
+        ) : null}
+
+        {tab === "restricted" ? <Restricted lists={restricted} loading={loading} people={people} /> : null}
+
+        {tab === "rules" ? <RulesEditor head={head} initial={rules} onSaved={setRuleCount} /> : null}
+
+        {tab === "audit" ? (
+          !audit || audit.rows.length === 0 ? (
             loading ? <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">Loading</p> : <Empty title="Nothing logged yet." />
           ) : (
-            <ul className="divide-y divide-[#f1f2f4]">
+            <ul className="divide-y divide-[#f1f2f4]" data-audit="">
               {audit.rows.map((a) => (
                 <li key={a.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
                   <div className="min-w-0 flex-1">
@@ -233,30 +339,185 @@ export function ModerationSection({ head, initialReports, initialAudit }: { head
                 </li>
               ))}
             </ul>
-          )}
-        </section>
-      )}
+          )
+        ) : null}
+      </ListCard>
 
-      {(tab === "audit" ? audit?.next : reports.next) ? (
+      {(tab === "audit" ? audit?.next : tab === "reports" || tab === "resolved" ? reports.next : null) ? (
         <div className="flex justify-center">
-          <button type="button" disabled={loading} onClick={() => (tab === "audit" ? void loadAudit(audit?.next) : void loadReports(tab, reports.next))} className={cn(buttonSecondary, "h-10 px-5")}>
+          <button type="button" disabled={loading} onClick={() => (tab === "audit" ? void loadAudit(audit?.next) : void loadReports(view, reports.next))} className={cn(buttonSecondary, "h-10 px-5")}>
             {loading ? "Loading" : "Show more"}
           </button>
         </div>
       ) : null}
-      {!head.can.moderate_content ? <Notice tone="info">Your role can review reports but not remove content.</Notice> : null}
+      {tab === "reports" && !head.can.moderate_content ? <Notice tone="info">Your role can review reports but not remove content.</Notice> : null}
 
       <Confirm
-        open={confirm !== null}
-        onClose={() => setConfirm(null)}
-        title={confirm?.kind === "ban" ? `Ban ${confirm.report.subject?.name ?? "them"}?` : `Remove this ${confirm ? TARGET[confirm.report.targetType].toLowerCase() : "content"}?`}
-        detail={confirm?.kind === "ban" ? "They lose access and cannot join again unless you unban them." : "Members stop seeing it, and every open report about it is closed."}
-        action={confirm?.kind === "ban" ? "Ban" : "Remove"}
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
+        title={`Remove this ${removing ? TARGET[removing.targetType].toLowerCase() : "content"}?`}
+        detail="Members stop seeing it, and every open report about it is closed. You can restore it from the Feed."
+        action="Remove"
         danger
         reason
         busy={busy !== null}
-        onConfirm={(reason) => confirm && (confirm.kind === "ban" ? void ban(confirm.report, reason) : void removeContent(confirm.report, reason))}
+        onConfirm={(reason) => removing && void removeContent(removing, reason)}
       />
+      {people.dialogs}
+    </div>
+  )
+}
+
+/* ── Restricted ─────────────────────────────────────────────────────────── */
+
+function Restricted({ lists, loading, people }: { lists: RestrictedLists | null; loading: boolean; people: ReturnType<typeof useMemberActions> }) {
+  if (!lists) return <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">{loading ? "Loading" : "Nobody is restricted."}</p>
+  const groups: { key: "muted" | "paused" | "banned"; title: string; undo: MemberChoice["action"]; undoLabel: string; line: (m: MemberRowView) => string }[] = [
+    { key: "muted", title: "Muted", undo: "unmute", undoLabel: "Unmute", line: (m) => (m.mutedUntil ? `Until ${shortDate(m.mutedUntil)}, ${new Date(m.mutedUntil).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "") },
+    { key: "paused", title: "Suspended", undo: "unsuspend", undoLabel: "Bring back", line: (m) => (m.tierName ? m.tierName : "") },
+    { key: "banned", title: "Banned", undo: "unban", undoLabel: "Unban", line: (m) => (m.email ?? (m.username ? `@${m.username}` : "")) },
+  ]
+  const any = groups.some((g) => lists[g.key].rows.length > 0)
+  if (!any) return <Empty title="Nobody is restricted." detail="Muted, suspended and banned members show here, with the button that lets them back." />
+  return (
+    <div data-restricted="">
+      {groups.map((g) =>
+        lists[g.key].rows.length ? (
+          <section key={g.key} aria-label={g.title}>
+            <h3 className="border-b border-[#f1f2f4] bg-[#fafbfb] px-4 py-2 text-[12px] font-medium text-[#6b7280] sm:px-5">
+              {g.title} <span className="tabular-nums text-[#9ca3af]">{lists[g.key].rows.length}{lists[g.key].next ? "+" : ""}</span>
+            </h3>
+            <ul className="divide-y divide-[#f1f2f4]">
+              {lists[g.key].rows.map((m) => {
+                const who: ActOnPerson = { userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil }
+                const choices = people.choicesFor(who)
+                const undo = choices.find((c) => c.action === g.undo)
+                return (
+                  <li key={m.userId} className="flex min-h-[60px] items-center gap-3 py-2 pl-4 pr-2 sm:pl-5 sm:pr-3" data-restricted-row={g.key}>
+                    <AppAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{m.name}</p>
+                      <p className="truncate text-[12.5px] text-[#6b7280]">{g.line(m)}</p>
+                    </div>
+                    {undo ? (
+                      <button type="button" disabled={people.busy} onClick={() => people.run(undo, who)} className={cn(buttonSecondary, "h-10 sm:h-8")}>
+                        {g.undoLabel}
+                      </button>
+                    ) : null}
+                    <RowMenu keepSpace items={people.menuItems(who, [undo?.key ?? ""])} label={`Actions for ${m.name}`} />
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ) : null,
+      )}
+    </div>
+  )
+}
+
+/* ── Rules ──────────────────────────────────────────────────────────────── */
+
+function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; initial: CommunityRule[]; onSaved: (n: number) => void }) {
+  const router = useRouter()
+  const toast = useToast()
+  const canEdit = head.can.manage_settings === true
+  const [rules, setRules] = React.useState<CommunityRule[]>(initial)
+  const [saved, setSaved] = React.useState(JSON.stringify(initial))
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const dirty = JSON.stringify(rules) !== saved
+  const set = (i: number, patch: Partial<CommunityRule>) => {
+    setRules((x) => x.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+    setError(null)
+  }
+  const save = async () => {
+    const checked = checkRules(rules)
+    if (!checked.ok) return setError(checked.error)
+    setBusy(true)
+    const res = await send(`/api/app/community/${head.id}`, "PATCH", { rules: checked.value })
+    setBusy(false)
+    if (!res.ok) return setError(errorText(res.data.error))
+    setRules(checked.value)
+    setSaved(JSON.stringify(checked.value))
+    onSaved(checked.value.length)
+    setError(null)
+    toast("Rules saved")
+    router.refresh()
+  }
+
+  if (!canEdit)
+    return rules.length === 0 ? (
+      <Empty title="No rules yet." detail="The owner and admins write the rules." />
+    ) : (
+      <ol className="divide-y divide-[#f1f2f4]" data-rules="">
+        {rules.map((r, i) => (
+          <li key={i} className="flex gap-3 px-4 py-3 sm:px-5">
+            <span className="w-5 shrink-0 pt-px text-[13px] font-semibold tabular-nums text-[#9ca3af]">{i + 1}</span>
+            <div className="min-w-0">
+              <p className="text-[14px] font-medium text-[#1a1a2e]">{r.title}</p>
+              {r.body ? <p className="mt-0.5 text-[13px] leading-snug text-[#4b5563]">{r.body}</p> : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+    )
+
+  return (
+    <div data-rules="">
+      <p className="border-b border-[#f1f2f4] px-4 py-2.5 text-[13px] leading-snug text-[#6b7280] sm:px-5">Shown on the community&rsquo;s page before somebody joins, and to new members when they arrive. A short title each, and a line about what it means here.</p>
+      {rules.length === 0 ? (
+        <Empty title="No rules yet." detail="Two or three clear ones are enough: be kind, stay on topic, no selling." />
+      ) : (
+        <ol className="divide-y divide-[#f1f2f4]">
+          {rules.map((r, i) => (
+            <li key={i} className="flex items-start gap-2 py-3 pl-4 pr-2 sm:gap-3 sm:pl-5 sm:pr-3" data-rule="">
+              <span className="w-5 shrink-0 pt-[11px] text-[13px] font-semibold tabular-nums text-[#9ca3af] max-sm:hidden">{i + 1}</span>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <input value={r.title} onChange={(e) => set(i, { title: e.target.value.slice(0, 120) })} placeholder={i === 0 ? "Be kind" : "Rule"} aria-label={`Rule ${i + 1} title`} className={cn(field, "h-11 font-medium sm:h-10")} />
+                <textarea value={r.body} onChange={(e) => set(i, { body: e.target.value.slice(0, 1000) })} placeholder="What it means here (optional)" rows={2} aria-label={`Rule ${i + 1} detail`} className={cn(field, "resize-y py-2 leading-relaxed")} />
+              </div>
+              <div className="flex shrink-0 flex-col items-center gap-0.5 sm:flex-row">
+                <button type="button" aria-label={`Move rule ${i + 1} up`} disabled={i === 0} onClick={() => setRules((x) => moveItem(x, i, i - 1))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30 sm:h-8 sm:w-8">
+                  <ArrowUp aria-hidden className="h-4 w-4" />
+                </button>
+                <button type="button" aria-label={`Move rule ${i + 1} down`} disabled={i === rules.length - 1} onClick={() => setRules((x) => moveItem(x, i, i + 1))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30 sm:h-8 sm:w-8">
+                  <ArrowDown aria-hidden className="h-4 w-4" />
+                </button>
+                <button type="button" aria-label={`Remove rule ${i + 1}`} onClick={() => setRules((x) => x.filter((_, j) => j !== i))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] sm:h-8 sm:w-8">
+                  <Trash2 aria-hidden className="h-4 w-4" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className="flex flex-wrap items-center gap-2 border-t border-[#f1f2f4] px-4 py-3 sm:px-5">
+        {rules.length < MAX_RULES ? (
+          <button type="button" onClick={() => setRules((x) => [...x, { title: "", body: "" }])} className={cn(buttonSecondary, "h-10 sm:h-8")} data-rule-add="">
+            <Plus aria-hidden className="h-4 w-4" />
+            Add a rule
+          </button>
+        ) : null}
+        <span className="text-[12.5px] tabular-nums text-[#9ca3af]">
+          {rules.length} of {MAX_RULES}
+        </span>
+      </div>
+      {dirty || error ? (
+        <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 px-3 pb-3 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]" data-save-bar="">
+          <div className={cn(card, "flex items-center gap-2 px-3 py-2.5 shadow-[0_8px_24px_-8px_rgba(17,24,39,0.18)]")}>
+            <p role="status" className={cn("min-w-0 flex-1 truncate px-1 text-[13px]", error ? "text-[#b91c1c]" : "text-[#6b7280]")}>
+              {error ?? "Unsaved changes"}
+            </p>
+            <button type="button" onClick={() => { setRules(JSON.parse(saved)); setError(null) }} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-9")}>
+              Discard
+            </button>
+            <button type="button" onClick={() => void save()} disabled={busy || !dirty} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-rules-save="">
+              {busy ? "Saving" : "Save"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -15,9 +15,20 @@
  *   OVERVIEW   the next steps that are not done, the figures in a grid
  *   CREATE     the five fields, who can join, the price only for paid, and
  *              Create in reach on a phone
- *   MEMBERS    a page of rows (a table on a computer, a list on a phone),
- *              Show more for the next page, the status pills with counts
+ *   MEMBERS    one card: the views with counts and Invite in its first
+ *              row, the search and filters in the second, a page of rows (a
+ *              table on a computer, a list on a phone), Show more
  *   SETTINGS   the tab row, the save bar appearing on a change, the tiers
+ *   GALLERY    the tiles in order, an arrow moves one, the X removes one,
+ *              and either brings the Save bar; the add tile while there is
+ *              room
+ *   NESTED     no card inside a card: no bordered, rounded white box sits
+ *              inside another (fields, buttons and the dashed add tile
+ *              aside)
+ *   MODERATE   the reports with Remove and Dismiss on the row, the author's
+ *              mute, suspend, remove and ban in its menu, Mute asking how
+ *              long; the restricted people each with the button that undoes
+ *              it; the rules editable, Add a rule bringing the Save bar
  *
  *   PROBE_CSS=source node scripts/check-community-creator.mjs
  * Screenshots land in SHOTS_DIR (or a temp dir, printed at the end).
@@ -82,7 +93,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
   )
 
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
-  const CASES = (process.env.CASES || "list,create,create-paid,overview,members,members-pending,settings,settings-access,feed,events,moderation,analytics").split(",")
+  const CASES = (process.env.CASES || "list,create,create-paid,overview,members,members-pending,settings,settings-access,settings-features,feed,events,spaces,classroom,moderation,moderation-restricted,moderation-rules,analytics").split(",")
   for (const [label, vp] of [
     ["desktop-1440", { width: 1440, height: 900 }],
     ["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
@@ -166,7 +177,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
 
       if (c === "overview") {
         const o = await p.evaluate(() => ({ steps: [...document.querySelectorAll("[data-step]")].map((s) => s.dataset.step), figures: document.querySelectorAll("[data-figure]").length, cols: getComputedStyle(document.querySelector("[data-figures]")).gridTemplateColumns.split(" ").length }))
-        expect(o.steps.join(",") === "publish,invite,welcome,course,customize", "OVERVIEW: only the steps not done yet, in order", o.steps)
+        expect(o.steps.join(",") === "publish,invite,welcome,course,customize,rules", "OVERVIEW: only the steps not done yet, in order", o.steps)
         expect(o.figures === 7 && o.cols === (phone ? 2 : 4), "OVERVIEW: seven figures in a grid", o)
       }
       if (c === "create" || c === "create-paid") {
@@ -186,9 +197,19 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         if (c === "create") expect(f.focused === "c-name", "CREATE: the name field has the cursor", f.focused)
       }
       if (c === "members") {
-        const m = await p.evaluate(() => ({ rows: [...document.querySelectorAll("[data-member-row]")].filter((r) => r.getBoundingClientRect().height > 0).length, more: !!document.querySelector("[data-load-more]"), pills: document.querySelectorAll("[data-status]").length, invites: document.querySelectorAll("[data-invites] li").length }))
+        const m = await p.evaluate(() => {
+          const cardEl = document.querySelector("[data-members-table]")
+          return {
+            rows: [...document.querySelectorAll("[data-member-row]")].filter((r) => r.getBoundingClientRect().height > 0).length,
+            more: !!document.querySelector("[data-load-more]"),
+            views: cardEl?.querySelectorAll("[data-list-head] [data-filter]").length ?? 0,
+            inviteInCard: !!cardEl?.querySelector("[data-list-head] [data-invite-open]"),
+            searchInCard: !!cardEl?.querySelector("[data-toolbar] [data-search]") && !!cardEl?.querySelector("[data-toolbar] [data-pick=role]"),
+            invites: document.querySelectorAll("[data-invites] li").length,
+          }
+        })
         expect(m.rows === 12 && m.more, "MEMBERS: a page of rows and Show more", m)
-        expect(m.pills >= 5, "MEMBERS: the status pills with their counts", m.pills)
+        expect(m.views >= 5 && m.inviteInCard && m.searchInCard, "MEMBERS: the views, Invite, the search and the filters are rows of the one card", m)
       }
       if (c === "settings") {
         await p.focus("#g-tagline")
@@ -207,8 +228,112 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         expect(a.tiers === 2, "SETTINGS: both tiers with their prices", a)
       }
 
+      /* NESTED: a bordered, rounded, filled box inside another one is a card inside a card. */
+      const nested = await p.evaluate(() => {
+        const boxy = (el) => {
+          if (["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A", "IMG", "LABEL", "SPAN"].includes(el.tagName)) return false
+          const st = getComputedStyle(el)
+          if (st.borderTopStyle !== "solid" || parseFloat(st.borderTopWidth) < 1 || parseFloat(st.borderTopLeftRadius) < 10) return false
+          const bg = st.backgroundColor
+          return bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent"
+        }
+        const out = []
+        for (const el of document.querySelectorAll(".orders-pane *")) {
+          if (!boxy(el) || el.getBoundingClientRect().height === 0 || el.closest("[role=dialog]")) continue
+          let a = el.parentElement
+          while (a && !a.classList.contains("orders-pane")) {
+            if (boxy(a)) {
+              out.push(`${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)}`)
+              break
+            }
+            a = a.parentElement
+          }
+        }
+        return out
+      })
+      expect(nested.length === 0, "NESTED: no card inside a card", nested.slice(0, 4))
+
+      if (c === "settings") {
+        const g0 = await p.evaluate(() => ({ items: [...document.querySelectorAll("[data-gallery-item]")].map((x) => x.dataset.galleryItem), add: !!document.querySelector("[data-gallery-add]"), bar: !!document.querySelector("[data-save-bar]") }))
+        expect(g0.items.length === 5 && g0.add, "GALLERY: five tiles and the add tile", g0)
+        /* Discard the tagline edit first so the bar only comes back for the gallery. */
+        await p.evaluate(() => [...document.querySelectorAll("[data-save-bar] button")].find((b) => b.textContent.trim() === "Discard")?.click())
+        await sleep(100)
+        /* A computer: the arrow on the tile. A phone: the tile's one menu button, then the sheet's row. */
+        const pickInSheet = async (index, word) => {
+          const menus = await p.$$("[data-tile-menu]")
+          await menus[index].click()
+          await sleep(500)
+          const row = await p.evaluateHandle((w) => [...document.querySelectorAll('[role="dialog"] button, [role="menuitem"]')].find((x) => x.textContent.trim() === w), word)
+          if (row.asElement()) await row.asElement().click()
+          await sleep(900)
+        }
+        if (phone) await pickInSheet(1, "Move later")
+        else await p.evaluate(() => document.querySelector('[aria-label="Move 2 later"]').click())
+        await sleep(120)
+        const g1 = await p.evaluate(() => ({ items: [...document.querySelectorAll("[data-gallery-item]")].map((x) => x.dataset.galleryItem), bar: !!document.querySelector("[data-save-bar]") }))
+        expect(g1.items.join(",") === "image,image,video,image,image" && g1.bar, "GALLERY: moving the video one later reorders it and brings the Save bar", g1)
+        if (phone) await pickInSheet(0, "Remove")
+        else await p.evaluate(() => document.querySelector('[aria-label="Remove picture 1"]').click())
+        await sleep(120)
+        const g2 = await p.evaluate(() => document.querySelectorAll("[data-gallery-item]").length)
+        expect(g2 === 4, "GALLERY: Remove takes a tile out", g2)
+        if (phone) {
+          const t = await p.evaluate(() => {
+            const b = document.querySelector("[data-tile-menu]").getBoundingClientRect()
+            const arrows = document.querySelector('[aria-label="Move 1 later"]').getBoundingClientRect()
+            return { w: Math.round(b.width), h: Math.round(b.height), arrowsHidden: arrows.width === 0 }
+          })
+          expect(t.w >= 40 && t.h >= 40 && t.arrowsHidden, "GALLERY: on a phone each tile has one 40px menu button and no arrows over the picture", t)
+        }
+        await p.evaluate(() => {
+          const pane = document.querySelector(".orders-pane")
+          const g = document.querySelector("#gallery")
+          pane.scrollTop += g.getBoundingClientRect().top - document.querySelector("[data-orders-bar]").getBoundingClientRect().bottom - 12
+        })
+        await sleep(100)
+        await p.screenshot({ path: join(shots, `${label}-${c}-gallery.png`) })
+        await p.evaluate(() => (document.querySelector(".orders-pane").scrollTop = 0))
+      }
+      if (c === "moderation") {
+        const r = await p.evaluate(() => ({ rows: document.querySelectorAll("[data-report]").length, remove: document.querySelectorAll("[data-report-remove]").length, views: document.querySelectorAll("[data-list-head] [data-filter]").length }))
+        expect(r.rows === 2 && r.remove === 2 && r.views === 5, "MODERATE: two reports, Remove on each, five views", r)
+        await p.click('[data-report] [aria-label="Report actions"]')
+        await sleep(450)
+        const items = await p.evaluate(() => [...document.querySelectorAll('[role="menuitem"], [role="dialog"] button, [role="dialog"] a')].map((x) => x.textContent.trim()).filter(Boolean))
+        expect(["Mute", "Suspend", "Remove from the community", "Ban"].every((x) => items.includes(x)) && items.includes("Open the post"), "MODERATE: the report's menu has the author's mute, suspend, remove and ban", items)
+        await p.screenshot({ path: join(shots, `${label}-${c}-menu.png`) })
+        const muteItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [role="dialog"] button')].find((x) => x.textContent.trim() === "Mute"))
+        if (muteItem.asElement()) await muteItem.asElement().click()
+        await sleep(phone ? 900 : 450)
+        const mute = await p.evaluate(() => ({ dialog: !!document.querySelector("[data-mute-confirm]"), choices: document.querySelectorAll('[role="radiogroup"][aria-label="How long"] [role="radio"]').length }))
+        expect(mute.dialog && mute.choices === 4, "MODERATE: Mute asks how long", mute)
+        await p.screenshot({ path: join(shots, `${label}-${c}-mute.png`) })
+        await p.keyboard.press("Escape")
+        await sleep(300)
+      }
+      if (c === "moderation-restricted") {
+        const r = await p.evaluate(() => [...document.querySelectorAll("[data-restricted-row]")].map((x) => `${x.dataset.restrictedRow}:${[...x.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean).join("|")}`))
+        expect(r.join(",") === "muted:Unmute,paused:Bring back,banned:Unban", "MODERATE: each restricted person with the button that undoes it", r)
+      }
+      if (c === "moderation-rules") {
+        const before = await p.evaluate(() => ({ rules: document.querySelectorAll("[data-rule]").length, bar: !!document.querySelector("[data-save-bar]") }))
+        await p.click("[data-rule-add]")
+        await sleep(120)
+        const after = await p.evaluate(() => ({ rules: document.querySelectorAll("[data-rule]").length, bar: !!document.querySelector("[data-save-bar]") }))
+        expect(before.rules === 2 && !before.bar && after.rules === 3 && after.bar, "MODERATE: two rules, Add a rule makes a third and brings the Save bar", { before, after })
+        await p.evaluate(() => [...document.querySelectorAll("[data-save-bar] button")].find((b) => b.textContent.trim() === "Discard")?.click())
+        await sleep(100)
+      }
+      if (c === "settings-features") {
+        const f = await p.evaluate(() => document.querySelectorAll('[data-features] [role="switch"]').length)
+        expect(f >= 5, "SETTINGS: the sections and the welcome as switches", f)
+      }
+      const tabsText = await p.evaluate(() => [...document.querySelectorAll("[data-section-tabs] a")].map((a) => a.textContent.replace(/\d+/g, "").trim()))
+      if (tabsText.length) expect(!tabsText.includes("Gamification"), "TABS: Gamification lives in Settings, not in the row", tabsText)
+
       await p.screenshot({ path: join(shots, `${label}-${c}.png`), fullPage: false })
-      if (c === "members" || c === "overview" || c === "settings-access") {
+      if (c === "members" || c === "overview" || c === "settings-access" || c === "settings" || c === "moderation-rules") {
         const h = await p.evaluate(() => document.querySelector(".orders-pane")?.scrollHeight ?? 0)
         if (h > vp.height) {
           await p.evaluate(() => (document.querySelector(".orders-pane").scrollTop = 600))
