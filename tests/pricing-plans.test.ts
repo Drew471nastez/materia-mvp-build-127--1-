@@ -37,7 +37,7 @@ import {
   YEARLY_BILLING_LIVE,
   YEARLY_SAVING_PERCENT,
 } from "@/lib/billing/plans"
-import { getFeePreview, formatFeePercent } from "@/lib/billing/fee-calculator"
+import { getFeePreview, formatFeePercent, getFeeDescription } from "@/lib/billing/fee-calculator"
 import { siteLimits } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
 
@@ -96,12 +96,13 @@ function main() {
 
   const pro = OFFERED_PLANS[1].features
   const free = OFFERED_PLANS[0].features
-  const growthFee = formatFeePercent(getFeePreview(1000, "growth").feePercent).replace(".0%", "%")
-  const freeFee = formatFeePercent(getFeePreview(1000, "free").feePercent).replace(".0%", "%")
+  /* The cards are in US dollars, so the rate a $10 sale pays is read in USD (the platform default is RON, where $10 worth is under the small-order line). */
+  const growthFee = formatFeePercent(getFeePreview(1000, "growth", "USD").feePercent).replace(".0%", "%")
+  const freeFee = formatFeePercent(getFeePreview(1000, "free", "USD").feePercent).replace(".0%", "%")
   check("the Pro card starts with Everything in Free", pro[0] === "Everything in Free", pro[0])
-  check(`the Pro fee line, next, is growth's charged rate (${growthFee})`, pro[1] === `${growthFee} + $0.25 per sale`, pro[1])
-  check(`the Free fee line is free's charged rate (${freeFee})`, free[0] === `${freeFee} + $0.25 per sale`, free[0])
-  check("the $0.25 is the fixed fee the calculator adds", getFeePreview(1000, "growth").feeFixedCents === 25)
+  check(`the Pro fee line, next, is growth's charged rate (${growthFee})`, pro[1].startsWith(`${growthFee} + $0.25 per sale`), pro[1])
+  check(`the Free fee line is free's charged rate (${freeFee})`, free[0].startsWith(`${freeFee} + $0.25 per sale`), free[0])
+  check("the $0.25 is the fixed fee the calculator adds", getFeePreview(1000, "growth", "USD").feeFixedCents === 25)
 
   const g = siteLimits("growth")
   check("own domain is claimed only because growth has it", pro.includes("Your own domain") === g.customDomain)
@@ -145,8 +146,8 @@ function main() {
   const products = readCode("app/app/products/new/product-editor.tsx")
   const analytics = readCode("app/app/analytics/page.tsx") + readCode("app/app/analytics/analytics-client.tsx")
   const fromTables = new Set([
-    `${freeFee} + $0.25 per sale`,
-    `${growthFee} + $0.25 per sale`,
+    getFeeDescription("free"),
+    getFeeDescription("growth"),
     "Your own domain",
     "No Storelib branding",
     `${g.maxSites} websites, ${g.maxPages} pages each`,
