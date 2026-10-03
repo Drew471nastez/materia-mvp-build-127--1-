@@ -224,7 +224,8 @@ export interface CreatorCommunityGate {
  */
 export async function requireCreatorCommunity(communityId: string, action: CommunityAction): Promise<CreatorCommunityGate | NextResponse> {
   const ctx = await requireCreator()
-  if (ctx instanceof NextResponse) return ctx
+  /* requireCreator's own words are about email; a community route answers in its own codes. */
+  if (ctx instanceof NextResponse) return ctx.status === 401 ? answer(401, "sign_in") : answer(403, "not_creator")
   const db = ctx.admin ?? admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return answer(404, "not_found")
