@@ -4,32 +4,50 @@ import "server-only"
  * ===========================================================================
  *  WHICH MODEL ANSWERS, AND WHOSE
  * ===========================================================================
- * The one place that turns "the creator picked Claude" into a provider object
- * and a model id. Both agents' routes call this; neither knows a vendor name.
+ * The one place that turns "the creator picked the stronger model" into a
+ * provider object and a model id. Every agent route calls this; none of them
+ * knows a vendor name.
  *
- * CLAUDE IS THE DEFAULT. Set `AGENT_PROVIDER=openai` to flip the deployment
- * back without a code change.
+ * ---------------------------------------------------------------------------
+ *  CHATGPT ONLY, FOR NOW
+ * ---------------------------------------------------------------------------
+ * Storelib AI runs on OpenAI. Anthropic is not offered anywhere in the
+ * product at the moment: the chat's switch lists ChatGPT models only, and a
+ * request that still names "anthropic" (an open tab from before, a saved
+ * choice, an old client) is answered by OpenAI here, so nothing a browser
+ * sends can reach Claude. `AGENT_PROVIDER` is read only when it names a
+ * provider in OFFERED.
+ *
+ * The Anthropic provider (./anthropic-provider.ts) is kept as it is, priced
+ * in ./models and tested, and nothing in a product path imports it. Turning
+ * it back on is adding "anthropic" to OFFERED and its models to the chat's
+ * list (lib/website-builder/ask-engines.ts), not rewriting a provider.
  *
  * ---------------------------------------------------------------------------
  *  A PROVIDER THAT IS NOT CONFIGURED IS NOT A PROVIDER
  * ---------------------------------------------------------------------------
  * A key can be missing on a preview deployment, revoked, or simply not set up
- * yet, and the failure that produces — a run that starts, streams nothing and
- * dies on the first call — is expensive and confusing. Availability is checked
- * BEFORE the run starts, and a request for a provider this deployment cannot
- * reach falls back to the other one and SAYS SO. Falling back silently would
- * bill somebody for a model they did not choose and quietly contradict the
- * switch they can see on screen.
+ * yet, and the failure that produces (a run that starts, streams nothing and
+ * dies on the first call) is expensive and confusing. Availability is checked
+ * BEFORE the run starts. With one vendor there is nothing to fall back to, so
+ * a deployment without OPENAI_API_KEY answers only creators who connected
+ * their own.
+ *
+ * Every provider handed out is wrapped in `plainFailures` (./plain-errors),
+ * so a vendor's error body never reaches a creator's screen.
  */
 
-import { describeOwnKeyError } from "@/lib/ai-keys/errors"
 import { noteUse, readKeys, type KeySource } from "@/lib/ai-keys/store"
-import { anthropicClientFor, anthropicProvider, createAnthropicProvider, MissingAnthropicKeyError } from "./anthropic-provider"
+import { describeOwnKeyError } from "@/lib/ai-keys/errors"
 import { DEFAULT_MODEL, STRONG_MODEL } from "./models"
 import { createOpenAIProvider, openAIClientFor, openAIProvider } from "./openai-provider"
+import { plainFailures } from "./plain-errors"
 import type { AgentProvider, ProviderRequest, ProviderTurn } from "./types"
 
 export type ProviderId = "anthropic" | "openai"
+
+/** The providers Storelib AI offers today. See CHATGPT ONLY, FOR NOW above. */
+export const OFFERED: readonly ProviderId[] = ["openai"]
 
 /**
  * `fast` is the everyday model and `strong` is the one somebody reaches for
@@ -46,26 +64,35 @@ export function isModelTier(value: unknown): value is ModelTier {
   return value === "fast" || value === "strong"
 }
 
-/** Claude unless this deployment says otherwise. */
-export const DEFAULT_PROVIDER: ProviderId = isProviderId(process.env.AGENT_PROVIDER)
-  ? process.env.AGENT_PROVIDER
-  : "anthropic"
+function isOffered(value: unknown): value is ProviderId {
+  return isProviderId(value) && OFFERED.includes(value)
+}
+
+/** OpenAI, unless this deployment names another provider that is offered. */
+export const DEFAULT_PROVIDER: ProviderId = isOffered(process.env.AGENT_PROVIDER) ? process.env.AGENT_PROVIDER : "openai"
 
 /**
- * Model ids, overridable without a deploy.
+ * What a request may have. `requested` is UNTRUSTED: anything that is not an
+ * offered provider, "anthropic" included, is the default.
+ */
+export function offeredProvider(requested: unknown): ProviderId {
+  return isOffered(requested) ? requested : DEFAULT_PROVIDER
+}
+
+/**
+ * Model ids, overridable without a deploy (./models for OpenAI's).
  *
- * Sonnet 5 for everyday work and Opus 5 for the hard change is the split the
- * models are actually priced and tuned for; putting Opus on every heading edit
- * would cost five times as much to answer a question Sonnet answers as well.
+ * The Anthropic row is unreachable while OFFERED leaves it out, and stays so
+ * the day it comes back is a one line change.
  */
 const MODELS: Record<ProviderId, Record<ModelTier, string>> = {
-  anthropic: {
-    fast: process.env.ANTHROPIC_AGENT_MODEL || "claude-sonnet-5",
-    strong: process.env.ANTHROPIC_AGENT_STRONG_MODEL || "claude-opus-5",
-  },
   openai: {
     fast: DEFAULT_MODEL,
     strong: STRONG_MODEL,
+  },
+  anthropic: {
+    fast: process.env.ANTHROPIC_AGENT_MODEL || "claude-sonnet-5",
+    strong: process.env.ANTHROPIC_AGENT_STRONG_MODEL || "claude-opus-5",
   },
 }
 
@@ -81,7 +108,7 @@ export function isConfigured(id: ProviderId): boolean {
 
 export class NoProviderConfiguredError extends Error {
   constructor() {
-    super("Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is set")
+    super("OPENAI_API_KEY is not set")
     this.name = "NoProviderConfiguredError"
   }
 }
@@ -90,7 +117,12 @@ export interface Resolved {
   id: ProviderId
   provider: AgentProvider
   model: string
-  /** Set when the creator's choice was not available and this is the other one. */
+  /**
+   * Set when the creator's choice was not available and this is another
+   * one. Always null while one provider is offered: a request for Claude is
+   * answered by ChatGPT without a notice, because Claude is not a choice the
+   * creator can see any more.
+   */
   substitutedFor: ProviderId | null
   /**
    * Whose account pays: null for Storelib's, otherwise the creator's own
@@ -100,35 +132,17 @@ export interface Resolved {
   own: KeySource | null
 }
 
-/**
- * The provider and model for one request.
- *
- * `requested` comes from the creator's switch and is UNTRUSTED — anything that
- * is not a provider id falls back to the deployment default rather than being
- * passed to a client constructor.
- */
-export function resolveProvider(input: {
-  requested?: unknown
-  tier?: unknown
-}): Resolved {
-  const wanted: ProviderId = isProviderId(input.requested) ? input.requested : DEFAULT_PROVIDER
+/** The provider and model for one request, on Storelib's account. */
+export function resolveProvider(input: { requested?: unknown; tier?: unknown }): Resolved {
+  const chosen = offeredProvider(input.requested)
   const tier: ModelTier = isModelTier(input.tier) ? input.tier : "fast"
-
-  const chosen: ProviderId = isConfigured(wanted)
-    ? wanted
-    : isConfigured(wanted === "anthropic" ? "openai" : "anthropic")
-      ? wanted === "anthropic"
-        ? "openai"
-        : "anthropic"
-      : (() => {
-          throw new NoProviderConfiguredError()
-        })()
+  if (!isConfigured(chosen)) throw new NoProviderConfiguredError()
 
   return {
     id: chosen,
-    provider: chosen === "anthropic" ? anthropicProvider : openAIProvider,
+    provider: plainFailures(openAIProvider),
     model: MODELS[chosen][tier],
-    substitutedFor: chosen === wanted ? null : wanted,
+    substitutedFor: null,
     own: null,
   }
 }
@@ -137,16 +151,18 @@ export function resolveProvider(input: {
  * ===========================================================================
  *  THE CREATOR'S OWN AI, WHEN THEY HAVE CONNECTED ONE
  * ===========================================================================
- * "Let people connect their own Claude or ChatGPT so it does not use
- * Storelib AI credits." The same choice the creator made in the chat
- * (Claude or ChatGPT, everyday or hard), answered on their account when it
- * can be:
+ * "Let people connect their own ChatGPT so it does not use Storelib AI
+ * credits." The same choice the creator made in the chat (which model, and
+ * how hard it thinks), answered on their account when it can be:
  *
- *   1. their own key for that vendor (a Claude key for Claude, an OpenAI key
- *      for ChatGPT), straight to the vendor;
- *   2. otherwise their OpenRouter account, which answers for both, on the
- *      same models by OpenRouter's names;
+ *   1. their own OpenAI key, straight to OpenAI;
+ *   2. otherwise their OpenRouter account, on the same models by
+ *      OpenRouter's names;
  *   3. otherwise Storelib's, exactly as before.
+ *
+ * A Claude key a creator connected before is kept, and not used while
+ * Claude is not offered: Connections no longer shows it, and removing it is
+ * still theirs to do.
  *
  * Their key is never swapped for Storelib's when it fails: a run on it that
  * is refused says so (lib/ai-keys/errors), because quietly answering on
@@ -157,32 +173,28 @@ export async function resolveForCreator(
   input: { requested?: unknown; tier?: unknown },
 ): Promise<Resolved> {
   if (!creatorId) return resolveProvider(input)
-  const wanted: ProviderId = isProviderId(input.requested) ? input.requested : DEFAULT_PROVIDER
+  const wanted = offeredProvider(input.requested)
   const tier: ModelTier = isModelTier(input.tier) ? input.tier : "fast"
   const keys = await readKeys(creatorId).catch(() => ({}) as Awaited<ReturnType<typeof readKeys>>)
   const model = MODELS[wanted][tier]
 
-  const direct = wanted === "anthropic" ? keys.anthropic : keys.openai
+  const direct = keys.openai
   if (direct) {
     return {
       id: wanted,
-      provider:
-        wanted === "anthropic"
-          ? ownAccount(createAnthropicProvider(once(() => anthropicClientFor(direct, "anthropic"))), wanted, creatorId)
-          : ownAccount(createOpenAIProvider(once(() => openAIClientFor(direct, "openai"))), wanted, creatorId),
+      provider: plainFailures(ownAccount(createOpenAIProvider(once(() => openAIClientFor(direct, "openai"))), "openai", creatorId)),
       model,
       substitutedFor: null,
-      own: wanted,
+      own: "openai",
     }
   }
   const router = keys.openrouter
   if (router) {
     return {
       id: wanted,
-      provider:
-        wanted === "anthropic"
-          ? ownAccount(createAnthropicProvider(once(() => anthropicClientFor(router, "openrouter")), { modelPrefix: "anthropic/" }), "openrouter", creatorId)
-          : ownAccount(createOpenAIProvider(once(() => openAIClientFor(router, "openrouter")), { modelPrefix: "openai/" }), "openrouter", creatorId),
+      provider: plainFailures(
+        ownAccount(createOpenAIProvider(once(() => openAIClientFor(router, "openrouter")), { modelPrefix: "openai/" }), "openrouter", creatorId),
+      ),
       model,
       substitutedFor: null,
       own: "openrouter",
@@ -194,12 +206,15 @@ export async function resolveForCreator(
 /** The start of a run's provider when it ran on the creator's own account. */
 export const OWN_PREFIX = "own:"
 
-/** Whether a creator could be answered at all: Storelib's keys, or one of their own. */
+/** The creator's own connections that can answer today: a Claude key alone cannot. */
+export const ANSWERING_SOURCES: readonly KeySource[] = ["openai", "openrouter"]
+
+/** Whether a creator could be answered at all: Storelib's key, or one of their own. */
 export async function canAnswer(creatorId: string | null | undefined): Promise<boolean> {
-  if (isConfigured("anthropic") || isConfigured("openai")) return true
+  if (OFFERED.some(isConfigured)) return true
   if (!creatorId) return false
-  const keys = await readKeys(creatorId).catch(() => ({}))
-  return Object.keys(keys).length > 0
+  const keys = await readKeys(creatorId).catch(() => ({}) as Awaited<ReturnType<typeof readKeys>>)
+  return ANSWERING_SOURCES.some((source) => !!keys[source])
 }
 
 /**
@@ -211,7 +226,7 @@ export async function canAnswer(creatorId: string | null | undefined): Promise<b
 export function ownAccount(provider: AgentProvider, source: KeySource, creatorId: string): AgentProvider {
   let noted = false
   return {
-    /* Recorded on the run as "own:anthropic" and so on: how the monthly AI edits count leaves it out (run.ts). */
+    /* Recorded on the run as "own:openai" and so on: how the monthly AI edits count leaves it out (run.ts). */
     id: `${OWN_PREFIX}${source}`,
     async complete(request: ProviderRequest): Promise<ProviderTurn> {
       try {
@@ -243,5 +258,3 @@ export function substitutionNotice(resolved: Resolved): string | null {
   const used = resolved.id === "anthropic" ? "Claude" : "ChatGPT"
   return `${missing} is not configured on this deployment, so ${used} answered instead.`
 }
-
-export { MissingAnthropicKeyError }

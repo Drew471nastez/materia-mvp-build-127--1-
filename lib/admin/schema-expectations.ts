@@ -107,7 +107,8 @@ export const ENV_CHECKS: { name: string; group: string; optional?: boolean }[] =
   { name: "VERCEL_TOKEN", group: "Domains" },
   { name: "VERCEL_PROJECT_ID", group: "Domains" },
   { name: "VERCEL_TEAM_ID", group: "Domains" },
-  { name: "ANTHROPIC_API_KEY", group: "Website agent" },
+  /* Storelib AI runs on ChatGPT only for now (lib/sites/agent/provider.ts): the Anthropic key is read by nothing a creator reaches. */
+  { name: "ANTHROPIC_API_KEY", group: "Website agent", optional: true },
   { name: "OPENAI_API_KEY", group: "Website agent" },
   { name: "FIREBASE_PROJECT_ID", group: "Push" },
   { name: "FIREBASE_CLIENT_EMAIL", group: "Push" },

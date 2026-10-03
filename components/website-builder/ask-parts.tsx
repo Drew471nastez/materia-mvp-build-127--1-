@@ -34,7 +34,7 @@ export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: (
       type="button"
       data-ask-connect=""
       onClick={onClick}
-      title="Use your own Claude or ChatGPT here, or connect Claude Code or Codex"
+      title="Use your own ChatGPT here, or connect Claude Code or Codex"
       className={cn(
         "relative flex shrink-0 items-center gap-1.5 rounded-full border border-black/[0.08] bg-white pl-1 pr-2.5 text-[12.5px] font-medium text-[#1a1a2e]/80 transition-colors",
         "hover:border-black/[0.16] hover:text-[#1a1a2e] active:bg-black/[0.03]",

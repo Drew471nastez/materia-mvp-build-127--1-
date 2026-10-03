@@ -38,6 +38,7 @@ import { readAsk, questionText, MAX_BUILDER_ASKS } from "@/lib/website-builder/a
 import { describeRecent, lastQuestion } from "@/lib/website-builder/agent/memory"
 import { copyProblem, reviewSections } from "@/lib/website-builder/agent/review"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
+import { ENGINES, STRENGTHS } from "@/lib/website-builder/ask-engines"
 import { requestMessages, toMessages } from "@/lib/sites/agent/anthropic-provider"
 import { toInput } from "@/lib/sites/agent/openai-provider"
 import { describeImages, reviewImages, type AgentImage } from "@/lib/sites/agent/attachments"
@@ -545,13 +546,15 @@ async function main() {
   section("The model picker maps to providers that exist")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const chat = read("components/website-builder/theme-chat.tsx")
     const route = read("app/api/website-builder/themes/[installId]/agent/route.ts")
     const provider = read("lib/sites/agent/provider.ts")
-    const engines = [...chat.matchAll(/label: "([^"]+)",[\s\S]*?provider: "([a-z]+)",\s*tier: "([a-z]+)"/g)].map((m) => ({ label: m[1], provider: m[2], tier: m[3] }))
-    check("the picker offers Claude Sonnet, Claude Opus and ChatGPT", JSON.stringify(engines.map((e) => e.label)) === JSON.stringify(["Claude Sonnet", "Claude Opus", "ChatGPT"]), JSON.stringify(engines))
-    check("each is a provider and tier the route accepts", engines.every((e) => /provider: z\.enum\(\["anthropic", "openai"\]\)/.test(route) && ["anthropic", "openai"].includes(e.provider) && ["fast", "strong"].includes(e.tier)))
-    check("and the resolver has a model for each, and a provider file for each vendor", /anthropic: \{\s*fast:[^}]*strong:/.test(provider) && /openai: \{\s*fast: DEFAULT_MODEL,\s*strong: STRONG_MODEL/.test(provider) && /anthropicProvider/.test(provider) && /openAIProvider/.test(provider))
+    /* Storelib AI runs on ChatGPT only for now: two models, each with what it is best for. */
+    check("the picker offers the two ChatGPT models", JSON.stringify(ENGINES.map((e) => e.label)) === JSON.stringify(["GPT-5.6 Luna", "GPT-5.6 Terra"]), JSON.stringify(ENGINES.map((e) => e.label)))
+    check("each says in one line what it is best for", ENGINES.every((e) => /^Best for /.test(e.detail) && e.detail.length <= 48 && !/—/.test(e.detail)))
+    check("each is a provider and tier the route accepts", ENGINES.every((e) => /provider: z\.enum\(\["anthropic", "openai"\]\)/.test(route) && e.provider === "openai" && ["fast", "strong"].includes(e.tier)))
+    check("and the resolver has a model for each, on OpenAI's provider", /openai: \{\s*fast: DEFAULT_MODEL,\s*strong: STRONG_MODEL/.test(provider) && /openAIProvider/.test(provider) && !/anthropicProvider/.test(provider))
+    check("Strength is Light, Standard and Deep, which are low, medium and high", STRENGTHS.map((s) => `${s.label}:${s.effort}`).join(",") === "Light:low,Standard:medium,Deep:high")
+    check("and the route takes only those, from a browser", /effort: z\.enum\(EFFORTS as \[Effort, \.\.\.Effort\[\]\]\)\.optional\(\)/.test(route) && /effort: body\.effort \?\?/.test(route))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

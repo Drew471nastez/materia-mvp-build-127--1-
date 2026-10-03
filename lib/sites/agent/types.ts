@@ -171,11 +171,13 @@ export interface ProviderRequest {
   /**
    * How hard to think, where the provider has such a control.
    *
-   * Anthropic's `output_config.effort` is a real dial on Sonnet 5 and Opus 5
-   * and is the difference between a considered multi-step edit and the first
-   * thing that answers the sentence. Optional and ignored by providers that
-   * have no equivalent, which is why it lives here rather than being smuggled
-   * through the model id.
+   * OpenAI's `reasoning.effort` (and Anthropic's `output_config.effort`) is
+   * the difference between a considered multi-step edit and the first thing
+   * that answers the sentence. The creator picks it in the chat as Strength:
+   * Light, Standard or Deep are low, medium and high. Optional, and each
+   * provider sends only what its models take (see `reasoningEffort` in
+   * ./openai-provider), which is why it lives here rather than being
+   * smuggled through the model id.
    */
   effort?: "low" | "medium" | "high" | "xhigh" | "max"
 }

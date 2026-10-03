@@ -12,11 +12,14 @@
  * translation between our turn shape and Anthropic's, and the arithmetic that
  * decides what a run cost.
  *
+ * Storelib AI runs on ChatGPT only for now, so this also checks the other
+ * half: the provider stays in the code and nothing a browser sends reaches it.
+ *
  * Run with:  npm run test:push
  */
 
 import { readUsage, toMessages } from "@/lib/sites/agent/anthropic-provider"
-import { DEFAULT_PROVIDER, modelFor } from "@/lib/sites/agent/provider"
+import { DEFAULT_PROVIDER, modelFor, OFFERED, offeredProvider, resolveProvider, substitutionNotice } from "@/lib/sites/agent/provider"
 import { costOf, chooseTier } from "@/lib/sites/agent/models"
 import type { AgentTurn } from "@/lib/sites/agent/types"
 import { readFileSync } from "node:fs"
@@ -198,30 +201,52 @@ section("Which model answers")
    * `/: "anthropic"/`, which matches half a dozen other lines in the same
    * module — flipping the actual fallback to "openai" left it green.
    */
-  check("Claude is the default", DEFAULT_PROVIDER === "anthropic", DEFAULT_PROVIDER)
+  /* Storelib AI runs on ChatGPT only for now (lib/sites/agent/provider.ts, OFFERED). */
+  check("ChatGPT is the default", DEFAULT_PROVIDER === "openai", DEFAULT_PROVIDER)
+  check("and the only provider offered", JSON.stringify(OFFERED) === JSON.stringify(["openai"]), JSON.stringify(OFFERED))
   check(
-    "Sonnet for everyday work, Opus for the hard change",
+    "a request that still names Claude, or anything else, is answered by ChatGPT",
+    offeredProvider("anthropic") === "openai" && offeredProvider("gpt") === "openai" && offeredProvider(undefined) === "openai" && offeredProvider("openai") === "openai",
+  )
+  {
+    const had = process.env.OPENAI_API_KEY
+    process.env.OPENAI_API_KEY = "sk-test-placeholder"
+    const resolved = resolveProvider({ requested: "anthropic", tier: "strong" })
+    check(
+      "so an old tab asking for Claude Opus gets the stronger ChatGPT model, with no notice about Claude",
+      resolved.id === "openai" && resolved.model === "gpt-5.6-terra" && resolved.substitutedFor === null && substitutionNotice(resolved) === null,
+      JSON.stringify({ id: resolved.id, model: resolved.model }),
+    )
+    if (had === undefined) delete process.env.OPENAI_API_KEY
+    else process.env.OPENAI_API_KEY = had
+  }
+  /* Kept, priced and tested, and reachable from nothing a browser sends. */
+  check(
+    "the Claude rows stay in the resolver for the day they come back",
     modelFor("anthropic", "fast") === "claude-sonnet-5" &&
       modelFor("anthropic", "strong") === "claude-opus-5",
     `${modelFor("anthropic", "fast")} / ${modelFor("anthropic", "strong")}`,
   )
+  check(
+    "but no product path imports the Anthropic provider",
+    !/from "\.\/anthropic-provider"/.test(provider) &&
+      ["app/api/website-builder/themes/[installId]/agent/route.ts", "app/api/sites/[siteId]/agent/route.ts", "app/api/app/products/category-suggestion/route.ts", "app/api/ai/seo/route.ts", "lib/products/category-suggest-ai.ts"].every(
+        (f) => !/anthropic-provider|@anthropic-ai|api\.anthropic\.com/.test(readFileSync(join(root, f), "utf8")),
+      ),
+  )
 
   /**
    * A key can be missing on a preview deployment or revoked, and the failure
-   * that produces — a run that starts, streams nothing, and dies on the first
-   * call — is expensive and confusing.
+   * that produces (a run that starts, streams nothing, and dies on the first
+   * call) is expensive and confusing.
    */
   check(
     "a provider this deployment cannot reach is checked BEFORE the run starts",
-    /export function isConfigured/.test(provider) && /ANTHROPIC_API_KEY/.test(provider),
+    /export function isConfigured/.test(provider) && /OPENAI_API_KEY/.test(provider) && /if \(!isConfigured\(chosen\)\) throw new NoProviderConfiguredError\(\)/.test(provider),
   )
   check(
-    "and a substitution is said out loud rather than made silently",
-    /substitutionNotice/.test(provider) && /is not configured on this deployment/.test(provider),
-  )
-  check(
-    "the switch's value is untrusted — anything else falls back to the default",
-    /isProviderId\(input\.requested\) \? input\.requested : DEFAULT_PROVIDER/.test(provider),
+    "the switch's value is untrusted: anything not offered is the default",
+    /isOffered\(requested\) \? requested : DEFAULT_PROVIDER/.test(provider),
   )
 }
 
@@ -284,15 +309,14 @@ section("Which model answers")
     /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: wantsTier \}\)/.test(route) &&
       !/provider: openAIProvider/.test(route),
   )
-  /**
-   * Checking only OPENAI_API_KEY here would refuse every request on a
-   * deployment that has moved to Claude — the exact migration this enables.
-   */
+  /* Storelib's key for an offered provider, or the creator's own OpenAI key or OpenRouter: a Claude key alone answers nothing now. */
   check(
-    "and either key, or one of the creator's own, is enough for the endpoint to be considered configured",
-    /!\(await canAnswer\(/.test(route) && /isConfigured\("anthropic"\) \|\| isConfigured\("openai"\)/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")),
+    "Storelib's OpenAI key, or one of the creator's own that can answer, is enough for the endpoint to be considered configured",
+    /!\(await canAnswer\(/.test(route) &&
+      /OFFERED\.some\(isConfigured\)/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")) &&
+      /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai", "openrouter"\]/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")),
   )
-  check("Claude's failures are reported in words", /describeAnthropicError\(thrown\)/.test(route))
+  check("failures are reported in plain words, never the provider's", /plainRunError\(thrown, "theme agent"\)/.test(route) && !/thrown\.message/.test(route))
 }
 
 {
@@ -300,7 +324,7 @@ section("Which model answers")
   const run = readFileSync(join(root, "lib/sites/agent/run.ts"), "utf8")
 
   check(
-    "the coding agent goes to Claude too",
+    "the coding agent resolves its provider the same way",
     /resolveForCreator\(creatorId, \{ requested: undefined \}\)/.test(sites) && /provider: resolved\.provider/.test(sites),
   )
 
@@ -338,21 +362,21 @@ section("The switch, where somebody can reach it")
 {
   const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
 
-  check("there are three choices and Claude is first", /id: "claude",[\s\S]{0,120}Claude Sonnet/.test(chat))
-  check("Opus is offered for a change somebody knows is hard", /id: "claude-opus"/.test(chat))
-  check("ChatGPT is still there", /id: "openai"/.test(chat))
+  /* The list itself is lib/website-builder/ask-engines.ts, tested in tests/ask-engines.test.ts. */
+  check("the chat's choices are ChatGPT's, from one list", /from "@\/lib\/website-builder\/ask-engines"/.test(chat) && !/id: "claude/.test(chat) && !/provider: "anthropic"/.test(chat))
   check(
-    "the default is Claude, not whatever came first alphabetically",
-    /React\.useState<EngineId>\("claude"\)/.test(chat),
+    "the default is the everyday ChatGPT model",
+    /React\.useState<EngineId>\(DEFAULT_ENGINE\)/.test(chat),
   )
   check(
-    "the choice is remembered per browser",
-    /localStorage\.setItem\(ENGINE_KEY/.test(chat) && /localStorage\.getItem\(ENGINE_KEY\)/.test(chat),
+    "the choice is remembered per browser, and a saved Claude id reads as the default",
+    /localStorage\.setItem\(ENGINE_KEY/.test(chat) && /engineFromSaved\(window\.localStorage\.getItem\(ENGINE_KEY\)\)/.test(chat),
   )
   check(
-    "and it is actually sent, read at send time like everything else",
+    "and it is actually sent, read at send time like everything else, with its strength",
     /provider: live\.current\.engine\.provider/.test(chat) &&
-      /tier: live\.current\.engine\.tier/.test(chat),
+      /tier: live\.current\.engine\.tier/.test(chat) &&
+      /effort: live\.current\.effort/.test(chat),
   )
   /**
    * A menu you can only close by choosing something is a menu people close by
