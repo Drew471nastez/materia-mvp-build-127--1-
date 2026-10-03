@@ -4,6 +4,7 @@ import { POST_COLUMNS, ownedMembership } from "@/lib/memberships/creator"
 import { checkPost } from "@/lib/memberships/plan"
 import { queuePostEmails, sendPendingPostEmails } from "@/lib/memberships/update-email"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { queueMembershipPostFanout } from "@/lib/notifications/fanout"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -64,6 +65,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     .select(POST_COLUMNS)
     .single()
   if (error || !saved) return NextResponse.json({ error: "The update could not be posted. Try again." }, { status: 500, headers: noStore })
+
+  /* Every member who can read it hears about it in their bell, in app only; the email below stays the creator's choice (lib/notifications/fanout.ts). Never fails the post. */
+  try {
+    await queueMembershipPostFanout(ctx.admin, { postId: saved.id, productId })
+  } catch (e) {
+    console.error("[memberships] post notice not queued:", e instanceof Error ? e.message : e)
+  }
 
   let emailing = 0
   if (post.sendEmail && product.status === "published") {

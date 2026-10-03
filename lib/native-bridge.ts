@@ -128,6 +128,34 @@ export function sanitizeNativeHome(destination: string | null | undefined): stri
   return ok ? destination : "/app"
 }
 
+/**
+ * A COMMUNITY TO OPEN ON, NOT A HOME TO KEEP. Somebody without seller access
+ * who is in a community opens the app on the one they used last
+ * (/api/native/start). That answer changes from one launch to the next, so
+ * it is never cached as the home (and the installed apps' offline shell
+ * would not know it): /native-start asks for it on each cold start and
+ * passes it through this check alone. Only a plain /community/<slug>.
+ */
+export function isCommunityStart(path: unknown): path is string {
+  return typeof path === "string" && /^\/community\/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(path)
+}
+
+/** The access token inside the stored session (plain JSON, or the "base64-" form the cookie storage writes), or null. */
+export function accessTokenOf(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  try {
+    let text = raw
+    if (text.startsWith("base64-")) {
+      const b64 = text.slice(7).replace(/-/g, "+").replace(/_/g, "/")
+      text = new TextDecoder().decode(Uint8Array.from(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)), (c) => c.charCodeAt(0)))
+    }
+    const v = JSON.parse(text) as { access_token?: unknown } | null
+    return typeof v?.access_token === "string" && v.access_token.length < 4096 ? v.access_token : null
+  } catch {
+    return null
+  }
+}
+
 export async function cacheNativeHome(rawDestination: string): Promise<void> {
   if (typeof window === "undefined") return
   const destination = sanitizeNativeHome(rawDestination)

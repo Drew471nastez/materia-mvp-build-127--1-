@@ -8,14 +8,49 @@
  *
  * Client-side, we resolve session + role and redirect:
  *   - seller access (lib/account/seller-access.ts) → /app
- *   - any other signed in account                  → /library
+ *   - any other signed in account                  → the community they used
+ *     last, when they are an active member of one and communities are on
+ *     (GET /api/native/start, asked on every cold start, never cached),
+ *     otherwise /library
  *   - no valid session                             → /welcome
  *
  * Splash hide is NOT called here.  The destination page hides it.
  */
 
 import { useEffect } from "react"
-import { sanitizeNativeHome } from "@/lib/native-bridge"
+import { accessTokenOf, isCommunityStart, sanitizeNativeHome } from "@/lib/native-bridge"
+
+/**
+ * THE COMMUNITY TO OPEN ON, for somebody whose home is the library. Asked of
+ * the server with the session's own token (the WebView's cookie may not be
+ * fresh yet on a cold start), with a short limit so a slow network costs at
+ * most a moment before the library opens as it always did. Sellers never
+ * ask: their start is unchanged.
+ */
+async function communityStart(accessToken: string | null): Promise<string | null> {
+  const ctl = new AbortController()
+  const limit = setTimeout(() => ctl.abort(), 2500)
+  try {
+    const res = await fetch("/api/native/start", {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      signal: ctl.signal,
+    })
+    if (!res.ok) return null
+    const to = ((await res.json()) as { to?: unknown } | null)?.to
+    return isCommunityStart(to) ? to : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(limit)
+  }
+}
+
+/** The library home (a buyer's), which a community may stand in for. */
+function isLibraryHome(home: string): boolean {
+  return sanitizeNativeHome(home).split(/[?#]/)[0] === "/library"
+}
 
 export default function NativeStartPage() {
   useEffect(() => {
@@ -38,7 +73,7 @@ export default function NativeStartPage() {
     function safeRedirect(url: string) {
       if (didRedirect) return
       const isHandoff = HANDOFF_OK.some((h) => url === h || url.startsWith(h))
-      const target = isHandoff ? url : sanitizeNativeHome(url)
+      const target = isHandoff || isCommunityStart(url) ? url : sanitizeNativeHome(url)
       if (target === "/native-start" || target.startsWith("/native-start")) return
       didRedirect = true
       window.location.replace(target)
@@ -130,6 +165,11 @@ export default function NativeStartPage() {
           const sessionRaw = localStorage.getItem(`sb-${ref}-auth-token`)
           const cachedHome = localStorage.getItem("sb-native-home")
           if (sessionRaw && cachedHome) {
+            /* A buyer's home: the community they used last opens instead, when there is one. */
+            if (isLibraryHome(cachedHome)) {
+              safeRedirect((await communityStart(accessTokenOf(sessionRaw))) || cachedHome)
+              return
+            }
             safeRedirect(cachedHome)
             return
           }
@@ -148,7 +188,7 @@ export default function NativeStartPage() {
           // Use cached destination if available — avoids a DB round-trip.
           const cached = await getCachedNativeHome()
           if (cached) {
-            safeRedirect(cached)
+            safeRedirect((isLibraryHome(cached) && (await communityStart(session.access_token))) || cached)
             return
           }
 
@@ -164,7 +204,8 @@ export default function NativeStartPage() {
           const { hasSellerAccess, readSellerAccess } = await import("@/lib/account/seller-access")
           const home = hasSellerAccess(await readSellerAccess(supabase, session.user.id)) ? "/app" : "/library"
           await cacheNativeHome(home)
-          safeRedirect(home)
+          /* The library is cached as the home; the community they used last is asked for on each start. */
+          safeRedirect((home === "/library" && (await communityStart(session.access_token))) || home)
           return
         }
 
