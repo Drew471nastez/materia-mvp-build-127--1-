@@ -73,6 +73,7 @@ import { MAX_CODE_ATTEMPTS, checkSectionSource, outOfAttempts } from "./compile-
 import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type SectionOrigin, type SelectedSectionContext } from "./selected-section"
 import { makeCodedCopy } from "./coded-copy"
 import { CREATIVE_BRIEF, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
+import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import type {
   AgentProvider,
   AgentTurn,
@@ -205,7 +206,8 @@ Rules:
 - update_section MERGES the settings you send. Send only the fields you are changing; everything you leave out keeps its value.
 - EVERY SETTING IS A CONTROL, and the control decides what it will take. A select takes one of its listed choices and nothing else. A toggle takes true or false. A slider takes a number inside its range. A colour takes a hex value like "#1a1a1a". A field id that does not exist, and a value the control cannot take, are BOTH silently ignored by the renderer — the change would look like it worked and do nothing. read_section lists every control on a section and what each one accepts; read_section_type does the same for a type you have not added yet.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
-- THERE IS ONE HEADER AND ONE FOOTER, built in: CONNECT TO THEM, never rebuild them. "Make my header like this", "add a menu", "put my logo in", "make the nav sticky" all mean read_section and update_section on the existing header (layout, sticky, logo_url, colour scheme, button), its nav_link blocks, or its menu setting set to one of the site's menus; the logo, store name and socials are theme settings (update_theme: logo_url, brand_name, social_*). The footer the same way. Never write a header, nav bar or footer section and never put their content in the page: it is refused, and it would be a second header with no cart drawer, search or working menu. Only when the creator explicitly asks for a header of their own is it ONE section file with "kind": "header" (it replaces the built-in one; menu from a link_list, logo from an image_picker or theme.logo.url). Never two headers.
+- THERE IS ONE HEADER AND ONE FOOTER, built in: CONNECT TO THEM, never rebuild them. "Make my header like this", "add a menu", "put my logo in", "make the nav sticky" all mean read_section and update_section on the existing header (layout, sticky, logo_url, colour scheme, button), or its menu setting set to one of the site's menus; the logo, store name and socials are theme settings (update_theme: logo_url, brand_name, social_*). The footer the same way. Never write a header, nav bar or footer section and never put their content in the page: it is refused, and it would be a second header with no cart drawer, search or working menu. Only when the creator explicitly asks for a header of their own is it ONE section file with "kind": "header" (it replaces the built-in one; menu from a link_list, logo from an image_picker or theme.logo.url). Never two headers.
+- THE HEADER'S NAVIGATION IS THE MAIN MENU (Website settings, Navigation), as in Shopify. "Add a Pricing link to the menu", "rename Shop to Store", "move About to the end", "take Blog out of the nav" all mean read_menus, then edit_menu on "main-menu", one link per call; a footer menu the same way on its own handle. Never add, change or remove nav_link blocks for this: a header that shows a menu does not draw them, so the change would be invisible. Link a page by its path ("/pages/pricing").
 - PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - THE SELECTED SECTION IS EDITED IN PLACE: its settings, blocks or own code, never a new section beside it. A built in one whose change needs code: ask once, then copy_section_to_code and edit the copy.
@@ -514,6 +516,8 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
         additionalProperties: false,
       },
     },
+    /* The site's navigation: the Main menu the header shows (./menu-edits). */
+    ...MENU_TOOLS,
     /* Last, so every tool above it keeps its place in the cached prefix. */
     ASK_TOOL,
   ]
@@ -1148,6 +1152,37 @@ export async function* themeAgent(
           continue
         }
 
+        /*
+          THE SITE'S NAVIGATION (./menu-edits). Read as it stands now, and
+          changed one link at a time through the theme's `menus`, with the
+          header pointed at the Main menu when it still drew its own links.
+          A whole site change, so the lock refuses it like update_theme.
+        */
+        if (call.name === "read_menus") {
+          results.push({ id: call.id, output: describeMenus(state) })
+          yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+          continue
+        }
+        if (call.name === "edit_menu") {
+          if (locked) {
+            results.push({ id: call.id, output: "Only the open section may change in this edit, and a menu is the whole site's. Say in your reply that changing the menu needs the lock cleared first." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          const edited = editMenu(call.argumentsJson, state)
+          results.push({ id: call.id, output: edited.output })
+          for (const op of edited.ops ?? []) {
+            state = applyOp(state, op, schemas)
+            ops.push(op)
+            if (op.kind === "update_section") touched.add(op.id)
+            yield { type: "op", op, label: op.kind === "update_theme" ? "Changed the menu" : "Pointed the header at the Main menu" }
+          }
+          if (edited.ops?.length) done.push("Changed the menu")
+          forget("read_section:")
+          yield { type: "step", id: call.id, label: stepLabel, state: edited.failed ? "failed" : "done" }
+          continue
+        }
+
         /* A read of something this run already read, unchanged since: a note, not the text again. */
         const readKey = READ_TOOLS.has(call.name) ? `${call.name}:${readTarget(call.argumentsJson)}` : ""
         if (readKey && reads.has(readKey)) {
@@ -1554,6 +1589,7 @@ export function subjectFor(name: string, argumentsJson: string, state: ThemeStat
   } catch {
     return ""
   }
+  if (name === "edit_menu") return editingSubject(args.menu === "main-menu" || !args.menu ? "the Main menu" : "a menu")
   if (name === "add_section") {
     const type = typeof args.sectionType === "string" ? args.sectionType : ""
     return type && schemaOf(schemas, type) ? newSectionSubject(typeName(schemas, type)) : ""
@@ -1871,6 +1907,7 @@ function execute(
       : `[${locked}]`
 
     const wholePage: Record<string, string> = {
+      edit_menu: "changing a menu, which the whole site shows",
       add_section: "adding a section",
       remove_section: "removing a section",
       move_section: "moving a section",

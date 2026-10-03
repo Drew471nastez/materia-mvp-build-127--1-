@@ -45,6 +45,7 @@ import {
   readReview,
 } from "@/lib/website-builder/agent/creative-section"
 import { readAsk, ASK_TOOL } from "@/lib/website-builder/agent/ask"
+import { describeMenus, editMenu } from "@/lib/website-builder/agent/menu-edits"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { validateSection } from "@/lib/storelib-ai"
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
@@ -458,6 +459,54 @@ async function main() {
     const chat = read("components/website-builder/theme-chat.tsx")
     check("typing while it listens wins, and the next words go at the new caret", /if \(listening\) rebaseVoice\(event\.target\.value, event\.target\.selectionStart\)/.test(chat))
     check("the words start where the caret is", /anchor\.current = anchorAt\(draft, caret\)/.test(chat))
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  section("Navigation is the Main menu: the AI edits the menu, never nav_link blocks")
+  // ═════════════════════════════════════════════════════════════════════════
+  {
+    const header: SectionInstance = {
+      id: "header-1",
+      type: "header",
+      name: "Header",
+      settings: {},
+      blocks: [
+        { id: "n1", type: "nav_link", settings: { label: "Shop", url: "/shop", link_type: "custom" } },
+        { id: "n2", type: "nav_link", settings: { label: "About", url: "/pages/about", link_type: "custom" } },
+      ],
+    }
+    const footerMenu = { title: "Footer", links: [{ title: "Terms", url: "/policies/terms" }] }
+    const state: ThemeState = { sections: [header, mk("hero-1", "hero"), mk("footer-1", "footer")], settings: { menus: { footer: footerMenu } } }
+    check("read_menus says which menu the header shows, and every menu's links", /THE HEADER SHOWS: main-menu/.test(describeMenus(state)) && /- Shop -> \/shop/.test(describeMenus(state)) && /footer "Footer"/.test(describeMenus(state)))
+    const added = editMenu(JSON.stringify({ menu: "main-menu", action: "add", link: "", title: "Pricing", url: "/pages/pricing", index: -1 }), state)
+    const themeOp = added.ops?.find((o) => o.kind === "update_theme") as { settings: { menus: Record<string, { links: { title: string }[] }> } } | undefined
+    check("adding a link writes the Main menu: the header's links, then the new one", themeOp?.settings.menus["main-menu"].links.map((l) => l.title).join() === "Shop,About,Pricing", themeOp?.settings.menus)
+    check("every other menu is carried over as it was", JSON.stringify(themeOp?.settings.menus.footer) === JSON.stringify(footerMenu))
+    check("the header is pointed at the Main menu, its own blocks untouched", added.ops?.some((o) => o.kind === "update_section" && o.id === "header-1" && (o.settings as { menu?: string }).menu === "main-menu") === true && !added.ops?.some((o) => o.kind === "add_block" || o.kind === "remove_block" || o.kind === "update_block"))
+    let after = state
+    for (const op of added.ops ?? []) after = { ...after, ...(op.kind === "update_theme" ? { settings: { ...after.settings, ...op.settings } } : { sections: after.sections.map((s) => (op.kind === "update_section" && s.id === op.id ? { ...s, settings: { ...s.settings, ...op.settings } } : s)) }) }
+    const renamed = editMenu(JSON.stringify({ menu: "main-menu", action: "update", link: "shop", title: "Store", url: "", index: -1 }), after)
+    const renamedMenus = (renamed.ops?.find((o) => o.kind === "update_theme") as { settings: { menus: Record<string, { links: { title: string; url: string }[] }> } }).settings.menus
+    check("a rename changes that link only, and the header is not pointed twice", renamedMenus["main-menu"].links.map((l) => `${l.title} ${l.url}`).join() === "Store /shop,About /pages/about,Pricing /pages/pricing" && renamed.ops?.length === 1)
+    const removed = editMenu(JSON.stringify({ menu: "main-menu", action: "remove", link: "Nope", title: "", url: "", index: -1 }), after)
+    check("a link that is not there is refused, naming the ones that are", removed.failed === true && /Shop, About, Pricing/.test(removed.output) && !removed.ops)
+    const unsafe = editMenu(JSON.stringify({ menu: "main-menu", action: "add", link: "", title: "Bad", url: "javascript:alert(1)", index: 0 }), after)
+    const unsafeLink = (unsafe.ops?.find((o) => o.kind === "update_theme") as { settings: { menus: Record<string, { links: { title: string; url: string }[] }> } }).settings.menus["main-menu"].links[0]
+    check("an unsafe address is made safe by the theme's own cleaner", unsafeLink.title === "Bad" && !/javascript/i.test(unsafeLink.url))
+    const { provider } = recording([{ calls: [["edit_menu", { menu: "main-menu", action: "add", link: "", title: "Pricing", url: "/pages/pricing", index: -1 }]] }, { text: "Added Pricing to the menu." }])
+    const events: ThemeAgentEvent[] = []
+    const loop = themeAgent({ provider, model: "test", prompt: "add a Pricing link to the menu", state, page: "home", addable: ADDABLE_SECTIONS })
+    let s = await loop.next()
+    for (; !s.done; s = await loop.next()) events.push(s.value)
+    check("through the loop: the run's operations are the menu edit, and they reach the editor", s.value.status === "succeeded" && s.value.ops.some((o) => o.kind === "update_theme") && events.some((e) => e.type === "op" && e.label === "Changed the menu"))
+    const lockedLoop = themeAgent({ provider: recording([{ calls: [["edit_menu", { menu: "main-menu", action: "remove", link: "Shop", title: "", url: "", index: -1 }]] }, { text: "x" }]).provider, model: "test", prompt: "x", state, page: "home", addable: ADDABLE_SECTIONS, selectedSectionId: "hero-1", lockToSelection: true })
+    let l = await lockedLoop.next()
+    for (; !l.done; l = await lockedLoop.next()) {
+      /* drained */
+    }
+    check("locked to one section, a menu edit is refused", !l.value.ops.some((o) => o.kind === "update_theme"))
+    const system = read("lib/website-builder/agent/loop.ts")
+    check("the rule says navigation is the Main menu and never nav_link blocks", /THE HEADER'S NAVIGATION IS THE MAIN MENU/.test(system) && /Never add, change or remove nav_link blocks for this/.test(system) && !/its nav_link blocks, or its menu setting/.test(system))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
