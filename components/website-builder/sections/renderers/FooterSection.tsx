@@ -296,7 +296,7 @@ export function FooterSection({
   /* And a Contact column when the creator gave an email or a phone number. */
   const contact = footerContactLinks(s.contact_email, s.contact_phone)
   const contactColumn: FooterColumn[] = contact.length > 0
-    ? [{ id: "fcontact", heading: str(s.contact_heading, "Contact"), links: contact }]
+    ? [{ id: "fcontact", heading: "Contact", links: contact }]
     : []
   const columns = [...menuColumns, ...defaults, ...blockColumns, ...contactColumn]
   const linkedUrls = [...columns.flatMap((col) => col.links), ...loose].map((l) => l.url)
@@ -307,7 +307,14 @@ export function FooterSection({
     link typed into the footer wins for its platform and shows whatever that
     toggle says. Which addresses count is lib/website-builder/social-links.ts.
   */
-  const socials = socialLinks(t.social_show_in_footer !== false ? t : {}, s)
+  const own = {
+    social_instagram: s.social_instagram,
+    social_twitter: s.social_twitter,
+    social_facebook: s.social_facebook,
+    social_tiktok: s.social_tiktok,
+    social_youtube: s.social_youtube,
+  }
+  const socials = socialLinks(t.social_show_in_footer !== false ? t : {}, own)
 
   const showSocial = bool(s.show_social, true) && socials.length > 0
   /* On unless turned off: a footer is where a visitor looks for the sign-up. */

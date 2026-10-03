@@ -168,78 +168,133 @@ try {
   }
 
   /* ── 3. Published, 390 wide ──────────────────────────────────────────── */
+  /*
+    The menu opens UNDER the header (Dawn's way): the header keeps its place
+    and its opacity, the hamburger is the close, and the panel and backdrop
+    start at the header's bottom edge. The opening is filmed a frame at a
+    time: how long the slide takes, how many frames it is drawn in, the
+    longest gap between two frames, and whether it only ever moves one way.
+  */
   for (const style of ["left", "right", "full"]) {
     console.log(`\nPublished, 390px, menu ${style}`)
     const page = await open("live.html", 390, 760, { mobile_menu_style: style })
-    const r = await page.evaluate(async () => {
-      const res = {}
+    await page.evaluate(async () => {
       window.scrollTo(0, 600)
       await window.__wait(100)
-      const marker = document.getElementById("marker")
-      const logo = document.querySelector('a[aria-label="Go to the home page"]')
-      const before = { marker: window.__rect(marker), logo: [...document.querySelectorAll('a[aria-label="Go to the home page"]')].filter(window.__shown).map(window.__rect)[0], bar: innerWidth - document.documentElement.clientWidth }
+      window.__before = { marker: window.__rect(document.getElementById("marker")) }
+      window.__burger = [...document.querySelectorAll('button[aria-label="Open menu"]')].find(window.__shown)
+      window.__burger.focus()
+    })
+    const r = await page.evaluate(async () => {
+      const res = {}
       res.drawerBeforeOpen = document.querySelectorAll('[data-site-drawer="menu"]').length
-      const burger = [...document.querySelectorAll('button[aria-label="Open menu"]')].find(window.__shown)
-      burger.focus()
+      const burger = window.__burger
+      const header = burger.closest("[data-section]")
+      const headerRect = window.__rect(header)
+      /* The film. */
+      const film = []
+      let last = performance.now()
+      const t0 = last
+      let watching = true
+      const tick = (now) => {
+        const d = document.querySelector('[data-site-drawer="menu"]')
+        const b = document.querySelector("[data-site-drawer-backdrop]")
+        if (d) {
+          const m = new DOMMatrixReadOnly(getComputedStyle(d).transform)
+          film.push({ t: Math.round(now - t0), gap: Math.round(now - last), x: Math.round(m.m41), y: Math.round(m.m42), fade: b ? Number(getComputedStyle(b).opacity) : 0, header: Number(getComputedStyle(header).opacity) })
+        }
+        last = now
+        if (watching) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
       burger.click()
-      await window.__wait(650)
+      await window.__wait(700)
+      watching = false
+      const moving = film.filter((f) => f.x !== 0 || f.y !== 0)
+      const settledAt = film.find((f, i) => i > 0 && f.x === 0 && f.y === 0 && film[i - 1] && (film[i - 1].x !== 0 || film[i - 1].y !== 0))
+      const travel = film.map((f) => Math.abs(f.x) + Math.abs(f.y))
+      res.motion = {
+        slideMs: settledAt ? settledAt.t - (moving[0]?.t ?? 0) : null,
+        framesDrawn: moving.length,
+        longestFrameGapMs: Math.max(...film.map((f) => f.gap)),
+        oneWay: travel.every((v, i) => i === 0 || v <= travel[i - 1] + 1),
+        backdropEnd: film.at(-1)?.fade,
+        headerOpacityMin: Math.min(...film.map((f) => f.header)),
+      }
       const d = document.querySelector('[data-site-drawer="menu"]')
       const backdrop = document.querySelector("[data-site-drawer-backdrop]")
-      const header = burger.closest("[data-section]")
       res.rect = window.__rect(d)
+      res.headerBottom = headerRect.y + headerRect.h
+      res.backdropTop = window.__rect(backdrop).y
       res.z = { backdrop: getComputedStyle(backdrop).zIndex, panel: getComputedStyle(d).zIndex, header: getComputedStyle(header).zIndex }
       const pr = d.getBoundingClientRect()
-      const inPanel = document.elementFromPoint(pr.left + pr.width / 2, pr.top + 120)
+      const inPanel = document.elementFromPoint(pr.left + pr.width / 2, pr.top + 60)
       res.topOfPanelIsPanel = !!inPanel && d.contains(inPanel)
-      /* A point over the header, outside the panel when the panel leaves room. */
-      const hx = pr.left > 20 ? 10 : pr.right < innerWidth - 20 ? innerWidth - 10 : null
-      res.headerCoveredByBackdrop = hx === null ? "panel covers the screen" : document.elementFromPoint(hx, 20) === backdrop
-      const after = { marker: window.__rect(marker), logo: before.logo, bar: innerWidth - document.documentElement.clientWidth }
-      res.layoutShiftPx = Math.max(Math.abs(after.marker.x - before.marker.x), Math.abs(after.marker.y - before.marker.y))
-      res.scrollbar = { before: before.bar, open: after.bar }
-      res.focusInside = d.contains(document.activeElement)
+      const onHeader = document.elementFromPoint(burger.getBoundingClientRect().left + 10, burger.getBoundingClientRect().top + 10)
+      res.hamburgerReachable = !!onHeader && burger.contains(onHeader)
+      res.hamburgerSays = burger.getAttribute("aria-label")
+      res.layoutShiftPx = Math.max(Math.abs(window.__rect(document.getElementById("marker")).x - window.__before.marker.x), Math.abs(window.__rect(document.getElementById("marker")).y - window.__before.marker.y))
       res.focused = document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent?.trim()
-      /* Tab round the whole menu twice: it never leaves. */
-      let escaped = 0
-      for (let i = 0; i < 16; i++) {
-        document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
-        if (!d.contains(document.activeElement)) escaped++
-      }
-      res.tabEscapes = escaped
-      /* The sub-menu: in, with Back, and out again. */
+      return res
+    })
+    /* Tab with the real keyboard, twice round: focus stays in the menu or on the hamburger. */
+    let escaped = 0
+    const ring = new Set()
+    for (let i = 0; i < 18; i++) {
+      await page.keyboard.press("Tab")
+      const where = await page.evaluate(() => {
+        const a = document.activeElement
+        const d = document.querySelector('[data-site-drawer="menu"]')
+        return { inMenu: !!d && d.contains(a), onBurger: a === window.__burger, name: a?.getAttribute("aria-label") || a?.textContent?.trim().slice(0, 20) }
+      })
+      if (!where.inMenu && !where.onBurger) escaped++
+      ring.add(where.name)
+    }
+    r.tabEscapes = escaped
+    r.tabRing = [...ring]
+    const rest = await page.evaluate(async () => {
+      const res = {}
+      const d = document.querySelector('[data-site-drawer="menu"]')
       const row = [...d.querySelectorAll("[data-submenu-trigger]")][0]
       row.focus()
       row.click()
       await window.__wait(450)
       const back = d.querySelector('button[aria-label="Back to main menu"]')
       const sub = [...d.querySelectorAll("nav a")].filter((a) => a.getClientRects().length && !a.closest("[inert]")).map((a) => a.textContent.trim())
-      res.submenu = { links: sub, backFocused: document.activeElement === back, rootInert: !!d.querySelector("nav [inert]") }
+      res.submenu = { links: sub, backFocused: document.activeElement === back, backReads: back?.textContent?.trim() }
       back.click()
       await window.__wait(450)
       res.submenu.returnedTo = document.activeElement?.textContent?.trim()
-      /* Escape closes and lets go of the page where it was. */
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
-      await window.__wait(650)
+      /* The hamburger closes it, and the page is let go where it was. */
+      window.__burger.click()
+      await window.__wait(600)
       res.afterClose = {
         drawers: document.querySelectorAll('[data-site-drawer="menu"]').length,
         scrollY: Math.round(scrollY),
         bodyPosition: document.body.style.position || "static",
-        focusBackOnHamburger: document.activeElement === burger,
-        markerShiftPx: Math.abs(window.__rect(marker).y - before.marker.y),
+        focusBackOnHamburger: document.activeElement === window.__burger,
+        markerShiftPx: Math.abs(window.__rect(document.getElementById("marker")).y - window.__before.marker.y),
       }
       return res
     })
+    Object.assign(r, rest)
     report[`live390_${style}`] = r
     console.log(`  ${JSON.stringify(r)}`)
+    const before = broken
     if (r.drawerBeforeOpen !== 0) fail("a closed menu drawer is in the page")
-    if (!(Number(r.z.panel) > Number(r.z.backdrop) && Number(r.z.backdrop) > Number(r.z.header || 0))) fail(`z order wrong: ${JSON.stringify(r.z)}`)
+    if (Math.abs(r.rect.y - r.headerBottom) > 1 || Math.abs(r.backdropTop - r.headerBottom) > 1) fail(`the menu does not start under the header (panel ${r.rect.y}, backdrop ${r.backdropTop}, header bottom ${r.headerBottom})`)
+    if (r.motion.headerOpacityMin < 1) fail(`the header faded to ${r.motion.headerOpacityMin} while the menu opened`)
+    if (!r.hamburgerReachable || r.hamburgerSays !== "Close menu") fail("the hamburger is not the close while the menu is open")
+    if (!(r.motion.slideMs >= 240 && r.motion.slideMs <= 360)) fail(`the slide took ${r.motion.slideMs}ms`)
+    if (!r.motion.oneWay) fail("the slide went back on itself")
+    if (r.motion.longestFrameGapMs > 50) fail(`a ${r.motion.longestFrameGapMs}ms gap between frames while opening`)
+    if (!(Number(r.z.panel) > Number(r.z.backdrop))) fail(`z order wrong: ${JSON.stringify(r.z)}`)
     if (!r.topOfPanelIsPanel) fail("the panel is not the topmost thing inside its own rectangle")
-    if (r.headerCoveredByBackdrop === false) fail("the header is drawn above the backdrop")
     if (r.layoutShiftPx !== 0) fail(`opening moved the page ${r.layoutShiftPx}px`)
-    if (!r.focusInside || r.tabEscapes > 0) fail(`focus left the menu (${r.tabEscapes} of 16 Tabs)`)
+    if (r.tabEscapes > 0) fail(`focus left the menu on ${r.tabEscapes} of 18 Tabs`)
     if (!r.submenu.backFocused || r.submenu.links.join() !== "LinkedIn posts,Newsletters") fail(`sub-menu: ${JSON.stringify(r.submenu)}`)
     if (r.afterClose.drawers !== 0 || r.afterClose.scrollY !== 600 || r.afterClose.bodyPosition !== "static" || !r.afterClose.focusBackOnHamburger) fail(`after close: ${JSON.stringify(r.afterClose)}`)
-    if (!broken) ok(`menu ${style}: rect ${JSON.stringify(r.rect)}, shift ${r.layoutShiftPx}px, z ${r.z.backdrop}/${r.z.panel} over header ${r.z.header}`)
+    if (broken === before) ok(`menu ${style}: under the header at ${r.rect.y}px, slide ${r.motion.slideMs}ms in ${r.motion.framesDrawn} frames (longest gap ${r.motion.longestFrameGapMs}ms), header opacity ${r.motion.headerOpacityMin}, shift ${r.layoutShiftPx}px`)
     await page.close()
   }
 

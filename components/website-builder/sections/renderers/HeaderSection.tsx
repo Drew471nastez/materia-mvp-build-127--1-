@@ -41,7 +41,7 @@ import {
 import { useStorelibPage } from "../storelib-sources"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { headerBorderHere, headerMenuBlocks, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
-import { MENU_DRAWER_MAX_WIDTH, isInPageLink, menuDrawerExists } from "@/lib/website-builder/header-drawers"
+import { MENU_DRAWER_MAX_WIDTH, menuDrawerExists } from "@/lib/website-builder/header-drawers"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
@@ -1025,7 +1025,9 @@ function MobileDrawerInner({
   const slidePanel = useDrawerMotion(
     open,
     "transform",
-    menuStyle === "full" ? "translate3d(0, -101%, 0)" : menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
+    /* Covers the screen slides in from the side too: from the top it would
+       travel across the header it now opens under. */
+    menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
     "translate3d(0, 0, 0)",
   )
   const fadeBackdrop = useDrawerMotion(open, "opacity", "0", "1")
@@ -1139,26 +1141,6 @@ function MobileDrawerInner({
     e.preventDefault()
     e.stopPropagation()
     onClose()
-
-    /*
-      A LINK TO A PLACE ON THIS PAGE IS HANDED ON, NOT LOADED. `#pricing`
-      used to go through `location.assign`, a jump with no scroll and, while
-      the page was still pinned under the menu, a jump the lock then undid.
-      Once the menu has let go of the page, the same address is clicked as
-      an ordinary anchor, so whatever scrolls the site to its anchors gets
-      the click, and the browser's own jump when nothing does.
-    */
-    if (!onEditorNavigate && isInPageLink(href, window.location.pathname)) {
-      window.setTimeout(() => {
-        const a = document.createElement("a")
-        a.href = href
-        a.hidden = true
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-      }, CLOSE_MS)
-      return
-    }
 
     /* The second argument says this link IS the site's navigation rather
        than content being edited, so the editor follows it with the
@@ -2916,8 +2898,18 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
 
   const headerRef = useRef<HTMLDivElement | null>(null)
   /*
-    A DRAWER OVER THE PAGE, the menu or the bag: the header fades under it and
-    its show on scroll up stands still. See useHeaderUnderDrawer.
+    ONE REF CALLBACK FOR THE LIFE OF THE HEADER. An inline arrow is a new
+    callback every render, and React detaches the old one (null) before the
+    drawers inside the header run their layout effects: the menu measured a
+    header that was not there, and opened over it instead of under it.
+  */
+  const attachHeader = useCallback((el: HTMLDivElement | null) => {
+    headerRef.current = el
+    scrollAnchorRef.current = el
+  }, [])
+  /*
+    A DRAWER OVER THE PAGE, the menu or the bag: the header's show on scroll
+    up stands still, so the lock is not read as a scroll.
   */
   const drawerOpen = mobileNavOpen || (showCart && cartOpen)
   drawerOverPage.current = drawerOpen
@@ -3243,10 +3235,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           // prop cannot overwrite them on an unrelated re-render.
           ...overlayMargin,
         }}
-        forwardRef={(el: HTMLDivElement | null) => {
-          headerRef.current = el
-          scrollAnchorRef.current = el
-        }}
+        forwardRef={attachHeader}
       >
         {headerInner}
         {mobileDrawer}
@@ -3270,9 +3259,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       dataSticky="none"
       className={transparent ? "z-[60]" : undefined}
       style={overlayMargin}
-      forwardRef={(el: HTMLDivElement | null) => {
-        headerRef.current = el
-      }}
+      forwardRef={attachHeader}
     >
       {headerInner}
       {mobileDrawer}

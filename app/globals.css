@@ -6777,13 +6777,22 @@ html[data-tab-hidden] .ask-step-mark[data-state="running"] .ask-step-dot { anima
    the section after a header painted over the header's dropdown whatever
    z-index the dropdown had. The section somebody is pointing at, typing in,
    or has a pop-up open in is lifted one step, on the live site and in the
-   canvas alike. `:where` keeps it below any z-index a section sets itself,
-   the sticky header's included. */
-:where([data-section]:hover, [data-section]:focus-within) {
-  z-index: 1;
-}
-:where([data-section]:has([data-sl-open], [aria-expanded="true"]), [data-section]:has(:popover-open), [data-section]:has(:modal)) {
-  z-index: 2;
+   canvas alike.
+
+   IN A LAYER, BELOW THE UTILITIES. `:where` alone does not keep it below a
+   z-index a section sets with a class: unlayered CSS beats every layered
+   rule, Tailwind's `z-[60]` included. So the moment the header's hamburger
+   said aria-expanded="true", the sticky header dropped from 60 to 2, the
+   same as an open section further down, which then painted over it: the
+   header vanished behind the page with its menu open. In `components` the
+   header's own z-index wins, as this comment always said it would. */
+@layer components {
+  :where([data-section]:hover, [data-section]:focus-within) {
+    z-index: 1;
+  }
+  :where([data-section]:has([data-sl-open], [aria-expanded="true"]), [data-section]:has(:popover-open), [data-section]:has(:modal)) {
+    z-index: 2;
+  }
 }
 
 /* A retaken website cover fading in over the one it replaces
