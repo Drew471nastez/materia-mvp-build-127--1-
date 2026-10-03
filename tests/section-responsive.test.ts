@@ -185,6 +185,7 @@ const editor = readFileSync(
 )
 /* Add a section: the phone's sheet and the computer's dialog, in their own module. */
 const library = readFileSync(join(root, "components/website-builder/editor/section-library.tsx"), "utf8")
+const sectionsList = readFileSync(join(root, "components/website-builder/editor/sections-list.tsx"), "utf8")
 const libraryPhone = library.slice(library.indexOf("if (phone) {"), library.indexOf("// ── A computer"))
 const nativeChromeSrc = readFileSync(join(root, "components/website-builder/native-chrome.ts"), "utf8")
 const scrollbarSrc = readFileSync(join(root, "components/website-builder/canvas-scrollbar.tsx"), "utf8")
@@ -920,26 +921,16 @@ check(
 check(
   "the header and the footer can be brought back, because the eye is a button",
   /**
-   * It was a static icon: a row that had been hidden said so and gave you
-   * nothing to do about it. For an ordinary section that is a detour, since
-   * the three dots beside it carry Show. For the header and the footer it was
-   * a dead end — they are chrome, so they have no three dots, and the header's
-   * settings panel is a bespoke one with no Hide/Show in it. Hiding the header
-   * was a one-way door: the row greyed out, the site lost its header, and no
-   * control anywhere in the editor brought it back.
+   * A hidden header with no way back was a one-way door. The eye is a button
+   * on every row, drawn at rest on a hidden one, and the header and footer
+   * rows are given the handler. Every row is handed a name resolved from the
+   * schema (lib/website-builder/section-name.ts), never the stale copy.
    */
-  // `section.name` is a copy taken when the section was added and it goes
-  // stale when somebody renames the section in its code, so every row is
-  // handed a name resolved from the schema. See lib/website-builder/section-name.ts.
-  /aria-label=\{section\.hidden \? `Show \$\{displayName\}` : `Hide \$\{displayName\}`\}/.test(editor) &&
-    /\{\(section\.hidden \|\| isStructure\) && \(/.test(editor) &&
-    /onToggleHide\(\)\s*\n\s*\}\}/.test(editor) &&
-    // drawn at rest when the row is hidden, since that is the row that needs
-    // a way out, and under the pointer on the two rows with nothing else
-    /section\.hidden \|\| isSelected\s*\n\s*\? "opacity-100"\s*\n\s*: "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"/.test(editor) &&
-    // and the header row is still given the handler in the first place
-    /onToggleHide=\{\(\) => toggleSectionHidden\(header\.id\)\}/.test(editor) &&
-    /onToggleHide=\{\(\) => toggleSectionHidden\(footer\.id\)\}/.test(editor),
+  /label=\{hidden \? `Show \$\{displayName\}` : `Hide \$\{displayName\}`\}/.test(sectionsList) &&
+    /shown=\{hidden \|\| isSelected\}/.test(sectionsList) &&
+    /onToggleHide=\{\(\) => onToggleHide\(s\.id\)\}\s*\n\s*chrome=\{role\}/.test(sectionsList) &&
+    /onToggleHide=\{toggleSectionHidden\}/.test(editor) &&
+    /nameOf=\{\(s\) => sectionDisplayName\(s, librarySchemas\)\}/.test(editor),
 )
 
 check(
@@ -1446,19 +1437,18 @@ check(
 )
 
 check(
-  "Add section is the first thing in the sheet on a phone, and the last on a desktop",
+  "Add section is under the header, at the top of the page's own sections, and again at their end",
   /**
-   * At the bottom of the list it is below the header, every body section and
-   * every insert slot: on a phone that is a scroll to the end of a sheet
-   * before you can add anything, and the sheet is the only way in. The list
-   * grows, so the control gets further away the more you have built.
-   *
-   * Above the list on a phone, where the thumb already is. The desktop keeps
-   * it at the bottom, where the whole list is visible above it and the button
-   * reads as the end of it.
+   * The owner asked for it the way a shop's theme editor has it: one under
+   * the Header group, which adds at the top of the page, and one at the foot
+   * of the Template group, which adds at the end. On a phone the top one is
+   * where the thumb already is, which is what the old phone-only button at
+   * the top of the sheet was for.
    */
-  /\{isMobileView && \(\s*\n\s*<button\s*\n\s*className="mb-3 w-full flex items-center gap-2\.5 px-3 py-3/.test(editor) &&
-    /\{!isMobileView && \(\s*\n\s*<button\s*\n\s*className="w-full flex items-center gap-2\.5 px-3 py-3/.test(editor),
+  /<GroupLabel>Header<\/GroupLabel>[\s\S]{0,200}?<AddSectionButton onClick=\{\(\) => onAdd\(0\)\} \/>/.test(sectionsList) &&
+    /<\/DndContext>\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null\)\} \/>/.test(sectionsList) &&
+    (sectionsList.match(/<AddSectionButton /g) ?? []).length === 2 &&
+    /setPendingInsertIndex\(at === null \? null : \(header \? 1 : 0\) \+ at\)/.test(editor),
 )
 
 check(
@@ -1499,13 +1489,7 @@ check(
 
 check(
   "the header and the footer wear a dark grey badge, because they are the two rows that are different",
-  /**
-   * Grey, then black on the owner's word, and now a dark grey on the
-   * owner's word again: still the darkest tile in the list, because these
-   * are the only two rows that cannot be moved, duplicated or deleted and
-   * the badge says so before anybody tries, but not full black.
-   */
-  /isSelected \? "bg-white\/15 text-white" : "bg-\[#4d5058\] text-white"/.test(editor),
+  /isSelected \? "bg-white\/15 text-white" : "bg-\[#4d5058\] text-white"/.test(sectionsList),
 )
 
 check(
@@ -1561,7 +1545,8 @@ check(
     const types = settingsFiles[0]
     const list = types.slice(types.indexOf("SETTINGS_SECTIONS = ["), types.indexOf("] as const"))
     return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions", group: "site" \}/.test(list) &&
-      (list.match(/\{ id: "/g) ?? []).length === 9
+      /\{ id: "navigation", label: "Navigation", group: "site" \}/.test(list) &&
+      (list.match(/\{ id: "/g) ?? []).length === 10
   })(),
 )
 
@@ -1873,10 +1858,13 @@ check(
 )
 
 check(
-  "the section list has a hairline between rows, drawn without waiting for a cursor",
-  // There is no hover on a phone, so a hover-only divider is no divider, and
-  // the list read as one block.
-  /absolute inset-x-2 h-px bg-border\/50 transition-colors duration-150 group-hover:bg-foreground\/50/.test(editor),
+  "the section list has an insert line between rows, and the three groups are ruled apart",
+  // A thin line between two rows that adds a section there, under the pointer;
+  // and a hairline between Header, Template and Footer drawn at rest, so on a
+  // phone, where nothing hovers, the list still reads as three parts.
+  /data-insert-section=""/.test(sectionsList) &&
+    /group-hover\/ins:bg-\[#2563eb\]\/60/.test(sectionsList) &&
+    (sectionsList.match(/<div className="mx-2 my-2 h-px bg-\[#e5e7eb\]" aria-hidden \/>/g) ?? []).length === 2,
 )
 
 
@@ -2123,23 +2111,25 @@ section("The sidebar: one menu per row, badges for the chrome, and a width you s
 // ===========================================================================
 
 check(
-  "a row shows one three-dots button under the pointer, and it opens the same menu a right-click does",
-  !/title="Remove"/.test(editor) &&
-    /aria-label=\{`Options for \$\{displayName\}`\}/.test(editor) &&
-    // The three dots are the dropdown's own trigger, so open and close are
-    // its business; and the menu is the app's dropdown, with no red row.
-    /<DropdownMenuTrigger asChild>\s*<button\s*type="button"\s*aria-label=\{`Options for \$\{displayName\}`\}/.test(editor) &&
-    /Duplicate\s*<\/DropdownMenuItem>/.test(editor) &&
-    /Delete\s*<\/DropdownMenuItem>/.test(editor) &&
-    !/text-red-500 hover:bg-red-50/.test(editor),
+  "a row shows Hide, Delete and three dots under the pointer, and the dots open the same menu a right-click does",
+  !/title="Remove"/.test(sectionsList) &&
+    /aria-label=\{`More for \$\{displayName\}`\}/.test(sectionsList) &&
+    /<DropdownMenuTrigger asChild>\s*<button\s*type="button"\s*aria-label=\{`More for \$\{displayName\}`\}/.test(sectionsList) &&
+    /<DropdownMenu open=\{menuOpen\} onOpenChange=\{setMenuOpen\} modal=\{false\}>/.test(sectionsList) &&
+    /onContextMenu=\{\(e\) => \{\s*\n\s*if \(chrome\) return\s*\n\s*e\.preventDefault\(\)\s*\n\s*setMenuOpen\(true\)/.test(sectionsList) &&
+    /Duplicate\s*<\/DropdownMenuItem>/.test(sectionsList) &&
+    /Move up\s*<\/DropdownMenuItem>/.test(sectionsList) &&
+    /Delete\s*<\/DropdownMenuItem>/.test(sectionsList) &&
+    /label=\{`Delete \$\{displayName\}`\}/.test(sectionsList) &&
+    !/text-red-500 hover:bg-red-50/.test(sectionsList),
 )
 
 check(
   "the header and the footer carry a badge saying which piece of chrome they are",
-  /structureRole="header"/.test(editor) &&
-    /structureRole="footer"/.test(editor) &&
-    /structureRole === "header" \? \(\s*<PanelTop/.test(editor) &&
-    /<PanelBottom/.test(editor),
+  /chromeRow\(header, "header"\)/.test(sectionsList) &&
+    /chromeRow\(footer, "footer"\)/.test(sectionsList) &&
+    /chrome === "header" \? <PanelTop/.test(sectionsList) &&
+    /<PanelBottom/.test(sectionsList),
 )
 
 check(
@@ -2247,44 +2237,20 @@ check(
 
 check(
   "a section can be dragged with a mouse, a finger or the keyboard, and the taps say when",
-  /**
-   * Three pixels is far enough that a short deliberate drag does not read as
-   * a click that did nothing. A finger cannot use a distance rule at all,
-   * because it competes with scrolling the list, so touch waits in place:
-   * 220ms rather than 160, since at 160 an ordinary flick through a long
-   * list could be taken for a press, with 10px of tolerance rather than 8,
-   * since 8 is inside the noise a thumb makes resting on glass and a still
-   * finger was losing its own press.
-   *
-   * FOUR THINGS MAKE THE DRAG ITSELF ACCURATE.
-   *   - A DragOverlay: the row in the air is a separate fixed element on its
-   *     own layer, so it tracks the finger exactly instead of being a
-   *     transform on a row that is laid out, clipped and repainted with the
-   *     list it is inside.
-   *   - MeasuringStrategy.Always: the rows MOVE during a reorder, and the
-   *     default works from a snapshot taken when the drag began, so after
-   *     three or four swaps the row under the finger was not the row that
-   *     lit up.
-   *   - The transform is restricted to the vertical axis, because a list
-   *     reorders vertically and a thumb never travels straight.
-   *   - A light tick every time the order actually changes, which is what
-   *     makes a reorder feel like it is happening.
-   */
   /useSensor\(PointerSensor, \{ activationConstraint: \{ distance: 3 \} \}\)/.test(editor) &&
     /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: 220, tolerance: 10 \} \}\)/.test(editor) &&
-    /<DragOverlay>/.test(editor) &&
-    /measuring=\{\{ droppable: \{ strategy: MeasuringStrategy\.Always \} \}\}/.test(editor) &&
-    /modifiers=\{dragModifiers\}/.test(editor) &&
+    /<DragOverlay>/.test(sectionsList) &&
+    /measuring=\{\{ droppable: \{ strategy: MeasuringStrategy\.Always \} \}\}/.test(sectionsList) &&
+    /modifiers=\{dnd\.modifiers\}/.test(sectionsList) &&
+    /modifiers: dragModifiers,/.test(editor) &&
     /const dragModifiers = useMemo\(\(\) => \[restrictToVerticalAxis\], \[restrictToVerticalAxis\]\)/.test(editor) &&
     /const restrictToVerticalAxis: Modifier = useCallback\(\(\{ transform \}\) => \(\{ \.\.\.transform, x: 0 \}\), \[\]\)/.test(editor) &&
-    // the tick fires on a change of target, not once per animation frame
     /if \(over === lastOverId\.current\) return/.test(editor) &&
-    /onDragOver=\{handleDragOver\}/.test(editor) &&
+    /onDragOver=\{dnd\.onDragOver\}/.test(sectionsList) &&
+    /onDragOver: handleDragOver,/.test(editor) &&
     /hapticTap\("medium"\)/.test(editor) &&
     /hapticTap\("light"\)/.test(editor) &&
-    // the row left behind is the gap, not a second ghost of the same row
-    /opacity: isDragging \? 0 : 1/.test(editor) &&
-    // through the one helper that reaches the iOS Taptic Engine
+    /opacity: isDragging \? 0 : 1/.test(sectionsList) &&
     /import \{ hapticTap \} from "@\/lib\/native-bridge"/.test(editor) &&
     !/navigator\.vibrate/.test(editor),
 )
@@ -2324,20 +2290,19 @@ check(
 )
 
 check(
-  "the grip is drawn at rest and the menu button only under the pointer",
+  "the grip is drawn at rest, and Hide, Delete and the menu only under the pointer",
   /**
-   * The grip earns its place at rest: it is what says the list can be
-   * reordered. A column of menu buttons says nothing anybody needs to know
-   * before they want one, and six of them are six more marks on the page.
-   * The grab cursor stays on the handle, since over the whole row it
-   * promises a drag the row does not accept.
+   * The grip earns its place at rest: it says the list can be reordered.
+   * Hide, Delete and the three dots wait for the pointer, and they wait
+   * `hidden`, not transparent, so a touch on a row's name can never land on
+   * an invisible bin. scripts/check-builder-sidebar.mjs measures it.
    */
-  /<GripVertical\s*\n\s*className=\{cn\("h-4 w-4 transition-opacity"/.test(editor) &&
-    /aria-label=\{`Drag \$\{displayName\} to reorder`\}/.test(editor) &&
-    /flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none/.test(editor) &&
-    /cursor-grab active:cursor-grabbing/.test(editor) &&
-    /isSelected \|\| contextMenuOpen \? "opacity-100" : "opacity-0 group-hover:opacity-100/.test(editor) &&
-    !/!isStructure && "hover:cursor-grab"/.test(editor),
+  /<GripVertical className=\{cn\("h-3\.5 w-3\.5"/.test(sectionsList) &&
+    /aria-label=\{`Drag \$\{displayName\} to reorder`\}/.test(sectionsList) &&
+    /flex h-6 w-6 shrink-0 touch-none items-center justify-center rounded-md cursor-grab active:cursor-grabbing/.test(sectionsList) &&
+    /shown \? "flex" : "hidden group-hover\/row:flex group-focus-within\/row:flex"/.test(sectionsList) &&
+    /isSelected \|\| menuOpen \? "flex" : "hidden group-hover\/row:flex group-focus-within\/row:flex"/.test(sectionsList) &&
+    !/opacity-0 group-hover/.test(sectionsList),
 )
 
 check(
@@ -2897,22 +2862,10 @@ check(
 
 check(
   "Hide, Duplicate and Delete fit the sidebar they live in",
-  /**
-   * Measured, not guessed. In three equal columns with a 16px icon and an 8px
-   * gap, "Duplicate" wanted 23px more than its button had at the sidebar's
-   * default 288px and 39px more at its 240px minimum, so the icon was drawn
-   * on the word. Two things follow: the icons go, because three labels plus
-   * three icons need 275px of a row that offers 216; and the columns stop
-   * being equal, so each button starts at its own label's width and only the
-   * spare space is shared. `node scripts/check-section-actions.mjs` renders
-   * both and measures every button at both widths.
-   */
-  /"flex-auto min-w-0 h-10 px-1\.5 flex items-center justify-center rounded-xl text-\[13px\] font-semibold transition-colors duration-150",/.test(editor) &&
-    /flex-auto min-w-0 h-10 px-1\.5 flex items-center justify-center rounded-xl bg-\[#f3f4f6\][^"]*"\s*\n\s*onClick=\{\(\) => duplicateSection\(section\.id\)\}/.test(editor) &&
-    // Delete is grey at rest and red under the pointer: a red row shouts at
-    // somebody who has not decided anything yet.
+  /* Measured in scripts/check-section-actions.mjs: no icons, columns as wide as their words, 40px on a phone and 36px on a computer. */
+  /"flex-auto min-w-0 h-10 md:h-9 px-1\.5 flex items-center justify-center rounded-lg text-\[13px\] font-semibold transition-colors duration-150",/.test(editor) &&
+    /flex-auto min-w-0 h-10 md:h-9 px-1\.5 flex items-center justify-center rounded-lg bg-\[#f3f4f6\][^"]*"\s*\n\s*onClick=\{\(\) => duplicateSection\(section\.id\)\}/.test(editor) &&
     /hover:bg-\[#fee2e2\] hover:text-\[#dc2626\] active:bg-\[#fecaca\] active:text-\[#b91c1c\]"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(editor) &&
-    // and no icon beside either word, which is what collided
     !/<Copy className="h-4 w-4" strokeWidth=\{2\} \/>\s*\n\s*Duplicate/.test(editor) &&
     !/py-2 text-xs text-red-400 hover:text-red-600 border border-border/.test(editor),
 )
@@ -3022,20 +2975,8 @@ check(
 
 check(
   "Delete is a button like the other two until the pointer is on it",
-  /**
-   * Two rounds argued this from opposite ends, and both were right about the
-   * half they were looking at. Red at rest is a warning label stuck on the
-   * end of a row of controls, shouting at somebody who has not decided
-   * anything yet, and Undo takes a deletion back in one keystroke anyway.
-   * But the answer that round was "the bin is what tells them apart", and
-   * the bin could not stay: measured, the three labels and their icons need
-   * 275px of a row that offers 216 at the sidebar's minimum width. With the
-   * icons gone, position alone separates a destructive action from a
-   * duplicate. So the button is identical to its neighbours until the hand
-   * is on it, and the colour arrives then.
-   */
   // identical at rest: the same surface and the same near-black label
-  /flex-auto min-w-0 h-10 px-1\.5 flex items-center justify-center rounded-xl bg-\[#f3f4f6\] text-\[13px\] font-semibold text-\[#1a1a2e\][^"]*"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(
+  /flex-auto min-w-0 h-10 md:h-9 px-1\.5 flex items-center justify-center rounded-lg bg-\[#f3f4f6\] text-\[13px\] font-semibold text-\[#1a1a2e\][^"]*"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(
     editor,
   ) &&
     // and red only under the pointer, never as a resting state

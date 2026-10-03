@@ -27,10 +27,14 @@
  * landed inside the input on top of the words, and every pass of the
  * pointer made it blink. The button is now in the label row's own flow, at
  * rest and on hover alike: nothing appears, disappears or moves under the
- * pointer. It is 26px, and 44px under a thumb through a hit area that
- * reaches into the gap above the row, never over the field below it. The
- * row it sits in is still 28px, so shrinking the button moved nothing
- * around it.
+ * pointer. It is 22px, the height of the label row it sits in, and 44px
+ * under a thumb through a hit area that reaches into the gap above the row,
+ * never over the field below it.
+ *
+ * NO TOOLTIP. It had one, "Insert shop data", and the owner asked for it
+ * gone: a bubble over the panel every time the pointer crossed a label was
+ * more noise than the one word it added. The name is still the button's
+ * accessible name, and the list it opens is headed "Shop data".
  *
  * ---------------------------------------------------------------------------
  *  A LITTLE DEPTH, ON A LIGHT SIDEBAR
@@ -74,7 +78,6 @@ import * as React from "react"
 import { Database, X } from "lucide-react"
 
 import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import {
   SOURCE_TARGETS,
@@ -94,7 +97,7 @@ import { NOTE } from "./styles"
 /** A field's name above it, as the sidebar has always drawn one. */
 export const FIELD_LABEL = "text-xs font-medium text-muted-foreground mb-1.5 block"
 
-/** What the button is called, to a screen reader and in its tooltip. */
+/** What the button is called, to a screen reader. */
 export const INSERT_LABEL = "Insert shop data"
 
 export function DynamicSourceField({
@@ -114,7 +117,6 @@ export function DynamicSourceField({
   const env = useEditorFieldEnv()
   const phone = usePhoneLayout()
   const [open, setOpen] = React.useState(false)
-  const [tip, setTip] = React.useState(false)
   const button = React.useRef<HTMLButtonElement>(null)
   const list = React.useRef<HTMLDivElement>(null)
   const body = React.useRef<HTMLDivElement>(null)
@@ -126,12 +128,8 @@ export function DynamicSourceField({
       if (typeof el.selectionStart === "number") caret.current = el.selectionStart
     }
   }
-  /** Focus handed back to the button by a pick is not a request for its tooltip. */
-  const quiet = React.useRef(false)
   const refocus = () => {
-    quiet.current = true
     button.current?.focus({ preventScroll: true })
-    setTimeout(() => (quiet.current = false), 0)
   }
   const kind = resolveControlType(field.type) ?? field.type
   const target = SOURCE_TARGETS[kind]
@@ -247,12 +245,9 @@ export function DynamicSourceField({
       aria-expanded={open}
       data-dynamic-action=""
       data-connected={connected ? "" : undefined}
-      onClick={() => {
-        setTip(false)
-        setOpen((o) => !o)
-      }}
+      onClick={() => setOpen((o) => !o)}
       className={
-        "relative inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-white " +
+        "relative inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[5px] bg-white " +
         (connected ? "text-foreground " : "text-muted-foreground ") +
         /* The hairline as an inset ring, the foot inside it, one soft pixel under it. */
         "shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08),inset_0_-1px_0_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.05)] " +
@@ -263,11 +258,11 @@ export function DynamicSourceField({
         "aria-expanded:bg-[#f1f2f4] aria-expanded:text-foreground aria-expanded:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.10),inset_0_1px_2px_rgba(15,23,42,0.12)] " +
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 " +
         "[-webkit-tap-highlight-color:transparent] " +
-        /* 44px under a thumb: 10px either side, 16px up into the gap above, 2px down to the field and not over it. */
-        "before:absolute before:content-[''] max-sm:before:-inset-x-2.5 max-sm:before:-top-4 max-sm:before:-bottom-0.5"
+        /* 44px under a thumb: 11px either side, 20px up into the gap above, 2px down to the field and not over it. */
+        "before:absolute before:content-[''] max-sm:before:-inset-x-[11px] max-sm:before:-top-5 max-sm:before:-bottom-0.5"
       }
     >
-      <Database className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden />
+      <Database className="h-[13px] w-[13px]" strokeWidth={1.75} aria-hidden />
     </button>
   )
 
@@ -283,29 +278,15 @@ export function DynamicSourceField({
           <>
             {/*
               The row a plain label would be, with the button at its end. The
-              row is 28px for the button; -6px above and 2px below keep the
+              row is 22px for the button; -3px above and 3px below keep the
               words and the field where a plain label puts them (16px of
               words, 6px, the field), so this field lines up with its
-              neighbours to within 2px. On a phone the row keeps its top
-              margin, because the button's 44px reaches 14px up into it.
+              neighbours. On a phone the row keeps its top margin, because
+              the button's 44px reaches up into it.
             */}
-            <div className="-mt-1.5 mb-0.5 max-sm:mt-0 flex min-h-7 items-center justify-between gap-2" data-dynamic-label="">
+            <div className="-mt-[3px] mb-[3px] max-sm:mt-0 flex min-h-[22px] items-center justify-between gap-2" data-dynamic-label="">
               {label ? <label className="min-w-0 truncate text-xs font-medium text-muted-foreground">{label}</label> : <span />}
-              {phone ? (
-                action
-              ) : (
-                <Tooltip
-                  open={tip && !open}
-                  onOpenChange={(next) => {
-                    if (next && quiet.current) return
-                    setTip(next)
-                  }}
-                  delayDuration={400}
-                >
-                  <TooltipTrigger asChild>{action}</TooltipTrigger>
-                  <TooltipContent side="left">{INSERT_LABEL}</TooltipContent>
-                </Tooltip>
-              )}
+              {action}
             </div>
             <div
               ref={body}

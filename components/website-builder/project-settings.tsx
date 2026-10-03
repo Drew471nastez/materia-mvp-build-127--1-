@@ -10,6 +10,7 @@ import { BackupSettings } from "@/components/website-builder/website-settings/ba
 import { CommerceSettings } from "@/components/website-builder/website-settings/commerce"
 import { DomainSettings } from "@/components/website-builder/website-settings/domains"
 import { GeneralSettings } from "@/components/website-builder/website-settings/general"
+import { NavigationSettings } from "@/components/website-builder/website-settings/navigation"
 import { PageSettings } from "@/components/website-builder/website-settings/pages"
 import { PolicySettings } from "@/components/website-builder/website-settings/policies"
 import { PublishingSettings } from "@/components/website-builder/website-settings/publishing"
@@ -39,7 +40,7 @@ export type { SettingsSection } from "@/components/website-builder/website-setti
  * the screen's own Back already does, and two Backs that mean different
  * things is how somebody loses an edit.
  *
- * NINE SUBJECTS, EACH BACKED BY SOMETHING REAL. A control here is either an
+ * TEN SUBJECTS, EACH BACKED BY SOMETHING REAL. A control here is either an
  * API that exists (the name, publishing, backups, the domains, the agent
  * connections), one of the website's own settings written through the
  * editor's `updateSetting` so autosave, undo and Publish treat it like any
@@ -93,6 +94,7 @@ export function ProjectSettings({
   onUnpublished = () => {},
   onNavigate = (href) => window.location.assign(href),
   onAddressChanged = () => {},
+  navigation = {},
 }: {
   open: boolean
   onClose: () => void
@@ -124,6 +126,8 @@ export function ProjectSettings({
   onAddressChanged?: (handle: string) => void
   onUnpublished?: () => void
   onNavigate?: (href: string) => void
+  /** The header, the footer and the editor's writers for them: Navigation. */
+  navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets">
 }) {
   const [section, setSection] = useState<SettingsSection>("general")
   /** A phone shows the list until a subject is picked. */
@@ -260,6 +264,7 @@ export function ProjectSettings({
     onPublish: thenClose(onPublish),
     onUnpublished,
     onNavigate,
+    ...navigation,
     onAddressChanged,
   }
 
@@ -373,6 +378,7 @@ export function ProjectSettings({
           {section === "domains" && <DomainSettings ctx={ctx} />}
           {section === "seo" && <SeoSettings ctx={ctx} />}
           {section === "pages" && <PageSettings ctx={ctx} />}
+          {section === "navigation" && <NavigationSettings ctx={ctx} />}
           {section === "commerce" && <CommerceSettings ctx={ctx} />}
           {section === "policies" && <PolicySettings ctx={ctx} />}
           {section === "publishing" && <PublishingSettings ctx={ctx} />}

@@ -341,6 +341,8 @@ export async function POST(req: Request) {
       migrated: pkg.legacy,
       /** What came with it, so the reply can say so rather than leaving somebody to scroll the page looking. */
       media: describeMedia(imported),
+      /** A header or footer the package wrote as a section file, left out: lib/storelib-theme/chrome.ts. */
+      left_out: [...new Set((read.warnings ?? []).map((w) => w.message.match(/ is a (header|footer)\. /)?.[1]).filter(Boolean))],
       ...first,
     })
   }

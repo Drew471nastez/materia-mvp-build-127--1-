@@ -875,6 +875,26 @@ In the editor this sits behind Advanced colors rather than as fifteen pickers
 in everybody's face. Each slot reads "use the scheme" until it is set, and
 Reset to scheme puts them all back.
 
+### 8.3.1 Colours of the section's own
+
+A section may declare `color` settings for colours that are not the scheme's:
+review stars, a timeline's dot, the scrim over a photo. They are rows in the
+section's panel, and what the creator picks there is for that section alone,
+over the scheme and over Advanced colors.
+
+The default may name a scheme colour:
+
+```json
+{ "type": "color", "id": "star_color", "label": "Stars", "default": "scheme.accent" }
+```
+
+Until the creator picks a colour, `settings.star_color` is the section's own
+accent (render.ts swaps the name for the colour, after the section's
+overrides are applied), so it follows the scheme and the theme. Picking one
+stores its hex; the reset arrow goes back to following. Any key `scheme` has
+works, semantic or legacy. An empty default means the template decides:
+`{{ settings.star_color | default: scheme.accent }}`.
+
 ### 8.4 Text styles
 
 A theme names three fonts, heading, body and accent, and nine text styles: H1
@@ -1147,6 +1167,30 @@ The header and the footer are chrome rather than content. They sit outside the
 section container, they are excluded from the theme's entrance animation, and
 the heading rules that follow a section's text style leave them alone, because
 a cart drawer's title is not the section's heading.
+
+### 12.1 One header, one footer
+
+A site has exactly one header and one footer, the built-in `header` and
+`footer` sections, and they are changed, never replaced. They carry what a
+section file cannot rebuild: the cart drawer and its count, the search, the
+account and wishlist links, the phone menu with sub-menus, sticky and
+hide-on-scroll behaviour, the transparent header over a hero, the logo from
+Theme settings and the menus from Website settings.
+
+A section file that IS a header or a footer is refused at every door (the
+code editor, Ask AI, MCP, the agent API, a GitHub push) and left out of an
+imported theme, with its uses taken off the pages. It is recognised by
+`"group": "header"` or Shopify's `enabled_on.groups`, by its type or name
+(Header, Site header, Navbar, Navigation bar, Top bar, Footer), or by an
+outermost `<header>` holding a `<nav>`. The rule is
+lib/storelib-theme/chrome.ts.
+
+To make a site's header look like a reference, change the real one: its
+layout settings, `header_sticky_enabled` and `header_sticky_on_scroll_up`,
+`header_transparent`, the icon toggles, the button, its colour scheme, and
+its links as `nav_link` blocks (`label`, `url`, and `parent_id` for a
+sub-link). Every setting is listed, from the file itself, on the developer
+hub's page The header and footer.
 
 A template may hold at most 60 sections.
 

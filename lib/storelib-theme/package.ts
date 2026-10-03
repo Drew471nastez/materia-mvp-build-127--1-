@@ -22,6 +22,8 @@
 import JSZip from "jszip"
 import { createHash } from "node:crypto"
 import { compileSection } from "./storelib/compile"
+import { parseStorelib } from "./storelib/parse"
+import { chromeRoleOf } from "./chrome"
 import {
   ENGINE_VERSION,
   LIMITS,
@@ -386,6 +388,49 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
 
   const warnings: ThemeError[] = []
   const types = new Set<string>(opts.knownTypes ?? [])
+  /**
+   * A HEADER OR FOOTER WRITTEN AS A SECTION FILE IS LEFT OUT, not refused.
+   * The usual way it gets here is an AI that was handed the export and asked
+   * to redo the header: it writes sections/site_header.storelib and puts it
+   * at the top of every page, under the site's real header. Refusing the
+   * whole package for that would throw away everything else it did; keeping
+   * the file would give the site two headers, one of them without a cart, a
+   * search or a menu that works. So the file and every use of it on a page
+   * are dropped, the built-in header and footer stay, and the warning says
+   * so (lib/storelib-theme/chrome.ts).
+   */
+  const leftOut = new Set<string>()
+  for (const [path, text] of Object.entries(files)) {
+    const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
+    if (!m) continue
+    const parsed = parseStorelib(text, path)
+    let schema: Record<string, unknown> | null = null
+    if (parsed.ok) {
+      try { schema = JSON.parse(parsed.value.schema.text) as Record<string, unknown> } catch { schema = null }
+    }
+    const role = m[1] === "header" || m[1] === "footer" ? m[1] : chromeRoleOf({ schema, type: m[1], template: parsed.ok ? parsed.value.template.text : undefined })
+    if (!role) continue
+    leftOut.add(m[1])
+    delete files[path]
+    warnings.push(err(`${path} is a ${role}. A Storelib site has one ${role}, shared by every page, so this file was left out and the site's own ${role} was kept. Change the ${role}'s settings instead.`, path))
+  }
+  if (leftOut.size) {
+    for (const [path, text] of Object.entries(files)) {
+      if (!/^templates\/[A-Za-z0-9_.\-]+\.json$/.test(path)) continue
+      let t: Template
+      try { t = JSON.parse(text) } catch { continue }
+      if (!t || typeof t.sections !== "object" || !Array.isArray(t.order)) continue
+      /* A section of the built-in type keeps its place: only a file that was left out goes. */
+      const drop = t.order.filter((id) => {
+        const type = t.sections[id]?.type
+        return typeof type === "string" && leftOut.has(type) && type !== "header" && type !== "footer"
+      })
+      if (drop.length === 0) continue
+      for (const id of drop) delete t.sections[id]
+      t.order = t.order.filter((id) => !drop.includes(id))
+      files[path] = JSON.stringify(t, null, 2) + "\n"
+    }
+  }
   for (const [path, text] of Object.entries(files)) {
     const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
     if (!m) { if (path.endsWith(".storelib") && path !== "layout/theme.storelib" && !path.startsWith("snippets/")) warnings.push(err(`${path} is not a section, layout or snippet`, path)); continue }
