@@ -149,7 +149,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const pwyw = useMemo(() => {
     if (!facts.payWhatYouWant || pwywInput.trim() === "") return { cents: null as number | null, error: null as string | null }
     const checked = checkPwyw(amountToCents(pwywInput), facts.minCents)
-    return checked.ok ? { cents: checked.cents, error: null } : { cents: null, error: checked.error }
+    return checked.ok === true ? { cents: checked.cents, error: null } : { cents: null, error: (checked as { error: string }).error }
   }, [facts.payWhatYouWant, facts.minCents, pwywInput])
 
   /* ── Buying ── */
