@@ -15,7 +15,7 @@
  *   lib/storelib-ai/integration.ts       what an agent is told on a refusal
  *   lib/storelib-theme/package.ts        a theme coming back from ChatGPT
  *   lib/storelib-theme/render.ts         `"default": "scheme.accent"`
- *   components/.../sections-list.tsx     the Header / Template / Footer list
+ *   components/.../sections-list.tsx     the Header / Page / Footer list
  */
 import { readFileSync } from "node:fs"
 import { createElement } from "react"
@@ -180,9 +180,9 @@ async function main() {
   const design = read("components/website-builder/editor/design-panels.tsx")
   check("hover colours are rows, not behind a toggle of their own", !/<span>Hover colors<\/span>/.test(design) && !/hoverOpen/.test(design) && /\{parts\.map\(row\)\}/.test(design))
   const dynamicField = read("components/website-builder/editor/controls/dynamic-source-field.tsx")
-  check("Insert shop data has no tooltip", !/TooltipContent/.test(dynamicField) && /h-\[22px\] w-\[22px\]/.test(dynamicField))
+  check("Insert shop data has no tooltip", !/TooltipContent/.test(dynamicField) && /h-\[18px\] w-\[18px\]/.test(dynamicField))
 
-  console.log("\nThe Sections panel: Header, Template, Footer")
+  console.log("\nThe Sections panel: Header, Page, Footer")
   const sections: SectionInstance[] = [
     { id: "h", type: "header", name: "Header", settings: {} },
     { id: "a", type: "hero", name: "Hero", settings: {} },
@@ -201,11 +201,14 @@ async function main() {
   )
   const groups = [...html.matchAll(/data-section-group="([a-z]+)"/g)].map((m) => m[1])
   check("three groups, in order", groups.join(",") === "header,template,footer", groups)
+  /* "Template" was the theme editors' word; the owner asked for a better one. The group's data name stays. */
+  const groupLabels = [...html.matchAll(/<p class="px-2 pb-1 pt-2[^"]*">([^<]+)<\/p>/g)].map((m) => m[1])
+  check("the groups read Header, Page and Footer, and nothing says Template", groupLabels.join(",") === "Header,Page,Footer" && !/>Template</.test(html), groupLabels)
   check("Add section under the header and at the end of the page, nowhere else", (html.match(/data-add-section=""/g) ?? []).length === 2)
   const headerGroup = html.slice(html.indexOf('data-section-group="header"'), html.indexOf('data-section-group="template"'))
   const templateGroup = html.slice(html.indexOf('data-section-group="template"'), html.indexOf('data-section-group="footer"'))
   check("the header row is in the Header group, and only there", /data-section-row="h"/.test(headerGroup) && !/data-section-row="h"/.test(templateGroup))
-  check("the page's own sections are in the Template group", /data-section-row="a"/.test(templateGroup) && /data-section-row="b"/.test(templateGroup))
+  check("the page's own sections are in the Page group", /data-section-row="a"/.test(templateGroup) && /data-section-row="b"/.test(templateGroup))
   check("a body row has Hide, Delete and a menu", /aria-label="Hide Hero"/.test(templateGroup) && /aria-label="Delete Hero"/.test(templateGroup) && /aria-label="More for Hero"/.test(templateGroup))
   check("the header has no Delete and no menu", !/Delete Header/.test(headerGroup) && !/More for Header/.test(headerGroup))
   const eye = templateGroup.match(/<button[^>]*aria-label="Show FAQ"[^>]*>/)?.[0] ?? ""

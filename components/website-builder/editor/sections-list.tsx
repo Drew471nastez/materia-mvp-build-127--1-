@@ -5,14 +5,20 @@
  *  THE PAGE'S SECTIONS, IN THREE GROUPS
  * ===========================================================================
  * The sidebar's list of a page's sections, laid out the way a shop's theme
- * editor is: the Header group, the Template (the page's own sections), and
- * the Footer group, each under its name.
+ * editor is: the Header group, the Page group (the page's own sections),
+ * and the Footer group, each under its name.
+ *
+ * "PAGE", NOT "TEMPLATE". The middle group was called Template, after the
+ * theme editors it is modelled on, and the owner asked for a better word:
+ * to a creator these are the sections of the page they are on. Only the
+ * words changed; the group is still `data-section-group="template"`, which
+ * the tests and the browser checks read.
  *
  *   Header      the site's one header. It cannot be dragged, duplicated or
  *               deleted, and nothing can be dropped into its group: a
  *               second header is refused everywhere (lib/storelib-theme/
  *               chrome.ts), so the group holds exactly one row.
- *   Template    the page's sections, reordered by their grip, with a thin
+ *   Page        the page's sections, reordered by their grip, with a thin
  *               insert line between every two. "Add section" sits at both
  *               ends: under the header, which adds at the top of the page,
  *               and at the foot of the list, which adds at the end.
@@ -92,16 +98,21 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   return <p className={GROUP_LABEL}>{children}</p>
 }
 
-/** "Add section", as a line of blue text with its plus, like the theme editors it is modelled on. */
+/**
+ * "Add section", as a line of violet text with its plus, like the theme editors
+ * it is modelled on. The disc is Storelib's violet, #8b5cf6; the words are its
+ * darker step, #7c3aed, which reads at 13px on white (5.7:1, where #8b5cf6
+ * is 4.2:1).
+ */
 export function AddSectionButton({ onClick, label = "Add section" }: { onClick: () => void; label?: string }) {
   return (
     <button
       type="button"
       data-add-section=""
       onClick={onClick}
-      className="flex h-8 max-sm:h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium text-[#2563eb] transition-colors hover:bg-[#eff6ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb]/30 [-webkit-tap-highlight-color:transparent]"
+      className="flex h-8 max-sm:h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium text-[#7c3aed] transition-colors hover:bg-[#f5f3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30 [-webkit-tap-highlight-color:transparent]"
     >
-      <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-white">
+      <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#8b5cf6] text-white">
         <Plus className="h-2.5 w-2.5" strokeWidth={3} />
       </span>
       {label}
@@ -125,8 +136,8 @@ function InsertSectionDivider({ onClick }: { onClick: () => void }) {
       className="group/ins relative flex h-2 cursor-pointer select-none items-center justify-center"
       onClick={onClick}
     >
-      <div className="pointer-events-none absolute inset-x-2 h-px bg-transparent transition-colors duration-150 group-hover/ins:bg-[#2563eb]/60" />
-      <div className="pointer-events-none relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#2563eb] text-white opacity-0 transition-opacity duration-150 group-hover/ins:opacity-100">
+      <div className="pointer-events-none absolute inset-x-2 h-px bg-transparent transition-colors duration-150 group-hover/ins:bg-[#8b5cf6]/60" />
+      <div className="pointer-events-none relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#8b5cf6] text-white opacity-0 transition-opacity duration-150 group-hover/ins:opacity-100">
         <Plus className="h-2 w-2" strokeWidth={3} />
       </div>
     </div>
@@ -208,7 +219,7 @@ export function SectionRow({
       aria-label={displayName}
       aria-current={isSelected || undefined}
       className={cn(
-        "group/row flex h-8 max-sm:h-11 cursor-pointer items-center gap-1 rounded-md pl-1 pr-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb]/30",
+        "group/row flex h-8 max-sm:h-11 cursor-pointer items-center gap-1 rounded-md pl-1 pr-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30",
         /* The builder is a light surface by decision: explicit colours, not tokens a dark root would flip. */
         isSelected ? "bg-[#1a1a2e] text-white" : "text-[#1a1a2e] hover:bg-[#f3f4f6]",
       )}
@@ -374,7 +385,7 @@ export function SectionsList({
       <div className="mx-2 my-2 h-px bg-[#e5e7eb]" aria-hidden />
 
       <div data-section-group="template">
-        <GroupLabel>Template</GroupLabel>
+        <GroupLabel>Page</GroupLabel>
         <DndContext
           sensors={dnd.sensors}
           collisionDetection={closestCenter}

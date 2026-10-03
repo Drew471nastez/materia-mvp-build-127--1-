@@ -1058,6 +1058,15 @@ Inside a block: `block.settings`, `block.blocks`, `block.id`, and
 The sidebar shows the tree, and each level has its own Add block, which lists
 every block it accepts and each of a block's presets as its own entry.
 
+A block's colours are `color` settings whose default names a colour of the
+section's scheme (`"default": "scheme.heading"`): untouched they follow the
+section the block is in, and a colour the creator picks wins for that block
+alone. The template writes the value into an inline custom property
+(`style="--heading-color: {{ block.settings.color | default: scheme.heading }};"`)
+and the block's one rule reads it, with the section's `--s-*` property as the
+fallback. Heading and text have a text color, button a fill, text and hover
+pair for each style, and group an optional background and corner radius.
+
 ---
 
 ## 10. Assets

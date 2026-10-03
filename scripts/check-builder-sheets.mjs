@@ -386,7 +386,7 @@ console.log("\ndesktop, 1280 wide: the inspector's rings fade")
     const out = []
     const t0 = performance.now()
     const tick = () => {
-      const ring = [...document.querySelectorAll("#wb-preview-root .wb-ring")].find((r) => r.style.boxShadow.includes("#3b82f6") || r.style.boxShadow.includes("59, 130, 246)"))
+      const ring = [...document.querySelectorAll("#wb-preview-root .wb-ring")].find((r) => r.style.boxShadow.includes("#8b5cf6") || r.style.boxShadow.includes("139, 92, 246)"))
       out.push({ t: Math.round(performance.now() - t0), ring: !!ring, o: ring ? Math.round(Number(getComputedStyle(ring).opacity) * 100) / 100 : null })
       if (performance.now() - t0 < ms) requestAnimationFrame(tick)
       else done(out)

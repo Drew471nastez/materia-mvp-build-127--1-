@@ -16,6 +16,10 @@
  *      The four colour rows of a button, all in view.
  *   "Insert shop data should have no tooltip."
  *      The button's size, and whether anything appears over it on hover.
+ *   "The blue things around Add section should be Storelib violet."
+ *      Add section, the insert line, and a canvas section's rings and badge.
+ *   "The pill toggles are too tall and fat."
+ *      A switch's track and knob, on and off.
  *
  *   node scripts/check-builder-sidebar.mjs          (SHOTS=dir keeps pictures)
  */
@@ -157,6 +161,7 @@ const READ = `(() => {
   return {
     heights: [...document.querySelectorAll("[data-section-row]")].map((r) => Math.round(r.getBoundingClientRect().height)),
     groups: [...document.querySelectorAll("[data-section-group]")].map((g) => g.getAttribute("data-section-group")),
+    groupNames: [...document.querySelectorAll("[data-section-group] > p:first-child")].map((p) => p.textContent),
     addButtons: [...document.querySelectorAll("[data-add-section]")].map((b) => b.closest("[data-section-group]").getAttribute("data-section-group")),
     addHeight: Math.round(document.querySelector("[data-add-section]").getBoundingClientRect().height),
     rowFont: parseFloat(getComputedStyle(row("a").querySelector("span.truncate")).fontSize),
@@ -167,19 +172,64 @@ const READ = `(() => {
     colorRows: [...document.querySelectorAll('[data-button-colors] [data-color-row]')].map((r) => r.getAttribute("data-color-row")),
     colorRowHeights: [...document.querySelectorAll("[data-color-row]")].map((r) => Math.round(r.getBoundingClientRect().height)),
     stars: (() => { const r = document.querySelector('[data-color-row="Stars"]'); return r ? r.textContent : null })(),
-    shopData: (() => { const b = document.querySelector("[data-dynamic-action]"); if (!b) return null; const r = b.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), x: r.x + r.width / 2, y: r.y + r.height / 2 } })(),
+    shopData: (() => { const b = document.querySelector("[data-dynamic-action]"); if (!b) return null; const r = b.getBoundingClientRect(); const g = b.querySelector("svg").getBoundingClientRect(); const cs = getComputedStyle(b); return { w: Math.round(r.width), h: Math.round(r.height), x: r.x + r.width / 2, y: r.y + r.height / 2, glyph: Math.round(g.width), color: cs.color, bg: cs.backgroundColor, shadow: cs.boxShadow } })(),
     tooltip: !!document.querySelector('[role="tooltip"], [data-slot="tooltip-content"]'),
+    violet: (() => {
+      const add = document.querySelector("[data-add-section]")
+      const ins = document.querySelector("[data-insert-section]")
+      const sel = document.getElementById("wb-section-sel")
+      const hov = document.getElementById("wb-section-hov")
+      const ring = (el) => { const r = el && [...el.querySelectorAll("span.wb-ring")].find((s) => !s.textContent); return r ? { shadow: getComputedStyle(r).boxShadow, opacity: getComputedStyle(r).opacity } : null }
+      const badge = sel && [...sel.querySelectorAll("span.wb-ring")].find((s) => s.textContent === "Selected")
+      return {
+        addText: getComputedStyle(add).color,
+        addDisc: getComputedStyle(add.querySelector("span")).backgroundColor,
+        /* Tailwind mixes a /60 colour in oklab; painted on a canvas it reads back as plain rgba. */
+        insLine: (() => { const c = document.createElement("canvas").getContext("2d"); c.fillStyle = getComputedStyle(ins.children[0]).backgroundColor; c.fillRect(0, 0, 1, 1); const d = c.getImageData(0, 0, 1, 1).data; return d[3] === 0 ? "none" : "rgba(" + d[0] + ", " + d[1] + ", " + d[2] + ", " + (d[3] / 255).toFixed(1) + ")" })(),
+        insDisc: getComputedStyle(ins.children[1]).backgroundColor,
+        insDiscOpacity: getComputedStyle(ins.children[1]).opacity,
+        insAt: (() => { const r = ins.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })(),
+        selRing: ring(sel), hovRing: ring(hov),
+        hovAt: (() => { const r = hov.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })(),
+        badgeBg: badge ? getComputedStyle(badge).backgroundColor : null,
+        badgeText: badge ? getComputedStyle(badge).color : null,
+      }
+    })(),
+    switches: [...document.querySelectorAll("[data-probe-switch]")].map((s) => {
+      const t = s.getBoundingClientRect()
+      const k = s.firstElementChild.getBoundingClientRect()
+      return { kind: s.getAttribute("data-probe-switch"), w: Math.round(t.width), h: Math.round(t.height), knob: Math.round(k.width), knobX: Math.round(k.left - t.left), knobY: Math.round(k.top - t.top) }
+    }),
   }
 })()`
 
 console.log("\nOn a computer, 1280 wide")
 const desk = await open({ width: 1280, height: 900, phone: false })
 const rest = await desk.js(READ)
-check("three groups, Header then Template then Footer", rest.groups.join(",") === "header,template,footer", rest.groups)
-check("Add section under the header and at the end of the template, and only there", rest.addButtons.join(",") === "header,template", rest.addButtons)
+check("three groups, Header then Page then Footer", rest.groups.join(",") === "header,template,footer" && rest.groupNames.join(",") === "Header,Page,Footer", { groups: rest.groups, names: rest.groupNames })
+check("Add section under the header and at the end of the page, and only there", rest.addButtons.join(",") === "header,template", rest.addButtons)
 check("every section row is 32px", rest.heights.length === 5 && rest.heights.every((h) => h === 32), rest.heights)
 check("a row's name is 13px", rest.rowFont === 13, rest.rowFont)
 check("Add section is a 32px line", rest.addHeight === 32, rest.addHeight)
+/* "The blue things around Add section ... should be Storelib violet". No blue (rgb(37, 99, 235) or rgb(59, 130, 246)) is left on them. */
+const VIOLET = "rgb(139, 92, 246)"
+/* A canvas reads a translucent colour back premultiplied, so a channel may be one off. */
+const near = (rgba, want) => { const m = (rgba || "").match(/[\d.]+/g); return !!m && m.length === 4 && m.every((v, i) => Math.abs(+v - want[i]) <= (i === 3 ? 0.05 : 2)) }
+check("Add section's plus is Storelib violet and its words the darker violet step", rest.violet.addDisc === VIOLET && rest.violet.addText === "rgb(124, 58, 237)", rest.violet)
+check("the selected section's ring is a 2px violet line, and its Selected badge white on violet",
+  /^rgb\(139, 92, 246\) 0px 0px 0px 2px inset$/.test(rest.violet.selRing?.shadow ?? "") && rest.violet.badgeBg === VIOLET && rest.violet.badgeText === "rgb(255, 255, 255)", rest.violet)
+check("at rest the insert line between rows is not drawn", rest.violet.insDiscOpacity === "0" && rest.violet.insLine === "none", rest.violet)
+check("at rest a section under no pointer has no ring", rest.violet.hovRing?.opacity === "0", rest.violet.hovRing)
+await desk.mouse(rest.violet.insAt.x, rest.violet.insAt.y)
+await sleep(300)
+const onInsert = await desk.js(READ)
+check("under the pointer the insert line and its plus are violet", onInsert.violet.insDisc === VIOLET && onInsert.violet.insDiscOpacity === "1" && near(onInsert.violet.insLine, [139, 92, 246, 0.6]), onInsert.violet)
+await desk.mouse(rest.violet.hovAt.x, rest.violet.hovAt.y)
+await sleep(300)
+const onSection = await desk.js(READ)
+check("and a section under the pointer takes a half violet ring", onSection.violet.hovRing?.opacity === "1" && /^rgba\(139, 92, 246, 0\.5\) 0px 0px 0px 2px inset$/.test(onSection.violet.hovRing?.shadow ?? ""), onSection.violet.hovRing)
+await desk.mouse(0, 0)
+await sleep(200)
 check("at rest a row shows no actions", !rest.deleteA && !rest.hideA && !rest.moreA, rest)
 check("a hidden section keeps its eye in view, so it can come back", rest.eyeHidden)
 check("the header has no Delete and no menu", !rest.headerDelete && !rest.headerMore)
@@ -191,16 +241,40 @@ await desk.shot("sidebar-desktop-hover")
 check("a button's four colours, the two hover ones included, all in view", hovered.colorRows.length === 4 && hovered.colorRows.some((n) => /hover fill/i.test(n)) && hovered.colorRows.some((n) => /hover text/i.test(n)), hovered.colorRows)
 check("colour rows are at most 36px", hovered.colorRowHeights.every((h) => h <= 36), hovered.colorRowHeights)
 check("a section's own colour row is drawn, following its scheme", !!hovered.stars && /Stars/.test(hovered.stars), hovered.stars)
-check("the Insert shop data button is 22px square", !!hovered.shopData && hovered.shopData.w === 22 && hovered.shopData.h === 22, hovered.shopData)
+/* "The pill toggles are too tall and fat": 38 by 22 with an 18px knob before, measured here. */
+const sw = Object.fromEntries(hovered.switches.map((x) => [x.kind, x]))
+check("a switch is 36 by 20 with a 16px knob, the sidebar's and the Radix one alike",
+  hovered.switches.length === 3 && hovered.switches.every((x) => x.w === 36 && x.h === 20 && x.knob === 16 && x.knobY === 2), hovered.switches)
+check("and its knob sits 2px in when off and travels 16px when on", sw.off?.knobX === 2 && sw.on?.knobX === 18 && sw.radix?.knobX === 18, hovered.switches)
+/* "Too big and loud": 22px with a ring and a shadow before. */
+check("the Insert shop data button is 18px square with a 12px glyph", !!hovered.shopData && hovered.shopData.w === 18 && hovered.shopData.h === 18 && hovered.shopData.glyph === 12, hovered.shopData)
+const drawnShadow = (s) => s.split(/,(?![^(]*\))/).map((l) => l.trim()).filter((l) => l !== "none" && !l.startsWith("rgba(0, 0, 0, 0)"))
+check("at rest a light grey glyph with no fill, ring or shadow", hovered.shopData.color === "rgb(156, 163, 175)" && hovered.shopData.bg === "rgba(0, 0, 0, 0)" && drawnShadow(hovered.shopData.shadow).length === 0, hovered.shopData)
 await desk.mouse(hovered.shopData.x, hovered.shopData.y)
 await sleep(700)
 const tip = await desk.js(READ)
 check("and nothing appears over it on hover", !tip.tooltip)
+check("under the pointer the glyph darkens and takes a faint square", tip.shopData.color === "rgb(55, 65, 81)" && tip.shopData.bg === "rgb(241, 242, 244)", tip.shopData)
+/* Small to see, not small to hit: what elementFromPoint answers to around its centre. */
+const reach = await desk.js(`(() => {
+  const b = document.querySelector("[data-dynamic-action]")
+  const r = b.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+  const at = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && (e === b || b.contains(e)) }
+  let u = 0, d = 0, l = 0, rr = 0
+  while (at(cx, cy - u - 1) && u < 60) u++
+  while (at(cx, cy + d + 1) && d < 60) d++
+  while (at(cx - l - 1, cy) && l < 60) l++
+  while (at(cx + rr + 1, cy) && rr < 60) rr++
+  return { w: l + rr + 1, h: u + d + 1 }
+})()`)
+check("and it still answers over 26px under a mouse", reach.w >= 25 && reach.h >= 25, reach)
+console.log("  info  hit area under a mouse", JSON.stringify(reach))
 
 console.log("\nOn a phone, 390 wide, touch")
 const phone = await open({ width: 390, height: 844, phone: true })
 const p = await phone.js(READ)
 check("every row is 44px under a thumb", p.heights.every((h) => h === 44), p.heights)
+check("Insert shop data is 18px on a phone too", !!p.shopData && p.shopData.w === 18 && p.shopData.h === 18, p.shopData)
 check("no invisible Delete waits under a thumb", !p.deleteA && !p.moreA)
 check("a hidden section still shows its eye", p.eyeHidden)
 await phone.shot("sidebar-phone")

@@ -43,7 +43,7 @@ The three tabs at the top of the sidebar, and at the top of the sheet on a phone
 The page's sections, in three groups, the way a shop's theme editor shows them:
 
 - **Header** holds the site's header and nothing else, with **Add section** under it, which adds at the top of the page.
-- **Template** holds the page's own sections, top to bottom, with **Add section** at the end, which adds at the bottom. A thin line between two rows shows a **+** under the pointer: press it to add a section at exactly that point.
+- **Page** holds the page's own sections, top to bottom, with **Add section** at the end, which adds at the bottom. A thin line between two rows shows a **+** under the pointer: press it to add a section at exactly that point.
 - **Footer** holds the site's footer.
 
 Each row is one line: a grip to drag it (press and hold on a phone, or the arrow keys), its name, and under the pointer **Hide**, **Delete** and a **…** menu with **Duplicate**, **Move up**, **Move down**, **Hide** or **Show**, and **Delete**. A right click on the row opens the same menu. The header and footer have an icon in place of the grip and only the eye: they are the same on every page, so they can be hidden but not moved, copied or deleted, and nothing can be dropped into their groups. A hidden section is faded in the list, always shows its eye, and is left out of the page. Delete takes effect at once; Undo brings it back. See [The header and footer](/developers/header-and-footer).

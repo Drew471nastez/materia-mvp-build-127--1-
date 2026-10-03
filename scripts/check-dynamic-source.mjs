@@ -9,17 +9,17 @@
  * 320px sidebar at 1440 and in the editor's real bottom sheet at 390, and
  * measures:
  *
- *   - the button is there at rest, fully opaque, 26px, and never overlaps
- *     the field under it; under a thumb it answers over 44px
- *   - it carries the app's light-surface depth: a hairline ring, a shade in
- *     its foot and one soft pixel under it, going flat with the shade inside
- *     while its list is open
+ *   - the button is there at rest, fully opaque, 18px with a 12px glyph,
+ *     and never overlaps the field under it; under a mouse it answers over
+ *     26px and under a thumb over 44px
+ *   - it is quiet: a light grey glyph with no fill, ring or shadow, darker
+ *     with a faint square while its list is open
  *   - the field's label and input do not move by a pixel on hover, on
  *     focus, on opening the list or on inserting; no opacity changes
  *   - a keyboard reaches it, opens it, walks the list and picks
  *   - a text insert lands at the caret; a whole source reads as a chip
  *     with an x, the same height as the input, and the x disconnects
- *   - a tooltip on a desktop, none on a phone
+ *   - no tooltip, on a desktop or a phone
  *   - EVERY OPTION, EXERCISED. Each kind of setting that takes a source is
  *     mounted, its list read and compared against what that kind may hold,
  *     one option picked, the written value and the canvas beside it read
@@ -180,8 +180,8 @@ try {
     expect(count === 8, "every field that takes a source has the button at rest, and the select has none", count)
     expect(rest.opacity === "1", "fully opaque at rest, not waiting for a hover", rest.opacity)
     expect(!/opacity|all/.test(rest.transition), "and nothing about it transitions opacity", rest.transition)
-    /* 26px, down from 28: "a little bit smaller, just extremely slightly". The glyph inside it went 16px to 15px. */
-    expect(Math.abs(rest.button.w - 26) < 0.5 && Math.abs(rest.button.h - 26) < 0.5, "the visible button is 26px", rest.button)
+    /* 18px, down from 22: "too big and loud". The glyph inside it went 13px to 12px. */
+    expect(Math.abs(rest.button.w - 18) < 0.5 && Math.abs(rest.button.h - 18) < 0.5, "the visible button is 18px", rest.button)
     expect(rest.button.y + rest.button.h <= rest.input.y + 0.01, "it ends above the field and never overlaps the text", { buttonBottom: rest.button.y + rest.button.h, inputTop: rest.input.y })
     expect(Math.abs(rest.button.x + rest.button.w - (rest.input.x + rest.input.w)) < 0.5, "at the right end of the label row, flush with the field", { buttonRight: rest.button.x + rest.button.w, inputRight: rest.input.x + rest.input.w })
     const plain = await geometry(page, "style")
@@ -203,17 +203,14 @@ try {
       return { h: up + down + 1, w: left + right + 1, reachesInput: cy + down >= input.top }
     })
     if (vp.phone) expect(hit.h >= 44 && hit.w >= 44 && !hit.reachesInput, "under a thumb it answers over 44 by 44, and not over the field", hit)
-    else expect(hit.h >= 25 && hit.w >= 25, "under a pointer, its own 26px", hit)
+    else expect(hit.h >= 25 && hit.w >= 25, "under a pointer it answers over 26px, more than it draws", hit)
 
-    /* ── A little depth, and a background of its own ─────────── */
+    /* ── Quiet: a grey glyph, nothing around it ────────────── */
     const skinRest = await settled(page, "eyebrow")
-    const drawn = layers(skinRest.shadow)
-    expect(Math.abs(skinRest.icon[0] - 15) < 0.5 && Math.abs(skinRest.icon[1] - 15) < 0.5, "the glyph in it is 15px", skinRest.icon)
-    expect(drawn.length === 3 && drawn.filter((l) => l.endsWith("inset")).length === 2,
-      "at rest it has three layers and no more: the hairline ring and the foot inside it, one soft pixel under it", drawn)
-    expect(/0px 0px 0px 1px inset$/.test(drawn[0]) && /0px -1px 0px 0px inset$/.test(drawn[1]) && /0px 1px 1px 0px$/.test(drawn[2]),
-      "a hairline, a 1px foot, a 1px shadow: a little depth and not a lift", drawn)
-    expect(skinRest.bg === "rgb(255, 255, 255)", "and a white background of its own, which is what globals.css reads as the opt-out from its touch rule", skinRest.bg)
+    const drawn = layers(skinRest.shadow).filter((l) => l !== "none")
+    expect(Math.abs(skinRest.icon[0] - 12) < 0.5 && Math.abs(skinRest.icon[1] - 12) < 0.5, "the glyph in it is 12px", skinRest.icon)
+    expect(drawn.length === 0, "at rest it has no ring and no shadow", drawn)
+    expect(skinRest.bg === "rgba(0, 0, 0, 0)" && skinRest.color === "rgb(156, 163, 175)", "and no fill: a light grey glyph on the sidebar", skinRest)
     await shoot("rest")
 
     /* ── Hover: over the field, then the button ──────────────── */
@@ -224,7 +221,9 @@ try {
       await page.mouse.move(inp.x + inp.w / 2, inp.y + inp.h / 2)
       await sleep(250)
       const onField = await all()
-      await page.mouse.move(rest.button.x + 14, rest.button.y + 14)
+      /* Its centre on the screen: geometry() reads the scroller's own coordinates, which the mouse does not. */
+      const centre = await page.evaluate(() => { const r = document.querySelector('[data-probe-field="eyebrow"] [data-dynamic-action]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+      await page.mouse.move(centre.x, centre.y)
       await sleep(80)
       const onButtonEarly = await geometry(page, "eyebrow")
       await sleep(600)
@@ -233,11 +232,11 @@ try {
       expect(moved.length === 0, "hovering the field and the button moves nothing in the sidebar", moved)
       expect(onButtonEarly.opacity === "1" && onButton[0].opacity === "1", "and the button's opacity never changes under the pointer", [onButtonEarly.opacity, onButton[0].opacity])
       const tip = await page.evaluate(() => document.querySelector("[data-slot='tooltip-content']")?.textContent ?? null)
-      expect(tip?.startsWith("Insert shop data"), "a tooltip names it after a moment's hover", tip)
-      /* A shade darker, and NOT a step higher: the depth is the same at rest and under the pointer. */
+      expect(tip === null, "no tooltip after a moment's hover", tip)
+      /* A shade darker, and NOT a step higher: nothing lifts under a pointer. */
       const skinHover = await skin(page, "eyebrow")
       expect(skinHover.hovered && skinHover.bg !== skinRest.bg, "under the pointer it takes a shade", { rest: skinRest.bg, hover: skinHover.bg })
-      expect(skinHover.shadow === skinRest.shadow, "and keeps the depth it had: nothing lifts or drops under a pointer", { rest: skinRest.shadow, hover: skinHover.shadow })
+      expect(skinHover.shadow === skinRest.shadow, "and nothing lifts or drops under a pointer", { rest: skinRest.shadow, hover: skinHover.shadow })
       await shoot("hover")
       /* A sweep down the sidebar: long tasks while the pointer passes. */
       await page.evaluate(() => (window.__long = 0))
@@ -283,7 +282,7 @@ try {
       const whileOpen = await settled(page, "heading")
       expect(whileOpen.expanded === "true" && whileOpen.bg !== "rgba(0, 0, 0, 0)" && whileOpen.bg !== beforeTap.bg,
         "a thumb opens the list and the glyph says so: the open shade survives the sheet's touch rule", { rest: beforeTap.bg, open: whileOpen.bg })
-      expect(whileOpen.shadow !== beforeTap.shadow, "and it goes flat with the shade inside while it is open", whileOpen.shadow)
+      expect(whileOpen.color !== beforeTap.color, "and the glyph darkens while it is open", { rest: beforeTap.color, open: whileOpen.color })
       await shoot("touched-open")
       await page.tap(sel)
       await sleep(350)

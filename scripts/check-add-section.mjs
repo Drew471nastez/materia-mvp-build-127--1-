@@ -389,7 +389,7 @@ const SEQUENCE = `
         const back = base ? base.querySelector("[data-panel-back]") : null
         const el = [...root.querySelectorAll("[id^='wb-section-']")].find((e) => !before.includes(e.id)) ?? null
         const r = el ? el.getBoundingClientRect() : null
-        const ring = el ? [...el.querySelectorAll("span.wb-ring")].some((s) => /59, 130, 246\\)|#3b82f6/i.test(s.getAttribute("style") || "") && !/opacity-0/.test(s.className)) : false
+        const ring = el ? [...el.querySelectorAll("span.wb-ring")].some((s) => /139, 92, 246\\)|#8b5cf6/i.test(s.getAttribute("style") || "") && !/opacity-0/.test(s.className)) : false
         const overlay = base ? base.previousElementSibling : null
         this.samples.push({
           t: Math.round(performance.now() - t0),
