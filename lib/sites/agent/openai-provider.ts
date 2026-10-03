@@ -116,24 +116,17 @@ function readUsage(usage: OpenAI.Responses.ResponseUsage | undefined): TokenUsag
   }
 }
 
-/**
- * THE SAME PROVIDER ON SOMEBODY ELSE'S ACCOUNT: a creator's own OpenAI key,
- * or their OpenRouter account through its Responses endpoint, where the
- * model carries a vendor prefix on the wire only (see the Anthropic one).
- */
-export function createOpenAIProvider(client: () => OpenAI, options: { id?: string; modelPrefix?: string } = {}): AgentProvider {
-  const prefix = options.modelPrefix ?? ""
+/** THE SAME PROVIDER ON SOMEBODY ELSE'S ACCOUNT: a creator's own OpenAI key. */
+export function createOpenAIProvider(client: () => OpenAI, options: { id?: string } = {}): AgentProvider {
   return {
     id: options.id ?? "openai",
-    complete: (request) => completeWith(client, prefix, request),
+    complete: (request) => completeWith(client, request),
   }
 }
 
 /** An OpenAI client on a key that is not Storelib's. */
-export function openAIClientFor(key: string, via: "openai" | "openrouter"): OpenAI {
-  return via === "openrouter"
-    ? new OpenAI({ apiKey: key, baseURL: "https://openrouter.ai/api/v1", maxRetries: 1, defaultHeaders: { "HTTP-Referer": "https://storelib.com", "X-Title": "Storelib" } })
-    : new OpenAI({ apiKey: key, maxRetries: 1 })
+export function openAIClientFor(key: string): OpenAI {
+  return new OpenAI({ apiKey: key, maxRetries: 1 })
 }
 
 export const openAIProvider: AgentProvider = createOpenAIProvider(openai)
@@ -152,13 +145,13 @@ export function reasoningEffort(effort: ProviderRequest["effort"]): "low" | "med
   return effort === "low" || effort === "medium" ? effort : "high"
 }
 
-async function completeWith(client: () => OpenAI, prefix: string, request: ProviderRequest): Promise<ProviderTurn> {
+async function completeWith(client: () => OpenAI, request: ProviderRequest): Promise<ProviderTurn> {
   const rate = rateFor(request.model)
   const effort = reasoningEffort(request.effort)
 
   const response = await client().responses.create(
     {
-      model: prefix + request.model,
+      model: request.model,
       instructions: request.system,
       input: toInput(request.turns),
       tools: request.tools.map((tool) => ({

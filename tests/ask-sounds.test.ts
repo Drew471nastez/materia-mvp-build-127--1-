@@ -3,24 +3,26 @@
  *  ASK STORELIB'S SOUNDS, SCHEDULED AGAINST A STUB AUDIOCONTEXT
  * ===========================================================================
  * lib/website-builder/ask-sounds.ts builds each sound from a few Web Audio
- * nodes, through one shared room (a convolver reverb) and a limiter. Here a
- * stub context records every node, connection, ramp, start and stop. How
- * loud and how long each one really is, with the room ringing, is rendered
- * and measured in Chromium by scripts/check-ask-ai.mjs (SOUNDS).
+ * nodes, through one shared room (a small convolver reverb), a high pass and
+ * a limiter. Here a stub context records every node, connection, ramp, start
+ * and stop. How loud, how bright and how long each one really is, with the
+ * room ringing, is rendered and measured in Chromium by
+ * scripts/check-ask-sounds.mjs.
  *
- *   EVERY SOUND   all six exist and build, on the server too, with no
+ *   EVERY SOUND   all seven exist and build, on the server too, with no
  *                 AudioContext anywhere
- *   SHAPE         ticks glide, sent is a rising pluck, question a rising
- *                 sixth left hanging, done a major chord rolled upwards,
- *                 error a low minor third falling
- *   VOICE         two oscillators a few cents apart, a 4ms or softer attack,
- *                 an exponential release, a low pass that closes, a little
- *                 pan
+ *   SHAPE         short: sent a tock up, upload a double tick, question a
+ *                 major third rising, done a major chord rolled upwards,
+ *                 error a low minor third falling, the two mic ticks
+ *   STRIKE        a 3 to 8ms attack, an exponential fall, a low thump, wood
+ *                 partials that fade first, a short click, a fixed tone; no
+ *                 glide, no vibrato, no detuned pair
  *   ROOM          one convolver per context, its impulse made here once:
- *                 stereo, 1.5s, a pre-delay, falling 60 dB; sent to at 15
- *                 to 25 percent; a limiter after, its makeup gain trimmed
+ *                 stereo, 0.4s, a pre-delay, falling 60 dB, a high cut; sent
+ *                 to at 12 to 18 percent; a 60Hz high pass and a limiter
+ *                 after, its makeup gain trimmed
  *   TIDY          every source starts and stops, every node reaches the
- *                 output, a voice lets go once played and the room stays
+ *                 output, a strike lets go once played and the room stays
  *   WHEN          never before a person has touched the page; one context;
  *                 a suspended one is resumed first; off stays off; nothing
  *                 ever throws
@@ -31,14 +33,20 @@
  */
 import {
   ASK_SOUNDS,
+  BODY_DECAY,
+  HIGH_PASS,
   LIMITER,
   LIMITER_SETTLE,
+  PEAK_DBFS,
   PEAK_GAIN,
   REVERB,
+  ROOM_HIGH_CUT,
   SOUND_DESIGN,
   SOUND_LENGTH,
   SOUNDS_KEY,
   armAskSounds,
+  bodyFrequency,
+  clickNoise,
   closeMicrophoneSession,
   impulseResponse,
   limiterMakeup,
@@ -158,37 +166,68 @@ const reaches = (node: Node, target: Node, seen = new Set<Node>()): boolean => {
   return node.outputs.some((next) => reaches(next, target, seen))
 }
 
+/** One strike as the stub saw it: the sines into their envelopes, the click, all into one low pass. */
+interface Heard {
+  tone: Filter
+  start: number
+  note: Oscillator
+  noteGain: Gain
+  sines: Oscillator[]
+  click: BufferSource | null
+}
+
 function play(sound: AskSound, at = 1, ctx: StubContext = new StubContext()) {
   const out = new Node("out")
   const end = scheduleSound(ctx as never, sound, at, out as never)
   const oscillators = ctx.made.filter((n): n is Oscillator => n instanceof Oscillator)
-  /* A voice is two oscillators into one envelope; the octave partial has its own. */
-  const voices = new Map<Gain, Oscillator[]>()
-  for (const o of oscillators) {
-    const g = o.outputs[0] as Gain
-    voices.set(g, [...(voices.get(g) ?? []), o])
+  const clicks = ctx.made.filter((n): n is BufferSource => n instanceof BufferSource)
+  const byTone = new Map<Filter, Heard>()
+  const strikeOf = (tone: Filter, start: number) => {
+    let s = byTone.get(tone)
+    if (!s) {
+      s = { tone, start, note: null as never, noteGain: null as never, sines: [], click: null }
+      byTone.set(tone, s)
+    }
+    return s
   }
-  const bodies = [...voices.entries()].filter(([, os]) => os.length === 2).map(([gain, os]) => ({ gain, oscillators: os, start: os[0].started ?? 0 }))
-  bodies.sort((a, b) => a.start - b.start)
+  for (const o of oscillators) {
+    const env = o.outputs[0] as Gain
+    const s = strikeOf(env.outputs[0] as Filter, o.started ?? 0)
+    s.sines.push(o)
+  }
+  for (const c of clicks) {
+    const band = c.outputs[0] as Filter
+    const env = band.outputs[0] as Gain
+    strikeOf(env.outputs[0] as Filter, c.started ?? 0).click = c
+  }
+  const strikes = [...byTone.values()].sort((a, b) => a.start - b.start)
+  /* The note is the sine its design names; the first one made for the strike. */
+  for (const s of strikes) {
+    s.note = s.sines[0]
+    s.noteGain = s.note.outputs[0] as Gain
+  }
   const filters = ctx.made.filter((n): n is Filter => n instanceof Filter)
   const convolvers = ctx.made.filter((n): n is Convolver => n instanceof Convolver)
   const compressors = ctx.made.filter((n): n is Compressor => n instanceof Compressor)
   const panners = ctx.made.filter((n): n is Panner => n instanceof Panner)
-  return { ctx, out, end, oscillators, bodies, filters, convolvers, compressors, panners }
+  return { ctx, out, end, oscillators, clicks, strikes, filters, convolvers, compressors, panners }
 }
 
-/** A voice's pitch at its start (with its detune taken out: the pair is symmetric). */
-const pitch = (b: { oscillators: Oscillator[]; start: number }) => b.oscillators[0].frequency.at(b.start)
+/** A strike's pitch, read from the oscillator itself. */
+const pitch = (s: Heard) => s.note.frequency.at(s.start)
 const ratio = (a: number, b: number) => b / a
 const near = (a: number, b: number, tolerance = 0.01) => Math.abs(a - b) <= tolerance
+const semitones = (n: number) => Math.pow(2, n / 12)
+const attackOf = (g: Gain, start: number) => (g.gain.events.find((ev) => ev.kind === "linear")?.time ?? start) - start
+const endOf = (g: Gain, start: number) => (g.gain.events.find((ev) => ev.kind === "exp")?.time ?? start) - start
 
 // ---------------------------------------------------------------------------
 section("Every sound, and none of them needs an AudioContext to exist")
 // ---------------------------------------------------------------------------
 {
   check(
-    "six sounds: the two ticks, sent, question, done and error",
-    ASK_SOUNDS.join(",") === "record-start,record-stop,sent,question,done,error" && ASK_SOUNDS.every((s) => SOUND_DESIGN[s] && SOUND_LENGTH[s] > 0),
+    "seven sounds: the two ticks, sent, upload, question, done and error",
+    ASK_SOUNDS.join(",") === "record-start,record-stop,sent,upload,question,done,error" && ASK_SOUNDS.every((s) => SOUND_DESIGN[s] && SOUND_LENGTH[s] > 0),
   )
   check("this test runs with no window and no AudioContext at all", typeof (globalThis as { window?: unknown }).window === "undefined" && typeof (globalThis as { AudioContext?: unknown }).AudioContext === "undefined")
   let threw = false
@@ -199,85 +238,109 @@ section("Every sound, and none of them needs an AudioContext to exist")
   try { for (const s of ASK_SOUNDS) bareSources += play(s, 1, new BareContext()).oscillators.length } catch { threwBare = true }
   check("and against a browser without a convolver, a compressor or a panner: the same notes, dry", !threwBare && bareSources > 0)
   let threwServer = false
-  try { playAskSound("done"); armAskSounds(); openMicrophoneSession(); closeMicrophoneSession() } catch { threwServer = true }
+  try { playAskSound("done"); playAskSound("upload"); armAskSounds(); openMicrophoneSession(); closeMicrophoneSession() } catch { threwServer = true }
   check("on the server nothing plays and nothing throws", !threwServer)
-  const signatures = ASK_SOUNDS.map((s) => SOUND_DESIGN[s].voices.map((v) => `${v.frequency}>${v.glideTo ?? ""}@${v.offset}`).join(" "))
+  const signatures = ASK_SOUNDS.map((s) => SOUND_DESIGN[s].strikes.map((v) => `${v.frequency}@${v.offset}`).join(" "))
   check("no two sound alike", new Set(signatures).size === ASK_SOUNDS.length)
 }
 
 // ---------------------------------------------------------------------------
-section("Each sound, its shape")
+section("Each sound, its shape: short, and one family")
 // ---------------------------------------------------------------------------
 {
   const start = play("record-start")
   const stop = play("record-stop")
-  const [up] = start.bodies
-  const [down] = stop.bodies
-  check("record start is one soft tick: a pair of triangles", start.bodies.length === 1 && up.oscillators.every((o) => o.type === "triangle"))
-  check("that glides up a fifth", near(ratio(up.oscillators[0].frequency.at(1), up.oscillators[0].frequency.at(1.08)), 1.5), `${up.oscillators[0].frequency.at(1)} -> ${up.oscillators[0].frequency.at(1.08)}`)
-  check("and record stop glides down the same fifth", stop.bodies.length === 1 && near(ratio(down.oscillators[0].frequency.at(1), down.oscillators[0].frequency.at(1.08)), 1 / 1.5))
-  check("both over in about a tenth of a second", SOUND_LENGTH["record-start"] <= 0.15 && SOUND_LENGTH["record-stop"] <= 0.15, JSON.stringify(SOUND_LENGTH))
+  check("record start is one tick, record stop one lower tick", start.strikes.length === 1 && stop.strikes.length === 1 && pitch(stop.strikes[0]) < pitch(start.strikes[0]))
+  check("both over in under a tenth of a second", SOUND_LENGTH["record-start"] <= 0.1 && SOUND_LENGTH["record-stop"] <= 0.1, JSON.stringify(SOUND_LENGTH))
 
   const sent = play("sent")
-  check("sent is two notes", sent.bodies.length === 2)
-  check("rising a fifth, the second 50 to 90ms after the first", near(ratio(pitch(sent.bodies[0]), pitch(sent.bodies[1])), 1.5) && sent.bodies[1].start - sent.bodies[0].start >= 0.05 && sent.bodies[1].start - sent.bodies[0].start <= 0.09)
-  check(
-    "a pluck: triangles, a 5ms attack, a filter that shuts to a quarter or less",
-    SOUND_DESIGN.sent.voices.every((v) => v.wave === "triangle" && v.attack <= 0.006 && v.dark <= v.bright / 4),
-  )
+  const [grace, tock] = sent.strikes
+  check("sent is a soft tock up: a quiet grace, then the note a fourth above it", sent.strikes.length === 2 && near(ratio(pitch(grace), pitch(tock)), semitones(5)) && SOUND_DESIGN.sent.strikes[0].level < SOUND_DESIGN.sent.strikes[1].level)
+  check("  the note 30 to 50ms after the grace", tock.start - grace.start >= 0.03 && tock.start - grace.start <= 0.05)
+  check("  and over in 120 to 180ms", SOUND_LENGTH.sent >= 0.12 && SOUND_LENGTH.sent <= 0.18, String(SOUND_LENGTH.sent))
+
+  const upload = play("upload")
+  const [t1, t2] = upload.strikes
+  check("upload is a light double tick: the same note twice, 60 to 90ms apart, the second softer", upload.strikes.length === 2 && near(pitch(t1), pitch(t2)) && t2.start - t1.start >= 0.06 && t2.start - t1.start <= 0.09 && SOUND_DESIGN.upload.strikes[1].level < SOUND_DESIGN.upload.strikes[0].level)
+  check("  over in about 150ms", SOUND_LENGTH.upload >= 0.12 && SOUND_LENGTH.upload <= 0.18, String(SOUND_LENGTH.upload))
+  check("  light: less thump than any of the notes", SOUND_DESIGN.upload.strikes.every((u) => (["sent", "question", "done", "error"] as const).every((s) => SOUND_DESIGN[s].strikes.every((v) => u.body < v.body))))
 
   const question = play("question")
-  check("question is two notes", question.bodies.length === 2)
-  check("rising a major sixth", near(ratio(pitch(question.bodies[0]), pitch(question.bodies[1])), Math.pow(2, 9 / 12)))
-  const [q1, q2] = SOUND_DESIGN.question.voices
-  check(
-    "rounder and slower than sent: sines, a softer attack, a wider gap, the top note left ringing longer",
-    q1.wave === "sine" && q2.wave === "sine" && q1.attack >= 0.01 && q2.offset > SOUND_DESIGN.sent.voices[1].offset && q2.decay > q1.decay,
-  )
+  check("question is two notes, rising a major third", question.strikes.length === 2 && near(ratio(pitch(question.strikes[0]), pitch(question.strikes[1])), semitones(4)))
+  const [q1, q2] = SOUND_DESIGN.question.strikes
+  check("  gentler than sent: a softer attack, a wider gap, the top note a little longer", q1.attack > SOUND_DESIGN.sent.strikes[1].attack && q2.offset > SOUND_DESIGN.sent.strikes[1].offset && q2.decay > q1.decay)
+  check("  about a quarter of a second", SOUND_LENGTH.question >= 0.22 && SOUND_LENGTH.question <= 0.28, String(SOUND_LENGTH.question))
 
   const done = play("done")
-  const [c, e, g] = done.bodies
-  check("done is three notes", done.bodies.length === 3)
-  check("a major chord: a major third and a fifth over the root", near(ratio(pitch(c), pitch(e)), Math.pow(2, 4 / 12)) && near(ratio(pitch(c), pitch(g)), 1.5))
-  check("rolled upwards quickly, all three within 120ms", c.start < e.start && e.start < g.start && g.start - c.start <= 0.12)
-  check("in sines, and ringing about three quarters of a second", done.oscillators.every((o) => o.type === "sine") && SOUND_LENGTH.done >= 0.7 && SOUND_LENGTH.done <= 1.05)
-  check("spread from left to right as it rises", SOUND_DESIGN.done.voices[0].pan < SOUND_DESIGN.done.voices[1].pan && SOUND_DESIGN.done.voices[1].pan < SOUND_DESIGN.done.voices[2].pan)
+  const [c, e, g] = done.strikes
+  check("done is three notes", done.strikes.length === 3)
+  check("  a major chord: a major third and a fifth over the root", near(ratio(pitch(c), pitch(e)), semitones(4)) && near(ratio(pitch(c), pitch(g)), 1.5))
+  check("  rolled upwards quickly, all three within 120ms", c.start < e.start && e.start < g.start && g.start - c.start <= 0.12)
+  check("  about a third of a second, the longest of them", SOUND_LENGTH.done >= 0.32 && SOUND_LENGTH.done <= 0.38 && ASK_SOUNDS.every((s) => SOUND_LENGTH[s] <= SOUND_LENGTH.done))
+  check("  spread from left to right as it rises, the root's thump under it", SOUND_DESIGN.done.strikes[0].pan < SOUND_DESIGN.done.strikes[1].pan && SOUND_DESIGN.done.strikes[1].pan < SOUND_DESIGN.done.strikes[2].pan && SOUND_DESIGN.done.strikes[0].body >= Math.max(...SOUND_DESIGN.done.strikes.map((s) => s.body)))
 
   const error = play("error")
-  check("error is two notes", error.bodies.length === 2)
-  check("falling a minor third", near(ratio(pitch(error.bodies[0]), pitch(error.bodies[1])), Math.pow(2, -3 / 12)))
-  check("and low: the lowest notes of any sound, under 400Hz", error.bodies.every((b) => pitch(b) < 400) && ASK_SOUNDS.filter((s) => s !== "error").every((s) => SOUND_DESIGN[s].voices.every((v) => v.frequency >= 500)))
-  check("darker than the rest: its filter starts lowest", SOUND_DESIGN.error.voices.every((v) => ASK_SOUNDS.filter((s) => s !== "error").every((s) => SOUND_DESIGN[s].voices.every((w) => v.bright < w.bright))))
+  check("error is two notes, falling a minor third", error.strikes.length === 2 && near(ratio(pitch(error.strikes[0]), pitch(error.strikes[1])), semitones(-3)))
+  check("  low: the lowest notes of any sound, under 400Hz", error.strikes.every((s) => pitch(s) < 400) && ASK_SOUNDS.filter((s) => s !== "error").every((s) => SOUND_DESIGN[s].strikes.every((v) => v.frequency >= 500)))
+  check("  soft: the slowest attack and the quietest click", SOUND_DESIGN.error.strikes.every((v) => ASK_SOUNDS.filter((s) => s !== "error").every((s) => SOUND_DESIGN[s].strikes.every((w) => v.attack >= w.attack && v.click <= w.click))))
+  check("  darker than the rest: its low pass and its click band the lowest", ASK_SOUNDS.filter((s) => s !== "error").every((s) => SOUND_DESIGN.error.tone < SOUND_DESIGN[s].tone && SOUND_DESIGN.error.clickBand < SOUND_DESIGN[s].clickBand))
+  check("  about a quarter of a second", SOUND_LENGTH.error >= 0.22 && SOUND_LENGTH.error <= 0.28, String(SOUND_LENGTH.error))
 }
 
 // ---------------------------------------------------------------------------
-section("Every note, made the same careful way")
+section("Every strike, made the same careful way: nothing glides, nothing wobbles")
 // ---------------------------------------------------------------------------
 {
   for (const sound of ASK_SOUNDS) {
     const r = play(sound)
+    const design = SOUND_DESIGN[sound]
     const problems: string[] = []
-    for (const b of r.bodies) {
-      const cents = b.oscillators.map((o) => o.detune.at(b.start)).sort((x, y) => x - y)
-      if (!(cents[0] === -cents[1] && cents[1] > 0 && cents[1] <= 8)) problems.push(`detune ${cents}`)
-      const rise = b.gain.gain.events.find((ev) => ev.kind === "linear")
-      const attack = rise ? rise.time - b.start : 0
-      if (attack < 0.004) problems.push(`attack ${attack}`)
-      const fall = b.gain.gain.events.find((ev) => ev.kind === "exp")
-      if (!fall || fall.value > 0.001) problems.push("no exponential release to silence")
-      const filter = b.gain.outputs[0] as Filter
-      if (!(filter instanceof Filter) || filter.type !== "lowpass" || !(filter.frequency.at(b.start + 0.5) < filter.frequency.at(b.start))) problems.push("no closing low pass")
-      const panner = filter.outputs[0] as Panner
-      if (!(panner instanceof Panner) || Math.abs(panner.pan.at(b.start)) > 0.3) problems.push("pan")
-    }
-    check(`${sound}: detuned pairs, an attack of 4ms or more, an exponential release, a closing low pass, a little pan`, problems.length === 0, problems.join("; "))
+    r.strikes.forEach((s, i) => {
+      const want = design.strikes[i]
+      if (!near(pitch(s), want.frequency, 1e-6)) problems.push(`pitch ${pitch(s)}`)
+      const attack = attackOf(s.noteGain, s.start)
+      if (attack < 0.003 - 1e-9 || attack > 0.008 + 1e-9) problems.push(`attack ${attack}`)
+      const fall = s.noteGain.gain.events.find((ev) => ev.kind === "exp")
+      if (!fall || fall.value > 0.001) problems.push("no exponential fall to silence")
+      /* The thump: the note folded into 120 to 240Hz, over in under a tenth of a second. */
+      const body = s.sines.find((o) => near(o.frequency.at(s.start), bodyFrequency(want.frequency), 1e-6) && o !== s.note)
+      if (want.body > 0) {
+        const f = body?.frequency.at(s.start) ?? 0
+        if (!body || f < 120 || f >= 240) problems.push(`thump ${f}`)
+        else if (endOf(body.outputs[0] as Gain, s.start) > BODY_DECAY + 1e-9) problems.push("thump too long")
+      }
+      /* The partials: whole multiples of the note, each gone before it. */
+      for (const p of design.partials) {
+        const o = s.sines.find((x) => near(x.frequency.at(s.start), want.frequency * p.ratio, 1e-6))
+        if (!o) problems.push(`no partial at ${p.ratio}x`)
+        else if (!(endOf(o.outputs[0] as Gain, s.start) < endOf(s.noteGain, s.start))) problems.push(`partial ${p.ratio}x outlasts the note`)
+      }
+      /* The click: band passed noise, over in a few milliseconds, under the note. */
+      if (want.click > 0) {
+        const band = s.click?.outputs[0] as Filter | undefined
+        const env = band?.outputs[0] as Gain | undefined
+        if (!s.click || !band || band.type !== "bandpass" || !env) problems.push("no click")
+        else {
+          if (endOf(env, s.start) > 0.025) problems.push("click too long")
+          if (!(want.click < 1)) problems.push("click as loud as the note")
+        }
+      }
+      if (s.tone.type !== "lowpass" || s.tone.frequency.events.length !== 1) problems.push("the tone filter moves")
+      const panner = s.tone.outputs[0] as Panner
+      if (!(panner instanceof Panner) || Math.abs(panner.pan.at(s.start)) > 0.3) problems.push("pan")
+    })
+    check(`${sound}: a 3 to 8ms attack, an exponential fall, a thump at 120 to 240Hz, partials that fade first, a short click, a fixed tone, a little pan`, problems.length === 0, problems.join("; "))
+    const moving = r.oscillators.filter((o) => o.frequency.events.length !== 1 || o.frequency.events[0].kind !== "set" || o.detune.events.length > 0)
+    check(`${sound}: every oscillator a sine with its frequency set once: no glide, no vibrato, no detuned pair to beat`, moving.length === 0 && r.oscillators.every((o) => o.type === "sine"), `${moving.length} moving`)
   }
-  check("no note is set louder than 0.15 before the room: modest, the probe measures the rest", ASK_SOUNDS.every((s) => SOUND_DESIGN[s].voices.every((v) => v.peak <= 0.15)))
-  check("and the target after it all is -20 dBFS", Math.abs(20 * Math.log10(PEAK_GAIN) + 20) < 1e-9)
+  check("every sound's level modest before the room: 0.2 or less, the probe measures the rest", ASK_SOUNDS.every((s) => SOUND_DESIGN[s].gain > 0 && SOUND_DESIGN[s].gain <= 0.2))
+  check("and the target after it all is -16 dBFS", PEAK_DBFS === -16 && Math.abs(20 * Math.log10(PEAK_GAIN) - PEAK_DBFS) < 1e-9)
+  const n1 = clickNoise(48000)
+  check("the click's noise is 30ms, made once per sample rate and kept", n1 === clickNoise(48000) && n1.length === Math.round(48000 * 0.03) && n1.some((v) => v !== 0))
 }
 
 // ---------------------------------------------------------------------------
-section("The room, and the limiter")
+section("The room: small, tight and dark; the master: a high pass and a limiter")
 // ---------------------------------------------------------------------------
 {
   const r = play("sent")
@@ -285,40 +348,47 @@ section("The room, and the limiter")
   check("one convolver, normalize off so the send level is the wet level", r.convolvers.length === 1 && convolver.normalize === false && !!convolver.buffer)
   const ir = convolver.buffer!
   const [left, right] = ir.channels
-  check("its impulse is stereo, 1.5s long", ir.channels.length === 2 && left.length === Math.round(48000 * REVERB.seconds) && REVERB.seconds >= 1.2 && REVERB.seconds <= 1.8)
+  check("its impulse is stereo and short: 0.25 to 0.45s, a room not a hall", ir.channels.length === 2 && left.length === Math.round(48000 * REVERB.seconds) && REVERB.seconds >= 0.25 && REVERB.seconds <= 0.45)
   const delay = Math.round(48000 * REVERB.preDelay)
-  check("with a pre-delay of silence first", left.slice(0, delay).every((v) => v === 0) && Math.abs(left[delay + 400]) + Math.abs(left[delay + 401]) > 0)
+  check("with a short pre-delay of silence first", REVERB.preDelay > 0 && REVERB.preDelay <= 0.015 && left.slice(0, delay).every((v) => v === 0) && Math.abs(left[delay + 200]) + Math.abs(left[delay + 201]) > 0)
   const rms = (d: Float32Array, from: number, to: number) => Math.sqrt(d.slice(from, to).reduce((s, v) => s + v * v, 0) / Math.max(1, to - from))
-  const head = rms(left, delay, delay + 4800)
-  const tail = rms(left, left.length - 4800, left.length)
+  const head = rms(left, delay, delay + 1200)
+  const tail = rms(left, left.length - 1200, left.length)
   check("and a tail that falls about 60 dB", 20 * Math.log10(tail / head) < -45, `${(20 * Math.log10(tail / head)).toFixed(1)} dB`)
   const zeroCross = (d: Float32Array, from: number, to: number) => { let n = 0; for (let i = from + 1; i < to; i++) if (Math.sign(d[i]) !== Math.sign(d[i - 1])) n++; return n / (to - from) }
-  check("darkening as it goes: fewer crossings late than early", zeroCross(left, left.length - 9600, left.length) < zeroCross(left, delay, delay + 9600) * 0.6)
+  check("darkening as it goes: fewer crossings late than early", zeroCross(left, left.length - 2400, left.length) < zeroCross(left, delay, delay + 2400) * 0.7)
   check("each side different, so the tail is wide", left.some((v, i) => v !== right[i]))
   const energy = left.reduce((s, v) => s + v * v, 0)
   check("scaled to unit energy", Math.abs(energy - 1) < 1e-3, String(energy))
   check("made once per sample rate and kept", impulseResponse(48000) === impulseResponse(48000) && impulseResponse(44100)[0].length === Math.round(44100 * REVERB.seconds))
+  const cut = convolver.outputs[0] as Filter
+  check("then a high cut, 4kHz or lower, so the tail is never watery", cut instanceof Filter && cut.type === "lowpass" && cut.frequency.value === ROOM_HIGH_CUT && ROOM_HIGH_CUT <= 4000)
 
   const again = scheduleSound(r.ctx as never, "done", 2, r.out as never)
   check("the room is built once per context: a second sound adds no convolver or limiter", again > 2 && r.ctx.made.filter((n) => n instanceof Convolver).length === 1 && r.ctx.made.filter((n) => n instanceof Compressor).length === 1)
 
   const sends = ASK_SOUNDS.map((s) => [s, SOUND_DESIGN[s].wet] as const)
   check(
-    "the room is mixed low: 15 to 25 percent for the notes, less for the ticks",
-    sends.every(([s, w]) => (s.startsWith("record") ? w > 0 && w < 0.15 : w >= 0.15 && w <= 0.25)),
+    "the room is mixed low: 12 to 18 percent for the notes, less for the ticks",
+    sends.every(([s, w]) => (s.startsWith("record") ? w > 0 && w < 0.12 : w >= 0.12 && w <= 0.18)),
     JSON.stringify(Object.fromEntries(sends)),
   )
   const sendGains = r.ctx.made.filter((n): n is Gain => n instanceof Gain && n.outputs.some((o) => o instanceof Gain && o.outputs[0] instanceof Convolver))
-  check("each note sends to it at that level", sendGains.length >= 2 && sendGains.every((gn) => gn.gain.events.some((ev) => near(ev.value, SOUND_DESIGN.sent.wet, 1e-9))))
+  check("each strike sends to it at that level", sendGains.length >= 2 && sendGains.every((gn) => gn.gain.events.some((ev) => near(ev.value, SOUND_DESIGN.sent.wet, 1e-9) || near(ev.value, SOUND_DESIGN.done.wet, 1e-9))))
 
   const [limiter] = r.compressors
+  const highPass = r.filters.find((f) => f.type === "highpass")
   check(
-    "one limiter after dry and wet: -6 dBFS, ratio 12, fast",
+    "a high pass at 60Hz before the limiter, that the dry sound and the room both go through",
+    !!highPass && highPass.frequency.value === HIGH_PASS && HIGH_PASS === 60 && highPass.outputs[0] === limiter && reaches(convolver, highPass) && r.strikes.every((s) => reaches(s.tone, highPass)),
+  )
+  check(
+    "one limiter after it: -6 dBFS, ratio 12, fast",
     r.compressors.length === 1 && limiter.threshold.value === LIMITER.threshold && limiter.ratio.value >= 10 && limiter.attack.value <= 0.005 && reaches(convolver, limiter),
   )
   const trim = limiter.outputs[0] as Gain
   check("its makeup gain taken back out, so below the threshold the chain is unity", trim instanceof Gain && near(trim.gain.value * limiterMakeup(), 1, 1e-9) && near(limiterMakeup(), 1.4625, 0.001), String(limiterMakeup()))
-  check("well above the loudest sound: 14 dB of room", LIMITER.threshold - 20 * Math.log10(PEAK_GAIN) >= 12)
+  check("well above the loudest sound: 10 dB of room", LIMITER.threshold - PEAK_DBFS >= 10)
 
   const fresh = new StubContext()
   const out = new Node("out")
@@ -332,18 +402,24 @@ section("Tidy")
 // ---------------------------------------------------------------------------
 {
   for (const sound of ASK_SOUNDS) {
-    const r = play(sound, 2)
-    const sources = r.ctx.made.filter((n): n is Source => n instanceof Source)
-    check(`${sound}: every source starts when asked or after, and stops by its end`, sources.every((s) => (s.started ?? 0) >= 2) && sources.every((s) => s.stopped !== null && (s.stopped ?? 0) <= r.end + 1e-9))
-    check(`${sound}: says how long it is`, near(r.end - 2, SOUND_LENGTH[sound], 1e-9))
-    check(`${sound}: every node it made reaches the output`, r.ctx.made.every((n) => reaches(n, r.out)))
+    /* The room is built by a first sound; what the sound under test makes after it is all its own. */
+    const ctx = new StubContext()
+    const out = new Node("out")
+    scheduleSound(ctx as never, "sent", 0, out as never)
+    const room = ctx.made.filter((n) => n instanceof Convolver || n instanceof Compressor || (n instanceof Filter && (n.type === "highpass" || n.outputs[0] instanceof Compressor)))
+    const before = ctx.made.length
+    const end = scheduleSound(ctx as never, sound, 2, out as never)
+    const mine = ctx.made.slice(before)
+    const sources = mine.filter((n): n is Source => n instanceof Source)
+    check(`${sound}: every source starts when asked or after, and stops by its end`, sources.length > 0 && sources.every((s) => (s.started ?? 0) >= 2) && sources.every((s) => s.stopped !== null && (s.stopped ?? 0) <= end + 1e-9))
+    check(`${sound}: says how long it is`, near(end - 2, SOUND_LENGTH[sound], 1e-9))
+    check(`${sound}: every node it made reaches the output`, mine.every((n) => reaches(n, out)))
     for (const s of sources) s.onended?.()
-    const room = new Set<Node>([...r.convolvers, ...r.compressors])
-    const voiceNodes = r.ctx.made.filter((n) => n instanceof Source || n instanceof Panner || (n instanceof Filter && n.outputs[0] instanceof Panner) || (n instanceof Gain && n.outputs[0] instanceof Filter))
-    check(`${sound}: its notes let go of their nodes once played`, voiceNodes.length > 0 && voiceNodes.every((n) => n.disconnected))
-    check(`${sound}: and the room stays for the next one`, [...room].every((n) => !n.disconnected))
+    check(`${sound}: its strikes let go of every node they made once played`, mine.length > 0 && mine.every((n) => n.disconnected))
+    check(`${sound}: and the room stays for the next one`, room.length >= 3 && room.every((n) => !n.disconnected))
   }
 }
+
 
 /* Resuming a context is a promise, so this part waits for it, inside a function rather than at the top level. */
 async function whenItPlays() {

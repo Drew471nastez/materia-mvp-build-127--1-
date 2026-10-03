@@ -17,7 +17,7 @@ import "server-only"
 import type { KeySource } from "./store"
 
 export function ownKeyName(source: KeySource): string {
-  return source === "anthropic" ? "Claude key" : source === "openai" ? "OpenAI key" : "OpenRouter account"
+  return source === "anthropic" ? "Claude key" : "OpenAI key"
 }
 
 const FIX = "Update it in Website settings, Connections, or remove it to use Storelib AI."

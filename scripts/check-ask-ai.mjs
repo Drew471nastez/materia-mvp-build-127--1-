@@ -55,10 +55,10 @@
  *                 note in words; the not saved notices
  *     SOUNDS      each rendered offline from the real graph, room and limiter
  *                 included (peak dBFS, how long it is heard with the reverb
- *                 tail, how far under the dry sound the reverb sits); nothing
- *                 on load; the pluck, the chord and the ticks when they
- *                 should be; the switch in the menu, remembered; silent when
- *                 off
+ *                 tail, how far under the dry sound the reverb sits; the full
+ *                 measure is scripts/check-ask-sounds.mjs); nothing on load;
+ *                 the tock, the chord and the ticks when they should be; the
+ *                 switch in the menu, remembered; silent when off
  *     ACTIONS     the live line changes as the run moves and folds into a
  *                 closed steps toggle and a summary; Copy; Report; a
  *                 suggestion is sent; Report before its table
@@ -884,15 +884,15 @@ async function sounds(browser) {
     return out
   })
   measures.soundLevels = levels
-  expect(Object.values(levels).every((l) => l.peakDbfs <= -18 && l.peakDbfs >= -22), "every sound peaks near -20 dBFS (between -22 and -18)", levels)
+  expect(Object.values(levels).every((l) => l.peakDbfs <= -15 && l.peakDbfs >= -17), "every sound peaks near -16 dBFS (between -17 and -15)", levels)
   expect(
-    levels["record-start"].heardMs <= 500 && levels["record-stop"].heardMs <= 500 && levels.sent.heardMs >= 600 && levels.sent.heardMs <= 900 && levels.question.heardMs >= 750 && levels.question.heardMs <= 1100 && levels.done.heardMs >= 750 && levels.done.heardMs <= 1100 && levels.error.heardMs >= 600 && levels.error.heardMs <= 950,
-    "ticks short, the pluck and the low pair under a second, the question and the chord ringing about a second, room included",
+    levels["record-start"].heardMs <= 250 && levels["record-stop"].heardMs <= 250 && levels.sent.heardMs <= 320 && levels.upload.heardMs <= 320 && levels.question.heardMs <= 400 && levels.error.heardMs <= 400 && levels.done.heardMs <= 450,
+    "short, room included: the ticks a quarter of a second, nothing heard for more than half of one",
     levels,
   )
   expect(
-    ["sent", "question", "done", "error"].every((s) => levels[s].wetDb <= -8 && levels[s].wetDb >= -14) && levels["record-start"].wetDb < -14,
-    "the reverb is there and mixed low: 8 to 14 dB under the notes, further under the ticks",
+    Object.values(levels).every((l) => l.wetDb <= -10 && l.wetDb >= -24),
+    "the reverb is there and mixed low: 10 to 24 dB under the dry sound",
     levels,
   )
 
@@ -908,11 +908,11 @@ async function sounds(browser) {
   const before = (await count()).started.length
   await p.keyboard.press("Enter")
   await sleep(250)
-  const pluck = (await count()).started.slice(before)
-  expect(pluck.filter((k) => k === "triangle").length === 4, "sending plays the pluck: two notes, each a pair of triangles", pluck)
+  const tock = (await count()).started.slice(before)
+  expect(tock.filter((k) => k === "sine").length === 8 && tock.filter((k) => k === "noise").length === 2, "sending plays the tock: two strikes, each a note, two partials and a thump, and a click", tock)
   await sleep(1800)
-  const chime = (await count()).started.slice(before + pluck.length)
-  expect(chime.filter((k) => k === "sine").length >= 9, "the answer arriving plays the chord: three notes, each a pair of sines and its octave", chime)
+  const chime = (await count()).started.slice(before + tock.length)
+  expect(chime.filter((k) => k === "sine").length >= 12, "the answer arriving plays the chord: three strikes, each a note, two partials and a thump", chime)
   const b2 = (await count()).started.length
   await p.click("[data-ask-mic]")
   await sleep(450)
@@ -920,7 +920,7 @@ async function sounds(browser) {
   await p.click("[data-ask-mic]")
   await sleep(300)
   const closed = (await count()).started.slice(b2 + opened.length)
-  expect(opened.includes("triangle") && closed.includes("triangle"), "the microphone ticks as it opens and again as it closes", { opened, closed })
+  expect(opened.includes("sine") && closed.includes("sine"), "the microphone ticks as it opens and again as it closes", { opened, closed })
   const all = await count()
   expect(all.contexts === 1, "all on the one context", all.contexts)
 

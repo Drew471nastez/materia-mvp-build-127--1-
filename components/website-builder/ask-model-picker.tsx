@@ -22,9 +22,8 @@
  * own Change page / Code section switch (./ask-parts), with one line under
  * it for the one that is on. Choosing one leaves the menu open.
  *
- * YOUR OWN AI. A model the creator's own account answers (their OpenAI key,
- * or OpenRouter: components/website-builder/use-own-ai.ts) says
- * so beside its name, "Your key", and the trigger carries a small green dot;
+ * YOUR OWN AI. A model the creator's own account answers (their OpenAI key:
+ * components/website-builder/use-own-ai.ts) says so beside its name, "Your key", and the trigger carries a small green dot;
  * those edits do not use the plan's AI edits. Under the models, one line
  * goes to Connections to set it up, or says it is on.
  *
@@ -223,7 +222,7 @@ export function ModelPicker({
             {anyOwn ? "Your own AI is on" : "Use your own AI"}
           </span>
           <span className={cn("block leading-snug text-[#6b7280]", phone ? "text-[13px]" : "text-[11.5px]")}>
-            {anyOwn ? "Those edits don't use your AI edits. Manage" : "Your OpenAI key or OpenRouter. Doesn't use your AI edits"}
+            {anyOwn ? "Those edits don't use your AI edits. Manage" : "Your OpenAI key. Doesn't use your AI edits"}
           </span>
         </span>
         <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 -rotate-90 text-[#9ca3af]" strokeWidth={2} />

@@ -48,7 +48,7 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
       <Lead>Use your own Claude or ChatGPT in Storelib AI, or let Claude Code, Codex or a GitHub repository change this website. What they write is a draft until you publish.</Lead>
 
       {/* First: the one that needs nothing installed, and is what the chat's Connect AI button is usually after. */}
-      <OwnAiSettings installId={ctx.installId} />
+      <OwnAiSettings />
 
       <h2 className="mt-8 text-[15px] font-semibold text-white md:mt-9 md:text-[14.5px]">Or code in your own tools</h2>
       <section

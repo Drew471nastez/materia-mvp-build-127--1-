@@ -9,9 +9,6 @@
  *                     sealed (lib/ai-keys/crypto).
  *   DELETE ?source=   forgets one. Storelib AI answers again from the next
  *                     message.
- *
- * OpenRouter is connected by its own sign in, not a pasted key:
- * /api/ai-keys/openrouter.
  */
 import { NextResponse, type NextRequest } from "next/server"
 import { currentCreatorId } from "@/lib/creators/current"
@@ -42,8 +39,8 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { source?: unknown; key?: unknown } | null
   const source = body?.source
   const key = typeof body?.key === "string" ? body.key.trim() : ""
-  /* A Claude key is not taken while Storelib AI runs on ChatGPT only (lib/sites/agent/provider.ts); one kept from before stays until it is removed. */
-  if (source !== "openai") return NextResponse.json({ error: "Add an OpenAI key, or connect OpenRouter." }, { status: 400 })
+  /* A Claude key is not taken while Storelib AI runs on OpenAI only (lib/sites/agent/provider.ts); one kept from before stays until it is removed. */
+  if (source !== "openai") return NextResponse.json({ error: "Add an OpenAI key." }, { status: 400 })
   if (!key || key.length > 400) return NextResponse.json({ error: "Paste your key." }, { status: 400 })
 
   const limited = await rateLimit({ bucket: "ai-key", subjects: [creatorId], windows: LIMITS.aiKey, message: "That is a lot of keys in a short time. Try again in a few minutes." })
