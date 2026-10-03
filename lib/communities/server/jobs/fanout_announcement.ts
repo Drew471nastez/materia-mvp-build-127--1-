@@ -13,10 +13,18 @@ import "server-only"
  * run, so ten thousand members is a few runs, never a timeout.
  *
  * A post removed or deleted before the job reaches it tells nobody else.
+ *
+ * AN ANNOUNCEMENT IS ALSO EMAILED (an @everyone is not): to each member who
+ * keeps email_announcements on and has not set notify_level to none, through
+ * lib/communities/server/email.ts sendCommunityEmail, once per member and
+ * post (key announce:<postId>:<userId>), so a page run again sends nothing
+ * twice. A page whose emails cannot all go before the deadline is handed
+ * back from its own start; what already went answers "duplicate".
  */
 import { wantsNotification } from "../../permissions"
 import type { JobRow, NotifyLevel } from "../../types"
 import { reasonOf, type Db } from "../db"
+import { sendCommunityEmail } from "../email"
 import type { JobContext, JobOutcome } from "./index"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -42,6 +50,11 @@ export function fanoutRows(
       url: p.url,
       dedupe_key: `${p.reason}:${p.postId}:${m.user_id}`,
     }))
+}
+
+/** Who gets the announcement by email: email_announcements on, notifications not off, never the author. */
+export function announcementEmailees(members: { user_id: string; notify_level: NotifyLevel | null; email_announcements?: boolean | null }[], actorId: string | null): string[] {
+  return members.filter((m) => m.user_id !== actorId && m.email_announcements === true && m.notify_level !== "none").map((m) => m.user_id)
 }
 
 export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
@@ -74,16 +87,28 @@ export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): 
   const url = `/community/${community.slug}/post/${postId}`
 
   while (true) {
-    let read = db.from("community_members").select("user_id, notify_level").eq("community_id", communityId).eq("status", "active").order("user_id", { ascending: true }).limit(FANOUT_PAGE)
+    let read = db.from("community_members").select("user_id, notify_level, email_announcements").eq("community_id", communityId).eq("status", "active").order("user_id", { ascending: true }).limit(FANOUT_PAGE)
     if (after) read = read.gt("user_id", after)
     const { data, error } = await read
     if (error) throw new Error(`members read: ${reasonOf(error)}`)
-    const members = (data as { user_id: string; notify_level: NotifyLevel | null }[] | null) ?? []
+    const members = (data as { user_id: string; notify_level: NotifyLevel | null; email_announcements?: boolean | null }[] | null) ?? []
     if (!members.length) return
     const rows = fanoutRows(members, { communityId, postId, actorId, title, body, url, reason })
     if (rows.length) {
       const { error: writeError } = await db.from("community_notifications").upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
       if (writeError) throw new Error(`notifications write: ${reasonOf(writeError)}`)
+    }
+    if (reason === "announcement") {
+      const emailTo = announcementEmailees(members, actorId)
+      for (const userId of emailTo) {
+        if (Date.now() > ctx.deadline - 5_000) return { again: { payload: { ...payload, after } } }
+        await sendCommunityEmail(
+          db,
+          "community.announcement",
+          { userId, communityId, data: { postId, title: heading, excerpt: text.slice(0, 400), authorName: actorName === "An admin" ? "" : actorName }, key: `announce:${postId}:${userId}` },
+          { soon: false },
+        )
+      }
     }
     after = members[members.length - 1].user_id
     if (members.length < FANOUT_PAGE) return

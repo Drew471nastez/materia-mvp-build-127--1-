@@ -118,6 +118,21 @@ const ENTRIES: Record<NotificationType, Entry> = {
   MEMBERSHIP_PAYMENT_FAILED: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "customer", channels: ["email"], template: "action_required", defaultOn: true, cooldownSeconds: 12 * HOUR }),
   MEMBERSHIP_CANCELED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
   MEMBERSHIP_ENDED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
+
+  /* ── A member of a community ──────────────────────────────────────── */
+  /*
+    Sent through lib/communities/server/email.ts, once per key. The welcome and an approved request are about the
+    person's own membership, so they are required, like a receipt. The rest are optional: they respect an unsubscribe or
+    a complaint (email_suppressions) and the three optional emails a day, and the member's own switches in the community
+    (email_announcements, email_events) are checked before the event is raised. A feed post never sends an email; only
+    an announcement does, once.
+  */
+  COMMUNITY_WELCOME: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_JOIN_APPROVED: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "success", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_INVITE: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_ANNOUNCEMENT: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_EVENT_REMINDER: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_COURSE_AVAILABLE: E({ category: "product_and_store", priority: "info", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
 }
 
 export const REGISTRY: Record<NotificationType, RegistryEntry> = Object.fromEntries(

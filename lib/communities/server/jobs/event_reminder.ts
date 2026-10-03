@@ -3,7 +3,9 @@ import "server-only"
 /**
  * EVENT_REMINDER: tells everyone going to an event that it starts tomorrow
  * (window "24h") or in an hour (window "1h"): a row in their community
- * inbox, and an email for members who keep event emails on.
+ * inbox, and an email for members who keep event emails on, sent through
+ * lib/communities/server/email.ts sendCommunityEmail (community.event_reminder,
+ * key event:<eventId>:<window>:<startsAt>).
  * Payload { eventId, window, startsAt, cursor? }, queued by
  * lib/communities/server/events.ts ensureReminders once per start time.
  *
@@ -22,16 +24,13 @@ import "server-only"
 import { wantsNotification } from "../../permissions"
 import { eventTime } from "../../format"
 import { EVENT_COLUMNS, type EventRow, type JobRow, type NotifyLevel } from "../../types"
-import { siteUrl } from "@/lib/memberships/server"
-import { sendEmail } from "@/lib/mail"
 import { nowIso, reasonOf, type Db } from "../db"
 import { REMINDER_WINDOWS, bulkNotify, ensureReminders, type ReminderWindow } from "../events"
+import { sendCommunityEmail } from "../email"
 import type { JobContext, JobOutcome } from "./index"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const REMINDER_PAGE = 200
-
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
 export function reminderTitle(window: ReminderWindow, title: string): string {
   return (window === "24h" ? `Tomorrow: ${title}` : `Starting in 1 hour: ${title}`).slice(0, 200)
@@ -45,19 +44,6 @@ export function alreadySent(e: Pick<EventRow, "reminder_24h_at" | "reminder_1h_a
   return Date.parse(at) >= start - REMINDER_WINDOWS[window] - 2 * 60 * 60_000
 }
 
-export function reminderEmail(p: { window: ReminderWindow; title: string; when: string; community: string; url: string }): { subject: string; html: string; text: string } {
-  const lead = p.window === "24h" ? "is tomorrow" : "starts in an hour"
-  const subject = reminderTitle(p.window, p.title)
-  const text = `${p.title} ${lead}.\n${p.when}\n\nOpen the event: ${p.url}\n\nYou are getting this because you said you are going, in ${p.community} on Storelib.`
-  const html = `<div style="font-family:Inter,Arial,sans-serif;color:#1a1a2e;font-size:15px;line-height:1.55;max-width:520px">
-<p style="margin:0 0 4px;font-size:13px;color:#6b7280">${esc(p.community)}</p>
-<p style="margin:0 0 12px;font-size:20px;font-weight:700">${esc(p.title)} ${lead}</p>
-<p style="margin:0 0 20px;color:#4b5563">${esc(p.when)}</p>
-<p style="margin:0 0 24px"><a href="${esc(p.url)}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open the event</a></p>
-<p style="margin:0;font-size:12px;color:#9ca3af">You are getting this because you said you are going. Turn event emails off in the community's notification settings.</p>
-</div>`
-  return { subject, html, text }
-}
 
 export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
   const eventId = typeof job.payload?.eventId === "string" ? job.payload.eventId : ""
@@ -105,17 +91,19 @@ export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promi
       wanted.map((m) => ({ userId: m.user_id, title: reminderTitle(window, e.title), body: when, url: path, dedupeKey: `event_reminder:${e.id}:${window}:${e.starts_at}:${m.user_id}` })),
     )
     const emailTo = wanted.filter((m) => fresh.has(m.user_id) && m.email_events !== false).map((m) => m.user_id)
-    if (emailTo.length) {
-      const { data: profiles } = await db.from("profiles").select("id, email").in("id", emailTo)
-      const mail = reminderEmail({ window, title: e.title, when, community: c.name, url: siteUrl(path) })
-      for (const p of (profiles as { id: string; email: string | null }[] | null) ?? []) {
-        if (!p.email) continue
-        try {
-          await sendEmail({ to: p.email, subject: mail.subject, html: mail.html, text: mail.text, tags: [{ name: "community-event-reminder", value: "1" }] })
-        } catch (err) {
-          console.error(`[communities] reminder email ${e.id}: ${reasonOf(err)}`)
-        }
-      }
+    /* Only members whose inbox row this run wrote: a job run again sends no second email, and the key makes it once besides. */
+    for (const userId of emailTo) {
+      await sendCommunityEmail(
+        db,
+        "community.event_reminder",
+        {
+          userId,
+          communityId: c.id,
+          data: { eventId: e.id, eventTitle: e.title, startsAt: e.starts_at, endsAt: e.ends_at ?? "", timezone: e.timezone || "UTC", lead: window, location: e.location ?? "", online: !e.location && Boolean(e.meeting_url || e.livestream_url) },
+          key: `event:${e.id}:${window}:${e.starts_at}`,
+        },
+        { soon: false },
+      )
     }
     after = ids[ids.length - 1]
     if (ids.length < REMINDER_PAGE) break

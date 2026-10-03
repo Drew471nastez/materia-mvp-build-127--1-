@@ -15,6 +15,7 @@ import type { DomainEvent, PlannedJob } from "./types"
 import type { CancelRequest, Workflow, WorkflowContext } from "./workflows/common"
 import { customer } from "./workflows/customer"
 import { memberships } from "./workflows/memberships"
+import { communities } from "./workflows/communities"
 import { domains } from "./workflows/domains"
 import { onboarding } from "./workflows/onboarding"
 import { payments } from "./workflows/payments"
@@ -27,7 +28,7 @@ import { unfinished } from "./workflows/unfinished"
 
 export type { CancelRequest, WorkflowContext }
 
-export const WORKFLOW_LIST: readonly Workflow[] = [onboarding, unfinished, products, payments, payouts, sales, customer, memberships, subscriptions, domains, security]
+export const WORKFLOW_LIST: readonly Workflow[] = [onboarding, unfinished, products, payments, payouts, sales, customer, memberships, communities, subscriptions, domains, security]
 
 export interface HandleResult {
   jobs: PlannedJob[]

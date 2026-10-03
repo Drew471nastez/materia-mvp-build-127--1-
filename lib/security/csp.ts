@@ -117,6 +117,19 @@ const DIRECTIVES: [string, string[]][] = [
     "https://*.airwallex.com",
     "https://*.vercel-insights.com",
     "https://va.vercel-scripts.com",
+    /*
+      Community videos go from the creator's browser straight to the video
+      provider when one is connected (lib/video, lib/video/upload-client.ts),
+      never through Storelib's server. Listed here whether or not one is
+      configured, because this policy is one static header (vercel.json):
+      Mux hands out Google Cloud Storage upload addresses, Cloudflare Stream
+      its upload hosts, Bunny Stream its TUS endpoint.
+    */
+    "https://storage.googleapis.com",
+    "https://*.mux.com",
+    "https://upload.videodelivery.net",
+    "https://upload.cloudflarestream.com",
+    "https://video.bunnycdn.com",
   ]],
 
   /* Stripe's and Airwallex's own frames, and the embed providers the sanitiser allows. */

@@ -1,6 +1,7 @@
 "use client"
 
 import type { Section } from "@/lib/store-builder/types"
+import type { CommunityBlockData } from "@/lib/communities/blocks"
 import {
   UnifiedSectionRenderer,
   UnifiedShopHeader,
@@ -41,6 +42,7 @@ export function SectionRenderer({
   sellerProductsCount,
   sellerContactEmail,
   aboutOwnerActions,
+  communityBlocks,
 }: {
   section: Section
   products?: ProductData[]
@@ -77,6 +79,8 @@ export function SectionRenderer({
   sellerContactEmail?: string
   /** The owner's About edit control; only the page knows who is looking. */
   aboutOwnerActions?: React.ReactNode
+  /** The Community sections' data, read on the server for this page (lib/communities/server/blocks.ts). */
+  communityBlocks?: Record<string, CommunityBlockData>
 }) {
   // Defensive check - don't render if section or settings are invalid
   if (!section || !section.settings) {
@@ -106,6 +110,7 @@ export function SectionRenderer({
       sellerProductsCount={sellerProductsCount}
       sellerContactEmail={sellerContactEmail}
       aboutOwnerActions={aboutOwnerActions}
+      communityBlocks={communityBlocks}
     />
   )
 }

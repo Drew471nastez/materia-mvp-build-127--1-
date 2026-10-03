@@ -118,6 +118,11 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
 import { HeaderNavLinksEditor } from "@/components/website-builder/editor/controls/link-list-editor"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
+import type { StorefrontCommunity } from "@/lib/storelib-theme/types"
+import type { PickerCommunity } from "@/components/website-builder/editor/controls"
+
+/** What /api/website-builder/themes/[installId] says about the creator's communities. */
+type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
@@ -807,12 +812,12 @@ function FieldControl({
     )
   }
 
-  if (kind === "file_picker" || kind === "community_picker") {
+  if (kind === "file_picker") {
     return (
       <input
         type="text"
         className={"w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"}
-        placeholder={field.placeholder ?? (kind === "file_picker" ? "Paste a file URL" : "Community id")}
+        placeholder={field.placeholder ?? "Paste a file URL"}
         value={typeof raw === "string" ? raw : ""}
         onChange={e => onChange(e.target.value)}
       />
@@ -2323,12 +2328,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * under "Created by you", and on the page — as soon as its file compiles
    * and declares a preset.
    */
+  /* The creator's own communities, for a community_picker and the Community card (null while communities are off). */
+  const [builderCommunities, setBuilderCommunities] = useState<BuilderCommunities | null>(null)
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
   const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
+  /* The Community card is offered only while communities are on: off, it would draw nothing on the site. */
   const libraryAddable = useMemo(
-    () => [...ADDABLE_SECTIONS, ...ownSectionTypes],
-    [ownSectionTypes],
+    () => [...ADDABLE_SECTIONS.filter((t) => t !== "community_card" || builderCommunities !== null), ...ownSectionTypes],
+    [ownSectionTypes, builderCommunities],
   )
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -3114,6 +3122,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setInstall(inst)
     if (data.username) setUsername(data.username)
     if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
+    setBuilderCommunities(data.communities && typeof data.communities === "object" ? (data.communities as BuilderCommunities) : null)
     setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
 
     /**
@@ -5898,8 +5907,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSelectedPanel({ type: "pages" })
   }, [])
   const fieldEnv = useMemo<EditorFieldEnv>(
-    () => ({ products: pickerProducts, menus: canvasMenus, template: templateForPage(currentPage), openMenus }),
-    [pickerProducts, canvasMenus, currentPage, openMenus],
+    () => ({ products: pickerProducts, menus: canvasMenus, template: templateForPage(currentPage), openMenus, communities: builderCommunities?.choices ?? null }),
+    [pickerProducts, canvasMenus, currentPage, openMenus, builderCommunities],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -5921,8 +5930,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus }),
-    [canvasDynamic, shopCards, canvasMenus],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus, communities: builderCommunities?.cards }),
+    [canvasDynamic, shopCards, canvasMenus, builderCommunities],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
