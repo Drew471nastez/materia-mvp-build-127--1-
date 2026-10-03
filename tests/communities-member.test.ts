@@ -400,6 +400,17 @@ async function main() {
   check("the online count comes from a presence channel and is null until it answers", /presenceState\(\)/.test(rt) && /useState<number \| null>\(null\)/.test(rt))
   check("presence keys are hashed, not user ids", /crypto\.subtle\.digest\("SHA-256"/.test(rt))
   check("the shell draws an online count only from presence, and only when others are there", /online !== null && online > 1/.test(code("components/community/member/shell-frame.tsx")))
+  /* Found end to end against a real Supabase (QA): subscribing right after createClient() sent the
+     join before the client had the session, so it joined as the visitor and part 81's members only
+     reads refused every postgres change. The bell and the chat never moved. */
+  check("realtimeAuth asks the client's own token callback (setAuth with no token), never throws", /export async function realtimeAuth\(supabase[^)]*\)[\s\S]{0,120}try \{\s*await supabase\.realtime\.setAuth\(\)\s*\} catch/.test(rt))
+  const subscribers = ["components/community/member/realtime.ts", "components/community/member/notifications.tsx", "components/community/member/chat.tsx"]
+  for (const f of subscribers) {
+    const src = code(f)
+    const joins = src.split("supabase.channel(").length - 1 + (src.split(/supabase\s*\n\s*\.channel\(/).length - 1)
+    const awaited = (src.match(/await realtimeAuth\(supabase\)\s*\n\s*if \(gone\) return\s*\n\s*(const ch = )?(channel = )?supabase[\s.]*channel\(/g) || []).length
+    check(`${f}: every channel joins after the session is in (await realtimeAuth, then .channel)`, joins > 0 && awaited === joins, `${awaited} of ${joins}`)
+  }
 
   /* ── Copy ────────────────────────────────────────────────────────────── */
   console.log("\nCopy")

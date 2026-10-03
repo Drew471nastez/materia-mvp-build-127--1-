@@ -111,12 +111,14 @@ export function CountryPicker({
   onChange,
   id,
   sheetZIndex,
+  fieldClassName,
 }: {
   value: string
   onChange: (name: string) => void
   id?: string
   /** The phone sheet's layer, for a field inside a panel drawn above the usual one (Set up payments). */
   sheetZIndex?: number
+  fieldClassName?: string
 }) {
   const code = countryOf(value)
   const shown = countryLabel(value)
@@ -136,6 +138,7 @@ export function CountryPicker({
       uniform
       scrollClassName="max-h-[min(440px,min(52dvh,560px))]"
       sheetZIndex={sheetZIndex}
+      fieldClassName={fieldClassName}
     />
   )
 }

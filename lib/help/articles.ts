@@ -265,7 +265,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "p", text: "Storelib takes payments through Stripe, our payment partner. Setting up happens inside Storelib, in one panel, and takes about five minutes." },
       { type: "steps", items: [
         "Open Payouts in your dashboard, or Settings and then Payments, and press Set up payments.",
-        "Account: your country, whether you sell as an individual or a business, and your legal name as it appears on your ID.",
+        "Account: your country and your full legal name as it appears on your ID, with any middle names. No business details.",
         "Verify: Stripe's own secure form asks for your date of birth, address and a photo of your ID, and usually a selfie. See [Verifying your identity](/help/orders-and-payouts/identity-verification).",
         "Bank: the account your money is paid into. The numbers go straight to Stripe.",
       ] },

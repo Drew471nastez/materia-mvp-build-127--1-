@@ -58,7 +58,14 @@ check("the tab bar asks it the same way", /const where = useBuyerTabsWhere\(path
 check("no Library icon in the phone row there", /\{user && !tabsHere && \(\s*<Link\s+href=\{getCanonicalOrRelativePath\("\/library"\)\}/.test(header))
 check("the heart and the photo stay (the photo opens the account sheet)", /aria-label="Wishlist"/.test(header) && /onClick=\{\(\) => setMobileProfileOpen\(true\)\}/.test(header))
 check("the menu sheet drops My Library and its search link there", /\{!tabsHere && \(\s*<div className="border-b border-\[#eef0f2\] pb-1">\s*<MenuRow href="\/library"/.test(header) && /isDiscoverProductContext && !tabsHere/.test(header))
-check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && \(/.test(header) && /const isOwnPages = pathname === "\/library" \|\| pathname\.startsWith\("\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
+check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && \(/.test(header) && /const isOwnPages = pathname === "\/library" \|\| pathname\.startsWith\("\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
+/* The strip is `fixed` at the foot of the header; a community's own tab row
+   is `sticky` at the same offset, so the marketplace search landed on top of
+   the community's spaces on a phone. Every /community address is out. */
+check(
+  "and never inside a community, where it covered the community's own nav",
+  /const isCommunityRoute = pathname === "\/community" \|\| pathname\.startsWith\("\/community\/"\)/.test(header),
+)
 
 console.log("\nThe header's menu sheet opens smoothly")
 {

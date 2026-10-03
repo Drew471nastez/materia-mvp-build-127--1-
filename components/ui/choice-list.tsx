@@ -220,9 +220,13 @@ export function ChoiceSearch({
         autoFocus={autoFocus}
         data-choice-search=""
         className={cn(
-          "w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white pl-9 pr-3 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] [&::-webkit-search-cancel-button]:hidden",
-          /* 16px on a phone: anything smaller and iOS zooms the page to type. */
+          "w-full min-w-0 pl-9 pr-3 text-[#1a1a2e] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden",
+          /* 16px on a phone: anything smaller and iOS zooms the page to type. In a
+             sheet it is a soft filled field, the way a phone's own lists search. */
           compact ? "h-11 text-[16px]" : "h-9 text-[13px]",
+          compact
+            ? "rounded-xl border border-transparent bg-[#f3f4f6] focus:border-[#e3e5e8] focus:bg-white focus:shadow-[0_0_0_3px_rgba(17,17,19,0.05)]"
+            : "rounded-lg border border-[#d5d7dd] bg-white focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]",
         )}
       />
     </div>
@@ -444,6 +448,7 @@ export function ChoicePicker({
   id,
   scrollClassName,
   sheetZIndex,
+  fieldClassName,
 }: {
   title: string
   choices: Choice[] | (() => Choice[])
@@ -472,6 +477,8 @@ export function ChoicePicker({
    * sheet sits where every other sheet sits.
    */
   sheetZIndex?: number
+  /** The field's look, for a form whose own fields are drawn differently (Set up payments). */
+  fieldClassName?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const phone = usePhoneWidth()
@@ -490,12 +497,18 @@ export function ChoicePicker({
       aria-haspopup={phone ? "dialog" : "listbox"}
       aria-expanded={open}
       onClick={phone ? () => setOpen(true) : undefined}
-      className="flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-left text-[14px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.04)] outline-none transition-[background-color,box-shadow,border-color] duration-100 hover:bg-[#fafafb] data-[state=open]:border-[#1a1a2e] data-[state=open]:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.10)]"
+      className={cn(
+        "flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-left text-[14px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.04)] outline-none transition-[background-color,box-shadow,border-color] duration-100 hover:bg-[#fafafb] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.10)]",
+        /* The open ring belongs to a popover; under a sheet the field is hidden anyway, and a ring flashing as the sheet rises reads as a toggle. */
+        !phone && "data-[state=open]:border-[#1a1a2e] data-[state=open]:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]",
+        fieldClassName,
+      )}
     >
       {fieldLeading}
       <span className={cn("min-w-0 flex-1 truncate", fieldMuted && "text-[#9ca3af]")}>{fieldLabel}</span>
       {fieldAside ? <span className="shrink-0 tabular-nums text-[13px] text-[#6b7280]">{fieldAside}</span> : null}
-      <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} aria-hidden />
+      {/* The chevron turns over a popover it hangs from; a sheet covers the field, so on a phone it stays still. */}
+      <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150", open && !phone && "rotate-180")} aria-hidden />
     </button>
   )
 

@@ -30,6 +30,7 @@ import type { AuditView, ReportView } from "@/components/community/creator/view-
 import { audit } from "./audit"
 import { grantMembership, memberOf, revokeMembership } from "./membership"
 import { notifyMember } from "./notify"
+import { sendCommunityEmail } from "./email"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 
 export type Outcome<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number }
@@ -321,11 +322,14 @@ export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ 
         if (error) return no(500, "That did not save. Try again.")
         await audit(db, { ...base, action: "member.approved", reason, detail: { awaitingPayment: true } })
         await notifyMember(db, { userId: a.userId, communityId: a.community.id, kind: "membership", actorId: a.actor.userId, title: `Your request to join ${a.community.name} was approved`, body: "Finish joining on the community page.", url, dedupeKey: `approved:${target.id}:${target.requested_at ?? ""}` })
+        /* By email too: somebody waiting to pay is not a member yet and cannot open the community's inbox (template COMMUNITY_JOIN_APPROVED). */
+        await sendCommunityEmail(db, "join_approved", { userId: a.userId, communityId: a.community.id, data: { needsPayment: true }, key: `approved:${target.id}:${target.requested_at ?? ""}` })
         return { ok: true, member: data as MemberRow }
       }
       const row = await grantMembership(db, { communityId: a.community.id, userId: a.userId, source: "free", tierId: freeTier, status: "active", sourceRefs: { approvedBy: a.actor.userId }, actorId: a.actor.userId })
       await audit(db, { ...base, action: "member.approved", reason })
       await notifyMember(db, { userId: a.userId, communityId: a.community.id, kind: "membership", actorId: a.actor.userId, title: `You are in ${a.community.name}`, body: "Your request to join was approved.", url, dedupeKey: `approved:${target.id}:${target.requested_at ?? ""}` })
+      await sendCommunityEmail(db, "join_approved", { userId: a.userId, communityId: a.community.id, data: { needsPayment: false }, key: `approved:${target.id}:${target.requested_at ?? ""}` })
       return { ok: true, member: row }
     }
     case "reject":

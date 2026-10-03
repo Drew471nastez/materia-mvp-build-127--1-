@@ -23,7 +23,6 @@ import { FeedAside, FeedColumns } from "./columns"
 import { composerSpaces, fileProductFor, meOf, memberPage, onboardingFor, shellData, upcomingEventFor } from "./data"
 import { FeedView } from "./feed"
 import { MemberStateScreen } from "./member-state"
-import { CommunityShell } from "./shell"
 
 async function CommunityFeedPageAsync({ slug }: { slug: string }) {
   const page = await memberPage(slug)
@@ -43,8 +42,8 @@ async function CommunityFeedPageAsync({ slug }: { slug: string }) {
   const spaces = composerSpaces(shell.spaces)
   const readOnly = shell.community.archived || !!viewer.mutedUntil
   return (
-    <CommunityShell community={community} viewer={viewer} active="home">
-      <FeedColumns
+    /* The frame around this is the community layout's (app/(marketing)/community/[slug]/layout.tsx), shared with every member page. */
+    <FeedColumns
         main={
           <FeedView
             communityId={community.id}
@@ -58,7 +57,6 @@ async function CommunityFeedPageAsync({ slug }: { slug: string }) {
         }
         aside={<FeedAside community={shell.community} upcoming={upcoming} />}
       />
-    </CommunityShell>
   )
 }
 

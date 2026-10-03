@@ -65,6 +65,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PAYMENT_SETUP_REMINDER_2: [],
   PAYOUT_SETUP_UNFINISHED: ["started", "productTitle"],
   PAYOUT_SETUP_UNFINISHED_2: ["started"],
+  PAYOUT_SETUP_WEEKLY: ["started"],
   PAYMENT_SETUP_COMPLETED: [],
   PAYMENT_VERIFICATION_REQUIRED: ["reason", "dueBy"],
   PAYMENT_SETUP_FAILED: ["reason"],
@@ -785,16 +786,36 @@ export const CATALOG: Record<NotificationType, Entry> = {
     family: "lifecycle",
     audience: "creator",
     subject: "Payments are still not set up",
-    preview: "This is the last reminder about your payouts.",
+    preview: "Your sales have nowhere to pay out to yet.",
     heading: "Your payouts are still waiting on you",
     paragraphs: [
       "Payment setup is still unfinished, so anything you sell has nowhere to pay out to.",
       "It is the one step between your store and your bank account. Finish it when you have a few minutes.",
     ],
     action: { label: "Finish payout setup", path: PATHS.payments },
-    note: LAST_REMINDER_NOTE,
+    note: REMINDER_NOTE,
     inApp: { title: "Payments are still not set up", body: "Your sales cannot pay out until setup is finished.", actionLabel: "Finish setup", actionPath: PATHS.payments },
   }),
+
+  PAYOUT_SETUP_WEEKLY: (d) => {
+    const started = d.bool("started") === true
+    return {
+      family: "lifecycle",
+      audience: "creator",
+      subject: started ? "Finish setting up payouts so you can get paid" : "Set up payouts so you can get paid",
+      preview: "Country, your name as on your ID, a quick ID check and your bank. About five minutes.",
+      heading: started ? "Your payouts are almost ready" : "Get ready to be paid",
+      paragraphs: [
+        started
+          ? "You started setting up payouts and it is not finished yet. Until it is, buyers cannot check out and nothing can reach your bank."
+          : "You have not set up payouts yet. Until you do, buyers cannot check out and a sale has nowhere to pay out to.",
+        `It takes about five minutes: your country, your name as it is on your ID, a quick ID check with ${processor(d)} and the bank account you want paid into.`,
+      ],
+      action: { label: started ? "Finish payout setup" : "Set up payouts", path: PATHS.payments },
+      note: REMINDER_NOTE,
+      inApp: { title: "Set up payouts to get paid", body: "Buyers cannot check out until payouts are set up.", actionLabel: "Set up", actionPath: PATHS.payments },
+    }
+  },
 
   PAYMENT_SETUP_COMPLETED: (d) =>
     onAirwallex(d)

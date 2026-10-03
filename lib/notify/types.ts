@@ -36,6 +36,8 @@ export const DOMAIN_EVENTS = [
   "payment_setup.completed",
   "payment_setup.action_required",
   "payment_setup.failed",
+  /* The weekly sweep (lib/notify/payout-weekly.ts): payments still not set up, said again once a week. */
+  "payment_setup.weekly_check",
   "payout_method.added",
   "payout_method.changed",
   "payout.scheduled",
@@ -133,6 +135,7 @@ export const NOTIFICATION_TYPES = [
   /* Started and left unfinished, rather than never started (lib/notify/workflows/unfinished.ts). */
   "PAYOUT_SETUP_UNFINISHED",
   "PAYOUT_SETUP_UNFINISHED_2",
+  "PAYOUT_SETUP_WEEKLY",
   "PAYMENT_SETUP_COMPLETED",
   "PAYMENT_VERIFICATION_REQUIRED",
   "PAYMENT_SETUP_FAILED",

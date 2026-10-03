@@ -800,6 +800,23 @@ export function PlatformHeaderClient({
     const t = window.setTimeout(() => setSearchModalPresent(false), still ? 0 : 200)
     return () => window.clearTimeout(t)
   }, [searchModalOpen, searchModalPresent])
+  /**
+   * ONLY A PERSON OPENS SEARCH. `onFocus` alone also fires when the browser
+   * puts the focus back in this field by itself: closing a sheet, restoring
+   * a page from the back/forward cache, a .focus() somewhere else that runs
+   * while this field happens to be the last focused thing. On a community
+   * page that meant the search panel appearing over the composer somebody
+   * was writing in, with its Post button behind it. The field is only
+   * treated as opened when the focus follows a tap or a key on the field
+   * itself, which is every real way in and none of the accidental ones.
+   */
+  const searchIntent = useRef(0)
+  const markSearchIntent = useCallback(() => {
+    searchIntent.current = Date.now()
+  }, [])
+  const onSearchFocus = useCallback(() => {
+    if (Date.now() - searchIntent.current < 700) setSearchModalOpen(true)
+  }, [])
   const closeSearchModal = useCallback(() => {
     setSearchModalOpen(false)
     searchInputRef.current?.blur()
@@ -917,6 +934,8 @@ export function PlatformHeaderClient({
   // Live search with debounce
   const handleSearchChange = useCallback((value: string) => {
     setQuery(value)
+    /* Typing is as plain an intent as a tap: somebody who arrived in the field with Tab still sees their results. */
+    setSearchModalOpen(true)
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
@@ -1312,6 +1331,21 @@ export function PlatformHeaderClient({
     a marketplace search on the one page that is not the marketplace.
   */
   const isOwnPages = pathname === "/library" || pathname.startsWith("/library/") || pathname === "/account" || pathname.startsWith("/account/")
+  /*
+    AND NEITHER DOES A COMMUNITY. The strip is `fixed` at the foot of the
+    header and the community's own tab row is `sticky` at the same offset
+    (components/community/member/shell-frame, --community-top), so on a phone
+    the marketplace search was laid straight over the community's spaces: the
+    nav underneath could not be read or tapped. It was the wrong search there
+    anyway, the way it was on the library. A community searches its own posts
+    and members from inside itself.
+
+    Every /community address is one: /community on its own only redirects to
+    Explore, so the public page, /about, /join and the whole member area are
+    covered. The word boundary keeps a creator called "communityx" a creator,
+    as it does in components/marketing/conditional-header.
+  */
+  const isCommunityRoute = pathname === "/community" || pathname.startsWith("/community/")
   /* The phone's strip: its line is still 8px from the top of the window. */
   const searchInHeader = useSearchHandoff(isExploreSurface)
   /**
@@ -1898,7 +1932,9 @@ export function PlatformHeaderClient({
                 ref={searchInputRef}
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                onFocus={() => setSearchModalOpen(true)}
+                onFocus={onSearchFocus}
+                onPointerDown={markSearchIntent}
+                onKeyDown={markSearchIntent}
                 placeholder={t("search_placeholder")}
                 className={cn(
                   "h-[42px] w-full pl-11 pr-4 text-[15px] focus-visible:ring-0 focus-visible:ring-offset-0",
@@ -2547,8 +2583,8 @@ export function PlatformHeaderClient({
         above it. Without it the field starts directly under the header.
       */}
       {/* Not where the tab bar is (its Search is the way in there), and
-          never on the library or the account. */}
-      {searchInHeader && !tabsHere && !isOwnPages && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage) && (
+          never on the library, the account or inside a community. */}
+      {searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on
@@ -2581,7 +2617,9 @@ export function PlatformHeaderClient({
                 <Input
                   value={query}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  onFocus={() => setSearchModalOpen(true)}
+                  onFocus={onSearchFocus}
+                onPointerDown={markSearchIntent}
+                onKeyDown={markSearchIntent}
                   placeholder={t("search_placeholder")}
                   aria-label={t("search_placeholder")}
                   className="h-10 w-full rounded-[10px] border-neutral-200 bg-neutral-100 pl-9 pr-9 text-sm text-neutral-900 placeholder:text-neutral-500 focus-visible:ring-0 focus-visible:border-neutral-300"

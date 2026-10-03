@@ -598,11 +598,14 @@ export async function beginStripeOnboarding(
   const row = await readCreatorStripe(creator.id)
   const person = await profileForCreator(creator.userId)
   const email = ownerAddress(person?.email || creator.email) || undefined
-  const handle = row?.username && /^[A-Za-z0-9._-]{2,64}$/.test(row.username) ? row.username : ""
-  const businessProfile = {
-    url: handle ? `${platformBusinessUrl()}/${handle}` : platformBusinessUrl(),
-    product_description: row?.bio?.trim().slice(0, 200) || "Digital products and services on Storelib",
-  }
+  /*
+   * The same profile the account was made with (lib/payments/stripe/business-profile):
+   * the creator's store, the digital goods category and what really happens there.
+   * This used to be rewritten here with the bio as the description and no
+   * category, so Stripe's form came back asking what the business does and
+   * which industry it is in, the very questions a creator should never see.
+   */
+  const businessProfile = creatorBusinessProfile({ username: row?.username, displayName: row?.display_name, platformUrl: platformBusinessUrl() })
   try {
     await stripe.accounts.update(
       accountId,

@@ -12,6 +12,7 @@ import { communityOpen, loadCommunity, viewerContext, type Viewer } from "@/lib/
 import { admin } from "@/lib/communities/server/db"
 import { listSpaces, spaceViews } from "@/lib/communities/server/feed"
 import { unreadCounts } from "@/lib/communities/server/chat"
+import { unreadConversations } from "@/lib/communities/server/direct"
 import { unreadNotificationCount } from "@/lib/communities/server/mentions"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
@@ -68,6 +69,8 @@ export interface ShellData {
   spaces: SpaceView[]
   rows: SpaceRow[]
   unreadNotifications: number
+  /** Conversations with something unread; null when member messages are not available here. */
+  unreadMessages: number | null
 }
 
 /** The spaces the viewer may see (with unread chat counts) and their unread notifications, once per request. */
@@ -75,11 +78,12 @@ export const shellData = cache(async (communityId: string, viewer: Viewer, commu
   const db = admin()
   const rows = await listSpaces(db, communityId)
   const chatIds = rows.filter((s) => s.kind === "chat").map((s) => s.id)
-  const [unread, notifications] = await Promise.all([
+  const [unread, notifications, messages] = await Promise.all([
     community.chat_enabled && chatIds.length ? unreadCounts(db, viewer, chatIds) : Promise.resolve(new Map<string, number>()),
     viewer.userId ? unreadNotificationCount(db, communityId, viewer.userId) : Promise.resolve(0),
+    unreadConversations(db, community, viewer),
   ])
-  return { community: toShellCommunity(community), spaces: spaceViews(rows, viewer, community, unread), rows, unreadNotifications: notifications }
+  return { community: toShellCommunity(community), spaces: spaceViews(rows, viewer, community, unread), rows, unreadNotifications: notifications, unreadMessages: messages }
 })
 
 /** The product a creator's post files are uploaded under: one that sells this community, when it has one. */

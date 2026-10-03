@@ -121,6 +121,13 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
   )
 }))
 
+/*
+  A COMMUNITY'S SETTINGS keep their Save in a bar stuck to the bottom of the
+  page (components/community/creator/settings-section), right where the Setup
+  pill floats, which covered the button. Hidden there like on Settings.
+*/
+const COMMUNITY_SETTINGS_PATH = /^\/app\/community\/[^/]+\/settings(\/|$)/
+
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -990,7 +997,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             "fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 md:right-6 z-40 hidden md:flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white pl-1.5 pr-3 text-[12.5px] leading-none",
             "shadow-[0_1px_2px_rgba(15,23,42,0.05),0_2px_8px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#f7f7f8] active:bg-[#f1f2f4]",
             "outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
-            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics")) && "!hidden"
+            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics") || COMMUNITY_SETTINGS_PATH.test(pathname)) && "!hidden"
           )}
         >
           <SetupProgressCircle progress={setupProgressPercent} size={20} strokeWidth={2.5} />

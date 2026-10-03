@@ -23,6 +23,7 @@ import { Flag, MoreHorizontal, Pencil, Shield, Trash2 } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { createClient } from "@/lib/supabase/client"
+import { realtimeAuth } from "./realtime"
 import type { ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { inline } from "./body-text"
@@ -132,28 +133,35 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
     let supabase: ReturnType<typeof createClient> | null = null
     let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
     let timer: number | undefined
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel(`community-chat:${space.id}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "community_messages", filter: `space_id=eq.${space.id}` }, (payload: { eventType: string; new?: Record<string, unknown> }) => {
-          const row = payload.new ?? {}
-          const id = typeof row.id === "string" ? row.id : ""
-          if (payload.eventType === "INSERT") {
-            window.clearTimeout(timer)
-            timer = window.setTimeout(() => void catchUp(), 120)
-          } else if (payload.eventType === "UPDATE" && id) {
-            if (row.status !== "published") setMessages((cur) => cur.filter((m) => m.id !== id))
-            else setMessages((cur) => cur.map((m) => (m.id === id ? { ...m, body: String(row.body ?? m.body), editedAt: (row.edited_at as string | null) ?? m.editedAt } : m)))
-          }
-        })
-        .subscribe()
-    } catch {
-      /* No realtime: new messages show on the next visit. */
-    }
+    let gone = false
+    void (async () => {
+      try {
+        supabase = createClient()
+        /* Signed in before the join (./realtime realtimeAuth): the stream is a members' read. */
+        await realtimeAuth(supabase)
+        if (gone) return
+        channel = supabase
+          .channel(`community-chat:${space.id}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "community_messages", filter: `space_id=eq.${space.id}` }, (payload: { eventType: string; new?: Record<string, unknown> }) => {
+            const row = payload.new ?? {}
+            const id = typeof row.id === "string" ? row.id : ""
+            if (payload.eventType === "INSERT") {
+              window.clearTimeout(timer)
+              timer = window.setTimeout(() => void catchUp(), 120)
+            } else if (payload.eventType === "UPDATE" && id) {
+              if (row.status !== "published") setMessages((cur) => cur.filter((m) => m.id !== id))
+              else setMessages((cur) => cur.map((m) => (m.id === id ? { ...m, body: String(row.body ?? m.body), editedAt: (row.edited_at as string | null) ?? m.editedAt } : m)))
+            }
+          })
+          .subscribe()
+      } catch {
+        /* No realtime: new messages show on the next visit. */
+      }
+    })()
     const onVisible = () => document.visibilityState === "visible" && void catchUp()
     document.addEventListener("visibilitychange", onVisible)
     return () => {
+      gone = true
       window.clearTimeout(timer)
       document.removeEventListener("visibilitychange", onVisible)
       if (supabase && channel) supabase.removeChannel(channel)

@@ -16,5 +16,5 @@ export default async function CommunityMemberProfilePage({ params }: { params: P
   if (!community.directory_enabled && !can(viewer.role, "manage_members") && viewer.userId !== userId) notFound()
   const member = await memberProfile(admin(), community, userId, { ...accessOf(viewer), userId: viewer.userId })
   if (!member) notFound()
-  return <MemberProfile communityId={community.id} slug={community.slug} member={member} viewer={viewerView(viewer)} gamification={community.gamification_enabled} />
+  return <MemberProfile communityId={community.id} slug={community.slug} member={member} viewer={viewerView(viewer)} gamification={community.gamification_enabled} canMessage={community.chat_enabled && !!viewer.userId} />
 }

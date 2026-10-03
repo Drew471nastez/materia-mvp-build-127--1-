@@ -14,11 +14,12 @@ import { relativeTime } from "@/lib/communities/format"
 import type { ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { ReportDialog, type ReportTargetRef } from "./dialogs"
+import { openMessages } from "./messages"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, FIELD } from "./ui"
 import { roleTag, type MemberProfileView } from "./view-types"
 
-export function MemberProfile({ communityId, slug, member, viewer, gamification }: { communityId: string; slug: string; member: MemberProfileView; viewer: ViewerView; gamification: boolean }) {
+export function MemberProfile({ communityId, slug, member, viewer, gamification, canMessage = false }: { communityId: string; slug: string; member: MemberProfileView; viewer: ViewerView; gamification: boolean; canMessage?: boolean }) {
   const [bio, setBio] = useState(member.bio ?? "")
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(bio)
@@ -100,6 +101,12 @@ export function MemberProfile({ communityId, slug, member, viewer, gamification 
         </dl>
 
         <div className="mt-4 flex flex-wrap gap-2">
+          {/* Messages, when this community has chat on and it is somebody else. */}
+          {!member.isSelf && canMessage ? (
+            <button type="button" className={BTN_PRIMARY} onClick={() => openMessages({ userId: member.userId })} data-member-message="">
+              Message
+            </button>
+          ) : null}
           {member.isSelf && !editing ? (
             <button type="button" className={BTN_SECONDARY} onClick={() => (setDraft(bio), setEditing(true))}>
               {bio ? "Edit bio" : "Add a bio"}
