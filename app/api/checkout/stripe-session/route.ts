@@ -107,6 +107,12 @@ export async function POST(request: Request) {
     statement_descriptor: string | null
   } | null
   if (!creator) return NextResponse.json({ error: "This product is not available." }, { status: 404 })
+  /* A product that sells a community tier: signed in, approved first when the community asks, never twice (lib/communities/server/join.ts). */
+  if ((product as { community_id?: string | null }).community_id) {
+    const { checkoutGate } = await import("@/lib/communities/server/join")
+    const gate = await checkoutGate(product as { id: string; community_id?: string | null }, user?.id ?? null, admin)
+    if (gate.refusal) return NextResponse.json({ error: gate.refusal.error, code: gate.refusal.code, url: gate.refusal.url }, { status: gate.refusal.status })
+  }
 
   if (totals.totalCents <= 0) {
     return NextResponse.json({ error: "This order is free. Refresh the page to take it without paying." }, { status: 400 })

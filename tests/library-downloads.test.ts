@@ -411,7 +411,7 @@ function screenCases() {
   check("its fill fades in place on settings' 150ms curve", /TAB_FADE_MS = 150/.test(tabs) && /cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(tabs) && /transition-\[opacity,scale\]/.test(tabs))
   check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && /onPointerEnter=\{\(\) => warm/.test(tabs))
   const layout = read("app/library/layout.tsx")
-  check("the pills and the screen under them are one stage", /<LibraryPanel head=\{<LibraryTabs \/>\}>\{children\}<\/LibraryPanel>/.test(layout))
+  check("the pills and the screen under them are one stage", /<LibraryPanel head=\{<LibraryTabs( communities=\{communities\})? \/>\}>\{children\}<\/LibraryPanel>/.test(layout))
   const panel = read("components/library/library-panel.tsx")
   check("a press cross fades in place: the old screen fades over the next one's shape, which is drawn at once",
     /skeletonFor\(pending\.href, true\)/.test(panel) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(panel) && /data-library-leaving/.test(panel) && !/opacity: 0\.2/.test(panel))

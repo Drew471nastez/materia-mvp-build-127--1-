@@ -403,7 +403,8 @@ async function main() {
   check("the buyer tab bar never covers a community", !buyerTabsBelongOn("/community/makers") && !buyerTabsBelongOn("/community") && !buyerTabsBelongOn("/community/makers/events", { sellerStore: true }) && buyerTabsBelongOn("/library"))
   const index = code("app/(marketing)/community/page.tsx")
   check("/community: Explore's communities when on, a 404 when off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)\s*redirect\("\/explore\/communities"\)/.test(index))
-  check("the old creator feed is gone", !existsSync("app/app/community/page.tsx") && !existsSync("components/app/community-feed.tsx"))
+  /* /app/community is the new creator area now (W1); what must be gone is the old feed it used to render. */
+  check("the old creator feed is gone", !existsSync("components/app/community-feed.tsx") && (!existsSync("app/app/community/page.tsx") || !/community_posts|CommunityFeed/.test(code("app/app/community/page.tsx"))))
   check("the old buyer pages send to the library", ["app/dashboard/communities/page.tsx", "app/dashboard/communities/[creatorId]/page.tsx"].every((f) => /redirect\("\/library\/communities"\)/.test(code(f)) && !/community_posts|CommunityFeed/.test(code(f))))
 
   /* ── Copy and the client boundary ────────────────────────────────────── */

@@ -10,6 +10,8 @@ import { loadLibraryMemberships } from "@/lib/memberships/library"
 import { viewerOf } from "@/lib/memberships/server"
 import { accountLoginPath } from "@/lib/account/account-tabs"
 import { accountOverview } from "@/lib/account/overview"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { activeCommunityCount } from "@/lib/communities/server/public"
 import { AccountOverview } from "@/components/account/account-overview"
 import { OverviewSkeleton } from "@/components/account/account-skeleton"
 
@@ -33,7 +35,7 @@ async function orNull<T>(read: () => Promise<T>): Promise<T | null> {
  */
 async function overviewBody(user: User) {
   const supabase = await createClient()
-  const [library, courses, memberships, saved, access] = await Promise.all([
+  const [library, courses, memberships, saved, access, communities] = await Promise.all([
     orNull(() => loadLibrary(user.id)),
     orNull(() => loadMyCourses(createAdminClient(), user.id)),
     orNull(async () => {
@@ -56,6 +58,8 @@ async function overviewBody(user: User) {
        profile (lib/account/seller-access.ts). Not any creator row and not
        a remembered one: nothing here reads the browser's auth snapshot. */
     orNull(() => sellerAccessForRequest(user.id)),
+    /* How many communities they are an active member of; nothing while communities are off. */
+    orNull(async () => ((await communitiesEnabled()) ? activeCommunityCount(user.id) : null)),
   ])
 
   const data = accountOverview({
@@ -64,6 +68,7 @@ async function overviewBody(user: User) {
     memberships,
     wishlist: saved?.count ?? 0,
     seller: access?.state ?? "none",
+    communities,
   })
   /* Stamped, so a copy the router kept is asked for again (components/account/account-fresh.tsx). */
   return <AccountOverview data={data} drawnAt={Date.now()} />

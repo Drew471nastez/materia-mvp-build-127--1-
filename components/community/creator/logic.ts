@@ -1,0 +1,590 @@
+/**
+ * ===========================================================================
+ *  THE CREATOR'S COMMUNITY SCREENS: THE RULES BOTH SIDES APPLY
+ * ===========================================================================
+ * What a creator may type into the create flow, a space, an event, a level
+ * or a price, checked by the screen before it sends and by the route before
+ * it writes, from the same function, so the two never disagree. Also the
+ * small pieces of arithmetic the screens and the server share: keyset
+ * cursors, CSV cells, an event's wall clock time in its own zone, the
+ * Overview's next steps and the Analytics series.
+ *
+ * Pure and browser safe: no server import, so a "use client" screen may use
+ * all of it.
+ */
+import { centsFromInput } from "@/lib/memberships/plan"
+import { LENGTHS, MAX_BENEFITS, MAX_FAQ, MAX_LEVELS, MAX_LINKS, MAX_RULES } from "@/lib/communities/limits"
+import { EVENT_KINDS, POST_ROLES, ROLES, SPACE_KINDS, isOneOf, type AccessRuleJson, type CommunityAccess, type CommunityFaq, type CommunityLink, type CommunityRule, type CommunityVisibility, type EventKind, type PostRole, type Role, type SpaceKind } from "@/lib/communities/types"
+
+export type Checked<T> = { ok: true; value: T } | { ok: false; error: string; field: string }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v)
+
+/** Control characters out, runs of spaces kept as they were typed (a description has line breaks). */
+function plain(value: unknown, max: number): string {
+  if (typeof value !== "string") return ""
+  return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").replace(/\r\n?/g, "\n").trim().slice(0, max)
+}
+
+/** One line: every run of white space is one space. */
+function line(value: unknown, max: number): string {
+  return plain(value, max * 2).replace(/\s+/g, " ").trim().slice(0, max)
+}
+
+/* ── The three kinds of community a creator picks from ─────────────────── */
+
+export const COMMUNITY_TYPES = ["free", "paid", "private"] as const
+export type CommunityType = (typeof COMMUNITY_TYPES)[number]
+
+/** How each kind is stored: who may join (access) and who may find it (visibility). */
+export function accessForType(type: CommunityType): { access: CommunityAccess; visibility: CommunityVisibility } {
+  if (type === "paid") return { access: "paid", visibility: "public" }
+  if (type === "private") return { access: "invite_only", visibility: "private" }
+  return { access: "free", visibility: "public" }
+}
+
+/** The kind a stored community reads as, for the settings screen. */
+export function typeOf(c: { access: CommunityAccess; visibility: CommunityVisibility }): CommunityType {
+  if (c.access === "paid" || c.access === "product") return "paid"
+  if (c.access === "invite_only" || c.visibility === "private") return "private"
+  return "free"
+}
+
+export const PRICE_INTERVALS = ["month", "year", "once"] as const
+export type PriceInterval = (typeof PRICE_INTERVALS)[number]
+
+/** A recurring price is a membership plan ($1 to $10,000 a month, $1 to $100,000 a year); a one time price is $1 to $10,000. */
+export const PRICE_LIMITS = {
+  month: { min: 100, max: 1_000_000 },
+  year: { min: 100, max: 10_000_000 },
+  once: { min: 100, max: 1_000_000 },
+} as const
+
+export function checkPrice(raw: unknown, interval: unknown): Checked<{ cents: number; interval: PriceInterval }> {
+  if (!isOneOf(PRICE_INTERVALS, interval)) return { ok: false, field: "interval", error: "Pick monthly, yearly or one time." }
+  const cents = typeof raw === "number" ? Math.round(raw) : centsFromInput(raw)
+  if (cents === null || !Number.isFinite(cents)) return { ok: false, field: "price", error: "Add a price." }
+  const { min, max } = PRICE_LIMITS[interval]
+  if (cents < min || cents > max) {
+    const top = interval === "year" ? "$100,000" : "$10,000"
+    return { ok: false, field: "price", error: `A price is between $1 and ${top}.` }
+  }
+  return { ok: true, value: { cents, interval } }
+}
+
+/* ── The create flow ────────────────────────────────────────────────────── */
+
+export const DESCRIPTION_CHARS = 2000
+
+export interface CreateInput {
+  name: string
+  description: string
+  logoUrl: string | null
+  coverUrl: string | null
+  type: CommunityType
+  price: { cents: number; interval: PriceInterval } | null
+}
+
+const imageUrl = (v: unknown): string | null => (typeof v === "string" && /^https:\/\/[^\s"'<>]+$/i.test(v) && v.length <= 1000 ? v : null)
+
+/** The create flow's five fields and the price. Pictures are checked again on the server against the storage host. */
+export function checkCreate(raw: unknown): Checked<CreateInput> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const name = line(r.name, 200)
+  if (!name) return { ok: false, field: "name", error: "Give your community a name." }
+  if (name.length > LENGTHS.communityName.max) return { ok: false, field: "name", error: `A name is up to ${LENGTHS.communityName.max} characters.` }
+  const description = plain(r.description, DESCRIPTION_CHARS + 1)
+  if (description.length > DESCRIPTION_CHARS) return { ok: false, field: "description", error: `A description is up to ${DESCRIPTION_CHARS} characters.` }
+  if (!isOneOf(COMMUNITY_TYPES, r.type)) return { ok: false, field: "type", error: "Pick who can join." }
+  let price: CreateInput["price"] = null
+  if (r.type === "paid") {
+    const p = checkPrice(r.price, r.interval)
+    if (!p.ok) return { ok: false, field: (p as { field: string }).field, error: (p as { error: string }).error }
+    price = p.value
+  }
+  return { ok: true, value: { name, description, logoUrl: imageUrl(r.logoUrl), coverUrl: imageUrl(r.coverUrl), type: r.type, price } }
+}
+
+/** The first line of a description, as the tagline a card shows, cut at a word. */
+export function taglineFrom(description: string, max = LENGTHS.tagline.max): string | null {
+  const first = description.split(/\n/).map((s) => s.trim()).find(Boolean) ?? ""
+  if (!first) return null
+  if (first.length <= max) return first
+  const cut = first.slice(0, max - 1)
+  const at = cut.lastIndexOf(" ")
+  return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,.;:]+$/, "")}…`
+}
+
+const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+/** Plain text as paragraphs of html (the server sanitizes it again before it is stored). */
+export function textToHtml(text: string): string {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p>${p.split("\n").map(escapeHtml).join("<br>")}</p>`)
+    .join("")
+}
+
+/** Stored html back to the text a textarea shows. */
+export function htmlToText(html: string | null | undefined): string {
+  if (!html) return ""
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|h[1-6]|li|div)>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+/* ── Keyset cursors ─────────────────────────────────────────────────────── */
+
+/**
+ * A page's last row, as an opaque token for the next request: the sort value
+ * and the id that breaks ties. Never an offset, so page 200 costs what page 1
+ * does and a row added meanwhile never shows twice.
+ */
+export function encodeCursor(sortValue: string | number, id: string | number): string {
+  const json = JSON.stringify([sortValue, id])
+  const b64 = typeof btoa === "function" ? btoa(unescape(encodeURIComponent(json))) : Buffer.from(json, "utf8").toString("base64")
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+export function decodeCursor(raw: unknown): { sort: string | number; id: string | number } | null {
+  if (typeof raw !== "string" || !raw || raw.length > 200 || !/^[A-Za-z0-9_-]+$/.test(raw)) return null
+  try {
+    const b64 = raw.replace(/-/g, "+").replace(/_/g, "/")
+    const json = typeof atob === "function" ? decodeURIComponent(escape(atob(b64))) : Buffer.from(b64, "base64").toString("utf8")
+    const v = JSON.parse(json)
+    if (!Array.isArray(v) || v.length !== 2) return null
+    const [sort, id] = v
+    if (!(typeof sort === "string" || typeof sort === "number") || !(typeof id === "string" || typeof id === "number")) return null
+    if (typeof sort === "string" && (sort.length > 64 || /[,()]/.test(sort))) return null
+    if (typeof id === "string" && !UUID.test(id)) return null
+    return { sort, id }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The PostgREST filter for "after this cursor" in a newest first (desc) or
+ * oldest first (asc) list ordered by a column then id. The sort value was
+ * checked by decodeCursor (no commas or brackets) and is quoted besides.
+ */
+export function keysetOr(column: string, sort: string | number, id: string | number, dir: "desc" | "asc" = "desc"): string {
+  const op = dir === "desc" ? "lt" : "gt"
+  const v = typeof sort === "number" ? String(sort) : `"${sort}"`
+  return `${column}.${op}.${v},and(${column}.eq.${v},id.${op}.${id})`
+}
+
+/* ── CSV ────────────────────────────────────────────────────────────────── */
+
+/**
+ * One CSV cell. Quoted when it has to be, and a cell that a spreadsheet would
+ * run as a formula (=, +, -, @, a tab or a return first) starts with a quote
+ * mark, so a member called "=HYPERLINK(...)" is text when the export opens.
+ */
+export function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return ""
+  let s = String(value)
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+export function csvRow(cells: unknown[]): string {
+  return `${cells.map(csvCell).join(",")}\r\n`
+}
+
+/* ── An event's time in its own zone ────────────────────────────────────── */
+
+export function validTimeZone(zone: unknown): zone is string {
+  if (typeof zone !== "string" || !zone || zone.length > 64) return false
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone }).format(0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function offsetMs(instant: number, zone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(instant)
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value)
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"))
+  return asUtc - Math.floor(instant / 1000) * 1000
+}
+
+/**
+ * "2026-11-04" at "18:30" in "Europe/Bucharest" as an ISO instant. The
+ * offset is read for that very moment (twice, so a date across a daylight
+ * saving change lands right). Null for a date or time that is not one.
+ */
+export function zonedTimeToUtc(date: string, time: string, zone: string): string | null {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? "")
+  const t = /^(\d{2}):(\d{2})$/.exec(time ?? "")
+  if (!d || !t || !validTimeZone(zone)) return null
+  const [y, mo, da, h, mi] = [Number(d[1]), Number(d[2]), Number(d[3]), Number(t[1]), Number(t[2])]
+  if (mo < 1 || mo > 12 || da < 1 || da > 31 || h > 23 || mi > 59) return null
+  const wall = Date.UTC(y, mo - 1, da, h, mi)
+  const check = new Date(wall)
+  if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== da) return null
+  let guess = wall - offsetMs(wall, zone)
+  guess = wall - offsetMs(guess, zone)
+  return new Date(guess).toISOString()
+}
+
+/** An instant as the date and time inputs show it, in a zone. */
+export function utcToZonedParts(iso: string | null | undefined, zone: string): { date: string; time: string } {
+  const t = iso ? Date.parse(iso) : NaN
+  if (!Number.isFinite(t) || !validTimeZone(zone)) return { date: "", time: "" }
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(t)
+  const get = (k: string) => parts.find((p) => p.type === k)?.value ?? ""
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour") === "24" ? "00" : get("hour")}:${get("minute")}` }
+}
+
+/* ── Access rules a creator sets ───────────────────────────────────────── */
+
+/** A rule from the editor: tiers, a minimum level, roles. Unknown ids are dropped by the server against the community's own. */
+export function checkAccessRule(raw: unknown): AccessRuleJson {
+  const r = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>
+  const out: AccessRuleJson = {}
+  const tiers = Array.isArray(r.tierIds) ? [...new Set(r.tierIds.filter(isUuid))].slice(0, 20) : []
+  const products = Array.isArray(r.productIds) ? [...new Set(r.productIds.filter(isUuid))].slice(0, 20) : []
+  const roles = Array.isArray(r.roles) ? [...new Set(r.roles.filter((x): x is Role => isOneOf(ROLES, x)))] : []
+  if (tiers.length) out.tierIds = tiers
+  if (products.length) out.productIds = products
+  if (roles.length) out.roles = roles
+  const level = Number(r.minLevel)
+  if (Number.isInteger(level) && level > 1 && level <= 20) out.minLevel = level
+  return out
+}
+
+/* ── Spaces ─────────────────────────────────────────────────────────────── */
+
+export interface SpaceInput {
+  name: string
+  description: string | null
+  icon: string | null
+  kind: SpaceKind
+  postRole: PostRole
+  commentsEnabled: boolean
+  viewAccess: AccessRuleJson
+}
+
+export function checkSpace(raw: unknown, opts: { creating: boolean }): Checked<SpaceInput> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const name = line(r.name, 80)
+  if (!name) return { ok: false, field: "name", error: "Give the space a name." }
+  if (name.length > LENGTHS.spaceName.max) return { ok: false, field: "name", error: `A space name is up to ${LENGTHS.spaceName.max} characters.` }
+  const description = line(r.description, 400)
+  if (description.length > LENGTHS.spaceDescription.max) return { ok: false, field: "description", error: `A description is up to ${LENGTHS.spaceDescription.max} characters.` }
+  const kind = isOneOf(SPACE_KINDS, r.kind) ? r.kind : opts.creating ? "feed" : null
+  if (!kind) return { ok: false, field: "kind", error: "Pick what the space is for." }
+  const postRole = isOneOf(POST_ROLES, r.postRole) ? r.postRole : kind === "announcements" ? "admin" : "member"
+  const icon = line(r.icon, 40)
+  return {
+    ok: true,
+    value: {
+      name,
+      description: description || null,
+      icon: icon || null,
+      kind,
+      postRole,
+      commentsEnabled: r.commentsEnabled !== false,
+      viewAccess: checkAccessRule(r.viewAccess),
+    },
+  }
+}
+
+/* ── Events ─────────────────────────────────────────────────────────────── */
+
+export interface EventInput {
+  title: string
+  description: string
+  kind: EventKind
+  startsAt: string
+  endsAt: string | null
+  timezone: string
+  location: string | null
+  meetingUrl: string | null
+  livestreamUrl: string | null
+  capacity: number | null
+  coverUrl: string | null
+  access: AccessRuleJson
+}
+
+/** An https link, or null for empty; NaN-like false for anything else. */
+function httpsLink(value: unknown): string | null | false {
+  const s = typeof value === "string" ? value.trim() : ""
+  if (!s) return null
+  if (s.length > 1000) return false
+  try {
+    const u = new URL(s)
+    return u.protocol === "https:" ? u.toString() : false
+  } catch {
+    return false
+  }
+}
+
+export const EVENT_KIND_LABEL: Record<EventKind, string> = {
+  online: "Online",
+  live: "Live stream",
+  workshop: "Workshop",
+  ama: "Q&A",
+  meetup: "Meetup",
+  in_person: "In person",
+}
+
+/**
+ * An event from the editor: the start and end are typed as a date and a
+ * time in the event's zone and stored as instants, so every member sees
+ * them in their own zone.
+ */
+export function checkEvent(raw: unknown): Checked<EventInput> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const title = line(r.title, 300)
+  if (!title) return { ok: false, field: "title", error: "Give the event a title." }
+  if (title.length > LENGTHS.eventTitle.max) return { ok: false, field: "title", error: `A title is up to ${LENGTHS.eventTitle.max} characters.` }
+  const description = plain(r.description, LENGTHS.eventDescription.max + 1)
+  if (description.length > 4000) return { ok: false, field: "description", error: "A description is up to 4,000 characters." }
+  const kind = isOneOf(EVENT_KINDS, r.kind) ? r.kind : "online"
+  const timezone = validTimeZone(r.timezone) ? (r.timezone as string) : null
+  if (!timezone) return { ok: false, field: "timezone", error: "Pick a time zone." }
+  const startsAt = zonedTimeToUtc(String(r.startDate ?? ""), String(r.startTime ?? ""), timezone)
+  if (!startsAt) return { ok: false, field: "start", error: "Add when it starts." }
+  let endsAt: string | null = null
+  if (r.endTime) {
+    endsAt = zonedTimeToUtc(String(r.endDate || r.startDate || ""), String(r.endTime), timezone)
+    if (!endsAt) return { ok: false, field: "end", error: "That end time is not a time." }
+    if (Date.parse(endsAt) <= Date.parse(startsAt)) return { ok: false, field: "end", error: "It has to end after it starts." }
+  }
+  const meeting = httpsLink(r.meetingUrl)
+  if (meeting === false) return { ok: false, field: "meetingUrl", error: "A meeting link starts with https://" }
+  const livestream = httpsLink(r.livestreamUrl)
+  if (livestream === false) return { ok: false, field: "livestreamUrl", error: "A livestream link starts with https://" }
+  let capacity: number | null = null
+  if (r.capacity !== undefined && r.capacity !== null && r.capacity !== "") {
+    const n = Number(r.capacity)
+    if (!Number.isInteger(n) || n < 1 || n > 100_000) return { ok: false, field: "capacity", error: "Capacity is a whole number from 1." }
+    capacity = n
+  }
+  const location = line(r.location, 300) || null
+  return {
+    ok: true,
+    value: { title, description, kind, startsAt, endsAt, timezone, location, meetingUrl: meeting, livestreamUrl: livestream, capacity, coverUrl: imageUrl(r.coverUrl), access: checkAccessRule(r.access) },
+  }
+}
+
+/** A replay as pasted: a Storelib video id, or any link with one in it. */
+export function replayVideoId(raw: unknown): string | null | false {
+  const s = typeof raw === "string" ? raw.trim() : ""
+  if (!s) return null
+  const m = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(s)
+  return m ? m[0].toLowerCase() : false
+}
+
+/* ── Levels, badges, points ─────────────────────────────────────────────── */
+
+export interface LevelInput {
+  level: number
+  name: string
+  minPoints: number
+  reward: string | null
+}
+
+/** Levels from the editor: numbered from 1, the first at 0 points, each one needing more than the one before. */
+export function checkLevels(raw: unknown): Checked<LevelInput[]> {
+  const list = Array.isArray(raw) ? raw : []
+  if (list.length < 1) return { ok: false, field: "levels", error: "Keep at least one level." }
+  if (list.length > MAX_LEVELS) return { ok: false, field: "levels", error: `Up to ${MAX_LEVELS} levels.` }
+  const out: LevelInput[] = []
+  for (let i = 0; i < list.length; i++) {
+    const r = (list[i] && typeof list[i] === "object" ? list[i] : {}) as Record<string, unknown>
+    const name = line(r.name, 80)
+    if (!name || name.length > LENGTHS.levelName.max) return { ok: false, field: `level-${i + 1}`, error: `Level ${i + 1} needs a name up to ${LENGTHS.levelName.max} characters.` }
+    const minPoints = i === 0 ? 0 : Number(r.minPoints)
+    if (!Number.isInteger(minPoints) || minPoints < 0 || minPoints > 10_000_000) return { ok: false, field: `level-${i + 1}`, error: `Level ${i + 1} needs a number of points.` }
+    if (i > 0 && minPoints <= out[i - 1].minPoints) return { ok: false, field: `level-${i + 1}`, error: `Level ${i + 1} needs more points than level ${i}.` }
+    out.push({ level: i + 1, name, minPoints, reward: line(r.reward, 200) || null })
+  }
+  return { ok: true, value: out }
+}
+
+export function checkPoints(raw: unknown): Checked<number> {
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n === 0 || n < -10_000 || n > 10_000) return { ok: false, field: "points", error: "Points are a whole number from -10,000 to 10,000, not 0." }
+  return { ok: true, value: n }
+}
+
+/* ── Rules, FAQ, benefits, links ────────────────────────────────────────── */
+
+export function checkRules(raw: unknown): Checked<CommunityRule[]> {
+  const list = (Array.isArray(raw) ? raw : []).map((x) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {}))
+  const out = list.map((r) => ({ title: line(r.title, 120), body: plain(r.body, 1000) })).filter((r) => r.title || r.body)
+  if (out.length > MAX_RULES) return { ok: false, field: "rules", error: `Up to ${MAX_RULES} rules.` }
+  if (out.some((r) => !r.title)) return { ok: false, field: "rules", error: "Each rule needs a title." }
+  return { ok: true, value: out }
+}
+
+export function checkFaq(raw: unknown): Checked<CommunityFaq[]> {
+  const list = (Array.isArray(raw) ? raw : []).map((x) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {}))
+  const out = list.map((r) => ({ q: line(r.q, 200), a: plain(r.a, 2000) })).filter((r) => r.q || r.a)
+  if (out.length > MAX_FAQ) return { ok: false, field: "faq", error: `Up to ${MAX_FAQ} questions.` }
+  if (out.some((r) => !r.q || !r.a)) return { ok: false, field: "faq", error: "Each question needs an answer." }
+  return { ok: true, value: out }
+}
+
+export function checkBenefits(raw: unknown): Checked<string[]> {
+  const out = (Array.isArray(raw) ? raw : []).map((b) => line(b, 120)).filter(Boolean)
+  if (out.length > MAX_BENEFITS) return { ok: false, field: "benefits", error: `Up to ${MAX_BENEFITS} lines.` }
+  return { ok: true, value: out }
+}
+
+export function checkLinks(raw: unknown): Checked<CommunityLink[]> {
+  const list = (Array.isArray(raw) ? raw : []).map((x) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {}))
+  const out: CommunityLink[] = []
+  for (const r of list) {
+    const label = line(r.label, 60)
+    const url = httpsLink(r.url)
+    if (!label && !url) continue
+    if (!label || !url) return { ok: false, field: "links", error: "Each link needs a label and an https:// address." }
+    out.push({ label, url })
+  }
+  if (out.length > MAX_LINKS) return { ok: false, field: "links", error: `Up to ${MAX_LINKS} links.` }
+  return { ok: true, value: out }
+}
+
+/* ── The Overview's next steps ──────────────────────────────────────────── */
+
+export interface NextStepFacts {
+  published: boolean
+  paid: boolean
+  paymentsReady: boolean
+  members: number
+  invites: number
+  posts: number
+  courses: number
+  events: number
+  customized: boolean
+  classroomEnabled: boolean
+  eventsEnabled: boolean
+}
+
+export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "customize"
+
+export interface NextStep {
+  id: NextStepId
+  title: string
+  detail: string
+  href: string
+  action: string
+}
+
+/**
+ * What to do next, in order, and only what is not done yet: each one
+ * disappears once its row exists. Read from real counts, never stored.
+ */
+export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
+  const steps: NextStep[] = []
+  if (f.paid && !f.paymentsReady) steps.push({ id: "payouts", title: "Connect payouts", detail: "Members pay you through Stripe. Nobody can join a paid community until payouts are connected.", href: "/app/settings?tab=payments", action: "Connect" })
+  if (!f.published) steps.push({ id: "publish", title: "Publish your community", detail: "It is a draft. Only you can see it until you publish.", href: `${base}/settings?tab=general`, action: "Publish" })
+  if (f.members <= 1 && f.invites === 0) steps.push({ id: "invite", title: "Invite your first members", detail: "Send an invite by email or share a link.", href: `${base}/members?invite=1`, action: "Invite" })
+  if (f.posts === 0) steps.push({ id: "welcome", title: "Write a welcome post", detail: "Say who it is for and how to get started.", href: `${base}/feed?compose=welcome`, action: "Write" })
+  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add a course", detail: "Attach a course you sell, or make a new one.", href: `${base}/classroom`, action: "Add" })
+  if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: "Schedule an event", detail: "A call, a workshop or a Q&A.", href: `${base}/events?new=1`, action: "Schedule" })
+  if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add what members get and your rules.", href: `${base}/settings?tab=general`, action: "Edit" })
+  return steps
+}
+
+/* ── Analytics ──────────────────────────────────────────────────────────── */
+
+export interface DayPoint {
+  day: string
+  value: number
+}
+
+/** The last `days` days ending today (UTC), each with its value or 0, oldest first. */
+export function fillDays(rows: { day: string; value: number }[], days: number, today: string): DayPoint[] {
+  const by = new Map(rows.map((r) => [r.day.slice(0, 10), r.value]))
+  const end = Date.parse(`${today.slice(0, 10)}T00:00:00Z`)
+  const out: DayPoint[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const day = new Date(end - i * 86_400_000).toISOString().slice(0, 10)
+    out.push({ day, value: Number(by.get(day) ?? 0) })
+  }
+  return out
+}
+
+/* ── Members ────────────────────────────────────────────────────────────── */
+
+export const MEMBER_STATUS_FILTERS = ["active", "pending", "paused", "banned", "removed", "expired", "cancelled"] as const
+export type MemberStatusFilter = (typeof MEMBER_STATUS_FILTERS)[number]
+
+export const MEMBERS_PAGE = 50
+
+export interface MemberQuery {
+  status: MemberStatusFilter
+  role: Role | null
+  tierId: string | null
+  q: string
+  cursor: string | null
+}
+
+export function parseMemberQuery(p: URLSearchParams | Record<string, string | undefined>): MemberQuery {
+  const get = (k: string) => (p instanceof URLSearchParams ? p.get(k) : p[k]) ?? ""
+  const status = get("status")
+  const role = get("role")
+  const tier = get("tier")
+  return {
+    status: isOneOf(MEMBER_STATUS_FILTERS, status) ? status : "active",
+    role: isOneOf(ROLES, role) ? role : null,
+    tierId: isUuid(tier) ? tier : null,
+    q: line(get("q"), 80),
+    cursor: get("cursor") || null,
+  }
+}
+
+export const ROLE_LABEL: Record<Role, string> = { owner: "Owner", admin: "Admin", moderator: "Moderator", member: "Member" }
+
+/* ── Invites ────────────────────────────────────────────────────────────── */
+
+export interface InviteInput {
+  email: string | null
+  maxUses: number | null
+  expiresInDays: number | null
+  tierId: string | null
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function checkInvite(raw: unknown): Checked<InviteInput> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const email = typeof r.email === "string" && r.email.trim() ? r.email.trim().toLowerCase() : null
+  if (email && (!EMAIL.test(email) || email.length > 254)) return { ok: false, field: "email", error: "That email address does not look right." }
+  let maxUses: number | null = null
+  if (!email && r.maxUses !== undefined && r.maxUses !== null && r.maxUses !== "") {
+    const n = Number(r.maxUses)
+    if (!Number.isInteger(n) || n < 1 || n > 100_000) return { ok: false, field: "maxUses", error: "Uses is a whole number from 1." }
+    maxUses = n
+  }
+  let expiresInDays: number | null = null
+  if (r.expiresInDays !== undefined && r.expiresInDays !== null && r.expiresInDays !== "") {
+    const n = Number(r.expiresInDays)
+    if (!Number.isInteger(n) || n < 1 || n > 365) return { ok: false, field: "expires", error: "An invite lasts 1 to 365 days." }
+    expiresInDays = n
+  }
+  return { ok: true, value: { email, maxUses: email ? 1 : maxUses, expiresInDays: email && expiresInDays === null ? 30 : expiresInDays, tierId: isUuid(r.tierId) ? r.tierId : null } }
+}
+
+/** Space kinds as the editor names them. */
+export const SPACE_KIND_LABEL: Record<SpaceKind, string> = { feed: "Discussion", chat: "Chat", announcements: "Announcements", resources: "Resources" }

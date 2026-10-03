@@ -358,6 +358,12 @@ const SUITES = [
   "tests/memberships.test.ts",
   "tests/site-chrome.test.ts",
   "tests/communities-foundation.test.ts",
+  "tests/communities-public.test.ts",
+  "tests/communities-platform.test.ts",
+  "tests/communities-security.test.ts",
+  "tests/communities-member.test.ts",
+  "tests/communities-classroom.test.ts",
+  "tests/communities-creator.test.ts",
   "tests/theme-blocks.test.ts",
 ]
 

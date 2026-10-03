@@ -19,6 +19,7 @@ import type {
   ReviewsSettings,
   AboutSettings,
   GlobalStoreSettings,
+  CommunitySettings,
 } from "@/lib/store-builder/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AppAvatar, AvatarMark } from "@/components/app/app-avatar"
@@ -64,6 +65,8 @@ import { getIconComponent } from "./section-icons"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
 import { plainSummary } from "@/lib/html-entities"
 import { SmartLink } from "@/components/smart-link"
+import { UnifiedCommunitySection } from "./community-section"
+import type { CommunityBlockData } from "@/lib/communities/blocks"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
@@ -163,6 +166,12 @@ export interface UnifiedSectionProps {
   onOpenAboutSidebar?: () => void
   /** The owner's About edit control, from the page that knows who is looking. */
   aboutOwnerActions?: React.ReactNode
+  /**
+   * The Community sections' live data, by community id, read on the server
+   * for the page (lib/communities/server/blocks.ts). A section whose id is
+   * not here draws nothing; the builder canvas reads its own.
+   */
+  communityBlocks?: Record<string, CommunityBlockData>
 }
 
 // Helper function to get product href
@@ -1423,12 +1432,14 @@ export function UnifiedSectionRenderer({
   onUpdateAboutSettings,
   onOpenAboutSidebar,
   aboutOwnerActions,
+  communityBlocks,
 }: UnifiedSectionProps) {
   // Defensive check - ensure section and settings exist
   if (!section?.settings?.visible) return null
 
   // For more-from-seller, don't apply wrapper padding as it handles its own layout
-  const isMoreFromSeller = section.type === "more-from-seller"
+  // (and the community card, which draws its own column and spacing the same way)
+  const isMoreFromSeller = section.type === "more-from-seller" || section.type === "community"
 
   /**
    * THE FEATURED RAIL TAKES NO HORIZONTAL PADDING FROM ITS SPACING SETTING.
@@ -1553,6 +1564,15 @@ export function UnifiedSectionRenderer({
           reviewsAverage={reviewsAverage}
           accentColor={accentColor}
           reviewsColors={(section.settings as ReviewsSettings).reviewsColors}
+        />
+      )}
+      {section.type === "community" && (
+        <UnifiedCommunitySection
+          settings={section.settings as CommunitySettings}
+          data={communityBlocks?.[((section.settings as CommunitySettings).communityId || "").toLowerCase()] ?? null}
+          isMobile={isMobile}
+          isEditorCanvas={!!onSelect}
+          globalSettings={globalSettings}
         />
       )}
       {section.type === "about" && (

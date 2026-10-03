@@ -68,7 +68,8 @@ function sendPlace(body: Record<string, unknown>, beacon = false): Promise<Recor
     .catch(() => null)
 }
 
-export function CoursePlayer({ data }: { data: PlayerData }) {
+/** `backHref` is where the arrow at the top goes: the library, or a community's classroom. */
+export function CoursePlayer({ data, backHref = "/library/courses", backLabel = "All courses" }: { data: PlayerData; backHref?: string; backLabel?: string }) {
   const lessons = useMemo(() => data.modules.flatMap((m) => m.lessons), [data.modules])
   const outline = data.modules
   const keeps = data.access !== "preview"
@@ -194,8 +195,8 @@ export function CoursePlayer({ data }: { data: PlayerData }) {
       {/* The course, who made it, how far through */}
       <div className="mb-4 flex items-start gap-3 sm:mb-5">
         <Link
-          href="/library/courses"
-          aria-label="All courses"
+          href={backHref}
+          aria-label={backLabel}
           className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa]"
         >
           <ArrowLeft className="h-4 w-4" />

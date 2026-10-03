@@ -159,6 +159,11 @@ export function PhysicalBuyBox({
 
   return (
     <div className="space-y-4" data-physical-buy-box="">
+      {variant?.imageUrl && data.variants.length > 1 ? (
+        /* The chosen variant's own photo, so the buyer sees the color they picked. */
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={variant.imageUrl} alt={variant.name} className="h-20 w-20 rounded-xl border object-cover" style={{ borderColor: "rgba(0,0,0,0.1)" }} data-variant-photo="" />
+      ) : null}
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-2xl font-bold tracking-tight" style={{ color: ink }}>
           {variant ? money(variant.priceCents) : money(Math.min(...data.variants.map((v) => v.priceCents)))}

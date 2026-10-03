@@ -8,7 +8,9 @@ import type { ShopHeaderSettings, ProductHeaderSettings } from "@/lib/store-buil
 import { Skeleton } from "@/components/ui/skeleton"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
-import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { StorefrontCommunities } from "@/components/community/public/storefront-communities"
+import type { CommunityCard } from "@/lib/communities/types"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import {
   UnifiedSectionRenderer,
@@ -38,6 +40,8 @@ interface PreviewCanvasProps {
   products?: ProductData[]
   isPreviewMode?: boolean
   isMobileSidebarOpen?: boolean
+  /** The creator's communities: the Communities tab, as on the live page, only when there are some. */
+  communities?: CommunityCard[]
 }
 
 type Rect = { left: number; width: number; bottom: number }
@@ -56,7 +60,7 @@ function getScrollParent(el: HTMLElement | null): HTMLElement | null {
   return null
 }
 
-export function PreviewCanvas({ creatorId, creator, profile, products, isPreviewMode = false, isMobileSidebarOpen = false }: PreviewCanvasProps) {
+export function PreviewCanvas({ creatorId, creator, profile, products, isPreviewMode = false, isMobileSidebarOpen = false, communities = [] }: PreviewCanvasProps) {
   const {
     currentPageType,
     draftConfig,
@@ -851,13 +855,14 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   ),
                 })
               }
-              canvasTabs.push({
-                id: "communities",
-                label: "Communities",
-                panel: (
-                  <EmptyTabPanel title="No communities yet" detail="This creator hasn't opened any yet." icon="communities" />
-                ),
-              })
+              /* The live page's Communities tab: real cards, and no tab when there are none. */
+              if (communities.length > 0) {
+                canvasTabs.push({
+                  id: "communities",
+                  label: "Communities",
+                  panel: <StorefrontCommunities cards={communities} phone={isMobile} />,
+                })
+              }
 
               return (
                 <>

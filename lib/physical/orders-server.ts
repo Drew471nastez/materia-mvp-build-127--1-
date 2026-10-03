@@ -20,7 +20,8 @@ import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
 import { queueReturnEmail, queueShipmentEmail, enqueueJob } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
-import type { FulfillmentStatus, PaymentStatus, ReturnStatus, ShipmentStatus } from "./types"
+import { readMethod } from "./fulfillment"
+import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 
 export interface OrderLine {
   orderId: string
@@ -38,6 +39,8 @@ export interface OrderLine {
   refundedCents: number
   requiresShipping: boolean
   locationId: string | null
+  /** Who sends it: the seller, a warehouse, a supplier or a print partner. */
+  fulfillmentMethod: FulfillmentMethod | null
   fulfilled: number
   returned: number
   receiptToken: string | null
@@ -96,6 +99,10 @@ export interface PhysicalOrder {
   couponCode: string | null
   address: Record<string, any> | null
   delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null } | null
+  deliveryMethod: DeliveryMethod
+  pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady } | null
+  processingAt: string | null
+  deliveredAt: string | null
   buyerNote: string | null
   merchantNote: string | null
   receiptToken: string
@@ -120,7 +127,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
   const { data: co } = await q.maybeSingle()
   if (!co) return null
   const [{ data: orders }, { data: fulfillments }, { data: returns }] = await Promise.all([
-    db.from("orders").select("id, product_id, variant_id, quantity, unit_price_cents, amount_cents, refund_amount_cents, status, requires_shipping, fulfillment_location_id, product_snapshot, receipt_token, created_at").eq("checkout_id", co.id).order("created_at", { ascending: true }),
+    db.from("orders").select("*").eq("checkout_id", co.id).order("created_at", { ascending: true }),
     db.from("fulfillments").select("*").eq("checkout_id", co.id).order("created_at", { ascending: true }),
     db.from("commerce_returns").select("*").eq("checkout_id", co.id).order("created_at", { ascending: true }),
   ])
@@ -160,6 +167,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       refundedCents: o.refund_amount_cents ?? 0,
       requiresShipping: o.requires_shipping ?? false,
       locationId: o.fulfillment_location_id ?? null,
+      fulfillmentMethod: readMethod(o.fulfillment_method ?? s.fulfillment_method),
       fulfilled: fulfilledOf.get(o.id) ?? 0,
       returned: returnedOf.get(o.id) ?? 0,
       receiptToken: o.receipt_token ?? null,
@@ -206,6 +214,13 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     couponCode: co.coupon_code,
     address: co.shipping_address,
     delivery: co.shipping_rate?.name ? { name: co.shipping_rate.name, priceCents: co.shipping_rate.price_cents ?? 0, minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null } : null,
+    deliveryMethod: co.delivery_method === "pickup" ? "pickup" : co.delivery_method === "none" ? "none" : "ship",
+    pickup:
+      co.delivery_method === "pickup" && co.pickup
+        ? { locationId: co.pickup_location_id ?? null, name: co.pickup.name, address: Array.isArray(co.pickup.address) ? co.pickup.address : [], instructions: co.pickup.instructions ?? null, ready: co.pickup.ready ?? "24h" }
+        : null,
+    processingAt: co.processing_at ?? null,
+    deliveredAt: co.delivered_at ?? null,
     buyerNote: co.buyer_note,
     merchantNote: co.merchant_note,
     receiptToken: co.receipt_token,
@@ -255,11 +270,13 @@ async function restate(db: Db, creatorId: string, checkoutId: string): Promise<P
   const order = await loadOrder(db, { creatorId, checkoutId })
   if (!order) return null
   const progress = progressOf(order)
-  const fulfillment = fulfillmentStatusOf(progress, !!order.cancelledAt)
+  const live = order.shipments.filter((sh) => sh.status !== "cancelled")
+  const fulfillment = fulfillmentStatusOf(progress, !!order.cancelledAt, { processing: !!order.processingAt, allDelivered: live.length > 0 && live.every((sh) => sh.status === "delivered") })
   const openReturns = order.returns.filter((r) => ["requested", "approved", "in_transit"].includes(r.status)).length
   const ret = order.returns.some((r) => r.status === "requested") && !order.returns.some((r) => r.status === "received" || r.status === "completed") ? "requested" : returnStatusOf(progress, openReturns)
   const patch: Record<string, unknown> = { fulfillment_status: fulfillment, return_status: ret, updated_at: new Date().toISOString() }
   if (fulfillment === "fulfilled") patch.fulfilled_at = new Date().toISOString()
+  if (fulfillment === "delivered" && !order.deliveredAt) patch.delivered_at = new Date().toISOString()
   if (order.status === "refunded" || order.status === "partially_refunded") {
     patch.status = order.status
     patch.refunded_cents = order.refundedCents
@@ -298,15 +315,16 @@ export async function fulfilItems(
     if (left === undefined) return { ok: false, error: "That item is not part of this order." }
     if (i.quantity > left) return { ok: false, error: `Only ${left} left to fulfil on that item.` }
   }
-  const carrier = cleanText(input.carrier, 40)
-  const tracking = cleanText(input.trackingNumber, 60)
+  const pickup = order.deliveryMethod === "pickup"
+  const carrier = pickup ? null : cleanText(input.carrier, 40)
+  const tracking = pickup ? null : cleanText(input.trackingNumber, 60)
   if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
-  let url = cleanText(input.trackingUrl, 500)
+  let url = pickup ? null : cleanText(input.trackingUrl, 500)
   if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
   url = url ?? trackingUrl(carrier, tracking)
   const key = cleanText(input.key, 120)
   const firstLine = order.lines.find((l) => l.orderId === items[0].orderId)
-  const locationId = typeof input.locationId === "string" ? input.locationId : (firstLine?.locationId ?? null)
+  const locationId = pickup ? (order.pickup?.locationId ?? firstLine?.locationId ?? null) : typeof input.locationId === "string" ? input.locationId : (firstLine?.locationId ?? null)
 
   const now = new Date().toISOString()
   const { data: f, error } = await db
@@ -316,7 +334,7 @@ export async function fulfilItems(
       creator_id: creatorId,
       location_id: locationId,
       status: "shipped",
-      provider: "manual",
+      provider: pickup ? "pickup" : "manual",
       carrier,
       tracking_number: tracking,
       tracking_url: url,
@@ -337,13 +355,13 @@ export async function fulfilItems(
     return { ok: false, error: "The fulfillment could not be saved." }
   }
   await db.rpc("physical_fulfill", { p_fulfillment: f.id })
-  await db.from("fulfillment_events").insert({ fulfillment_id: f.id, status: "shipped", message: tracking ? `${carrier ?? "Carrier"} ${tracking}` : "Marked as fulfilled", source: "manual" })
+  await db.from("fulfillment_events").insert({ fulfillment_id: f.id, status: "shipped", message: pickup ? "Ready for pickup" : tracking ? `${carrier ?? "Carrier"} ${tracking}` : "Marked as shipped", source: "manual" })
   const count = items.reduce((n, i) => n + i.quantity, 0)
   await addOrderEvent(db, {
     checkoutId,
     creatorId,
     kind: "fulfillment.created",
-    message: `${count} ${count === 1 ? "item" : "items"} fulfilled${tracking ? `, ${carrier ?? "tracking"} ${tracking}` : ""}`,
+    message: pickup ? `${count} ${count === 1 ? "item" : "items"} ready for pickup` : `${count} ${count === 1 ? "item" : "items"} shipped${tracking ? `, ${carrier ?? "tracking"} ${tracking}` : ""}`,
     actor: "creator",
     key: `fulfilled:${f.id}`,
   })
@@ -396,7 +414,16 @@ export async function updateShipment(
       checkoutId: f.checkout_id,
       creatorId,
       kind: to ? `fulfillment.${to}` : "fulfillment.tracking",
-      message: to === "delivered" ? "Marked as delivered" : to === "cancelled" ? "Shipment cancelled, items back to unfulfilled" : to ? `Shipment ${to.replace(/_/g, " ")}` : "Tracking updated",
+      message:
+        to === "delivered"
+          ? f.provider === "pickup"
+            ? "Picked up by the buyer"
+            : "Marked as delivered"
+          : to === "cancelled"
+            ? "Shipment cancelled, items back to unfulfilled"
+            : to
+              ? `Shipment ${to.replace(/_/g, " ")}`
+              : "Tracking updated",
       actor: "creator",
     })
   }
@@ -407,6 +434,23 @@ export async function updateShipment(
     }
   }
   const updated = await restate(db, creatorId, f.checkout_id)
+  return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * Processing: the seller has started on the order (packing it, or waiting on
+ * a partner). On or off; it only shows while nothing has shipped yet.
+ */
+export async function markProcessing(db: Db, creatorId: string, checkoutId: string, on: boolean): Promise<Outcome> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (order.cancelledAt) return { ok: false, error: "This order was cancelled." }
+  if (order.status !== "paid" && order.status !== "partially_refunded") return { ok: false, error: "Only a paid order can be processed." }
+  if (on === !!order.processingAt) return { ok: true, order }
+  const now = new Date().toISOString()
+  await db.from("commerce_checkouts").update({ processing_at: on ? now : null, updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
+  await addOrderEvent(db, { checkoutId, creatorId, kind: on ? "order.processing" : "order.unprocessing", message: on ? "Marked as processing" : "Back to unfulfilled", actor: "creator" })
+  const updated = await restate(db, creatorId, checkoutId)
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
 }
 

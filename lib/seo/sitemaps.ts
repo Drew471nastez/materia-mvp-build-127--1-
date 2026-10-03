@@ -50,8 +50,12 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
-import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/articles"
+import { helpArticlePath, helpArticlesFor, helpCategoriesFor } from "@/lib/help/articles"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { missingColumnError } from "@/lib/communities/listing"
+import { sitemapCommunities, sitemapCommunityCount } from "@/lib/communities/server/public"
 import {
   SITEMAP_CHUNK,
   builtSiteIndexable,
@@ -194,6 +198,14 @@ export async function sitemapIndex(): Promise<SitemapEntry[]> {
   for (let i = 0; i < chunks(products); i++) entries.push({ url: `${BASE}/sitemap/products-${i}.xml` })
   for (let i = 0; i < chunks(creators); i++) entries.push({ url: `${BASE}/sitemap/creators-${i}.xml` })
   for (let i = 0; i < chunks(websites); i++) entries.push({ url: `${BASE}/sitemap/websites-${i}.xml` })
+  /*
+    COMMUNITIES, while they are switched on and there are some to list: the
+    published public ones (lib/communities/server/public.ts). Counted softly,
+    because before part 81 there is no table and that is a normal state, not
+    a failed read.
+  */
+  const communities = (await communitiesEnabled()) ? await sitemapCommunityCount(admin) : 0
+  if (communities > 0) for (let i = 0; i < chunks(communities); i++) entries.push({ url: `${BASE}/sitemap/communities-${i}.xml` })
   return entries
 }
 
@@ -204,13 +216,26 @@ export async function sitemapIndex(): Promise<SitemapEntry[]> {
  */
 export function parseSitemapName(
   name: string,
-): { kind: "pages" } | { kind: "onepages-index" } | { kind: "products" | "creators" | "websites" | "onepages"; chunk: number } | null {
+): { kind: "pages" } | { kind: "onepages-index" } | { kind: "products" | "creators" | "websites" | "onepages" | "communities"; chunk: number } | null {
   const bare = name.replace(/\.xml$/, "")
   if (bare === "pages") return { kind: "pages" }
   if (bare === "onepages") return { kind: "onepages-index" }
-  const m = /^(products|creators|websites|onepages)-(\d{1,6})$/.exec(bare)
+  const m = /^(products|creators|websites|onepages|communities)-(\d{1,6})$/.exec(bare)
   if (!m) return null
-  return { kind: m[1] as "products" | "creators" | "websites" | "onepages", chunk: Number(m[2]) }
+  return { kind: m[1] as "products" | "creators" | "websites" | "onepages" | "communities", chunk: Number(m[2]) }
+}
+
+/* ── Communities ───────────────────────────────────────────────────────── */
+
+/**
+ * One chunk of published public communities, at storelib.com/community/<slug>,
+ * with the cover as their picture. Empty while communities are switched off
+ * (their pages are 404s then) and before part 81.
+ */
+export async function communitiesSitemap(chunk: number): Promise<SitemapEntry[]> {
+  if (!(await communitiesEnabled())) return []
+  const rows = await sitemapCommunities(chunk * SITEMAP_CHUNK, SITEMAP_CHUNK, createAdminClient())
+  return rows.map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
 }
 
 /* ── Pages ─────────────────────────────────────────────────────────────── */
@@ -228,6 +253,8 @@ const STATIC_BLOG_SLUGS = [
  * Google learns to ignore. Blog posts carry theirs.
  */
 export async function pagesSitemap(): Promise<SitemapEntry[]> {
+  /* The physical products guide is listed only while physical commerce is on. */
+  const physicalGuide = await isPhysicalCommerceEnabled()
   // "/" is the digital-products landing and the primary URL. /pricing,
   // /features and /faq are the pages somebody comparing platforms lands on.
   const routes: SitemapEntry[] = [
@@ -235,6 +262,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     { url: `${BASE}/pricing` },
     { url: `${BASE}/features` },
     { url: `${BASE}/explore` },
+    /* Explore's communities, while they are switched on. */
+    ...((await communitiesEnabled()) ? [{ url: `${BASE}/explore/communities` }] : []),
     { url: `${BASE}/blog` },
     { url: `${BASE}/faq` },
     { url: `${BASE}/signup` },
@@ -252,8 +281,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
       here too. /help/search is left out on purpose; it is not indexed.
     */
     { url: `${BASE}/help` },
-    ...HELP_CATEGORIES.map((c) => ({ url: `${BASE}/help/${c.slug}` })),
-    ...HELP_ARTICLES.map((a) => ({ url: `${BASE}${helpArticlePath(a)}` })),
+    ...helpCategoriesFor(physicalGuide).map((c) => ({ url: `${BASE}/help/${c.slug}` })),
+    ...helpArticlesFor(physicalGuide).map((a) => ({ url: `${BASE}${helpArticlePath(a)}` })),
   ]
 
   /**
@@ -311,14 +340,22 @@ const userIdOf = (row: ProductRow): string | null => {
  */
 export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
   const admin = createAdminClient()
+  /*
+    A product that sells a community tier answers with a redirect to its
+    community, which has its own file: it is left out here once the column
+    exists (lib/communities/listing). Asked once, softly, for the chunk.
+  */
+  const probe = await admin.from("products").select("community_id").limit(1)
+  const skipCommunity = !(probe.error && missingColumnError(probe.error))
   const rows = await readRange<ProductRow>(
-    (a, b) =>
-      admin
+    (a, b) => {
+      let q = admin
         .from("products")
         .select("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner(user_id)")
         .eq("status", "published")
-        .order("id", { ascending: true })
-        .range(a, b) as unknown as PromiseLike<Rows<ProductRow>>,
+      if (skipCommunity) q = q.is("community_id", null)
+      return q.order("id", { ascending: true }).range(a, b) as unknown as PromiseLike<Rows<ProductRow>>
+    },
     chunk * SITEMAP_CHUNK,
     SITEMAP_CHUNK,
     "products",

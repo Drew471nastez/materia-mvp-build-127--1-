@@ -1,5 +1,5 @@
 import { WishlistSkeleton } from "@/components/wishlist/wishlist-skeleton"
-import { LIBRARY_TABS } from "./library-tab-list"
+import { COMMUNITIES_TAB, libraryTabs } from "./library-tab-list"
 
 export { WishlistSkeleton }
 
@@ -205,13 +205,13 @@ export function ProductDetailSkeleton() {
  * shape on the way back from a product, so the row is where it will be
  * before the real one is. The same sizes as library-tabs.tsx draws.
  */
-export function TabsHeaderStill({ active }: { active: string }) {
+export function TabsHeaderStill({ active, communities = active === COMMUNITIES_TAB.href }: { active: string; communities?: boolean }) {
   return (
     <div className="mb-5 sm:mb-6" aria-hidden>
       <div className="text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Library</div>
       <div className="-mx-4 mt-3 overflow-hidden px-4 py-0.5 sm:mx-0 sm:mt-4 sm:px-0">
         <div className="flex w-max items-center gap-2">
-          {LIBRARY_TABS.map((t) => (
+          {libraryTabs(communities).map((t) => (
             <span
               key={t.href}
               className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-[13px] font-medium ${
@@ -235,6 +235,8 @@ export function skeletonFor(path: string, still = false): React.ReactNode {
   /* Empty-card shape while the stage waits: matches the common empty tab and avoids a list→empty jump. */
   if (path === "/library/courses") return <CoursesSkeleton empty={still} still={still} />
   if (path === "/library/memberships") return <MembershipsSkeleton still={still} />
+  /* Communities are rows of the same shape as memberships (components/community/public/library-list.tsx). */
+  if (path === COMMUNITIES_TAB.href) return <MembershipsSkeleton still={still} />
   if (path === "/library/reviews") return <RowsSkeleton rows={3} sections={2} still={still} />
   if (path === "/library/receipts") return <RowsSkeleton rows={4} still={still} />
   if (path === "/library/wishlist") return <WishlistSkeleton still={still} />

@@ -61,6 +61,13 @@ export const DOMAIN_EVENTS = [
   "membership.payment_failed",
   "membership.canceled",
   "membership.ended",
+  /* A member of a community (lib/communities/server/email.ts sendCommunityEmail), told by email. Never one per feed post. */
+  "community.welcome",
+  "community.announcement",
+  "community.event_reminder",
+  "community.invite",
+  "community.course_available",
+  "community.join_approved",
   "domain.connected",
   "domain.connection_failed",
   "team.invitation_created",
@@ -104,6 +111,7 @@ export type EntityType =
   | "dispute"
   | "subscription"
   | "membership"
+  | "community"
   | "domain"
   | "team"
 
@@ -164,6 +172,13 @@ export const NOTIFICATION_TYPES = [
   "MEMBERSHIP_PAYMENT_FAILED",
   "MEMBERSHIP_CANCELED",
   "MEMBERSHIP_ENDED",
+  /* A member of a community (lib/notify/workflows/communities.ts): the welcome, an approved request, an invite, an announcement, an event reminder, a new course in the classroom. */
+  "COMMUNITY_WELCOME",
+  "COMMUNITY_JOIN_APPROVED",
+  "COMMUNITY_INVITE",
+  "COMMUNITY_ANNOUNCEMENT",
+  "COMMUNITY_EVENT_REMINDER",
+  "COMMUNITY_COURSE_AVAILABLE",
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]

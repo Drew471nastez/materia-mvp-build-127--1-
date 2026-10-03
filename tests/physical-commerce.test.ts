@@ -6,7 +6,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { combinations, findVariant, normaliseOptions, planVariants, variantName } from "@/lib/physical/variants"
-import { deliveryEstimate, pickOption, quoteDelivery, ratePrice, zoneFor, type QuoteLine } from "@/lib/physical/rates"
+import { deliveryEstimate, pickOption, quoteDelivery, ratePrice, readTiers, tierPrice, zoneFor, type QuoteLine } from "@/lib/physical/rates"
+import { canPickUp, isPickupOptionId, pickupOptions, PICKUP_READY_LABEL } from "@/lib/physical/pickup"
+import { regionCode, regionKey, regionList } from "@/lib/physical/regions"
+import { METHODS, METHOD_ORDER, methodOf, readMethod } from "@/lib/physical/fulfillment"
+import { fulfillmentLabel, orderStep, shipmentLabel } from "@/lib/physical/status"
+import { lowStockEmail, pickupEmail } from "@/lib/physical/email-templates"
+import { ALL_HELP_ARTICLES, HELP_ARTICLES, HELP_CATEGORIES, helpArticlesFor, helpCategoriesFor, helpVisible, helpCategory } from "@/lib/help/articles"
+import { searchHelp } from "@/lib/help/search"
+import { HELP_FIGURE_IDS } from "@/components/help/help-figures"
 import { marginPercent, physicalTotals, refundable, taxRateFor, type TaxSettings } from "@/lib/physical/totals"
 import { addressLines, postalCodeRequired, readAddress } from "@/lib/physical/address"
 import { canMoveShipment, fulfillmentStatusOf, orderNumber, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities } from "@/lib/physical/status"
@@ -14,7 +22,7 @@ import { inSmartCollection, readRules, ruleMatches, slugify, sortProducts, type 
 import { fromGrams, fromMm, toGrams, toMm } from "@/lib/physical/units"
 import { orderConfirmationEmail, shipmentEmail, supplierOrderEmail } from "@/lib/physical/email-templates"
 import { PROVIDERS } from "@/lib/physical/providers"
-import type { ShippingProfile, ShippingRate } from "@/lib/physical/types"
+import type { Location, ShippingProfile, ShippingRate } from "@/lib/physical/types"
 
 let passed = 0
 let failed = 0
@@ -71,7 +79,7 @@ console.log("\nOptions and variants")
 
 console.log("\nShipping rates")
 {
-  const rate = (r: Partial<ShippingRate>): ShippingRate => ({ id: "r", zoneId: "z", name: "Standard", kind: "flat", priceCents: 500, minValue: null, maxValue: null, freeOverCents: null, minDays: 3, maxDays: 5, active: true, position: 0, ...r })
+  const rate = (r: Partial<ShippingRate>): ShippingRate => ({ id: "r", zoneId: "z", name: "Standard", kind: "flat", priceCents: 500, minValue: null, maxValue: null, tiers: [], freeOverCents: null, minDays: 3, maxDays: 5, active: true, position: 0, ...r })
   const t = { units: 2, cents: 4000, grams: 1200 }
   check("flat costs its price", ratePrice(rate({}), t) === 500)
   check("free costs nothing", ratePrice(rate({ kind: "free" }), t) === 0)
@@ -87,15 +95,15 @@ console.log("\nShipping rates")
     name: "General",
     isDefault: true,
     zones: [
-      { id: "z1", profileId: "p1", name: "Domestic", countries: ["RO"], restOfWorld: false, rates: [rate({ id: "s", name: "Standard", priceCents: 1500 }), rate({ id: "e", name: "Express", priceCents: 3000, minDays: 1, maxDays: 2 }), rate({ id: "f", name: "Standard", priceCents: 900 })] },
-      { id: "z2", profileId: "p1", name: "Rest of world", countries: [], restOfWorld: true, rates: [rate({ id: "w", name: "International", priceCents: 4500 })] },
+      { id: "z1", profileId: "p1", name: "Domestic", countries: ["RO"], regions: [], restOfWorld: false, rates: [rate({ id: "s", name: "Standard", priceCents: 1500 }), rate({ id: "e", name: "Express", priceCents: 3000, minDays: 1, maxDays: 2 }), rate({ id: "f", name: "Standard", priceCents: 900 })] },
+      { id: "z2", profileId: "p1", name: "Rest of world", countries: [], regions: [], restOfWorld: true, rates: [rate({ id: "w", name: "International", priceCents: 4500 })] },
     ],
   }
   const heavy: ShippingProfile = {
     id: "p2",
     name: "Heavy",
     isDefault: false,
-    zones: [{ id: "z3", profileId: "p2", name: "Domestic", countries: ["RO"], restOfWorld: false, rates: [rate({ id: "hs", name: "Standard", priceCents: 2500 }), rate({ id: "he", name: "Express", priceCents: 5000, minDays: 2, maxDays: 3 })] }],
+    zones: [{ id: "z3", profileId: "p2", name: "Domestic", countries: ["RO"], regions: [], restOfWorld: false, rates: [rate({ id: "hs", name: "Standard", priceCents: 2500 }), rate({ id: "he", name: "Express", priceCents: 5000, minDays: 2, maxDays: 3 })] }],
   }
   const line = (l: Partial<QuoteLine>): QuoteLine => ({ shippingProfileId: null, quantity: 1, lineCents: 2000, weightGrams: 500, requiresShipping: true, ...l })
   check("a country's own zone beats rest of world", zoneFor(general, "ro")?.id === "z1" && zoneFor(general, "US")?.id === "z2")
@@ -109,6 +117,50 @@ console.log("\nShipping rates")
   check("nothing to ship: no delivery needed", q4.ok && !q4.required)
   check("a chosen option is found again by id, or not at all", pickOption(q1, q1.ok && q1.required ? q1.options[1].id : "") !== null && pickOption(q1, "made-up") === null && pickOption(q1, 5) === null)
   check("no profile set up at all is said plainly", !quoteDelivery([], [line({})], "RO").ok)
+  /* Tiers: order price, order weight, item weight, and free from a value. */
+  const tiers = readTiers([{ from: 0, priceCents: 800 }, { from: 3000, priceCents: 400 }, { from: 8000, priceCents: 0 }, { from: -1, priceCents: 5 }, { from: 3000, priceCents: 999 }])
+  check("tiers are read sorted, one per start, nothing negative", tiers.length === 3 && tiers[1].priceCents === 999 && tiers[0].from === 0)
+  check("a value pays the last step it reached", tierPrice(tiers, 2500) === 800 && tierPrice(tiers, 3000) === 999 && tierPrice(tiers, 9000) === 0 && tierPrice([{ from: 100, priceCents: 1 }], 50) === null)
+  const byPrice = rate({ kind: "price", tiers: [{ from: 0, priceCents: 800 }, { from: 3000, priceCents: 400 }, { from: 8000, priceCents: 0 }] })
+  check("based on order price: $25 pays $8, $45 pays $4, $95 pays nothing", ratePrice(byPrice, { units: 1, cents: 2500, grams: 0 }) === 800 && ratePrice(byPrice, { units: 1, cents: 4500, grams: 0 }) === 400 && ratePrice(byPrice, { units: 1, cents: 9500, grams: 0 }) === 0)
+  const byWeight = rate({ kind: "weight", tiers: [{ from: 0, priceCents: 500 }, { from: 2000, priceCents: 900 }, { from: 10000, priceCents: 2000 }], maxValue: 30000 })
+  check("based on order weight, and not offered above its limit", ratePrice(byWeight, { units: 2, cents: 0, grams: 1200 }) === 500 && ratePrice(byWeight, { units: 10, cents: 0, grams: 6000 }) === 900 && ratePrice(byWeight, { units: 60, cents: 0, grams: 36000 }) === null)
+  const byItem = rate({ kind: "item_weight", tiers: [{ from: 0, priceCents: 200 }, { from: 1000, priceCents: 600 }] })
+  check("based on item weight: three 0.2 kg pins and one 1.5 kg hoodie pay $12", ratePrice(byItem, { units: 4, cents: 0, grams: 2100, items: [{ grams: 200, quantity: 3 }, { grams: 1500, quantity: 1 }] }) === 1200)
+  check("item weight with no steps is never offered", ratePrice(rate({ kind: "item_weight" }), { units: 1, cents: 0, grams: 0, items: [{ grams: 1, quantity: 1 }] }) === null)
+  check("free shipping only from an order value", ratePrice(rate({ kind: "free", minValue: 5000 }), { units: 1, cents: 4200, grams: 0 }) === null && ratePrice(rate({ kind: "free", minValue: 5000 }), { units: 1, cents: 5800, grams: 0 }) === 0)
+  const itemQuote = quoteDelivery([{ ...general, zones: [{ ...general.zones[0], rates: [byItem] }] }], [line({ weightGrams: 200, quantity: 3 }), line({ weightGrams: 1500 })], "RO")
+  check("the quote prices every item by its own weight", itemQuote.ok && itemQuote.required && itemQuote.options[0].priceCents === 1200, itemQuote)
+
+  /* States: a zone for Alaska and Hawaii beats the one for the whole country. */
+  const us: ShippingProfile = {
+    id: "p3",
+    name: "General",
+    isDefault: true,
+    zones: [
+      { id: "us", profileId: "p3", name: "United States", countries: ["US"], regions: [], restOfWorld: false, rates: [rate({ id: "us1", priceCents: 500 })] },
+      { id: "ak", profileId: "p3", name: "Alaska and Hawaii", countries: [], regions: ["US-AK", "US-HI"], restOfWorld: false, rates: [rate({ id: "ak1", priceCents: 2500 })] },
+    ],
+  }
+  check("a state zone beats its country's zone, by code or by name", zoneFor(us, { country: "US", region: "AK" })?.id === "ak" && zoneFor(us, { country: "US", region: "Hawaii" })?.id === "ak" && zoneFor(us, { country: "US", region: "CA" })?.id === "us")
+  check("the quote follows the state", (quoteDelivery([us], [line({})], { country: "US", region: "HI" }) as { options: { priceCents: number }[] }).options[0].priceCents === 2500)
+  check("states are read as ISO codes and only listed ones are kept", regionCode("US", "california") === "CA" && regionKey("CA", "Ontario") === "CA-ON" && regionList(["us-ak", "US-ZZ", "FR-75", "US-AK"]).join() === "US-AK")
+  check("an address with no zone is told shipping is unavailable", (() => {
+    const q = quoteDelivery([us], [line({})], "FR")
+    return q.ok === false && /isn't available/.test(q.error)
+  })())
+
+  /* Local pickup. */
+  const loc = (l: Partial<Location>): Location => ({ id: "11111111-1111-1111-1111-111111111111", name: "Studio", kind: "home", country: "US", city: "Brooklyn", addressLine1: "12 Main St", addressLine2: null, region: "NY", postalCode: "11201", phone: null, email: null, active: true, fulfillsOrders: true, holdsInventory: true, priority: 0, forwarding: "none", pickupEnabled: true, pickupInstructions: "Side door", pickupReady: "24h", ...l })
+  const pl = (x: Partial<Parameters<typeof canPickUp>[1][number]>) => ({ variantId: "v1", quantity: 2, requiresShipping: true, trackInventory: true, inventoryPolicy: "deny" as const, fulfillmentMethod: "self" as const, ...x })
+  const stock = (n: number) => () => n
+  check("pickup is offered where the stock is", canPickUp(loc({}), [pl({})], stock(5)) && !canPickUp(loc({}), [pl({})], stock(1)))
+  check("pickup is never offered for print on demand or dropshipped items", !canPickUp(loc({}), [pl({ fulfillmentMethod: "print_on_demand" })], stock(9)) && !canPickUp(loc({}), [pl({ fulfillmentMethod: "dropship" })], stock(9)))
+  check("pickup is off, or the place is off: no pickup", !canPickUp(loc({ pickupEnabled: false }), [pl({})], stock(9)) && !canPickUp(loc({ active: false }), [pl({})], stock(9)))
+  check("untracked or keep-selling items can always be picked up", canPickUp(loc({}), [pl({ trackInventory: false })], stock(0)) && canPickUp(loc({}), [pl({ inventoryPolicy: "continue" })], stock(0)))
+  const pickups = pickupOptions([loc({})], [pl({})], stock(5))
+  check("a pickup option is free, named, and carries the address and instructions", pickups.length === 1 && pickups[0].priceCents === 0 && pickups[0].kind === "pickup" && pickups[0].pickup?.address.join("|").includes("12 Main St") === true && pickups[0].pickup?.instructions === "Side door" && isPickupOptionId(pickups[0].id))
+  check("pickup times read naturally", PICKUP_READY_LABEL["2_4d"] === "Usually ready in 2 to 4 days")
   check("delivery estimates read naturally", deliveryEstimate({ minDays: 3, maxDays: 5 }) === "3 to 5 business days" && deliveryEstimate({ minDays: 1, maxDays: 1 }) === "1 business day" && deliveryEstimate({ minDays: null, maxDays: null }) === "")
 }
 
@@ -159,6 +211,9 @@ console.log("\nStatuses")
   check("what is left to ship", unfulfilledQuantities([{ ...lines[0], fulfilled: 1 }]).get("a") === 2)
   check("only what shipped can come back", returnableQuantities([{ ...lines[0], fulfilled: 2, returned: 1 }]).get("a") === 1)
   check("returns: partial, then all", returnStatusOf([{ ...lines[0], fulfilled: 3, returned: 1 }], 0) === "partially_returned" && returnStatusOf([{ ...lines[0], fulfilled: 3, returned: 3 }], 0) === "returned" && returnStatusOf([lines[0]], 1) === "in_progress")
+  check("processing before anything ships, delivered once every shipment arrived", fulfillmentStatusOf(lines, false, { processing: true }) === "processing" && fulfillmentStatusOf([{ ...lines[0], fulfilled: 3 }, lines[1]], false, { allDelivered: true }) === "delivered" && fulfillmentStatusOf([{ ...lines[0], fulfilled: 1 }], false, { processing: true }) === "partially_fulfilled")
+  check("the four steps, and pickup says pickup", orderStep("unfulfilled") === 0 && orderStep("processing") === 1 && orderStep("partially_fulfilled") === 2 && orderStep("delivered") === 3 && fulfillmentLabel("fulfilled", "pickup").label === "Ready for pickup" && fulfillmentLabel("delivered", "pickup").label === "Picked up" && fulfillmentLabel("fulfilled").label === "Shipped")
+  check("a pickup shipment reads as ready, then picked up", shipmentLabel("shipped", true).label === "Ready for pickup" && shipmentLabel("delivered", true).label === "Picked up" && shipmentLabel("shipped", false).label === "Shipped")
   check("a shipment only moves forward", canMoveShipment("shipped", "delivered") && !canMoveShipment("delivered", "in_transit") && !canMoveShipment("in_transit", "shipped") && canMoveShipment("pending", "cancelled") && !canMoveShipment("in_transit", "cancelled"))
   check("tracking links for known carriers, none invented", trackingUrl("UPS", "1Z999AA10123456784")?.startsWith("https://www.ups.com/") === true && trackingUrl("Local courier", "ABC12345") === null && trackingUrl("UPS", "bad number!") === null)
   check("order numbers are short and stable", orderNumber("0f3a9c2e-1111-2222-3333-444455556666") === "#0F3A9C2E")
@@ -204,6 +259,53 @@ console.log("\nEmails")
   check("supplier email: items, SKU and address, never prices or the buyer's email", sup.text.includes("4 x Mug [SKU MUG-1]") && !sup.html.includes("$99.99") && !sup.html.includes("buyer@example.com"))
   const all = [m, s, sup].map((x) => x.html + x.subject + x.text).join(" ")
   check("no em dashes or filler words in the emails", !/—|unlock|elevate|seamless|effortless|supercharge/i.test(all))
+}
+
+console.log("\nFulfillment methods")
+check("the four answers, in plain words", METHOD_ORDER.join() === "self,warehouse,dropship,print_on_demand" && METHODS.self.title === "I'll ship it myself" && METHODS.warehouse.title === "Fulfillment warehouse / 3PL" && METHODS.dropship.title === "Dropshipping supplier" && METHODS.print_on_demand.title === "Print on demand")
+check("a variant's own answer, else its product's, else the seller ships", methodOf("dropship", "self") === "dropship" && methodOf(null, "print_on_demand") === "print_on_demand" && methodOf(null, null) === "self" && readMethod("nonsense") === null)
+{
+  const catalog = code("lib/physical/catalog-server.ts")
+  check("stored per product and per variant (a variant keeps only a differing answer)", /fulfillment_method: readMethod\(body\.fulfillmentMethod\)/.test(catalog) && /input\.fulfillmentMethod !== productUpdate\.fulfillment_method \? input\.fulfillmentMethod : null/.test(catalog))
+  check("and on each order line, so mixed orders split by sender", /fulfillment_method: l\.type === "physical" \? \(l\.fulfillment_method \?\? "self"\) : null/.test(code("lib/physical/checkout-server.ts")) && /groups\.set\(key, g\)/.test(code("components/physical/order-panel.tsx")))
+  const fwd = code("lib/physical/jobs-server.ts")
+  check("a partner with nowhere to send the order is said on the order, never dropped", /fulfillment\.manual_needed/.test(fwd) && /partner_manual:/.test(fwd))
+  check("a picked up order is forwarded to nobody", /delivery_method === "pickup"\) return/.test(fwd))
+  check("low stock alerts: once a day, only when on, only tracked physical items", /queueLowStockAlerts/.test(fwd) && /low_stock_alerts === false\) return/.test(fwd) && /email:low_stock:/.test(fwd))
+}
+
+console.log("\nPickup and processing, end to end")
+{
+  const start = code("lib/physical/checkout-server.ts")
+  check("a pickup needs no address but a name, and must still be offered when paid", /wantsPickup && !clean\(input\.name, 200\)/.test(start) && /q\.option\?\.kind !== "pickup"/.test(start))
+  check("a pickup holds the stock at the pickup point", /locationId: pickupLocation\.id/.test(code("lib/physical/checkout-pricing-server.ts")) && /const holds = q\.lines/.test(start))
+  check("tax for a pickup is the pickup point's", /taxPlace = pickupLocation \? \{ country: pickupLocation\.country/.test(code("lib/physical/checkout-pricing-server.ts")))
+  check("the order records how it is delivered", /delivery_method: !priced\.requiresShipping \? "none" : pickup \? "pickup" : "ship"/.test(start))
+  check("the merchant marks processing, ready for pickup and picked up", /case "processing":/.test(code("app/api/physical/orders/[id]/route.ts")) && /Mark ready for pickup/.test(code("components/physical/order-panel.tsx")) && /Mark picked up/.test(code("components/physical/order-panel.tsx")))
+  const pe = pickupEmail({ shopName: "Shop", orderNumber: "#1", buyerFirstName: "Ana", lines: [{ title: "Mug", variantName: null, quantity: 1, cents: 0, imageUrl: null }], kind: "ready", pickup: { name: "Studio", address: ["12 Main St"], ready: null, instructions: "Side door" }, statusUrl: "https://x" })
+  check("the ready email has the address and instructions", pe.subject.includes("ready to pick up") && pe.text.includes("12 Main St") && pe.text.includes("Side door"))
+  const ls = lowStockEmail({ shopName: "Shop", items: [{ title: "Hoodie", variantName: "M", available: 0, threshold: 5 }], inventoryUrl: "https://x/app/inventory?filter=low" })
+  check("the low stock email lists what is low and opens Inventory on it", ls.text.includes("Hoodie (M): sold out") && ls.html.includes("Open Inventory"))
+  check("the checkout page shows no shipping clearly and offers pickup", /Shipping isn't available to/.test(code("app/checkout/physical/physical-checkout.tsx")) && /How do you want it\?/.test(code("app/checkout/physical/physical-checkout.tsx")))
+}
+
+console.log("\nThe help centre guide follows the switch")
+{
+  const physical = ALL_HELP_ARTICLES.filter((a) => helpCategory(a.category)?.physical)
+  check("a physical products guide of its own", physical.length >= 10 && physical.every((a) => a.category === "physical-products"))
+  check("off: not a topic, not an article, not in the sitemap lists", helpCategoriesFor(false).every((c) => !c.physical) && helpArticlesFor(false) === HELP_ARTICLES && helpCategoriesFor(true).some((c) => c.physical))
+  check("the always-on topics are unchanged", HELP_CATEGORIES.length === 7 && HELP_CATEGORIES.every((c) => !c.physical))
+  check("off: its pages are not found", !helpVisible(helpCategory("physical-products"), false) && helpVisible(helpCategory("physical-products"), true) && helpVisible(helpCategory("products"), false))
+  check("off: search leaves it out; on: search finds it", searchHelp("local pickup", 8, { physical: false }).every((r) => r.article.category !== "physical-products") && searchHelp("local pickup", 8, { physical: true })[0]?.article.slug === "local-pickup")
+  const figures = physical.flatMap((a) => a.body.filter((b) => b.type === "figure").map((b) => (b as { figure: string }).figure))
+  check("step by step, with pictures, every picture drawn", figures.length >= 12 && figures.every((f) => HELP_FIGURE_IDS.includes(f)) && physical.filter((a) => a.body.some((b) => b.type === "steps")).length >= 7)
+  const text = JSON.stringify(physical)
+  check("plain words: no em dashes or filler", !/—|unlock|elevate|seamless|effortless|supercharge/i.test(text))
+  for (const page of ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/search/page.tsx"]) {
+    check(`${page} asks the switch`, /isPhysicalCommerceEnabled\(\)/.test(code(page)))
+  }
+  check("the sitemap asks the switch", /const physicalGuide = await isPhysicalCommerceEnabled\(\)/.test(code("lib/seo/sitemaps.ts")))
+  check("flipping the switch refreshes the help centre at once", /revalidatePath\("\/help", "layout"\)/.test(code("app/api/admin/marketplace-flags/route.ts")))
 }
 
 console.log("\nIntegrations are honest")
@@ -260,6 +362,11 @@ check("row level security on every new table", (sql.match(/ENABLE ROW LEVEL SECU
 check("the stock functions are the server's alone", ["physical_inventory_apply", "physical_reserve", "physical_release", "physical_mark_sold", "physical_fulfill", "physical_cancel_unfulfilled", "physical_expire_holds", "commerce_claim_jobs"].every((f) => new RegExp(`REVOKE ALL ON FUNCTION public\\.${f}\\([^)]*\\) FROM PUBLIC, anon, authenticated`).test(sql) && new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${f}\\([^)]*\\) TO service_role`).test(sql)))
 check("costs and integration secrets are never readable by buyers", /^REVOKE ALL ON public\.commerce_integrations,[^;]*FROM anon;/m.test(sql) && /REVOKE ALL ON public\.commerce_integrations, public\.commerce_jobs FROM authenticated/.test(sql) && !/storelib reads product_variant_costs/.test(sql))
 check("the migration copy is the same bytes", read("supabase/migrations/20261022_physical_commerce.sql") === sql)
+check("readable: one statement after another, every comment closed on its line", sql.split("\n").every((l) => !l.trimStart().startsWith("--") && (!l.startsWith("/*") || l.trimEnd().endsWith("*/"))))
+check("upgrades an earlier run: new columns added if missing", ["inventory_locations ADD COLUMN IF NOT EXISTS pickup_enabled", "commerce_settings ADD COLUMN IF NOT EXISTS unit_system", "commerce_settings ADD COLUMN IF NOT EXISTS low_stock_alerts", "shipping_zones ADD COLUMN IF NOT EXISTS regions", "shipping_rates ADD COLUMN IF NOT EXISTS tiers", "commerce_checkouts ADD COLUMN IF NOT EXISTS delivery_method", "commerce_checkouts ADD COLUMN IF NOT EXISTS processing_at", "products ADD COLUMN IF NOT EXISTS fulfillment_method", "product_variants ADD COLUMN IF NOT EXISTS fulfillment_method", "orders ADD COLUMN IF NOT EXISTS fulfillment_method"].every((c) => sql.includes(`ALTER TABLE public.${c}`)))
+check("and the checks it widens are dropped and made again, so a second run is the same", /DROP CONSTRAINT IF EXISTS shipping_rates_kind_check;\nALTER TABLE public\.shipping_rates ADD CONSTRAINT shipping_rates_kind_check CHECK \(kind IN \('flat', 'free', 'price', 'weight', 'item_weight'/.test(sql) && /commerce_checkouts_fulfillment_status_check CHECK \(fulfillment_status IN \('unfulfilled', 'processing'/.test(sql))
+check("the product type check keeps every type it already had", /replace\(def, 'ARRAY\[', 'ARRAY\[''physical''::text, '\)/.test(sql) && /regexp_replace\(def, '\\s\+NOT VALID/.test(sql))
+check("the switch's table is made if it is missing, so the flag always exists", /CREATE TABLE IF NOT EXISTS public\.platform_settings/.test(sql))
 
 
 console.log("\nThe switch, in the app")

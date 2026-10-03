@@ -26,6 +26,20 @@ export type FulfillmentModel = (typeof FULFILLMENT_MODELS)[number]
 
 export type InventoryPolicy = "deny" | "continue"
 
+/**
+ * How one product (or one variant of it) reaches the buyer. Stored per
+ * product and, when a variant differs, per variant, so one shop can mix
+ * them: a hoodie printed on demand next to stickers the seller posts.
+ */
+export const FULFILLMENT_METHODS = ["self", "warehouse", "dropship", "print_on_demand"] as const
+export type FulfillmentMethod = (typeof FULFILLMENT_METHODS)[number]
+
+/** How long a pickup order usually takes to be ready (inventory_locations.pickup_ready). */
+export const PICKUP_READY = ["1h", "2h", "4h", "24h", "2_4d", "5d"] as const
+export type PickupReady = (typeof PICKUP_READY)[number]
+
+export type UnitSystem = "metric" | "imperial"
+
 export interface ProductOption {
   /** 1 to 3, the variant column it fills (option1..option3). */
   position: 1 | 2 | 3
@@ -52,6 +66,8 @@ export interface PhysicalVariant {
   taxable: boolean
   active: boolean
   fulfillmentLocationId: string | null
+  /** Null: the product's own method. */
+  fulfillmentMethod: FulfillmentMethod | null
   position: number
 }
 
@@ -81,9 +97,27 @@ export interface Location {
   holdsInventory: boolean
   priority: number
   forwarding: "none" | "email" | "webhook" | "provider"
+  pickupEnabled: boolean
+  pickupInstructions: string | null
+  pickupReady: PickupReady
 }
 
-export type RateKind = "flat" | "free" | "weight" | "price" | "quantity" | "carrier"
+/**
+ * flat         one price
+ * free         nothing (optionally only above an order value)
+ * price        by order price: tiers of order value
+ * weight       by order weight: tiers of the order's total weight
+ * item_weight  by item weight: each item priced by its own weight, added up
+ * quantity     by number of items (kept for rates made before tiers)
+ * carrier      priced live by a connected carrier (none is connected yet)
+ */
+export type RateKind = "flat" | "free" | "weight" | "price" | "item_weight" | "quantity" | "carrier"
+
+/** One step of a tiered rate: from this value (cents or grams) on, this price. */
+export interface RateTier {
+  from: number
+  priceCents: number
+}
 
 export interface ShippingRate {
   id: string
@@ -94,6 +128,8 @@ export interface ShippingRate {
   /** Grams for a weight rate, cents for a price rate, units for a quantity rate. */
   minValue: number | null
   maxValue: number | null
+  /** Ascending by `from`; empty for flat and free rates and for rates made before tiers. */
+  tiers: RateTier[]
   freeOverCents: number | null
   minDays: number | null
   maxDays: number | null
@@ -106,6 +142,8 @@ export interface ShippingZone {
   profileId: string
   name: string
   countries: string[]
+  /** "US-CA", "CA-ON": a state or province, when a zone covers part of a country. */
+  regions: string[]
   restOfWorld: boolean
   rates: ShippingRate[]
 }
@@ -129,7 +167,8 @@ export interface Address {
 }
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "expired" | "cancelled" | "refunded" | "partially_refunded"
-export type FulfillmentStatus = "unfulfilled" | "partially_fulfilled" | "fulfilled" | "cancelled" | "not_required"
+export type FulfillmentStatus = "unfulfilled" | "processing" | "partially_fulfilled" | "fulfilled" | "delivered" | "cancelled" | "not_required"
+export type DeliveryMethod = "ship" | "pickup" | "none"
 export type ReturnStatus = "none" | "requested" | "in_progress" | "partially_returned" | "returned"
 export type ShipmentStatus = "pending" | "submitted" | "shipped" | "in_transit" | "out_for_delivery" | "delivered" | "failed" | "cancelled"
 
@@ -154,14 +193,27 @@ export interface PricedLine {
   trackInventory: boolean
   inventoryPolicy: InventoryPolicy
   shippingProfileId: string | null
+  fulfillmentMethod: FulfillmentMethod | null
 }
 
 export interface DeliveryOption {
-  /** The rates chosen, one per shipping profile in the cart, joined: what the buyer picks is one option. */
+  /** The rates chosen, one per shipping profile in the cart, joined: what the buyer picks is one option. A pickup is "pickup:<location id>". */
   id: string
+  kind?: "ship" | "pickup"
+  /** For a pickup: where, and what the buyer should know. */
+  pickup?: PickupInfo
   name: string
   priceCents: number
   minDays: number | null
   maxDays: number | null
   rateIds: string[]
+}
+
+/** A pickup point as the buyer sees it at checkout, on the order page and in emails. */
+export interface PickupInfo {
+  locationId: string
+  name: string
+  address: string[]
+  instructions: string | null
+  ready: PickupReady
 }

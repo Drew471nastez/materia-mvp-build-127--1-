@@ -8,6 +8,27 @@ import { creatorFacts } from "@/lib/website-builder/storefront-data-server"
 
 type Params = { params: Promise<{ installId: string }> }
 
+/**
+ * The creator's own communities for a community_picker: the choices, each
+ * saying whether a visitor would see it, and the public facts of the ones
+ * that would, so the canvas draws a Community card as the live site will.
+ * Nothing while communities are off. Read with the service role (the
+ * tables are server only), by this signed in creator's id alone.
+ */
+async function creatorCommunitiesForBuilder(creatorId: string) {
+  try {
+    const { communitiesEnabled } = await import("@/lib/communities/flag")
+    if (!(await communitiesEnabled())) return null
+    const { communityCardsFor, creatorCommunityChoices } = await import("@/lib/communities/server/blocks")
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const db = createAdminClient()
+    const [choices, cards] = await Promise.all([creatorCommunityChoices(db, creatorId), communityCardsFor(db, creatorId, "all")])
+    return { choices, cards }
+  } catch {
+    return null
+  }
+}
+
 // ── Auth helper ──────────────────────────────────────────────
 async function getCreatorAndInstall(installId: string) {
   const supabase = await createClient()
@@ -107,11 +128,12 @@ export async function GET(_req: Request, { params }: Params) {
     public profile comes along for the canvas to fill `{{ creator.name }}`
     the way the live site will: the same four public facts, nothing else.
   */
-  const [lookup, facts] = await Promise.all([
+  const [lookup, facts, communities] = await Promise.all([
     customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
     creatorFacts(supabase! as never, creator!.id),
+    creatorCommunitiesForBuilder(creator!.id),
   ])
-  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts })
+  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities })
 }
 
 // PATCH /api/website-builder/themes/[installId]

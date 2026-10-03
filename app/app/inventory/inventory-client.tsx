@@ -86,7 +86,12 @@ export function InventoryClient() {
   const [rows, setRows] = React.useState<Row[] | null>(null)
   const [locations, setLocations] = React.useState<Location[]>([])
   const [error, setError] = React.useState<string | null>(null)
-  const [view, setView] = React.useState<View>("all")
+  /* The low stock email links to ?filter=low. */
+  const [view, setView] = React.useState<View>(() => {
+    if (typeof window === "undefined") return "all"
+    const f = new URLSearchParams(window.location.search).get("filter")
+    return f === "low" || f === "out" || f === "incoming" ? f : "all"
+  })
   const [query, setQuery] = React.useState("")
   const [loc, setLoc] = React.useState("")
   const [adjusting, setAdjusting] = React.useState<Row | null>(null)

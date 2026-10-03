@@ -71,7 +71,7 @@ export function renderSection(input: RenderInput): Rendered {
   const assets = input.assets ?? {}
   const data = input.data ?? {}
   const blockOf = input.blocks ?? (() => null)
-  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus }
+  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus, communities: data.communities }
   const { settings, blocks, statics } = resolveInstance(compiled.schema, instance, {
     ...resolveOpts,
     themeBlock: (type) => blockOf(type)?.schema ?? null,

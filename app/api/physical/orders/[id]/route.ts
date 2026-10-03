@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
-import { cancelOrder, checkoutOfOrderRow, fulfilItems, loadOrder, moveReturn, noteRefund, openReturn, saveNote, updateShipment } from "@/lib/physical/orders-server"
+import { cancelOrder, checkoutOfOrderRow, fulfilItems, loadOrder, markProcessing, moveReturn, noteRefund, openReturn, saveNote, updateShipment } from "@/lib/physical/orders-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -23,7 +23,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 /**
  * What the merchant does to an order, one action per call:
- *   fulfil      ship some or all items, with tracking
+ *   processing  mark the order as being prepared (or back to unfulfilled)
+ *   fulfil      ship some or all items, with tracking (ready for pickup when collected)
  *   shipment    move a shipment on (in transit, delivered, cancelled) or fix its tracking
  *   cancel      cancel before anything shipped, stock back
  *   note        the private note
@@ -42,6 +43,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let result
   switch (body.action) {
+    case "processing":
+      result = await markProcessing(c.db, c.creatorId, id, body.on !== false)
+      break
     case "fulfil":
       result = await fulfilItems(c.db, c.creatorId, id, { items, carrier: body.carrier, trackingNumber: body.trackingNumber, trackingUrl: body.trackingUrl, notifyBuyer: body.notifyBuyer !== false, key: body.key, locationId: body.locationId })
       break

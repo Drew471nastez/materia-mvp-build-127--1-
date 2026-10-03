@@ -94,7 +94,7 @@ export async function physicalAnalytics(db: Db, creatorId: string, sinceIso: str
     revenueCents: rows.reduce((n, r) => n + (r.total_cents ?? 0), 0),
     shippingCents: rows.reduce((n, r) => n + Math.max(0, (r.shipping_cents ?? 0) - (r.shipping_discount_cents ?? 0)), 0),
     taxCents: rows.reduce((n, r) => n + (r.tax_cents ?? 0), 0),
-    unfulfilled: rows.filter((r) => r.fulfillment_status === "unfulfilled").length,
+    unfulfilled: rows.filter((r) => r.fulfillment_status === "unfulfilled" || r.fulfillment_status === "processing").length,
     partiallyFulfilled: rows.filter((r) => r.fulfillment_status === "partially_fulfilled").length,
     averageHoursToShip: hours.length ? Math.round((hours.reduce((n, h) => n + h, 0) / hours.length) * 10) / 10 : null,
     returns: returnCount ?? 0,

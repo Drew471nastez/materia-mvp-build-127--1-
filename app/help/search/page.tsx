@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { helpArticlePath, helpCategory } from "@/lib/help/articles"
 import { searchHelp } from "@/lib/help/search"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
 import { HelpSearch } from "@/components/help/help-search"
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 export default async function HelpSearchPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
   const raw = (await searchParams).q
   const q = (Array.isArray(raw) ? raw[0] : raw ?? "").slice(0, 200)
-  const results = q.trim() ? searchHelp(q, 30) : []
+  const results = q.trim() ? searchHelp(q, 30, { physical: await isPhysicalCommerceEnabled() }) : []
 
   return (
     <div className="bg-white">

@@ -2350,7 +2350,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               </div>
 
               {/* A physical product: stock, shipping and variants in place of the files (components/physical/product-cards.tsx). */}
-              {productType === "physical" ? <PhysicalProductCards productId={productId} basePrice={price} handle={physicalRef} onDirty={markPhysicalDirty} /> : null}
+              {productType === "physical" ? <PhysicalProductCards
+                  productId={productId}
+                  basePrice={price}
+                  handle={physicalRef}
+                  onDirty={markPhysicalDirty}
+                  images={mediaItems.filter((m) => m.type === "image").map((m) => m.url)}
+                  uploadImage={async (file) => (await uploadDescriptionImage(file, { creatorId, productId })).url}
+                /> : null}
               {productType === "course" ? null : filesCard}
 
               {/* Variants Section: a download's. A physical product's are in its own cards above. */}

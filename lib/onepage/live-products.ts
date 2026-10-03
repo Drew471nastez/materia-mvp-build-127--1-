@@ -33,6 +33,7 @@
  * what it drew yesterday rather than emptying itself.
  */
 import { isPubliclyVisible, type VisibilityFields } from "@/lib/products/visibility"
+import { sellsCommunity } from "@/lib/communities/listing"
 import { planIntervals } from "@/lib/memberships/intervals"
 
 /** What a live product contributes to a block. */
@@ -189,6 +190,8 @@ export type ProductsDb = {
   }
 }
 
+/* With the column that marks a product selling a community tier, which a block does not show (lib/communities/listing). */
+const COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, thumbnail_url, type, status, archived, community_id"
 const COLUMNS = "id, title, slug, price_cents, thumbnail_url, type, status, archived"
 /* A database from before the archive flag. The status carries the same answer there. */
 const COLUMNS_WITHOUT_FLAG = "id, title, slug, price_cents, thumbnail_url, type, status"
@@ -207,7 +210,7 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
   const ids = productIdsInBlocks(blocks)
   if (!creatorId || ids.length === 0) return new Map()
   const asked = ids.slice(0, 200)
-  for (const cols of [COLUMNS, COLUMNS_WITHOUT_FLAG]) {
+  for (const cols of [COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG]) {
     try {
       const { data, error } = await db.from("products").select(cols).eq("creator_id", creatorId).in("id", asked)
       if (error) continue
@@ -215,7 +218,7 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
       for (const row of data ?? []) {
         const id = idOf(row.id)
         if (!id || !answers.has(id)) continue
-        answers.set(id, live(row) ? (row as LiveProduct) : null)
+        answers.set(id, live(row) && !sellsCommunity(row) ? (row as LiveProduct) : null)
       }
       /* A yearly only membership says "/year" (lib/memberships/intervals); asked only when a block names a membership. */
       const memberships = [...answers.values()].filter((p): p is LiveProduct => !!p && p.type === "membership")

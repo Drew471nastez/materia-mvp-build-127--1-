@@ -1,4 +1,4 @@
-import { notFound, permanentRedirect } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { CourseOutline } from "@/components/courses/course-outline"
 import { listPrice } from "@/lib/pricing/list-price"
 import { plainSummary } from "@/lib/html-entities"
@@ -269,6 +269,20 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   }
 
   if (!product) {
+    notFound()
+  }
+
+  /*
+    A PRODUCT THAT SELLS A COMMUNITY TIER IS THE COMMUNITY. Its page would
+    sell the tier without the community around it (who it is for, its rules,
+    approval), so the community's own page is where it lives; with
+    communities switched off it is not offered at all.
+  */
+  const communityId = (product as { community_id?: string | null }).community_id
+  if (communityId) {
+    const { communityAddressForProduct } = await import("@/lib/communities/server/public")
+    const target = await communityAddressForProduct(communityId)
+    if (target) redirect(target)
     notFound()
   }
 

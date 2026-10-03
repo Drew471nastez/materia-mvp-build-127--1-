@@ -26,7 +26,7 @@ export async function GET() {
       count("commerce_settings", (q) => q.not("onboarded_at", "is", null)),
       count("products", (q) => q.eq("type", "physical")),
       count("commerce_checkouts", (q) => q.in("status", ["paid", "partially_refunded"])),
-      count("commerce_checkouts", (q) => q.eq("status", "paid").in("fulfillment_status", ["unfulfilled", "partially_fulfilled"]).is("cancelled_at", null)),
+      count("commerce_checkouts", (q) => q.eq("status", "paid").in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"]).is("cancelled_at", null)),
       count("inventory_reservations", (q) => q.eq("status", "held").lt("expires_at", new Date(Date.now() - 30 * 60_000).toISOString())),
       count("commerce_jobs", (q) => q.eq("status", "queued").lt("run_after", new Date(Date.now() - 30 * 60_000).toISOString())),
       count("commerce_jobs", (q) => q.eq("status", "failed")),

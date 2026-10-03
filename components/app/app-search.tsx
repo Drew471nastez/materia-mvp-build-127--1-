@@ -41,6 +41,7 @@ import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 import { APP_PAGES, GO_TO, matchPages } from "@/lib/search/app-pages"
+import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { GROUP_LABELS, SEARCH_GROUPS, isSearchable, normalizeQuery, type SearchResult } from "@/lib/search/app-search"
 import { useNewProductChooser } from "@/app/app/products/new/kind-chooser"
 import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
@@ -199,6 +200,8 @@ export const AppSearch = memo(
     }, [open, q, searchable, retry])
 
     /* ── What is drawn ─────────────────────────────────────────────────── */
+    /* Community is offered only while the platform switch is on (lib/search/app-pages.ts flag). */
+    const communities = useCommunitiesEnabled()
     const sections = useMemo<Section[]>(() => {
       if (!q) {
         const items = GO_TO.map((href) => APP_PAGES.find((p) => p.href === href)!).map((p) => ({ key: `go:${p.href}`, title: p.label, href: p.href }))
@@ -208,7 +211,7 @@ export const AppSearch = memo(
          before the server answers, and what it answers is added below them
          rather than pushing them down under the pointer. */
       const out: Section[] = []
-      const pages = matchPages(q)
+      const pages = matchPages(q, 5, { communities })
       const nav = pages.filter((p) => p.group === "Pages")
       const settings = pages.filter((p) => p.group === "Settings")
       if (nav.length) out.push({ id: "pages", label: "Pages", items: nav.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
@@ -221,7 +224,7 @@ export const AppSearch = memo(
         }
       }
       return out
-    }, [q, searchable, remote])
+    }, [q, searchable, remote, communities])
 
     const flat = useMemo(() => sections.flatMap((s) => s.items), [sections])
     const activeIndex = Math.max(0, activeKey ? flat.findIndex((i) => i.key === activeKey) : 0)

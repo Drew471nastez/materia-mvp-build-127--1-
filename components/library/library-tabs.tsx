@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
-import { LIBRARY_TABS, cleanPath as clean, showsLibraryTabs } from "./library-tab-list"
+import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab-list"
 
 /**
  * ===========================================================================
@@ -55,7 +55,8 @@ const PILL =
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
 
-export function LibraryTabs() {
+export function LibraryTabs({ communities = false }: { communities?: boolean } = {}) {
+  const tabs = libraryTabs(communities)
   const pathname = usePathname()
   const router = useRouter()
   const path = clean(pathname)
@@ -81,7 +82,7 @@ export function LibraryTabs() {
   useEffect(() => {
     if (!shows) return
     const run = () => {
-      for (const tab of LIBRARY_TABS) if (tab.href !== path) router.prefetch(tab.href, { kind: FULL })
+      for (const tab of tabs) if (tab.href !== path) router.prefetch(tab.href, { kind: FULL })
     }
     const w = window as IdleWindow
     if (w.requestIdleCallback) {
@@ -90,7 +91,9 @@ export function LibraryTabs() {
     }
     const t = window.setTimeout(run, 800)
     return () => window.clearTimeout(t)
-  }, [shows, path, router])
+    // `tabs` is rebuilt each render from one boolean; that boolean is the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shows, path, router, communities])
 
   /* And the one a pointer is on its way to, in case the idle pass has not reached it. */
   const warm = useCallback(
@@ -154,7 +157,7 @@ export function LibraryTabs() {
       <nav aria-label="Library" className="-mx-4 mt-3 sm:mx-0 sm:mt-4">
         <div ref={trackRef} onScroll={measure} data-library-tabs="" data-fade={fade} className={`overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0 ${mask}`}>
           <div className="flex w-max items-center gap-2">
-            {LIBRARY_TABS.map((tab) => {
+            {tabs.map((tab) => {
               const active = tab.href === current
               return (
                 <Link

@@ -13,6 +13,8 @@
  * here until it is connected.
  */
 
+import { regionCode } from "./regions"
+
 export interface TotalsLine {
   unitCents: number
   quantity: number
@@ -50,7 +52,11 @@ export function taxRateFor(settings: TaxSettings, country: string | null, region
   if (settings.mode !== "manual" || !country) return 0
   const c = country.toUpperCase()
   const r = region?.trim().toLowerCase() || null
-  const regional = r ? settings.rates.find((t) => t.country.toUpperCase() === c && t.region?.trim().toLowerCase() === r) : null
+  /* "CA" and "California" are the same state where Storelib knows the list. */
+  const code = regionCode(c, region)
+  const regional = r
+    ? settings.rates.find((t) => t.country.toUpperCase() === c && !!t.region && (t.region.trim().toLowerCase() === r || (code !== null && regionCode(c, t.region) === code)))
+    : null
   const national = settings.rates.find((t) => t.country.toUpperCase() === c && !t.region)
   const bps = (regional ?? national)?.rateBps ?? 0
   return Number.isFinite(bps) ? Math.min(10_000, Math.max(0, Math.round(bps))) : 0

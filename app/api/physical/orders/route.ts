@@ -5,7 +5,7 @@ import { listOrders } from "@/lib/physical/orders-server"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-const FULFILLMENT = new Set(["unfulfilled", "partially_fulfilled", "fulfilled", "cancelled", "not_required"])
+const FULFILLMENT = new Set(["unfulfilled", "processing", "partially_fulfilled", "fulfilled", "delivered", "cancelled", "not_required"])
 
 export async function GET(request: Request) {
   const c = await physicalCaller()

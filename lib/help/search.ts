@@ -15,7 +15,7 @@
  * contains the whole phrase goes first, and between equals the shorter
  * title, which is usually the article about exactly that.
  */
-import { articleText, helpCategory, HELP_ARTICLES, plainText, type HelpArticle } from "./articles"
+import { ALL_HELP_ARTICLES, articleText, helpCategory, plainText, type HelpArticle } from "./articles"
 
 export interface HelpResult {
   article: HelpArticle
@@ -58,7 +58,7 @@ interface Indexed {
 let index: Indexed[] | null = null
 function built(): Indexed[] {
   if (index) return index
-  index = HELP_ARTICLES.map((article) => {
+  index = ALL_HELP_ARTICLES.map((article) => {
     const category = helpCategory(article.category)?.title ?? ""
     const body = articleText(article)
     return {
@@ -90,12 +90,14 @@ function snippetFor(entry: Indexed, terms: string[]): string {
   return text.length > 160 ? `${text.slice(0, 157).replace(/\s+\S*$/, "")}...` : text
 }
 
-export function searchHelp(query: string, limit = 8): HelpResult[] {
+/** `physical`: whether the physical products guide is on (it is left out of results when off). */
+export function searchHelp(query: string, limit = 8, opts: { physical?: boolean } = {}): HelpResult[] {
   const terms = queryTerms(query)
   if (terms.length === 0) return []
   const phrase = query.trim().toLowerCase()
   const results: HelpResult[] = []
   for (const entry of built()) {
+    if (!opts.physical && helpCategory(entry.article.category)?.physical) continue
     let score = 0
     let all = true
     for (const term of terms) {
