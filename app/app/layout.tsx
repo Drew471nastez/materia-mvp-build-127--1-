@@ -20,6 +20,7 @@ import { providerPaymentsReady } from "@/lib/payments/readiness"
 import { listBusinesses } from "@/lib/businesses/server"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
+import { communitiesEnabled } from "@/lib/communities/flag"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -163,7 +164,7 @@ export default async function AppLayout({
     own client. The sale is found through its product's creator, as Home
     reads orders, so it no longer waits for the product ids to come back.
   */
-  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }] = await Promise.all([
+  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn] = await Promise.all([
     supabase.from("products").select("id").eq("creator_id", creator.id),
     supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
     supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
@@ -173,6 +174,8 @@ export default async function AppLayout({
       .eq("products.creator_id", creator.id)
       .not("status", "in", "(failed,pending,disputed)")
       .limit(1),
+    /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
+    communitiesEnabled().catch(() => false),
   ])
 
   /*
@@ -224,6 +227,7 @@ export default async function AppLayout({
           onePagePublished={!!onepage}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
           businesses={businesses}
+          communitiesEnabled={communitiesOn}
         />
         {/* md:pt accounts for the desktop header height (58 px) plus the
             safe-area-inset-top padding the header adds in Capacitor.

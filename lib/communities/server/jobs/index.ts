@@ -34,4 +34,6 @@ export const JOB_HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   event_reminder: eventReminder,
   fanout_event: fanoutEvent,
   video_poll: videoPoll,
+  rollup: (db, job, ctx) => import("./rollup").then((m) => m.rollup(db, job, ctx)),
+  trending: (db, job, ctx) => import("./trending").then((m) => m.trending(db, job, ctx)),
 }
