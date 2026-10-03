@@ -147,19 +147,26 @@ interface MemberRowLite {
 
 const MEMBER_LITE = "id, user_id, role, status, tier_id, level, points, bio, joined_at, last_active_at"
 
+/** Tier names by id, in one read; none when it cannot be read. */
+async function tierNames(db: Db, tierIds: (string | null)[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  const ids = [...new Set(tierIds.filter((t): t is string => !!t))]
+  if (!ids.length) return map
+  try {
+    const { data } = await db.from("community_tiers").select("id, name").in("id", ids)
+    for (const t of (data as { id: string; name: string }[] | null) ?? []) map.set(t.id, t.name)
+  } catch {
+    /* No names: the tier stays unnamed. */
+  }
+  return map
+}
+
 async function toMemberViews(db: Db, communityId: string, rows: MemberRowLite[]): Promise<MemberView[]> {
   if (!rows.length) return []
   const [profiles, levels, tiers] = await Promise.all([
     profilesOf(db, rows.map((r) => r.user_id)),
     levelNames(db, communityId),
-    (async () => {
-      const ids = [...new Set(rows.map((r) => r.tier_id).filter((t): t is string => !!t))]
-      const map = new Map<string, string>()
-      if (!ids.length) return map
-      const { data } = await db.from("community_tiers").select("id, name").in("id", ids)
-      for (const t of (data as { id: string; name: string }[] | null) ?? []) map.set(t.id, t.name)
-      return map
-    })().catch(() => new Map<string, string>()),
+    tierNames(db, rows.map((r) => r.tier_id)),
   ])
   return rows.map((r) => {
     const p = profiles.get(r.user_id)

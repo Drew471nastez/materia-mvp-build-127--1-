@@ -5,12 +5,12 @@
  * storage), one link card (its picture is somebody else's, so it is asked for
  * without a referrer), files (downloaded through the member route, which
  * checks the member and the file), and videos (played from a short lived
- * signed address the classroom's video route hands out).
+ * signed address, through the community's own player, StorelibVideo).
  */
-import { useState } from "react"
-import { Download, FileText, Play } from "lucide-react"
+import { Download, FileText } from "lucide-react"
+import { StorelibVideo } from "@/components/video/storelib-video"
 import type { PostMedia } from "@/lib/communities/types"
-import { api, apiBase } from "./api"
+import { apiBase } from "./api"
 
 export function fileSize(bytes?: number): string {
   if (!bytes || bytes <= 0) return ""
@@ -113,25 +113,9 @@ export function LinkCard({ url, title, image, onRemove }: { url: string; title: 
 }
 
 function VideoBlock({ communityId, videoId }: { communityId: string; videoId: string }) {
-  const [state, setState] = useState<{ url: string; mime?: string } | "loading" | "failed" | null>(null)
-  if (state && typeof state === "object") {
-    return <video src={state.url} controls autoPlay playsInline className="w-full rounded-xl bg-black" style={{ aspectRatio: "16 / 9" }} />
-  }
   return (
-    <button
-      type="button"
-      onClick={async () => {
-        setState("loading")
-        const r = await api<{ url?: string; mime?: string }>(`${apiBase(communityId)}/videos/${videoId}/play`)
-        setState(r.ok && r.data.url ? { url: r.data.url, mime: r.data.mime } : "failed")
-      }}
-      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#111318] text-[14px] font-medium text-white"
-      style={{ aspectRatio: "16 / 9" }}
-    >
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15">
-        <Play className="h-5 w-5 translate-x-px" fill="currentColor" aria-hidden />
-      </span>
-      <span>{state === "loading" ? "Loading..." : state === "failed" ? "This video is not available" : "Play video"}</span>
-    </button>
+    <div className="overflow-hidden rounded-xl bg-black" data-post-video="">
+      <StorelibVideo communityId={communityId} videoId={videoId} />
+    </div>
   )
 }

@@ -180,7 +180,8 @@ export function ShellFrame({ community, viewer, spaces, unreadNotifications, act
             </div>
           </div>
           <PhonePills entries={entries} current={current} spaces={spaces} activeSpace={activeSpace ?? null} onSpaces={() => setSheet(true)} />
-          {children}
+          {/* The classroom and events pages (their own worker's) draw only their body; the frame gives it the same room as the feed. */}
+          {current === "classroom" || current === "events" ? <div className="pb-16 pt-2 lg:pt-6" data-community-body="">{children}</div> : children}
         </div>
       </div>
 

@@ -148,7 +148,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         else if (short.includes("/link-preview")) body = { preview: { url: "https://example.com/talk", title: "A talk about naming things", image: null, site: "example.com" } }
         else if (short.includes("/posts?")) body = { pinned: [], posts: [], nextCursor: null }
         else if (short.includes("/messages")) body = { messages: [], hasMore: false }
-        return r.respond({ status, contentType: "application/json", body: JSON.stringify(body) })
+        /* A like's answer takes a moment, as on a real connection, so the instant state can be seen. */
+        const wait = short.includes("/reactions") ? 250 : 0
+        return void setTimeout(() => r.respond({ status, contentType: "application/json", body: JSON.stringify(body) }), wait)
       }
       if (url.startsWith(`${ORIGIN}/`)) return r.respond({ status: 200, contentType: "text/html", body: html })
       if (url.startsWith("data:")) return r.continue()
@@ -269,7 +271,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const start = await likeOf("p-text")
       await p.click('[data-post="p-text"] [data-like]')
       const instant = await likeOf("p-text")
-      await sleep(250)
+      await sleep(500)
       const settled = await likeOf("p-text")
       expect(start.pressed === "false" && instant.pressed === "true" && instant.count === "25", "LIKE: answers the press at once", { start, instant })
       expect(settled.count === "18" && calls.some((c) => c.url.endsWith("/reactions") && c.body.includes('"on":true')), "and takes the server's count", settled)
@@ -281,7 +283,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     {
       const { p } = await open("feed", "/community/studio-notes", vp, { refuseLike: 1 })
       await p.click('[data-post="p-text"] [data-like]')
-      await sleep(300)
+      await sleep(600)
       const back = await p.evaluate(() => {
         const b = document.querySelector('[data-post="p-text"] [data-like]')
         return { pressed: b.getAttribute("aria-pressed"), count: b.querySelector("[data-like-count]").textContent, toast: document.querySelector("[data-community-toast]")?.textContent || null }

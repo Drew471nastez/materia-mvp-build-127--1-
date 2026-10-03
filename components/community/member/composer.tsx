@@ -18,13 +18,14 @@
  * crashed before posting. Posting clears it.
  */
 import { useEffect, useRef, useState } from "react"
-import { BarChart3, ChevronDown, ImagePlus, Loader2, Paperclip, Plus, X } from "lucide-react"
+import { BarChart3, ChevronDown, Clapperboard, ImagePlus, Loader2, Paperclip, Plus, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
+import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
@@ -48,7 +49,7 @@ export interface ComposerProps {
 
 interface Upload {
   key: string
-  kind: "image" | "file"
+  kind: "image" | "file" | "video"
   name: string
   size: number
   preview?: string
@@ -130,6 +131,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const textRef = useRef<MentionTextareaHandle>(null)
   const imageInput = useRef<HTMLInputElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const videoInput = useRef<HTMLInputElement>(null)
 
   /* A draft left here comes back, open. */
   useEffect(() => {
@@ -139,7 +141,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       setBody(d.body)
       if (!fixedSpaceId && d.spaceId && spaces.some((s) => s.id === d.spaceId)) setSpaceId(d.spaceId)
       setPoll(d.poll)
-      setUploads(d.media.map((m, i) => ({ key: `restored-${i}`, kind: m.type === "file" ? "file" : "image", name: m.type === "file" ? m.name : "", size: m.type === "file" ? (m.size ?? 0) : 0, preview: m.type === "image" ? m.url : undefined, progress: 100, media: m })))
+      setUploads(d.media.map((m, i) => ({ key: `restored-${i}`, kind: m.type === "file" ? "file" : m.type === "video" ? "video" : "image", name: m.type === "file" ? m.name : m.type === "video" ? "Video" : "", size: m.type === "file" ? (m.size ?? 0) : 0, preview: m.type === "image" ? m.url : undefined, progress: 100, media: m })))
       setOpen(true)
       setRestored(true)
     }
@@ -209,6 +211,25 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         setUploads((u) => u.filter((x) => x.key !== k))
         toast((e as { message?: string })?.message || "The file did not upload.")
       }
+    }
+  }
+
+  /* A video goes through the community's video route (W4) and plays from there; only a ready one can be posted. */
+  const addVideo = async (files: FileList | null) => {
+    const file = files?.[0]
+    if (!file) return
+    if (uploads.length >= MAX_MEDIA_PER_POST) return toast(`Up to ${MAX_MEDIA_PER_POST} pictures and files in one post.`)
+    if (!file.type.startsWith("video/")) return toast("That file is not a video.")
+    const k = `${Date.now()}-${Math.random()}`
+    setUploads((u) => [...u, { key: k, kind: "video", name: file.name, size: file.size, progress: 0 }])
+    try {
+      const video = await uploadCommunityVideo({ endpoint: `${apiBase(communityId)}/videos`, file, onProgress: (p) => setUploads((u) => u.map((x) => (x.key === k ? { ...x, progress: p } : x))) })
+      if (video.status === "failed") throw new Error(video.error || "The video could not be processed.")
+      if (video.status !== "ready") throw new Error("The video is still processing. Add it again in a few minutes.")
+      setUploads((u) => u.map((x) => (x.key === k ? { ...x, progress: 100, media: { type: "video", videoId: video.id } } : x)))
+    } catch (e) {
+      setUploads((u) => u.filter((x) => x.key !== k))
+      toast((e as { message?: string })?.message || "The video did not upload.")
     }
   }
 
@@ -320,7 +341,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
               </div>
             ) : (
               <div key={u.key} className="relative flex h-12 min-w-[180px] max-w-full items-center gap-2 rounded-xl border border-[#e8e9ec] py-1 pl-3 pr-11">
-                <Paperclip className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
+                {u.kind === "video" ? <Clapperboard className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden /> : <Paperclip className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />}
                 <span className="min-w-0">
                   <span className="block max-w-[200px] truncate text-[13px] font-medium text-[#1a1a2e]">{u.name}</span>
                   <span className="block text-[12px] text-[#6b7280]">{u.media ? fileSize(u.size) : `${Math.round(u.progress)}%`}</span>
@@ -347,6 +368,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         </button>
         <button type="button" aria-label="Add a poll" title="Add a poll" aria-pressed={!!poll} className={`${ICON_BTN} ${poll ? "bg-[#f1f2f4] text-[#1a1a2e]" : ""}`} onClick={() => setPoll((p) => p ?? { question: "", options: ["", ""], multiple: false, closesIn: "" })} data-composer-poll="">
           <BarChart3 className="h-5 w-5" strokeWidth={1.75} />
+        </button>
+        <input ref={videoInput} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void addVideo(e.target.files), (e.target.value = ""))} />
+        <button type="button" aria-label="Add a video" title="Add a video" className={ICON_BTN} onClick={() => videoInput.current?.click()} data-composer-video="">
+          <Clapperboard className="h-5 w-5" strokeWidth={1.75} />
         </button>
         {fileProductId ? (
           <>

@@ -578,8 +578,8 @@ async function ownedMedia(db: Db, community: CommunityRow, viewer: Viewer, media
         videos.map((v) => v.videoId),
       )
       .eq("community_id", community.id)
-    const ok = new Set(((rows as { id: string; status: string }[] | null) ?? []).filter((r) => r.status !== "failed").map((r) => r.id))
-    if (videos.some((v) => !ok.has(v.videoId))) return { ok: false, error: "That video could not be added." }
+    const ok = new Set(((rows as { id: string; status: string }[] | null) ?? []).filter((r) => r.status === "ready").map((r) => r.id))
+    if (videos.some((v) => !ok.has(v.videoId))) return { ok: false, error: "That video is not ready yet. Try again in a minute." }
   }
   return { ok: true, value: media }
 }
