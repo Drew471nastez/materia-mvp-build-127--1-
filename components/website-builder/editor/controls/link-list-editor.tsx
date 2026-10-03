@@ -2,39 +2,38 @@
 
 /**
  * ===========================================================================
- *  A LIST OF LINKS, ONE ROW EACH
+ *  A MENU'S LINKS, ONE ROW EACH
  * ===========================================================================
- * The header's navigation and every menu in Theme settings › Menus are edited
- * with this, in the builder's sidebar and in Website Settings › Navigation.
+ * Every menu (Main menu, Footer, and any made in Menus) is edited with this,
+ * in the builder's sidebar and in Website Settings › Navigation.
  *
- * It is drawn the way Shopify draws a menu: one box, a hairline between rows,
- * and a row is a grip, the link's name and a quiet chevron. 36px on a
- * computer and 44px under a thumb, 13px type (15px on a phone). It used to be
- * a tall bordered card per link with where the link goes printed again on
- * the right, and sub-links sat in a second inset box; a menu of eight links
- * was taller than the panel it was in.
+ * Drawn the way Shopify draws a menu's links: a row is a grip, the link's
+ * name, where it goes in small grey type, and a "…" for the row's actions.
+ * Rows are separated by a hairline and nothing else: no box round the list,
+ * no box round a row, so a menu inside a settings card is one surface and not
+ * a card in a card. 36px on a computer, 44px under a thumb, 13px type (15px
+ * on a phone).
  *
- * Sub-links sit one modest step in, on a hairline guide that hangs from
- * their parent's grip. Two levels, because that is what the header draws
- * (NAV_MAX_DEPTH in lib/website-builder/nav-links.ts): a dropdown under a
- * link, never a dropdown under a dropdown.
+ * Sub-links sit one modest step in, on a hairline guide that hangs from their
+ * parent's grip. Two levels, because that is what the header draws
+ * (NAV_MAX_DEPTH in lib/website-builder/nav-links.ts).
  *
  * MOVING. The grip drags a row up or down its own level, with a mouse or a
  * finger (use-reorder.ts). Dragged right and let go, a link goes under the
  * one above it; dragged left, a sub-link comes back out. The same with the
  * keyboard on a focused grip: Up and Down move it, Right and Left nest it.
- * And an opened row says it in words, "Move under Shop", "Move out of Shop",
- * for anyone who never finds the gesture.
+ * The row's "…" says the same moves in words, for anyone who never finds the
+ * gesture.
  *
- * OPENING. A tap on the name opens the link where it is: Label, Link (the
- * same picker every link setting uses), and the row's few actions. It opens
- * by its own height (components/ui/reveal.tsx), so the rows under it are
- * carried down rather than jumping.
+ * EDITING. A click on the row opens Label and Link under it, in place (the
+ * same link picker every link setting uses). Add sub-link and Delete are in
+ * the row's "…", so an open row is two fields and nothing else.
  */
 import * as React from "react"
-import { ChevronRight, GripVertical, Plus } from "lucide-react"
+import { GripVertical, MoreHorizontal, Plus } from "lucide-react"
 
 import { Reveal } from "@/components/ui/reveal"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { LinkPicker, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
 import {
   NEW_LINK_LABEL,
@@ -47,12 +46,11 @@ import {
   type NavBlock,
 } from "@/lib/website-builder/nav-links"
 import { cn } from "@/lib/utils"
-import { INPUT, TEXT_BUTTON } from "./styles"
+import { INPUT } from "./styles"
 import { useReorder } from "./use-reorder"
 
-/* The sidebar's field and text action, a thumb's height on a phone: these lists are also drawn outside the phone sheet, in Website Settings, where the sheet's own 44px rule does not reach. */
+/* The sidebar's field, a thumb's height on a phone: these lists are also drawn outside the phone sheet, in Website Settings, where the sheet's own 44px rule does not reach. */
 const FIELD = cn(INPUT, "max-sm:h-11")
-const ACTION = cn(TEXT_BUTTON, "max-sm:h-11")
 
 export { NEW_LINK_LABEL, describeLink, type LinkItem }
 
@@ -87,7 +85,7 @@ type Ctx = LinkListEditorProps & {
 }
 
 /** How far a sub-link sits in: one step, the grip's half and a little. */
-const STEP = 20
+export const LINK_STEP = 20
 
 /** The grip's column. The guide under a parent hangs from its middle. */
 const GRIP_COL = "w-7 max-sm:w-11"
@@ -96,6 +94,8 @@ const GRIP_COL = "w-7 max-sm:w-11"
 const BAR = "flex h-9 max-sm:h-11 items-center"
 
 const LABEL_TEXT = "text-[13px] max-sm:text-[15px]"
+
+const HAIRLINE = "border-t border-border dark:border-white/[0.07]"
 
 function LinkRow({
   item,
@@ -128,24 +128,40 @@ function LinkRow({
   const nestable = depth === 0 && ctx.canNest(index) && !!above
   const outable = depth === 1 && ctx.canOut() && !!parent
 
+  const actions: ActionMenuItem[] = [
+    { label: expanded ? "Close" : "Edit", onClick: () => ctx.setOpen(expanded ? null : item.id) },
+    ...(roomUnder ? [{ label: "Add sub-link", onClick: () => ctx.add(item.id) }] : []),
+    ...(nestable ? [{ label: `Move under ${above!.label.trim() || "the link above"}`, onClick: () => ctx.onNest?.(item.id, 1) }] : []),
+    ...(outable ? [{ label: `Move out of ${parent!.label.trim() || "its parent"}`, onClick: () => ctx.onNest?.(item.id, -1) }] : []),
+    {
+      label: kids.length > 0 ? `Delete with ${kids.length} sub-link${kids.length === 1 ? "" : "s"}` : "Delete",
+      variant: "destructive",
+      separatorBefore: true,
+      onClick: () => {
+        ctx.setOpen(null)
+        ctx.onRemove(item.id)
+      },
+    },
+  ]
+
   return (
     <div data-reorder-row="" data-link-row={item.id} data-link-depth={depth} style={style}>
       <div
         className={cn(
           "relative",
-          !first && "border-t border-border dark:border-white/[0.07]",
-          /* Only a lifted row is painted: it passes over the others. The rest are the box showing through. */
+          !first && HAIRLINE,
+          /* Only a lifted row is painted: it passes over the others. The rest are the surface showing through. */
           lifted && "z-10 rounded-md border-transparent bg-background shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_10px_28px_-6px_rgba(0,0,0,0.22)] dark:bg-[#1c1c1c] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_28px_-6px_rgba(0,0,0,0.7)]",
         )}
       >
-        <div className={BAR}>
+        <div className={BAR} data-link-bar="">
           <button
             type="button"
             aria-label={`Move ${name || "link"}`}
             title="Drag to move. Arrow keys work too."
             className={cn(
               GRIP_COL,
-              "flex h-full shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/15 active:cursor-grabbing dark:focus-visible:ring-white/25",
+              "flex h-full shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8b5cf6]/30 active:cursor-grabbing",
             )}
             data-link-grip=""
             {...grip}
@@ -156,31 +172,41 @@ function LinkRow({
             type="button"
             aria-expanded={expanded}
             aria-controls={panelId}
-            className="group/link flex h-full min-w-0 flex-1 items-center gap-2 pr-2.5 text-left focus-visible:outline-none"
+            className="group/link flex h-full min-w-0 flex-1 items-center gap-2 pr-1 text-left focus-visible:outline-none"
             onClick={() => ctx.setOpen(expanded ? null : item.id)}
           >
             <span
               data-link-label=""
               className={cn(
-                "min-w-0 flex-1 truncate font-medium group-focus-visible/link:underline",
+                "min-w-0 max-w-[65%] shrink-0 truncate font-medium group-focus-visible/link:underline",
                 LABEL_TEXT,
                 name ? "text-foreground" : "text-muted-foreground",
               )}
             >
               {name || "Untitled"}
             </span>
-            <ChevronRight
-              aria-hidden
-              className={cn(
-                "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-[transform,rotate,color] duration-200 ease-out group-hover/link:text-foreground motion-reduce:transition-none",
-                expanded && "rotate-90 text-foreground",
-              )}
-            />
+            <span data-link-dest="" className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground max-sm:text-[13px]">
+              {describeLink(item.url, ctx.targets)}
+            </span>
           </button>
+          <ResponsiveActionMenu
+            title={name || "Link"}
+            items={actions}
+            trigger={
+              <button
+                type="button"
+                aria-label={`Actions for ${name || "link"}`}
+                data-link-actions=""
+                className="mr-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30 max-sm:h-11 max-sm:w-11 dark:hover:bg-white/[0.06]"
+              >
+                <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            }
+          />
         </div>
 
         <Reveal open={expanded} id={panelId} data-link-reveal="">
-          <div className="space-y-3 pb-3 pl-7 pr-2.5 max-sm:pl-11" data-link-panel="">
+          <div className="space-y-3 pb-3 pl-7 pr-2 max-sm:pl-11" data-link-panel="">
             <label className="block">
               <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Label</span>
               <input
@@ -198,64 +224,22 @@ function LinkRow({
               <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Link</span>
               <LinkPicker value={item.url} targets={ctx.targets} onChange={(href) => ctx.onUrl(item.id, href)} />
             </div>
-            {/* The row's own actions, quiet words. The last one's padding is
-                pulled back so its words end on the fields' right edge. */}
-            <div className="-ml-1.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-              {roomUnder && kids.length === 0 && (
-                <button type="button" className={ACTION} data-link-add-under="" onClick={() => ctx.add(item.id)}>
-                  Add link to {name || "this link"}
-                </button>
-              )}
-              {nestable && (
-                <button type="button" className={ACTION} data-link-nest="" onClick={() => ctx.onNest?.(item.id, 1)}>
-                  Move under {above!.label.trim() || "the link above"}
-                </button>
-              )}
-              {outable && (
-                <button type="button" className={ACTION} data-link-unnest="" onClick={() => ctx.onNest?.(item.id, -1)}>
-                  Move out of {parent!.label.trim() || "its parent"}
-                </button>
-              )}
-              <button
-                type="button"
-                data-link-remove=""
-                className={cn(ACTION, "-mr-1.5 ml-auto hover:bg-red-50 hover:text-[#b91c1c] dark:hover:bg-red-400/10 dark:hover:text-red-300")}
-                onClick={() => {
-                  ctx.setOpen(null)
-                  ctx.onRemove(item.id)
-                }}
-              >
-                {kids.length > 0 ? `Remove link and ${kids.length} sub-link${kids.length === 1 ? "" : "s"}` : "Remove link"}
-              </button>
-            </div>
           </div>
         </Reveal>
       </div>
 
       {depth === 0 && kids.length > 0 && (
-        <div
-          className="relative"
-          style={{ paddingLeft: STEP }}
-          data-link-children={item.id}
-        >
+        <div className={cn("relative", HAIRLINE)} style={{ paddingLeft: LINK_STEP }} data-link-children={item.id}>
           {/* The guide: a hairline from the parent's grip down its sub-links. */}
-          <span aria-hidden className="pointer-events-none absolute bottom-3 top-0 left-[13.5px] z-[1] w-px bg-border max-sm:left-[21.5px] dark:bg-white/[0.09]" />
+          <span aria-hidden className="pointer-events-none absolute bottom-2 top-0 left-[13.5px] z-[1] w-px bg-border max-sm:left-[21.5px] dark:bg-white/[0.09]" />
           <LinkLevel items={kids} parent={item} depth={1} ctx={ctx} />
-          {roomUnder && (
-            <AddRow label={`Add link to ${name || "this link"}`} small onClick={() => ctx.add(item.id)} data-link-add={item.id} />
-          )}
         </div>
       )}
     </div>
   )
 }
 
-function AddRow({
-  label,
-  onClick,
-  small = false,
-  ...rest
-}: { label: string; onClick: () => void; small?: boolean } & Record<`data-${string}`, string>) {
+function AddRow({ label, onClick, ...rest }: { label: string; onClick: () => void } & Record<`data-${string}`, string>) {
   return (
     <button
       type="button"
@@ -263,14 +247,15 @@ function AddRow({
       {...rest}
       className={cn(
         BAR,
-        "w-full border-t border-border dark:border-white/[0.07] text-left text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline",
-        small ? "text-[12.5px] max-sm:text-[14px]" : LABEL_TEXT,
+        HAIRLINE,
+        "w-full text-left text-[#7c3aed] transition-colors hover:text-[#6d28d9] focus-visible:outline-none focus-visible:underline dark:text-[#c4b5fd] dark:hover:text-white",
+        LABEL_TEXT,
       )}
     >
       <span className={cn(GRIP_COL, "flex shrink-0 items-center justify-center")}>
         <Plus className="h-3.5 w-3.5" strokeWidth={2} />
       </span>
-      <span className="truncate pr-2.5">{label}</span>
+      <span className="truncate pr-2.5 font-medium">{label}</span>
     </button>
   )
 }
@@ -284,7 +269,7 @@ function LinkLevel({ items, parent, depth, ctx }: { items: LinkItem[]; parent: L
     onStart: () => ctx.setOpen(null),
     nest: nestable
       ? {
-          step: STEP,
+          step: LINK_STEP,
           can: (i, dir) => (dir === 1 ? depth === 0 && ctx.canNest(i) : depth === 1 && ctx.canOut()),
           onNest: (i, dir) => ctx.onNest?.(items[i].id, dir),
         }
@@ -304,7 +289,7 @@ function LinkLevel({ items, parent, depth, ctx }: { items: LinkItem[]; parent: L
           depth={depth}
           parent={parent}
           above={i > 0 ? items[i - 1] : null}
-          first={depth === 0 && i === 0}
+          first={i === 0}
           ctx={ctx}
           grip={gripProps(i)}
           style={rowStyle(i)}
@@ -362,10 +347,7 @@ export function LinkListEditor(props: LinkListEditorProps) {
   }
 
   return (
-    <div
-      className={cn("rounded-lg border border-border bg-background dark:border-white/10 dark:bg-white/[0.02]", props.disabled && "pointer-events-none opacity-50")}
-      data-link-list=""
-    >
+    <div className={cn(props.disabled && "pointer-events-none opacity-50")} data-link-list="">
       {props.items.length > 0 && <LinkLevel items={props.items} parent={null} depth={0} ctx={ctx} />}
       {room && (
         <div className={cn(props.items.length === 0 && "[&>button]:border-t-0")}>
@@ -376,6 +358,12 @@ export function LinkListEditor(props: LinkListEditorProps) {
   )
 }
 
+/**
+ * The header's own nav_link blocks as a link list. The header now reads the
+ * Main menu (lib/website-builder/main-menu.ts), so the builder no longer
+ * draws this; it stays for a header that has not moved over yet and is
+ * edited somewhere that still holds blocks.
+ */
 export function HeaderNavLinksEditor({
   blocks,
   maxLinks,

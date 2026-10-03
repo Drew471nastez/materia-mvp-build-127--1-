@@ -28,7 +28,15 @@ type NavBlock = { id: string; type: "nav_link"; settings: Record<string, unknown
  */
 export function headerMenuBlocks(handle: string, menus: Record<string, Menu>): NavBlock[] | null {
   const menu = handle ? menus[handle] : undefined
-  if (!menu || menu.links.length === 0) return null
+  if (!menu) return null
+  /*
+    THE MAIN MENU IS THE HEADER'S, EVEN EMPTY. Once the header reads the Main
+    menu (lib/website-builder/main-menu.ts), taking its last link out has to
+    take the last link out of the header too: falling back to the header's
+    old blocks would bring back links somebody had just removed. Any other
+    menu that is empty still leaves the header's own links, as it always did.
+  */
+  if (menu.links.length === 0) return handle === "main-menu" ? [] : null
   const out: NavBlock[] = []
   menu.links.forEach((link: MenuLink, i: number) => {
     const id = `menu-${handle}-${i}`

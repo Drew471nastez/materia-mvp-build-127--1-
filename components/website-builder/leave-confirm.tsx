@@ -23,6 +23,11 @@ import { cn } from "@/lib/utils"
  * exactly when it stops protecting anything. It is shown when the draft is
  * ahead of what is saved, when a code file has unsaved edits, or while a
  * save or a publish is still in flight — and never otherwise.
+ *
+ * THREE ANSWERS, the way Shopify's editor asks: Save (the draft is written,
+ * then you go), Discard (you go, and what was not saved stays unsaved), and
+ * Cancel (you stay). A code file is saved in the code editor, not from here,
+ * so with only a code file at stake there is no Save to offer.
  */
 export interface LeaveReason {
   /** The editor's own draft has changes the server has not taken yet. */
@@ -41,9 +46,14 @@ export function hasSomethingToLose(reason: LeaveReason): boolean {
 export function leaveLines(reason: LeaveReason): string[] {
   const lines: string[] = []
   if (reason.busy) lines.push("A save is still going. Leaving now could lose it.")
-  if (reason.code) lines.push("A code file has changes you have not saved.")
-  if (reason.draft) lines.push("Your latest edits have not finished saving to the draft.")
+  if (reason.code) lines.push("A code file has changes you have not saved. Save it in the code editor to keep them.")
+  if (reason.draft) lines.push("Your latest edits have not been saved yet.")
   return lines
+}
+
+/** Whether Save can keep what is at stake: the draft, or a save already going. */
+export function canSaveBeforeLeaving(reason: LeaveReason): boolean {
+  return Boolean(reason.draft || reason.busy)
 }
 
 export function LeaveConfirm({
@@ -51,20 +61,33 @@ export function LeaveConfirm({
   reason,
   onCancel,
   onLeave,
+  onSave,
 }: {
   open: boolean
   reason: LeaveReason
   onCancel: () => void
+  /** Leave without saving: Discard. */
   onLeave: () => void
+  /** Save the draft, then leave. Resolves false when the save failed, and the dialog stays. */
+  onSave?: () => Promise<boolean>
 }) {
+  const [saving, setSaving] = useState(false)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    if (!open) {
+      setSaving(false)
+      setFailed(false)
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel()
+      if (e.key === "Escape" && !saving) onCancel()
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [open, onCancel])
+  }, [open, onCancel, saving])
 
   /** `document` exists only after the first client render. */
   const [mounted, setMounted] = useState(false)
@@ -72,6 +95,18 @@ export function LeaveConfirm({
 
   if (!open || !mounted) return null
   const lines = leaveLines(reason)
+  const offerSave = !!onSave && canSaveBeforeLeaving(reason)
+
+  const save = async () => {
+    if (!onSave || saving) return
+    setSaving(true)
+    setFailed(false)
+    const ok = await onSave().catch(() => false)
+    if (!ok) {
+      setSaving(false)
+      setFailed(true)
+    }
+  }
 
   /**
    * INTO THE BODY, NOT INTO THE BUILDER.
@@ -87,13 +122,16 @@ export function LeaveConfirm({
   return createPortal(
     <div
       className="wb-leave-scrim fixed inset-0 z-[320] flex items-center justify-center p-4"
-      onClick={onCancel}
+      onClick={() => {
+        if (!saving) onCancel()
+      }}
     >
       <div
         role="alertdialog"
         aria-modal="true"
-        aria-label="Leave the builder"
+        aria-labelledby="wb-leave-title"
         onClick={(e) => e.stopPropagation()}
+        data-leave-dialog=""
         className={cn(
           "wb-leave-card w-full max-w-[430px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-white",
           "shadow-[0_40px_90px_-30px_rgba(0,0,0,0.9)]",
@@ -101,38 +139,65 @@ export function LeaveConfirm({
       >
         <div className="flex items-start gap-3.5">
           <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
-            {reason.busy ? (
+            {reason.busy || saving ? (
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
             ) : (
               <AlertTriangle className="h-4 w-4" strokeWidth={1.75} />
             )}
           </span>
           <div className="min-w-0">
-            <h2 className="text-[19px] font-semibold leading-tight">Leave without saving?</h2>
+            <h2 id="wb-leave-title" className="text-[19px] font-semibold leading-tight">
+              {offerSave ? "Save changes before leaving?" : "Leave without saving?"}
+            </h2>
             <ul className="mt-2.5 space-y-1.5 text-[14.5px] leading-relaxed text-white/70">
               {lines.map((l) => (
                 <li key={l}>{l}</li>
               ))}
+              {failed && (
+                <li role="alert" className="text-red-300">
+                  Could not save. Try again, or discard.
+                </li>
+              )}
             </ul>
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2.5">
-          <button
-            type="button"
-            onClick={onCancel}
-            autoFocus
-            className="h-10 rounded-xl px-4 text-[14px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
-          >
-            Stay here
-          </button>
+        {/* Discard on its own at the start, away from Save: the two answers
+            that leave sit at opposite ends, and Cancel is next to Save. */}
+        <div className="mt-6 flex items-center gap-2.5 max-[380px]:flex-wrap">
           <button
             type="button"
             onClick={onLeave}
-            className="h-10 rounded-xl bg-white/[0.12] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-white/20"
+            disabled={saving}
+            data-leave-discard=""
+            className="h-10 rounded-xl px-4 text-[14px] font-medium text-white/70 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
           >
-            Leave anyway
+            Discard
           </button>
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            autoFocus={!offerSave}
+            data-leave-cancel=""
+            className="h-10 rounded-xl px-4 text-[14px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          {offerSave && (
+            <button
+              type="button"
+              onClick={() => void save()}
+              autoFocus
+              data-leave-save=""
+              className="inline-flex h-10 min-w-[84px] items-center justify-center gap-2 rounded-xl bg-white px-5 text-[14px] font-semibold text-[#141414] transition-colors hover:bg-white/90 disabled:opacity-70"
+              disabled={saving}
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving ? "Saving" : "Save"}
+            </button>
+          )}
         </div>
       </div>
     </div>,

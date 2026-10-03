@@ -19,6 +19,7 @@ import { sectionTypography } from "./typography"
 import { cssForBlockInstance, cssForInstance } from "./storelib/css"
 import { guardSectionMarkup, guardStyleText } from "./storelib/raw-html"
 import { engineHtml, renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
+import { applySettingMarks } from "./storelib/marks"
 import { MAX_BLOCK_DEPTH, type CompiledBlock, type CompiledSection, type ContentForRequest, type RenderContext, type SectionInstanceData, type StorefrontData } from "./types"
 import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 
@@ -151,7 +152,7 @@ export function renderSection(input: RenderInput): Rendered {
       sectionScope: { settings, blocks },
       contentFor: contentForOf(node, depth),
     }
-    const inner = renderTemplate(cb.template as CompiledTemplate, blockCtx)
+    const inner = renderTemplate(cb.template as CompiledTemplate, blockCtx, { marks: inEditor })
     if (cb.css) {
       if (cb.cssTemplate) {
         /* Per instance, and only for an id that cannot leave a selector. */
@@ -189,7 +190,9 @@ export function renderSection(input: RenderInput): Rendered {
      setting held: storelib/template.ts, DOCUMENT_MARKUP. And nothing drawn
      runs anything, however the template spelled it: storelib/raw-html.ts,
      guardSectionMarkup. */
-  const inner = guardSectionMarkup(stripDocumentMarkup(renderTemplate(compiled.template as CompiledTemplate, ctx)))
+  /* In the builder, each output of a setting names its element first: storelib/marks.ts. Before the guards, so they see the markup as it will be. */
+  const drawn = renderTemplate(compiled.template as CompiledTemplate, ctx, { marks: inEditor })
+  const inner = guardSectionMarkup(stripDocumentMarkup(inEditor ? applySettingMarks(drawn) : drawn))
   const typo = sectionTypography(settings)
   const attrs = [
     `data-section-id="${escapeAttr(id)}"`,

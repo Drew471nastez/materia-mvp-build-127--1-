@@ -42,6 +42,8 @@ import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-b
 import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
 import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
 import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
+import { CanvasHover } from "@/components/website-builder/canvas-hover"
+import { backThen } from "@/lib/navigation/go-back"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { PageList, PageSwitcher, type SwitcherPage } from "@/components/website-builder/page-switcher"
@@ -83,6 +85,7 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAnces
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
+import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementLike } from "@/lib/website-builder/click-to-edit"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
@@ -120,15 +123,15 @@ import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
-import { HeaderNavLinksEditor } from "@/components/website-builder/editor/controls/link-list-editor"
+import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
+import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-builder/main-menu"
 import type { StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCommunity } from "@/components/website-builder/editor/controls"
 
 /** What /api/website-builder/themes/[installId] says about the creator's communities. */
 type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
 import { formatPrice } from "@/lib/website-builder/shop-products"
-import { cleanMenus } from "@/lib/storelib-theme/values"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import { OWN_AI_RETURN_KEY } from "@/components/website-builder/use-own-ai"
 
@@ -1290,10 +1293,7 @@ function HeaderSectionSettings({
   schema,
   onBack,
   onUpdateSetting,
-  onUpdateBlockSetting,
-  onAddBlock,
-  onRemoveBlock,
-  onReorderBlocks,
+  onPickMenu,
   theme,
   onEditScheme,
 }: {
@@ -1301,10 +1301,8 @@ function HeaderSectionSettings({
   schema: any
   onBack: () => void
   onUpdateSetting: (key: string, value: unknown) => void
-  onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
-  onAddBlock: (type: string, initialSettings?: Record<string, unknown>) => void
-  onRemoveBlock: (blockId: string) => void
-  onReorderBlocks: (blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
+  /** Which menu the header shows; picking the Main menu moves the header's links into it (main-menu.ts). */
+  onPickMenu: (handle: string) => void
   theme: ThemeSettingsValues
   onEditScheme: (schemeKey?: string) => void
 }) {
@@ -1313,7 +1311,7 @@ function HeaderSectionSettings({
 
   const tabs = [
     { id: "logo", label: "Store Logo" },
-    { id: "nav", label: "Navigation Links" },
+    { id: "nav", label: "Menu" },
     { id: "header", label: "Header Settings" },
   ]
 
@@ -1424,37 +1422,15 @@ function HeaderSectionSettings({
         )
 
       case "nav": {
-        const allBlocks = section.blocks ?? []
-        /* A menu from Theme settings › Menus in place of these links: see header-settings.ts. */
-        const themeMenus = cleanMenus((theme as Record<string, unknown>).menus)
-        const menuHandle = typeof s.menu === "string" ? s.menu : ""
-        const usingMenu = !!menuHandle && !!themeMenus[menuHandle]
+        /* Shopify's header: it shows a menu, and the menu is edited in Menus (lib/website-builder/main-menu.ts). */
         return (
-          <div className="space-y-3">
-            {Object.keys(themeMenus).length > 0 && (
-              <WbSelect
-                label="Links"
-                value={usingMenu ? menuHandle : ""}
-                onChange={v => onUpdateSetting("menu", v)}
-                options={[
-                  { label: "These links", value: "" },
-                  ...Object.entries(themeMenus).map(([handle, m]) => ({ label: `The ${m.title} menu`, value: handle })),
-                ]}
-              />
-            )}
-            {usingMenu && (
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                The header shows the {themeMenus[menuHandle].title} menu. Change its links in Theme settings, Menus. These links are kept for when you switch back.
-              </p>
-            )}
-            <HeaderNavLinksEditor
-              blocks={allBlocks}
-              maxLinks={schema?.max_blocks || undefined}
-              disabled={usingMenu}
-              onUpdateBlockSetting={onUpdateBlockSetting}
-              onAddBlock={onAddBlock}
-              onRemoveBlock={onRemoveBlock}
-              onReorderBlocks={onReorderBlocks}
+          <div className="space-y-1.5" data-header-menu="">
+            <span className="block text-xs font-medium text-muted-foreground">Menu</span>
+            <MenuPickerControl
+              label="Menu"
+              value={typeof s.menu === "string" ? s.menu : ""}
+              noneLabel={null}
+              onChange={v => onPickMenu(v)}
             />
           </div>
         )
@@ -2331,7 +2307,7 @@ function BlockLevel({
             <>
               <SiblingSettingsProvider settings={block.settings}>
                 {visibleFields(def?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map((field) => (
-                  <div key={field.id}>
+                  <div key={field.id} data-block-field={field.id}>
                     {/* A block's colour follows its section's scheme the same way: SectionColorSetting. */}
                     {field.type === "color" ? (
                       <SectionColorSetting
@@ -2417,6 +2393,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * selects the block, and the sidebar brings it into view and rings it.
    */
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  /** The field a click on the canvas asked for: the sidebar scrolls to it and rings it. `n` makes a second click on the same thing count. */
+  const [fieldFocus, setFieldFocus] = useState<{ sectionId: string; block: string | null; setting: string; n: number } | null>(null)
+  const fieldFocusSeq = useRef(0)
   const [device, setDevice] = useState<DeviceMode>("desktop")
   // Inspector mode — when ON, hovering/clicking a section shows the blue
   // selection rectangle and opens its settings panel. When OFF the canvas
@@ -2453,6 +2432,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingExit, setPendingExit] = useState<string | null>(null)
   /** Where this page is on its way to, read by the watchdog that finishes the job. */
   const leavingHref = useRef<string | null>(null)
+  /** The leave dialog was answered (Save or Discard), so the browser's own question is not asked as well. */
+  const leaveAnswered = useRef(false)
   /** Reported by the code editor in its frame; see its postMessage. */
   const [codeDirty, setCodeDirty] = useState(false)
   /**
@@ -3462,14 +3443,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [])
 
-  // Warn about unsaved changes
+  /**
+   * CLOSING THE TAB, RELOADING, TYPING ANOTHER ADDRESS. The browser's own
+   * question is the only one a closing tab can ask, so it is asked for the
+   * same three things the builder's dialog asks about: edits not saved yet,
+   * a code file with changes, a save still going. Not after somebody has
+   * already answered Discard or Save in that dialog (`leaveAnswered`).
+   */
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (isDirty) { e.preventDefault(); e.returnValue = "" }
+      if (leaveAnswered.current) return
+      if (isDirty || codeDirty || saving || publishing) { e.preventDefault(); e.returnValue = "" }
     }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
-  }, [isDirty])
+  }, [isDirty, codeDirty, saving, publishing])
 
   /**
    * THE SAME LIST THE PUBLISHED PAGE IS GIVEN. The canvas draws a section
@@ -3554,7 +3542,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     url.searchParams.set("previewPath", previewPathForState(page, productSlug))
     url.searchParams.delete("page")
     url.searchParams.delete("product")
-    window.history.replaceState({}, "", url.toString())
+    /* Without the router's own mark, so the router takes the new address in; with the leave guard's (below), so the entry is still known as one. */
+    const guard = (window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard
+    window.history.replaceState(guard ? { wbLeaveGuard: true } : {}, "", url.toString())
   }, [])
 
   const handlePageChange = async (page: PageKey) => {
@@ -5001,7 +4991,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the whole answer.
    */
   const selectSectionFromCanvas = useCallback(
-    (sectionId: string, blockId?: string | null) => {
+    (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => {
       /* Switched off, and the rings are still fading: a tap now is a preview's tap. */
       if (!inspectorRef.current) return
       const el = document.getElementById("wb-preview-root")
@@ -5028,9 +5018,80 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       setSelectedPanel({ type: "section", sectionId })
       setSelectedBlockId(blockId ?? null)
+      /**
+       * A CLICK ON ONE THING OPENS ITS FIELD. A heading clicked lands the
+       * sidebar on Heading, a picture on Image (the effect below). On a phone
+       * that is the one tap that brings the sheet up: the person pointed at
+       * something to change, not at the section as a whole. A tap on the
+       * section's empty space still leaves the sheet where it was.
+       */
+      if (field) {
+        setFieldFocus({ sectionId, block: field.block, setting: field.setting, n: ++fieldFocusSeq.current })
+        if (isMobileViewRef.current) {
+          setAiOpen(false)
+          setMobileSidebarOpen(true)
+        }
+      }
     },
     [],
   )
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE SIDEBAR LANDS ON THE FIELD
+   * ═════════════════════════════════════════════════════════════════════════
+   * The panel for the section (or the block's row) is drawn a render or two
+   * after the click, so the field is looked for each frame until it is there,
+   * for half a second at most. Then its own scroller is moved, and nothing
+   * above it (the reason the block row above scrolls by hand too), the field
+   * takes a violet ring that fades, and on a computer its input takes the
+   * focus without scrolling anything a second time. On a phone the input is
+   * not focused: that would bring the keyboard up over the sheet.
+   */
+  useEffect(() => {
+    if (!fieldFocus) return
+    let frame = 0
+    let tries = 0
+    const find = (): HTMLElement | null => {
+      const panel = document.querySelector<HTMLElement>(`[data-wb-section-panel="${window.CSS.escape(fieldFocus.sectionId)}"]`)
+      if (!panel) return null
+      if (fieldFocus.block) {
+        const row = panel.querySelector<HTMLElement>(`[data-block-row="${window.CSS.escape(fieldFocus.block)}"]`)
+        if (!row) return null
+        return Array.from(row.querySelectorAll<HTMLElement>(`[data-block-field="${window.CSS.escape(fieldFocus.setting)}"]`)).find((f) => f.closest("[data-block-row]") === row) ?? null
+      }
+      return Array.from(panel.querySelectorAll<HTMLElement>(`[data-setting-field="${window.CSS.escape(fieldFocus.setting)}"]`)).find((f) => !f.closest("[data-block-row]")) ?? null
+    }
+    const land = () => {
+      const el = find()
+      if (!el) {
+        if (++tries < 40) frame = requestAnimationFrame(land)
+        return
+      }
+      const scroller = el.closest("[data-sheet-scroll], [data-wb-sidebar-scroll]") as HTMLElement | null
+      if (scroller) {
+        const r = el.getBoundingClientRect()
+        const box = scroller.getBoundingClientRect()
+        /* A third of the way down, so the field is read with what is above it; not moved when it is already in plain view. */
+        const fits = r.top >= box.top + 8 && r.bottom <= box.bottom - 8
+        if (!fits) scroller.scrollBy({ top: r.top - box.top - Math.min(box.height / 3, 120), behavior: "smooth" })
+      }
+      /* Taken off and put back, so a second click on the same thing rings it again. */
+      el.removeAttribute("data-sl-flash")
+      void el.offsetWidth
+      const stamp = String(fieldFocus.n)
+      el.setAttribute("data-sl-flash", stamp)
+      window.setTimeout(() => {
+        if (el.getAttribute("data-sl-flash") === stamp) el.removeAttribute("data-sl-flash")
+      }, FIELD_FLASH_MS)
+      if (!isMobileViewRef.current) {
+        const input = el.querySelector<HTMLElement>('input:not([type="hidden"]):not([type="range"]):not([type="checkbox"]), textarea, [contenteditable="true"]')
+        input?.focus({ preventScroll: true })
+      }
+    }
+    /* Two frames: the block list opens its row in an effect of its own. */
+    frame = requestAnimationFrame(() => { frame = requestAnimationFrame(land) })
+    return () => cancelAnimationFrame(frame)
+  }, [fieldFocus])
   /**
    * AND THE SIDEBAR GOES TO IT. Selecting the ninth FAQ entry on the canvas
    * is only half an answer if its row is four screens down a list of twelve
@@ -5061,6 +5122,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => cancelAnimationFrame(id)
   }, [selectedBlockId])
 
+  /** The name the canvas chip shows for a section: the one its row in the sidebar has. */
+  const hoverNameOf = useCallback((id: string) => {
+    const sec = sectionsRef.current.find((s) => s.id === id)
+    return sec ? sectionDisplayName(sec, librarySchemas) : ""
+  }, [librarySchemas])
   const openAddSection = useCallback(() => setAddSectionOpen(true), [])
   /**
    * STABLE, SO THE LIBRARY STAYS PUT. The library is mounted for the life of
@@ -5758,10 +5824,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             schema={schema}
             onBack={() => setSelectedPanel({ type: "pages" })}
             onUpdateSetting={(key, val) => updateSectionSetting(section.id, key, val)}
-            onUpdateBlockSetting={(blockId, key, val) => updateBlockSetting(section.id, blockId, key, val)}
-            onAddBlock={(type, initialSettings) => addBlock(section.id, type, initialSettings)}
-            onRemoveBlock={(blockId) => removeBlock(section.id, blockId)}
-            onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
+            onPickMenu={pickHeaderMenu}
             theme={settingsDraft}
             onEditScheme={(schemeKey) => {
               if (schemeKey) setEditSchemeKey(schemeKey)
@@ -5774,7 +5837,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full" data-wb-section-panel={section.id}>
           {/**
             * ═══════════════════════════════════════════════════════════════
             *  THE SECTION IS NAMED ONCE
@@ -5857,7 +5920,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <SiblingSettingsProvider settings={section.settings}>
                 <div className="px-3.5 py-3.5 space-y-3.5">
                   {clean.map(field => (
-                    <div key={field.id}>
+                    <div key={field.id} data-setting-field={field.id}>
                       {field.type === "color" ? (
                         <SectionColorSetting
                           field={field}
@@ -6128,14 +6191,52 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [products],
   )
   const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
-  const openMenus = useCallback(() => {
+  /** Which menu Menus opens at, when something asked for one (the header's Edit, a section's menu picker). */
+  const [menuRequest, setMenuRequest] = useState<{ handle: string; n: number } | null>(null)
+  const openMenus = useCallback((handle?: string) => {
     setSidebarMode("settings")
     setExpandedSettings("menus")
     setSelectedPanel({ type: "pages" })
+    if (handle) setMenuRequest((r) => ({ handle, n: (r?.n ?? 0) + 1 }))
+    if (isMobileViewRef.current) setMobileSidebarOpen(true)
   }, [])
+  /**
+   * THE HEADER READS THE MAIN MENU (lib/website-builder/main-menu.ts). The
+   * first time the Main menu is written, or picked for the header, the
+   * header's own links are written out as the Main menu and the header is
+   * pointed at it. Its blocks stay where they are.
+   */
+  const headerSection = sections.find((s) => s.type === "header") ?? null
+  const headerRef = useRef(headerSection)
+  headerRef.current = headerSection
+  const updateSectionSettingRef = useRef(updateSectionSetting)
+  updateSectionSettingRef.current = updateSectionSetting
+  const linkHeaderToMain = useCallback(() => {
+    const header = headerRef.current
+    if (!header || headerReadsMenu(header)) return
+    updateSectionSettingRef.current(header.id, "menu", MAIN_MENU)
+  }, [])
+  const pickHeaderMenu = (handle: string) => {
+    const header = headerRef.current
+    if (!header) return
+    if (handle === MAIN_MENU) {
+      const adopted = adoptHeaderLinks(settingsDraft.menus, header)
+      if (adopted && adopted.menus !== (settingsDraft.menus as unknown)) updateSetting("menus", adopted.menus)
+    }
+    updateSectionSetting(header.id, "menu", handle)
+  }
   const fieldEnv = useMemo<EditorFieldEnv>(
-    () => ({ products: pickerProducts, menus: canvasMenus, template: templateForPage(currentPage), openMenus, communities: builderCommunities?.choices ?? null }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, builderCommunities],
+    () => ({
+      products: pickerProducts,
+      menus: canvasMenus,
+      template: templateForPage(currentPage),
+      openMenus,
+      menuRequest,
+      header: headerSection,
+      linkHeaderToMain,
+      communities: builderCommunities?.choices ?? null,
+    }),
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -6263,6 +6364,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const revive = () => {
       setLeaving(false)
       setPendingExit(null)
+      /* Still here, so the next way out asks again. */
+      leaveAnswered.current = false
     }
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) revive()
@@ -6574,6 +6677,124 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     },
     [isDirty, codeDirty, saving, publishing, leaveFor],
   )
+
+  /**
+   * ===========================================================================
+   *  THE BROWSER'S BACK, AND A PHONE'S, ASK TOO
+   * ===========================================================================
+   * Back in the bar went through `requestExit`; the browser's Back, Android's
+   * back button and an iOS edge swipe did not, and took unsaved edits with
+   * them. A history entry for the same address is put on top while there is
+   * something to lose. Back then lands on the entry under it, which is still
+   * this editor, and the question is asked there: Cancel puts the entry back,
+   * Save and Discard go on back. With nothing to lose the press carries on at
+   * once, so one press of Back is still one press.
+   *
+   * The entry carries the router's own state, so Next lets the push through
+   * and does nothing with it (the reason components/onepage/onepage-editor.tsx
+   * replaces state the same way).
+   */
+  const BACK_EXIT = "__back__"
+  const loseNow = hasSomethingToLose({ draft: isDirty, code: codeDirty, busy: saving || publishing })
+  const loseRef = useRef(loseNow)
+  loseRef.current = loseNow
+  const guardArmed = useRef(false)
+  const goingBack = useRef(false)
+  const armBackGuard = useCallback(() => {
+    if (guardArmed.current || typeof window === "undefined") return
+    try {
+      const state = (window.history.state ?? {}) as Record<string, unknown>
+      window.history.pushState({ ...state, wbLeaveGuard: true }, "", window.location.href)
+      guardArmed.current = true
+    } catch {
+      /* A history that refuses the entry: Back is then the browser's alone, and beforeunload still asks. */
+    }
+  }, [])
+  useEffect(() => {
+    if (loseNow) armBackGuard()
+  }, [loseNow, armBackGuard])
+  /* Arrived back ON a guard entry (back from the code editor on a phone): it is this editor's, and armed. */
+  useEffect(() => {
+    if ((window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard) guardArmed.current = true
+  }, [])
+  const goBackForReal = useCallback(() => {
+    goingBack.current = true
+    leaveAnswered.current = true
+    backThen(() => leaveFor("/app/website-builder"))
+  }, [leaveFor])
+  useEffect(() => {
+    const onPop = () => {
+      if (!guardArmed.current || goingBack.current) return
+      /* Forward onto the guard again: nothing has been left. */
+      if ((window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard) return
+      guardArmed.current = false
+      if (!loseRef.current) {
+        goBackForReal()
+        return
+      }
+      setPendingExit(BACK_EXIT)
+    }
+    /* Brought back from the back/forward cache: the editor is in use again, and its next Back is asked about again. */
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
+      goingBack.current = false
+      leaveAnswered.current = false
+      if (loseRef.current) armBackGuard()
+    }
+    window.addEventListener("popstate", onPop)
+    window.addEventListener("pageshow", onShow)
+    return () => {
+      window.removeEventListener("popstate", onPop)
+      window.removeEventListener("pageshow", onShow)
+    }
+  }, [goBackForReal, armBackGuard])
+
+  /**
+   * AND A LINK IN THE BUILDER'S OWN PANELS. The bar's Back and the actions
+   * menu go through `requestExit`, and so does Website settings; a plain link
+   * somewhere in a panel (a control's "Manage" link to another part of the
+   * app) did not, and was a full page load past the question. Same-origin
+   * links that leave the editor are sent through the same door. The canvas
+   * is not touched: it has its own rules for links (lib/website-builder/
+   * canvas-intercept.ts).
+   */
+  const requestExitRef = useRef(requestExit)
+  requestExitRef.current = requestExit
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return
+      if (a.closest("#wb-preview-root")) return
+      let url: URL
+      try {
+        url = new URL(a.href, window.location.href)
+      } catch {
+        return
+      }
+      if (url.origin !== window.location.origin) return
+      if (url.pathname.startsWith("/website-builder/")) return
+      e.preventDefault()
+      requestExitRef.current(url.pathname + url.search + url.hash)
+    }
+    /* Capture, so it is ahead of a Next <Link>, which stands down for a click already prevented. */
+    document.addEventListener("click", onClick, true)
+    return () => document.removeEventListener("click", onClick, true)
+  }, [])
+
+  /** Save, from the leave dialog: the draft is written and then the page goes where it was going. */
+  const saveThenLeave = async (): Promise<boolean> => {
+    const ok = await saveDraft({ quiet: true })
+    if (!ok) return false
+    const href = pendingExit
+    setPendingExit(null)
+    if (href === BACK_EXIT) goBackForReal()
+    else if (href) {
+      leaveAnswered.current = true
+      leaveFor(href)
+    }
+    return true
+  }
 
   /**
    * ===========================================================================
@@ -7208,15 +7429,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Portalled, for the reason the sheets are: a z-index is only
           comparable inside one stacking context, and this has to cover sheets
           that render into the body. From in here it could not. */}
+      {/* The outline and the section's name under the pointer: components/website-builder/canvas-hover.tsx. */}
+      <CanvasHover enabled={canvasInspecting && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
+
       <LeaveConfirm
         open={pendingExit !== null}
         reason={leaveReason}
-        onCancel={() => setPendingExit(null)}
+        onCancel={() => {
+          /* Staying after the browser's Back: the entry that catches the next one goes back on top. */
+          if (pendingExit === BACK_EXIT) armBackGuard()
+          setPendingExit(null)
+        }}
         onLeave={() => {
           const href = pendingExit
           setPendingExit(null)
-          if (href) leaveFor(href)
+          if (href === BACK_EXIT) goBackForReal()
+          else if (href) {
+            leaveAnswered.current = true
+            leaveFor(href)
+          }
         }}
+        onSave={saveThenLeave}
       />
 
       {leaving && portalReady && createPortal(
@@ -8528,7 +8761,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   /** The canvas card's top radius, so a ring inside it is cut to match. */
   canvasRadiusPx: number
   bodyCount: number
-  onSelectSection: (sectionId: string, blockId?: string | null) => void
+  onSelectSection: (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => void
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
   onEditorNavigate: (href: string, fromNav?: boolean) => void
@@ -8653,7 +8886,13 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
                   if (bid) path.unshift(bid)
                   hit = hit.parentElement?.closest?.("[data-block-id], [data-section-id]") ?? null
                 }
-                onSelectSection(section.id, path.length ? pathKey(path) : null)
+                /* AND THE FIELD FOR WHAT WAS CLICKED: a heading opens at Heading (lib/website-builder/click-to-edit.ts). */
+                const box = e.currentTarget as HTMLElement
+                const field = clickTarget(
+                  chainFrom(target as unknown as ElementLike, (el) => el === (box as unknown as ElementLike) || !!el.getAttribute("data-section-box")),
+                  section,
+                )
+                onSelectSection(section.id, field ? field.block : path.length ? pathKey(path) : null, field)
               }
             : undefined,
           deviceMode: device,
