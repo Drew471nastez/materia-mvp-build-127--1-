@@ -3,6 +3,7 @@
 // Drives the "Theme settings" panel in the Store Editor
 // ============================================================
 import { COOKIE_ACCEPT_TEXT, COOKIE_DECLINE_TEXT, SITE_COOKIE_TEXT } from "@/lib/consent/copy"
+import { SOCIAL_PLATFORMS } from "./social-links"
 import type { ThemeSettingsGroup } from "./types"
 
 export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
@@ -264,16 +265,15 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     label: "Social links",
     icon: "share-2",
     fields: [
-      { id: "social_twitter", label: "Twitter / X URL", type: "link", placeholder: "https://x.com/username" },
-      { id: "social_instagram", label: "Instagram URL", type: "link", placeholder: "https://instagram.com/username" },
-      { id: "social_youtube", label: "YouTube URL", type: "link", placeholder: "https://youtube.com/@channel" },
-      { id: "social_tiktok", label: "TikTok URL", type: "link", placeholder: "https://tiktok.com/@username" },
-      { id: "social_linkedin", label: "LinkedIn URL", type: "link" },
-      { id: "social_discord", label: "Discord URL", type: "link" },
-      { id: "social_facebook", label: "Facebook URL", type: "link" },
-      { id: "social_pinterest", label: "Pinterest URL", type: "link" },
-      { id: "social_twitch", label: "Twitch URL", type: "link" },
-      { id: "social_github", label: "GitHub URL", type: "link" },
+      /* One field per platform, in the order the icons are drawn: see
+         lib/website-builder/social-links.ts, which the footer and the
+         header read too. */
+      ...SOCIAL_PLATFORMS.map((p) => ({
+        id: p.key,
+        label: p.key === "social_twitter" ? "X (Twitter) URL" : `${p.label} URL`,
+        type: "link" as const,
+        placeholder: p.placeholder,
+      })),
       { id: "social_show_in_header", label: "Show icons in header", type: "toggle", default: false },
       { id: "social_show_in_footer", label: "Show icons in footer", type: "toggle", default: true },
     ],

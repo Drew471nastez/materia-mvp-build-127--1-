@@ -304,10 +304,14 @@ function main() {
     the logo in both: on a theme set to Playfair Display for headings, the
     wordmark came out in DM Sans.
   */
+  /* The stack is a rule in lib/website-builder/header-settings.ts now, which
+     also skips the schema's "inherit": inside a list it voided the whole
+     declaration. */
+  const headerRules = read("lib/website-builder/header-settings.ts")
   check("the wordmark names the heading face rather than inheriting one",
-    /const logoFontStack = \[/.test(header) && /"var\(--theme-font-heading\)",/.test(header))
+    /const logoFontStack = wordmarkFont\(s\.logo_font\)/.test(header) && /"var\(--theme-font-heading\)"/.test(headerRules))
   check("with a fallback that is the site's own type, not the browser's serif",
-    /"ui-sans-serif",\s*\n\s*"system-ui",\s*\n\s*"sans-serif",/.test(header))
+    /"var\(--theme-font-heading\)", "ui-sans-serif", "system-ui", "sans-serif"/.test(headerRules))
   check("and nothing inherits the anchor's font any more",
     !/fontFamily: str\(s\.logo_font, "inherit"\)/.test(header))
   check("measured on both surfaces rather than argued about",

@@ -58,3 +58,50 @@ export function transparentHere(transparent: boolean, scope: unknown, template: 
   if (scope === "home") return template === "index"
   return true
 }
+
+/**
+ * Header › Logo shows: the picture, the store's name, or both side by side.
+ *
+ * A header saved before this setting existed has no value, and it keeps what
+ * it always drew: the picture when there is one, the name when there is not.
+ * Asking for the picture without having uploaded one draws the name, so the
+ * header is never left with nothing in the logo's place.
+ */
+export type LogoMode = "image" | "text" | "image_text"
+
+export function logoMode(value: unknown): LogoMode | null {
+  return value === "image" || value === "text" || value === "image_text" ? value : null
+}
+
+export function logoParts(value: unknown, hasImage: boolean): { image: boolean; text: boolean } {
+  const mode = logoMode(value)
+  if (!hasImage) return { image: false, text: true }
+  if (mode === "text") return { image: false, text: true }
+  if (mode === "image_text") return { image: true, text: true }
+  return { image: true, text: false }
+}
+
+/**
+ * The wordmark's font stack. `inherit` is what the schema stores for "no
+ * choice", and inside a list it makes the whole declaration invalid, which
+ * dropped the wordmark into the button face. A named family is quoted.
+ */
+export function logoFontStack(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim() : ""
+  const named = raw && raw.toLowerCase() !== "inherit" && /^[\w -]+$/.test(raw) ? `"${raw}"` : null
+  return [named, "var(--theme-font-heading)", "ui-sans-serif", "system-ui", "sans-serif"].filter(Boolean).join(", ")
+}
+
+/**
+ * Header › Show border on, decided from the page being drawn. The canvas
+ * used to count every page as the home page, so "Inner pages only" never
+ * showed a border in the editor and always did on the site.
+ */
+export function headerBorderHere(enabled: boolean, visibility: unknown, template: string | undefined): boolean {
+  if (!enabled) return false
+  const home = template === "index"
+  if (visibility === "home_only") return home
+  if (visibility === "inner_only") return !home
+  if (visibility === "none") return false
+  return true
+}

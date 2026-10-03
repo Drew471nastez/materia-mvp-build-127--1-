@@ -23,6 +23,27 @@
       "type": "image"
     },
     {
+      "id": "logo_mode",
+      "label": "Logo shows",
+      "type": "select",
+      "default": "image",
+      "info": "Without a logo image the header shows the name.",
+      "options": [
+        {
+          "label": "Image",
+          "value": "image"
+        },
+        {
+          "label": "Text",
+          "value": "text"
+        },
+        {
+          "label": "Image and text",
+          "value": "image_text"
+        }
+      ]
+    },
+    {
       "id": "logo_font",
       "label": "Logo font",
       "type": "font",

@@ -93,6 +93,24 @@
       "default": true
     },
     {
+      "id": "hdr_contact",
+      "label": "Contact",
+      "type": "header"
+    },
+    {
+      "id": "contact_email",
+      "label": "Email",
+      "type": "text",
+      "placeholder": "hello@example.com",
+      "info": "Shown in a Contact column, with the phone number."
+    },
+    {
+      "id": "contact_phone",
+      "label": "Phone",
+      "type": "text",
+      "placeholder": "+1 555 123 4567"
+    },
+    {
       "id": "hdr_newsletter",
       "label": "Newsletter",
       "type": "header"
@@ -101,7 +119,8 @@
       "id": "show_newsletter",
       "label": "Show newsletter signup",
       "type": "toggle",
-      "default": false
+      "default": true,
+      "info": "Sign-ups go to Subscribers."
     },
     {
       "id": "newsletter_heading",
@@ -233,7 +252,8 @@
       "id": "divider_color",
       "label": "Divider color",
       "type": "color",
-      "default": "#1e293b"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "hdr_layout",
@@ -369,7 +389,7 @@
         "logo_text": "My Store",
         "tagline": "Quality products for modern life.",
         "copyright": "© {{ date.year }} {{ shop.name }}. All rights reserved.",
-        "show_newsletter": false,
+        "show_newsletter": true,
         "show_social": true,
         "columns": "3",
         "padding_top": 60,

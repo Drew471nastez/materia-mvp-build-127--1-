@@ -52,14 +52,14 @@ const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffe
  * A link inside a drawer waits CLOSE_MS before asking for its page, so the
  * close is seen rather than cut off by the navigation.
  */
-export const DRAWER_OPEN_MS = 360
-export const DRAWER_CLOSE_MS = 260
+export const DRAWER_OPEN_MS = 300
+export const DRAWER_CLOSE_MS = 240
 export const DRAWER_OPEN_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 export const DRAWER_CLOSE_EASE = "cubic-bezier(0.4, 0, 1, 1)"
 export const drawerSlide = (open: boolean) =>
   open ? `transform ${DRAWER_OPEN_MS}ms ${DRAWER_OPEN_EASE}` : `transform ${DRAWER_CLOSE_MS}ms ${DRAWER_CLOSE_EASE}`
 export const drawerFade = (open: boolean) =>
-  open ? `opacity 300ms ${DRAWER_OPEN_EASE}` : `opacity 220ms cubic-bezier(0.4, 0, 0.6, 1)`
+  open ? `opacity 260ms ${DRAWER_OPEN_EASE}` : `opacity 200ms cubic-bezier(0.4, 0, 0.6, 1)`
 
 /** Somebody who has asked their phone for less movement gets none of this. */
 export const prefersStill = () =>
@@ -159,6 +159,122 @@ export function useDrawerMotion(
   }, [open, property])
 
   return setNode
+}
+
+/**
+ * ===========================================================================
+ *  A CLOSED DRAWER IS NOT IN THE PAGE
+ * ===========================================================================
+ * Both drawers used to stay mounted for the life of the header, closed by a
+ * transform alone. Anything that disturbed the transform drew a closed
+ * drawer on the page: changing Header › Menu on phones in the editor swapped
+ * the panel from the left edge to the right while the node kept the old
+ * edge's closed transform, so a phone menu appeared across the middle of a
+ * desktop canvas, half over the site.
+ *
+ * Now the panel exists from the moment it is asked to open until its close
+ * has played, and not otherwise. A drawer that does not exist cannot leak,
+ * whatever its transform says, and every opening builds a fresh node that is
+ * placed at the closed edge the current setting names.
+ *
+ * The answer is true while open, and for the closing time after.
+ */
+export function useDrawerPresence(open: boolean, closingMs: number = DRAWER_CLOSE_MS + 60): boolean {
+  const [present, setPresent] = useState(open)
+  /* Derived during render, so the opening commit already has the node. */
+  if (open && !present) setPresent(true)
+  useEffect(() => {
+    if (open || !present) return
+    const t = window.setTimeout(() => setPresent(false), prefersStill() ? 0 : closingMs)
+    return () => window.clearTimeout(t)
+  }, [open, present, closingMs])
+  return open || present
+}
+
+/**
+ * The padding that keeps a full height panel clear of an iPhone's notch,
+ * its home bar and, held sideways, the rounded edge it slides in from.
+ * `env()` is nought in a browser, so this costs a desktop nothing.
+ */
+export function drawerSafeArea(edge: "left" | "right" | "both"): CSSProperties {
+  return {
+    paddingTop: "env(safe-area-inset-top, 0px)",
+    paddingBottom: "env(safe-area-inset-bottom, 0px)",
+    ...(edge !== "right" ? { paddingLeft: "env(safe-area-inset-left, 0px)" } : {}),
+    ...(edge !== "left" ? { paddingRight: "env(safe-area-inset-right, 0px)" } : {}),
+  }
+}
+
+const FOCUSABLE ='a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/** What Tab can reach inside a panel: shown, and not in an `inert` pane. */
+export function focusablesIn(panel: HTMLElement): HTMLElement[] {
+  return Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => !el.closest("[inert]") && !el.closest('[aria-hidden="true"]') && el.getClientRects().length > 0,
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE KEYBOARD STAYS IN AN OPEN DRAWER
+ * ===========================================================================
+ * An open drawer is a dialog: focus goes into it, Tab and Shift+Tab go round
+ * what is inside it rather than out to the page under the backdrop, and on
+ * close focus goes back to whatever opened it (the hamburger, the bag).
+ *
+ * Off inside the editor, where the drawer can be opened by a settings change
+ * and the keyboard belongs to the panel the creator is typing in.
+ */
+export function useFocusTrap(
+  open: boolean,
+  panelRef: { current: HTMLElement | null },
+  enabled: boolean = true,
+  /** The control that opened it is part of the ring: a menu under the header closes from its hamburger. */
+  withOpener: boolean = false,
+) {
+  const withOpenerRef = useRef(withOpener)
+  withOpenerRef.current = withOpener
+  useEffect(() => {
+    if (!open || !enabled) return
+    const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
+    /* After the frame the panel starts moving on, so the focus ring travels with it. */
+    const frame = requestAnimationFrame(() => {
+      const panel = panelRef.current
+      if (!panel || panel.contains(document.activeElement)) return
+      const first = panel.querySelector<HTMLElement>("[data-drawer-focus]") ?? focusablesIn(panel)[0]
+      first?.focus({ preventScroll: true })
+    })
+    const ring = (panel: HTMLElement) => {
+      const list = focusablesIn(panel)
+      if (withOpenerRef.current && opener && opener.isConnected && !panel.contains(opener) && opener.getClientRects().length > 0) list.unshift(opener)
+      return list
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return
+      const panel = panelRef.current
+      if (!panel) return
+      const list = ring(panel)
+      if (list.length === 0) { e.preventDefault(); return }
+      const first = list[0]
+      const last = list[list.length - 1]
+      const active = document.activeElement as HTMLElement | null
+      if (!active || !list.includes(active) && !panel.contains(active)) { e.preventDefault(); first.focus(); return }
+      if (e.shiftKey && active === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus() }
+      /* The opener sits in the header, elsewhere in the page: step between it and the panel by hand. */
+      else if (list[0] === opener && !e.shiftKey && active === opener && list[1]) { e.preventDefault(); list[1].focus() }
+      else if (list[0] === opener && e.shiftKey && active === list[1]) { e.preventDefault(); opener.focus() }
+    }
+    document.addEventListener("keydown", onKey, true)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener("keydown", onKey, true)
+      /* Back where it came from, unless the visitor has already put it somewhere else on the page. */
+      const active = document.activeElement
+      const lostInPanel = !active || active === document.body || !!panelRef.current?.contains(active)
+      if (lostInPanel && opener && opener.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [open, enabled, panelRef])
 }
 
 /**
@@ -363,6 +479,8 @@ export interface DrawerFrame {
   positionClass: "absolute" | "fixed"
   /** Top and height, covering exactly the rectangle the visitor can see. */
   frameStyle: CSSProperties
+  /** How far down the drawer starts: the bottom of the element it opens under, or 0. */
+  inset: number
 }
 
 /**
@@ -372,11 +490,26 @@ export interface DrawerFrame {
  */
 export const SITE_DRAWER_OPEN_ATTRIBUTE = "data-site-drawer-open"
 
-export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose: () => void): DrawerFrame {
+/*
+  BELOW THE HEADER, WHEN IT OPENS FROM THE HEADER. `below` is the header: the
+  drawer and its backdrop start at the header's bottom edge as it is on
+  screen, so the header stays as it was, its hamburger now the close, the way
+  Dawn opens its menu. A header scrolled out of view leaves nothing to sit
+  under, and the drawer then takes the whole height with its own close.
+*/
+export function useDrawerFrame(
+  open: boolean,
+  scopedToPreview: boolean,
+  onClose: () => void,
+  below?: { current: HTMLElement | null },
+): DrawerFrame {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
   const [pin, setPin] = useState<{ top: number; height: number } | null>(null)
+  const [inset, setInset] = useState(0)
+  const belowRef = useRef(below)
+  belowRef.current = below
 
   /*
     THE LOCK IS TAKEN ONCE PER OPENING, NOT ONCE PER RENDER.
@@ -414,16 +547,37 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
 
     const scroller = scopedToPreview ? document.getElementById("wb-preview-root") : null
 
+    /* Measured before the lock, while the header is where the visitor sees it. */
+    const measureInset = () => {
+      const el = belowRef.current?.current
+      if (!el) return 0
+      const r = el.getBoundingClientRect()
+      const top = scroller ? scroller.getBoundingClientRect().top : 0
+      const room = scroller ? scroller.clientHeight : window.innerHeight
+      const bottom = Math.round(r.bottom - top)
+      return bottom > 0 && r.top - top < room ? Math.min(bottom, room) : 0
+    }
+    setInset(measureInset())
+
     if (scroller) {
-      const startTop = scroller.scrollTop
       const measure = () => setPin({ top: scroller.scrollTop, height: scroller.clientHeight })
       measure()
 
-      const prevOverflow = scroller.style.overflow
-      const prevTouch = scroller.style.touchAction
-      scroller.style.overflow = "hidden"
-      scroller.style.touchAction = "none"
-      scroller.setAttribute(SITE_DRAWER_OPEN_ATTRIBUTE, "")
+      undo.push(holdLock(scroller, () => {
+        const startTop = scroller.scrollTop
+        const prevOverflow = scroller.style.overflow
+        const prevTouch = scroller.style.touchAction
+        scroller.style.overflow = "hidden"
+        scroller.style.touchAction = "none"
+        scroller.setAttribute(SITE_DRAWER_OPEN_ATTRIBUTE, "")
+        return () => {
+          scroller.style.overflow = prevOverflow
+          scroller.style.touchAction = prevTouch
+          scroller.removeAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)
+          // `overflow: hidden` can clamp the offset; put it back verbatim.
+          scroller.scrollTop = startTop
+        }
+      }))
 
       const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
       ro?.observe(scroller)
@@ -432,98 +586,10 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
       undo.push(() => {
         ro?.disconnect()
         window.removeEventListener("resize", measure)
-        scroller.style.overflow = prevOverflow
-        scroller.style.touchAction = prevTouch
-        scroller.removeAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)
-        // `overflow: hidden` can clamp the offset; put it back verbatim.
-        scroller.scrollTop = startTop
       })
     } else {
       setPin(null)
-      const scrollY = window.scrollY
-      const body = document.body.style
-      const root = document.documentElement.style
-      /*
-        AND THE PAGE'S OWN SCROLLBAR GOES WITH IT.
-
-        Pinning the body freezes the page, but the document is still the
-        thing that scrolls, and on a screen with classic scrollbars its bar
-        stayed drawn down the right edge beside the open drawer: a control
-        for scrolling a page that could not be scrolled. It is the bar in
-        the cart screenshot.
-
-        The document's overflow is hidden while the drawer is open. That
-        takes the bar's column away, which would shift everything left by
-        its width, so the body is padded by exactly that width for as long
-        as the bar is gone. Overlay scrollbars have no width and get no
-        padding, so nothing moves there either.
-      */
-      /* Measured on the element that is scrolling this page. It is the
-         document on every site this renders today, but a wrapper that owns
-         the scroll would otherwise keep its bar while the document's went. */
-      const scrollingEl = (document.scrollingElement ?? document.documentElement) as HTMLElement
-      const barWidth = window.innerWidth - document.documentElement.clientWidth
-      const prev = {
-        position: body.position,
-        top: body.top,
-        left: body.left,
-        right: body.right,
-        width: body.width,
-        paddingRight: body.paddingRight,
-        rootOverflow: root.overflow,
-      }
-      /*
-        THE BODY IS PINNED, BUT IT DOES NOT BECOME A SCROLLER.
-
-        It was `overflow: hidden` here too. That makes the body a scroll
-        container, and a sticky header sticks to its nearest scroll
-        container: the body, now pinned at -scrollY, so the header left the
-        screen with the page the moment the menu opened and came back when it
-        closed. The document's own overflow (below) is what hides the bar and
-        stops the page; the body only has to stay put, and with its overflow
-        left alone a sticky header stays exactly where it was on screen.
-      */
-      body.position = "fixed"
-      body.top = `-${scrollY}px`
-      body.left = "0"
-      body.right = "0"
-      body.width = "100%"
-      if (barWidth > 0) body.paddingRight = `${barWidth}px`
-      root.overflow = "hidden"
-      /*
-        AND THE PAGE SAYS A DRAWER IS OPEN.
-
-        `overflow: hidden` on the document is the correct lock and it is
-        measurably enough in a page of our own making: the probe reports the
-        bar at 15px, 0px while open, 15px after. It was still reported as
-        drawn on a real site, where the page is a creator's own markup and
-        any wrapper in it may be the thing carrying the scroll.
-
-        Rather than keep guessing which element that is, the requirement is
-        stated where it cannot be missed: while this attribute is set, no
-        scrollbar is drawn on the document or the body, whichever of them
-        would have drawn it. The padding above still holds the layout still,
-        so taking the bar away moves nothing.
-      */
-      document.documentElement.setAttribute("data-drawer-open", "")
-      const prevScrollingOverflow = scrollingEl.style.overflow
-      if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = "hidden"
-
-      undo.push(() => {
-        body.position = prev.position
-        body.top = prev.top
-        body.left = prev.left
-        body.right = prev.right
-        body.width = prev.width
-        body.paddingRight = prev.paddingRight
-        root.overflow = prev.rootOverflow
-        document.documentElement.removeAttribute("data-drawer-open")
-        if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = prevScrollingOverflow
-        /* Instant, whatever the theme says. On a site whose stylesheet sets
-           `scroll-behavior: smooth` on the document this was a visible
-           scroll from the top of the page back to where the visitor was. */
-        window.scrollTo({ top: scrollY, left: 0, behavior: "instant" as ScrollBehavior })
-      })
+      undo.push(holdLock(document.documentElement, lockDocument))
     }
 
     return () => { undo.forEach((fn) => fn()) }
@@ -537,7 +603,137 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
     positionClass: previewRoot ? "absolute" : "fixed",
     // Held through the close animation so a drawer slides out from where it
     // was rather than jumping on the way.
-    frameStyle: pin ? { top: pin.top, height: pin.height } : { top: 0, bottom: 0 },
+    frameStyle: pin
+      ? { top: pin.top + inset, height: Math.max(0, pin.height - inset) }
+      : { top: inset, bottom: 0 },
+    inset,
+  }
+}
+
+/**
+ * ===========================================================================
+ *  ONE LOCK, HOWEVER MANY DRAWERS ASK FOR IT
+ * ===========================================================================
+ * The menu, the cart and anything else that opens over the page each take
+ * the page still while they are open. Handing over from one to the next
+ * (Search in the menu, or Add to cart while the menu is closing) means the
+ * second asks before the first has let go. Taken twice, the second lock
+ * read the page offset the first had already set to nought and the first
+ * one's release put back an `overflow` of "hidden": the page jumped to the
+ * top, or stayed locked with nothing open.
+ *
+ * So a lock is counted per element. The first holder applies it and the
+ * last one to let go takes it off, and nothing in between touches the page.
+ */
+const held = new Map<Element, { count: number; release: () => void }>()
+
+export function holdLock(el: Element, apply: () => () => void): () => void {
+  const current = held.get(el)
+  if (current) current.count += 1
+  else held.set(el, { count: 1, release: apply() })
+  let done = false
+  return () => {
+    if (done) return
+    done = true
+    const entry = held.get(el)
+    if (!entry) return
+    entry.count -= 1
+    if (entry.count <= 0) {
+      held.delete(el)
+      entry.release()
+    }
+  }
+}
+
+/** How many drawers hold this element's lock. For the probes and the tests. */
+export function lockHolders(el: Element): number {
+  return held.get(el)?.count ?? 0
+}
+
+function lockDocument(): () => void {
+  const scrollY = window.scrollY
+  const body = document.body.style
+  const root = document.documentElement.style
+  /*
+    AND THE PAGE'S OWN SCROLLBAR GOES WITH IT.
+
+    Pinning the body freezes the page, but the document is still the
+    thing that scrolls, and on a screen with classic scrollbars its bar
+    stayed drawn down the right edge beside the open drawer: a control
+    for scrolling a page that could not be scrolled. It is the bar in
+    the cart screenshot.
+
+    The document's overflow is hidden while the drawer is open. That
+    takes the bar's column away, which would shift everything left by
+    its width, so the body is padded by exactly that width for as long
+    as the bar is gone. Overlay scrollbars have no width and get no
+    padding, so nothing moves there either.
+  */
+  /* Measured on the element that is scrolling this page. It is the
+     document on every site this renders today, but a wrapper that owns
+     the scroll would otherwise keep its bar while the document's went. */
+  const scrollingEl = (document.scrollingElement ?? document.documentElement) as HTMLElement
+  const barWidth = window.innerWidth - document.documentElement.clientWidth
+  const prev = {
+    position: body.position,
+    top: body.top,
+    left: body.left,
+    right: body.right,
+    width: body.width,
+    paddingRight: body.paddingRight,
+    rootOverflow: root.overflow,
+  }
+  /*
+    THE BODY IS PINNED, BUT IT DOES NOT BECOME A SCROLLER.
+
+    It was `overflow: hidden` here too. That makes the body a scroll
+    container, and a sticky header sticks to its nearest scroll
+    container: the body, now pinned at -scrollY, so the header left the
+    screen with the page the moment the menu opened and came back when it
+    closed. The document's own overflow (below) is what hides the bar and
+    stops the page; the body only has to stay put, and with its overflow
+    left alone a sticky header stays exactly where it was on screen.
+  */
+  body.position = "fixed"
+  body.top = `-${scrollY}px`
+  body.left = "0"
+  body.right = "0"
+  body.width = "100%"
+  if (barWidth > 0) body.paddingRight = `${barWidth}px`
+  root.overflow = "hidden"
+  /*
+    AND THE PAGE SAYS A DRAWER IS OPEN.
+
+    `overflow: hidden` on the document is the correct lock and it is
+    measurably enough in a page of our own making: the probe reports the
+    bar at 15px, 0px while open, 15px after. It was still reported as
+    drawn on a real site, where the page is a creator's own markup and
+    any wrapper in it may be the thing carrying the scroll.
+
+    Rather than keep guessing which element that is, the requirement is
+    stated where it cannot be missed: while this attribute is set, no
+    scrollbar is drawn on the document or the body, whichever of them
+    would have drawn it. The padding above still holds the layout still,
+    so taking the bar away moves nothing.
+  */
+  document.documentElement.setAttribute("data-drawer-open", "")
+  const prevScrollingOverflow = scrollingEl.style.overflow
+  if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = "hidden"
+
+  return () => {
+    body.position = prev.position
+    body.top = prev.top
+    body.left = prev.left
+    body.right = prev.right
+    body.width = prev.width
+    body.paddingRight = prev.paddingRight
+    root.overflow = prev.rootOverflow
+    document.documentElement.removeAttribute("data-drawer-open")
+    if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = prevScrollingOverflow
+    /* Instant, whatever the theme says. On a site whose stylesheet sets
+       `scroll-behavior: smooth` on the document this was a visible
+       scroll from the top of the page back to where the visitor was. */
+    window.scrollTo({ top: scrollY, left: 0, behavior: "instant" as ScrollBehavior })
   }
 }
 

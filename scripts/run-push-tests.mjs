@@ -179,6 +179,7 @@ const SUITES = [
   "tests/onepage-old-links.test.ts",
   "tests/policy-pages.test.ts",
   "tests/footer-complete.test.ts",
+  "tests/header-footer-t.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",
   "tests/ai-chatgpt-only.test.ts",

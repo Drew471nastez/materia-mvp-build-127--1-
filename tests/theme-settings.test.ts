@@ -81,6 +81,8 @@ const CONSUMERS = [
   "lib/website-builder/announcement.ts",
   /* The menus, read for every section that shows one and for the header. */
   "lib/website-builder/storefront-data.ts",
+  /* The social links, read for the header's and the footer's icons. */
+  "lib/website-builder/social-links.ts",
 ]
 const consumed = CONSUMERS.map((f) => stripComments(readFileSync(join(root, f), "utf8"))).join("\n")
 

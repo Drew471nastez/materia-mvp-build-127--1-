@@ -428,6 +428,7 @@ export function SectionWrapper({
   canvasRoundedTopPx,
   canvasRoundedBottomPx,
   isChrome,
+  dataSticky,
 }: {
   id?: string
   children: React.ReactNode
@@ -450,6 +451,8 @@ export function SectionWrapper({
    * an animation on the same property fights the thing that makes it sticky.
    */
   isChrome?: boolean
+  /** The header's sticky mode, for code that offsets a scroll by it (lib/website-builder/section-motion.ts). */
+  dataSticky?: "always" | "scroll-up" | "none"
 }) {
   // Precompute the selection-ring border-radius so its corners curve into
   // the canvas's rounded corners instead of being clipped as a square.
@@ -475,6 +478,7 @@ export function SectionWrapper({
        */
       data-section=""
       data-chrome={isChrome ? "" : undefined}
+      data-sticky={dataSticky}
       className={cn(
         "relative w-full",
         // `isolate` (isolation: isolate) creates a new stacking context per

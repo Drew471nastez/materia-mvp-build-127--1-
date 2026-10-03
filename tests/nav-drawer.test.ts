@@ -134,7 +134,7 @@ function main() {
   )
   check(
     "a link closes the menu before it goes anywhere, in the editor as well as live",
-    /onClose\(\)\s*\n\s*\/\*[\s\S]{0,400}?const go = onEditorNavigate/.test(header)
+    /onClose\(\)\s*\n\s*\/\*[\s\S]{0,1400}?const go = onEditorNavigate/.test(header)
       && /window\.setTimeout\(go, CLOSE_MS\)/.test(header),
   )
   check(
