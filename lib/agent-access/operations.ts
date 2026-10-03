@@ -25,7 +25,7 @@
  *     and the account are not on this list at all. Products appear only as
  *     the published cards a visitor sees.
  */
-import { compileSection } from "@/lib/storelib-theme"
+import { compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
 import { validateSection } from "@/lib/storelib-ai/validate"
 import { ENGINE_VERSION, SECTION_SCHEMA_VERSION, type ThemeError } from "@/lib/storelib-theme/types"
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
@@ -157,7 +157,7 @@ export function compileOnly(path: string, source: string): OpResult<{ path: stri
   if (!safeThemePath(path) || !path.endsWith(".storelib")) {
     return { ok: false, status: 400, error: "Compile takes a .storelib path, such as sections/price_table.storelib" }
   }
-  const r = compileSection(source, { file: path })
+  const r = compileThemeFile(source, { file: path })
   if (r.ok === false) return { ok: false, status: 422, error: `${path} did not compile`, errors: r.errors }
   return { ok: true, value: { path, warnings: r.warnings ?? [] } }
 }
@@ -181,7 +181,7 @@ export async function writeSection(
   /* Every agent write, over MCP or HTTP, meets the same gate: it compiles,
      passes the quality checks, and plugs into the theme like a native section
      (lib/storelib-ai/integration.ts). A file that fails is not saved. */
-  const checked = validateSection(source, { path, expectType: path.replace(/^sections\//, "").replace(/\.storelib$/, ""), strict: true })
+  const checked = validateSection(source, { path, expectType: path.replace(/^(sections|blocks)\//, "").replace(/\.storelib$/, ""), strict: true })
   if (checked.ok === false && checked.reason === "quality") return { ok: false, status: 422, error: `${path} was not saved.\n${checked.feedback}` }
   const saved = await saveThemeFile(db, who.installId, path, source, { baseUpdatedAt })
   if (saved.ok === false) return { ok: false, status: saved.status, error: publicError(saved.status, saved.error), errors: saved.errors }
@@ -203,7 +203,7 @@ export async function writeSection(
     /* the table may not exist yet; the save stands */
   }
 
-  const type = path.replace(/^sections\//, "").replace(/\.storelib$/, "")
+  const type = path.replace(/^(sections|blocks)\//, "").replace(/\.storelib$/, "")
   return {
     ok: true,
     value: { path, type, created: saved.created, drafted: saved.drafted, updated_at: saved.row.updated_at ?? null },

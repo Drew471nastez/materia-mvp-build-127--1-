@@ -50,7 +50,7 @@ import {
 } from "./values"
 import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
-import { BREAKPOINTS, isAssetRef, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition } from "./types"
+import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type ThemeBlockSchema } from "./types"
 
 export interface ResolveOptions {
   /** `asset://…` → URL. Missing references resolve to "". */
@@ -358,29 +358,75 @@ function migrated(schema: SectionSchema, saved: Record<string, unknown> | undefi
   return out ?? saved
 }
 
+/** A block, resolved: its settings filled, and its own blocks the same way. */
+export interface ResolvedBlock {
+  id: string
+  type: string
+  settings: Record<string, unknown>
+  /** Its theme blocks in order, without the static ones. */
+  blocks: ResolvedBlock[]
+  /** Its static blocks, by the id its template places each under. */
+  statics: Record<string, ResolvedBlock>
+  hidden?: boolean
+}
+
+type BlockOwner = { blocks?: Record<string, BlockInstanceData>; block_order?: string[] }
+
 /**
  * A whole instance against its schema: settings, then each block in
- * `block_order` against its block definition. Blocks whose type the schema
- * no longer declares are kept with their raw settings, so a section update
+ * `block_order` against its block definition, and each theme block's own
+ * blocks the same way, as deep as blocks nest. Blocks whose type nobody
+ * declares any more are kept with their raw settings, so a section update
  * that drops a block type does not silently drop the content in it.
+ *
+ * Static blocks (the ones a template places with `content_for "block"`) are
+ * not in `blocks`: they are in `statics`, by id, hidden ones included and
+ * marked, so the template can tell "hidden" from "never edited".
  */
 export function resolveInstance(
   schema: SectionSchema,
   instance: SectionInstanceData,
-  opts: ResolveOptions = {},
-): { settings: Record<string, unknown>; blocks: { id: string; type: string; settings: Record<string, unknown> }[] } {
+  opts: ResolveOptions & { themeBlock?: (type: string) => ThemeBlockSchema | null } = {},
+): { settings: Record<string, unknown>; blocks: ResolvedBlock[]; statics: Record<string, ResolvedBlock> } {
   const settings = resolveSettings(schema.settings, migrated(schema, instance.settings), opts)
   const byType = new Map((schema.blocks ?? []).map((b) => [b.type, b]))
-  const order = instance.block_order ?? Object.keys(instance.blocks ?? {})
-  const blocks = order
-    .map((id) => {
-      const b = instance.blocks?.[id]
-      if (!b || b.hidden) return null
-      const def = byType.get(b.type)
-      return { id, type: b.type, settings: def ? resolveSettings(def.settings, b.settings, opts) : { ...(b.settings ?? {}) } }
-    })
-    .filter((b): b is NonNullable<typeof b> => b !== null)
-  return { settings, blocks }
+  const defsOf = (type: string): SettingDefinition[] | null => byType.get(type)?.settings ?? opts.themeBlock?.(type)?.settings ?? null
+  const tree = resolveBlockTree(instance, defsOf, opts, 1)
+  return { settings, blocks: tree.blocks, statics: tree.statics }
+}
+
+function resolveBlockTree(
+  owner: BlockOwner,
+  defsOf: (type: string) => SettingDefinition[] | null,
+  opts: ResolveOptions,
+  depth: number,
+): { blocks: ResolvedBlock[]; statics: Record<string, ResolvedBlock> } {
+  const all = owner.blocks ?? {}
+  const blocks: ResolvedBlock[] = []
+  const statics: Record<string, ResolvedBlock> = {}
+  if (depth > MAX_BLOCK_DEPTH) return { blocks, statics }
+  const one = (id: string, b: BlockInstanceData): ResolvedBlock => {
+    const defs = defsOf(String(b.type))
+    const inner = resolveBlockTree(b as BlockOwner, defsOf, opts, depth + 1)
+    return {
+      id,
+      type: String(b.type),
+      settings: defs ? resolveSettings(defs, b.settings, opts) : { ...(b.settings ?? {}) },
+      blocks: inner.blocks,
+      statics: inner.statics,
+      ...(b.hidden ? { hidden: true } : {}),
+    }
+  }
+  const order = owner.block_order ?? Object.keys(all).filter((id) => !all[id]?.static)
+  for (const id of order) {
+    const b = all[id]
+    if (!b || b.hidden || b.static) continue
+    blocks.push(one(id, b))
+  }
+  for (const [id, b] of Object.entries(all)) {
+    if (b && b.static) statics[id] = one(id, b)
+  }
+  return { blocks, statics }
 }
 
 /**

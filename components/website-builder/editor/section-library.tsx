@@ -709,11 +709,14 @@ export const SectionLibrary = memo(function SectionLibrary({
     for (const type of addable) {
       const schema = schemas[type]
       if (!schema) continue
-      const category = own.has(type) ? CUSTOM_SECTION_CATEGORY : schema.category ?? "content"
-      const label = SECTION_CATEGORIES[category] ?? category
+      const sectionCategory = own.has(type) ? CUSTOM_SECTION_CATEGORY : schema.category ?? "content"
       const presets = schema.presets ?? []
       const list = presets.length > 1 ? presets.map((p, i) => ({ i, name: p.name || schema.name })) : [{ i: 0, name: schema.name }]
       for (const { i, name } of list) {
+        /* A preset may file itself under another category, the way a Shopify preset does: "Image with text" under Media. Never out of the creator's own group. */
+        const own_ = sectionCategory === CUSTOM_SECTION_CATEGORY
+        const category = !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
+        const label = SECTION_CATEGORIES[category] ?? category
         out.push({
           type,
           presetIndex: i,

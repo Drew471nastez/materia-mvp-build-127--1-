@@ -29,9 +29,9 @@ This is the schema of the library's Accordion FAQ, `sections/faq_accordion.store
 | `description` | no | Found by Add Section's search box. |
 | `icon` | no | Kept. Add Section does not show it. |
 | `version` | no | The section's own version. Nothing reads it yet. |
-| `blocks` | no | The block types this section accepts. See [Blocks](/developers/blocks). |
+| `blocks` | no | The block types this section declares, or the theme blocks it accepts: `[{ "type": "@theme" }]`. See [Blocks](/developers/blocks). |
 | `max_blocks` | no | The most blocks in all, up to 50. |
-| `presets` | no | What Add Section places. No presets means the section is not offered. |
+| `presets` | no | What Add Section places: its settings and its blocks, keyed by id with `block_order` the way Shopify writes them, nested as deep as blocks go, with an optional `category`. No presets means the section is not offered. |
 | `capabilities` | no | What the section may reach: `embed` for a player frame, and the script capabilities. See [JavaScript](/developers/javascript#capabilities). |
 | `supports_color_scheme` | no | `false` hides the scheme picker. Unset, it is shown when the schema has a `color_scheme` setting. |
 | `supports_color_overrides` | no | Which colours Advanced colors offers for this section: `true`, `false`, or a list. See [Styling](/developers/styling#a-sections-own-colour-overrides). |
@@ -204,7 +204,8 @@ Each refusal names the path, such as `settings[3].default`, and the line in the 
 - a `range` without `min` and `max`, or with `min` not below `max`,
 - a `name` that is empty or over 80 characters,
 - a block type declared twice, a block `limit` that is not a positive whole number, or `max_blocks` over 50,
-- a preset that sets a setting or adds a block the section does not declare,
+- a preset that sets a setting or adds a block the section does not declare or accept, a keyed preset whose `block_order` and `blocks` disagree, or a static block without an id,
+- a section that both declares its own blocks and accepts theme blocks, or accepts `@app`,
 - both `allowed_templates` and `disabled_templates`,
 - a `visible_if` that does not parse, or reads a setting that is not declared,
 - a `product_list` whose `limit` is not a whole number from 1 to 24, a `video_url` that accepts a host Storelib does not play, or a `focal_point` whose `image` is not an `image_picker` beside it,

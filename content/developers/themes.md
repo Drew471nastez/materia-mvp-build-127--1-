@@ -86,11 +86,14 @@ my-shop.storelib-theme.zip
 ├── sections/
 │   ├── hero_centered.storelib  all of the theme's section files, your edits in place
 │   └── pricing_table.storelib  and every section file of your own
+├── blocks/
+│   ├── heading.storelib        the theme blocks, the same way
+│   └── group.storelib
 └── assets/
     └── 3f2a…c9.webp            media, named by the SHA-256 of its bytes
 ```
 
-A package may hold files under `config`, `layout`, `templates`, `sections`, `snippets`, `assets` and `locales`, and `theme.json` and `manifest.json` at its root. Nothing reads `layout`, `snippets` or `locales` yet: an import keeps a `.storelib` file from them and nothing draws it.
+A package may hold files under `config`, `layout`, `templates`, `sections`, `blocks`, `snippets`, `assets` and `locales`, and `theme.json` and `manifest.json` at its root. Nothing reads `layout`, `snippets` or `locales` yet: an import keeps a `.storelib` file from them and nothing draws it.
 
 ### theme.json
 
@@ -172,6 +175,6 @@ The theme settings object, exactly as the builder stores it, with every media UR
 
 ## What the site reads, and what it does not
 
-A visitor's page is drawn from three things: the website's live pages, its live theme settings, and its section files, which are the theme's own 33 with the website's changed and added files in their place. The code editor shows more files than that, laid out the way a Shopify theme is: `theme.json`, `config/settings_schema.json`, `config/settings_data.json`, `templates/*.json`, two files under `snippets` and `assets/styles.css` and `assets/theme.js`. Those are views of the theme's data. Saving an edit to one stores the file, and **nothing on the site reads it**. Only `sections/*.storelib` changes what a page draws.
+A visitor's page is drawn from three things: the website's live pages, its live theme settings, and its section files, which are the theme's own 33 with the website's changed and added files in their place. The code editor shows more files than that, laid out the way a Shopify theme is: `theme.json`, `config/settings_schema.json`, `config/settings_data.json`, `templates/*.json`, two files under `snippets` and `assets/styles.css` and `assets/theme.js`. Those are views of the theme's data. Saving an edit to one stores the file, and **nothing on the site reads it**. Only `sections/*.storelib` and `blocks/*.storelib` change what a page draws.
 
 There is no stylesheet for the whole site that you can write yet. A section's CSS is always scoped to that section; see [Styling](/developers/styling).

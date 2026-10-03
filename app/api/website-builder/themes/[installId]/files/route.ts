@@ -5,7 +5,7 @@ import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
-import { compileSection } from "@/lib/storelib-theme"
+import { compileThemeFile } from "@/lib/storelib-theme"
 import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
 
 type Params = { params: Promise<{ installId: string }> }
@@ -329,7 +329,7 @@ export async function PATCH(req: Request, { params }: Params) {
    * every rename fail with a compile error it could do nothing about.
    */
   if (to.endsWith(".storelib")) {
-    const r = compileSection(source, { file: to })
+    const r = compileThemeFile(source, { file: to })
     if (r.ok === false) return NextResponse.json({ error: `${to} did not compile`, errors: r.errors }, { status: 422 })
   }
 

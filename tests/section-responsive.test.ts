@@ -2286,7 +2286,7 @@ check(
     // Still one stable callback from the parent, now carrying which block
     // was clicked as well as which section: see selectSectionFromCanvas.
     /onClick: inspectorEnabled\s*\n\s*\? \(e: React\.MouseEvent<HTMLElement>\) => \{/.test(editor) &&
-    /onSelectSection\(section\.id, id\)/.test(editor),
+    /onSelectSection\(section\.id, path\.length \? pathKey\(path\) : null\)/.test(editor),
 )
 
 check(

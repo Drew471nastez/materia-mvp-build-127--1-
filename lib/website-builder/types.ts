@@ -275,6 +275,12 @@ export interface BlockInstance {
   id: string
   type: string
   settings: Record<string, unknown>
+  /** Kept, and not drawn. */
+  hidden?: boolean
+  /** Placed by its template with `content_for "block"`: edited, never moved or deleted. */
+  static?: boolean
+  /** A theme block's own blocks, in order. See lib/website-builder/block-tree.ts. */
+  blocks?: BlockInstance[]
 }
 
 // ── Page templates ───────────────────────────────────────────
@@ -431,10 +437,23 @@ export interface BlockSchema {
    * and dropped on the way here, so it could never be enforced.
    */
   limit?: number
+  /** A theme block, from blocks/<type>.storelib, rather than one the section declares. */
+  theme?: boolean
+  /** A theme block whose file name starts with `_`: offered only where it is named. */
+  private?: boolean
+  /** What it may hold: "@theme" or theme block types. Absent, it holds nothing. */
+  accepts?: string[]
+  max_blocks?: number
+  /** What Add block offers for it: each a state it arrives in. */
+  presets?: SectionPreset[]
+  /** The blocks its template places itself. */
+  statics?: { type: string; id: string }[]
 }
 
 export interface SectionPreset {
   name: string
+  /** Where Add section files this preset; the section's category when absent. */
+  category?: string
   settings: Record<string, unknown>
   blocks?: BlockInstance[]
 }
@@ -447,6 +466,10 @@ export interface SectionSchema {
   category?: string
   fields: SchemaField[]
   blocks?: BlockSchema[]
+  /** The theme blocks it accepts: "@theme", or types by name. */
+  accepts?: string[]
+  /** The blocks its template places itself, with `content_for "block"`. */
+  statics?: { type: string; id: string }[]
   max_blocks?: number
   presets?: SectionPreset[]
   /** What the panel may change about the section's design. See design-support.ts. */

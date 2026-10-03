@@ -4,7 +4,8 @@ A Storelib theme is built the way an Online Store 2.0 theme is: pages are lists 
 
 The biggest differences first:
 
-- **A section is one `.storelib` file** with `<template>`, `<style>`, `<script>` and `<schema>` blocks. The template language reads like Liquid (`{{ }}`, `{% if %}`, `{% for %}`, filters) but is smaller: no `assign`, no `capture`, no `render` or snippets. See [Sections](/developers/sections).
+- **A section is one `.storelib` file** with `<template>`, `<style>`, `<script>` and `<schema>` blocks. The template language reads like Liquid (`{{ }}`, `{% if %}`, `{% for %}`, `{% content_for %}`, filters) but is smaller: no `assign`, no `capture`, no `render` or snippets. See [Sections](/developers/sections).
+- **Theme blocks work as they do in Shopify**: a file each in `blocks/`, accepted with `{ "type": "@theme" }`, drawn with `{% content_for "blocks" %}`, nested, static, private with a leading `_`, and preset in the keyed form with `block_order`. See [Blocks](/developers/blocks).
 - **CSS is scoped for you**, and a script runs in a sandbox against a copy of the section. See [Styling](/developers/styling) and [JavaScript](/developers/javascript).
 - **Storelib is for creators**, not merchants with warehouses. There are no collections, no blog and no metaobjects, so the settings that pick those do not exist. What a creator sells is `products`, and what they arrange is sections.
 
@@ -53,9 +54,12 @@ Shopify types Storelib does not have are refused with the reason, rather than as
 | --- | --- |
 | `name`, `settings`, `blocks`, `max_blocks`, `presets` | the same |
 | a block's `limit` | the same |
+| `{ "type": "@theme" }`, a theme block by name | the same |
+| a preset's `blocks` keyed by id, `block_order`, `static` | the same |
+| a preset's `category` | the same: where Add section files it |
 | `enabled_on`, `disabled_on` | `allowed_templates`, `disabled_templates` |
 | a setting's `visible_if` | the same, written the same way: `"{{ section.settings.layout == 'grid' }}"`. See [Schema](/developers/schema#showing-a-setting-only-when-it-matters). |
-| `tag`, `class` | none: the section's own markup is its wrapper |
+| `tag`, `class` on a section | none: the section's own markup is its wrapper. A theme block has both. |
 | `locales`, `t:` labels | none: see below |
 | none | `type`, which must be the file name, and `schema_version` |
 | none | `migrations`, to rename a setting without losing what creators typed |
@@ -122,7 +126,6 @@ A template reads the same facts directly: `shop`, `creator` and `product`, besid
 | --- | --- |
 | Snippets and `{% render %}` | A section is self-contained so that it can be moved, exported and checked on its own. Shared styles live in the theme's tokens and colour schemes. |
 | `assign`, `capture` | The language has no variables. `default` covers most of what they are used for, and `products` is shaped like `blocks` so one loop body serves both. |
-| Theme blocks, nested blocks | Blocks belong to their section and are one level deep. |
 | App blocks | There is no app store to provide them. A section's `embed` capability covers a player or a booking widget. |
 | Alternate templates, such as `product.special` | Every product uses the one product page. |
 | Translations and `locales/` | Sites are drawn in one language, the one the creator writes in. |

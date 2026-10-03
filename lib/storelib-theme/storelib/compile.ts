@@ -23,12 +23,12 @@
 import { createHash } from "node:crypto"
 
 import { DEFAULT_LANGUAGE_VERSION } from "../language"
-import { validateSectionSchema } from "../schema/validate"
-import { LIMITS, type CompiledSection, type Result, type ThemeError } from "../types"
-import { scopeCss } from "./css"
+import { validateBlockSchema, validateSectionSchema } from "../schema/validate"
+import { LIMITS, type CompiledBlock, type CompiledSection, type Result, type ThemeError } from "../types"
+import { blockScope, scopeCss } from "./css"
 import { parseSchemaJson, parseStorelib } from "./parse"
 import { checkScript } from "./script"
-import { compileTemplate, pathRefs, pathsRead, type CompiledTemplate } from "./template"
+import { compileTemplate, contentForRefs, pathRefs, pathsRead, type CompiledTemplate } from "./template"
 
 export function sourceHash(source: string): string {
   return createHash("sha256").update(source, "utf8").digest("hex")
@@ -72,7 +72,7 @@ const SECTION_KEYS = new Set(["id", "type", "settings", "blocks"])
 
 function checkReferences(
   tpl: CompiledTemplate,
-  schema: { settings: { id: string }[]; blocks?: { type: string; settings: { id: string }[] }[] },
+  schema: { settings: { id: string }[]; blocks?: { type: string; settings: { id: string }[] }[]; accepts?: string[] },
   file: string,
   line: number,
 ): ThemeError[] {
@@ -80,7 +80,9 @@ function checkReferences(
   const at = (l: number) => line + l - 1
   const declared = new Set(schema.settings.map((s) => s.id))
   const blockIds = new Set((schema.blocks ?? []).flatMap((b) => b.settings.map((s) => s.id)))
-  const hasBlocks = (schema.blocks ?? []).length > 0
+  const local = (schema.blocks ?? []).length > 0
+  const theme = (schema.accepts ?? []).length > 0
+  const hasBlocks = local || theme
   const list = (ids: Set<string>) => (ids.size ? [...ids].sort().join(", ") : "none")
   const seen = new Set<string>()
   const push = (l: number, message: string) => {
@@ -96,7 +98,8 @@ function checkReferences(
 
     if (iterates !== undefined) {
       // A loop variable. Only one over the section's blocks can be checked.
-      if ((iterates === "blocks" || iterates === "section.blocks") && second === "settings" && third) {
+      /* A theme block's settings are in its own file, which may not exist yet. */
+      if ((iterates === "blocks" || iterates === "section.blocks") && second === "settings" && third && !theme) {
         if (!hasBlocks) push(ref.line, `This section declares no blocks, so "${root}.settings.${third}" is always empty. Add a "blocks" list to the schema.`)
         else if (!blockIds.has(third)) push(ref.line, `No block setting is called "${third}". This section's blocks have: ${list(blockIds)}.`)
       }
@@ -121,7 +124,46 @@ function checkReferences(
       push(ref.line, `This section reads its blocks but declares none, so the list is always empty. Add a "blocks" list to the schema.`)
     }
   }
+  errors.push(...checkContentFor(tpl, { local, theme }, file, line, "section"))
   return errors
+}
+
+/**
+ * `content_for "blocks"` draws THEME blocks. Written in a section whose
+ * blocks are its own, it would draw nothing at all, and a section that
+ * accepts no blocks has nothing for it to draw; both are said at the line.
+ * Two static blocks under one id would be one block drawn twice.
+ */
+function checkContentFor(
+  tpl: CompiledTemplate,
+  has: { local: boolean; theme: boolean },
+  file: string,
+  line: number,
+  owner: "section" | "block",
+): ThemeError[] {
+  const errors: ThemeError[] = []
+  const ids = new Map<string, string>()
+  for (const ref of contentForRefs(tpl)) {
+    const at = line + ref.line - 1
+    if (ref.what === "blocks") {
+      if (has.local) errors.push({ stage: "template", file, line: at, message: `{% content_for "blocks" %} draws theme blocks, and this section's blocks are its own. Draw them with {% for block in blocks %}.` })
+      else if (!has.theme) errors.push({ stage: "template", file, line: at, message: `{% content_for "blocks" %} draws the blocks this ${owner} holds, and it accepts none. Add "blocks": [{ "type": "@theme" }] to the schema.` })
+      continue
+    }
+    const seen = ids.get(ref.id)
+    if (seen && seen !== ref.type) errors.push({ stage: "template", file, line: at, message: `The static block "${ref.id}" is placed twice, as ${seen} and as ${ref.type}. Give each its own id.` })
+    ids.set(ref.id, ref.type)
+  }
+  return errors
+}
+
+/** The static blocks a template places, once each. */
+function staticsOf(tpl: CompiledTemplate): { type: string; id: string }[] {
+  const out: { type: string; id: string }[] = []
+  for (const ref of contentForRefs(tpl)) {
+    if (ref.what === "block" && !out.some((o) => o.id === ref.id)) out.push({ type: ref.type, id: ref.id })
+  }
+  return out
 }
 
 export function compileSection(source: string, opts: CompileOptions = {}): Result<CompiledSection> {
@@ -208,9 +250,128 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
       css,
       cssTemplate,
       script,
+      statics: staticsOf((template as { ok: true; value: CompiledTemplate }).value),
       sourceHash: sourceHash(source),
     },
     warnings: warnings.length ? warnings : undefined,
+  }
+}
+
+/**
+ * ===========================================================================
+ *  A THEME BLOCK: blocks/<type>.storelib
+ * ===========================================================================
+ * The same stages as a section, with a block's rules:
+ *
+ *   no <script>     a block lives inside a section, and the section's
+ *                   script is the one with a sandbox; it finds its blocks by
+ *                   `[data-block-type]`
+ *   its own names   `block.settings.x` (or `settings.x`) is checked against
+ *                   the block's schema, `section.settings.x` is whatever
+ *                   section it sits in and is not
+ *   its own scope   rules reach every block of this type, or, when a rule
+ *                   reads a setting, this one block in this one section
+ */
+const BLOCK_ROOTS = new Set([...CONTEXT_ROOTS, "block"])
+const BLOCK_KEYS = new Set(["id", "type", "settings", "blocks", "storelib_attributes"])
+
+export function compileBlock(source: string, opts: CompileOptions & { type: string }): Result<CompiledBlock> {
+  const file = opts.file ?? `blocks/${opts.type}.storelib`
+  const errors: ThemeError[] = []
+
+  if (Buffer.byteLength(source, "utf8") > LIMITS.sourceBytes) {
+    return { ok: false, errors: [{ stage: "parse", file, message: `The file is over ${LIMITS.sourceBytes / 1024} KB` }] }
+  }
+  const parsed = parseStorelib(source, file)
+  if (parsed.ok === false) return { ok: false, errors: parsed.errors.map((e) => ({ ...e, message: e.message.replace(/^A section needs/, "A block needs") })) }
+  const src = parsed.value
+  if (src.script && src.script.text.trim()) {
+    errors.push({
+      stage: "script",
+      file,
+      line: src.script.line,
+      message: `A block has no <script>. What it does belongs to the section it sits in, whose script can find it with root.querySelectorAll('[data-block-type="${opts.type}"]').`,
+    })
+  }
+
+  const json = parseSchemaJson(src.schema, file)
+  if (json.ok === false) return json
+  const schema = validateBlockSchema(json.value, { file, line: src.schema.line, text: src.schema.text, type: opts.type })
+  if (schema.ok === false) return schema
+  const s = schema.value
+
+  const capabilities = Array.isArray(s.capabilities) ? (s.capabilities as string[]).filter((c) => c === "embed") : []
+  const template = compileTemplate(src.template.text, { file, line: src.template.line, capabilities, lenient: opts.lenient })
+  if (template.ok === false) errors.push(...template.errors)
+  else {
+    const tpl = template.value
+    const own = new Set(s.settings.map((f) => f.id))
+    const list = (ids: Set<string>) => (ids.size ? [...ids].sort().join(", ") : "none")
+    const seen = new Set<string>()
+    const push = (l: number, message: string) => {
+      const key = `${l}:${message}`
+      if (seen.has(key)) return
+      seen.add(key)
+      errors.push({ stage: "template", file, line: src.template.line + l - 1, message })
+    }
+    for (const ref of pathRefs(tpl)) {
+      const [root, second, third] = ref.segs
+      if (ref.bound.has(root)) continue
+      if (!BLOCK_ROOTS.has(root)) {
+        push(ref.line, `"${root}" is not something a block can read. A block reads block, settings, section, theme, scheme, page, shop, routes, customer, wishlist, creator and product.`)
+        continue
+      }
+      if (root === "block" && second && !BLOCK_KEYS.has(second)) {
+        push(ref.line, `A block has id, type, settings, blocks and storelib_attributes. "block.${second}" is always empty.`)
+        continue
+      }
+      if (root === "section" && second && !SECTION_KEYS.has(second)) {
+        push(ref.line, `A section has id, type, settings and blocks. "section.${second}" is always empty.`)
+        continue
+      }
+      const id = root === "settings" ? second : root === "block" && second === "settings" ? third : undefined
+      if (id !== undefined && !own.has(id)) push(ref.line, `No setting is called "${id}". This block declares: ${list(own)}.`)
+    }
+    errors.push(...checkContentFor(tpl, { local: false, theme: (s.accepts ?? []).length > 0 }, file, src.template.line, "block"))
+    if (s.tag === null && !pathsRead(tpl).includes("block.storelib_attributes")) {
+      errors.push({
+        stage: "template",
+        file,
+        line: src.template.line,
+        message: `With "tag": null nothing is wrapped round this block, so its outer element carries {{ block.storelib_attributes }}. Without them the editor cannot find the block to select it.`,
+      })
+    }
+  }
+
+  let css = ""
+  let cssTemplate: unknown
+  if (src.style.text.trim()) {
+    const perInstance = src.style.text.includes("{{")
+    const scoped = scopeCss(src.style.text, { file, line: src.style.line, type: `b-${opts.type}`, scope: blockScope(opts.type, perInstance) })
+    if (scoped.ok === true) {
+      css = scoped.value
+      if (perInstance) {
+        const t = compileTemplate(css, { file, line: src.style.line })
+        if (t.ok === true) cssTemplate = t.value
+        else errors.push(...t.errors.map((e) => ({ ...e, stage: "css" as const })))
+      }
+    } else errors.push(...scoped.errors)
+  }
+
+  if (errors.length) return { ok: false, errors }
+  const tpl = (template as { ok: true; value: CompiledTemplate }).value
+  return {
+    ok: true,
+    value: {
+      type: opts.type,
+      schema: s,
+      language_version: s.language_version ?? DEFAULT_LANGUAGE_VERSION,
+      template: tpl,
+      css,
+      cssTemplate,
+      statics: staticsOf(tpl),
+      sourceHash: sourceHash(source),
+    },
   }
 }
 
@@ -270,4 +431,28 @@ export function createCompileCache(limit = COMPILE_CACHE_LIMIT) {
     clear() { cache.clear() },
     get size() { return cache.size },
   }
+}
+
+/**
+ * ===========================================================================
+ *  ONE FILE, BY WHERE IT LIVES
+ * ===========================================================================
+ * Every door that saves a `.storelib` file (the code editor, the assistant,
+ * a connected agent, an import) compiles it here, so a file in blocks/ is
+ * held to a block's rules and every other one to a section's. A block's type
+ * is its file name, the same as a section's: `blocks/_slide.storelib` is the
+ * private block "_slide".
+ */
+export function compileThemeFile(source: string, opts: CompileOptions & { file: string }): Result<CompiledSection | CompiledBlock> {
+  if (opts.file.startsWith("blocks/")) {
+    const type = opts.file.match(/^blocks\/(_?[a-z][a-z0-9_-]*)\.storelib$/)?.[1]
+    if (!type) {
+      return {
+        ok: false,
+        errors: [{ stage: "package", file: opts.file, message: `A block lives at blocks/<name>.storelib, the name in lowercase letters, digits, - and _, optionally after one _ for a private block` }],
+      }
+    }
+    return compileBlock(source, { ...opts, type })
+  }
+  return compileSection(source, opts)
 }

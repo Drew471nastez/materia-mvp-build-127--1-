@@ -12,7 +12,8 @@
  * is only loaded where a whole page is being handled.
  */
 import { SECTION_SCHEMAS } from "./section-schemas"
-import { schemaFromStorelib } from "./storelib-schemas"
+import { schemaFromStorelib, themeBlockCatalog } from "./storelib-schemas"
+import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { SectionInstance, SectionSchema } from "./types"
@@ -116,10 +117,48 @@ export async function readOwnSectionFields(db: Db, installId: string, types: Ite
   return {}
 }
 
+interface LooseBlock {
+  type: string
+  settings?: Record<string, unknown>
+  blocks?: LooseBlock[]
+}
+
 interface LooseSection {
   type: string
   settings?: Record<string, unknown>
-  blocks?: { type: string; settings?: Record<string, unknown> }[]
+  blocks?: LooseBlock[]
+}
+
+/**
+ * A THEME BLOCK'S HTML FIELDS, from its file in blocks/. A block inside a
+ * block is always a theme block, so this is where every nested block's rich
+ * text is found; what is not here is still cleaned by the id list, and again
+ * when it is drawn (resolve.ts, storelib/raw-html.ts).
+ */
+const themeBlockFields = new Map<string, HtmlFieldMap>()
+function themeBlockFieldsFor(type: string): HtmlFieldMap {
+  const hit = themeBlockFields.get(type)
+  if (hit) return hit
+  const out = htmlFieldsOf(themeBlockCatalog()[type]?.fields)
+  themeBlockFields.set(type, out)
+  return out
+}
+
+/** One block and every block inside it. The same object back when nothing changed. */
+function sanitizeBlock<B extends LooseBlock>(b: B, fields: HtmlFieldMap, depth: number): B {
+  const settings = sanitizeSettings(b.settings, fields)
+  let blocks = b.blocks
+  if (Array.isArray(blocks) && blocks.length && depth < MAX_BLOCK_DEPTH) {
+    let touched = false
+    const next = blocks.map((c) => {
+      const cleaned = sanitizeBlock(c, themeBlockFieldsFor(c.type), depth + 1)
+      if (cleaned !== c) touched = true
+      return cleaned
+    })
+    if (touched) blocks = next
+  }
+  if (settings === b.settings && blocks === b.blocks) return b
+  return { ...b, settings, ...(blocks ? { blocks } : {}) }
 }
 
 /**
@@ -148,10 +187,10 @@ export function sanitizeSection<T extends LooseSection>(section: T, own?: OwnFie
   if (blocks?.length) {
     let touched = false
     const next = blocks.map((b) => {
-      const s = sanitizeSettings(b.settings, mine ? (mine.blocks[b.type] ?? {}) : blockFieldsFor(section.type, b.type))
-      if (s === b.settings) return b
-      touched = true
-      return { ...b, settings: s }
+      const local = mine ? mine.blocks[b.type] : SECTION_SCHEMAS[section.type]?.blocks?.some((d) => d.type === b.type) ? blockFieldsFor(section.type, b.type) : undefined
+      const cleaned = sanitizeBlock(b, local ?? themeBlockFieldsFor(b.type), 1)
+      if (cleaned !== b) touched = true
+      return cleaned
     })
     if (touched) blocks = next
   }

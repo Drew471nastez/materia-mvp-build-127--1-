@@ -129,7 +129,7 @@ function main() {
     /* The route delegates its save to the module the agent API shares. */
     const files = read("app/api/website-builder/themes/[installId]/files/route.ts") + read("lib/website-builder/save-theme-file.ts")
     check("a page cannot be grown past its section limit", /sections\.length > LIMITS\.sectionsPerTemplate/.test(sections) && /status: 413/.test(sections))
-    check("nor a section past its block limit", /LIMITS\.blocksPerSection/.test(sections))
+    check("nor a section past its block limit, counted at every depth", /blockTreeProblem\(s\)/.test(sections) && /LIMITS\.blocksPerSection/.test(read("lib/website-builder/block-tree.ts")))
     check("nor a theme past its file limit", /LIMITS\.filesPerPackage/.test(files) && /status: 413/.test(files))
     check("and editing an existing file is not what the file limit is for", /if \(!current\) \{\s*const \{ count \}/.test(files))
     check("the numbers are the ones the exporter uses, not a second set", LIMITS.sectionsPerTemplate === 60 && LIMITS.blocksPerSection === 50 && LIMITS.filesPerPackage === 2000)

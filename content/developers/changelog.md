@@ -16,6 +16,14 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
+- [Theme blocks](/developers/blocks#theme-blocks), the way Shopify has them: a file each in `blocks/`, accepted by a section with `{ "type": "@theme" }` or by name, drawn with `{% content_for "blocks" %}`, private when the file name starts with `_`. Heading, Text, Button, Image, Video, Spacer and Group ship with every theme.
+- Blocks inside blocks, eight levels deep: a theme block that accepts blocks draws them with the same tag. Group makes rows and columns out of any blocks.
+- [Static blocks](/developers/blocks#static-blocks), placed by the template with `{% content_for "block", type: "…", id: "…" %}`: edited and hidden, never moved or deleted.
+- [Presets](/developers/blocks#presets) in Shopify's keyed form, `blocks` by id with `block_order`, nested, with `static` and a `category` that files the card in Add section. A theme block's presets are its entries in Add block.
+- Two sections built from theme blocks: Section, which takes any of them, and Image grid, which takes pictures and places its title as a static block.
+- A block can be hidden from the sidebar's eye, and is kept.
+- Agents may write theme blocks: `blocks/<type>.storelib` is writable over MCP, the agent API and GitHub, except the ones Storelib ships. Page tools take `parent_block_id` to add inside a block, and a block's path (`outer/inner`) as its id.
+
 - A `color` setting's default may name a scheme colour, `"default": "scheme.accent"`. The setting follows the section's scheme until the creator picks a colour, and a section's own colour settings are now rows in its panel. See [Styling](/developers/styling#colours-of-the-sections-own).
 - [The header and footer](/developers/header-and-footer): what the one header and one footer do, and every setting they take, generated from the files the builder draws them with.
 - A `video_picker` uploads a video file or takes a link to one, and shows it.
@@ -25,6 +33,8 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 - A section file that is a header, a navigation bar or a footer is refused when it is saved, by the code editor, Ask AI, an agent or a GitHub push, and left out of an imported theme. Recognised by `"group"`, by Shopify's `enabled_on.groups`, by its name, or by an outermost `<header>` holding a `<nav>`. A site has one of each, and they are changed through their settings.
 - The YouTube and Vimeo video section's link is a `video_url` setting, which checks the link as it is pasted.
+- A section's 50 blocks are counted at every depth, and saving a page keeps the blocks inside blocks, whether they are hidden and whether the template placed them.
+- Adding the same preset twice gives each section its own block ids. Before, the two shared them, and a click on a block in either selected the first.
 
 ## 25 September 2026
 

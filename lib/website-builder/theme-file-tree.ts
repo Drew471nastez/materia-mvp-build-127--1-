@@ -93,6 +93,14 @@ export function buildThemeFileTree(customizedPaths: string[] = []): ThemeFileNod
        */
       orderedSectionTypes().map((type) => (isStorelibSection(type) ? file(`sections/${type}.storelib`, "storelib") : file(`sections/${type}.json`, "json"))),
     ),
+    /* Theme blocks: one file each, held by any section that accepts it (`{ "type": "@theme" }`). */
+    folder(
+      "blocks",
+      Object.keys(DEFAULT_THEME_SOURCES)
+        .filter((p) => p.startsWith("blocks/") && p.endsWith(".storelib"))
+        .sort()
+        .map((p) => file(p, "storelib")),
+    ),
     folder("snippets", [
       file("snippets/button.json", "json"),
       file("snippets/product-card.json", "json"),

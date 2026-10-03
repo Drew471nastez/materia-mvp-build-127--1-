@@ -273,7 +273,13 @@ section("Typography compiles to tokens at three widths")
 
   const dir = join(root, "themes/default/sections")
   const storelib = readdirSync(dir).filter((f: string) => f.endsWith(".storelib"))
-  const notReading = storelib.filter((f: string) => !/--section-heading-size/.test(readFileSync(join(dir, f), "utf8")))
+  /* A section of theme blocks has no heading of its own: its headings are Heading blocks, and the block reads the style. */
+  const ofBlocks = (src: string) => /"blocks":\s*\[\s*\{\s*"type":\s*"(@theme|heading|image)"\s*\}/.test(src)
+  const notReading = storelib.filter((f: string) => {
+    const src = readFileSync(join(dir, f), "utf8")
+    return !/--section-heading-size/.test(src) && !ofBlocks(src)
+  })
+  check("a section of theme blocks takes the heading style through the Heading block", /--section-heading-size/.test(readFileSync(join(root, "themes/default/blocks/heading.storelib"), "utf8")))
   check(
     "every one of the theme's own sections reads the section heading style",
     // The hero is the exception and says so in its schema: it has a heading

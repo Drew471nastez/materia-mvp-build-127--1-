@@ -14,12 +14,12 @@
  */
 import { followScheme, resolveSectionColors, styleAttr } from "./color-schemes"
 import { resolveControlType } from "./controls/registry"
-import { resolveInstance, themeTokens } from "./resolve"
+import { resolveInstance, resolveSettings, themeTokens, type ResolvedBlock } from "./resolve"
 import { sectionTypography } from "./typography"
-import { cssForInstance } from "./storelib/css"
+import { cssForBlockInstance, cssForInstance } from "./storelib/css"
 import { guardSectionMarkup, guardStyleText } from "./storelib/raw-html"
-import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
-import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData } from "./types"
+import { engineHtml, renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
+import { MAX_BLOCK_DEPTH, type CompiledBlock, type CompiledSection, type ContentForRequest, type RenderContext, type SectionInstanceData, type StorefrontData } from "./types"
 import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 
 export interface RenderInput {
@@ -50,6 +50,11 @@ export interface RenderInput {
    * about them. Absent means `shop` from the theme alone, and no customer.
    */
   globals?: StorefrontGlobals
+  /**
+   * The theme's blocks, by type: blocks/<type>.storelib, compiled. Absent
+   * means none, and `content_for` draws nothing.
+   */
+  blocks?: (type: string) => CompiledBlock | null
 }
 
 export interface Rendered {
@@ -65,10 +70,11 @@ export function renderSection(input: RenderInput): Rendered {
   const { compiled, id, instance } = input
   const assets = input.assets ?? {}
   const data = input.data ?? {}
-  const { settings, blocks } = resolveInstance(compiled.schema, instance, {
-    assets,
-    catalog: data.catalog,
-    menus: data.menus,
+  const blockOf = input.blocks ?? (() => null)
+  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus }
+  const { settings, blocks, statics } = resolveInstance(compiled.schema, instance, {
+    ...resolveOpts,
+    themeBlock: (type) => blockOf(type)?.schema ?? null,
   })
   const theme = themeTokens(input.theme)
   /**
@@ -83,7 +89,15 @@ export function renderSection(input: RenderInput): Rendered {
   /* A colour setting still on `scheme.<name>` is that colour of THIS section's scheme: color-schemes.ts, followScheme. */
   followSchemeColours(compiled.schema.settings, settings, scheme)
   const blockDefs = new Map((compiled.schema.blocks ?? []).map((b) => [b.type, b.settings]))
-  for (const b of blocks) followSchemeColours(blockDefs.get(b.type) ?? [], b.settings, scheme)
+  const follow = (list: ResolvedBlock[]) => {
+    for (const b of list) {
+      followSchemeColours(blockDefs.get(b.type) ?? blockOf(b.type)?.schema.settings ?? [], b.settings, scheme)
+      follow(b.blocks)
+      follow(Object.values(b.statics))
+    }
+  }
+  follow(blocks)
+  follow(Object.values(statics))
   const ctx: RenderContext = {
     settings,
     blocks,
@@ -105,6 +119,72 @@ export function renderSection(input: RenderInput): Rendered {
     creator: data.creator,
     product: data.product ?? null,
   }
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THEME BLOCKS, DRAWN WHERE THE TEMPLATE SAYS
+   * ═════════════════════════════════════════════════════════════════════════
+   * `{% content_for "blocks" %}` asks for the owner's blocks in order;
+   * `{% content_for "block", type, id %}` for one static block. Each is drawn
+   * by its own compiled file, wrapped in its element (`sl-block`, with
+   * `data-block-id` so a click on the canvas selects it), and its own
+   * `content_for` asks for ITS blocks, to MAX_BLOCK_DEPTH.
+   *
+   * A block whose file is gone draws nothing on a live page and says so in
+   * the editor, so the person who removed the file sees what it took with it.
+   */
+  const inEditor = input.page.in_editor === true
+  const blockCss = new Map<string, string>()
+  const drawBlock = (node: ResolvedBlock, depth: number): string => {
+    if (depth > MAX_BLOCK_DEPTH) return ""
+    const attrs = `data-block-id="${escapeAttr(node.id)}" data-block-type="${escapeAttr(node.type)}"`
+    const cb = blockOf(node.type)
+    if (!cb) {
+      return inEditor
+        ? `<div class="sl-block sl-block--missing" ${attrs} style="padding:12px;border:1px dashed currentColor;opacity:.6;font:13px/1.4 system-ui,sans-serif">This theme has no blocks/${escapeHtml(node.type)}.storelib</div>`
+        : ""
+    }
+    const blockCtx: RenderContext = {
+      ...ctx,
+      settings: node.settings,
+      blocks: node.blocks,
+      block: { id: node.id, type: node.type, settings: node.settings, blocks: node.blocks, storelib_attributes: engineHtml(attrs) },
+      sectionScope: { settings, blocks },
+      contentFor: contentForOf(node, depth),
+    }
+    const inner = renderTemplate(cb.template as CompiledTemplate, blockCtx)
+    if (cb.css) {
+      if (cb.cssTemplate) {
+        /* Per instance, and only for an id that cannot leave a selector. */
+        if (SAFE_ID.test(node.id) && SAFE_ID.test(id)) {
+          blockCss.set(`${node.type}#${node.id}`, cssForBlockInstance(renderTemplate(cb.cssTemplate as CompiledTemplate, blockCtx, { mode: "css" }), id, node.id))
+        }
+      } else if (!blockCss.has(node.type)) blockCss.set(node.type, cb.css)
+    }
+    const tag = cb.schema.tag === undefined ? "div" : cb.schema.tag
+    if (tag === null) return inner
+    const cls = ["sl-block", ...String(cb.schema.class ?? "").split(/\s+/).filter(Boolean)].join(" ")
+    return `<${tag} class="${escapeAttr(cls)}" ${attrs}>${inner}</${tag}>`
+  }
+  const contentForOf = (owner: { blocks: ResolvedBlock[]; statics: Record<string, ResolvedBlock> }, depth: number) =>
+    (req: ContentForRequest): string => {
+      if (req.what === "blocks") return owner.blocks.map((b) => drawBlock(b, depth + 1)).join("")
+      const saved = owner.statics[req.id]
+      if (saved?.hidden) return ""
+      if (saved && saved.type === req.type) return drawBlock(saved, depth + 1)
+      /* Never edited yet: the block as its file describes it. */
+      const cb = blockOf(req.type)
+      const fresh: ResolvedBlock = {
+        id: req.id,
+        type: req.type,
+        settings: cb ? resolveSettings(cb.schema.settings, undefined, resolveOpts) : {},
+        blocks: [],
+        statics: {},
+      }
+      if (cb) followSchemeColours(cb.schema.settings, fresh.settings, scheme)
+      return drawBlock(fresh, depth + 1)
+    }
+  ctx.contentFor = contentForOf({ blocks, statics }, 0)
+
   /* No tag here acts on the whole document, whatever the file or a richtext
      setting held: storelib/template.ts, DOCUMENT_MARKUP. And nothing drawn
      runs anything, however the template spelled it: storelib/raw-html.ts,
@@ -122,19 +202,22 @@ export function renderSection(input: RenderInput): Rendered {
   if (colors.scheme.gradient) rootStyle.background = colors.scheme.gradient
   attrs.push(`style="${escapeAttr(styleAttr(rootStyle))}"`)
   const html = `<div ${attrs.join(" ")}>${inner}</div>`
+  const sectionCss = compiled.css
+    ? cssForInstance(compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css, id)
+    : ""
+  const css = [sectionCss, ...blockCss.values()].filter(Boolean).join("\n")
   return {
     html,
     /* It is written into a <style> element, which a `</style` would end early. */
-    css: compiled.css
-      ? guardStyleText(
-          cssForInstance(
-            compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css,
-            id,
-          ),
-        )
-      : "",
+    css: css ? guardStyleText(css) : "",
     script: compiled.script,
   }
+}
+
+const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
 }
 
 function escapeAttr(s: string): string {

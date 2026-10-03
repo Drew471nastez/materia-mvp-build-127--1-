@@ -19,7 +19,8 @@
  * Pure functions of a section list, so the placement is tested without an
  * editor (tests/ai-section-placement.test.ts).
  */
-import type { SectionInstance } from "./types"
+import { freshBlocks } from "./block-tree"
+import type { BlockInstance, SectionInstance } from "./types"
 
 /** The type and id of the placeholder. Nothing real can have either. */
 export const WRITING_SECTION_TYPE = "__storelib_writing__"
@@ -141,8 +142,11 @@ export function instanceFromSchema(
     type,
     name: schema.name ?? type,
     settings: { ...(preset?.settings ?? {}) },
-    /* A copy: two sections added from one preset must not share block objects. */
-    blocks: preset?.blocks ? (JSON.parse(JSON.stringify(preset.blocks)) as SectionInstance["blocks"]) : [],
+    /* A copy with ids of its own, derived from this section's id: two sections added from one preset share neither block objects nor block ids. A static block keeps its id. */
+    blocks: (() => {
+      let n = 0
+      return freshBlocks(preset?.blocks ? (JSON.parse(JSON.stringify(preset.blocks)) as BlockInstance[]) : [], () => `${id}-b${++n}`)
+    })(),
     hidden: false,
   }
 }
