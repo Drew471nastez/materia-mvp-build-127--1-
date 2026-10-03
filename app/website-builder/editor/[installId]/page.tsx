@@ -67,7 +67,8 @@ import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schem
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
-import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
+import { editorPageKeyOf, editorPagePath, resolveEditorHref } from "@/lib/website-builder/editor-navigation"
+import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
@@ -80,7 +81,8 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
+import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
@@ -107,7 +109,7 @@ import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
-import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
+import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -3679,11 +3681,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * `useLayoutEffect`, so it is done before the browser paints: a scroll
    * corrected after a paint is a scroll somebody saw.
    */
+  /** A section to scroll to on the page being opened, from a link like `/about#section-x`. */
+  const pendingAnchor = useRef<string | null>(null)
   useLayoutEffect(() => {
     /* The page is here, so the hold that kept the canvas still while it was
        being fetched ends now, before the one move it was protecting. */
     openingPage.current = false
     document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+  }, [currentPage, selectedProductPage])
+  /* Opened by a link to one of its sections (`/about#section-x`): from the
+     top down to it, once the canvas has drawn it. The canvas draws a
+     deferred copy, so it is looked for over a few frames. */
+  useEffect(() => {
+    const scroller = document.getElementById("wb-preview-root")
+    const anchor = pendingAnchor.current
+    pendingAnchor.current = null
+    if (!anchor || !scroller) return
+    let tries = 0
+    let frame = 0
+    const look = () => {
+      const root = themeRootOf(scroller.querySelector("[data-storelib-theme]"))
+      if (root && scrollToHash(root, anchor, { scroller })) return
+      if (++tries < 30) frame = requestAnimationFrame(look)
+    }
+    frame = requestAnimationFrame(look)
+    return () => cancelAnimationFrame(frame)
   }, [currentPage, selectedProductPage])
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
@@ -3981,10 +4003,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       case "ignore":
         return
 
+      /* A section of this page: the same scroll, curve and landing the live
+         site has (lib/website-builder/section-motion), inside the canvas. */
       case "anchor": {
         const scroller = document.getElementById("wb-preview-root")
-        const target = scroller?.querySelector<HTMLElement>(`#${window.CSS.escape(decision.id)}`)
-        if (scroller && target) scrollWithin(scroller, target)
+        const root = scroller ? themeRootOf(scroller.querySelector("[data-storelib-theme]")) : null
+        if (scroller && root) scrollToHash(root, decision.id, { scroller })
         return
       }
 
@@ -4009,6 +4033,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       case "page":
+        /* Opened at its top as always, then taken to the section the hash
+           names once it is drawn: see the effect after "you arrive at the top". */
+        pendingAnchor.current = decision.anchor ?? null
         holdCanvasWhileOpening()
         pageChangeRef.current(decision.key as PageKey)
         return
@@ -5104,8 +5131,52 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * disagree about what pages a site has: if it is somewhere you can open in
    * the editor, it is somewhere you can link to.
    */
+  /**
+   * THE SECTIONS OF THE PAGE THAT IS OPEN, for "Sections on this page". From
+   * the sections being edited, so a heading changed a second ago is the name
+   * in the list. Kept the same array while nothing a link shows has changed,
+   * or every keystroke anywhere would draw every link field again.
+   */
+  const openPagePath = selectedProductPage ? null : editorPagePath(currentPage, SHOP_PATH)
+  const sectionTargetsRef = useRef<{ key: string; list: LinkTarget[] }>({ key: "", list: [] })
+  const sectionTargets = useMemo(() => {
+    const list = sectionLinkTargets(sections, openPagePath, (s) => sectionDisplayName(s, librarySchemas))
+    const key = JSON.stringify(list)
+    if (key !== sectionTargetsRef.current.key) sectionTargetsRef.current = { key, list }
+    return sectionTargetsRef.current.list
+  }, [sections, openPagePath, librarySchemas])
+  /**
+   * Another page's sections, read when somebody opens that page's row in a
+   * link field. Its saved draft, through the same route the page switcher
+   * uses, once per page while this page is open.
+   */
+  const pageSectionsCache = useRef(new Map<string, Promise<LinkTarget[]>>())
+  useEffect(() => { pageSectionsCache.current.clear() }, [currentPage])
+  const baseTargetsRef = useRef<LinkTarget[]>([])
+  const sectionSource = useMemo<SectionLinkSource>(() => ({
+    currentPath: openPagePath,
+    load: (path: string) => {
+      const key = editorPageKeyOf(path, { shopPath: SHOP_PATH, customPageKeys: customPagesRef.current.map((p) => p.key) })
+      if (!key) return Promise.resolve([])
+      const hit = pageSectionsCache.current.get(key)
+      if (hit) return hit
+      const label = baseTargetsRef.current.find((t) => t.kind === "page" && t.href === path)?.label
+      const read = fetch(`/api/website-builder/themes/${installId}/sections?page=${encodeURIComponent(key)}`)
+        .then((r) => (r.ok ? r.json() : { sections: [] }))
+        .then((d: { sections?: SectionInstance[] }) =>
+          sectionLinkTargets(d.sections ?? [], path, (s) => sectionDisplayName(s, librarySchemas), label),
+        )
+        .catch(() => {
+          pageSectionsCache.current.delete(key)
+          return [] as LinkTarget[]
+        })
+      pageSectionsCache.current.set(key, read)
+      return read
+    },
+  }), [openPagePath, installId, librarySchemas])
   const linkTargets = useMemo<LinkTarget[]>(
     () => [
+      ...sectionTargets,
       { href: "/", label: "Home", kind: "page" },
       /**
        * `/products`, not `/shop`. The picker offered "Shop" pointing at
@@ -5131,8 +5202,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * the sections that say "collection" take hand-typed items.
        */
     ],
-    [customPages, products],
+    [customPages, products, sectionTargets],
   )
+  baseTargetsRef.current = linkTargets
   /**
    * Insert at a gap in the canvas. `at` counts BODY sections — 0 is above the
    * first — and `addSection` clamps whatever lands here into the range
@@ -7229,6 +7301,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           onRemoveBlock: removeBlock,
           onReorderBlocks: reorderBlocks,
           linkTargets,
+          linkSections: sectionSource,
           /* Policies: the open page goes through the writers above, any other through the sections route. */
           currentPageKey: currentPage,
           currentSections: sections,
@@ -7361,7 +7434,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 {renderSidebarTabs()}
               </div>
               <div ref={desktopScrollRef} data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
-                <LinkTargetsProvider targets={linkTargets}>
+                <LinkTargetsProvider targets={linkTargets} sections={sectionSource}>
                 <EditorFieldProvider value={fieldEnv}>
                   <div
                     key={sidebarPanelKey}
@@ -7434,7 +7507,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 sat below the screen at the half stop with no way to scroll
                 it into view. scripts/check-sheet-reach.mjs measures it. */}
             <div data-wb-sidebar-scroll data-sheet-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
-              <LinkTargetsProvider targets={linkTargets}>
+              <LinkTargetsProvider targets={linkTargets} sections={sectionSource}>
               <EditorFieldProvider value={fieldEnv}>
                   <div
                     key={sidebarPanelKey}
@@ -7840,6 +7913,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               if (inNav && internal && !ownsItsExit) {
                 e.stopPropagation()
                 handleEditorNavigate(href, true)
+              } else if (anchor && !ownsItsExit && href.includes("#")) {
+                /*
+                  A LINK TO A SECTION OF THIS PAGE SCROLLS THE CANVAS TO IT,
+                  wherever the link is: a button in a hero, a footer link
+                  written as `#faq`. Only when the editor's own rule says it
+                  is an anchor here, which is never for a section's link
+                  while the inspector is on (a tap there selects). A section
+                  that also follows its own links asks for the same scroll,
+                  and the second ask is the same scroll (section-motion.ts).
+                */
+                const decision = resolveEditorHref(href, {
+                  currentPage: currentPageRef.current,
+                  inspectorEnabled: inspectorRef.current,
+                  fromNav: inNav,
+                  shopPath: SHOP_PATH,
+                  customPageKeys: customPagesRef.current.map((p) => p.key),
+                })
+                if (decision.kind === "anchor") handleEditorNavigate(href, inNav)
               }
             }}
             onSubmitCapture={(e) => e.preventDefault()}

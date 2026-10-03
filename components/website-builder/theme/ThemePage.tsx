@@ -42,6 +42,7 @@ import { fontStylesheetHref } from "@/lib/website-builder/font-link"
 import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
+import { useSiteMotion } from "./use-site-motion"
 
 export type SectionRole = "header" | "body" | "footer"
 
@@ -459,6 +460,14 @@ export function ThemePage({
       />
     ))
 
+  /**
+   * LINKS TO A SECTION SCROLL TO IT, AND SECTIONS ARRIVE AS THEY COME INTO
+   * VIEW, here and therefore everywhere this page is drawn: the canvas and
+   * every published route alike. See lib/website-builder/section-motion.ts.
+   */
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  useSiteMotion(rootRef, theme, sections, storefront?.inEditor === true)
+
   const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>)
   /**
    * The theme's stylesheet, built and handed to React once per theme. Inline,
@@ -501,6 +510,7 @@ export function ThemePage({
     */}
     <SiteWishlistProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
     <div
+      ref={rootRef}
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
       /* Website Settings › General › Language. Absent until one is chosen,
          so the document's own `lang` stands. */

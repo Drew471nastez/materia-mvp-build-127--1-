@@ -1,4 +1,4 @@
-import type { LinkTarget } from "@/components/website-builder/link-picker"
+import type { LinkTarget, SectionLinkSource } from "@/components/website-builder/link-picker"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /**
@@ -90,6 +90,8 @@ export interface SettingsContext {
   onReorderBlocks?: (sectionId: string, blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
   /** The site's pages and products, for the link picker. */
   linkTargets?: LinkTarget[]
+  /** The open page's address and a reader for other pages' sections, for "Sections on this page". */
+  linkSections?: SectionLinkSource
   /**
    * The page open in the builder and its sections. Policies edits that page
    * through `onSectionSetting`, since the builder saves it itself; any other

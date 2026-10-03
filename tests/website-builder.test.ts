@@ -641,7 +641,7 @@ section("Choosing an icon, and choosing where a link goes")
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
       /\.\.\.customPages\.map/.test(editorSrc) &&
       /\.\.\.products\.map/.test(editorSrc) &&
-      (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\}>/g) ?? []).length === 2,
+      (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\} sections=\{sectionSource\}>/g) ?? []).length === 2,
   )
 
   // Opening in the flow rather than floating: the sidebar is a scroller

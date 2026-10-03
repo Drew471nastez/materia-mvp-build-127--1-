@@ -13,6 +13,7 @@ import {
   Mail,
   Package,
   Phone,
+  Rows3,
   ScrollText,
   Search,
   Store,
@@ -25,14 +26,17 @@ import { OverlayRail } from "@/components/storefront/overlay-scroll"
 import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
 import { linkKind, normalizeLinkAddress } from "@/lib/website-builder/link-address"
 import {
+  drillsIntoSections,
   linkCategoryOf,
   linkMenu,
   picksDirectly,
   resultCount,
   searchLinkTargets,
+  sectionTargetFor,
   type LinkCategoryKey,
   type LinkMenuEntry,
 } from "@/lib/website-builder/link-menu"
+import { normalizePath, splitSectionHref, type AnchorCandidate } from "@/lib/website-builder/section-anchors"
 
 /**
  * ===========================================================================
@@ -61,6 +65,14 @@ import {
  * field shows the page's NAME ("Shop") rather than the path, and the path
  * comes back the moment you put the cursor in it to edit.
  *
+ * SECTIONS. "Sections on this page" lists the open page's sections by the
+ * words a visitor reads (their heading, else their name), and the chevron
+ * on Home's row or a page's row opens that page's sections. A picked
+ * section is stored as `/<page>#section-<instance id>`, which survives a
+ * renamed heading, and shown by its name with the section mark. A hash
+ * typed by hand (`#pricing`) is shown the same way when it names a section
+ * (lib/website-builder/section-anchors.ts), and left as typed when not.
+ *
  * ON A PHONE the cursor does not open the list: the keyboard would come up
  * over it (the "I cannot select anything" report). The chevron opens it
  * without the keyboard, in the flow of the sheet, and typing opens it too.
@@ -70,13 +82,36 @@ export interface LinkTarget {
   /** What goes in the field. */
   href: string
   label: string
-  kind: "page" | "product"
+  kind: "page" | "product" | "section"
   /** A product's picture, drawn small beside its name. */
   image?: string
+  /**
+   * A section's facts, for matching a stored hash to it
+   * (lib/website-builder/section-anchors.ts): its page's address, or null on
+   * a template page, and what the section reads as.
+   */
+  section?: AnchorCandidate & { page: string | null }
+  /** The page a section of ANOTHER page is on, shown before its name. */
+  context?: string
 }
+
+/**
+ * Where section links come from, beside the targets: the address of the
+ * page open in the builder (null for a product page, a template for many
+ * addresses), and a way to read another page's sections when somebody
+ * opens one in the list. The editor supplies it; without it the picker has
+ * the open page's sections only.
+ */
+export interface SectionLinkSource {
+  currentPath: string | null
+  load?: (pagePath: string) => Promise<LinkTarget[]>
+}
+
+const SectionLinkContext = React.createContext<SectionLinkSource>({ currentPath: null })
 
 /** Each kind of place's mark, in the first list and beside every row of its own. */
 const CATEGORY_ICON: Record<LinkCategoryKey, LucideIcon> = {
+  sections: Rows3,
   home: House,
   shop: Store,
   products: Package,
@@ -149,15 +184,58 @@ export function LinkPicker({
   const [active, setActive] = React.useState(-1)
   const [error, setError] = React.useState<string | null>(null)
 
-  const known = React.useMemo(() => targets.find((t) => t.href === value) ?? null, [targets, value])
+  /**
+   * A PAGE'S OWN SECTIONS, opened from its row. `drill` is the page, and
+   * `drillList` its sections: null while another page's are being read.
+   */
+  const source = React.useContext(SectionLinkContext)
+  const [drill, setDrill] = React.useState<LinkTarget | null>(null)
+  const [drillList, setDrillList] = React.useState<LinkTarget[] | null>(null)
+  const drillRef = React.useRef<LinkTarget | null>(null)
+  /** Another page's sections, read so a link to one of them shows its name. */
+  const [remote, setRemote] = React.useState<LinkTarget[]>([])
+  const here = source.currentPath === null ? null : normalizePath(source.currentPath)
+
+  const known = React.useMemo(
+    () =>
+      targets.find((t) => t.href === value) ??
+      /* A section, by whatever its link says: `#section-<id>`, `/#pricing`, `#ghostwriting`. */
+      sectionTargetFor(value, remote.length ? [...targets, ...remote] : targets, source.currentPath),
+    [targets, value, remote, source.currentPath],
+  )
+
+  /* A link to a section of another page: read that page's sections once, to name it. */
+  React.useEffect(() => {
+    if (known || !source.load) return
+    const split = splitSectionHref(value)
+    if (!split || split.path === null || split.path === here) return
+    let live = true
+    source.load(split.path).then(
+      (list) => { if (live) setRemote(list) },
+      () => {},
+    )
+    return () => { live = false }
+  }, [value, known, source, here])
+
   const menu = React.useMemo(() => linkMenu(targets), [targets])
   const query = typed ? draft.trim() : ""
   const searching = query.length > 0
   const entry = !searching && level ? (menu.find((e) => e.category.key === level) ?? null) : null
+  /** The rows that open a page's sections: home and the creator's pages, when the editor can read them. */
+  const canDrill = (t: LinkTarget) => drillsIntoSections(t) && (!!source.load || (here !== null && normalizePath(t.href) === here))
 
   const rows = React.useMemo<Row[]>(() => {
     if (searching) {
       return searchLinkTargets(targets, query).map((target) => ({ type: "pick", target, icon: CATEGORY_ICON[linkCategoryOf(target)] }))
+    }
+    if (drill) {
+      const list = drillList ?? []
+      return [
+        /* No count while another page's sections are on their way. */
+        { type: "back", count: drillList === null ? -1 : list.length },
+        { type: "pick", target: drill, icon: CATEGORY_ICON[linkCategoryOf(drill)] },
+        ...list.map((target) => ({ type: "pick" as const, target, icon: CATEGORY_ICON.sections })),
+      ]
     }
     if (entry) {
       const icon = CATEGORY_ICON[entry.category.key]
@@ -166,7 +244,7 @@ export function LinkPicker({
     return menu.map((e) =>
       picksDirectly(e) ? { type: "pick", target: e.targets[0], icon: CATEGORY_ICON[e.category.key] } : { type: "open", entry: e },
     )
-  }, [searching, targets, query, entry, menu])
+  }, [searching, targets, query, entry, menu, drill, drillList])
 
   const showList = open && rows.length > 0
 
@@ -191,7 +269,44 @@ export function LinkPicker({
     setActive(-1)
     setLevel(null)
     setDir(null)
+    drillRef.current = null
+    setDrill(null)
+    setDrillList(null)
   }, [])
+
+  /**
+   * Into a page's sections. The open page's are already here; another
+   * page's are read (the draft, as the builder shows it), and the list says
+   * so while they are on their way rather than showing an empty one.
+   */
+  const openSections = (page: LinkTarget, fromKeyboard: boolean) => {
+    drillRef.current = page
+    setDrill(page)
+    setDir("in")
+    setActive(fromKeyboard ? 1 : -1)
+    const path = normalizePath(page.href)
+    if (path === here) {
+      setDrillList(targets.filter((t) => t.kind === "section"))
+      return
+    }
+    if (!source.load) return setDrillList([])
+    setDrillList(null)
+    source.load(path).then(
+      (list) => { if (drillRef.current === page) setDrillList(list) },
+      () => { if (drillRef.current === page) setDrillList([]) },
+    )
+  }
+  /** Back out of a page's sections, onto the row that opened them. */
+  const leaveSections = (fromKeyboard: boolean) => {
+    const page = drillRef.current
+    drillRef.current = null
+    setDrill(null)
+    setDrillList(null)
+    setDir("out")
+    if (!fromKeyboard || !page) return setActive(-1)
+    const back = level ? (menu.find((e) => e.category.key === level)?.targets.indexOf(page) ?? -1) + 1 : menu.findIndex((e) => e.targets[0] === page)
+    setActive(Math.max(0, back))
+  }
 
   /** Into a kind's own list, or back out of it. From the keyboard, the first row of where it lands is active. */
   const goTo = (next: LinkCategoryKey | null, fromKeyboard: boolean) => {
@@ -204,6 +319,14 @@ export function LinkPicker({
   }
   /** Escape inside a kind's list is Back; at the first list it closes (FieldPopover). */
   const onEscape = React.useCallback(() => {
+    if (drillRef.current && !searching) {
+      drillRef.current = null
+      setDrill(null)
+      setDrillList(null)
+      setDir("out")
+      setActive(-1)
+      return true
+    }
     if (!level || searching) return false
     setActive(Math.max(0, menu.findIndex((e) => e.category.key === level)))
     setLevel(null)
@@ -216,6 +339,8 @@ export function LinkPicker({
     setError(null)
     setDraft(t.href)
     setTyped(false)
+    /* A section of another page: keep its page's list, so the field can name it. */
+    if (t.kind === "section" && drillList && drillList.includes(t)) setRemote(drillList)
     close()
     if (t.href !== value) onChange(t.href)
     /* At a thumb, done means the keyboard goes; at a keyboard, the cursor stays. */
@@ -225,6 +350,7 @@ export function LinkPicker({
   const choose = (row: Row, fromKeyboard: boolean) => {
     if (row.type === "pick") pick(row.target)
     else if (row.type === "open") goTo(row.entry.category.key, fromKeyboard)
+    else if (drill) leaveSections(fromKeyboard)
     else goTo(null, fromKeyboard)
   }
 
@@ -262,7 +388,7 @@ export function LinkPicker({
   /* A new list starts at its top. */
   React.useLayoutEffect(() => {
     if (listRef.current) listRef.current.scrollTop = 0
-  }, [level, searching])
+  }, [level, searching, drill])
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -287,6 +413,20 @@ export function LinkPicker({
       }
       return
     }
+    /* Right opens a page's sections and Left comes back, while a row is active (otherwise they move the caret). */
+    if (e.key === "ArrowRight" && showList && !searching && active >= 0) {
+      const row = rows[active]
+      if (row?.type === "pick" && !drill && canDrill(row.target)) {
+        e.preventDefault()
+        openSections(row.target, true)
+      }
+      return
+    }
+    if (e.key === "ArrowLeft" && showList && drill && active >= 0) {
+      e.preventDefault()
+      leaveSections(true)
+      return
+    }
     if (e.key === "Escape" && !open && typed) {
       /* The list is already shut (FieldPopover took the first Escape): this one puts the link back. */
       e.preventDefault()
@@ -296,8 +436,13 @@ export function LinkPicker({
     }
   }
 
-  /** What the box shows: the address while editing, the page's name at rest. */
-  const shown = focused ? draft : known ? known.label : value
+  /**
+   * What the box shows: the address while editing, the page's name at rest.
+   * A section is its name ("Pricing"), and a section of another page says
+   * which page first ("About · Pricing"), never `#section-…`.
+   */
+  const knownLabel = known ? (known.context ? `${known.context} · ${known.label}` : known.label) : ""
+  const shown = focused ? draft : known ? knownLabel : value
 
   const rowH = phone ? "h-11" : "h-9"
   const optionClass = (i: number) =>
@@ -309,7 +454,9 @@ export function LinkPicker({
 
   const pickRow = (row: Extract<Row, { type: "pick" }>, i: number) => {
     const t = row.target
-    const current = value === t.href
+    const current = value === t.href || (known !== null && known === t)
+    /* Not inside a page's sections: that page's own row there picks it. */
+    const drills = !drill && !searching && canDrill(t)
     return (
       <div
         key={`${t.kind}:${t.href}`}
@@ -332,6 +479,29 @@ export function LinkPicker({
           {t.label}
         </span>
         {current && <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label="Linked now" />}
+        {drills && (
+          /**
+           * THE PAGE'S SECTIONS, beside the page. The row picks the page;
+           * the chevron opens its sections, the way a row with a list of
+           * its own does in the first list.
+           */
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={`Sections on ${t.label}`}
+            title="Sections"
+            onClick={(e) => {
+              e.stopPropagation()
+              openSections(t, false)
+            }}
+            className={cn(
+              "-mr-1 flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
+              phone ? "h-9 w-9" : "h-7 w-7",
+            )}
+          >
+            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        )}
       </div>
     )
   }
@@ -444,7 +614,7 @@ export function LinkPicker({
         <div
           id={listId}
           role="listbox"
-          aria-label={entry ? entry.category.label : "Pages and products"}
+          aria-label={drill ? `Sections on ${drill.label}` : entry ? entry.category.label : "Pages and products"}
           onMouseDown={(e) => e.preventDefault()}
           className="flex min-h-0 flex-col"
         >
@@ -463,7 +633,7 @@ export function LinkPicker({
               <div className={cn(optionClass(0), "gap-1.5 pl-1.5")}>
                 <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} />
                 <span className={cn("min-w-0 flex-1 truncate font-medium text-foreground", phone ? "text-[15px]" : "text-[13px]")}>Back</span>
-                <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{resultCount(back.count)}</span>
+                {back.count >= 0 && <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{resultCount(back.count)}</span>}
               </div>
             </div>
           )}
@@ -475,7 +645,7 @@ export function LinkPicker({
               className="cp-overlay-scroll min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-1.5"
             >
               {/* Keyed by the list it is, so a new list comes in with a short fade instead of rows changing in place. */}
-              <div key={searching ? "search" : (level ?? "top")} data-dir={searching ? undefined : (dir ?? undefined)} className="wb-link-level">
+              <div key={searching ? "search" : drill ? `sections:${drill.href}` : (level ?? "top")} data-dir={searching ? undefined : (dir ?? undefined)} className="wb-link-level">
                 {rows.map((row, i) => {
                   if (row.type === "back") return null
                   if (row.type === "pick") return pickRow(row, i)
@@ -500,6 +670,11 @@ export function LinkPicker({
                     </div>
                   )
                 })}
+                {drill && !searching && (drillList === null || drillList.length === 0) && (
+                  <p className={cn("px-2 text-muted-foreground", phone ? "py-3 text-[14px]" : "py-2 text-[12px]")}>
+                    {drillList === null ? "Loading sections" : "No sections on this page yet"}
+                  </p>
+                )}
               </div>
             </div>
             <OverlayRail scrollerRef={listRef} />
@@ -528,8 +703,22 @@ export function LinkPicker({
  */
 const LinkTargetsContext = React.createContext<LinkTarget[]>([])
 
-export function LinkTargetsProvider({ targets, children }: { targets: LinkTarget[]; children: React.ReactNode }) {
-  return <LinkTargetsContext.Provider value={targets}>{children}</LinkTargetsContext.Provider>
+export function LinkTargetsProvider({
+  targets,
+  sections,
+  children,
+}: {
+  targets: LinkTarget[]
+  /** The open page's address and a reader for other pages' sections. Kept when absent, so a nested provider inherits it. */
+  sections?: SectionLinkSource
+  children: React.ReactNode
+}) {
+  const inherited = React.useContext(SectionLinkContext)
+  return (
+    <SectionLinkContext.Provider value={sections ?? inherited}>
+      <LinkTargetsContext.Provider value={targets}>{children}</LinkTargetsContext.Provider>
+    </SectionLinkContext.Provider>
+  )
 }
 
 export function useLinkTargets(): LinkTarget[] {
