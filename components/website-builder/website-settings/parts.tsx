@@ -13,6 +13,7 @@
 import * as React from "react"
 import { Check, Copy, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { switchKnobDark, switchTrackDark } from "@/components/ui/switch-style"
 
 /**
  * The subject's name, and its one action beside it. On a phone the action
@@ -140,14 +141,23 @@ export function Badge({ tone, children }: { tone: Tone; children: React.ReactNod
   )
 }
 
-/** A switch. A real checkbox underneath, so a keyboard and a screen reader get one for free. */
+/**
+ * A switch: the app's one switch (components/ui/switch-style.ts), in its
+ * dark drawing, so the knob slides on transform over the same 200ms curve
+ * as everywhere else. A real checkbox underneath, so a keyboard and a
+ * screen reader get one for free.
+ */
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (on: boolean) => void; label: string }) {
   return (
-    /* 24px drawn, 44px pressed: the band around it belongs to the label. */
-    <label className="relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] [-webkit-tap-highlight-color:transparent]">
+    /* 22px drawn in a 24px box, 44px pressed: the band around it belongs to the label. */
+    <label
+      data-toggle={checked ? "on" : "off"}
+      className="relative inline-flex h-6 w-[38px] shrink-0 cursor-pointer items-center after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] [-webkit-tap-highlight-color:transparent]"
+    >
       <input type="checkbox" className="peer sr-only" checked={checked} aria-label={label} onChange={(e) => onChange(e.target.checked)} />
-      <span className="absolute inset-0 rounded-full bg-white/15 transition-colors duration-150 peer-checked:bg-emerald-500 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white/60" />
-      <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.35)] transition-transform duration-150 peer-checked:translate-x-4" />
+      <span aria-hidden className={cn(switchTrackDark(checked), "peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white/60")}>
+        <span data-toggle-knob="" className={switchKnobDark(checked)} />
+      </span>
     </label>
   )
 }

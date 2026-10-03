@@ -81,7 +81,7 @@ export function RichTextSection({ section, theme, isEditing, isSelected, onClick
         )}
         {!!s.body && (
           <div
-            className="text-lg leading-relaxed [&_a]:underline [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5"
+            className="text-lg leading-relaxed [&_a]:underline [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_blockquote]:mb-4 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-4 [&_blockquote]:opacity-80"
             style={{ color: bodyColor }}
             dangerouslySetInnerHTML={stableHtml(str(s.body))}
           />

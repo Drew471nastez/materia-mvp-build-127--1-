@@ -1295,6 +1295,7 @@ html.capacitor body {
   .wb-richtext li + li { margin-top: 0.25em; }
   .wb-richtext a { color: #8b5cf6; text-decoration: underline; }
   .wb-richtext strong, .wb-richtext b { font-weight: 650; }
+  .wb-richtext blockquote { border-left: 2px solid currentColor; padding-left: 0.85em; opacity: 0.8; }
 
   /* Project settings: a whole page over the builder, arriving from a touch
      below and a touch smaller, which is what makes it a page opening rather

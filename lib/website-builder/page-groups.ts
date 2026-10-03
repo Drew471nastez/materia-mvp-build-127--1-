@@ -32,7 +32,7 @@
  * Pure, so the grouping is tested by running it (tests/library-and-pages.test.ts).
  */
 import { ACCOUNT_PAGE_PATHS } from "./account-pages"
-import { POLICY_PAGE_KEYS } from "./policy-pages"
+import { POLICY_PAGE_KEYS, SHIPPING_POLICY } from "./policy-pages"
 import { NOT_FOUND_PAGE_KEY } from "./site-pages"
 
 export type PageGroupKey = "home" | "shop" | "products" | "pages" | "accounts" | "contact" | "policies" | "other"
@@ -60,7 +60,7 @@ export function pageGroupOf(key: string): PageGroupKey {
   if (key === "product") return "products"
   if (ACCOUNT_KEYS.includes(key)) return "accounts"
   if (key === "contact") return "contact"
-  if (POLICY_PAGE_KEYS.includes(key)) return "policies"
+  if (POLICY_PAGE_KEYS.includes(key) || key === SHIPPING_POLICY.key) return "policies"
   if (key === NOT_FOUND_PAGE_KEY) return "other"
   return "pages"
 }
@@ -77,6 +77,7 @@ const WITHIN: Readonly<Record<string, number>> = {
   about: -1,
   ...Object.fromEntries(ACCOUNT_KEYS.map((k, i) => [k, i])),
   ...Object.fromEntries(POLICY_PAGE_KEYS.map((k, i) => [k, i])),
+  [SHIPPING_POLICY.key]: POLICY_PAGE_KEYS.length,
 }
 
 export interface GroupablePage {

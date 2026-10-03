@@ -7192,6 +7192,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           onRemoveBlock: removeBlock,
           onReorderBlocks: reorderBlocks,
           linkTargets,
+          /* Policies: the open page goes through the writers above, any other through the sections route. */
+          currentPageKey: currentPage,
+          currentSections: sections,
+          onPageDraftSaved: (key) => {
+            setUnpublished(true)
+            setCustomPages((prev) => (prev.some((p) => p.key === key) || key in PAGE_META ? prev : [...prev, { id: key, name: pageTitleFromKey(key), key: key as PageKey }]))
+          },
         }}
       />
 
