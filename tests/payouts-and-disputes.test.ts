@@ -85,6 +85,28 @@ console.log("\nPayouts draws what it was given")
   check("the help link goes to an article that exists", /HOW_PAYOUTS_WORK = "\/help\/orders-and-payouts\/how-payouts-work"/.test(client) && /slug: "how-payouts-work"/.test(read("lib/help/articles.ts")))
 }
 
+console.log("\nThe account panel answers the press, and can be let go")
+{
+  const client = code("app/app/payouts/payouts-client.tsx")
+  const settings = code("components/app/settings/storelib-payments-settings.tsx")
+  const flow = code("components/app/settings/payments-setup-flow.tsx")
+  /* The owner, October 2026: "when I click update bank, it takes too much to appear, and it doesn't appear smooth". */
+  check("the overview is fetched while the page is read, not on the press", /warmOverview\(\)/.test(client) && /if \(paymentsReady\) warmOverview\(\)/.test(client))
+  check("the panel opens on the press, before the answer arrives", /if \(manageRequest > 0\) setPanel\(\{ open: true/.test(settings) && !/manageRequest > 0 && data/.test(settings))
+  check("  with the same shell and the card's own shapes in it", /export function PaymentsPanelWaiting/.test(flow) && /flow \?\? <PaymentsPanelWaiting/.test(settings))
+  check("  and the real flow takes its place once it lands", /setPanel\(\(p\) => \(p\.open \? \{ \.\.\.p, mode: modeFor\(view\?\.action\) \} : p\)\)/.test(settings))
+  check("every press that opens it says so until it is there", /const openAccountPanel = useCallback/.test(client) && !/onClick: \(\) => setManageRequest/.test(client) && /opening \? <Loader2/.test(client))
+  check("  and stops saying so when the panel reports itself shown", /onPanelShown=\{\(\) => setOpening\(false\)\}/.test(client) && /if \(panel\.open\) onPanelShown\?\.\(\)/.test(settings))
+  check("it comes and goes on a curve, and the timer matches the leaving", /const ENTER_MS = 260/.test(flow) && /const EXIT_MS = 200/.test(flow) && /\}, EXIT_MS\)/.test(flow) && /data-setup-card\]\]:animate-out/.test(flow))
+
+  /* The owner: a creator should be able to disconnect the current setup and connect another, subtly, somewhere clean on Payouts. */
+  check("Payouts offers a different account, quietly, under the bank", /data-switch-account=""/.test(client) && /Use a different account/.test(client) && /Selling under a different name or business\?/.test(client))
+  check("  it says what stays and what stops before anything happens", /Your orders, payouts and everything already paid out stay exactly as they are\./.test(client) && /Checkout is closed until payments are set up again/.test(client))
+  check("  it warns while money is still in the account", /You still have \{fmt\(holding, currency\)\} in this account/.test(client))
+  check("  the server is the one that refuses, with the creator's second yes", /body: JSON\.stringify\(\{ confirm: true \}\)/.test(client) && /Cash out your balance first, then you can disconnect\./.test(code("lib/payments/stripe/connect.ts")))
+  check("  and nothing is deleted on an account that ever took money", /const started = !!\(account\.details_submitted \|\| account\.charges_enabled \|\| account\.payouts_enabled\)/.test(code("lib/payments/stripe/connect.ts")))
+}
+
 console.log("\nWhat a dispute means")
 {
   check("an inquiry is not a chargeback", isInquiry("warning_needs_response") && isInquiry("warning_under_review") && !isInquiry("needs_response") && !isInquiry(null))

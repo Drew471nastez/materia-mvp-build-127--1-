@@ -90,9 +90,10 @@ import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/u
 import { DateRangePicker } from "@/components/app/date-range-picker";
 import { HelpLabel } from "@/components/app/help-label";
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu";
-import { accentDepth, primaryDepth, secondaryDepth } from "@/components/ui/depth-button";
+import { accentDepth, criticalDepth, primaryDepth, secondaryDepth } from "@/components/ui/depth-button";
 import { decimalsOf } from "@/lib/payments/money";
 import { pickBalance } from "@/lib/payments/display-currency";
+import { forgetOverview, warmOverview } from "@/lib/payments/overview-cache";
 import { RowMenuButton, StatusBadge, card, iconButton } from "@/app/app/orders/order-parts";
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
@@ -2645,9 +2646,25 @@ function friendlyRequirements(keys: string[]): string[] {
  * where it used to be up to three separate banners stacked above it. With no
  * bank at all the card says so and its button is Add bank.
  */
-function PayoutMethodCard({ onManage }: { onManage: () => void }) {
+function PayoutMethodCard({
+  onManage,
+  opening,
+  onDisconnected,
+  currency,
+  available,
+  pending,
+}: {
+  onManage: () => void;
+  /** The account panel was asked for and is not on screen yet. */
+  opening: boolean;
+  onDisconnected: () => void;
+  currency: string;
+  available: number;
+  pending: number;
+}) {
   const [data, setData] = useState<PayoutMethodData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
 
   const loadData = useCallback(() => {
     fetch("/api/stripe/payout-method")
@@ -2724,8 +2741,10 @@ function PayoutMethodCard({ onManage }: { onManage: () => void }) {
           <button
             type="button"
             onClick={openManageSettings}
-            className={cn(secondaryDepth, "h-11 w-full rounded-xl px-4 text-[14px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}
+            disabled={opening}
+            className={cn(secondaryDepth, "h-11 w-full gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}
           >
+            {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             {notice.action}
           </button>
         </div>
@@ -2758,16 +2777,171 @@ function PayoutMethodCard({ onManage }: { onManage: () => void }) {
             )}
           </div>
         </div>
+        {/* The press says so at once: the panel it opens has to be fetched first. */}
         <button
           type="button"
           onClick={openManageSettings}
-          disabled={loading}
-          className={cn(secondaryDepth, "h-11 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
+          disabled={loading || opening}
+          aria-busy={opening || undefined}
+          className={cn(secondaryDepth, "h-11 gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
+          data-update-bank=""
         >
-          {needsBank ? "Add bank" : "Update bank"}
+          {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {opening ? "Opening" : needsBank ? "Add bank" : "Update bank"}
         </button>
       </div>
+
+      {/*
+        USING A DIFFERENT ACCOUNT. A creator may have set payments up on the
+        wrong account, or a business they no longer use. This is the quiet
+        way out of it, under the bank rather than beside it, because it is
+        rarely what anybody came here for. What it does is spelled out
+        before it happens, and the server refuses while money is still in
+        the account (lib/payments/stripe/connect disconnectStripeAccount).
+      */}
+      {!loading && data ? (
+        <div className="flex items-center justify-between gap-3 border-t border-[#f1f2f4] bg-[#fafafb] px-4 py-2.5">
+          <p className="min-w-0 text-[12px] leading-5 text-[#6b7280]">Selling under a different name or business?</p>
+          <button
+            type="button"
+            onClick={() => setSwitching(true)}
+            className="shrink-0 cursor-pointer text-[12px] font-medium text-[#4b5563] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline max-md:-my-3 max-md:inline-flex max-md:h-11 max-md:items-center"
+            data-switch-account=""
+          >
+            Use a different account
+          </button>
+        </div>
+      ) : null}
+
+      <SwitchAccountPanel
+        open={switching}
+        onClose={() => setSwitching(false)}
+        currency={currency}
+        available={available}
+        pending={pending}
+        onDone={() => {
+          setSwitching(false);
+          onDisconnected();
+        }}
+      />
     </section>
+  );
+}
+
+/**
+ * LETTING GO OF THIS PAYMENTS ACCOUNT, AND SETTING ONE UP AGAIN. A dialog
+ * on a computer and the shared sheet on a phone, because it is the one
+ * thing on this page that turns selling off, and it should read like it.
+ *
+ * It says plainly what stays (orders, payouts, buyers' access, everything
+ * already paid out) and what stops (checkout, until payments are set up
+ * again). The server decides, not this: it refuses while there is money in
+ * the account, so nothing is ever stranded, and the confirmation sent here
+ * is the second yes, after this panel is the first.
+ */
+function SwitchAccountPanel({
+  open,
+  onClose,
+  onDone,
+  currency,
+  available,
+  pending,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onDone: () => void;
+  currency: string;
+  available: number;
+  pending: number;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const holding = available + pending;
+
+  useEffect(() => {
+    if (open) setError(null);
+  }, [open]);
+
+  const disconnect = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/payments/disconnect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      const json = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) throw new Error(json.error || "We couldn't disconnect just now. Nothing was changed.");
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We couldn't disconnect just now. Nothing was changed.");
+      setBusy(false);
+    }
+  };
+
+  const body = (
+    <div className="px-5 pb-2 pt-3">
+      <p className="text-[13px] leading-5 text-[#4b5563]">
+        Your payments account is disconnected and you set payments up again, on whichever account you like. It is the way to move to a different name, a business, or a different bank country.
+      </p>
+      <ul className="mt-3 space-y-1.5 text-[13px] leading-5 text-[#4b5563]">
+        <li className="flex gap-2">
+          <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#15803d]" strokeWidth={3} />
+          <span>Your orders, payouts and everything already paid out stay exactly as they are.</span>
+        </li>
+        <li className="flex gap-2">
+          <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#15803d]" strokeWidth={3} />
+          <span>Buyers keep their files and their access.</span>
+        </li>
+        <li className="flex gap-2">
+          <AlertCircle className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#b54708]" />
+          <span>Checkout is closed until payments are set up again, so buyers cannot pay you in the meantime.</span>
+        </li>
+      </ul>
+      {holding > 0 ? (
+        <p className="mt-3 rounded-xl border border-[#f3e3b3] bg-[#fffaeb] px-3.5 py-2.5 text-[12.5px] leading-5 text-[#8a5a08]">
+          You still have {fmt(holding, currency)} in this account. Cash out everything available and wait for the rest to settle first: it cannot be moved to a new account afterwards.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-3 rounded-xl border border-[#f5c9c3] bg-[#fef3f2] px-3.5 py-2.5 text-[12.5px] leading-5 text-[#8a1c0f]">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+  const footer = (
+    <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
+      <button type="button" className={SHEET_SECONDARY} onClick={onClose} disabled={busy}>
+        Keep this account
+      </button>
+      <button
+        type="button"
+        onClick={() => void disconnect()}
+        disabled={busy}
+        className={cn(criticalDepth, "h-11 gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px] disabled:cursor-not-allowed disabled:opacity-50")}
+        data-confirm-switch=""
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {busy ? "Disconnecting" : "Disconnect and set up again"}
+      </button>
+    </div>
+  );
+  return (
+    <>
+      <DesktopDialog open={open} onClose={onClose} label="Use a different account" width="max-w-[480px]">
+        <PanelHead title="Use a different account" onClose={onClose} />
+        {body}
+        {footer}
+      </DesktopDialog>
+      <BottomSheet isOpen={open} onClose={onClose} label="Use a different account">
+        <PanelHead title="Use a different account" />
+        {body}
+        {footer}
+      </BottomSheet>
+    </>
   );
 }
 
@@ -2988,6 +3162,17 @@ export function PayoutsClient({
   const [refreshKey, setRefreshKey] = useState(0);
   /* Raised by a notice or Update bank: opens the Storelib Payments card's account form on this page. */
   const [manageRequest, setManageRequest] = useState(0);
+  /* The press is waiting for the panel to appear: the button it came from says so. */
+  const [opening, setOpening] = useState(false);
+  const openAccountPanel = useCallback(() => {
+    setOpening(true);
+    setManageRequest((n) => n + 1);
+  }, []);
+  /* The account was let go: the page is a setup page again, so it is read afresh from the server. */
+  const onDisconnected = useCallback(() => {
+    forgetOverview();
+    window.location.reload();
+  }, []);
   const [balanceReady, setBalanceReady] = useState(false);
   const [availableBalance, setAvailableBalance] = useState(
     initialData.availableBalance,
@@ -3103,6 +3288,11 @@ export function PayoutsClient({
     }, 150);
   }, []);
   const changePage = (next: number) => smoothSwitch(() => setRecentPage(next));
+
+  /* The overview the account panel needs, fetched while the page is being read rather than on the press. */
+  useEffect(() => {
+    if (paymentsReady) warmOverview();
+  }, [paymentsReady]);
 
   useEffect(() => {
     if (!hasStripe) { setBalanceReady(true); return; }
@@ -3310,7 +3500,7 @@ export function PayoutsClient({
           tone="critical"
           title="Your last payout failed"
           body="The money is back in your available balance. Check your bank details, then cash out again."
-          action={{ label: "Update bank", onClick: () => setManageRequest((n) => n + 1) }}
+          action={{ label: "Update bank", onClick: openAccountPanel }}
         />
       );
     }
@@ -3330,7 +3520,7 @@ export function PayoutsClient({
               s.action === "support"
                 ? { label: s.actionLabel ?? "Contact support", onClick: () => { window.location.href = "mailto:support@storelib.com"; } }
                 : s.action && s.actionLabel
-                  ? { label: s.actionLabel, onClick: () => setManageRequest((n) => n + 1) }
+                  ? { label: s.actionLabel, onClick: openAccountPanel }
                   : undefined
             }
           />
@@ -3343,7 +3533,7 @@ export function PayoutsClient({
           <Notice
             tone="attention"
             title="Finish setting up payments to cash out"
-            action={{ label: "Continue", onClick: () => setManageRequest((n) => n + 1) }}
+            action={{ label: "Continue", onClick: openAccountPanel }}
           />
         );
       }
@@ -3407,7 +3597,7 @@ export function PayoutsClient({
       {actionsInBar}
 
       {/* Update bank and the notices open the setup panel over the dashboard: no second card. */}
-      {manageRequest > 0 ? <StorelibPaymentsInline panelOnly manageRequest={manageRequest} /> : null}
+      {manageRequest > 0 ? <StorelibPaymentsInline panelOnly manageRequest={manageRequest} onPanelShown={() => setOpening(false)} /> : null}
 
       {notice}
 
@@ -3662,7 +3852,7 @@ export function PayoutsClient({
       </section>
 
       {/* The bank it all goes to */}
-      <PayoutMethodCard onManage={() => setManageRequest((n) => n + 1)} />
+      <PayoutMethodCard onManage={openAccountPanel} opening={opening} onDisconnected={onDisconnected} currency={balanceCurrency} available={available} pending={pending} />
 
       <BalanceDetails
         open={detailsOpen}
@@ -3678,7 +3868,7 @@ export function PayoutsClient({
         bankLoading={detailsLoading}
         onUpdateBank={() => {
           closeDetails();
-          setManageRequest((n) => n + 1);
+          openAccountPanel();
         }}
         payoutsEnabled={payoutsEnabled}
         canCashOut={canCashOut}

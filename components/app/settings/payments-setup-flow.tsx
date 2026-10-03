@@ -27,6 +27,7 @@ import { createPortal } from "react-dom"
 import { Check, ChevronLeft, Clock, ExternalLink, Info, Landmark, Lock, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
@@ -84,7 +85,16 @@ function usePhone(): boolean {
   return phone
 }
 
-const EXIT_MS = 220
+/*
+  HOW IT COMES AND GOES. A phone slides it in from the side like any
+  subpage. A computer fades the page and lifts the card the last few pixels
+  into place, and reverses exactly that on the way out, so closing reads as
+  the card settling back rather than the screen blinking. The timer that
+  takes it off the page is the same length as the leaving animation, so it
+  is never cut short and never lingers after it is invisible.
+*/
+const ENTER_MS = 260
+const EXIT_MS = 200
 
 function Panel({
   open,
@@ -145,20 +155,94 @@ function Panel({
       aria-modal="true"
       aria-label={label}
       data-payments-setup-panel={phone ? "subpage" : "page"}
+      data-leaving={leaving ? "" : undefined}
       className={cn(
         "fixed inset-0 z-[1000] flex h-[100dvh] flex-col bg-white ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9]",
         phone
           ? leaving
             ? "animate-out slide-out-to-right duration-200 [will-change:transform]"
-            : "animate-in slide-in-from-right duration-300 [will-change:transform]"
+            : "animate-in slide-in-from-right duration-[260ms] [will-change:transform]"
           : leaving
             ? "animate-out fade-out-0 duration-200"
             : "animate-in fade-in-0 duration-200",
+        /* The card inside rises the last few pixels in, and sinks back out. */
+        !phone &&
+          (leaving
+            ? "[&_[data-setup-card]]:animate-out [&_[data-setup-card]]:fade-out-0 [&_[data-setup-card]]:zoom-out-[0.99] [&_[data-setup-card]]:slide-out-to-bottom-2 [&_[data-setup-card]]:duration-200 [&_[data-setup-card]]:ease-sheet"
+            : "[&_[data-setup-card]]:animate-in [&_[data-setup-card]]:fade-in-0 [&_[data-setup-card]]:zoom-in-[0.99] [&_[data-setup-card]]:slide-in-from-bottom-2 [&_[data-setup-card]]:duration-[260ms] [&_[data-setup-card]]:ease-sheet"),
       )}
     >
       {children}
     </div>,
     document.body,
+  )
+}
+
+/**
+ * THE PANEL THE MOMENT IT IS ASKED FOR. Opening used to wait on the
+ * payments overview: the press did nothing visible, then a quarter of a
+ * second later (longer on a phone) the whole panel appeared at once. The
+ * press opens this instead, in the same shell, with the card's own shapes
+ * where its content will be, and the real flow replaces it when the answer
+ * lands. Nothing jumps: the shapes are the sizes of the things they stand
+ * in for.
+ */
+export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { open: boolean; onClose: () => void; label?: string }) {
+  const phone = usePhone()
+  return (
+    <Panel open={open} phone={phone} onClose={onClose} label={label}>
+      <div className="shrink-0 border-b border-[#f1f2f4] bg-white pt-[env(safe-area-inset-top)] sm:border-[#eceef1]">
+        <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center gap-1 px-2 sm:h-16 sm:gap-3 sm:px-6">
+          {phone ? (
+            <>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={onClose}
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+              >
+                <ChevronLeft className="h-[22px] w-[22px]" strokeWidth={2.25} />
+              </button>
+              <span className="min-w-0 flex-1 text-center text-[16px] font-semibold text-[#1a1a2e]">{label}</span>
+              <span aria-hidden className="w-11" />
+            </>
+          ) : (
+            <>
+              <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                <StorelibLogo size={28} />
+                <span className="text-[15px] font-semibold text-[#1a1a2e]">Storelib</span>
+                <span aria-hidden className="h-4 w-px bg-[#e5e7eb]" />
+                <span className="truncate text-[14px] text-[#6b7280]">Payments</span>
+              </span>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={onClose}
+                className="-mr-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#eef0f2] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-auto w-full max-w-[560px] sm:px-6 sm:pb-16 sm:pt-10">
+          <Shimmer className="hidden sm:mb-6 sm:block sm:px-1" label={`Opening ${label.toLowerCase()}`}>
+            <ShimmerBlock className="h-6 w-48 rounded-lg" />
+            <ShimmerBlock className="mt-2 h-3.5 w-72 rounded-full" />
+          </Shimmer>
+          <div data-setup-card="" className="bg-white sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80 sm:shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
+            <Shimmer className="flex min-h-[360px] flex-col gap-4 px-5 pt-5 sm:px-7 sm:pt-7">
+              <ShimmerBlock className="h-4 w-40 rounded-full" />
+              <ShimmerBlock className="h-11 w-full rounded-[10px] sm:h-10" />
+              <ShimmerBlock className="h-4 w-32 rounded-full" />
+              <ShimmerBlock className="h-11 w-full rounded-[10px] sm:h-10" />
+            </Shimmer>
+          </div>
+        </div>
+      </div>
+    </Panel>
   )
 }
 
