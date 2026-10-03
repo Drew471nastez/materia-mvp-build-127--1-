@@ -111,13 +111,31 @@ export async function readProduct(db: Db, productId: string): Promise<ProductRow
   return (data as ProductRow | null) ?? null
 }
 
-/** An entitlement, or a completed order: what My Library counts as bought. */
+/**
+ * An entitlement, or a completed order: what My Library counts as bought.
+ * Then one more way in, asked only when neither is there: a community the
+ * person is an active member of has this course in its classroom and lets
+ * them take it (lib/communities/server/classroom.ts communityGrantsCourse,
+ * which says no while communities are switched off). A buyer is answered
+ * from their purchase without that question being asked.
+ */
 export async function ownsProduct(db: Db, userId: string, productId: string): Promise<boolean> {
   const [ent, ord] = await Promise.all([
     db.from("entitlements").select("id").eq("buyer_id", userId).eq("product_id", productId).limit(1),
     db.from("orders").select("id").eq("buyer_id", userId).eq("product_id", productId).eq("status", "completed").limit(1),
   ])
-  return ((ent.data as unknown[] | null)?.length ?? 0) > 0 || ((ord.data as unknown[] | null)?.length ?? 0) > 0
+  if (((ent.data as unknown[] | null)?.length ?? 0) > 0 || ((ord.data as unknown[] | null)?.length ?? 0) > 0) return true
+  return communityGrant(db, userId, productId)
+}
+
+/* Loaded when asked, so the course modules and the community modules do not import each other at start. */
+async function communityGrant(db: Db, userId: string, productId: string): Promise<boolean> {
+  try {
+    const { communityGrantsCourse } = await import("@/lib/communities/server/classroom")
+    return await communityGrantsCourse(db, userId, productId)
+  } catch {
+    return false
+  }
 }
 
 export async function readCreatorCard(db: Db, creatorId: string | null): Promise<CreatorCard | null> {
@@ -243,11 +261,14 @@ export async function syncEnrollment(
   try {
     const { data: existing } = await db
       .from("course_enrollments")
-      .select("id, completed_at")
+      .select("id, completed_at, completed_lessons")
       .eq("buyer_id", input.userId)
       .eq("course_id", input.courseId)
       .maybeSingle()
     const finished = summary.status === "completed"
+    const before = existing as { completed_at?: string | null; completed_lessons?: number | null } | null
+    const lessonsBefore = Number(before?.completed_lessons) || 0
+    const finishedNow = finished && !before?.completed_at
     const row: Record<string, unknown> = {
       completed_lessons: summary.completed,
       total_lessons: summary.total,
@@ -266,10 +287,21 @@ export async function syncEnrollment(
         .from("course_enrollments")
         .upsert({ buyer_id: input.userId, course_id: input.courseId, product_id: input.productId, started_at: now, last_activity_at: now, ...row }, { onConflict: "buyer_id,course_id" })
     }
+    /* A course in a community's classroom: its lessons count there, and finishing it earns points once. */
+    if (summary.completed > lessonsBefore || finishedNow) await courseProgressed(db, { userId: input.userId, productId: input.productId, lessonsBefore, lessonsNow: summary.completed, finished: finishedNow })
   } catch {
     /* Before part 74: nothing to keep it in. */
   }
   return summary
+}
+
+async function courseProgressed(db: Db, p: { userId: string; productId: string; lessonsBefore: number; lessonsNow: number; finished: boolean }): Promise<void> {
+  try {
+    const { onCourseProgress } = await import("@/lib/communities/server/classroom")
+    await onCourseProgress(db, p)
+  } catch {
+    /* The community's points are never worth losing the buyer's progress over. */
+  }
 }
 
 /** Everything about one lesson that decides who may watch it. */

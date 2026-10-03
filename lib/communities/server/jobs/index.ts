@@ -11,6 +11,9 @@ import type { JobKind, JobRow } from "../../types"
 import type { Db } from "../db"
 import { recount } from "./recount"
 import { fanoutAnnouncement } from "./fanout_announcement"
+import { eventReminder } from "./event_reminder"
+import { fanoutEvent } from "./fanout_event"
+import { videoPoll } from "./video_poll"
 
 export interface JobContext {
   /** When the run's budget ends (ms since the epoch). A long handler checks it and hands back `again`. */
@@ -28,4 +31,7 @@ export type JobHandler = (db: Db, job: JobRow, ctx: JobContext) => Promise<JobOu
 export const JOB_HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   recount,
   fanout_announcement: fanoutAnnouncement,
+  event_reminder: eventReminder,
+  fanout_event: fanoutEvent,
+  video_poll: videoPoll,
 }

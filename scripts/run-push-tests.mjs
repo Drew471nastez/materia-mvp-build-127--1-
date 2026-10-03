@@ -359,6 +359,7 @@ const SUITES = [
   "tests/site-chrome.test.ts",
   "tests/communities-foundation.test.ts",
   "tests/communities-member.test.ts",
+  "tests/communities-classroom.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
