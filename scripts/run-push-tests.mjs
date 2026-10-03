@@ -275,6 +275,7 @@ const SUITES = [
   "tests/keyboard-watch.test.ts",
   "tests/agent-attachments.test.ts",
   "tests/work-panel.test.ts",
+  "tests/ask-section-edit.test.ts",
   "tests/ask-storelib.test.ts",
   "tests/ask-conversations.test.ts",
   "tests/ask-dock.test.ts",

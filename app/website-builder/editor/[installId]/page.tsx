@@ -102,6 +102,7 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
+import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
@@ -6712,6 +6713,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
   }, [loadStorelibSources])
+  /**
+   * A SECTION FILE THE RUN HAS JUST WRITTEN, drawn now. It was compiled and
+   * drawn on the server before it was sent, and it is saved when the run
+   * ends; `reloadAiSources` then reads back what was stored. Only the one
+   * file changes, so every other section keeps its compiled copy and the
+   * canvas updates in place, with no reload and no flash.
+   */
+  const aiSourceWritten = useCallback((path: string, source: string) => {
+    setStorelibSources((previous) => (previous[path] === source ? previous : { ...previous, [path]: source }))
+  }, [])
+  /**
+   * WHAT STORELIB AI IS WORKING ON, AND WHAT IT JUST CHANGED: a faint sheen
+   * over the first while the run works, a violet ring that fades once over
+   * the second (components/website-builder/editor/ai-working-overlay.tsx).
+   * When the run ends the first section it changed is brought into view if
+   * it is not on screen, smoothly, by the same reveal Add section uses.
+   */
+  const [aiWorkingIds, setAiWorkingIds] = useState<string[]>([])
+  const [aiSettledIds, setAiSettledIds] = useState<string[]>([])
+  const aiWorkingChange = useCallback((ids: string[]) => {
+    setAiWorkingIds((was) => (was.length === ids.length && was.every((id, i) => id === ids[i]) ? was : ids))
+  }, [])
+  const aiRunFinished = useCallback(
+    (ids: string[]) => {
+      const order = sectionsRef.current.map((s) => s.id)
+      const onPage = ids.filter((id) => order.includes(id)).sort((a, b) => order.indexOf(a) - order.indexOf(b))
+      if (onPage.length === 0) return
+      setAiSettledIds(onPage)
+      revealSection(onPage[0])
+    },
+    [revealSection],
+  )
+  useEffect(() => {
+    if (aiSettledIds.length === 0) return
+    const done = setTimeout(() => setAiSettledIds([]), SETTLE_MS + 100)
+    return () => clearTimeout(done)
+  }, [aiSettledIds])
   const openAiCodeFromSheet = useCallback((path: string) => {
     setAiOpen(false)
     void openCodeRef.current(path)
@@ -7450,6 +7488,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiSheet}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onSourceWritten={aiSourceWritten}
+              onWorkingChange={aiWorkingChange}
+              onRunFinished={aiRunFinished}
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
               onWriteFailed={handleWriteFailed}
@@ -7962,6 +8003,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 shopCards={shopCards}
                 installId={installId}
               />
+              {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
+              <AiWorkingOverlay working={aiWorkingIds} settled={aiSettledIds} />
               </div>
             )}
             </div>
@@ -8031,6 +8074,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiDock}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onSourceWritten={aiSourceWritten}
+              onWorkingChange={aiWorkingChange}
+              onRunFinished={aiRunFinished}
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
               onWriteFailed={handleWriteFailed}

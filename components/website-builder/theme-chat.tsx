@@ -87,9 +87,8 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import {
   ActivityLine,
   AnswerMeta,
-  CodePreview,
   ReportForm,
-  StepsList,
+  StepsTimeline,
   stepsLabel,
   type ReportState,
 } from "@/components/website-builder/ask-activity"
@@ -131,6 +130,7 @@ import {
   READING_MS,
   reduceActivity,
   settleActivity,
+  timelineRows,
   type Activity,
 } from "@/lib/website-builder/ask-activity"
 import { attachProblem, kindOf, stillsRoom } from "@/lib/website-builder/ask-attach"
@@ -309,6 +309,7 @@ function plainWriteError(status: number, error: string | undefined, compileError
     return "I could not get that section right this time. Try again, or describe it in a few more words."
   }
   if (/declined/i.test(raw)) return "That is not something I can write. Try describing a different section."
+  if (status === 504 || /took too long/i.test(raw)) return "Writing that section took too long. Try again, or describe a smaller section."
   if (status === 401) return "Your session ended. Sign in again to use Storelib AI."
   if (status === 429 || status >= 500 || /reach|fetch|network|timeout|overload|rate limit/i.test(raw)) {
     return "Storelib AI is busy right now. Try again in a moment."
@@ -388,6 +389,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
 
   const elapsed = exchange.startedAt === undefined ? READING_MS : performance.now() - exchange.startedAt
   const finished = finishedSteps(activity)
+  /* One list for the whole run: open while it works, folded under "N steps" after (StepsTimeline). */
+  const rows = React.useMemo(() => timelineRows(activity), [activity])
   /* "Changed Hero and FAQ" when the run named them, "2 sections changed" when it did not. */
   const count = changeSummary(activity)
   /* The run's own sentence of what changed, where the answer above does not already say it. */
@@ -479,26 +482,6 @@ const ExchangeItem = React.memo(function ExchangeItem({
       {exchange.running && (
         <div className="min-w-0">
           <ActivityLine label={sending && exchange.images?.length ? "Sending your pictures" : activityLine(activity, elapsed)} />
-          {finished.length > 0 && (
-            <button
-              type="button"
-              data-ask-steps-toggle=""
-              aria-expanded={stepsOpen}
-              onClick={() => setStepsOpen((open) => !open)}
-              className={cn(
-                "relative mt-1 inline-flex items-center gap-1 pl-[18px] text-[12px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]",
-                phone ? "h-8 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']" : "h-6",
-              )}
-            >
-              {finished.length} step{finished.length === 1 ? "" : "s"} done
-              <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", stepsOpen && "rotate-180")} strokeWidth={2.25} />
-            </button>
-          )}
-          {stepsOpen && <StepsList plan={activity.plan} steps={finished} code={[]} onOpenCode={onOpenCode} />}
-          {/* A section file being written is shown as it is written. */}
-          {activity.code.map((file) => (
-            <CodePreview key={file.path} file={file} onOpenCode={onOpenCode} />
-          ))}
         </div>
       )}
 
@@ -542,6 +525,13 @@ const ExchangeItem = React.memo(function ExchangeItem({
         </div>
       )}
 
+      {/*
+        THE STEPS, open while it works and folded away when it is done, in
+        one place for the whole run so the fold is the same list closing,
+        never a list removed and another drawn.
+      */}
+      <StepsTimeline rows={rows} open={exchange.running || (stepsOpen && hasWork)} onOpenCode={onOpenCode} />
+
       {!exchange.running && (exchange.reply || exchange.error || count || hasWork || question) && (
         <div className="min-w-0">
           <AnswerMeta
@@ -558,7 +548,6 @@ const ExchangeItem = React.memo(function ExchangeItem({
             phone={phone}
             reportRef={reportAnchor}
           />
-          {stepsOpen && hasWork && <StepsList plan={activity.plan} steps={finished} code={activity.code} onOpenCode={onOpenCode} />}
           <ReportForm
             report={report}
             onChange={setReport}
@@ -598,6 +587,9 @@ function ThemeChatPanel({
   onConnectAi,
   onOpenCodeEditor,
   onSourcesChanged,
+  onSourceWritten,
+  onWorkingChange,
+  onRunFinished,
   onWriteStart,
   onWriteDone,
   onWriteFailed,
@@ -636,6 +628,20 @@ function ThemeChatPanel({
   onOpenCodeEditor?: (path: string) => void
   /** A section's code was rewritten during a run, so the theme's files are stale. */
   onSourcesChanged?: () => void
+  /**
+   * A section file the run has just written and checked, so the canvas can
+   * draw it at once instead of waiting for a reload. It is saved when the run
+   * ends; `onSourcesChanged` then reads back what was stored.
+   */
+  onSourceWritten?: (path: string, source: string) => void
+  /**
+   * WHICH SECTIONS IT IS WORKING ON, NOW: the canvas lays a faint sheen over
+   * each (components/website-builder/editor/ai-working-overlay.tsx). Called
+   * when the set changes, and with none when the run is over.
+   */
+  onWorkingChange?: (sectionIds: string[]) => void
+  /** The run is over and changed these sections: the canvas brings the first into view and marks them once. */
+  onRunFinished?: (sectionIds: string[]) => void
   /** Opens Website settings on Connections: Claude Code or Codex on this website. */
   onConnectAi?: () => void
   page: string
@@ -1317,6 +1323,33 @@ function ThemeChatPanel({
 
       const patch = (change: (exchange: Exchange) => Exchange) => patchExchange(id, change)
 
+      /**
+       * WHAT THE CANVAS SHOWS AS BEING WORKED ON. The open section from the
+       * start when the edit is limited to it (it is the only thing that can
+       * change); otherwise each section as a step starts on it or a change
+       * lands in it. `changed` is what it actually changed, for the end.
+       */
+      const working = new Set<string>()
+      const changed = new Set<string>()
+      /** The sections the latest step named: a file written next was written for them. */
+      let stepSections: string[] = []
+      const tell = () => onWorkingChange?.([...working])
+      if (live.current.locked && live.current.selectedSectionId) {
+        working.add(live.current.selectedSectionId)
+        tell()
+      }
+      const mark = (ids: unknown) => {
+        if (!Array.isArray(ids)) return
+        let grew = false
+        for (const id of ids) {
+          if (typeof id === "string" && id && !working.has(id)) {
+            working.add(id)
+            grew = true
+          }
+        }
+        if (grew) tell()
+      }
+
       /** One snapshot, before anything moves, so Undo takes back the whole run. */
       let snapshotTaken = false
       let uploadStep = -1
@@ -1415,6 +1448,26 @@ function ThemeChatPanel({
                   patch((e) => ({ ...e, runId }))
                 }
                 onOp(event.op)
+                const op = event.op as { kind: string; id?: string; sectionId?: string }
+                const target = op.id ?? op.sectionId
+                if (op.kind === "remove_section" && target) {
+                  working.delete(target)
+                  changed.delete(target)
+                  tell()
+                } else if (op.kind !== "update_theme" && target) {
+                  changed.add(target)
+                  mark([target])
+                }
+              } else if (type === "step") {
+                /* A step about a section starts its sheen. */
+                if (Array.isArray(event.sections)) {
+                  mark(event.sections)
+                  stepSections = event.sections.filter((id): id is string => typeof id === "string")
+                }
+              } else if (type === "code") {
+                /* Checked already: drawn now, saved when the run ends. The step that wrote it changed its sections. */
+                if (typeof event.path === "string" && typeof event.source === "string") onSourceWritten?.(event.path, event.source)
+                for (const id of stepSections) changed.add(id)
               } else if (type === "sources-changed") {
                 // The canvas is drawing the old source; the editor holds the files.
                 onSourcesChanged?.()
@@ -1487,9 +1540,13 @@ function ThemeChatPanel({
       } finally {
         abortRef.current = null
         setBusy(false)
+        /* The sheen goes; what changed is brought into view and marked once. */
+        working.clear()
+        tell()
+        if (changed.size > 0 && live.current.page === startedOn) onRunFinished?.([...changed])
       }
     },
-    [busy, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, patchExchange],
+    [busy, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, onSourceWritten, onWorkingChange, onRunFinished, patchExchange],
   )
 
   /**
