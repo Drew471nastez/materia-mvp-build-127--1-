@@ -449,6 +449,13 @@ async function main() {
     const store = code("app/(marketing)/u/[username]/page.tsx")
     check("the storefront's Communities tab is real cards, and only when there are some", (store.match(/if \(communityCards\.length > 0\) \{\s*tabs\.push\(\{\s*id: "communities",\s*label: "Communities",\s*panel: <StorefrontCommunities cards=\{communityCards\} \/>/g) ?? []).length === 2)
     check("and only while communities are on", /communitiesEnabled\(\)\s*\.then\(\(on\) => \(on \? creatorCommunityCards\(creator\.id\) : \[\]\)\)/.test(store))
+    /* Found end to end (QA): the bare grid ran edge to edge at 1440px, wider than the tabs above it. */
+    {
+      const panel = code("components/community/public/storefront-communities.tsx")
+      const products = code("components/storefront/all-products-grid.tsx")
+      const column = (panel.match(/const COLUMN = "([^"]+)"/) || [])[1]
+      check("the Communities panel sits in the page column the Products tab uses", !!column && products.includes(`className="${column}"`) && /<div className=\{COLUMN\}>\s*<ul data-storefront-communities/.test(panel))
+    }
     check("the builder canvas draws the same tab the same way", /if \(communities\.length > 0\) \{[\s\S]*?<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
     check("the storefront's Products tab and Home grid still read the product list", /productsData\.length > 0/.test(store) && /<AllProductsGrid/.test(store))
   }
