@@ -25,6 +25,7 @@ import "server-only"
 import { wantsNotification } from "../permissions"
 import { JOB_COLUMNS, type JobKind, type JobRow, type NotificationKind, type NotifyLevel } from "../types"
 import { missing, nowIso, reasonOf, type Db } from "./db"
+import type { JobOutcome } from "./jobs/index"
 
 export interface NotifyInput {
   userId: string
@@ -158,7 +159,7 @@ export async function runCommunityJobs(db: Db, opts: { budgetMs: number; now?: n
   const started = Date.now()
   const deadline = started + Math.max(1000, opts.budgetMs)
   const summary: CommunityJobSummary = { available: true, claimed: 0, done: 0, retried: 0, failed: 0, continued: 0, scheduled: 0, ms: 0 }
-  const { JOB_HANDLERS } = await import("./jobs")
+  const { JOB_HANDLERS } = await import("./jobs/index")
   summary.scheduled = await scheduleRecurring(db, new Set(Object.keys(JOB_HANDLERS)), opts.now ?? Date.now())
 
   while (Date.now() < deadline - 5_000) {
@@ -176,8 +177,8 @@ export async function runCommunityJobs(db: Db, opts: { budgetMs: number; now?: n
       try {
         if (!handler) throw new Error(`no handler for ${job.kind}`)
         if (Date.now() >= deadline - 2_000) throw new Error("out of time before it started")
-        const outcome = await handler(db, job, { deadline, now: Date.now() })
-        if (outcome?.again) {
+        const outcome = (await handler(db, job, { deadline, now: Date.now() })) as JobOutcome | undefined
+        if (outcome && outcome.again) {
           await finish(db, job, {
             state: "pending",
             lease_until: null,

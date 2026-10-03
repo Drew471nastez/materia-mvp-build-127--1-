@@ -82,7 +82,7 @@ export interface RevokeInput {
 }
 
 const isOwnerRow = (m: MemberRow) => m.role === "owner" || m.source === "owner"
-const isBlocked = (m: MemberRow) => m.status === "banned" || m.status === "removed" || m.banned_at !== null
+const isBlocked = (m: MemberRow) => m.status === "banned" || m.status === "removed" || Boolean(m.banned_at)
 
 async function readMember(db: Db, communityId: string, userId: string): Promise<{ row: MemberRow | null; notSetUp: boolean }> {
   const { data, error } = await db.from("community_members").select(MEMBER_COLUMNS).eq("community_id", communityId).eq("user_id", userId).maybeSingle()

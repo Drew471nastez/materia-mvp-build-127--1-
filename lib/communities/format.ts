@@ -65,6 +65,9 @@ export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; appro
   return `Join for ${s.priceLine}`
 }
 
+/* Newer ICU puts a narrow no break space before AM/PM; one plain space reads the same and renders the same on server and client. */
+const plainSpaces = (s: string) => s.replace(/[\u202f\u00a0]/g, " ")
+
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
@@ -80,7 +83,7 @@ export function relativeTime(iso: string | null | undefined, now: number = Date.
   if (ago < DAY) return `${Math.floor(ago / HOUR)}h`
   if (ago < 7 * DAY) return `${Math.floor(ago / DAY)}d`
   const sameYear = new Date(t).getUTCFullYear() === new Date(now).getUTCFullYear()
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone }).format(t)
+  return plainSpaces(new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone }).format(t))
 }
 
 function zoneName(t: number, timeZone: string | undefined, locale: string): string {
@@ -113,10 +116,10 @@ export function eventTime(startsAt: string, endsAt?: string | null, opts: { time
   }
   const zone = zoneName(start, opts.timeZone, locale)
   const head = `${date.format(start)}, ${time.format(start)}`
-  if (!Number.isFinite(end) || end <= start) return zone ? `${head} ${zone}` : head
+  if (!Number.isFinite(end) || end <= start) return plainSpaces(zone ? `${head} ${zone}` : head)
   const sameDay = date.format(start) === date.format(end)
   const tail = sameDay ? time.format(end) : `${date.format(end)}, ${time.format(end)}`
-  return `${head} to ${tail}${zone ? ` ${zone}` : ""}`
+  return plainSpaces(`${head} to ${tail}${zone ? ` ${zone}` : ""}`)
 }
 
 /** The calendar chip beside an event: { month: "Mar", day: "4", weekday: "Tue" } in the viewer's zone. */
