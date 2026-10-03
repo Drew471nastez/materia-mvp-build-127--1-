@@ -21,7 +21,7 @@ export type StorelibPaymentsStatus =
   | "PAYOUT_FAILED"
   | "SUSPENDED"
 
-/** What the creator is sent to: Stripe's embedded onboarding, its bank step, or its bank change. */
+/** What the creator is sent to: Storelib's details form, its bank step, or its bank change. */
 export type StatusAction = "setup" | "onboarding" | "bank" | "change_bank" | "support" | null
 
 export interface StatusFacts {

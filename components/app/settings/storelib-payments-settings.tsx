@@ -89,7 +89,13 @@ export function StorelibPaymentsSettings({
 
   const beat: OnboardingBeat = data?.beat ?? "personal"
   const view = data?.paymentsStatus ?? null
-  const modeFor = (action: StatusAction | undefined): SetupMode => (action === "bank" || action === "change_bank" || beat === "done" ? "bank" : "setup")
+  /*
+   * Stripe asking for more after setup (a document, a new detail) is the
+   * details form with only what it asked for, the way Gumroad comes back for
+   * more: it used to fall through to the bank form, because setup was done.
+   */
+  const modeFor = (action: StatusAction | undefined): SetupMode =>
+    action === "bank" || action === "change_bank" ? "bank" : action === "onboarding" ? (beat === "done" ? "details" : "setup") : beat === "done" ? "bank" : "setup"
 
   /*
     THE PRESS OPENS IT, NOT THE ANSWER. This used to wait for the overview

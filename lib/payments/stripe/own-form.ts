@@ -34,6 +34,12 @@ import { stripeErrorMessage } from "./setup-errors"
 export interface DetailsFormView {
   needs: DetailsNeeds
   country: string
+  /** The agreement the creator accepts: the full one, or the recipient one for a cross-border account. */
+  agreementUrl: string
+  /** When Stripe wants what it asked for, for a later ask. */
+  dueBy: string | null
+  /** Payments are already on: this is Stripe coming back for more, not first setup. */
+  active: boolean
   idNumber: { label: string; hint: string }
   bank: BankFormat & { currency: string | null; holderName: string; last4: string | null }
 }
@@ -87,9 +93,14 @@ export async function detailsForm(creator: PaymentsCreatorRef): Promise<DetailsF
   const ext = account.external_accounts?.data?.find((e) => e.object === "bank_account") as Stripe.BankAccount | undefined
   const person = account.individual
   const holderName = [person?.first_name, person?.last_name].filter(Boolean).join(" ")
+  const recipient = account.tos_acceptance?.service_agreement === "recipient"
+  const deadline = account.requirements?.current_deadline
   return {
     needs,
     country,
+    agreementUrl: recipient ? "https://stripe.com/legal/connect-account/recipient" : "https://stripe.com/legal/connect-account",
+    dueBy: deadline ? new Date(deadline * 1000).toISOString() : null,
+    active: account.charges_enabled === true && account.payouts_enabled === true,
     idNumber: idNumberName(country),
     bank: { ...bankFormat(country), currency: account.default_currency?.toUpperCase() ?? null, holderName, last4: ext?.last4 ?? null },
   }
@@ -102,6 +113,7 @@ function asInput(raw: unknown): DetailsInput {
   const dob = r.dob && typeof r.dob === "object" ? (r.dob as Record<string, unknown>) : null
   const address = r.address && typeof r.address === "object" ? (r.address as Record<string, unknown>) : null
   return {
+    nationality: typeof r.nationality === "string" && /^[A-Za-z]{2}$/.test(r.nationality) ? r.nationality.toUpperCase() : undefined,
     dob: dob ? { day: num(dob.day), month: num(dob.month), year: num(dob.year) } : undefined,
     address: address ? { line1: text(address.line1, 200), line2: text(address.line2, 200), city: text(address.city, 100), postalCode: text(address.postalCode, 20), state: text(address.state, 100) } : undefined,
     phone: text(r.phone, 32),
@@ -133,6 +145,10 @@ export async function submitDetails(creator: PaymentsCreatorRef, raw: unknown, c
       country: account.country ?? undefined,
     }
   }
+  /* Some countries want the same address as the registered one too. */
+  if (needs.registeredAddress && individual.address) individual.registered_address = individual.address
+  /* Stripe takes it; this SDK version does not type it yet. */
+  if (has("nationality") && input.nationality) (individual as Record<string, unknown>).nationality = input.nationality
   if (has("phone") && input.phone) individual.phone = cleanPhone(input.phone)
   if (has("idNumber") && input.idNumber) individual.id_number = input.idNumber.replace(/[\s.-]/g, "")
   if (has("ssnLast4") && input.ssnLast4) individual.ssn_last_4 = input.ssnLast4

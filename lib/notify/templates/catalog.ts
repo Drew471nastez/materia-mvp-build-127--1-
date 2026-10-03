@@ -803,13 +803,13 @@ export const CATALOG: Record<NotificationType, Entry> = {
       family: "lifecycle",
       audience: "creator",
       subject: started ? "Finish setting up payouts so you can get paid" : "Set up payouts so you can get paid",
-      preview: "Country, your name as on your ID, a quick ID check and your bank. About five minutes.",
+      preview: "Your country, your name as on your ID, a few details Stripe needs and your bank. About five minutes.",
       heading: started ? "Your payouts are almost ready" : "Get ready to be paid",
       paragraphs: [
         started
           ? "You started setting up payouts and it is not finished yet. Until it is, buyers cannot check out and nothing can reach your bank."
           : "You have not set up payouts yet. Until you do, buyers cannot check out and a sale has nowhere to pay out to.",
-        `It takes about five minutes: your country, your name as it is on your ID, a quick ID check with ${processor(d)} and the bank account you want paid into.`,
+        `It takes about five minutes: your country, your name as it is on your ID, the few details ${processor(d)} needs to verify you and the bank account you want paid into.`,
       ],
       action: { label: started ? "Finish payout setup" : "Set up payouts", path: PATHS.payments },
       note: REMINDER_NOTE,

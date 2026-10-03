@@ -266,7 +266,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "steps", items: [
         "Open Payouts in your dashboard, or Settings and then Payments, and press Set up payments.",
         "Account: your country and your full legal name as it appears on your ID, with any middle names. No business details.",
-        "Your details: only what Stripe needs in your country, usually your date of birth, home address, phone, your national ID number and a photo of your ID. See [Verifying your identity](/help/orders-and-payouts/identity-verification).",
+        "Your details: only what Stripe needs in your country to switch payments on, usually your date of birth, home address and national ID number. If Stripe needs a photo of your ID or proof of address later, as your sales grow, we email you and Payouts opens the same form with just that. See [Verifying your identity](/help/orders-and-payouts/identity-verification).",
         "Bank: your IBAN, or your account and routing number where your country does not use IBANs.",
       ] },
       { type: "note", text: "Your country sets your payout currency and cannot be changed afterwards. If you pick the wrong one, disconnect before you finish setting up and start again." },

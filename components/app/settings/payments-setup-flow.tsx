@@ -31,7 +31,7 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Check, ChevronLeft, Clock, Info, Landmark, Lock, Upload, X } from "lucide-react"
+import { Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, Upload, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
@@ -42,6 +42,7 @@ import { countryLabel, countryOf } from "@/lib/account/country"
 import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
+import { openInApp } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 export type SetupMode = "setup" | "bank" | "details"
@@ -539,7 +540,7 @@ export function PaymentsSetupFlow({
 
   const subtitle =
     mode === "setup"
-      ? "Your country, your name as on your ID, a quick ID check and your bank. About five minutes."
+      ? "Your country, your name as on your ID, a few details Stripe needs and your bank. About five minutes."
       : mode === "bank"
         ? "Where your cash outs are sent."
         : "The details on your payments account."
@@ -664,7 +665,7 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+    <form onSubmit={submit} onInput={() => error && setError(null)} noValidate className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 space-y-5 px-5 sm:px-7">
         <ErrorLine message={error} />
         <div>
@@ -732,16 +733,18 @@ function StepIntro({ title, line }: { title: string; line: string }) {
 
 /* ── step 2: your details (Storelib's own form) ────────────────────────── */
 
-type DetailField = "dob" | "address" | "state" | "phone" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
+type DetailField = "dob" | "address" | "state" | "phone" | "nationality" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
 interface DetailsForm {
-  needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean }
+  needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean; registeredAddress: boolean; problems: string[] }
   country: string
+  agreementUrl: string
+  dueBy: string | null
+  active: boolean
   idNumber: { label: string; hint: string }
   bank: { kind: "iban" | "routing"; routingLabel?: string; routingPattern?: string; accountLabel?: string; currency: string | null; holderName: string; last4: string | null }
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-const STRIPE_AGREEMENT = "https://stripe.com/legal/connect-account"
 
 /** A phone photo is often 4 to 8 MB: drawn again at most 2000px wide as a JPEG, it is a sharp, readable ID under 4 MB. */
 async function shrinkPhoto(file: File): Promise<Blob> {
@@ -856,6 +859,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
   const [dob, setDob] = React.useState({ day: "", month: "", year: "" })
   const [address, setAddress] = React.useState({ line1: "", line2: "", city: "", postalCode: "", state: "" })
   const [phone, setPhone] = React.useState("")
+  const [nationality, setNationality] = React.useState("")
   const [idNumber, setIdNumber] = React.useState("")
   const [ssnLast4, setSsnLast4] = React.useState("")
   const [pep, setPep] = React.useState(false)
@@ -867,7 +871,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
   const [tried, setTried] = React.useState(false)
 
   /* Nothing left to ask here: straight on. */
-  const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos
+  const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos && form.needs.other.length === 0
   React.useEffect(() => {
     if (form && empty) onNext(form)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -906,7 +910,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
     e.preventDefault()
     setTried(true)
     if (busy) return
-    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("idNumber") && idNumber.trim().length < 4) || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree)) {
+    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || (has("idNumber") && idNumber.trim().length < 4) || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree)) {
       setError("Check the fields marked in red.")
       return
     }
@@ -919,6 +923,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
         dob: has("dob") ? { day: Number(dob.day), month: Number(dob.month), year: Number(dob.year) } : undefined,
         address: has("address") ? address : undefined,
         phone: has("phone") ? phone : undefined,
+        nationality: has("nationality") ? countryOf(nationality) ?? undefined : undefined,
         idNumber: has("idNumber") ? idNumber : undefined,
         ssnLast4: has("ssnLast4") ? ssnLast4 : undefined,
         politicalExposure: has("politicalExposure") ? (pep ? "existing" : "none") : undefined,
@@ -941,9 +946,23 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+    <form onSubmit={submit} onInput={() => error && setError(null)} noValidate className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 space-y-5 px-5 sm:px-7">
-        <StepIntro title="Your details" line="What Stripe needs to verify you in your country. It goes straight to Stripe and Storelib never keeps it." />
+        {form.active ? (
+          <StepIntro
+            title="Stripe needs a little more"
+            line={`To keep your payouts going, Stripe asks for this now${form.dueBy ? `, by ${new Date(form.dueBy).toLocaleDateString(undefined, { day: "numeric", month: "long" })}` : ""}. It takes a minute.`}
+          />
+        ) : (
+          <StepIntro title="Your details" line="Only what Stripe needs to verify you in your country. It goes straight to Stripe and Storelib never keeps it." />
+        )}
+        {form.needs.problems.length ? (
+          <div role="status" className="space-y-1 rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-3 text-[13px] leading-[19px] text-[#93370d]" data-setup-problems="">
+            {form.needs.problems.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+          </div>
+        ) : null}
         <ErrorLine message={error} />
 
         {has("dob") ? (
@@ -951,12 +970,15 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
             <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">Date of birth</span>
             <div className="grid grid-cols-[1fr_1.6fr_1.2fr] gap-2">
               <input className={cn(FIELD, tried && !dob.day && FIELD_BAD)} inputMode="numeric" placeholder="Day" maxLength={2} autoComplete="bday-day" aria-label="Day" value={dob.day} onChange={(e) => setDob({ ...dob, day: e.target.value.replace(/\D/g, "") })} />
-              <select className={cn(FIELD, "appearance-none", !dob.month && "text-[#9ca3af]", tried && !dob.month && FIELD_BAD)} aria-label="Month" autoComplete="bday-month" value={dob.month} onChange={(e) => setDob({ ...dob, month: e.target.value })}>
-                <option value="">Month</option>
-                {MONTHS.map((m, i) => (
-                  <option key={m} value={String(i + 1)}>{m}</option>
-                ))}
-              </select>
+              <span className="relative block">
+                <select className={cn(FIELD, "cursor-pointer appearance-none pr-8", !dob.month && "text-[#9ca3af]", tried && !dob.month && FIELD_BAD)} aria-label="Month" autoComplete="bday-month" value={dob.month} onChange={(e) => setDob({ ...dob, month: e.target.value })}>
+                  <option value="">Month</option>
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={String(i + 1)}>{m}</option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+              </span>
               <input className={cn(FIELD, tried && !/^\d{4}$/.test(dob.year) && FIELD_BAD)} inputMode="numeric" placeholder="Year" maxLength={4} autoComplete="bday-year" aria-label="Year" value={dob.year} onChange={(e) => setDob({ ...dob, year: e.target.value.replace(/\D/g, "") })} />
             </div>
             <span className="mt-1.5 block text-[12px] text-[#6b7280]">You need to be 18 or older to be paid out.</span>
@@ -983,6 +1005,14 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
           <Field label="Phone number" error={issue("phone", phone.replace(/\D/g, "").length < 7, "Enter your phone number, with the country code.")}>
             <input className={FIELD} type="tel" inputMode="tel" placeholder="+40 712 345 678" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
+        ) : null}
+
+        {has("nationality") ? (
+          <div>
+            <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">Nationality</span>
+            <CountryPicker value={nationality} onChange={setNationality} sheetZIndex={SHEET_Z} fieldClassName="rounded-[10px] border-[#e3e5e8] text-[16px] shadow-none sm:h-10 sm:rounded-lg sm:text-[14px]" />
+            {tried && !countryOf(nationality) ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">Choose your nationality.</span> : null}
+          </div>
         ) : null}
 
         {has("idNumber") ? (
@@ -1028,11 +1058,18 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
             <span className="text-[13px] leading-[19px] text-[#4b5563]">
               I agree to Storelib's{" "}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">Terms</a>{" "}
+              <a href="/terms" onClick={(e) => (e.preventDefault(), openInApp(`${window.location.origin}/terms`))} className="font-medium text-[#1a1a2e] underline underline-offset-2">Terms</a>{" "}
               and the{" "}
-              <a href={STRIPE_AGREEMENT} target="_blank" rel="noopener noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">Stripe Connected Account Agreement</a>, and confirm these details are true.
+              <a href={form.agreementUrl} onClick={(e) => (e.preventDefault(), openInApp(form.agreementUrl))} className="font-medium text-[#1a1a2e] underline underline-offset-2">Stripe Connected Account Agreement</a>, and confirm these details are true.
             </span>
           </label>
+        ) : null}
+
+        {form.needs.other.length ? (
+          <p className="rounded-xl border border-[#eceef1] bg-[#f9fafb] px-3.5 py-3 text-[13px] leading-[19px] text-[#4b5563]">
+            Stripe also needs something this form does not cover yet. Email{" "}
+            <a href="mailto:support@storelib.com" className="font-medium text-[#1a1a2e] underline underline-offset-2">support@storelib.com</a> and we will sort it out with you.
+          </p>
         ) : null}
 
         <p className="flex items-center gap-1.5 pb-1 text-[12px] text-[#9ca3af]">
@@ -1098,7 +1135,7 @@ function BankForm({ title, line, onBack, backLabel = "Back", onDone, onData }: {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex min-h-full flex-1 flex-col">
+    <form onSubmit={submit} onInput={() => error && setError(null)} noValidate className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 space-y-5 px-5 sm:px-7">
         <StepIntro title={title} line={line} />
         <ErrorLine message={error} />

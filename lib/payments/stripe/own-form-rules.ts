@@ -15,16 +15,16 @@
  *   bank                        IBAN where the country uses one, account and
  *                               routing number where it does not
  *
- * WHAT IS ASKED IS STRIPE'S LIST, NOT A GUESS. `eventually_due` is read as
- * well as `currently_due`, so a creator is asked once, up front, for what
- * Stripe will want as sales grow (maximum compliance, one sitting), and is
- * not interrupted later. Business profile fields are Storelib's to fill and
- * never reach the creator.
+ * WHAT IS ASKED IS STRIPE'S LIST, NOT A GUESS, and only what it needs now
+ * (NeedsScope below), the way Gumroad does it: a few fields to start, and
+ * Stripe's later asks (an ID photo once sales grow, proof of address) come
+ * back as the same form with just those. Business profile fields are
+ * Storelib's to fill and never reach the creator.
  *
  * Pure: the server module (own-form.ts) and the tests use it as it is.
  */
 
-export type DetailField = "dob" | "address" | "state" | "phone" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
+export type DetailField = "dob" | "address" | "state" | "phone" | "nationality" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
 
 export interface DetailsNeeds {
   fields: DetailField[]
@@ -36,12 +36,29 @@ export interface DetailsNeeds {
   other: string[]
   /** Stripe is looking at what was sent: nothing to ask. */
   checking: boolean
+  /** Stripe also wants the address as the registered address (some countries): the same address is sent for both. */
+  registeredAddress: boolean
+  /** Why Stripe turned something down, in words a creator can act on (a blurry photo, an expired ID). */
+  problems: string[]
 }
 
-const MAP: Array<[RegExp, DetailField | "tos" | "bank" | "name" | "ours"]> = [
+/**
+ * LIKE GUMROAD: THE MINIMUM NOW, MORE ONLY WHEN IT IS ASKED FOR.
+ *   "now"  what Stripe needs before payments can switch on (past and
+ *          currently due). Setup asks this and nothing else.
+ *   "all"  that and what Stripe will want as sales grow (eventually due).
+ * When Stripe later asks for more (a photo of the ID, proof of address),
+ * the requirement moves to currently due, Payouts says so, the creator gets
+ * an email, and the same form opens with only that.
+ */
+export type NeedsScope = "now" | "all"
+
+const MAP: Array<[RegExp, DetailField | "tos" | "bank" | "name" | "ours" | "registered"]> = [
   [/^individual\.dob\./, "dob"],
   [/^individual\.address\.state$/, "state"],
   [/^individual\.address\./, "address"],
+  [/^individual\.registered_address\./, "registered"],
+  [/^individual\.nationality$/, "nationality"],
   [/^individual\.phone$/, "phone"],
   [/^individual\.id_number$/, "idNumber"],
   [/^individual\.ssn_last_4$/, "ssnLast4"],
@@ -56,17 +73,48 @@ const MAP: Array<[RegExp, DetailField | "tos" | "bank" | "name" | "ours"]> = [
   [/^business_type$/, "ours"],
 ]
 
-const ORDER: DetailField[] = ["dob", "address", "state", "phone", "idNumber", "ssnLast4", "politicalExposure", "document", "proofOfAddress"]
+const ORDER: DetailField[] = ["dob", "address", "state", "phone", "nationality", "idNumber", "ssnLast4", "politicalExposure", "document", "proofOfAddress"]
+
+/** Stripe's reasons for turning something down, as a sentence about what to do next. */
+const PROBLEMS: Record<string, string> = {
+  verification_document_expired: "The ID you uploaded has expired. Upload one that is still valid.",
+  verification_document_too_large: "The photo of your ID was too large. Upload a smaller photo.",
+  verification_document_not_readable: "Stripe could not read your ID. Upload a sharper photo, all four corners in, no glare.",
+  verification_document_not_uploaded: "Your ID photo did not arrive. Upload it again.",
+  verification_document_incomplete: "Part of your ID was cut off. Upload a photo with all four corners in.",
+  verification_document_name_mismatch: "The name on your ID does not match the name you entered. Check both.",
+  verification_document_dob_mismatch: "The date of birth on your ID does not match the one you entered. Check both.",
+  verification_document_id_number_mismatch: "The ID number does not match your document. Check it.",
+  verification_document_failed_copy: "Stripe needs a photo of the original ID, not a photocopy or a screen.",
+  verification_document_failed_greyscale: "Upload a colour photo of your ID.",
+  verification_document_fraudulent: "Stripe could not accept that ID. Upload a different, valid document.",
+  verification_document_type_not_supported: "That kind of document is not accepted. Use a passport, national ID card or driving licence.",
+  verification_failed_address_match: "Stripe could not confirm your address. Check it, or upload a proof of address.",
+  verification_failed_id_number_match: "Stripe could not match your ID number. Check it against your document.",
+  verification_failed_name_match: "Stripe could not match your name. Use your name exactly as on your ID.",
+  verification_failed_keyed_identity: "Stripe could not confirm your details. Check them, and upload a photo of your ID.",
+  verification_failed_other: "Stripe could not verify you from what was sent. Check your details and upload a clear photo of your ID.",
+  invalid_address_po_boxes_disallowed: "Use the address where you live. A PO box cannot be verified.",
+  invalid_dob_age_under_minimum: "You need to be 18 or older to be paid out.",
+}
+
+export function problemWords(code: string | null | undefined): string {
+  return (code && PROBLEMS[code]) || "Stripe needs you to check one of your details. Correct it below and send it again."
+}
 
 /** What the form must ask for, from the account's requirement lists. */
-export function needsOf(req: { currently_due?: string[] | null; eventually_due?: string[] | null; past_due?: string[] | null; pending_verification?: string[] | null } | null | undefined): DetailsNeeds {
-  const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? []), ...(req?.eventually_due ?? [])])
+export function needsOf(
+  req: { currently_due?: string[] | null; eventually_due?: string[] | null; past_due?: string[] | null; pending_verification?: string[] | null; errors?: Array<{ code?: string | null; requirement?: string | null }> | null } | null | undefined,
+  scope: NeedsScope = "now",
+): DetailsNeeds {
+  const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? []), ...(scope === "all" ? (req?.eventually_due ?? []) : [])])
   const pending = new Set(req?.pending_verification ?? [])
   const fields = new Set<DetailField>()
   const other: string[] = []
   let tos = false
   let bank = false
   let name = false
+  let registeredAddress = false
   for (const key of due) {
     if (pending.has(key)) continue
     const hit = MAP.find(([re]) => re.test(key))
@@ -78,11 +126,15 @@ export function needsOf(req: { currently_due?: string[] | null; eventually_due?:
     if (what === "tos") tos = true
     else if (what === "bank") bank = true
     else if (what === "name") name = true
-    else if (what !== "ours") fields.add(what)
+    else if (what === "registered") {
+      registeredAddress = true
+      fields.add("address")
+    } else if (what !== "ours") fields.add(what)
   }
   /* A state is only asked with the rest of the address. */
   if (fields.has("state")) fields.add("address")
-  return { fields: ORDER.filter((f) => fields.has(f)), tos, bank, name, other, checking: due.size === 0 && pending.size > 0 }
+  const problems = [...new Set((req?.errors ?? []).filter((e) => !e.requirement || due.has(e.requirement)).map((e) => problemWords(e.code)))]
+  return { fields: ORDER.filter((f) => fields.has(f)), tos, bank, name, other, checking: due.size === 0 && pending.size > 0, registeredAddress, problems }
 }
 
 /* ── the ID number, named as the creator knows it ───────────────────────── */
@@ -163,6 +215,7 @@ export function ibanValid(input: string, country?: string): boolean {
 /* ── the details, checked the same way on both sides ────────────────────── */
 
 export interface DetailsInput {
+  nationality?: string
   dob?: { day: number; month: number; year: number }
   address?: { line1: string; line2?: string; city: string; postalCode: string; state?: string }
   phone?: string
@@ -212,6 +265,7 @@ export function detailIssues(input: DetailsInput, needs: DetailField[], opts: { 
     const p = cleanPhone(input.phone ?? "")
     if (!/^\+?\d{7,15}$/.test(p)) out.phone = "Enter your phone number, with the country code."
   }
+  if (needs.includes("nationality") && !/^[A-Z]{2}$/.test(input.nationality ?? "")) out.nationality = "Choose your nationality."
   if (needs.includes("idNumber")) {
     const id = (input.idNumber ?? "").replace(/[\s.-]/g, "")
     if (!/^[A-Za-z0-9]{4,20}$/.test(id)) out.idNumber = "Enter your ID number exactly as on your document."

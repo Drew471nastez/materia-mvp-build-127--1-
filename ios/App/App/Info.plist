@@ -39,9 +39,9 @@
 
 	<!-- ── Camera & photo library — REQUIRED for @capacitor/camera ──────── -->
 	<key>NSCameraUsageDescription</key>
-	<string>Storelib uses the camera to let you take photos for your product listings and profile picture.</string>
+	<string>Storelib uses the camera to let you take photos for your product listings, your profile picture and, when you set up payouts, a photo of your ID for identity verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Storelib accesses your photo library so you can choose images for products and your profile.</string>
+	<string>Storelib accesses your photo library so you can choose images for products and your profile, and a photo of your ID when you set up payouts.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Storelib saves photos to your library when you request it.</string>
 	<key>NSMicrophoneUsageDescription</key>

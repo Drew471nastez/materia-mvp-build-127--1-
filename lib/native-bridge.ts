@@ -487,3 +487,21 @@ export function openExternal(url: string): void {
     window.open(url, "_blank", "noopener,noreferrer")
   }
 }
+
+/**
+ * A page to read without leaving the app: Terms, Stripe's account agreement.
+ * In the phone app it opens in the in-app browser sheet (SFSafariViewController
+ * on iOS, a Custom Tab on Android), which slides over the app and closes back
+ * to exactly where the person was. Never for a purchase (that is openExternal).
+ * On the web, a new tab.
+ */
+export function openInApp(url: string): void {
+  if (typeof window === "undefined") return
+  if (isNativeApp()) {
+    import("@capacitor/browser")
+      .then(({ Browser }) => Browser.open({ url, presentationStyle: "popover", toolbarColor: "#ffffff" }))
+      .catch(() => window.open(url, "_blank", "noopener"))
+    return
+  }
+  window.open(url, "_blank", "noopener")
+}

@@ -313,8 +313,8 @@ export default function PrivacyPolicyPage() {
                 <p>
                   Verification is required by law and by the card networks before a Seller can be paid. The
                   Seller enters what Stripe requires for their country in Storelib&apos;s payout form: typically a
-                  date of birth, a home address, a phone number, a national identification number and a photograph
-                  of a government issued identity document, and sometimes a proof of address. Stripe may process
+                  date of birth, a home address, a phone number and a national identification number, and, when
+                  Stripe asks for it, a photograph of a government issued identity document or a proof of address. Stripe may process
                   the document images with automated and biometric technology to confirm that the document is
                   genuine and belongs to the Seller.
                 </p>
