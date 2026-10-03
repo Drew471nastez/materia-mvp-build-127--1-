@@ -115,6 +115,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         let body = {}
         if (short.endsWith("/presence")) body = { ok: true, ready: true }
         else if (short.startsWith("/api/notifications/inbox")) body = { unread: 4, items: [], nextCursor: null }
+        else if (short.endsWith("/dms") && r.method() === "POST") body = { conversation: { id: "cv-1", other: { id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: null } } }
+        else if (/\/dms\/cv-1/.test(short)) body = { messages: [], hasMore: false }
         else if (short.includes("/dms")) body = { ready: true, unread: 2, conversations: [] }
         else if (short.includes("/posts?")) body = { pinned: [], posts: [], nextCursor: null }
         else if (short.includes("/play")) body = { url: `${ORIGIN}/media/clip.mp4`, poster: null, mime: "video/mp4", expiresAt: null }
@@ -125,7 +127,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       if (url.startsWith("data:")) return r.continue()
       return r.respond({ status: 204, body: "" })
     })
-    await p.goto(`${ORIGIN}${path}?case=${name}`, { waitUntil: "load" })
+    await p.goto(`${ORIGIN}${path}${path.includes("?") ? "&" : "?"}case=${name}`, { waitUntil: "load" })
     await p.evaluate(() => document.fonts.ready)
     await sleep(450)
     return { p, errors, calls }
@@ -410,10 +412,22 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     {
       const { p, errors } = await open("profile", "/community/clay-studio/members/u-jonas", vp)
       await shot(p, `${label}-member-page`)
-      const v = await p.evaluate(() => ({ profile: document.querySelector("[data-member-profile] [data-person-link]")?.getAttribute("href"), message: !!document.querySelector("[data-member-message]") }))
+      const v = await p.evaluate(() => ({ profile: document.querySelector("[data-member-profile] [data-person-link]")?.getAttribute("href"), message: !!document.querySelector("[data-member-message]"), panel: !!document.querySelector("[data-community-messages]") }))
       expect(v.profile === "/@jonasb" && v.message, "a member's page: View profile to their page, and Message", v)
+      expect(!v.panel, "without ?message=1 the conversations panel stays shut", v.panel)
       const s = await sideScroll(p)
       expect(s.scroll <= s.width, "nothing scrolls sideways", s)
+      expect(errors.length === 0, "no page errors", errors)
+      await p.close()
+    }
+    {
+      /* A profile's Message button lands on /members/<id>?message=1: the conversation opens once, the flag leaves the address. */
+      const { p, errors, calls } = await open("profile", "/community/clay-studio/members/u-jonas?message=1", vp)
+      await sleep(300)
+      const m = await p.evaluate(() => ({ panel: document.querySelector("[data-community-messages]")?.getAttribute("data-community-messages") ?? null, search: location.search, thread: document.querySelector("[data-community-messages]")?.innerText?.includes("Jonas Berg") ?? false }))
+      expect(!!m.panel && !/message=1/.test(m.search) && m.thread, "?message=1 opens Jonas's conversation once and drops the flag", m)
+      expect(calls.some((c) => c.url.endsWith("/dms") && c.method === "POST"), "the conversation is made on the server", calls.filter((c) => c.url.includes("/dms")))
+      await shot(p, `${label}-member-page-message`)
       expect(errors.length === 0, "no page errors", errors)
       await p.close()
     }

@@ -17,6 +17,7 @@ import "server-only"
 import { evaluateAccess, type AccessViewer } from "../access"
 import type { AuthorView, MemberView, Role } from "../types"
 import type { MemberProfileView } from "@/components/community/member/view-types"
+import { ensureUsernames } from "@/lib/profile/ensure-username"
 import { missing, reasonOf, type Db } from "./db"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -36,6 +37,12 @@ export function displayName(p: { display_name?: string | null; username?: string
   return name || "Member"
 }
 
+/**
+ * Names and pictures for a page of people, in one read. Anybody without a
+ * handle yet is given one here (lib/profile/ensure-username.ts), so every
+ * author, member and mention picker row can be @mentioned and opens a
+ * /@handle page; nothing is written for people who already have one.
+ */
 async function profilesOf(db: Db, ids: string[]): Promise<Map<string, ProfileRow>> {
   const out = new Map<string, ProfileRow>()
   const list = [...new Set(ids.filter((id) => typeof id === "string" && UUID.test(id)))]
@@ -47,6 +54,14 @@ async function profilesOf(db: Db, ids: string[]): Promise<Map<string, ProfileRow
       return out
     }
     for (const p of (data as ProfileRow[] | null) ?? []) out.set(p.id, p)
+    const unnamed = [...out.values()].filter((p) => !p.username).map((p) => p.id)
+    if (unnamed.length) {
+      const handles = await ensureUsernames(db, unnamed)
+      for (const [id, username] of handles) {
+        const p = out.get(id)
+        if (p) out.set(id, { ...p, username })
+      }
+    }
   } catch (e) {
     console.error(`[communities] profiles read: ${reasonOf(e)}`)
   }

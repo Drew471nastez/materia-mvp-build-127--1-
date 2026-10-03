@@ -7,7 +7,7 @@
  * the bio and choose what they hear about. Nobody's email or payments, ever.
  */
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Flag } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { relativeTime } from "@/lib/communities/format"
@@ -15,7 +15,7 @@ import type { ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { ReportDialog, type ReportTargetRef } from "./dialogs"
 import { openMessages } from "./messages"
-import { personHref } from "./person-href"
+import { personHref } from "@/lib/profile/person-href"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, FIELD } from "./ui"
 import { roleTag, type MemberProfileView } from "./view-types"
@@ -27,8 +27,26 @@ export function MemberProfile({ communityId, slug, member, viewer, gamification,
   const [busy, setBusy] = useState(false)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const tag = roleTag(member.role)
+
+  /*
+    ARRIVING TO WRITE TO THEM. A profile's Message button lands here with
+    ?message=1: the conversation opens once, and the address loses the flag
+    so a reload or Back does not open it again. A tick later, so the frame
+    around this page (whose listener is set up after this page's) hears it.
+  */
+  const opened = useRef(false)
+  useEffect(() => {
+    if (opened.current) return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("message") !== "1") return
+    opened.current = true
+    url.searchParams.delete("message")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    if (member.isSelf || !canMessage) return
+    window.setTimeout(() => openMessages({ userId: member.userId }), 0)
+  }, [member.isSelf, member.userId, canMessage])
   /* Their own page across Storelib: the storefront when they sell, else their profile. */
-  const profileHref = member.creatorUrl ?? (member.username ? personHref({ username: member.username }) : null)
+  const profileHref = member.creatorUrl ?? (member.username ? personHref({ username: member.username, hasStorefront: false }) : null)
 
   const save = async () => {
     setBusy(true)

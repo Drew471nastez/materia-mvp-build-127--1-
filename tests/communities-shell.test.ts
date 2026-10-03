@@ -28,7 +28,8 @@
 import { existsSync, readFileSync } from "node:fs"
 
 import { fakeDb } from "./_fake-db"
-import { memberHref, personHref } from "@/components/community/member/person-href"
+import { memberHref } from "@/components/community/member/person-href"
+import { personHref } from "@/lib/profile/person-href"
 import { navEntries, pillFor, sectionFromPath } from "@/components/community/member/nav"
 import { GALLERY_MAX, parseGallery, payingTenure, safeImageUrl } from "@/components/community/public/gallery"
 import { communityGallery, loadSalesPage, topBarData } from "@/lib/communities/server/public"
@@ -113,8 +114,8 @@ async function main() {
   console.log("\nA name opens the person's page")
   {
     check("a storefront is /<handle>", personHref({ username: "Ana", hasStorefront: true }) === "/ana")
-    check("anybody else is /@handle", personHref({ username: "sam", hasStorefront: false }) === "/@sam" && personHref({ username: "sam" }) === "/@sam")
-    check("no username, no page", personHref({ username: null }) === "/" && personHref({ username: "  " }) === "/")
+    check("anybody else is /@handle", personHref({ username: "sam", hasStorefront: false }) === "/@sam")
+    check("no username, no page", personHref({ username: null, hasStorefront: false }) === "/" && personHref({ username: "  ", hasStorefront: true }) === "/")
     check("inside a community, no username falls back to this community's view of them", memberHref("club", { id: "u1", username: null }) === "/community/club/members/u1" && memberHref("club", { id: "u1", username: "sam" }) === "/@sam")
     for (const f of ["post-card.tsx", "post-page.tsx", "chat.tsx", "leaderboard.tsx", "members.tsx"]) {
       const src = code(`components/community/member/${f}`)
@@ -122,6 +123,9 @@ async function main() {
     }
     const dir = code("lib/communities/server/directory.ts")
     check("who has a storefront is read once per page of people (finished onboarding, as /<handle> checks)", /from\("creators"\)\.select\("user_id"\)\.in\("user_id", list\)\.eq\("onboarding_completed", true\)/.test(dir) && (dir.match(/storefrontsOf\(db,/g) || []).length >= 3)
+    const profile = code("components/community/member/member-profile.tsx")
+    check("?message=1 on a member's page opens the conversation once, then leaves the address", /url\.searchParams\.get\("message"\) !== "1"\) return/.test(profile) && /url\.searchParams\.delete\("message"\)/.test(profile) && /window\.history\.replaceState\(/.test(profile) && /openMessages\(\{ userId: member\.userId \}\)/.test(profile))
+    check("names come with a handle: anybody without one is given one when a page of people is read", /ensureUsernames\(db, unnamed\)/.test(code("lib/communities/server/directory.ts")))
     check("a member row offers Message beside the name when chat is on", /openMessages\(\{ userId: m\.userId \}\)/.test(code("components/community/member/members.tsx")))
   }
 
