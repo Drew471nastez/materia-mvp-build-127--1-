@@ -46,7 +46,7 @@ export function DayChart({ points, kind, name }: { points: { day: string; value:
     return () => ro.disconnect()
   }, [])
   const H = 176
-  const pad = { l: 34, r: 8, t: 10, b: 22 }
+  const pad = { l: 46, r: 8, t: 10, b: 22 }
   const max = niceMax(Math.max(0, ...points.map((p) => p.value)))
   const iw = W - pad.l - pad.r
   const ih = H - pad.t - pad.b
@@ -160,7 +160,7 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
     <div className="space-y-4" data-analytics="" aria-busy={loading || undefined}>
       <div className="flex items-center justify-between gap-3">
         <Segmented value={days} onChange={(d) => void choose(d)} label="Period" options={[{ value: "30", label: "30 days" }, { value: "90", label: "90 days" }]} />
-        <p className="text-[12.5px] text-[#9ca3af]">Up to yesterday, plus today so far</p>
+        <p className="text-[12.5px] text-[#9ca3af] max-sm:hidden">Up to yesterday, plus today so far</p>
       </div>
       {error ? <Notice>{error}</Notice> : null}
       {!data.rolledUp ? <Notice tone="info">The daily figures start after the first nightly count. Today&rsquo;s numbers below are live.</Notice> : null}
