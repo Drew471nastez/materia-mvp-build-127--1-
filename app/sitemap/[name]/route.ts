@@ -1,5 +1,6 @@
 import {
   SitemapReadFailed,
+  communitiesSitemap,
   creatorsSitemap,
   onePagesSitemap,
   onePagesSitemapIndex,
@@ -46,7 +47,9 @@ export async function GET(_request: Request, context: { params: Promise<{ name: 
             ? await creatorsSitemap(wanted.chunk)
             : wanted.kind === "onepages"
               ? await onePagesSitemap(wanted.chunk)
-              : await websitesSitemap(wanted.chunk)
+              : wanted.kind === "communities"
+                ? await communitiesSitemap(wanted.chunk)
+                : await websitesSitemap(wanted.chunk)
     return new Response(urlsetXml(entries), {
       headers: {
         "Content-Type": "application/xml; charset=utf-8",

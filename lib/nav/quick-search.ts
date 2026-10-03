@@ -34,6 +34,7 @@ import { hasCategoryPage } from "@/lib/explore/category-pages"
 import { listPrice } from "@/lib/pricing/list-price"
 import { getProductInternalPath, getStoreInternalPath } from "@/lib/url-helpers"
 import { withPriceIntervals } from "@/lib/memberships/intervals"
+import { excludingCommunityProducts } from "@/lib/communities/listing"
 
 export type QuickProduct = {
   id: string
@@ -45,17 +46,21 @@ export type QuickProduct = {
 }
 export type QuickCreator = { id: string; name: string; handle: string; href: string; avatar: string | null }
 export type QuickCategory = { id: string; label: string; href: string; parent: string | null }
+/** A community whose name or line says the word (only while communities are switched on). */
+export type QuickCommunity = { id: string; name: string; href: string; logo: string | null; line: string }
 export type QuickResults = {
   query: string
   products: QuickProduct[]
   creators: QuickCreator[]
   categories: QuickCategory[]
+  communities?: QuickCommunity[]
 }
 
 /** A short list: a search screen is for finding one thing, Explore is for a page of them. */
 export const PRODUCT_LIMIT = 6
 export const CREATOR_LIMIT = 3
 export const CATEGORY_LIMIT = 4
+export const COMMUNITY_LIMIT = 3
 /** Long enough to feel instant, long enough that a word typed at speed is one request. */
 export const DEBOUNCE_MS = 180
 
@@ -142,27 +147,57 @@ function toProduct(r: Row): QuickProduct {
 type Client = { from: (table: string) => any }
 
 /**
- * Products, creators and categories for one word. Categories never wait for
- * the network; the two product questions go out together.
+ * COMMUNITIES ARE ASKED OF STORELIB, NOT OF THE DATABASE. Which communities
+ * may be found (published, public, listed by their creator, not hidden by
+ * Storelib) is decided by columns a visitor's key cannot read, so the
+ * server answers (app/api/explore/communities, lib/communities/server/
+ * explore.ts). Asked beside the products, and only while the switch is on.
+ * A failure is no communities, never a broken search.
  */
-export async function quickSearch(client: Client, query: string): Promise<QuickResults> {
+async function quickCommunities(term: string): Promise<QuickCommunity[]> {
+  try {
+    const res = await fetch(`/api/explore/communities?q=${encodeURIComponent(term)}&limit=${COMMUNITY_LIMIT}`, { credentials: "omit" })
+    if (!res.ok) return []
+    const body = (await res.json()) as { items?: { id: string; name: string; url: string; logoUrl: string | null; coverUrl: string | null; memberCount: number; priceLine: string | null }[] }
+    return (body.items ?? []).slice(0, COMMUNITY_LIMIT).map((c) => ({
+      id: c.id,
+      name: c.name,
+      href: c.url,
+      logo: c.logoUrl || c.coverUrl || null,
+      line: [`${c.memberCount === 1 ? "1 member" : `${c.memberCount.toLocaleString("en-US")} members`}`, c.priceLine].filter(Boolean).join(" · "),
+    }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Products, creators and categories for one word, and communities while
+ * they are switched on. Categories never wait for the network; the product
+ * questions and the communities go out together.
+ */
+export async function quickSearch(client: Client, query: string, opts: { communities?: boolean } = {}): Promise<QuickResults> {
   const term = cleanTerm(query)
   const categories = matchCategories(term)
   if (!term) return { query, products: [], creators: [], categories }
+  const communitiesAsked = opts.communities ? quickCommunities(term) : null
 
+  /* A product that sells a community tier is a community, not a product result (lib/communities/listing). */
+  const ordinary = (q: any, exclude: boolean) => (exclude ? q.is("community_id", null) : q)
   const [byText, byCreator] = await Promise.all([
-    client
-      .from("products")
-      .select(SELECT)
-      .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
-      .eq("status", "published")
-      .limit(PRODUCT_LIMIT + 2),
-    client
-      .from("products")
-      .select(SELECT)
-      .or(`display_name.ilike.%${term}%,username.ilike.%${term}%,slug.ilike.%${term}%`, { referencedTable: "creators" })
-      .eq("status", "published")
-      .limit(12),
+    excludingCommunityProducts<{ data: Row[] | null; error: unknown }>((exclude) =>
+      ordinary(client.from("products").select(SELECT).or(`title.ilike.%${term}%,description.ilike.%${term}%`).eq("status", "published"), exclude).limit(PRODUCT_LIMIT + 2),
+    ),
+    excludingCommunityProducts<{ data: Row[] | null; error: unknown }>((exclude) =>
+      ordinary(
+        client
+          .from("products")
+          .select(SELECT)
+          .or(`display_name.ilike.%${term}%,username.ilike.%${term}%,slug.ilike.%${term}%`, { referencedTable: "creators" })
+          .eq("status", "published"),
+        exclude,
+      ).limit(12),
+    ),
   ])
 
   const textRows: Row[] = (byText?.data as Row[]) || []
@@ -222,7 +257,8 @@ export async function quickSearch(client: Client, query: string): Promise<QuickR
     }
   }
 
-  return { query, products, creators, categories }
+  const communities = communitiesAsked ? await communitiesAsked : undefined
+  return { query, products, creators, categories, ...(communities ? { communities } : {}) }
 }
 
 /* ── What was searched before ────────────────────────────────────────────── */

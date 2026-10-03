@@ -27,7 +27,12 @@ import { ensureStorefrontOrRedirectToMember } from "@/lib/profile/storefront-gat
 import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
-import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { StorefrontCommunities } from "@/components/community/public/storefront-communities"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { withoutCommunityProducts } from "@/lib/communities/listing"
+import { creatorCommunityCards } from "@/lib/communities/server/public"
+import type { CommunityCard } from "@/lib/communities/types"
 import { creatorBadges } from "@/lib/creators/badges"
 import { reviewerOf } from "@/lib/reviews/rules"
 import { missingColumn } from "@/lib/reviews/store"
@@ -423,6 +428,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      started now so it waits on nothing), else storelib.com/<name>. Named by
      the structured data below, like the canonical in generateMetadata. */
   const pageHostPromise = primaryHostFor(creator.id, "creator_page")
+  /* The creator's communities for the Communities tab, only while communities are switched on; started now, read below. */
+  const communitiesPromise: Promise<CommunityCard[]> = communitiesEnabled()
+    .then((on) => (on ? creatorCommunityCards(creator.id) : []))
+    .catch(() => [])
 
   /**
    * The products and the published shop config are fetched together.
@@ -436,7 +445,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * looked up by `profile.id`, so it cannot start any earlier.
    */
   const [
-    { data: products, error: productsError },
+    { data: catalogue, error: productsError },
     publishedConfig,
     {
       data: { user: viewer },
@@ -551,6 +560,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     viewerPromise.then(({ data }) => hasBoughtFromCreator(supabase, data.user?.id, creator.id)),
   ])
   const pageHost = await pageHostPromise
+  /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
+  const products = catalogue ? withoutCommunityProducts(catalogue) : catalogue
+  const communityCards = await communitiesPromise
   const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`
 
   const viewerIsOwner = !!viewer && viewer.id === profile.id
@@ -1421,25 +1433,19 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           }
 
           /**
-           * Communities is here because it was asked for, and the feature is
-           * not built: Storelib has no paid membership a creator sells, and
-           * `community_posts` is their own dashboard feed rather than something
-           * anyone joins. The panel says that instead of opening onto nothing —
-           * a blank tab reads as broken, a sentence reads as "not yet".
-           *
-           * When the feature lands, this panel is the only thing that changes.
+           * COMMUNITIES, WHEN THERE ARE SOME. The creator's published, public
+           * communities as cards in their own scheme (lib/communities/server/
+           * public.ts creatorCommunityCards). No tab at all when they have
+           * none or communities are switched off: a tab that opens onto "not
+           * yet" is a promise the page cannot keep.
            */
-          tabs.push({
-            id: "communities",
-            label: "Communities",
-            panel: (
-              <EmptyTabPanel
-                icon="communities"
-                title="No communities yet"
-                detail="This creator hasn't opened any yet."
-              />
-            ),
-          })
+          if (communityCards.length > 0) {
+            tabs.push({
+              id: "communities",
+              label: "Communities",
+              panel: <StorefrontCommunities cards={communityCards} />,
+            })
+          }
 
           /**
            * THREE TABS: Home, Products, Communities. Reviews and About are
@@ -1639,17 +1645,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             ),
           })
         }
-        tabs.push({
-          id: "communities",
-          label: "Communities",
-          panel: (
-            <EmptyTabPanel
-              icon="communities"
-              title="No communities yet"
-              detail="This creator hasn't opened any yet."
-            />
-          ),
-        })
+        if (communityCards.length > 0) {
+          tabs.push({
+            id: "communities",
+            label: "Communities",
+            panel: <StorefrontCommunities cards={communityCards} />,
+          })
+        }
         return <StorefrontTabs tabs={tabs} />
       })()}
 

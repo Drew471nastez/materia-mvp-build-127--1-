@@ -10,6 +10,10 @@ import { MostPopularSection } from "@/components/explore/most-popular-section"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
+import { excludingCommunityProducts } from "@/lib/communities/listing"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { exploreCommunities } from "@/lib/communities/server/explore"
+import type { CommunityCard } from "@/lib/communities/types"
 import { cookies } from "next/headers"
 import { DISCOVER_MODE_COOKIE, parseDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-discover-mode-switcher"
@@ -115,6 +119,14 @@ export default async function ExplorePage({
   const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "all"
 
   const discoverModeSwitcherEnabled = await isExploreDiscoverModeSwitcherEnabled()
+  /*
+    COMMUNITIES, WHILE THEY ARE SWITCHED ON: a pill in the row that opens
+    /explore/communities, and on a search the communities that match, above
+    the products. Asked beside the catalogue; off, nothing is asked.
+  */
+  const communitiesOn = await communitiesEnabled()
+  const communityResultsPromise: Promise<CommunityCard[]> =
+    communitiesOn && searchQuery ? exploreCommunities({ q: searchQuery, limit: 3 }).then((p) => p.items).catch(() => []) : Promise.resolve([])
   const cookieMode = parseDiscoverModeCookie((await cookies()).get(DISCOVER_MODE_COOKIE)?.value)
   const initialDiscoverMode =
     params?.type === "communities"
@@ -161,18 +173,19 @@ export default async function ExplorePage({
 
     // Fetch published products — apply search filter server-side via ILIKE
     // to avoid fetching 100 rows when only a few match the query
-    let query = supabase
-      .from("products")
-      .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(100)
-
-    if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
-    }
-
-    const { data: products, error: productsError } = await query
+    /* A product that sells a community tier is found through its community, not in this list (lib/communities/listing). */
+    const { data: products, error: productsError } = await excludingCommunityProducts((exclude) => {
+      let query = supabase
+        .from("products")
+        .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
+        .eq("status", "published")
+      if (exclude) query = query.is("community_id", null)
+      query = query.order("created_at", { ascending: false }).limit(100)
+      if (searchQuery) {
+        query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+      }
+      return query
+    })
 
     if (productsError) {
       console.error("[ExplorePage] Products error:", productsError.message)
@@ -273,6 +286,8 @@ export default async function ExplorePage({
           searchQuery={searchQuery}
           discoverHeadlineSegmentEnabled={discoverModeSwitcherEnabled}
           initialDiscoverMode={initialDiscoverMode}
+          communitiesEnabled={communitiesOn}
+          communityResults={await communityResultsPromise}
         />
 
         {/*

@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useCallback, useTransition, useMemo, useEffect, useRef, useDeferredValue } from "react"
+import { Fragment, useState, useCallback, useTransition, useMemo, useEffect, useRef, useDeferredValue } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ExploreHero, type DiscoverMode } from "./explore-hero"
 import { writeDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { ProductCard } from "./product-card"
+import { CommunityGrid } from "@/components/community/public/community-card"
+import type { CommunityCard } from "@/lib/communities/types"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Code } from "lucide-react"
@@ -361,6 +363,10 @@ interface ExplorePageClientProps {
   /** Gray pill above “Discover” — admin / Health → Discover headline pill switch. */
   discoverHeadlineSegmentEnabled?: boolean
   initialDiscoverMode?: DiscoverMode
+  /** Communities are switched on: the row gets a Communities pill (to /explore/communities). */
+  communitiesEnabled?: boolean
+  /** On a search, the communities that match (lib/communities/server/explore.ts), drawn above the products. */
+  communityResults?: CommunityCard[]
 }
 
 export function ExplorePageClient({
@@ -370,6 +376,8 @@ export function ExplorePageClient({
   searchQuery: urlSearchQuery,
   discoverHeadlineSegmentEnabled = false,
   initialDiscoverMode = "products",
+  communitiesEnabled = false,
+  communityResults = [],
 }: ExplorePageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1166,11 +1174,11 @@ export function ExplorePageClient({
                 {(communities
                   ? COMMUNITY_PILLS
                   : [{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills]
-                ).map((cat) => {
+                ).map((cat, index) => {
                   const isSelected = mainCategory === cat.id
                   return (
+                    <Fragment key={cat.id}>
                     <button
-                      key={cat.id}
                       aria-pressed={isSelected}
                       onClick={() => {
                         setMainCategory(cat.id)
@@ -1200,6 +1208,24 @@ export function ExplorePageClient({
                       <span aria-hidden className="text-[15px] leading-none">{PILL_EMOJI[cat.id]}</span>
                       {cat.label}
                     </button>
+                    {/*
+                      COMMUNITIES, a place rather than a category, second in
+                      the row so a phone sees it without scrolling: the pill
+                      opens /explore/communities. Drawn only while communities
+                      are switched on, and not in the older communities mode,
+                      whose whole row is already about them.
+                    */}
+                    {index === 0 && communitiesEnabled && !communities ? (
+                      <Link
+                        href="/explore/communities"
+                        data-communities-pill=""
+                        className="inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-[background-color,border-color,color,box-shadow] duration-150 bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
+                      >
+                        <span aria-hidden className="text-[15px] leading-none">{"\u{1F465}"}</span>
+                        Communities
+                      </Link>
+                    ) : null}
+                    </Fragment>
                   )
                 })}
                 {/*
@@ -1511,6 +1537,18 @@ export function ExplorePageClient({
           <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900 mb-5">
             Results for "{urlSearchQuery}"
           </h2>
+          {/* The communities that match, first and few: the products are still the page. */}
+          {communitiesEnabled && !communities && communityResults.length > 0 ? (
+            <div className="mb-8" data-search-communities="">
+              <div className="mb-3 flex items-baseline justify-between gap-4">
+                <h3 className="text-[15px] font-semibold text-neutral-900">Communities</h3>
+                <Link href={`/explore/communities?q=${encodeURIComponent(urlSearchQuery)}`} className="text-[14px] font-medium text-neutral-500 hover:text-neutral-900">
+                  See all
+                </Link>
+              </div>
+              <CommunityGrid cards={communityResults} />
+            </div>
+          ) : null}
           {recommendedProducts.length > 0 ? (
             <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${searchGridEntrance}`}>
               {recommendedProducts.slice(0, 15).map((product, index) => (

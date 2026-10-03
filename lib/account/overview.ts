@@ -25,7 +25,7 @@ import type { SellerState } from "@/lib/account/seller-access"
 export const RECENT_PURCHASES = 3
 
 export interface OverviewFact {
-  key: "purchases" | "courses" | "memberships" | "reviews" | "wishlist"
+  key: "purchases" | "courses" | "memberships" | "communities" | "reviews" | "wishlist"
   label: string
   href: string
   value: number
@@ -89,11 +89,13 @@ export interface OverviewInput {
   memberships: { current: number; ended: number } | null
   wishlist: number
   seller: SellerState
+  /** Communities they are an active member of; null while communities are off or could not be read. */
+  communities?: number | null
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-export function accountOverview({ items, courses, memberships, wishlist, seller }: OverviewInput): AccountOverviewData {
+export function accountOverview({ items, courses, memberships, wishlist, seller, communities = null }: OverviewInput): AccountOverviewData {
   const owned = items ?? []
   const facts: OverviewFact[] = [{ key: "purchases", label: "Purchases", href: "/library", value: owned.length, detail: null }]
 
@@ -118,6 +120,11 @@ export function accountOverview({ items, courses, memberships, wishlist, seller 
       value: memberships.current,
       detail: memberships.current === 0 ? "None running" : null,
     })
+  }
+
+  /* Only for somebody who is in one: an account in none is not told about a zero. */
+  if (communities && communities > 0) {
+    facts.push({ key: "communities", label: "Communities", href: "/library/communities", value: communities, detail: null })
   }
 
   if (owned.length > 0) {

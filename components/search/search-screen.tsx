@@ -48,6 +48,7 @@ import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayo
 import { AppAvatar } from "@/components/app/app-avatar"
 import { BROWSE_DIM, BROWSE_EASE, BROWSE_PARALLAX, BROWSE_SLIDE_MS } from "@/components/explore/category-browser"
 import { createClient } from "@/lib/supabase/client"
+import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { CATEGORY_NAV } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
 import {
@@ -95,6 +96,7 @@ type Row =
   | { kind: "all"; key: string; href: string; label: string }
   | { kind: "product"; key: string; href: string; label: string; thumb: string | null; creator: string | null; price: string }
   | { kind: "creator"; key: string; href: string; label: string; handle: string; avatar: string | null }
+  | { kind: "community"; key: string; href: string; label: string; logo: string | null; line: string }
   | {
       kind: "category"
       key: string
@@ -160,6 +162,8 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
   autoFocus?: boolean
 }>(function SearchScreen({ onClose, onNavigate, initialQuery = "", autoFocus = false }, ref) {
   const [draft, setDraft] = useState(initialQuery)
+  /* Communities in the results only while they are switched on (lib/platform/use-flags). */
+  const communitiesOn = useCommunitiesEnabled()
   const [results, setResults] = useState<QuickResults | null>(null)
   /** The words the results on screen answer, and whether an answer for the current ones is still out. */
   const [waiting, setWaiting] = useState(false)
@@ -224,10 +228,10 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
     }
     setWaiting(true)
     /* The categories now, on top of the last answer's products. */
-    setResults((prev) => ({ query: term, products: prev?.products ?? [], creators: prev?.creators ?? [], categories: matchCategories(term) }))
+    setResults((prev) => ({ query: term, products: prev?.products ?? [], creators: prev?.creators ?? [], communities: prev?.communities ?? [], categories: matchCategories(term) }))
     timer.current = window.setTimeout(async () => {
       try {
-        const answer = await quickSearch(createClient(), term)
+        const answer = await quickSearch(createClient(), term, { communities: communitiesOn })
         if (n !== ask.current) return
         setResults(answer)
       } catch {
@@ -240,7 +244,7 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
     return () => {
       if (timer.current) window.clearTimeout(timer.current)
     }
-  }, [term])
+  }, [term, communitiesOn])
 
   /*
     NO FLICKER BETWEEN TWO WORDS. The last answer stays on screen while the
@@ -276,6 +280,7 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
       { kind: "all", key: "all", href: exploreResultsHref(draft), label: draft.trim() },
       ...(r?.products ?? []).map((p): Row => ({ kind: "product", key: `p:${p.id}`, href: p.href, label: p.title, thumb: p.thumb, creator: p.creator, price: p.price })),
       ...(r?.creators ?? []).map((c): Row => ({ kind: "creator", key: `c:${c.id}`, href: c.href, label: c.name, handle: c.handle, avatar: c.avatar })),
+      ...(r?.communities ?? []).map((c): Row => ({ kind: "community", key: `m:${c.id}`, href: c.href, label: c.name, logo: c.logo, line: c.line })),
       ...(r?.categories ?? []).map((c): Row =>
         c.parent ? { kind: "category", key: `k:${c.id}`, href: c.href, label: c.label, parent: c.parent, level: "item" } : groupRow(c.id, c.label, c.href, `k:${c.id}`),
       ),
@@ -358,7 +363,7 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
     }
   }
 
-  const found = results && (results.products.length > 0 || results.creators.length > 0 || results.categories.length > 0)
+  const found = results && (results.products.length > 0 || results.creators.length > 0 || (results.communities?.length ?? 0) > 0 || results.categories.length > 0)
   const nothing = !!term && !waiting && !found
   const inSub = sub !== null
   const heldCat = held ? SUBS.get(held) ?? null : null
@@ -625,6 +630,31 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{row.label}</span>
                                 <span className="block truncate text-[13px] text-[#6b7280]">@{row.handle}</span>
+                              </span>
+                            </>,
+                          )
+                        : null,
+                    )}
+                  </section>
+                ) : null}
+
+                {results && (results.communities?.length ?? 0) > 0 ? (
+                  <section data-search-section="communities">
+                    {heading("Communities")}
+                    {rootRows.map((row) =>
+                      row.kind === "community"
+                        ? option(
+                            row,
+                            <>
+                              {row.logo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={row.logo} alt="" width={40} height={40} loading="lazy" className="h-10 w-10 shrink-0 rounded-[10px] object-cover" />
+                              ) : (
+                                <AppAvatar src={null} name={row.label} alt="" size={40} className="rounded-[10px]" />
+                              )}
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{row.label}</span>
+                                <span className="block truncate text-[13px] tabular-nums text-[#6b7280]">{row.line}</span>
                               </span>
                             </>,
                           )

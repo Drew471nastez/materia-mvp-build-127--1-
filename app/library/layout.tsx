@@ -11,6 +11,7 @@ import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { LibraryTabs } from "@/components/library/library-tabs"
+import { communitiesEnabled } from "@/lib/communities/flag"
 import { LibraryPanel } from "@/components/library/library-panel"
 import { OpenInApp } from "@/components/library/open-in-app"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
@@ -56,7 +57,7 @@ export default async function LibraryLayout({
    */
   /* The header's two server-side props, asked for alongside everything else
      rather than in front of it. */
-  const [isNative, current, initialWishlistCount, onPlatformDomain, buyerHeaderLight, bannerFor] = await Promise.all([
+  const [isNative, current, initialWishlistCount, onPlatformDomain, buyerHeaderLight, bannerFor, communities] = await Promise.all([
     isCapacitorWebView(),
     /** A blip is not a sign-out. See lib/auth/current-user.ts. */
     currentUserForRequest(),
@@ -64,6 +65,8 @@ export default async function LibraryLayout({
     isPlatformDomain(),
     isBuyerHeaderLight(),
     appBannerPhone(),
+    /* The Communities pill is drawn only while communities are on (components/library/library-tab-list.ts). */
+    communitiesEnabled(),
   ])
   const user = current.user
 
@@ -144,7 +147,7 @@ export default async function LibraryLayout({
           }}
         >
           {/* The heading and pills, and the screen under them, which cross fades from one to the next (library-panel.tsx). */}
-          <LibraryPanel head={<LibraryTabs />}>{children}</LibraryPanel>
+          <LibraryPanel head={<LibraryTabs communities={communities} />}>{children}</LibraryPanel>
           {/*
             THE APP'S BANNER SITS UNDER THE LIBRARY, NOT OVER IT: "do not use
             the banner above the library, use it under, at the page". It was

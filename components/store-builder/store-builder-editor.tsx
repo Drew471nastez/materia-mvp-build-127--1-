@@ -7,6 +7,7 @@ import { StoreBuilderProvider, useStoreBuilder } from "./store-builder-context"
 import { EditorTopbar } from "./editor-topbar"
 import { SectionsSidebar } from "./sections-sidebar"
 import { PreviewCanvas } from "./preview-canvas"
+import type { CommunityCard } from "@/lib/communities/types"
 import { AddSectionModal } from "./add-section-modal"
 import { ProductPageModeSelector } from "./product-page-mode-selector"
 import { cn } from "@/lib/utils"
@@ -44,6 +45,8 @@ interface StoreBuilderEditorProps {
   }>
   initialPageType?: PageType
   initialProductId?: string | null
+  /** The creator's communities for the canvas's Communities tab; empty while communities are off. */
+  communities?: CommunityCard[]
 }
 
 export function StoreBuilderEditor({
@@ -54,6 +57,7 @@ export function StoreBuilderEditor({
   products,
   initialPageType,
   initialProductId,
+  communities = [],
 }: StoreBuilderEditorProps) {
   return (
     <StoreBuilderProvider
@@ -68,6 +72,7 @@ export function StoreBuilderEditor({
         creator={creator}
         profile={profile}
         products={products}
+        communities={communities}
       />
     </StoreBuilderProvider>
   )
@@ -79,6 +84,7 @@ function EditorLayout({
   creator,
   profile,
   products,
+  communities = [],
 }: Omit<StoreBuilderEditorProps, "initialPageType" | "initialProductId">) {
   const {
     canUndo,
@@ -212,7 +218,7 @@ function EditorLayout({
           </button>
         </div>
         <div className="flex-1 overflow-auto">
-          <PreviewCanvas creatorId={creatorId} creator={creator} profile={profile} products={products} isPreviewMode />
+          <PreviewCanvas creatorId={creatorId} creator={creator} profile={profile} products={products} communities={communities} isPreviewMode />
         </div>
       </div>
     )
@@ -255,6 +261,7 @@ function EditorLayout({
               creator={creator}
               profile={profile}
               products={products}
+              communities={communities}
               isMobileSidebarOpen={mobileSidebarOpen}
             />
           </div>
@@ -312,7 +319,7 @@ function EditorLayout({
 
         {/* Preview Canvas - fills remaining space, scrollable */}
         <div className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden bg-white dark:bg-zinc-950">
-          <PreviewCanvas creatorId={creatorId} creator={creator} profile={profile} products={products} />
+          <PreviewCanvas creatorId={creatorId} creator={creator} profile={profile} products={products} communities={communities} />
         </div>
       </div>
 
