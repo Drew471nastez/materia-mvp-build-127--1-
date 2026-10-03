@@ -23,17 +23,24 @@
  * a lazy import that fails outside any error boundary, in a press or an
  * effect, reloads the page once, or on a page with something typed in it
  * shows a bar that offers to.
+ *
+ * Notice a newer deploy (lib/ui/new-deploy.ts): when the tab comes back into
+ * view it asks /api/version, at most every five minutes, and a tab that is
+ * behind makes its next route change a full page load.
  */
 import { noteRouterStart, watchRouterStarts } from "@/lib/ui/router-starts"
 import { watchLeaveGuard } from "@/lib/ui/leave-guard"
 import { guardDomAgainstTranslators } from "@/lib/ui/dom-guard"
 import { watchStaleCode } from "@/lib/ui/stale-code"
+import { loadFullyIfBehind, watchDeploys, type NavigationType } from "@/lib/ui/new-deploy"
 
 guardDomAgainstTranslators()
 watchRouterStarts()
 watchLeaveGuard()
 watchStaleCode()
+watchDeploys()
 
-export function onRouterTransitionStart() {
+export function onRouterTransitionStart(url: string, navigationType: NavigationType) {
   noteRouterStart()
+  loadFullyIfBehind(url, navigationType)
 }

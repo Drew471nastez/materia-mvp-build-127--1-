@@ -108,6 +108,8 @@ const SUITES = [
   "tests/theme-agent.test.ts",
   "tests/storelib-ai.test.ts",
   "tests/client-errors.test.ts",
+  "tests/new-deploy.test.ts",
+  "tests/production-errors.test.ts",
   "tests/react-binding.test.ts",
   "tests/oauth-errors.test.ts",
   "tests/session-durability.test.ts",

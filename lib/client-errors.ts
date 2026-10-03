@@ -70,15 +70,22 @@ export function isChunkLoadError(error: unknown): boolean {
 }
 
 /**
- * "Load failed" is Safari's whole message for a fetch that never finished.
- * Inside /app, right after a deploy, that is the router asking the new
- * deployment for a page in the old one's terms; anywhere else it is too
- * vague to act on, so only /app counts it.
+ * "Load failed" is Safari's whole message for a fetch that never finished. A
+ * script that could not load can end that way, and so can a dropped
+ * connection, a phone that slept mid request, or a page being left. On its
+ * own it is too vague to act on (it used to count anywhere inside /app, which
+ * reloaded the dashboard for a dropped connection), so it counts only once
+ * this tab knows a newer deploy is live (lib/ui/new-deploy.ts): the one case
+ * where loading the page again is what fixes it.
  */
-export function isStaleCodeError(error: unknown, path: string | null | undefined): boolean {
-  if (isChunkLoadError(error)) return true
+export function isLoadFailed(error: unknown): boolean {
   const message = typeof (error as { message?: unknown })?.message === "string" ? (error as { message: string }).message : ""
-  return message.trim() === "Load failed" && typeof path === "string" && /^\/app(\/|$)/.test(path)
+  return message.trim() === "Load failed"
+}
+
+/** A failure a reload fixes: code a deploy removed, or "Load failed" once a newer deploy is known. */
+export function isStaleCodeError(error: unknown, newDeploy: boolean = false): boolean {
+  return isChunkLoadError(error) || (newDeploy && isLoadFailed(error))
 }
 
 export interface ReloadStore {
@@ -96,10 +103,11 @@ export interface ReloadStore {
 export function shouldReloadForStaleCode(
   error: unknown,
   store: ReloadStore | null | undefined,
-  path?: string | null,
+  /** A newer deploy is known to be live (lib/ui/new-deploy.ts). */
+  newDeploy: boolean = false,
   now: number = Date.now(),
 ): boolean {
-  if (!isStaleCodeError(error, path)) return false
+  if (!isStaleCodeError(error, newDeploy)) return false
   if (!store) return false
   try {
     /*
@@ -162,7 +170,7 @@ export interface ClientErrorReport {
   stale: boolean
 }
 
-export function buildReport(error: unknown, href: string): ClientErrorReport {
+export function buildReport(error: unknown, href: string, newDeploy: boolean = false): ClientErrorReport {
   const message = typeof (error as { message?: unknown })?.message === "string" ? (error as { message: string }).message : "Unknown error"
   let path = "/"
   try {
@@ -174,6 +182,6 @@ export function buildReport(error: unknown, href: string): ClientErrorReport {
     message: message.slice(0, 300),
     digest: typeof (error as { digest?: unknown })?.digest === "string" ? (error as { digest: string }).digest : null,
     path: path.slice(0, 200),
-    stale: isStaleCodeError(error, path),
+    stale: isStaleCodeError(error, newDeploy),
   }
 }
