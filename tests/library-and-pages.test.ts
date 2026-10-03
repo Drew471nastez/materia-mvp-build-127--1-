@@ -119,6 +119,10 @@ async function main() {
     check("nothing folds: no group opens and shuts behind a row of its own", !/yoursOpen|productsOpen|setYoursOpen|setProductsOpen/.test(switcherCode) && !/ChevronRight/.test(switcherCode))
     check("and nothing scrolls inside the list", !/PAGES_BEFORE_SCROLL/.test(switcherCode) && !/max-h-\[132px\]/.test(switcherCode) && (switcherCode.match(/overflow-y-auto/g) ?? []).length === 1)
     check("the one scroller is marked for the phone's sheet", /data-page-list-scroll=""\s*\n\s*data-sheet-scroll=""/.test(switcher))
+    /* The bar's menu took 10px for Chrome's bar the moment it scrolled (scripts/check-page-menu-scroll.mjs). */
+    check("the bar's menu scrolls under a drawn thumb that takes no width, and is capped by the window",
+      /"cp-overlay-scroll max-h-\[min\(400px,calc\(100dvh-200px\)\)\] p-1\.5"/.test(switcher) && /\{!light && <OverlayRail scrollerRef=\{scrollRef\} tone="dark" \/>\}/.test(switcher) && /\.cp-overlay-rail\[data-tone="dark"\] \.cp-overlay-thumb/.test(css))
+    check("the sidebar's light list keeps its slim bar", /\? cn\("wb-slim-scroll flex-1", sidePad/.test(switcher))
     check("a group's heading is 12px, muted, and not in capitals", /<h3 className=\{cn\("text-\[12px\] font-medium", skin\.heading\)\}>/.test(switcher) && !/uppercase/.test(switcherCode))
     check("rows are 40px on a computer and 48px on a phone", /touch \? "h-12 pr-14 text-\[15px\]" : "h-10 pr-10 text-\[14px\]"/.test(switcher))
     check("a search at the top once the list is long", /const searchable = count >= PAGE_SEARCH_FROM/.test(switcher) && /placeholder="Search pages"/.test(switcher))

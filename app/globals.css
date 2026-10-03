@@ -1564,6 +1564,14 @@ html.capacitor body {
   .cp-overlay-rail[data-visible="false"]:not([data-dragging]) .cp-overlay-thumb {
     pointer-events: none;
   }
+  /* On the builder's dark menus the thumb is light. */
+  .cp-overlay-rail[data-tone="dark"] .cp-overlay-thumb {
+    background: rgba(255, 255, 255, 0.24);
+  }
+  .cp-overlay-rail[data-tone="dark"] .cp-overlay-thumb:hover,
+  .cp-overlay-rail[data-tone="dark"][data-dragging] .cp-overlay-thumb {
+    background: rgba(255, 255, 255, 0.4);
+  }
   @media not (pointer: coarse) {
     .cp-overlay-scroll {
       scrollbar-width: none;
@@ -4896,6 +4904,18 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 @media (prefers-reduced-motion: reduce) {
   .wb-pages-menu,
   .wb-pages-menu[data-state="closed"] { transition: none; }
+}
+
+/* The link picker's lists (components/website-builder/link-picker.tsx): a
+   kind's own list comes in from the right, the first list back from the left,
+   by 8px and a fade, on the compositor. Nothing as the panel opens: the panel
+   has its own entrance. */
+.wb-link-level[data-dir="in"] { animation: wb-link-level-in 180ms cubic-bezier(0.32, 0.72, 0, 1); }
+.wb-link-level[data-dir="out"] { animation: wb-link-level-out 180ms cubic-bezier(0.32, 0.72, 0, 1); }
+@keyframes wb-link-level-in { from { opacity: 0; transform: translate3d(8px, 0, 0); } }
+@keyframes wb-link-level-out { from { opacity: 0; transform: translate3d(-8px, 0, 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .wb-link-level[data-dir] { animation: none; }
 }
 
 /* ── Website-builder Add-Section modal close animation ──

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { Check, ChevronDown, Plus, RefreshCw, Search, Trash2, X } from "lucide-react"
 
 import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
+import { OverlayRail } from "@/components/storefront/overlay-scroll"
 import { PAGE_SEARCH_FROM, PRODUCTS_LISTED, groupPages, pageGroupOf, pageMatches, type PageGroupKey } from "@/lib/website-builder/page-groups"
 import { cn } from "@/lib/utils"
 
@@ -487,14 +488,29 @@ export function PageList({
           </div>
         ))}
 
-      {/* THE ONE THING THAT SCROLLS. Groups are headings in it, not boxes of their own. */}
+      {/**
+        * THE ONE THING THAT SCROLLS. Groups are headings in it, not boxes of their own.
+        *
+        * On the bar's dark menu the platform's bar is hidden and a 6px thumb
+        * is drawn over the rows instead (OverlayRail). Chrome's thin bar took
+        * 10px of the list the moment it could scroll, so every row, the
+        * ticked one included, ended 17px from the menu's edge on the right
+        * and 7px on the left, and the counts moved in. The thumb takes no
+        * width: a long menu has the same edges as a short one
+        * (scripts/check-page-menu-scroll.mjs). The light list keeps the
+        * sidebar's slim bar, where a reserved column is invisible.
+        */}
+      <div className={cn("relative flex min-h-0 flex-col", light && "flex-1")}>
       <div
         ref={scrollRef}
         data-page-list-scroll=""
         data-sheet-scroll=""
         className={cn(
-          "wb-slim-scroll min-h-0 overflow-y-auto overscroll-contain",
-          light ? cn("flex-1", sidePad, touch ? "pb-6" : "pb-4") : "max-h-[min(360px,calc(100vh-160px))] p-1.5",
+          "min-h-0 overflow-y-auto overscroll-contain",
+          light
+            ? cn("wb-slim-scroll flex-1", sidePad, touch ? "pb-6" : "pb-4")
+            : /* Ten rows at most on a tall window, and always room for the search, the foot and a gutter. */
+              "cp-overlay-scroll max-h-[min(400px,calc(100dvh-200px))] p-1.5",
         )}
       >
         {groups.map((g, i) => {
@@ -572,6 +588,8 @@ export function PageList({
         {groups.length === 0 && (
           <p className={cn("px-3 py-8 text-center text-[14px]", skin.empty)}>No page matches “{query.trim()}”</p>
         )}
+      </div>
+      {!light && <OverlayRail scrollerRef={scrollRef} tone="dark" />}
       </div>
 
       {!light && onCreate && (
