@@ -7,7 +7,7 @@
  */
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { missingPrivacyColumn, privacyPatch } from "@/lib/profile/privacy"
 
@@ -17,7 +17,10 @@ export const runtime = "nodejs"
 const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function PATCH(request: Request) {
-  const { user } = await currentUserForRequest()
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE })
   const limited = await rateLimit({ bucket: "profile-privacy", subjects: [`user:${user.id}`], windows: [{ limit: 30, seconds: 60 }] })
   if (limited) return limited

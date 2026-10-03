@@ -20,7 +20,7 @@
  */
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { isValidUsername } from "@/lib/reserved-words"
 import { handleAvailable } from "@/lib/profile/ensure-username"
@@ -31,8 +31,12 @@ export const runtime = "nodejs"
 
 const NO_STORE = { "Cache-Control": "no-store" }
 
+/* The signed in person, from the session the auth server confirms; never an id from the request. */
 async function signedIn() {
-  const { user } = await currentUserForRequest()
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   return user ?? null
 }
 
