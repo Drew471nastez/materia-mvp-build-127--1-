@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { forgetDeletedProduct, purgeProductCaches, refreshPublishedSite } from "@/lib/products/forget-product"
+import { queueProductFanout } from "@/lib/notifications/fanout"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -63,6 +64,12 @@ export async function POST(request: Request) {
   if (row?.id) {
     purgeProductCaches({ creatorId, productId: row.id, slug, handle })
     await refreshPublishedSite(creatorId)
+    /* Published from the list or the editor's toggle: followers and past buyers hear once (lib/notifications/fanout.ts). Never fails this. */
+    try {
+      await queueProductFanout(admin, { productId: row.id, creatorId })
+    } catch (e) {
+      console.error("[products/forget] followers not queued:", e instanceof Error ? e.message : e)
+    }
     return NextResponse.json({ ok: true, deleted: false }, { status: 202 })
   }
 

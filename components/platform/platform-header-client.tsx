@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
    person, and nothing drawn while a photo is on its way (which is what the
    header wants: this is the viewer's own picture and it is cached). */
 import { AppAvatar } from "@/components/app/app-avatar"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
@@ -1778,6 +1779,8 @@ export function PlatformHeaderClient({
                           My Library
                         </TooltipContent>
                       </Tooltip>
+                      {/* The person's notifications (components/notifications/notification-bell.tsx), signed in only. */}
+                      <NotificationBell className={chrome.iconBtn} />
                       {sellerDashboardButton}
                       {desktopAccountMenu}
                     </>
@@ -2166,6 +2169,9 @@ export function PlatformHeaderClient({
                 </span>
               </Link>
 
+              {/* The person's notifications: a full screen sheet on a phone. */}
+              {user ? <NotificationBell className={chrome.iconBtn} /> : null}
+
               {/* Mobile Avatar or Sign In button — use h-[42px] w-[42px] wrapper for 44px tap target */}
               {user ? (
                 <button
@@ -2244,6 +2250,7 @@ export function PlatformHeaderClient({
                   <GuestHeaderActions withLogin={false} link={headerLink} placeholder chrome={chrome} />
                 ) : user ? (
                   <>
+                    <NotificationBell className={chrome.iconBtn} />
                     {sellerDashboardButton}
                     {desktopAccountMenu}
                   </>

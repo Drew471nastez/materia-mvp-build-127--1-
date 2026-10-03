@@ -36,4 +36,6 @@ export const JOB_HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   video_poll: videoPoll,
   rollup: (db, job, ctx) => import("./rollup").then((m) => m.rollup(db, job, ctx)),
   trending: (db, job, ctx) => import("./trending").then((m) => m.trending(db, job, ctx)),
+  fanout_followers: (db, job, ctx) => import("./fanout_followers").then((m) => m.fanoutFollowers(db, job, ctx)),
+  fanout_membership_post: (db, job, ctx) => import("./fanout_membership_post").then((m) => m.fanoutMembershipPost(db, job, ctx)),
 }
