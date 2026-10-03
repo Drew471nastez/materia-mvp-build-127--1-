@@ -41,7 +41,7 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
   ]
 
   return (
-    <LinkTargetsProvider targets={ctx.linkTargets ?? []}>
+    <LinkTargetsProvider targets={ctx.linkTargets ?? []} sections={ctx.linkSections}>
       <PageTitle>Navigation</PageTitle>
 
       <Card title="Header menu" footer={GOES_LIVE}>

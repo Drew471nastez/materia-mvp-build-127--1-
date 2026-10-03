@@ -127,7 +127,7 @@ export function ProjectSettings({
   onUnpublished?: () => void
   onNavigate?: (href: string) => void
   /** The header, the footer and the editor's writers for them: Navigation. */
-  navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "currentPageKey" | "currentSections" | "onPageDraftSaved">
+  navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "linkSections" | "currentPageKey" | "currentSections" | "onPageDraftSaved">
 }) {
   const [section, setSection] = useState<SettingsSection>("general")
   /** A phone shows the list until a subject is picked. */

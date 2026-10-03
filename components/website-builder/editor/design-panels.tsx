@@ -60,6 +60,17 @@ import type { SchemaField, SectionInstance, ThemeSettingsValues } from "@/lib/we
 import { ColorChip } from "./color-chip"
 import { GRADIENT_PRESETS, GradientEditor } from "./gradient-editor"
 import { Collapse } from "./collapse"
+import { SECTION_ANIMATION_OPTIONS, isChromeType, themeAnimation, type SectionAnimation } from "@/lib/website-builder/section-anchors"
+
+/** The theme's animation in the words the section's own choices use. */
+const THEME_MOTION_LABEL: Record<SectionAnimation, string> = {
+  none: "none",
+  fade: "fade",
+  fade_up: "fade up",
+  zoom: "zoom",
+  slide_left: "slide left",
+  slide_right: "slide right",
+}
 
 type Theme = ThemeSettingsValues
 const asRecord = (t: Theme) => t as unknown as Record<string, unknown>
@@ -603,7 +614,20 @@ export function SectionDesignPanel({
   const customHeading = normalizeTypeStyle(s.custom_heading, typo.styles.h2)
   const customBody = normalizeTypeStyle(s.custom_body, typo.styles.body)
 
-  if (!support.colorScheme && !support.typography) return null
+  /**
+   * HOW THIS SECTION ARRIVES, over the theme's choice (Theme settings ›
+   * Animations). Not for the header and the footer, which never move, and
+   * not when the section's own code declares an `animation` setting, which
+   * its own panel already shows. lib/website-builder/section-anchors.ts.
+   */
+  const showAnimation = !isChromeType(section.type) && !schema?.fields?.some((f) => f.id === "animation")
+  const animation = typeof s.animation === "string" && SECTION_ANIMATION_OPTIONS.some((o) => o.value === s.animation) ? s.animation : "theme"
+  const themeMotion = themeAnimation(asRecord(theme))
+  const animationOptions = SECTION_ANIMATION_OPTIONS.map((o) =>
+    o.value === "theme" ? { ...o, label: `Same as theme (${THEME_MOTION_LABEL[themeMotion]})` } : o,
+  )
+
+  if (!support.colorScheme && !support.typography && !showAnimation) return null
 
   return (
     <div className={cn(!compact && "border-b border-border px-3.5 py-3.5", "space-y-3.5")}>
@@ -724,6 +748,13 @@ export function SectionDesignPanel({
               <TypeStyleFields value={customBody} base={typo.styles.body} onChange={(next) => onUpdateSetting("custom_body", stripTypeStyleDefaults(next, DEFAULT_TYPE_STYLES.body))} />
             </div>
           )}
+        </div>
+      )}
+
+      {showAnimation && (
+        <div className="space-y-3">
+          <p className={LABEL}>Animation</p>
+          <Select value={animation} onChange={(v) => onUpdateSetting("animation", v === "theme" ? undefined : v)} options={animationOptions} />
         </div>
       )}
     </div>
