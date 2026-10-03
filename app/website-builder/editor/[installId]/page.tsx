@@ -2002,7 +2002,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -2011,7 +2011,7 @@ function HeaderSectionSettings({
                 <div className="px-3 py-2.5 flex items-center justify-between">
                   <span className="text-xs font-medium">{opt.label}</span>
                   {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                    <span className="text-[10px] font-semibold text-[#7c3aed] uppercase tracking-wider">Selected</span>
                   )}
                 </div>
               </button>
@@ -2119,7 +2119,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -2128,7 +2128,7 @@ function HeaderSectionSettings({
                 <div className="px-3 py-2.5 flex items-center justify-between">
                   <span className="text-xs font-medium">{opt.label}</span>
                   {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                    <span className="text-[10px] font-semibold text-[#7c3aed] uppercase tracking-wider">Selected</span>
                   )}
                 </div>
               </button>
@@ -5710,7 +5710,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           ) : (
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2">
-              {/* Header, Template and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
+              {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
               <SectionsList
                 sections={sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}

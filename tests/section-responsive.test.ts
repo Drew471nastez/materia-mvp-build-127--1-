@@ -1863,7 +1863,7 @@ check(
   // and a hairline between Header, Template and Footer drawn at rest, so on a
   // phone, where nothing hovers, the list still reads as three parts.
   /data-insert-section=""/.test(sectionsList) &&
-    /group-hover\/ins:bg-\[#2563eb\]\/60/.test(sectionsList) &&
+    /group-hover\/ins:bg-\[#8b5cf6\]\/60/.test(sectionsList) &&
     (sectionsList.match(/<div className="mx-2 my-2 h-px bg-\[#e5e7eb\]" aria-hidden \/>/g) ?? []).length === 2,
 )
 

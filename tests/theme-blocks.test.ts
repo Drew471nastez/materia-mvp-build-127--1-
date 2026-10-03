@@ -32,6 +32,8 @@ import {
   type CompiledBlock,
 } from "@/lib/storelib-theme"
 import { acceptsType } from "@/lib/storelib-theme/schema/validate"
+import { DEFAULT_COLOR_SCHEMES, schemeTokenName } from "@/lib/storelib-theme/color-schemes"
+import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import {
   BlockInstanceSchema,
@@ -203,6 +205,72 @@ function main() {
       check("nothing is drawn deeper than eight levels", (out.html.match(/data-block-type="box"/g) ?? []).length === 8, (out.html.match(/data-block-type="box"/g) ?? []).length)
     }
   }
+
+  console.log("\nColours a block has of its own")
+  /*
+    "Sections and blocks can have custom colour settings for specific
+    elements, like Shopify." Each shipped block that draws a colour has a
+    setting for it, whose default names a colour of the section's scheme
+    (render.ts, followSchemeColours) and whose value reaches the page as an
+    inline custom property the block's one rule reads.
+  */
+  const colourDefaults = (t: string) => Object.fromEntries((library[t]?.schema.settings ?? []).filter((s) => s.type === "color").map((s) => [s.id, s.default]))
+  check("Heading has a text colour following the scheme's heading", JSON.stringify(colourDefaults("heading")) === '{"color":"scheme.heading"}', colourDefaults("heading"))
+  check("Text has a text colour following the scheme's text", JSON.stringify(colourDefaults("text")) === '{"color":"scheme.text"}', colourDefaults("text"))
+  const btn = colourDefaults("button")
+  check("Button has fill, text and both hovers for each style, following that button of the scheme",
+    btn.button_color === "scheme.primary_button_background" && btn.button_text_color === "scheme.primary_button_text" &&
+      btn.button_hover_color === "scheme.primary_button_hover_background" && btn.button_hover_text_color === "scheme.primary_button_hover_text" &&
+      btn.secondary_color === "scheme.secondary_button_background" && btn.secondary_text_color === "scheme.secondary_button_text" &&
+      btn.secondary_border_color === "scheme.secondary_button_border" && btn.secondary_hover_color === "scheme.secondary_button_hover_background" &&
+      btn.secondary_hover_text_color === "scheme.secondary_button_hover_text", btn)
+  check("Group has a background that is empty for none, and a corner radius",
+    colourDefaults("group").background === "" && library.group?.schema.settings.some((s) => s.id === "radius" && s.type === "range" && s.default === 0) === true, colourDefaults("group"))
+  const schemeNames = ["heading", "text", "button"].flatMap((t) => Object.values(colourDefaults(t)))
+  check("every scheme name a block's default uses is one the scheme has", schemeNames.length === 11 && schemeNames.every((d) => schemeTokenName(d) !== null), schemeNames.filter((d) => schemeTokenName(d) === null))
+  const btnCatalog = themeBlockCatalog().button?.fields ?? []
+  const shownFor = (style: string) => visibleFields(btnCatalog, { style }, { fields: [], saved: {} }).filter((f) => f.type === "color").map((f) => f.label)
+  check("the sidebar shows only the chosen style's colours", shownFor("primary").join(",") === "Fill,Text,Hover fill,Hover text" && shownFor("secondary").join(",") === "Fill,Text,Border,Hover fill,Hover text", { primary: shownFor("primary"), secondary: shownFor("secondary") })
+  check("and draws a block's colour with SectionColorSetting, against the section's scheme",
+    /field\.type === "color" \? \(\s*<SectionColorSetting\s+field=\{field\}\s+value=\{block\.settings\[field\.id\]\}\s+settings=\{section\.settings\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  for (const [type, rule] of [["heading", /\[data-block-type="heading"\] \.sl-heading \{[^}]*color: var\(--heading-color, var\(--s-heading/], ["text", /\[data-block-type="text"\] \.sl-text \{[^}]*color: var\(--text-color, var\(--s-para/], ["button", /\[data-block-type="button"\] \.sl-button--primary \{ background: var\(--b-bg, var\(--s-btn/], ["group", /\[data-block-type="group"\] \.sl-group \{[^}]*background: var\(--g-bg, transparent\); border-radius: var\(--g-radius, 0\)/]] as const) {
+    check(`${type}'s one rule, scoped to its type, reads its colour from the inline property`, rule.test(library[type]?.css ?? ""), (library[type]?.css ?? "").slice(0, 300))
+  }
+  const paint = (settings: Record<string, unknown>, blocks: Record<string, unknown>) => renderSection({
+    compiled: section.value, id: "c1",
+    instance: { type: "blocks_section", settings, blocks: blocks as never, block_order: Object.keys(blocks) },
+    theme: {}, page: { template: "index" }, blocks: lookup(),
+  }).html
+  const four = { h: { type: "heading", settings: { text: "H" } }, t: { type: "text", settings: {} }, p: { type: "button", settings: {} }, s: { type: "button", settings: { style: "secondary" } }, g: { type: "group", settings: {} } }
+  for (const key of ["white", "dark"] as const) {
+    const sc = DEFAULT_COLOR_SCHEMES[key]
+    const html = paint({ color_scheme: key }, four)
+    check(`on a ${sc.name} section every block's colour is that scheme's`,
+      html.includes(`style="--heading-color: ${sc.heading};"`) && html.includes(`style="--text-color: ${sc.text};"`) &&
+        html.includes(`--b-bg: ${sc.primary_button_background}; --b-text: ${sc.primary_button_text};`) &&
+        html.includes(`--b-bg: ${sc.secondary_button_background}; --b-text: ${sc.secondary_button_text}; --b-border: ${sc.secondary_button_border};`) &&
+        html.includes("--g-bg: transparent; --g-radius: 0px;"), html.slice(html.indexOf('data-block-id="h"'), html.indexOf('data-block-id="h"') + 900))
+  }
+  const overridden = paint({ color_scheme: "dark", color_overrides: { heading: "#abcdef", primary_button_background: "#123456" } }, four)
+  check("and a section's own override of its scheme reaches the blocks in it too", overridden.includes('--heading-color: #abcdef;') && overridden.includes("--b-bg: #123456;"), overridden.slice(overridden.indexOf('data-block-id="h"'), overridden.indexOf('data-block-id="h"') + 500))
+  const explicit = paint({ color_scheme: "dark" }, {
+    h: { type: "heading", settings: { text: "H", color: "#ff0000" } },
+    t: { type: "text", settings: { color: "#00aa00" } },
+    p: { type: "button", settings: { button_color: "#7c3aed", button_text_color: "#fefefe", button_hover_color: "#6d28d9", button_hover_text_color: "#ffffff" } },
+    s: { type: "button", settings: { style: "secondary", secondary_color: "#eeeeee", secondary_border_color: "#111111" } },
+    g: { type: "group", settings: { background: "#f5f3ff", radius: 12 }, blocks: { inner: { type: "group", settings: {} } }, block_order: ["inner"] },
+  })
+  check("a colour somebody picked reaches the page, over the scheme", explicit.includes('style="--heading-color: #ff0000;"') && explicit.includes('style="--text-color: #00aa00;"'), explicit.slice(0, 1200))
+  check("on a primary button: fill, text and both hovers, the border with the fill",
+    explicit.includes("--b-bg: #7c3aed; --b-text: #fefefe; --b-border: #7c3aed; --b-hover-bg: #6d28d9; --b-hover-text: #ffffff;"))
+  check("on a secondary one: its own fill and border, the rest still the scheme's",
+    explicit.includes(`--b-bg: #eeeeee; --b-text: ${DEFAULT_COLOR_SCHEMES.dark.secondary_button_text}; --b-border: #111111;`))
+  check("a group's background and radius, and a group inside it does not inherit them",
+    explicit.includes("--g-bg: #f5f3ff; --g-radius: 12px;") && explicit.includes("--g-bg: transparent; --g-radius: 0px;"))
+  const unsafe = paint({}, { h: { type: "heading", settings: { color: "red; background: url(x)" } } })
+  check("a colour that is not one never reaches the style attribute", !unsafe.includes("url(x)") && /--heading-color: #[0-9a-f]{6};/.test(unsafe), unsafe.slice(unsafe.indexOf("<h2"), unsafe.indexOf("<h2") + 160))
+  const titled = renderSection({ compiled: grid.value, id: "g9", instance: { type: "image_grid", settings: { color_scheme: "dark" }, blocks: {}, block_order: [] }, theme: {}, page: { template: "index" }, blocks: lookup() })
+  check("a static block nobody has edited follows the scheme too", titled.html.includes(`--heading-color: ${DEFAULT_COLOR_SCHEMES.dark.heading};`), titled.html.slice(titled.html.indexOf('data-block-id="title"'), titled.html.indexOf('data-block-id="title"') + 300))
 
   console.log("\nThe two shapes, and nothing lost between them")
   const editorTree: BlockInstance[] = [

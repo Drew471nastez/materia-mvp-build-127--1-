@@ -49,8 +49,8 @@ function Drawn({ s }: { s: Specimen }) {
       const on = v === true
       return (
         <div className="flex h-9 items-center justify-end">
-          <span className={`relative h-[22px] w-[38px] rounded-full ${on ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]"}`}>
-            <span className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow ${on ? "left-[19px]" : "left-[3px]"}`} />
+          <span className={`relative h-[20px] w-[36px] rounded-full ${on ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]"}`}>
+            <span className={`absolute top-[2px] h-4 w-4 rounded-full bg-white shadow ${on ? "left-[18px]" : "left-[2px]"}`} />
           </span>
           <span className="ml-2 w-6 text-[12px] text-[#6b7280]">{on ? "On" : "Off"}</span>
         </div>

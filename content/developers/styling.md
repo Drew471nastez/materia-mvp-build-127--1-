@@ -155,7 +155,9 @@ Let it **follow the scheme until the creator picks one** by naming a scheme colo
 
 Untouched, `settings.star_color` is this section's accent: it changes with the scheme, with Advanced colors and with the theme. The row says **Scheme** and shows that colour, greyed. Once the creator picks a colour the setting holds its hex, and the reset arrow beside it puts it back to following the scheme. Any name `scheme.<key>` has works: the names in the table above and the older ones (`scheme.bg`, `scheme.primary_btn_bg`).
 
-A plain hex default works too, and an empty default (`""`) means the section works the colour out itself, which the row calls **Auto**: write it as `{{ settings.star_color | default: scheme.accent }}`. The older colour settings the overrides already cover (`bg_color`, `text_color`, `button_color` and the rest) are not shown twice: Advanced colors edits them under their new names.
+A plain hex default works too, and an empty default (`""`) means the section works the colour out itself, which the row calls **Auto**: write it as `{{ settings.star_color | default: scheme.accent }}`.
+
+A theme block declares colours the same way, and they follow the scheme of the section the block is in: Heading's text color is `scheme.heading` until somebody picks one. A block's CSS is one rule per type, so its colour reaches that rule through an inline custom property; see [Colours a block has of its own](/developers/blocks#colours-a-block-has-of-its-own). The older colour settings the overrides already cover (`bg_color`, `text_color`, `button_color` and the rest) are not shown twice: Advanced colors edits them under their new names.
 
 ## Type
 

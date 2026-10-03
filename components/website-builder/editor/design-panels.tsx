@@ -201,7 +201,7 @@ export function SchemePicker({
         className={cn(
           "w-full flex items-center justify-between gap-2 px-3 rounded-xl border transition-all cursor-pointer",
           size === "sm" ? "h-9" : "h-10",
-          open ? "border-blue-500" : "border-neutral-200 hover:border-neutral-300",
+          open ? "border-[#8b5cf6]" : "border-neutral-200 hover:border-neutral-300",
         )}
         style={{ background: active.gradient || active.background, color: active.heading }}
       >
@@ -246,7 +246,7 @@ export function SchemePicker({
                 key={key}
                 className={cn(
                   "relative flex w-full items-center rounded-lg border-2 transition-colors duration-150",
-                  isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
+                  isActive ? "border-[#8b5cf6]" : "border-transparent hover:border-[#ddd6fe]",
                 )}
                 style={{ background: sc.gradient || sc.background, color: sc.heading }}
               >
@@ -996,7 +996,7 @@ export function TypographyPanel({
                     {family} {st.weight} · {st.size.desktop}/{st.size.tablet}/{st.size.mobile}px · {st.line_height}
                   </span>
                 </span>
-                {changed && <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />}
+                {changed && <span className="h-1.5 w-1.5 rounded-full bg-[#8b5cf6] shrink-0" />}
                 <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 shrink-0", isOpen && "rotate-180")} />
               </button>
               <Collapse open={isOpen} onlyVisible>
