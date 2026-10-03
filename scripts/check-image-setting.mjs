@@ -168,9 +168,11 @@ for (const vp of [{ name: "computer", width: 1280, height: 900, phone: false }, 
     const gap = m.input.t - m.picker.b
     console.log(`        ${wrap}: picker ${m.picker.w}x${m.picker.h} at ${m.picker.l}, address box ${m.input.w}x${m.input.h} at ${m.input.l}, ${gap}px under it`)
     check(`${wrap}: the address box is under the picker`, m.input.t >= m.picker.b, m)
-    check(`${wrap}: with a small gap, 4 to 8px`, gap >= 4 && gap <= 8, gap)
+    /* The picker keeps its own rhythm under its box: 10px under the empty dropzone, 8px under Replace and Remove. */
+    check(`${wrap}: close under it, 4 to 10px`, gap >= 4 && gap <= 10, gap)
     check(`${wrap}: the same width and left edge as the picker`, m.input.w === m.picker.w && m.input.l === m.picker.l, { input: m.input, picker: m.picker })
-    check(`${wrap}: a sidebar field, 32px tall and 13px type`, m.input.h === 32 && m.inputFont === 13, { h: m.input.h, font: m.inputFont })
+    /* 16px type on a phone, which app/globals.css gives every field so iOS does not zoom into it. */
+    check(`${wrap}: a sidebar field, 32px tall, ${vp.phone ? "16px type on a phone" : "13px type"}`, m.input.h === 32 && m.inputFont === (vp.phone ? 16 : 13), { h: m.input.h, font: m.inputFont })
     check(`${wrap}: it says what it is for`, m.placeholder === "Or paste an image link", m.placeholder)
   }
   const filled = await p.js(READ("filled"))
