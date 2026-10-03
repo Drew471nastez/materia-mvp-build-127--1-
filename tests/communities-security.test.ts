@@ -70,6 +70,14 @@ function block(src: string, open: number): string {
 
 const WRITES = new Set(["POST", "PUT", "PATCH", "DELETE"])
 const GATE = /\b(requireMember|requireCreatorCommunity|viewerContext|requireCreator)\s*\(/
+/*
+  JOINING IS DECIDED BEFORE ANYONE IS A MEMBER. Join, leave and invite redeem
+  cannot ask requireMember (the person is not one yet), so they take the
+  signed in user from the session, refuse without one, and hand that id to
+  lib/communities/server/join.ts, whose functions decide with viewerContext or
+  the member row itself (checked below against that file).
+*/
+const JOIN_GATE = /\.auth\.getUser\(\)[\s\S]*?if\s*\(\s*!user\s*\)\s*return[\s\S]*?\b(joinCommunity|leaveCommunity|redeemInvite|finishOnboarding)\s*\(\s*admin\(\)\s*,\s*\w+\s*,\s*user\.id\b/
 
 export interface RouteProblem {
   handler: string
@@ -134,7 +142,8 @@ export function auditRoute(source: string, opts: { followImports?: boolean } = {
     else if (firstAwait !== flagAt) problems.push({ handler: name, problem: "does something before checking the communities switch" })
     else if (!/const\s+(\w+)\s*=\s*await\s+requireCommunitiesOn\(\)\s*;?\s*if\s*\(\s*\1\s*\)\s*return\s+\1/.test(body)) problems.push({ handler: name, problem: "does not return the switch's refusal" })
 
-    const gateAt = body.search(GATE)
+    const joinGate = body.match(JOIN_GATE)
+    const gateAt = joinGate ? joinGate.index! : body.search(GATE)
     if (gateAt < 0) problems.push({ handler: name, problem: "decides nobody's access: no requireMember, requireCreatorCommunity, viewerContext or requireCreator" })
     const readAt = body.search(/\.from\s*\(|\.rpc\s*\(/)
     if (readAt >= 0 && (gateAt < 0 || readAt < gateAt)) problems.push({ handler: name, problem: "reads the database before deciding who is asking" })
@@ -202,6 +211,17 @@ async function main() {
 
   const routes = [...walk("app/api/community"), ...walk("app/api/app/community")].sort()
   console.log(`\nEvery community route on this branch (${routes.length})\n`)
+  if (existsSync("lib/communities/server/join.ts")) {
+    const joinSrc = readFileSync("lib/communities/server/join.ts", "utf8")
+    const fn = (name: string) => {
+      const at = joinSrc.search(new RegExp(`export async function ${name}\\(`))
+      return at < 0 ? "" : joinSrc.slice(at, at + 4000)
+    }
+    check("joinCommunity decides through viewerContext", /viewerContext\(db, community, userId\)/.test(fn("joinCommunity")))
+    check("leaveCommunity only touches the asking person's own row", /memberOf\(db, community\.id, userId\)|\.eq\("user_id", userId\)/.test(fn("leaveCommunity")))
+    check("redeemInvite redeems for the asking person through the locked rpc", /community_redeem_invite[\s\S]*p_user:\s*userId/.test(fn("redeemInvite")))
+    check("finishOnboarding requires an active member", /active/.test(fn("finishOnboarding")))
+  }
   if (routes.length === 0) check("no community routes on this branch yet; the walk ran", true)
   for (const file of routes) {
     const problems = auditRoute(readFileSync(file, "utf8"))
