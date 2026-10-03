@@ -130,7 +130,12 @@ async function main() {
   check("storelib_create_section and storelib_edit_section", /strict: true/.test(read("lib/agent-access/project.ts")))
   check("a push from GitHub", /validateSection\(source, \{[^}]*strict: true \}\)/.test(read("lib/github-sync/sync.ts")))
   check("Storelib AI's section writer", /validateSection\(text, \{ path, expectType: type, strict: true \}\)/.test(read("lib/website-builder/agent/write-section.ts")))
-  check("Storelib AI's code tool", /validateSection\(source, \{ path, expectType: sectionType, strict: true \}\)/.test(read("app/api/website-builder/themes/[installId]/agent/route.ts")))
+  /* Checked in the loop now, before the route stages it (lib/website-builder/agent/compile-feedback.ts): the integration rules included. */
+  check(
+    "Storelib AI's code tool",
+    /checkSectionSource\(\{[\s\S]{0,400}strict: true,/.test(read("lib/website-builder/agent/loop.ts")) &&
+      /checkSectionIntegration\(text\)/.test(read("lib/website-builder/agent/compile-feedback.ts")),
+  )
   check("and the person's code editor does not", !/strict/.test(read("app/api/website-builder/themes/[installId]/files/route.ts")))
   check("the writers are told the rules before they write", /INTEGRATION_CONTRACT/.test(read("lib/website-builder/agent/write-section.ts")) && /INTEGRATION_CONTRACT\]/.test(read("lib/storelib-ai/index.ts")))
   check("and so is every connected agent", /plugs into the theme like a native one/.test(read("lib/agent-rules/index.ts")))

@@ -143,7 +143,8 @@ function main() {
     check("their sections can be added, not only edited", /customAddableSections\(customSectionSchemas\(agentSources\)\)/.test(route))
     check("a failure to read them leaves the assistant working, as it did before", /catch \{[\s\S]{0,120}the assistant works without them/.test(route))
     const loop = readFileSync(join(dir, "loop.ts"), "utf8")
-    check("the map is built once per run and passed down", /const schemas = schemaMapFor\(input\.sources\)/.test(loop))
+    /* `let`: built once per run, and built again only after the run writes a section file that changes a schema. */
+    check("the map is built once per run and passed down", /let schemas = schemaMapFor\(input\.sources\)/.test(loop))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

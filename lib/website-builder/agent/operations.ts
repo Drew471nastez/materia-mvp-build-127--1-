@@ -67,6 +67,13 @@ export type ThemeOp =
    * done this properly; the agent writes through the same flag.
    */
   | { kind: "set_section_visibility"; id: string; hidden: boolean }
+  /**
+   * THE OPEN SECTION SWITCHED TO ITS EDITABLE COPY (./coded-copy.ts). Same
+   * id, same settings, same blocks: only the type it is drawn from changes,
+   * to a file with the same schema under a new name. Never the header or
+   * the footer.
+   */
+  | { kind: "set_section_type"; id: string; sectionType: string }
   | { kind: "update_theme"; settings: Record<string, unknown> }
   /**
    * BLOCKS ARE WHERE THE CONTENT LIVES for half the library.
@@ -194,6 +201,16 @@ export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): Th
       return {
         ...state,
         sections: state.sections.map((s) => (s.id === op.id ? { ...s, hidden: op.hidden } : s)),
+      }
+    }
+
+    case "set_section_type": {
+      const target = state.sections.find((s) => s.id === op.id)
+      if (!target || target.type === "header" || target.type === "footer") return state
+      if (op.sectionType === "header" || op.sectionType === "footer" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(op.sectionType)) return state
+      return {
+        ...state,
+        sections: state.sections.map((s) => (s.id === op.id ? { ...s, type: op.sectionType } : s)),
       }
     }
 

@@ -293,7 +293,7 @@ function main() {
     const plain = native("", `<p class="t">{{ settings.heading }}</p>`, "bare_band")
     const v = validateSection(plain, { path: "sections/bare_band.storelib", expectType: "bare_band", strict: true })
     check("an agent's save goes through and carries the note back", v.ok === true && v.findings.some((f) => f.id === "advice-colour-settings"), v.ok === false ? (v.reason === "quality" ? v.findings.map((f) => f.id) : v.errors) : "")
-    check("the builder's code tool returns it with the save", /sectionAdvice\(source\)/.test(read("lib/website-builder/agent/loop.ts")))
+    check("the builder's code tool returns it with the save", /sectionAdvice\((?:prepared\.)?source\)/.test(read("lib/website-builder/agent/loop.ts")))
 
     const COLOURED = native(
       `{ "type": "color", "id": "heading_color", "label": "Heading", "default": "scheme.heading" },
