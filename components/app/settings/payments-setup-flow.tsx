@@ -31,7 +31,7 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, Upload, X } from "lucide-react"
+import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, Upload, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
@@ -43,6 +43,8 @@ import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { openInApp } from "@/lib/native-bridge"
+import { IdCamera, armCameraSounds, type IdSide } from "@/components/app/settings/id-camera"
+import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
 
 export type SetupMode = "setup" | "bank" | "details"
@@ -735,7 +737,7 @@ function StepIntro({ title, line }: { title: string; line: string }) {
 
 type DetailField = "dob" | "address" | "state" | "phone" | "nationality" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
 interface DetailsForm {
-  needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean; registeredAddress: boolean; problems: string[] }
+  needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean; registeredAddress: boolean; problems: string[]; either: Array<{ original: DetailField[]; alternative: DetailField[] }>; offered: DetailField[] }
   country: string
   agreementUrl: string
   dueBy: string | null
@@ -869,6 +871,11 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [tried, setTried] = React.useState(false)
+  const [camera, setCamera] = React.useState<{ side: IdSide } | null>(null)
+  const [noBack, setNoBack] = React.useState(false)
+  const [typeIdInstead, setTypeIdInstead] = React.useState(false)
+  const pickFor = React.useRef<IdSide>("front")
+  const picker = React.useRef<HTMLInputElement>(null)
 
   /* Nothing left to ask here: straight on. */
   const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos && form.needs.other.length === 0
@@ -895,26 +902,44 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
       data.set("file", blob, blob.type === "application/pdf" ? "document.pdf" : "document.jpg")
       const res = await postForm<{ form: DetailsForm }>("document", data)
       setUploaded((u) => ({ ...u, [key]: true }))
+      if (which === "document") playAskSound("done")
       setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
     } catch (err) {
+      playAskSound("error")
       setError(safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : "That photo could not be used. Try a clear JPG or PNG under 4 MB."))
     } finally {
       setUploading(null)
     }
   }
 
-  const missingDoc = has("document") && !uploaded["document-front"]
+  /*
+   * THE CNP, OR A PHOTO OF THE ID. Where Stripe lists the photo as an
+   * alternative to the ID number (requirements.alternatives), the photo is
+   * the way in and the number is an option behind a link: either one is
+   * enough, and Stripe decides which it accepts.
+   */
+  const front = !!uploaded["document-front"]
+  const idEither = form.needs.either.some((e) => e.original.includes("idNumber") && e.alternative.includes("document"))
+  const docDue = has("document") && !form.needs.offered.includes("document")
+  const idShown = has("idNumber") && (!idEither || typeIdInstead || idNumber.trim().length > 0)
+  const idBad = has("idNumber") && (idEither ? idNumber.trim().length > 0 && idNumber.trim().length < 4 : idNumber.trim().length < 4)
+  const missingDoc = (docDue && !front) || (idEither && !front && !idNumber.trim())
+  const openCamera = (side: IdSide) => {
+    armCameraSounds()
+    setCamera({ side })
+  }
+  const asFile = (blob: Blob) => new File([blob], "id.jpg", { type: blob.type || "image/jpeg" })
   const missingProof = has("proofOfAddress") && !uploaded["proofOfAddress-front"]
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setTried(true)
     if (busy) return
-    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || (has("idNumber") && idNumber.trim().length < 4) || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree)) {
+    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree)) {
       setError("Check the fields marked in red.")
       return
     }
-    if (missingDoc) return setError("Add a photo of the front of your ID.")
+    if (missingDoc) return setError(idEither ? `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.` : "Add a photo of the front of your ID.")
     if (missingProof) return setError("Add a document that shows your address.")
     setBusy(true)
     setError(null)
@@ -924,7 +949,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
         address: has("address") ? address : undefined,
         phone: has("phone") ? phone : undefined,
         nationality: has("nationality") ? countryOf(nationality) ?? undefined : undefined,
-        idNumber: has("idNumber") ? idNumber : undefined,
+        idNumber: has("idNumber") && idNumber.trim() ? idNumber : undefined,
         ssnLast4: has("ssnLast4") ? ssnLast4 : undefined,
         politicalExposure: has("politicalExposure") ? (pep ? "existing" : "none") : undefined,
         acceptTos: form.needs.tos ? agree : undefined,
@@ -944,6 +969,101 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
       setBusy(false)
     }
   }
+
+  /* The ID photo: the live camera first, a photo from the library as the other way. */
+  const idPhoto = has("document") ? (
+    <div className="space-y-2" data-id-photo="">
+      <span className="block text-[13px] font-medium text-[#1a1a2e]">{idEither ? "Verify with your ID" : "Photo of your ID"}</span>
+      {!front ? (
+        <>
+          <button
+            type="button"
+            onClick={() => openCamera("front")}
+            disabled={!!uploading}
+            data-id-camera-open=""
+            className={cn(
+              "flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border px-4 py-4 text-left outline-none transition-[border-color,background-color,transform] duration-150 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
+              tried && missingDoc ? "border-[#f3b8ab] bg-[#fff8f6]" : "border-[#e3e5e8] bg-white hover:border-[#c9ccd3] hover:bg-[#fafafb]",
+            )}
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] text-white">
+              {uploading === "document-front" ? <Spinner /> : <Camera className="h-5 w-5" />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-[#1a1a2e]">{uploading === "document-front" ? "Sending to Stripe" : "Take a photo of your ID"}</span>
+              <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">Passport, ID card or driving licence. Hold it in the frame and it takes the photo for you.</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              pickFor.current = "front"
+              picker.current?.click()
+            }}
+            className="text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline"
+          >
+            Upload a photo or scan instead
+          </button>
+        </>
+      ) : (
+        <div className="divide-y divide-[#f1f2f4] overflow-hidden rounded-2xl border border-[#e3e5e8] bg-white">
+          {(["front", "back"] as const).map((side) => {
+            const done = !!uploaded[`document-${side}`]
+            const busy = uploading === `document-${side}`
+            const skipped = side === "back" && noBack && !done
+            return (
+              <div key={side} className="flex items-center gap-3 px-3.5 py-3">
+                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", done ? "bg-[#dcfae6] text-[#067647]" : "bg-[#f3f4f6] text-[#6b7280]")}>
+                  {busy ? <Spinner dark /> : done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Camera className="h-4 w-4" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-medium text-[#1a1a2e]">{side === "front" ? "Front" : "Back"}</span>
+                  <span className="block text-[12.5px] text-[#6b7280]">{busy ? "Sending to Stripe" : done ? "Added" : skipped ? "Not needed, it's a passport" : "Needed for an ID card or licence"}</span>
+                </span>
+                <button type="button" onClick={() => openCamera(side)} disabled={busy} className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] outline-none transition-colors hover:bg-[#f4f5f7] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
+                  {done ? <RotateCcw className="h-3.5 w-3.5" /> : null}
+                  {done ? "Retake" : "Add"}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <input
+        ref={picker}
+        type="file"
+        accept="image/jpeg,image/png,image/heic,image/*,application/pdf"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ""
+          if (f) void upload("document", pickFor.current, f)
+        }}
+      />
+      <IdCamera
+        open={!!camera}
+        side={camera?.side ?? "front"}
+        zIndex={SHEET_Z + 10}
+        onClose={() => setCamera(null)}
+        onPickFile={() => {
+          pickFor.current = camera?.side ?? "front"
+          setCamera(null)
+          picker.current?.click()
+        }}
+        onNoBack={() => {
+          setNoBack(true)
+          setCamera(null)
+        }}
+        onPhoto={(blob) => {
+          const side = camera?.side ?? "front"
+          void upload("document", side, asFile(blob))
+          /* The front goes to Stripe while the camera turns to the back. */
+          if (side === "front" && !uploaded["document-back"] && !noBack) setCamera({ side: "back" })
+          else setCamera(null)
+        }}
+      />
+    </div>
+  ) : null
 
   return (
     <form onSubmit={submit} onInput={() => error && setError(null)} noValidate className="flex min-h-full flex-1 flex-col">
@@ -1015,10 +1135,16 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
           </div>
         ) : null}
 
-        {has("idNumber") ? (
-          <Field label={form.idNumber.label} hint={form.idNumber.hint} error={issue("idNumber", idNumber.trim().length < 4, "Enter your ID number exactly as on your document.")}>
+        {idEither ? idPhoto : null}
+
+        {idShown ? (
+          <Field label={form.idNumber.label} hint={idEither ? `Not needed if you add a photo of your ID. ${form.idNumber.hint}` : form.idNumber.hint} error={issue("idNumber", idBad, "Enter your ID number exactly as on your document.")}>
             <input className={FIELD} inputMode={form.country === "US" || form.country === "RO" ? "numeric" : undefined} autoComplete="off" spellCheck={false} value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
           </Field>
+        ) : has("idNumber") && idEither && !front ? (
+          <button type="button" onClick={() => setTypeIdInstead(true)} className="-mt-2 text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline">
+            Rather type your {form.idNumber.label.split(" (")[0]} instead?
+          </button>
         ) : null}
 
         {has("ssnLast4") ? (
@@ -1027,16 +1153,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
           </Field>
         ) : null}
 
-        {has("document") ? (
-          <div className="space-y-2">
-            <span className="block text-[13px] font-medium text-[#1a1a2e]">Photo of your ID</span>
-            <span className="block text-[12px] leading-[18px] text-[#6b7280]">Passport, national ID card or driving licence. All four corners in the photo, nothing covered, no glare.</span>
-            <div className="grid gap-2 min-[480px]:grid-cols-2">
-              <UploadTile label="Front" done={!!uploaded["document-front"]} busy={uploading === "document-front"} onPick={(f) => void upload("document", "front", f)} />
-              <UploadTile label="Back" hint="Not needed for a passport" done={!!uploaded["document-back"]} busy={uploading === "document-back"} onPick={(f) => void upload("document", "back", f)} />
-            </div>
-          </div>
-        ) : null}
+        {!idEither ? idPhoto : null}
 
         {has("proofOfAddress") ? (
           <div className="space-y-2">

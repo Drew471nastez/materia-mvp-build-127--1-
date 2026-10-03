@@ -9,6 +9,7 @@ import { unfinished } from "@/lib/notify/workflows/unfinished"
 import { REGISTRY } from "@/lib/notify/registry"
 import { renderEmail } from "@/lib/notify/templates"
 import { bankFormat, detailIssues, ibanValid, idNumberName, needsOf } from "@/lib/payments/stripe/own-form-rules"
+import { frameQuality, hintFor } from "@/lib/payments/id-frame-quality"
 
 let passed = 0
 let failed = 0
@@ -81,6 +82,28 @@ const today = new Date("2026-10-03T00:00:00Z")
 check("under 18 cannot be paid out", !!detailIssues({ dob: { day: 4, month: 10, year: 2008 } }, ["dob"], { tos: false, now: today }).dob && !detailIssues({ dob: { day: 3, month: 10, year: 2008 } }, ["dob"], { tos: false, now: today }).dob)
 check("a PO box is refused, as Stripe would", /PO box/.test(detailIssues({ address: { line1: "PO Box 12", city: "Bucharest", postalCode: "010101" } }, ["address"], { tos: false }).address ?? ""))
 check("the agreement has to be ticked", !!detailIssues({}, [], { tos: true }).tos && !detailIssues({ acceptTos: true }, [], { tos: true }).tos)
+
+console.log("\nThe CNP, or a photo of the ID, where Stripe allows either")
+const alt = needsOf({ currently_due: ["individual.id_number", "individual.dob.day"], alternatives: [{ original_fields_due: ["individual.id_number"], alternative_fields_due: ["individual.verification.document"] }] })
+check("Stripe's alternative puts the ID photo on the form as the other way", alt.fields.includes("document") && alt.offered.includes("document") && alt.either[0]?.original[0] === "idNumber", alt)
+const dob = { day: 1, month: 1, year: 1990 }
+check("with the photo given, no CNP is needed", !detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set(["document"]) }).idNumber)
+check("without the photo, the CNP is still needed", !!detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
+check("a CNP typed with the photo is still checked", !!detailIssues({ dob, idNumber: "12" }, alt.fields, { tos: false, either: alt.either, given: new Set(["document"]) }).idNumber)
+check("no alternative from Stripe, no shortcut: the number stays required", !!detailIssues({ dob }, needsOf({ currently_due: ["individual.id_number"] }).fields, { tos: false, either: [], given: new Set(["document"]) }).idNumber)
+
+console.log("\nThe ID camera takes the photo only when Stripe could read it")
+const w = 64, h = 40
+const card = new Uint8Array(w * h).map((_, i) => ((i % w) % 6 < 3 ? 40 : 200))
+const flat = new Uint8Array(w * h).fill(130)
+const dark = new Uint8Array(w * h).map((_, i) => ((i % w) % 6 < 3 ? 5 : 40))
+const glare = new Uint8Array(w * h).map((_, i) => (i < w * h * 0.2 ? 255 : (i % w) % 6 < 3 ? 40 : 200))
+check("sharp, lit, steady text is ready", hintFor(frameQuality(card, w, h, card), 0) === "ready")
+check("a blurred card is not taken", hintFor(frameQuality(flat, w, h, flat), 0) === "blur")
+check("too dark is said, not taken", hintFor(frameQuality(dark, w, h, dark), 0) === "dark")
+check("glare across the card is said, not taken", hintFor(frameQuality(glare, w, h, glare), 0) === "glare")
+const moved = new Uint8Array(card).map((v) => 255 - v)
+check("a hand still moving is not taken", hintFor(frameQuality(card, w, h, moved), 0) === "moving")
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1) }

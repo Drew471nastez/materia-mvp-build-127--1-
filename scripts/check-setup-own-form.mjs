@@ -56,7 +56,7 @@ const css = await appCss(root)
 const inter = interFaces(root).replace(/url\(file:\/\//g, "url(http://probe.test/__file")
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
 
-const needsNow = { fields: ["dob", "address", "idNumber"], tos: true, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [] }
+const needsNow = { fields: ["dob", "address", "idNumber"], tos: true, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [] }
 const form = (needs) => ({
   needs,
   country: "RO",
@@ -70,7 +70,7 @@ const doneOverview = { provider: "stripe", beat: "done", paymentsStatus: { statu
 
 const out = join(root, ".setup-own-form-probe")
 mkdirSync(out, { recursive: true })
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"] })
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--unsafely-treat-insecure-origin-as-secure=http://probe.test"] })
 try {
   {
     /* Later, the Gumroad way: payments are on and Stripe asks for one more thing. */
@@ -91,21 +91,98 @@ try {
     })
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts?later=1")
-    await p.waitForSelector("[data-upload-tile]", { timeout: 6000 })
+    await p.waitForSelector("[data-id-camera-open]", { timeout: 6000 })
     await new Promise((r) => setTimeout(r, 400))
     const view = await p.evaluate(() => ({
       title: document.body.textContent?.includes("Stripe needs a little more"),
       reason: !!document.querySelector("[data-setup-problems]"),
-      tiles: document.querySelectorAll("[data-upload-tile]").length,
+      camera: !!document.querySelector("[data-id-camera-open]"),
       onlyThat: !document.querySelector('[autocomplete="bday-day"]'),
-      input: document.querySelector('[data-upload-tile] input[type="file"]')?.getAttribute("accept") ?? "",
+      input: document.querySelector('[data-id-photo] input[type="file"]')?.getAttribute("accept") ?? "",
     }))
     expect(view.title, "it says Stripe needs a little more, not setup from the start")
     expect(view.reason, "with Stripe's reason in plain words")
-    expect(view.tiles === 2 && view.onlyThat, "and asks only for the photo, front and back", view)
-    expect(/image/.test(view.input), "the photo opens the phone's camera or library", view.input)
+    expect(view.camera && view.onlyThat, "and asks only for the photo, with the live camera", view)
+    expect(/image/.test(view.input), "a photo from the library is the other way", view.input)
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.screenshot({ path: join(out, "later-390.png") })
+    await p.close()
+  }
+  {
+    /* The CNP or a photo of the ID, the way Stripe allows for Romania: the camera first, the number optional. */
+    console.log("\nThe ID camera, with the CNP optional (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    const sent = {}
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"] }
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        sent[action] = (sent[action] ?? 0) + 1
+        if (action === "details") sent.detailsBody = r.postData()
+        if (action === "document") sent.documentType = r.headers()["content-type"] ?? ""
+        if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(eitherNeeds) } : form(eitherNeeds))
+        if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
+        return json({})
+      }
+      if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
+      r.abort()
+    })
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts")
+    await p.waitForSelector("[data-id-camera-open]", { timeout: 6000 })
+    await new Promise((r) => setTimeout(r, 300))
+    const start = await p.evaluate(() => ({
+      cnpHidden: ![...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
+      offer: document.body.textContent?.includes("Rather type your CNP instead?"),
+      photoFirst: document.body.textContent?.includes("Verify with your ID"),
+    }))
+    expect(start.photoFirst && start.cnpHidden && start.offer, "the photo comes first and the CNP is only an option", start)
+    await p.screenshot({ path: join(out, "id-choice-390.png") })
+
+    await p.click("[data-id-camera-open]")
+    await p.waitForSelector('[data-id-camera="live"]', { timeout: 6000 }).catch(() => {})
+    await new Promise((r) => setTimeout(r, 900))
+    const live = await p.evaluate(() => {
+      const v = document.querySelector("[data-id-camera] video")
+      return { phase: document.querySelector("[data-id-camera]")?.getAttribute("data-id-camera"), playing: !!v && v.videoWidth > 0, inline: v?.hasAttribute("playsinline") }
+    })
+    expect(live.phase === "live" && live.playing, "the camera opens inside the page, live", live)
+    expect(live.inline === true, "and plays inline, as iOS needs in the app")
+    await p.screenshot({ path: join(out, "camera-live-390.png") })
+    await p.click('[aria-label="Take photo"]')
+    await p.waitForSelector('[data-id-camera="review"]', { timeout: 4000 }).catch(() => {})
+    await new Promise((r) => setTimeout(r, 300))
+    expect(await p.evaluate(() => document.querySelector("[data-id-camera]")?.getAttribute("data-id-camera") === "review"), "the shutter shows the photo to check")
+    await p.screenshot({ path: join(out, "camera-review-390.png") })
+    await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("Use photo"))?.click())
+    await new Promise((r) => setTimeout(r, 900))
+    expect(sent.document === 1 && /multipart\/form-data/.test(sent.documentType), "Use photo sends it to the server as a file", { calls: sent.document, type: sent.documentType })
+    expect(await p.evaluate(() => /Back of your ID/.test(document.querySelector("[data-id-camera]")?.textContent ?? "")), "and the camera turns to the back")
+    await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("No back"))?.click())
+    await new Promise((r) => setTimeout(r, 400))
+    const after = await p.evaluate(() => ({ closed: !document.querySelector("[data-id-camera]"), text: document.querySelector("[data-id-photo]")?.textContent ?? "" }))
+    expect(after.closed && /Added/.test(after.text) && /passport/.test(after.text), "No back closes it, front added, back not needed", after)
+    await p.screenshot({ path: join(out, "id-added-390.png") })
+
+    await p.type('[autocomplete="bday-day"]', "14")
+    await p.select('select[aria-label="Month"]', "3")
+    await p.type('[autocomplete="bday-year"]', "1994")
+    await p.type('[autocomplete="address-line1"]', "Strada Lipscani 12")
+    await p.type('[autocomplete="address-level2"]', "Bucharest")
+    await p.type('[autocomplete="postal-code"]', "030031")
+    await p.evaluate(() => [...document.querySelectorAll('input[type="checkbox"]')].forEach((c) => c.click()))
+    await p.click('button[type="submit"]')
+    await new Promise((r) => setTimeout(r, 800))
+    const body = sent.detailsBody ? JSON.parse(sent.detailsBody) : null
+    expect(!!body && body.idNumber === undefined, "with the photo, the details go without a CNP", body && { idNumber: body.idNumber ?? null })
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
     await p.close()
   }
   for (const width of [390, 1280]) {

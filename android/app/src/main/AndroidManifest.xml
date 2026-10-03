@@ -162,6 +162,9 @@
         and simply has no microphone button.
     -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- The live camera for the ID photo in payout setup (getUserMedia in the web view). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>

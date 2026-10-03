@@ -40,6 +40,15 @@ export interface DetailsNeeds {
   registeredAddress: boolean
   /** Why Stripe turned something down, in words a creator can act on (a blurry photo, an expired ID). */
   problems: string[]
+  /**
+   * Stripe's own alternatives: fields that are due, and other fields that
+   * satisfy them instead. The one a creator meets is "the CNP, or a photo of
+   * your ID": with the photo, the number is not asked for at all. Only what
+   * Stripe lists here is ever made optional.
+   */
+  either: Array<{ original: DetailField[]; alternative: DetailField[] }>
+  /** Fields on the form only as an alternative: not due by themselves. */
+  offered: DetailField[]
 }
 
 /**
@@ -104,7 +113,14 @@ export function problemWords(code: string | null | undefined): string {
 
 /** What the form must ask for, from the account's requirement lists. */
 export function needsOf(
-  req: { currently_due?: string[] | null; eventually_due?: string[] | null; past_due?: string[] | null; pending_verification?: string[] | null; errors?: Array<{ code?: string | null; requirement?: string | null }> | null } | null | undefined,
+  req: {
+    currently_due?: string[] | null
+    eventually_due?: string[] | null
+    past_due?: string[] | null
+    pending_verification?: string[] | null
+    errors?: Array<{ code?: string | null; requirement?: string | null }> | null
+    alternatives?: Array<{ alternative_fields_due: string[]; original_fields_due: string[] }> | null
+  } | null | undefined,
   scope: NeedsScope = "now",
 ): DetailsNeeds {
   const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? []), ...(scope === "all" ? (req?.eventually_due ?? []) : [])])
@@ -133,8 +149,23 @@ export function needsOf(
   }
   /* A state is only asked with the rest of the address. */
   if (fields.has("state")) fields.add("address")
+  /* Stripe's alternatives, as fields: the alternative is offered on the form, and the original becomes the other way. */
+  const fieldOf = (key: string): DetailField | null => {
+    const hit = MAP.find(([re]) => re.test(key))
+    const what = hit?.[1]
+    return what && what !== "tos" && what !== "bank" && what !== "name" && what !== "ours" && what !== "registered" ? what : null
+  }
+  const either: DetailsNeeds["either"] = []
+  const dueOnItsOwn = new Set(fields)
+  for (const alt of req?.alternatives ?? []) {
+    const original = [...new Set(alt.original_fields_due.filter((k) => due.has(k) && !pending.has(k)).map(fieldOf).filter((f): f is DetailField => !!f))]
+    const alternative = [...new Set(alt.alternative_fields_due.map(fieldOf).filter((f): f is DetailField => !!f))]
+    if (!original.length || !alternative.length) continue
+    for (const f of alternative) fields.add(f)
+    either.push({ original, alternative })
+  }
   const problems = [...new Set((req?.errors ?? []).filter((e) => !e.requirement || due.has(e.requirement)).map((e) => problemWords(e.code)))]
-  return { fields: ORDER.filter((f) => fields.has(f)), tos, bank, name, other, checking: due.size === 0 && pending.size > 0, registeredAddress, problems }
+  return { fields: ORDER.filter((f) => fields.has(f)), tos, bank, name, other, checking: due.size === 0 && pending.size > 0, registeredAddress, problems, either, offered: ORDER.filter((f) => fields.has(f) && !dueOnItsOwn.has(f)) }
 }
 
 /* ── the ID number, named as the creator knows it ───────────────────────── */
@@ -244,9 +275,21 @@ export function cleanPhone(input: string): string {
 }
 
 /** One sentence per field that is wrong, keyed by the field. Empty is valid. */
-export function detailIssues(input: DetailsInput, needs: DetailField[], opts: { tos: boolean; now?: Date }): Partial<Record<DetailField | "tos", string>> {
+/** The fields that are not needed any more, because the creator gave Stripe's alternative for them (the ID photo for the CNP). */
+export function coveredByAlternative(either: DetailsNeeds["either"], given: Set<DetailField>): Set<DetailField> {
+  const out = new Set<DetailField>()
+  for (const e of either) if (e.alternative.every((f) => given.has(f))) for (const f of e.original) out.add(f)
+  return out
+}
+
+export function detailIssues(input: DetailsInput, asked: DetailField[], opts: { tos: boolean; now?: Date; either?: DetailsNeeds["either"]; given?: Set<DetailField> }): Partial<Record<DetailField | "tos", string>> {
   const out: Partial<Record<DetailField | "tos", string>> = {}
   const now = opts.now ?? new Date()
+  const covered = coveredByAlternative(opts.either ?? [], opts.given ?? new Set())
+  /* A field is only required when nothing Stripe accepts in its place was given; one with an alternative is checked if it was typed at all. */
+  const needs = asked.filter((f) => !covered.has(f) && !(f === "document" || f === "proofOfAddress"))
+  const typed = (f: DetailField) => (f === "idNumber" ? !!input.idNumber?.trim() : f === "ssnLast4" ? !!input.ssnLast4?.trim() : true)
+  for (const f of asked) if (covered.has(f) && typed(f) && (f === "idNumber" || f === "ssnLast4")) needs.push(f)
   if (needs.includes("dob")) {
     const d = input.dob
     if (!d || !validDate(d)) out.dob = "Enter your date of birth."

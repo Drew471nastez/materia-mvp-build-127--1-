@@ -128,7 +128,11 @@ export async function submitDetails(creator: PaymentsCreatorRef, raw: unknown, c
   const account = await ownAccount(creator)
   const needs = needsOf(account.requirements as never)
   const input = asInput(raw)
-  const issues = detailIssues(input, needs.fields, { tos: needs.tos })
+  /* Stripe's alternative already given (the ID photo instead of the CNP): the field it stands in for is not required. */
+  const given = new Set<DetailField>()
+  if (account.individual?.verification?.document?.front) given.add("document")
+  if (account.individual?.verification?.additional_document?.front) given.add("proofOfAddress")
+  const issues = detailIssues(input, needs.fields, { tos: needs.tos, either: needs.either, given })
   const first = Object.values(issues)[0]
   if (first) throw new PaymentsProblem(first)
 
@@ -150,8 +154,8 @@ export async function submitDetails(creator: PaymentsCreatorRef, raw: unknown, c
   /* Stripe takes it; this SDK version does not type it yet. */
   if (has("nationality") && input.nationality) (individual as Record<string, unknown>).nationality = input.nationality
   if (has("phone") && input.phone) individual.phone = cleanPhone(input.phone)
-  if (has("idNumber") && input.idNumber) individual.id_number = input.idNumber.replace(/[\s.-]/g, "")
-  if (has("ssnLast4") && input.ssnLast4) individual.ssn_last_4 = input.ssnLast4
+  if (has("idNumber") && input.idNumber?.trim()) individual.id_number = input.idNumber.replace(/[\s.-]/g, "")
+  if (has("ssnLast4") && input.ssnLast4?.trim()) individual.ssn_last_4 = input.ssnLast4
   if (has("politicalExposure") && input.politicalExposure) individual.political_exposure = input.politicalExposure
 
   const params: Stripe.AccountUpdateParams = {}
