@@ -4186,9 +4186,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return s ? sectionDisplayName(s, librarySchemas) : id
     })
     if (fixed.hidden.length > 0) {
-      const twice = new Set(fixed.hidden.map((id) => groupOf(fixed.sections.find((x) => x.id === id) ?? { type: "" })))
-      const kept = (["header", "footer"] as const).filter((k) => twice.has(k)).map((k) => fixed.kept[k]).filter((id): id is string => !!id)
-      showNotification(`Kept ${names(kept).join(" and ")}. Hid ${names(fixed.hidden).join(" and ")}, so nothing is drawn twice.`)
+      showNotification(`Hid ${names(fixed.hidden).join(" and ")}, a duplicate`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, kindOfType, loading, sectionsLoading])
@@ -4663,7 +4661,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setCanvasInsertAt(null)
     if (kind) chromeRemoved.current[kind] = false
     if (placed.replaced.length > 0) {
-      showNotification(`${schema.name} is the ${kind} now. The one it replaced is hidden.`)
+      showNotification(`Replaced the ${kind}. Old one hidden.`)
     }
     /**
      * Where every section is BEFORE this one goes in, so the canvas can open

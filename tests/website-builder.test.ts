@@ -638,7 +638,7 @@ section("Choosing an icon, and choosing where a link goes")
     "and the nav and call to action links use the same field",
     !/function NavLinkPicker/.test(editorSrc) &&
       (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 2 &&
-      /<HeaderNavLinksEditor/.test(editorSrc) &&
+      /onPickMenu=\{pickHeaderMenu\}/.test(editorSrc) &&
       /<LinkPicker value=\{item\.url\}/.test(read("components/website-builder/editor/controls/link-list-editor.tsx")),
   )
   check(
@@ -1612,7 +1612,7 @@ section("Two at once still make five, and an import that says what went wrong")
 
   check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",
     /onClick=\{toggleInspector\}/.test(editor) && /hapticTap\("soft"\)/.test(editor.slice(editor.indexOf("const toggleInspector"), editor.indexOf("const toggleInspector") + 600)) &&
-      /inspectorEnabled=\{canvasInspecting\}/.test(editor) && /const INSPECT_FADE_MS = 200/.test(editor) &&
+      /inspectorEnabled=\{canvasInspecting(?: && !fullSettled)?\}/.test(editor) && /const INSPECT_FADE_MS = 200/.test(editor) &&
       /startTransition\(\(\) => setCanvasInspecting\(false\)\)/.test(editor) && /startTransition\(\(\) => setCanvasInspecting\(true\)\)/.test(editor))
   check("  the rings fade on opacity over the same 200ms, and never pop",
     /\[data-wb-inspect\] \.wb-ring \{ transition: opacity 200ms/.test(css) && /\[data-wb-inspect="leaving"\] \.wb-ring,/.test(css) &&
