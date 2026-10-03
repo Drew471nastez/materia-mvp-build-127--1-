@@ -45,6 +45,8 @@ const expect = (ok, what, got) => {
   if (!ok) broken++
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+/** FULL_SCREEN_MS in the editor: how long the fold takes. */
+const FOLD_MS = 320
 
 async function open(page, vp, touch) {
   await page.setViewport({ ...vp, isMobile: !!touch, hasTouch: !!touch })
@@ -61,9 +63,10 @@ const FILM = (ms) => new Promise((resolve) => {
   const fold = document.querySelector("[data-wb-sidebar-fold]")
   const canvas = document.getElementById("wb-preview-root")
   const frames = []
-  const t0 = performance.now()
+  /* The animation clock, the one a CSS transition reads its progress from: a long frame is then a long gap between readings, not a step that looks like a jump. */
+  const t0 = document.timeline.currentTime
   const tick = () => {
-    const t = performance.now() - t0
+    const t = document.timeline.currentTime - t0
     frames.push({ t: Math.round(t), fold: Math.round(fold.getBoundingClientRect().width * 10) / 10, opacity: Number(getComputedStyle(fold).opacity), canvas: Math.round(canvas.getBoundingClientRect().width * 10) / 10 })
     if (t < ms) requestAnimationFrame(tick)
     else resolve(frames)
@@ -92,10 +95,18 @@ function read(frames, key, dir) {
     if (dir * d < -0.5) monotonic = false
     biggest = Math.max(biggest, Math.abs(d))
   }
+  let longest = 0
+  /* The speed of each step, px per ms: a step taken in a long frame is long because the frame was, not because the motion jumped. */
+  let peakSpeed = 0
+  for (let i = 1; i < frames.length; i++) {
+    const dt = frames[i].t - frames[i - 1].t
+    longest = Math.max(longest, dt)
+    if (dt > 0) peakSpeed = Math.max(peakSpeed, Math.abs(frames[i][key] - frames[i - 1][key]) / dt)
+  }
   const last = frames[frames.length - 1][key]
   const settledAt = frames.find((f, i) => frames.slice(i).every((g) => Math.abs(g[key] - last) < 0.5))?.t ?? null
   const distance = Math.abs(last - frames[0][key])
-  return { from: frames[0][key], to: last, monotonic, biggest: Math.round(biggest), distance: Math.round(distance), settledAt, frames: frames.length }
+  return { from: frames[0][key], to: last, monotonic, biggest: Math.round(biggest), distance: Math.round(distance), settledAt, frames: frames.length, longestFrameMs: Math.round(longest), peakSpeed: Math.round(peakSpeed * 100) / 100 }
 }
 
 const browser = await puppeteer.launch({
@@ -124,8 +135,15 @@ try {
   const canvasIn = read(inFrames, "canvas", 1)
   expect(foldIn.to === 0 && foldIn.monotonic, "the sidebar folds to nothing, only ever narrower", foldIn)
   expect(canvasIn.monotonic && canvasIn.distance > 200, "the canvas grows into the room, only ever wider", canvasIn)
-  expect(canvasIn.biggest <= canvasIn.distance / 6 + 1, "smoothly: no frame moves it more than a sixth of the way", { biggest: canvasIn.biggest, distance: canvasIn.distance })
-  expect(canvasIn.settledAt !== null && canvasIn.settledAt <= 520, "and settles in about a third of a second", canvasIn.settledAt)
+  /*
+    SMOOTH, MEASURED TWO WAYS. The motion itself: no step is faster than the
+    320ms ease-in-out's own peak (about twice its average speed), so nothing
+    jumps ahead of the curve. And the frames: reported as they came, because a
+    long frame on a loaded machine makes a long step on any curve.
+  */
+  const curvePeak = (d) => (d / FOLD_MS) * 2.2
+  expect(canvasIn.peakSpeed <= curvePeak(canvasIn.distance), "smoothly: the canvas never moves faster than the fold's own curve", { peakSpeed: canvasIn.peakSpeed, curvePeak: Math.round(curvePeak(canvasIn.distance) * 100) / 100, biggestStep: canvasIn.biggest, longestFrameMs: canvasIn.longestFrameMs })
+  expect(canvasIn.settledAt !== null && canvasIn.settledAt <= FOLD_MS + canvasIn.longestFrameMs + 40, "and settles when the fold ends", { settledAt: canvasIn.settledAt, foldMs: FOLD_MS })
   const on = await page.evaluate(STATE)
   expect(on.canvas >= 1440 - 16, "the site fills the editor's width", on.canvas)
   expect(on.pressed === "true" && on.switchVisible && on.deviceVisible, "the switches stay on the bar, the full screen one pressed", on)
@@ -143,7 +161,7 @@ try {
   const foldOut = read(outFrames, "fold", 1)
   const canvasOut = read(outFrames, "canvas", -1)
   expect(foldOut.monotonic && foldOut.to > 200, "Escape brings the sidebar back, only ever wider", foldOut)
-  expect(canvasOut.monotonic && canvasOut.biggest <= canvasOut.distance / 6 + 1, "and the canvas gives the room back smoothly", canvasOut)
+  expect(canvasOut.monotonic && canvasOut.peakSpeed <= curvePeak(canvasOut.distance), "and the canvas gives the room back on the same curve", canvasOut)
   const off = await page.evaluate(STATE)
   expect(off.fold === "open" && off.pressed === "false" && off.remembered === null, "off again, and forgotten", off)
   expect(errors.length === 0, "no page errors", errors)

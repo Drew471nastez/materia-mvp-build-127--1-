@@ -1156,6 +1156,8 @@ html.capacitor body {
   [data-wb-inspect="leaving"] .wb-ring,
   [data-wb-inspect="off"] .wb-ring { opacity: 0 !important; }
   [data-wb-inspect="entering"] .wb-ring { animation: wb-ring-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+  /* Full screen preview (editor page.tsx, fullView): the site alone, from the first frame of the fold. */
+  [data-wb-full] #wb-preview-root .wb-ring { opacity: 0 !important; }
   @keyframes wb-ring-in { from { opacity: 0; } }
   /*
    * THE FIELD A CANVAS CLICK LANDED ON (editor page.tsx, fieldFocus). A violet

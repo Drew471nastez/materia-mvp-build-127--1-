@@ -2882,6 +2882,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
   /** Full screen as it applies right now: a computer, looking at the preview. */
   const fullView = fullScreen && !isMobileView && previewMode === "preview"
+  /**
+   * THE SECTIONS FOLLOW ONE FOLD LATER. Turning the canvas's inspector off
+   * redraws every section, and doing that in the frame the fold starts made
+   * that frame long: the first step of the fold was a third of it at once
+   * (scripts/check-full-screen.mjs, 105px of 294). So the rings and the
+   * toolbar are hidden at once by the stylesheet (`data-wb-full`), and the
+   * sections are told only after the fold has finished, either way.
+   */
+  const [fullSettled, setFullSettled] = useState(false)
+  useEffect(() => {
+    const id = window.setTimeout(() => setFullSettled(fullView), FULL_SCREEN_MS + 40)
+    return () => window.clearTimeout(id)
+  }, [fullView])
+
   /* Escape leaves it, unless the key belongs to something open on top (a dialog, a menu) or to a field. */
   useEffect(() => {
     if (!fullView) return
@@ -7028,6 +7042,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * at touchdown. See the opt-out in that component.
        */
       data-wb-no-bounce-guard=""
+      /* Full screen: the canvas's rings go at once, in the stylesheet, while the sections are told a fold later (fullSettled). */
+      data-wb-full={fullView ? "" : undefined}
       className={cn(
         // `fixed inset-0`, not `h-svh`. A 100svh element is CONTENT, and the
         // body adds its safe-area padding underneath it — one screen plus
@@ -7636,7 +7652,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               opacity: fullView ? 0 : 1,
               /* And the 6px seam beside it, so the canvas meets the edge. */
               marginRight: fullView ? -6 : 0,
-              transition: `max-width ${FULL_SCREEN_MS}ms cubic-bezier(0.32, 0.72, 0, 1), margin-right ${FULL_SCREEN_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
+              transition: `max-width ${FULL_SCREEN_MS}ms cubic-bezier(0.4, 0, 0.2, 1), margin-right ${FULL_SCREEN_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
             }}
             {...(fullView ? { inert: true } : {})}
           >
@@ -8274,7 +8290,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 storefrontData={canvasData}
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
-                inspectorEnabled={canvasInspecting && !fullView}
+                inspectorEnabled={canvasInspecting && !fullSettled}
                 selectedSectionId={selectedSectionId}
                 device={device}
                 /**
