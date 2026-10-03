@@ -118,7 +118,7 @@ check("  no whole document load for a link of the app", !/window\.location\.href
 check("  and the answered question stands the browser's own prompt down", /leavingRef\.current = true\s*setLeaveGuard\(null\)/.test(editor) && /if \(isDirty && !leavingRef\.current\)/.test(editor))
 check("the phone's way out still leaves through the glass", (editor.match(/if \(pendingNavigation === "\/app"\) \{\s*leave\(\)\s*\} else if \(pendingNavigation\) \{\s*leaveTo\(pendingNavigation\)/g) ?? []).length === 2)
 check("the question is above the shell: a dialog from md, the shared sheet below", /<BottomSheet isOpen=\{open\}/.test(editor) && /<Dialog open=\{open\}/.test(editor)
-  && /z-\[2147483639\]/.test(read("components/ui/dialog.tsx")) && /fixed inset-0 z-\[200\]/.test(read("components/ui/bottom-sheet.tsx")))
+  && /z-\[2147483639\]/.test(read("components/ui/dialog.tsx")) && /"fixed inset-0", zIndex == null && "z-\[200\]"/.test(read("components/ui/bottom-sheet.tsx")))
 
 console.log("\nA navigation whose answer came back and did not land")
 check("the stage watches for it, once for the tab", /watchRouterAnswers\(\)/.test(stage))

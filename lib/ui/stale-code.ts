@@ -9,23 +9,34 @@
  * still working. That page may hold something the person typed, so it is
  * not reloaded from under them without a look:
  *
- *   /checkout, a page holding unsaved work (lib/ui/leave-guard), or any
- *   text field or editor with something in it: a calm bar, "Storelib was
- *   updated. Reload to continue.", and the reload is theirs to press. A
- *   buyer's card number, company and tip are not kept across a reload.
+ *   /checkout, the website builder, a page holding unsaved work (lib/ui/
+ *   leave-guard), or any text field or editor with something in it: a calm
+ *   bar, "Storelib was updated. Reload to continue.", and the reload is
+ *   theirs to press. A buyer's card number, company and tip are not kept
+ *   across a reload. The builder's editor writes its draft on a timer
+ *   (a second and a half after the last change) and warns on unload while
+ *   something is not written yet, so the press goes through that warning
+ *   rather than around it.
  *
  *   anything else: loaded again, once, at the same address (the same
  *   one-shot as the boundaries, so it cannot loop), and if that already
  *   happened a moment ago, the bar.
  *
+ * Safari's bare "Load failed" is acted on only once a newer deploy is known,
+ * and is checked for first (lib/ui/new-deploy.ts confirmNewDeploy).
+ *
  * Installed once by instrumentation-client.ts. `staleAction` is the whole
  * decision and takes everything it reads as arguments, so
  * tests/client-errors.test.ts drives it.
  */
-import { buildReport, isStaleCodeError, shouldReloadForStaleCode, type ReloadStore } from "@/lib/client-errors"
+import { buildReport, isLoadFailed, isStaleCodeError, shouldReloadForStaleCode, type ReloadStore } from "@/lib/client-errors"
 import { leaveGuard } from "@/lib/ui/leave-guard"
+import { confirmNewDeploy, newDeployKnown } from "@/lib/ui/new-deploy"
 
 export type StaleAction = "reload" | "bar" | "none"
+
+/** Pages that are never reloaded from under somebody. */
+const NEVER_RELOAD = /^\/(checkout|website-builder)(\/|$)/
 
 export function staleAction(input: {
   error: unknown
@@ -33,11 +44,14 @@ export function staleAction(input: {
   /** Something typed on the page that a reload would lose. */
   holdsWork: boolean
   store: ReloadStore | null
+  /** A newer deploy is known to be live. */
+  newDeploy?: boolean
   now?: number
 }): StaleAction {
-  if (!isStaleCodeError(input.error, input.path)) return "none"
-  if (input.holdsWork || /^\/checkout(\/|$)/.test(input.path)) return "bar"
-  return shouldReloadForStaleCode(input.error, input.store, input.path, input.now) ? "reload" : "bar"
+  const newDeploy = input.newDeploy ?? false
+  if (!isStaleCodeError(input.error, newDeploy)) return "none"
+  if (input.holdsWork || NEVER_RELOAD.test(input.path)) return "bar"
+  return shouldReloadForStaleCode(input.error, input.store, newDeploy, input.now) ? "reload" : "bar"
 }
 
 /** Unsaved work the page declared, or a field or editor with words in it. */
@@ -80,15 +94,15 @@ function showBar() {
   document.body.append(bar)
 }
 
-function heal(error: unknown) {
+function heal(error: unknown, newDeploy: boolean = newDeployKnown()) {
   const path = window.location.pathname
-  const action = staleAction({ error, path, holdsWork: pageHoldsWork(), store: sessionStore() })
+  const action = staleAction({ error, path, holdsWork: pageHoldsWork(), store: sessionStore(), newDeploy })
   if (action === "none") return
   try {
     void fetch("/api/client-errors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildReport(error, window.location.href)),
+      body: JSON.stringify(buildReport(error, window.location.href, newDeploy)),
       keepalive: true,
     }).catch(() => {})
   } catch {
@@ -98,13 +112,24 @@ function heal(error: unknown) {
   else showBar()
 }
 
+/** A bare "Load failed" asks whether a newer deploy is live before anything is decided. */
+function healOrAsk(error: unknown) {
+  if (isLoadFailed(error) && !newDeployKnown()) {
+    void confirmNewDeploy().then((newer) => {
+      if (newer) heal(error, true)
+    })
+    return
+  }
+  heal(error)
+}
+
 /**
  * What an error boundary that swallows a region (components/storefront/
  * safe-region) does with a stale chunk: the same decision, so a creator's
  * page that lost a section to a deploy comes back whole.
  */
 export function recoverFromStaleCode(error: unknown): boolean {
-  if (typeof window === "undefined" || !isStaleCodeError(error, window.location.pathname)) return false
+  if (typeof window === "undefined" || !isStaleCodeError(error, newDeployKnown())) return false
   heal(error)
   return true
 }
@@ -116,6 +141,6 @@ export function watchStaleCode() {
   const w = window as Window & { [WATCHING]?: boolean }
   if (w[WATCHING]) return
   w[WATCHING] = true
-  window.addEventListener("unhandledrejection", (e) => heal(e.reason))
-  window.addEventListener("error", (e) => heal(e.error ?? { message: e.message }))
+  window.addEventListener("unhandledrejection", (e) => healOrAsk(e.reason))
+  window.addEventListener("error", (e) => healOrAsk(e.error ?? { message: e.message }))
 }

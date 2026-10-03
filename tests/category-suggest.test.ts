@@ -4,13 +4,13 @@
  * ===========================================================================
  * "A smart suggestion of the category from what the creator has entered:
  * title, description and the uploaded images." The route
- * (app/api/app/products/category-suggestion/route.ts) asks Claude to choose
+ * (app/api/app/products/category-suggestion/route.ts) asks ChatGPT to choose
  * from the fixed list and falls back to the editor's keyword guess.
  *
  * The rules live in lib/products/category-suggest.ts and are tested here
  * directly, with the model call passed in: what a request may carry, which
  * pictures may be sent on, what counts as an answer, and that every failure
- * of Claude's ends in the keyword guess rather than an error.
+ * of the model's ends in the keyword guess rather than an error.
  */
 import { readFileSync } from "node:fs"
 import { stripComments } from "./_source"
@@ -96,10 +96,10 @@ async function main() {
   check("a different capitalisation is not", readAnswer({ group: "design & creative", category: "fonts" }) === null)
   check("prose, a broken string, null and an array are not", readAnswer("Fonts, in Design & Creative") === null && readAnswer("{") === null && readAnswer(null) === null && readAnswer(["Fonts"]) === null)
 
-  console.log("\nClaude first, the keywords whenever Claude cannot answer")
+  console.log("\nThe model first, the keywords whenever it cannot answer")
   const input: SuggestInput = { title: "Moody film Lightroom presets", text: "Twelve presets for portraits", images: [] }
-  const viaClaude = await resolveSuggestion(input, async () => '{"group":"Photography & Video","category":"Portrait Presets"}')
-  check("a valid answer is used, marked as Claude's", viaClaude.source === "ai" && viaClaude.category === "Portrait Presets" && viaClaude.group === "Photography & Video", viaClaude)
+  const viaModel = await resolveSuggestion(input, async () => '{"group":"Photography & Video","category":"Portrait Presets"}')
+  check("a valid answer is used, marked as the model's", viaModel.source === "ai" && viaModel.category === "Portrait Presets" && viaModel.group === "Photography & Video", viaModel)
   const noKey = await resolveSuggestion(input, null)
   check("no key: the keyword guess", noKey.source === "keywords" && noKey.category === "Lightroom Presets" && noKey.group === "Design & Creative", noKey)
   const offList = await resolveSuggestion(input, async () => '{"group":"Design & Creative","category":"Film Stuff"}')
@@ -112,7 +112,7 @@ async function main() {
   check("nothing to go on: no suggestion at all, said plainly", nothing.source === "none" && nothing.category === null && nothing.group === null, nothing)
   let seen: SuggestInput | null = null
   await resolveSuggestion({ ...input, images: ["https://abcd.supabase.co/storage/v1/object/public/product-images/c-123/a.jpg"] }, async (i) => { seen = i; return null })
-  check("Claude is handed the pictures with the words", (seen as SuggestInput | null)?.images.length === 1)
+  check("the model is handed the pictures with the words", (seen as SuggestInput | null)?.images.length === 1)
 
   console.log("\nThe keyword guess")
   check("finds a clear match", keywordSuggestion("A Notion template for weekly planning") === "Notion Templates")
@@ -124,16 +124,17 @@ async function main() {
 
   console.log("\nThe route and the call")
   const route = code("app/api/app/products/category-suggestion/route.ts")
-  const claude = code("lib/products/category-suggest-claude.ts")
+  const ai = code("lib/products/category-suggest-ai.ts")
   check("signed in only: a 401 before anything is read", /if \(!user\) return NextResponse\.json\([^)]*\{ status: 401/.test(route) && route.indexOf("status: 401") < route.indexOf("request.text()"))
   check("rate limited per person, before the model is asked", /await rateLimit\(\{\s*bucket: "category-suggestion",\s*subjects: \[`user:\$\{user\.id\}`\]/.test(route) && route.indexOf("rateLimit(") < route.indexOf("resolveSuggestion("))
   check("a store is needed, and its id is what pictures are checked against", /from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(route) && /creatorId: String\(creator\.id\)/.test(route))
   check("the body is size checked and parsed by the tested rules", /content-length/.test(route) && /parseSuggestRequest\(raw, \{\s*storageOrigin: process\.env\.NEXT_PUBLIC_SUPABASE_URL/.test(route))
-  check("no key: the model is not called", /resolveSuggestion\(parsed\.input, canAskClaude\(\) \? askClaudeForCategory : null\)/.test(claude + route) && /export const canAskClaude = \(\) => !!process\.env\.ANTHROPIC_API_KEY/.test(claude))
-  check("the call uses the repo's one Anthropic client and key", /import \{ anthropic, MissingAnthropicKeyError \} from "@\/lib\/sites\/agent\/anthropic-provider"/.test(claude) && /export function anthropic\(\): Anthropic/.test(code("lib/sites/agent/anthropic-provider.ts")))
-  check("claude-opus-5 at low effort, structured output, server side fallbacks, the list cached", /"claude-opus-5"/.test(claude) && /effort: "low", format: \{ type: "json_schema", schema: SCHEMA \}/.test(claude) && /fallbacks: "default"/.test(claude) && /"server-side-fallback-2026-07-01"/.test(claude) && /cache_control: \{ type: "ephemeral" \}/.test(claude))
-  check("pictures go as URLs, before the words", /type: "image" as const, source: \{ type: "url" as const, url \}/.test(claude) && claude.indexOf('type: "image"') < claude.indexOf("<title>"))
-  check("server only: the key can never reach a browser", /^import "server-only"/m.test(readFileSync("lib/products/category-suggest-claude.ts", "utf8")))
+  /* ChatGPT, like the rest of Storelib AI now: this asked Claude, and logged a credit refusal for every product saved. */
+  check("no key: the model is not called", /resolveSuggestion\(parsed\.input, canAskAi\(\) \? askAiForCategory : null\)/.test(route) && /export const canAskAi = \(\) => !!process\.env\.OPENAI_API_KEY/.test(ai))
+  check("the call uses the repo's one OpenAI client and key, and nothing of Anthropic's", /import \{ MissingKeyError, openai \} from "@\/lib\/sites\/agent\/openai-provider"/.test(ai) && /export function openai\(\): OpenAI/.test(code("lib/sites/agent/openai-provider.ts")) && !/anthropic/i.test(ai))
+  check("the everyday model at low effort, with a strict JSON schema", /process\.env\.OPENAI_CATEGORY_MODEL \|\| DEFAULT_MODEL/.test(ai) && /reasoning: \{ effort: "low" \}/.test(ai) && /format: \{ type: "json_schema", name: "category", schema: SCHEMA, strict: true \}/.test(ai))
+  check("pictures go as URLs, before the words", /type: "input_image" as const, image_url: url/.test(ai) && ai.indexOf('type: "input_image"') < ai.indexOf("<title>"))
+  check("server only: the key can never reach a browser", /^import "server-only"/m.test(readFileSync("lib/products/category-suggest-ai.ts", "utf8")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

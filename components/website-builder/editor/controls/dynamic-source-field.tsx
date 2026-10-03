@@ -25,44 +25,38 @@
  * ALWAYS THERE, NEVER OVER THE TEXT. The first version was a text pill that
  * faded in on hover, drawn over the label row; on a narrow sidebar it
  * landed inside the input on top of the words, and every pass of the
- * pointer made it blink. The button is now in the label row's own flow, at
+ * pointer made it blink. The button is in the label row's own flow, at
  * rest and on hover alike: nothing appears, disappears or moves under the
- * pointer. It is 22px, the height of the label row it sits in, and 44px
- * under a thumb through a hit area that reaches into the gap above the row,
- * never over the field below it.
+ * pointer.
+ *
+ * SMALL AND QUIET. It was a 22px white key with a hairline ring, a shade in
+ * its foot and a shadow under it, one on every text setting in the panel,
+ * and the owner found the column of them too big and too loud. It is now
+ * an 18px glyph button with a 12px glyph in a light grey, no ring and no
+ * shadow: it darkens, and takes a faint grey square, under the pointer, and
+ * stays dark with the square while its list is open. The label row is 18px
+ * to hold it, two pixels taller than the label's own line.
+ *
+ * SMALL TO SEE, NOT SMALL TO HIT. A `::before` widens what takes the
+ * pointer: 26px under a mouse, 44px under a thumb, reaching sideways and
+ * up into the gap above the row, never down over the field below it.
  *
  * NO TOOLTIP. It had one, "Insert shop data", and the owner asked for it
  * gone: a bubble over the panel every time the pointer crossed a label was
  * more noise than the one word it added. The name is still the button's
  * accessible name, and the list it opens is headed "Shop data".
  *
- * ---------------------------------------------------------------------------
- *  A LITTLE DEPTH, ON A LIGHT SIDEBAR
- * ---------------------------------------------------------------------------
- * The builder's sidebar is white — deliberately so; the editor page says as
- * much where it paints its section rows — so this wears the app's
- * light-surface depth (components/ui/depth-button.ts) at a whisper: a
- * hairline drawn as an inset ring rather than a border, so the button stays
- * exactly 26px and nothing reflows; a 1px shade inside its foot; a 1px
- * shadow under it. A shade darker under the pointer, and flat with the shade
- * inside while it is pressed and while its list is open, which is how a key
- * reads when it is down. No glow, no lift, no gradient: there is one of
- * these on every text setting in the panel, and anything louder would be a
- * column of buttons.
- *
- * THE BACKGROUND IS ITS OWN, AND THAT IS WHAT KEEPS A FINGER OFF IT.
- * globals.css clears `:hover` backgrounds inside the phone sheets, because a
- * touch screen leaves `:hover` on the last thing tapped until something else
- * is tapped. Its documented opt-out is that an element setting its OWN
- * background keeps it. Before the depth this button set none, so that rule
- * applied to it, and the open state (`aria-expanded:bg-…`) was erased the
- * moment a thumb opened the list: you tapped the glyph, the list opened, and
- * the glyph looked untouched. `bg-white` in the class list is the opt-out,
- * and the depth wanted it anyway. Everything that answers a pointer is a
- * `hover:` utility, which Tailwind already puts behind `(hover: hover)` and
- * a touch screen therefore never sees, and nothing is behind a
- * `hover:shadow`, which that same block would strip to none. The tap
- * highlight — the grey square a phone paints over a small button — is turned
+ * THE BACKGROUND IS ITS OWN, AND THAT IS WHAT KEEPS THE OPEN STATE UNDER A
+ * FINGER. globals.css clears `:hover` backgrounds inside the phone sheets,
+ * because a touch screen leaves `:hover` on the last thing tapped until
+ * something else is tapped. Its documented opt-out is that an element
+ * setting its OWN background keeps it. Without one, the open state
+ * (`aria-expanded:bg-...`) was erased the moment a thumb opened the list:
+ * you tapped the glyph, the list opened, and the glyph looked untouched.
+ * `bg-transparent` in the class list is the opt-out. Everything that
+ * answers a pointer is a `hover:` utility, which Tailwind already puts
+ * behind `(hover: hover)` and a touch screen therefore never sees. The tap
+ * highlight, the grey square a phone paints over a small button, is turned
  * off, the way every button in depth-button.ts turns it off.
  *
  * CONNECTED, THE GLYPH SAYS SO. Muted while the setting holds only typed
@@ -247,22 +241,19 @@ export function DynamicSourceField({
       data-connected={connected ? "" : undefined}
       onClick={() => setOpen((o) => !o)}
       className={
-        "relative inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[5px] bg-white " +
-        (connected ? "text-foreground " : "text-muted-foreground ") +
-        /* The hairline as an inset ring, the foot inside it, one soft pixel under it. */
-        "shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08),inset_0_-1px_0_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.05)] " +
-        "transition-[background-color,box-shadow,color] duration-100 " +
-        "hover:bg-[#f7f7f8] hover:text-foreground " +
-        /* Down, and open, are the same thing: flat, with the shade inside. */
-        "active:bg-[#f1f2f4] active:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.10),inset_0_1px_2px_rgba(15,23,42,0.12)] " +
-        "aria-expanded:bg-[#f1f2f4] aria-expanded:text-foreground aria-expanded:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.10),inset_0_1px_2px_rgba(15,23,42,0.12)] " +
+        "relative inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] bg-transparent " +
+        (connected ? "text-foreground " : "text-[#9ca3af] ") +
+        "transition-[background-color,color] duration-100 " +
+        "hover:bg-[#f1f2f4] hover:text-[#374151] " +
+        /* Open, it stays dark with its square: the list below is its own. */
+        "active:bg-[#eceef1] aria-expanded:bg-[#eceef1] aria-expanded:text-foreground " +
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 " +
         "[-webkit-tap-highlight-color:transparent] " +
-        /* 44px under a thumb: 11px either side, 20px up into the gap above, 2px down to the field and not over it. */
-        "before:absolute before:content-[''] max-sm:before:-inset-x-[11px] max-sm:before:-top-5 max-sm:before:-bottom-0.5"
+        /* 26px under a mouse. 44px under a thumb: 13px either side, 22px up into the gap above, 4px down and short of the field 5px below. */
+        "before:absolute before:content-[''] before:-inset-1 max-sm:before:-inset-x-[13px] max-sm:before:-top-[22px] max-sm:before:-bottom-1"
       }
     >
-      <Database className="h-[13px] w-[13px]" strokeWidth={1.75} aria-hidden />
+      <Database className="h-3 w-3" strokeWidth={1.75} aria-hidden />
     </button>
   )
 
@@ -278,13 +269,13 @@ export function DynamicSourceField({
           <>
             {/*
               The row a plain label would be, with the button at its end. The
-              row is 22px for the button; -3px above and 3px below keep the
+              row is 18px for the button; -1px above and 5px below keep the
               words and the field where a plain label puts them (16px of
               words, 6px, the field), so this field lines up with its
               neighbours. On a phone the row keeps its top margin, because
               the button's 44px reaches up into it.
             */}
-            <div className="-mt-[3px] mb-[3px] max-sm:mt-0 flex min-h-[22px] items-center justify-between gap-2" data-dynamic-label="">
+            <div className="-mt-px mb-[5px] max-sm:mt-0 flex min-h-[18px] items-center justify-between gap-2" data-dynamic-label="">
               {label ? <label className="min-w-0 truncate text-xs font-medium text-muted-foreground">{label}</label> : <span />}
               {action}
             </div>

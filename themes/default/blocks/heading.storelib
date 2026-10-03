@@ -1,20 +1,22 @@
 {# ===========================================================================
    Heading: a theme block
 
-   One line of title, in any section that accepts theme blocks. It reads the
-   section's colours through the --s-* properties the section sets on its
-   root, so the same block is right on a light section and a dark one.
+   One line of title, in any section that accepts theme blocks. Its colour
+   is a setting of its own that follows the section's scheme ("default":
+   "scheme.heading") until somebody picks one, so the same block is right on
+   a light section and a dark one. The colour reaches the CSS as an inline
+   custom property, so the rule stays one per type and not one per block.
    =========================================================================== #}
 <template>
-{% if block.settings.level == 'h1' %}<h1 class="sl-heading sl-heading--{{ block.settings.size }} sl-heading--{{ block.settings.align }}">{{ block.settings.text }}</h1>
-{% elsif block.settings.level == 'h3' %}<h3 class="sl-heading sl-heading--{{ block.settings.size }} sl-heading--{{ block.settings.align }}">{{ block.settings.text }}</h3>
-{% else %}<h2 class="sl-heading sl-heading--{{ block.settings.size }} sl-heading--{{ block.settings.align }}">{{ block.settings.text }}</h2>{% endif %}
+{% if block.settings.level == 'h1' %}<h1 class="sl-heading sl-heading--{{ block.settings.size }} sl-heading--{{ block.settings.align }}" style="--heading-color: {{ block.settings.color | default: scheme.heading }};">{{ block.settings.text }}</h1>
+{% elsif block.settings.level == 'h3' %}<h3 class="sl-heading sl-heading--{{ block.settings.size }} sl-heading--{{ block.settings.align }}" style="--heading-color: {{ block.settings.color | default: scheme.heading }};">{{ block.settings.text }}</h3>
+{% else %}<h2 class="sl-heading sl-heading--{{ block.settings.size }} sl-heading--{{ block.settings.align }}" style="--heading-color: {{ block.settings.color | default: scheme.heading }};">{{ block.settings.text }}</h2>{% endif %}
 </template>
 
 <style>
 .sl-heading {
   margin: 0;
-  color: var(--s-heading, inherit);
+  color: var(--heading-color, var(--s-heading, inherit));
   font-family: var(--theme-font-heading, inherit), ui-sans-serif, system-ui, sans-serif;
   font-weight: var(--section-heading-weight, 700);
   letter-spacing: var(--section-heading-tracking, -0.01em);
@@ -62,7 +64,8 @@
         { "label": "Centre", "value": "center" },
         { "label": "Right", "value": "right" }
       ]
-    }
+    },
+    { "type": "color", "id": "color", "label": "Text color", "default": "scheme.heading" }
   ],
   "presets": [
     { "name": "Heading" }

@@ -21,6 +21,7 @@ import { NextResponse } from "next/server"
 
 import { rateLimit } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
+import { readRecording } from "@/lib/website-builder/voice-format"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -30,15 +31,6 @@ export const maxDuration = 60
 const MAX_AUDIO_BYTES = 4 * 1024 * 1024
 
 const MODEL = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe"
-
-/** The extension OpenAI reads the format from, by what the browser recorded. */
-function fileNameFor(type: string): string {
-  if (type.includes("mp4") || type.includes("m4a") || type.includes("aac")) return "speech.m4a"
-  if (type.includes("ogg")) return "speech.ogg"
-  if (type.includes("wav")) return "speech.wav"
-  if (type.includes("mpeg") || type.includes("mp3")) return "speech.mp3"
-  return "speech.webm"
-}
 
 async function signedInCreator(): Promise<string | null> {
   const supabase = await createClient()
@@ -82,13 +74,19 @@ export async function POST(request: Request) {
   if (audio.size > MAX_AUDIO_BYTES) {
     return NextResponse.json({ error: "That recording is too long. Keep it under a minute." }, { status: 413 })
   }
-  const type = (audio.type || "audio/webm").toLowerCase()
-  if (!type.startsWith("audio/") && !type.startsWith("video/")) {
+  /*
+    Read by type, then by name: iOS records audio/mp4 (some versions say
+    video/mp4), and a part that arrives with no type, or a generic one, is
+    known by the extension the recorder gave it. OpenAI reads the format
+    from the extension, so the clip goes on with the right one.
+  */
+  const recording = readRecording(audio.type, audio instanceof File ? audio.name : null)
+  if (!recording) {
     return NextResponse.json({ error: "That is not a recording." }, { status: 400 })
   }
 
   const upstream = new FormData()
-  upstream.append("file", new File([audio], fileNameFor(type), { type }))
+  upstream.append("file", new File([audio], recording.fileName, { type: recording.type }))
   upstream.append("model", MODEL)
   upstream.append("response_format", "json")
 

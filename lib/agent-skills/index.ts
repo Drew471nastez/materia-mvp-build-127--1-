@@ -180,6 +180,7 @@ export const SKILLS: Skill[] = [
       "A hover drawn with opacity. Hover has its own keys and follows the fill when left empty.",
       "Light text on a light scheme. The contrast check fails it.",
     ],
+    builder: ["update_section with color_scheme set to a scheme the theme has before any colour of a section's own; the whole site's colours are update_theme. Neighbouring sections on different schemes give a page its rhythm."],
     checks: ["page-settings", "contrast"],
   },
   {
@@ -213,6 +214,37 @@ export const SKILLS: Skill[] = [
     checks: ["quality", "page-settings"],
   },
   {
+    id: "landing-page",
+    title: "A whole landing page",
+    summary: "Build a full page from nothing: a running order of finished sections about the real business, ending on one ask.",
+    triggers: [
+      /\b(landing|sales|launch|home|one)[ -]?page\b|\bhomepage\b/i,
+      /\b(whole|full|complete|entire)\b.{0,20}\b(page|site|website)\b|\bbuild (me )?(a|my|the) (page|site|website)\b/i,
+    ],
+    steps: [
+      "Read the business first (storelib_site): what it sells, to whom, what it costs. With no products, the page sells the creator, not a catalogue.",
+      "Write the running order before any section: what it is and who it is for, proof, what they get, the price, questions, the ask. Five or six sections.",
+      "For each, storelib_search_components for a built-in section that does the job; a new file only when none does.",
+      "storelib_create_page with the sections in order, then fill every block and heading in one storelib_create_safe_patch.",
+      "Alternate colour schemes so neighbours differ, and keep one button wording for the main action all the way down.",
+      "storelib_run_tests on the page (page-types, page-settings, contrast, limits), then storelib_run_preview at phone and desktop width.",
+    ],
+    tools: ["storelib_site", "storelib_search_components", "storelib_create_page", "storelib_create_safe_patch", "storelib_run_tests", "storelib_run_preview"],
+    topics: ["color-scheme", "blocks"],
+    pitfalls: [
+      "One long section standing in for a page, or six sections each with a different style.",
+      "Sections left on their preset's demo copy. Every one gets this store's words before the next is started.",
+      "Numbers, reviews or guarantees nobody gave you. Leave the slot for the creator, or ask.",
+      "A product grid on a store with no products. It renders empty.",
+    ],
+    builder: [
+      "Plan the running order in your first turn, then per section: read_section_type, add_section at its index, fill every block and control, then the next. read_store first.",
+      "Alternate color_scheme between neighbours; finish with one call to action that names what the buyer does.",
+    ],
+    checks: ["page-types", "page-settings", "contrast", "limits"],
+    examples: ["https://storelib.com/developers/examples"],
+  },
+  {
     id: "compose-page",
     title: "Pages and page structure",
     summary: "Create a page, add sections to it, reorder, hide or rename them.",
@@ -240,6 +272,83 @@ export const SKILLS: Skill[] = [
     topics: ["blocks"],
     pitfalls: ["question_1, question_2 settings. Use blocks.", "More blocks than the section's limit. The page check refuses it.", "Testimonials or reviews nobody wrote. Leave them for the creator."],
     checks: ["page-settings", "limits"],
+  },
+  {
+    id: "theme-blocks",
+    title: "Theme blocks and blocks inside blocks",
+    summary: "Build with theme blocks: block files in blocks/, sections that take them with content_for, groups that hold blocks, static blocks and presets.",
+    triggers: [/theme blocks?|content_for|@theme|blocks?\/|static block|nested block|blocks? (inside|within|in) (a |another )?(block|group)|\bgroup block\b/i],
+    steps: [
+      "storelib_list_files for blocks/: heading, text, button, image, video, spacer and group ship with the theme. Use them before writing a new one.",
+      "A section takes them with \"blocks\": [{ \"type\": \"@theme\" }] and draws them with {% content_for \"blocks\" %}, and declares no blocks of its own.",
+      "A new block is blocks/<type>.storelib: template, style and schema, no script. Prefix its classes and take colours from the section's --s-* properties.",
+      "A row or column is a group holding blocks. A block the template places itself is static: {% content_for \"block\", type: \"heading\", id: \"title\" %}.",
+      "Presets the Shopify way: blocks keyed by id with block_order, every non static key listed. storelib_compile, then storelib_run_tests.",
+    ],
+    tools: ["storelib_list_files", "storelib_read_file", "storelib_write_section", "storelib_compile", "storelib_run_tests"],
+    topics: ["theme-blocks"],
+    docs: [
+      { page: "blocks", heading: "Rendering theme blocks: content_for" },
+      { page: "blocks", heading: "Static blocks" },
+    ],
+    pitfalls: [
+      "A <script> in a block file. The section owns the script; it finds its blocks by data-block-type.",
+      "A section that takes @theme and also loops over blocks of its own. Pick one.",
+      "A preset key missing from block_order. It is never drawn.",
+      "Changing a built-in block file. Write blocks/<type>_custom.storelib instead.",
+    ],
+    builder: ["On a page: add_block with parentBlockId to put a block inside a group, address a nested block by its path outer/inner, and change a static block's settings but never remove it."],
+    checks: ["compile", "quality"],
+    examples: ["blocks/group.storelib", "https://storelib.com/developers/blocks"],
+  },
+  {
+    id: "section-colours",
+    title: "A section's own colour settings",
+    summary: "Give a section colour controls the creator can change, without leaving the theme's colour schemes.",
+    triggers: [
+      /colou?r (setting|control|picker|option|choice)s?|(own|custom|separate|different) colou?rs?\b/i,
+      /let (me|them|the creator|users?) (change|pick|choose|set) (the |its )?colou?r/i,
+    ],
+    steps: [
+      "Start from the color_scheme setting: most colour requests are a different scheme, and the section already has one.",
+      "Only for a colour no scheme key answers (stars, a badge, an overlay): a color setting whose default names a scheme colour, \"default\": \"scheme.accent\".",
+      "Read it in the template or CSS as {{ settings.star_color }}. It follows the scheme until the creator picks a colour, then keeps theirs.",
+      "Buttons keep the scheme's button keys and hover keys; no per section button colours drawn with opacity.",
+      "storelib_compile, then storelib_run_tests with contrast.",
+    ],
+    tools: ["storelib_read_file", "storelib_patch_section", "storelib_compile", "storelib_run_tests"],
+    topics: ["color-scheme"],
+    docs: [{ page: "styling", heading: "Colour schemes" }],
+    pitfalls: [
+      "A hex default. It stops following the creator's theme the day they change their palette.",
+      "A colour picker per element beside a color_scheme that already answers them.",
+      "Text colour set without its background. The contrast check fails it on the other schemes.",
+    ],
+    builder: ["To recolour a section on the page, update_section its color_scheme to one the theme has, or the colour settings read_section lists. Adding a colour control is a code change: read_section_code, then edit_section_code on the schema and the CSS."],
+    checks: ["compile", "quality", "contrast"],
+  },
+  {
+    id: "navigation",
+    title: "Navigation menus",
+    summary: "The header's links and sub links, the footer's link columns, and the site's named menus.",
+    triggers: [/\b(nav|navigation|menus?|header links?|footer links?|sub ?menus?|sub ?links?|dropdown menu|mega ?menu|top bar links?)\b/i],
+    steps: [
+      "storelib_read_page for the header (or footer) instance. There is one of each, on every page; it is changed, never rebuilt.",
+      "Header links are its nav_link blocks: label, url and link_type \"custom\", a sub link naming its parent in parent_id. One level of sub links.",
+      "Or point the header's menu setting at one of the site's menus by handle (storelib_read_project lists them); its own links are then not shown.",
+      "The footer: menu and menu_2 for two menus, and footer_column with footer_link blocks for columns of its own.",
+      "One storelib_create_safe_patch with the add_block and update_block operations, then storelib_run_tests on the page.",
+    ],
+    tools: ["storelib_read_page", "storelib_read_project", "storelib_create_safe_patch", "storelib_run_tests"],
+    topics: ["site-chrome"],
+    docs: [{ page: "header-and-footer", heading: "What the header does" }],
+    pitfalls: [
+      "A new header, nav bar or footer section. It is refused, and it would have no cart, search or phone menu.",
+      "A link to a page that does not exist. Read the pages first and link to those, or to /products/<slug>.",
+      "Typing the site's menu out as links when a menu with those links already exists.",
+    ],
+    builder: ["read_section on the header, then add_block and update_block for its nav_link blocks, or update_section to set its menu. The footer the same way with footer_column and footer_link."],
+    checks: ["page-settings"],
   },
   {
     id: "forms",
@@ -516,4 +625,4 @@ export function skillContext(request: string, opts: { limit?: number; images?: b
 }
 
 /** The skills whose framework topics the builder's assistant works against: code, colour, type, layout. */
-const BUILDER_REFERENCE = new Set(["edit-section", "schema-design", "interaction", "debug", "performance", "accessibility", "layout", "restyle", "typography"])
+const BUILDER_REFERENCE = new Set(["edit-section", "schema-design", "interaction", "debug", "performance", "accessibility", "layout", "restyle", "typography", "theme-blocks", "section-colours", "navigation"])

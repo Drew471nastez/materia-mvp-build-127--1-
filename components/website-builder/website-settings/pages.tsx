@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, ChevronRight } from "lucide-react"
+import { Reveal } from "@/components/ui/reveal"
 import { cn } from "@/lib/utils"
 import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, typedPageSeo, withPageSeo } from "@/lib/website-builder/page-seo"
 import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, buttonClass, inputClass, textAreaClass } from "./parts"
@@ -30,7 +31,7 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
         Pages
       </PageTitle>
 
-      <Card title="Pages" footer={GOES_LIVE}>
+      <Card footer={GOES_LIVE}>
         {ctx.pages.map((page) => (
           <PageRow
             key={page.key}
@@ -74,36 +75,48 @@ function PageRow({
   const id = `wb-page-seo-${page.key}`
 
   return (
-    <div>
-      <Row
-        label={
-          <span className="flex flex-wrap items-center gap-2">
-            {page.name}
-            {home && <Badge tone="neutral">Homepage</Badge>}
-            {seo.hidden && <Badge tone="attention">Hidden from search</Badge>}
+    <div data-page-row={page.key}>
+      {/* ONE LINE A PAGE. The name and address are the press that opens the
+          page's search result in place (Home's goes to SEO & Social, where
+          the site's own is edited); Edit opens it in the builder. It was a
+          Search button and an Edit button under every name on a phone, two
+          slabs a page. */}
+      <div className="flex items-center gap-2 pr-4 md:pr-6">
+        <button
+          type="button"
+          onClick={home ? () => ctx.go("seo") : onOpen}
+          aria-expanded={home ? undefined : open}
+          aria-controls={home ? undefined : id}
+          className="group flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left transition-colors md:min-h-[60px] md:pl-6 [-webkit-tap-highlight-color:transparent]"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="truncate text-[15px] font-medium text-white md:text-[14.5px]">{page.name}</span>
+              {home && <Badge tone="neutral">Homepage</Badge>}
+              {seo.hidden && <Badge tone="attention">Hidden from search</Badge>}
+            </span>
+            <span className="mt-0.5 block truncate text-[13px] text-white/45">{page.path}</span>
           </span>
-        }
-        hint={page.path}
-      >
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           {home ? (
-            <button type="button" onClick={() => ctx.go("seo")} className={buttonClass}>
-              Search
-            </button>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-white/70" />
           ) : (
-            <button type="button" onClick={onOpen} aria-expanded={open} aria-controls={id} className={buttonClass}>
-              Search
-              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")} />
-            </button>
+            <ChevronDown
+              aria-hidden
+              className={cn(
+                "h-4 w-4 shrink-0 text-white/35 transition-[transform,rotate,color] duration-200 ease-out group-hover:text-white/70 motion-reduce:transition-none",
+                open && "rotate-180 text-white/70",
+              )}
+            />
           )}
-          <button type="button" onClick={() => ctx.onEditPage(page.key)} className={buttonClass}>
-            Edit
-          </button>
-        </div>
-      </Row>
+        </button>
+        <button type="button" onClick={() => ctx.onEditPage(page.key)} className={buttonClass}>
+          Edit
+        </button>
+      </div>
 
-      {!home && open && (
-        <div id={id} className="wb-settings-in space-y-4 border-t border-white/[0.06] bg-white/[0.02] px-4 py-4 md:px-6">
+      {!home && (
+        <Reveal open={open} id={id} className="border-t border-white/[0.06] bg-white/[0.02]" data-page-seo={page.key}>
+        <div className="space-y-4 px-4 py-4 md:px-6">
           {/* What the result will say, from the same fallbacks the live page uses. */}
           <div className="rounded-xl bg-white p-4 text-left" aria-label="Search result preview">
             <p className="truncate text-[12.5px] text-[#4d5156]">{`${ctx.websiteUrlDisplay}${page.path === "/" ? "" : page.path}`}</p>
@@ -148,6 +161,7 @@ function PageRow({
             <Toggle checked={!seo.hidden} onChange={(on) => set({ hidden: !on })} label={`Show ${page.name} in search engines`} />
           </div>
         </div>
+        </Reveal>
       )}
     </div>
   )

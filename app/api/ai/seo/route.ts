@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 
-// AI-powered SEO description generator
-// Uses Claude AI to create optimized meta descriptions
+import { DEFAULT_MODEL } from "@/lib/sites/agent/models"
+import { openai } from "@/lib/sites/agent/openai-provider"
+import { failureKind } from "@/lib/sites/agent/plain-errors"
+import { createClient } from "@/lib/supabase/server"
+
+// A product's meta description: ChatGPT when it can, the extraction below
+// when it cannot.
 
 export async function POST(request: NextRequest) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
+
   try {
     const { description, title } = await request.json()
 
@@ -38,59 +49,43 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * The model's description, or null for the fallback below. ChatGPT now, on
+ * the agent's OpenAI client and everyday model, like the rest of Storelib AI
+ * (lib/sites/agent/provider.ts): this used to call Claude with its own
+ * request. Signed in only, since every call is paid for.
+ */
 async function generateWithAI(text: string, title: string): Promise<string | null> {
-  // Check if Anthropic API key is configured
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    console.log("[AI SEO] No ANTHROPIC_API_KEY configured, using fallback")
+  if (!process.env.OPENAI_API_KEY) {
+    console.log("[AI SEO] No OPENAI_API_KEY configured, using fallback")
     return null
   }
 
   try {
-    const prompt = `You are an SEO expert. Generate a compelling meta description for a digital product.
+    const prompt = `Write the meta description search results show for a digital product.
 
-Product Title: ${title}
-Product Description: ${text}
+Product title: ${title}
+Product description: ${text}
 
-Requirements:
-- Maximum 155 characters
-- Include key benefits and value proposition
-- Use action-oriented language
-- Make it compelling for search results
-- Do NOT include quotes around the description
-- Output ONLY the meta description, nothing else
+Rules:
+- At most 155 characters.
+- Say what the buyer gets, in plain specific words.
+- No quotes around it, no em dashes, and none of these words: unlock, elevate, seamless, powerful, effortless, supercharge, transform.
+- Reply with the description only.`
 
-Meta description:`
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+    const response = await openai().responses.create(
+      {
+        model: DEFAULT_MODEL,
+        input: prompt,
+        reasoning: { effort: "low" },
+        max_output_tokens: 1024,
       },
-      body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    })
+      { timeout: 20_000, maxRetries: 1 },
+    )
 
-    if (!response.ok) {
-      const errorBody = await response.text()
-      console.error("[AI SEO] Anthropic HTTP error:", response.status, errorBody)
-      return null
-    }
-
-    const data = await response.json() as { content?: Array<{ type?: string; text?: string }> }
-
-    // Extract text from response
-    const responseText = data.content?.[0]?.type === 'text'
-      ? data.content[0].text?.trim() ?? null
-      : null
+    const responseText = response.output_text?.trim() || null
 
     if (responseText && responseText.length > 0 && responseText.length <= 160) {
-      console.log("[AI SEO] Generated with Claude:", responseText.substring(0, 50) + "...")
       return responseText
     }
 
@@ -101,7 +96,8 @@ Meta description:`
 
     return null
   } catch (error) {
-    console.error("[AI SEO] Anthropic API error:", error)
+    /* Logged by kind and status, never shown: the fallback answers instead. */
+    console.error("[AI SEO] OpenAI call failed:", failureKind(error) ?? "error", (error as { status?: unknown } | null)?.status ?? "")
     return null
   }
 }

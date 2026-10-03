@@ -13,7 +13,7 @@ In the Sections panel a page is three groups, the way a shop's theme editor show
 | Group | Holds | Add section |
 | --- | --- | --- |
 | Header | The site's header, and nothing else. | Under it: adds at the top of the page. |
-| Template | The page's own sections, in order. | At the end: adds at the bottom of the page. Between two rows: adds there. |
+| Page | The page's own sections, in order. | At the end: adds at the bottom of the page. Between two rows: adds there. |
 | Footer | The site's footer, and nothing else. | None. |
 
 The header and footer can be hidden, which hides them on every page, but not dragged, copied or deleted. A section can never be moved above the header or below the footer, by a drag, by Ask AI or by an agent. Every page stores a copy of both, and the live site draws the home page's on every page, so they cannot drift apart.

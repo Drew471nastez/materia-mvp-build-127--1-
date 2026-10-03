@@ -2002,7 +2002,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -2011,7 +2011,7 @@ function HeaderSectionSettings({
                 <div className="px-3 py-2.5 flex items-center justify-between">
                   <span className="text-xs font-medium">{opt.label}</span>
                   {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                    <span className="text-[10px] font-semibold text-[#7c3aed] uppercase tracking-wider">Selected</span>
                   )}
                 </div>
               </button>
@@ -2119,7 +2119,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -2128,7 +2128,7 @@ function HeaderSectionSettings({
                 <div className="px-3 py-2.5 flex items-center justify-between">
                   <span className="text-xs font-medium">{opt.label}</span>
                   {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                    <span className="text-[10px] font-semibold text-[#7c3aed] uppercase tracking-wider">Selected</span>
                   )}
                 </div>
               </button>
@@ -5115,8 +5115,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       { href: "/contact", label: "Contact", kind: "page" },
       /* The page browser lists it, and the header's links used to offer it. */
       { href: "/search", label: "Search", kind: "page" },
+      /* The visitor's own pages, every site has them (lib/website-builder/account-pages): the picker's Customer accounts. */
+      { href: "/account", label: "Account", kind: "page" },
+      { href: "/account/login", label: "Sign in", kind: "page" },
+      { href: "/wishlist", label: "Wishlist", kind: "page" },
       ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
-      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const })),
+      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const, image: p.thumbnail_url || undefined })),
       /**
        * NO COLLECTIONS. The picker had a Collections group fed by
        * `/api/collections`, which is not a route: the fetch 404'd, the list
@@ -5710,7 +5714,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           ) : (
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2">
-              {/* Header, Template and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
+              {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
               <SectionsList
                 sections={sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
@@ -7188,6 +7192,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           onRemoveBlock: removeBlock,
           onReorderBlocks: reorderBlocks,
           linkTargets,
+          /* Policies: the open page goes through the writers above, any other through the sections route. */
+          currentPageKey: currentPage,
+          currentSections: sections,
+          onPageDraftSaved: (key) => {
+            setUnpublished(true)
+            setCustomPages((prev) => (prev.some((p) => p.key === key) || key in PAGE_META ? prev : [...prev, { id: key, name: pageTitleFromKey(key), key: key as PageKey }]))
+          },
         }}
       />
 

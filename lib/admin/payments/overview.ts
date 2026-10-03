@@ -2,6 +2,7 @@ import "server-only"
 
 import { paymentUxStateOf, snapshotFromCreatorRow } from "@/lib/payments/stripe/facts"
 
+import { countRows } from "./count-rows"
 import { buildPaymentsHealth } from "./health"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,13 +15,8 @@ function isoDaysAgo(days: number) {
 export async function buildPaymentsOverview(db: Db) {
   const health = await buildPaymentsHealth(db)
 
-  const countCreators = async (mutate?: (q: ReturnType<Db["from"]>) => ReturnType<Db["from"]>) => {
-    let q = db.from("creators")
-    if (mutate) q = mutate(q)
-    const { count: c, error } = await q.select("id", { count: "exact", head: true })
-    if (error) return 0
-    return c ?? 0
-  }
+  /* Select first, then filter: see ./count-rows. */
+  const countCreators = (filter?: Parameters<typeof countRows>[2]) => countRows(db, "creators", filter)
 
   const creatorsTotal = await countCreators()
   const withAccount = await countCreators((q) => q.not("stripe_account_id", "is", null))

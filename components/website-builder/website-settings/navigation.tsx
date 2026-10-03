@@ -5,7 +5,7 @@ import { MenusEditor } from "@/components/website-builder/editor/controls/menus-
 import { LinkTargetsProvider } from "@/components/website-builder/link-picker"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { NavBlock } from "@/lib/website-builder/nav-links"
-import { Card, GOES_LIVE, PageTitle, Row, buttonClass, inputClass } from "./parts"
+import { Card, GOES_LIVE, PageTitle, Row, inputClass } from "./parts"
 import type { SettingsContext } from "./types"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
@@ -61,6 +61,11 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
               </select>
             </Row>
             <div className="dark px-4 py-4 md:px-6" data-nav-header-links="">
+              {usingMenu && (
+                <p className="mb-3 text-[13px] leading-snug text-white/45">
+                  The header shows the {menus[headerMenu].title} menu. These links are kept for when you switch back.
+                </p>
+              )}
               <HeaderNavLinksEditor
                 blocks={(header.blocks ?? []) as NavBlock[]}
                 disabled={usingMenu}
@@ -69,11 +74,6 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
                 onRemoveBlock={(blockId) => ctx.onRemoveBlock?.(header.id, blockId)}
                 onReorderBlocks={(blocks) => ctx.onReorderBlocks?.(header.id, blocks)}
               />
-              {usingMenu && (
-                <p className="mt-2 text-[13px] leading-snug text-white/45">
-                  The header shows the {menus[headerMenu].title} menu. These links are kept for when you switch back.
-                </p>
-              )}
             </div>
           </>
         ) : (
@@ -118,14 +118,6 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
         <div className="dark px-4 py-4 md:px-6" data-nav-menus="">
           <MenusEditor value={ctx.settings.menus} onChange={(next) => ctx.onSettingChange("menus", next)} />
         </div>
-      </Card>
-
-      <Card title="Pages">
-        <Row label="Add a page" hint="A new page appears in the link picker as soon as it exists.">
-          <button type="button" onClick={ctx.onAddPage} className={buttonClass}>
-            Add page
-          </button>
-        </Row>
       </Card>
     </LinkTargetsProvider>
   )

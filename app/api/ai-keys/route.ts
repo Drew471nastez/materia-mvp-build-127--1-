@@ -4,7 +4,7 @@
  * ===========================================================================
  *   GET               what is connected: each source's last four characters,
  *                     when it was last used, the last refusal. Never a key.
- *   POST              { source: "anthropic" | "openai", key } checks the key
+ *   POST              { source: "openai", key } checks the key
  *                     with its provider (lib/ai-keys/verify), then keeps it
  *                     sealed (lib/ai-keys/crypto).
  *   DELETE ?source=   forgets one. Storelib AI answers again from the next
@@ -31,7 +31,7 @@ export async function GET() {
   const own = await listKeys(creatorId).catch(() => null)
   if (!own) return NextResponse.json({ error: "Could not read your connections." }, { status: 500 })
   return NextResponse.json(
-    { keys: own.keys, setUp: !own.tableMissing, storelib: isConfigured("anthropic") || isConfigured("openai") },
+    { keys: own.keys, setUp: !own.tableMissing, storelib: isConfigured("openai") },
     { headers: { "cache-control": "no-store" } },
   )
 }
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { source?: unknown; key?: unknown } | null
   const source = body?.source
   const key = typeof body?.key === "string" ? body.key.trim() : ""
-  if (source !== "anthropic" && source !== "openai") return NextResponse.json({ error: "Pick Claude or OpenAI." }, { status: 400 })
+  /* A Claude key is not taken while Storelib AI runs on ChatGPT only (lib/sites/agent/provider.ts); one kept from before stays until it is removed. */
+  if (source !== "openai") return NextResponse.json({ error: "Add an OpenAI key, or connect OpenRouter." }, { status: 400 })
   if (!key || key.length > 400) return NextResponse.json({ error: "Paste your key." }, { status: 400 })
 
   const limited = await rateLimit({ bucket: "ai-key", subjects: [creatorId], windows: LIMITS.aiKey, message: "That is a lot of keys in a short time. Try again in a few minutes." })

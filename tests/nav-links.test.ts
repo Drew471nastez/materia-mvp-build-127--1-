@@ -9,7 +9,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { describeLink, moveNavBlock, navBlockHref, navBlocksToItems, type NavBlock } from "@/lib/website-builder/nav-links"
+import { NAV_MAX_DEPTH, describeLink, moveNavBlock, navBlockHref, navBlocksToItems, navTreeOrder, nestMenuLink, nestNavBlock, nestTargetOf, unnestNavBlock, type NavBlock } from "@/lib/website-builder/nav-links"
+
 
 let passed = 0
 let failed = 0
@@ -55,6 +56,37 @@ const up = moveNavBlock(blocks, "b", 1, 0)
 check("sub-links reorder within their parent", navBlocksToItems(up)[1].children!.map((c) => c.id).join() === "b2,b1")
 check("a move to the same place changes nothing", moveNavBlock(blocks, null, 1, 1) === blocks)
 check("a move out of range changes nothing", moveNavBlock(blocks, null, 0, 9) === blocks)
+const ids = (list: NavBlock[]) => list.map((b) => b.id).join()
+check("after a move the saved list reads as the tree: each link, then its sub-links", ids(down) === "b,b1,b2,c,a,z", ids(down))
+check("and the block that is not a link keeps its slot", down[5].id === "z")
+check("tree order of a list already in it is the same list", navTreeOrder(down) === down)
+
+console.log("\nIn a level and out of one, as the header draws it\n")
+check("two levels: a dropdown under a link, and no deeper", NAV_MAX_DEPTH === 2)
+const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
+check("  which is what the header draws: one childrenByParent level, no grandchildren",
+  /childrenByParent\[block\.id\]/.test(header) && !/childrenByParent\[child\.id\]/.test(header))
+const inC = nestNavBlock(blocks, "c")
+check("a link goes under the one above it, last among its sub-links", inC.find((b) => b.id === "c")!.settings.parent_id === "b" && navBlocksToItems(inC)[1].children!.map((k) => k.id).join() === "b1,b2,c")
+check("  and the list stays in tree order", ids(inC) === "a,b,b1,b2,c,z", ids(inC))
+check("  in one write: the same blocks, nothing added or lost", inC.length === blocks.length)
+check("the first link has nothing above it to go under", nestNavBlock(blocks, "a") === blocks && nestTargetOf(blocks, "a") === null)
+check("a link with sub-links does not go under another: that would be a third level", nestNavBlock(blocks, "b") === blocks && nestTargetOf(blocks, "b") === null)
+check("a sub-link does not nest again", nestNavBlock(blocks, "b1") === blocks)
+const outB1 = unnestNavBlock(blocks, "b1")
+check("a sub-link comes out to sit right after its parent's sub-links", ids(outB1) === "a,b,b2,b1,c,z", ids(outB1))
+check("  with parent_id taken off, not blanked", !("parent_id" in outB1.find((b) => b.id === "b1")!.settings))
+check("a top-level link has nothing to come out of", unnestNavBlock(blocks, "a") === blocks)
+check("in and back out is where it started", ids(unnestNavBlock(inC, "c")) === "a,b,b1,b2,c,z" && !unnestNavBlock(inC, "c").find((b) => b.id === "c")!.settings.parent_id)
+
+console.log("\nA menu's links, in a level and out\n")
+const menu = [{ title: "Shop", url: "/products", links: [{ title: "Ebooks", url: "/e" }] }, { title: "About", url: "/about" }, { title: "Contact", url: "/contact" }]
+const nestedMenu = nestMenuLink(menu, "1", 1)
+check("About goes under Shop, last", nestedMenu.length === 2 && nestedMenu[0].links!.map((l) => l.title).join() === "Ebooks,About")
+const outMenu = nestMenuLink(menu, "0/0", -1)
+check("Ebooks comes out to sit right after Shop", outMenu.map((l) => l.title).join() === "Shop,Ebooks,About,Contact" && outMenu[0].links!.length === 0)
+check("Shop, the first, has nothing above it", nestMenuLink(menu, "0", 1) === menu)
+check("the original menu is not changed in place", menu.length === 3 && menu[0].links!.length === 1)
 
 console.log("\nThe editor asks for two things\n")
 const editor = read("components/website-builder/editor/controls/link-list-editor.tsx")
@@ -65,7 +97,10 @@ check("no Handle, Links to or Submenu links in the sidebar", !/>\s*(Handle|Links
 check("the header uses the same list", /<HeaderNavLinksEditor/.test(page) && !/function SortableNavLink/.test(page))
 check("a menu's handle is not printed", !/\{handle\} ·/.test(menus))
 check("remove is a quiet text action, red only on hover", /Remove link/.test(editor) && !/text-red-400|bg-red-500/.test(editor))
-check("sub-links are added from the opened row", /Add sub-link/.test(editor))
+check("sub-links are added under their parent, by its name", /Add link to \$\{name/.test(editor))
+check("rows are compact: 36px, 44px under a thumb, 13px type", /const BAR = "flex h-9 max-sm:h-11 items-center"/.test(editor) && /text-\[13px\] max-sm:text-\[15px\]/.test(editor))
+check("where a link goes is not printed on its row again", !/data-link-where/.test(editor))
+check("menus wear the same rows", /group\/menu flex h-9 w-full/.test(menus) && /<Reveal open=\{expanded\}/.test(menus))
 check("the grip owns its finger", /touchAction: "none"/.test(read("components/website-builder/editor/controls/use-reorder.ts")) && /setPointerCapture/.test(read("components/website-builder/editor/controls/use-reorder.ts")))
 check("no em dash in what the sidebar prints", !/>[^<]*—[^<]*</.test(editor))
 

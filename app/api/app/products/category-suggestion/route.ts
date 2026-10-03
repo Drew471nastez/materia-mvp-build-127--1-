@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { rateLimit } from "@/lib/api/rate-limit"
-import { askClaudeForCategory, canAskClaude } from "@/lib/products/category-suggest-claude"
+import { askAiForCategory, canAskAi } from "@/lib/products/category-suggest-ai"
 import { SUGGEST_LIMITS, parseSuggestRequest, resolveSuggestion } from "@/lib/products/category-suggest"
 import { createClient } from "@/lib/supabase/server"
 
@@ -19,7 +19,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  *
  * `text` is the description as plain text; `images` at most three public
  * URLs of the creator's own pictures in this project's storage (anything
- * else is dropped, see isOwnStorageImage). Claude chooses from the fixed
+ * else is dropped, see isOwnStorageImage). ChatGPT chooses from the fixed
  * list in lib/products/category-groups.ts and the answer is checked against
  * it; with no key, an error, or an answer off the list, the answer is the
  * editor's keyword guess. The editor calls this once the fields settle and
@@ -55,6 +55,6 @@ export async function POST(request: Request) {
   })
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status, headers: NO_STORE })
 
-  const suggestion = await resolveSuggestion(parsed.input, canAskClaude() ? askClaudeForCategory : null)
+  const suggestion = await resolveSuggestion(parsed.input, canAskAi() ? askAiForCategory : null)
   return NextResponse.json(suggestion, { headers: NO_STORE })
 }

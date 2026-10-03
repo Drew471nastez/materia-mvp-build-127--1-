@@ -495,8 +495,8 @@ try {
     const switches = await at.$$eval("[role=switch]", (x) => x.filter((e) => e.getBoundingClientRect().width > 0).map((e) => { const r = e.getBoundingClientRect(); return { on: e.getAttribute("aria-checked"), bg: getComputedStyle(e).backgroundColor, w: Math.round(r.width), h: Math.round(r.height) } }))
     const onSwitch = switches.find((x) => x.on === "true")
     const offSwitch = switches.find((x) => x.on === "false")
-    expect(switches.length === 2 && onSwitch?.bg === "rgb(17, 17, 19)" && offSwitch?.bg === "rgb(228, 229, 233)" && switches.every((x) => x.w === 38 && x.h === 22),
-      "the Automations list's switches are the slim black switch: near black on, quiet grey off, 38 by 22", switches)
+    expect(switches.length === 2 && onSwitch?.bg === "rgb(17, 17, 19)" && offSwitch?.bg === "rgb(228, 229, 233)" && switches.every((x) => x.w === 36 && x.h === 20),
+      "the Automations list's switches are the slim black switch: near black on, quiet grey off, 36 by 20", switches)
     const list = await at.evaluate(() => {
       const ul = document.querySelector("[data-flow-list]")
       const table = document.querySelector("tr[data-flow-row]")?.closest("table")

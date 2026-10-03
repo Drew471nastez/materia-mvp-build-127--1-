@@ -65,12 +65,21 @@
  *             through `StorelibNative.microphoneDeclared()` (MainActivity).
  *             An older install without them never draws the microphone.
  *
+ * iOS 17 and later also has the page's audio session, which the sounds set
+ * to "ambient" (lib/website-builder/ask-sounds.ts). An ambient session has
+ * no microphone: a recording under it can be refused or come back silent, on
+ * Safari and in the app alike. So it goes back to "auto" inside the tap,
+ * before getUserMedia, and to ambient once the tracks are stopped.
+ *
  * A refusal says what to do in words, and where the platform lets a page get
  * there, the error comes with a button that opens this app's own page in
  * Settings (`openMicrophoneSettings`).
  */
 
 import * as React from "react"
+
+import { closeMicrophoneSession, openMicrophoneSession } from "@/lib/website-builder/ask-sounds"
+import { pickRecordingType, recordingFileName } from "@/lib/website-builder/voice-format"
 
 export type VoiceState = "idle" | "starting" | "listening" | "transcribing"
 type Engine = "speech" | "record"
@@ -235,7 +244,12 @@ export function voiceErrorMessage(code: string, where: "ios" | "android" | "web"
     case "bad-grammar":
       return "Voice input cannot hear this language here. Type it instead."
     case "NotSupportedError":
+    case "TypeError":
       return "This browser cannot record. Type it, or try another browser."
+    case "empty":
+      return "Nothing was recorded. Try again, and speak after the tick."
+    case "interrupted":
+      return "A call or another app took the microphone. Try again."
     case "AbortError":
       return "The microphone stopped before anything was recorded. Try again."
     default:
@@ -243,13 +257,40 @@ export function voiceErrorMessage(code: string, where: "ios" | "android" | "web"
   }
 }
 
-/** The recorder formats the transcription route accepts, best first. */
+/**
+ * The format to record in: the first of RECORDING_TYPES this browser can
+ * make, webm on Chrome and Android, mp4 on iOS (lib/website-builder/voice-format.ts).
+ */
 function recordingType(): string | undefined {
   const MR = window.MediaRecorder as typeof MediaRecorder & { isTypeSupported?: (t: string) => boolean }
-  for (const type of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]) {
-    if (MR.isTypeSupported?.(type)) return type
+  return pickRecordingType(MR.isTypeSupported?.bind(MR))
+}
+
+/** Speech, not music: 64 kbps keeps a minute well under the route's cap on every phone. */
+const RECORDING_BITS = 64_000
+
+/**
+ * A recorder for this stream, in the format asked for when the browser takes
+ * it. Some refuse an option they claim to support (an older iOS throws
+ * NotSupportedError for a bit rate, or for a type its isTypeSupported said
+ * yes to): each refusal drops what was asked for, down to the browser's own
+ * choice, rather than ending the recording before it starts.
+ */
+function makeRecorder(media: MediaStream, type: string | undefined): MediaRecorder {
+  const attempts: (MediaRecorderOptions | undefined)[] = [
+    type ? { mimeType: type, audioBitsPerSecond: RECORDING_BITS } : { audioBitsPerSecond: RECORDING_BITS },
+    type ? { mimeType: type } : undefined,
+    undefined,
+  ]
+  let last: unknown = null
+  for (const options of attempts) {
+    try {
+      return options ? new MediaRecorder(media, options) : new MediaRecorder(media)
+    } catch (thrown) {
+      last = thrown
+    }
   }
-  return undefined
+  throw last
 }
 
 export function useVoiceInput({
@@ -318,8 +359,12 @@ export function useVoiceInput({
   }, [])
 
   const releaseMic = React.useCallback(() => {
-    stream.current?.getTracks().forEach((track) => track.stop())
+    stream.current?.getTracks().forEach((track) => {
+      track.onended = null
+      track.stop()
+    })
     stream.current = null
+    closeMicrophoneSession()
   }, [])
 
   const stop = React.useCallback(() => {
@@ -364,25 +409,56 @@ export function useVoiceInput({
    */
   const startRecording = React.useCallback(async () => {
     setState("starting")
+    /*
+      IN THE TAP, BEFORE ANYTHING IS AWAITED. Nothing between the press and
+      getUserMedia waits, so iOS still counts it as the person's gesture. The
+      page's audio session goes back to automatic first: the sounds keep it
+      "ambient" on iOS 17 and later, and an ambient session has no
+      microphone, so a recording made under it can be refused or silent.
+    */
+    openMicrophoneSession()
     try {
       /* Asked on every press: the platform prompts whenever it is not already allowed. */
       const media = await navigator.mediaDevices.getUserMedia({ audio: true })
       if (cancelled.current) {
         media.getTracks().forEach((track) => track.stop())
+        closeMicrophoneSession()
         return
       }
       stream.current = media
       const type = recordingType()
-      const rec = new MediaRecorder(media, type ? { mimeType: type } : undefined)
+      const rec = makeRecorder(media, type)
       chunks.current = []
+      /* The system took the microphone (a call, Siri, another app): what was recorded so far is kept and sent. */
+      let interrupted = false
+      for (const track of media.getAudioTracks()) {
+        track.onended = () => {
+          if (recorder.current !== rec || rec.state === "inactive") return
+          interrupted = true
+          stopClock()
+          setState("transcribing")
+          rec.stop()
+        }
+      }
       rec.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.current.push(event.data)
       }
+      rec.onerror = () => {
+        interrupted = true
+        if (rec.state !== "inactive") rec.stop()
+      }
       rec.onstop = async () => {
         releaseMic()
+        stopClock()
         recorder.current = null
-        if (cancelled.current || chunks.current.length === 0) {
+        if (cancelled.current) {
           setState("idle")
+          return
+        }
+        /* Stopped with nothing in hand: said, rather than going quietly back to the microphone. */
+        if (chunks.current.length === 0) {
+          setState("idle")
+          setError(voiceErrorMessage(interrupted ? "interrupted" : "empty"))
           return
         }
         const blob = new Blob(chunks.current, { type: rec.mimeType || type || "audio/webm" })
@@ -390,7 +466,8 @@ export function useVoiceInput({
         setState("transcribing")
         try {
           const form = new FormData()
-          form.append("audio", blob, "speech")
+          /* Named for its format, speech.mp4 on iOS and speech.webm elsewhere: see voice-format.ts. */
+          form.append("audio", blob, recordingFileName(blob.type))
           const response = await fetch("/api/website-builder/transcribe", { method: "POST", body: form })
           const body = (await response.json().catch(() => ({}))) as { text?: string; error?: string }
           if (!response.ok) setError(body.error ?? "That could not be turned into text. Try again.")
@@ -413,7 +490,7 @@ export function useVoiceInput({
       setRefused(isPermissionError(code))
       setError(voiceErrorMessage(code, platform()))
     }
-  }, [releaseMic, startClock])
+  }, [releaseMic, startClock, stopClock])
 
   /**
    * THE RECOGNISER FAILED BEFORE A WORD: THE RECORDER TAKES OVER, AND THE

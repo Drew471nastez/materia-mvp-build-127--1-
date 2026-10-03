@@ -194,7 +194,7 @@ section("A slow page: no outline, a spinner")
   check("a link the page handles itself (its default prevented, the router started nothing) starts no record",
     /window\.addEventListener\("click", onClickStart, true\)/.test(barCode)
       && /if \(e\.defaultPrevented\) \{\s*const now = routerStartCount\(\)\s*if \(now !== null && now === startsAtClick\) return\s*\}/.test(barCode)
-      && /export function onRouterTransitionStart\(\) \{\s*noteRouterStart\(\)/.test(code("instrumentation-client.ts")))
+      && /export function onRouterTransitionStart\([^)]*\) \{\s*noteRouterStart\(\)/.test(code("instrumentation-client.ts")))
   check("under it the page only rises: its fade out is the page's fade in, not a second fade multiplied by it",
     /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",

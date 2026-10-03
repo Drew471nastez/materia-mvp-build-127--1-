@@ -386,7 +386,11 @@ section("A run cannot go on forever, and a refusal is not a failure")
   const { result } = await drain(agentLoop({ provider: exploding, model: "m", prompt: "p", workspace, esbuild }))
 
   check("a thrown provider fails the run instead of the process", result.status === "failed")
-  check("and the reason survives", result.error === "upstream 503")
+  /* The provider's own words go to the server log, never to the creator (lib/sites/agent/plain-errors). */
+  check("and the creator reads a plain sentence, not the provider's words", result.error === "The edit failed. Try again.", result.error ?? "")
+  const shaped: AgentProvider = { id: "exploding", async complete() { throw Object.assign(new Error("503 Service Unavailable"), { status: 503 }) } }
+  const again = await drain(agentLoop({ provider: shaped, model: "m", prompt: "p", workspace: new ProjectWorkspace(blankProject("T")), esbuild }))
+  check("a provider's 503 says Storelib AI is busy", again.result.error === "Storelib AI is busy right now. Wait a moment and send it again.", again.result.error ?? "")
 }
 
 // ---------------------------------------------------------------------------

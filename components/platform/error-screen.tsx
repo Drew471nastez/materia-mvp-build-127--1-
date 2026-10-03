@@ -18,8 +18,12 @@
  * itself once and the person sees a flicker instead of an error.
  */
 
-import { useEffect, useState } from "react"
-import { buildReport, describeForUser, shouldReloadForStaleCode } from "@/lib/client-errors"
+import { useEffect, useLayoutEffect, useState } from "react"
+import { buildReport, describeForUser, isLoadFailed, shouldReloadForStaleCode } from "@/lib/client-errors"
+import { confirmNewDeploy, newDeployKnown } from "@/lib/ui/new-deploy"
+
+/* Before paint in the browser, so a stale tab never shows the error first. */
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect
 
 export function ErrorScreen({
   error,
@@ -33,50 +37,73 @@ export function ErrorScreen({
   home?: string
   homeLabel?: string
 }) {
-  const [reloading, setReloading] = useState(false)
+  /* "checking": a bare "Load failed", while it is asked whether a newer deploy is live. */
+  const [phase, setPhase] = useState<"shown" | "checking" | "reloading">("shown")
   const { title, detail, digest } = describeForUser(error)
 
-  useEffect(() => {
+  useBeforePaint(() => {
     if (typeof window === "undefined") return
+    let gone = false
 
     /**
      * The self-healing case first, before anything is painted for the person
      * to read: a tab that predates a deploy is not broken, it is old.
+     *
+     * By the time a boundary shows, what it replaced is already unmounted, so
+     * a reload loses nothing the boundary had not. The website builder's
+     * editor keeps its work as a draft it writes on a timer, and loads it back.
      */
-    let store: Storage | null = null
-    try {
-      store = window.sessionStorage
-    } catch {
-      store = null
-    }
-    /* The same address, loaded again: nothing in it is lost. On /checkout the
-       form is already gone once a boundary shows this, and the buyer's name
-       and email come back from the tab (app/checkout remembered()). */
-    if (shouldReloadForStaleCode(error, store, window.location.pathname)) {
-      setReloading(true)
-      window.location.reload()
-      return
+    const decide = (newDeploy: boolean) => {
+      if (gone) return
+      let store: Storage | null = null
+      try {
+        store = window.sessionStorage
+      } catch {
+        store = null
+      }
+      /* The same address, loaded again: nothing in it is lost. On /checkout the
+         form is already gone once a boundary shows this, and the buyer's name
+         and email come back from the tab (app/checkout remembered()). */
+      if (shouldReloadForStaleCode(error, store, newDeploy)) {
+        setPhase("reloading")
+        window.location.reload()
+        return
+      }
+      setPhase("shown")
+
+      /**
+       * Then say so. `keepalive` because a boundary often renders while the
+       * person is already navigating away, and a report that loses the race is
+       * a crash nobody hears about. Failures here are swallowed on purpose:
+       * an error screen that throws is the thing this file exists to prevent.
+       */
+      try {
+        void fetch("/api/client-errors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildReport(error, window.location.href, newDeploy)),
+          keepalive: true,
+        }).catch(() => {})
+      } catch {
+        /* nothing to do, and nothing worth breaking the screen over */
+      }
     }
 
-    /**
-     * Then say so. `keepalive` because a boundary often renders while the
-     * person is already navigating away, and a report that loses the race is
-     * a crash nobody hears about. Failures here are swallowed on purpose:
-     * an error screen that throws is the thing this file exists to prevent.
-     */
-    try {
-      void fetch("/api/client-errors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildReport(error, window.location.href)),
-        keepalive: true,
-      }).catch(() => {})
-    } catch {
-      /* nothing to do, and nothing worth breaking the screen over */
+    /* Safari's "Load failed" is a missing chunk only if a newer deploy is live: ask, briefly. */
+    if (isLoadFailed(error) && !newDeployKnown()) {
+      setPhase("checking")
+      void confirmNewDeploy().then(decide, () => decide(false))
+    } else {
+      decide(newDeployKnown())
+    }
+    return () => {
+      gone = true
     }
   }, [error])
 
-  if (reloading) {
+  if (phase === "checking") return <div style={WRAP} aria-busy="true" />
+
+  if (phase === "reloading") {
     return (
       <div style={WRAP} aria-live="polite">
         <p style={{ ...DETAIL, textAlign: "center" }}>Updating Storelib…</p>

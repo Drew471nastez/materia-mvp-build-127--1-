@@ -273,31 +273,40 @@ async function linkPicker(p, label) {
   await p.evaluate(() => document.querySelector("#link-picker").scrollIntoView({ block: "center" }))
   await p.click("#link-picker button[aria-label='Pages and products']")
   await sleep(200)
+  /**
+   * The first list of kinds (Home, Shop, Products...), Shopify's way. At a
+   * computer it hangs from the field in the body, not inside #link-picker,
+   * so it is found by the id the field points at.
+   */
   const read = await p.evaluate(() => {
-    const list = document.querySelector("#link-picker [role='listbox']")
+    const input = document.querySelector("#link-picker input[role='combobox']")
+    const listbox = document.getElementById(input.getAttribute("aria-controls"))
+    const list = listbox.querySelector("[data-float-scroll]")
     const cs = getComputedStyle(list)
     const lb = list.getBoundingClientRect()
     const box = { left: lb.left + parseFloat(cs.paddingLeft), right: lb.right - parseFloat(cs.paddingRight) }
-    const heads = [...list.querySelectorAll("p")].map((h) => window.__textBox(h).left)
     const rows = [...list.querySelectorAll("[role='option']")].map((r) => {
       const b = r.getBoundingClientRect()
+      const mark = r.firstElementChild.getBoundingClientRect()
       const svg = [...r.querySelectorAll("svg")].map((s) => s.getBoundingClientRect().right)
-      return { label: window.__textBox(r).left, left: b.left, right: b.right, tick: svg.length ? Math.max(...svg) : null }
+      return { label: window.__textBox(r.querySelector("span.truncate")).left, mark: mark.left, left: b.left, right: b.right, tick: r.children.length > 2 && svg.length ? Math.max(...svg) : null }
     })
-    return { box, heads, rows }
+    const field = input.closest("[data-link-picker]").getBoundingClientRect()
+    const pr = listbox.closest(".wb-field-panel").getBoundingClientRect()
+    return { box, rows, clip: { x: Math.min(field.left, pr.left) - 8, y: Math.min(field.top, pr.top) - 8, width: Math.max(field.right, pr.right) - Math.min(field.left, pr.left) + 16, height: Math.max(field.bottom, pr.bottom) - Math.min(field.top, pr.top) + 16 } }
   })
   const { box } = read
-  note("group headings", read.heads.map((x) => r1(x - box.left)))
+  note("row marks", [...new Set(read.rows.map((r) => r1(r.mark - box.left)))])
   note("row labels", [...new Set(read.rows.map((r) => r1(r.label - box.left)))])
   note("highlights", [...new Set(read.rows.map((r) => `${r1(r.left - box.left)}..${r1(r.right - box.right)}`))])
-  note("ticks", read.rows.filter((r) => r.tick).map((r) => r1(box.right - r.tick)))
-  expect(same([...read.heads, ...read.rows.map((r) => r.label)]), "link picker: a group's heading starts where its rows' names do", {
-    heads: [...new Set(read.heads.map((x) => r1(x - box.left)))],
-    rows: [...new Set(read.rows.map((r) => r1(r.label - box.left)))],
+  note("chevrons", read.rows.filter((r) => r.tick).map((r) => r1(box.right - r.tick)))
+  expect(same(read.rows.map((r) => r.mark)) && same(read.rows.map((r) => r.label)), "link picker: every row's mark, and every row's name, start at one x", {
+    marks: [...new Set(read.rows.map((r) => r1(r.mark - box.left)))],
+    labels: [...new Set(read.rows.map((r) => r1(r.label - box.left)))],
   })
   expect(same(read.rows.map((r) => r.left)) && same(read.rows.map((r) => r.right)), "link picker: every row's highlight has the same edges")
-  const el = await p.$("#link-picker")
-  await el.screenshot({ path: join(shots, `${PREFIX}${label}-link-picker.png`) })
+  expect(same(read.rows.filter((r) => r.tick).map((r) => r.tick)), "link picker: the chevrons of the kinds that open end on one x")
+  await p.screenshot({ path: join(shots, `${PREFIX}${label}-link-picker.png`), clip: read.clip, captureBeyondViewport: false })
   await p.keyboard.press("Escape")
   await sleep(150)
 }
@@ -369,7 +378,7 @@ async function sidebarFields(p, label) {
   /* A link opened: its two fields, and the actions under them. */
   await p.evaluate(() => document.querySelector("#link-list").scrollIntoView({ block: "center" }))
   await p.click("#link-list [data-link-row='home'] button[aria-expanded]")
-  await sleep(200)
+  await sleep(320)
   const links = await p.evaluate(() => {
     const panel = document.querySelector("#link-list [data-link-panel]")
     const cs = getComputedStyle(panel)
@@ -393,10 +402,12 @@ async function sidebarFields(p, label) {
 
   await p.evaluate(() => document.querySelector("#menus").scrollIntoView({ block: "center" }))
   await p.click("#menus [aria-expanded]")
-  await sleep(200)
+  /* Past the 200ms a menu takes to open by its height. */
+  await sleep(320)
   const menus = await p.evaluate(() => {
     const open = [...document.querySelectorAll("#menus [aria-expanded='true']")][0]
-    const body = open.nextElementSibling
+    /* The opened part is a Reveal (components/ui/reveal.tsx); its padded content is marked. */
+    const body = open.parentElement.querySelector("[data-menu-panel]") ?? open.nextElementSibling
     const cs = getComputedStyle(body)
     const bb = body.getBoundingClientRect()
     const box = { left: bb.left + parseFloat(cs.paddingLeft), right: bb.right - parseFloat(cs.paddingRight) }

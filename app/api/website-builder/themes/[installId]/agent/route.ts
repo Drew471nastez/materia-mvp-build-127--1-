@@ -32,18 +32,12 @@ import { compileSection } from "@/lib/storelib-theme"
 import { agentMayWrite } from "@/lib/agent-access/protected"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
-// `MissingKeyError` only: the provider itself now comes from the resolver.
-import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
-import { describeAnthropicError } from "@/lib/sites/agent/anthropic-provider"
-import {
-  canAnswer,
-  NoProviderConfiguredError,
-  resolveForCreator,
-  substitutionNotice,
-} from "@/lib/sites/agent/provider"
+import { plainRunError } from "@/lib/sites/agent/plain-errors"
+import { EFFORTS, type Effort } from "@/lib/website-builder/ask-engines"
+import { canAnswer, resolveForCreator, substitutionNotice } from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
@@ -119,13 +113,19 @@ const BodySchema = z.object({
    */
   lockToSelection: z.boolean().optional(),
   /**
-   * WHOSE MODEL ANSWERS, from the switch in the panel. Untrusted and validated
-   * in resolveProvider — anything else falls back to the deployment default
-   * rather than reaching a client constructor.
+   * WHOSE MODEL ANSWERS, from the switch in the panel. Untrusted, and
+   * "anthropic" is still accepted so an old tab's request is not refused: it
+   * is answered by ChatGPT (lib/sites/agent/provider.ts, offeredProvider).
    */
   provider: z.enum(["anthropic", "openai"]).optional(),
-  /** How hard a model to use. "strong" is the creator asking for Opus. */
+  /** How hard a model to use. "strong" is the creator asking for the bigger ChatGPT model. */
   tier: z.enum(["fast", "strong"]).optional(),
+  /**
+   * HOW HARD IT THINKS, the panel's Strength: Light, Standard or Deep. Only
+   * these three are accepted from a browser; absent (an older client) leaves
+   * it to the shape of the request, as before.
+   */
+  effort: z.enum(EFFORTS as [Effort, ...Effort[]]).optional(),
   /**
    * WHICH CONVERSATION THIS CONTINUES. Null or absent starts a new one. An id
    * is honoured only when it is a conversation on THIS install (see
@@ -166,13 +166,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   if (!install) return NextResponse.json({ error: "Theme not found." }, { status: 404 })
 
   /**
-   * EITHER key will do now. Checking only OPENAI_API_KEY here would refuse
-   * every request on a deployment that has moved to Claude — the exact
-   * migration this change exists to make possible.
+   * Storelib's OpenAI key, or one of the creator's own: somebody who has
+   * connected their own OpenAI key or OpenRouter is answered on it.
    *
    * 503, not 500: nothing is broken, the deployment is not configured.
    */
-  /* Or the creator's own: somebody who has connected their own Claude, OpenAI or OpenRouter is answered on it. */
   if (!(await canAnswer((creator as { id: string }).id))) {
     return NextResponse.json(
       { error: "Storelib AI is not set up on this deployment yet: no model key is set." },
@@ -285,9 +283,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         /**
          * The creator's switch, honoured where the deployment can honour it.
          *
-         * `tier` is theirs to choose — Sonnet for everyday work, Opus when
-         * they know the change is hard — and the classifier's own opinion only
-         * decides the turn budget. A model that could promote itself to the
+         * `tier` is theirs to choose (the everyday ChatGPT model, or the
+         * stronger one when they know the change is hard) and the
+         * classifier's own opinion only decides the turn budget. A model that could promote itself to the
          * dearer tier eventually would, and the bill is theirs.
          */
         /* On the creator's own AI when they have connected one: see resolveForCreator. */
@@ -303,7 +301,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          */
         const wantsTier = shape.ambitious && body.tier !== "strong" ? "strong" : body.tier
         const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: wantsTier })
-        /* Whose account answers, so the chat can say "On your Claude key" and not count it as Storelib AI. */
+        /* Whose account answers, so the chat can say "On your OpenAI key" and not count it as Storelib AI. */
         send({ type: "account", own: resolved.own })
         /* Said out loud: the run is on a model they did not pick, and on their own account it is their bill. */
         if (wantsTier !== body.tier) send({ type: "thinking", text: "Using the stronger model for this one." })
@@ -425,10 +423,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           /* Reads the catalogue up front and gives the model room to write a filled section (lib/website-builder/agent/loop). */
           ambitious: shape.ambitious,
           /**
-           * Thinking depth, where the provider has such a dial. A build is
-           * the case that repays it; a one-word change is not.
+           * Thinking depth: the creator's Strength when they sent one, which
+           * is theirs to choose like the model. Without one (an older
+           * client), from the request: a build is the case that repays it, a
+           * one word change is not. The provider sends what its model takes.
            */
-          effort: shape.wholePage ? "xhigh" : shape.scope === "build" ? "high" : "medium",
+          effort: body.effort ?? (shape.wholePage ? "xhigh" : shape.scope === "build" ? "high" : "medium"),
           prompt: body.prompt,
           images,
           page: body.page,
@@ -576,19 +576,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           conversationId,
         })
       } catch (thrown) {
-        const claude = describeAnthropicError(thrown)
-        send({
-          type: "error",
-          message: claude
-            ? claude
-            : thrown instanceof NoProviderConfiguredError
-              ? "Storelib AI is not set up on this deployment yet: no model key is set."
-              : thrown instanceof MissingKeyError
-                ? "Storelib AI is not set up on this deployment yet: no model key is set."
-                : thrown instanceof Error
-                ? thrown.message
-                : "The edit failed.",
-        })
+        /* Plain words on the stream; the provider's own, JSON and all, go to the log (lib/sites/agent/plain-errors). */
+        send({ type: "error", message: plainRunError(thrown, "theme agent") })
       } finally {
         try {
           controller.close()

@@ -114,6 +114,37 @@ export const POLICY_PAGES: PolicyPage[] = [
   },
 ]
 
+/**
+ * A SHIPPING POLICY, WRITTEN WHEN IT IS WANTED. Not every shop ships
+ * anything, so it is not one of the pages every site is given: the footer
+ * lists it only once a page for it exists (footer-settings.ts,
+ * SHIPPING_KEYS). Website Settings › Policies offers it with the other
+ * three, and "Use template" is what creates the page, with this text in it.
+ */
+export const SHIPPING_POLICY: PolicyPage = {
+  key: "shipping-policy",
+  title: "Shipping Policy",
+  body: (brand) => `<p><em>Last updated: ${today()}</em></p>
+<p>This policy explains how ${brand} gets your order to you. Replace anything in square brackets with your own terms before you publish.</p>
+<h3>Where we ship</h3>
+<p>We ship to [your countries or regions]. If your address is not on the list, contact us before ordering.</p>
+<h3>Processing time</h3>
+<p>Orders are packed and sent within [2 working days]. Orders placed on weekends or holidays are sent the next working day.</p>
+<h3>Delivery times and costs</h3>
+<p>[Standard delivery: 3 to 5 working days, price]. [Express delivery: 1 to 2 working days, price]. The cost for your address is shown at checkout before you pay.</p>
+<h3>Digital products</h3>
+<p>Downloads are available as soon as payment goes through, from the confirmation page and the email we send you. Nothing is shipped.</p>
+<h3>Tracking</h3>
+<p>When your order leaves us you get an email with a tracking link where the carrier offers one.</p>
+<h3>Customs and import fees</h3>
+<p>Orders sent outside [your country] may be charged import duties or taxes on arrival. These are set by the destination country and paid by the recipient.</p>
+<h3>Lost or late parcels</h3>
+<p>If your order has not arrived within [10] working days of dispatch, email [your@email.com] with your order number and we will look into it with the carrier.</p>`,
+}
+
+/** Every policy Website Settings edits: the three every site has, then shipping. */
+export const EDITABLE_POLICIES: PolicyPage[] = [...POLICY_PAGES, SHIPPING_POLICY]
+
 export const POLICY_PAGE_KEYS: string[] = POLICY_PAGES.map((p) => p.key)
 
 export function isPolicyPageKey(key: string): boolean {

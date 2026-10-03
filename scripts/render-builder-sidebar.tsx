@@ -5,10 +5,13 @@
  * Served by scripts/check-builder-sidebar.mjs. The real components, with the
  * real stylesheet, and nothing standing in for them:
  *
- *   SectionsList           the Header / Template / Footer list
+ *   SectionsList           the Header / Page / Footer list
  *   ButtonColorGroup       a button's four colours, hover included
  *   SectionColorSetting    a colour a section declares for itself
  *   DynamicSourceField     a text setting with its Insert shop data button
+ *   SectionWrapper         a canvas section selected and one under the pointer
+ *   the switch             on and off, drawn as the sidebar's toggles draw it
+ *                          (components/ui/switch-style), and the Radix one
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -17,6 +20,9 @@ import { SectionsList } from "@/components/website-builder/editor/sections-list"
 import { BUTTON_COLOR_GROUPS, ButtonColorGroup, SectionColorSetting } from "@/components/website-builder/editor/design-panels"
 import { DynamicSourceField, EditorFieldProvider } from "@/components/website-builder/editor/controls"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { Switch } from "@/components/ui/switch"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { SectionWrapper } from "@/components/website-builder/sections/_shared"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 declare global {
@@ -68,7 +74,24 @@ function App() {
               <input className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background" defaultValue="" />
             </DynamicSourceField>
           </EditorFieldProvider>
+          <div style={{ height: 12 }} />
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            {[true, false].map((on) => (
+              <button key={String(on)} type="button" role="switch" aria-checked={on} data-probe-switch={on ? "on" : "off"} className={switchTrack(on)}>
+                <span className={switchKnob(on)} />
+              </button>
+            ))}
+            <Switch data-probe-switch="radix" defaultChecked />
+          </div>
         </aside>
+        <main id="canvas" style={{ width: 360, background: "#fff" }}>
+          <SectionWrapper id="wb-section-sel" isEditing isSelected>
+            <div style={{ height: 120, background: "#f3f4f6" }} />
+          </SectionWrapper>
+          <SectionWrapper id="wb-section-hov" isEditing>
+            <div style={{ height: 120, background: "#ffffff" }} />
+          </SectionWrapper>
+        </main>
       </div>
     </TooltipProvider>
   )
