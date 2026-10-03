@@ -271,7 +271,15 @@ export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { op
 
 /* ── small pieces ──────────────────────────────────────────────────────── */
 
-const STEP_LABELS = ["Account", "Verify", "Bank"] as const
+/*
+ * TWO STEPS. Setup was Account, Verify, Bank: three screens, a Verify that
+ * sometimes had nothing on it and jumped, and a bank that came last on its
+ * own page. It is Account, then Details, where your details, the ID check and
+ * the bank are one page with one Continue, the way Gumroad's payout settings
+ * are one page. The bank alone is still its own screen when it is all that is
+ * being changed (Update bank on Payouts).
+ */
+const STEP_LABELS = ["Account", "Details"] as const
 
 function Stepper({ step, done: all }: { step: Step; done?: boolean }) {
   return (
@@ -450,7 +458,7 @@ export function PaymentsSetupFlow({
 }) {
   const phone = usePhone()
   const status = statusOf(data)
-  const [step, setStep] = React.useState<Step>(() => setupStepOf(status))
+  const [step, setStep] = React.useState<Step>(() => (mode === "bank" ? 2 : (Math.min(setupStepOf(status), 1) as Step)))
   const [back, setBack] = React.useState(false)
   const [openCount, setOpenCount] = React.useState(0)
   const [ending, setEnding] = React.useState<Outcome | null>(null)
@@ -468,7 +476,7 @@ export function PaymentsSetupFlow({
     setBack(false)
     setEnding(null)
     setVerifyEmpty(false)
-    setStep(mode === "bank" ? 2 : setupStepOf(status))
+    setStep(mode === "bank" ? 2 : (Math.min(setupStepOf(status), 1) as Step))
     setOpenCount((k) => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode])
@@ -504,7 +512,7 @@ export function PaymentsSetupFlow({
   const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payments"
   const onBack = mode === "setup" && step > 0 && !ending ? () => go((step - 1) as Step) : onClose
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
-  const shownStep: Step = ending === "done" || ending === "checking" ? 2 : step
+  const shownStep: Step = ending === "done" || ending === "checking" ? 2 : (Math.min(step, 1) as Step)
 
   let body: React.ReactNode
   if (ending) {
@@ -527,8 +535,7 @@ export function PaymentsSetupFlow({
         onBack={onClose}
         onDone={(next) => {
           onData(next)
-          const s = statusOf(next)
-          go(setupStepOf(s) === 2 ? 2 : 1)
+          go(1)
         }}
       />
     )
@@ -536,9 +543,10 @@ export function PaymentsSetupFlow({
     body = (
       <DetailsStep
         key={`verify-${openCount}`}
+        withBank
         onBack={() => go(0)}
         onEmpty={() => setVerifyEmpty(true)}
-        onNext={(form) => (form.needs.bank ? go(2) : void settle("verify"))}
+        onNext={() => void settle("bank")}
         onData={onData}
       />
     )
@@ -866,7 +874,7 @@ function FormWaiting({ error, onRetry }: { error: string | null; onRetry: () => 
  * the ID photo uploaded straight to Stripe. Nothing here is kept by Storelib:
  * it goes to Stripe from the server and is never read back.
  */
-function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; onNext: (form: DetailsForm) => void; onData: (next: Overview) => void; onEmpty?: () => void }) {
+function DetailsStep({ onBack, onNext, onData, onEmpty, withBank = false }: { onBack: () => void; onNext: (form: DetailsForm) => void; onData: (next: Overview) => void; onEmpty?: () => void; withBank?: boolean }) {
   const { form, setForm, error: loadError, load } = useDetailsForm()
   const [dob, setDob] = React.useState({ day: "", month: "", year: "" })
   const [address, setAddress] = React.useState({ line1: "", line2: "", city: "", postalCode: "", state: "" })
@@ -882,6 +890,11 @@ function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; 
   const [error, setError] = React.useState<string | null>(null)
   const [tried, setTried] = React.useState(false)
   const [camera, setCamera] = React.useState<{ side: IdSide } | null>(null)
+  /* The bank, on this page during setup. */
+  const [holder, setHolder] = React.useState<string | null>(null)
+  const [iban, setIban] = React.useState("")
+  const [accountNumber, setAccountNumber] = React.useState("")
+  const [routing, setRouting] = React.useState("")
   /* Stripe's own live check: the way in, until Stripe says there is none for this account. */
   const [idWay, setIdWay] = React.useState<"stripe" | "camera">("stripe")
   const [idState, setIdState] = React.useState<"idle" | "opening" | "waiting" | "checking" | "done">("idle")
@@ -932,7 +945,8 @@ function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; 
   }, [idState, askStripe])
 
   /* Nothing left to ask here: straight on. */
-  const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos && form.needs.other.length === 0
+  const bankHere = withBank && !!form && form.needs.bank
+  const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos && form.needs.other.length === 0 && !bankHere
   React.useEffect(() => {
     if (!form || !empty) return
     onEmpty?.()
@@ -996,11 +1010,21 @@ function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; 
   const asFile = (blob: Blob) => new File([blob], "id.jpg", { type: blob.type || "image/jpeg" })
   const missingProof = has("proofOfAddress") && !uploaded["proofOfAddress-front"]
 
+  const bank = form.bank
+  const holderName = holder ?? bank.holderName
+  const bankBad = bankHere
+    ? holderName.trim().length < 2 ||
+      (bank.kind === "iban"
+        ? !ibanLooksValid(iban, form.country)
+        : accountNumber.replace(/[\s-]/g, "").length < 4 || (!!bank.routingPattern && !new RegExp(bank.routingPattern).test(routing.replace(/\s/g, "").toUpperCase())))
+    : false
+  const bankBody = () => (bank.kind === "iban" ? { holderName, iban } : { holderName, accountNumber, routingNumber: routing })
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setTried(true)
     if (busy) return
-    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree)) {
+    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree) || bankBad) {
       setError("Check the fields marked in red.")
       return
     }
@@ -1010,6 +1034,15 @@ function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; 
     setBusy(true)
     setError(null)
     try {
+      /* Only the details Stripe asked for: a page that is only the bank sends only the bank. */
+      const sendDetails = form.needs.fields.some((f) => f !== "document" && f !== "proofOfAddress") || form.needs.tos
+      let latest = form
+      if (!sendDetails && bankHere) {
+        const paid = await post<{ form: DetailsForm; overview: Overview }>("bank", bankBody())
+        onData(paid.overview)
+        onNext(paid.form)
+        return
+      }
       const res = await post<{ form: DetailsForm; overview: Overview }>("details", {
         dob: has("dob") ? { day: Number(dob.day), month: Number(dob.month), year: Number(dob.year) } : undefined,
         address: has("address") ? address : undefined,
@@ -1026,9 +1059,16 @@ function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; 
       if (left.length || res.form.needs.tos) {
         setTried(false)
         setForm({ ...res.form, needs: { ...res.form.needs, fields: left } })
-      } else {
-        onNext(res.form)
+        return
       }
+      latest = res.form
+      /* Then the bank, in the same press. */
+      if (bankHere) {
+        const paid = await post<{ form: DetailsForm; overview: Overview }>("bank", bankBody())
+        onData(paid.overview)
+        latest = paid.form
+      }
+      onNext(latest)
     } catch (err) {
       setError(safe(err instanceof Error ? err.message : "Those details were not saved. Try again."))
     } finally {
@@ -1338,6 +1378,32 @@ function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; 
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={pep} onChange={(e) => setPep(e.target.checked)} />
             <span className="text-[13px] leading-[19px] text-[#4b5563]">I hold, or have held in the last year, a prominent public role (a politically exposed person). Leave it unticked if not.</span>
           </label>
+        ) : null}
+
+        {bankHere ? (
+          <div className="space-y-4 border-t border-[#f1f2f4] pt-5" data-details-bank="">
+            <div>
+              <span className="block text-[15px] font-semibold text-[#1a1a2e]">Where you get paid</span>
+              <span className="mt-0.5 block text-[12.5px] text-[#6b7280]">{bank.currency ? `Payouts arrive in ${bank.currency}.` : "The account your payouts go to."}</span>
+            </div>
+            <Field label="Account holder name" error={tried && holderName.trim().length < 2 ? "Enter the name on the account." : undefined}>
+              <input className={FIELD} autoComplete="name" value={holderName} onChange={(e) => setHolder(e.target.value)} />
+            </Field>
+            {bank.kind === "iban" ? (
+              <Field label="IBAN" error={tried && !ibanLooksValid(iban, form.country) ? "That IBAN does not look right. Check it in your bank app." : undefined}>
+                <input className={cn(FIELD, "font-mono tracking-[0.02em]")} autoComplete="off" spellCheck={false} autoCapitalize="characters" placeholder={`${form.country}00 0000 0000 0000 0000`} value={iban} onChange={(e) => setIban(formatIban(e.target.value))} />
+              </Field>
+            ) : (
+              <>
+                <Field label={bank.routingLabel ?? "Bank code"} error={tried && !!bank.routingPattern && !new RegExp(bank.routingPattern).test(routing.replace(/\s/g, "").toUpperCase()) ? `Check your ${(bank.routingLabel ?? "bank code").toLowerCase()}.` : undefined}>
+                  <input className={FIELD} autoComplete="off" spellCheck={false} inputMode={form.country === "IN" ? undefined : "numeric"} value={routing} onChange={(e) => setRouting(e.target.value)} />
+                </Field>
+                <Field label={bank.accountLabel ?? "Account number"} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? "Enter your account number." : undefined}>
+                  <input className={FIELD} autoComplete="off" spellCheck={false} inputMode="numeric" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+                </Field>
+              </>
+            )}
+          </div>
         ) : null}
 
         {form.needs.tos ? (

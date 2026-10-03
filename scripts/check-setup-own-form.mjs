@@ -131,7 +131,7 @@ try {
   }
   {
     /* Verify with nothing left to ask sends itself on; Back from the bank must not be sent forward again. */
-    console.log("\nBack past a Verify step with nothing to ask (390px)")
+    console.log("\nOnly the bank left to give (390px)")
     const p = await browser.newPage()
     const errors = []
     p.on("pageerror", (e) => errors.push(e.message))
@@ -153,21 +153,22 @@ try {
     await p.bringToFront()
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
-    /* It lands on the bank by itself, because Stripe wants nothing else. */
-    await p.waitForFunction(() => /Add your bank account/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 8000 }).catch(() => {})
+    /* Stripe wants only the bank: the details page is just the bank, nothing skips anywhere. */
+    await p.waitForSelector("[data-details-bank]", { timeout: 8000 }).catch(() => {})
     const arrived = await p.evaluate(() => {
       const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
-      return { bank: /Add your bank account/.test(t), change: /Change bank account/.test(t) }
+      return { bank: !!document.querySelector("[data-details-bank]"), change: /Change bank account/.test(t), steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].length }
     })
-    expect(arrived.bank, "an empty Verify hands straight on to the bank", arrived)
-    expect(!arrived.change, "and a first bank is Add, not Change", arrived)
+    expect(arrived.bank, "the bank sits on the details page", arrived)
+    expect(!arrived.change, "and a first bank is never worded as a change", arrived)
+    expect(arrived.steps === 2, "two steps, not three", arrived)
     await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Back")?.click())
     await new Promise((r) => setTimeout(r, 900))
     const back = await p.evaluate(() => {
       const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
-      return { onAccount: !!document.querySelector('[autocomplete="given-name"]'), bouncedBack: /Add your bank account|Change bank account/.test(t) }
+      return { onAccount: !!document.querySelector('[autocomplete="given-name"]'), bouncedBack: !!document.querySelector("[data-details-bank]") }
     })
-    expect(back.onAccount && !back.bouncedBack, "Back goes past it to Account, never bounced forward again", back)
+    expect(back.onAccount && !back.bouncedBack, "Back goes to Account, never bounced forward again", back)
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.screenshot({ path: join(out, "back-past-verify-390.png") })
     await p.close()
@@ -312,17 +313,20 @@ try {
         if (action === "identity") return json({ ok: false, reason: "not_enabled" })
         if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(eitherNeeds) } : form(eitherNeeds))
         if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
+        if (action === "bank") return json({ form: form({ ...needsNow, fields: [], tos: false, bank: false }), overview: doneOverview })
         return json({})
       }
       if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
       r.abort()
     })
+    await p.bringToFront()
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
     await p.waitForSelector("[data-id-photo]", { timeout: 6000 })
     /* Stripe Identity is not on in this one, so the press falls to Storelib's camera. */
-    await p.click("[data-identity-open]").catch(() => {})
-    await new Promise((r) => setTimeout(r, 600))
+    await p.evaluate(() => document.querySelector("[data-identity-open]")?.click())
+    await p.waitForSelector("[data-id-camera]", { timeout: 6000 }).catch(() => {})
+    await new Promise((r) => setTimeout(r, 300))
     await p.evaluate(() => document.querySelector("[data-id-camera] [aria-label=Close]")?.click())
     await new Promise((r) => setTimeout(r, 300))
     await p.waitForSelector("[data-id-camera-open]", { timeout: 6000 })
@@ -335,7 +339,7 @@ try {
     expect(start.photoFirst && start.cnpHidden && start.offer, "the photo comes first and the CNP is only an option", start)
     await p.screenshot({ path: join(out, "id-choice-390.png") })
 
-    await p.click("[data-id-camera-open]")
+    await p.evaluate(() => document.querySelector("[data-id-camera-open]")?.click())
     await p.waitForSelector('[data-id-camera="live"]', { timeout: 6000 }).catch(() => {})
     await new Promise((r) => setTimeout(r, 900))
     const live = await p.evaluate(() => {
@@ -345,7 +349,7 @@ try {
     expect(live.phase === "live" && live.playing, "the camera opens inside the page, live", live)
     expect(live.inline === true, "and plays inline, as iOS needs in the app")
     await p.screenshot({ path: join(out, "camera-live-390.png") })
-    await p.click('[aria-label="Take photo"]')
+    await p.evaluate(() => document.querySelector('[aria-label="Take photo"]')?.click())
     await p.waitForSelector('[data-id-camera="review"]', { timeout: 4000 }).catch(() => {})
     await new Promise((r) => setTimeout(r, 300))
     expect(await p.evaluate(() => document.querySelector("[data-id-camera]")?.getAttribute("data-id-camera") === "review"), "the shutter shows the photo to check")
@@ -366,6 +370,7 @@ try {
     await p.type('[autocomplete="address-line1"]', "Strada Lipscani 12")
     await p.type('[autocomplete="address-level2"]', "Bucharest")
     await p.type('[autocomplete="postal-code"]', "030031")
+    await p.type('[placeholder^="RO00"]', "RO49AAAA1B31007593840000")
     await p.evaluate(() => [...document.querySelectorAll('input[type="checkbox"]')].forEach((c) => c.click()))
     await p.click('button[type="submit"]')
     await new Promise((r) => setTimeout(r, 800))
@@ -453,19 +458,12 @@ try {
     })
     await p.keyboard.type("1940314123456")
     await p.evaluate(() => [...document.querySelectorAll('input[type="checkbox"]')].forEach((c) => c.click()))
+    expect(await p.evaluate(() => !!document.querySelector("[data-details-bank]") && document.body.textContent?.includes("IBAN")), "the bank, with an IBAN for Romania, is on the same page")
+    await p.type('[placeholder^="RO00"]', "RO49AAAA1B31007593840001")
     await p.screenshot({ path: join(out, `details-filled-${width}.png`) })
     await p.click('button[type="submit"]')
-    await p.waitForFunction(() => document.body.textContent?.includes("IBAN"), { timeout: 5000 }).catch(() => {})
-    await new Promise((r) => setTimeout(r, 500))
-    const body = sent.details ? JSON.parse(sent.details) : null
-    expect(!!body && body.dob?.year === 1994 && body.dob?.month === 3 && body.address?.city === "Bucharest" && body.idNumber === "1940314123456" && body.acceptTos === true, "the details go to the server as entered", body && { dob: body.dob, city: body.address?.city, tos: body.acceptTos })
-    expect(await p.evaluate(() => document.body.textContent?.includes("IBAN")), "then the bank step, with an IBAN for Romania")
-    await p.screenshot({ path: join(out, `bank-${width}.png`) })
-
-    await p.type('[placeholder^="RO00"]', "RO49AAAA1B31007593840001")
-    await p.click('button[type="submit"]')
     await new Promise((r) => setTimeout(r, 200))
-    expect(!("bank" in sent), "an IBAN with a wrong digit is caught on the page")
+    expect(!("bank" in sent) && !("details" in sent), "an IBAN with a wrong digit is caught on the page, before anything is sent")
     await p.evaluate(() => {
       const el = document.querySelector('[placeholder^="RO00"]')
       const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set
@@ -478,6 +476,8 @@ try {
     await p.click('button[type="submit"]')
     await p.waitForFunction(() => document.body.textContent?.includes("Payments active"), { timeout: 5000 }).catch(() => {})
     await new Promise((r) => setTimeout(r, 400))
+    const body = sent.details ? JSON.parse(sent.details) : null
+    expect(!!body && body.dob?.year === 1994 && body.dob?.month === 3 && body.address?.city === "Bucharest" && body.idNumber === "1940314123456" && body.acceptTos === true, "one Continue sends the details as entered", body && { dob: body.dob, city: body.address?.city, tos: body.acceptTos })
     expect(sent.bank && JSON.parse(sent.bank).iban === "RO49 AAAA 1B31 0075 9384 0000", "the valid IBAN is sent")
     expect(await p.evaluate(() => document.body.textContent?.includes("Payments active")), "and setup ends on Payments active")
     await p.screenshot({ path: join(out, `finished-${width}.png`) })
