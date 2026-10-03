@@ -23,7 +23,7 @@ import { recordActivity } from "./activity"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews } from "./directory"
-import { cleanText, visiblePostRow, type Checked, type WriteContext } from "./feed"
+import { cleanText, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
 import { notifyMentions, snippet } from "./mentions"
 import { notifyMember } from "./notify"
 
@@ -269,12 +269,13 @@ async function ownComment(w: WriteContext, commentId: string): Promise<Checked<C
 
 export async function updateComment(w: WriteContext, commentId: string, raw: unknown): Promise<Checked<CommentView>> {
   const own = await ownComment(w, commentId)
-  if (!own.ok) return own
+  if (!own.ok) return refused(own)
+  const ownRow = (own as { value: CommentRow }).value
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const body = cleanText(r.body, LENGTHS.commentBody.max)
   if (!body) return { ok: false, error: "Write a comment first.", status: 400 }
   if (body.length > LENGTHS.commentBody.max) return { ok: false, error: "Keep the comment under 5,000 characters.", status: 400 }
-  if (mentionsEveryone(body) && !mentionsEveryone(own.value.body) && !can(w.viewer.role, "mention_everyone")) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
+  if (mentionsEveryone(body) && !mentionsEveryone(ownRow.body) && !can(w.viewer.role, "mention_everyone")) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   const { data, error } = await w.db
     .from("community_feed_comments")
     .update({ body, edited_at: nowIso() })
@@ -303,7 +304,7 @@ export async function updateComment(w: WriteContext, commentId: string, raw: unk
 /** The author deletes their comment: its words go, the row stays so its replies keep their place. */
 export async function deleteComment(w: WriteContext, commentId: string): Promise<Checked<true>> {
   const own = await ownComment(w, commentId)
-  if (!own.ok) return own
+  if (!own.ok) return refused(own)
   const { error } = await w.db
     .from("community_feed_comments")
     .update({ status: "deleted", deleted_at: nowIso(), body: "" })

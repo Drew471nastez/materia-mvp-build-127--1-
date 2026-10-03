@@ -25,7 +25,7 @@ import { MembersDirectory } from "@/components/community/member/members"
 import { Leaderboard } from "@/components/community/member/leaderboard"
 import { NotificationsList } from "@/components/community/member/notifications"
 import { allowedActions } from "@/lib/communities/permissions"
-import type { CommentView, FeedPostView, MemberView, ViewerView } from "@/lib/communities/types"
+import type { CommentView, FeedPostView, MemberView, Role, ViewerView } from "@/lib/communities/types"
 import type { ChatMessageView, LeaderboardRow, NotificationView, ShellCommunity, SpaceView } from "@/components/community/member/view-types"
 
 const NOW = Date.now()
@@ -240,7 +240,8 @@ const MESSAGES: ChatMessageView[] = [
   msg({ id: "m6", author: people.me, canEdit: true, body: "Same experience here. The handoff got easier because devs read the names directly.", createdAt: iso(NOW - 12 * MIN) }),
 ]
 
-const member = (p: (typeof people)[keyof typeof people], extra: Partial<MemberView> = {}): MemberView => ({
+type Person = { id: string; name: string; username: string | null; avatarUrl: string | null; role: Role; level: number }
+const member = (p: Person, extra: Partial<MemberView> = {}): MemberView => ({
   userId: p.id,
   name: p.name,
   username: p.username,
@@ -264,7 +265,7 @@ export const MEMBERS: MemberView[] = [
   member(people.me),
   member(people.jonas, { bio: "Freelance, mostly early stage SaaS." }),
   member(people.leo),
-  ...Array.from({ length: 6 }, (_, i) => member({ id: `u-x${i}`, name: ["Ana Ruiz", "Tom Hale", "Kei Sato", "Nora Lind", "Omar Aziz", "Ella Ward"][i], username: null as unknown as string, avatarUrl: null, role: "member", level: 1 + (i % 3) })),
+  ...Array.from({ length: 6 }, (_, i) => member({ id: `u-x${i}`, name: ["Ana Ruiz", "Tom Hale", "Kei Sato", "Nora Lind", "Omar Aziz", "Ella Ward"][i], username: null, avatarUrl: null, role: "member", level: 1 + (i % 3) })),
 ]
 
 const BOARD: LeaderboardRow[] = [

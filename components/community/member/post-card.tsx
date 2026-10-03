@@ -25,7 +25,7 @@ import { api, apiBase } from "./api"
 import { BodyText } from "./body-text"
 import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
 import { PostMediaBlock } from "./media"
-import { actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
+import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
 import { PollBlock } from "./poll"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD, ICON_BTN } from "./ui"
@@ -98,7 +98,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
     }
   }
 
-  const moderate = (action: "pin" | "unpin" | "lock" | "unlock", done: (p: FeedPostView) => FeedPostView, said: string) => async () => {
+  const moderate = (action: "pin" | "unpin" | "lock" | typeof REOPEN, done: (p: FeedPostView) => FeedPostView, said: string) => async () => {
     const r = await actOnContent(post.communityId, { action, targetType: "post", targetId: post.id })
     if (!r.ok) return toast(r.error)
     update(post.id, done)
@@ -134,7 +134,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
   if (!own && viewer.can.report) items.push({ label: "Report post", icon: <Flag className="h-4 w-4" />, onClick: () => setReport({ type: "post", id: post.id, what: "post" }) })
   const modItems: ActionMenuItem[] = []
   if (mod.pin) modItems.push({ label: post.pinned ? "Unpin" : "Pin to top", icon: <Pin className="h-4 w-4" />, onClick: post.pinned ? moderate("unpin", (p) => ({ ...p, pinned: false }), "Unpinned") : moderate("pin", (p) => ({ ...p, pinned: true }), "Pinned to the top") })
-  if (mod.lock) modItems.push({ label: post.locked ? "Open comments" : "Close comments", icon: <Lock className="h-4 w-4" />, onClick: post.locked ? moderate("unlock", (p) => ({ ...p, locked: false }), "Comments open") : moderate("lock", (p) => ({ ...p, locked: true }), "Comments closed") })
+  if (mod.lock) modItems.push({ label: post.locked ? "Open comments" : "Close comments", icon: <Lock className="h-4 w-4" />, onClick: post.locked ? moderate(REOPEN, (p) => ({ ...p, locked: false }), "Comments open") : moderate("lock", (p) => ({ ...p, locked: true }), "Comments closed") })
   if (mod.remove && !own)
     modItems.push({
       label: "Remove post",

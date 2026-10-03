@@ -439,6 +439,11 @@ function httpsImage(value: unknown): string | null {
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string; status?: number }
 
+/** A refusal passed on as another kind's refusal (the same words and status). */
+export function refused<T>(c: { ok: boolean; error?: string; status?: number }, status?: number): Checked<T> {
+  return { ok: false, error: (c as { error?: string }).error ?? "Something went wrong.", status: status ?? (c as { status?: number }).status }
+}
+
 /**
  * The media a client sent, in the shapes PostMedia allows. Files and videos
  * are only references here; createPost checks they belong to this person and
@@ -528,9 +533,9 @@ export function checkPostInput(raw: unknown): Checked<PostInput> {
   const body = cleanText(r.body, LENGTHS.postBody.max)
   if (body.length > LENGTHS.postBody.max) return { ok: false, error: "Keep the post under 20,000 characters." }
   const media = checkMedia(r.media)
-  if (!media.ok) return media
+  if (!media.ok) return refused(media)
   const poll = checkPoll(r.poll)
-  if (!poll.ok) return poll
+  if (!poll.ok) return refused(poll)
   if (!title && !body && media.value.length === 0 && !poll.value) return { ok: false, error: "Write something first." }
   return { ok: true, value: { spaceId, title, body, media: media.value, poll: poll.value } }
 }
@@ -605,7 +610,7 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
   const text = `${input.title}\n${input.body}`
   if (mentionsEveryone(text) && !everyoneAllowed(text, viewer.role)) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   const owned = await ownedMedia(db, community, viewer, input.media)
-  if (!owned.ok) return { ...owned, status: 400 }
+  if (!owned.ok) return refused(owned, 400)
 
   const kind = kindFor(space, !!input.poll)
   const now = nowIso()
@@ -681,9 +686,9 @@ export async function updatePost(w: WriteContext, postId: string, raw: unknown):
   let media = found.row.media
   if (r.media !== undefined) {
     const checked = checkMedia(r.media)
-    if (!checked.ok) return { ...checked, status: 400 }
+    if (!checked.ok) return refused(checked, 400)
     const owned = await ownedMedia(db, community, viewer, checked.value)
-    if (!owned.ok) return { ...owned, status: 400 }
+    if (!owned.ok) return refused(owned, 400)
     media = owned.value
   }
   if (!title && !body && !media.length && found.row.kind !== "poll") return { ok: false, error: "Write something first.", status: 400 }
