@@ -331,6 +331,7 @@ const SUITES = [
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
   "tests/cart-coupons.test.ts",
+  "tests/product-page-t.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",
   "tests/home-progress.test.ts",

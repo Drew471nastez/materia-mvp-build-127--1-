@@ -6,6 +6,7 @@ import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { shopSections } from "@/lib/website-builder/shop-page"
+import { catalogPage } from "@/lib/products/catalog-filters"
 import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
@@ -23,6 +24,8 @@ export const dynamic = "force-dynamic"
 
 interface PageProps {
   params: Promise<{ username: string }>
+  /** The filters and the sort, as the filter form sends them: lib/products/catalog-filters.ts. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -47,8 +50,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * that are already cached, and a creator who wants a different shop page can
  * still make one and name it themselves.
  */
-export default async function SiteShopPage({ params }: PageProps) {
+export default async function SiteShopPage({ params, searchParams }: PageProps) {
   const { username } = await params
+  const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
 
   const found = await publishedShopByName(username)
   /* Renamed for good: the shop at the new name, permanently (308). */
@@ -64,7 +68,12 @@ export default async function SiteShopPage({ params }: PageProps) {
   const arranged = stored && stored.length > 0 ? stored : shopSections(site.pages.home ?? site.sections, site.themeSettings)
   /* Placeholders filled, menus and picked products in hand: see dressPage. */
   const { sections, data } = await dressPage(site, arranged, products, productCount, "page.products", "Shop")
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", products, undefined, data)
+  /* FILTERED HERE, from the address: the products that pass, in the order
+     asked for, and every filter with its counts for the form
+     (lib/products/catalog-filters.ts). Pickers above still name from the
+     whole shop. */
+  const { listed, filters } = catalogPage(products ?? [], asked, "/products")
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", listed, { filters }, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>

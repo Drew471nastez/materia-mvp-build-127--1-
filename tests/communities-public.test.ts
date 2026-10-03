@@ -443,7 +443,7 @@ async function main() {
       ["lib/seo/sitemaps.ts", /if \(skipCommunity\) q = q\.is\("community_id", null\)/],
     ]
     for (const [file, re] of lists) check(`${file} leaves tier products out`, re.test(code(file)))
-    check("the OnePage and shop reads still fall back to their older column lists", /\[COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG\]/.test(code("lib/onepage/live-products.ts")) && /\[PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL\]/.test(code("lib/website-builder/shop-products.ts")))
+    check("the OnePage and shop reads still fall back to their older column lists", /\[COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG\]/.test(code("lib/onepage/live-products.ts")) && /\[PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL\]/.test(code("lib/website-builder/shop-products.ts")))
     const product = code("app/(marketing)/p/[slug]/page.tsx")
     check("a tier's product page sends to its community, and only that kind of product", /const communityId = \(product as \{ community_id\?: string \| null \}\)\.community_id\s*if \(communityId\) \{[\s\S]*?if \(target\) redirect\(target\)\s*notFound\(\)\s*\}/.test(product))
     const store = code("app/(marketing)/u/[username]/page.tsx")

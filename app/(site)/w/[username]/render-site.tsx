@@ -345,7 +345,7 @@ async function previewPage(username: string, token: string, pageKey: string) {
   )
   const template = templateForPage(pageKey)
   const dressed = await dressPage(owner, sections, products, productCount, template, pageTitleFromKey(pageKey), undefined, { cached: false })
-  const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, template, products, undefined, dressed.data)
+  const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, template, products, { title: pageTitleFromKey(pageKey) }, dressed.data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template }}>

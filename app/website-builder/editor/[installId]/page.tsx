@@ -72,6 +72,7 @@ import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
+import { mainProductSection, withProductBlocks } from "@/lib/website-builder/product-page"
 import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import {
   groupOf,
@@ -3299,11 +3300,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const ps = SECTION_SCHEMAS["product"]
       if (ps) {
         const headerIdx = loaded.findIndex(s => s.type === "header")
-        const newSection: SectionInstance = { id: `product-${Date.now()}`, type: "product", name: ps.name, settings: ps.presets?.[0]?.settings ?? {}, blocks: [], hidden: false }
+        const newSection: SectionInstance = { ...mainProductSection(`product-${Date.now()}`), name: ps.name }
         if (headerIdx !== -1) loaded.splice(headerIdx + 1, 0, newSection)
         else loaded.unshift(newSection)
       }
     }
+
+    /* A product section saved before it had blocks: the blocks its old
+       switches describe, in the sidebar where the creator can change them,
+       the same ones the live page draws (lib/website-builder/product-page.ts). */
+    loaded = loaded.map((s) => withProductBlocks(s))
 
     return loaded
   }, [installId])
