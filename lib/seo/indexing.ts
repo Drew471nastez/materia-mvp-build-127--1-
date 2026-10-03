@@ -191,6 +191,8 @@ const CUSTOM_DOMAIN_PLATFORM_PATHS = [
   "api",
   "app",
   "checkout",
+  /* A community lives at storelib.com/community/<slug>; on a creator's domain the same path is a copy. */
+  "community",
   "cover-render",
   "creators",
   "dashboard",
