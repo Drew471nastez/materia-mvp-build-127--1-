@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runNotificationEngine } from "@/lib/notifications/engine"
+import { sweepPayoutReminders } from "@/lib/notify/payout-weekly"
 import { runNotificationWork } from "@/lib/notify/worker"
 import { storelibPusher } from "@/lib/notifications/push-sender"
 import { supabaseSnapshots } from "@/lib/notifications/snapshot"
@@ -50,6 +51,9 @@ async function runJob(request: Request) {
       pusher: storelibPusher,
       deadline: started + RUN_BUDGET_MS,
     })
+    /* Payouts still not set up: one email a week each (lib/notify/payout-weekly.ts), planned before the worker runs so it sends them. */
+    const weekly = await sweepPayoutReminders(db, { budgetMs: 8_000 }).catch(() => null)
+    console.log(`[cron/notifications] payout weekly: ${weekly ? `${weekly.checked} creators, ${weekly.emitted} planned, ${weekly.toldThisWeek} already told this week` : "failed"}`)
     /* The notification engine's worker too (lib/notify/worker.ts), briefly: /api/cron/notify does the bulk every five minutes. */
     const work = await runNotificationWork(NOTIFY_BUDGET_MS).catch(() => null)
     const ms = Date.now() - started

@@ -4,7 +4,7 @@
  * STORELIB PAYMENTS SETUP. One calm page over the app, on every screen size,
  * with three steps:
  *
- *   Account  country, individual or business, legal name (Storelib's form)
+ *   Account  country and legal name as on the ID (Storelib's form); no business question
  *   Verify   Stripe's embedded onboarding, drawn inside this page: identity
  *            and an ID document are collected now, not left for later, so
  *            payments do not pause the first time Stripe asks
@@ -395,45 +395,6 @@ function ErrorLine({ message }: { message: string | null }) {
   )
 }
 
-function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label: string }) {
-  const index = options.findIndex((o) => o.value === value)
-  return (
-    <div role="radiogroup" aria-label={label} className="relative grid h-10 rounded-xl bg-[#f1f2f4] p-1 sm:h-9" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-      <span
-        aria-hidden
-        className={cn(
-          "absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.10),0_0_0_0.5px_rgba(16,24,40,0.06)] transition-[transform,opacity] duration-300 ease-sheet [will-change:transform]",
-          index < 0 && "opacity-0",
-        )}
-        style={{ width: `calc((100% - 8px) / ${options.length})`, transform: `translateX(${Math.max(0, index) * 100}%)` }}
-      />
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={value === option.value}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "relative z-[1] cursor-pointer select-none rounded-[9px] text-[14px] font-medium outline-none transition-[color,transform] duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:text-[13px]",
-            value === option.value ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/** Opens and closes its height smoothly, for a field that comes and goes. */
-function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
-  return (
-    <div className={cn("-mx-[3px] grid transition-[grid-template-rows,opacity] duration-300 ease-sheet", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")} aria-hidden={!open}>
-      <div className="min-h-0 overflow-hidden">{children}</div>
-    </div>
-  )
-}
 
 function Footer({ children }: { children: React.ReactNode }) {
   return (
@@ -572,7 +533,7 @@ export function PaymentsSetupFlow({
 
   const subtitle =
     mode === "setup"
-      ? "About five minutes. Your details go straight to Stripe, our payment partner."
+      ? "Your country, your name as on your ID, a quick ID check and your bank. About five minutes."
       : mode === "bank"
         ? "Where your cash outs are sent."
         : "The details on your payments account."
@@ -659,7 +620,14 @@ export function PaymentsSetupFlow({
 
 function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => void; onDone: (next: Overview) => void }) {
   const hasAccount = (data.beat ?? "personal") !== "personal"
-  const [kind, setKind] = React.useState<"individual" | "business">(data.kind === "business" ? "business" : "individual")
+  /*
+   * NO "ARE YOU A BUSINESS?" Somebody selling under their own name is an
+   * individual to Stripe (a sole seller, the way Gumroad treats them), and
+   * that is nearly everybody here, so the question is gone and setup is just
+   * country, name as on the ID, Stripe's ID check and the bank. An account
+   * that was already made as a business stays one, and keeps its name field.
+   */
+  const kind: "individual" | "business" = data.kind === "business" ? "business" : "individual"
   const [countryName, setCountryName] = React.useState(data.payoutHint?.country ? countryLabel(data.payoutHint.country) : data.prefill?.country ? countryLabel(data.prefill.country) : "")
   const [firstName, setFirstName] = React.useState(data.prefill?.firstName ?? "")
   const [lastName, setLastName] = React.useState(data.prefill?.lastName ?? "")
@@ -699,7 +667,7 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
             <InfoTip label="Country">
               {hasAccount
                 ? "Locked once your payments account is created. It sets your payout currency and tax rules. Disconnect below and start over if you chose the wrong country."
-                : "Where you live or your business is registered. It sets your payout currency and cannot be changed after you continue."}
+                : "Where you live. It sets your payout currency and which ID Stripe asks for, and cannot be changed after you continue."}
             </InfoTip>
           </div>
           {hasAccount && data.payoutHint?.country ? (
@@ -718,31 +686,14 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
           {issue("country") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("country")}</span> : null}
         </div>
 
-        <div>
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-[13px] font-medium text-[#1a1a2e]">Selling as</span>
-            <InfoTip label="Selling as">Choose Individual if you sell under your own name. Choose Business if you have a registered company.</InfoTip>
-          </div>
-          <Segmented
-            label="Selling as"
-            value={kind}
-            onChange={setKind}
-            options={[
-              { value: "individual", label: "Individual" },
-              { value: "business", label: "Business" },
-            ]}
-          />
-          <Reveal open={kind === "business"}>
-            <div className="px-[3px] pb-[3px] pt-5">
-              <Field label="Legal business name" error={issue("businessName")} tip="The registered name of your company, exactly as on its official papers.">
-                <input className={cn(FIELD, issue("businessName") && FIELD_BAD)} value={businessName} placeholder="Legal business name" tabIndex={kind === "business" ? undefined : -1} autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
-              </Field>
-            </div>
-          </Reveal>
-        </div>
+        {kind === "business" ? (
+          <Field label="Legal business name" error={issue("businessName")} tip="The registered name of your company, exactly as on its official papers.">
+            <input className={cn(FIELD, issue("businessName") && FIELD_BAD)} value={businessName} placeholder="Legal business name" autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
+          </Field>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
-          <Field label="First name" error={issue("firstName")} tip={kind === "business" ? "The first name of the person running the business, as on their ID." : "Your first name exactly as on your passport or ID card."}>
+          <Field label="First name" error={issue("firstName")} tip={kind === "business" ? "The first name of the person running the business, as on their ID." : "Exactly as on your passport or ID card, with any middle names."}>
             <input className={cn(FIELD, issue("firstName") && FIELD_BAD)} value={firstName} placeholder="First name" autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
           </Field>
           <Field label="Last name" error={issue("lastName")} tip="Your last name exactly as on your ID, including any second last name.">

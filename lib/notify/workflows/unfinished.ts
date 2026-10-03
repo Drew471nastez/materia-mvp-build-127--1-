@@ -97,6 +97,26 @@ export const unfinished: Workflow = (event, ctx) => {
       /* Only when there is still no way to be paid. The trigger sends paymentsReady; anything else leaves it alone. */
       if (event.payload.paymentsReady !== false) return null
       return payoutSetup(event, ctx, { started: false, productTitle: str(event.payload.productTitle) })
+    /*
+     * The weekly sweep (lib/notify/payout-weekly.ts) asked for this one. It is
+     * keyed by the creator and the day the sweep ran, so a sweep that runs
+     * twice plans one email, and it is sent at once: the sweep already waited
+     * the week. The condition is read again just before it sends.
+     */
+    case "payment_setup.weekly_check": {
+      const day = str(event.payload.day)
+      if (!day) return null
+      return plan([
+        job("PAYOUT_SETUP_WEEKLY", event, ctx, {
+          workflow: WORKFLOWS.payoutSetup,
+          entityType: "creator",
+          entityId: ctx.creatorId,
+          step: `week_${day}`,
+          expiresInMs: LIFECYCLE_WINDOW_MS,
+          data: { started: event.payload.started === true },
+        }),
+      ])
+    }
     case "store.created": {
       const on = { workflow: WORKFLOWS.storeSetup, entityType: "creator" as const, entityId: ctx.creatorId, expiresInMs: LIFECYCLE_WINDOW_MS }
       return plan([
