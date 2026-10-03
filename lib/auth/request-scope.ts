@@ -2,6 +2,7 @@ import "server-only"
 
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
 import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access"
 
@@ -62,7 +63,17 @@ export const profileForRequest = cache(async (userId: string): Promise<RequestPr
  * which cover what the pages that read it with their own client need too.
  */
 const SHELL_CREATOR_COLUMNS =
-  "id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id"
+  "id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, store_published"
+
+/**
+ * THE SHELL'S PRIVATE COLUMNS, read apart. Run-now part 63 refuses these to a
+ * visitor's client (lib/security/public-columns PRIVATE_CREATOR_COLUMNS), and
+ * PostgREST answers a select naming one with an error, not a null: asked in
+ * the one select above, the whole row came back empty and /app sent every
+ * creator to /sell. They are read with the service role for the row the
+ * caller's own client already returned, so nobody reads anyone else's.
+ */
+const SHELL_PRIVATE_CREATOR_COLUMNS = "stripe_onboarding_status, stripe_account_id, subscription_plan_id"
 
 export interface RequestCreator {
   id: string
@@ -88,12 +99,25 @@ export interface RequestCreator {
  * the pages under it that read it with the caller's own client (Products,
  * Customers, Coupons) asked for it separately on every full load. Same
  * client, same `user_id` filter, same row-level security: this only stops
- * the second copy of the question. The service role never reads it here.
+ * the second copy of the question. The service role reads only the three private
+ * columns of the row the caller's client returned (SHELL_PRIVATE_CREATOR_COLUMNS).
  */
 export const creatorForRequest = cache(async (userId: string): Promise<RequestCreator | null> => {
   const supabase = await createClient()
   const { data } = await supabase.from("creators").select(SHELL_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle()
-  return (data as RequestCreator | null) ?? null
+  if (!data) return null
+  const { data: privateCols } = await createAdminClient()
+    .from("creators")
+    .select(SHELL_PRIVATE_CREATOR_COLUMNS)
+    .eq("id", (data as { id: string }).id)
+    .maybeSingle()
+  return {
+    stripe_onboarding_status: null,
+    stripe_account_id: null,
+    subscription_plan_id: null,
+    ...(data as object),
+    ...((privateCols as object | null) ?? {}),
+  } as RequestCreator
 })
 
 /**
