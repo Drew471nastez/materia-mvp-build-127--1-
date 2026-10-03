@@ -119,9 +119,10 @@ export function AccountHub({ identity, children }: { identity: AccountIdentity; 
         <p className="mt-1 max-w-full text-[13px] leading-[1.45] text-[#6b7280] [overflow-wrap:anywhere]" data-account-meta="">
           {identity.username ? (
             <>
-              <span className="text-[#4b5563]" data-account-username="">
+              {/* The handle opens the public profile: the same page everybody else sees, with your own pills on it. */}
+              <Link href={`/@${identity.username}`} className="text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline" data-account-username="">
                 @{identity.username}
-              </span>
+              </Link>
               <span aria-hidden="true" className="px-1.5 text-[#c4c8cf]">
                 ·
               </span>

@@ -5,6 +5,9 @@ import { readPublicRow } from "@/lib/security/public-rows"
 import { loadCreatorForUser } from "@/lib/commerce/creator-page-data"
 import { hasActiveStorefront } from "@/lib/profile/member-url"
 import { withPriceIntervals } from "@/lib/memberships/intervals"
+import { followCounts } from "@/lib/profile/follows"
+import { excludingCommunityProducts } from "@/lib/communities/listing"
+import { readPrivacy, type ProfilePrivacy } from "@/lib/profile/privacy"
 
 export type MemberPublicReview = {
   id: string
@@ -36,11 +39,14 @@ export type MemberProfileData = {
   memberSince: string
   hasStorefront: boolean
   storefrontHandle: string
+  /** The creator row behind a live store, for the products in their activity. Null otherwise. */
+  creatorId: string | null
   followers: number
   following: number
   products: MemberStoreProduct[]
   productCount: number
   reviews: MemberPublicReview[]
+  privacy: ProfilePrivacy
 }
 
 const memberSince = (createdAt: string | undefined) => {
@@ -48,29 +54,18 @@ const memberSince = (createdAt: string | undefined) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
 }
 
-async function followCounts(userId: string): Promise<{ followers: number; following: number }> {
-  try {
-    const db = createAdminClient()
-    const [followers, following] = await Promise.all([
-      db.from("profile_follows").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
-      db.from("profile_follows").select("following_id", { count: "exact", head: true }).eq("follower_id", userId),
-    ])
-    if (followers.error || following.error) return { followers: 0, following: 0 }
-    return { followers: followers.count ?? 0, following: following.count ?? 0 }
-  } catch {
-    return { followers: 0, following: 0 }
-  }
-}
-
 async function storefrontProducts(creatorId: string): Promise<{ items: MemberStoreProduct[]; total: number }> {
   const supabase = await createClient()
-  const { data, count, error } = await supabase
-    .from("products")
-    .select("id, title, slug, thumbnail_url, price_cents, pay_what_you_want, pwyw_min_price_cents, type", { count: "exact" })
-    .eq("creator_id", creatorId)
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(8)
+  /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
+  const { data, count, error } = await excludingCommunityProducts((exclude) => {
+    let q = supabase
+      .from("products")
+      .select("id, title, slug, thumbnail_url, price_cents, pay_what_you_want, pwyw_min_price_cents, type", { count: "exact" })
+      .eq("creator_id", creatorId)
+      .eq("status", "published")
+    if (exclude) q = q.is("community_id", null)
+    return q.order("created_at", { ascending: false }).limit(8)
+  })
   if (error || !data) return { items: [], total: 0 }
   const rows = await withPriceIntervals(supabase, data as Array<{ id: string; type?: string | null } & Record<string, unknown>>)
   return {
@@ -119,10 +114,13 @@ export const loadMemberProfile = cache(async (username: string): Promise<MemberP
   if (!profile?.id || !profile.username) return null
   const creator = await loadCreatorForUser(profile.id)
   const storefront = hasActiveStorefront(creator) && creator?.id
-  const [counts, reviews, catalog] = await Promise.all([
-    followCounts(profile.id),
+  const admin = createAdminClient()
+  const [counts, reviews, catalog, privacy] = await Promise.all([
+    /* The follow graph is `follows`, the one the creator page and the Follow button use. */
+    followCounts(admin, profile.id),
     publicReviews(profile.id),
     storefront ? storefrontProducts(creator.id) : Promise.resolve({ items: [], total: 0 }),
+    readPrivacy(admin, profile.id),
   ])
   const handle = profile.username.toLowerCase()
   const creatorRow = creator as { cover_url?: string | null } | null
@@ -136,11 +134,13 @@ export const loadMemberProfile = cache(async (username: string): Promise<MemberP
     memberSince: memberSince((profile as { created_at?: string }).created_at),
     hasStorefront: !!storefront,
     storefrontHandle: handle,
+    creatorId: storefront ? (creator?.id as string) : null,
     followers: counts.followers,
     following: counts.following,
     products: catalog.items,
     productCount: catalog.total,
     reviews,
+    privacy,
   }
   } catch {
     return null

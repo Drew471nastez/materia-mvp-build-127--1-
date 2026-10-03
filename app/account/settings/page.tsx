@@ -6,6 +6,15 @@ import { profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-sc
 import { readNewsletter } from "@/lib/account/preferences"
 import { accountLoginPath } from "@/lib/account/account-tabs"
 import { AccountSettings } from "@/components/account/account-settings"
+import { ensureUsername } from "@/lib/profile/ensure-username"
+import { readPrivacy } from "@/lib/profile/privacy"
+
+/** ?section= from a link: the profile's Settings pill (account), "Change" on a hidden list (privacy). */
+const SECTION_KEYS = ["profile", "account", "privacy", "preferences"] as const
+type SectionKey = (typeof SECTION_KEYS)[number]
+function sectionFrom(value: unknown): SectionKey {
+  return SECTION_KEYS.includes(value as SectionKey) ? (value as SectionKey) : "profile"
+}
 
 export const dynamic = "force-dynamic"
 
@@ -22,13 +31,14 @@ const PROVIDER_NAMES: Record<string, string> = { google: "Google", apple: "Apple
  * service role because its table is closed to browsers
  * (app/app/settings/_server.ts reads it the same way).
  */
-export default async function AccountSettingsRoute() {
+export default async function AccountSettingsRoute({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   const user = await pageUser(accountLoginPath("/account/settings"))
   /* Supabase did not answer in time: the layout's gate recovers the session
      in the browser (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const [profile, bio, access, newsletter, personalized] = await Promise.all([
+  const admin = createAdminClient()
+  const [profile, bio, access, newsletter, personalized, username, privacy, handleOwner, { section }] = await Promise.all([
     profileForRequest(user.id),
     /* THE BIO, AND WHETHER THERE IS ANYWHERE TO PUT ONE. profiles.bio comes
        from supabase/sql/RUN_PROFILE_COVER_BIO.sql; where that has not run,
@@ -65,6 +75,22 @@ export default async function AccountSettingsRoute() {
         return true
       }
     })(),
+    /* The handle the Username field starts from: made now when they never had one (the account page is a first need). */
+    ensureUsername(admin, user.id),
+    readPrivacy(admin, user.id),
+    /* A store or a OnePage shares the handle as its address, so it moves from /app Settings with them. */
+    (async () => {
+      try {
+        const [creator, page] = await Promise.all([
+          admin.from("creators").select("id").eq("user_id", user.id).maybeSingle(),
+          admin.from("onepages").select("id").eq("owner_id", user.id).limit(1).maybeSingle(),
+        ])
+        return !!creator.data || !!page.data
+      } catch {
+        return false
+      }
+    })(),
+    searchParams,
   ])
 
   const providers = ((user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider as string | undefined]).filter(Boolean) as string[]
@@ -89,6 +115,10 @@ export default async function AccountSettingsRoute() {
       isSeller={access?.state === "seller"}
       newsletter={newsletter}
       personalized={personalized}
+      username={username || profile?.username || ""}
+      usernameEditable={!handleOwner}
+      privacy={privacy}
+      initialSection={sectionFrom(section)}
     />
   )
 }

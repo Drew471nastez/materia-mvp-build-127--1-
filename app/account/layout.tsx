@@ -4,6 +4,8 @@ import { Suspense } from "react"
 import { headers } from "next/headers"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { ensureUsername } from "@/lib/profile/ensure-username"
 import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
@@ -98,11 +100,13 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
   /* Cached for the request: the settings page reads the same row. The bio is one more read beside it, not after it. */
   const [profile, bio] = user ? await Promise.all([profileForRequest(user.id), readBio(user.id)]) : [null, null]
+  /* EVERY ACCOUNT HAS A HANDLE: one that never had one gets it here, the first time it is needed (lib/profile/ensure-username). */
+  const username = user ? profile?.username || (profile ? await ensureUsername(createAdminClient(), user.id) : null) : null
   const identity: AccountIdentity | null = user
     ? {
         userId: user.id,
         name: profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || "",
-        username: profile?.username || null,
+        username: username || null,
         avatarUrl: profile?.avatar_url || null,
         memberSince: memberSince(user.created_at),
         bio,

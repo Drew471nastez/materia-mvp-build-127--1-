@@ -1,20 +1,37 @@
 /**
- * Follow / unfollow a creator.
+ * Follow / unfollow a person: a buyer, a member or a creator.
  *
  * A follow points at a PROFILE, not a creator row — see the comment on the
  * `follows` table. A person is the thing you follow, so a seller who later
- * gains or changes a creator row keeps their followers.
+ * gains or changes a creator row keeps their followers, and a buyer can be
+ * followed exactly the way a creator is.
+ *
+ * Body: { userId } (or { creatorUserId }, which older pages still send) and
+ * an optional { follow: false } to unfollow. Answers { following, followers }.
  *
  * AUTHORISATION IS THE ROW-LEVEL POLICY, not this file. `follower_id` is taken
  * from the session and never from the request body, and the table's policies
  * only allow a user to insert or delete their own rows — so even if this
  * handler were wrong, one account could not make another follow anybody.
+ *
+ * RATE LIMITED per person (30 a minute, 300 a day): following and
+ * unfollowing in a loop would otherwise be a way to send somebody a stream
+ * of "followed you" notices. The notice itself is written once per pair
+ * (lib/profile/notify-follow.ts), and only on a follow.
  */
 import { createClient } from "@/lib/supabase/server"
+import { rateLimit } from "@/lib/api/rate-limit"
+import { afterFollow } from "@/lib/profile/follow-effects"
 import { type NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const FOLLOW_WINDOWS = [
+  { limit: 30, seconds: 60 },
+  { limit: 300, seconds: 86400 },
+] as const
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -29,21 +46,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Not signed in", following: false }, { status: 401 })
   }
 
-  let body: { creatorUserId?: unknown; follow?: unknown }
+  let body: { userId?: unknown; creatorUserId?: unknown; follow?: unknown }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 })
   }
 
-  const target = typeof body.creatorUserId === "string" ? body.creatorUserId : null
-  if (!target) return NextResponse.json({ error: "Missing creator" }, { status: 400 })
+  const raw = typeof body.userId === "string" ? body.userId : typeof body.creatorUserId === "string" ? body.creatorUserId : null
+  const target = raw && UUID.test(raw) ? raw : null
+  if (!target) return NextResponse.json({ error: "Missing person" }, { status: 400 })
 
   // The table has a CHECK for this too; refusing here saves a round trip and
   // gives a sensible message instead of a constraint violation.
   if (target === user.id) {
     return NextResponse.json({ error: "You cannot follow yourself", following: false }, { status: 400 })
   }
+
+  const limited = await rateLimit({
+    bucket: "follow",
+    subjects: [`user:${user.id}`],
+    windows: FOLLOW_WINDOWS,
+    message: "You have followed a lot of people just now. Try again in a minute.",
+  })
+  if (limited) return limited
 
   const wantsToFollow = body.follow !== false
 
@@ -64,9 +90,13 @@ export async function POST(request: NextRequest) {
       .from("follows")
       .upsert({ follower_id: user.id, following_id: target }, { onConflict: "follower_id,following_id", ignoreDuplicates: true })
     if (error) {
+      /* 23503: nobody has that id. */
+      if (error.code === "23503") return NextResponse.json({ error: "That person is not on Storelib" }, { status: 404 })
       console.error("[follow] insert failed", error.code, error.message)
       return NextResponse.json({ error: "Could not follow" }, { status: 500 })
     }
+    /* The follower's handle and the "followed you" notice; neither can undo the follow. */
+    await afterFollow(user.id, target)
   } else {
     const { error } = await supabase
       .from("follows")
