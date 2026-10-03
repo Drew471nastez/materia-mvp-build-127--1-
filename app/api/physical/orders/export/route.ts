@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     .in("status", ["paid", "partially_refunded"])
     .order("paid_at", { ascending: true })
     .limit(5000)
-  if (!all) q = q.in("fulfillment_status", ["unfulfilled", "partially_fulfilled"])
+  if (!all) q = q.in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"])
   const { data } = await q
   const header = ["Order", "Paid at", "Fulfillment", "Name", "Email", "Phone", "Address 1", "Address 2", "City", "Region", "Postal code", "Country", "Delivery", "Product", "Variant", "SKU", "Quantity", "Note"]
   const rows: string[] = [header.join(",")]

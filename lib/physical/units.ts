@@ -37,3 +37,19 @@ export function formatWeight(grams: number | null | undefined, unit: WeightUnit)
   const v = fromGrams(grams, unit)
   return v === null ? "" : `${v} ${unit}`
 }
+
+/** The shop's measuring system (Settings > Shipping): what new products and rate tiers are typed in. */
+export type UnitSystem = "metric" | "imperial"
+
+export function weightUnitFor(system: UnitSystem): WeightUnit {
+  return system === "imperial" ? "lb" : "kg"
+}
+
+export function dimensionUnitFor(system: UnitSystem): DimensionUnit {
+  return system === "imperial" ? "in" : "cm"
+}
+
+/** "1.5 kg" or "3.31 lb": a stored weight in the shop's system. */
+export function formatSystemWeight(grams: number | null | undefined, system: UnitSystem): string {
+  return formatWeight(grams, weightUnitFor(system))
+}

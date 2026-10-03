@@ -12,19 +12,24 @@ import "server-only"
 
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import type { Db } from "./auth"
-import { FULFILLMENT_MODELS, LOCATION_KINDS, type FulfillmentModel, type Location, type LocationKind, type RateKind, type ShippingProfile, type ShippingRate, type ShippingZone } from "./types"
+import { readTiers } from "./rates"
+import { regionList } from "./regions"
+import { FULFILLMENT_MODELS, LOCATION_KINDS, PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type ShippingProfile, type ShippingRate, type ShippingZone, type UnitSystem } from "./types"
 import type { TaxRate, TaxSettings } from "./totals"
 
 export interface CommerceSettings {
   fulfillmentModel: FulfillmentModel | null
   defaultLocationId: string | null
   defaultPackageId: string | null
+  unitSystem: UnitSystem
   returnsEnabled: boolean
   returnWindowDays: number
   taxMode: "none" | "manual" | "provider"
   pricesIncludeTax: boolean
   taxOnShipping: boolean
   lowStockDefault: number
+  /** Email the seller when an item sells down to its low stock line. */
+  lowStockAlerts: boolean
   onboardedAt: string | null
 }
 
@@ -32,12 +37,14 @@ export const DEFAULT_SETTINGS: CommerceSettings = {
   fulfillmentModel: null,
   defaultLocationId: null,
   defaultPackageId: null,
+  unitSystem: "metric",
   returnsEnabled: true,
   returnWindowDays: 30,
   taxMode: "none",
   pricesIncludeTax: false,
   taxOnShipping: false,
   lowStockDefault: 5,
+  lowStockAlerts: true,
   onboardedAt: null,
 }
 
@@ -66,12 +73,14 @@ export async function loadSettings(db: Db, creatorId: string): Promise<CommerceS
     fulfillmentModel: (data.fulfillment_model as FulfillmentModel | null) ?? null,
     defaultLocationId: data.default_location_id ?? null,
     defaultPackageId: data.default_package_id ?? null,
+    unitSystem: data.unit_system === "imperial" ? "imperial" : "metric",
     returnsEnabled: data.returns_enabled !== false,
     returnWindowDays: Number(data.return_window_days ?? 30),
     taxMode: data.tax_mode ?? "none",
     pricesIncludeTax: !!data.prices_include_tax,
     taxOnShipping: !!data.tax_on_shipping,
     lowStockDefault: Number(data.low_stock_default ?? 5),
+    lowStockAlerts: data.low_stock_alerts !== false,
     onboardedAt: data.onboarded_at ?? null,
   }
 }
@@ -94,6 +103,9 @@ export function locationFromRow(r: Record<string, any>): Location {
     holdsInventory: r.holds_inventory !== false,
     priority: Number(r.priority ?? 0),
     forwarding: r.forwarding ?? "none",
+    pickupEnabled: r.pickup_enabled === true,
+    pickupInstructions: r.pickup_instructions ?? null,
+    pickupReady: (PICKUP_READY as readonly string[]).includes(r.pickup_ready) ? (r.pickup_ready as PickupReady) : "24h",
   }
 }
 
@@ -111,6 +123,7 @@ export function rateFromRow(r: Record<string, any>): ShippingRate {
     priceCents: Number(r.price_cents ?? 0),
     minValue: r.min_value ?? null,
     maxValue: r.max_value ?? null,
+    tiers: readTiers(r.tiers),
     freeOverCents: r.free_over_cents ?? null,
     minDays: r.min_days ?? null,
     maxDays: r.max_days ?? null,
@@ -122,7 +135,7 @@ export function rateFromRow(r: Record<string, any>): ShippingRate {
 export async function loadProfiles(db: Db, creatorId: string): Promise<ShippingProfile[]> {
   const [{ data: profiles }, { data: zones }, { data: rates }] = await Promise.all([
     db.from("shipping_profiles").select("id, name, is_default, created_at").eq("creator_id", creatorId).order("created_at", { ascending: true }).limit(50),
-    db.from("shipping_zones").select("id, profile_id, name, countries, rest_of_world, created_at").eq("creator_id", creatorId).order("created_at", { ascending: true }).limit(500),
+    db.from("shipping_zones").select("*").eq("creator_id", creatorId).order("created_at", { ascending: true }).limit(500),
     db.from("shipping_rates").select("*").eq("creator_id", creatorId).order("position", { ascending: true }).limit(2000),
   ])
   const ratesByZone = new Map<string, ShippingRate[]>()
@@ -134,7 +147,7 @@ export async function loadProfiles(db: Db, creatorId: string): Promise<ShippingP
   const zonesByProfile = new Map<string, ShippingZone[]>()
   for (const z of (zones ?? []) as Record<string, any>[]) {
     const list = zonesByProfile.get(z.profile_id) ?? []
-    list.push({ id: z.id, profileId: z.profile_id, name: z.name, countries: z.countries ?? [], restOfWorld: !!z.rest_of_world, rates: ratesByZone.get(z.id) ?? [] })
+    list.push({ id: z.id, profileId: z.profile_id, name: z.name, countries: z.countries ?? [], regions: z.regions ?? [], restOfWorld: !!z.rest_of_world, rates: ratesByZone.get(z.id) ?? [] })
     zonesByProfile.set(z.profile_id, list)
   }
   return ((profiles ?? []) as Record<string, any>[]).map((p) => ({ id: p.id, name: p.name, isDefault: !!p.is_default, zones: zonesByProfile.get(p.id) ?? [] }))
@@ -203,6 +216,11 @@ export async function saveSettings(db: Db, creatorId: string, input: Record<stri
     if (!["none", "manual", "provider"].includes(String(input.taxMode))) return { ok: false, error: "Choose how tax is charged." }
     row.tax_mode = input.taxMode
   }
+  if ("unitSystem" in input) {
+    if (input.unitSystem !== "metric" && input.unitSystem !== "imperial") return { ok: false, error: "Choose metric or imperial." }
+    row.unit_system = input.unitSystem
+  }
+  if ("lowStockAlerts" in input) row.low_stock_alerts = input.lowStockAlerts === true
   if ("pricesIncludeTax" in input) row.prices_include_tax = input.pricesIncludeTax === true
   if ("taxOnShipping" in input) row.tax_on_shipping = input.taxOnShipping === true
   if ("lowStockDefault" in input) {
@@ -251,6 +269,9 @@ export function readLocation(input: Record<string, unknown>): { ok: true; row: R
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: "Check the email address." }
   const forwarding = ["none", "email", "webhook", "provider"].includes(String(input.forwarding)) ? input.forwarding : "none"
   if (forwarding === "email" && !email) return { ok: false, error: "Add the email orders are sent to." }
+  const pickupEnabled = input.pickupEnabled === true
+  if (pickupEnabled && (!text(input.addressLine1, 200) || !text(input.city, 120) || !country)) return { ok: false, error: "Add the street, city and country so buyers know where to pick up." }
+  const pickupReady = (PICKUP_READY as readonly string[]).includes(String(input.pickupReady)) ? String(input.pickupReady) : "24h"
   return {
     ok: true,
     row: {
@@ -269,25 +290,37 @@ export function readLocation(input: Record<string, unknown>): { ok: true; row: R
       holds_inventory: input.holdsInventory !== false,
       priority: int(input.priority, 0, 1000) ?? 0,
       forwarding,
+      pickup_enabled: pickupEnabled,
+      pickup_instructions: typeof input.pickupInstructions === "string" ? input.pickupInstructions.replace(/[\u0000-\u0008\u000b-\u001f\u007f<>]/g, "").trim().slice(0, 1000) || null : null,
+      pickup_ready: pickupReady,
       updated_at: new Date().toISOString(),
     },
   }
 }
 
+export const RATE_KINDS: RateKind[] = ["flat", "free", "price", "weight", "item_weight", "quantity", "carrier"]
+const TIERED: RateKind[] = ["price", "weight", "item_weight"]
+
 export function readRate(input: Record<string, unknown>): { ok: true; row: Record<string, unknown> } | { ok: false; error: string } {
-  const kind = ["flat", "free", "weight", "price", "quantity", "carrier"].includes(String(input.kind)) ? (input.kind as RateKind) : null
+  const kind = RATE_KINDS.includes(String(input.kind) as RateKind) ? (input.kind as RateKind) : null
   if (!kind) return { ok: false, error: "Choose a rate type." }
   const name = text(input.name, 80)
   if (!name) return { ok: false, error: "Name the rate as buyers will see it, like Standard or Express." }
-  const price = kind === "free" ? 0 : int(input.priceCents, 0, 10_000_000)
+  const opt = (v: unknown, min: number, max: number) => (v === null || v === "" || v === undefined ? null : int(v, min, max))
+  const tiers = TIERED.includes(kind) ? readTiers(input.tiers) : []
+  const tieredNow = TIERED.includes(kind) && (tiers.length > 0 || kind === "item_weight")
+  if (tieredNow && tiers.length === 0) return { ok: false, error: "Add at least one price." }
+  if (tieredNow && tiers[0].from !== 0) return { ok: false, error: "The first price starts from 0." }
+  const price = kind === "free" ? 0 : tieredNow ? tiers[0].priceCents : int(input.priceCents, 0, 10_000_000)
   if (price === null) return { ok: false, error: "Enter the price." }
-  const min = input.minValue === null || input.minValue === "" || input.minValue === undefined ? null : int(input.minValue, 0, 1_000_000_000)
-  const max = input.maxValue === null || input.maxValue === "" || input.maxValue === undefined ? null : int(input.maxValue, 0, 1_000_000_000)
-  if ((kind === "weight" || kind === "price" || kind === "quantity") && min === null && max === null) return { ok: false, error: "Set a minimum or a maximum for this rate." }
+  const min = opt(input.minValue, 0, 1_000_000_000)
+  const max = opt(input.maxValue, 0, 1_000_000_000)
+  if (!tieredNow && (kind === "weight" || kind === "price" || kind === "quantity") && min === null && max === null) return { ok: false, error: "Set a minimum or a maximum for this rate." }
   if (min !== null && max !== null && max < min) return { ok: false, error: "The maximum is below the minimum." }
-  const freeOver = input.freeOverCents === null || input.freeOverCents === "" || input.freeOverCents === undefined ? null : int(input.freeOverCents, 1, 100_000_000)
-  const minDays = input.minDays === null || input.minDays === "" || input.minDays === undefined ? null : int(input.minDays, 0, 365)
-  const maxDays = input.maxDays === null || input.maxDays === "" || input.maxDays === undefined ? null : int(input.maxDays, 0, 365)
+  if (tieredNow && max !== null && max <= tiers[tiers.length - 1].from) return { ok: false, error: "The limit must be above your last price step." }
+  const freeOver = opt(input.freeOverCents, 1, 100_000_000)
+  const minDays = opt(input.minDays, 0, 365)
+  const maxDays = opt(input.maxDays, 0, 365)
   if (minDays !== null && maxDays !== null && maxDays < minDays) return { ok: false, error: "The delivery time range is the wrong way round." }
   return {
     ok: true,
@@ -295,8 +328,10 @@ export function readRate(input: Record<string, unknown>): { ok: true; row: Recor
       name,
       kind,
       price_cents: price,
-      min_value: kind === "flat" || kind === "free" || kind === "carrier" ? null : min,
+      /* free: min is the order value it starts at; tiered: max is the most it is offered for; older ranges keep both. */
+      min_value: kind === "free" ? min : kind === "flat" || kind === "carrier" || tieredNow ? null : min,
       max_value: kind === "flat" || kind === "free" || kind === "carrier" ? null : max,
+      tiers,
       free_over_cents: kind === "free" ? null : freeOver,
       min_days: minDays,
       max_days: maxDays,
@@ -306,6 +341,16 @@ export function readRate(input: Record<string, unknown>): { ok: true; row: Recor
       updated_at: new Date().toISOString(),
     },
   }
+}
+
+/** A zone's places: countries, states (where Storelib lists them), or the rest of the world. */
+export function readZonePlaces(body: Record<string, unknown>): { ok: true; countries: string[]; regions: string[] } | { ok: false; error: string } {
+  const regions = regionList(body.regions)
+  /* A country chosen whole and some of its states is the whole country. */
+  const countries = countryList(body.countries)
+  const parts = regions.filter((r) => !countries.includes(r.split("-")[0]))
+  if (countries.length === 0 && parts.length === 0) return { ok: false, error: "Choose at least one country or state." }
+  return { ok: true, countries, regions: parts }
 }
 
 /** The shop's default profile, made the first time anything needs one. */

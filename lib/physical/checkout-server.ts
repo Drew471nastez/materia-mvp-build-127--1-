@@ -53,8 +53,9 @@ import { resolveSellerEmail, sendSellerNotificationEmail } from "@/lib/email"
 import type { Db } from "./auth"
 import { priceCheckout, quoteCheckout, readItems, type PricedCheckout } from "./checkout-pricing-server"
 import { readAddress } from "./address"
+import { isPickupOptionId } from "./pickup"
 import { addOrderEvent } from "./events-server"
-import { queueOrderConfirmation, queueForwarding } from "./jobs-server"
+import { queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
 import type { Address, PricedLine } from "./types"
 
 export const HOLD_MINUTES = 35
@@ -106,6 +107,7 @@ function snapshotLine(l: PricedLine) {
     location_id: l.locationId,
     track_inventory: l.trackInventory,
     inventory_policy: l.inventoryPolicy,
+    fulfillment_method: l.fulfillmentMethod,
   }
 }
 export type LineSnapshot = ReturnType<typeof snapshotLine>
@@ -129,21 +131,29 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   }
   if (priced.lines.length === 0) return { ok: false, status: 400, error: priced.dropped.length ? `${priced.dropped[0]} can't be bought right now.` : "Your cart is empty." }
 
+  /* Picked up: no delivery address, the pickup point is where it is handed over. */
+  const wantsPickup = priced.requiresShipping && isPickupOptionId(input.deliveryOptionId)
   let address: Address | null = null
-  if (priced.requiresShipping) {
+  if (priced.requiresShipping && !wantsPickup) {
     const read = readAddress(input.address)
     if (read.ok === false) return { ok: false, status: 400, error: read.error, field: read.field }
     address = read.address
   }
+  if (wantsPickup && !clean(input.name, 200)) return { ok: false, status: 400, error: "Enter the name the order is under.", field: "name" }
   const q = await quoteCheckout(db, priced, address, input.deliveryOptionId)
   if (priced.requiresShipping) {
-    if (q.quote.ok === false) return { ok: false, status: 400, error: q.quote.error, field: "country" }
-    if (!q.option) return { ok: false, status: 400, error: "This shop doesn't deliver to that country yet.", field: "country" }
-    if (typeof input.deliveryOptionId === "string" && q.option.id !== input.deliveryOptionId) {
-      return { ok: false, status: 409, error: "Delivery prices changed. Check the delivery option and pay again." }
+    if (wantsPickup) {
+      if (q.option?.kind !== "pickup") return { ok: false, status: 409, error: "Pickup isn't available for everything in your cart any more. Choose shipping instead." }
+    } else {
+      if (q.quote.ok === false) return { ok: false, status: 400, error: q.quote.error, field: "country" }
+      if (!q.option) return { ok: false, status: 400, error: "Shipping isn't available to this address. Try another address or local pickup.", field: "country" }
+      if (typeof input.deliveryOptionId === "string" && q.option.id !== input.deliveryOptionId) {
+        return { ok: false, status: 409, error: "Delivery prices changed. Check the delivery option and pay again." }
+      }
     }
   }
   const totals = q.totals
+  const pickup = q.option?.kind === "pickup" ? (q.option.pickup ?? null) : null
 
   const { data: creator } = await db
     .from("creators")
@@ -208,6 +218,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       buyer_phone: clean(input.phone, 40) || address?.phone || null,
       status: "pending",
       fulfillment_status: priced.requiresShipping ? "unfulfilled" : "not_required",
+      delivery_method: !priced.requiresShipping ? "none" : pickup ? "pickup" : "ship",
+      pickup_location_id: pickup?.locationId ?? null,
+      pickup: pickup ? { location_id: pickup.locationId, name: pickup.name, address: pickup.address, instructions: pickup.instructions, ready: pickup.ready } : null,
       currency: chargeCurrency.toUpperCase(),
       items_subtotal_cents: totals.itemsSubtotalCents,
       discount_cents: totals.discountCents,
@@ -218,9 +231,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       platform_fee_cents: fee?.platformFeeCents ?? 0,
       shipping_address: address,
       shipping_rate: option
-        ? { id: option.id, name: option.name, price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded }
+        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded }
         : { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded },
-      lines: priced.lines.map(snapshotLine),
+      lines: q.lines.map(snapshotLine),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
       provider: free ? "free" : "stripe",
@@ -240,8 +253,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   }
   const checkoutId = checkout.id as string
 
-  /* The stock, all lines or none. */
-  const holds = priced.lines
+  /* The stock, all lines or none (a pickup holds it at the pickup point). */
+  const holds = q.lines
     .filter((l) => l.type === "physical" && l.trackInventory && l.variantId && l.locationId)
     .map((l) => ({ variant_id: l.variantId, location_id: l.locationId, quantity: l.quantity, oversell: l.inventoryPolicy === "continue" }))
   if (holds.length) {
@@ -250,7 +263,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       await db.from("commerce_checkouts").update({ status: "failed", cancel_reason: "Out of stock", updated_at: new Date().toISOString() }).eq("id", checkoutId)
       const m = /^out_of_stock:([0-9a-f-]{36}):(\d+)/.exec(holdError.message ?? "")
       if (m) {
-        const line = priced.lines.find((l) => l.variantId === m[1])
+        const line = q.lines.find((l) => l.variantId === m[1])
         const title = line ? (line.variantName ? `${line.title}, ${line.variantName}` : line.title) : "An item"
         return { ok: false, status: 409, error: `${title} has only ${m[2]} left.`, stock: [{ title, available: Number(m[2]) }] }
       }
@@ -276,7 +289,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: true }
   }
 
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = priced.lines.flatMap((l) =>
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = q.lines.flatMap((l) =>
     chargeUnits({ productId: l.productId, variantId: l.variantId, quantity: l.quantity, priceCents: l.unitCents, discountCents: l.discountCents }).map((part) => ({
       quantity: part.quantity,
       price_data: {
@@ -308,7 +321,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
                 type: "fixed_amount",
                 fixed_amount: { amount: shippingPaid, currency: chargeCurrency },
                 display_name: (shippingPaid === 0 && totals.shippingDiscountCents > 0 ? `${option.name} (free with ${priced.coupon?.code ?? "your code"})` : option.name).slice(0, 100),
-                ...(option.minDays !== null || option.maxDays !== null
+                ...(option.kind !== "pickup" && (option.minDays !== null || option.maxDays !== null)
                   ? {
                       delivery_estimate: {
                         ...(option.minDays !== null ? { minimum: { unit: "business_day" as const, value: Math.max(1, option.minDays) } } : {}),
@@ -522,6 +535,7 @@ export async function completeCheckout(
         buyer_country: co.shipping_address?.country ?? null,
         buyer_country_code: co.shipping_address?.country ?? null,
         checkout_id: c.checkoutId,
+        fulfillment_method: l.type === "physical" ? (l.fulfillment_method ?? "self") : null,
         quantity: l.quantity,
         unit_price_cents: l.unit_cents,
         shipping_cents: shipShares[i] ?? 0,
@@ -642,6 +656,7 @@ async function onceForOrder(
   await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId }))
   await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
   await step("forwarding", () => queueForwarding(db, co.id, co.creator_id))
+  await step("low stock", () => queueLowStockAlerts(db, co.creator_id, s.lines.map((l) => l.variant_id).filter((v): v is string => !!v)))
   await step("notify", () =>
     raiseSaleEvents(db, {
       creatorId: co.creator_id,

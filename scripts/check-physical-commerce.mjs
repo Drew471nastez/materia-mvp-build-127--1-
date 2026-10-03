@@ -70,22 +70,23 @@ let posted = []
 let onboarded = false
 
 const settings = () => ({
-  settings: { fulfillmentModel: onboarded ? "self" : null, defaultLocationId: LOC, defaultPackageId: null, returnsEnabled: true, returnWindowDays: 30, taxMode: "none", pricesIncludeTax: false, taxOnShipping: false, lowStockDefault: 5, onboardedAt: onboarded ? "2026-10-01T00:00:00Z" : null },
-  locations: [{ id: LOC, name: "Studio", kind: "home", country: "RO", city: "Cluj", addressLine1: "Str 1", addressLine2: null, region: null, postalCode: "400001", phone: null, email: null, active: true, fulfillsOrders: true, holdsInventory: true, priority: 0, forwarding: "none" }],
+  settings: { fulfillmentModel: onboarded ? "self" : null, defaultLocationId: LOC, defaultPackageId: null, unitSystem: "metric", returnsEnabled: true, returnWindowDays: 30, taxMode: "none", pricesIncludeTax: false, taxOnShipping: false, lowStockDefault: 5, lowStockAlerts: true, onboardedAt: onboarded ? "2026-10-01T00:00:00Z" : null },
+  locations: [{ id: LOC, name: "Studio", kind: "home", country: "RO", city: "Cluj", addressLine1: "Str 1", addressLine2: null, region: null, postalCode: "400001", phone: null, email: null, active: true, fulfillsOrders: true, holdsInventory: true, priority: 0, forwarding: "none", pickupEnabled: true, pickupInstructions: "Side door", pickupReady: "24h" }],
   profiles: [{ id: "p1", name: "General", isDefault: true, zones: [
-    { id: "z1", profileId: "p1", name: "Romania", countries: ["RO"], restOfWorld: false, rates: [{ id: "r1", zoneId: "z1", name: "Standard", kind: "flat", priceCents: 1500, minValue: null, maxValue: null, freeOverCents: 10000, minDays: 2, maxDays: 4, active: true, position: 0 }] },
-    { id: "z2", profileId: "p1", name: "Rest of world", countries: [], restOfWorld: true, rates: [{ id: "r2", zoneId: "z2", name: "International", kind: "weight", priceCents: 3500, minValue: 0, maxValue: 5000, freeOverCents: null, minDays: 5, maxDays: 10, active: true, position: 0 }] },
+    { id: "z1", profileId: "p1", name: "Romania", countries: ["RO"], regions: [], restOfWorld: false, rates: [{ id: "r1", zoneId: "z1", name: "Standard", kind: "flat", priceCents: 1500, minValue: null, maxValue: null, tiers: [], freeOverCents: 10000, minDays: 2, maxDays: 4, active: true, position: 0 }] },
+    { id: "z2", profileId: "p1", name: "Rest of world", countries: [], regions: [], restOfWorld: true, rates: [{ id: "r2", zoneId: "z2", name: "International", kind: "weight", priceCents: 3500, minValue: null, maxValue: 30000, tiers: [{ from: 0, priceCents: 3500 }, { from: 2000, priceCents: 5000 }], freeOverCents: null, minDays: 5, maxDays: 10, active: true, position: 0 }] },
   ] }],
   packages: [],
   taxRates: [],
   integrations: [{ provider: "custom_webhook", status: "disconnected", url: null, keyHint: null, secretHint: null, lastSyncAt: null, lastError: null }],
 })
 
-const order = (shipped) => ({
-  id: SHOP, status: "paid", fulfillmentStatus: shipped ? "fulfilled" : "unfulfilled", returnStatus: "none", currency: "USD", totalCents: 9600, refundedCents: 0, shippingCents: 1500, shippingDiscountCents: 0,
+const order = (shipped, pickup = false, processing = false) => ({
+  deliveryMethod: pickup ? "pickup" : "ship", pickup: pickup ? { locationId: LOC, name: "Studio", address: ["Str 1", "Cluj, 400001", "Romania"], instructions: "Side door", ready: "24h" } : null, processingAt: processing ? "2026-10-01T11:00:00Z" : null,
+  id: SHOP, status: "paid", fulfillmentStatus: shipped ? "fulfilled" : processing ? "processing" : "unfulfilled", returnStatus: "none", currency: "USD", totalCents: 9600, refundedCents: 0, shippingCents: 1500, shippingDiscountCents: 0,
   address: { name: "Mara Lind", line1: "Str. Lunga 5", city: "Cluj", postalCode: "400001", country: "RO" }, delivery: { name: "Standard", priceCents: 1500, minDays: 2, maxDays: 4 },
   buyerNote: "Gift wrap please", merchantNote: null, cancelledAt: null,
-  lines: [{ orderId: "11111111-1111-4111-8111-111111111111", title: "Linen shirt", variantName: "M / Sand", sku: "LS-M-S", imageUrl: null, type: "physical", quantity: 2, requiresShipping: true, locationId: LOC, fulfilled: shipped ? 2 : 0, returned: 0, amountCents: 8700, refundedCents: 0 }],
+  lines: [{ orderId: "11111111-1111-4111-8111-111111111111", title: "Linen shirt", variantName: "M / Sand", sku: "LS-M-S", imageUrl: null, type: "physical", quantity: 2, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 2 : 0, returned: 0, amountCents: 8700, refundedCents: 0 }],
   shipments: shipped ? [{ id: "f1", status: "shipped", carrier: "UPS", trackingNumber: "1Z999AA10123456784", trackingUrl: "https://www.ups.com/track?tracknum=1Z999AA10123456784", shippedAt: "2026-10-02T10:00:00Z", deliveredAt: null, locationId: LOC, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }] }] : [],
   returns: [], events: [{ id: 1, kind: "payment.paid", message: "Payment of $96.00 received", actor: "webhook", createdAt: "2026-10-01T10:00:00Z" }],
 })
@@ -101,7 +102,8 @@ function quote(body) {
   return {
     creatorId: SHOP, lines, dropped: [], stockIssues: items.some((i) => i.quantity > 5) ? [{ productId: items[0].productId, variantId: items[0].variantId, title: "Linen shirt", available: 5 }] : [],
     requiresShipping: true, coupon: null, couponError,
-    delivery: body.country === "RO" || !body.country ? { ok: true, options, selectedId: selected?.id ?? null, needsCountry: !body.country } : { ok: false, error: "Some items in your cart can't be delivered to this country.", options: [], selectedId: null, needsCountry: false },
+    delivery: body.country === "RO" || !body.country ? { ok: true, options, selectedId: selected?.id ?? null, needsCountry: !body.country } : { ok: false, error: "Shipping isn't available to this address for some items in your cart.", options: [], selectedId: null, needsCountry: false },
+    pickups: [{ id: `pickup:${LOC}`, name: "Studio", address: ["Str 1", "Cluj, 400001", "Romania"], instructions: "Ring the bell at the side door.", ready: "Usually ready in 24 hours" }],
     totals: { itemsSubtotalCents: sub, discountCents: 0, shippingCents: ship, shippingDiscountCents: 0, taxCents: 0, taxIncluded: false, taxRateBps: 0, totalCents: sub + ship },
   }
 }
@@ -141,7 +143,9 @@ const server = createServer((req, res) => {
       } : { level: { onHand: 22, committed: 2, incoming: 0, available: 20 }, applied: true }
       else if (u.startsWith("/api/physical/transfers")) out = { transfers: [] }
       else if (u.startsWith("/api/physical/collections")) out = { collections: [{ id: "c1", title: "Summer", slug: "summer", description: null, kind: "smart", rules: [{ field: "tag", op: "equals", value: "summer" }], match: "all", sort: "manual", published: true, productIds: [SHOP] }], products: [{ id: SHOP, title: "Linen shirt", thumbnail_url: null, type: "physical", status: "published", price_cents: 4500 }] }
-      else if (u.startsWith("/api/physical/orders/")) out = { order: order(req.method === "POST" && body.action === "fulfil"), locations: [{ id: LOC, name: "Studio" }] }
+      else if (u.startsWith("/api/physical/orders/")) out = { order: order(req.method === "POST" && body.action === "fulfil", u.includes("/pickup"), req.method === "POST" && body.action === "processing"), locations: [{ id: LOC, name: "Studio" }] }
+      else if (u === "/api/physical/locations" && req.method === "POST") out = { location: { ...settings().locations[0], id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: body.name, kind: body.kind, email: body.email, forwarding: body.forwarding, pickupEnabled: false } }
+      else if (u.startsWith("/api/physical/shipping/rates")) out = { profiles: settings().profiles }
       else status = 404
       setTimeout(() => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(out)) }, 120)
     })
@@ -213,6 +217,34 @@ try {
       await page.close()
     }
 
+    /* ── Checkout: no shipping, and local pickup ─────────────── */
+    {
+      const items = Buffer.from(JSON.stringify([[SHOP, V(2), 2]])).toString("base64url")
+      const { page, errors } = await open("checkout", `&items=${items}`)
+      console.log(`\nCheckout pickup, ${label}px`)
+      await page.type("input[type=email]", "mara@example.com")
+      await page.type("input[autocomplete=name]", "Mara Lind")
+      /* Nothing ships to the United States here: said plainly, Pay off, pickup offered. */
+      await page.select("select[autocomplete=country]", "US")
+      await wait(900)
+      const none = await page.evaluate(() => ({ text: document.querySelector("[data-no-shipping]")?.innerText ?? "", pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Opening)/.test(b.innerText.trim()))?.disabled }))
+      expect(/Shipping isn't available to United States/.test(none.text) && /Pick up above/.test(none.text) && none.pay === true, "no rate for the address: said plainly, Pay off, pickup offered", none.text)
+      /* Pick up: no address, the point's details, Pay sends the pickup and no address. */
+      posted = []
+      await page.evaluate(() => [...document.querySelectorAll("[role=radio]")].find((b) => b.innerText.trim() === "Pick up").click())
+      await wait(900)
+      const pk = await page.evaluate(() => ({ text: document.querySelector("[data-pickup]")?.innerText ?? "", address: !!document.querySelector("input[autocomplete=address-line1]") }))
+      expect(/Studio/.test(pk.text) && /Usually ready in 24 hours/.test(pk.text) && /side door/i.test(pk.text) && !pk.address, "Pick up shows the point, when it's ready and the instructions, and no address", pk.text.slice(0, 160))
+      await shot(page, `checkout-pickup-${label}`)
+      expect(await sideways(page) === 0, "nothing scrolls sideways with pickup")
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^Pay/.test(b.innerText.trim())).click())
+      await wait(500)
+      const pp = posted.find((p) => p.url === "/api/physical/checkout")
+      expect(!!pp && pp.body.deliveryOptionId === "pickup:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" && pp.body.address === null && pp.body.name === "Mara Lind", "Pay for a pickup sends the pickup point, a name and no address", JSON.stringify(pp?.body ?? null).slice(0, 220))
+      expect(errors.length === 0, "no errors", errors.join(" | "))
+      await page.close()
+    }
+
     /* ── Buy box ──────────────────────────────────────────────── */
     {
       const { page, errors } = await open("buybox")
@@ -265,11 +297,34 @@ try {
       await page.keyboard.press("Enter")
       await wait(150)
       expect(!(await page.evaluate(() => window.submitted)), "Enter in a field never submits the Settings form")
-      for (const s of ["Locations", "Packages", "Taxes", "Returns and stock", "Integrations"]) {
+      /* A tiered rate: based on order weight, a second step, posted as tiers. */
+      posted = []
+      await page.evaluate(() => [...document.querySelectorAll("[data-rate-form] [role=radio]")].find((b) => /Based on order weight/.test(b.innerText)).click())
+      await wait(150)
+      await page.type("[data-rate-form] input[aria-label='Price, step 1']", "5")
+      await page.evaluate(() => [...document.querySelectorAll("[data-rate-form] button")].find((b) => /Add a step/.test(b.innerText)).click())
+      await wait(100)
+      await page.type("[data-rate-form] input[aria-label='Order weight from, step 2']", "2")
+      await page.type("[data-rate-form] input[aria-label='Price, step 2']", "9")
+      await page.evaluate(() => [...document.querySelectorAll("[data-rate-form] button")].find((b) => b.innerText.trim() === "Add rate").click())
+      await wait(400)
+      const tr = posted.find((p) => p.url === "/api/physical/shipping/rates")
+      expect(!!tr && tr.body.kind === "weight" && JSON.stringify(tr.body.tiers) === JSON.stringify([{ from: 0, priceCents: 500 }, { from: 2000, priceCents: 900 }]), "a rate by order weight is saved as steps in grams and cents", JSON.stringify(tr?.body ?? null).slice(0, 200))
+      expect(/0 kg to 2 kg \$35\.00/.test(await page.evaluate(() => document.body.innerText)), "a tiered rate reads as its steps")
+      for (const s of ["Locations and pickup", "Taxes", "Advanced"]) {
         await page.evaluate((s) => [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === s).click(), s)
         await wait(150)
+        if (s === "Locations and pickup") {
+          expect(/Local pickup/.test(await page.evaluate(() => document.body.innerText)), "a pickup location says so")
+          await page.evaluate(() => document.querySelector("[aria-label='Edit Studio']").click())
+          await wait(150)
+          const lf = await page.evaluate(() => document.body.innerText)
+          expect(/Offer local pickup here/.test(lf) && /Usually ready in/.test(lf) && /Pickup instructions/.test(lf), "pickup: on, ready time and instructions in the location")
+          await shot(page, `settings-pickup-${label}`)
+        }
       }
-      expect(/Your own system \(webhook\)/.test(await page.evaluate(() => document.body.innerText)) && /Not available yet/.test(await page.evaluate(() => document.body.innerText)), "Integrations say what is live and what isn't")
+      const adv = await page.evaluate(() => document.body.innerText)
+      expect(/Your own system \(webhook\)/.test(adv) && /Not available yet/.test(adv) && /Email me when stock runs low/.test(adv), "Advanced: low stock emails, and integrations say what is live and what isn't")
       expect(await sideways(page) === 0, "nothing scrolls sideways")
       await shot(page, `settings-${label}`)
       expect(errors.length === 0, "no errors", errors.join(" | "))
@@ -297,6 +352,26 @@ try {
       expect(rows === 6, "3 sizes by 2 colours is 6 variants", rows)
       const check = await page.evaluate(() => window.physicalHandle.current.check())
       expect(check === null, "with a base price, nothing to fix", check)
+      const photo = await page.evaluate(() => document.querySelectorAll("[data-variant-row] button[aria-label^='Add a photo for']").length)
+      expect(photo === 6, "every variant can have its own photo", photo)
+      await page.evaluate(() => document.querySelector("[data-variant-row] button[aria-label^='Add a photo for']").click())
+      await wait(200)
+      await page.evaluate(() => document.querySelector("[role=dialog] button[aria-pressed]").click())
+      await wait(200)
+      expect(await page.evaluate(() => !!document.querySelector("[data-variant-row] img")), "a product photo picked becomes the variant's")
+      const card = await page.evaluate(() => document.body.innerText)
+      expect(/How will this product be fulfilled\?/.test(card) && /I'll ship it myself/.test(card) && /Print on demand/.test(card) && /Track inventory/.test(card) && /Advanced/.test(card), "inventory, fulfillment and advanced cards")
+      await page.evaluate(() => [...document.querySelectorAll("[role=radio]")].find((b) => /Dropshipping supplier/.test(b.innerText)).click())
+      await wait(150)
+      expect(await page.evaluate(() => !!document.querySelector("[data-partner-form]")), "dropshipping with no supplier yet asks for one in place")
+      posted = []
+      await page.type("[data-partner-form] input", "Ana Supplies")
+      await page.type("[data-partner-form] input[inputmode=email]", "orders@ana.example")
+      await page.evaluate(() => [...document.querySelectorAll("[data-partner-form] button")].find((b) => /Add supplier/.test(b.innerText)).click())
+      await wait(400)
+      const loc = posted.find((p) => p.url === "/api/physical/locations")
+      expect(!!loc && loc.body.kind === "dropshipper" && loc.body.forwarding === "email" && loc.body.email === "orders@ana.example", "the supplier is made to receive orders by email", JSON.stringify(loc?.body ?? null))
+      expect(/Orders are emailed to orders@ana\.example/.test(await page.evaluate(() => document.body.innerText)), "and chosen, saying where orders go")
       expect(await sideways(page) === 0, "nothing scrolls sideways")
       await shot(page, `product-${label}`)
       expect(errors.length === 0, "no errors", errors.join(" | "))
@@ -327,20 +402,37 @@ try {
     {
       const { page, errors } = await open("order")
       console.log(`\nOrder, ${label}px`)
+      const steps = await page.evaluate(() => document.querySelector("[data-order-steps]")?.innerText ?? "")
+      expect(/Unfulfilled/.test(steps) && /Processing/.test(steps) && /Shipped/.test(steps) && /Delivered/.test(steps), "the four steps", steps)
       posted = []
-      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Fulfill items").click())
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Mark as processing").click())
+      await wait(400)
+      expect(posted.some((p) => p.body?.action === "processing" && p.body.on === true), "Mark as processing posts it")
+      posted = []
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Mark as shipped").click())
       await wait(250)
       await page.select("[role=dialog] select", "UPS")
       await wait(100)
       await page.type("[role=dialog] input[maxlength='60']", "1Z999AA10123456784")
-      await page.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.innerText.trim() === "Fulfill items").click())
+      await page.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.innerText.trim() === "Mark as shipped").click())
       await wait(500)
       const f = posted.find((p) => p.body?.action === "fulfil")
-      expect(!!f && f.body.items[0].quantity === 2 && f.body.carrier === "UPS" && f.body.trackingNumber === "1Z999AA10123456784" && f.body.notifyBuyer === true, "Fulfill items posts quantities, tracking and the email", JSON.stringify(f?.body ?? null))
+      expect(!!f && f.body.items[0].quantity === 2 && f.body.carrier === "UPS" && f.body.trackingNumber === "1Z999AA10123456784" && f.body.notifyBuyer === true, "Mark as shipped posts quantities, tracking and the email", JSON.stringify(f?.body ?? null))
       const t = await page.evaluate(() => document.body.innerText)
       expect(/Shipped/.test(t) && /Mark delivered/.test(t), "the shipment shows, with what to do next")
       expect(await sideways(page) === 0, "nothing scrolls sideways")
       await shot(page, `order-${label}`)
+      expect(errors.length === 0, "no errors", errors.join(" | "))
+      await page.close()
+    }
+
+    /* ── A pickup order ───────────────────────────────────────── */
+    {
+      const { page, errors } = await open("order", "&pickup=1")
+      console.log(`\nPickup order, ${label}px`)
+      const t = await page.evaluate(() => document.body.innerText)
+      expect(/Mark ready for pickup/.test(t) && /Picked up at/.test(t) && /Ready for pickup/.test(t) && /Picked up/.test(t) && !/Mark as shipped/.test(t), "a pickup order says pickup, not shipping")
+      await shot(page, `order-pickup-${label}`)
       expect(errors.length === 0, "no errors", errors.join(" | "))
       await page.close()
     }
@@ -353,6 +445,26 @@ try {
       expect(/Thank you, Mara!/.test(t) && /Track package/.test(t) && /Download/.test(t), "thanks, tracking and the download")
       expect(await sideways(page) === 0, "nothing scrolls sideways")
       await shot(page, `status-${label}`)
+      expect(errors.length === 0, "no errors", errors.join(" | "))
+      await page.close()
+    }
+
+    {
+      const { page, errors } = await open("status", "&pickup=1")
+      const t = await page.evaluate(() => document.body.innerText)
+      expect(/Pick up at Studio/.test(t) && /Ring the bell/.test(t) && /Ready for pickup/.test(t) && !/Shipping address/.test(t), `the buyer's pickup order page (${label}px)`)
+      await shot(page, `status-pickup-${label}`)
+      expect(errors.length === 0, "no errors", errors.join(" | "))
+      await page.close()
+    }
+
+    /* ── The help guide ───────────────────────────────────────── */
+    for (const article of ["how-physical-products-work", "shipping-profiles-zones-and-rates", "local-pickup", "ship-your-orders"]) {
+      const { page, errors } = await open("help", `&article=${article}`)
+      const figures = await page.evaluate(() => document.querySelectorAll("figure [role=img]").length)
+      expect(figures >= 1, `help: ${article} has its pictures (${label}px)`, figures)
+      expect(await sideways(page) === 0, `help: ${article} doesn't scroll sideways (${label}px)`)
+      await shot(page, `help-${article}-${label}`)
       expect(errors.length === 0, "no errors", errors.join(" | "))
       await page.close()
     }

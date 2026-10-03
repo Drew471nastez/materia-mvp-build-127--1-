@@ -25,7 +25,8 @@ import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import type { Db } from "./auth"
 import { int, text } from "./config-server"
 import { normaliseOptions, planVariants, variantName, type Combination } from "./variants"
-import type { InventoryLevel, PhysicalVariant, ProductOption } from "./types"
+import { readMethod } from "./fulfillment"
+import type { FulfillmentMethod, InventoryLevel, PhysicalVariant, ProductOption } from "./types"
 import { applyInventory } from "./inventory-server"
 
 export interface PhysicalProductData {
@@ -46,6 +47,8 @@ export interface PhysicalProductData {
   continueSelling: boolean
   lowStockThreshold: number | null
   fulfillmentLocationId: string | null
+  fulfillmentMethod: FulfillmentMethod
+  taxCategory: string | null
   shippingProfileId: string | null
   options: ProductOption[]
   variants: PhysicalVariant[]
@@ -53,10 +56,10 @@ export interface PhysicalProductData {
 }
 
 const PRODUCT_COLUMNS =
-  "id, creator_id, type, title, price_cents, vendor, tags, requires_shipping, weight_grams, length_mm, width_mm, height_mm, weight_unit, dimension_unit, origin_country, hs_code, taxable, track_inventory, continue_selling, low_stock_threshold, fulfillment_location_id, shipping_profile_id"
+  "id, creator_id, type, title, price_cents, vendor, tags, requires_shipping, weight_grams, length_mm, width_mm, height_mm, weight_unit, dimension_unit, origin_country, hs_code, taxable, track_inventory, continue_selling, low_stock_threshold, fulfillment_location_id, fulfillment_method, tax_category, shipping_profile_id"
 
 const VARIANT_COLUMNS =
-  "id, product_id, name, price_cents, compare_at_price_cents, position, option1, option2, option3, sku, barcode, weight_grams, image_url, track_inventory, inventory_policy, requires_shipping, taxable, active, fulfillment_location_id"
+  "id, product_id, name, price_cents, compare_at_price_cents, position, option1, option2, option3, sku, barcode, weight_grams, image_url, track_inventory, inventory_policy, requires_shipping, taxable, active, fulfillment_location_id, fulfillment_method"
 
 export function variantFromRow(r: Record<string, any>, product: Record<string, any>, cost: number | null): PhysicalVariant {
   return {
@@ -77,6 +80,7 @@ export function variantFromRow(r: Record<string, any>, product: Record<string, a
     taxable: r.taxable ?? product.taxable ?? true,
     active: r.active !== false,
     fulfillmentLocationId: r.fulfillment_location_id ?? product.fulfillment_location_id ?? null,
+    fulfillmentMethod: readMethod(r.fulfillment_method),
     position: Number(r.position ?? 0),
   }
 }
@@ -114,6 +118,8 @@ export async function loadPhysicalProduct(db: Db, creatorId: string, productId: 
     continueSelling: !!p.continue_selling,
     lowStockThreshold: p.low_stock_threshold ?? null,
     fulfillmentLocationId: p.fulfillment_location_id ?? null,
+    fulfillmentMethod: readMethod(p.fulfillment_method) ?? "self",
+    taxCategory: p.tax_category ?? null,
     shippingProfileId: p.shipping_profile_id ?? null,
     options: ((options ?? []) as { position: 1 | 2 | 3; name: string; values: string[] }[]).map((o) => ({ position: o.position, name: o.name, values: o.values ?? [] })),
     variants: ((variants ?? []) as Record<string, any>[]).map((v) => variantFromRow(v, p, costOf.get(v.id) ?? null)),
@@ -139,6 +145,8 @@ export interface VariantInput {
   weightGrams: number | null
   imageUrl: string | null
   active: boolean
+  /** Null: as the product. */
+  fulfillmentMethod: FulfillmentMethod | null
   /** location id → on hand wanted; only the ones given are changed. */
   stock: Record<string, number>
 }
@@ -171,6 +179,7 @@ function readVariant(raw: unknown): VariantInput | null {
     weightGrams: r.weightGrams === null || r.weightGrams === "" || r.weightGrams === undefined ? null : int(r.weightGrams, 0, 1_000_000),
     imageUrl,
     active: r.active !== false,
+    fulfillmentMethod: readMethod(r.fulfillmentMethod),
     stock,
   }
 }
@@ -238,6 +247,8 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
     continue_selling: body.continueSelling === true,
     low_stock_threshold: body.lowStockThreshold === null || body.lowStockThreshold === "" || body.lowStockThreshold === undefined ? null : int(body.lowStockThreshold, 0, 1_000_000),
     fulfillment_location_id: (body.fulfillmentLocationId as string) || null,
+    fulfillment_method: readMethod(body.fulfillmentMethod) ?? product.fulfillment_method ?? "self",
+    tax_category: "taxCategory" in body ? text(body.taxCategory, 60) : (product.tax_category ?? null),
     shipping_profile_id: (body.shippingProfileId as string) || null,
     updated_at: new Date().toISOString(),
   }
@@ -259,7 +270,7 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
   const basePrice = Number(product.price_cents ?? 0)
 
   const { error: productError } = await db.from("products").update(productUpdate).eq("id", productId).eq("creator_id", creatorId)
-  if (productError) return { ok: false, error: productError.code === "42703" || productError.code === "PGRST204" ? "Physical commerce needs its database update. Run SQL part 78 in Supabase." : "The product could not be saved." }
+  if (productError) return { ok: false, error: productError.code === "42703" || productError.code === "PGRST204" ? "Physical commerce needs its database update. Run the latest SQL part 78 in Supabase." : "The product could not be saved." }
 
   /* Options: replaced as a whole, positions 1 to 3. */
   await db.from("product_options").delete().eq("product_id", productId)
@@ -284,6 +295,8 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
       weight_grams: input?.weightGrams ?? null,
       image_url: input?.imageUrl ?? null,
       active: input ? input.active : true,
+      /* Only kept when it differs from the product's: empty means "as the product". */
+      fulfillment_method: input?.fulfillmentMethod && input.fulfillmentMethod !== productUpdate.fulfillment_method ? input.fulfillmentMethod : null,
     }
   }
 

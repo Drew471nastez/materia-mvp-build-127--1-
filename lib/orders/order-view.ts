@@ -201,9 +201,9 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       refundedCents,
       itemCount: lines.reduce((n, r) => n + Math.max(1, r.quantity ?? 1), 0),
       payment,
-      /* Something to ship: fulfilled once it has all shipped (or needs no shipping). */
+      /* Something to ship: fulfilled once it has all shipped or arrived (or needs no shipping, or was cancelled). */
       fulfillment: lines.some((r) => r.physical_fulfillment)
-        ? lines.every((r) => !r.physical_fulfillment || r.physical_fulfillment === "fulfilled" || r.physical_fulfillment === "not_required")
+        ? lines.every((r) => !r.physical_fulfillment || r.physical_fulfillment === "fulfilled" || r.physical_fulfillment === "delivered" || r.physical_fulfillment === "cancelled" || r.physical_fulfillment === "not_required")
           ? "fulfilled"
           : "unfulfilled"
         : lines.some((r) => r.status === "completed" || r.status === "refunded")

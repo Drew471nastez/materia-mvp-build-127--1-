@@ -1,16 +1,18 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { HELP_ARTICLES, helpArticle, helpArticlePath, helpArticlesIn, helpCategory } from "@/lib/help/articles"
+import { ALL_HELP_ARTICLES, helpArticle, helpArticlePath, helpArticlesIn, helpCategory, helpVisible } from "@/lib/help/articles"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { ArticleBody, Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
 import { HelpSearch } from "@/components/help/help-search"
 import { cn } from "@/lib/utils"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 
 export const dynamicParams = false
+export const revalidate = 60
 
 export function generateStaticParams() {
-  return HELP_ARTICLES.map((a) => ({ category: a.category, article: a.slug }))
+  return ALL_HELP_ARTICLES.map((a) => ({ category: a.category, article: a.slug }))
 }
 
 interface PageProps {
@@ -34,7 +36,7 @@ export default async function HelpArticlePage({ params }: PageProps) {
   const { category: categorySlug, article: slug } = await params
   const article = helpArticle(categorySlug, slug)
   const category = helpCategory(categorySlug)
-  if (!article || !category) notFound()
+  if (!article || !category || !helpVisible(category, await isPhysicalCommerceEnabled())) notFound()
   const siblings = helpArticlesIn(category.slug)
 
   const breadcrumbJsonLd = {

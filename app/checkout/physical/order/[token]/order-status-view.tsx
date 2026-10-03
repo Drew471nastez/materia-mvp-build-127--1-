@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Check, Download, ExternalLink, Package, RefreshCw, Truck } from "lucide-react"
+import { Check, Download, ExternalLink, MapPin, Package, RefreshCw, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
 import { deliveryEstimate } from "@/lib/physical/rates"
-import { SHIPMENT_LABEL, orderNumber } from "@/lib/physical/status"
+import { orderNumber, shipmentLabel } from "@/lib/physical/status"
+import type { ShipmentStatus } from "@/lib/physical/types"
 
 interface Props {
   token: string
@@ -21,6 +22,9 @@ interface Props {
     name: string | null
     address: Record<string, any> | null
     delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null } | null
+    /** Collected by the buyer instead of shipped. */
+    pickup: { name: string; address: string[]; instructions: string | null; ready: string } | null
+    processing: boolean
     totals: { subtotal: number; discount: number; shipping: number; tax: number; taxIncluded: boolean; total: number; refunded: number }
     lines: { orderId: string; title: string; variantName: string | null; imageUrl: string | null; quantity: number; cents: number; type: string; receiptToken: string | null; returnable: number }[]
     shipments: { id: string; status: string; carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: string | null; deliveredAt: string | null; items: { orderId: string; quantity: number }[] }[]
@@ -63,13 +67,15 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn }: Pro
   const shipped = order.shipments.some((s) => s.shippedAt)
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
+  const pickup = order.pickup
   const steps = order.cancelled
     ? []
     : needsShipping
       ? [
           { label: "Confirmed", done: true, when: day(order.createdAt) },
-          { label: "Shipped", done: shipped, when: day(order.shipments.find((s) => s.shippedAt)?.shippedAt ?? null) },
-          { label: "Delivered", done: delivered, when: day(order.shipments.find((s) => s.deliveredAt)?.deliveredAt ?? null) },
+          { label: "Processing", done: order.processing || shipped, when: "" },
+          { label: pickup ? "Ready for pickup" : "Shipped", done: shipped, when: day(order.shipments.find((s) => s.shippedAt)?.shippedAt ?? null) },
+          { label: pickup ? "Picked up" : "Delivered", done: delivered, when: day(order.shipments.find((s) => s.deliveredAt)?.deliveredAt ?? null) },
         ]
       : [{ label: "Confirmed", done: true, when: day(order.createdAt) }]
   const first = order.name?.split(/\s+/)[0]
@@ -89,30 +95,59 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn }: Pro
         <div>
           <p className="text-[13px] font-medium text-[#6b7280]">Order {orderNumber(order.id)}</p>
           <h1 className="mt-1 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
-            {order.cancelled ? "Your order was cancelled" : justPaid ? `Thank you${first ? `, ${first}` : ""}!` : delivered ? "Your order was delivered" : shipped ? "Your order is on the way" : "Your order is confirmed"}
+            {order.cancelled
+              ? "Your order was cancelled"
+              : justPaid
+                ? `Thank you${first ? `, ${first}` : ""}!`
+                : delivered
+                  ? pickup
+                    ? "Your order was picked up"
+                    : "Your order was delivered"
+                  : shipped
+                    ? pickup
+                      ? "Your order is ready to pick up"
+                      : "Your order is on the way"
+                    : "Your order is confirmed"}
           </h1>
           {order.email && justPaid ? <p className="mt-1 text-[14px] text-[#6b7280]">A confirmation is on its way to {order.email}.</p> : null}
         </div>
 
         {steps.length > 1 ? (
           <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
-            <ol className="grid grid-cols-3 gap-2">
+            <ol className="grid grid-cols-4 gap-2">
               {steps.map((s, i) => (
                 <li key={s.label} className="relative">
                   <div className="flex items-center">
                     <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full", s.done ? "bg-[#1a1a2e] text-white" : "border-2 border-[#d1d5db] bg-white")}>{s.done ? <Check className="h-4 w-4" strokeWidth={2.5} /> : null}</span>
                     {i < steps.length - 1 ? <span className={cn("mx-2 h-[2px] flex-1 rounded", steps[i + 1].done ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]")} /> : null}
                   </div>
-                  <p className="mt-2 text-[13.5px] font-medium text-[#1a1a2e]">{s.label}</p>
+                  <p className="mt-2 text-[12.5px] font-medium leading-4 text-[#1a1a2e] sm:text-[13.5px]">{s.label}</p>
                   <p className="text-[12.5px] text-[#6b7280]">{s.when}</p>
                 </li>
               ))}
             </ol>
-            {order.delivery && !shipped ? <p className="mt-4 text-[13.5px] text-[#6b7280]">{order.delivery.name}{deliveryEstimate(order.delivery) ? `, usually ${deliveryEstimate(order.delivery)} after it ships` : ""}.</p> : null}
+            {pickup && !shipped ? <p className="mt-4 text-[13.5px] text-[#6b7280]">{pickup.ready}. We'll email you when it's ready.</p> : null}
+            {!pickup && order.delivery && !shipped ? <p className="mt-4 text-[13.5px] text-[#6b7280]">{order.delivery.name}{deliveryEstimate(order.delivery) ? `, usually ${deliveryEstimate(order.delivery)} after it ships` : ""}.</p> : null}
           </section>
         ) : null}
 
-        {order.shipments.map((s) => (
+        {pickup ? (
+          <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6" data-pickup-point="">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f3f4f6]">
+                <MapPin className="h-5 w-5 text-[#1a1a2e]" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[15px] font-semibold text-[#1a1a2e]">Pick up at {pickup.name}</p>
+                <p className="mt-0.5 text-[14px] leading-[21px] text-[#4b5563]">{pickup.address.join(", ")}</p>
+                {pickup.instructions ? <p className="mt-2 whitespace-pre-line rounded-lg bg-[#f8f9fa] px-3 py-2 text-[13.5px] leading-5 text-[#4b5563]">{pickup.instructions}</p> : null}
+                <p className="mt-2 text-[13px] text-[#6b7280]">Bring your order number, {orderNumber(order.id)}.</p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {pickup ? null : order.shipments.map((s) => (
           <section key={s.id} className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -120,7 +155,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn }: Pro
                   <Truck className="h-5 w-5 text-[#1a1a2e]" />
                 </span>
                 <div>
-                  <p className="text-[15px] font-semibold text-[#1a1a2e]">{SHIPMENT_LABEL[s.status as keyof typeof SHIPMENT_LABEL]?.label ?? "Shipped"}</p>
+                  <p className="text-[15px] font-semibold text-[#1a1a2e]">{shipmentLabel(s.status as ShipmentStatus, false)?.label ?? "Shipped"}</p>
                   <p className="text-[13px] text-[#6b7280]">{[s.carrier, s.trackingNumber].filter(Boolean).join(" ") || "Tracking not added yet"}</p>
                 </div>
               </div>
@@ -164,7 +199,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn }: Pro
           <dl className="mt-4 space-y-1.5 border-t border-[#eef0f2] pt-4 text-[14px]">
             <Row label="Subtotal" value={money(order.totals.subtotal)} />
             {order.totals.discount ? <Row label="Discount" value={`-${money(order.totals.discount)}`} /> : null}
-            {needsShipping ? <Row label="Shipping" value={order.totals.shipping ? money(order.totals.shipping) : "Free"} /> : null}
+            {needsShipping ? <Row label={pickup ? "Pickup" : "Shipping"} value={order.totals.shipping ? money(order.totals.shipping) : "Free"} /> : null}
             {order.totals.tax ? <Row label={order.totals.taxIncluded ? "Including tax" : "Tax"} value={money(order.totals.tax)} /> : null}
             <Row label="Total" value={money(order.totals.total)} strong />
             {order.totals.refunded ? <Row label="Refunded" value={`-${money(order.totals.refunded)}`} /> : null}

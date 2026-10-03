@@ -8,7 +8,7 @@
  * drifts. Labels and tones are the ones the order pages show.
  */
 
-import type { FulfillmentStatus, PaymentStatus, ReturnStatus, ShipmentStatus } from "./types"
+import type { DeliveryMethod, FulfillmentStatus, PaymentStatus, ReturnStatus, ShipmentStatus } from "./types"
 
 export type Tone = "green" | "blue" | "amber" | "red" | "gray"
 
@@ -20,14 +20,33 @@ export interface LineProgress {
   returned: number
 }
 
-export function fulfillmentStatusOf(lines: LineProgress[], cancelled = false): FulfillmentStatus {
+/**
+ * Unfulfilled, Processing, Shipped (fulfilled), Delivered, from the rows:
+ * delivered once everything shipped and every shipment that was not
+ * cancelled has arrived; processing once the seller started on it and
+ * nothing has shipped yet.
+ */
+export function fulfillmentStatusOf(lines: LineProgress[], cancelled = false, extra: { processing?: boolean; allDelivered?: boolean } = {}): FulfillmentStatus {
   const shippable = lines.filter((l) => l.requiresShipping)
   if (shippable.length === 0) return "not_required"
   if (cancelled) return "cancelled"
   const want = shippable.reduce((n, l) => n + l.quantity, 0)
   const done = shippable.reduce((n, l) => n + Math.min(l.quantity, l.fulfilled), 0)
-  if (done <= 0) return "unfulfilled"
-  return done >= want ? "fulfilled" : "partially_fulfilled"
+  if (done <= 0) return extra.processing ? "processing" : "unfulfilled"
+  if (done < want) return "partially_fulfilled"
+  return extra.allDelivered ? "delivered" : "fulfilled"
+}
+
+/** The four steps an order shows, and which one it is on (-1 when cancelled or nothing ships). */
+export const ORDER_STEPS: { id: FulfillmentStatus; ship: string; pickup: string }[] = [
+  { id: "unfulfilled", ship: "Unfulfilled", pickup: "Unfulfilled" },
+  { id: "processing", ship: "Processing", pickup: "Processing" },
+  { id: "fulfilled", ship: "Shipped", pickup: "Ready for pickup" },
+  { id: "delivered", ship: "Delivered", pickup: "Picked up" },
+]
+export function orderStep(status: FulfillmentStatus): number {
+  if (status === "partially_fulfilled") return 2
+  return ORDER_STEPS.findIndex((s) => s.id === status)
 }
 
 export function returnStatusOf(lines: LineProgress[], openReturns: number): ReturnStatus {
@@ -61,10 +80,23 @@ export const PAYMENT_LABEL: Record<PaymentStatus, { label: string; tone: Tone }>
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, { label: string; tone: Tone }> = {
   unfulfilled: { label: "Unfulfilled", tone: "amber" },
-  partially_fulfilled: { label: "Partially fulfilled", tone: "blue" },
-  fulfilled: { label: "Fulfilled", tone: "green" },
+  processing: { label: "Processing", tone: "blue" },
+  partially_fulfilled: { label: "Partially shipped", tone: "blue" },
+  fulfilled: { label: "Shipped", tone: "green" },
+  delivered: { label: "Delivered", tone: "green" },
   cancelled: { label: "Cancelled", tone: "gray" },
   not_required: { label: "No shipping", tone: "gray" },
+}
+
+const PICKUP_FULFILLMENT_LABEL: Partial<Record<FulfillmentStatus, { label: string; tone: Tone }>> = {
+  partially_fulfilled: { label: "Partly ready", tone: "blue" },
+  fulfilled: { label: "Ready for pickup", tone: "green" },
+  delivered: { label: "Picked up", tone: "green" },
+}
+
+/** The order's fulfilment status in the words for how it is delivered. */
+export function fulfillmentLabel(status: FulfillmentStatus, method: DeliveryMethod = "ship"): { label: string; tone: Tone } {
+  return (method === "pickup" ? PICKUP_FULFILLMENT_LABEL[status] : null) ?? FULFILLMENT_LABEL[status] ?? FULFILLMENT_LABEL.unfulfilled
 }
 
 export const RETURN_LABEL: Record<ReturnStatus, { label: string; tone: Tone }> = {
@@ -84,6 +116,13 @@ export const SHIPMENT_LABEL: Record<ShipmentStatus, { label: string; tone: Tone 
   delivered: { label: "Delivered", tone: "green" },
   failed: { label: "Delivery problem", tone: "red" },
   cancelled: { label: "Cancelled", tone: "gray" },
+}
+
+/** A shipment's status, read as a pickup when the buyer collects it. */
+export function shipmentLabel(status: ShipmentStatus, pickup = false): { label: string; tone: Tone } {
+  if (pickup && (status === "shipped" || status === "in_transit" || status === "out_for_delivery")) return { label: "Ready for pickup", tone: "blue" }
+  if (pickup && status === "delivered") return { label: "Picked up", tone: "green" }
+  return SHIPMENT_LABEL[status]
 }
 
 /** A shipment only moves forward, except to failed or cancelled; delivered and cancelled are final. */

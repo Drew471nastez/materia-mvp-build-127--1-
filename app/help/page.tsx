@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { HELP_CATEGORIES, helpArticlePath, helpArticlesIn } from "@/lib/help/articles"
+import { helpArticlePath, helpArticlesIn, helpCategoriesFor } from "@/lib/help/articles"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { ContactSupport, HELP_CONTAINER } from "@/components/help/help-parts"
 import { HelpSearch } from "@/components/help/help-search"
 
@@ -23,7 +24,11 @@ export const metadata: Metadata = {
  * the search searches them, and the page is a search field and the seven
  * topics, set as type rather than as tiles.
  */
-export default function HelpPage() {
+/* The physical products guide follows the switch in /admin; the switch also revalidates /help at once. */
+export const revalidate = 60
+
+export default async function HelpPage() {
+  const categories = helpCategoriesFor(await isPhysicalCommerceEnabled())
   return (
     <div className="bg-white">
       <header className="border-b border-[#e5e7eb] bg-[#f8f9fa]">
@@ -40,7 +45,7 @@ export default function HelpPage() {
 
       <div className={`${HELP_CONTAINER} py-10 sm:py-14`}>
         <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-          {HELP_CATEGORIES.map((category) => {
+          {categories.map((category) => {
             const articles = helpArticlesIn(category.slug)
             return (
               <section key={category.slug} aria-labelledby={`c-${category.slug}`} className="border-t border-[#e5e7eb] pt-5">

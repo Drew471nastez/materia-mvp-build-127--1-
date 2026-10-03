@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadOrder } from "@/lib/physical/orders-server"
 import { loadSettings } from "@/lib/physical/config-server"
+import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { returnableQuantities } from "@/lib/physical/status"
 import { progressOf } from "@/lib/physical/orders-server"
 import { OrderStatusView, PendingOrder } from "./order-status-view"
@@ -45,8 +46,10 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         createdAt: order.paidAt ?? order.createdAt,
         email: order.buyerEmail,
         name: order.buyerName,
-        address: order.address,
+        address: order.deliveryMethod === "pickup" ? null : order.address,
         delivery: order.delivery,
+        pickup: order.pickup ? { name: order.pickup.name, address: order.pickup.address, instructions: order.pickup.instructions, ready: PICKUP_READY_LABEL[order.pickup.ready] } : null,
+        processing: !!order.processingAt,
         totals: { subtotal: order.itemsSubtotalCents, discount: order.discountCents, shipping: order.shippingCents - order.shippingDiscountCents, tax: order.taxCents, taxIncluded: order.taxIncluded, total: order.totalCents, refunded: order.refundedCents },
         lines: order.lines.map((l) => ({ orderId: l.orderId, title: l.title, variantName: l.variantName, imageUrl: l.imageUrl, quantity: l.quantity, cents: l.unitCents * l.quantity - l.discountCents, type: l.type, receiptToken: l.type === "physical" ? null : l.receiptToken, returnable: returnable.get(l.orderId) ?? 0 })),
         shipments: order.shipments.filter((s) => s.status !== "cancelled").map((s) => ({ id: s.id, status: s.status, carrier: s.carrier, trackingNumber: s.trackingNumber, trackingUrl: s.trackingUrl, shippedAt: s.shippedAt, deliveredAt: s.deliveredAt, items: s.items })),

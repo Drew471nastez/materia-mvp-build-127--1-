@@ -18,6 +18,8 @@
  * Text may carry links as [label](/path). Nothing else is parsed.
  */
 
+import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY } from "./physical-articles"
+
 export type HelpBlock =
   | { type: "p"; text: string }
   | { type: "h"; text: string }
@@ -25,11 +27,15 @@ export type HelpBlock =
   | { type: "list"; items: string[] }
   | { type: "table"; head: string[]; rows: string[][] }
   | { type: "note"; text: string }
+  /** A drawn picture of the screen being explained (components/help/help-figures). */
+  | { type: "figure"; figure: string; caption: string }
 
 export interface HelpCategory {
   slug: string
   title: string
   description: string
+  /** Shown only while physical commerce is on in /admin. */
+  physical?: boolean
 }
 
 export interface HelpArticle {
@@ -603,16 +609,39 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
 ]
 
+/*
+  The physical products guide (./physical-articles) is a topic of its own,
+  shown only while physical commerce is on in /admin. HELP_CATEGORIES and
+  HELP_ARTICLES stay the topics that are always there; the lookups below
+  find either, and each page asks helpVisible() before showing one.
+*/
+export const ALL_HELP_CATEGORIES: HelpCategory[] = [...HELP_CATEGORIES.slice(0, 2), PHYSICAL_CATEGORY, ...HELP_CATEGORIES.slice(2)]
+export const ALL_HELP_ARTICLES: HelpArticle[] = [...HELP_ARTICLES, ...PHYSICAL_ARTICLES]
+
+/** The topics to show: the physical guide only while physical commerce is on. */
+export function helpCategoriesFor(physical: boolean): HelpCategory[] {
+  return ALL_HELP_CATEGORIES.filter((c) => physical || !c.physical)
+}
+
+export function helpArticlesFor(physical: boolean): HelpArticle[] {
+  return physical ? ALL_HELP_ARTICLES : HELP_ARTICLES
+}
+
+/** Whether a topic may be shown now. */
+export function helpVisible(category: HelpCategory | undefined, physical: boolean): boolean {
+  return !!category && (physical || !category.physical)
+}
+
 export function helpCategory(slug: string): HelpCategory | undefined {
-  return HELP_CATEGORIES.find((c) => c.slug === slug)
+  return ALL_HELP_CATEGORIES.find((c) => c.slug === slug)
 }
 
 export function helpArticlesIn(category: string): HelpArticle[] {
-  return HELP_ARTICLES.filter((a) => a.category === category)
+  return ALL_HELP_ARTICLES.filter((a) => a.category === category)
 }
 
 export function helpArticle(category: string, slug: string): HelpArticle | undefined {
-  return HELP_ARTICLES.find((a) => a.category === category && a.slug === slug)
+  return ALL_HELP_ARTICLES.find((a) => a.category === category && a.slug === slug)
 }
 
 export function helpArticlePath(a: Pick<HelpArticle, "category" | "slug">): string {
@@ -634,6 +663,7 @@ export function articleText(a: HelpArticle): string {
        from the text reads as one rather than running two items together. */
     else if (b.type === "steps" || b.type === "list") parts.push(...b.items.map(sentence))
     else if (b.type === "table") parts.push(...b.rows.map((r) => sentence(r.filter(Boolean).join(", "))))
+    else if (b.type === "figure") parts.push(sentence(b.caption))
   }
   return parts.map(plainText).join(" ")
 }

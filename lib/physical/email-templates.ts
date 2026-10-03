@@ -118,17 +118,25 @@ export interface OrderEmailModel {
   deliveryEstimate: string | null
   statusUrl: string
   hasDownloads: boolean
+  /** Picked up instead of shipped: where, when it is usually ready, and what to bring. */
+  pickup?: { name: string; address: string[]; ready: string | null; instructions: string | null } | null
+}
+
+function pickupBlock(p: { name: string; address: string[]; ready: string | null; instructions: string | null }): string {
+  const lines = [p.name, ...p.address].map(esc).join("<br>")
+  const extra = [p.ready ? esc(p.ready) : "", p.instructions ? esc(p.instructions).replace(/\n/g, "<br>") : ""].filter(Boolean).join("<br><br>")
+  return `<tr><td style="padding:16px 28px 0 28px;"><p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:${INK};">Pick up at</p><p style="margin:0;font-size:14px;line-height:21px;color:${MUTED};">${lines}${extra ? `<br><br>${extra}` : ""}</p></td></tr>`
 }
 
 export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; html: string; text: string } {
   const subject = `Order ${m.orderNumber} confirmed`
   const hi = m.buyerFirstName ? `Thanks, ${esc(m.buyerFirstName)}. ` : "Thanks for your order. "
-  const intro = `${hi}${m.address?.line1 ? "We'll email you again when it ships." : "Everything is ready on your order page."}${m.hasDownloads ? " Your downloads are on your order page." : ""}`
+  const intro = `${hi}${m.pickup ? "We'll email you when it's ready to pick up." : m.address?.line1 ? "We'll email you again when it ships." : "Everything is ready on your order page."}${m.hasDownloads ? " Your downloads are on your order page." : ""}`
   const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `, ${esc(m.deliveryEstimate)}` : ""}` : undefined
   const body = [
     linesTable(m.lines, m.totals.currency),
     totalsTable(m.totals),
-    m.address?.line1 ? addressBlock("Shipping to", m.address, delivery) : "",
+    m.pickup ? pickupBlock(m.pickup) : m.address?.line1 ? addressBlock("Shipping to", m.address, delivery) : "",
     button(m.statusUrl, "View your order"),
   ].join("")
   const text = [
@@ -137,11 +145,63 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
     "",
     `Total: ${formatMoney(m.totals.total, m.totals.currency)}`,
-    ...(m.address?.line1 ? ["", "Shipping to:", ...addressLines(m.address)] : []),
+    ...(m.pickup
+      ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
+      : m.address?.line1
+        ? ["", "Shipping to:", ...addressLines(m.address)]
+        : []),
     "",
     `View your order: ${m.statusUrl}`,
   ].join("\n")
   return { subject, html: shell(m.shopName, `Order ${m.orderNumber} confirmed`, intro, body, subject), text }
+}
+
+/** Ready to collect, or collected. */
+export function pickupEmail(m: {
+  shopName: string
+  orderNumber: string
+  buyerFirstName: string | null
+  lines: EmailLine[]
+  kind: "ready" | "picked_up"
+  pickup: { name: string; address: string[]; ready: string | null; instructions: string | null }
+  statusUrl: string
+}): { subject: string; html: string; text: string } {
+  const heading = m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up"
+  const subject = heading.replace("Your order", `Order ${m.orderNumber}`)
+  const intro =
+    m.kind === "ready"
+      ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is ready. Bring your order number, ${esc(m.orderNumber)}.`
+      : "Thanks for picking up your order. We hope you love it."
+  const body = [linesTable(m.lines, "USD", false), m.kind === "ready" ? pickupBlock({ ...m.pickup, ready: null }) : "", button(m.statusUrl, "View your order")].join("")
+  const text = [
+    `${m.shopName}: ${subject}`,
+    "",
+    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
+    ...(m.kind === "ready" ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])] : []),
+    "",
+    `View your order: ${m.statusUrl}`,
+  ].join("\n")
+  return { subject, html: shell(m.shopName, heading, intro, body, subject), text }
+}
+
+/** To the seller: these sold down to their low stock line. */
+export function lowStockEmail(m: { shopName: string; items: { title: string; variantName: string | null; available: number; threshold: number }[]; inventoryUrl: string }): {
+  subject: string
+  html: string
+  text: string
+} {
+  const out = m.items.filter((i) => i.available <= 0).length
+  const subject = m.items.length === 1 ? `Low stock: ${m.items[0].title}${m.items[0].variantName ? ` (${m.items[0].variantName})` : ""}` : `${m.items.length} products are running low`
+  const intro = out > 0 ? "Some of your products are sold out or nearly sold out. Restock them so buyers can keep ordering." : "Some of your products are running low. Restock them before they sell out."
+  const rows = m.items
+    .map(
+      (i) =>
+        `<tr><td style="padding:8px 0;border-bottom:1px solid #f1f2f4;font-size:14px;color:${INK};">${esc(i.title)}${i.variantName ? `<br><span style="color:${MUTED};font-size:13px;">${esc(i.variantName)}</span>` : ""}</td><td style="padding:8px 0;border-bottom:1px solid #f1f2f4;font-size:14px;color:${i.available <= 0 ? "#b42318" : INK};text-align:right;white-space:nowrap;">${i.available <= 0 ? "Sold out" : `${i.available} left`}</td></tr>`,
+    )
+    .join("")
+  const body = `<tr><td style="padding:8px 28px 0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>${button(m.inventoryUrl, "Open Inventory")}`
+  const text = [subject, "", ...m.items.map((i) => `${i.title}${i.variantName ? ` (${i.variantName})` : ""}: ${i.available <= 0 ? "sold out" : `${i.available} left`}`), "", `Inventory: ${m.inventoryUrl}`].join("\n")
+  return { subject, html: shell(m.shopName, out > 0 ? "Stock is running out" : "Stock is running low", intro, body, subject), text }
 }
 
 export interface ShipmentEmailModel {

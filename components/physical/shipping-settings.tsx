@@ -5,15 +5,15 @@
  *  SETTINGS > SHIPPING: HOW A SHOP SHIPS, FROM WHERE, FOR HOW MUCH
  * ===========================================================================
  * Only while physical commerce is on in /admin (the tab is filtered out
- * otherwise). One panel, six parts, chosen with ?section=:
+ * otherwise). One panel, four parts, chosen with ?section=:
  *
- *   delivery      shipping profiles, their zones (countries) and rates
- *   locations     where stock is kept and orders ship from, and who ships
- *                 them (the merchant, or a supplier by email or webhook)
- *   packages      the boxes and envelopes used
- *   taxes         none, or the shop's own rates per country and region
- *   returns       returns on or off, the window, the low stock line
- *   integrations  what can fulfil orders, said honestly: live or not yet
+ *   delivery      units, the General shipping profile and custom ones, their
+ *                 zones (countries or states) and rates (flat, free, by
+ *                 order price, by order weight, by item weight)
+ *   locations     where stock is kept, where orders ship from, who ships
+ *                 them, and local pickup (instructions, preparation time)
+ *   taxes         none, or the shop's own rates per country and state
+ *   advanced      low stock emails, returns, packages and integrations
  *
  * The first visit asks one question, "How do you fulfil your physical
  * orders?", and sets up a first location of that kind.
@@ -23,24 +23,29 @@
  */
 
 import * as React from "react"
-import { Check, Pencil, Plus, Trash2 } from "lucide-react"
+import { Check, MapPin, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { deliveryEstimate } from "@/lib/physical/rates"
+import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
+import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
+import { fromGrams, toGrams, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { CATEGORY_LABEL, PROVIDERS, type ProviderCategory } from "@/lib/physical/providers"
-import type { FulfillmentModel, Location, LocationKind, RateKind, ShippingProfile, ShippingRate, ShippingZone } from "@/lib/physical/types"
-import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money } from "./ui"
+import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
+import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money } from "./ui"
 
 interface Settings {
   fulfillmentModel: FulfillmentModel | null
   defaultLocationId: string | null
   defaultPackageId: string | null
+  unitSystem: UnitSystem
   returnsEnabled: boolean
   returnWindowDays: number
   taxMode: "none" | "manual" | "provider"
   pricesIncludeTax: boolean
   taxOnShipping: boolean
   lowStockDefault: number
+  lowStockAlerts: boolean
   onboardedAt: string | null
 }
 interface Pack {
@@ -89,14 +94,19 @@ const MODELS: { id: FulfillmentModel; title: string; line: string }[] = [
 ]
 
 const SECTIONS = [
-  { id: "delivery", label: "Delivery" },
-  { id: "locations", label: "Locations" },
-  { id: "packages", label: "Packages" },
+  { id: "delivery", label: "Shipping" },
+  { id: "locations", label: "Locations and pickup" },
   { id: "taxes", label: "Taxes" },
-  { id: "returns", label: "Returns and stock" },
-  { id: "integrations", label: "Integrations" },
+  { id: "advanced", label: "Advanced" },
 ] as const
 type Section = (typeof SECTIONS)[number]["id"]
+
+/** Older links (?section=rates, packages, returns, integrations) land where those now live. */
+function sectionOf(s: string | null): Section {
+  if (s === "rates") return "delivery"
+  if (s === "packages" || s === "returns" || s === "integrations" || s === "stock") return "advanced"
+  return SECTIONS.some((x) => x.id === s) ? (s as Section) : "delivery"
+}
 
 const KIND_LABEL: Record<LocationKind, string> = {
   home: "Home or studio",
@@ -111,14 +121,33 @@ const KIND_LABEL: Record<LocationKind, string> = {
 
 const RATE_KIND_LABEL: Record<RateKind, string> = {
   flat: "Flat rate",
-  free: "Free",
-  weight: "By weight",
-  price: "By order value",
+  free: "Free shipping",
+  price: "Based on order price",
+  weight: "Based on order weight",
+  item_weight: "Based on item weight",
   quantity: "By number of items",
   carrier: "Carrier calculated",
 }
 
-function rateCondition(r: ShippingRate): string {
+/** What the seller picks from; quantity and carrier stay readable on older rates. */
+const RATE_KINDS_OFFERED: RateKind[] = ["flat", "free", "price", "weight", "item_weight"]
+
+const RATE_KIND_LINE: Record<RateKind, string> = {
+  flat: "One price for the whole order.",
+  free: "Nothing to pay, always or above an order value.",
+  price: "Bigger orders pay a different price. Set the steps.",
+  weight: "Heavier orders pay more. Set the steps by total weight.",
+  item_weight: "Each item is priced by its own weight, then added up.",
+  quantity: "By how many items are in the order.",
+  carrier: "Priced live by a carrier.",
+}
+
+function weightText(grams: number, system: UnitSystem): string {
+  const unit = weightUnitFor(system)
+  return `${fromGrams(grams, unit)} ${unit}`
+}
+
+function rateCondition(r: ShippingRate, system: UnitSystem): string {
   const parts: string[] = []
   const range = (fmt: (n: number) => string) => {
     if (r.minValue !== null && r.maxValue !== null) return `${fmt(r.minValue)} to ${fmt(r.maxValue)}`
@@ -126,13 +155,32 @@ function rateCondition(r: ShippingRate): string {
     if (r.maxValue !== null) return `up to ${fmt(r.maxValue)}`
     return ""
   }
-  if (r.kind === "weight") parts.push(range((n) => `${n >= 1000 ? `${n / 1000} kg` : `${n} g`}`))
-  if (r.kind === "price") parts.push(range((n) => money(n)))
-  if (r.kind === "quantity") parts.push(range((n) => `${n} ${n === 1 ? "item" : "items"}`))
+  const fmtValue = (n: number) => (r.kind === "price" ? money(n) : weightText(n, system))
+  if ((r.kind === "price" || r.kind === "weight" || r.kind === "item_weight") && r.tiers.length) {
+    parts.push(
+      r.tiers
+        .map((t, i) => {
+          const next = r.tiers[i + 1]
+          const span = next ? `${fmtValue(t.from)} to ${fmtValue(next.from)}` : `${fmtValue(t.from)}+`
+          return `${span} ${t.priceCents === 0 ? "free" : money(t.priceCents)}${r.kind === "item_weight" ? " each" : ""}`
+        })
+        .join(", "),
+    )
+    if (r.maxValue !== null) parts.push(`not above ${fmtValue(r.maxValue)}`)
+  } else if (r.kind === "weight") parts.push(range((n) => weightText(n, system)))
+  else if (r.kind === "price") parts.push(range((n) => money(n)))
+  else if (r.kind === "quantity") parts.push(range((n) => `${n} ${n === 1 ? "item" : "items"}`))
+  if (r.kind === "free" && r.minValue) parts.push(`on orders over ${money(r.minValue)}`)
   if (r.freeOverCents) parts.push(`free over ${money(r.freeOverCents)}`)
   const est = deliveryEstimate(r)
   if (est) parts.push(est)
   return parts.filter(Boolean).join(" · ")
+}
+
+function zonePlaces(z: Pick<ShippingZone, "restOfWorld" | "countries" | "regions">): string {
+  if (z.restOfWorld) return "Every other country"
+  const names = [...z.countries.map(countryName), ...(z.regions ?? []).map(regionLabel)]
+  return names.length <= 3 ? names.join(", ") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`
 }
 
 function stopEnter(e: React.KeyboardEvent) {
@@ -144,8 +192,7 @@ export function ShippingSettings() {
   const [error, setError] = React.useState<string | null>(null)
   const [section, setSection] = React.useState<Section>(() => {
     if (typeof window === "undefined") return "delivery"
-    const s = new URLSearchParams(window.location.search).get("section")
-    return s === "rates" ? "delivery" : SECTIONS.some((x) => x.id === s) ? (s as Section) : "delivery"
+    return sectionOf(new URLSearchParams(window.location.search).get("section"))
   })
 
   const load = React.useCallback(async () => {
@@ -179,6 +226,12 @@ export function ShippingSettings() {
   return (
     <div className="space-y-4 sm:space-y-6" onKeyDown={stopEnter} data-shipping-settings="">
       {!data.settings.onboardedAt ? <Onboarding onDone={load} /> : null}
+      <p className="text-[13px] text-[#6b7280]">
+        New to selling physical products?{" "}
+        <a href="/help/physical-products/how-physical-products-work" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+          Read the step by step guide
+        </a>
+      </p>
 
       <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1">
@@ -201,10 +254,14 @@ export function ShippingSettings() {
 
       {section === "delivery" ? <Delivery data={data} reload={load} setData={setData} /> : null}
       {section === "locations" ? <Locations data={data} reload={load} /> : null}
-      {section === "packages" ? <Packages data={data} setData={setData} /> : null}
       {section === "taxes" ? <Taxes data={data} reload={load} setData={setData} /> : null}
-      {section === "returns" ? <Returns data={data} reload={load} /> : null}
-      {section === "integrations" ? <Integrations data={data} setData={setData} /> : null}
+      {section === "advanced" ? (
+        <div className="space-y-4">
+          <Returns data={data} reload={load} />
+          <Packages data={data} setData={setData} />
+          <Integrations data={data} setData={setData} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -266,11 +323,42 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const system = data.settings.unitSystem ?? "metric"
+  const setSystem = async (unitSystem: UnitSystem) => {
+    setData((d) => (d ? { ...d, settings: { ...d.settings, unitSystem } } : d))
+    const r = await api("/api/physical/settings", { method: "PUT", body: { unitSystem } })
+    if (!r.ok) {
+      setError(r.error)
+      reload()
+    }
+  }
+
   return (
     <div className="space-y-4">
-      {noRates ? <Notice tone="amber">Buyers can't check out a physical product until it has a rate for their country. Add a zone and a rate below.</Notice> : null}
+      <Card title="Units" description="What new products and weight based rates are typed in.">
+        <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1" role="radiogroup" aria-label="Units">
+          {(
+            [
+              { id: "metric", label: "Metric (kg, cm)" },
+              { id: "imperial", label: "Imperial (lb, in)" },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={system === o.id}
+              onClick={() => setSystem(o.id)}
+              className={cn("h-9 rounded-lg px-3 text-[13.5px] font-medium transition-colors", system === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+      {noRates ? <Notice tone="amber">Buyers can't check out a physical product until it has a rate for their address. Add a zone and a rate below.</Notice> : null}
       {profiles.map((p) => (
-        <ProfileCard key={p.id} profile={p} allProfiles={data.profiles} onProfiles={updateProfiles} onError={setError} />
+        <ProfileCard key={p.id} profile={p} allProfiles={data.profiles} system={system} onProfiles={updateProfiles} onError={setError} />
       ))}
       {error ? <Notice>{error}</Notice> : null}
       {newProfile === null ? (
@@ -310,9 +398,10 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
   )
 }
 
-function ProfileCard({ profile, allProfiles, onProfiles, onError }: { profile: ShippingProfile; allProfiles: ShippingProfile[]; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
+function ProfileCard({ profile, allProfiles, system, onProfiles, onError }: { profile: ShippingProfile; allProfiles: ShippingProfile[]; system: UnitSystem; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
   const [addingZone, setAddingZone] = React.useState(false)
   const taken = allProfiles.find((p) => p.id === profile.id)?.zones.flatMap((z) => z.countries) ?? []
+  const takenRegions = allProfiles.find((p) => p.id === profile.id)?.zones.flatMap((z) => z.regions ?? []) ?? []
   const hasRow = profile.zones.some((z) => z.restOfWorld)
   return (
     <Card
@@ -322,7 +411,7 @@ function ProfileCard({ profile, allProfiles, onProfiles, onError }: { profile: S
           {profile.isDefault ? <Pill tone="gray">Default</Pill> : null}
         </span>
       }
-      description={profile.isDefault ? "Every product uses these rates unless it has its own profile." : "Products set to this profile use these rates."}
+      description={profile.isDefault ? "Every physical product uses these rates, unless you give it a custom profile." : "Only products set to this profile use these rates. Pick it in the product's Shipping card."}
       action={
         profile.isDefault ? null : (
           <button
@@ -342,13 +431,14 @@ function ProfileCard({ profile, allProfiles, onProfiles, onError }: { profile: S
       }
     >
       <div className="space-y-3">
-        {profile.zones.length === 0 && !addingZone ? <p className={MUTED}>No zones yet. Add the countries you ship to.</p> : null}
+        {profile.zones.length === 0 && !addingZone ? <p className={MUTED}>No zones yet. A zone is a group of countries or states you ship to with the same rates.</p> : null}
         {profile.zones.map((z) => (
-          <ZoneBlock key={z.id} zone={z} taken={taken} onProfiles={onProfiles} onError={onError} />
+          <ZoneBlock key={z.id} zone={z} taken={taken} takenRegions={takenRegions} system={system} onProfiles={onProfiles} onError={onError} />
         ))}
         {addingZone ? (
           <ZoneForm
             taken={taken}
+            takenRegions={takenRegions}
             canRestOfWorld={!hasRow}
             onCancel={() => setAddingZone(false)}
             onSave={async (zone) => {
@@ -370,19 +460,78 @@ function ProfileCard({ profile, allProfiles, onProfiles, onError }: { profile: S
   )
 }
 
-function ZoneForm({ initial, taken, canRestOfWorld, onCancel, onSave }: { initial?: ShippingZone; taken: string[]; canRestOfWorld: boolean; onCancel: () => void; onSave: (z: { name: string; countries: string[]; restOfWorld: boolean }) => Promise<string | null> }) {
+function ZoneForm({
+  initial,
+  taken,
+  takenRegions,
+  canRestOfWorld,
+  onCancel,
+  onSave,
+}: {
+  initial?: ShippingZone
+  taken: string[]
+  takenRegions: string[]
+  canRestOfWorld: boolean
+  onCancel: () => void
+  onSave: (z: { name: string; countries: string[]; regions: string[]; restOfWorld: boolean }) => Promise<string | null>
+}) {
   const [name, setName] = React.useState(initial?.name ?? "")
   const [countries, setCountries] = React.useState<string[]>(initial?.countries ?? [])
+  const [regions, setRegions] = React.useState<string[]>(initial?.regions ?? [])
   const [row, setRow] = React.useState(initial?.restOfWorld ?? false)
+  const [statesFor, setStatesFor] = React.useState<string | null>(() => (initial?.regions?.[0] ? initial.regions[0].split("-")[0] : null))
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const otherRegions = takenRegions.filter((r) => !initial?.regions?.includes(r))
+  const defaultName = () => (row ? "Rest of world" : countries.length === 1 && regions.length === 0 ? countryName(countries[0]) : regions.length === 1 && countries.length === 0 ? regionLabel(regions[0]) : "Zone")
   return (
     <div className="space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3">
-      <Field label="Zone name" hint="Buyers don't see this">
+      <Field label="Zone name" hint="Only you see this">
         <TextInput value={name} maxLength={80} placeholder={row ? "Rest of world" : "Europe"} onChange={(e) => setName(e.target.value)} />
       </Field>
       {canRestOfWorld || initial?.restOfWorld ? <Toggle label="Rest of world" description="Every country not in another zone of this profile." checked={row} onChange={setRow} disabled={!!initial} /> : null}
       {!row ? <CountryPicker value={countries} onChange={setCountries} taken={taken.filter((c) => !initial?.countries.includes(c))} /> : null}
+      {!row ? (
+        <div className="rounded-xl border border-[#eceef1] bg-white p-3">
+          <p className="text-[13.5px] font-medium text-[#1a1a2e]">Only some states or provinces</p>
+          <p className="mt-0.5 text-[12.5px] text-[#6b7280]">For a separate rate to, say, Alaska and Hawaii. A country chosen above is covered whole.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {Object.keys(REGIONS).map((cc) => (
+              <button
+                key={cc}
+                type="button"
+                onClick={() => setStatesFor(statesFor === cc ? null : cc)}
+                aria-pressed={statesFor === cc}
+                disabled={countries.includes(cc)}
+                className={cn("h-8 rounded-lg border px-2.5 text-[13px] font-medium disabled:opacity-40", statesFor === cc ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-[#e5e7eb] text-[#4b5563] hover:bg-[#f7f7f8]")}
+              >
+                {countryName(cc)}
+                {regions.filter((r) => r.startsWith(`${cc}-`)).length ? ` (${regions.filter((r) => r.startsWith(`${cc}-`)).length})` : ""}
+              </button>
+            ))}
+          </div>
+          {statesFor && !countries.includes(statesFor) ? (
+            <div className="mt-3 grid max-h-[220px] grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto sm:grid-cols-3">
+              {regionsOf(statesFor).map((r) => {
+                const key = `${statesFor}-${r.code}`
+                const takenHere = otherRegions.includes(key)
+                return (
+                  <label key={key} className={cn("flex items-center gap-2 py-1 text-[13px]", takenHere ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>
+                    <input
+                      type="checkbox"
+                      disabled={takenHere}
+                      checked={regions.includes(key)}
+                      onChange={(e) => setRegions((prev) => (e.target.checked ? [...prev, key] : prev.filter((x) => x !== key)))}
+                      className="h-4 w-4 rounded border-[#d1d5db] accent-[#1a1a2e]"
+                    />
+                    {r.name}
+                  </label>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex justify-end gap-2">
         <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
@@ -391,10 +540,10 @@ function ZoneForm({ initial, taken, canRestOfWorld, onCancel, onSave }: { initia
         <button
           type="button"
           className={BTN_PRIMARY}
-          disabled={busy || (!row && countries.length === 0)}
+          disabled={busy || (!row && countries.length === 0 && regions.length === 0)}
           onClick={async () => {
             setBusy(true)
-            const problem = await onSave({ name: name.trim() || (row ? "Rest of world" : countries.length === 1 ? countryName(countries[0]) : "Zone"), countries, restOfWorld: row })
+            const problem = await onSave({ name: name.trim() || defaultName(), countries, regions: regions.filter((r) => !countries.includes(r.split("-")[0])), restOfWorld: row })
             setBusy(false)
             if (problem) setError(problem)
           }}
@@ -406,19 +555,20 @@ function ZoneForm({ initial, taken, canRestOfWorld, onCancel, onSave }: { initia
   )
 }
 
-function ZoneBlock({ zone, taken, onProfiles, onError }: { zone: ShippingZone; taken: string[]; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
+function ZoneBlock({ zone, taken, takenRegions, system, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
   const [editing, setEditing] = React.useState(false)
   const [rateForm, setRateForm] = React.useState<ShippingRate | "new" | null>(null)
-  const label = zone.restOfWorld ? "Every other country" : zone.countries.length <= 3 ? zone.countries.map(countryName).join(", ") : `${zone.countries.length} countries`
+  const label = zonePlaces(zone)
   if (editing) {
     return (
       <ZoneForm
         initial={zone}
         taken={taken}
+        takenRegions={takenRegions}
         canRestOfWorld={false}
         onCancel={() => setEditing(false)}
         onSave={async (z) => {
-          const r = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/zones/${zone.id}`, { method: "PATCH", body: { name: z.name, ...(zone.restOfWorld ? {} : { countries: z.countries }) } })
+          const r = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/zones/${zone.id}`, { method: "PATCH", body: { name: z.name, ...(zone.restOfWorld ? {} : { countries: z.countries, regions: z.regions }) } })
           if (!r.ok) return r.error
           onProfiles(r.data.profiles)
           setEditing(false)
@@ -457,7 +607,7 @@ function ZoneBlock({ zone, taken, onProfiles, onError }: { zone: ShippingZone; t
         {zone.rates.map((r) =>
           rateForm !== null && rateForm !== "new" && rateForm.id === r.id ? (
             <li key={r.id} className="p-3">
-              <RateForm initial={r} onCancel={() => setRateForm(null)} onSave={async (body) => {
+              <RateForm initial={r} system={system} onCancel={() => setRateForm(null)} onSave={async (body) => {
                 const res = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/rates/${r.id}`, { method: "PATCH", body })
                 if (!res.ok) return res.error
                 onProfiles(res.data.profiles)
@@ -471,10 +621,10 @@ function ZoneBlock({ zone, taken, onProfiles, onError }: { zone: ShippingZone; t
                 <p className="truncate text-[14px] text-[#1a1a2e]">
                   {r.name} {!r.active ? <span className="text-[12px] text-[#9ca3af]">(off)</span> : null}
                 </p>
-                <p className="truncate text-[12.5px] text-[#6b7280]">{[RATE_KIND_LABEL[r.kind], rateCondition(r)].filter(Boolean).join(" · ")}</p>
+                <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{[RATE_KIND_LABEL[r.kind], rateCondition(r, system)].filter(Boolean).join(" · ")}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <span className="mr-1 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{r.kind === "free" ? "Free" : r.kind === "carrier" ? "Live" : money(r.priceCents)}</span>
+                <span className="mr-1 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{r.kind === "free" ? "Free" : r.kind === "carrier" ? "Live" : r.tiers.length > 1 ? `From ${money(Math.min(...r.tiers.map((t) => t.priceCents)))}` : money(r.priceCents)}</span>
                 <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={`Edit ${r.name}`} onClick={() => setRateForm(r)}>
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -498,6 +648,7 @@ function ZoneBlock({ zone, taken, onProfiles, onError }: { zone: ShippingZone; t
       <div className="px-3 py-2.5">
         {rateForm === "new" ? (
           <RateForm
+            system={system}
             onCancel={() => setRateForm(null)}
             onSave={async (body) => {
               const res = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/rates", { body: { zoneId: zone.id, ...body } })
@@ -518,74 +669,157 @@ function ZoneBlock({ zone, taken, onProfiles, onError }: { zone: ShippingZone; t
   )
 }
 
-function RateForm({ initial, onCancel, onSave }: { initial?: ShippingRate; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
+interface TierDraft {
+  from: string
+  price: string
+}
+
+function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRate; system: UnitSystem; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
+  const unit = weightUnitFor(system)
+  const legacy = initial?.kind === "quantity" || initial?.kind === "carrier"
   const [kind, setKind] = React.useState<RateKind>(initial?.kind ?? "flat")
   const [name, setName] = React.useState(initial?.name ?? "Standard")
   const [price, setPrice] = React.useState(initial ? dollarsOf(initial.priceCents) : "")
-  const scale = kind === "price" ? 100 : 1
-  const asText = (n: number | null | undefined) => (n === null || n === undefined ? "" : kind === "price" ? (n / 100).toFixed(2) : kind === "weight" ? String(n / 1000) : String(n))
-  const [min, setMin] = React.useState(asText(initial?.minValue))
-  const [max, setMax] = React.useState(asText(initial?.maxValue))
+  const isWeight = (k: RateKind) => k === "weight" || k === "item_weight"
+  const valueText = (k: RateKind, n: number | null | undefined) => (n === null || n === undefined ? "" : k === "price" ? (n / 100).toFixed(2) : isWeight(k) ? String(fromGrams(n, unit) ?? "") : String(n))
+  const [tiers, setTiers] = React.useState<TierDraft[]>(() => {
+    if (initial && initial.tiers.length) return initial.tiers.map((t) => ({ from: valueText(initial.kind, t.from), price: dollarsOf(t.priceCents) }))
+    if (initial && (initial.kind === "price" || initial.kind === "weight")) return [{ from: valueText(initial.kind, 0), price: dollarsOf(initial.priceCents) }]
+    return [{ from: "0", price: "" }]
+  })
+  const [max, setMax] = React.useState(initial && initial.kind !== "free" ? valueText(initial.kind, initial.maxValue) : "")
+  const [min, setMin] = React.useState(initial ? (initial.kind === "free" ? (initial.minValue ? dollarsOf(initial.minValue) : "") : valueText(initial.kind, initial.minValue)) : "")
   const [freeOver, setFreeOver] = React.useState(initial?.freeOverCents ? dollarsOf(initial.freeOverCents) : "")
   const [minDays, setMinDays] = React.useState(initial?.minDays?.toString() ?? "")
   const [maxDays, setMaxDays] = React.useState(initial?.maxDays?.toString() ?? "")
   const [active, setActive] = React.useState(initial?.active ?? true)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
-  const toValue = (t: string) => {
+  const tiered = kind === "price" || kind === "weight" || kind === "item_weight"
+  const toValue = (k: RateKind, t: string): number | null => {
     if (!t.trim()) return null
+    if (k === "price") return centsOf(t)
+    if (isWeight(k)) return toGrams(t, unit)
     const n = Number(t)
-    if (!Number.isFinite(n)) return null
-    return kind === "weight" ? Math.round(n * 1000) : Math.round(n * scale)
+    return Number.isFinite(n) ? Math.round(n) : null
   }
-  const ranged = kind === "weight" || kind === "price" || kind === "quantity"
-  const unit = kind === "weight" ? "kg" : kind === "quantity" ? "items" : ""
+  const valueSuffix = kind === "price" ? undefined : isWeight(kind) ? unit : "items"
+  const fromLabel = kind === "price" ? "Order price from" : kind === "weight" ? "Order weight from" : "Item weight from"
+  const changeKind = (k: RateKind) => {
+    if (tiered && (k === "price") !== (kind === "price")) {
+      setTiers([{ from: k === "price" ? "0.00" : "0", price: tiers[0]?.price ?? "" }])
+      setMax("")
+    }
+    setKind(k)
+  }
   return (
-    <div className="space-y-3 rounded-xl bg-[#fcfcfd]">
+    <div className="space-y-3 rounded-xl bg-[#fcfcfd]" data-rate-form="">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Rate type">
-          <SelectInput value={kind} onChange={(v) => setKind(v as RateKind)}>
-            {(["flat", "free", "weight", "price", "quantity"] as RateKind[]).map((k) => (
-              <option key={k} value={k}>
-                {RATE_KIND_LABEL[k]}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        <Field label="Name buyers see">
+        <Field label="Name buyers see" hint="Like Standard or Express">
           <TextInput value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Standard" />
         </Field>
-        {kind !== "free" ? (
-          <Field label="Price">
-            <MoneyInput value={price} onChange={setPrice} />
-          </Field>
-        ) : null}
-        {kind !== "free" ? (
-          <Field label="Free over" hint="Optional: free when the order reaches this">
-            <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
-          </Field>
-        ) : null}
-        {ranged ? (
-          <>
-            <Field label={kind === "price" ? "Order value from" : kind === "weight" ? "Weight from" : "Items from"}>
-              {kind === "price" ? <MoneyInput value={min} onChange={setMin} placeholder="" /> : <DecimalInput value={min} onChange={setMin} suffix={unit} />}
-            </Field>
-            <Field label={kind === "price" ? "Order value up to" : kind === "weight" ? "Weight up to" : "Items up to"}>
-              {kind === "price" ? <MoneyInput value={max} onChange={setMax} placeholder="" /> : <DecimalInput value={max} onChange={setMax} suffix={unit} />}
-            </Field>
-          </>
-        ) : null}
-        <Field label="Delivery time" hint="In business days, shown at checkout">
+        <Field label="Delivery estimate" hint="Business days, shown at checkout">
           <div className="flex items-center gap-2">
             <NumberInput value={minDays} onChange={setMinDays} placeholder="3" aria-label="From days" />
             <span className="text-[13px] text-[#6b7280]">to</span>
             <NumberInput value={maxDays} onChange={setMaxDays} placeholder="5" aria-label="To days" />
           </div>
         </Field>
-        <div className="flex items-end pb-1">
-          <Toggle label="Offered at checkout" checked={active} onChange={setActive} />
-        </div>
       </div>
+      <div role="radiogroup" aria-label="Rate type" className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        {(legacy ? [...RATE_KINDS_OFFERED, initial!.kind] : RATE_KINDS_OFFERED).map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={kind === k}
+            onClick={() => changeKind(k)}
+            className={cn("rounded-xl border px-3 py-2 text-left transition-colors", kind === k ? "border-[#1a1a2e] bg-white shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] bg-white hover:bg-[#f8f9fa]")}
+          >
+            <span className="block text-[13.5px] font-medium text-[#1a1a2e]">{RATE_KIND_LABEL[k]}</span>
+            <span className="block text-[12px] leading-[16px] text-[#6b7280]">{RATE_KIND_LINE[k]}</span>
+          </button>
+        ))}
+      </div>
+
+      {kind === "flat" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Price">
+            <MoneyInput value={price} onChange={setPrice} />
+          </Field>
+          <Field label="Free over" hint="Optional: free once the order reaches this">
+            <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
+          </Field>
+        </div>
+      ) : null}
+
+      {kind === "free" ? (
+        <Field label="Only on orders over" hint="Optional. Empty: always free." className="sm:max-w-[280px]">
+          <MoneyInput value={min} onChange={setMin} placeholder="" />
+        </Field>
+      ) : null}
+
+      {tiered ? (
+        <div className="space-y-2 rounded-xl border border-[#eceef1] bg-white p-3">
+          <div className="hidden grid-cols-[1fr_1fr_36px] gap-2 text-[12px] font-medium uppercase tracking-[0.02em] text-[#6b7280] sm:grid">
+            <span>{fromLabel}</span>
+            <span>{kind === "item_weight" ? "Price per item" : "Shipping price"}</span>
+            <span />
+          </div>
+          {tiers.map((t, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1fr_36px] items-center gap-2">
+              {kind === "price" ? (
+                <MoneyInput aria-label={`${fromLabel}, step ${i + 1}`} value={t.from} disabled={i === 0} onChange={(v) => setTiers((p) => p.map((x, j) => (j === i ? { ...x, from: v } : x)))} />
+              ) : (
+                <DecimalInput aria-label={`${fromLabel}, step ${i + 1}`} value={t.from} disabled={i === 0} suffix={valueSuffix} onChange={(v) => setTiers((p) => p.map((x, j) => (j === i ? { ...x, from: v } : x)))} />
+              )}
+              <MoneyInput aria-label={`Price, step ${i + 1}`} value={t.price} onChange={(v) => setTiers((p) => p.map((x, j) => (j === i ? { ...x, price: v } : x)))} />
+              {i > 0 ? (
+                <button type="button" aria-label={`Remove step ${i + 1}`} className={cn(BTN_GHOST, "w-9 px-0")} onClick={() => setTiers((p) => p.filter((_, j) => j !== i))}>
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ) : (
+                <span />
+              )}
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            {tiers.length < 20 ? (
+              <button type="button" className={BTN_GHOST} onClick={() => setTiers((p) => [...p, { from: "", price: "" }])}>
+                <Plus className="h-4 w-4" />
+                Add a step
+              </button>
+            ) : (
+              <span />
+            )}
+            <label className="flex items-center gap-2 text-[13px] text-[#6b7280]">
+              Not offered above
+              {kind === "price" ? <MoneyInput aria-label="Not offered above" value={max} onChange={setMax} placeholder="" className="w-[130px]" /> : <DecimalInput aria-label="Not offered above" value={max} onChange={setMax} suffix={valueSuffix} className="w-[130px]" />}
+            </label>
+          </div>
+          <p className="text-[12px] text-[#6b7280]">
+            {kind === "item_weight"
+              ? `Each item pays the price of the step its weight reaches. Two 0.5 ${unit} items at a 0 ${unit} step of $3 pay $6.`
+              : "The order pays the price of the last step it reaches. The first step starts from 0."}
+          </p>
+        </div>
+      ) : null}
+
+      {kind === "quantity" ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Price">
+            <MoneyInput value={price} onChange={setPrice} />
+          </Field>
+          <Field label="Items from">
+            <DecimalInput value={min} onChange={setMin} suffix="items" />
+          </Field>
+          <Field label="Items up to">
+            <DecimalInput value={max} onChange={setMax} suffix="items" />
+          </Field>
+        </div>
+      ) : null}
+
+      <Toggle label="Offered at checkout" checked={active} onChange={setActive} />
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex justify-end gap-2">
         <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
@@ -596,15 +830,26 @@ function RateForm({ initial, onCancel, onSave }: { initial?: ShippingRate; onCan
           className={BTN_PRIMARY}
           disabled={busy}
           onClick={async () => {
-            setBusy(true)
             setError(null)
+            let tierBody: RateTier[] = []
+            if (tiered) {
+              for (const [i, t] of tiers.entries()) {
+                const from = i === 0 ? 0 : toValue(kind, t.from)
+                const priceCents = centsOf(t.price)
+                if (from === null || priceCents === null) return setError(`Fill in step ${i + 1}, or remove it.`)
+                tierBody.push({ from, priceCents })
+              }
+              tierBody = tierBody.sort((a, b) => a.from - b.from)
+            }
+            setBusy(true)
             const problem = await onSave({
               kind,
               name,
-              priceCents: kind === "free" ? 0 : centsOf(price),
-              minValue: ranged ? toValue(min) : null,
-              maxValue: ranged ? toValue(max) : null,
-              freeOverCents: kind === "free" ? null : centsOf(freeOver),
+              priceCents: kind === "free" ? 0 : tiered ? (tierBody[0]?.priceCents ?? 0) : centsOf(price),
+              tiers: tierBody,
+              minValue: kind === "free" ? centsOf(min) : kind === "quantity" ? toValue(kind, min) : null,
+              maxValue: tiered || kind === "quantity" ? toValue(kind, max) : null,
+              freeOverCents: kind === "flat" ? centsOf(freeOver) : null,
               minDays: minDays || null,
               maxDays: maxDays || null,
               active,
@@ -633,7 +878,7 @@ function Locations({ data, reload }: { data: Data; reload: () => void }) {
   }
   return (
     <div className="space-y-4">
-      <Card title="Locations" description="Where you keep stock and where orders ship from." action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add location</button> : null}>
+      <Card title="Locations" description="Where you keep stock, where orders ship from, and where buyers can pick up." action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add location</button> : null}>
         {notice ? <Notice tone="gray" className="mb-3">{notice}</Notice> : null}
         {error ? <Notice className="mb-3">{error}</Notice> : null}
         {editing === "new" ? <LocationForm onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} /> : null}
@@ -652,8 +897,10 @@ function Locations({ data, reload }: { data: Data; reload: () => void }) {
                     {data.settings.defaultLocationId === l.id ? <Pill tone="gray">Default</Pill> : null}
                     {!l.active ? <Pill tone="gray">Off</Pill> : null}
                     {l.forwarding === "email" ? <Pill tone="blue">Emails orders</Pill> : l.forwarding === "webhook" ? <Pill tone="blue">Webhook</Pill> : l.forwarding === "provider" ? <Pill tone="amber">Provider not connected</Pill> : null}
+                    {l.pickupEnabled && l.active ? <Pill tone="green">Local pickup</Pill> : null}
                   </p>
                   <p className="text-[13px] text-[#6b7280]">{[KIND_LABEL[l.kind], [l.city, l.country ? countryName(l.country) : null].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</p>
+                  {l.pickupEnabled && l.active ? <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Pickup ready in {PICKUP_READY_SHORT[l.pickupReady]}</p> : null}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   {data.settings.defaultLocationId !== l.id && l.active ? (
@@ -703,6 +950,9 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
     active: initial?.active ?? true,
     fulfillsOrders: initial?.fulfillsOrders ?? true,
     forwarding: initial?.forwarding ?? "none",
+    pickupEnabled: initial?.pickupEnabled ?? false,
+    pickupReady: initial?.pickupReady ?? ("24h" as PickupReady),
+    pickupInstructions: initial?.pickupInstructions ?? "",
   })
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -765,6 +1015,42 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
       {f.forwarding === "webhook" ? <Notice tone="gray">Set your webhook address and secret in Integrations.</Notice> : null}
       {f.forwarding === "provider" ? <Notice tone="amber">Storelib can't send orders to providers yet. Orders from here are flagged for you to send yourself.</Notice> : null}
       <Toggle label="Ships orders" description="Off to keep stock here without shipping from it." checked={f.fulfillsOrders} onChange={(v) => set({ fulfillsOrders: v })} />
+      <div className="rounded-xl border border-[#eceef1] bg-white p-3">
+        <Toggle
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-[#6b7280]" />
+              Offer local pickup here
+            </span>
+          }
+          description="Buyers can choose to collect their order here instead of having it shipped. Free for them."
+          checked={f.pickupEnabled}
+          onChange={(v) => set({ pickupEnabled: v })}
+        />
+        {f.pickupEnabled ? (
+          <div className="mt-3 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)]">
+            <Field label="Usually ready in" hint="Shown at checkout">
+              <SelectInput value={f.pickupReady} onChange={(v) => set({ pickupReady: v as PickupReady })}>
+                {PICKUP_READY.map((r) => (
+                  <option key={r} value={r}>
+                    {PICKUP_READY_SHORT[r]}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field label="Pickup instructions" hint="Sent with the order confirmation and when it's ready">
+              <textarea
+                value={f.pickupInstructions}
+                maxLength={1000}
+                rows={3}
+                onChange={(e) => set({ pickupInstructions: e.target.value })}
+                placeholder="Ring the bell at the side door. Open weekdays 10am to 6pm. Bring your order number."
+                className={cn(FIELD, "h-auto min-h-[84px] py-2 leading-5")}
+              />
+            </Field>
+          </div>
+        ) : null}
+      </div>
       <Toggle label="Active" checked={f.active} onChange={(v) => set({ active: v })} />
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex justify-end gap-2">
@@ -930,7 +1216,7 @@ function Taxes({ data, reload, setData }: { data: Data; reload: () => void; setD
         <Card title="Tax rates">
           <div className="grid gap-2 sm:grid-cols-[1.4fr_1fr_0.7fr_0.8fr_auto] sm:items-end">
             <Field label="Country">
-              <SelectInput value={f.country} onChange={(v) => setF({ ...f, country: v })}>
+              <SelectInput value={f.country} onChange={(v) => setF({ ...f, country: v, region: "" })}>
                 <option value="">Choose</option>
                 {COUNTRIES.map((c) => (
                   <option key={c.code} value={c.code}>
@@ -939,8 +1225,19 @@ function Taxes({ data, reload, setData }: { data: Data; reload: () => void; setD
                 ))}
               </SelectInput>
             </Field>
-            <Field label="Region" hint="Optional">
-              <TextInput value={f.region} maxLength={120} onChange={(e) => setF({ ...f, region: e.target.value })} placeholder="CA" />
+            <Field label="State or region" hint="Optional">
+              {regionsOf(f.country).length ? (
+                <SelectInput value={f.region} onChange={(v) => setF({ ...f, region: v })}>
+                  <option value="">Whole country</option>
+                  {regionsOf(f.country).map((r) => (
+                    <option key={r.code} value={r.code}>
+                      {r.name}
+                    </option>
+                  ))}
+                </SelectInput>
+              ) : (
+                <TextInput value={f.region} maxLength={120} onChange={(e) => setF({ ...f, region: e.target.value })} placeholder="Optional" />
+              )}
             </Field>
             <Field label="Rate">
               <DecimalInput value={f.percent} onChange={(v) => setF({ ...f, percent: v })} suffix="%" />
@@ -970,7 +1267,7 @@ function Taxes({ data, reload, setData }: { data: Data; reload: () => void; setD
               <li key={t.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <span className="text-[14px] text-[#1a1a2e]">
                   {countryName(t.country)}
-                  {t.region ? `, ${t.region}` : ""} <span className="text-[#6b7280]">· {t.name}</span>
+                  {t.region ? `, ${regionsOf(t.country).find((r) => r.code === t.region)?.name ?? t.region}` : ""} <span className="text-[#6b7280]">· {t.name}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] font-medium tabular-nums">{(t.rateBps / 100).toFixed(t.rateBps % 100 ? 2 : 0)}%</span>
@@ -993,12 +1290,13 @@ function Returns({ data, reload }: { data: Data; reload: () => void }) {
   const [days, setDays] = React.useState(String(data.settings.returnWindowDays))
   const [low, setLow] = React.useState(String(data.settings.lowStockDefault))
   const [enabled, setEnabled] = React.useState(data.settings.returnsEnabled)
+  const [alerts, setAlerts] = React.useState(data.settings.lowStockAlerts !== false)
   const [model, setModel] = React.useState<FulfillmentModel | "">(data.settings.fulfillmentModel ?? "")
   const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
   const [error, setError] = React.useState<string | null>(null)
   const save = async () => {
     setState("saving")
-    const r = await api("/api/physical/settings", { method: "PUT", body: { returnsEnabled: enabled, returnWindowDays: Number(days || 0), lowStockDefault: Number(low || 0), ...(model ? { fulfillmentModel: model } : {}) } })
+    const r = await api("/api/physical/settings", { method: "PUT", body: { returnsEnabled: enabled, returnWindowDays: Number(days || 0), lowStockDefault: Number(low || 0), lowStockAlerts: alerts, ...(model ? { fulfillmentModel: model } : {}) } })
     if (!r.ok) {
       setError(r.error)
       setState("idle")
@@ -1010,8 +1308,9 @@ function Returns({ data, reload }: { data: Data; reload: () => void }) {
     setTimeout(() => setState("idle"), 1600)
   }
   return (
-    <Card title="Returns and stock">
+    <Card title="Stock alerts and returns">
       <div className="space-y-4">
+        <Toggle label="Email me when stock runs low" description="One email a day at most, listing what sold down to its low stock line." checked={alerts} onChange={setAlerts} />
         <Toggle label="Accept returns" description="Buyers can ask for a return from their order page. You approve each one." checked={enabled} onChange={setEnabled} />
         <div className="grid gap-3 sm:grid-cols-2">
           {enabled ? (
@@ -1019,7 +1318,7 @@ function Returns({ data, reload }: { data: Data; reload: () => void }) {
               <NumberInput value={days} onChange={setDays} />
             </Field>
           ) : null}
-          <Field label="Low stock at" hint="Products at or below this show as low on Inventory">
+          <Field label="Low stock line" hint="For products without their own. At or below it is low.">
             <NumberInput value={low} onChange={setLow} />
           </Field>
           <Field label="How you fulfil" className="sm:col-span-2">

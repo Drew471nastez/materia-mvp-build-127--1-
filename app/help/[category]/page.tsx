@@ -1,14 +1,16 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { HELP_CATEGORIES, helpArticlePath, helpArticlesIn, helpCategory } from "@/lib/help/articles"
+import { ALL_HELP_CATEGORIES, helpArticlePath, helpArticlesIn, helpCategoriesFor, helpCategory, helpVisible } from "@/lib/help/articles"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
 import { HelpSearch } from "@/components/help/help-search"
 
 export const dynamicParams = false
+export const revalidate = 60
 
 export function generateStaticParams() {
-  return HELP_CATEGORIES.map((c) => ({ category: c.slug }))
+  return ALL_HELP_CATEGORIES.map((c) => ({ category: c.slug }))
 }
 
 interface PageProps {
@@ -30,8 +32,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function HelpCategoryPage({ params }: PageProps) {
   const { category: slug } = await params
+  const physical = await isPhysicalCommerceEnabled()
   const category = helpCategory(slug)
-  if (!category) notFound()
+  if (!category || !helpVisible(category, physical)) notFound()
   const articles = helpArticlesIn(category.slug)
 
   return (
@@ -67,7 +70,9 @@ export default async function HelpCategoryPage({ params }: PageProps) {
         <nav aria-label="Other topics" className="text-[14px]">
           <h2 className="text-[13px] font-semibold text-[#6b7280]">Other topics</h2>
           <ul className="mt-3 space-y-2">
-            {HELP_CATEGORIES.filter((c) => c.slug !== category.slug).map((c) => (
+            {helpCategoriesFor(physical)
+              .filter((c) => c.slug !== category.slug)
+              .map((c) => (
               <li key={c.slug}>
                 <Link href={`/help/${c.slug}`} className="text-[#1a1a2e] hover:underline hover:underline-offset-2">
                   {c.title}
