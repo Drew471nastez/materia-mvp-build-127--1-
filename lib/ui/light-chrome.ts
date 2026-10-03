@@ -27,6 +27,16 @@ export function useLightChrome(active: boolean, color = "#ffffff") {
     const prevBg = html.style.backgroundColor
     all.forEach((m) => m.setAttribute("content", color))
     html.style.backgroundColor = color
+    /*
+     * AND THE BLACK SHIELD STANDS DOWN. globals.css paints a fixed pure
+     * black strip over the notch at z-index 9999 (html.capacitor::before),
+     * which every ordinary page wants because its header is black. Over a
+     * white full screen page it is a black band under the clock with the
+     * page starting below it: the "not full screen" that was reported for
+     * the builder and the creator page editor before this, and for Set up
+     * payments now. The page covers the same strip in its own colour.
+     */
+    html.classList.add("light-chrome")
 
     const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
     const native = Boolean(cap?.isNativePlatform?.())
@@ -41,6 +51,7 @@ export function useLightChrome(active: boolean, color = "#ffffff") {
     }
 
     return () => {
+      html.classList.remove("light-chrome")
       if (added) added.remove()
       else all.forEach((m, i) => (prevContent[i] == null ? m.removeAttribute("content") : m.setAttribute("content", prevContent[i] as string)))
       html.style.backgroundColor = prevBg

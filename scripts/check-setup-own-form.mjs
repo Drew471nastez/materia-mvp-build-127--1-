@@ -130,6 +130,49 @@ try {
     await p.close()
   }
   {
+    /* Verify with nothing left to ask sends itself on; Back from the bank must not be sent forward again. */
+    console.log("\nBack past a Verify step with nothing to ask (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    const nothing = { fields: [], tos: false, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [] }
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        if (action === "details-form") return json(form(nothing))
+        return json({})
+      }
+      if (u.startsWith("data:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts")
+    /* It lands on the bank by itself, because Stripe wants nothing else. */
+    await p.waitForFunction(() => /Add your bank account/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 8000 }).catch(() => {})
+    const arrived = await p.evaluate(() => {
+      const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
+      return { bank: /Add your bank account/.test(t), change: /Change bank account/.test(t) }
+    })
+    expect(arrived.bank, "an empty Verify hands straight on to the bank", arrived)
+    expect(!arrived.change, "and a first bank is Add, not Change", arrived)
+    await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Back")?.click())
+    await new Promise((r) => setTimeout(r, 900))
+    const back = await p.evaluate(() => {
+      const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
+      return { onAccount: !!document.querySelector('[autocomplete="given-name"]'), bouncedBack: /Add your bank account|Change bank account/.test(t) }
+    })
+    expect(back.onAccount && !back.bouncedBack, "Back goes past it to Account, never bounced forward again", back)
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
+    await p.screenshot({ path: join(out, "back-past-verify-390.png") })
+    await p.close()
+  }
+  {
     /* The country sheet, opened from inside the setup panel: it must rise once and stop. */
     console.log("\nThe country sheet rises smoothly (390px)")
     const p = await browser.newPage()

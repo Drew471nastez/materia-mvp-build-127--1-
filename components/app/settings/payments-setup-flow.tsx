@@ -454,11 +454,20 @@ export function PaymentsSetupFlow({
   const [back, setBack] = React.useState(false)
   const [openCount, setOpenCount] = React.useState(0)
   const [ending, setEnding] = React.useState<Outcome | null>(null)
+  /*
+   * VERIFY WITH NOTHING LEFT TO ASK IS NOT A STEP TO WALK BACK INTO. It
+   * sends itself on to the bank the moment it loads, so Back from the bank
+   * landed on it and was sent forward again: the way back was a wall, and
+   * pressing it looked like Continue taking you to the bank. Once it has
+   * said it is empty, Back goes past it to Account.
+   */
+  const [verifyEmpty, setVerifyEmpty] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
     setBack(false)
     setEnding(null)
+    setVerifyEmpty(false)
     setStep(mode === "bank" ? 2 : setupStepOf(status))
     setOpenCount((k) => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -524,16 +533,22 @@ export function PaymentsSetupFlow({
       />
     )
   } else if (step === 1) {
-    body = <DetailsStep key={`verify-${openCount}`} onBack={() => go(0)} onNext={(form) => (form.needs.bank ? go(2) : void settle("verify"))} onData={onData} />
+    body = (
+      <DetailsStep
+        key={`verify-${openCount}`}
+        onBack={() => go(0)}
+        onEmpty={() => setVerifyEmpty(true)}
+        onNext={(form) => (form.needs.bank ? go(2) : void settle("verify"))}
+        onData={onData}
+      />
+    )
   } else {
-    const has = !!data.payoutDestination?.last4
     const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
     body = (
       <BankForm
         key={`bank-${openCount}`}
-        title={failed ? "Your payout account needs attention" : has ? "Change bank account" : "Add your bank account"}
-        line={failed ? "A payout didn't go through. Add the account you want paid into." : has ? "The new account is used for your next payout." : "Where your payouts are sent."}
-        onBack={mode === "bank" ? onClose : () => go(1)}
+        failed={failed}
+        onBack={mode === "bank" ? onClose : () => go(verifyEmpty ? 0 : 1)}
         backLabel={mode === "bank" ? "Cancel" : "Back"}
         onDone={() => void settle("bank")}
         onData={onData}
@@ -851,7 +866,7 @@ function FormWaiting({ error, onRetry }: { error: string | null; onRetry: () => 
  * the ID photo uploaded straight to Stripe. Nothing here is kept by Storelib:
  * it goes to Stripe from the server and is never read back.
  */
-function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (form: DetailsForm) => void; onData: (next: Overview) => void }) {
+function DetailsStep({ onBack, onNext, onData, onEmpty }: { onBack: () => void; onNext: (form: DetailsForm) => void; onData: (next: Overview) => void; onEmpty?: () => void }) {
   const { form, setForm, error: loadError, load } = useDetailsForm()
   const [dob, setDob] = React.useState({ day: "", month: "", year: "" })
   const [address, setAddress] = React.useState({ line1: "", line2: "", city: "", postalCode: "", state: "" })
@@ -919,11 +934,21 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
   /* Nothing left to ask here: straight on. */
   const empty = !!form && form.needs.fields.length === 0 && !form.needs.tos && form.needs.other.length === 0
   React.useEffect(() => {
-    if (form && empty) onNext(form)
+    if (!form || !empty) return
+    onEmpty?.()
+    onNext(form)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, empty])
 
-  if (!form || empty) return <FormWaiting error={loadError} onRetry={load} />
+  if (!form) return <FormWaiting error={loadError} onRetry={load} />
+  /* Nothing to ask: this step is on its way out, so it waits quietly rather than drawing fields it will never show. */
+  if (empty) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-16">
+        <span aria-label="Loading" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+      </div>
+    )
+  }
 
   const has = (f: DetailField) => form.needs.fields.includes(f)
   const issue = (key: string, bad: boolean, text: string) => (tried && bad ? text : undefined)
@@ -1355,7 +1380,7 @@ function DetailsStep({ onBack, onNext, onData }: { onBack: () => void; onNext: (
  * routing number where it does not. It becomes the payout account for the
  * account's currency; the old one, if any, stops being used.
  */
-function BankForm({ title, line, onBack, backLabel = "Back", onDone, onData }: { title: string; line: string; onBack: () => void; backLabel?: string; onDone: () => void; onData: (next: Overview) => void }) {
+function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }: { failed?: boolean; onBack: () => void; backLabel?: string; onDone: () => void; onData: (next: Overview) => void }) {
   const { form, error: loadError, load } = useDetailsForm()
   const [holder, setHolder] = React.useState<string | null>(null)
   const [iban, setIban] = React.useState("")
@@ -1367,6 +1392,9 @@ function BankForm({ title, line, onBack, backLabel = "Back", onDone, onData }: {
 
   if (!form) return <FormWaiting error={loadError} onRetry={load} />
   const bank = form.bank
+  /* What Stripe has right now, not what the page was opened with: during setup that said "Change bank account" to somebody adding their first. */
+  const title = failed ? "Your payout account needs attention" : bank.last4 ? "Change bank account" : "Add your bank account"
+  const line = failed ? "A payout didn't go through. Add the account you want paid into." : bank.last4 ? "The new account is used for your next payout." : "Where your payouts are sent."
   const name = holder ?? bank.holderName
   const ibanOk = ibanLooksValid(iban, form.country)
   const routingOk = !bank.routingPattern || new RegExp(bank.routingPattern).test(routing.replace(/\s/g, "").toUpperCase())

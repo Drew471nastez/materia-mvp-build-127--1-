@@ -3889,6 +3889,17 @@ html.capacitor.wb-fullscreen::before {
   display: none;
 }
 
+/* ── And any white full screen page that asks for it ─────────────────────
+   Set up payments is the third page to meet the shield: a white subpage at
+   z-1000 under a pure black strip at z-9999 is a black band under the clock
+   with the page starting below it. lib/ui/light-chrome.ts adds this class
+   while such a page is on screen and takes it off on the way out, and the
+   page paints the same strip itself (its bar pads to env(safe-area-inset-top)
+   and the html canvas goes white with it, for a rubber-band bounce). */
+html.capacitor.light-chrome::before {
+  display: none;
+}
+
 /* ── And the creator page editor, for exactly the same reason ────────────
    Its bar is white and it owns the whole screen, so the black shield above
    it was a band under the clock with the editor starting below — the "not
